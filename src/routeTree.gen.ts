@@ -10,135 +10,135 @@
 
 // Import Routes
 
-import { Route as rootRoute } from "./routes/__root";
-import { Route as AdminImport } from "./routes/admin";
-import { Route as AdminrootImport } from "./routes/admin/__root";
-import { Route as AdminCategoriesImport } from "./routes/admin/categories";
-import { Route as AdminDashboardImport } from "./routes/admin/dashboard";
-import { Route as AdminIndexImport } from "./routes/admin/index";
-import { Route as CategoriesImport } from "./routes/categories";
-import { Route as IndexImport } from "./routes/index";
-import { Route as TransactionsImport } from "./routes/transactions";
+import { Route as rootRoute } from './routes/__root'
+import { Route as AdminrootImport } from './routes/admin/__root'
+import { Route as TransactionsImport } from './routes/transactions'
+import { Route as CategoriesImport } from './routes/categories'
+import { Route as AdminImport } from './routes/admin'
+import { Route as IndexImport } from './routes/index'
+import { Route as AdminIndexImport } from './routes/admin/index'
+import { Route as AdminDashboardImport } from './routes/admin/dashboard'
+import { Route as AdminCategoriesImport } from './routes/admin/categories'
 
 // Create/Update Routes
 
 const AdminrootRoute = AdminrootImport.update({
-  id: "/__root",
+  id: '/__root',
   getParentRoute: () => AdminRoute,
-} as any);
+} as any)
 
 const TransactionsRoute = TransactionsImport.update({
-  id: "/transactions",
-  path: "/transactions",
+  id: '/transactions',
+  path: '/transactions',
   getParentRoute: () => rootRoute,
-} as any);
+} as any)
 
 const CategoriesRoute = CategoriesImport.update({
-  id: "/categories",
-  path: "/categories",
+  id: '/categories',
+  path: '/categories',
   getParentRoute: () => rootRoute,
-} as any);
+} as any)
 
 const AdminRoute = AdminImport.update({
-  id: "/admin",
-  path: "/admin",
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRoute,
-} as any);
+} as any)
 
 const IndexRoute = IndexImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRoute,
-} as any);
+} as any)
 
 const AdminIndexRoute = AdminIndexImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
   getParentRoute: () => AdminRoute,
-} as any);
+} as any)
 
 const AdminDashboardRoute = AdminDashboardImport.update({
-  id: "/dashboard",
-  path: "/dashboard",
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => AdminRoute,
-} as any);
+} as any)
 
 const AdminCategoriesRoute = AdminCategoriesImport.update({
-  id: "/categories",
-  path: "/categories",
+  id: '/categories',
+  path: '/categories',
   getParentRoute: () => AdminRoute,
-} as any);
+} as any)
 
 // Populate the FileRoutesByPath interface
 
-declare module "@tanstack/react-router" {
+declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    "/": {
-      id: "/";
-      path: "/";
-      fullPath: "/";
-      preLoaderRoute: typeof IndexImport;
-      parentRoute: typeof rootRoute;
-    };
-    "/admin": {
-      id: "/admin";
-      path: "/admin";
-      fullPath: "/admin";
-      preLoaderRoute: typeof AdminImport;
-      parentRoute: typeof rootRoute;
-    };
-    "/categories": {
-      id: "/categories";
-      path: "/categories";
-      fullPath: "/categories";
-      preLoaderRoute: typeof CategoriesImport;
-      parentRoute: typeof rootRoute;
-    };
-    "/transactions": {
-      id: "/transactions";
-      path: "/transactions";
-      fullPath: "/transactions";
-      preLoaderRoute: typeof TransactionsImport;
-      parentRoute: typeof rootRoute;
-    };
-    "/admin/__root": {
-      id: "/admin/__root";
-      path: "";
-      fullPath: "/admin";
-      preLoaderRoute: typeof AdminrootImport;
-      parentRoute: typeof AdminImport;
-    };
-    "/admin/categories": {
-      id: "/admin/categories";
-      path: "/categories";
-      fullPath: "/admin/categories";
-      preLoaderRoute: typeof AdminCategoriesImport;
-      parentRoute: typeof AdminImport;
-    };
-    "/admin/dashboard": {
-      id: "/admin/dashboard";
-      path: "/dashboard";
-      fullPath: "/admin/dashboard";
-      preLoaderRoute: typeof AdminDashboardImport;
-      parentRoute: typeof AdminImport;
-    };
-    "/admin/": {
-      id: "/admin/";
-      path: "/";
-      fullPath: "/admin/";
-      preLoaderRoute: typeof AdminIndexImport;
-      parentRoute: typeof AdminImport;
-    };
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexImport
+      parentRoute: typeof rootRoute
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminImport
+      parentRoute: typeof rootRoute
+    }
+    '/categories': {
+      id: '/categories'
+      path: '/categories'
+      fullPath: '/categories'
+      preLoaderRoute: typeof CategoriesImport
+      parentRoute: typeof rootRoute
+    }
+    '/transactions': {
+      id: '/transactions'
+      path: '/transactions'
+      fullPath: '/transactions'
+      preLoaderRoute: typeof TransactionsImport
+      parentRoute: typeof rootRoute
+    }
+    '/admin/__root': {
+      id: '/admin/__root'
+      path: ''
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminrootImport
+      parentRoute: typeof AdminImport
+    }
+    '/admin/categories': {
+      id: '/admin/categories'
+      path: '/categories'
+      fullPath: '/admin/categories'
+      preLoaderRoute: typeof AdminCategoriesImport
+      parentRoute: typeof AdminImport
+    }
+    '/admin/dashboard': {
+      id: '/admin/dashboard'
+      path: '/dashboard'
+      fullPath: '/admin/dashboard'
+      preLoaderRoute: typeof AdminDashboardImport
+      parentRoute: typeof AdminImport
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexImport
+      parentRoute: typeof AdminImport
+    }
   }
 }
 
 // Create and export the route tree
 
 interface AdminRouteChildren {
-  AdminrootRoute: typeof AdminrootRoute;
-  AdminCategoriesRoute: typeof AdminCategoriesRoute;
-  AdminDashboardRoute: typeof AdminDashboardRoute;
-  AdminIndexRoute: typeof AdminIndexRoute;
+  AdminrootRoute: typeof AdminrootRoute
+  AdminCategoriesRoute: typeof AdminCategoriesRoute
+  AdminDashboardRoute: typeof AdminDashboardRoute
+  AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
@@ -146,77 +146,77 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminCategoriesRoute: AdminCategoriesRoute,
   AdminDashboardRoute: AdminDashboardRoute,
   AdminIndexRoute: AdminIndexRoute,
-};
+}
 
-const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren);
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 export interface FileRoutesByFullPath {
-  "/": typeof IndexRoute;
-  "/admin": typeof AdminrootRoute;
-  "/categories": typeof CategoriesRoute;
-  "/transactions": typeof TransactionsRoute;
-  "/admin/categories": typeof AdminCategoriesRoute;
-  "/admin/dashboard": typeof AdminDashboardRoute;
-  "/admin/": typeof AdminIndexRoute;
+  '/': typeof IndexRoute
+  '/admin': typeof AdminrootRoute
+  '/categories': typeof CategoriesRoute
+  '/transactions': typeof TransactionsRoute
+  '/admin/categories': typeof AdminCategoriesRoute
+  '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/': typeof AdminIndexRoute
 }
 
 export interface FileRoutesByTo {
-  "/": typeof IndexRoute;
-  "/categories": typeof CategoriesRoute;
-  "/transactions": typeof TransactionsRoute;
-  "/admin": typeof AdminIndexRoute;
-  "/admin/categories": typeof AdminCategoriesRoute;
-  "/admin/dashboard": typeof AdminDashboardRoute;
+  '/': typeof IndexRoute
+  '/categories': typeof CategoriesRoute
+  '/transactions': typeof TransactionsRoute
+  '/admin': typeof AdminIndexRoute
+  '/admin/categories': typeof AdminCategoriesRoute
+  '/admin/dashboard': typeof AdminDashboardRoute
 }
 
 export interface FileRoutesById {
-  __root__: typeof rootRoute;
-  "/": typeof IndexRoute;
-  "/admin": typeof AdminRouteWithChildren;
-  "/categories": typeof CategoriesRoute;
-  "/transactions": typeof TransactionsRoute;
-  "/admin/__root": typeof AdminrootRoute;
-  "/admin/categories": typeof AdminCategoriesRoute;
-  "/admin/dashboard": typeof AdminDashboardRoute;
-  "/admin/": typeof AdminIndexRoute;
+  __root__: typeof rootRoute
+  '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/categories': typeof CategoriesRoute
+  '/transactions': typeof TransactionsRoute
+  '/admin/__root': typeof AdminrootRoute
+  '/admin/categories': typeof AdminCategoriesRoute
+  '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/': typeof AdminIndexRoute
 }
 
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath;
+  fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | "/"
-    | "/admin"
-    | "/categories"
-    | "/transactions"
-    | "/admin/categories"
-    | "/admin/dashboard"
-    | "/admin/";
-  fileRoutesByTo: FileRoutesByTo;
+    | '/'
+    | '/admin'
+    | '/categories'
+    | '/transactions'
+    | '/admin/categories'
+    | '/admin/dashboard'
+    | '/admin/'
+  fileRoutesByTo: FileRoutesByTo
   to:
-    | "/"
-    | "/categories"
-    | "/transactions"
-    | "/admin"
-    | "/admin/categories"
-    | "/admin/dashboard";
+    | '/'
+    | '/categories'
+    | '/transactions'
+    | '/admin'
+    | '/admin/categories'
+    | '/admin/dashboard'
   id:
-    | "__root__"
-    | "/"
-    | "/admin"
-    | "/categories"
-    | "/transactions"
-    | "/admin/__root"
-    | "/admin/categories"
-    | "/admin/dashboard"
-    | "/admin/";
-  fileRoutesById: FileRoutesById;
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/categories'
+    | '/transactions'
+    | '/admin/__root'
+    | '/admin/categories'
+    | '/admin/dashboard'
+    | '/admin/'
+  fileRoutesById: FileRoutesById
 }
 
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute;
-  AdminRoute: typeof AdminRouteWithChildren;
-  CategoriesRoute: typeof CategoriesRoute;
-  TransactionsRoute: typeof TransactionsRoute;
+  IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRouteWithChildren
+  CategoriesRoute: typeof CategoriesRoute
+  TransactionsRoute: typeof TransactionsRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
@@ -224,11 +224,11 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   CategoriesRoute: CategoriesRoute,
   TransactionsRoute: TransactionsRoute,
-};
+}
 
 export const routeTree = rootRoute
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>();
+  ._addFileTypes<FileRouteTypes>()
 
 /* ROUTE_MANIFEST_START
 {

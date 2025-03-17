@@ -1,3 +1,4 @@
+import { Category } from "@/components/transactions/CategorySelect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,10 +13,8 @@ import { useCategoriesContext } from "./useCategoriesContext";
 
 export function CategoryForm() {
   const { addNewCategory } = useCategoriesContext();
-  const [newCategory, setNewCategory] = useState<{
-    name: string;
-    type: "income" | "expense";
-  }>({
+  const [newCategory, setNewCategory] = useState<Category>({
+    id: "",
     name: "",
     type: "expense",
   });
@@ -24,7 +23,7 @@ export function CategoryForm() {
     if (!newCategory.name.trim()) return;
 
     addNewCategory(newCategory);
-    setNewCategory({ name: "", type: "expense" });
+    setNewCategory({ id: "", name: "", type: "expense" });
   };
 
   return (

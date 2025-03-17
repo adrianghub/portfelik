@@ -3,18 +3,22 @@ import {
   useAddCategory,
   useDeleteCategory,
   useFetchCategories,
+  useFetchExpenseCategories,
+  useFetchIncomeCategories,
   useUpdateCategory,
 } from "@/hooks/useCategoriesQuery";
-import { createContext, ReactNode, useState } from "react";
+import { createContext, ReactNode, useEffect, useState } from "react";
 
 export interface CategoryContextType {
   categories: Category[];
+  incomeCategories: Category[];
+  expenseCategories: Category[];
   isLoading: boolean;
   error: Error | null;
-  addNewCategory: (category: Omit<Category, "id">) => void;
+  addNewCategory: (category: Category) => void;
   updateExistingCategory: (
     categoryId: string,
-    updates: Partial<Omit<Category, "id">>,
+    updates: Partial<Category>,
   ) => void;
   deleteExistingCategory: (categoryId: string) => void;
   editingCategory: Category | null;
@@ -30,19 +34,62 @@ interface CategoryProviderProps {
 export function CategoryProvider({ children }: CategoryProviderProps) {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 
-  const { data: categories = [], isLoading, error } = useFetchCategories();
+  const {
+    data: categories = [],
+    isLoading: isLoadingAll,
+    error: errorAll,
+  } = useFetchCategories();
+  const {
+    data: incomeCategories = [],
+    isLoading: isLoadingIncome,
+    error: errorIncome,
+  } = useFetchIncomeCategories();
+  const {
+    data: expenseCategories = [],
+    isLoading: isLoadingExpense,
+    error: errorExpense,
+  } = useFetchExpenseCategories();
+
+  // Debug logging
+  useEffect(() => {
+    console.log("Categories data:", {
+      categories,
+      isLoadingAll,
+      errorAll: errorAll?.message,
+    });
+    console.log("Income categories:", {
+      incomeCategories,
+      isLoadingIncome,
+      errorIncome: errorIncome?.message,
+    });
+    console.log("Expense categories:", {
+      expenseCategories,
+      isLoadingExpense,
+      errorExpense: errorExpense?.message,
+    });
+  }, [
+    categories,
+    incomeCategories,
+    expenseCategories,
+    isLoadingAll,
+    isLoadingIncome,
+    isLoadingExpense,
+    errorAll,
+    errorIncome,
+    errorExpense,
+  ]);
 
   const addCategoryMutation = useAddCategory();
   const updateCategoryMutation = useUpdateCategory();
   const deleteCategoryMutation = useDeleteCategory();
 
-  const addNewCategory = (category: Omit<Category, "id">) => {
+  const addNewCategory = (category: Category) => {
     addCategoryMutation.mutate(category);
   };
 
   const updateExistingCategory = (
     categoryId: string,
-    updates: Partial<Omit<Category, "id">>,
+    updates: Partial<Category>,
   ) => {
     updateCategoryMutation.mutate({ categoryId, updates });
   };
@@ -51,12 +98,19 @@ export function CategoryProvider({ children }: CategoryProviderProps) {
     deleteCategoryMutation.mutate(categoryId);
   };
 
+  // Combine errors
+  const error = errorAll || errorIncome || errorExpense;
+
   return (
     <CategoryContext.Provider
       value={{
         categories,
+        incomeCategories,
+        expenseCategories,
         isLoading:
-          isLoading ||
+          isLoadingAll ||
+          isLoadingIncome ||
+          isLoadingExpense ||
           addCategoryMutation.isPending ||
           updateCategoryMutation.isPending ||
           deleteCategoryMutation.isPending,

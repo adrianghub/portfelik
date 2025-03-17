@@ -22,13 +22,15 @@ import {
   useReactTable,
   type ColumnDef,
 } from "@tanstack/react-table";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { DeleteCategoryDialog } from "./DeleteCategoryDialog";
 import { useCategoriesContext } from "./useCategoriesContext";
 
 export function CategoryTable() {
   const {
     categories,
+    incomeCategories,
+    expenseCategories,
     isLoading,
     error,
     editingCategory,
@@ -37,6 +39,16 @@ export function CategoryTable() {
   } = useCategoriesContext();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
+
+  // Combine income and expense categories
+  const allCategories = useMemo(() => {
+    // Use categories if it's not empty, otherwise combine income and expense categories
+    return categories.length > 0
+      ? categories
+      : [...incomeCategories, ...expenseCategories];
+  }, [categories, incomeCategories, expenseCategories]);
+
+  console.log("All categories:", allCategories);
 
   const handleUpdateCategory = () => {
     if (!editingCategory) return;
@@ -54,7 +66,7 @@ export function CategoryTable() {
     setDeleteDialogOpen(true);
   };
 
-  const columns: ColumnDef<Category>[] = [
+  const columns: ColumnDef<Category, unknown>[] = [
     {
       accessorKey: "name",
       header: "Name",
@@ -155,7 +167,7 @@ export function CategoryTable() {
   ];
 
   const table = useReactTable({
-    data: categories,
+    data: allCategories,
     columns,
     getCoreRowModel: getCoreRowModel(),
   });

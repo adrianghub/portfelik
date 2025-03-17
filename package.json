@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "seed:categories": "vite-node src/scripts/seed-categories.ts"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.6",
@@ -55,6 +56,7 @@
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.24.1",
     "vite": "^6.2.0",
+    "vite-node": "^1.6.1",
     "vitest": "^3.0.8"
   }
 }
