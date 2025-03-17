@@ -1,11 +1,12 @@
 import { initializeApp } from "firebase/app";
 import {
+  connectAuthEmulator,
   signOut as firebaseSignOut,
   getAuth,
   signInWithEmailAndPassword,
   User,
 } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { connectFirestoreEmulator, getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -20,6 +21,14 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// Connect to emulators in development mode
+const isDevelopment = import.meta.env.DEV;
+if (isDevelopment) {
+  connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+  connectFirestoreEmulator(db, "127.0.0.1", 8080);
+  console.log("Using Firebase emulators in development mode");
+}
 
 /**
  * Signs in a user with email and password

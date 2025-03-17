@@ -18,6 +18,7 @@ const firestoreToUITransaction = (
     date: firestoreTransaction.date.toISOString().split("T")[0], // Convert to YYYY-MM-DD
     type: firestoreTransaction.amount >= 0 ? "income" : "expense",
     category: firestoreTransaction.categoryId,
+    userId: firestoreTransaction.userId, // Include userId for admin views
   };
 };
 
@@ -48,9 +49,11 @@ const TRANSACTIONS_QUERY_KEY = ["transactions"];
 export function useTransactions(startDate?: Date, endDate?: Date) {
   const { userData } = useAuth();
   const userId = userData?.uid;
+  const isAdmin = userData?.role === "admin";
 
   console.log("useTransactions hook called with:", {
     userId,
+    isAdmin,
     startDate: startDate?.toISOString(),
     endDate: endDate?.toISOString(),
     userData,
@@ -60,12 +63,14 @@ export function useTransactions(startDate?: Date, endDate?: Date) {
     queryKey: [
       ...TRANSACTIONS_QUERY_KEY,
       userId,
+      isAdmin,
       startDate?.toISOString(),
       endDate?.toISOString(),
     ],
     queryFn: async () => {
       console.log("Transaction query function executing with:", {
         userId,
+        isAdmin,
         startDate: startDate?.toISOString(),
         endDate: endDate?.toISOString(),
       });
@@ -82,11 +87,22 @@ export function useTransactions(startDate?: Date, endDate?: Date) {
         if (startDate && endDate) {
           try {
             console.log("Fetching transactions by date range");
-            transactions = await transactionService.getTransactionsByDateRange(
-              userId,
-              startDate,
-              endDate,
-            );
+            if (isAdmin) {
+              // Admin users can see all transactions
+              transactions =
+                await transactionService.getAllTransactionsByDateRange(
+                  startDate,
+                  endDate,
+                );
+            } else {
+              // Regular users can only see their own transactions
+              transactions =
+                await transactionService.getTransactionsByDateRange(
+                  userId,
+                  startDate,
+                  endDate,
+                );
+            }
             console.log("Successfully fetched transactions by date range");
           } catch (error) {
             console.error("Error fetching transactions by date range:", error);
@@ -99,8 +115,12 @@ export function useTransactions(startDate?: Date, endDate?: Date) {
               console.log(
                 "Index error detected, falling back to fetching all transactions",
               );
-              transactions =
-                await transactionService.getUserTransactions(userId);
+              if (isAdmin) {
+                transactions = await transactionService.getAllTransactions();
+              } else {
+                transactions =
+                  await transactionService.getUserTransactions(userId);
+              }
 
               // Filter by date range in memory
               console.log("Filtering transactions by date range in memory");
@@ -117,8 +137,12 @@ export function useTransactions(startDate?: Date, endDate?: Date) {
           }
         } else {
           // If no date range is provided, just get all transactions
-          console.log("Fetching all user transactions");
-          transactions = await transactionService.getUserTransactions(userId);
+          console.log("Fetching all transactions");
+          if (isAdmin) {
+            transactions = await transactionService.getAllTransactions();
+          } else {
+            transactions = await transactionService.getUserTransactions(userId);
+          }
         }
 
         console.log("Raw transactions from Firestore:", transactions);

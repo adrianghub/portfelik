@@ -1,4 +1,5 @@
 import { Category as UICategory } from "@/components/transactions/CategorySelect";
+import { useAuth } from "@/lib/auth-context";
 import {
   firestoreCategoriesToUICategories,
   uiCategoryToFirestoreCategory,
@@ -9,12 +10,22 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 const CATEGORIES_QUERY_KEY = ["categories"];
 
 export function useFetchCategories() {
+  const { userData } = useAuth();
+  const userId = userData?.uid;
+
   return useQuery({
-    queryKey: CATEGORIES_QUERY_KEY,
+    queryKey: [...CATEGORIES_QUERY_KEY, userId],
     queryFn: async () => {
       console.log("Fetching all categories...");
       try {
-        const categories = await categoryService.getAllCategories();
+        let categories;
+
+        if (userId) {
+          categories = await categoryService.getUserCategories(userId);
+        } else {
+          categories = await categoryService.getAllCategories();
+        }
+
         console.log("Fetched categories:", categories);
         const uiCategories = firestoreCategoriesToUICategories(categories);
         console.log("Converted UI categories:", uiCategories);
@@ -24,6 +35,7 @@ export function useFetchCategories() {
         throw error;
       }
     },
+    enabled: !!userId,
   });
 }
 
@@ -67,10 +79,16 @@ export function useFetchExpenseCategories() {
 
 export function useAddCategory() {
   const queryClient = useQueryClient();
+  const { userData } = useAuth();
+  const userId = userData?.uid;
 
   return useMutation({
     mutationFn: (category: UICategory) => {
-      const firestoreCategory = uiCategoryToFirestoreCategory(category);
+      if (!userId) {
+        throw new Error("User not authenticated");
+      }
+
+      const firestoreCategory = uiCategoryToFirestoreCategory(category, userId);
       const now = new Date();
       return categoryService.create({
         ...firestoreCategory,

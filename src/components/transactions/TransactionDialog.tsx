@@ -16,6 +16,7 @@ export type Transaction = {
   date: string;
   type: "income" | "expense";
   category: string;
+  userId?: string;
 };
 
 interface TransactionDialogProps {

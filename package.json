@@ -5,13 +5,19 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:emulators": "firebase emulators:start --import=./firebase-data --export-on-exit=./firebase-data",
+    "dev:all": "concurrently \"npm run dev\" \"npm run dev:emulators\"",
     "build": "tsc -b && vite build",
+    "deploy": "firebase deploy",
+    "deploy:rules": "firebase deploy --only firestore:rules",
+    "config:prod": "firebase use portfelik-888dd",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
-    "seed:categories": "vite-node src/scripts/seed-categories.ts"
+    "seed:categories": "vite-node src/scripts/seed-categories.ts",
+    "seed:emulator": "vite-node src/scripts/seed-emulator.ts"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.6",
@@ -48,6 +54,7 @@
     "@types/react-dom": "^19.0.4",
     "@vitejs/plugin-react": "^4.3.4",
     "@vitest/ui": "^3.0.8",
+    "concurrently": "^9.1.2",
     "eslint": "^9.21.0",
     "eslint-plugin-react-hooks": "^5.1.0",
     "eslint-plugin-react-refresh": "^0.4.19",

@@ -40,6 +40,7 @@ function Transactions() {
   });
   const { userData } = useAuth();
   const queryClient = useQueryClient();
+  const isAdmin = userData?.role === "admin";
 
   useEffect(() => {
     console.log("Date range:", {
@@ -56,10 +57,12 @@ function Transactions() {
     const checkFirestore = async () => {
       try {
         console.log("Directly checking Firestore for transactions...");
-        const q = query(
-          collection(db, COLLECTIONS.TRANSACTIONS),
-          where("userId", "==", userData.uid),
-        );
+        const q = isAdmin
+          ? query(collection(db, COLLECTIONS.TRANSACTIONS))
+          : query(
+              collection(db, COLLECTIONS.TRANSACTIONS),
+              where("userId", "==", userData.uid),
+            );
         const querySnapshot = await getDocs(q);
 
         console.log(
@@ -78,7 +81,7 @@ function Transactions() {
     };
 
     checkFirestore();
-  }, [userData]);
+  }, [userData, isAdmin]);
 
   const {
     data: transactions = [],
@@ -162,11 +165,16 @@ function Transactions() {
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4">
           <div className="mb-3 sm:mb-0">
             <h1 className="text-2xl font-bold flex items-center flex-wrap">
-              Transactions
+              {isAdmin ? "All Transactions" : "My Transactions"}
               <span className="text-gray-500 text-xl ml-2">
                 ({currentMonthName})
               </span>
             </h1>
+            {isAdmin && (
+              <p className="text-sm text-gray-500 mt-1">
+                Viewing transactions from all users
+              </p>
+            )}
           </div>
           <div className="flex gap-2 self-start sm:self-auto">
             <Button
@@ -238,6 +246,7 @@ function Transactions() {
           <TransactionList
             transactions={transactions}
             onEdit={handleOpenDialog}
+            showUserInfo={isAdmin}
           />
         </div>
       ) : (

@@ -24,6 +24,8 @@ export interface Category {
   id?: string;
   name: string;
   type: "income" | "expense";
+  userId?: string | null;
+  isDefault?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -93,6 +95,13 @@ export class TransactionService extends FirestoreService<Transaction> {
     return this.query(constraints);
   }
 
+  // Get all transactions (for admin users)
+  async getAllTransactions(): Promise<Transaction[]> {
+    const constraints: QueryConstraint[] = [orderBy("date", "desc")];
+
+    return this.query(constraints);
+  }
+
   // Get transactions by date range
   async getTransactionsByDateRange(
     userId: string,
@@ -101,6 +110,20 @@ export class TransactionService extends FirestoreService<Transaction> {
   ): Promise<Transaction[]> {
     const constraints: QueryConstraint[] = [
       where("userId", "==", userId),
+      where("date", ">=", startDate),
+      where("date", "<=", endDate),
+      orderBy("date", "desc"),
+    ];
+
+    return this.query(constraints);
+  }
+
+  // Get all transactions by date range (for admin users)
+  async getAllTransactionsByDateRange(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<Transaction[]> {
+    const constraints: QueryConstraint[] = [
       where("date", ">=", startDate),
       where("date", "<=", endDate),
       orderBy("date", "desc"),
@@ -150,6 +173,20 @@ export class CategoryService extends FirestoreService<Category> {
     const constraints: QueryConstraint[] = [orderBy("name", "asc")];
 
     return this.query(constraints);
+  }
+
+  // Get user categories including default ones
+  async getUserCategories(userId: string): Promise<Category[]> {
+    // This query needs to get both:
+    // 1. Categories where userId matches the current user
+    // 2. Default categories (which don't have a userId or have isDefault=true)
+    const allCategories = await this.getAll();
+    return allCategories.filter(
+      (category) =>
+        category.userId === userId ||
+        category.isDefault === true ||
+        !category.userId,
+    );
   }
 
   // Get income categories

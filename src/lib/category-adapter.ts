@@ -34,11 +34,13 @@ export function firestoreCategoriesToUICategories(
  */
 export function uiCategoryToFirestoreCategory(
   category: UICategory,
+  userId?: string,
 ): Omit<FirestoreCategory, "id" | "createdAt" | "updatedAt"> {
   console.log("Converting UI category to Firestore category:", category);
   const firestoreCategory = {
     name: category.name,
     type: category.type,
+    userId: userId || null,
   };
   console.log("Converted Firestore category:", firestoreCategory);
   return firestoreCategory;

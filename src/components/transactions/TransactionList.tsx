@@ -1,19 +1,64 @@
 import { Button } from "@/components/ui/button";
 import { useDeleteTransaction } from "@/hooks/useTransactionsQuery";
-import { useState } from "react";
+import { userService } from "@/lib/services";
+import { useEffect, useState } from "react";
 import { Transaction } from "./TransactionDialog";
 
 interface TransactionListProps {
   transactions: Transaction[];
   onEdit?: (transaction: Transaction) => void;
+  showUserInfo?: boolean;
 }
 
 export function TransactionList({
   transactions,
   onEdit,
+  showUserInfo = false,
 }: TransactionListProps) {
   const deleteTransaction = useDeleteTransaction();
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [userEmails, setUserEmails] = useState<Record<string, string>>({});
+  const [loadingUsers, setLoadingUsers] = useState<boolean>(false);
+
+  // Load user emails when showUserInfo is true
+  useEffect(() => {
+    if (!showUserInfo) return;
+
+    const loadUserEmails = async () => {
+      setLoadingUsers(true);
+
+      // Get unique user IDs
+      const userIds = [
+        ...new Set(
+          transactions.filter((t) => t.userId).map((t) => t.userId as string),
+        ),
+      ];
+
+      if (userIds.length === 0) {
+        setLoadingUsers(false);
+        return;
+      }
+
+      // Load user emails
+      const emailsMap: Record<string, string> = {};
+      await Promise.all(
+        userIds.map(async (userId) => {
+          try {
+            const user = await userService.getById(userId);
+            emailsMap[userId] = user?.email || "Unknown";
+          } catch (error) {
+            console.error(`Error fetching user ${userId}:`, error);
+            emailsMap[userId] = "Unknown";
+          }
+        }),
+      );
+
+      setUserEmails(emailsMap);
+      setLoadingUsers(false);
+    };
+
+    loadUserEmails();
+  }, [transactions, showUserInfo]);
 
   const handleDelete = (id?: string) => {
     if (!id) return;
@@ -40,6 +85,13 @@ export function TransactionList({
           <div>
             <p className="font-medium">{transaction.description}</p>
             <p className="text-sm text-gray-500">{transaction.date}</p>
+            {showUserInfo && transaction.userId && (
+              <p className="text-xs text-gray-400 mt-1">
+                {loadingUsers
+                  ? "Loading user..."
+                  : `User: ${userEmails[transaction.userId] || "Unknown"}`}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <p
