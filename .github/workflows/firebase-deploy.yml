@@ -30,4 +30,4 @@ jobs:
         run: npm install -g firebase-tools
 
       - name: Deploy to Firebase
-        run: firebase deploy --project=portfelik-888dd --token "${{ secrets.FIREBASE_TOKEN }}"
+        run: firebase deploy --project=portfelik-888dd --token "${{ secrets.FIREBASE_TOKEN }}" --force
