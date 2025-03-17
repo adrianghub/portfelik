@@ -1,5 +1,5 @@
 import { addDoc, collection, doc, getDocs, setDoc } from "firebase/firestore";
-import { db } from "../lib/firebase";
+import { db } from "../lib/firebase/firebase";
 
 // Default categories with simplified structure
 const DEFAULT_CATEGORIES = [

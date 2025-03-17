@@ -39,18 +39,16 @@ service cloud.firestore {
 
     match /categories/{categoryId} {
       allow read: if isAuthenticated() &&
-        (resource.data.isDefault == true ||
          request.auth.uid == resource.data.userId ||
-         isAdmin());
+         isAdmin();
 
       allow create: if isAuthenticated() &&
         ((request.resource.data.isDefault == true && isAdmin()) ||
-         (request.resource.data.isDefault != true && request.auth.uid == request.resource.data.userId));
+          request.auth.uid == request.resource.data.userId);
 
       allow update, delete: if isAuthenticated() &&
         ((resource.data.isDefault == true && isAdmin()) ||
-         (resource.data.isDefault != true &&
-          (request.auth.uid == resource.data.userId || isAdmin())));
+            request.auth.uid == resource.data.userId);
     }
   }
 }

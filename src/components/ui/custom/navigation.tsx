@@ -1,8 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { NavLink } from "@/components/ui/custom/nav-link";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { useAuth } from "@/lib/auth-context";
-import { signOut } from "@/lib/firebase";
+import { useAuth } from "@/lib/AuthContext";
+import { signOut } from "@/lib/firebase/firebase";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { LogOut, Menu } from "lucide-react";
 import { useState } from "react";

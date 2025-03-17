@@ -1,6 +1,6 @@
-import { AdminCard } from "@/components/admin/AdminCard";
-import { UserManager } from "@/components/admin/users";
-import { createAdminLoader } from "@/lib/protected-route";
+import { createAdminLoader } from "@/lib/ProtectedRoute";
+import { AdminCard } from "@/modules/admin/AdminCard";
+import { UserManager } from "@/modules/admin/users/components/UserManager";
 import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/admin/")({

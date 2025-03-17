@@ -1,5 +1,5 @@
 import { addDoc, collection, getDocs } from "firebase/firestore";
-import { db } from "../lib/firebase"; // Import Firebase instance from the main app
+import { db } from "../lib/firebase/firebase"; // Import Firebase instance from the main app
 
 // Default categories with simplified structure
 const DEFAULT_CATEGORIES = [

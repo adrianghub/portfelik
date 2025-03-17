@@ -1,29 +1,24 @@
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/AuthContext";
+import { getFirstDayOfMonth, getLastDayOfMonth } from "@/lib/date-utils";
+import { createProtectedLoader } from "@/lib/ProtectedRoute";
 import {
   DateRange,
   DateRangeFilter,
   getMonthName,
-} from "@/components/filters/DateRangeFilter";
-import {
-  Transaction,
-  TransactionDialog,
-} from "@/components/transactions/TransactionDialog";
-import { TransactionList } from "@/components/transactions/TransactionList";
-import { Button } from "@/components/ui/button";
+} from "@/modules/transactions/components/DateRangeFilter";
+import { TransactionDialog } from "@/modules/transactions/components/TransactionDialog";
+import { TransactionList } from "@/modules/transactions/components/TransactionList";
+import type { Transaction } from "@/modules/transactions/transaction";
 import {
   useAddTransaction,
   useTransactions,
   useUpdateTransaction,
-} from "@/hooks/useTransactionsQuery";
-import { useAuth } from "@/lib/auth-context";
-import { getFirstDayOfMonth, getLastDayOfMonth } from "@/lib/date-utils";
-import { db } from "@/lib/firebase";
-import { COLLECTIONS } from "@/lib/firestore";
-import { createProtectedLoader } from "@/lib/protected-route";
+} from "@/modules/transactions/useTransactionsQuery";
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { collection, getDocs, query, where } from "firebase/firestore";
 import { Plus, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 export const Route = createFileRoute("/transactions")({
   component: Transactions,
@@ -42,57 +37,12 @@ function Transactions() {
   const queryClient = useQueryClient();
   const isAdmin = userData?.role === "admin";
 
-  useEffect(() => {
-    console.log("Date range:", {
-      start: dateRange.start.format("YYYY-MM-DD"),
-      startDate: dateRange.start.toDate(),
-      end: dateRange.end.format("YYYY-MM-DD"),
-      endDate: dateRange.end.toDate(),
-    });
-  }, [dateRange]);
-
-  useEffect(() => {
-    if (!userData?.uid) return;
-
-    const checkFirestore = async () => {
-      try {
-        console.log("Directly checking Firestore for transactions...");
-        const q = isAdmin
-          ? query(collection(db, COLLECTIONS.TRANSACTIONS))
-          : query(
-              collection(db, COLLECTIONS.TRANSACTIONS),
-              where("userId", "==", userData.uid),
-            );
-        const querySnapshot = await getDocs(q);
-
-        console.log(
-          `Found ${querySnapshot.size} transactions directly in Firestore`,
-        );
-
-        querySnapshot.forEach((doc) => {
-          console.log("Transaction from Firestore:", {
-            id: doc.id,
-            ...doc.data(),
-          });
-        });
-      } catch (error) {
-        console.error("Error directly checking Firestore:", error);
-      }
-    };
-
-    checkFirestore();
-  }, [userData, isAdmin]);
-
   const {
     data: transactions = [],
     isLoading,
     refetch,
     error,
   } = useTransactions(dateRange.start.toDate(), dateRange.end.toDate());
-
-  useEffect(() => {
-    console.log("Transactions from query:", transactions);
-  }, [transactions]);
 
   const addTransaction = useAddTransaction();
   const updateTransaction = useUpdateTransaction();
@@ -111,14 +61,11 @@ function Transactions() {
   };
 
   const handleRefresh = () => {
-    console.log("Manually refreshing transactions...");
     queryClient.invalidateQueries({ queryKey: ["transactions"] });
     refetch();
   };
 
   const handleSubmitTransaction = (transaction: Transaction) => {
-    console.log("Submitting transaction:", transaction);
-
     if (editingTransaction?.id) {
       updateTransaction.mutate(
         {
@@ -152,12 +99,6 @@ function Transactions() {
 
   const hasTransactions = transactions.length > 0;
   const currentMonthName = getMonthName(dateRange.start);
-
-  // Check if the error is a Firestore index error
-  const isIndexError = error?.message?.includes("requires an index");
-  const indexUrl = error?.message?.match(
-    /https:\/\/console\.firebase\.google\.com[^\s]*/,
-  )?.[0];
 
   return (
     <div className="py-6 px-4 md:px-6">
@@ -215,28 +156,6 @@ function Transactions() {
           <p className="text-red-500 font-medium mb-2">
             Error loading transactions
           </p>
-          <p className="text-gray-600 text-center mb-4">
-            {isIndexError
-              ? "This query requires a Firestore index to be created."
-              : error.message}
-          </p>
-
-          {isIndexError && indexUrl && (
-            <div className="mb-4 text-center">
-              <p className="mb-2">
-                Click the button below to create the required index:
-              </p>
-              <a
-                href={indexUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-              >
-                Create Firestore Index
-              </a>
-            </div>
-          )}
-
           <Button variant="outline" className="mt-2" onClick={() => refetch()}>
             Retry
           </Button>
@@ -263,7 +182,7 @@ function Transactions() {
       <TransactionDialog
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
-        transaction={editingTransaction || undefined}
+        transaction={editingTransaction}
         onSubmit={handleSubmitTransaction}
       />
     </div>

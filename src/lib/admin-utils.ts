@@ -8,8 +8,8 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
-import { UserData } from "./auth-context";
-import { db } from "./firebase";
+import { UserData } from "./AuthContext";
+import { db } from "./firebase/firebase";
 
 /**
  * Assigns the admin role to a user
@@ -18,16 +18,13 @@ import { db } from "./firebase";
  * @throws An error if the user doesn't exist
  */
 export async function assignAdminRole(userId: string): Promise<void> {
-  // Get the user document
   const userRef = doc(db, "users", userId);
   const userSnap = await getDoc(userRef);
 
-  // Check if the user exists
   if (!userSnap.exists()) {
     throw new Error(`User with ID ${userId} does not exist`);
   }
 
-  // Update the user's role to admin
   await updateDoc(userRef, {
     role: "admin",
   });
