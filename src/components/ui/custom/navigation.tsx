@@ -1,15 +1,19 @@
+import { Button } from "@/components/ui/button";
 import { NavLink } from "@/components/ui/custom/nav-link";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Link } from "@tanstack/react-router";
-import { Menu } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
+import { signOut } from "@/lib/firebase";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { LogOut, Menu } from "lucide-react";
 import { useState } from "react";
 
 // Route type that matches valid TanStack router routes
 type ValidRoute =
+  | "/"
   | "/transactions"
+  | "/login"
   | "/admin"
-  | "/admin/categories"
-  | "/admin/dashboard";
+  | "/admin/categories";
 
 interface NavItem {
   to: ValidRoute;
@@ -24,6 +28,15 @@ const NAV_ITEMS: NavItem[] = [
 
 export function Navigation() {
   const [open, setOpen] = useState(false);
+  const { isAuthenticated, userData } = useAuth();
+  const navigate = useNavigate();
+
+  const isAdmin = userData?.role === "admin";
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate({ to: "/" });
+  };
 
   return (
     <header className="bg-gray-100 shadow">
@@ -38,7 +51,24 @@ export function Navigation() {
           {/* Desktop navigation */}
           <div className="hidden md:flex items-center">
             <div className="flex space-x-8">
-              <NavLinks />
+              <NavLinks isAdmin={isAdmin} />
+            </div>
+            <div className="ml-8">
+              {isAuthenticated ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="flex items-center gap-2"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Logout
+                </Button>
+              ) : (
+                <Button variant="outline" size="sm" asChild>
+                  <Link to="/login">Login</Link>
+                </Button>
+              )}
             </div>
           </div>
 
@@ -53,7 +83,37 @@ export function Navigation() {
               </SheetTrigger>
               <SheetContent>
                 <div className="mt-6 flex flex-col gap-4">
-                  <MobileNavLinks onNavigate={() => setOpen(false)} />
+                  <MobileNavLinks
+                    onNavigate={() => setOpen(false)}
+                    isAdmin={isAdmin}
+                  />
+                  <div className="mt-4">
+                    {isAuthenticated ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          handleLogout();
+                          setOpen(false);
+                        }}
+                        className="flex items-center gap-2 w-full"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        Logout
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        asChild
+                        className="w-full"
+                      >
+                        <Link to="/login" onClick={() => setOpen(false)}>
+                          Login
+                        </Link>
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </SheetContent>
             </Sheet>
@@ -64,10 +124,15 @@ export function Navigation() {
   );
 }
 
-function NavLinks() {
+function NavLinks({ isAdmin }: { isAdmin?: boolean }) {
+  // Filter out admin routes if user is not an admin
+  const filteredNavItems = NAV_ITEMS.filter(
+    (item) => !item.to.startsWith("/admin") || isAdmin,
+  );
+
   return (
     <>
-      {NAV_ITEMS.map((item) => (
+      {filteredNavItems.map((item) => (
         <NavLink
           key={item.to}
           to={item.to}
@@ -81,10 +146,21 @@ function NavLinks() {
   );
 }
 
-function MobileNavLinks({ onNavigate }: { onNavigate: () => void }) {
+function MobileNavLinks({
+  onNavigate,
+  isAdmin,
+}: {
+  onNavigate: () => void;
+  isAdmin?: boolean;
+}) {
+  // Filter out admin routes if user is not an admin
+  const filteredNavItems = NAV_ITEMS.filter(
+    (item) => !item.to.startsWith("/admin") || isAdmin,
+  );
+
   return (
     <>
-      {NAV_ITEMS.map((item) => (
+      {filteredNavItems.map((item) => (
         <NavLink
           key={item.to}
           to={item.to}

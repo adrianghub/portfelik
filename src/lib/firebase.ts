@@ -1,5 +1,10 @@
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import {
+  signOut as firebaseSignOut,
+  getAuth,
+  signInWithEmailAndPassword,
+  User,
+} from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -12,9 +17,29 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+export const auth = getAuth(app);
+export const db = getFirestore(app);
 
-export { app, auth, db };
+/**
+ * Signs in a user with email and password
+ * @param email The user's email
+ * @param password The user's password
+ * @returns A promise that resolves with the user's credentials
+ */
+export async function signIn(email: string, password: string): Promise<User> {
+  const userCredential = await signInWithEmailAndPassword(
+    auth,
+    email,
+    password,
+  );
+  return userCredential.user;
+}
+
+/**
+ * Signs out the current user
+ * @returns A promise that resolves when the user is signed out
+ */
+export async function signOut(): Promise<void> {
+  return firebaseSignOut(auth);
+}

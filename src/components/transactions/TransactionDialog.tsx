@@ -23,6 +23,7 @@ interface TransactionDialogProps {
   onSubmit?: (transaction: Transaction) => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  transaction?: Transaction; // Transaction to edit
 }
 
 export function TransactionDialog({
@@ -30,12 +31,15 @@ export function TransactionDialog({
   onSubmit,
   open: controlledOpen,
   onOpenChange,
+  transaction,
 }: TransactionDialogProps) {
   const [open, setOpen] = React.useState(false);
 
   const isControlled = controlledOpen !== undefined;
   const isOpen = isControlled ? controlledOpen : open;
   const setIsOpen = isControlled ? onOpenChange! : setOpen;
+
+  const isEditing = !!transaction?.id;
 
   const handleSave = (transaction: Transaction) => {
     if (onSubmit) {
@@ -48,15 +52,20 @@ export function TransactionDialog({
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent className="w-full max-w-md mx-auto sm:max-w-lg p-4 sm:p-6 overflow-y-auto max-h-[95vh]">
         <DialogHeader>
-          <DialogTitle className="text-xl">Add Transaction</DialogTitle>
+          <DialogTitle className="text-xl">
+            {isEditing ? "Edit Transaction" : "Add Transaction"}
+          </DialogTitle>
           <DialogDescription>
-            Fill out the form below to add a new transaction.
+            {isEditing
+              ? "Update the transaction details below."
+              : "Fill out the form below to add a new transaction."}
           </DialogDescription>
         </DialogHeader>
         <div className="mt-4">
           <TransactionForm
             onSubmit={handleSave}
             onCancel={() => setIsOpen(false)}
+            initialValues={transaction}
           />
         </div>
       </DialogContent>

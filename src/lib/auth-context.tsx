@@ -22,7 +22,6 @@ export interface UserData {
 interface AuthContextType {
   currentUser: User | null;
   userData: UserData | null;
-  isAdmin: boolean;
   isLoading: boolean;
   isAuthenticated: boolean;
 }
@@ -30,7 +29,6 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   currentUser: null,
   userData: null,
-  isAdmin: false,
   isLoading: true,
   isAuthenticated: false,
 });
@@ -104,7 +102,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = {
     currentUser,
     userData,
-    isAdmin: userData?.role === "admin",
     isLoading,
     isAuthenticated: !!currentUser,
   };

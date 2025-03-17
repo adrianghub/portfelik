@@ -116,7 +116,7 @@ export function TransactionForm({
                 onChange={(e) =>
                   field.handleChange(parseFloat(e.target.value) || 0)
                 }
-                placeholder="0.00"
+                placeholder="0.00 zł"
                 step="0.01"
               />
             </FormField>

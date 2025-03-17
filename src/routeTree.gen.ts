@@ -11,21 +11,13 @@
 // Import Routes
 
 import { Route as rootRoute } from './routes/__root'
-import { Route as AdminrootImport } from './routes/admin/__root'
 import { Route as TransactionsImport } from './routes/transactions'
-import { Route as CategoriesImport } from './routes/categories'
-import { Route as AdminImport } from './routes/admin'
+import { Route as LoginImport } from './routes/login'
 import { Route as IndexImport } from './routes/index'
 import { Route as AdminIndexImport } from './routes/admin/index'
-import { Route as AdminDashboardImport } from './routes/admin/dashboard'
 import { Route as AdminCategoriesImport } from './routes/admin/categories'
 
 // Create/Update Routes
-
-const AdminrootRoute = AdminrootImport.update({
-  id: '/__root',
-  getParentRoute: () => AdminRoute,
-} as any)
 
 const TransactionsRoute = TransactionsImport.update({
   id: '/transactions',
@@ -33,15 +25,9 @@ const TransactionsRoute = TransactionsImport.update({
   getParentRoute: () => rootRoute,
 } as any)
 
-const CategoriesRoute = CategoriesImport.update({
-  id: '/categories',
-  path: '/categories',
-  getParentRoute: () => rootRoute,
-} as any)
-
-const AdminRoute = AdminImport.update({
-  id: '/admin',
-  path: '/admin',
+const LoginRoute = LoginImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -52,21 +38,15 @@ const IndexRoute = IndexImport.update({
 } as any)
 
 const AdminIndexRoute = AdminIndexImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AdminRoute,
-} as any)
-
-const AdminDashboardRoute = AdminDashboardImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => AdminRoute,
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRoute,
 } as any)
 
 const AdminCategoriesRoute = AdminCategoriesImport.update({
-  id: '/categories',
-  path: '/categories',
-  getParentRoute: () => AdminRoute,
+  id: '/admin/categories',
+  path: '/admin/categories',
+  getParentRoute: () => rootRoute,
 } as any)
 
 // Populate the FileRoutesByPath interface
@@ -80,18 +60,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexImport
       parentRoute: typeof rootRoute
     }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminImport
-      parentRoute: typeof rootRoute
-    }
-    '/categories': {
-      id: '/categories'
-      path: '/categories'
-      fullPath: '/categories'
-      preLoaderRoute: typeof CategoriesImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginImport
       parentRoute: typeof rootRoute
     }
     '/transactions': {
@@ -101,129 +74,79 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TransactionsImport
       parentRoute: typeof rootRoute
     }
-    '/admin/__root': {
-      id: '/admin/__root'
-      path: ''
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminrootImport
-      parentRoute: typeof AdminImport
-    }
     '/admin/categories': {
       id: '/admin/categories'
-      path: '/categories'
+      path: '/admin/categories'
       fullPath: '/admin/categories'
       preLoaderRoute: typeof AdminCategoriesImport
-      parentRoute: typeof AdminImport
-    }
-    '/admin/dashboard': {
-      id: '/admin/dashboard'
-      path: '/dashboard'
-      fullPath: '/admin/dashboard'
-      preLoaderRoute: typeof AdminDashboardImport
-      parentRoute: typeof AdminImport
+      parentRoute: typeof rootRoute
     }
     '/admin/': {
       id: '/admin/'
-      path: '/'
-      fullPath: '/admin/'
+      path: '/admin'
+      fullPath: '/admin'
       preLoaderRoute: typeof AdminIndexImport
-      parentRoute: typeof AdminImport
+      parentRoute: typeof rootRoute
     }
   }
 }
 
 // Create and export the route tree
 
-interface AdminRouteChildren {
-  AdminrootRoute: typeof AdminrootRoute
-  AdminCategoriesRoute: typeof AdminCategoriesRoute
-  AdminDashboardRoute: typeof AdminDashboardRoute
-  AdminIndexRoute: typeof AdminIndexRoute
-}
-
-const AdminRouteChildren: AdminRouteChildren = {
-  AdminrootRoute: AdminrootRoute,
-  AdminCategoriesRoute: AdminCategoriesRoute,
-  AdminDashboardRoute: AdminDashboardRoute,
-  AdminIndexRoute: AdminIndexRoute,
-}
-
-const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
-
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin': typeof AdminrootRoute
-  '/categories': typeof CategoriesRoute
+  '/login': typeof LoginRoute
   '/transactions': typeof TransactionsRoute
   '/admin/categories': typeof AdminCategoriesRoute
-  '/admin/dashboard': typeof AdminDashboardRoute
-  '/admin/': typeof AdminIndexRoute
+  '/admin': typeof AdminIndexRoute
 }
 
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/categories': typeof CategoriesRoute
+  '/login': typeof LoginRoute
   '/transactions': typeof TransactionsRoute
-  '/admin': typeof AdminIndexRoute
   '/admin/categories': typeof AdminCategoriesRoute
-  '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin': typeof AdminIndexRoute
 }
 
 export interface FileRoutesById {
   __root__: typeof rootRoute
   '/': typeof IndexRoute
-  '/admin': typeof AdminRouteWithChildren
-  '/categories': typeof CategoriesRoute
+  '/login': typeof LoginRoute
   '/transactions': typeof TransactionsRoute
-  '/admin/__root': typeof AdminrootRoute
   '/admin/categories': typeof AdminCategoriesRoute
-  '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/': typeof AdminIndexRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/admin'
-    | '/categories'
-    | '/transactions'
-    | '/admin/categories'
-    | '/admin/dashboard'
-    | '/admin/'
+  fullPaths: '/' | '/login' | '/transactions' | '/admin/categories' | '/admin'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/categories'
-    | '/transactions'
-    | '/admin'
-    | '/admin/categories'
-    | '/admin/dashboard'
+  to: '/' | '/login' | '/transactions' | '/admin/categories' | '/admin'
   id:
     | '__root__'
     | '/'
-    | '/admin'
-    | '/categories'
+    | '/login'
     | '/transactions'
-    | '/admin/__root'
     | '/admin/categories'
-    | '/admin/dashboard'
     | '/admin/'
   fileRoutesById: FileRoutesById
 }
 
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AdminRoute: typeof AdminRouteWithChildren
-  CategoriesRoute: typeof CategoriesRoute
+  LoginRoute: typeof LoginRoute
   TransactionsRoute: typeof TransactionsRoute
+  AdminCategoriesRoute: typeof AdminCategoriesRoute
+  AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AdminRoute: AdminRouteWithChildren,
-  CategoriesRoute: CategoriesRoute,
+  LoginRoute: LoginRoute,
   TransactionsRoute: TransactionsRoute,
+  AdminCategoriesRoute: AdminCategoriesRoute,
+  AdminIndexRoute: AdminIndexRoute,
 }
 
 export const routeTree = rootRoute
@@ -237,44 +160,26 @@ export const routeTree = rootRoute
       "filePath": "__root.tsx",
       "children": [
         "/",
-        "/admin",
-        "/categories",
-        "/transactions"
+        "/login",
+        "/transactions",
+        "/admin/categories",
+        "/admin/"
       ]
     },
     "/": {
       "filePath": "index.tsx"
     },
-    "/admin": {
-      "filePath": "admin.tsx",
-      "children": [
-        "/admin/__root",
-        "/admin/categories",
-        "/admin/dashboard",
-        "/admin/"
-      ]
-    },
-    "/categories": {
-      "filePath": "categories.tsx"
+    "/login": {
+      "filePath": "login.tsx"
     },
     "/transactions": {
       "filePath": "transactions.tsx"
     },
-    "/admin/__root": {
-      "filePath": "admin/__root.tsx",
-      "parent": "/admin"
-    },
     "/admin/categories": {
-      "filePath": "admin/categories.tsx",
-      "parent": "/admin"
-    },
-    "/admin/dashboard": {
-      "filePath": "admin/dashboard.tsx",
-      "parent": "/admin"
+      "filePath": "admin/categories.tsx"
     },
     "/admin/": {
-      "filePath": "admin/index.tsx",
-      "parent": "/admin"
+      "filePath": "admin/index.tsx"
     }
   }
 }

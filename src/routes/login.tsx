@@ -1,3 +1,4 @@
+import { LoginForm } from "@/components/auth/LoginForm";
 import { auth as firebaseAuth } from "@/lib/firebase";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { onAuthStateChanged } from "firebase/auth";
@@ -16,23 +17,20 @@ const getCurrentUser = () => {
   });
 };
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/login")({
+  component: LoginPage,
   loader: async () => {
     // Get current user using the helper function
     const currentUser = await getCurrentUser();
 
-    // If user is not authenticated, redirect to login
-    if (!currentUser) {
-      return redirect({
-        to: "/login",
-        replace: true,
-      });
+    // If user is already logged in, redirect to home
+    if (currentUser) {
+      throw redirect({ to: "/" });
     }
-
-    // If authenticated, redirect to transactions
-    return redirect({
-      to: "/transactions",
-      replace: true,
-    });
+    return {};
   },
 });
+
+function LoginPage() {
+  return <LoginForm />;
+}
