@@ -1,4 +1,4 @@
-import { Navigation } from "@/components/ui/custom/navigation";
+import { Navigation } from "@/modules/shared/components/Navigation";
 import { createRootRoute, Outlet } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 

@@ -1,13 +1,12 @@
 import { Button } from "@/components/ui/button";
-import { NavLink } from "@/components/ui/custom/nav-link";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/lib/AuthContext";
 import { signOut } from "@/lib/firebase/firebase";
+import { NavLink } from "@/modules/shared/components/NavLink";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { LogOut, Menu } from "lucide-react";
 import { useState } from "react";
 
-// Route type that matches valid TanStack router routes
 type ValidRoute =
   | "/"
   | "/transactions"

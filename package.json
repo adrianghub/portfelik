@@ -18,7 +18,8 @@
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "seed:categories": "vite-node src/scripts/seed-categories.ts",
-    "seed:emulator": "vite-node src/scripts/seed-emulator.ts"
+    "seed:emulator": "vite-node src/scripts/seed-emulator.ts",
+    "generate-icons": "node scripts/generate-icons.js"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.6",
@@ -60,6 +61,7 @@
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^15.15.0",
     "jsdom": "^26.0.0",
+    "sharp": "^0.33.5",
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.24.1",
     "vite": "^6.2.0",

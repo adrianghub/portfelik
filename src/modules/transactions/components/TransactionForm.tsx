@@ -13,7 +13,7 @@ import { useFetchCategories } from "@/modules/shared/useCategoriesQuery";
 import type { Transaction } from "@/modules/transactions/transaction";
 import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
-import { FormField } from "../../../components/ui/custom/form-field";
+import { FormField } from "../../shared/components/FormField";
 import {
   getDateConstraints,
   validateAmount,
