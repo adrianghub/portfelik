@@ -38,16 +38,14 @@ service cloud.firestore {
     }
 
     match /categories/{categoryId} {
-      allow read: if isAuthenticated() &&
-         request.auth.uid == resource.data.userId ||
-         isAdmin();
+      allow read: if isAuthenticated();
 
       allow create: if isAuthenticated() &&
-        ((request.resource.data.isDefault == true && isAdmin()) ||
+        (isAdmin() ||
           request.auth.uid == request.resource.data.userId);
 
       allow update, delete: if isAuthenticated() &&
-        ((resource.data.isDefault == true && isAdmin()) ||
+        (isAdmin() ||
             request.auth.uid == resource.data.userId);
     }
   }

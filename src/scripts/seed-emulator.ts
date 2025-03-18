@@ -1,100 +1,285 @@
-import { addDoc, collection, doc, getDocs, setDoc } from "firebase/firestore";
+import {
+  createUserWithEmailAndPassword,
+  getAuth,
+  signInWithEmailAndPassword,
+} from "firebase/auth";
+import {
+  addDoc,
+  collection,
+  doc,
+  getDocs,
+  setDoc,
+  writeBatch,
+} from "firebase/firestore";
 import { db } from "../lib/firebase/firebase";
 
-// Default categories with simplified structure
 const DEFAULT_CATEGORIES = [
-  // Income categories
-  { name: "Salary", type: "income", isDefault: true },
-  { name: "Freelance", type: "income", isDefault: true },
-  { name: "Investment", type: "income", isDefault: true },
-  { name: "Gift", type: "income", isDefault: true },
-
-  // Expense categories
-  { name: "Food & Groceries", type: "expense", isDefault: true },
-  { name: "Housing & Rent", type: "expense", isDefault: true },
-  { name: "Utilities", type: "expense", isDefault: true },
-  { name: "Transportation", type: "expense", isDefault: true },
-  { name: "Entertainment", type: "expense", isDefault: true },
-  { name: "Healthcare", type: "expense", isDefault: true },
-  { name: "Education", type: "expense", isDefault: true },
-  { name: "Shopping", type: "expense", isDefault: true },
-  { name: "Travel", type: "expense", isDefault: true },
+  { id: "salary", name: "Salary", type: "income" },
+  { id: "freelance", name: "Freelance", type: "income" },
+  { id: "investment", name: "Investment", type: "income" },
+  { id: "gift", name: "Gift", type: "income" },
+  { id: "food", name: "Food & Groceries", type: "expense" },
+  { id: "housing", name: "Housing & Rent", type: "expense" },
+  { id: "utilities", name: "Utilities", type: "expense" },
+  {
+    id: "transportation",
+    name: "Transportation",
+    type: "expense",
+  },
+  {
+    id: "entertainment",
+    name: "Entertainment",
+    type: "expense",
+  },
+  { id: "healthcare", name: "Healthcare", type: "expense" },
+  { id: "education", name: "Education", type: "expense" },
+  { id: "shopping", name: "Shopping", type: "expense" },
+  { id: "travel", name: "Travel", type: "expense" },
 ];
 
-// Sample transactions for test user
 const SAMPLE_TRANSACTIONS = [
   {
     amount: 5000,
     description: "Monthly Salary",
-    categoryId: "salary", // This will be replaced with actual category ID
-    date: new Date(2023, 2, 1), // March 1, 2023
+    categoryId: "salary",
+    date: new Date(2025, 2, 1).toISOString(),
+    type: "income",
   },
   {
     amount: -120,
     description: "Grocery Shopping",
-    categoryId: "food", // This will be replaced with actual category ID
-    date: new Date(2023, 2, 5), // March 5, 2023
+    categoryId: "food",
+    date: new Date(2025, 2, 5).toISOString(),
+    type: "expense",
   },
   {
     amount: -50,
     description: "Gas Bill",
-    categoryId: "utilities", // This will be replaced with actual category ID
-    date: new Date(2023, 2, 10), // March 10, 2023
+    categoryId: "utilities",
+    date: new Date(2025, 2, 10).toISOString(),
+    type: "expense",
   },
 ];
+
+// Test user credentials
+const TEST_USER = {
+  email: "test@example.com",
+  password: "testuser123",
+  role: "user",
+};
+
+const ADMIN_USER = {
+  email: "admin@example.com",
+  password: "adminuser123",
+  role: "admin",
+};
 
 async function seedEmulator() {
   console.log("Starting emulator seeding process...");
 
-  // Create test users
-  const testUserId = await createTestUser();
-  await createAdminUser(); // Don't store the unused variable
+  await clearExistingData();
 
-  // Create categories
-  const categoryMap = await createCategories();
+  let adminUserId = "";
+  try {
+    const auth = getAuth();
+    try {
+      const credential = await signInWithEmailAndPassword(
+        auth,
+        ADMIN_USER.email,
+        ADMIN_USER.password,
+      );
+      console.log("Admin user already exists, signed in as admin");
+      adminUserId = credential.user.uid;
+    } catch {
+      adminUserId = await createAdminUser();
+      await signInWithEmailAndPassword(
+        auth,
+        ADMIN_USER.email,
+        ADMIN_USER.password,
+      );
+      console.log("Created admin user and signed in");
+    }
+  } catch (error) {
+    console.error("Error signing in as admin:", error);
+    throw new Error("Failed to sign in as admin, cannot proceed with seeding");
+  }
 
-  // Create transactions for test user
+  let testUserId = "";
+  try {
+    const auth = getAuth();
+    try {
+      const credential = await signInWithEmailAndPassword(
+        auth,
+        TEST_USER.email,
+        TEST_USER.password,
+      );
+      console.log("Test user already exists, reusing it");
+      testUserId = credential.user.uid;
+    } catch {
+      testUserId = await createTestUser();
+    }
+  } catch (error) {
+    console.error("Error with test user:", error);
+    throw new Error("Failed to create or retrieve test user");
+  }
+
+  try {
+    const auth = getAuth();
+    await signInWithEmailAndPassword(
+      auth,
+      ADMIN_USER.email,
+      ADMIN_USER.password,
+    );
+  } catch (error) {
+    console.error("Error signing back in as admin:", error);
+    throw new Error("Failed to sign back in as admin");
+  }
+
+  const categoryMap = await createCategories(adminUserId);
+
+  try {
+    const auth = getAuth();
+    await signInWithEmailAndPassword(auth, TEST_USER.email, TEST_USER.password);
+  } catch (error) {
+    console.error("Error signing in as test user:", error);
+    throw new Error("Failed to sign in as test user");
+  }
+
   await createTransactions(testUserId, categoryMap);
 
   console.log("Emulator seeding completed successfully!");
+  console.log("\nTest user credentials:");
+  console.log(`- Email: ${TEST_USER.email}`);
+  console.log(`- Password: ${TEST_USER.password}`);
+  console.log("\nAdmin user credentials:");
+  console.log(`- Email: ${ADMIN_USER.email}`);
+  console.log(`- Password: ${ADMIN_USER.password}`);
+}
+
+async function clearExistingData() {
+  console.log("Clearing existing data...");
+
+  const collections = ["categories", "transactions"];
+
+  for (const collectionName of collections) {
+    try {
+      console.log(`Clearing ${collectionName} collection...`);
+      const collectionRef = collection(db, collectionName);
+      const snapshot = await getDocs(collectionRef);
+
+      const batchSize = 500;
+      let batch = writeBatch(db);
+      let count = 0;
+
+      for (const document of snapshot.docs) {
+        batch.delete(doc(db, collectionName, document.id));
+        count++;
+
+        if (count >= batchSize) {
+          await batch.commit();
+          batch = writeBatch(db);
+          count = 0;
+        }
+      }
+
+      if (count > 0) {
+        await batch.commit();
+      }
+
+      console.log(`Deleted ${snapshot.size} documents from ${collectionName}`);
+    } catch (error) {
+      console.error(`Error clearing ${collectionName} collection:`, error);
+    }
+  }
+
+  console.log("Data clearing completed (users preserved).");
 }
 
 async function createTestUser(): Promise<string> {
   console.log("Creating test user...");
-  const userRef = doc(db, "users", "test-user-id");
 
-  await setDoc(userRef, {
-    email: "test@example.com",
-    role: "user",
-    createdAt: new Date(),
-    lastLoginAt: new Date(),
-  });
+  try {
+    // Create the authentication user
+    const auth = getAuth();
+    const userCredential = await createUserWithEmailAndPassword(
+      auth,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
 
-  console.log("Test user created with ID:", userRef.id);
-  return userRef.id;
+    const userId = userCredential.user.uid;
+
+    // Create the user document in Firestore
+    const userRef = doc(db, "users", userId);
+    await setDoc(userRef, {
+      email: TEST_USER.email,
+      role: TEST_USER.role,
+      createdAt: new Date(),
+      lastLoginAt: new Date(),
+    });
+
+    console.log("Test user created with ID:", userId);
+    return userId;
+  } catch (error) {
+    console.error("Error creating test user:", error);
+    const userCollectionRef = collection(db, "users");
+    const userDocRef = await addDoc(userCollectionRef, {
+      email: TEST_USER.email,
+      role: TEST_USER.role,
+      createdAt: new Date(),
+      lastLoginAt: new Date(),
+    });
+    console.log("Test user document created with ID:", userDocRef.id);
+    return userDocRef.id;
+  }
 }
 
 async function createAdminUser(): Promise<string> {
   console.log("Creating admin user...");
-  const userRef = doc(db, "users", "admin-user-id");
 
-  await setDoc(userRef, {
-    email: "admin@example.com",
-    role: "admin",
-    createdAt: new Date(),
-    lastLoginAt: new Date(),
-  });
+  try {
+    const auth = getAuth();
+    const userCredential = await createUserWithEmailAndPassword(
+      auth,
+      ADMIN_USER.email,
+      ADMIN_USER.password,
+    );
 
-  console.log("Admin user created with ID:", userRef.id);
-  return userRef.id;
+    const userId = userCredential.user.uid;
+
+    const userRef = doc(db, "users", userId);
+    await setDoc(userRef, {
+      email: ADMIN_USER.email,
+      role: ADMIN_USER.role,
+      isAdmin: true,
+      createdAt: new Date(),
+      lastLoginAt: new Date(),
+    });
+
+    console.log("Admin user created with ID:", userId);
+    return userId;
+  } catch (error) {
+    console.error("Error creating admin user:", error);
+    const userCollectionRef = collection(db, "users");
+    const userDocRef = await addDoc(userCollectionRef, {
+      email: ADMIN_USER.email,
+      role: ADMIN_USER.role,
+      isAdmin: true,
+      createdAt: new Date(),
+      lastLoginAt: new Date(),
+    });
+    console.log("Admin user document created with ID:", userDocRef.id);
+    return userDocRef.id;
+  }
 }
 
-async function createCategories(): Promise<Record<string, string>> {
+async function createCategories(
+  adminUserId: string,
+): Promise<Record<string, string>> {
   console.log("Creating default categories...");
   const categoriesRef = collection(db, "categories");
   const categoryMap: Record<string, string> = {};
 
-  // Check if categories already exist
   const querySnapshot = await getDocs(categoriesRef);
   if (!querySnapshot.empty) {
     console.log(
@@ -109,14 +294,16 @@ async function createCategories(): Promise<Record<string, string>> {
     try {
       const docRef = await addDoc(categoriesRef, {
         ...category,
-        userId: null, // null userId for default categories
+        userId: adminUserId,
         createdAt: now,
         updatedAt: now,
       });
 
-      // Store the category ID by its name (lowercase, no spaces)
-      const key = category.name.toLowerCase().replace(/[^a-z0-9]/g, "");
-      categoryMap[key] = docRef.id;
+      const keyById = category.id.toLowerCase();
+      const keyByName = category.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+      categoryMap[keyById] = docRef.id;
+      categoryMap[keyByName] = docRef.id;
 
       console.log(`Added category: ${category.name} with ID: ${docRef.id}`);
     } catch (error) {
@@ -137,10 +324,19 @@ async function createTransactions(
 
   for (const transaction of SAMPLE_TRANSACTIONS) {
     try {
-      // Map the category ID placeholder to the actual category ID
+      // Find the categoryId in the map by name
       let categoryId = transaction.categoryId;
-      if (categoryMap[categoryId]) {
-        categoryId = categoryMap[categoryId];
+      const normalizedCategoryId = categoryId.toLowerCase();
+
+      if (categoryMap[normalizedCategoryId]) {
+        categoryId = categoryMap[normalizedCategoryId];
+        console.log(
+          `Mapped category '${transaction.categoryId}' to ID: ${categoryId}`,
+        );
+      } else {
+        console.warn(
+          `Warning: Category '${transaction.categoryId}' not found in category map, using as-is.`,
+        );
       }
 
       const docRef = await addDoc(transactionsRef, {
@@ -163,10 +359,21 @@ async function createTransactions(
   }
 }
 
-// Run the seed function
 seedEmulator()
   .then(() => {
-    console.log("Emulator seed script completed.");
+    console.log("\n======================================================");
+    console.log("🎉 Emulator seed script completed successfully!");
+    console.log("======================================================");
+    console.log("\n📝 Test user credentials:");
+    console.log(`   Email: ${TEST_USER.email}`);
+    console.log(`   Password: ${TEST_USER.password}`);
+    console.log("\n👑 Admin user credentials:");
+    console.log(`   Email: ${ADMIN_USER.email}`);
+    console.log(`   Password: ${ADMIN_USER.password}`);
+    console.log("\n▶️ To start the emulators and app:");
+    console.log("   npm run dev:all");
+    console.log("\n🔑 Login with the credentials above");
+    console.log("======================================================");
     process.exit(0);
   })
   .catch((error) => {

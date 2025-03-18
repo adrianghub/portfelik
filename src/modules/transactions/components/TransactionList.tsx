@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { userService } from "@/modules/admin/users/UserService";
+import { useFetchCategories } from "@/modules/shared/useCategoriesQuery";
 import type { Transaction } from "@/modules/transactions/transaction";
 import { useDeleteTransaction } from "@/modules/transactions/useTransactionsQuery";
 import { useEffect, useState } from "react";
@@ -19,6 +20,8 @@ export function TransactionList({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [userEmails, setUserEmails] = useState<Record<string, string>>({});
   const [loadingUsers, setLoadingUsers] = useState<boolean>(false);
+  const { data: categories = [], isLoading: loadingCategories } =
+    useFetchCategories();
 
   useEffect(() => {
     if (!showUserInfo) return;
@@ -80,6 +83,13 @@ export function TransactionList({
     return date;
   };
 
+  // Get category name from categoryId
+  const getCategoryName = (categoryId: string): string => {
+    if (loadingCategories) return "Loading...";
+    const category = categories.find((cat) => cat.id === categoryId);
+    return category ? category.name : "Unknown category";
+  };
+
   return (
     <div className="space-y-4">
       {transactions.map((transaction) => (
@@ -91,6 +101,9 @@ export function TransactionList({
             <p className="font-medium">{transaction.description}</p>
             <p className="text-sm text-gray-500">
               {formatDate(transaction.date)}
+            </p>
+            <p className="text-xs text-gray-500">
+              {getCategoryName(transaction.categoryId)}
             </p>
             {showUserInfo && transaction.userId && (
               <p className="text-xs text-gray-400 mt-1">

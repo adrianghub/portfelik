@@ -1,5 +1,6 @@
 import { COLLECTIONS, FirestoreService } from "@/lib/firebase/firestore";
 import type { Transaction } from "@/modules/transactions/transaction";
+import dayjs from "dayjs";
 import { orderBy, QueryConstraint, where } from "firebase/firestore";
 
 export class TransactionService extends FirestoreService<Transaction> {
@@ -12,14 +13,24 @@ export class TransactionService extends FirestoreService<Transaction> {
   }
 
   async create(transaction: Omit<Transaction, "id">): Promise<Transaction> {
-    return super.create(transaction);
+    // Ensure date is in ISO string format
+    const transactionWithFormattedDate = {
+      ...transaction,
+      date: dayjs(transaction.date).toISOString(),
+    };
+    return super.create(transactionWithFormattedDate);
   }
 
   async update(
     id: string,
     updates: Partial<Transaction>,
   ): Promise<Transaction> {
-    return super.update(id, updates);
+    // Ensure date is in ISO string format if it's being updated
+    const updatesWithFormattedDate = {
+      ...updates,
+      ...(updates.date && { date: dayjs(updates.date).toISOString() }),
+    };
+    return super.update(id, updatesWithFormattedDate);
   }
 
   async delete(id: string): Promise<void> {
@@ -48,8 +59,8 @@ export class TransactionService extends FirestoreService<Transaction> {
   ): Promise<Transaction[]> {
     const constraints: QueryConstraint[] = [
       where("userId", "==", userId),
-      where("date", ">=", startDate),
-      where("date", "<=", endDate),
+      where("date", ">=", dayjs(startDate).toISOString()),
+      where("date", "<=", dayjs(endDate).toISOString()),
       orderBy("date", "desc"),
     ];
 
@@ -61,8 +72,8 @@ export class TransactionService extends FirestoreService<Transaction> {
     endDate: Date,
   ): Promise<Transaction[]> {
     const constraints: QueryConstraint[] = [
-      where("date", ">=", startDate),
-      where("date", "<=", endDate),
+      where("date", ">=", dayjs(startDate).toISOString()),
+      where("date", "<=", dayjs(endDate).toISOString()),
       orderBy("date", "desc"),
     ];
 

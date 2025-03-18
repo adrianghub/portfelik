@@ -47,7 +47,7 @@ export function TransactionForm({
       description: initialValues?.description ?? "",
       date: initialValues?.date ?? formatDate(dayjs()),
       type: initialValues?.type ?? ("expense" as const),
-      category: initialValues?.category ?? "",
+      categoryId: initialValues?.categoryId ?? "",
     },
     onSubmit: ({ value }) => {
       onSubmit(value);
@@ -171,14 +171,14 @@ export function TransactionForm({
         </form.Field>
 
         <form.Field
-          name="category"
+          name="categoryId"
           validators={{
             onChange: ({ value }) => validateCategory(value),
           }}
         >
           {(field) => (
             <FormField
-              name="category"
+              name="categoryId"
               label="Category"
               error={field.state.meta.errors?.[0]}
             >

@@ -4,6 +4,6 @@ export interface Transaction {
   description: string;
   date: string;
   type: "income" | "expense";
-  category: string;
+  categoryId: string;
   userId?: string;
 }
