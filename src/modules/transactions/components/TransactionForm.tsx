@@ -41,12 +41,16 @@ export function TransactionForm({
     initialValues?.type ?? "expense",
   );
 
+  console.log("initialValues", initialValues);
+
   const form = useForm({
     defaultValues: {
       amount: initialValues?.amount ?? 0,
       description: initialValues?.description ?? "",
-      date: initialValues?.date ?? formatDate(dayjs()),
-      type: initialValues?.type ?? ("expense" as const),
+      date: initialValues?.date
+        ? formatDate(dayjs(initialValues.date))
+        : formatDate(dayjs()),
+      type: initialValues?.type ?? "expense",
       categoryId: initialValues?.categoryId ?? "",
     },
     onSubmit: ({ value }) => {
@@ -163,7 +167,7 @@ export function TransactionForm({
                 type="date"
                 min={minDate}
                 max={maxDate}
-                value={field.state.value || ""}
+                value={field.state.value}
                 onChange={(e) => field.handleChange(e.target.value)}
               />
             </FormField>

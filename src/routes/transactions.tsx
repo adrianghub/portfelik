@@ -8,7 +8,7 @@ import {
   getMonthName,
 } from "@/modules/transactions/components/DateRangeFilter";
 import { TransactionDialog } from "@/modules/transactions/components/TransactionDialog";
-import { TransactionList } from "@/modules/transactions/components/TransactionList";
+import { TransactionTable } from "@/modules/transactions/components/TransactionTable";
 import type { Transaction } from "@/modules/transactions/transaction";
 import {
   useAddTransaction,
@@ -161,13 +161,11 @@ function Transactions() {
           </Button>
         </div>
       ) : hasTransactions ? (
-        <div className="bg-white shadow rounded-lg p-4 md:p-6">
-          <TransactionList
-            transactions={transactions}
-            onEdit={handleOpenDialog}
-            showUserInfo={isAdmin}
-          />
-        </div>
+        <TransactionTable
+          transactions={transactions}
+          onEdit={handleOpenDialog}
+          showUserInfo={isAdmin}
+        />
       ) : (
         <div className="bg-white shadow rounded-lg p-4 md:p-6 flex flex-col items-center justify-center">
           <p className="text-gray-500 text-center py-6">

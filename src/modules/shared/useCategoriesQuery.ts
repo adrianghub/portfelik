@@ -44,8 +44,6 @@ export function useAddCategory() {
         throw new Error("User not authenticated");
       }
 
-      console.log("Adding category:", category);
-
       const firestoreCategory = uiCategoryToFirestoreCategory(category, userId);
 
       const categoryToSave = { ...firestoreCategory };

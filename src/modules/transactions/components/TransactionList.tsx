@@ -1,9 +1,9 @@
 import { Button } from "@/components/ui/button";
+import { formatDate } from "@/lib/date-utils";
 import { userService } from "@/modules/admin/users/UserService";
 import { useFetchCategories } from "@/modules/shared/useCategoriesQuery";
 import type { Transaction } from "@/modules/transactions/transaction";
 import { useDeleteTransaction } from "@/modules/transactions/useTransactionsQuery";
-import dayjs from "dayjs";
 import { useEffect, useState } from "react";
 
 interface TransactionListProps {
@@ -72,10 +72,6 @@ export function TransactionList({
         setDeletingId(null);
       },
     });
-  };
-
-  const formatDate = (dateString: string): string => {
-    return dayjs(dateString).format("YYYY-MM-DD");
   };
 
   const getCategoryName = (categoryId: string): string => {
