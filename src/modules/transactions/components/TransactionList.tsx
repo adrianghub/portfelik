@@ -3,6 +3,7 @@ import { userService } from "@/modules/admin/users/UserService";
 import { useFetchCategories } from "@/modules/shared/useCategoriesQuery";
 import type { Transaction } from "@/modules/transactions/transaction";
 import { useDeleteTransaction } from "@/modules/transactions/useTransactionsQuery";
+import dayjs from "dayjs";
 import { useEffect, useState } from "react";
 
 interface TransactionListProps {
@@ -30,9 +31,7 @@ export function TransactionList({
       setLoadingUsers(true);
 
       const userIds = [
-        ...new Set(
-          transactions.filter((t) => t.userId).map((t) => t.userId as string),
-        ),
+        ...new Set(transactions.filter((t) => t.userId).map((t) => t.userId!)),
       ];
 
       if (userIds.length === 0) {
@@ -75,15 +74,10 @@ export function TransactionList({
     });
   };
 
-  // Format date to string if it's a Date object
-  const formatDate = (date: string | Date): string => {
-    if (date instanceof Date) {
-      return date.toISOString().split("T")[0]; // Format as YYYY-MM-DD
-    }
-    return date;
+  const formatDate = (dateString: string): string => {
+    return dayjs(dateString).format("YYYY-MM-DD");
   };
 
-  // Get category name from categoryId
   const getCategoryName = (categoryId: string): string => {
     if (loadingCategories) return "Loading...";
     const category = categories.find((cat) => cat.id === categoryId);

@@ -20,7 +20,6 @@ const colors = {
   cyan: '\x1b[36m',
 };
 
-// Helper function to execute commands
 function runCommand(command, errorMessage) {
   try {
     console.log(`${colors.blue}Running: ${command}${colors.reset}`);
@@ -33,7 +32,6 @@ function runCommand(command, errorMessage) {
   }
 }
 
-// Check if Firebase CLI is installed
 try {
   execSync('firebase --version', { stdio: 'ignore' });
 } catch (error) {
@@ -42,7 +40,6 @@ try {
   process.exit(1);
 }
 
-// Check if user is logged in to Firebase
 try {
   execSync('firebase projects:list', { stdio: 'ignore' });
 } catch (error) {
@@ -51,7 +48,6 @@ try {
   process.exit(1);
 }
 
-// Build the application
 console.log(`${colors.magenta}Building the application...${colors.reset}`);
 if (!runCommand('npm run build', 'Failed to build the application')) {
   process.exit(1);
@@ -63,13 +59,11 @@ if (!runCommand('firebase deploy --only firestore:rules', 'Failed to deploy Fire
   process.exit(1);
 }
 
-// Deploy Firestore indexes
 console.log(`${colors.magenta}Deploying Firestore indexes...${colors.reset}`);
 if (!runCommand('firebase deploy --only firestore:indexes', 'Failed to deploy Firestore indexes')) {
   process.exit(1);
 }
 
-// Deploy hosting
 console.log(`${colors.magenta}Deploying hosting...${colors.reset}`);
 if (!runCommand('firebase deploy --only hosting', 'Failed to deploy hosting')) {
   process.exit(1);
