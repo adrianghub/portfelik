@@ -1,0 +1,45 @@
+@layer base {
+  h1 {
+    @apply !text-4xl md:!text-5xl font-bold tracking-tight;
+  }
+
+  h2 {
+    @apply !text-3xl sm:!text-4xl font-semibold tracking-tight;
+  }
+
+  h3 {
+    @apply !text-2xl sm:!text-3xl font-semibold;
+  }
+
+  h4 {
+    @apply !text-xl sm:!text-2xl font-semibold;
+  }
+
+  h5 {
+    @apply !text-lg sm:!text-xl font-medium;
+  }
+
+  h6 {
+    @apply !text-base sm:!text-lg font-medium;
+  }
+
+  p {
+    @apply !text-base sm:!text-lg leading-relaxed;
+  }
+
+  span {
+    @apply !text-base sm:!text-lg;
+  }
+
+  .text-small {
+    @apply !text-sm sm:!text-base;
+  }
+
+  .text-large {
+    @apply !text-lg sm:!text-xl;
+  }
+
+  .text-extra-large {
+    @apply !text-xl sm:!text-2xl;
+  }
+}

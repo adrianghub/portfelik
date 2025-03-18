@@ -8,6 +8,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Category } from "@/modules/shared/category";
+import { Plus } from "lucide-react";
 import { useState } from "react";
 import { useCategoriesContext } from "../useCategoriesContext";
 
@@ -60,9 +61,10 @@ export function CategoryForm() {
         <Button
           onClick={handleAddCategory}
           disabled={!newCategory.name.trim()}
-          className="w-full"
+          className="flex items-center gap-1"
         >
-          Add
+          <Plus className="h-4 w-4" />
+          <span className="hidden sm:inline">Add</span>
         </Button>
       </div>
     </div>

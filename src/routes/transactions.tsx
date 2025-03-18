@@ -105,11 +105,8 @@ function Transactions() {
       <div className="mb-6">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4">
           <div className="mb-3 sm:mb-0">
-            <h1 className="text-2xl font-bold flex items-center flex-wrap">
+            <h1 className="flex items-center flex-wrap">
               {isAdmin ? "All Transactions" : "My Transactions"}
-              <span className="text-gray-500 text-xl ml-2">
-                ({currentMonthName})
-              </span>
             </h1>
             {isAdmin && (
               <p className="text-sm text-gray-500 mt-1">
@@ -117,32 +114,38 @@ function Transactions() {
               </p>
             )}
           </div>
-          <div className="flex gap-2 self-start sm:self-auto">
-            <Button
-              onClick={handleRefresh}
-              disabled={isLoading}
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-            >
-              <RefreshCw
-                className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
-              />
-              <span className="hidden sm:inline">Refresh</span>
-            </Button>
-            <Button
-              onClick={() => handleOpenDialog()}
-              className="flex items-center gap-1"
-              size="sm"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Add Transaction</span>
-              <span className="sm:hidden">Add</span>
-            </Button>
+          <div className="flex">
+            <div className="flex gap-2 self-start sm:self-auto mr-auto">
+              <Button
+                onClick={handleRefresh}
+                disabled={isLoading}
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
+                />
+                <span className="hidden sm:inline">Refresh</span>
+              </Button>
+              <Button
+                onClick={() => handleOpenDialog()}
+                className="flex items-center gap-1"
+                size="sm"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Add Transaction</span>
+                <span className="sm:hidden">Add</span>
+              </Button>
+            </div>
+
+            <div className="sm:hidden">
+              <DateRangeFilter onDateRangeChange={handleDateRangeChange} />
+            </div>
           </div>
         </div>
 
-        <div className="w-full">
+        <div className="hidden sm:block">
           <DateRangeFilter onDateRangeChange={handleDateRangeChange} />
         </div>
       </div>
