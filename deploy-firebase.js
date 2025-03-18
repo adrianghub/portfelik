@@ -7,9 +7,7 @@
  * Run with: node deploy-firebase.js
  */
 
-const { execSync } = require('child_process');
-const fs = require('fs');
-const path = require('path');
+import { execSync } from 'child_process';
 
 // Colors for console output
 const colors = {
