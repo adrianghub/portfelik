@@ -54,7 +54,12 @@ export function TransactionForm({
       categoryId: initialValues?.categoryId ?? "",
     },
     onSubmit: ({ value }) => {
-      onSubmit(value);
+      const selectedDate = dayjs.utc(value.date).toISOString();
+
+      onSubmit({
+        ...value,
+        date: selectedDate,
+      });
     },
   });
 
