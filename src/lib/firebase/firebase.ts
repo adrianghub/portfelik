@@ -8,6 +8,7 @@ import {
   User,
 } from "firebase/auth";
 import { connectFirestoreEmulator, getFirestore } from "firebase/firestore";
+import { connectFunctionsEmulator, getFunctions } from "firebase/functions";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -22,13 +23,26 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const functions = getFunctions(app);
 
 // Connect to emulators in development mode
 const isDevelopment = import.meta.env.DEV;
 if (isDevelopment) {
-  connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
-  connectFirestoreEmulator(db, "127.0.0.1", 8080);
+  const EMULATOR_HOST = "127.0.0.1";
+  const AUTH_PORT = 9099;
+  const FIRESTORE_PORT = 8080;
+  const FUNCTIONS_PORT = 5001;
+
+  connectAuthEmulator(auth, `http://${EMULATOR_HOST}:${AUTH_PORT}`, {
+    disableWarnings: true,
+  });
+  connectFirestoreEmulator(db, EMULATOR_HOST, FIRESTORE_PORT);
+  connectFunctionsEmulator(functions, EMULATOR_HOST, FUNCTIONS_PORT);
+
   console.log("Using Firebase emulators in development mode");
+  console.log(`Auth emulator: http://${EMULATOR_HOST}:${AUTH_PORT}`);
+  console.log(`Firestore emulator: ${EMULATOR_HOST}:${FIRESTORE_PORT}`);
+  console.log(`Functions emulator: ${EMULATOR_HOST}:${FUNCTIONS_PORT}`);
 }
 
 /**
