@@ -5,6 +5,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles/index.css";
 
+import { registerServiceWorker } from "@/lib/service-worker";
 import { AuthProvider } from "./lib/AuthContext";
 import { routeTree } from "./routeTree.gen";
 
@@ -23,6 +24,14 @@ declare module "@tanstack/react-router" {
   interface Register {
     router: typeof router;
   }
+}
+
+const sw = await registerServiceWorker();
+
+if (sw) {
+  console.log("Service worker registered");
+} else {
+  console.log("Service worker not registered");
 }
 
 const rootElement = document.getElementById("root")!;

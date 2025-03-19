@@ -47,7 +47,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setCurrentUser(user);
 
       if (user) {
-        // Get user document from Firestore
         const userRef = doc(db, "users", user.uid);
         const userSnap = await getDoc(userRef);
 

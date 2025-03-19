@@ -5,7 +5,6 @@ import { saveFCMToken } from "@/lib/notifications";
 import {
   checkNotificationSupport,
   getFCMToken,
-  registerServiceWorker,
   requestNotificationPermission,
 } from "@/lib/service-worker";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -38,9 +37,6 @@ function useNotificationSetup() {
       setNotificationPermission(granted ? "granted" : "denied");
 
       if (granted) {
-        const registration = await registerServiceWorker();
-        if (!registration) throw new Error("Failed to register service worker");
-
         const token = await getFCMToken();
         if (token) await saveFCMToken(token);
       } else {
