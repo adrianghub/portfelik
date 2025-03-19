@@ -11,8 +11,8 @@ import {
 import { Link, useNavigate } from "@tanstack/react-router";
 import { LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
-import { MobileMenu } from "./navigation/MobileMenu";
-import { NavigationLinks } from "./navigation/NavigationLinks";
+import { MobileMenu } from "./MobileMenu";
+import { NavigationLinks } from "./NavigationLinks";
 import { NotificationButton } from "./NotificationButton";
 
 /**
@@ -21,20 +21,14 @@ import { NotificationButton } from "./NotificationButton";
 function useNotificationSetup() {
   const [notificationPermission, setNotificationPermission] =
     useState<NotificationPermission>(Notification.permission);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const { permission, reason } = checkNotificationSupport();
+    const { permission } = checkNotificationSupport();
     setNotificationPermission(permission);
-    if (reason) {
-      setError(reason);
-    }
   }, []);
 
   const handleNotificationPermission = async () => {
     try {
-      setError(null);
-
       if (notificationPermission === "granted") {
         console.log("Notifications are already enabled.");
         return;
@@ -45,35 +39,27 @@ function useNotificationSetup() {
 
       if (granted) {
         const registration = await registerServiceWorker();
-        if (!registration) {
-          throw new Error("Failed to register service worker");
-        }
+        if (!registration) throw new Error("Failed to register service worker");
 
         const token = await getFCMToken();
-        if (token) {
-          await saveFCMToken(token);
-        }
+        if (token) await saveFCMToken(token);
       } else {
-        setError("Please enable notifications in your browser settings.");
+        alert("Please enable notifications in your browser settings.");
       }
     } catch (error) {
       console.error("Error enabling notifications:", error);
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Failed to enable notifications.",
-      );
+      alert("Failed to enable notifications.");
     }
   };
 
-  return { notificationPermission, handleNotificationPermission, error };
+  return { notificationPermission, handleNotificationPermission };
 }
 
 export function Navigation() {
   const { isAuthenticated, userData } = useAuth();
   const navigate = useNavigate();
   const isAdmin = userData?.role === "admin";
-  const { notificationPermission, handleNotificationPermission, error } =
+  const { notificationPermission, handleNotificationPermission } =
     useNotificationSetup();
 
   const handleLogout = async () => {
@@ -99,7 +85,6 @@ export function Navigation() {
                 <NotificationButton
                   permission={notificationPermission}
                   onClick={handleNotificationPermission}
-                  error={error}
                 />
               )}
               {isAuthenticated ? (
