@@ -139,14 +139,14 @@ async function sendTransactionSummaryFunction() {
 
 export const sendTransactionSummary = onSchedule(
   "every 24 hours",
-  async (event) => {
+  async (_event) => {
     await sendTransactionSummaryFunction();
   },
 );
 
 export const sendTransactionSummaryManual = onRequest(
   { cors: true },
-  async (req, res) => {
+  async (_req, res) => {
     try {
       await sendTransactionSummaryFunction();
       res.json({
