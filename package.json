@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "vite",
     "dev:emulators": "firebase emulators:start --import=./firebase-data --export-on-exit=./firebase-data",
-    "dev:all": "concurrently \"npm run dev\" \"npm run dev:emulators\"",
+    "dev:functions": "cd functions && npm run build -- --watch",
+    "dev:all": "concurrently \"npm run dev\" \"npm run dev:emulators\" \"npm run dev:functions\"",
     "build": "tsc -b && vite build",
-    "deploy:force": "firebase deploy --force",
     "deploy:rules": "firebase deploy --only firestore:rules",
     "deploy": "node scripts/deploy-firebase",
     "config:prod": "firebase use production",
