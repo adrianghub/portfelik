@@ -69,4 +69,9 @@ if (!runCommand('firebase deploy --only hosting', 'Failed to deploy hosting')) {
   process.exit(1);
 }
 
+console.log(`${colors.magenta}Deploying functions...${colors.reset}`);
+if (!runCommand('firebase deploy --only functions', 'Failed to deploy functions')) {
+  process.exit(1);
+}
+
 console.log(`${colors.green}Deployment completed successfully!${colors.reset}`);
