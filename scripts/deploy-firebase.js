@@ -53,11 +53,6 @@ if (!runCommand('npm run build', 'Failed to build the application')) {
   process.exit(1);
 }
 
-console.log(`${colors.magenta}Installing firebase-tools...${colors.reset}`);
-if (!runCommand('npm install -g firebase-tools', 'Failed to install firebase-tools')) {
-  process.exit(1);
-}
-
 // Deploy Firestore security rules
 console.log(`${colors.magenta}Deploying Firestore security rules...${colors.reset}`);
 if (!runCommand('firebase deploy --only firestore:rules', 'Failed to deploy Firestore security rules')) {
