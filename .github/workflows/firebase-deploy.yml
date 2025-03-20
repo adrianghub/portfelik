@@ -17,7 +17,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -50,3 +50,37 @@ jobs:
         run: |
           export PATH="$PATH:$(npm bin -g)"
           npm run deploy
+
+      - name: Cleanup unused Docker images
+        run: |
+          # Install Google Cloud SDK if needed
+          if ! command -v gcloud &> /dev/null; then
+            echo "Installing gcloud CLI..."
+            curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-latest-linux-x86_64.tar.gz
+            tar -xf google-cloud-cli-latest-linux-x86_64.tar.gz
+            ./google-cloud-sdk/install.sh --quiet
+            export PATH="$PATH:$PWD/google-cloud-sdk/bin"
+          fi
+
+          # Authenticate with gcloud - already done above with google-github-actions/auth
+          gcloud config set project portfelik-888dd
+
+          # List and delete unused Artifact Registry images
+          echo "Cleaning up Artifact Registry images..."
+          gcloud artifacts docker images list us-central1-docker.pkg.dev/portfelik-888dd/gcf-artifacts --format="value(name)" | \
+          while read -r IMAGE; do
+            if [[ ! -z "$IMAGE" ]]; then
+              echo "Deleting $IMAGE"
+              gcloud artifacts docker images delete "$IMAGE" --quiet
+            fi
+          done
+
+          # List and delete unused Container Registry images
+          echo "Cleaning up Container Registry images..."
+          gcloud container images list --repository=gcr.io/portfelik-888dd --format="value(name)" | \
+          while read -r IMAGE; do
+            if [[ ! -z "$IMAGE" ]]; then
+              echo "Deleting $IMAGE"
+              gcloud container images delete "$IMAGE" --quiet
+            fi
+          done
