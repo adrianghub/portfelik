@@ -12,7 +12,17 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: "autoUpdate",
+      injectRegister: null,
+      // Use the existing sw.js file in the public directory
+      strategies: "injectManifest",
+      srcDir: "public",
+      filename: "sw.js",
+      // Specify the source and destination paths for the service worker
+      injectManifest: {
+        sourcemap: true,
+        swSrc: path.resolve(__dirname, "public/sw.js"),
+        swDest: path.resolve(__dirname, "dist/sw.js"),
+      },
       includeAssets: ["favicon.ico", "apple-touch-icon.png", "masked-icon.svg"],
       manifest: {
         name: "Portfelik",
@@ -32,23 +42,8 @@ export default defineConfig({
           },
         ],
       },
-      workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: "CacheFirst",
-            options: {
-              cacheName: "google-fonts-cache",
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
-              },
-            },
-          },
-        ],
-        cleanupOutdatedCaches: true,
-        skipWaiting: true,
+      devOptions: {
+        enabled: true,
       },
     }),
   ],

@@ -1,15 +1,9 @@
+// This line is required for vite-plugin-pwa using injectManifest strategy
+// It will be replaced by the generated precache manifest during build
+self.__WB_MANIFEST;
+
 // Service Worker Constants
 const CACHE_NAME = "portfelik-v1";
-const CACHE_URLS = [
-  "/",
-  "/index.html",
-  "/manifest.json",
-  "/icon-192x192.png",
-  "/icon-512x512.png",
-  "/masked-icon.svg",
-  "/apple-touch-icon.png",
-  "/favicon.ico",
-];
 
 // Firebase API Base URLs
 const LOCAL_API_BASE = "http://localhost:5001/portfelik-888dd/us-central1";
@@ -43,7 +37,10 @@ const DEFAULT_NOTIFICATION = {
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(CACHE_URLS))
+      .then((cache) => {
+        // Use the Workbox manifest for caching
+        return cache.addAll(self.__WB_MANIFEST);
+      })
       .then(() => self.skipWaiting())
       .catch((error) => console.error("[Service Worker] Caching failed:", error))
   );
