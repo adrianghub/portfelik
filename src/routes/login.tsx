@@ -3,7 +3,7 @@ import { LoginForm } from "@/modules/login/LoginForm";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/login")({
-  component: LoginPage,
+  component: LoginView,
   loader: async () => {
     const currentUser = await getCurrentUser();
 
@@ -14,6 +14,6 @@ export const Route = createFileRoute("/login")({
   },
 });
 
-function LoginPage() {
+function LoginView() {
   return <LoginForm />;
 }

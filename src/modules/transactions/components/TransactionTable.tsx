@@ -7,6 +7,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { cn } from "@/lib/cn";
 import { formatDate } from "@/lib/date-utils";
 import { userService } from "@/modules/admin/users/UserService";
 import { useFetchCategories } from "@/modules/shared/useCategoriesQuery";
@@ -194,9 +195,10 @@ export function TransactionTable({
                 {headerGroup.headers.map((header, index) => (
                   <TableHead
                     key={header.id}
-                    className={
-                      index === 0 ? "sticky left-0 bg-background z-10" : ""
-                    }
+                    className={cn(
+                      "text-sm font-medium",
+                      index === 0 && "sticky left-0 bg-background z-10",
+                    )}
                   >
                     {header.isPlaceholder
                       ? null
