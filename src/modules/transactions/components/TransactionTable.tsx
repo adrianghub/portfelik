@@ -27,12 +27,18 @@ interface TransactionTableProps {
   transactions: Transaction[];
   onEdit?: (transaction: Transaction) => void;
   showUserInfo?: boolean;
+  rowSelection: Record<string, boolean>;
+  setRowSelection: React.Dispatch<
+    React.SetStateAction<Record<string, boolean>>
+  >;
 }
 
 export function TransactionTable({
   transactions,
   onEdit,
   showUserInfo = false,
+  rowSelection,
+  setRowSelection,
 }: TransactionTableProps) {
   const deleteTransaction = useDeleteTransaction();
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -40,6 +46,10 @@ export function TransactionTable({
   const [loadingUsers, setLoadingUsers] = useState<boolean>(false);
   const { data: categories = [], isLoading: loadingCategories } =
     useFetchCategories();
+
+  const hasSelectedRows = Object.keys(rowSelection).some(
+    (id) => rowSelection[id],
+  );
 
   useEffect(() => {
     if (!showUserInfo) return;
@@ -102,6 +112,23 @@ export function TransactionTable({
   };
 
   const columns: ColumnDef<Transaction, unknown>[] = [
+    {
+      id: "select",
+      header: ({ table }) => (
+        <input
+          type="checkbox"
+          checked={table.getIsAllRowsSelected()}
+          onChange={table.getToggleAllRowsSelectedHandler()}
+        />
+      ),
+      cell: ({ row }) => (
+        <input
+          type="checkbox"
+          checked={row.getIsSelected()}
+          onChange={row.getToggleSelectedHandler()}
+        />
+      ),
+    },
     {
       accessorKey: "description",
       header: "Description",
@@ -187,32 +214,48 @@ export function TransactionTable({
   const table = useReactTable({
     data: transactions,
     columns,
+    getRowId: (row) => row.id ?? "",
+    state: {
+      rowSelection,
+    },
+    onRowSelectionChange: setRowSelection,
     getCoreRowModel: getCoreRowModel(),
   });
 
   return (
     <div className="rounded-md border isolate">
       <div className="relative w-full overflow-auto">
-        <Table>
+        <Table className="relative">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header, index) => (
-                  <TableHead
-                    key={header.id}
-                    className={cn(
-                      "text-sm font-medium",
-                      index === 0 && "sticky left-0 bg-background z-10",
-                    )}
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        )}
-                  </TableHead>
-                ))}
+                {headerGroup.headers.map((header, index) => {
+                  let stickyClass = "";
+
+                  if (hasSelectedRows) {
+                    if (index === 0) {
+                      stickyClass = "sticky left-0 bg-background z-20";
+                    } else if (index === 1) {
+                      stickyClass = "sticky left-[32px] bg-background z-10";
+                    }
+                  } else if (index === 1) {
+                    stickyClass = "sticky left-0 bg-background z-10";
+                  }
+
+                  return (
+                    <TableHead
+                      key={header.id}
+                      className={cn("text-sm font-medium", stickyClass)}
+                    >
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext(),
+                          )}
+                    </TableHead>
+                  );
+                })}
               </TableRow>
             ))}
           </TableHeader>
@@ -222,16 +265,38 @@ export function TransactionTable({
                 key={row.id}
                 data-state={row.getIsSelected() && "selected"}
               >
-                {row.getVisibleCells().map((cell, index) => (
-                  <TableCell
-                    key={cell.id}
-                    className={
-                      index === 0 ? "sticky left-0 bg-background z-10" : ""
+                {row.getVisibleCells().map((cell, index) => {
+                  let stickyClass = "";
+
+                  if (hasSelectedRows) {
+                    if (index === 0) {
+                      stickyClass = "sticky left-0 bg-background z-20";
+                    } else if (index === 1) {
+                      stickyClass = "sticky left-[32px] bg-background z-10";
                     }
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
+                  } else if (index === 1) {
+                    stickyClass = "sticky left-0 bg-background z-10";
+                  }
+
+                  return (
+                    <TableCell
+                      key={cell.id}
+                      className={stickyClass}
+                      onClick={(e) => {
+                        if (index !== 0) {
+                          e.stopPropagation();
+                        } else {
+                          row.getToggleSelectedHandler()(e);
+                        }
+                      }}
+                    >
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
+                    </TableCell>
+                  );
+                })}
               </TableRow>
             ))}
           </TableBody>

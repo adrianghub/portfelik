@@ -3,16 +3,18 @@ import { useAuth } from "@/lib/AuthContext";
 import { getFirstDayOfMonth, getLastDayOfMonth } from "@/lib/date-utils";
 import { logger } from "@/lib/logger";
 import { useQueryClient } from "@tanstack/react-query";
+import { Plus, RefreshCw } from "lucide-react";
 import { useCallback, useState } from "react";
 import type { Transaction } from "../transaction";
 import {
   useAddTransaction,
+  useDeleteTransaction,
   useTransactions,
   useUpdateTransaction,
 } from "../useTransactionsQuery";
-import { DateRange, DateRangeFilter, getMonthName } from "./DateRangeFilter";
+import { DateRange, getMonthName } from "./DateRangeFilter";
+import { TableFilters } from "./TableFilters";
 import { TransactionDialog } from "./TransactionDialog";
-import { TransactionHeaderButtons } from "./TransactionHeaderButtons";
 import { TransactionTable } from "./TransactionTable";
 
 export function TransactionsView() {
@@ -36,6 +38,7 @@ export function TransactionsView() {
 
   const addTransaction = useAddTransaction();
   const updateTransaction = useUpdateTransaction();
+  const deleteTransaction = useDeleteTransaction();
 
   const handleDateRangeChange = useCallback((newDateRange: DateRange) => {
     setDateRange(newDateRange);
@@ -102,6 +105,31 @@ export function TransactionsView() {
   const hasTransactions = transactions.length > 0;
   const currentMonthName = getMonthName(dateRange.start);
 
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
+
+  const handleBulkDelete = () => {
+    Object.keys(rowSelection).forEach((id) => {
+      if (rowSelection[id]) {
+        deleteTransaction.mutate(id, {
+          onSuccess: () => {
+            logger.info(
+              "TransactionsView",
+              `Transaction ${id} deleted successfully.`,
+            );
+          },
+          onError: (error) => {
+            logger.error(
+              "TransactionsView",
+              `Error deleting transaction ${id}:`,
+              error,
+            );
+          },
+        });
+      }
+    });
+    setRowSelection({});
+  };
+
   return (
     <div className="py-6 px-4 md:px-6">
       <div className="mb-6">
@@ -116,26 +144,36 @@ export function TransactionsView() {
               </p>
             )}
           </div>
-          <div className="flex">
-            <div className="sm:flex gap-2 hidden mr-auto">
-              <TransactionHeaderButtons
-                handleRefresh={handleRefresh}
-                handleOpenDialog={handleOpenDialog}
-                isLoading={isLoading}
-              />
-            </div>
-          </div>
         </div>
 
         <div className="flex items-center">
-          <DateRangeFilter onDateRangeChange={handleDateRangeChange} />
+          <TableFilters
+            onDateRangeChange={handleDateRangeChange}
+            rowSelection={rowSelection}
+            onBulkDelete={handleBulkDelete}
+            onUnselectAll={() => setRowSelection({})}
+          />
 
-          <div className="flex gap-2 self-auto ml-auto sm:hidden">
-            <TransactionHeaderButtons
-              handleRefresh={handleRefresh}
-              handleOpenDialog={handleOpenDialog}
-              isLoading={isLoading}
-            />
+          <div className="flex gap-2 ml-auto">
+            <Button
+              onClick={handleRefresh}
+              disabled={isLoading}
+              variant="outline"
+              className="flex items-center gap-1"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
+              />
+              <span className="hidden lg:inline">Refresh</span>
+            </Button>
+            <Button
+              onClick={() => handleOpenDialog()}
+              className="flex items-center gap-1"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden lg:inline">Add Transaction</span>
+              <span className="sm:hidden">Add</span>
+            </Button>
           </div>
         </div>
       </div>
@@ -158,6 +196,8 @@ export function TransactionsView() {
           transactions={transactions}
           onEdit={handleOpenDialog}
           showUserInfo={isAdmin}
+          rowSelection={rowSelection}
+          setRowSelection={setRowSelection}
         />
       ) : (
         <div className="bg-white shadow rounded-lg p-4 md:p-6 flex flex-col items-center justify-center">
