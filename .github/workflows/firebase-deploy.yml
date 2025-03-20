@@ -31,10 +31,10 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
 
-      - name: Verify Firebase Project
-        run: |
-          firebase projects:list
-          firebase use portfelik-888dd
+      # - name: Verify Firebase Project
+      #   run: |
+      #     firebase projects:list
+      #     firebase use portfelik-888dd
 
       - name: Build and Deploy
         env:
