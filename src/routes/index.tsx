@@ -7,9 +7,9 @@ export const Route = createFileRoute("/")({
     const sw = await registerServiceWorker();
 
     if (sw) {
-      console.log("Service worker registered");
+      console.log("[Service worker] - Registered");
     } else {
-      console.log("Service worker not registered");
+      console.log("[Service worker] - Not registered");
     }
 
     const currentUser = await getCurrentUser();

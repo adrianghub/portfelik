@@ -1,6 +1,7 @@
 import { getAuth, User } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "./firebase/firebase";
+import { logger } from "./logger";
 
 /**
  * Gets the current authenticated user
@@ -23,7 +24,7 @@ export async function saveFCMToken(token: string): Promise<void> {
   try {
     const user = getCurrentUser();
     if (!user) {
-      console.warn("[Notifications] No user logged in, cannot save FCM token.");
+      logger.warn("Notifications", "No user logged in, cannot save FCM token.");
       return;
     }
 
@@ -37,9 +38,9 @@ export async function saveFCMToken(token: string): Promise<void> {
       { merge: true },
     );
 
-    console.log("[Notifications] FCM token saved and notifications enabled.");
+    logger.info("Notifications", "FCM token saved and notifications enabled.");
   } catch (error) {
-    console.error("[Notifications] Error saving FCM token:", error);
+    logger.error("Notifications", "Error saving FCM token:", error);
     throw error;
   }
 }
@@ -51,8 +52,9 @@ export async function removeFCMToken(): Promise<void> {
   try {
     const user = getCurrentUser();
     if (!user) {
-      console.warn(
-        "[Notifications] No user logged in, cannot remove FCM token.",
+      logger.warn(
+        "Notifications",
+        "No user logged in, cannot remove FCM token.",
       );
       return;
     }
@@ -67,11 +69,12 @@ export async function removeFCMToken(): Promise<void> {
       { merge: true },
     );
 
-    console.log(
-      "[Notifications] FCM token removed and notifications disabled.",
+    logger.info(
+      "Notifications",
+      "FCM token removed and notifications disabled.",
     );
   } catch (error) {
-    console.error("[Notifications] Error removing FCM token:", error);
+    logger.error("Notifications", "Error removing FCM token:", error);
     throw error;
   }
 }

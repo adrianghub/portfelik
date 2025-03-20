@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import dayjs, { formatDate } from "@/lib/date-utils";
+import { logger } from "@/lib/logger";
 import { useFetchCategories } from "@/modules/shared/useCategoriesQuery";
 import type { Transaction } from "@/modules/transactions/transaction";
 import { useForm } from "@tanstack/react-form";
@@ -41,7 +42,7 @@ export function TransactionForm({
     initialValues?.type ?? "expense",
   );
 
-  console.log("initialValues", initialValues);
+  logger.debug("TransactionForm", "initialValues", initialValues);
 
   const form = useForm({
     defaultValues: {

@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/cn";
 import { formatDate } from "@/lib/date-utils";
+import { logger } from "@/lib/logger";
 import { userService } from "@/modules/admin/users/UserService";
 import { useFetchCategories } from "@/modules/shared/useCategoriesQuery";
 import type { Transaction } from "@/modules/transactions/transaction";
@@ -62,7 +63,11 @@ export function TransactionTable({
             const user = await userService.getById(userId);
             emailsMap[userId] = user?.email || "Unknown";
           } catch (error) {
-            console.error(`Error fetching user ${userId}:`, error);
+            logger.error(
+              "TransactionTable",
+              `Error fetching user ${userId}:`,
+              error,
+            );
             emailsMap[userId] = "Unknown";
           }
         }),
@@ -84,7 +89,7 @@ export function TransactionTable({
         setDeletingId(null);
       },
       onError: (error) => {
-        console.error("Error deleting transaction:", error);
+        logger.error("TransactionTable", "Error deleting transaction:", error);
         setDeletingId(null);
       },
     });

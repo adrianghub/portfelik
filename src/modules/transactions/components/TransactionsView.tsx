@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/AuthContext";
 import { getFirstDayOfMonth, getLastDayOfMonth } from "@/lib/date-utils";
+import { logger } from "@/lib/logger";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 import type { Transaction } from "../transaction";
@@ -63,24 +64,36 @@ export function TransactionsView() {
         },
         {
           onSuccess: (result) => {
-            console.log("Transaction updated successfully:", result);
+            logger.info(
+              "TransactionsView",
+              "Transaction updated successfully:",
+              result,
+            );
             setIsDialogOpen(false);
             setEditingTransaction(null);
           },
           onError: (error) => {
-            console.error("Error updating transaction:", error);
+            logger.error(
+              "TransactionsView",
+              "Error updating transaction:",
+              error,
+            );
           },
         },
       );
     } else {
       addTransaction.mutate(transaction, {
         onSuccess: (result) => {
-          console.log("Transaction added successfully:", result);
+          logger.info(
+            "TransactionsView",
+            "Transaction added successfully:",
+            result,
+          );
           setIsDialogOpen(false);
           setEditingTransaction(null);
         },
         onError: (error) => {
-          console.error("Error adding transaction:", error);
+          logger.error("TransactionsView", "Error adding transaction:", error);
         },
       });
     }

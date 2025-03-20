@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { initializeApp } from "firebase/app";
 import {
   connectAuthEmulator,
@@ -41,10 +42,19 @@ if (isDevelopment) {
   connectFirestoreEmulator(db, EMULATOR_HOST, FIRESTORE_PORT);
   connectFunctionsEmulator(functions, EMULATOR_HOST, FUNCTIONS_PORT);
 
-  console.log("Using Firebase emulators in development mode");
-  console.log(`Auth emulator: http://${EMULATOR_HOST}:${AUTH_PORT}`);
-  console.log(`Firestore emulator: ${EMULATOR_HOST}:${FIRESTORE_PORT}`);
-  console.log(`Functions emulator: ${EMULATOR_HOST}:${FUNCTIONS_PORT}`);
+  logger.info("Firebase", "Using Firebase emulators in development mode");
+  logger.info(
+    "Firebase",
+    `Auth emulator: http://${EMULATOR_HOST}:${AUTH_PORT}`,
+  );
+  logger.info(
+    "Firebase",
+    `Firestore emulator: ${EMULATOR_HOST}:${FIRESTORE_PORT}`,
+  );
+  logger.info(
+    "Firebase",
+    `Functions emulator: ${EMULATOR_HOST}:${FUNCTIONS_PORT}`,
+  );
 }
 
 /**
