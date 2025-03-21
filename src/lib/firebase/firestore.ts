@@ -20,6 +20,7 @@ export const COLLECTIONS = {
   USERS: "users",
   TRANSACTIONS: "transactions",
   CATEGORIES: "categories",
+  NOTIFICATIONS: "notifications",
 };
 
 // Convert Firestore timestamp to Date

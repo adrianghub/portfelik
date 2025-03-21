@@ -15,6 +15,7 @@ import { Route as TransactionsImport } from './routes/transactions'
 import { Route as LoginImport } from './routes/login'
 import { Route as IndexImport } from './routes/index'
 import { Route as AdminIndexImport } from './routes/admin/index'
+import { Route as AdminNotificationsImport } from './routes/admin/notifications'
 import { Route as AdminCategoriesImport } from './routes/admin/categories'
 
 // Create/Update Routes
@@ -40,6 +41,12 @@ const IndexRoute = IndexImport.update({
 const AdminIndexRoute = AdminIndexImport.update({
   id: '/admin/',
   path: '/admin/',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const AdminNotificationsRoute = AdminNotificationsImport.update({
+  id: '/admin/notifications',
+  path: '/admin/notifications',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -81,6 +88,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminCategoriesImport
       parentRoute: typeof rootRoute
     }
+    '/admin/notifications': {
+      id: '/admin/notifications'
+      path: '/admin/notifications'
+      fullPath: '/admin/notifications'
+      preLoaderRoute: typeof AdminNotificationsImport
+      parentRoute: typeof rootRoute
+    }
     '/admin/': {
       id: '/admin/'
       path: '/admin'
@@ -98,6 +112,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/transactions': typeof TransactionsRoute
   '/admin/categories': typeof AdminCategoriesRoute
+  '/admin/notifications': typeof AdminNotificationsRoute
   '/admin': typeof AdminIndexRoute
 }
 
@@ -106,6 +121,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/transactions': typeof TransactionsRoute
   '/admin/categories': typeof AdminCategoriesRoute
+  '/admin/notifications': typeof AdminNotificationsRoute
   '/admin': typeof AdminIndexRoute
 }
 
@@ -115,20 +131,34 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/transactions': typeof TransactionsRoute
   '/admin/categories': typeof AdminCategoriesRoute
+  '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/': typeof AdminIndexRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/transactions' | '/admin/categories' | '/admin'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/transactions'
+    | '/admin/categories'
+    | '/admin/notifications'
+    | '/admin'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/transactions' | '/admin/categories' | '/admin'
+  to:
+    | '/'
+    | '/login'
+    | '/transactions'
+    | '/admin/categories'
+    | '/admin/notifications'
+    | '/admin'
   id:
     | '__root__'
     | '/'
     | '/login'
     | '/transactions'
     | '/admin/categories'
+    | '/admin/notifications'
     | '/admin/'
   fileRoutesById: FileRoutesById
 }
@@ -138,6 +168,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   TransactionsRoute: typeof TransactionsRoute
   AdminCategoriesRoute: typeof AdminCategoriesRoute
+  AdminNotificationsRoute: typeof AdminNotificationsRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
@@ -146,6 +177,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   TransactionsRoute: TransactionsRoute,
   AdminCategoriesRoute: AdminCategoriesRoute,
+  AdminNotificationsRoute: AdminNotificationsRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 
@@ -163,6 +195,7 @@ export const routeTree = rootRoute
         "/login",
         "/transactions",
         "/admin/categories",
+        "/admin/notifications",
         "/admin/"
       ]
     },
@@ -177,6 +210,9 @@ export const routeTree = rootRoute
     },
     "/admin/categories": {
       "filePath": "admin/categories.tsx"
+    },
+    "/admin/notifications": {
+      "filePath": "admin/notifications.tsx"
     },
     "/admin/": {
       "filePath": "admin/index.tsx"

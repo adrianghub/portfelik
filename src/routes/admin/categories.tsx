@@ -3,11 +3,11 @@ import { CategoryManager } from "@/modules/admin/categories/components/CategoryM
 import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/admin/categories")({
-  component: AdminCategoriesView,
+  component: AdminCategoriesManagerView,
   loader: createAdminLoader(),
 });
 
-function AdminCategoriesView() {
+function AdminCategoriesManagerView() {
   return (
     <div className="py-6 px-4 md:px-6">
       <h2 className="text-2xl font-bold mb-6">Manage Categories</h2>

@@ -26,6 +26,11 @@ function AdminView() {
               description="Manage transaction categories"
               link="/admin/categories"
             />
+            <AdminCard
+              title="Notifications"
+              description="Manage notifications"
+              link="/admin/notifications"
+            />
           </div>
 
           <div className="mt-8">

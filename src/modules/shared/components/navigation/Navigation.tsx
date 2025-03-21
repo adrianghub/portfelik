@@ -1,12 +1,12 @@
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/AuthContext";
 import { signOut } from "@/lib/firebase/firebase";
-import { saveFCMToken } from "@/lib/notifications";
 import {
   checkNotificationSupport,
   getFCMToken,
   requestNotificationPermission,
 } from "@/lib/service-worker";
+import { notificationService } from "@/modules/shared/notifications/NotificationService";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -38,7 +38,7 @@ function useNotificationSetup() {
 
       if (granted) {
         const token = await getFCMToken();
-        if (token) await saveFCMToken(token);
+        if (token) await notificationService.saveFCMToken(token);
       } else {
         alert("Please enable notifications in your browser settings.");
       }

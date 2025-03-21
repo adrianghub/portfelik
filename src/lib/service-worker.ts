@@ -1,4 +1,4 @@
-import { removeFCMToken, saveFCMToken } from "@/lib/notifications";
+import { notificationService } from "@/modules/shared/notifications/NotificationService";
 import { getToken, onMessage } from "firebase/messaging";
 import { messaging } from "./firebase/firebase";
 
@@ -81,7 +81,7 @@ export async function getFCMToken(): Promise<string | null> {
 
     if (token) {
       console.log("[Notifications] FCM Token received:", token);
-      await saveFCMToken(token);
+      await notificationService.saveFCMToken(token);
       return token;
     }
 
@@ -131,7 +131,7 @@ export async function requestNotificationPermission(): Promise<boolean> {
 async function handlePermissionChange(permission: NotificationPermission) {
   if (permission === "denied") {
     console.warn("[Notifications] Permission denied. Removing FCM token...");
-    await removeFCMToken();
+    await notificationService.removeFCMToken();
   } else if (permission === "granted") {
     console.log("[Notifications] Permission granted. Getting FCM token...");
     await getFCMToken();
@@ -142,31 +142,7 @@ async function handlePermissionChange(permission: NotificationPermission) {
  * Checks if notifications are supported and their current status
  */
 export function checkNotificationSupport() {
-  if (!isSecureContext()) {
-    return {
-      supported: false,
-      enabled: false,
-      permission: "unsupported" as NotificationPermission,
-      reason: "Requires HTTPS or localhost",
-    };
-  }
-
-  if (!("Notification" in window)) {
-    return {
-      supported: false,
-      enabled: false,
-      permission: "unsupported" as NotificationPermission,
-      reason: "Not supported in this browser",
-    };
-  }
-
-  const permission = Notification.permission;
-  return {
-    supported: true,
-    enabled: permission === "granted",
-    permission,
-    reason: null,
-  };
+  return notificationService.checkPushSupport();
 }
 
 /**
@@ -181,7 +157,7 @@ export async function checkNotificationStatus(): Promise<boolean> {
 
   if (support.permission === "denied") {
     console.warn("[Notifications] Blocked by user. Removing FCM token...");
-    await removeFCMToken();
+    await notificationService.removeFCMToken();
     return false;
   }
 
@@ -232,7 +208,7 @@ export async function initializeNotifications() {
   const notificationEnabled = await checkNotificationStatus();
   if (!notificationEnabled) {
     console.warn("[Notifications] Not enabled. Removing FCM token...");
-    await removeFCMToken();
+    await notificationService.removeFCMToken();
     return null;
   }
 
