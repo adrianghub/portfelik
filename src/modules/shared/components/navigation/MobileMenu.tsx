@@ -1,9 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { MobileNotificationsPanel } from "@/modules/shared/components/navigation/MobileNotificationsPanel";
 import { Link } from "@tanstack/react-router";
-import { LogOut, Menu } from "lucide-react";
+import { Bell, LogOut, Menu } from "lucide-react";
 import { NavigationLinks } from "./NavigationLinks";
-import { NotificationButton } from "./NotificationButton";
 
 interface MobileMenuProps {
   isAuthenticated: boolean;
@@ -31,11 +31,20 @@ export function MobileMenu({
       <SheetContent>
         <div className="mt-6 flex flex-col gap-4">
           <NavigationLinks isAdmin={isAdmin} isMobile onNavigate={() => {}} />
-          {isAuthenticated && (
-            <NotificationButton
-              permission={notificationPermission}
-              onClick={onNotificationClick}
-            />
+          {isAuthenticated && notificationPermission === "granted" ? (
+            <MobileNotificationsPanel />
+          ) : (
+            isAuthenticated && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onNotificationClick}
+                className="flex items-center gap-2 w-full"
+              >
+                <Bell className="h-4 w-4" />
+                Enable Notifications
+              </Button>
+            )
           )}
           <div className="mt-4">
             {isAuthenticated ? (
