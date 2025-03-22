@@ -19,7 +19,7 @@ export async function sendTransactionSummaryFunction() {
       const user = userDoc.data() as User;
       logger.info(`Processing user ${userDoc.id}:`, {
         notificationsEnabled: user.settings?.notificationsEnabled,
-        hasFcmToken: !!user.fcmToken,
+        hasFcmToken: !!user.fcmTokens?.length,
       });
 
       // Continue processing even if notifications are disabled or no FCM token,
@@ -94,8 +94,7 @@ export async function sendTransactionSummaryFunction() {
 
       if (user.settings?.notificationsEnabled) {
         // Check for tokens - use either fcmTokens array (new) or single token (legacy)
-        const userTokens =
-          user.fcmTokens || (user.fcmToken ? [user.fcmToken] : []);
+        const userTokens = user.fcmTokens || [];
 
         if (userTokens.length === 0) {
           logger.info(
@@ -196,10 +195,10 @@ export async function sendTransactionSummaryFunction() {
 
                 // Update single token field if it was invalid
                 if (
-                  userData.fcmToken &&
-                  invalidTokens.includes(userData.fcmToken)
+                  userData.fcmTokens?.[0] &&
+                  invalidTokens.includes(userData.fcmTokens[0])
                 ) {
-                  updates.fcmToken = validTokens[0] || null;
+                  updates.fcmTokens = validTokens;
                 }
 
                 // Disable notifications if all tokens are invalid

@@ -363,21 +363,17 @@ export async function checkExistingNotificationSettings(
     const userData = userDoc.data();
     const notificationsEnabled =
       userData?.settings?.notificationsEnabled === true;
-    const hasFcmToken =
-      !!userData?.fcmToken &&
-      typeof userData.fcmToken === "string" &&
-      userData.fcmToken.trim() !== "";
+    const hasFcmTokens = !!userData?.fcmTokens?.length;
 
     logger.info("Notifications", "User settings:", {
       notificationsEnabled,
-      hasFcmToken,
-      fcmToken: userData?.fcmToken
-        ? `${userData.fcmToken.substring(0, 10)}...`
+      fcmTokens: userData?.fcmTokens
+        ? `${userData.fcmTokens[0].substring(0, 10)}...`
         : null,
       lastTokenUpdate: userData?.lastTokenUpdate,
     });
 
-    return notificationsEnabled && hasFcmToken;
+    return notificationsEnabled && hasFcmTokens;
   } catch (error) {
     logger.error("Notifications", "Error checking existing settings:", error);
     return false;

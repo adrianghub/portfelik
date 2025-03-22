@@ -127,7 +127,6 @@ export class NotificationService extends FirestoreService<NotificationModel> {
             userRef,
             {
               fcmTokens: updatedTokens,
-              fcmToken: token,
               lastTokenUpdate: new Date().toISOString(),
               settings: { notificationsEnabled: true },
             },
@@ -147,7 +146,6 @@ export class NotificationService extends FirestoreService<NotificationModel> {
           await setDoc(
             userRef,
             {
-              fcmToken: token,
               lastTokenUpdate: new Date().toISOString(),
               settings: { notificationsEnabled: true },
             },
@@ -159,7 +157,6 @@ export class NotificationService extends FirestoreService<NotificationModel> {
           userRef,
           {
             fcmTokens: [token],
-            fcmToken: token,
             lastTokenUpdate: new Date().toISOString(),
             settings: { notificationsEnabled: true },
           },
@@ -213,7 +210,6 @@ export class NotificationService extends FirestoreService<NotificationModel> {
           userRef,
           {
             fcmTokens: updatedTokens,
-            ...(userData.fcmToken === token ? { fcmToken: null } : {}),
             lastTokenUpdate: new Date().toISOString(),
             ...(updatedTokens.length === 0
               ? {
@@ -232,7 +228,6 @@ export class NotificationService extends FirestoreService<NotificationModel> {
         await setDoc(
           userRef,
           {
-            fcmToken: null,
             fcmTokens: [],
             lastTokenUpdate: new Date().toISOString(),
             settings: { notificationsEnabled: false },
@@ -265,7 +260,6 @@ export class NotificationService extends FirestoreService<NotificationModel> {
       await setDoc(
         this.getUserRef(user),
         {
-          fcmToken: null,
           fcmTokens: [],
           lastTokenUpdate: new Date().toISOString(),
           settings: { notificationsEnabled: false },

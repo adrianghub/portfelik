@@ -31,7 +31,6 @@ export interface User {
   role: UserRole;
   createdAt: Date;
   lastLoginAt: Date;
-  fcmToken?: string;
   fcmTokens?: string[];
   settings?: {
     notificationsEnabled: boolean;
