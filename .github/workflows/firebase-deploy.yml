@@ -74,13 +74,3 @@ jobs:
               gcloud artifacts docker images delete "$IMAGE" --quiet
             fi
           done
-
-          # List and delete unused Container Registry images
-          echo "Cleaning up Container Registry images..."
-          gcloud container images list --repository=gcr.io/portfelik-888dd --format="value(name)" | \
-          while read -r IMAGE; do
-            if [[ ! -z "$IMAGE" ]]; then
-              echo "Deleting $IMAGE"
-              gcloud container images delete "$IMAGE" --quiet
-            fi
-          done
