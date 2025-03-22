@@ -31,6 +31,27 @@ const DEFAULT_NOTIFICATION = {
   ],
 };
 
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
+    const payload = event.data.payload;
+    console.log('[Service Worker] Received notification request:', payload);
+
+    const title = payload.notification?.title || DEFAULT_NOTIFICATION.title;
+    const options = {
+      body: payload.notification?.body || DEFAULT_NOTIFICATION.body,
+      icon: DEFAULT_NOTIFICATION.icon,
+      badge: DEFAULT_NOTIFICATION.badge,
+      vibrate: DEFAULT_NOTIFICATION.vibrate,
+      data: payload.data || {},
+      actions: DEFAULT_NOTIFICATION.actions,
+    };
+
+    self.registration.showNotification(title, options)
+      .then(() => console.log('[Service Worker] Notification shown successfully'))
+      .catch(error => console.error('[Service Worker] Error showing notification:', error));
+  }
+});
+
 /**
  * Install event - caches static assets
  */
@@ -93,7 +114,7 @@ self.addEventListener("push", (event) => {
   }
 
   const notificationOptions = {
-    body: payload.notification.body || DEFAULT_NOTIFICATION.body,
+    body: payload.notification?.body || DEFAULT_NOTIFICATION.body,
     icon: DEFAULT_NOTIFICATION.icon,
     badge: DEFAULT_NOTIFICATION.badge,
     vibrate: DEFAULT_NOTIFICATION.vibrate,
@@ -103,7 +124,7 @@ self.addEventListener("push", (event) => {
 
   event.waitUntil(
     self.registration.showNotification(
-      payload.notification.title || DEFAULT_NOTIFICATION.title,
+      payload.notification?.title || DEFAULT_NOTIFICATION.title,
       notificationOptions
     )
       .then(() => console.log("[Service Worker] Notification shown"))
@@ -122,30 +143,3 @@ self.addEventListener("notificationclick", (event) => {
     event.waitUntil(clients.openWindow("/"));
   }
 });
-
-/**
- * Background Sync event - syncs transactions when connectivity is restored
- */
-self.addEventListener("sync", (event) => {
-  if (event.tag === "sync-transactions") {
-    event.waitUntil(syncTransactions());
-  }
-});
-
-/**
- * Sync Transactions - sends data to the server
- */
-async function syncTransactions() {
-  try {
-    const response = await fetch(`${API_BASE_URL}/sendTransactionSummaryManual`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to sync transactions");
-    }
-  } catch (error) {
-    console.error("[Service Worker] Error syncing transactions:", error);
-  }
-}

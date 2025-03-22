@@ -6,11 +6,13 @@ import { Notification as NotificationModel } from "@/modules/shared/notification
 import { User } from "firebase/auth";
 import {
   doc,
+  getDoc,
   orderBy,
   QueryConstraint,
   setDoc,
   where,
 } from "firebase/firestore";
+import { getMessaging, getToken } from "firebase/messaging";
 
 export class NotificationService extends FirestoreService<NotificationModel> {
   constructor() {
@@ -111,20 +113,61 @@ export class NotificationService extends FirestoreService<NotificationModel> {
         return;
       }
 
-      await setDoc(
-        this.getUserRef(user),
-        {
-          fcmToken: token,
-          lastTokenUpdate: new Date().toISOString(),
-          settings: { notificationsEnabled: true },
-        },
-        { merge: true },
-      );
+      const userRef = this.getUserRef(user);
+      const userDoc = await getDoc(userRef);
 
-      logger.info(
-        "Notifications",
-        "FCM token saved and notifications enabled.",
-      );
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const existingTokens = userData.fcmTokens || [];
+
+        if (!existingTokens.includes(token)) {
+          const updatedTokens = [...existingTokens, token];
+
+          await setDoc(
+            userRef,
+            {
+              fcmTokens: updatedTokens,
+              fcmToken: token,
+              lastTokenUpdate: new Date().toISOString(),
+              settings: { notificationsEnabled: true },
+            },
+            { merge: true },
+          );
+
+          logger.info(
+            "Notifications",
+            `FCM token added to user's devices (total: ${updatedTokens.length})`,
+          );
+        } else {
+          logger.info(
+            "Notifications",
+            "FCM token already exists for this device",
+          );
+
+          await setDoc(
+            userRef,
+            {
+              fcmToken: token,
+              lastTokenUpdate: new Date().toISOString(),
+              settings: { notificationsEnabled: true },
+            },
+            { merge: true },
+          );
+        }
+      } else {
+        await setDoc(
+          userRef,
+          {
+            fcmTokens: [token],
+            fcmToken: token,
+            lastTokenUpdate: new Date().toISOString(),
+            settings: { notificationsEnabled: true },
+          },
+          { merge: true },
+        );
+
+        logger.info("Notifications", "First FCM token saved for user");
+      }
     } catch (error) {
       logger.error("Notifications", "Error saving FCM token:", error);
       throw error;
@@ -132,7 +175,81 @@ export class NotificationService extends FirestoreService<NotificationModel> {
   }
 
   /**
-   * Removes the FCM token from the user's document in Firestore
+   * Removes a specific FCM token from the user's document in Firestore
+   */
+  async removeCurrentFCMToken(tokenToRemove?: string): Promise<void> {
+    try {
+      const user = await getCurrentUser();
+      if (!user) {
+        logger.warn(
+          "Notifications",
+          "No user logged in, cannot remove FCM token.",
+        );
+        return;
+      }
+
+      // Get current token if not provided
+      let token = tokenToRemove;
+      if (!token) {
+        try {
+          // Try to get the current device token
+          const messaging = getMessaging();
+          token = await getToken(messaging);
+        } catch (error) {
+          logger.warn("Notifications", "Could not get current token:", error);
+        }
+      }
+
+      const userRef = this.getUserRef(user);
+      const userDoc = await getDoc(userRef);
+
+      if (userDoc.exists() && token) {
+        const userData = userDoc.data();
+        const existingTokens = userData.fcmTokens || [];
+
+        const updatedTokens = existingTokens.filter((t: string) => t !== token);
+
+        await setDoc(
+          userRef,
+          {
+            fcmTokens: updatedTokens,
+            ...(userData.fcmToken === token ? { fcmToken: null } : {}),
+            lastTokenUpdate: new Date().toISOString(),
+            ...(updatedTokens.length === 0
+              ? {
+                  "settings.notificationsEnabled": false,
+                }
+              : {}),
+          },
+          { merge: true },
+        );
+
+        logger.info(
+          "Notifications",
+          `FCM token removed. Remaining devices: ${updatedTokens.length}`,
+        );
+      } else {
+        await setDoc(
+          userRef,
+          {
+            fcmToken: null,
+            fcmTokens: [],
+            lastTokenUpdate: new Date().toISOString(),
+            settings: { notificationsEnabled: false },
+          },
+          { merge: true },
+        );
+
+        logger.info("Notifications", "All FCM tokens removed");
+      }
+    } catch (error) {
+      logger.error("Notifications", "Error removing FCM token:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Removes all FCM tokens from the user's document in Firestore
    */
   async removeFCMToken(): Promise<void> {
     try {
@@ -149,6 +266,7 @@ export class NotificationService extends FirestoreService<NotificationModel> {
         this.getUserRef(user),
         {
           fcmToken: null,
+          fcmTokens: [],
           lastTokenUpdate: new Date().toISOString(),
           settings: { notificationsEnabled: false },
         },
@@ -157,10 +275,10 @@ export class NotificationService extends FirestoreService<NotificationModel> {
 
       logger.info(
         "Notifications",
-        "FCM token removed and notifications disabled.",
+        "All FCM tokens removed and notifications disabled.",
       );
     } catch (error) {
-      logger.error("Notifications", "Error removing FCM token:", error);
+      logger.error("Notifications", "Error removing FCM tokens:", error);
       throw error;
     }
   }

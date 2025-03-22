@@ -32,6 +32,7 @@ export interface User {
   createdAt: Date;
   lastLoginAt: Date;
   fcmToken?: string;
+  fcmTokens?: string[];
   settings?: {
     notificationsEnabled: boolean;
   };

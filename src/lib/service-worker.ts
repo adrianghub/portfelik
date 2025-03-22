@@ -1,12 +1,15 @@
+import { logger } from "@/lib/logger";
 import { notificationService } from "@/modules/shared/notifications/NotificationService";
-import { getToken, onMessage } from "firebase/messaging";
-import { messaging } from "./firebase/firebase";
+import { doc, getDoc } from "firebase/firestore";
+import { deleteToken, getToken, onMessage } from "firebase/messaging";
+import { db, messaging } from "./firebase/firebase";
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
 
 if (!VAPID_KEY) {
-  console.warn(
-    "[Service Worker] VAPID key is not set. Push notifications may not work.",
+  logger.warn(
+    "Service Worker",
+    "VAPID key is not set. Push notifications may not work.",
   );
 }
 
@@ -26,32 +29,30 @@ function isSecureContext(): boolean {
  */
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (!isSecureContext()) {
-    console.warn("[Service Worker] Requires HTTPS or localhost");
+    logger.warn("Service Worker", "Requires HTTPS or localhost");
     return null;
   }
 
   if (!("serviceWorker" in navigator)) {
-    console.warn("[Service Worker] Not supported in this browser");
+    logger.warn("Service Worker", "Not supported in this browser");
     return null;
   }
 
   try {
-    const existingRegistration =
-      await navigator.serviceWorker.getRegistration();
-    if (existingRegistration) {
-      console.log("[Service Worker] Already registered:", existingRegistration);
-      return existingRegistration;
-    }
-
+    // Always register or update the service worker
     const registration = await navigator.serviceWorker.register("/sw.js", {
       scope: "/",
       updateViaCache: "none",
     });
 
-    console.log("[Service Worker] Registered with scope:", registration.scope);
+    logger.info(
+      "Service Worker",
+      `Registered with scope: ${registration.scope}`,
+    );
+
     return registration;
   } catch (error) {
-    console.error("[Service Worker] Registration failed:", error);
+    logger.error("Service Worker", "Registration failed:", error);
     return null;
   }
 }
@@ -61,12 +62,12 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
  */
 export async function getFCMToken(): Promise<string | null> {
   if (!VAPID_KEY) {
-    console.warn("[Notifications] VAPID key missing. Cannot get FCM token.");
+    logger.warn("Notifications", "VAPID key missing. Cannot get FCM token.");
     return null;
   }
 
   if (!isSecureContext()) {
-    console.warn("[Notifications] Requires HTTPS or localhost");
+    logger.warn("Notifications", "Requires HTTPS or localhost");
     return null;
   }
 
@@ -74,21 +75,50 @@ export async function getFCMToken(): Promise<string | null> {
     const registration = await registerServiceWorker();
     if (!registration) throw new Error("Service worker registration failed");
 
-    const token = await getToken(messaging, {
-      vapidKey: VAPID_KEY,
-      serviceWorkerRegistration: registration,
-    });
+    try {
+      // First try to get a token
+      const token = await getToken(messaging, {
+        vapidKey: VAPID_KEY,
+        serviceWorkerRegistration: registration,
+      });
 
-    if (token) {
-      console.log("[Notifications] FCM Token received:", token);
-      await notificationService.saveFCMToken(token);
-      return token;
+      if (token) {
+        logger.info("Notifications", "FCM Token received:", token);
+        await notificationService.saveFCMToken(token);
+        return token;
+      }
+    } catch (tokenError) {
+      // If getting token fails, try deleting and regenerating
+      logger.warn(
+        "Notifications",
+        "Error getting token, trying to refresh:",
+        tokenError,
+      );
+
+      try {
+        await deleteToken(messaging);
+        logger.info("Notifications", "Old token deleted, getting new token...");
+
+        const newToken = await getToken(messaging, {
+          vapidKey: VAPID_KEY,
+          serviceWorkerRegistration: registration,
+        });
+
+        if (newToken) {
+          logger.info("Notifications", "New FCM Token received:", newToken);
+          await notificationService.saveFCMToken(newToken);
+          return newToken;
+        }
+      } catch (refreshError) {
+        logger.error("Notifications", "Failed to refresh token:", refreshError);
+        return null;
+      }
     }
 
-    console.warn("[Notifications] No FCM token available");
+    logger.warn("Notifications", "No FCM token available");
     return null;
   } catch (error) {
-    console.error("[Notifications] Error getting FCM token:", error);
+    logger.error("Notifications", "Error getting FCM token:", error);
     return null;
   }
 }
@@ -98,29 +128,29 @@ export async function getFCMToken(): Promise<string | null> {
  */
 export async function requestNotificationPermission(): Promise<boolean> {
   if (!isSecureContext()) {
-    console.warn("[Notifications] Requires HTTPS or localhost");
+    logger.warn("Notifications", "Requires HTTPS or localhost");
     return false;
   }
 
   if (!("Notification" in window)) {
-    console.warn("[Notifications] Not supported in this browser");
+    logger.warn("Notifications", "Not supported in this browser");
     return false;
   }
 
   if (Notification.permission === "granted") {
-    console.log("[Notifications] Already enabled");
+    logger.info("Notifications", "Already enabled");
     return true;
   }
 
   try {
     const permission = await Notification.requestPermission();
-    console.log("[Notifications] Permission status:", permission);
+    logger.info("Notifications", `Permission status: ${permission}`);
 
     handlePermissionChange(permission);
 
     return permission === "granted";
   } catch (error) {
-    console.error("[Notifications] Error requesting permission:", error);
+    logger.error("Notifications", "Error requesting permission:", error);
     return false;
   }
 }
@@ -128,12 +158,14 @@ export async function requestNotificationPermission(): Promise<boolean> {
 /**
  * Handles changes in notification permission status
  */
-async function handlePermissionChange(permission: NotificationPermission) {
-  if (permission === "denied") {
-    console.warn("[Notifications] Permission denied. Removing FCM token...");
+async function handlePermissionChange(
+  permission: NotificationPermission | "prompt",
+) {
+  if (permission === "prompt" || permission === "denied") {
+    logger.warn("Notifications", "Permission denied. Removing FCM token...");
     await notificationService.removeFCMToken();
   } else if (permission === "granted") {
-    console.log("[Notifications] Permission granted. Getting FCM token...");
+    logger.info("Notifications", "Permission granted. Getting FCM token...");
     await getFCMToken();
   }
 }
@@ -151,18 +183,18 @@ export function checkNotificationSupport() {
 export async function checkNotificationStatus(): Promise<boolean> {
   const support = checkNotificationSupport();
   if (!support.supported) {
-    console.warn("[Notifications] Not supported:", support.reason);
+    logger.warn("Notifications", `Not supported: ${support.reason}`);
     return false;
   }
 
   if (support.permission === "denied") {
-    console.warn("[Notifications] Blocked by user. Removing FCM token...");
+    logger.warn("Notifications", "Blocked by user. Removing FCM token...");
     await notificationService.removeFCMToken();
     return false;
   }
 
   if (support.permission === "default") {
-    console.log("[Notifications] Asking user for permission...");
+    logger.info("Notifications", "Asking user for permission...");
     const granted = await requestNotificationPermission();
     return granted;
   }
@@ -171,53 +203,185 @@ export async function checkNotificationStatus(): Promise<boolean> {
 }
 
 /**
+ * Type definition for notification payload
+ */
+interface NotificationPayload {
+  notification?: {
+    title?: string;
+    body?: string;
+  };
+  data?: Record<string, string>;
+}
+
+/**
+ * Shows a notification using the service worker
+ */
+export function showNotification(payload: NotificationPayload) {
+  if (!("serviceWorker" in navigator)) {
+    logger.warn("Notifications", "Service workers not supported");
+    return;
+  }
+
+  navigator.serviceWorker.ready
+    .then((registration) => {
+      registration.active?.postMessage({
+        type: "SHOW_NOTIFICATION",
+        payload,
+      });
+    })
+    .catch((error) => {
+      logger.error("Notifications", "Error showing notification:", error);
+    });
+}
+
+/**
  * Sets up foreground message handling
  */
 export function setupMessageHandling() {
-  console.log("[Notifications] Setting up message handling...");
+  logger.info("Notifications", "Setting up message handling...");
 
   onMessage(messaging, (payload) => {
-    console.log("[Notifications] Received foreground message:", payload);
+    logger.info("Notifications", "Received foreground message:", payload);
 
-    const notificationTitle =
-      payload.notification?.title || "Portfelik Notification";
-    const notificationOptions = {
-      body: payload.notification?.body,
-      icon: "/icon-192x192.png",
-      badge: "/icon-192x192.png",
-      vibrate: [100, 50, 100],
-      data: payload.data || {},
-      actions: [
-        { action: "explore", title: "View Details", icon: "/icon-192x192.png" },
-        { action: "close", title: "Close", icon: "/icon-192x192.png" },
-      ],
-    };
-
-    if (Notification.permission === "granted") {
-      navigator.serviceWorker.ready.then((registration) => {
-        registration.showNotification(notificationTitle, notificationOptions);
-      });
-    }
+    // Use service worker to show the notification
+    showNotification(payload);
   });
 }
 
 /**
  * Initializes notifications: checks status, gets FCM token, and sets up listeners
  */
-export async function initializeNotifications() {
+export async function initializeNotifications(
+  userId?: string,
+): Promise<string | null> {
+  logger.info("Notifications", "Initializing...");
+
+  // If user ID is provided, check if notifications are already enabled
+  if (userId) {
+    const hasExistingSettings = await checkExistingNotificationSettings(userId);
+
+    if (hasExistingSettings) {
+      logger.info(
+        "Notifications",
+        "User already has notifications enabled, setting up",
+      );
+
+      // Register service worker and set up message handling without asking for new permission
+      const registration = await registerServiceWorker();
+      if (!registration) {
+        logger.error("Notifications", "Service worker registration failed");
+        return null;
+      }
+
+      try {
+        // Get token using existing permission
+        const token = await getFCMToken();
+        if (token) {
+          logger.info(
+            "Notifications",
+            "Successfully initialized with existing token",
+          );
+          setupMessageHandling();
+          return token;
+        }
+      } catch (error) {
+        logger.error(
+          "Notifications",
+          "Error initializing with existing settings:",
+          error,
+        );
+      }
+    }
+  }
+
+  // Continue with normal flow if no existing settings or failed to initialize with existing settings
   const notificationEnabled = await checkNotificationStatus();
   if (!notificationEnabled) {
-    console.warn("[Notifications] Not enabled. Removing FCM token...");
+    logger.warn("Notifications", "Not enabled. Removing FCM token...");
     await notificationService.removeFCMToken();
     return null;
   }
 
-  const token = await getFCMToken();
-  if (token) {
-    setupMessageHandling();
+  // Register service worker first
+  const registration = await registerServiceWorker();
+  if (!registration) {
+    logger.error("Notifications", "Service worker registration failed");
+    return null;
   }
 
-  return token;
+  logger.info(
+    "Notifications",
+    "Service worker registered, getting FCM token...",
+  );
+
+  try {
+    // Get FCM token
+    const token = await getFCMToken();
+    if (!token) {
+      logger.warn("Notifications", "Failed to get FCM token");
+      return null;
+    }
+
+    logger.info("Notifications", "Successfully initialized with token:", token);
+
+    // Set up message handling for foreground messages
+    setupMessageHandling();
+
+    return token;
+  } catch (error) {
+    logger.error("Notifications", "Initialization error:", error);
+    return null;
+  }
+}
+
+/**
+ * Checks if the user has previously enabled notifications and has a valid FCM token
+ */
+export async function checkExistingNotificationSettings(
+  userId: string,
+): Promise<boolean> {
+  if (!userId) {
+    logger.info(
+      "Notifications",
+      "No user ID provided, can't check existing settings",
+    );
+    return false;
+  }
+
+  try {
+    logger.info(
+      "Notifications",
+      `Checking existing notification settings for user: ${userId}`,
+    );
+    const userDoc = await getDoc(doc(db, "users", userId));
+
+    if (!userDoc.exists()) {
+      logger.info("Notifications", "User document not found");
+      return false;
+    }
+
+    const userData = userDoc.data();
+    const notificationsEnabled =
+      userData?.settings?.notificationsEnabled === true;
+    const hasFcmToken =
+      !!userData?.fcmToken &&
+      typeof userData.fcmToken === "string" &&
+      userData.fcmToken.trim() !== "";
+
+    logger.info("Notifications", "User settings:", {
+      notificationsEnabled,
+      hasFcmToken,
+      fcmToken: userData?.fcmToken
+        ? `${userData.fcmToken.substring(0, 10)}...`
+        : null,
+      lastTokenUpdate: userData?.lastTokenUpdate,
+    });
+
+    return notificationsEnabled && hasFcmToken;
+  } catch (error) {
+    logger.error("Notifications", "Error checking existing settings:", error);
+    return false;
+  }
 }
 
 // Watch for permission changes and remove FCM token when necessary
@@ -225,9 +389,9 @@ navigator.permissions
   ?.query({ name: "notifications" })
   .then((permissionStatus) => {
     permissionStatus.onchange = () => {
-      console.log(
-        "[Notifications] Permission changed:",
-        permissionStatus.state,
+      logger.info(
+        "Notifications",
+        `Permission changed: ${permissionStatus.state}`,
       );
       handlePermissionChange(permissionStatus.state as NotificationPermission);
     };

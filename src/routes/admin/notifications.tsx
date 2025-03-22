@@ -10,7 +10,7 @@ import {
   useDeleteNotification,
   useMarkAllNotificationsAsRead,
   useNotifications,
-  useRemoveFCMToken,
+  useRemoveFCMTokens,
   useSaveFCMToken,
   useToggleNotificationReadState,
 } from "@/modules/shared/notifications/useNotificationsQuery";
@@ -34,7 +34,7 @@ function AdminNotificationsManagerView() {
   const markAllAsRead = useMarkAllNotificationsAsRead();
   const { checkSupport } = useCheckPushSupport();
   const saveFCMToken = useSaveFCMToken();
-  const removeFCMToken = useRemoveFCMToken();
+  const removeFCMTokens = useRemoveFCMTokens();
   const deleteNotification = useDeleteNotification();
   const toggleReadState = useToggleNotificationReadState();
 
@@ -98,7 +98,7 @@ function AdminNotificationsManagerView() {
           handleAction={handleAction}
           checkSupport={checkSupport}
           saveFCMTokenMutation={saveFCMToken}
-          removeFCMTokenMutation={removeFCMToken}
+          removeFCMTokensMutation={removeFCMTokens}
         />
         <NotificationListDisplay
           notifications={notifications}

@@ -156,9 +156,9 @@ export function useSaveFCMToken() {
 }
 
 /**
- * Hook to remove FCM token
+ * Hook to remove all FCM tokens
  */
-export function useRemoveFCMToken() {
+export function useRemoveFCMTokens() {
   return useMutation({
     mutationFn: () => notificationService.removeFCMToken(),
     onError: (error) => {

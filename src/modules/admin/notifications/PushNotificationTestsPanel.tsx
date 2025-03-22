@@ -9,7 +9,7 @@ import type {
   useSaveFCMToken,
 } from "@/modules/shared/notifications/useNotificationsQuery";
 
-import type { useRemoveFCMToken } from "@/modules/shared/notifications/useNotificationsQuery";
+import type { useRemoveFCMTokens } from "@/modules/shared/notifications/useNotificationsQuery";
 
 interface PushNotificationTestsPanelProps {
   handleAction: (
@@ -20,14 +20,14 @@ interface PushNotificationTestsPanelProps {
     ReturnType<typeof useCheckPushSupport>["checkSupport"]
   >;
   saveFCMTokenMutation: ReturnType<typeof useSaveFCMToken>;
-  removeFCMTokenMutation: ReturnType<typeof useRemoveFCMToken>;
+  removeFCMTokensMutation: ReturnType<typeof useRemoveFCMTokens>;
 }
 
 export const PushNotificationTestsPanel = ({
   handleAction,
   checkSupport,
   saveFCMTokenMutation,
-  removeFCMTokenMutation,
+  removeFCMTokensMutation,
 }: PushNotificationTestsPanelProps) => (
   <Card>
     <CardHeader>
@@ -73,7 +73,7 @@ export const PushNotificationTestsPanel = ({
         <Button
           onClick={() =>
             handleAction(
-              () => removeFCMTokenMutation.mutateAsync(),
+              () => removeFCMTokensMutation.mutateAsync(),
               "Token removed",
             )
           }
