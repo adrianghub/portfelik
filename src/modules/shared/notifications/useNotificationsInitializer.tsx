@@ -3,7 +3,7 @@ import { logger } from "@/lib/logger";
 import { initializeNotifications } from "@/lib/service-worker";
 import { useEffect, useState } from "react";
 
-export function NotificationInitializer() {
+export function useNotificationInitializer() {
   const { currentUser, userData, isLoading } = useAuth();
   const [initialized, setInitialized] = useState(false);
 
@@ -46,6 +46,5 @@ export function NotificationInitializer() {
     }
   }, [currentUser, userData, isLoading, initialized]);
 
-  // This is a utility component that doesn't render anything
-  return null;
+  return initialized;
 }

@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { NotificationList } from "@/modules/shared/notifications/components/NotificationList";
-import { useNotificationActions } from "@/modules/shared/notifications/hooks/useNotificationActions";
+import { useNotificationActions } from "@/modules/shared/notifications/useNotificationActions";
 import { Bell } from "lucide-react";
 import { useState } from "react";
 

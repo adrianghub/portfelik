@@ -367,7 +367,7 @@ export async function checkExistingNotificationSettings(
 
     logger.info("Notifications", "User settings:", {
       notificationsEnabled,
-      fcmTokens: userData?.fcmTokens
+      fcmTokens: userData?.fcmTokens?.length
         ? `${userData.fcmTokens[0].substring(0, 10)}...`
         : null,
       lastTokenUpdate: userData?.lastTokenUpdate,
