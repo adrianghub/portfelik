@@ -1,5 +1,10 @@
 export interface Transaction {
+  id?: string;
   amount: number;
-  type: "income" | "expense";
+  description: string;
   date: Date;
+  type: "income" | "expense";
+  categoryId: string;
+  userId?: string;
+  shoppingListId?: string;
 }

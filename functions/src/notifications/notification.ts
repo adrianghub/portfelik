@@ -1,4 +1,7 @@
-export type NotificationType = "system_notification" | "transaction_summary";
+export type NotificationType =
+  | "system_notification"
+  | "transaction_summary"
+  | "admin_transaction_summary";
 
 export interface Notification {
   userId: string;

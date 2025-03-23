@@ -19,7 +19,7 @@ import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 import { onRequest } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
-import { sendTransactionSummaryFunction } from "./notifications/sendTransactionSummary";
+import { sendAdminTransactionSummaryFunction } from "./notifications/sendAdminTransactionSummary";
 
 admin.initializeApp();
 
@@ -37,27 +37,54 @@ export interface User {
   };
 }
 
-export const sendTransactionSummary = onSchedule(
+// Send transaction summary - send daily summary to all users - SKIPPED FOR NOW
+// export const sendTransactionSummary = onSchedule(
+//   "every 24 hours",
+//   async (_event) => {
+//     await sendTransactionSummaryFunction();
+//   },
+// );
+
+// export const sendTransactionSummaryManual = onRequest(
+//   { cors: true },
+//   async (_req, res) => {
+//     try {
+//       await sendTransactionSummaryFunction();
+//       res.json({
+//         success: true,
+//         message: "Transaction summary notifications sent successfully",
+//       });
+//     } catch (error) {
+//       logger.error("Error in manual trigger:", error);
+//       res
+//         .status(500)
+//         .json({ success: false, error: "Failed to send notifications" });
+//     }
+//   },
+// );
+
+// Admin transaction summary - send daily summary to admin users
+export const sendAdminTransactionSummary = onSchedule(
   "every 24 hours",
   async (_event) => {
-    await sendTransactionSummaryFunction();
+    await sendAdminTransactionSummaryFunction();
   },
 );
 
-export const sendTransactionSummaryManual = onRequest(
+export const sendAdminTransactionSummaryManual = onRequest(
   { cors: true },
   async (_req, res) => {
     try {
-      await sendTransactionSummaryFunction();
+      await sendAdminTransactionSummaryFunction();
       res.json({
         success: true,
-        message: "Transaction summary notifications sent successfully",
+        message: "Admin transaction summary notifications sent successfully",
       });
     } catch (error) {
-      logger.error("Error in manual trigger:", error);
+      logger.error("Error in admin manual trigger:", error);
       res
         .status(500)
-        .json({ success: false, error: "Failed to send notifications" });
+        .json({ success: false, error: "Failed to send admin notifications" });
     }
   },
 );
