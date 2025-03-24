@@ -64,11 +64,21 @@ export function ShoppingListItemDialog({
     },
     onSubmit: ({ value }) => {
       if (isEditing && onUpdateItem && initialValues) {
-        onUpdateItem(initialValues.id, {
+        const updates: Partial<ShoppingListItem> = {
           name: value.name.trim(),
-          quantity: value.quantity ? parseFloat(value.quantity) : undefined,
-          unit: value.unit.trim() || undefined,
-        });
+        };
+
+        if (value.quantity !== undefined && value.quantity !== null) {
+          updates.quantity = value.quantity
+            ? parseFloat(value.quantity)
+            : undefined;
+        }
+
+        if (value.unit !== undefined) {
+          updates.unit = value.unit.trim() || undefined;
+        }
+
+        onUpdateItem(initialValues.id, updates);
       } else if (onAddItem) {
         const newItem = createShoppingListItem(
           value.name.trim(),

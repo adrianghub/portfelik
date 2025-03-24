@@ -40,9 +40,14 @@ export class ShoppingListService extends FirestoreService<ShoppingList> {
     return this.query(constraints);
   }
 
-  async getActiveShoppingLists(userId: string): Promise<ShoppingList[]> {
+  async getAllShoppingLists(): Promise<ShoppingList[]> {
+    const constraints: QueryConstraint[] = [orderBy("updatedAt", "desc")];
+
+    return this.query(constraints);
+  }
+
+  async getActiveShoppingLists(): Promise<ShoppingList[]> {
     const constraints: QueryConstraint[] = [
-      where("userId", "==", userId),
       where("status", "==", "active"),
       orderBy("updatedAt", "desc"),
     ];
@@ -50,13 +55,11 @@ export class ShoppingListService extends FirestoreService<ShoppingList> {
     return this.query(constraints);
   }
 
-  async getCompletedShoppingLists(userId: string): Promise<ShoppingList[]> {
+  async getCompletedShoppingLists(): Promise<ShoppingList[]> {
     const constraints: QueryConstraint[] = [
-      where("userId", "==", userId),
       where("status", "==", "completed"),
       orderBy("updatedAt", "desc"),
     ];
-
     return this.query(constraints);
   }
 

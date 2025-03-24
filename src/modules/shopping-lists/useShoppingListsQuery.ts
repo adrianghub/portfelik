@@ -12,23 +12,19 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 const SHOPPING_LISTS_QUERY_KEY = ["shopping-lists"];
 
 export function useShoppingLists(status?: "active" | "completed") {
-  const { userData } = useAuth();
-  const userId = userData?.uid;
-
   return useQuery({
-    queryKey: [...SHOPPING_LISTS_QUERY_KEY, userId, status],
+    queryKey: [...SHOPPING_LISTS_QUERY_KEY, status],
     queryFn: async () => {
-      if (!userId) return [];
-
       try {
         let lists: ShoppingList[];
         if (status === "active") {
-          lists = await shoppingListService.getActiveShoppingLists(userId);
+          lists = await shoppingListService.getActiveShoppingLists();
         } else if (status === "completed") {
-          lists = await shoppingListService.getCompletedShoppingLists(userId);
+          lists = await shoppingListService.getCompletedShoppingLists();
         } else {
-          lists = await shoppingListService.getUserShoppingLists(userId);
+          lists = await shoppingListService.getAllShoppingLists();
         }
+
         return lists;
       } catch (error) {
         logger.error(
@@ -39,7 +35,6 @@ export function useShoppingLists(status?: "active" | "completed") {
         throw error;
       }
     },
-    enabled: !!userId,
   });
 }
 

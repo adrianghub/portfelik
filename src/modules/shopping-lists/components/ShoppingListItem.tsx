@@ -53,7 +53,12 @@ export function ShoppingListItem({
     itemId: string,
     updates: Partial<ShoppingListItemType>,
   ) => {
-    onUpdate(itemId, updates);
+    const updatedItem = {
+      ...item,
+      ...updates,
+    };
+
+    onUpdate(itemId, updatedItem);
   };
 
   return (
@@ -76,7 +81,7 @@ export function ShoppingListItem({
           variant="ghost"
           size="icon"
           onClick={(e) => {
-            e.stopPropagation(); // Prevent row click event
+            e.stopPropagation();
             handleToggle();
           }}
           disabled={disabled}
