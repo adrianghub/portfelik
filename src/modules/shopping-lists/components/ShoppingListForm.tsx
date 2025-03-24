@@ -1,8 +1,16 @@
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAuth } from "@/lib/AuthContext";
 import { logger } from "@/lib/logger";
+import { useFetchCategories } from "@/modules/shared/useCategoriesQuery";
 import {
   createShoppingList,
   type ShoppingList,
@@ -24,15 +32,22 @@ export function ShoppingListForm({
   const { userData } = useAuth();
   const userId = userData?.uid || "";
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { data: categories = [], isLoading: loadingCategories } =
+    useFetchCategories();
 
   const form = useForm({
     defaultValues: {
       name: initialValues?.name || "",
+      categoryId: initialValues?.categoryId || "",
     },
     onSubmit: async ({ value }) => {
       try {
         setIsSubmitting(true);
-        const newList = createShoppingList(value.name, userId);
+        const newList = createShoppingList(
+          value.name,
+          userId,
+          value.categoryId,
+        );
         onSubmit(newList);
       } catch (error) {
         logger.error("ShoppingListForm", "Error submitting form:", error);
@@ -75,6 +90,54 @@ export function ShoppingListForm({
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
             />
+            {field.state.meta.errors && (
+              <p className="text-sm text-red-500">
+                {field.state.meta.errors[0]}
+              </p>
+            )}
+          </div>
+        )}
+      </form.Field>
+
+      <form.Field
+        name="categoryId"
+        validators={{
+          onChange: (field) => {
+            if (!field.value) {
+              return "Category is required";
+            }
+            return undefined;
+          },
+        }}
+      >
+        {(field) => (
+          <div className="space-y-2">
+            <label htmlFor="category" className="text-sm font-medium">
+              Category
+            </label>
+            <Select
+              value={field.state.value}
+              onValueChange={field.handleChange}
+            >
+              <SelectTrigger id="category">
+                <SelectValue placeholder="Select category" />
+              </SelectTrigger>
+              <SelectContent>
+                {loadingCategories ? (
+                  <SelectItem value="loading" disabled>
+                    Loading...
+                  </SelectItem>
+                ) : (
+                  categories
+                    .filter((category) => category.type === "expense")
+                    .map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))
+                )}
+              </SelectContent>
+            </Select>
             {field.state.meta.errors && (
               <p className="text-sm text-red-500">
                 {field.state.meta.errors[0]}

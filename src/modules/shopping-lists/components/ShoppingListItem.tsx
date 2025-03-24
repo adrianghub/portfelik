@@ -1,6 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { type ShoppingListItem as ShoppingListItemType } from "@/modules/shopping-lists/shopping-list";
-import { CheckIcon, PencilIcon, Trash2Icon } from "lucide-react";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { CheckIcon, GripVertical, PencilIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import { ShoppingListItemDialog } from "./ShoppingListItemDialog";
 
@@ -18,6 +20,24 @@ export function ShoppingListItem({
   disabled = false,
 }: ShoppingListItemProps) {
   const [showEditDialog, setShowEditDialog] = useState(false);
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: item.id,
+    disabled: disabled,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
 
   const handleToggle = () => {
     onUpdate(item.id, { completed: !item.completed });
@@ -37,11 +57,21 @@ export function ShoppingListItem({
   };
 
   return (
-    <div className="relative border-b">
+    <div ref={setNodeRef} style={style} className="relative border-b">
       <div
         className="flex items-center space-x-2 py-3 px-2 rounded hover:bg-accent/50 cursor-pointer w-full"
         onClick={handleRowClick}
       >
+        {!disabled && (
+          <div
+            className="cursor-grab touch-none flex items-center px-1"
+            {...attributes}
+            {...listeners}
+          >
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+          </div>
+        )}
+
         <Button
           variant="ghost"
           size="icon"

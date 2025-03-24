@@ -206,7 +206,7 @@ export function TransactionTable({
             const list = shoppingLists[shoppingListId];
 
             if (loadingShoppingLists) return "Loading...";
-            if (!list) return "Unknown list";
+            if (!list) return "";
 
             return (
               <Link

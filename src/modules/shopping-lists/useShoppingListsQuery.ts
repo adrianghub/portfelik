@@ -1,6 +1,9 @@
 import { useAuth } from "@/lib/AuthContext";
 import { logger } from "@/lib/logger";
-import type { ShoppingList } from "@/modules/shopping-lists/shopping-list";
+import type {
+  ShoppingList,
+  ShoppingListItem,
+} from "@/modules/shopping-lists/shopping-list";
 import { shoppingListService } from "@/modules/shopping-lists/ShoppingListService";
 import type { Transaction } from "@/modules/transactions/transaction";
 import { transactionService } from "@/modules/transactions/TransactionService";
@@ -71,15 +74,41 @@ export function useCreateShoppingList() {
   const userId = userData?.uid;
 
   return useMutation({
-    mutationFn: async (shoppingList: Omit<ShoppingList, "id" | "userId">) => {
+    mutationFn: async (
+      shoppingList:
+        | Omit<ShoppingList, "id" | "userId">
+        | { name: string; items?: ShoppingListItem[]; categoryId?: string },
+    ) => {
       if (!userId) throw new Error("User not authenticated");
 
       try {
-        const newList = await shoppingListService.create({
-          ...shoppingList,
-          userId,
-        });
-        return newList;
+        // If it's a full shopping list object with createdAt, updatedAt and status
+        if (
+          "createdAt" in shoppingList &&
+          "updatedAt" in shoppingList &&
+          "status" in shoppingList
+        ) {
+          const newList = await shoppingListService.create({
+            ...shoppingList,
+            userId,
+          });
+          return newList;
+        } else {
+          // If it's a simplified object with just name, items, and categoryId
+          const now = new Date().toISOString();
+          const newList = await shoppingListService.create({
+            name: shoppingList.name,
+            items: shoppingList.items || [],
+            createdAt: now,
+            updatedAt: now,
+            status: "active",
+            userId,
+            ...(shoppingList.categoryId && {
+              categoryId: shoppingList.categoryId,
+            }),
+          });
+          return newList;
+        }
       } catch (error) {
         logger.error(
           "useCreateShoppingList",

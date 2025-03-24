@@ -7,13 +7,31 @@ import { ShoppingListCompleteDialog } from "@/modules/shopping-lists/components/
 import { type ShoppingListItem } from "@/modules/shopping-lists/shopping-list";
 import {
   useCompleteShoppingList,
+  useCreateShoppingList,
   useShoppingList,
   useUpdateShoppingList,
 } from "@/modules/shopping-lists/useShoppingListsQuery";
+import {
+  closestCenter,
+  DndContext,
+  DragEndEvent,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { useNavigate } from "@tanstack/react-router";
 import {
   ArrowLeft,
   CheckIcon,
+  CopyIcon,
   PencilIcon,
   PlusIcon,
   ShoppingCart,
@@ -32,15 +50,22 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
   const { data: shoppingList, isLoading } = useShoppingList(id);
   const updateShoppingList = useUpdateShoppingList();
   const completeShoppingList = useCompleteShoppingList();
-  const { data: categories = [], isLoading: loadingCategories } =
-    useFetchCategories();
+  const createShoppingList = useCreateShoppingList();
+  const { data: categories = [] } = useFetchCategories();
 
   const [isCompletionDialogOpen, setIsCompletionDialogOpen] = useState(false);
   const [isEditNameDialogOpen, setIsEditNameDialogOpen] = useState(false);
   const [totalAmount, setTotalAmount] = useState<string>("");
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [completingList, setCompletingList] = useState(false);
   const [showAddItemDialog, setShowAddItemDialog] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(MouseSensor),
+    useSensor(TouchSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
 
   const handleAddItem = (item: ShoppingListItem) => {
     if (!shoppingList) return;
@@ -95,7 +120,7 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
   };
 
   const handleCompleteList = async () => {
-    if (!shoppingList || !totalAmount || !selectedCategoryId) return;
+    if (!shoppingList || !totalAmount || !shoppingList.categoryId) return;
 
     setCompletingList(true);
 
@@ -103,7 +128,7 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
       await completeShoppingList.mutateAsync({
         id: shoppingList.id!,
         totalAmount: parseFloat(totalAmount),
-        categoryId: selectedCategoryId,
+        categoryId: shoppingList.categoryId,
       });
 
       setIsCompletionDialogOpen(false);
@@ -112,6 +137,47 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
       console.error("Error completing shopping list:", error);
     } finally {
       setCompletingList(false);
+    }
+  };
+
+  const handleDuplicateList = async () => {
+    if (!shoppingList) return;
+
+    try {
+      await createShoppingList.mutateAsync({
+        name: `${shoppingList.name}`,
+        items: shoppingList.items.map((item) => ({
+          ...item,
+          id: crypto.randomUUID(),
+          completed: false,
+        })),
+        categoryId: shoppingList.categoryId,
+      });
+      navigate({ to: "/shopping-lists" });
+    } catch (error) {
+      console.error("Error duplicating shopping list:", error);
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!shoppingList || !active || !over || active.id === over.id) return;
+
+    const oldIndex = shoppingList.items.findIndex(
+      (item) => item.id === active.id,
+    );
+    const newIndex = shoppingList.items.findIndex(
+      (item) => item.id === over.id,
+    );
+
+    if (oldIndex !== -1 && newIndex !== -1) {
+      const updatedItems = arrayMove(shoppingList.items, oldIndex, newIndex);
+
+      updateShoppingList.mutate({
+        id: shoppingList.id!,
+        data: { items: updatedItems },
+      });
     }
   };
 
@@ -139,6 +205,9 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
   const totalItems = shoppingList.items.length;
   const progress = totalItems > 0 ? (itemsCompleted / totalItems) * 100 : 0;
   const allItemsCompleted = totalItems > 0 && itemsCompleted === totalItems;
+  const selectedCategory = categories.find(
+    (c) => c.id === shoppingList.categoryId,
+  );
 
   return (
     <div className="space-y-6 p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
@@ -166,16 +235,25 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
           </div>
         </div>
 
-        {!isCompleted && (
-          <Button
-            onClick={handleCompleteListClick}
-            disabled={!allItemsCompleted || shoppingList.items.length === 0}
-            className="hidden md:flex"
-          >
-            <CheckIcon className="h-4 w-4 mr-2" />
-            Complete Shopping
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {isCompleted && (
+            <Button onClick={handleDuplicateList} className="flex items-center">
+              <CopyIcon className="h-4 w-4 mr-2" />
+              Duplicate List
+            </Button>
+          )}
+
+          {!isCompleted && (
+            <Button
+              onClick={handleCompleteListClick}
+              disabled={!allItemsCompleted || shoppingList.items.length === 0}
+              className="hidden md:flex"
+            >
+              <CheckIcon className="h-4 w-4 mr-2" />
+              Complete Shopping
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -197,9 +275,7 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
             Total amount: {shoppingList.totalAmount?.toFixed(2)} zł
           </div>
           <div className="text-sm">
-            Category:{" "}
-            {categories.find((c) => c.id === shoppingList.categoryId)?.name ||
-              "Unknown"}
+            Category: {selectedCategory?.name || "None"}
           </div>
         </div>
       )}
@@ -226,24 +302,35 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
           )}
         </div>
 
-        <div className="divide-y">
-          {shoppingList.items.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground">
-              No items in this list yet
-            </div>
-          ) : (
-            shoppingList.items.map((item) => (
-              <div key={item.id}>
-                <ShoppingListItemComponent
-                  item={item}
-                  onUpdate={handleUpdateItem}
-                  onDelete={handleDeleteItem}
-                  disabled={isCompleted}
-                />
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="divide-y">
+            {shoppingList.items.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground">
+                No items in this list yet
               </div>
-            ))
-          )}
-        </div>
+            ) : (
+              <SortableContext
+                items={shoppingList.items.map((item) => item.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {shoppingList.items.map((item) => (
+                  <div key={item.id}>
+                    <ShoppingListItemComponent
+                      item={item}
+                      onUpdate={handleUpdateItem}
+                      onDelete={handleDeleteItem}
+                      disabled={isCompleted}
+                    />
+                  </div>
+                ))}
+              </SortableContext>
+            )}
+          </div>
+        </DndContext>
       </div>
 
       {!isCompleted && (
@@ -284,12 +371,10 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
         onOpenChange={setIsCompletionDialogOpen}
         totalAmount={parseFloat(totalAmount)}
         setTotalAmount={(amount) => setTotalAmount(amount.toString())}
-        selectedCategoryId={selectedCategoryId}
-        setSelectedCategoryId={setSelectedCategoryId}
         handleCompleteList={handleCompleteList}
         completingList={completingList}
-        loadingCategories={loadingCategories}
         categories={categories}
+        selectedCategory={selectedCategory}
       />
     </div>
   );

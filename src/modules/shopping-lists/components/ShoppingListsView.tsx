@@ -5,8 +5,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDisplayDate } from "@/lib/date-utils";
+import type { Category } from "@/modules/shared/category";
+import { useFetchCategories } from "@/modules/shared/useCategoriesQuery";
 import type { ShoppingList } from "@/modules/shopping-lists/shopping-list";
 import {
   useCreateShoppingList,
@@ -16,6 +25,8 @@ import {
 import { Link } from "@tanstack/react-router";
 import {
   CalendarIcon,
+  CopyIcon,
+  FilterIcon,
   ListIcon,
   Plus,
   ShoppingBagIcon,
@@ -31,8 +42,11 @@ export function ShoppingListsView() {
     useShoppingLists("completed");
   const createShoppingList = useCreateShoppingList();
   const deleteShoppingList = useDeleteShoppingList();
+  const { data: categories = [] } = useFetchCategories();
 
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState<string>("active");
 
   const handleCreateList = async (list: Omit<ShoppingList, "id">) => {
     try {
@@ -53,6 +67,38 @@ export function ShoppingListsView() {
     }
   };
 
+  const handleDuplicateList = async (list: ShoppingList) => {
+    try {
+      await createShoppingList.mutateAsync({
+        name: `${list.name}`,
+        items: list.items.map((item) => ({
+          ...item,
+          id: crypto.randomUUID(),
+          completed: false,
+        })),
+        categoryId: list.categoryId,
+      });
+
+      setActiveTab("active");
+    } catch (error) {
+      console.error("Error duplicating shopping list:", error);
+    }
+  };
+
+  const filteredActiveLists =
+    selectedCategoryId !== "all"
+      ? activeLists.filter((list) => list.categoryId === selectedCategoryId)
+      : activeLists;
+
+  const filteredCompletedLists =
+    selectedCategoryId !== "all"
+      ? completedLists.filter((list) => list.categoryId === selectedCategoryId)
+      : completedLists;
+
+  const expenseCategories = categories.filter(
+    (category) => category.type === "expense",
+  );
+
   return (
     <div className="py-6 px-4 md:px-6">
       <div className="mb-6">
@@ -69,7 +115,39 @@ export function ShoppingListsView() {
         </div>
       </div>
 
-      <Tabs defaultValue="active" className="w-full">
+      <div className="mb-6">
+        <div className="flex items-center gap-2">
+          <FilterIcon className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-medium">Filter by category:</span>
+          <Select
+            value={selectedCategoryId}
+            onValueChange={setSelectedCategoryId}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="All categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All categories</SelectItem>
+              {expenseCategories.map((category) => (
+                <SelectItem key={category.id} value={category.id}>
+                  {category.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {selectedCategoryId !== "all" && (
+            <Button
+              variant="ghost"
+              onClick={() => setSelectedCategoryId("all")}
+              size="sm"
+            >
+              Clear
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-4">
           <TabsTrigger value="active">Active Lists</TabsTrigger>
           <TabsTrigger value="completed">Completed Lists</TabsTrigger>
@@ -78,10 +156,14 @@ export function ShoppingListsView() {
         <TabsContent value="active" className="space-y-4">
           {loadingActive ? (
             <div className="text-center p-4">Loading active lists...</div>
-          ) : activeLists.length === 0 ? (
+          ) : filteredActiveLists.length === 0 ? (
             <div className="text-center py-8 border rounded-md bg-card">
               <ShoppingBagIcon className="mx-auto h-10 w-10 text-muted-foreground mb-2" />
-              <p className="text-muted-foreground">No active shopping lists</p>
+              <p className="text-muted-foreground">
+                {selectedCategoryId !== "all"
+                  ? "No active shopping lists in this category"
+                  : "No active shopping lists"}
+              </p>
               <Button
                 variant="outline"
                 className="mt-4"
@@ -92,11 +174,12 @@ export function ShoppingListsView() {
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {activeLists.map((list) => (
+              {filteredActiveLists.map((list) => (
                 <ShoppingListCard
                   key={list.id}
                   list={list}
                   onDelete={() => handleDeleteList(list.id!)}
+                  categories={categories}
                 />
               ))}
             </div>
@@ -106,21 +189,25 @@ export function ShoppingListsView() {
         <TabsContent value="completed" className="space-y-4">
           {loadingCompleted ? (
             <div className="text-center p-4">Loading completed lists...</div>
-          ) : completedLists.length === 0 ? (
+          ) : filteredCompletedLists.length === 0 ? (
             <div className="text-center py-8 border rounded-md bg-card">
               <CalendarIcon className="mx-auto h-10 w-10 text-muted-foreground mb-2" />
               <p className="text-muted-foreground">
-                No completed shopping lists
+                {selectedCategoryId !== "all"
+                  ? "No completed shopping lists in this category"
+                  : "No completed shopping lists"}
               </p>
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {completedLists.map((list) => (
+              {filteredCompletedLists.map((list) => (
                 <ShoppingListCard
                   key={list.id}
                   list={list}
                   onDelete={() => handleDeleteList(list.id!)}
+                  onDuplicate={() => handleDuplicateList(list)}
                   isCompleted
+                  categories={categories}
                 />
               ))}
             </div>
@@ -146,39 +233,67 @@ export function ShoppingListsView() {
 interface ShoppingListCardProps {
   list: ShoppingList;
   onDelete: () => void;
+  onDuplicate?: () => void;
   isCompleted?: boolean;
+  categories: Category[];
 }
 
 function ShoppingListCard({
   list,
   onDelete,
+  onDuplicate,
   isCompleted = false,
+  categories,
 }: ShoppingListCardProps) {
   const itemsCompleted = list.items.filter((item) => item.completed).length;
   const totalItems = list.items.length;
+  const category = categories.find((c) => c.id === list.categoryId);
 
   return (
     <div className="border rounded-md overflow-hidden bg-card transition-all hover:shadow">
       <div className="p-4 border-b">
         <div className="flex justify-between items-center">
           <h3 className="font-medium truncate">{list.name}</h3>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onDelete();
-            }}
-            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-          >
-            <Trash2Icon className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center">
+            {isCompleted && onDuplicate && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onDuplicate();
+                }}
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                title="Duplicate list"
+              >
+                <CopyIcon className="h-4 w-4" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDelete();
+              }}
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              title="Delete list"
+            >
+              <Trash2Icon className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         <div className="flex items-center text-sm text-muted-foreground mt-1">
           <CalendarIcon className="h-3 w-3 mr-1" />
           {formatDisplayDate(list.createdAt)}
         </div>
+        {category && (
+          <div className="text-xs mt-1 inline-flex items-center rounded-full border px-2.5 py-0.5 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+            {category.name}
+          </div>
+        )}
       </div>
 
       <div className="p-4">

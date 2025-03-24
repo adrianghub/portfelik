@@ -38,6 +38,7 @@ export function createShoppingListItem(
 export function createShoppingList(
   name: string,
   userId: string,
+  categoryId?: string,
 ): Omit<ShoppingList, "id"> {
   const now = new Date().toISOString();
   return {
@@ -47,5 +48,6 @@ export function createShoppingList(
     updatedAt: now,
     status: "active",
     userId,
+    ...(categoryId && { categoryId }),
   };
 }

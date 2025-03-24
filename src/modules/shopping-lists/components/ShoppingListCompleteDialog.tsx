@@ -6,13 +6,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import type { Category } from "@/modules/shared/category";
 
 interface ShoppingListCompleteDialogProps {
@@ -20,12 +13,10 @@ interface ShoppingListCompleteDialogProps {
   onOpenChange: (open: boolean) => void;
   totalAmount: number;
   setTotalAmount: (amount: number) => void;
-  selectedCategoryId: string;
-  setSelectedCategoryId: (id: string) => void;
   handleCompleteList: () => void;
   completingList: boolean;
-  loadingCategories: boolean;
   categories: Category[];
+  selectedCategory: Category | undefined;
 }
 
 export function ShoppingListCompleteDialog({
@@ -33,12 +24,9 @@ export function ShoppingListCompleteDialog({
   onOpenChange,
   totalAmount,
   setTotalAmount,
-  selectedCategoryId,
-  setSelectedCategoryId,
   handleCompleteList,
   completingList,
-  loadingCategories,
-  categories,
+  selectedCategory,
 }: ShoppingListCompleteDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -64,32 +52,12 @@ export function ShoppingListCompleteDialog({
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="category" className="text-sm font-medium">
-              Category
-            </label>
-            <Select
-              value={selectedCategoryId}
-              onValueChange={setSelectedCategoryId}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent>
-                {loadingCategories ? (
-                  <SelectItem value="loading" disabled>
-                    Loading...
-                  </SelectItem>
-                ) : (
-                  categories
-                    .filter((category) => category.type === "expense")
-                    .map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name}
-                      </SelectItem>
-                    ))
-                )}
-              </SelectContent>
-            </Select>
+            <label className="text-sm font-medium">Category</label>
+            <div className="p-2 border rounded bg-muted">
+              {selectedCategory
+                ? selectedCategory.name
+                : "No category selected"}
+            </div>
           </div>
         </div>
 
@@ -99,7 +67,7 @@ export function ShoppingListCompleteDialog({
           </Button>
           <Button
             onClick={handleCompleteList}
-            disabled={!totalAmount || !selectedCategoryId || completingList}
+            disabled={!totalAmount || !selectedCategory || completingList}
           >
             {completingList ? "Processing..." : "Complete & Create Transaction"}
           </Button>
