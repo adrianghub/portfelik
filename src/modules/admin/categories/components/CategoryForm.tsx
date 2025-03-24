@@ -28,8 +28,8 @@ export function CategoryForm() {
   };
 
   return (
-    <div className="grid grid-cols-12 gap-4 mb-6">
-      <div className="col-span-6">
+    <div className="flex gap-4 mb-6">
+      <div className="flex-1">
         <Input
           placeholder="Category name"
           value={newCategory.name}

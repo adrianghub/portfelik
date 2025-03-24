@@ -119,6 +119,7 @@ export function ShoppingListItemDialog({
   const handleCancel = () => {
     form.reset();
     setIsOpen(false);
+    scrollToBottom();
   };
 
   // Handle focus and scrolling to ensure the active element is visible
