@@ -36,17 +36,19 @@ import { useState } from "react";
 import { ShoppingListForm } from "./ShoppingListForm";
 
 export function ShoppingListsView() {
-  const { data: activeLists = [], isLoading: loadingActive } =
-    useShoppingLists("active");
-  const { data: completedLists = [], isLoading: loadingCompleted } =
-    useShoppingLists("completed");
-  const createShoppingList = useCreateShoppingList();
-  const deleteShoppingList = useDeleteShoppingList();
-  const { data: categories = [] } = useFetchCategories();
-
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<string>("active");
+
+  const { data: activeLists = [], isLoading: loadingActive } = useShoppingLists(
+    activeTab === "active" ? "active" : undefined,
+  );
+  const { data: completedLists = [], isLoading: loadingCompleted } =
+    useShoppingLists(activeTab === "completed" ? "completed" : undefined);
+
+  const createShoppingList = useCreateShoppingList();
+  const deleteShoppingList = useDeleteShoppingList();
+  const { data: categories = [] } = useFetchCategories();
 
   const handleCreateList = async (list: Omit<ShoppingList, "id">) => {
     try {
@@ -83,6 +85,12 @@ export function ShoppingListsView() {
     } catch (error) {
       console.error("Error duplicating shopping list:", error);
     }
+  };
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    // Reset filters when switching tabs
+    setSelectedCategoryId("all");
   };
 
   const filteredActiveLists =
@@ -147,7 +155,11 @@ export function ShoppingListsView() {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs
+        value={activeTab}
+        onValueChange={handleTabChange}
+        className="w-full"
+      >
         <TabsList className="grid w-full grid-cols-2 mb-4">
           <TabsTrigger value="active">Active Lists</TabsTrigger>
           <TabsTrigger value="completed">Completed Lists</TabsTrigger>
