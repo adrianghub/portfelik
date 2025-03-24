@@ -1,0 +1,48 @@
+{
+  "login": {
+    "title": "Hej promyczku 🌻",
+    "description": "Tutaj zalogujesz się do swojego Portfelika",
+    "error": "Podany adres e-mail, bądź hasło jest niepoprawne. Spróbuj ponownie 😘",
+    "email": "Adres e-mail",
+    "password": "Hasło",
+    "emailPlaceholder": "twoj.mail@email.com",
+    "emailRequired": "Email jest wymagany.",
+    "emailInvalid": "Podany email jest nieprawidłowy.",
+    "passwordRequired": "Hasło jest wymagane.",
+    "passwordInvalid": "Podane hasło jest nieprawidłowe."
+  },
+  "auth": {
+    "signOut": "Wyloguj się"
+  },
+  "transactions": {
+    "allTransactions": "Wszystkie transakcje 🤑",
+    "myTransactions": "Moje transakcje 🤑",
+    "viewingTransactionsFromAllUsers": "Transakcje wszystkich użytkowników"
+  },
+  "nav": {
+    "transactions": "Transakcje",
+    "shoppingLists": "Listy zakupów",
+    "admin": "Admin"
+  },
+  "shoppingLists": {
+    "title": "Listy zakupów",
+    "description": "Lista zakupów",
+    "addList": "Dodaj listę",
+    "filterByCategory": "Filtruj po kategorii",
+    "allCategories": "Wszystkie",
+    "clearFilter": "Wyczyść filtr",
+    "activeLists": "Aktywne",
+    "completedLists": "Zakończone",
+    "loadingActiveLists": "Ładowanie aktywnych list...",
+    "noActiveLists": "Brak aktywnych list",
+    "noActiveListsInThisCategory": "Brak aktywnych list w tej kategorii",
+    "createFirstList": "Utwórz pierwszą listę",
+    "deleteList": "Usuń listę",
+    "deleteListConfirmation": "Czy na pewno chcesz usunąć tę listę?",
+    "duplicateList": "Duplikuj listę",
+    "createShoppingList": "Utwórz listę zakupów",
+    "total": "Razem",
+    "completed": "Zakończone",
+    "items": "Produkty"
+  }
+}

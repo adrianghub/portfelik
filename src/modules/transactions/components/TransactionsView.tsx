@@ -5,6 +5,7 @@ import { logger } from "@/lib/logger";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus, RefreshCw } from "lucide-react";
 import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Transaction } from "../transaction";
 import {
   useAddTransaction,
@@ -27,6 +28,7 @@ export function TransactionsView() {
   });
   const { userData } = useAuth();
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
   const isAdmin = userData?.role === "admin";
 
   const {
@@ -136,11 +138,13 @@ export function TransactionsView() {
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4">
           <div className="mb-3 sm:mb-0">
             <h1 className="flex items-center flex-wrap">
-              {isAdmin ? "All Transactions" : "My Transactions"}
+              {isAdmin
+                ? t("transactions.allTransactions")
+                : t("transactions.myTransactions")}
             </h1>
             {isAdmin && (
               <p className="text-sm text-gray-500 mt-1">
-                Viewing transactions from all users
+                {t("transactions.viewingTransactionsFromAllUsers")}
               </p>
             )}
           </div>

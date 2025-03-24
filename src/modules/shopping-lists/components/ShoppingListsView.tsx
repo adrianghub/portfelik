@@ -33,6 +33,7 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ShoppingListForm } from "./ShoppingListForm";
 
 export function ShoppingListsView() {
@@ -49,6 +50,8 @@ export function ShoppingListsView() {
   const createShoppingList = useCreateShoppingList();
   const deleteShoppingList = useDeleteShoppingList();
   const { data: categories = [] } = useFetchCategories();
+
+  const { t } = useTranslation();
 
   const handleCreateList = async (list: Omit<ShoppingList, "id">) => {
     try {
@@ -89,7 +92,6 @@ export function ShoppingListsView() {
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
-    // Reset filters when switching tabs
     setSelectedCategoryId("all");
   };
 
@@ -111,14 +113,18 @@ export function ShoppingListsView() {
     <div className="py-6 px-4 md:px-6">
       <div className="mb-6">
         <div className="flex flex-row justify-between items-center mb-4 sm:mb-0">
-          <h1 className="flex items-center flex-wrap">Shopping Lists</h1>
+          <h1 className="flex items-center flex-wrap">
+            {t("shoppingLists.title")}
+          </h1>
           <Button
             onClick={() => setIsFormDialogOpen(true)}
             className="flex items-center gap-1"
           >
             <Plus className="h-4 w-4" />
-            <span className="hidden lg:inline">Add List</span>
-            <span className="lg:hidden">Add</span>
+            <span className="hidden lg:inline">
+              {t("shoppingLists.addList")}
+            </span>
+            <span className="lg:hidden">{t("shoppingLists.addList")}</span>
           </Button>
         </div>
       </div>
@@ -126,16 +132,20 @@ export function ShoppingListsView() {
       <div className="mb-6">
         <div className="flex items-center gap-2">
           <FilterIcon className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">Filter by category:</span>
+          <span className="text-sm font-medium">
+            {t("shoppingLists.filterByCategory")}
+          </span>
           <Select
             value={selectedCategoryId}
             onValueChange={setSelectedCategoryId}
           >
             <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="All categories" />
+              <SelectValue placeholder={t("shoppingLists.allCategories")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All categories</SelectItem>
+              <SelectItem value="all">
+                {t("shoppingLists.allCategories")}
+              </SelectItem>
               {expenseCategories.map((category) => (
                 <SelectItem key={category.id} value={category.id}>
                   {category.name}
@@ -149,7 +159,7 @@ export function ShoppingListsView() {
               onClick={() => setSelectedCategoryId("all")}
               size="sm"
             >
-              Clear
+              {t("shoppingLists.clearFilter")}
             </Button>
           )}
         </div>
@@ -161,27 +171,33 @@ export function ShoppingListsView() {
         className="w-full"
       >
         <TabsList className="grid w-full grid-cols-2 mb-4">
-          <TabsTrigger value="active">Active Lists</TabsTrigger>
-          <TabsTrigger value="completed">Completed Lists</TabsTrigger>
+          <TabsTrigger value="active">
+            {t("shoppingLists.activeLists")}
+          </TabsTrigger>
+          <TabsTrigger value="completed">
+            {t("shoppingLists.completedLists")}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="active" className="space-y-4">
           {loadingActive ? (
-            <div className="text-center p-4">Loading active lists...</div>
+            <div className="text-center p-4">
+              {t("shoppingLists.loadingActiveLists")}
+            </div>
           ) : filteredActiveLists.length === 0 ? (
             <div className="text-center py-8 border rounded-md bg-card">
               <ShoppingBagIcon className="mx-auto h-10 w-10 text-muted-foreground mb-2" />
               <p className="text-muted-foreground">
                 {selectedCategoryId !== "all"
-                  ? "No active shopping lists in this category"
-                  : "No active shopping lists"}
+                  ? t("shoppingLists.noActiveListsInThisCategory")
+                  : t("shoppingLists.noActiveLists")}
               </p>
               <Button
                 variant="outline"
                 className="mt-4"
                 onClick={() => setIsFormDialogOpen(true)}
               >
-                Create your first list
+                {t("shoppingLists.createFirstList")}
               </Button>
             </div>
           ) : (
@@ -200,14 +216,16 @@ export function ShoppingListsView() {
 
         <TabsContent value="completed" className="space-y-4">
           {loadingCompleted ? (
-            <div className="text-center p-4">Loading completed lists...</div>
+            <div className="text-center p-4">
+              {t("shoppingLists.loadingCompletedLists")}
+            </div>
           ) : filteredCompletedLists.length === 0 ? (
             <div className="text-center py-8 border rounded-md bg-card">
               <CalendarIcon className="mx-auto h-10 w-10 text-muted-foreground mb-2" />
               <p className="text-muted-foreground">
                 {selectedCategoryId !== "all"
-                  ? "No completed shopping lists in this category"
-                  : "No completed shopping lists"}
+                  ? t("shoppingLists.noCompletedListsInThisCategory")
+                  : t("shoppingLists.noCompletedLists")}
               </p>
             </div>
           ) : (
@@ -230,7 +248,7 @@ export function ShoppingListsView() {
       <Dialog open={isFormDialogOpen} onOpenChange={setIsFormDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create Shopping List</DialogTitle>
+            <DialogTitle>{t("shoppingLists.createShoppingList")}</DialogTitle>
           </DialogHeader>
           <ShoppingListForm
             onSubmit={handleCreateList}
@@ -261,7 +279,7 @@ function ShoppingListCard({
   const totalItems = list.items.length;
   const category = categories.find((c) => c.id === list.categoryId);
   const navigate = useNavigate();
-
+  const { t } = useTranslation();
   const handleCardClick = () => {
     navigate({ to: "/shopping-lists/$id", params: { id: list.id! } });
   };
@@ -285,7 +303,7 @@ function ShoppingListCard({
                   onDuplicate();
                 }}
                 className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                title="Duplicate list"
+                title={t("shoppingLists.duplicateList")}
               >
                 <CopyIcon className="h-4 w-4" />
               </Button>
@@ -299,7 +317,7 @@ function ShoppingListCard({
                 onDelete();
               }}
               className="text-red-600 hover:text-red-600 hover:bg-red-50"
-              title="Delete list"
+              title={t("shoppingLists.deleteList")}
             >
               <Trash2Icon className="h-4 w-4" />
             </Button>
@@ -321,20 +339,21 @@ function ShoppingListCard({
           <div className="flex items-center text-sm">
             <ListIcon className="h-3 w-3 mr-1" />
             <span>
-              {totalItems} {totalItems === 1 ? "item" : "items"}
+              ({totalItems}) {t("shoppingLists.items")}
             </span>
           </div>
 
           {totalItems > 0 && (
             <div className="text-sm text-muted-foreground">
-              {Math.round((itemsCompleted / totalItems) * 100)}% complete
+              {Math.round((itemsCompleted / totalItems) * 100)}%{" "}
+              {t("shoppingLists.completed")}
             </div>
           )}
         </div>
 
         {isCompleted && list.totalAmount && (
           <div className="mt-2 font-medium">
-            Total: {list.totalAmount.toFixed(2)} zł
+            {t("shoppingLists.total")}: {list.totalAmount.toFixed(2)} zł
           </div>
         )}
       </div>

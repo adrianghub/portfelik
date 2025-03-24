@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 import { useLoginForm } from "@/modules/login/useLoginForm";
 
 export function LoginForm() {
@@ -21,26 +22,29 @@ export function LoginForm() {
     handlePasswordChange,
     handleSubmit,
   } = useLoginForm();
+  const { t } = useTranslation();
 
   return (
     <div className="flex justify-center items-center min-h-[80vh]">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Login</CardTitle>
-          <CardDescription>
-            Enter your credentials to access your account
+          <CardTitle className="text-2xl font-bold">
+            {t("login.title")}
+          </CardTitle>
+          <CardDescription className="text-md text-muted-foreground">
+            {t("login.description")}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t("login.email")}</Label>
               <Input
                 id="email"
                 type="email"
                 value={email}
                 onChange={handleEmailChange}
-                placeholder="your.email@example.com"
+                placeholder={t("login.emailPlaceholder")}
                 required
               />
               {validationErrors.email && (
@@ -48,7 +52,7 @@ export function LoginForm() {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t("login.password")}</Label>
               <Input
                 id="password"
                 type="password"

@@ -8,6 +8,7 @@ import {
 } from "@/lib/service-worker";
 import { notificationService } from "@/modules/shared/notifications/NotificationService";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { t } from "i18next";
 import { LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
 import { MobileMenu } from "./MobileMenu";
@@ -91,7 +92,7 @@ export function Navigation() {
                   className="flex items-center gap-2"
                 >
                   <LogOut className="h-4 w-4" />
-                  Logout
+                  {t("auth.signOut")}
                 </Button>
               ) : (
                 <Button variant="outline" size="sm" asChild>

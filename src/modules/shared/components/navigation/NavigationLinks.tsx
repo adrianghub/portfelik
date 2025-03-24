@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { NavLink } from "./NavLink";
 
 type ValidRoute =
@@ -15,9 +16,9 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { to: "/transactions", label: "Transactions" },
-  { to: "/shopping-lists", label: "Shopping Lists" },
-  { to: "/admin", label: "Admin" },
+  { to: "/transactions", label: "nav.transactions" },
+  { to: "/shopping-lists", label: "nav.shoppingLists" },
+  { to: "/admin", label: "nav.admin" },
 ];
 
 interface NavigationLinksProps {
@@ -31,6 +32,8 @@ export function NavigationLinks({
   isMobile,
   onNavigate,
 }: NavigationLinksProps) {
+  const { t } = useTranslation();
+
   return (
     <>
       {NAV_ITEMS.filter((item) => !item.to.startsWith("/admin") || isAdmin).map(
@@ -47,7 +50,7 @@ export function NavigationLinks({
                 : undefined
             }
           >
-            {item.label}
+            {t(item.label)}
           </NavLink>
         ),
       )}

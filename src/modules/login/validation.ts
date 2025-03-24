@@ -1,14 +1,19 @@
+import type { TFunction } from "i18next";
+
 /**
  * Validates an email address
  * @param email The email address to validate
  * @returns An error message if invalid, undefined if valid
  */
-export const validateEmail = (email: string): string | undefined => {
+export const validateEmail = (
+  email: string,
+  t: TFunction,
+): string | undefined => {
   if (!email) {
-    return "Email is required";
+    return t("login.emailRequired");
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return "Please enter a valid email address";
+    return t("login.emailInvalid");
   }
   return undefined;
 };
@@ -18,12 +23,15 @@ export const validateEmail = (email: string): string | undefined => {
  * @param password The password to validate
  * @returns An error message if invalid, undefined if valid
  */
-export const validatePassword = (password: string): string | undefined => {
+export const validatePassword = (
+  password: string,
+  t: TFunction,
+): string | undefined => {
   if (!password) {
-    return "Password is required";
+    return t("login.passwordRequired");
   }
   if (password.length < 6) {
-    return "Password must be at least 6 characters";
+    return t("login.passwordInvalid");
   }
   return undefined;
 };

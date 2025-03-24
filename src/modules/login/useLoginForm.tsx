@@ -1,10 +1,12 @@
 import { signIn } from "@/lib/firebase/firebase";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 import { validateEmail, validatePassword } from "@/modules/login/validation";
 import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
 export function useLoginForm() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +36,7 @@ export function useLoginForm() {
         await signIn(value.email, value.password);
         navigate({ to: getRedirectUrl() });
       } catch (err) {
-        setError("Invalid email or password. Please try again.");
+        setError(t("login.error"));
         console.error("Login error:", err);
       } finally {
         setLoading(false);
@@ -47,7 +49,7 @@ export function useLoginForm() {
     setEmail(value);
     form.setFieldValue("email", value);
 
-    const emailError = validateEmail(value);
+    const emailError = validateEmail(value, t);
     setValidationErrors((prev) => ({
       ...prev,
       email: emailError,
@@ -59,7 +61,7 @@ export function useLoginForm() {
     setPassword(value);
     form.setFieldValue("password", value);
 
-    const passwordError = validatePassword(value);
+    const passwordError = validatePassword(value, t);
     setValidationErrors((prev) => ({
       ...prev,
       password: passwordError,
@@ -69,8 +71,8 @@ export function useLoginForm() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const emailError = validateEmail(email);
-    const passwordError = validatePassword(password);
+    const emailError = validateEmail(email, t);
+    const passwordError = validatePassword(password, t);
 
     setValidationErrors({
       email: emailError,
