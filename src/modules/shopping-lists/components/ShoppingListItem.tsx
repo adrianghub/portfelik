@@ -1,8 +1,9 @@
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { type ShoppingListItem as ShoppingListItemType } from "@/modules/shopping-lists/shopping-list";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { CheckIcon, GripVertical, PencilIcon, Trash2Icon } from "lucide-react";
+import { Edit, GripVertical, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import { ShoppingListItemDialog } from "./ShoppingListItemDialog";
 
@@ -53,12 +54,11 @@ export function ShoppingListItem({
     itemId: string,
     updates: Partial<ShoppingListItemType>,
   ) => {
-    const updatedItem = {
-      ...item,
-      ...updates,
-    };
+    const filteredUpdates = Object.fromEntries(
+      Object.entries(updates).filter(([_, value]) => value !== undefined),
+    );
 
-    onUpdate(itemId, updatedItem);
+    onUpdate(itemId, filteredUpdates);
   };
 
   return (
@@ -77,20 +77,12 @@ export function ShoppingListItem({
           </div>
         )}
 
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleToggle();
-          }}
+        <Checkbox
+          checked={item.completed}
+          onCheckedChange={handleToggle}
           disabled={disabled}
-          className={`h-6 w-6 rounded-full p-0 shrink-0 ${
-            item.completed ? "bg-primary text-primary-foreground" : "border"
-          }`}
-        >
-          {item.completed && <CheckIcon className="h-3 w-3" />}
-        </Button>
+          className="h-4 w-4"
+        />
 
         <div
           className={`flex-1 ${
@@ -122,9 +114,8 @@ export function ShoppingListItem({
               variant="ghost"
               size="icon"
               onClick={() => setShowEditDialog(true)}
-              className="h-8 w-8"
             >
-              <PencilIcon className="h-4 w-4" />
+              <Edit className="w-4 h-4" />
             </Button>
           )}
           <Button
@@ -132,9 +123,9 @@ export function ShoppingListItem({
             size="icon"
             onClick={() => onDelete(item.id)}
             disabled={disabled}
-            className="h-8 w-8"
+            className="text-red-600 hover:text-red-600 hover:bg-red-50"
           >
-            <Trash2Icon className="h-4 w-4" />
+            <Trash2Icon className="w-4 h-4" />
           </Button>
         </div>
       </div>

@@ -269,22 +269,20 @@ export function TransactionTable({
           <div className="flex justify-end gap-2">
             {onEdit && (
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={() => onEdit(transaction)}
               >
-                <span className="hidden sm:inline">Edit</span>
                 <Edit className="w-4 h-4" />
               </Button>
             )}
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={() => handleDelete(transaction.id)}
               disabled={deletingId === transaction.id}
-              className="text-red-600 hover:bg-red-50"
+              className="text-red-600 hover:text-red-600 hover:bg-red-50"
             >
-              <span className="hidden sm:inline">Delete</span>
               <Trash2 className="w-4 h-4" />
             </Button>
           </div>

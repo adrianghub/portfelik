@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -9,13 +10,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { FormField } from "@/modules/shared/components/FormField";
 import {
   createShoppingListItem,
   type ShoppingListItem,
 } from "@/modules/shopping-lists/shopping-list";
 import { useForm } from "@tanstack/react-form";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface ShoppingListItemDialogProps {
   trigger?: React.ReactNode;
@@ -40,6 +42,15 @@ const validateQuantity = (value: string) => {
   return undefined;
 };
 
+const scrollToBottom = () => {
+  setTimeout(() => {
+    window.scrollTo({
+      top: document.body.scrollHeight,
+      behavior: "smooth",
+    });
+  }, 100);
+};
+
 export function ShoppingListItemDialog({
   trigger,
   onAddItem,
@@ -49,6 +60,10 @@ export function ShoppingListItemDialog({
   initialValues,
 }: ShoppingListItemDialogProps) {
   const [open, setOpen] = useState(false);
+  const [createNext, setCreateNext] = useState(true);
+
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const dialogContentRef = useRef<HTMLDivElement>(null);
 
   const isControlled = controlledOpen !== undefined;
   const isOpen = isControlled ? controlledOpen : open;
@@ -79,6 +94,7 @@ export function ShoppingListItemDialog({
         }
 
         onUpdateItem(initialValues.id, updates);
+        setIsOpen(false);
       } else if (onAddItem) {
         const newItem = createShoppingListItem(
           value.name.trim(),
@@ -87,10 +103,16 @@ export function ShoppingListItemDialog({
         );
 
         onAddItem(newItem);
-      }
 
-      form.reset();
-      setIsOpen(false);
+        form.reset();
+
+        if (!createNext) {
+          setIsOpen(false);
+          scrollToBottom();
+        } else {
+          nameInputRef.current?.focus();
+        }
+      }
     },
   });
 
@@ -99,10 +121,44 @@ export function ShoppingListItemDialog({
     setIsOpen(false);
   };
 
+  // Handle focus and scrolling to ensure the active element is visible
+  useEffect(() => {
+    if (isOpen) {
+      const handleFocusIn = () => {
+        // Allow a brief moment for the virtual keyboard to appear
+        setTimeout(() => {
+          // Ensure the active element is visible by scrolling it into view
+          const activeElement = document.activeElement;
+          if (activeElement && activeElement instanceof HTMLElement) {
+            activeElement.scrollIntoView({
+              block: "center",
+              behavior: "smooth",
+            });
+          }
+        }, 100);
+      };
+
+      // Focus the name input on open
+      if (!isEditing) {
+        nameInputRef.current?.focus();
+      }
+
+      // Add focus event listeners to handle keyboard appearance
+      document.addEventListener("focusin", handleFocusIn);
+
+      return () => {
+        document.removeEventListener("focusin", handleFocusIn);
+      };
+    }
+  }, [isOpen, isEditing]);
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-      <DialogContent className="w-full max-w-md mx-auto sm:max-w-lg p-4 sm:p-6 overflow-y-auto max-h-[95vh]">
+      <DialogContent
+        ref={dialogContentRef}
+        className="w-full max-w-md mx-auto sm:max-w-lg p-4 sm:p-6 overflow-y-auto max-h-[90vh]"
+      >
         <DialogHeader>
           <DialogTitle className="text-xl">
             {isEditing ? "Edit Item" : "Add Item"}
@@ -134,6 +190,7 @@ export function ShoppingListItemDialog({
                   error={field.state.meta.errors?.[0]}
                 >
                   <Input
+                    ref={nameInputRef}
                     id="name"
                     placeholder="Enter item name"
                     value={field.state.value}
@@ -184,6 +241,19 @@ export function ShoppingListItemDialog({
                 </FormField>
               )}
             </form.Field>
+
+            {!isEditing && (
+              <div className="flex items-center space-x-2 pt-2">
+                <Checkbox
+                  id="create-next"
+                  checked={createNext}
+                  onCheckedChange={(checked) => setCreateNext(checked === true)}
+                />
+                <Label htmlFor="create-next" className="text-sm cursor-pointer">
+                  Create next item after adding
+                </Label>
+              </div>
+            )}
           </div>
 
           <DialogFooter className="flex gap-2 mt-6">

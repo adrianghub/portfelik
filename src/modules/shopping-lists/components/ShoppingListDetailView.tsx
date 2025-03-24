@@ -256,14 +256,16 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
         </div>
       </div>
 
-      <div className="space-y-2">
-        <div className="flex justify-between items-center">
-          <div className="text-sm text-muted-foreground">
-            {itemsCompleted} of {totalItems} items completed
+      <div className="sticky top-0 z-10 bg-background pt-4 pb-2 -mx-4 md:-mx-6 lg:-mx-8 px-4 md:px-6 lg:px-8 border-b">
+        <div className="space-y-2">
+          <div className="flex justify-between items-center">
+            <div className="text-sm text-muted-foreground">
+              {itemsCompleted} of {totalItems} items completed
+            </div>
+            <div className="text-sm font-medium">{Math.round(progress)}%</div>
           </div>
-          <div className="text-sm font-medium">{Math.round(progress)}%</div>
+          <Progress value={progress} className="h-2" />
         </div>
-        <Progress value={progress} className="h-2" />
       </div>
 
       {isCompleted && (

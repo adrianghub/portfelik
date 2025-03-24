@@ -22,10 +22,10 @@ import {
   useReactTable,
   type ColumnDef,
 } from "@tanstack/react-table";
+import { Edit, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useCategoriesContext } from "../useCategoriesContext";
 import { DeleteCategoryDialog } from "./DeleteCategoryDialog";
-
 export function CategoryTable() {
   const {
     categories,
@@ -133,18 +133,19 @@ export function CategoryTable() {
             ) : (
               <>
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
                   onClick={() => setEditingCategory(category)}
                 >
-                  Edit
+                  <Edit className="w-4 h-4" />
                 </Button>
                 <Button
-                  variant="destructive"
+                  variant="ghost"
                   size="sm"
                   onClick={() => confirmDelete(category.id)}
+                  className="text-red-600 hover:text-red-600 hover:bg-red-50"
                 >
-                  Delete
+                  <Trash2 className="w-4 h-4" />
                 </Button>
               </>
             )}

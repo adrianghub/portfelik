@@ -22,7 +22,7 @@ import {
   useDeleteShoppingList,
   useShoppingLists,
 } from "@/modules/shopping-lists/useShoppingListsQuery";
-import { Link } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import {
   CalendarIcon,
   CopyIcon,
@@ -248,9 +248,17 @@ function ShoppingListCard({
   const itemsCompleted = list.items.filter((item) => item.completed).length;
   const totalItems = list.items.length;
   const category = categories.find((c) => c.id === list.categoryId);
+  const navigate = useNavigate();
+
+  const handleCardClick = () => {
+    navigate({ to: "/shopping-lists/$id", params: { id: list.id! } });
+  };
 
   return (
-    <div className="border rounded-md overflow-hidden bg-card transition-all hover:shadow">
+    <div
+      className="border rounded-md overflow-hidden bg-card transition-all hover:shadow cursor-pointer"
+      onClick={handleCardClick}
+    >
       <div className="p-4 border-b">
         <div className="flex justify-between items-center">
           <h3 className="font-medium truncate">{list.name}</h3>
@@ -278,7 +286,7 @@ function ShoppingListCard({
                 e.stopPropagation();
                 onDelete();
               }}
-              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              className="text-red-600 hover:text-red-600 hover:bg-red-50"
               title="Delete list"
             >
               <Trash2Icon className="h-4 w-4" />
@@ -318,14 +326,6 @@ function ShoppingListCard({
           </div>
         )}
       </div>
-
-      <Link
-        to="/shopping-lists/$id"
-        params={{ id: list.id! }}
-        className="block p-3 text-center text-sm border-t bg-card hover:bg-accent transition-colors"
-      >
-        View List
-      </Link>
     </div>
   );
 }
