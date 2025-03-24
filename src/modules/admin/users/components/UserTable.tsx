@@ -10,6 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { UserData } from "@/lib/AuthContext";
+import { formatDisplayDate } from "@/lib/date-utils";
 import {
   flexRender,
   getCoreRowModel,
@@ -43,11 +44,6 @@ export function UserTable() {
         user.uid.toLowerCase().includes(lowerCaseSearch),
     );
   }, [searchTerm, users]);
-
-  // Format date for display
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleString();
-  };
 
   // Open edit dialog
   const handleEditClick = (user: UserData) => {
@@ -94,12 +90,12 @@ export function UserTable() {
     {
       accessorKey: "createdAt",
       header: "Created At",
-      cell: ({ row }) => formatDate(row.original.createdAt),
+      cell: ({ row }) => formatDisplayDate(row.original.createdAt),
     },
     {
       accessorKey: "lastLoginAt",
       header: "Last Login",
-      cell: ({ row }) => formatDate(row.original.lastLoginAt),
+      cell: ({ row }) => formatDisplayDate(row.original.lastLoginAt),
     },
     {
       id: "actions",

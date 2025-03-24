@@ -1,3 +1,4 @@
+import dayjs from "dayjs";
 import {
   createUserWithEmailAndPassword,
   getAuth,
@@ -42,21 +43,21 @@ const SAMPLE_TRANSACTIONS = [
     amount: 5000,
     description: "Monthly Salary",
     categoryId: "salary",
-    date: new Date(2025, 2, 1).toISOString(),
+    date: dayjs("2025-02-01").toISOString(),
     type: "income",
   },
   {
     amount: -120,
     description: "Grocery Shopping",
     categoryId: "food",
-    date: new Date(2025, 2, 5).toISOString(),
+    date: dayjs("2025-02-05").toISOString(),
     type: "expense",
   },
   {
     amount: -50,
     description: "Gas Bill",
     categoryId: "utilities",
-    date: new Date(2025, 2, 10).toISOString(),
+    date: dayjs("2025-02-10").toISOString(),
     type: "expense",
   },
 ];

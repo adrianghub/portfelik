@@ -172,7 +172,7 @@ export function TransactionsView() {
             >
               <Plus className="h-4 w-4" />
               <span className="hidden lg:inline">Add Transaction</span>
-              <span className="sm:hidden">Add</span>
+              <span className="lg:hidden">Add</span>
             </Button>
           </div>
         </div>

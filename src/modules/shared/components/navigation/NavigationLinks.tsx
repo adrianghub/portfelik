@@ -5,7 +5,8 @@ type ValidRoute =
   | "/transactions"
   | "/login"
   | "/admin"
-  | "/admin/categories";
+  | "/admin/categories"
+  | "/shopping-lists";
 
 interface NavItem {
   to: ValidRoute;
@@ -15,6 +16,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { to: "/transactions", label: "Transactions" },
+  { to: "/shopping-lists", label: "Shopping Lists" },
   { to: "/admin", label: "Admin" },
 ];
 

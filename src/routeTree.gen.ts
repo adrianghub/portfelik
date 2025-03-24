@@ -14,7 +14,9 @@ import { Route as rootRoute } from './routes/__root'
 import { Route as TransactionsImport } from './routes/transactions'
 import { Route as LoginImport } from './routes/login'
 import { Route as IndexImport } from './routes/index'
+import { Route as ShoppingListsIndexImport } from './routes/shopping-lists/index'
 import { Route as AdminIndexImport } from './routes/admin/index'
+import { Route as ShoppingListsIdImport } from './routes/shopping-lists/$id'
 import { Route as AdminNotificationsImport } from './routes/admin/notifications'
 import { Route as AdminCategoriesImport } from './routes/admin/categories'
 
@@ -38,9 +40,21 @@ const IndexRoute = IndexImport.update({
   getParentRoute: () => rootRoute,
 } as any)
 
+const ShoppingListsIndexRoute = ShoppingListsIndexImport.update({
+  id: '/shopping-lists/',
+  path: '/shopping-lists/',
+  getParentRoute: () => rootRoute,
+} as any)
+
 const AdminIndexRoute = AdminIndexImport.update({
   id: '/admin/',
   path: '/admin/',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const ShoppingListsIdRoute = ShoppingListsIdImport.update({
+  id: '/shopping-lists/$id',
+  path: '/shopping-lists/$id',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -95,11 +109,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminNotificationsImport
       parentRoute: typeof rootRoute
     }
+    '/shopping-lists/$id': {
+      id: '/shopping-lists/$id'
+      path: '/shopping-lists/$id'
+      fullPath: '/shopping-lists/$id'
+      preLoaderRoute: typeof ShoppingListsIdImport
+      parentRoute: typeof rootRoute
+    }
     '/admin/': {
       id: '/admin/'
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AdminIndexImport
+      parentRoute: typeof rootRoute
+    }
+    '/shopping-lists/': {
+      id: '/shopping-lists/'
+      path: '/shopping-lists'
+      fullPath: '/shopping-lists'
+      preLoaderRoute: typeof ShoppingListsIndexImport
       parentRoute: typeof rootRoute
     }
   }
@@ -113,7 +141,9 @@ export interface FileRoutesByFullPath {
   '/transactions': typeof TransactionsRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/notifications': typeof AdminNotificationsRoute
+  '/shopping-lists/$id': typeof ShoppingListsIdRoute
   '/admin': typeof AdminIndexRoute
+  '/shopping-lists': typeof ShoppingListsIndexRoute
 }
 
 export interface FileRoutesByTo {
@@ -122,7 +152,9 @@ export interface FileRoutesByTo {
   '/transactions': typeof TransactionsRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/notifications': typeof AdminNotificationsRoute
+  '/shopping-lists/$id': typeof ShoppingListsIdRoute
   '/admin': typeof AdminIndexRoute
+  '/shopping-lists': typeof ShoppingListsIndexRoute
 }
 
 export interface FileRoutesById {
@@ -132,7 +164,9 @@ export interface FileRoutesById {
   '/transactions': typeof TransactionsRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/notifications': typeof AdminNotificationsRoute
+  '/shopping-lists/$id': typeof ShoppingListsIdRoute
   '/admin/': typeof AdminIndexRoute
+  '/shopping-lists/': typeof ShoppingListsIndexRoute
 }
 
 export interface FileRouteTypes {
@@ -143,7 +177,9 @@ export interface FileRouteTypes {
     | '/transactions'
     | '/admin/categories'
     | '/admin/notifications'
+    | '/shopping-lists/$id'
     | '/admin'
+    | '/shopping-lists'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -151,7 +187,9 @@ export interface FileRouteTypes {
     | '/transactions'
     | '/admin/categories'
     | '/admin/notifications'
+    | '/shopping-lists/$id'
     | '/admin'
+    | '/shopping-lists'
   id:
     | '__root__'
     | '/'
@@ -159,7 +197,9 @@ export interface FileRouteTypes {
     | '/transactions'
     | '/admin/categories'
     | '/admin/notifications'
+    | '/shopping-lists/$id'
     | '/admin/'
+    | '/shopping-lists/'
   fileRoutesById: FileRoutesById
 }
 
@@ -169,7 +209,9 @@ export interface RootRouteChildren {
   TransactionsRoute: typeof TransactionsRoute
   AdminCategoriesRoute: typeof AdminCategoriesRoute
   AdminNotificationsRoute: typeof AdminNotificationsRoute
+  ShoppingListsIdRoute: typeof ShoppingListsIdRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  ShoppingListsIndexRoute: typeof ShoppingListsIndexRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
@@ -178,7 +220,9 @@ const rootRouteChildren: RootRouteChildren = {
   TransactionsRoute: TransactionsRoute,
   AdminCategoriesRoute: AdminCategoriesRoute,
   AdminNotificationsRoute: AdminNotificationsRoute,
+  ShoppingListsIdRoute: ShoppingListsIdRoute,
   AdminIndexRoute: AdminIndexRoute,
+  ShoppingListsIndexRoute: ShoppingListsIndexRoute,
 }
 
 export const routeTree = rootRoute
@@ -196,7 +240,9 @@ export const routeTree = rootRoute
         "/transactions",
         "/admin/categories",
         "/admin/notifications",
-        "/admin/"
+        "/shopping-lists/$id",
+        "/admin/",
+        "/shopping-lists/"
       ]
     },
     "/": {
@@ -214,8 +260,14 @@ export const routeTree = rootRoute
     "/admin/notifications": {
       "filePath": "admin/notifications.tsx"
     },
+    "/shopping-lists/$id": {
+      "filePath": "shopping-lists/$id.tsx"
+    },
     "/admin/": {
       "filePath": "admin/index.tsx"
+    },
+    "/shopping-lists/": {
+      "filePath": "shopping-lists/index.tsx"
     }
   }
 }

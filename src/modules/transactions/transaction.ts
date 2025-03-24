@@ -6,4 +6,5 @@ export interface Transaction {
   type: "income" | "expense";
   categoryId: string;
   userId?: string;
+  shoppingListId?: string;
 }

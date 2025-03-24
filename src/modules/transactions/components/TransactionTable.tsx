@@ -8,19 +8,22 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/cn";
-import { formatDate } from "@/lib/date-utils";
+import { formatDisplayDate } from "@/lib/date-utils";
 import { logger } from "@/lib/logger";
 import { userService } from "@/modules/admin/users/UserService";
 import { useFetchCategories } from "@/modules/shared/useCategoriesQuery";
+import { shoppingListService } from "@/modules/shopping-lists/ShoppingListService";
+import type { ShoppingList } from "@/modules/shopping-lists/shopping-list";
 import type { Transaction } from "@/modules/transactions/transaction";
 import { useDeleteTransaction } from "@/modules/transactions/useTransactionsQuery";
+import { Link } from "@tanstack/react-router";
 import {
   flexRender,
   getCoreRowModel,
   useReactTable,
   type ColumnDef,
 } from "@tanstack/react-table";
-import { Edit, Trash2 } from "lucide-react";
+import { Edit, ShoppingCart, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface TransactionTableProps {
@@ -44,6 +47,11 @@ export function TransactionTable({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [userEmails, setUserEmails] = useState<Record<string, string>>({});
   const [loadingUsers, setLoadingUsers] = useState<boolean>(false);
+  const [shoppingLists, setShoppingLists] = useState<
+    Record<string, ShoppingList>
+  >({});
+  const [loadingShoppingLists, setLoadingShoppingLists] =
+    useState<boolean>(false);
   const { data: categories = [], isLoading: loadingCategories } =
     useFetchCategories();
 
@@ -90,6 +98,42 @@ export function TransactionTable({
     loadUserEmails();
   }, [transactions, showUserInfo]);
 
+  // Fetch shopping lists for transactions that have them
+  useEffect(() => {
+    const loadShoppingLists = async () => {
+      const shoppingListIds = transactions
+        .filter((t) => t.shoppingListId)
+        .map((t) => t.shoppingListId!);
+
+      if (shoppingListIds.length === 0) return;
+
+      setLoadingShoppingLists(true);
+
+      const listsMap: Record<string, ShoppingList> = {};
+      await Promise.all(
+        [...new Set(shoppingListIds)].map(async (listId) => {
+          try {
+            const list = await shoppingListService.get(listId);
+            if (list) {
+              listsMap[listId] = list;
+            }
+          } catch (error) {
+            logger.error(
+              "TransactionTable",
+              `Error fetching shopping list ${listId}:`,
+              error,
+            );
+          }
+        }),
+      );
+
+      setShoppingLists(listsMap);
+      setLoadingShoppingLists(false);
+    };
+
+    loadShoppingLists();
+  }, [transactions]);
+
   const handleDelete = (id?: string) => {
     if (!id) return;
 
@@ -111,7 +155,9 @@ export function TransactionTable({
     return category ? category.name : "Unknown category";
   };
 
-  const columns: ColumnDef<Transaction, unknown>[] = [
+  const hasShoppingLists = transactions.some((t) => t.shoppingListId);
+
+  const baseColumns: ColumnDef<Transaction, unknown>[] = [
     {
       id: "select",
       header: ({ table }) => (
@@ -139,28 +185,61 @@ export function TransactionTable({
     {
       accessorKey: "date",
       header: "Date",
-      cell: ({ row }) => formatDate(row.original.date),
+      cell: ({ row }) => formatDisplayDate(row.original.date),
     },
     {
       accessorKey: "categoryId",
       header: "Category",
       cell: ({ row }) => getCategoryName(row.original.categoryId),
     },
-    ...(showUserInfo
-      ? [
-          {
-            accessorKey: "userId",
-            header: "User",
-            cell: ({ row }: { row: { original: Transaction } }) => {
-              const userId = row.original.userId;
-              if (!userId) return null;
-              return loadingUsers
-                ? "Loading user..."
-                : userEmails[userId] || "Unknown";
-            },
+  ];
+
+  const shoppingListColumn: ColumnDef<Transaction, unknown>[] = hasShoppingLists
+    ? [
+        {
+          id: "shoppingList",
+          header: "Shopping List",
+          cell: ({ row }) => {
+            const shoppingListId = row.original.shoppingListId;
+            if (!shoppingListId) return null;
+
+            const list = shoppingLists[shoppingListId];
+
+            if (loadingShoppingLists) return "Loading...";
+            if (!list) return "Unknown list";
+
+            return (
+              <Link
+                to="/shopping-lists/$id"
+                params={{ id: shoppingListId }}
+                className="flex items-center gap-1 text-blue-600 hover:underline"
+              >
+                <ShoppingCart className="h-3 w-3" />
+                {list.name}
+              </Link>
+            );
           },
-        ]
-      : []),
+        },
+      ]
+    : [];
+
+  const userColumn: ColumnDef<Transaction, unknown>[] = showUserInfo
+    ? [
+        {
+          accessorKey: "userId",
+          header: "User",
+          cell: ({ row }: { row: { original: Transaction } }) => {
+            const userId = row.original.userId;
+            if (!userId) return null;
+            return loadingUsers
+              ? "Loading user..."
+              : userEmails[userId] || "Unknown";
+          },
+        },
+      ]
+    : [];
+
+  const amountColumn: ColumnDef<Transaction, unknown>[] = [
     {
       accessorKey: "amount",
       header: "Amount",
@@ -178,6 +257,9 @@ export function TransactionTable({
         );
       },
     },
+  ];
+
+  const actionsColumn: ColumnDef<Transaction, unknown>[] = [
     {
       id: "actions",
       header: () => <div className="text-right">Actions</div>,
@@ -209,6 +291,14 @@ export function TransactionTable({
         );
       },
     },
+  ];
+
+  const columns = [
+    ...baseColumns,
+    ...shoppingListColumn,
+    ...userColumn,
+    ...amountColumn,
+    ...actionsColumn,
   ];
 
   const table = useReactTable({

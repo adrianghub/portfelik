@@ -37,6 +37,10 @@ service cloud.firestore {
         (request.auth.uid == resource.data.userId || isAdmin());
     }
 
+    match /shopping-lists/{shoppingListId} {
+      allow read, write: if isAuthenticated();
+    }
+
     match /categories/{categoryId} {
       allow read: if isAuthenticated();
 

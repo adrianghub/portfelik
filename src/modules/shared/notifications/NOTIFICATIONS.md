@@ -58,8 +58,10 @@ Push notifications are implemented using Firebase Cloud Messaging (FCM) and requ
 
 The system uses cloud functions for:
 
-1. `sendTransactionSummary` - Scheduled daily to send transaction summaries
-2. `sendTransactionSummaryManual` - HTTP endpoint for manual testing
+1. `sendAdminTransactionSummary` - Scheduled daily to send transaction summaries
+2. `sendAdminTransactionSummaryManual` - HTTP endpoint for manual testing
+3. `sendTransactionSummary` - Scheduled daily to send transaction summaries (SKIPPED FOR NOW)
+4. `sendTransactionSummaryManual` - HTTP endpoint for manual testing (SKIPPED FOR NOW)
 
 ## Future Enhancements
 

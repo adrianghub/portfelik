@@ -19,8 +19,8 @@ import { useState } from "react";
 
 const ENV = import.meta.env;
 const FUNCTION_URL = ENV.DEV
-  ? "http://localhost:5001/portfelik-888dd/us-central1/sendTransactionSummaryManual"
-  : "https://us-central1-portfelik-888dd.cloudfunctions.net/sendTransactionSummaryManual";
+  ? "http://localhost:5001/portfelik-888dd/us-central1/sendAdminTransactionSummaryManual"
+  : "https://us-central1-portfelik-888dd.cloudfunctions.net/sendAdminTransactionSummaryManual";
 
 export const Route = createFileRoute("/admin/notifications")({
   component: AdminNotificationsManagerView,
@@ -50,7 +50,7 @@ function AdminNotificationsManagerView() {
         userId: userData.uid,
         title: "Test Cloud Function",
         body: "This is a test notification sent via Firebase Cloud Functions",
-        type: "system_notification",
+        type: "admin_transaction_summary",
       });
       const response = await fetch(`${FUNCTION_URL}?${params.toString()}`);
       const data = await response.json();
