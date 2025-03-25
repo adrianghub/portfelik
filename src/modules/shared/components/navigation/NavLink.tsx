@@ -46,7 +46,7 @@ export function NavLink({
         className,
       )}
       activeProps={{
-        className: "text-blue-700 font-bold",
+        className: "!text-blue-600 font-bold",
         ...activeProps,
       }}
       {...props}

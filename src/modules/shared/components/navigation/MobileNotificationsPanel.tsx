@@ -22,7 +22,7 @@ export function MobileNotificationsPanel() {
     <div className="flex flex-col w-full">
       <Button
         variant="outline"
-        className="flex items-center justify-between w-full"
+        className="flex items-center justify-between w-full py-5"
         onClick={() => {
           setShowNotifications(!showNotifications);
           if (!showNotifications) refreshNotifications();
@@ -33,7 +33,7 @@ export function MobileNotificationsPanel() {
           Notifications
         </div>
         {unreadCount > 0 && (
-          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-xs text-white">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-xs text-white">
             {unreadCount}
           </span>
         )}

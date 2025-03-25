@@ -171,6 +171,10 @@ export function TransactionsView() {
               />
               <span>{t("transactions.refresh")}</span>
             </Button>
+            <Button className="hidden md:flex items-center gap-1">
+              <Plus className="h-4 w-4" />
+              <span>{t("transactions.addTransaction")}</span>
+            </Button>
           </div>
         </div>
       </div>
