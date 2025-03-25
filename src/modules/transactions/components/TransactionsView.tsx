@@ -168,15 +168,19 @@ export function TransactionsView() {
               <RefreshCw
                 className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
               />
-              <span className="hidden lg:inline">Refresh</span>
+              <span className="hidden lg:inline">
+                {t("transactions.refresh")}
+              </span>
             </Button>
             <Button
               onClick={() => handleOpenDialog()}
               className="flex items-center gap-1"
             >
               <Plus className="h-4 w-4" />
-              <span className="hidden lg:inline">Add Transaction</span>
-              <span className="lg:hidden">Add</span>
+              <span className="hidden lg:inline">
+                {t("transactions.addTransaction")}
+              </span>
+              <span className="lg:hidden">{t("transactions.add")}</span>
             </Button>
           </div>
         </div>
@@ -184,15 +188,17 @@ export function TransactionsView() {
 
       {isLoading ? (
         <div className="bg-white shadow rounded-lg p-4 md:p-6 flex justify-center">
-          <p className="text-gray-500">Loading transactions...</p>
+          <p className="text-gray-500">
+            {t("transactions.loadingTransactions")}
+          </p>
         </div>
       ) : error ? (
         <div className="bg-white shadow rounded-lg p-4 md:p-6 flex flex-col items-center justify-center">
           <p className="text-red-500 font-medium mb-2">
-            Error loading transactions
+            {t("transactions.errorLoadingTransactions")}
           </p>
           <Button variant="outline" className="mt-2" onClick={() => refetch()}>
-            Retry
+            {t("transactions.retry")}
           </Button>
         </div>
       ) : hasTransactions ? (
@@ -206,10 +212,12 @@ export function TransactionsView() {
       ) : (
         <div className="bg-white shadow rounded-lg p-4 md:p-6 flex flex-col items-center justify-center">
           <p className="text-gray-500 text-center py-6">
-            No transactions for {currentMonthName}. Click below to get started.
+            {t("transactions.noTransactionsForThisMonth", {
+              month: currentMonthName,
+            })}
           </p>
           <Button onClick={() => handleOpenDialog()} className="mt-2">
-            Add Transaction
+            {t("transactions.addTransaction")}
           </Button>
         </div>
       )}

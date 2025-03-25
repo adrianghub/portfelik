@@ -14,6 +14,7 @@ import { useFetchCategories } from "@/modules/shared/useCategoriesQuery";
 import type { Transaction } from "@/modules/transactions/transaction";
 import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { FormField } from "../../shared/components/FormField";
 import {
   getDateConstraints,
@@ -64,6 +65,8 @@ export function TransactionForm({
     },
   });
 
+  const { t } = useTranslation();
+
   const { minDate, maxDate } = getDateConstraints();
 
   return (
@@ -83,7 +86,7 @@ export function TransactionForm({
           {(field) => (
             <FormField
               name="type"
-              label="Type"
+              label={t("transactions.transactionDialog.form.type")}
               error={field.state.meta.errors?.[0]}
             >
               <Select
@@ -95,11 +98,19 @@ export function TransactionForm({
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select type" />
+                  <SelectValue
+                    placeholder={t(
+                      "transactions.transactionDialog.form.selectType",
+                    )}
+                  />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="income">Income</SelectItem>
-                  <SelectItem value="expense">Expense</SelectItem>
+                  <SelectItem value="income">
+                    {t("transactions.transactionDialog.form.income")}
+                  </SelectItem>
+                  <SelectItem value="expense">
+                    {t("transactions.transactionDialog.form.expense")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </FormField>
@@ -115,7 +126,7 @@ export function TransactionForm({
           {(field) => (
             <FormField
               name="amount"
-              label="Amount"
+              label={t("transactions.transactionDialog.form.amount")}
               error={field.state.meta.errors?.[0]}
             >
               <Input
@@ -142,14 +153,16 @@ export function TransactionForm({
           {(field) => (
             <FormField
               name="description"
-              label="Description"
+              label={t("transactions.transactionDialog.form.description")}
               error={field.state.meta.errors?.[0]}
             >
               <Input
                 id="description"
                 value={field.state.value || ""}
                 onChange={(e) => field.handleChange(e.target.value)}
-                placeholder="e.g., Groceries, Salary, etc."
+                placeholder={t(
+                  "transactions.transactionDialog.form.descriptionPlaceholder",
+                )}
                 maxLength={50}
               />
             </FormField>
@@ -165,7 +178,7 @@ export function TransactionForm({
           {(field) => (
             <FormField
               name="date"
-              label="Date"
+              label={t("transactions.transactionDialog.form.date")}
               error={field.state.meta.errors?.[0]}
             >
               <Input
@@ -189,7 +202,7 @@ export function TransactionForm({
           {(field) => (
             <FormField
               name="categoryId"
-              label="Category"
+              label={t("transactions.transactionDialog.form.category")}
               error={field.state.meta.errors?.[0]}
             >
               <CategorySelect
@@ -198,7 +211,9 @@ export function TransactionForm({
                 categories={categories}
                 transactionType={transactionType}
                 error={field.state.meta.errors?.[0]}
-                placeholder="Select a category"
+                placeholder={t(
+                  "transactions.transactionDialog.form.categoryPlaceholder",
+                )}
               />
             </FormField>
           )}
@@ -206,9 +221,11 @@ export function TransactionForm({
       </div>
       <DialogFooter className="flex gap-2 mt-6">
         <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
+          {t("transactions.transactionDialog.form.cancel")}
         </Button>
-        <Button type="submit">Save Transaction</Button>
+        <Button type="submit">
+          {t("transactions.transactionDialog.form.submit")}
+        </Button>
       </DialogFooter>
     </form>
   );

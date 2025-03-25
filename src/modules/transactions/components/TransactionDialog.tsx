@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Transaction } from "@/modules/transactions/transaction";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { TransactionForm } from "./TransactionForm";
 
 interface TransactionDialogProps {
@@ -26,6 +27,7 @@ export function TransactionDialog({
   transaction,
 }: TransactionDialogProps) {
   const [open, setOpen] = useState(false);
+  const { t } = useTranslation();
 
   const isControlled = controlledOpen !== undefined;
   const isOpen = isControlled ? controlledOpen : open;
@@ -45,12 +47,14 @@ export function TransactionDialog({
       <DialogContent className="w-full max-w-md mx-auto sm:max-w-lg p-4 sm:p-6 overflow-y-auto max-h-[95vh]">
         <DialogHeader>
           <DialogTitle className="text-xl">
-            {isEditing ? "Edit Transaction" : "Add Transaction"}
+            {isEditing
+              ? t("transactions.transactionDialog.editTransaction")
+              : t("transactions.transactionDialog.addTransaction")}
           </DialogTitle>
           <DialogDescription>
             {isEditing
-              ? "Update the transaction details below."
-              : "Fill out the form below to add a new transaction."}
+              ? t("transactions.transactionDialog.editTransactionDescription")
+              : t("transactions.transactionDialog.addTransactionDescription")}
           </DialogDescription>
         </DialogHeader>
         <div className="mt-4">

@@ -8,7 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-
+import { useTranslation } from "react-i18next";
 interface DeleteTransactionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -20,21 +20,26 @@ export function DeleteTransactionDialog({
   onOpenChange,
   onConfirm,
 }: DeleteTransactionDialogProps) {
+  const { t } = useTranslation();
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
+          <AlertDialogTitle>
+            {t("transactions.deleteConfirmationDialog.title")}
+          </AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to delete the selected transactions? This
-            action cannot be undone.
+            {t("transactions.deleteConfirmationDialog.description")}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel onClick={() => onOpenChange(false)}>
-            Cancel
+            {t("transactions.deleteConfirmationDialog.cancel")}
           </AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm}>Delete</AlertDialogAction>
+          <AlertDialogAction onClick={onConfirm}>
+            {t("transactions.deleteConfirmationDialog.delete")}
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

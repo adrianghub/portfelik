@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Trash2, X } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { DateRange, DateRangeFilter } from "./DateRangeFilter";
 import { DeleteTransactionDialog } from "./DeleteTransactionDialog";
 
@@ -18,6 +19,7 @@ export function TableFilters({
   onUnselectAll,
 }: TableFiltersProps) {
   const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const { t } = useTranslation();
 
   const handleBulkDelete = () => {
     setDeleteDialogOpen(true);
@@ -40,11 +42,15 @@ export function TableFilters({
             className="flex items-center"
           >
             <Trash2 />
-            <span className="hidden lg:inline">Delete Selected</span>
+            <span className="hidden lg:inline">
+              {t("transactions.filters.deleteSelected")}
+            </span>
           </Button>
           <Button onClick={onUnselectAll} className="hidden sm:flex">
             <X />
-            <span className="hidden lg:inline">Unselect All</span>
+            <span className="hidden lg:inline">
+              {t("transactions.filters.unselectAll")}
+            </span>
           </Button>
         </div>
       )}

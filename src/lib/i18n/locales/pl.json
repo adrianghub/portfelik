@@ -15,9 +15,47 @@
     "signOut": "Wyloguj się"
   },
   "transactions": {
-    "allTransactions": "Wszystkie transakcje 🤑",
-    "myTransactions": "Moje transakcje 🤑",
-    "viewingTransactionsFromAllUsers": "Transakcje wszystkich użytkowników"
+    "allTransactions": "Wszystkie transakcje",
+    "myTransactions": "Moje transakcje",
+    "viewingTransactionsFromAllUsers": "Transakcje wszystkich użytkowników",
+    "loadingTransactions": "Ładowanie transakcji...",
+    "errorLoadingTransactions": "Wystąpił błąd podczas ładowania transakcji",
+    "retry": "Spróbuj ponownie",
+    "refresh": "Odśwież",
+    "addTransaction": "Dodaj transakcję",
+    "add": "Dodaj",
+    "noTransactions": "Brak transakcji",
+    "noTransactionsForThisMonth": "Brak transakcji w miesiącu {{month}}",
+    "filters": {
+      "deleteSelected": "Usuń wybrane",
+      "unselectAll": "Odśwież"
+    },
+    "deleteConfirmationDialog": {
+      "title": "Potwierdź usunięcie",
+      "description": "Czy na pewno chcesz usunąć wybrane transakcje?",
+      "cancel": "Anuluj",
+      "delete": "Usuń"
+    },
+    "transactionDialog": {
+      "editTransaction": "Edytuj transakcję",
+      "addTransaction": "Dodaj transakcję",
+      "editTransactionDescription": "Aktualizuj szczegóły transakcji poniżej.",
+      "addTransactionDescription": "Wypełnij formularz poniżej, aby dodać nową transakcję.",
+      "form": {
+        "selectType": "Wybierz typ",
+        "income": "Przychód",
+        "expense": "Wydatki",
+        "amount": "Kwota",
+        "type": "Typ",
+        "date": "Data",
+        "description": "Opis",
+        "category": "Kategoria",
+        "submit": "Zapisz",
+        "cancel": "Anuluj",
+        "categoryPlaceholder": "Wybierz kategorię",
+        "descriptionPlaceholder": "e.g., Zakupy spożywcze, Wypłata, etc."
+      }
+    }
   },
   "nav": {
     "transactions": "Transakcje",
