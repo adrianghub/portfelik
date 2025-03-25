@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/AuthContext";
 import { getFirstDayOfMonth, getLastDayOfMonth } from "@/lib/date-utils";
 import { logger } from "@/lib/logger";
+import { FloatingActionButtonGroup } from "@/modules/shared/components/FloatingActionButtonGroup";
 import { TransactionTable } from "@/modules/transactions/components/TransactionTable";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus, RefreshCw } from "lucide-react";
@@ -162,25 +163,13 @@ export function TransactionsView() {
             <Button
               onClick={handleRefresh}
               disabled={isLoading}
-              variant="outline"
+              variant="ghost"
               className="flex items-center gap-1"
             >
               <RefreshCw
                 className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
               />
-              <span className="hidden lg:inline">
-                {t("transactions.refresh")}
-              </span>
-            </Button>
-            <Button
-              onClick={() => handleOpenDialog()}
-              className="flex items-center gap-1"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="hidden lg:inline">
-                {t("transactions.addTransaction")}
-              </span>
-              <span className="lg:hidden">{t("transactions.add")}</span>
+              <span>{t("transactions.refresh")}</span>
             </Button>
           </div>
         </div>
@@ -216,11 +205,18 @@ export function TransactionsView() {
               month: currentMonthName,
             })}
           </p>
-          <Button onClick={() => handleOpenDialog()} className="mt-2">
-            {t("transactions.addTransaction")}
-          </Button>
         </div>
       )}
+
+      <FloatingActionButtonGroup
+        buttons={[
+          {
+            icon: Plus,
+            onClick: () => handleOpenDialog(),
+            label: t("transactions.addTransaction"),
+          },
+        ]}
+      />
 
       <TransactionDialog
         open={isDialogOpen}

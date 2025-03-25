@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDisplayDate } from "@/lib/date-utils";
+import { FloatingActionButtonGroup } from "@/modules/shared/components/FloatingActionButtonGroup";
 import { useFetchCategories } from "@/modules/shared/useCategoriesQuery";
 import { ShoppingListCompleteDialog } from "@/modules/shopping-lists/components/ShoppingListCompleteDialog";
 import { type ShoppingListItem } from "@/modules/shopping-lists/shopping-list";
@@ -336,23 +337,23 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
       </div>
 
       {!isCompleted && (
-        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 flex gap-4 md:hidden z-10">
-          <Button
-            onClick={handleCompleteListClick}
-            disabled={!allItemsCompleted || shoppingList.items.length === 0}
-            className="rounded-full shadow-lg p-5 h-14 w-14 flex items-center justify-center bg-primary/90 hover:bg-primary"
-            title="Complete Shopping"
-          >
-            <ShoppingCart className="h-6 w-6" />
-          </Button>
-          <Button
-            onClick={() => setShowAddItemDialog(true)}
-            className="rounded-full shadow-lg p-5 h-14 w-14 flex items-center justify-center bg-secondary/90 hover:bg-secondary"
-            title="Add Item"
-          >
-            <PlusIcon className="h-6 w-6 text-black" />
-          </Button>
-        </div>
+        <FloatingActionButtonGroup
+          buttons={[
+            {
+              icon: ShoppingCart,
+              onClick: handleCompleteListClick,
+              disabled: !allItemsCompleted || shoppingList.items.length === 0,
+              label: "Complete Shopping",
+              className: "bg-primary/90 hover:bg-primary text-white",
+              iconClassName: "text-white",
+            },
+            {
+              icon: PlusIcon,
+              onClick: () => setShowAddItemDialog(true),
+              label: "Add Item",
+            },
+          ]}
+        />
       )}
 
       <ShoppingListItemDialog

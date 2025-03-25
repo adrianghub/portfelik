@@ -15,6 +15,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDisplayDate } from "@/lib/date-utils";
 import type { Category } from "@/modules/shared/category";
+import { FloatingActionButtonGroup } from "@/modules/shared/components/FloatingActionButtonGroup";
 import { useFetchCategories } from "@/modules/shared/useCategoriesQuery";
 import type { ShoppingList } from "@/modules/shopping-lists/shopping-list";
 import {
@@ -118,13 +119,10 @@ export function ShoppingListsView() {
           </h1>
           <Button
             onClick={() => setIsFormDialogOpen(true)}
-            className="flex items-center gap-1"
+            className="hidden md:flex items-center gap-1"
           >
             <Plus className="h-4 w-4" />
-            <span className="hidden lg:inline">
-              {t("shoppingLists.addList")}
-            </span>
-            <span className="lg:hidden">{t("shoppingLists.addList")}</span>
+            <span>{t("shoppingLists.addList")}</span>
           </Button>
         </div>
       </div>
@@ -244,6 +242,18 @@ export function ShoppingListsView() {
           )}
         </TabsContent>
       </Tabs>
+
+      {activeTab === "active" && (
+        <FloatingActionButtonGroup
+          buttons={[
+            {
+              icon: Plus,
+              onClick: () => setIsFormDialogOpen(true),
+              label: t("shoppingLists.addList"),
+            },
+          ]}
+        />
+      )}
 
       <Dialog open={isFormDialogOpen} onOpenChange={setIsFormDialogOpen}>
         <DialogContent>

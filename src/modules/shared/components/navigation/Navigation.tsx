@@ -1,56 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/AuthContext";
 import { signOut } from "@/lib/firebase/firebase";
-import {
-  checkNotificationSupport,
-  getFCMToken,
-  requestNotificationPermission,
-} from "@/lib/service-worker";
-import { notificationService } from "@/modules/shared/notifications/NotificationService";
+import { useNotificationSetup } from "@/modules/shared/components/navigation/useNavigationSetup";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { t } from "i18next";
 import { LogOut } from "lucide-react";
-import { useEffect, useState } from "react";
 import { MobileMenu } from "./MobileMenu";
 import { NavigationLinks } from "./NavigationLinks";
 import { NotificationButton } from "./NotificationButton";
-
-/**
- * Custom hook to handle notification setup
- */
-function useNotificationSetup() {
-  const [notificationPermission, setNotificationPermission] =
-    useState<NotificationPermission>(Notification.permission);
-
-  useEffect(() => {
-    const { permission } = checkNotificationSupport();
-    setNotificationPermission(permission);
-  }, []);
-
-  const handleNotificationPermission = async () => {
-    try {
-      if (notificationPermission === "granted") {
-        console.log("Notifications are already enabled.");
-        return;
-      }
-
-      const granted = await requestNotificationPermission();
-      setNotificationPermission(granted ? "granted" : "denied");
-
-      if (granted) {
-        const token = await getFCMToken();
-        if (token) await notificationService.saveFCMToken(token);
-      } else {
-        alert("Please enable notifications in your browser settings.");
-      }
-    } catch (error) {
-      console.error("Error enabling notifications:", error);
-      alert("Failed to enable notifications.");
-    }
-  };
-
-  return { notificationPermission, handleNotificationPermission };
-}
 
 export function Navigation() {
   const { isAuthenticated, userData } = useAuth();
@@ -65,55 +22,60 @@ export function Navigation() {
   };
 
   return (
-    <header className="bg-gray-100 shadow">
-      <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          <div className="flex-shrink-0 flex items-center">
-            <Link to="/" className="text-xl font-bold text-gray-800">
-              Portfelik
-            </Link>
-          </div>
+    <>
+      <header className="sticky top-0 z-50 hidden md:block bg-white shadow border-b border-gray-200">
+        <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16">
+            <div className="flex-shrink-0 flex items-center">
+              <Link to="/" className="text-xl font-bold text-gray-800">
+                Portfelik
+              </Link>
+            </div>
 
-          {/* Desktop navigation */}
-          <div className="hidden md:flex items-center space-x-8">
-            <NavigationLinks isAdmin={isAdmin} />
-            <div className="flex items-center space-x-4">
-              {isAuthenticated && (
-                <NotificationButton
-                  permission={notificationPermission}
-                  onClick={handleNotificationPermission}
-                />
-              )}
-              {isAuthenticated ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleLogout}
-                  className="flex items-center gap-2"
-                >
-                  <LogOut className="h-4 w-4" />
-                  {t("auth.signOut")}
-                </Button>
-              ) : (
-                <Button variant="outline" size="sm" asChild>
-                  <Link to="/login">Login</Link>
-                </Button>
-              )}
+            <div className="flex items-center space-x-8">
+              <NavigationLinks isAdmin={isAdmin} />
+              <div className="flex items-center space-x-4">
+                {isAuthenticated && (
+                  <NotificationButton
+                    permission={notificationPermission}
+                    onClick={handleNotificationPermission}
+                  />
+                )}
+                {isAuthenticated ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleLogout}
+                    className="flex items-center gap-2"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    {t("auth.signOut")}
+                  </Button>
+                ) : (
+                  <Button variant="outline" size="sm" asChild>
+                    <Link to="/login">Login</Link>
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
+        </nav>
+      </header>
 
-          {/* Mobile menu */}
-          <div className="md:hidden flex items-center">
-            <MobileMenu
-              isAuthenticated={isAuthenticated}
-              isAdmin={isAdmin}
-              notificationPermission={notificationPermission}
-              onNotificationClick={handleNotificationPermission}
-              onLogout={handleLogout}
-            />
-          </div>
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
+        <div className="flex items-center justify-between h-16 px-4">
+          <Link to="/" className="text-xl font-bold text-gray-800">
+            Portfelik
+          </Link>
+          <MobileMenu
+            isAuthenticated={isAuthenticated}
+            isAdmin={isAdmin}
+            notificationPermission={notificationPermission}
+            onNotificationClick={handleNotificationPermission}
+            onLogout={handleLogout}
+          />
         </div>
       </nav>
-    </header>
+    </>
   );
 }

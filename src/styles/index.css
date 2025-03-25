@@ -162,3 +162,9 @@ h1 {
     @apply bg-background text-foreground;
   }
 }
+
+@media (max-width: 868px) {
+  .TanStackRouterDevtools, .tsqd-open-btn-container {
+    display: none !important;
+  }
+}
