@@ -1,9 +1,8 @@
+import { cn } from "@/lib/cn";
 import * as SheetPrimitive from "@radix-ui/react-dialog";
 import { cva, type VariantProps } from "class-variance-authority";
 import { X } from "lucide-react";
 import * as React from "react";
-
-import { cn } from "@/lib/cn";
 
 const Sheet = SheetPrimitive.Root;
 
@@ -106,7 +105,7 @@ const SheetTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SheetPrimitive.Title
     ref={ref}
-    className={cn("text-lg font-semibold text-foreground", className)}
+    className={cn("text-md font-semibold text-foreground", className)}
     {...props}
   />
 ));

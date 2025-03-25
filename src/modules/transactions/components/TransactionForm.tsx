@@ -133,7 +133,7 @@ export function TransactionForm({
                 id="amount"
                 type="number"
                 min="0.01"
-                value={field.state.value || ""}
+                value={Math.abs(field.state.value) || ""}
                 onChange={(e) =>
                   field.handleChange(parseFloat(e.target.value) || 0)
                 }

@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/AuthContext";
 import { getFirstDayOfMonth, getLastDayOfMonth } from "@/lib/date-utils";
 import { logger } from "@/lib/logger";
+import { TransactionTable } from "@/modules/transactions/components/TransactionTable";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus, RefreshCw } from "lucide-react";
 import { useCallback, useState } from "react";
@@ -16,7 +17,6 @@ import {
 import { DateRange, getMonthName } from "./DateRangeFilter";
 import { TableFilters } from "./TableFilters";
 import { TransactionDialog } from "./TransactionDialog";
-import { TransactionTable } from "./TransactionTable";
 
 export function TransactionsView() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
