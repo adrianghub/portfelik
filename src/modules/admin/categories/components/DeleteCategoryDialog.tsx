@@ -8,7 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useCategoriesContext } from "../useCategoriesContext";
+import { useDeleteCategory } from "@/modules/shared/categories/useCategoriesQuery";
 
 interface DeleteCategoryDialogProps {
   open: boolean;
@@ -23,11 +23,11 @@ export function DeleteCategoryDialog({
   categoryId,
   onCancel,
 }: DeleteCategoryDialogProps) {
-  const { deleteExistingCategory } = useCategoriesContext();
+  const deleteCategoryMutation = useDeleteCategory();
 
   const handleDelete = () => {
     if (categoryId) {
-      deleteExistingCategory(categoryId);
+      deleteCategoryMutation.mutate(categoryId);
       onCancel();
       onOpenChange(false);
     }

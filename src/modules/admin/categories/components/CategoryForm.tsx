@@ -7,13 +7,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useAddCategory } from "@/modules/shared/categories/useCategoriesQuery";
 import type { Category } from "@/modules/shared/category";
 import { Plus } from "lucide-react";
 import { useState } from "react";
-import { useCategoriesContext } from "../useCategoriesContext";
 
 export function CategoryForm() {
-  const { addNewCategory } = useCategoriesContext();
+  const createCategoryMutation = useAddCategory();
   const [newCategory, setNewCategory] = useState<Category>({
     id: "",
     name: "",
@@ -23,7 +23,7 @@ export function CategoryForm() {
   const handleAddCategory = () => {
     if (!newCategory.name.trim()) return;
 
-    addNewCategory(newCategory);
+    createCategoryMutation.mutate(newCategory);
     setNewCategory({ id: "", name: "", type: "expense" });
   };
 

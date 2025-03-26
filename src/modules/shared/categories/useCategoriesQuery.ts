@@ -1,5 +1,5 @@
 import { useAuth } from "@/hooks/useAuth";
-import { categoryService } from "@/modules/admin/categories/CategoryService";
+import { categoryService } from "@/modules/shared/categories/CategoryService";
 import {
   firestoreCategoriesToUICategories,
   uiCategoryToFirestoreCategory,
@@ -12,14 +12,13 @@ const CATEGORIES_QUERY_KEY = ["categories"];
 
 export function useFetchCategories() {
   const { userData } = useAuth();
-  const userId = userData?.uid;
+  const isAdmin = userData?.role === "admin";
 
   return useQuery({
-    queryKey: [...CATEGORIES_QUERY_KEY, userId],
+    queryKey: CATEGORIES_QUERY_KEY,
     queryFn: async () => {
       try {
         const categories = await categoryService.getAllCategories();
-
         const uiCategories = firestoreCategoriesToUICategories(
           categories as CategoryDTO[],
         );
@@ -29,7 +28,7 @@ export function useFetchCategories() {
         throw error;
       }
     },
-    enabled: !!userId,
+    enabled: isAdmin,
   });
 }
 
@@ -45,7 +44,6 @@ export function useAddCategory() {
       }
 
       const firestoreCategory = uiCategoryToFirestoreCategory(category, userId);
-
       const categoryToSave = { ...firestoreCategory };
 
       if ("id" in categoryToSave) {
@@ -54,8 +52,7 @@ export function useAddCategory() {
 
       return categoryService.create(categoryToSave);
     },
-    onSuccess: (result) => {
-      console.log("Category created successfully:", result);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CATEGORIES_QUERY_KEY });
     },
     onError: (error) => {

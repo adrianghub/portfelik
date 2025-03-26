@@ -1,12 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -15,148 +7,47 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { Category } from "@/modules/shared/category";
+import { useCategoryColumns } from "@/modules/admin/categories/hooks/useCategoryColumns";
+import { useCategoryTableData } from "@/modules/admin/categories/hooks/useCategoryTableData";
+import { useFetchCategories } from "@/modules/shared/categories/useCategoriesQuery";
 import {
   flexRender,
   getCoreRowModel,
   useReactTable,
-  type ColumnDef,
 } from "@tanstack/react-table";
-import { Edit, Trash2 } from "lucide-react";
-import { useState } from "react";
-import { useCategoriesContext } from "../useCategoriesContext";
 import { DeleteCategoryDialog } from "./DeleteCategoryDialog";
+
 export function CategoryTable() {
+  const { data: categories, isLoading, error } = useFetchCategories();
+
   const {
-    categories,
-    isLoading,
-    error,
-    editingCategory,
-    setEditingCategory,
-    updateExistingCategory,
-  } = useCategoriesContext();
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
+    editingId,
+    editForm,
+    deleteDialogOpen,
+    categoryToDelete,
+    setDeleteDialogOpen,
+    setCategoryToDelete,
+    handleUpdateCategory,
+    resetEditState,
+    handleStartEdit,
+    confirmDelete,
+    updateFormField,
+    isSaveDisabled,
+  } = useCategoryTableData();
 
-  const handleUpdateCategory = () => {
-    if (!editingCategory) return;
-
-    updateExistingCategory(editingCategory.id, {
-      name: editingCategory.name,
-      type: editingCategory.type,
-    });
-
-    setEditingCategory(null);
-  };
-
-  const confirmDelete = (categoryId: string) => {
-    setCategoryToDelete(categoryId);
-    setDeleteDialogOpen(true);
-  };
-
-  const columns: ColumnDef<Category, unknown>[] = [
-    {
-      accessorKey: "name",
-      header: "Name",
-      cell: ({ row }) => {
-        const category = row.original;
-        return editingCategory?.id === category.id ? (
-          <Input
-            value={editingCategory.name}
-            onChange={(e) =>
-              setEditingCategory({
-                ...editingCategory,
-                name: e.target.value,
-              })
-            }
-            className="min-w-[150px]"
-          />
-        ) : (
-          <div className="font-medium">{category.name}</div>
-        );
-      },
-    },
-    {
-      accessorKey: "type",
-      header: "Type",
-      cell: ({ row }) => {
-        const category = row.original;
-        return editingCategory?.id === category.id ? (
-          <Select
-            value={editingCategory.type}
-            onValueChange={(value) =>
-              setEditingCategory({
-                ...editingCategory,
-                type: value as "income" | "expense",
-              })
-            }
-          >
-            <SelectTrigger className="min-w-[110px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="income">Income</SelectItem>
-              <SelectItem value="expense">Expense</SelectItem>
-            </SelectContent>
-          </Select>
-        ) : (
-          <div className="capitalize">
-            {category.type.charAt(0).toUpperCase() + category.type.slice(1)}
-          </div>
-        );
-      },
-    },
-    {
-      id: "actions",
-      header: () => <div className="text-right">Actions</div>,
-      cell: ({ row }) => {
-        const category = row.original;
-        return (
-          <div className="flex justify-end gap-2">
-            {editingCategory?.id === category.id ? (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setEditingCategory(null)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={handleUpdateCategory}
-                  disabled={!editingCategory.name.trim()}
-                >
-                  Save
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setEditingCategory(category)}
-                >
-                  <Edit className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => confirmDelete(category.id)}
-                  className="text-red-600 hover:text-red-600 hover:bg-red-50"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </>
-            )}
-          </div>
-        );
-      },
-    },
-  ];
+  const columns = useCategoryColumns({
+    editingId,
+    editForm,
+    updateFormField,
+    handleStartEdit,
+    handleCancelEdit: resetEditState,
+    handleUpdateCategory,
+    confirmDelete,
+    isSaveDisabled,
+  });
 
   const table = useReactTable({
-    data: categories,
+    data: categories ?? [],
     columns,
     getCoreRowModel: getCoreRowModel(),
   });
@@ -169,7 +60,7 @@ export function CategoryTable() {
     );
   }
 
-  if (error) {
+  if (error)
     return (
       <div className="py-8 text-center">
         <p className="text-destructive">Error: {error.message}</p>
@@ -182,7 +73,6 @@ export function CategoryTable() {
         </Button>
       </div>
     );
-  }
 
   return (
     <>
@@ -193,12 +83,10 @@ export function CategoryTable() {
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
                   <TableHead key={header.id}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        )}
+                    {flexRender(
+                      header.column.columnDef.header,
+                      header.getContext(),
+                    )}
                   </TableHead>
                 ))}
               </TableRow>

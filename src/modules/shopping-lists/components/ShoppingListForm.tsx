@@ -3,9 +3,9 @@ import { DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { logger } from "@/lib/logger";
+import { useFetchCategories } from "@/modules/shared/categories/useCategoriesQuery";
 import { CategoryCombobox } from "@/modules/shared/components/CategoryCombobox";
 import { FormField } from "@/modules/shared/components/FormField";
-import { useFetchCategories } from "@/modules/shared/useCategoriesQuery";
 import {
   createShoppingList,
   type ShoppingList,

@@ -1,9 +1,9 @@
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useTransactionColumns } from "@/modules/transactions/hooks/useTransactionTableColumns";
 import type { Transaction } from "@/modules/transactions/transaction";
-import { useTransactionColumns } from "@/modules/transactions/useTransactionTableColumns";
 import { getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { useState } from "react";
-import { useTransactionTableData } from "../useTransactionTableData";
+import { useTransactionTableData } from "../hooks/useTransactionTableData";
 import { TransactionDetailsSheet } from "./TransactionDetailsSheet";
 import { TransactionTableBody } from "./TransactionTableBody";
 

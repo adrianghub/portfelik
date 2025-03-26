@@ -10,8 +10,8 @@ import {
 } from "@/components/ui/select";
 import dayjs, { formatDate } from "@/lib/date-utils";
 import { logger } from "@/lib/logger";
+import { useFetchCategories } from "@/modules/shared/categories/useCategoriesQuery";
 import { CategoryCombobox } from "@/modules/shared/components/CategoryCombobox";
-import { useFetchCategories } from "@/modules/shared/useCategoriesQuery";
 import type { Transaction } from "@/modules/transactions/transaction";
 import { useForm } from "@tanstack/react-form";
 import { useState } from "react";

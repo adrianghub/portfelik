@@ -7,16 +7,16 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDisplayDate } from "@/lib/date-utils";
+import { useFetchCategories } from "@/modules/shared/categories/useCategoriesQuery";
 import type { Category } from "@/modules/shared/category";
 import { CategoryCombobox } from "@/modules/shared/components/CategoryCombobox";
 import { FloatingActionButtonGroup } from "@/modules/shared/components/FloatingActionButtonGroup";
-import { useFetchCategories } from "@/modules/shared/useCategoriesQuery";
-import type { ShoppingList } from "@/modules/shopping-lists/shopping-list";
 import {
   useCreateShoppingList,
   useDeleteShoppingList,
   useShoppingLists,
-} from "@/modules/shopping-lists/useShoppingListsQuery";
+} from "@/modules/shopping-lists/hooks/useShoppingListsQuery";
+import type { ShoppingList } from "@/modules/shopping-lists/shopping-list";
 import { useNavigate } from "@tanstack/react-router";
 import {
   CalendarIcon,

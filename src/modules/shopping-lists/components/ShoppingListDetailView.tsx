@@ -2,17 +2,17 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDisplayDate } from "@/lib/date-utils";
+import { useFetchCategories } from "@/modules/shared/categories/useCategoriesQuery";
 import { FloatingActionButtonGroup } from "@/modules/shared/components/FloatingActionButtonGroup";
-import { useFetchCategories } from "@/modules/shared/useCategoriesQuery";
 import { ShoppingListCompleteDialog } from "@/modules/shopping-lists/components/ShoppingListCompleteDialog";
-import { type ShoppingListItem } from "@/modules/shopping-lists/shopping-list";
 import {
   useCompleteShoppingList,
   useCreateShoppingList,
   useShoppingList,
   useUpdateShoppingList,
-} from "@/modules/shopping-lists/useShoppingListsQuery";
-import { useAddTransaction } from "@/modules/transactions/useTransactionsQuery";
+} from "@/modules/shopping-lists/hooks/useShoppingListsQuery";
+import { type ShoppingListItem } from "@/modules/shopping-lists/shopping-list";
+import { useAddTransaction } from "@/modules/transactions/hooks/useTransactionsQuery";
 import {
   closestCenter,
   DndContext,
@@ -359,8 +359,8 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
               onClick: handleCompleteListClick,
               disabled: !allItemsCompleted || shoppingList.items.length === 0,
               label: "Complete Shopping",
-              className: "bg-primary/90 hover:bg-primary text-white",
-              iconClassName: "text-white",
+              className: "bg-primary/90 hover:bg-primary text-background",
+              iconClassName: "text-background",
             },
             {
               icon: PlusIcon,

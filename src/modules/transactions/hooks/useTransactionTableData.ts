@@ -1,10 +1,10 @@
 import { logger } from "@/lib/logger";
 import { userService } from "@/modules/admin/users/UserService";
-import { useFetchCategories } from "@/modules/shared/useCategoriesQuery";
+import { useFetchCategories } from "@/modules/shared/categories/useCategoriesQuery";
 import type { ShoppingList } from "@/modules/shopping-lists/shopping-list";
 import { shoppingListService } from "@/modules/shopping-lists/ShoppingListService";
+import { useDeleteTransaction } from "@/modules/transactions/hooks/useTransactionsQuery";
 import type { Transaction } from "@/modules/transactions/transaction";
-import { useDeleteTransaction } from "@/modules/transactions/useTransactionsQuery";
 import { useEffect, useState } from "react";
 
 export function useTransactionTableData(

@@ -8,14 +8,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Plus, RefreshCw } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { Transaction } from "../transaction";
 import {
   useAddTransaction,
   useDeleteTransaction,
   useTransactions,
   useUpdateTransaction,
-} from "../useTransactionsQuery";
-import { useTransactionToasts } from "../useTransactionToasts";
+} from "../hooks/useTransactionsQuery";
+import { useTransactionToasts } from "../hooks/useTransactionToasts";
+import type { Transaction } from "../transaction";
 import { DateRange, getMonthName } from "./DateRangeFilter";
 import { TableFilters } from "./TableFilters";
 import { TransactionDialog } from "./TransactionDialog";
@@ -161,7 +161,7 @@ export function TransactionsView() {
                 : t("transactions.myTransactions")}
             </h1>
             {isAdmin && (
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 {t("transactions.viewingTransactionsFromAllUsers")}
               </p>
             )}
@@ -200,14 +200,14 @@ export function TransactionsView() {
       </div>
 
       {isLoading ? (
-        <div className="bg-white shadow rounded-lg p-4 md:p-6 flex justify-center">
-          <p className="text-gray-500">
+        <div className="shadow rounded-lg p-4 md:p-6 flex justify-center">
+          <p className="text-muted-foreground">
             {t("transactions.loadingTransactions")}
           </p>
         </div>
       ) : error ? (
-        <div className="bg-white shadow rounded-lg p-4 md:p-6 flex flex-col items-center justify-center">
-          <p className="text-red-500 font-medium mb-2">
+        <div className="shadow rounded-lg p-4 md:p-6 flex flex-col items-center justify-center">
+          <p className="text-destructive font-medium mb-2">
             {t("transactions.errorLoadingTransactions")}
           </p>
           <Button variant="outline" className="mt-2" onClick={() => refetch()}>
@@ -223,8 +223,8 @@ export function TransactionsView() {
           setRowSelection={setRowSelection}
         />
       ) : (
-        <div className="bg-white shadow rounded-lg p-4 md:p-6 flex flex-col items-center justify-center">
-          <p className="text-gray-500 text-center py-6">
+        <div className="shadow rounded-lg p-4 md:p-6 flex flex-col items-center justify-center">
+          <p className="text-muted-foreground text-center py-6">
             {t("transactions.noTransactionsForThisMonth", {
               month: currentMonthName,
             })}
