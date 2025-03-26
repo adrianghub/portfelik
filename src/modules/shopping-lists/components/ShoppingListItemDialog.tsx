@@ -18,6 +18,7 @@ import {
 } from "@/modules/shopping-lists/shopping-list";
 import { useForm } from "@tanstack/react-form";
 import { useEffect, useRef, useState } from "react";
+import { ShoppingListItemSuggestions } from "./ShoppingListItemSuggestions";
 
 interface ShoppingListItemDialogProps {
   trigger?: React.ReactNode;
@@ -61,6 +62,7 @@ export function ShoppingListItemDialog({
 }: ShoppingListItemDialogProps) {
   const [open, setOpen] = useState(false);
   const [createNext, setCreateNext] = useState(true);
+  const [nameQuery, setNameQuery] = useState("");
 
   const nameInputRef = useRef<HTMLInputElement>(null);
   const dialogContentRef = useRef<HTMLDivElement>(null);
@@ -104,13 +106,11 @@ export function ShoppingListItemDialog({
 
         onAddItem(newItem);
 
-        form.reset();
-
-        if (!createNext) {
-          setIsOpen(false);
-          scrollToBottom();
-        } else {
+        if (createNext) {
+          form.reset();
           nameInputRef.current?.focus();
+        } else {
+          setIsOpen(false);
         }
       }
     },
@@ -119,12 +119,30 @@ export function ShoppingListItemDialog({
   const handleCancel = () => {
     form.reset();
     setIsOpen(false);
-    scrollToBottom();
   };
 
-  // Handle focus and scrolling to ensure the active element is visible
+  const handleNameChange = (value: string) => {
+    setNameQuery(value);
+    form.setFieldValue("name", value);
+  };
+
+  const handleSelectSuggestion = (item: ShoppingListItem) => {
+    form.setFieldValue("name", item.name);
+    if (item.quantity) {
+      form.setFieldValue("quantity", item.quantity.toString());
+    }
+    if (item.unit) {
+      form.setFieldValue("unit", item.unit);
+    }
+    setNameQuery("");
+  };
+
   useEffect(() => {
     if (isOpen) {
+      nameInputRef.current?.focus();
+      scrollToBottom();
+
+      // Handle focus and scrolling to ensure the active element is visible
       const handleFocusIn = () => {
         // Allow a brief moment for the virtual keyboard to appear
         setTimeout(() => {
@@ -139,68 +157,65 @@ export function ShoppingListItemDialog({
         }, 100);
       };
 
-      // Focus the name input on open
-      if (!isEditing) {
-        nameInputRef.current?.focus();
-      }
-
-      // Add focus event listeners to handle keyboard appearance
       document.addEventListener("focusin", handleFocusIn);
-
       return () => {
         document.removeEventListener("focusin", handleFocusIn);
       };
     }
-  }, [isOpen, isEditing]);
+  }, [isOpen]);
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-      <DialogContent
-        ref={dialogContentRef}
-        className="w-full max-w-md mx-auto sm:max-w-lg p-4 sm:p-6 overflow-y-auto max-h-[90vh]"
-      >
+      <DialogContent ref={dialogContentRef} className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle className="text-xl">
-            {isEditing ? "Edit Item" : "Add Item"}
-          </DialogTitle>
+          <DialogTitle>{isEditing ? "Edit Item" : "Add Item"}</DialogTitle>
           <DialogDescription>
             {isEditing
-              ? "Update the item details below."
-              : "Fill out the form below to add an item to your shopping list."}
+              ? "Edit the item details below."
+              : "Add a new item to your shopping list."}
           </DialogDescription>
         </DialogHeader>
+
         <form
           onSubmit={(e) => {
             e.preventDefault();
             void form.handleSubmit();
           }}
-          className="space-y-4 mt-4"
+          className="space-y-6"
         >
-          <div className="grid gap-4 py-4">
-            <form.Field
-              name="name"
-              validators={{
-                onChange: ({ value }) => validateItemName(value),
-              }}
-            >
-              {(field) => (
-                <FormField
-                  name="name"
-                  label="Item Name"
-                  error={field.state.meta.errors?.[0]}
-                >
+          <form.Field
+            name="name"
+            validators={{
+              onChange: ({ value }) => validateItemName(value),
+            }}
+          >
+            {(field) => (
+              <FormField
+                name="name"
+                label="Name"
+                error={field.state.meta.errors?.[0]}
+                className="relative"
+              >
+                <div className="relative">
                   <Input
                     ref={nameInputRef}
-                    id="name"
-                    placeholder="Enter item name"
                     value={field.state.value}
-                    onChange={(e) => field.handleChange(e.target.value)}
+                    onChange={(e) => handleNameChange(e.target.value)}
+                    placeholder="e.g., Milk, Bread, etc."
                   />
-                </FormField>
-              )}
-            </form.Field>
+                  {!isEditing && nameQuery && (
+                    <ShoppingListItemSuggestions
+                      query={nameQuery}
+                      onSelectSuggestion={handleSelectSuggestion}
+                    />
+                  )}
+                </div>
+              </FormField>
+            )}
+          </form.Field>
 
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <form.Field
               name="quantity"
               validators={{
@@ -210,17 +225,14 @@ export function ShoppingListItemDialog({
               {(field) => (
                 <FormField
                   name="quantity"
-                  label="Quantity (optional)"
+                  label="Quantity"
                   error={field.state.meta.errors?.[0]}
                 >
                   <Input
-                    id="quantity"
                     type="number"
-                    min="0.01"
-                    step="0.01"
-                    placeholder="Enter quantity"
                     value={field.state.value}
                     onChange={(e) => field.handleChange(e.target.value)}
+                    placeholder="e.g., 2"
                   />
                 </FormField>
               )}
@@ -230,39 +242,43 @@ export function ShoppingListItemDialog({
               {(field) => (
                 <FormField
                   name="unit"
-                  label="Unit (optional)"
+                  label="Unit"
                   error={field.state.meta.errors?.[0]}
                 >
                   <Input
-                    id="unit"
-                    placeholder="Enter unit (e.g., kg, pcs)"
                     value={field.state.value}
                     onChange={(e) => field.handleChange(e.target.value)}
+                    placeholder="e.g., kg, l"
                   />
                 </FormField>
               )}
             </form.Field>
-
-            {!isEditing && (
-              <div className="flex items-center space-x-2 pt-2">
-                <Checkbox
-                  id="create-next"
-                  checked={createNext}
-                  onCheckedChange={(checked) => setCreateNext(checked === true)}
-                />
-                <Label htmlFor="create-next" className="text-sm cursor-pointer">
-                  Create next item after adding
-                </Label>
-              </div>
-            )}
           </div>
 
-          <DialogFooter className="flex gap-2 mt-6">
-            <Button type="button" variant="outline" onClick={handleCancel}>
+          {!isEditing && (
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="createNext"
+                checked={createNext}
+                onCheckedChange={(checked) => setCreateNext(checked as boolean)}
+              />
+              <Label htmlFor="createNext">
+                Create another item after this one
+              </Label>
+            </div>
+          )}
+
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCancel}
+              className="w-full sm:w-auto"
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={form.state.canSubmit === false}>
-              {isEditing ? "Update Item" : "Add Item"}
+            <Button type="submit" className="w-full sm:w-auto">
+              {isEditing ? "Save Changes" : "Add Item"}
             </Button>
           </DialogFooter>
         </form>

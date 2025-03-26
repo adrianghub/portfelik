@@ -5,16 +5,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDisplayDate } from "@/lib/date-utils";
 import type { Category } from "@/modules/shared/category";
+import { CategoryCombobox } from "@/modules/shared/components/CategoryCombobox";
 import { FloatingActionButtonGroup } from "@/modules/shared/components/FloatingActionButtonGroup";
 import { useFetchCategories } from "@/modules/shared/useCategoriesQuery";
 import type { ShoppingList } from "@/modules/shopping-lists/shopping-list";
@@ -133,24 +127,13 @@ export function ShoppingListsView() {
           <span className="text-sm font-medium">
             {t("shoppingLists.filterByCategory")}
           </span>
-          <Select
+          <CategoryCombobox
+            categories={expenseCategories}
             value={selectedCategoryId}
             onValueChange={setSelectedCategoryId}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder={t("shoppingLists.allCategories")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">
-                {t("shoppingLists.allCategories")}
-              </SelectItem>
-              {expenseCategories.map((category) => (
-                <SelectItem key={category.id} value={category.id}>
-                  {category.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder={t("shoppingLists.allCategories")}
+            className="w-[180px]"
+          />
           {selectedCategoryId !== "all" && (
             <Button
               variant="ghost"

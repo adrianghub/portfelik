@@ -1,15 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useAuth } from "@/lib/AuthContext";
 import { logger } from "@/lib/logger";
+import { CategoryCombobox } from "@/modules/shared/components/CategoryCombobox";
+import { FormField } from "@/modules/shared/components/FormField";
 import { useFetchCategories } from "@/modules/shared/useCategoriesQuery";
 import {
   createShoppingList,
@@ -57,6 +52,10 @@ export function ShoppingListForm({
     },
   });
 
+  const expenseCategories = categories.filter(
+    (category) => category.type === "expense",
+  );
+
   return (
     <form
       id="shopping-list-form"
@@ -80,22 +79,18 @@ export function ShoppingListForm({
         }}
       >
         {(field) => (
-          <div className="space-y-2">
-            <label htmlFor="name" className="text-sm font-medium">
-              List Name
-            </label>
+          <FormField
+            name="name"
+            label="List Name"
+            error={field.state.meta.errors?.[0]}
+          >
             <Input
               id="name"
               placeholder="e.g., Weekly groceries"
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
             />
-            {field.state.meta.errors && (
-              <p className="text-sm text-red-500">
-                {field.state.meta.errors[0]}
-              </p>
-            )}
-          </div>
+          </FormField>
         )}
       </form.Field>
 
@@ -111,39 +106,30 @@ export function ShoppingListForm({
         }}
       >
         {(field) => (
-          <div className="space-y-2">
-            <label htmlFor="category" className="text-sm font-medium">
-              Category
-            </label>
-            <Select
-              value={field.state.value}
-              onValueChange={field.handleChange}
-            >
-              <SelectTrigger id="category">
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent>
-                {loadingCategories ? (
-                  <SelectItem value="loading" disabled>
-                    Loading...
-                  </SelectItem>
-                ) : (
-                  categories
-                    .filter((category) => category.type === "expense")
-                    .map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name}
-                      </SelectItem>
-                    ))
-                )}
-              </SelectContent>
-            </Select>
-            {field.state.meta.errors && (
-              <p className="text-sm text-red-500">
-                {field.state.meta.errors[0]}
-              </p>
-            )}
-          </div>
+          <FormField
+            name="category"
+            label="Category"
+            error={field.state.meta.errors?.[0]}
+          >
+            <div className="relative">
+              <CategoryCombobox
+                categories={expenseCategories}
+                value={field.state.value}
+                onValueChange={field.handleChange}
+                placeholder={
+                  loadingCategories
+                    ? "Loading categories..."
+                    : "Select category"
+                }
+                disabled={loadingCategories}
+              />
+              {loadingCategories && (
+                <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
+              )}
+            </div>
+          </FormField>
         )}
       </form.Field>
 

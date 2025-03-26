@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/select";
 import dayjs, { formatDate } from "@/lib/date-utils";
 import { logger } from "@/lib/logger";
+import { CategoryCombobox } from "@/modules/shared/components/CategoryCombobox";
 import { useFetchCategories } from "@/modules/shared/useCategoriesQuery";
 import type { Transaction } from "@/modules/transactions/transaction";
 import { useForm } from "@tanstack/react-form";
@@ -24,7 +25,6 @@ import {
   validateDescription,
   validateType,
 } from "../validations";
-import { CategorySelect } from "./CategorySelect";
 
 interface TransactionFormProps {
   onSubmit: (transaction: Transaction) => void;
@@ -68,6 +68,10 @@ export function TransactionForm({
   const { t } = useTranslation();
 
   const { minDate, maxDate } = getDateConstraints();
+
+  const filteredCategories = categories.filter(
+    (category) => category.type === transactionType,
+  );
 
   return (
     <form
@@ -205,12 +209,10 @@ export function TransactionForm({
               label={t("transactions.transactionDialog.form.category")}
               error={field.state.meta.errors?.[0]}
             >
-              <CategorySelect
-                value={field.state.value || ""}
-                onChange={(value) => field.handleChange(value)}
-                categories={categories}
-                transactionType={transactionType}
-                error={field.state.meta.errors?.[0]}
+              <CategoryCombobox
+                categories={filteredCategories}
+                value={field.state.value}
+                onValueChange={field.handleChange}
                 placeholder={t(
                   "transactions.transactionDialog.form.categoryPlaceholder",
                 )}
