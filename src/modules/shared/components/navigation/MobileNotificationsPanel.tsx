@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/cn";
 import { NotificationList } from "@/modules/shared/notifications/components/NotificationList";
 import { useNotificationActions } from "@/modules/shared/notifications/useNotificationActions";
@@ -40,15 +41,19 @@ export function MobileNotificationsPanel() {
       </Button>
 
       {showNotifications && (
-        <div className="mt-4 border rounded-md p-4 bg-background w-full">
-          <NotificationList
-            notifications={notifications}
-            loading={isLoading}
-            onMarkAsRead={handleMarkAsRead}
-            onToggleReadState={handleToggleReadState}
-            onDeleteNotification={handleDeleteNotification}
-            onMarkAllAsRead={handleMarkAllAsRead}
-          />
+        <div className="mt-4 border rounded-md bg-background w-full">
+          <ScrollArea className="h-[400px]">
+            <div className="p-4 pb-20">
+              <NotificationList
+                notifications={notifications}
+                loading={isLoading}
+                onMarkAsRead={handleMarkAsRead}
+                onToggleReadState={handleToggleReadState}
+                onDeleteNotification={handleDeleteNotification}
+                onMarkAllAsRead={handleMarkAllAsRead}
+              />
+            </div>
+          </ScrollArea>
         </div>
       )}
     </div>
