@@ -3,6 +3,7 @@ import type { Transaction } from "@/modules/transactions/transaction";
 import { transactionService } from "@/modules/transactions/TransactionService";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
+import { useTransactionToasts } from "./useTransactionToasts";
 
 const formatDate = (date: string | Date) => dayjs(date).toISOString();
 
@@ -71,6 +72,7 @@ export function useAddTransaction() {
   const queryClient = useQueryClient();
   const { userData } = useAuth();
   const userId = userData?.uid;
+  const { showSuccessToast, showErrorToast } = useTransactionToasts();
 
   return useMutation({
     mutationFn: (transaction: Transaction) => {
@@ -90,55 +92,59 @@ export function useAddTransaction() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      showSuccessToast("create");
     },
     onError: (error) => {
-      console.error("Error adding transaction:", error);
+      showErrorToast("create", error);
     },
   });
 }
 
 export function useUpdateTransaction() {
   const queryClient = useQueryClient();
-  const { userData } = useAuth();
-  const userId = userData?.uid;
+  const { showSuccessToast, showErrorToast } = useTransactionToasts();
 
   return useMutation({
     mutationFn: ({
-      transactionId,
-      updates,
+      id,
+      transaction,
     }: {
-      transactionId: string;
-      updates: Partial<Transaction>;
+      id: string;
+      transaction: Partial<Transaction>;
     }) => {
-      if (!userId) throw new Error("User not authenticated");
-
-      const firestoreUpdates: Partial<Transaction> = {
-        ...updates,
-        ...(updates.amount !== undefined && {
-          amount:
-            updates.type === "expense"
-              ? -Math.abs(updates.amount)
-              : Math.abs(updates.amount),
-        }),
-        ...(updates.date && { date: formatDate(updates.date) }),
+      const firestoreTransaction = {
+        ...transaction,
+        date: transaction.date ? formatDate(transaction.date) : undefined,
+        amount:
+          transaction.type === "expense"
+            ? -Math.abs(transaction.amount ?? 0)
+            : Math.abs(transaction.amount ?? 0),
       };
 
-      return transactionService.update(transactionId, firestoreUpdates);
+      return transactionService.update(id, firestoreTransaction);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      showSuccessToast("update");
+    },
+    onError: (error) => {
+      showErrorToast("update", error);
     },
   });
 }
 
 export function useDeleteTransaction() {
   const queryClient = useQueryClient();
+  const { showSuccessToast, showErrorToast } = useTransactionToasts();
 
   return useMutation({
-    mutationFn: (transactionId: string) =>
-      transactionService.delete(transactionId),
+    mutationFn: (id: string) => transactionService.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      showSuccessToast("delete");
+    },
+    onError: (error) => {
+      showErrorToast("delete", error);
     },
   });
 }

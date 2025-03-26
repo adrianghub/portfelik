@@ -55,6 +55,14 @@
         "categoryPlaceholder": "Wybierz kategorię",
         "descriptionPlaceholder": "e.g., Zakupy spożywcze, Wypłata, etc."
       }
+    },
+    "toasts": {
+      "createSuccess": "Transakcja została dodana",
+      "createError": "Wystąpił błąd podczas dodawania transakcji",
+      "updateSuccess": "Transakcja została zaktualizowana",
+      "updateError": "Wystąpił błąd podczas aktualizacji transakcji",
+      "deleteSuccess": "Transakcja została usunięta",
+      "deleteError": "Wystąpił błąd podczas usuwania transakcji"
     }
   },
   "nav": {
@@ -81,6 +89,18 @@
     "createShoppingList": "Utwórz listę zakupów",
     "total": "Razem",
     "completed": "Zakończone",
-    "items": "Produkty"
+    "items": "Produkty",
+    "toasts": {
+      "createSuccess": "Lista zakupów została utworzona",
+      "createError": "Wystąpił błąd podczas tworzenia listy zakupów",
+      "updateSuccess": "Lista zakupów została zaktualizowana",
+      "updateError": "Wystąpił błąd podczas aktualizacji listy zakupów",
+      "deleteSuccess": "Lista zakupów została usunięta",
+      "deleteError": "Wystąpił błąd podczas usuwania listy zakupów",
+      "completeSuccess": "Lista zakupów została oznaczona jako zakończona",
+      "completeError": "Wystąpił błąd podczas oznaczania listy jako zakończonej",
+      "duplicateSuccess": "Lista zakupów została skopiowana",
+      "duplicateError": "Wystąpił błąd podczas kopiowania listy zakupów"
+    }
   }
 }

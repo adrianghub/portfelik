@@ -1,3 +1,4 @@
+import { Toaster } from "@/components/ui/sonner";
 import { NotificationsProvider } from "@/modules/shared/notifications/NotificationsProvider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
@@ -35,6 +36,7 @@ if (!rootElement.innerHTML) {
         <AuthProvider>
           <NotificationsProvider>
             <RouterProvider router={router} />
+            <Toaster position="top-right" />
             <ReactQueryDevtools initialIsOpen={false} />
           </NotificationsProvider>
         </AuthProvider>

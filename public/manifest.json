@@ -23,8 +23,8 @@
   ],
   "shortcuts": [
     {
-      "name": "Dashboard",
-      "url": "/dashboard",
+      "name": "Transactions",
+      "url": "/transactions",
       "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
     }
   ],

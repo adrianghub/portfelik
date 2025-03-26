@@ -74,7 +74,7 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
     const updatedItems = [...shoppingList.items, item];
     updateShoppingList.mutate({
       id: shoppingList.id!,
-      data: { items: updatedItems },
+      shoppingList: { items: updatedItems },
     });
   };
 
@@ -90,7 +90,7 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
 
     updateShoppingList.mutate({
       id: shoppingList.id!,
-      data: { items: updatedItems },
+      shoppingList: { items: updatedItems },
     });
   };
 
@@ -103,7 +103,7 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
 
     updateShoppingList.mutate({
       id: shoppingList.id!,
-      data: { items: updatedItems },
+      shoppingList: { items: updatedItems },
     });
   };
 
@@ -112,7 +112,7 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
 
     updateShoppingList.mutate({
       id: shoppingList.id!,
-      data: { name },
+      shoppingList: { name },
     });
   };
 
@@ -161,23 +161,23 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
+    if (!shoppingList) return;
+
     const { active, over } = event;
 
-    if (!shoppingList || !active || !over || active.id === over.id) return;
+    if (over && active.id !== over.id) {
+      const oldIndex = shoppingList.items.findIndex(
+        (item) => item.id === active.id,
+      );
+      const newIndex = shoppingList.items.findIndex(
+        (item) => item.id === over.id,
+      );
 
-    const oldIndex = shoppingList.items.findIndex(
-      (item) => item.id === active.id,
-    );
-    const newIndex = shoppingList.items.findIndex(
-      (item) => item.id === over.id,
-    );
-
-    if (oldIndex !== -1 && newIndex !== -1) {
       const updatedItems = arrayMove(shoppingList.items, oldIndex, newIndex);
 
       updateShoppingList.mutate({
         id: shoppingList.id!,
-        data: { items: updatedItems },
+        shoppingList: { items: updatedItems },
       });
     }
   };

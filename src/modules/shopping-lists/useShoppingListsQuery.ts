@@ -5,9 +5,8 @@ import type {
   ShoppingListItem,
 } from "@/modules/shopping-lists/shopping-list";
 import { shoppingListService } from "@/modules/shopping-lists/ShoppingListService";
-import type { Transaction } from "@/modules/transactions/transaction";
-import { transactionService } from "@/modules/transactions/TransactionService";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useShoppingListToasts } from "./useShoppingListToasts";
 
 const SHOPPING_LISTS_QUERY_KEY = ["shopping-lists"];
 
@@ -67,6 +66,7 @@ export function useCreateShoppingList() {
   const queryClient = useQueryClient();
   const { userData } = useAuth();
   const userId = userData?.uid;
+  const { showSuccessToast, showErrorToast } = useShoppingListToasts();
 
   return useMutation({
     mutationFn: async (
@@ -98,9 +98,7 @@ export function useCreateShoppingList() {
             updatedAt: now,
             status: "active",
             userId,
-            ...(shoppingList.categoryId && {
-              categoryId: shoppingList.categoryId,
-            }),
+            categoryId: shoppingList.categoryId,
           });
           return newList;
         }
@@ -115,24 +113,28 @@ export function useCreateShoppingList() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: SHOPPING_LISTS_QUERY_KEY });
+      showSuccessToast("create");
+    },
+    onError: (error) => {
+      showErrorToast("create", error);
     },
   });
 }
 
 export function useUpdateShoppingList() {
   const queryClient = useQueryClient();
+  const { showSuccessToast, showErrorToast } = useShoppingListToasts();
 
   return useMutation({
     mutationFn: async ({
       id,
-      data,
+      shoppingList,
     }: {
       id: string;
-      data: Partial<ShoppingList>;
+      shoppingList: Partial<ShoppingList>;
     }) => {
       try {
-        const updatedList = await shoppingListService.update(id, data);
-        return updatedList;
+        return await shoppingListService.update(id, shoppingList);
       } catch (error) {
         logger.error(
           "useUpdateShoppingList",
@@ -142,23 +144,24 @@ export function useUpdateShoppingList() {
         throw error;
       }
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: [...SHOPPING_LISTS_QUERY_KEY, variables.id],
-      });
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: SHOPPING_LISTS_QUERY_KEY });
+      showSuccessToast("update");
+    },
+    onError: (error) => {
+      showErrorToast("update", error);
     },
   });
 }
 
 export function useDeleteShoppingList() {
   const queryClient = useQueryClient();
+  const { showSuccessToast, showErrorToast } = useShoppingListToasts();
 
   return useMutation({
     mutationFn: async (id: string) => {
       try {
         await shoppingListService.delete(id);
-        return id;
       } catch (error) {
         logger.error(
           "useDeleteShoppingList",
@@ -170,51 +173,37 @@ export function useDeleteShoppingList() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: SHOPPING_LISTS_QUERY_KEY });
+      showSuccessToast("delete");
+    },
+    onError: (error) => {
+      showErrorToast("delete", error);
     },
   });
 }
 
 export function useCompleteShoppingList() {
   const queryClient = useQueryClient();
-  const { userData } = useAuth();
-  const userId = userData?.uid;
+  const { showSuccessToast, showErrorToast } = useShoppingListToasts();
 
   return useMutation({
     mutationFn: async ({
       id,
       totalAmount,
       categoryId,
+      linkedTransactionId,
     }: {
       id: string;
       totalAmount: number;
       categoryId: string;
+      linkedTransactionId?: string;
     }) => {
-      if (!userId) throw new Error("User not authenticated");
-
       try {
-        const shoppingList = await shoppingListService.get(id);
-        if (!shoppingList) throw new Error(`Shopping list ${id} not found`);
-
-        const transaction: Omit<Transaction, "id"> = {
-          amount: totalAmount,
-          description: `Shopping: ${shoppingList.name}`,
-          date: new Date().toISOString(),
-          type: "expense",
-          categoryId,
-          userId,
-          shoppingListId: id,
-        };
-
-        const newTransaction = await transactionService.create(transaction);
-
-        const updatedList = await shoppingListService.completeShoppingList(
+        return await shoppingListService.completeShoppingList(
           id,
           totalAmount,
           categoryId,
-          newTransaction.id,
+          linkedTransactionId,
         );
-
-        return { shoppingList: updatedList, transaction: newTransaction };
       } catch (error) {
         logger.error(
           "useCompleteShoppingList",
@@ -224,12 +213,53 @@ export function useCompleteShoppingList() {
         throw error;
       }
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: [...SHOPPING_LISTS_QUERY_KEY, variables.id],
-      });
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: SHOPPING_LISTS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      showSuccessToast("complete");
+    },
+    onError: (error) => {
+      showErrorToast("complete", error);
+    },
+  });
+}
+
+export function useDuplicateShoppingList() {
+  const queryClient = useQueryClient();
+  const { userData } = useAuth();
+  const userId = userData?.uid;
+  const { showSuccessToast, showErrorToast } = useShoppingListToasts();
+
+  return useMutation({
+    mutationFn: async (shoppingList: ShoppingList) => {
+      if (!userId) throw new Error("User not authenticated");
+
+      try {
+        const now = new Date().toISOString();
+        const { id, ...shoppingListWithoutId } = shoppingList;
+        const newList = await shoppingListService.create({
+          ...shoppingListWithoutId,
+          name: `${shoppingList.name} (kopia)`,
+          createdAt: now,
+          updatedAt: now,
+          status: "active",
+          userId,
+        });
+        return newList;
+      } catch (error) {
+        logger.error(
+          "useDuplicateShoppingList",
+          `Error duplicating shopping list ${shoppingList.id}:`,
+          error,
+        );
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: SHOPPING_LISTS_QUERY_KEY });
+      showSuccessToast("duplicate");
+    },
+    onError: (error) => {
+      showErrorToast("duplicate", error);
     },
   });
 }
