@@ -41,21 +41,15 @@ export function Navigation() {
                     onClick={handleNotificationPermission}
                   />
                 )}
-                {isAuthenticated ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleLogout}
-                    className="flex items-center gap-2"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    {t("auth.signOut")}
-                  </Button>
-                ) : (
-                  <Button variant="outline" size="sm" asChild>
-                    <Link to="/login">Login</Link>
-                  </Button>
-                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="flex items-center gap-2"
+                >
+                  <LogOut className="h-4 w-4" />
+                  {t("auth.signOut")}
+                </Button>
               </div>
             </div>
           </div>

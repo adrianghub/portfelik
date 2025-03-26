@@ -30,11 +30,16 @@ export function MobileNotificationsPanel() {
         }}
       >
         <div className="flex items-center gap-2">
-          <Bell className={cn("h-4 w-4", unreadCount > 0 && "text-blue-600")} />
+          <Bell
+            className={cn(
+              "h-4 w-4",
+              unreadCount > 0 && "text-accent-foreground",
+            )}
+          />
           Notifications
         </div>
         {unreadCount > 0 && (
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-xs text-white">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent-foreground text-xs text-background">
             {unreadCount}
           </span>
         )}

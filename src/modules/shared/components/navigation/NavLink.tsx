@@ -29,7 +29,7 @@ export function NavLink({
           className,
         )}
         activeProps={{
-          className: "text-primary/80 bg-blue-50 font-bold",
+          className: "text-accent-foreground bg-accent font-bold",
           ...activeProps,
         }}
         {...props}
@@ -46,7 +46,7 @@ export function NavLink({
         className,
       )}
       activeProps={{
-        className: "!text-blue-600 font-bold",
+        className: "!text-accent-foreground font-bold",
         ...activeProps,
       }}
       {...props}

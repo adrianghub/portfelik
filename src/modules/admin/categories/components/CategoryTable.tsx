@@ -172,7 +172,7 @@ export function CategoryTable() {
   if (error) {
     return (
       <div className="py-8 text-center">
-        <p className="text-red-500">Error: {error.message}</p>
+        <p className="text-destructive">Error: {error.message}</p>
         <Button
           variant="outline"
           className="mt-4"

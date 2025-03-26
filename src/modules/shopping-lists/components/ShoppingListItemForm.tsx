@@ -39,9 +39,9 @@ export function ShoppingListItemForm({ onAddItem }: ShoppingListItemFormProps) {
             setItemName(e.target.value);
             if (error) setError(null);
           }}
-          className={error ? "border-red-500" : ""}
+          className={error ? "border-destructive" : ""}
         />
-        {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
+        {error && <p className="text-sm text-destructive mt-1">{error}</p>}
       </div>
       <Button type="submit" size="icon" variant="outline">
         <PlusIcon className="h-4 w-4" />

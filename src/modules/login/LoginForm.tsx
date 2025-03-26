@@ -48,7 +48,9 @@ export function LoginForm() {
                 required
               />
               {validationErrors.email && (
-                <p className="text-sm text-red-500">{validationErrors.email}</p>
+                <p className="text-sm text-destructive">
+                  {validationErrors.email}
+                </p>
               )}
             </div>
             <div className="space-y-2">
@@ -62,12 +64,12 @@ export function LoginForm() {
                 required
               />
               {validationErrors.password && (
-                <p className="text-sm text-red-500">
+                <p className="text-sm text-destructive">
                   {validationErrors.password}
                 </p>
               )}
             </div>
-            {error && <p className="text-sm text-red-500">{error}</p>}
+            {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Logging in..." : "Login"}
             </Button>

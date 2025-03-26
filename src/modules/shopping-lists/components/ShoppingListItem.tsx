@@ -123,7 +123,7 @@ export function ShoppingListItem({
             size="icon"
             onClick={() => onDelete(item.id)}
             disabled={disabled}
-            className="text-red-600 hover:text-red-600 hover:bg-red-50"
+            className="text-destructive hover:text-destructive hover:bg-destructive/10"
           >
             <Trash2Icon className="w-4 h-4" />
           </Button>

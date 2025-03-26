@@ -38,9 +38,14 @@ export function NotificationsPopover() {
           className="relative"
           aria-label="View notifications"
         >
-          <Bell className={cn("h-5 w-5", unreadCount > 0 && "text-blue-600")} />
+          <Bell
+            className={cn(
+              "h-5 w-5",
+              unreadCount > 0 && "text-accent-foreground",
+            )}
+          />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-blue-600 animate-pulse" />
+            <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-accent-foreground animate-pulse" />
           )}
         </Button>
       </PopoverTrigger>

@@ -38,7 +38,7 @@ export function TransactionTableBody({
                       if (index === 0) {
                         stickyClass = "sticky left-0 bg-background z-20";
                       } else if (index === 1) {
-                        stickyClass = "sticky left-[32px] bg-background z-10";
+                        stickyClass = "sticky left-[45px] bg-background z-10";
                       }
                     } else if (index === 1) {
                       stickyClass = "sticky left-0 bg-background z-10";
@@ -81,7 +81,7 @@ export function TransactionTableBody({
                       if (index === 0) {
                         stickyClass = "sticky left-0 bg-background z-20";
                       } else if (index === 1) {
-                        stickyClass = "sticky left-[32px] bg-background z-10";
+                        stickyClass = "sticky left-[45px] bg-background z-10";
                       }
                     } else if (index === 1) {
                       stickyClass = "sticky left-0 bg-background z-10";

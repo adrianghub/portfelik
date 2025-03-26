@@ -28,7 +28,7 @@
     "noTransactionsForThisMonth": "Brak transakcji w miesiącu {{month}}",
     "filters": {
       "deleteSelected": "Usuń wybrane",
-      "unselectAll": "Odśwież"
+      "unselectAll": "Odznacz wybrane"
     },
     "deleteConfirmationDialog": {
       "title": "Potwierdź usunięcie",

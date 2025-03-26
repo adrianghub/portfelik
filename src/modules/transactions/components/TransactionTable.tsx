@@ -64,6 +64,8 @@ export function TransactionTable({
     },
     onRowSelectionChange: setRowSelection,
     getCoreRowModel: getCoreRowModel(),
+    enableRowSelection: true,
+    enableMultiRowSelection: true,
   });
 
   return (

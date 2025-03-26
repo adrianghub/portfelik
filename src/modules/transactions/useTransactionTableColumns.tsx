@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/cn";
 import { formatDisplayDate } from "@/lib/date-utils";
 import type { Transaction } from "@/modules/transactions/transaction";
@@ -48,7 +49,7 @@ function getMobileColumns({
             <div className="font-medium truncate max-w-[150px]">
               {row.original.description}
             </div>
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-muted-foreground">
               {formatDisplayDate(row.original.date)}
             </div>
           </div>
@@ -61,7 +62,7 @@ function getMobileColumns({
                 e.stopPropagation();
                 handleDelete(row.original.id);
               }}
-              className="text-red-600 hover:text-red-600 hover:bg-red-50"
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
             >
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -89,19 +90,24 @@ function getDesktopColumns({
   const columns: ColumnDef<Transaction, unknown>[] = [
     {
       id: "select",
+      size: 32,
       header: ({ table }) => (
-        <input
-          type="checkbox"
-          checked={table.getIsAllRowsSelected()}
-          onChange={table.getToggleAllRowsSelectedHandler()}
-        />
+        <div className="flex items-center justify-center w-8">
+          <Checkbox
+            checked={table.getIsAllRowsSelected()}
+            onCheckedChange={(checked) =>
+              table.toggleAllRowsSelected(!!checked)
+            }
+          />
+        </div>
       ),
       cell: ({ row }) => (
-        <input
-          type="checkbox"
-          checked={row.getIsSelected()}
-          onChange={row.getToggleSelectedHandler()}
-        />
+        <div className="flex items-center justify-center w-8">
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(checked) => row.toggleSelected(!!checked)}
+          />
+        </div>
       ),
     },
     {
@@ -138,7 +144,7 @@ function getDesktopColumns({
           <Link
             to="/shopping-lists/$id"
             params={{ id }}
-            className="flex items-center gap-1 text-blue-600 hover:underline"
+            className="flex items-center gap-1 text-accent-foreground hover:underline"
           >
             <ShoppingCart className="h-3 w-3" />
             {list.name}
@@ -180,7 +186,7 @@ function renderAmount(transaction: Transaction) {
     <p
       className={cn(
         "font-semibold",
-        transaction.type === "income" ? "text-green-600" : "text-red-600",
+        transaction.type === "income" ? "text-green-600" : "text-destructive",
       )}
     >
       {transaction.type === "income" ? "+" : "-"}
