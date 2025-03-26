@@ -92,7 +92,7 @@ export function MonthPicker({
       </div>
 
       {isOpen && (
-        <div className="absolute z-10 mt-1 bg-white rounded-md shadow-lg border p-3 w-[300px]">
+        <div className="absolute z-10 mt-1 bg-background rounded-md shadow-lg border p-3 w-[300px]">
           <div className="flex justify-between items-center mb-3">
             <Button
               variant="outline"

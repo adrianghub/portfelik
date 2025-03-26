@@ -10,7 +10,6 @@ function UserManagerContent() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-medium">User Management</h3>
         <Button
           onClick={loadUsers}
           disabled={isLoading}

@@ -34,7 +34,7 @@ export function FloatingActionButton({
       aria-label={label}
       disabled={disabled}
     >
-      <Icon className={cn("h-4 w-4 text-black", iconClassName)} />
+      <Icon className={cn("h-4 w-4 text-foreground", iconClassName)} />
     </Button>
   );
 }

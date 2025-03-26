@@ -23,11 +23,11 @@ export function Navigation() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 hidden md:block bg-white shadow border-b border-gray-200">
+      <header className="sticky top-0 z-50 hidden md:block bg-background shadow border-b border-border">
         <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex-shrink-0 flex items-center">
-              <Link to="/" className="text-xl font-bold text-gray-800">
+              <Link to="/" className="text-xl font-bold text-foreground">
                 Portfelik
               </Link>
             </div>
@@ -62,9 +62,9 @@ export function Navigation() {
         </nav>
       </header>
 
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-background border-t border-border shadow-lg z-50">
         <div className="flex items-center justify-between h-16 px-4">
-          <Link to="/" className="text-xl font-bold text-gray-800">
+          <Link to="/" className="text-xl font-bold text-foreground">
             Portfelik
           </Link>
           <MobileMenu
