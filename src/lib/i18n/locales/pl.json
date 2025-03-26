@@ -62,7 +62,24 @@
       "updateSuccess": "Transakcja została zaktualizowana",
       "updateError": "Wystąpił błąd podczas aktualizacji transakcji",
       "deleteSuccess": "Transakcja została usunięta",
-      "deleteError": "Wystąpił błąd podczas usuwania transakcji"
+      "deleteError": "Wystąpił błąd podczas usuwania transakcji",
+      "refreshSuccess": "Transakcje zostały odświeżone",
+      "refreshError": "Wystąpił błąd podczas odświeżania transakcji"
+    },
+    "transactionDetailsSheet": {
+      "title": "Szczegóły transakcji",
+      "description": "Opis",
+      "edit": "Edytuj",
+      "delete": "Usuń",
+      "cancel": "Anuluj",
+      "loadingUser": "Ładowanie użytkownika...",
+      "unknown": "Nieznany",
+      "shoppingList": "Lista zakupów",
+      "amount": "Kwota",
+      "date": "Data",
+      "category": "Kategoria",
+      "user": "Użytkownik",
+      "loadingShoppingList": "Ładowanie listy zakupów..."
     }
   },
   "nav": {

@@ -15,6 +15,7 @@ import {
   useTransactions,
   useUpdateTransaction,
 } from "../useTransactionsQuery";
+import { useTransactionToasts } from "../useTransactionToasts";
 import { DateRange, getMonthName } from "./DateRangeFilter";
 import { TableFilters } from "./TableFilters";
 import { TransactionDialog } from "./TransactionDialog";
@@ -31,6 +32,8 @@ export function TransactionsView() {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
   const isAdmin = userData?.role === "admin";
+  const { showSuccessToast, showErrorToast } = useTransactionToasts();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const {
     data: transactions = [],
@@ -56,9 +59,23 @@ export function TransactionsView() {
     setIsDialogOpen(true);
   };
 
-  const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ["transactions"] });
-    refetch();
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      const startTime = Date.now();
+      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      await refetch();
+      showSuccessToast("refresh");
+
+      const elapsedTime = Date.now() - startTime;
+      if (elapsedTime < 500) {
+        await new Promise((resolve) => setTimeout(resolve, 500 - elapsedTime));
+      }
+    } catch (error) {
+      showErrorToast("refresh", error);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const handleSubmitTransaction = (transaction: Transaction) => {
@@ -162,12 +179,12 @@ export function TransactionsView() {
           <div className="flex gap-2 ml-auto">
             <Button
               onClick={handleRefresh}
-              disabled={isLoading}
+              disabled={isRefreshing}
               variant="ghost"
               className="flex items-center gap-1"
             >
               <RefreshCw
-                className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
+                className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
               />
               <span>{t("transactions.refresh")}</span>
             </Button>
