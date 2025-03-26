@@ -86,6 +86,8 @@ export function useAddTransaction() {
           transaction.type === "expense"
             ? -Math.abs(transaction.amount)
             : Math.abs(transaction.amount),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
 
       return transactionService.create(firestoreTransaction);

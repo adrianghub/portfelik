@@ -12,6 +12,7 @@ import {
   useShoppingList,
   useUpdateShoppingList,
 } from "@/modules/shopping-lists/useShoppingListsQuery";
+import { useAddTransaction } from "@/modules/transactions/useTransactionsQuery";
 import {
   closestCenter,
   DndContext,
@@ -53,6 +54,7 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
   const completeShoppingList = useCompleteShoppingList();
   const createShoppingList = useCreateShoppingList();
   const { data: categories = [] } = useFetchCategories();
+  const addTransaction = useAddTransaction();
 
   const [isCompletionDialogOpen, setIsCompletionDialogOpen] = useState(false);
   const [isEditNameDialogOpen, setIsEditNameDialogOpen] = useState(false);
@@ -126,10 +128,23 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
     setCompletingList(true);
 
     try {
+      // Create a transaction first
+      const transaction = {
+        amount: parseFloat(totalAmount),
+        description: `Shopping: ${shoppingList.name}`,
+        date: new Date().toISOString(),
+        type: "expense" as const,
+        categoryId: shoppingList.categoryId,
+        shoppingListId: shoppingList.id,
+      };
+
+      const result = await addTransaction.mutateAsync(transaction);
+
       await completeShoppingList.mutateAsync({
         id: shoppingList.id!,
         totalAmount: parseFloat(totalAmount),
         categoryId: shoppingList.categoryId,
+        linkedTransactionId: result.id,
       });
 
       setIsCompletionDialogOpen(false);
