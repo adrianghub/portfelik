@@ -1,12 +1,6 @@
 {
-  "name": "Portfelik",
-  "short_name": "Portfelik",
-  "description": "Personal finance management application",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#000000",
-  "orientation": "portrait",
+  "theme_color": "#8936FF",
+  "background_color": "#2EC6FE",
   "icons": [
     {
       "src": "/icon-192x192.png",
@@ -15,12 +9,22 @@
       "purpose": "any maskable"
     },
     {
-      "src": "/icon-512x512.png",
+      "purpose": "any",
       "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "src": "icon512x512.png",
+      "type": "image/png"
     }
   ],
+  "orientation": "portrait",
+  "display": "standalone",
+  "dir": "auto",
+  "lang": "pl-PL",
+  "name": "Portfelik",
+  "short_name": "Portfelik",
+  "description": "A personal finance management application",
+  "id": "/",
+  "scope": "/",
+  "start_url": "/",
   "shortcuts": [
     {
       "name": "Transactions",
