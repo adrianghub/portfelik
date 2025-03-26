@@ -1,6 +1,6 @@
 {
-  "theme_color": "#001400",
-  "background_color": "#fafafa",
+  "theme_color": "#fafafa",
+  "background_color": "#001400",
   "icons": [
     {
       "src": "/icon-512x512.png",
