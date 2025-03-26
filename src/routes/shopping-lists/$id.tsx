@@ -1,4 +1,4 @@
-import { createProtectedLoader } from "@/lib/ProtectedRoute";
+import { createProtectedLoader } from "@/lib/protected-route";
 import { ShoppingListDetailView } from "@/modules/shopping-lists/components/ShoppingListDetailView";
 import { createFileRoute } from "@tanstack/react-router";
 

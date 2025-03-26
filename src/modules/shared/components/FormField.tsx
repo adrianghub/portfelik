@@ -1,5 +1,5 @@
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/styling-utils";
 
 interface FormFieldProps {
   name: string;

@@ -1,13 +1,7 @@
 import { User, onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import {
-  ReactNode,
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
-import { auth, db } from "./firebase/firebase";
+import { useEffect, useState } from "react";
+import { auth, db } from "../lib/firebase/firebase";
 
 type UserRole = "user" | "admin";
 
@@ -19,25 +13,7 @@ export interface UserData {
   lastLoginAt: Date;
 }
 
-interface AuthContextType {
-  currentUser: User | null;
-  userData: UserData | null;
-  isLoading: boolean;
-  isAuthenticated: boolean;
-}
-
-const AuthContext = createContext<AuthContextType>({
-  currentUser: null,
-  userData: null,
-  isLoading: true,
-  isAuthenticated: false,
-});
-
 export function useAuth() {
-  return useContext(AuthContext);
-}
-
-export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -79,12 +55,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return unsubscribe;
   }, []);
 
-  const value = {
+  return {
     currentUser,
     userData,
     isLoading,
     isAuthenticated: !!currentUser,
   };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

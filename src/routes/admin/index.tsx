@@ -1,4 +1,4 @@
-import { createAdminLoader } from "@/lib/ProtectedRoute";
+import { createAdminLoader } from "@/lib/protected-route";
 import { AdminCard } from "@/modules/admin/AdminCard";
 import { UserManager } from "@/modules/admin/users/components/UserManager";
 import { createFileRoute } from "@tanstack/react-router";

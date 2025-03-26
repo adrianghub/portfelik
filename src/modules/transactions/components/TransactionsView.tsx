@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/lib/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { getFirstDayOfMonth, getLastDayOfMonth } from "@/lib/date-utils";
 import { logger } from "@/lib/logger";
 import { FloatingActionButtonGroup } from "@/modules/shared/components/FloatingActionButtonGroup";

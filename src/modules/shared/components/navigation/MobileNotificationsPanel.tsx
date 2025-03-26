@@ -1,8 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/styling-utils";
 import { NotificationList } from "@/modules/shared/notifications/components/NotificationList";
-import { useNotificationActions } from "@/modules/shared/notifications/useNotificationActions";
+import { useNotificationActions } from "@/modules/shared/notifications/hooks/useNotificationActions";
 import { Bell } from "lucide-react";
 import { useState } from "react";
 

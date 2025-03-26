@@ -1,4 +1,4 @@
-import { createAdminLoader } from "@/lib/ProtectedRoute";
+import { createAdminLoader } from "@/lib/protected-route";
 import { CategoryManager } from "@/modules/admin/categories/components/CategoryManager";
 import { createFileRoute } from "@tanstack/react-router";
 

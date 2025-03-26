@@ -1,3 +1,4 @@
+import { UserData } from "@/hooks/useAuth";
 import {
   assignAdminRole,
   deleteUser,
@@ -5,7 +6,6 @@ import {
   removeAdminRole,
   updateUserEmail,
 } from "@/lib/admin-utils";
-import { UserData } from "@/lib/AuthContext";
 import { createContext, ReactNode, useEffect, useState } from "react";
 
 export type UserContextType = {

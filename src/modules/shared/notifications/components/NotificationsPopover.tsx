@@ -4,10 +4,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/styling-utils";
 import { Bell, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useNotificationActions } from "../useNotificationActions";
+import { useNotificationActions } from "../hooks/useNotificationActions";
 import { NotificationList } from "./NotificationList";
 
 export function NotificationsPopover() {

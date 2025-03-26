@@ -1,4 +1,7 @@
 {
+  "app": {
+    "name": "Portfelik"
+  },
   "login": {
     "title": "Hej promyczku 🌻",
     "description": "Tutaj zalogujesz się do swojego Portfelika",

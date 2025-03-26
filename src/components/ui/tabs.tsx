@@ -1,4 +1,4 @@
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/styling-utils";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import * as React from "react";
 

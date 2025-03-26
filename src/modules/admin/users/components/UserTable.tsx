@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { UserData } from "@/lib/AuthContext";
+import { UserData } from "@/hooks/useAuth";
 import { formatDisplayDate } from "@/lib/date-utils";
 import {
   flexRender,

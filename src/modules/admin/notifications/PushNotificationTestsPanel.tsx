@@ -7,9 +7,9 @@ import {
 import type {
   useCheckPushSupport,
   useSaveFCMToken,
-} from "@/modules/shared/notifications/useNotificationsQuery";
+} from "@/modules/shared/notifications/hooks/useNotificationsQuery";
 
-import type { useRemoveFCMTokens } from "@/modules/shared/notifications/useNotificationsQuery";
+import type { useRemoveFCMTokens } from "@/modules/shared/notifications/hooks/useNotificationsQuery";
 
 interface PushNotificationTestsPanelProps {
   handleAction: (

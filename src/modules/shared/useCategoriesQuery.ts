@@ -1,4 +1,4 @@
-import { useAuth } from "@/lib/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { categoryService } from "@/modules/admin/categories/CategoryService";
 import {
   firestoreCategoriesToUICategories,

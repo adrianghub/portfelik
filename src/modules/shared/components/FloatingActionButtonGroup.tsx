@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/styling-utils";
 import { LucideIcon } from "lucide-react";
 
 export interface FloatingActionButtonProps {

@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/lib/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { signOut } from "@/lib/firebase/firebase";
-import { useNotificationSetup } from "@/modules/shared/components/navigation/useNavigationSetup";
+import { useNotificationSetup } from "@/modules/shared/notifications/hooks/useNotificationSetup";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { t } from "i18next";
 import { LogOut } from "lucide-react";
@@ -28,7 +28,7 @@ export function Navigation() {
           <div className="flex justify-between h-16">
             <div className="flex-shrink-0 flex items-center">
               <Link to="/" className="text-xl font-bold text-foreground">
-                Portfelik
+                {t("app.name")}
               </Link>
             </div>
 
@@ -59,7 +59,7 @@ export function Navigation() {
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-background border-t border-border shadow-lg z-50">
         <div className="flex items-center justify-between h-16 px-4">
           <Link to="/" className="text-xl font-bold text-foreground">
-            Portfelik
+            {t("app.name")}
           </Link>
           <MobileMenu
             isAuthenticated={isAuthenticated}

@@ -1,8 +1,8 @@
 /** @jsxImportSource react */
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { cn } from "@/lib/cn";
 import { formatDisplayDate } from "@/lib/date-utils";
+import { cn } from "@/lib/styling-utils";
 import type { Transaction } from "@/modules/transactions/transaction";
 import { Link } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";

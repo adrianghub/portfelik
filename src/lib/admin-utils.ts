@@ -8,7 +8,7 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
-import { UserData } from "./AuthContext";
+import { UserData } from "../hooks/useAuth";
 import { db } from "./firebase/firebase";
 
 /**

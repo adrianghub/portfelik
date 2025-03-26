@@ -6,7 +6,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/styling-utils";
 import { flexRender, type Table as TableType } from "@tanstack/react-table";
 import type { Transaction } from "../transaction";
 

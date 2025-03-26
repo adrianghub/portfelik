@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { UserData } from "@/lib/AuthContext";
+import { UserData } from "@/hooks/useAuth";
 import { useState } from "react";
 import { useUsersContext } from "../useUsersContext";
 

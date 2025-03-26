@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { UserData } from "@/lib/AuthContext";
+import { UserData } from "@/hooks/useAuth";
 import { useUsersContext } from "../useUsersContext";
 
 interface DeleteUserDialogProps {

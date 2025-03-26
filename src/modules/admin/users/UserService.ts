@@ -1,4 +1,4 @@
-import type { UserData as AuthUserData } from "@/lib/AuthContext";
+import type { UserData as AuthUserData } from "@/hooks/useAuth";
 import { COLLECTIONS, FirestoreService } from "@/lib/firebase/firestore";
 import { limit, QueryConstraint, where } from "firebase/firestore";
 

@@ -5,8 +5,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { cn } from "@/lib/cn";
 import { formatDisplayDate } from "@/lib/date-utils";
+import { cn } from "@/lib/styling-utils";
 import type { ShoppingList } from "@/modules/shopping-lists/shopping-list";
 import { Link } from "@tanstack/react-router";
 import { Edit, ShoppingCart, Trash2 } from "lucide-react";

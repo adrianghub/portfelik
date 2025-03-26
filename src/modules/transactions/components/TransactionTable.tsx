@@ -1,4 +1,4 @@
-import { useMediaQuery } from "@/modules/shared/hooks/useMediaQuery";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import type { Transaction } from "@/modules/transactions/transaction";
 import { useTransactionColumns } from "@/modules/transactions/useTransactionTableColumns";
 import { getCoreRowModel, useReactTable } from "@tanstack/react-table";

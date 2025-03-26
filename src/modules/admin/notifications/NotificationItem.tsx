@@ -1,9 +1,9 @@
 import { Button } from "@/components/ui/button";
-import type { Notification } from "@/modules/shared/notifications/notification";
 import type {
   useDeleteNotification,
   useToggleNotificationReadState,
-} from "@/modules/shared/notifications/useNotificationsQuery";
+} from "@/modules/shared/notifications/hooks/useNotificationsQuery";
+import type { Notification } from "@/modules/shared/notifications/notification";
 import dayjs from "dayjs";
 import { Eye, EyeOff, Trash2 } from "lucide-react";
 

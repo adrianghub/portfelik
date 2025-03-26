@@ -1,7 +1,7 @@
-import { useAuth } from "@/lib/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { Notification as NotificationModel } from "@/modules/shared/notifications/notification";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { notificationService } from "./NotificationService";
+import { notificationService } from "../NotificationService";
 
 /**
  * Hook to fetch user notifications

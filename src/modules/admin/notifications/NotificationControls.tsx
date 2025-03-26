@@ -1,14 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type {
+  useDeleteNotification,
+  useMarkAllNotificationsAsRead,
+} from "@/modules/shared/notifications/hooks/useNotificationsQuery";
 import {
   addMockNotifications,
   createMockNotification,
 } from "@/modules/shared/notifications/mock";
 import type { Notification } from "@/modules/shared/notifications/notification";
-import type {
-  useDeleteNotification,
-  useMarkAllNotificationsAsRead,
-} from "@/modules/shared/notifications/useNotificationsQuery";
 
 interface NotificationControlsProps {
   fetchNotifications: () => void;

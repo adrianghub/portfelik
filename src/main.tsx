@@ -5,7 +5,6 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { AuthProvider } from "./lib/AuthContext";
 import "./lib/i18n/i18n";
 import { routeTree } from "./routeTree.gen";
 import "./styles/index.css";
@@ -33,13 +32,11 @@ if (!rootElement.innerHTML) {
   root.render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <NotificationsProvider>
-            <RouterProvider router={router} />
-            <Toaster position="top-right" />
-            <ReactQueryDevtools initialIsOpen={false} />
-          </NotificationsProvider>
-        </AuthProvider>
+        <NotificationsProvider>
+          <RouterProvider router={router} />
+          <Toaster position="top-right" />
+          <ReactQueryDevtools initialIsOpen={false} />
+        </NotificationsProvider>
       </QueryClientProvider>
     </StrictMode>,
   );

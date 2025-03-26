@@ -12,7 +12,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/styling-utils";
 import type { Category } from "@/modules/shared/category";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { useState } from "react";

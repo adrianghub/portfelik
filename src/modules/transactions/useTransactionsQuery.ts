@@ -1,4 +1,4 @@
-import { useAuth } from "@/lib/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import type { Transaction } from "@/modules/transactions/transaction";
 import { transactionService } from "@/modules/transactions/TransactionService";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";

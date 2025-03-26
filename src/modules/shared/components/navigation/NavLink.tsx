@@ -1,4 +1,4 @@
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/styling-utils";
 import { Link, LinkProps } from "@tanstack/react-router";
 
 interface NavLinkProps extends Omit<LinkProps, "activeProps"> {

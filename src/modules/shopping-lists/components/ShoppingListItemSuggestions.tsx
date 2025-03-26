@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/styling-utils";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ShoppingListItem } from "../shopping-list";
 import { createShoppingListItem } from "../shopping-list";

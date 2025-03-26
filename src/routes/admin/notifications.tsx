@@ -1,5 +1,5 @@
-import { useAuth } from "@/lib/AuthContext";
-import { createAdminLoader } from "@/lib/ProtectedRoute";
+import { useAuth } from "@/hooks/useAuth";
+import { createAdminLoader } from "@/lib/protected-route";
 import { CloudFunctionTestPanel } from "@/modules/admin/notifications/CloudFunctionTestPanel";
 import { NotificationControls } from "@/modules/admin/notifications/NotificationControls";
 import { NotificationItem } from "@/modules/admin/notifications/NotificationItem";
@@ -13,7 +13,7 @@ import {
   useRemoveFCMTokens,
   useSaveFCMToken,
   useToggleNotificationReadState,
-} from "@/modules/shared/notifications/useNotificationsQuery";
+} from "@/modules/shared/notifications/hooks/useNotificationsQuery";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
