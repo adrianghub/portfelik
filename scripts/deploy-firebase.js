@@ -70,7 +70,7 @@ if (!runCommand('firebase deploy --only hosting', 'Failed to deploy hosting')) {
 }
 
 console.log(`${colors.magenta}Deploying functions...${colors.reset}`);
-if (!runCommand('firebase deploy --only functions --debug', 'Failed to deploy functions')) {
+if (!runCommand('firebase deploy --only functions:sendAdminTransactionSummary,functions:sendAdminTransactionSummaryManual --debug', 'Failed to deploy functions')) {
   process.exit(1);
 }
 
