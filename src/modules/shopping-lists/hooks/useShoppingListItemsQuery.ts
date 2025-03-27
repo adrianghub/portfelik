@@ -30,12 +30,14 @@ export function useUpdateShoppingList() {
     },
     onMutate: async ({ id, shoppingList }) => {
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["shopping-lists", id] });
+      await queryClient.cancelQueries({
+        queryKey: [...SHOPPING_LISTS_QUERY_KEY, id],
+      });
       await queryClient.cancelQueries({ queryKey: SHOPPING_LISTS_QUERY_KEY });
 
       // Snapshot the previous values
       const previousList = queryClient.getQueryData<ShoppingList>([
-        "shopping-lists",
+        ...SHOPPING_LISTS_QUERY_KEY,
         id,
       ]);
       const previousLists = queryClient.getQueryData<ShoppingList[]>(
@@ -45,7 +47,7 @@ export function useUpdateShoppingList() {
       // Optimistically update the list
       if (previousList) {
         queryClient.setQueryData<ShoppingList>(
-          ["shopping-lists", id],
+          [...SHOPPING_LISTS_QUERY_KEY, id],
           (old) => {
             if (!old) return old;
             return {
@@ -81,7 +83,10 @@ export function useUpdateShoppingList() {
     onError: (err, { id }, context) => {
       // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousList) {
-        queryClient.setQueryData(["shopping-lists", id], context.previousList);
+        queryClient.setQueryData(
+          [...SHOPPING_LISTS_QUERY_KEY, id],
+          context.previousList,
+        );
       }
       if (context?.previousLists) {
         queryClient.setQueryData(
@@ -93,7 +98,10 @@ export function useUpdateShoppingList() {
     },
     onSuccess: (updatedList) => {
       // Update both caches with the real data
-      queryClient.setQueryData(["shopping-lists", updatedList.id], updatedList);
+      queryClient.setQueryData(
+        [...SHOPPING_LISTS_QUERY_KEY, updatedList.id],
+        updatedList,
+      );
       queryClient.setQueryData<ShoppingList[]>(
         SHOPPING_LISTS_QUERY_KEY,
         (old) => {
@@ -103,6 +111,12 @@ export function useUpdateShoppingList() {
           );
         },
       );
+
+      queryClient.invalidateQueries({
+        queryKey: [...SHOPPING_LISTS_QUERY_KEY, updatedList.id],
+      });
+      queryClient.invalidateQueries({ queryKey: SHOPPING_LISTS_QUERY_KEY });
+
       showSuccessToast("update");
     },
   });
@@ -142,22 +156,23 @@ export function useCompleteShoppingList() {
     },
     onMutate: async ({ id, totalAmount, categoryId, linkedTransactionId }) => {
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["shopping-lists", id] });
+      await queryClient.cancelQueries({
+        queryKey: [...SHOPPING_LISTS_QUERY_KEY, id],
+      });
       await queryClient.cancelQueries({ queryKey: SHOPPING_LISTS_QUERY_KEY });
 
       // Snapshot the previous values
       const previousList = queryClient.getQueryData<ShoppingList>([
-        "shopping-lists",
+        ...SHOPPING_LISTS_QUERY_KEY,
         id,
       ]);
-
       const previousLists = queryClient.getQueryData<ShoppingList[]>(
         SHOPPING_LISTS_QUERY_KEY,
       );
 
       if (previousList) {
         queryClient.setQueryData<ShoppingList>(
-          ["shopping-lists", id],
+          [...SHOPPING_LISTS_QUERY_KEY, id],
           (old) => {
             if (!old) return old;
             return {
@@ -198,7 +213,10 @@ export function useCompleteShoppingList() {
     onError: (err, { id }, context) => {
       // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousList) {
-        queryClient.setQueryData(["shopping-lists", id], context.previousList);
+        queryClient.setQueryData(
+          [...SHOPPING_LISTS_QUERY_KEY, id],
+          context.previousList,
+        );
       }
       if (context?.previousLists) {
         queryClient.setQueryData(
@@ -208,7 +226,26 @@ export function useCompleteShoppingList() {
       }
       showErrorToast("complete", err);
     },
-    onSuccess: () => {
+    onSuccess: (updatedList) => {
+      queryClient.setQueryData(
+        [...SHOPPING_LISTS_QUERY_KEY, updatedList.id],
+        updatedList,
+      );
+      queryClient.setQueryData<ShoppingList[]>(
+        SHOPPING_LISTS_QUERY_KEY,
+        (old) => {
+          if (!old) return [updatedList];
+          return old.map((list) =>
+            list.id === updatedList.id ? updatedList : list,
+          );
+        },
+      );
+
+      queryClient.invalidateQueries({
+        queryKey: [...SHOPPING_LISTS_QUERY_KEY, updatedList.id],
+      });
+      queryClient.invalidateQueries({ queryKey: SHOPPING_LISTS_QUERY_KEY });
+
       showSuccessToast("complete");
     },
   });

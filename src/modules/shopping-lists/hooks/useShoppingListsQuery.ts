@@ -145,6 +145,11 @@ export function useCreateShoppingList() {
         },
       );
 
+      queryClient.setQueryData(
+        [...SHOPPING_LISTS_QUERY_KEY, optimisticList.id],
+        optimisticList,
+      );
+
       return { previousLists, optimisticList };
     },
     onError: (err, _newShoppingList, context) => {
@@ -154,6 +159,11 @@ export function useCreateShoppingList() {
           SHOPPING_LISTS_QUERY_KEY,
           context.previousLists,
         );
+      }
+      if (context?.optimisticList) {
+        queryClient.removeQueries({
+          queryKey: [...SHOPPING_LISTS_QUERY_KEY, context.optimisticList.id],
+        });
       }
       showErrorToast("create", err);
     },
@@ -166,6 +176,17 @@ export function useCreateShoppingList() {
           return old.map((list) => (list.id === newList.id ? newList : list));
         },
       );
+
+      queryClient.setQueryData(
+        [...SHOPPING_LISTS_QUERY_KEY, newList.id],
+        newList,
+      );
+
+      queryClient.invalidateQueries({ queryKey: SHOPPING_LISTS_QUERY_KEY });
+      queryClient.invalidateQueries({
+        queryKey: [...SHOPPING_LISTS_QUERY_KEY, newList.id],
+      });
+
       showSuccessToast("create");
     },
   });
@@ -191,8 +212,14 @@ export function useDeleteShoppingList() {
     onMutate: async (id) => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: SHOPPING_LISTS_QUERY_KEY });
+      await queryClient.cancelQueries({
+        queryKey: [...SHOPPING_LISTS_QUERY_KEY, id],
+      });
 
-      // Snapshot the previous value
+      const previousList = queryClient.getQueryData<ShoppingList>([
+        ...SHOPPING_LISTS_QUERY_KEY,
+        id,
+      ]);
       const previousLists = queryClient.getQueryData<ShoppingList[]>(
         SHOPPING_LISTS_QUERY_KEY,
       );
@@ -206,10 +233,20 @@ export function useDeleteShoppingList() {
         },
       );
 
-      return { previousLists, deletedId: id };
+      queryClient.removeQueries({
+        queryKey: [...SHOPPING_LISTS_QUERY_KEY, id],
+      });
+
+      return { previousList, previousLists, deletedId: id };
     },
-    onError: (err, _id, context) => {
+    onError: (err, id, context) => {
       // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousList) {
+        queryClient.setQueryData(
+          [...SHOPPING_LISTS_QUERY_KEY, id],
+          context.previousList,
+        );
+      }
       if (context?.previousLists) {
         queryClient.setQueryData(
           SHOPPING_LISTS_QUERY_KEY,
@@ -219,6 +256,7 @@ export function useDeleteShoppingList() {
       showErrorToast("delete", err);
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: SHOPPING_LISTS_QUERY_KEY });
       showSuccessToast("delete");
     },
   });
@@ -288,6 +326,11 @@ export function useDuplicateShoppingList() {
         },
       );
 
+      queryClient.setQueryData(
+        [...SHOPPING_LISTS_QUERY_KEY, optimisticList.id],
+        optimisticList,
+      );
+
       return { previousLists, optimisticList };
     },
     onError: (err, _shoppingList, context) => {
@@ -297,6 +340,11 @@ export function useDuplicateShoppingList() {
           SHOPPING_LISTS_QUERY_KEY,
           context.previousLists,
         );
+      }
+      if (context?.optimisticList) {
+        queryClient.removeQueries({
+          queryKey: [...SHOPPING_LISTS_QUERY_KEY, context.optimisticList.id],
+        });
       }
       showErrorToast("duplicate", err);
     },
@@ -309,6 +357,17 @@ export function useDuplicateShoppingList() {
           return old.map((list) => (list.id === newList.id ? newList : list));
         },
       );
+
+      queryClient.setQueryData(
+        [...SHOPPING_LISTS_QUERY_KEY, newList.id],
+        newList,
+      );
+
+      queryClient.invalidateQueries({ queryKey: SHOPPING_LISTS_QUERY_KEY });
+      queryClient.invalidateQueries({
+        queryKey: [...SHOPPING_LISTS_QUERY_KEY, newList.id],
+      });
+
       showSuccessToast("duplicate");
     },
   });
