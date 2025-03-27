@@ -1,10 +1,13 @@
 import { logger } from "@/lib/logger";
 import { initializeApp } from "firebase/app";
 import {
+  browserLocalPersistence,
   connectAuthEmulator,
   signOut as firebaseSignOut,
   getAuth,
+  indexedDBLocalPersistence,
   onAuthStateChanged,
+  setPersistence,
   signInWithEmailAndPassword,
   User,
 } from "firebase/auth";
@@ -31,6 +34,18 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+
+setPersistence(auth, indexedDBLocalPersistence).catch((error) => {
+  logger.error("Firebase Auth", "Error setting persistence:", error);
+  // Fallback to browser local persistence if IndexedDB fails
+  setPersistence(auth, browserLocalPersistence).catch((fallbackError) => {
+    logger.error(
+      "Firebase Auth",
+      "Error setting fallback persistence:",
+      fallbackError,
+    );
+  });
+});
 
 let db: Firestore;
 try {
@@ -85,12 +100,19 @@ if (isDevelopment) {
  * @returns A promise that resolves with the user's credentials
  */
 export async function signIn(email: string, password: string): Promise<User> {
-  const userCredential = await signInWithEmailAndPassword(
-    auth,
-    email,
-    password,
-  );
-  return userCredential.user;
+  try {
+    const userCredential = await signInWithEmailAndPassword(
+      auth,
+      email,
+      password,
+    );
+    return userCredential.user;
+  } catch (error) {
+    if (error instanceof Error) {
+      logger.error("Firebase Auth", "Sign in error:", error.message);
+    }
+    throw error;
+  }
 }
 
 /**
@@ -98,7 +120,14 @@ export async function signIn(email: string, password: string): Promise<User> {
  * @returns A promise that resolves when the user is signed out
  */
 export async function signOut(): Promise<void> {
-  return firebaseSignOut(auth);
+  try {
+    await firebaseSignOut(auth);
+  } catch (error) {
+    if (error instanceof Error) {
+      logger.error("Firebase Auth", "Sign out error:", error.message);
+    }
+    throw error;
+  }
 }
 
 export const getCurrentUser = (): Promise<User | null> => {
@@ -109,7 +138,10 @@ export const getCurrentUser = (): Promise<User | null> => {
         unsubscribe();
         resolve(user);
       },
-      reject,
+      (error) => {
+        logger.error("Firebase Auth", "Auth state change error:", error);
+        reject(error);
+      },
     );
   });
 };

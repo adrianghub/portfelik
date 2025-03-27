@@ -1,16 +1,22 @@
 import { getCurrentUser } from "@/lib/firebase/firebase";
+import { logger } from "@/lib/logger";
 import { LoginForm } from "@/modules/login/LoginForm";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/login")({
   component: LoginView,
   loader: async () => {
-    const currentUser = await getCurrentUser();
+    try {
+      const currentUser = await getCurrentUser();
 
-    if (currentUser) {
-      throw redirect({ to: "/" });
+      if (currentUser) {
+        throw redirect({ to: "/" });
+      }
+      return {};
+    } catch (error) {
+      logger.warn("Login", "Error checking current user:", error);
+      return {};
     }
-    return {};
   },
 });
 

@@ -1,21 +1,25 @@
 import { signIn } from "@/lib/firebase/firebase";
 import { useTranslation } from "@/lib/i18n/useTranslation";
+import { logger } from "@/lib/logger";
 import { validateEmail, validatePassword } from "@/modules/login/validation";
 import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
+import { FirebaseError } from "firebase/app";
 import { useState } from "react";
+
+type LoginFormData = {
+  email: string;
+  password: string;
+};
 
 export function useLoginForm() {
   const { t } = useTranslation();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [validationErrors, setValidationErrors] = useState<{
     email?: string;
     password?: string;
   }>({});
-
   const navigate = useNavigate();
 
   const getRedirectUrl = () => {
@@ -28,7 +32,7 @@ export function useLoginForm() {
       email: "",
       password: "",
     },
-    onSubmit: async ({ value }) => {
+    onSubmit: async ({ value }: { value: LoginFormData }) => {
       setError(null);
       setLoading(true);
 
@@ -36,8 +40,23 @@ export function useLoginForm() {
         await signIn(value.email, value.password);
         navigate({ to: getRedirectUrl() });
       } catch (err) {
-        setError(t("login.error"));
-        console.error("Login error:", err);
+        if (err instanceof FirebaseError) {
+          const errorMessage =
+            err.code === "auth/invalid-credential"
+              ? t("login.error.invalidCredentials")
+              : err.code === "auth/too-many-requests"
+                ? t("login.error.tooManyAttempts")
+                : err.code === "auth/network-request-failed"
+                  ? t("login.error.offline")
+                  : t("login.error.generic");
+          setError(errorMessage);
+        } else {
+          setError(t("login.error.generic"));
+        }
+        logger.error(
+          "Login error:",
+          err instanceof Error ? err.message : String(err),
+        );
       } finally {
         setLoading(false);
       }
@@ -46,33 +65,22 @@ export function useLoginForm() {
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    setEmail(value);
     form.setFieldValue("email", value);
-
     const emailError = validateEmail(value, t);
-    setValidationErrors((prev) => ({
-      ...prev,
-      email: emailError,
-    }));
+    setValidationErrors((prev) => ({ ...prev, email: emailError }));
   };
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    setPassword(value);
     form.setFieldValue("password", value);
-
     const passwordError = validatePassword(value, t);
-    setValidationErrors((prev) => ({
-      ...prev,
-      password: passwordError,
-    }));
+    setValidationErrors((prev) => ({ ...prev, password: passwordError }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    const emailError = validateEmail(email, t);
-    const passwordError = validatePassword(password, t);
+    const emailError = validateEmail(form.getFieldValue("email"), t);
+    const passwordError = validatePassword(form.getFieldValue("password"), t);
 
     setValidationErrors({
       email: emailError,
@@ -85,8 +93,8 @@ export function useLoginForm() {
   };
 
   return {
-    email,
-    password,
+    email: form.getFieldValue("email"),
+    password: form.getFieldValue("password"),
     error,
     loading,
     validationErrors,
