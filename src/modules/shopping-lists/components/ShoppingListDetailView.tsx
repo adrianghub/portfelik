@@ -7,9 +7,11 @@ import { FloatingActionButtonGroup } from "@/modules/shared/components/FloatingA
 import { ShoppingListCompleteDialog } from "@/modules/shopping-lists/components/ShoppingListCompleteDialog";
 import {
   useCompleteShoppingList,
+  useUpdateShoppingList,
+} from "@/modules/shopping-lists/hooks/useShoppingListItemsQuery";
+import {
   useCreateShoppingList,
   useShoppingList,
-  useUpdateShoppingList,
 } from "@/modules/shopping-lists/hooks/useShoppingListsQuery";
 import { type ShoppingListItem } from "@/modules/shopping-lists/shopping-list";
 import { useAddTransaction } from "@/modules/transactions/hooks/useTransactionsQuery";
