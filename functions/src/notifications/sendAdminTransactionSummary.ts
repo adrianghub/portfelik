@@ -62,7 +62,7 @@ export async function sendAdminTransactionSummaryFunction() {
       date: dayjs(doc.data().date).toDate(),
     })) as (Transaction & { id: string; userId: string })[];
 
-    logger.info(`Found ${transactions?.length} transactions from yesterday`);
+    logger.info(`Found ${transactions.length} transactions from yesterday`);
 
     const usersSnapshot = await db.collection("users").get();
     const userMap = new Map<string, User>();
@@ -105,7 +105,7 @@ export async function sendAdminTransactionSummaryFunction() {
     });
 
     const totalUsers = userSummaries.size;
-    const totalTransactions = transactions?.length;
+    const totalTransactions = transactions.length;
     const totalIncome = Array.from(userSummaries.values()).reduce(
       (sum, summary) => sum + summary.income,
       0,
