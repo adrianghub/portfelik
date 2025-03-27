@@ -147,7 +147,9 @@ export async function sendAdminTransactionSummaryFunction() {
         uid: adminUser.uid,
         email: adminUser.email,
         hasNotificationsEnabled: adminUser.settings?.notificationsEnabled,
-        fcmTokensCount: adminUser.fcmTokens?.length || 0,
+        fcmTokensCount: Array.isArray(adminUser.fcmTokens)
+          ? adminUser.fcmTokens.length
+          : 0,
       });
 
       if (!adminId) {

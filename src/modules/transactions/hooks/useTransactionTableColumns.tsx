@@ -30,11 +30,12 @@ export const useTransactionColumns = ({
 };
 
 function getMobileColumns({
-  handleDelete,
   setSelectedTransaction,
+  shoppingLists,
+  loadingShoppingLists,
 }: Pick<
   UseTransactionColumnsProps,
-  "handleDelete" | "setSelectedTransaction"
+  "setSelectedTransaction" | "shoppingLists" | "loadingShoppingLists"
 >): ColumnDef<Transaction, unknown>[] {
   return [
     {
@@ -42,30 +43,26 @@ function getMobileColumns({
       header: "Description",
       cell: ({ row }) => (
         <div
-          className="flex items-center justify-between w-full"
+          className="flex flex-col gap-1 w-full"
           onClick={() => setSelectedTransaction(row.original)}
         >
-          <div className="flex flex-col">
-            <div className="font-medium truncate max-w-[150px]">
+          <div className="flex items-center justify-between">
+            <div className="font-medium truncate max-w-[200px]">
               {row.original.description}
             </div>
-            <div className="text-sm text-muted-foreground">
-              {formatDisplayDate(row.original.date)}
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
             {renderAmount(row.original)}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDelete(row.original.id);
-              }}
-              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+          </div>
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <span>{formatDisplayDate(row.original.date)}</span>
+            {row.original.shoppingListId && (
+              <div onClick={(e) => e.stopPropagation()}>
+                {renderShoppingListLink(
+                  row.original.shoppingListId,
+                  shoppingLists,
+                  loadingShoppingLists,
+                )}
+              </div>
+            )}
           </div>
         </div>
       ),
@@ -218,5 +215,26 @@ function renderActions(
         <Trash2 className="w-4 h-4" />
       </Button>
     </div>
+  );
+}
+
+function renderShoppingListLink(
+  id: string,
+  shoppingLists: Record<string, { name: string }>,
+  loadingShoppingLists: boolean,
+) {
+  if (loadingShoppingLists) return null;
+  const list = shoppingLists[id];
+  if (!list) return null;
+
+  return (
+    <Link
+      to="/shopping-lists/$id"
+      params={{ id }}
+      className="flex items-center gap-1 text-accent-foreground hover:underline text-xs"
+    >
+      <ShoppingCart className="h-3 w-3" />
+      <span className="truncate max-w-[100px]">{list.name}</span>
+    </Link>
   );
 }
