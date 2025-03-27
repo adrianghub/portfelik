@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useMobileDialog } from "@/hooks/useMobileDialog";
 import { FormField } from "@/modules/shared/components/FormField";
 import {
   createShoppingListItem,
@@ -43,15 +44,6 @@ const validateQuantity = (value: string) => {
   return undefined;
 };
 
-const scrollToBottom = () => {
-  setTimeout(() => {
-    window.scrollTo({
-      top: document.body.scrollHeight,
-      behavior: "smooth",
-    });
-  }, 100);
-};
-
 export function ShoppingListItemDialog({
   trigger,
   onAddItem,
@@ -65,11 +57,12 @@ export function ShoppingListItemDialog({
   const [nameQuery, setNameQuery] = useState("");
 
   const nameInputRef = useRef<HTMLInputElement>(null);
-  const dialogContentRef = useRef<HTMLDivElement>(null);
 
   const isControlled = controlledOpen !== undefined;
   const isOpen = isControlled ? controlledOpen : open;
   const setIsOpen = isControlled ? onOpenChange! : setOpen;
+
+  const { contentRef, scrollToBottom } = useMobileDialog(isOpen);
 
   const isEditing = !!initialValues?.id;
 
@@ -111,6 +104,7 @@ export function ShoppingListItemDialog({
           nameInputRef.current?.focus();
         } else {
           setIsOpen(false);
+          scrollToBottom();
         }
       }
     },
@@ -119,6 +113,7 @@ export function ShoppingListItemDialog({
   const handleCancel = () => {
     form.reset();
     setIsOpen(false);
+    scrollToBottom();
   };
 
   const handleNameChange = (value: string) => {
@@ -140,34 +135,13 @@ export function ShoppingListItemDialog({
   useEffect(() => {
     if (isOpen) {
       nameInputRef.current?.focus();
-      scrollToBottom();
-
-      // Handle focus and scrolling to ensure the active element is visible
-      const handleFocusIn = () => {
-        // Allow a brief moment for the virtual keyboard to appear
-        setTimeout(() => {
-          // Ensure the active element is visible by scrolling it into view
-          const activeElement = document.activeElement;
-          if (activeElement && activeElement instanceof HTMLElement) {
-            activeElement.scrollIntoView({
-              block: "center",
-              behavior: "smooth",
-            });
-          }
-        }, 100);
-      };
-
-      document.addEventListener("focusin", handleFocusIn);
-      return () => {
-        document.removeEventListener("focusin", handleFocusIn);
-      };
     }
   }, [isOpen]);
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-      <DialogContent ref={dialogContentRef} className="sm:max-w-[425px]">
+      <DialogContent ref={contentRef} className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit Item" : "Add Item"}</DialogTitle>
           <DialogDescription>

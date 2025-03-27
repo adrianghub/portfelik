@@ -9,16 +9,17 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { useMobileDialog } from "@/hooks/useMobileDialog";
 import { FormField } from "@/modules/shared/components/FormField";
 import { useForm } from "@tanstack/react-form";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 interface ShoppingListNameDialogProps {
   trigger?: React.ReactNode;
-  onSave: (name: string) => void;
+  onSave?: (name: string) => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  initialName: string;
+  initialName?: string;
 }
 
 const validateName = (value: string) => {
@@ -39,21 +40,23 @@ export function ShoppingListNameDialog({
   initialName,
 }: ShoppingListNameDialogProps) {
   const [open, setOpen] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   const isControlled = controlledOpen !== undefined;
   const isOpen = isControlled ? controlledOpen : open;
   const setIsOpen = isControlled ? onOpenChange! : setOpen;
 
+  const { contentRef } = useMobileDialog(isOpen);
+
   const form = useForm({
     defaultValues: {
-      name: initialName,
+      name: initialName || "",
     },
     onSubmit: ({ value }) => {
-      if (value.name.trim()) {
+      if (onSave) {
         onSave(value.name.trim());
-        form.reset();
-        setIsOpen(false);
       }
+      setIsOpen(false);
     },
   });
 
@@ -65,7 +68,10 @@ export function ShoppingListNameDialog({
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-      <DialogContent className="w-full max-w-md mx-auto p-4 sm:p-6">
+      <DialogContent
+        ref={contentRef}
+        className="w-full max-w-md mx-auto p-4 sm:p-6"
+      >
         <DialogHeader>
           <DialogTitle className="text-xl">Edit Shopping List</DialogTitle>
           <DialogDescription>
@@ -92,6 +98,7 @@ export function ShoppingListNameDialog({
                 error={field.state.meta.errors?.[0]}
               >
                 <Input
+                  ref={nameInputRef}
                   id="name"
                   placeholder="Enter list name"
                   value={field.state.value}
