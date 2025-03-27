@@ -60,10 +60,10 @@ export async function sendTransactionSummaryFunction() {
       logger.info(`Summary for user ${userDoc.id}:`, {
         income,
         expenses,
-        totalTransactions: transactions.length,
+        totalTransactions: transactions?.length,
       });
 
-      if (transactions.length === 0) {
+      if (transactions?.length === 0) {
         logger.info(
           `No transactions for user ${userDoc.id}, skipping notification`,
         );
@@ -96,7 +96,7 @@ export async function sendTransactionSummaryFunction() {
         // Check for tokens - use either fcmTokens array (new) or single token (legacy)
         const userTokens = user.fcmTokens || [];
 
-        if (userTokens.length === 0) {
+        if (userTokens?.length === 0) {
           logger.info(
             `User ${userDoc.id} has notifications enabled but no tokens, skipping FCM notification`,
           );
@@ -104,7 +104,7 @@ export async function sendTransactionSummaryFunction() {
         }
 
         logger.info(
-          `Found ${userTokens.length} devices for user ${userDoc.id}, sending notifications`,
+          `Found ${userTokens?.length} devices for user ${userDoc.id}, sending notifications`,
         );
 
         const baseMessage = {
@@ -171,7 +171,7 @@ export async function sendTransactionSummaryFunction() {
         }
 
         // Clean up invalid tokens if any were found
-        if (invalidTokens.length > 0) {
+        if (invalidTokens?.length > 0) {
           try {
             // Get fresh user data to avoid race conditions
             const latestUserDocRef = await db
@@ -202,14 +202,14 @@ export async function sendTransactionSummaryFunction() {
                 }
 
                 // Disable notifications if all tokens are invalid
-                if (validTokens.length === 0) {
+                if (validTokens?.length === 0) {
                   updates["settings.notificationsEnabled"] = false;
                 }
 
                 await db.collection("users").doc(userDoc.id).update(updates);
 
                 logger.info(
-                  `Cleaned up ${invalidTokens.length} invalid tokens for user ${userDoc.id}. Remaining tokens: ${validTokens.length}`,
+                  `Cleaned up ${invalidTokens?.length} invalid tokens for user ${userDoc.id}. Remaining tokens: ${validTokens?.length}`,
                 );
               }
             }
