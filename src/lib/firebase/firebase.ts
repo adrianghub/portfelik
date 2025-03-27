@@ -8,7 +8,14 @@ import {
   signInWithEmailAndPassword,
   User,
 } from "firebase/auth";
-import { connectFirestoreEmulator, getFirestore } from "firebase/firestore";
+import {
+  connectFirestoreEmulator,
+  Firestore,
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from "firebase/firestore";
 import { connectFunctionsEmulator, getFunctions } from "firebase/functions";
 import { getMessaging } from "firebase/messaging";
 
@@ -24,7 +31,21 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+
+let db: Firestore;
+try {
+  db = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager(),
+    }),
+  });
+  logger.info("Firestore", "Initialized with persistent cache");
+} catch (err) {
+  logger.error("Firestore", "Error initializing with persistent cache:", err);
+  db = getFirestore(app);
+}
+export { db };
+
 export const functions = getFunctions(app);
 export const messaging = getMessaging(app);
 

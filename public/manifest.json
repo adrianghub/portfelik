@@ -9,10 +9,10 @@
       "purpose": "any maskable"
     },
     {
-      "purpose": "any",
-      "sizes": "192x192",
       "src": "/icon-192x192.png",
-      "type": "image/png"
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ],
   "orientation": "portrait",
@@ -21,7 +21,7 @@
   "lang": "pl-PL",
   "name": "Portfelik",
   "short_name": "Portfelik",
-  "description": "A personal finance management application",
+  "description": "Personal finance management application",
   "id": "/",
   "scope": "/",
   "start_url": "/",
