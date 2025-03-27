@@ -1,10 +1,13 @@
 import { logger } from "@/lib/logger";
 import { initializeApp } from "firebase/app";
 import {
+  browserLocalPersistence,
   connectAuthEmulator,
   signOut as firebaseSignOut,
   getAuth,
+  indexedDBLocalPersistence,
   onAuthStateChanged,
+  setPersistence,
   signInWithEmailAndPassword,
   User,
 } from "firebase/auth";
@@ -31,6 +34,18 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+
+setPersistence(auth, indexedDBLocalPersistence).catch((error) => {
+  logger.error("Firebase Auth", "Error setting persistence:", error);
+  // Fallback to browser local persistence if IndexedDB fails
+  setPersistence(auth, browserLocalPersistence).catch((fallbackError) => {
+    logger.error(
+      "Firebase Auth",
+      "Error setting fallback persistence:",
+      fallbackError,
+    );
+  });
+});
 
 let db: Firestore;
 try {

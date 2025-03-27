@@ -13,7 +13,12 @@ import { onRequest } from "firebase-functions/v2/https";
 import { ScheduledEvent, onSchedule } from "firebase-functions/v2/scheduler";
 import { sendAdminTransactionSummaryFunction } from "./notifications/sendAdminTransactionSummary";
 
-admin.initializeApp();
+try {
+  admin.initializeApp();
+} catch (error) {
+  logger.error("Error initializing Firebase Admin:", error);
+  throw error;
+}
 
 type UserRole = "user" | "admin";
 
@@ -60,7 +65,7 @@ export const sendAdminTransactionSummaryManual = onRequest(
   },
   async (_req, res) => {
     try {
-      logger.info("Running sendAdminTransactionSummary scheduled function");
+      logger.info("Running sendAdminTransactionSummary manual function");
       await sendAdminTransactionSummaryFunction();
 
       res.json({
@@ -71,7 +76,10 @@ export const sendAdminTransactionSummaryManual = onRequest(
       logger.error("Error in manual admin transaction summary:", error);
       res.status(500).json({
         success: false,
-        error: "Missing required parameters: userId, title, body",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unknown error occurred while sending admin transaction summary",
       });
     }
   },
