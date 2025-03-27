@@ -178,11 +178,12 @@ export async function sendAdminTransactionSummaryFunction() {
 
       if (
         adminUser.settings?.notificationsEnabled &&
-        adminUser.fcmTokens?.length
+        Array.isArray(adminUser.fcmTokens) &&
+        adminUser.fcmTokens.length > 0
       ) {
-        const userTokens = adminUser.fcmTokens || [];
+        const userTokens = adminUser.fcmTokens;
         logger.info(
-          `Sending FCM notifications to admin user ${adminId} with ${userTokens?.length} tokens`,
+          `Sending FCM notifications to admin user ${adminId} with ${userTokens.length} tokens`,
         );
 
         const baseMessage = {
