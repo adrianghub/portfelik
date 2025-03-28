@@ -60,9 +60,6 @@ export const sendAdminTransactionSummary = onSchedule(
 );
 
 export const sendAdminTransactionSummaryManual = onRequest(
-  {
-    cors: true,
-  },
   async (_req, res) => {
     try {
       logger.info("Running sendAdminTransactionSummary manual function");

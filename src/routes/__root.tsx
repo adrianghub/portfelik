@@ -1,3 +1,4 @@
+import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigation } from "@/modules/shared/components/navigation/Navigation";
 import { createRootRoute, Outlet } from "@tanstack/react-router";
@@ -8,6 +9,7 @@ function RootLayout() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <OfflineIndicator />
       {currentUser && <Navigation />}
       <main className="flex-grow">
         <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 mb-12">

@@ -35,10 +35,6 @@ class Logger {
     };
   }
 
-  private shouldLog(): boolean {
-    return this.isDevelopment;
-  }
-
   private formatMessage(
     level: LogLevel,
     service: string,
@@ -54,7 +50,17 @@ class Logger {
     message: string,
     ...args: unknown[]
   ): void {
-    if (this.shouldLog()) {
+    const shouldShow =
+      this.isDevelopment ||
+      args.some(
+        (arg) =>
+          typeof arg === "object" &&
+          arg !== null &&
+          "prod" in arg &&
+          arg.prod === true,
+      );
+
+    if (shouldShow) {
       const [formattedMessage, ...styles] = this.formatMessage(
         level,
         service,

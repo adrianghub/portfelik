@@ -54,10 +54,14 @@ try {
       tabManager: persistentMultipleTabManager(),
     }),
   });
-  logger.info("Firestore", "Initialized with persistent cache");
+  logger.info(
+    "Firestore",
+    "Initialized with persistent cache and multi-tab support",
+  );
 } catch (err) {
   logger.error("Firestore", "Error initializing with persistent cache:", err);
   db = getFirestore(app);
+  logger.warn("Firestore", "Using regular Firestore without persistence");
 }
 export { db };
 
@@ -130,6 +134,10 @@ export async function signOut(): Promise<void> {
   }
 }
 
+/**
+ * Gets the current user with offline support
+ * @returns A promise that resolves with the current user or null
+ */
 export const getCurrentUser = (): Promise<User | null> => {
   return new Promise((resolve, reject) => {
     const unsubscribe = onAuthStateChanged(
