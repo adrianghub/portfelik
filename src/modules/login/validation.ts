@@ -10,10 +10,10 @@ export const validateEmail = (
   t: TFunction,
 ): string | undefined => {
   if (!email) {
-    return t("login.emailRequired");
+    return t("login.error.emailRequired");
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return t("login.emailInvalid");
+    return t("login.error.emailInvalid");
   }
   return undefined;
 };
@@ -28,10 +28,10 @@ export const validatePassword = (
   t: TFunction,
 ): string | undefined => {
   if (!password) {
-    return t("login.passwordRequired");
+    return t("login.error.passwordRequired");
   }
   if (password.length < 6) {
-    return t("login.passwordInvalid");
+    return t("login.error.passwordInvalid");
   }
   return undefined;
 };

@@ -11,14 +11,16 @@
     "email": "Adres e-mail",
     "password": "Hasło",
     "emailPlaceholder": "twoj.mail@email.com",
-    "emailRequired": "Email jest wymagany.",
-    "emailInvalid": "Podany email jest nieprawidłowy.",
-    "passwordRequired": "Hasło jest wymagane.",
-    "passwordInvalid": "Podane hasło jest nieprawidłowe.",
-    "tooManyAttempts": "Zbyt wiele nieudanych prób logowania. Spróbuj ponownie później.",
-    "generic": "Wystąpił błąd podczas logowania. Spróbuj ponownie później.",
-    "offline": "Nie jesteś połączony z internetem. Spróbuj ponownie później.",
-    "invalidCredentials": "Podany adres e-mail, bądź hasło jest niepoprawne. Spróbuj ponownie 😘"
+    "error": {
+      "emailRequired": "Email jest wymagany.",
+      "emailInvalid": "Format adresu e-mail jest niepoprawny.",
+      "passwordRequired": "Hasło jest wymagane.",
+      "passwordInvalid": "Hasło musi mieć co najmniej 6 znaków.",
+      "tooManyAttempts": "Zbyt wiele nieudanych prób logowania. Spróbuj ponownie później.",
+      "generic": "Wystąpił błąd podczas logowania. Spróbuj ponownie później.",
+      "offline": "Nie jesteś połączony z internetem. Spróbuj ponownie później.",
+      "invalidCredentials": "Podany adres e-mail, bądź hasło jest niepoprawne. Spróbuj ponownie 😘"
+    }
   },
   "auth": {
     "signOut": "Wyloguj się"
