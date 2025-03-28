@@ -12,6 +12,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useMobileDialog } from "@/hooks/useMobileDialog";
 import { cn } from "@/lib/styling-utils";
 import type { Category } from "@/modules/shared/category";
 import { Check, ChevronsUpDown, X } from "lucide-react";
@@ -39,6 +40,7 @@ export function CategoryCombobox({
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const { contentRef } = useMobileDialog(open);
 
   const selectedCategory = categories.find((category) => category.id === value);
   const defaultPlaceholder = t(
@@ -90,6 +92,7 @@ export function CategoryCombobox({
           </Button>
         </PopoverTrigger>
         <PopoverContent
+          ref={contentRef}
           className="w-[--radix-popover-trigger-width] p-0"
           align="start"
           sideOffset={4}
