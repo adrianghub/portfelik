@@ -20,6 +20,7 @@ export default defineConfig({
         sourcemap: true,
         swSrc: path.resolve(__dirname, "public/sw.js"),
         swDest: path.resolve(__dirname, "dist/sw.js"),
+        globDirectory: "dist",
       },
       includeAssets: ["favicon.ico", "apple-touch-icon.png", "masked-icon.svg"],
       manifest: false,

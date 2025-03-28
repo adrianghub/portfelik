@@ -77,7 +77,13 @@
       "deleteSuccess": "Transakcja została usunięta",
       "deleteError": "Wystąpił błąd podczas usuwania transakcji",
       "refreshSuccess": "Transakcje zostały odświeżone",
-      "refreshError": "Wystąpił błąd podczas odświeżania transakcji"
+      "refreshError": "Wystąpił błąd podczas odświeżania transakcji",
+      "offline": "Jesteś offline. Zmiany zostaną zapisane po powrocie do sieci.",
+      "online": "Wróciłeś do sieci! Przetwarzanie zakolejkowanych operacji...",
+      "queueProcessed": "Pomyślnie przetworzono {{count}} zakolejkowaną operację",
+      "queueProcessedPlural": "Pomyślnie przetworzono {{count}} zakolejkowane operacje",
+      "queueFailed": "Nie udało się przetworzyć {{count}} zakolejkowanej operacji",
+      "queueFailedPlural": "Nie udało się przetworzyć {{count}} zakolejkowanych operacji"
     },
     "transactionDetailsSheet": {
       "title": "Szczegóły transakcji",

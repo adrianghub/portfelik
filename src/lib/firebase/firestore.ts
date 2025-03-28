@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n/translations";
 import { logger } from "@/lib/logger";
 import {
   addDoc,
@@ -13,6 +14,7 @@ import {
   Timestamp,
   updateDoc,
 } from "firebase/firestore";
+import { toast } from "sonner";
 import { db } from "./firebase";
 
 // Collection names
@@ -55,9 +57,73 @@ export const convertDoc = <T>(doc: DocumentData): T => {
 // Generic database service
 export class FirestoreService<T extends { id?: string }> {
   collectionName: string;
+  private offlineQueue: Map<string, () => Promise<T | void>> = new Map();
+  private isProcessingQueue: boolean = false;
 
   constructor(collectionName: string) {
     this.collectionName = collectionName;
+    this.setupOfflineQueue();
+  }
+
+  private setupOfflineQueue() {
+    // Listen for online/offline status
+    if (typeof window !== "undefined") {
+      window.addEventListener("online", () => {
+        toast.info(t("transactions.toasts.online"));
+        this.processOfflineQueue();
+      });
+      window.addEventListener("offline", () => {
+        toast.warning(t("transactions.toasts.offline"));
+        logger.warn("Firestore", "App is offline, operations will be queued");
+      });
+    }
+  }
+
+  private async processOfflineQueue() {
+    if (this.offlineQueue.size === 0 || this.isProcessingQueue) return;
+
+    this.isProcessingQueue = true;
+    logger.info("Firestore", "Processing offline queue...");
+    const queueSize = this.offlineQueue.size;
+
+    for (const [key, operation] of this.offlineQueue.entries()) {
+      try {
+        await operation();
+        this.offlineQueue.delete(key);
+      } catch (error) {
+        logger.error(
+          "Firestore",
+          `Error processing queued operation ${key}:`,
+          error,
+        );
+      }
+    }
+
+    if (this.offlineQueue.size === 0) {
+      toast.success(
+        t(
+          queueSize > 1
+            ? "transactions.toasts.queueProcessedPlural"
+            : "transactions.toasts.queueProcessed",
+          { count: queueSize },
+        ),
+      );
+    } else {
+      toast.error(
+        t(
+          this.offlineQueue.size > 1
+            ? "transactions.toasts.queueFailedPlural"
+            : "transactions.toasts.queueFailed",
+          { count: this.offlineQueue.size },
+        ),
+      );
+    }
+
+    this.isProcessingQueue = false;
+  }
+
+  private isOnline(): boolean {
+    return typeof window !== "undefined" && navigator.onLine;
   }
 
   // Get all documents
@@ -107,6 +173,18 @@ export class FirestoreService<T extends { id?: string }> {
       `Creating document in ${this.collectionName}:`,
       data,
     );
+
+    if (!this.isOnline()) {
+      logger.warn("Firestore", "App is offline, operation will be queued");
+      const operation = async () => {
+        const docRef = await addDoc(collection(db, this.collectionName), data);
+        const newDoc = await getDoc(docRef);
+        return convertDoc<T>(newDoc);
+      };
+      this.offlineQueue.set(`create_${Date.now()}`, operation);
+      throw new Error("Operation queued for offline processing");
+    }
+
     const docRef = await addDoc(collection(db, this.collectionName), data);
     const newDoc = await getDoc(docRef);
     logger.debug(
@@ -123,6 +201,19 @@ export class FirestoreService<T extends { id?: string }> {
       `Creating document with ID ${id} in ${this.collectionName}:`,
       data,
     );
+
+    if (!this.isOnline()) {
+      logger.warn("Firestore", "App is offline, operation will be queued");
+      const operation = async () => {
+        const docRef = doc(db, this.collectionName, id);
+        await setDoc(docRef, data);
+        const newDoc = await getDoc(docRef);
+        return convertDoc<T>(newDoc);
+      };
+      this.offlineQueue.set(`createWithId_${id}`, operation);
+      throw new Error("Operation queued for offline processing");
+    }
+
     const docRef = doc(db, this.collectionName, id);
     await setDoc(docRef, data);
     const newDoc = await getDoc(docRef);
@@ -140,6 +231,19 @@ export class FirestoreService<T extends { id?: string }> {
       `Updating document ${id} in ${this.collectionName}:`,
       data,
     );
+
+    if (!this.isOnline()) {
+      logger.warn("Firestore", "App is offline, operation will be queued");
+      const operation = async () => {
+        const docRef = doc(db, this.collectionName, id);
+        await updateDoc(docRef, data as DocumentData);
+        const updatedDoc = await getDoc(docRef);
+        return convertDoc<T>(updatedDoc);
+      };
+      this.offlineQueue.set(`update_${id}`, operation);
+      throw new Error("Operation queued for offline processing");
+    }
+
     const docRef = doc(db, this.collectionName, id);
     await updateDoc(docRef, data as DocumentData);
     const updatedDoc = await getDoc(docRef);
@@ -156,6 +260,17 @@ export class FirestoreService<T extends { id?: string }> {
       "Firestore",
       `Deleting document ${id} from ${this.collectionName}`,
     );
+
+    if (!this.isOnline()) {
+      logger.warn("Firestore", "App is offline, operation will be queued");
+      const operation = async () => {
+        const docRef = doc(db, this.collectionName, id);
+        await deleteDoc(docRef);
+      };
+      this.offlineQueue.set(`delete_${id}`, operation);
+      throw new Error("Operation queued for offline processing");
+    }
+
     const docRef = doc(db, this.collectionName, id);
     await deleteDoc(docRef);
     logger.debug(

@@ -135,7 +135,7 @@ export async function signOut(): Promise<void> {
 }
 
 /**
- * Gets the current user with offline support
+ * Gets the current user
  * @returns A promise that resolves with the current user or null
  */
 export const getCurrentUser = (): Promise<User | null> => {

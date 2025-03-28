@@ -5,6 +5,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useTransactionToasts } from "./useTransactionToasts";
 
+const TRANSACTIONS_QUERY_KEY = ["transactions"];
+
 const formatDate = (date: string | Date) => dayjs(date).toISOString();
 
 const filterTransactionsByDate = (
@@ -30,7 +32,7 @@ export function useTransactions(startDate?: Date, endDate?: Date) {
 
   return useQuery({
     queryKey: [
-      "transactions",
+      TRANSACTIONS_QUERY_KEY,
       userId,
       isAdmin,
       startDate?.toISOString(),
@@ -93,7 +95,7 @@ export function useAddTransaction() {
       return transactionService.create(firestoreTransaction);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: [TRANSACTIONS_QUERY_KEY] });
       showSuccessToast("create");
     },
     onError: (error) => {
@@ -126,7 +128,7 @@ export function useUpdateTransaction() {
       return transactionService.update(id, firestoreTransaction);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: [TRANSACTIONS_QUERY_KEY] });
       showSuccessToast("update");
     },
     onError: (error) => {
@@ -142,7 +144,7 @@ export function useDeleteTransaction() {
   return useMutation({
     mutationFn: (id: string) => transactionService.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: [TRANSACTIONS_QUERY_KEY] });
       showSuccessToast("delete");
     },
     onError: (error) => {

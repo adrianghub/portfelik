@@ -39,6 +39,13 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
   }
 
   try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    for (const registration of registrations) {
+      await registration.unregister();
+      logger.info("Service Worker", "Unregistered existing service worker");
+    }
+
+    // Register the new service worker
     const registration = await navigator.serviceWorker.register("/sw.js", {
       scope: "/",
       updateViaCache: "none",
@@ -49,9 +56,31 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
       `Registered with scope: ${registration.scope}`,
     );
 
+    // Handle service worker updates
+    registration.addEventListener("updatefound", () => {
+      const newWorker = registration.installing;
+      if (!newWorker) return;
+
+      newWorker.addEventListener("statechange", () => {
+        if (
+          newWorker.state === "installed" &&
+          navigator.serviceWorker.controller
+        ) {
+          logger.info("Service Worker", "New version available");
+          // You can show a notification to the user here
+        }
+      });
+    });
+
     return registration;
   } catch (error) {
     logger.error("Service Worker", "Registration failed:", error);
+    if (error instanceof Error) {
+      logger.error("Service Worker", "Error details:", {
+        message: error.message,
+        stack: error.stack,
+      });
+    }
     return null;
   }
 }
