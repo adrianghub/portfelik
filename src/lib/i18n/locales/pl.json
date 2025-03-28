@@ -2,6 +2,9 @@
   "app": {
     "name": "Portfelik"
   },
+  "common": {
+    "clear": "Wyczyść"
+  },
   "login": {
     "title": "Hej promyczku 🌻",
     "description": "Tutaj zalogujesz się do swojego Portfelika",
@@ -59,7 +62,9 @@
         "submit": "Zapisz",
         "cancel": "Anuluj",
         "categoryPlaceholder": "Wybierz kategorię",
-        "descriptionPlaceholder": "e.g., Zakupy spożywcze, Wypłata, etc."
+        "descriptionPlaceholder": "e.g., Zakupy spożywcze, Wypłata, etc.",
+        "noCategories": "Brak dostępnych kategorii",
+        "noMatchingCategories": "Nie znaleziono kategorii"
       }
     },
     "toasts": {

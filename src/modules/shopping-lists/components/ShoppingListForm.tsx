@@ -116,11 +116,6 @@ export function ShoppingListForm({
                 categories={expenseCategories}
                 value={field.state.value}
                 onValueChange={field.handleChange}
-                placeholder={
-                  loadingCategories
-                    ? "Loading categories..."
-                    : "Select category"
-                }
                 disabled={loadingCategories}
               />
               {loadingCategories && (

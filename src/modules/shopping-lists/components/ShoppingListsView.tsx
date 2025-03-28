@@ -131,8 +131,6 @@ export function ShoppingListsView() {
             categories={expenseCategories}
             value={selectedCategoryId}
             onValueChange={setSelectedCategoryId}
-            placeholder={t("shoppingLists.allCategories")}
-            className="w-[180px]"
           />
           {selectedCategoryId !== "all" && (
             <Button

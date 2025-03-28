@@ -213,9 +213,6 @@ export function TransactionForm({
                 categories={filteredCategories}
                 value={field.state.value}
                 onValueChange={field.handleChange}
-                placeholder={t(
-                  "transactions.transactionDialog.form.categoryPlaceholder",
-                )}
               />
             </FormField>
           )}
