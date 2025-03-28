@@ -19,7 +19,7 @@ const queryClient = new QueryClient({
       retry: 3,
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
       refetchOnWindowFocus: false,
-      networkMode: "always",
+      networkMode: "offlineFirst",
       refetchOnReconnect: true,
     },
   },
