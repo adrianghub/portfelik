@@ -10,8 +10,12 @@ export const Route = createFileRoute("/login")({
       const currentUser = await getCurrentUser();
 
       if (currentUser) {
-        throw redirect({ to: "/" });
+        return redirect({
+          to: "/",
+          replace: true,
+        });
       }
+
       return {};
     } catch (error) {
       logger.warn("Login", "Error checking current user:", error);
