@@ -11,9 +11,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 const CATEGORIES_QUERY_KEY = ["categories"];
 
 export function useFetchCategories() {
-  const { userData } = useAuth();
-  const isAdmin = userData?.role === "admin";
-
   return useQuery({
     queryKey: CATEGORIES_QUERY_KEY,
     queryFn: async () => {
@@ -28,7 +25,6 @@ export function useFetchCategories() {
         throw error;
       }
     },
-    enabled: isAdmin,
   });
 }
 
