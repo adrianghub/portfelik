@@ -12,11 +12,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { useMobileDialog } from "@/hooks/useMobileDialog";
+import { useMobileCombobox } from "@/hooks/useMobileCombobox";
 import { cn } from "@/lib/styling-utils";
 import type { Category } from "@/modules/shared/category";
 import { Check, ChevronsUpDown, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 interface CategoryComboboxProps {
@@ -39,8 +39,7 @@ export function CategoryCombobox({
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
-  const { contentRef } = useMobileDialog(open);
+  const { contentRef, inputRef } = useMobileCombobox(open);
 
   const selectedCategory = categories.find((category) => category.id === value);
   const defaultPlaceholder = t(
