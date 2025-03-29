@@ -26,12 +26,18 @@ export default defineConfig({
       manifest: false,
       devOptions: {
         enabled: true,
+        type: "module",
       },
     }),
   ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+    },
+  },
+  server: {
+    headers: {
+      "Service-Worker-Allowed": "/",
     },
   },
 });
