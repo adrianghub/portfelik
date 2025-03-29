@@ -18,13 +18,15 @@ import { toast } from "sonner";
 import { db } from "./firebase";
 
 // Collection names
-export const COLLECTIONS = {
-  USERS: "users",
-  TRANSACTIONS: "transactions",
-  CATEGORIES: "categories",
-  NOTIFICATIONS: "notifications",
-  SHOPPING_LISTS: "shopping-lists",
-};
+export enum COLLECTIONS {
+  USERS = "users",
+  TRANSACTIONS = "transactions",
+  CATEGORIES = "categories",
+  NOTIFICATIONS = "notifications",
+  SHOPPING_LISTS = "shopping-lists",
+  USER_GROUPS = "user-groups",
+  GROUP_INVITATIONS = "group-invitations",
+}
 
 // Convert Firestore timestamp to Date
 export const timestampToDate = (timestamp: Timestamp): Date => {

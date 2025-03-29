@@ -7,7 +7,8 @@ type ValidRoute =
   | "/login"
   | "/admin"
   | "/admin/categories"
-  | "/shopping-lists";
+  | "/shopping-lists"
+  | "/settings";
 
 interface NavItem {
   to: ValidRoute;
@@ -18,6 +19,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { to: "/transactions", label: "nav.transactions" },
   { to: "/shopping-lists", label: "nav.shoppingLists" },
+  { to: "/settings", label: "nav.settings" },
   { to: "/admin", label: "nav.admin" },
 ];
 
@@ -35,7 +37,7 @@ export function NavigationLinks({
   const { t } = useTranslation();
 
   return (
-    <>
+    <div className="flex items-center space-x-8">
       {NAV_ITEMS.filter((item) => !item.to.startsWith("/admin") || isAdmin).map(
         (item) => (
           <NavLink
@@ -54,6 +56,6 @@ export function NavigationLinks({
           </NavLink>
         ),
       )}
-    </>
+    </div>
   );
 }

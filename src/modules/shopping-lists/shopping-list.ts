@@ -19,6 +19,7 @@ export interface ShoppingList {
   totalAmount?: number;
   categoryId?: string;
   linkedTransactionId?: string;
+  groupId?: string;
 }
 
 export function createShoppingListItem(

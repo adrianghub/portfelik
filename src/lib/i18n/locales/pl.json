@@ -2,9 +2,6 @@
   "app": {
     "name": "Portfelik"
   },
-  "common": {
-    "clear": "Wyczyść"
-  },
   "login": {
     "title": "Hej promyczku 🌻",
     "description": "Tutaj zalogujesz się do swojego Portfelika",
@@ -34,7 +31,6 @@
     "retry": "Spróbuj ponownie",
     "refresh": "Odśwież",
     "addTransaction": "Dodaj transakcję",
-    "add": "Dodaj",
     "noTransactions": "Brak transakcji",
     "noTransactionsForThisMonth": "Brak transakcji w miesiącu {{month}}",
     "filters": {
@@ -104,7 +100,8 @@
   "nav": {
     "transactions": "Transakcje",
     "shoppingLists": "Listy zakupów",
-    "admin": "Admin"
+    "admin": "Admin",
+    "settings": "Ustawienia"
   },
   "shoppingLists": {
     "title": "Listy zakupów",
@@ -140,6 +137,19 @@
       "completeError": "Wystąpił błąd podczas oznaczania listy jako zakończonej",
       "duplicateSuccess": "Lista zakupów została skopiowana",
       "duplicateError": "Wystąpił błąd podczas kopiowania listy zakupów"
+    }
+  },
+  "settings": {
+    "title": "Ustawienia",
+    "description": "Zarządzaj swoimi ustawieniami",
+    "groups": {
+      "title": "Grupy",
+      "description": "Zarządzaj swoimi grupami",
+      "createGroup": "Utwórz grupę",
+      "createFirstGroup": "Utwórz pierwszą grupę",
+      "myGroups": "Moje grupy",
+      "invitations": "Zaproszenia",
+      "noGroups": "Brak grup"
     }
   }
 }

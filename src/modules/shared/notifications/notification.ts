@@ -9,7 +9,10 @@ export interface Notification {
   data?: Record<string, unknown>;
 }
 
-export type NotificationType = "transaction_summary" | "system_notification";
+export type NotificationType =
+  | "transaction_summary"
+  | "system_notification"
+  | "group_invitation";
 
 export interface NotificationState {
   notifications: Notification[];
