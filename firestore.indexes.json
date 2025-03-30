@@ -97,10 +97,6 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
           "fieldPath": "createdAt",
           "order": "DESCENDING"
         }
@@ -111,11 +107,11 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "members",
+          "fieldPath": "memberIds",
           "arrayConfig": "CONTAINS"
         },
         {
-          "fieldPath": "updatedAt",
+          "fieldPath": "createdAt",
           "order": "DESCENDING"
         }
       ]
@@ -129,7 +125,7 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "updatedAt",
+          "fieldPath": "createdAt",
           "order": "DESCENDING"
         }
       ]
