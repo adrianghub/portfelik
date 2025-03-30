@@ -1,4 +1,7 @@
 {
+  "common": {
+    "cancel": "Anuluj"
+  },
   "app": {
     "name": "Portfelik"
   },
@@ -144,12 +147,107 @@
     "description": "Zarządzaj swoimi ustawieniami",
     "groups": {
       "title": "Grupy",
+      "groupName": "Nazwa grupy",
+      "groupNamePlaceholder": "Np. Zakupy domowe, Wspólne wydatki",
       "description": "Zarządzaj swoimi grupami",
       "createGroup": "Utwórz grupę",
       "createFirstGroup": "Utwórz pierwszą grupę",
       "myGroups": "Moje grupy",
       "invitations": "Zaproszenia",
-      "noGroups": "Brak grup"
+      "noGroups": "Brak grup",
+      "loading": "Ładowanie...",
+      "create": "Utwórz",
+      "creating": "Tworzenie...",
+      "created": "Data utworzenia",
+      "groupCreated": "Grupa została utworzona",
+      "groupUpdated": "Grupa została zaktualizowana",
+      "groupDeleted": "Grupa została usunięta",
+      "receivedInvitations": "Otrzymane zaproszenia",
+      "sentInvitations": "Wysłane zaproszenia",
+      "noInvitations": "Brak zaproszeń",
+      "noSentInvitations": "Brak wysłanych zaproszeń",
+      "accept": "Zaakceptuj",
+      "reject": "Odrzuć",
+      "cancel": "Anuluj",
+      "delete": "Usuń",
+      "leave": "Opuść",
+      "clear": "Wyczyść",
+      "send": "Wyślij",
+      "sending": "Wysyłanie...",
+      "sentTo": "Wysłano do",
+      "sent": "Data wysłania",
+      "inviteUser": "Zaproś użytkownika",
+      "inviteEmail": "Adres e-mail",
+      "emails": "Adresy e-mail",
+      "invite": "Zaproś",
+      "owner": "Właściciel",
+      "member": "Członek",
+      "inviteMembers": "Zaproś członków",
+      "inviteMembersDescription": "Wpisz adresy e-mail użytkowników, których chcesz zaprosić do tej grupy",
+      "addAnotherEmail": "Dodaj inny adres e-mail",
+      "createGroupDescription": "Podaj nazwę dla swojej nowej grupy",
+      "confirmDelete": "Na pewno chcesz usunąć tę grupę? Ta operacja jest nieodwracalna.",
+      "confirmLeave": "Na pewno chcesz opuścić tę grupę?",
+      "readOnly": "Tylko do odczytu",
+      "invitationStatus": {
+        "pending": "Oczekujące",
+        "accepted": "Zaakceptowane",
+        "rejected": "Odrzucone",
+        "cancelled": "Anulowane"
+      },
+      "memberList": "Lista członków",
+      "members": "Członkowie {{count}}",
+      "confirmRemoveMember": "Na pewno chcesz usunąć tego członka z grupy? Ta operacja jest nieodwracalna.",
+      "deleteSuccess": "Grupa została usunięta",
+      "deleteSuccessDescription": "Grupa została pomyślnie usunięta",
+      "deleteError": "Błąd usuwania grupy",
+      "deleteErrorDescription": "Wystąpił błąd podczas usuwania grupy",
+      "leaveSuccess": "Opuszczono grupę",
+      "leaveSuccessDescription": "Pomyślnie opuszczono grupę",
+      "leaveErrorDescription": "Wystąpił błąd podczas opuszczania grupy",
+      "inviteAcceptSuccess": "Zaproszenie przyjęte",
+      "inviteAcceptSuccessDescription": "Pomyślnie dołączono do grupy",
+      "inviteAcceptError": "Błąd akceptacji zaproszenia",
+      "inviteAcceptErrorDescription": "Wystąpił błąd podczas akceptacji zaproszenia",
+      "inviteRejectSuccess": "Zaproszenie odrzucone",
+      "inviteRejectSuccessDescription": "Zaproszenie zostało odrzucone",
+      "inviteRejectError": "Błąd odrzucania zaproszenia",
+      "inviteRejectErrorDescription": "Wystąpił błąd podczas odrzucania zaproszenia",
+      "inviteCancelSuccess": "Zaproszenie anulowane",
+      "inviteCancelSuccessDescription": "Zaproszenie zostało anulowane",
+      "inviteCancelError": "Błąd anulowania zaproszenia",
+      "inviteCancelErrorDescription": "Wystąpił błąd podczas anulowania zaproszenia",
+      "removeMemberSuccess": "Członek usunięty",
+      "removeMemberSuccessDescription": "Członek został usunięty z grupy",
+      "removeMemberErrorDescription": "Wystąpił błąd podczas usuwania członka z grupy",
+      "validation": {
+        "nameRequired": "Nazwa grupy jest wymagana",
+        "nameMinLength": "Nazwa grupy musi mieć co najmniej 3 znaki",
+        "nameMaxLength": "Nazwa grupy nie może być dłuższa niż 50 znaków",
+        "userNotFound": "Nie znaleziono użytkownika",
+        "createFailed": "Nie udało się utworzyć grupy"
+      },
+      "inviteError": {
+        "noEmails": "Podaj co najmniej jeden adres e-mail",
+        "invalidEmail": "Nieprawidłowy format adresu e-mail: {{email}}",
+        "failed": "Nie udało się wysłać zaproszenia",
+        "alreadySent": "Zaproszenie do {{email}} zostało już wysłane",
+        "alreadyMember": "Użytkownik {{email}} jest już członkiem tej grupy",
+        "groupNotFound": "Nie znaleziono grupy",
+        "cannotInviteYourself": "Nie możesz zaprosić samego siebie"
+      },
+      "leaveError": {
+        "ownerCannotLeave": "Właściciel nie może opuścić grupy"
+      },
+      "removeMemberError": {
+        "notOwner": "Tylko właściciel grupy może usuwać członków",
+        "cannotRemoveOwner": "Nie można usunąć właściciela grupy",
+        "memberNotFound": "Nie znaleziono członka grupy"
+      },
+      "multipleInvitesSuccess": "Wysłano {{count}} zaproszeń",
+      "inviteSuccess": "Zaproszenie zostało wysłane",
+      "you": "Ty",
+      "removeMember": "Usuń członka"
     }
   }
 }

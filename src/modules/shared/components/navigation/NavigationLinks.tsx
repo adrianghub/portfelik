@@ -37,7 +37,7 @@ export function NavigationLinks({
   const { t } = useTranslation();
 
   return (
-    <div className="flex items-center space-x-8">
+    <>
       {NAV_ITEMS.filter((item) => !item.to.startsWith("/admin") || isAdmin).map(
         (item) => (
           <NavLink
@@ -56,6 +56,6 @@ export function NavigationLinks({
           </NavLink>
         ),
       )}
-    </div>
+    </>
   );
 }

@@ -1,5 +1,5 @@
 import { createProtectedLoader } from "@/lib/protected-route";
-import { UserSettingsView } from "@/modules/settings/UserSettingsView";
+import { UserSettingsView } from "@/modules/settings/components/UserSettingsView";
 import { createFileRoute } from "@tanstack/react-router";
 
 export interface SettingsSearch {
