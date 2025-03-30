@@ -11,7 +11,6 @@ export interface UserData {
   role: UserRole;
   createdAt: Date;
   lastLoginAt: Date;
-  groupId?: string;
 }
 
 export function useAuth() {

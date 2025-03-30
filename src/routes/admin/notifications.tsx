@@ -1,6 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { createAdminLoader } from "@/lib/protected-route";
 import { CloudFunctionTestPanel } from "@/modules/admin/notifications/CloudFunctionTestPanel";
+import { FCMTokenManagementPanel } from "@/modules/admin/notifications/FCMTokenManagementPanel";
 import { NotificationControls } from "@/modules/admin/notifications/NotificationControls";
 import { NotificationItem } from "@/modules/admin/notifications/NotificationItem";
 import { NotificationListDisplay } from "@/modules/admin/notifications/NotificationListDisplay";
@@ -112,6 +113,8 @@ function AdminNotificationsManagerView() {
             />
           )}
         />
+
+        <FCMTokenManagementPanel handleAction={handleAction} />
       </div>
     </div>
   );

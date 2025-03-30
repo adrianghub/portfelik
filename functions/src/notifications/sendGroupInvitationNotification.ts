@@ -18,6 +18,10 @@ export interface GroupInvitation {
 
 interface MessagingResponse {
   success: boolean;
+  error?: {
+    code: string;
+    message: string;
+  };
 }
 
 /**
@@ -120,25 +124,57 @@ export async function sendGroupInvitationNotification(
         // Remove invalid tokens
         if (response.failureCount > 0) {
           const invalidTokens: string[] = [];
+
+          // Check each response and analyze the error
           response.responses.forEach((resp: MessagingResponse, idx: number) => {
             if (!resp.success) {
-              invalidTokens.push(user.fcmTokens![idx]);
+              const error = resp.error;
+
+              // Only mark tokens as invalid if they're permanently invalid
+              const isPermanentError =
+                error &&
+                (error.code === "messaging/registration-token-not-registered" ||
+                  error.code === "messaging/invalid-argument" ||
+                  error.code === "messaging/invalid-registration-token");
+
+              if (isPermanentError) {
+                logger.info(
+                  `Removing permanently invalid token: ${error.code}`,
+                );
+                invalidTokens.push(user.fcmTokens![idx]);
+              } else {
+                // Log but don't remove temporary errors
+                logger.warn(`Temporary FCM error: ${error?.code || "unknown"}`);
+              }
             }
           });
 
+          // Only update if we found permanently invalid tokens
           if (invalidTokens.length > 0) {
             // Filter out invalid tokens
             const validTokens = user.fcmTokens.filter(
               (token) => !invalidTokens.includes(token),
             );
 
-            // Update user document with valid tokens
+            // Also update tokenMetadata - remove entries for invalid tokens
+            const tokenMetadata = user.tokenMetadata || {};
+            const updatedMetadata = { ...tokenMetadata };
+
+            // Remove metadata for each invalid token
+            invalidTokens.forEach((token) => {
+              if (updatedMetadata[token]) {
+                delete updatedMetadata[token];
+              }
+            });
+
+            // Update user document with valid tokens and cleaned metadata
             await userDoc.ref.update({
               fcmTokens: validTokens,
+              tokenMetadata: updatedMetadata,
             });
 
             logger.info(
-              `Removed ${invalidTokens.length} invalid tokens for user: ${user.uid}`,
+              `Removed ${invalidTokens.length} permanently invalid tokens and their metadata for user: ${user.uid}`,
             );
           }
         }

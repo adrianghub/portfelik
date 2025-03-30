@@ -175,3 +175,64 @@ export function useCheckPushSupport() {
     checkSupport: () => notificationService.checkPushSupport(),
   };
 }
+
+/**
+ * Hook to get user's FCM tokens with metadata
+ */
+export function useUserTokens() {
+  const { userData } = useAuth();
+  const userId = userData?.uid;
+
+  return useQuery({
+    queryKey: ["user-tokens", userId],
+    queryFn: async () => {
+      if (!userId) throw new Error("User not authenticated");
+      return notificationService.getUserTokens(userId);
+    },
+    enabled: !!userId,
+  });
+}
+
+/**
+ * Hook to remove a specific FCM token by ID
+ */
+export function useRemoveToken() {
+  const queryClient = useQueryClient();
+  const { userData } = useAuth();
+  const userId = userData?.uid;
+
+  return useMutation({
+    mutationFn: async (tokenId: string) => {
+      if (!userId) throw new Error("User not authenticated");
+      return notificationService.removeTokenById(userId, tokenId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-tokens"] });
+    },
+    onError: (error) => {
+      console.error("Error removing FCM token:", error);
+    },
+  });
+}
+
+/**
+ * Hook to cleanup FCM tokens
+ */
+export function useCleanupTokens() {
+  const queryClient = useQueryClient();
+  const { userData } = useAuth();
+  const userId = userData?.uid;
+
+  return useMutation({
+    mutationFn: async (maxTokens?: number) => {
+      if (!userId) throw new Error("User not authenticated");
+      return notificationService.cleanupTokens(userId, maxTokens);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-tokens"] });
+    },
+    onError: (error) => {
+      console.error("Error cleaning up FCM tokens:", error);
+    },
+  });
+}

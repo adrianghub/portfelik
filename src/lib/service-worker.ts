@@ -6,6 +6,11 @@ import { db, messaging } from "./firebase/firebase";
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
 
+// Prevents multiple simultaneous token generation operations
+let isGettingToken = false;
+// Store the last generated token to prevent duplicates
+let lastGeneratedToken = "";
+
 if (!VAPID_KEY) {
   logger.warn(
     "Service Worker",
@@ -39,10 +44,35 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
   }
 
   try {
+    // First check if we already have an active service worker
+    const existingRegistration =
+      await navigator.serviceWorker.getRegistration();
+    if (existingRegistration && existingRegistration.active) {
+      logger.info("Service Worker", "Using existing service worker");
+      return existingRegistration;
+    }
+
+    // Only unregister/re-register if needed
     const registrations = await navigator.serviceWorker.getRegistrations();
-    for (const registration of registrations) {
-      await registration.unregister();
-      logger.info("Service Worker", "Unregistered existing service worker");
+    if (registrations.length > 0) {
+      // Check if any are out of date or in a bad state before unregistering
+      const needsUpdate = registrations.some(
+        (reg) =>
+          !reg.active ||
+          reg.scope !== window.location.origin + "/" ||
+          reg.updateViaCache !== "none",
+      );
+
+      if (needsUpdate) {
+        for (const registration of registrations) {
+          await registration.unregister();
+          logger.info("Service Worker", "Unregistered outdated service worker");
+        }
+      } else {
+        // Use the first valid registration
+        logger.info("Service Worker", "Using existing valid service worker");
+        return registrations[0];
+      }
     }
 
     // Register the new service worker
@@ -99,24 +129,178 @@ export async function getFCMToken(): Promise<string | null> {
     return null;
   }
 
+  // First check for existing token
   try {
-    const registration = await registerServiceWorker();
-    if (!registration) throw new Error("Service worker registration failed");
+    // If we have a token in memory, verify it before returning
+    if (lastGeneratedToken) {
+      logger.info("Notifications", "Verifying existing token");
+
+      // Try to get current token to compare
+      const currentToken = await getToken(messaging, { vapidKey: VAPID_KEY });
+
+      // If tokens match, reuse it
+      if (currentToken && currentToken === lastGeneratedToken) {
+        logger.info("Notifications", "Using verified token from memory");
+        return lastGeneratedToken;
+      }
+
+      // If we get a different token but it's valid, update our reference
+      if (currentToken && currentToken !== lastGeneratedToken) {
+        logger.info("Notifications", "Updating to new valid token");
+        lastGeneratedToken = currentToken;
+        await notificationService.saveFCMToken(currentToken);
+        return currentToken;
+      }
+
+      // If we couldn't get a current token, the saved one might be invalid
+      logger.info(
+        "Notifications",
+        "Stored token potentially invalid, regenerating",
+      );
+    }
+  } catch (verifyError) {
+    logger.warn(
+      "Notifications",
+      "Error verifying existing token:",
+      verifyError,
+    );
+    // Continue to token generation
+  }
+
+  // Prevent multiple simultaneous token requests
+  if (isGettingToken) {
+    logger.info(
+      "Notifications",
+      "Token request already in progress, waiting...",
+    );
+
+    // Wait for the current operation to complete
+    for (let i = 0; i < 10; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      if (!isGettingToken && lastGeneratedToken) {
+        logger.info("Notifications", "Using already generated token");
+        return lastGeneratedToken;
+      }
+    }
+
+    logger.warn("Notifications", "Timed out waiting for token generation");
+    return null;
+  }
+
+  isGettingToken = true;
+
+  try {
+    // Step 1: Make sure we have the Firebase Messaging service worker
+    let messagingRegistration: ServiceWorkerRegistration | undefined;
 
     try {
-      // First try to get a token
-      const token = await getToken(messaging, {
+      // Try to register the dedicated Firebase Messaging service worker
+      messagingRegistration = await navigator.serviceWorker.register(
+        "/firebase-messaging-sw.js",
+        { scope: "firebase-cloud-messaging-push-scope" },
+      );
+      logger.info(
+        "Notifications",
+        "Firebase Messaging service worker registered",
+      );
+    } catch (messagingSwError) {
+      logger.warn(
+        "Notifications",
+        "Could not register Firebase Messaging service worker:",
+        messagingSwError,
+      );
+      // Will fall back to the main service worker
+    }
+
+    // Step 2: Register the main app service worker if needed
+    let mainRegistration: ServiceWorkerRegistration | null | undefined = null;
+
+    try {
+      // Get existing registration for the main service worker
+      mainRegistration = await navigator.serviceWorker.getRegistration("/");
+
+      if (!mainRegistration) {
+        mainRegistration = await registerServiceWorker();
+        logger.info("Notifications", "Registered main service worker");
+      } else {
+        logger.info("Notifications", "Using existing main service worker");
+      }
+    } catch (mainSwError) {
+      logger.error(
+        "Notifications",
+        "Error with main service worker:",
+        mainSwError,
+      );
+    }
+
+    // If both registrations failed, we can't continue
+    if (!messagingRegistration && !mainRegistration) {
+      logger.error("Notifications", "All service worker registrations failed");
+      isGettingToken = false;
+      return null;
+    }
+
+    // Determine which registration to use for the token
+    // Prefer Firebase Messaging service worker, fall back to main service worker
+    const registration = messagingRegistration || mainRegistration;
+
+    if (!registration) {
+      logger.error("Notifications", "No service worker available for FCM");
+      isGettingToken = false;
+      return null;
+    }
+
+    // Make sure the selected service worker is ready
+    if (registration.installing) {
+      logger.info("Notifications", "Waiting for service worker activation");
+      await new Promise<void>((resolve) => {
+        const worker = registration.installing;
+        if (!worker) {
+          resolve();
+          return;
+        }
+
+        worker.addEventListener("statechange", () => {
+          if (worker.state === "activated") {
+            resolve();
+          }
+        });
+
+        // If already activated, resolve immediately
+        if (worker.state === "activated") {
+          resolve();
+        }
+      });
+    }
+
+    // Set up message handling
+    navigator.serviceWorker.addEventListener("message", (event) => {
+      if (event.data && event.data.type === "NOTIFICATION_RECEIVED") {
+        logger.info(
+          "Received notification from service worker:",
+          event.data.payload,
+        );
+      }
+    });
+
+    try {
+      // Now get the FCM token using the selected service worker
+      const tokenOptions = {
         vapidKey: VAPID_KEY,
         serviceWorkerRegistration: registration,
-      });
+      };
+
+      const token = await getToken(messaging, tokenOptions);
 
       if (token) {
-        logger.info("Notifications", "FCM Token received:", token);
+        logger.info("Notifications", "FCM Token received");
+        lastGeneratedToken = token;
         await notificationService.saveFCMToken(token);
+        isGettingToken = false;
         return token;
       }
     } catch (tokenError) {
-      // If getting token fails, try deleting and regenerating
+      // Handle specific errors differently
       logger.warn(
         "Notifications",
         "Error getting token, trying to refresh:",
@@ -124,29 +308,45 @@ export async function getFCMToken(): Promise<string | null> {
       );
 
       try {
-        await deleteToken(messaging);
-        logger.info("Notifications", "Old token deleted, getting new token...");
+        // Only delete token if we get a specific type of error
+        if (
+          tokenError instanceof Error &&
+          (tokenError.message.includes("token") ||
+            tokenError.message.includes("messaging"))
+        ) {
+          await deleteToken(messaging);
+          logger.info(
+            "Notifications",
+            "Old token deleted, getting new token...",
+          );
+        }
 
+        // Use the selected service worker for the new token request
         const newToken = await getToken(messaging, {
           vapidKey: VAPID_KEY,
           serviceWorkerRegistration: registration,
         });
 
         if (newToken) {
-          logger.info("Notifications", "New FCM Token received:", newToken);
+          logger.info("Notifications", "New FCM Token received");
+          lastGeneratedToken = newToken;
           await notificationService.saveFCMToken(newToken);
+          isGettingToken = false;
           return newToken;
         }
       } catch (refreshError) {
         logger.error("Notifications", "Failed to refresh token:", refreshError);
+        isGettingToken = false;
         return null;
       }
     }
 
     logger.warn("Notifications", "No FCM token available");
+    isGettingToken = false;
     return null;
   } catch (error) {
     logger.error("Notifications", "Error getting FCM token:", error);
+    isGettingToken = false;
     return null;
   }
 }
@@ -190,8 +390,12 @@ async function handlePermissionChange(
   permission: NotificationPermission | "prompt",
 ) {
   if (permission === "prompt" || permission === "denied") {
-    logger.warn("Notifications", "Permission denied. Removing FCM token...");
-    await notificationService.removeFCMToken();
+    logger.warn(
+      "Notifications",
+      "Permission denied. Removing current device FCM token...",
+    );
+    // Only remove the current device's token, not all tokens
+    await notificationService.removeCurrentFCMToken();
   } else if (permission === "granted") {
     logger.info("Notifications", "Permission granted. Getting FCM token...");
     await getFCMToken();
@@ -216,8 +420,11 @@ export async function checkNotificationStatus(): Promise<boolean> {
   }
 
   if (support.permission === "denied") {
-    logger.warn("Notifications", "Blocked by user. Removing FCM token...");
-    await notificationService.removeFCMToken();
+    logger.warn(
+      "Notifications",
+      "Blocked by user. Removing current device FCM token...",
+    );
+    await notificationService.removeCurrentFCMToken();
     return false;
   }
 
@@ -284,6 +491,12 @@ export async function initializeNotifications(
 ): Promise<string | null> {
   logger.info("Notifications", "Initializing...");
 
+  // Check if we already have a token in memory
+  if (lastGeneratedToken) {
+    logger.info("Notifications", "Using existing token from memory");
+    return lastGeneratedToken;
+  }
+
   // If user ID is provided, check if notifications are already enabled
   if (userId) {
     const hasExistingSettings = await checkExistingNotificationSettings(userId);
@@ -325,8 +538,11 @@ export async function initializeNotifications(
   // Continue with normal flow if no existing settings or failed to initialize with existing settings
   const notificationEnabled = await checkNotificationStatus();
   if (!notificationEnabled) {
-    logger.warn("Notifications", "Not enabled. Removing FCM token...");
-    await notificationService.removeFCMToken();
+    logger.warn(
+      "Notifications",
+      "Not enabled. Removing current device FCM token...",
+    );
+    await notificationService.removeCurrentFCMToken();
     return null;
   }
 

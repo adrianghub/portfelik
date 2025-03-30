@@ -34,6 +34,7 @@ export interface User {
   createdAt: Date;
   lastLoginAt: Date;
   fcmTokens?: string[];
+  tokenMetadata: Record<string, object>;
   settings?: {
     notificationsEnabled?: boolean;
   };
@@ -57,6 +58,7 @@ export const sendAdminTransactionSummary = onSchedule(
     schedule: "0 9 * * *",
     timeZone: "Europe/Warsaw",
     retryCount: 3,
+    region: "europe-central2",
   },
   async (_event: ScheduledEvent) => {
     logger.info("Running sendAdminTransactionSummary scheduled function");
@@ -65,6 +67,9 @@ export const sendAdminTransactionSummary = onSchedule(
 );
 
 export const sendAdminTransactionSummaryManual = onRequest(
+  {
+    region: "europe-central2",
+  },
   async (_req, res) => {
     try {
       logger.info("Running sendAdminTransactionSummary manual function");
@@ -89,7 +94,10 @@ export const sendAdminTransactionSummaryManual = onRequest(
 
 // Function to send notifications when a new group invitation is created
 export const onGroupInvitationCreated = onDocumentCreated(
-  "group-invitations/{invitationId}",
+  {
+    document: "group-invitations/{invitationId}",
+    region: "europe-central2",
+  },
   async (event) => {
     try {
       // Get the invitation data
