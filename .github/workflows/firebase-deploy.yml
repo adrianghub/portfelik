@@ -67,7 +67,7 @@ jobs:
 
           # List and delete unused Artifact Registry images
           echo "Cleaning up Artifact Registry images..."
-          gcloud artifacts docker images list us-central1-docker.pkg.dev/portfelik-888dd/gcf-artifacts --format="value(name)" | \
+          gcloud artifacts docker images list europe-central2-docker.pkg.dev/portfelik-888dd/gcf-artifacts --format="value(name)" | \
           while read -r IMAGE; do
             if [[ ! -z "$IMAGE" ]]; then
               echo "Deleting $IMAGE"

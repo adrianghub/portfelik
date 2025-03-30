@@ -20,8 +20,8 @@ import { useState } from "react";
 
 const ENV = import.meta.env;
 const FUNCTION_URL = ENV.DEV
-  ? "http://localhost:5001/portfelik-888dd/us-central1/sendAdminTransactionSummaryManual"
-  : "https://us-central1-portfelik-888dd.cloudfunctions.net/sendAdminTransactionSummaryManual";
+  ? "http://localhost:5001/portfelik-888dd/europe-central2/sendAdminTransactionSummaryManual"
+  : "https://europe-central2-portfelik-888dd.cloudfunctions.net/sendAdminTransactionSummaryManual";
 
 export const Route = createFileRoute("/admin/notifications")({
   component: AdminNotificationsManagerView,

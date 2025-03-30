@@ -12,8 +12,8 @@ const CACHE_NAMES = {
 };
 
 const API_BASE_URLS = {
-  LOCAL: "http://localhost:5001/portfelik-888dd/us-central1",
-  PROD: "https://us-central1-portfelik-888dd.cloudfunctions.net",
+  LOCAL: "http://localhost:5001/portfelik-888dd/europe-central2",
+  PROD: "https://europe-central2-portfelik-888dd.cloudfunctions.net",
 };
 
 // Firebase URL patterns to exclude from cache handling
