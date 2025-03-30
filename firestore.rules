@@ -134,8 +134,13 @@ service cloud.firestore {
     match /notifications/{notificationId} {
       allow read: if isAuthenticated() &&
         (request.auth.uid == resource.data.userId || isAdmin());
-      allow create, update, delete: if isAuthenticated() &&
-        isAdmin();
+      allow create: if isAuthenticated() && (
+        isAdmin() ||
+        request.auth.token.firebase.sign_in_provider == 'google.com' ||
+        request.resource.data.userId == request.auth.uid
+      );
+      allow update, delete: if isAuthenticated() &&
+        (request.auth.uid == resource.data.userId || isAdmin());
     }
 
     /** User groups collection rules */

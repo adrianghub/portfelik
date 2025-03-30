@@ -9,9 +9,14 @@
 
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
+import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { onRequest } from "firebase-functions/v2/https";
 import { ScheduledEvent, onSchedule } from "firebase-functions/v2/scheduler";
 import { sendAdminTransactionSummaryFunction } from "./notifications/sendAdminTransactionSummary";
+import {
+  GroupInvitation,
+  sendGroupInvitationNotification,
+} from "./notifications/sendGroupInvitationNotification";
 
 try {
   admin.initializeApp();
@@ -78,6 +83,62 @@ export const sendAdminTransactionSummaryManual = onRequest(
             ? error.message
             : "Unknown error occurred while sending admin transaction summary",
       });
+    }
+  },
+);
+
+// Function to send notifications when a new group invitation is created
+export const onGroupInvitationCreated = onDocumentCreated(
+  "group-invitations/{invitationId}",
+  async (event) => {
+    try {
+      // Get the invitation data
+      const invitationData = event.data?.data();
+      if (!invitationData || invitationData.status !== "pending") {
+        logger.info("Skipping notification for non-pending invitation");
+        return;
+      }
+
+      logger.info(
+        `Processing new group invitation: ${event.params.invitationId}`,
+      );
+
+      // Get the inviter's information to include their name in the notification
+      const db = admin.firestore();
+      const inviterDoc = await db
+        .collection("users")
+        .doc(invitationData.createdBy)
+        .get();
+
+      if (!inviterDoc.exists) {
+        logger.error(`Inviter user not found: ${invitationData.createdBy}`);
+        return;
+      }
+
+      const inviter = inviterDoc.data() as User;
+      const inviterName = inviter.email?.split("@")[0] || "Someone"; // Use first part of email as name
+
+      // Construct the invitation object with the required fields
+      const invitation: GroupInvitation = {
+        id: event.params.invitationId,
+        groupId: invitationData.groupId,
+        groupName: invitationData.groupName,
+        invitedUserEmail: invitationData.invitedUserEmail,
+        invitedUserId: invitationData.invitedUserId,
+        createdBy: invitationData.createdBy,
+        status: invitationData.status,
+        createdAt: invitationData.createdAt,
+        updatedAt: invitationData.updatedAt,
+      };
+
+      // Send the notification
+      await sendGroupInvitationNotification(invitation, inviterName);
+
+      logger.info(
+        `Successfully processed group invitation: ${event.params.invitationId}`,
+      );
+    } catch (error) {
+      logger.error("Error processing group invitation:", error);
     }
   },
 );

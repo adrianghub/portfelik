@@ -4,6 +4,8 @@ import { createFileRoute } from "@tanstack/react-router";
 
 export interface SettingsSearch {
   invitation?: string;
+  tab?: string;
+  subtab?: string;
 }
 
 export const Route = createFileRoute("/settings")({
@@ -12,6 +14,8 @@ export const Route = createFileRoute("/settings")({
   validateSearch: (search: Record<string, unknown>): SettingsSearch => {
     return {
       invitation: search.invitation as string | undefined,
+      tab: search.tab as string | undefined,
+      subtab: search.subtab as string | undefined,
     };
   },
 });

@@ -2,6 +2,11 @@
   "common": {
     "cancel": "Anuluj"
   },
+  "notifications": {
+    "groupInvitation": {
+      "checkInvitation": "Sprawdź"
+    }
+  },
   "app": {
     "name": "Portfelik"
   },

@@ -57,10 +57,33 @@ export function handlePushEvent(event) {
  * Handles notification click events
  */
 export function handleNotificationClick(event) {
-  console.log("[Service Worker] Notification click received:", event.action);
+  console.log("[Service Worker] Notification click received:", event.notification);
+
+  // Get the notification data
+  const data = event.notification.data || {};
+
+  // Close the notification
   event.notification.close();
 
+  // Handle different notification types
+  if (data.type === "group_invitation") {
+    console.log("[Service Worker] Group invitation notification clicked");
+
+    // Use the link from data or fallback to the settings page with invitations tab
+    const link = data.link || "/settings?tab=groups&subtab=invitations";
+
+    return event.waitUntil(
+      clients.openWindow(link)
+        .then(() => console.log("[Service Worker] Opened window to:", link))
+        .catch(error => console.error("[Service Worker] Error opening window:", error))
+    );
+  }
+
+  // Default action if no specific handler is defined
   if (event.action === "explore") {
     return event.waitUntil(clients.openWindow("/"));
   }
+
+  // If no specific action, open the root of the app
+  return event.waitUntil(clients.openWindow("/"));
 }

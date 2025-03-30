@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { SettingsSearch } from "@/routes/settings";
-import { useSearch } from "@tanstack/react-router";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { UserGroupsSection } from "./UserGroupsSection";
@@ -9,13 +9,49 @@ import { UserGroupsSection } from "./UserGroupsSection";
 export function UserSettingsView() {
   const { t } = useTranslation();
   const search = useSearch({ from: "/settings" }) as SettingsSearch;
-  const [activeTab, setActiveTab] = useState("groups");
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState(() => {
+    // Default to groups tab
+    return search.tab || "groups";
+  });
+
+  const [activeSubtab, setActiveSubtab] = useState(() => {
+    // Default to groups subtab, unless invitations is specified
+    return search.subtab === "invitations" ? "invitations" : "groups";
+  });
 
   useEffect(() => {
     if (search.invitation) {
       setActiveTab("groups");
     }
-  }, [search.invitation]);
+    if (search.tab) {
+      setActiveTab(search.tab);
+    }
+    if (search.subtab === "invitations" || search.subtab === "groups") {
+      setActiveSubtab(search.subtab);
+    }
+  }, [search.invitation, search.tab, search.subtab]);
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    navigate({
+      to: "/settings",
+      search: { tab: value },
+      replace: true,
+    });
+  };
+
+  const handleSubtabChange = (value: string) => {
+    setActiveSubtab(value);
+    navigate({
+      to: "/settings",
+      search: {
+        tab: activeTab,
+        subtab: value,
+      },
+      replace: true,
+    });
+  };
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6 max-w-7xl">
@@ -30,7 +66,7 @@ export function UserSettingsView() {
 
       <Tabs
         value={activeTab}
-        onValueChange={setActiveTab}
+        onValueChange={handleTabChange}
         className="space-y-4"
       >
         <TabsList className="w-full sm:w-auto">
@@ -45,7 +81,10 @@ export function UserSettingsView() {
               <CardTitle>{t("settings.groups.title")}</CardTitle>
             </CardHeader>
             <CardContent>
-              <UserGroupsSection />
+              <UserGroupsSection
+                activeTab={activeSubtab}
+                onTabChange={handleSubtabChange}
+              />
             </CardContent>
           </Card>
         </TabsContent>

@@ -32,12 +32,19 @@ import { GroupDialog } from "./GroupDialog";
 import { InviteMembersDialog } from "./InviteMembersDialog";
 import { MembersDialog } from "./MembersDialog";
 
-export function UserGroupsSection() {
+interface UserGroupsSectionProps {
+  activeTab: string;
+  onTabChange: (value: string) => void;
+}
+
+export function UserGroupsSection({
+  activeTab,
+  onTabChange,
+}: UserGroupsSectionProps) {
   const { t } = useTranslation();
   const { userData } = useAuth();
   const userId = userData?.uid;
   const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("groups");
 
   const { data: groups = [], isLoading: loadingGroups } = useUserGroups();
   const createGroup = useCreateGroup();
@@ -133,7 +140,7 @@ export function UserGroupsSection() {
 
   return (
     <div className="space-y-6">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs value={activeTab} onValueChange={onTabChange} className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-4">
           <TabsTrigger value="groups">
             <Users className="h-4 w-4 mr-2 hidden sm:inline" />
