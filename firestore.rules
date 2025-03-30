@@ -1,26 +1,104 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow all operations when running in the emulator
+    /** Allow all operations when running in the emulator */
     match /{document=**} {
-      // For local development with emulators
       allow read, write: if request.auth == null;
     }
 
+    /** Checks if the request is from an authenticated user */
     function isAuthenticated() {
       return request.auth != null;
     }
 
+    /** Checks if the current user has admin role */
+    function isAdmin() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+
+    /** Checks if the current user matches the given userId */
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    function isAdmin() {
-      return isAuthenticated() &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    /** Gets the current user's email from the auth token */
+    function getUserEmail() {
+      return request.auth.token.email;
     }
 
+    /** Checks if the current user is the owner of the specified group */
+    function isGroupOwner(groupId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/user-groups/$(groupId)) &&
+        request.auth.uid == get(/databases/$(database)/documents/user-groups/$(groupId)).data.ownerId;
+    }
+
+    /** Checks if the current user is a member of the current group document */
+    function isCurrentUserGroupMember() {
+      return isAuthenticated() && resource.data.memberIds.hasAny([request.auth.uid]);
+    }
+
+    /** Checks if the current user is the owner of the current group document */
+    function isCurrentUserGroupOwner() {
+      return isAuthenticated() && resource.data.ownerId == request.auth.uid;
+    }
+
+    /** Checks if the current user is the invited user based on email */
+    function isInvitedUserByEmail() {
+      return isAuthenticated() &&
+        getUserEmail() != null &&
+        resource.data.invitedUserEmail == getUserEmail();
+    }
+
+    /** Checks if the operation is adding exactly one member to a group */
+    function canAddMemberToGroup() {
+      return isAuthenticated() && (
+        // Check if all existing members are kept
+        request.resource.data.memberIds.hasAll(resource.data.memberIds) &&
+        // Check if exactly one member is added
+        request.resource.data.memberIds.size() == resource.data.memberIds.size() + 1 &&
+        // Check if all existing emails are kept
+        request.resource.data.memberEmails.hasAll(resource.data.memberEmails) &&
+        // Check if exactly one email is added
+        request.resource.data.memberEmails.size() == resource.data.memberEmails.size() + 1
+      );
+    }
+
+    /** Checks if the user can create a group */
+    function canCreateGroup() {
+      return isAuthenticated() &&
+        request.resource.data.ownerId == request.auth.uid &&
+        request.resource.data.memberIds.hasAny([request.auth.uid]);
+    }
+
+    /** Checks if the current operation is a user leaving a group */
+    function canLeaveGroup() {
+      return isAuthenticated() &&
+        resource.data.memberIds.hasAny([request.auth.uid]) &&
+        !request.resource.data.memberIds.hasAny([request.auth.uid]) &&
+        resource.data.ownerId != request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds', 'memberEmails', 'updatedAt']);
+    }
+
+    /** Checks if the user can create an invitation for a group */
+    function canCreateInvitation() {
+      return isAuthenticated() &&
+        request.resource.data.createdBy == request.auth.uid &&
+        isGroupOwner(request.resource.data.groupId);
+    }
+
+    /** Checks if the user can update an invitation status */
+    function canUpdateInvitationStatus() {
+      return isAuthenticated() && (
+        isGroupOwner(resource.data.groupId) ||
+        (getUserEmail() == resource.data.invitedUserEmail &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt', 'invitedUserId']))
+      );
+    }
+
+    /** User collection rules */
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
       allow create: if isAuthenticated() && request.auth.uid == userId;
@@ -28,6 +106,7 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    /** Transaction collection rules */
     match /transactions/{transactionId} {
       allow read: if isAuthenticated() &&
         (request.auth.uid == resource.data.userId || isAdmin());
@@ -37,28 +116,77 @@ service cloud.firestore {
         (request.auth.uid == resource.data.userId || isAdmin());
     }
 
+    /** Shopping list collection rules */
     match /shopping-lists/{shoppingListId} {
       allow read, write: if isAuthenticated();
     }
 
+    /** Category collection rules */
     match /categories/{categoryId} {
       allow read: if isAuthenticated();
-
       allow create: if isAuthenticated() &&
-        (isAdmin() ||
-          request.auth.uid == request.resource.data.userId);
-
+        (isAdmin() || request.auth.uid == request.resource.data.userId);
       allow update, delete: if isAuthenticated() &&
-        (isAdmin() ||
-            request.auth.uid == resource.data.userId);
+        (isAdmin() || request.auth.uid == resource.data.userId);
     }
 
+    /** Notification collection rules */
     match /notifications/{notificationId} {
       allow read: if isAuthenticated() &&
         (request.auth.uid == resource.data.userId || isAdmin());
-
       allow create, update, delete: if isAuthenticated() &&
         isAdmin();
+    }
+
+    /** User groups collection rules */
+    match /user-groups/{groupId} {
+      /** Read operations */
+      allow read: if isAuthenticated() && (
+        isCurrentUserGroupMember() ||
+        isCurrentUserGroupOwner() ||
+        isAdmin() ||
+        getUserEmail() != null  // For invited users
+      );
+
+      /** Create operations */
+      allow create: if canCreateGroup();
+
+      /** Update operations */
+      allow update: if isAuthenticated() && (
+        // Group owner can update everything
+        isCurrentUserGroupOwner() ||
+        // Accept invitation (user joining a group)
+        canAddMemberToGroup() ||
+        // Leave group
+        canLeaveGroup()
+      );
+
+      /** Delete operations */
+      allow delete: if isAuthenticated() && isCurrentUserGroupOwner();
+    }
+
+    /** Group invitations collection rules */
+    match /group-invitations/{invitationId} {
+      /** Read operations */
+      allow read: if isAuthenticated() && (
+        resource.data.createdBy == request.auth.uid || // Creator
+        isInvitedUserByEmail() ||                      // Invited user
+        isGroupOwner(resource.data.groupId) ||         // Group owner
+        isAdmin()                                      // Admin
+      );
+
+      /** Create operations */
+      allow create: if canCreateInvitation();
+
+      /** Update operations */
+      allow update: if canUpdateInvitationStatus();
+
+      /** Delete operations */
+      allow delete: if isAuthenticated() && (
+        isGroupOwner(resource.data.groupId) ||    // Group owner
+        resource.data.createdBy == request.auth.uid || // Creator
+        isInvitedUserByEmail()                      // Invited user
+      );
     }
   }
 }

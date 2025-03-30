@@ -281,18 +281,18 @@ export class FirestoreService<T extends { id?: string }> {
     );
   }
 
-  // Query documents
+  // Query documents with constraints
   async query(constraints: QueryConstraint[]): Promise<T[]> {
     logger.debug(
       "Firestore",
-      `Querying ${this.collectionName} with constraints:`,
+      `Querying documents from ${this.collectionName} with constraints:`,
       constraints,
     );
     const q = query(collection(db, this.collectionName), ...constraints);
     const querySnapshot = await getDocs(q);
     logger.debug(
       "Firestore",
-      `Found ${querySnapshot.docs.length} documents in ${this.collectionName} query`,
+      `Found ${querySnapshot.docs.length} documents in ${this.collectionName}`,
     );
     return querySnapshot.docs.map((doc) => convertDoc<T>(doc));
   }
