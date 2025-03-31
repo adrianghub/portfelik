@@ -16,16 +16,15 @@ const API_BASE_URLS = {
   PROD: "https://europe-central2-portfelik-888dd.cloudfunctions.net",
 };
 
-// Firebase URL patterns to exclude from cache handling
-const FIREBASE_URL_PATTERNS = [
-  "google.firestore.v1.Firestore",
-  "firebaseapp.com",
-  "identitytoolkit.googleapis.com",
-  "cloudfunctions.net",
-  "localhost:5001",
-  "localhost:8080",
-  "localhost:9099",
-];
+// Define safe-to-cache patterns instead of listing patterns to exclude
+const CACHEABLE_PATTERNS = {
+  // Static assets file extensions
+  STATIC_ASSETS: /\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/,
+  // HTML pages (excluding admin routes)
+  HTML_PAGES: /\/$|\/index\.html$/,
+  // Public API paths (if applicable)
+  PUBLIC_API: /\/api\/public\//
+};
 
 // Notification Defaults
 const DEFAULT_NOTIFICATION = {
@@ -123,31 +122,37 @@ async function staticOnly(request) {
 // =====================================================================
 
 /**
- * Determines the caching strategy for a request
+ * Determines if a request should be cached and with what strategy
+ * Only returns a strategy for requests we explicitly want to cache
  */
 function getCacheStrategy(request) {
   const url = new URL(request.url);
 
-  // Skip Firebase-related requests as they are handled by Firebase's built-in offline persistence
-  if (FIREBASE_URL_PATTERNS.some((pattern) => url.href.includes(pattern))) {
-    console.debug("[Service Worker] Skipping cache for Firebase request:", url.href);
+  // Only cache same-origin requests
+  if (url.origin !== self.location.origin) {
     return null;
   }
 
-  // Static assets (images, CSS, JS)
-  if (
-    url.pathname.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/)
-  ) {
+  // Handle static assets - use static caching for these
+  if (CACHEABLE_PATTERNS.STATIC_ASSETS.test(url.pathname)) {
+    console.debug("[Service Worker] Caching static asset:", url.pathname);
     return CACHE_STRATEGIES.STATIC;
   }
 
-  // API requests
-  if (url.pathname.startsWith("/api/")) {
+  // Handle HTML pages - use dynamic caching for these
+  if (CACHEABLE_PATTERNS.HTML_PAGES.test(url.pathname)) {
+    console.debug("[Service Worker] Caching HTML page:", url.pathname);
     return CACHE_STRATEGIES.DYNAMIC;
   }
 
-  // Default to static strategy for other requests
-  return CACHE_STRATEGIES.STATIC;
+  // Handle public API paths if applicable
+  if (CACHEABLE_PATTERNS.PUBLIC_API.test(url.pathname)) {
+    console.debug("[Service Worker] Caching public API request:", url.pathname);
+    return CACHE_STRATEGIES.DYNAMIC;
+  }
+
+  // By default, don't cache
+  return null;
 }
 
 // =====================================================================
@@ -301,12 +306,15 @@ self.addEventListener("activate", (event) => {
  * Fetch event - handles different caching strategies
  */
 self.addEventListener("fetch", (event) => {
+  // Get caching strategy - only returns a strategy for requests we explicitly want to cache
   const strategy = getCacheStrategy(event.request);
 
+  // If no strategy is returned, don't handle this request (pass through to browser)
   if (!strategy) {
-    return; // Skip Firebase-related requests
+    return;
   }
 
+  // Handle the request with the appropriate caching strategy
   event.respondWith(
     (async () => {
       switch (strategy) {
