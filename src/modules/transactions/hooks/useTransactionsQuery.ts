@@ -19,8 +19,8 @@ const filterTransactionsByDate = (
   return transactions.filter((transaction) => {
     const transactionDate = dayjs(transaction.date);
     return (
-      transactionDate.isAfter(start, "day") &&
-      transactionDate.isBefore(end, "day")
+      transactionDate.isSameOrAfter(start, "day") &&
+      transactionDate.isSameOrBefore(end, "day")
     );
   });
 };
