@@ -52,13 +52,13 @@ export function TransactionDetailsSheet({
             </SheetHeader>
             <div className="mt-6 space-y-4">
               <div>
-                <h3 className="text-sm font-medium text-gray-500">
+                <h3 className="text-sm font-medium text-muted-foreground">
                   {t("transactions.transactionDetailsSheet.description")}
                 </h3>
                 <p className="mt-1">{selectedTransaction.description}</p>
               </div>
               <div>
-                <h3 className="text-sm font-medium text-gray-500">
+                <h3 className="text-sm font-medium text-muted-foreground">
                   {t("transactions.transactionDetailsSheet.amount")}
                 </h3>
                 <p
@@ -66,7 +66,7 @@ export function TransactionDetailsSheet({
                     "mt-1 font-semibold",
                     selectedTransaction.type === "income"
                       ? "text-green-600"
-                      : "text-red-600",
+                      : "text-destructive",
                   )}
                 >
                   {selectedTransaction.type === "income" ? "+" : "-"}
@@ -74,7 +74,7 @@ export function TransactionDetailsSheet({
                 </p>
               </div>
               <div>
-                <h3 className="text-sm font-medium text-gray-500">
+                <h3 className="text-sm font-medium text-muted-foreground">
                   {t("transactions.transactionDetailsSheet.date")}
                 </h3>
                 <p className="mt-1">
@@ -82,7 +82,7 @@ export function TransactionDetailsSheet({
                 </p>
               </div>
               <div>
-                <h3 className="text-sm font-medium text-gray-500">
+                <h3 className="text-sm font-medium text-muted-foreground">
                   {t("transactions.transactionDetailsSheet.category")}
                 </h3>
                 <p className="mt-1">
@@ -91,7 +91,7 @@ export function TransactionDetailsSheet({
               </div>
               {showUserInfo && selectedTransaction.userId && (
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500">
+                  <h3 className="text-sm font-medium text-muted-foreground">
                     {t("transactions.transactionDetailsSheet.user")}
                   </h3>
                   <p className="mt-1">
@@ -104,13 +104,13 @@ export function TransactionDetailsSheet({
               )}
               {selectedTransaction.shoppingListId && (
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500">
+                  <h3 className="text-sm font-medium text-muted-foreground">
                     {t("transactions.transactionDetailsSheet.shoppingList")}
                   </h3>
                   <Link
                     to="/shopping-lists/$id"
                     params={{ id: selectedTransaction.shoppingListId }}
-                    className="flex items-center gap-1 text-blue-600 hover:underline mt-1"
+                    className="flex items-center gap-1 text-accent-foreground hover:underline mt-1"
                   >
                     <ShoppingCart className="h-3 w-3" />
                     {loadingShoppingLists

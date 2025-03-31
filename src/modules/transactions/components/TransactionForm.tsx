@@ -37,7 +37,9 @@ export function TransactionForm({
   initialValues,
   onCancel,
 }: TransactionFormProps) {
+  const { t } = useTranslation();
   const { data: categories = [] } = useFetchCategories();
+  const { minDate, maxDate } = getDateConstraints();
 
   const [transactionType, setTransactionType] = useState<"income" | "expense">(
     initialValues?.type ?? "expense",
@@ -56,18 +58,13 @@ export function TransactionForm({
       categoryId: initialValues?.categoryId ?? "",
     },
     onSubmit: ({ value }) => {
-      const selectedDate = dayjs.utc(value.date).toISOString();
-
       onSubmit({
         ...value,
-        date: selectedDate,
+        amount: Math.abs(value.amount),
+        date: dayjs.utc(value.date).toISOString(),
       });
     },
   });
-
-  const { t } = useTranslation();
-
-  const { minDate, maxDate } = getDateConstraints();
 
   const filteredCategories = categories.filter(
     (category) => category.type === transactionType,
@@ -218,6 +215,7 @@ export function TransactionForm({
           )}
         </form.Field>
       </div>
+
       <DialogFooter className="flex gap-2 mt-6">
         <Button type="button" variant="outline" onClick={onCancel}>
           {t("transactions.transactionDialog.form.cancel")}
