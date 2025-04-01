@@ -55,8 +55,11 @@ export function ShoppingListItemDialog({
   const [open, setOpen] = useState(false);
   const [createNext, setCreateNext] = useState(true);
   const [nameQuery, setNameQuery] = useState("");
+  const [isNameInputFocused, setIsNameInputFocused] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const isControlled = controlledOpen !== undefined;
   const isOpen = isControlled ? controlledOpen : open;
@@ -113,6 +116,12 @@ export function ShoppingListItemDialog({
   const handleCancel = () => {
     form.reset();
     setIsOpen(false);
+    setNameQuery("");
+    setIsNameInputFocused(false);
+    setShowSuggestions(false);
+    if (blurTimeoutRef.current) {
+      clearTimeout(blurTimeoutRef.current);
+    }
     scrollToBottom();
   };
 
@@ -135,8 +144,36 @@ export function ShoppingListItemDialog({
   useEffect(() => {
     if (isOpen) {
       nameInputRef.current?.focus();
+    } else {
+      setNameQuery("");
+      setIsNameInputFocused(false);
+      setShowSuggestions(false);
+      if (blurTimeoutRef.current) {
+        clearTimeout(blurTimeoutRef.current);
+      }
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    setShowSuggestions(
+      isNameInputFocused && nameQuery.length > 0 && !isEditing,
+    );
+  }, [isNameInputFocused, nameQuery, isEditing]);
+
+  useEffect(() => {
+    return () => {
+      if (blurTimeoutRef.current) {
+        clearTimeout(blurTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleSubmit = async () => {
+    await form.handleSubmit();
+    if (createNext) {
+      setNameQuery("");
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -154,7 +191,7 @@ export function ShoppingListItemDialog({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            void form.handleSubmit();
+            void handleSubmit();
           }}
           className="space-y-6"
         >
@@ -176,9 +213,18 @@ export function ShoppingListItemDialog({
                     ref={nameInputRef}
                     value={field.state.value}
                     onChange={(e) => handleNameChange(e.target.value)}
+                    onFocus={() => setIsNameInputFocused(true)}
+                    onBlur={() => {
+                      if (blurTimeoutRef.current) {
+                        clearTimeout(blurTimeoutRef.current);
+                      }
+                      blurTimeoutRef.current = setTimeout(() => {
+                        setIsNameInputFocused(false);
+                      }, 200);
+                    }}
                     placeholder="e.g., Milk, Bread, etc."
                   />
-                  {!isEditing && nameQuery && (
+                  {showSuggestions && (
                     <ShoppingListItemSuggestions
                       query={nameQuery}
                       onSelectSuggestion={handleSelectSuggestion}

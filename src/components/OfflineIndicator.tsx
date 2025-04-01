@@ -1,4 +1,3 @@
-import { logger } from "@/lib/logger";
 import { useEffect, useState } from "react";
 
 export function OfflineIndicator() {
@@ -7,12 +6,12 @@ export function OfflineIndicator() {
   useEffect(() => {
     const handleOnline = () => {
       setIsOffline(false);
-      logger.info("Network", "Connection restored");
+      console.log("Network", "Connection restored");
     };
 
     const handleOffline = () => {
       setIsOffline(true);
-      logger.warn("Network", "Connection lost");
+      console.log("Network", "Connection lost");
     };
 
     window.addEventListener("online", handleOnline);
