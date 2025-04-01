@@ -169,33 +169,9 @@ export async function getFCMToken(): Promise<string | null> {
   isGettingToken = true;
 
   try {
-    // Step 1: Make sure we have the Firebase Messaging service worker
-    let messagingRegistration: ServiceWorkerRegistration | undefined;
-
-    try {
-      // Try to register the dedicated Firebase Messaging service worker
-      messagingRegistration = await navigator.serviceWorker.register(
-        "/firebase-messaging-sw.js",
-        { scope: "firebase-cloud-messaging-push-scope" },
-      );
-      logger.info(
-        "Notifications",
-        "Firebase Messaging service worker registered",
-      );
-    } catch (messagingSwError) {
-      logger.warn(
-        "Notifications",
-        "Could not register Firebase Messaging service worker:",
-        messagingSwError,
-      );
-      // Will fall back to the main service worker
-    }
-
-    // Step 2: Register the main app service worker if needed
     let mainRegistration: ServiceWorkerRegistration | null | undefined = null;
 
     try {
-      // Get existing registration for the main service worker
       mainRegistration = await navigator.serviceWorker.getRegistration("/");
 
       if (!mainRegistration) {
@@ -212,8 +188,7 @@ export async function getFCMToken(): Promise<string | null> {
       );
     }
 
-    // If both registrations failed, we can't continue
-    if (!messagingRegistration && !mainRegistration) {
+    if (!mainRegistration) {
       logger.error("Notifications", "All service worker registrations failed");
       isGettingToken = false;
       return null;
@@ -221,7 +196,7 @@ export async function getFCMToken(): Promise<string | null> {
 
     // Determine which registration to use for the token
     // Prefer Firebase Messaging service worker, fall back to main service worker
-    const registration = messagingRegistration || mainRegistration;
+    const registration = mainRegistration;
 
     if (!registration) {
       logger.error("Notifications", "No service worker available for FCM");
