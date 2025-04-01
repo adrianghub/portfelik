@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatDisplayDate } from "@/lib/date-utils";
 import { cn } from "@/lib/styling-utils";
+import type { UserData } from "@/modules/admin/users/UserService";
+import { SharedTransactionIndicator } from "@/modules/transactions/components/SharedTransactionIndicator";
 import type { Transaction } from "@/modules/transactions/transaction";
 import { Link } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -20,6 +22,7 @@ interface UseTransactionColumnsProps {
   getCategoryName: (id: string) => string;
   handleDelete: (id?: string) => void;
   setSelectedTransaction: (tx: Transaction) => void;
+  userData: UserData | null;
 }
 
 export const useTransactionColumns = ({
@@ -47,8 +50,9 @@ function getMobileColumns({
           onClick={() => setSelectedTransaction(row.original)}
         >
           <div className="flex items-center justify-between">
-            <div className="font-medium truncate max-w-[200px]">
+            <div className="font-medium truncate max-w-[200px] flex items-center">
               {row.original.description}
+              <SharedTransactionIndicator transaction={row.original} />
             </div>
             {renderAmount(row.original)}
           </div>
@@ -80,6 +84,7 @@ function getDesktopColumns({
   deletingId,
   getCategoryName,
   handleDelete,
+  userData,
 }: Omit<
   UseTransactionColumnsProps,
   "isMobile" | "setSelectedTransaction"
@@ -111,8 +116,9 @@ function getDesktopColumns({
       accessorKey: "description",
       header: "Description",
       cell: ({ row }) => (
-        <div className="font-medium truncate max-w-[250px]">
+        <div className="font-medium truncate max-w-[250px] flex items-center">
           {row.original.description}
+          <SharedTransactionIndicator transaction={row.original} />
         </div>
       ),
     },
@@ -172,7 +178,7 @@ function getDesktopColumns({
     id: "actions",
     header: () => <div className="text-right">Actions</div>,
     cell: ({ row }) =>
-      renderActions(row.original, onEdit, handleDelete, deletingId),
+      renderActions(row.original, onEdit, handleDelete, deletingId, userData),
   });
 
   return columns;
@@ -197,7 +203,12 @@ function renderActions(
   onEdit?: (tx: Transaction) => void,
   handleDelete?: (id?: string) => void,
   deletingId?: string | null,
+  userData?: UserData | null,
 ) {
+  if (userData?.role !== "admin" && transaction.userId !== userData?.uid) {
+    return null;
+  }
+
   return (
     <div className="flex justify-end gap-2">
       {onEdit && (
@@ -210,7 +221,7 @@ function renderActions(
         size="sm"
         onClick={() => handleDelete?.(transaction.id)}
         disabled={deletingId === transaction.id}
-        className="text-red-600 hover:text-red-600 hover:bg-red-50"
+        className="text-destructive hover:text-destructive hover:bg-destructive/10"
       >
         <Trash2 className="w-4 h-4" />
       </Button>

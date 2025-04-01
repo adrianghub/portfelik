@@ -20,7 +20,6 @@ export function useNotificationSetup() {
   const handleNotificationPermission = async () => {
     try {
       if (notificationPermission === "granted") {
-        console.log("Notifications are already enabled.");
         return;
       }
 

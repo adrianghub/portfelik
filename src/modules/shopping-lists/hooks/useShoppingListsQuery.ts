@@ -1,4 +1,5 @@
 import { useAuth } from "@/hooks/useAuth";
+import { COLLECTIONS } from "@/lib/firebase/firestore";
 import { logger } from "@/lib/logger";
 import type {
   ShoppingList,
@@ -8,20 +9,26 @@ import { shoppingListService } from "@/modules/shopping-lists/ShoppingListServic
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useShoppingListToasts } from "./useShoppingListToasts";
 
-export const SHOPPING_LISTS_QUERY_KEY = ["shopping-lists"];
-
 export function useShoppingLists(status?: "active" | "completed") {
+  const { userData } = useAuth();
+  const userId = userData?.uid;
+
   return useQuery({
-    queryKey: [...SHOPPING_LISTS_QUERY_KEY, status],
+    queryKey: [...COLLECTIONS.SHOPPING_LISTS, status, userId, "withShared"],
     queryFn: async () => {
+      if (!userId) return [];
+
       try {
         let lists: ShoppingList[];
+
+        // For regular users, show their lists + lists from shared groups
         if (status === "active") {
-          lists = await shoppingListService.getActiveShoppingLists();
+          lists = await shoppingListService.getAllActiveShoppingLists(userId);
         } else if (status === "completed") {
-          lists = await shoppingListService.getCompletedShoppingLists();
+          lists =
+            await shoppingListService.getAllCompletedShoppingLists(userId);
         } else {
-          lists = await shoppingListService.getAllShoppingLists();
+          lists = await shoppingListService.getAllUserShoppingLists(userId);
         }
 
         return lists;
@@ -34,6 +41,7 @@ export function useShoppingLists(status?: "active" | "completed") {
         throw error;
       }
     },
+    enabled: !!userId,
   });
 }
 
@@ -42,7 +50,7 @@ export function useShoppingList(id?: string) {
   const userId = userData?.uid;
 
   return useQuery({
-    queryKey: [...SHOPPING_LISTS_QUERY_KEY, id],
+    queryKey: [...COLLECTIONS.SHOPPING_LISTS, id],
     queryFn: async () => {
       if (!id) return null;
 
@@ -69,35 +77,50 @@ export function useCreateShoppingList() {
   const { showSuccessToast, showErrorToast } = useShoppingListToasts();
 
   type CreateShoppingListInput =
-    | Omit<ShoppingList, "id" | "userId">
-    | { name: string; items?: ShoppingListItem[]; categoryId?: string };
+    | (Omit<ShoppingList, "id" | "userId"> & { groupId?: string })
+    | {
+        name: string;
+        items?: ShoppingListItem[];
+        categoryId?: string;
+        groupId?: string;
+      };
 
   return useMutation({
     mutationFn: async (newShoppingList: CreateShoppingListInput) => {
       if (!userId) throw new Error("User not authenticated");
 
       try {
+        const groupId =
+          "groupId" in newShoppingList ? newShoppingList.groupId : undefined;
+
         if (
           "createdAt" in newShoppingList &&
           "updatedAt" in newShoppingList &&
           "status" in newShoppingList
         ) {
-          const newList = await shoppingListService.create({
-            ...newShoppingList,
-            userId,
-          });
+          const { groupId: _, ...rest } = newShoppingList;
+          const newList = await shoppingListService.createWithGroup(
+            {
+              ...rest,
+              userId,
+            },
+            groupId,
+          );
           return newList;
         } else {
           const now = new Date().toISOString();
-          const newList = await shoppingListService.create({
-            name: newShoppingList.name,
-            items: newShoppingList.items || [],
-            createdAt: now,
-            updatedAt: now,
-            status: "active",
-            userId,
-            categoryId: newShoppingList.categoryId,
-          });
+          const newList = await shoppingListService.createWithGroup(
+            {
+              name: newShoppingList.name,
+              items: newShoppingList.items || [],
+              createdAt: now,
+              updatedAt: now,
+              status: "active",
+              userId,
+              categoryId: newShoppingList.categoryId,
+            },
+            groupId,
+          );
           return newList;
         }
       } catch (error) {
@@ -111,12 +134,14 @@ export function useCreateShoppingList() {
     },
     onMutate: async (newShoppingList: CreateShoppingListInput) => {
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: SHOPPING_LISTS_QUERY_KEY });
+      await queryClient.cancelQueries({
+        queryKey: [...COLLECTIONS.SHOPPING_LISTS],
+      });
 
       // Snapshot the previous value
-      const previousLists = queryClient.getQueryData<ShoppingList[]>(
-        SHOPPING_LISTS_QUERY_KEY,
-      );
+      const previousLists = queryClient.getQueryData<ShoppingList[]>([
+        ...COLLECTIONS.SHOPPING_LISTS,
+      ]);
 
       // Create optimistic list
       const optimisticList: ShoppingList = {
@@ -138,7 +163,7 @@ export function useCreateShoppingList() {
 
       // Optimistically update to the new value
       queryClient.setQueryData<ShoppingList[]>(
-        SHOPPING_LISTS_QUERY_KEY,
+        [...COLLECTIONS.SHOPPING_LISTS],
         (old) => {
           if (!old) return [optimisticList];
           return [optimisticList, ...old];
@@ -146,7 +171,7 @@ export function useCreateShoppingList() {
       );
 
       queryClient.setQueryData(
-        [...SHOPPING_LISTS_QUERY_KEY, optimisticList.id],
+        [...COLLECTIONS.SHOPPING_LISTS, optimisticList.id],
         optimisticList,
       );
 
@@ -156,13 +181,13 @@ export function useCreateShoppingList() {
       // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousLists) {
         queryClient.setQueryData(
-          SHOPPING_LISTS_QUERY_KEY,
+          [...COLLECTIONS.SHOPPING_LISTS],
           context.previousLists,
         );
       }
       if (context?.optimisticList) {
         queryClient.removeQueries({
-          queryKey: [...SHOPPING_LISTS_QUERY_KEY, context.optimisticList.id],
+          queryKey: [...COLLECTIONS.SHOPPING_LISTS, context.optimisticList.id],
         });
       }
       showErrorToast("create", err);
@@ -170,7 +195,7 @@ export function useCreateShoppingList() {
     onSuccess: (newList) => {
       // Update the optimistic list with the real one
       queryClient.setQueryData<ShoppingList[]>(
-        SHOPPING_LISTS_QUERY_KEY,
+        [...COLLECTIONS.SHOPPING_LISTS],
         (old) => {
           if (!old) return [newList];
           return old.map((list) => (list.id === newList.id ? newList : list));
@@ -178,13 +203,15 @@ export function useCreateShoppingList() {
       );
 
       queryClient.setQueryData(
-        [...SHOPPING_LISTS_QUERY_KEY, newList.id],
+        [...COLLECTIONS.SHOPPING_LISTS, newList.id],
         newList,
       );
 
-      queryClient.invalidateQueries({ queryKey: SHOPPING_LISTS_QUERY_KEY });
       queryClient.invalidateQueries({
-        queryKey: [...SHOPPING_LISTS_QUERY_KEY, newList.id],
+        queryKey: [...COLLECTIONS.SHOPPING_LISTS],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [...COLLECTIONS.SHOPPING_LISTS, newList.id],
       });
 
       showSuccessToast("create");
@@ -211,22 +238,24 @@ export function useDeleteShoppingList() {
     },
     onMutate: async (id) => {
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: SHOPPING_LISTS_QUERY_KEY });
       await queryClient.cancelQueries({
-        queryKey: [...SHOPPING_LISTS_QUERY_KEY, id],
+        queryKey: [...COLLECTIONS.SHOPPING_LISTS],
+      });
+      await queryClient.cancelQueries({
+        queryKey: [...COLLECTIONS.SHOPPING_LISTS, id],
       });
 
       const previousList = queryClient.getQueryData<ShoppingList>([
-        ...SHOPPING_LISTS_QUERY_KEY,
+        ...COLLECTIONS.SHOPPING_LISTS,
         id,
       ]);
-      const previousLists = queryClient.getQueryData<ShoppingList[]>(
-        SHOPPING_LISTS_QUERY_KEY,
-      );
+      const previousLists = queryClient.getQueryData<ShoppingList[]>([
+        ...COLLECTIONS.SHOPPING_LISTS,
+      ]);
 
       // Optimistically update to the new value
       queryClient.setQueryData<ShoppingList[]>(
-        SHOPPING_LISTS_QUERY_KEY,
+        [...COLLECTIONS.SHOPPING_LISTS],
         (old) => {
           if (!old) return old;
           return old.filter((list) => list.id !== id);
@@ -234,7 +263,7 @@ export function useDeleteShoppingList() {
       );
 
       queryClient.removeQueries({
-        queryKey: [...SHOPPING_LISTS_QUERY_KEY, id],
+        queryKey: [...COLLECTIONS.SHOPPING_LISTS, id],
       });
 
       return { previousList, previousLists, deletedId: id };
@@ -243,20 +272,22 @@ export function useDeleteShoppingList() {
       // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousList) {
         queryClient.setQueryData(
-          [...SHOPPING_LISTS_QUERY_KEY, id],
+          [...COLLECTIONS.SHOPPING_LISTS, id],
           context.previousList,
         );
       }
       if (context?.previousLists) {
         queryClient.setQueryData(
-          SHOPPING_LISTS_QUERY_KEY,
+          [...COLLECTIONS.SHOPPING_LISTS],
           context.previousLists,
         );
       }
       showErrorToast("delete", err);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: SHOPPING_LISTS_QUERY_KEY });
+      queryClient.invalidateQueries({
+        queryKey: [...COLLECTIONS.SHOPPING_LISTS],
+      });
       showSuccessToast("delete");
     },
   });
@@ -269,20 +300,23 @@ export function useDuplicateShoppingList() {
   const { showSuccessToast, showErrorToast } = useShoppingListToasts();
 
   return useMutation({
-    mutationFn: async (shoppingList: ShoppingList) => {
+    mutationFn: async (shoppingList: ShoppingList & { groupId?: string }) => {
       if (!userId) throw new Error("User not authenticated");
 
       try {
         const now = new Date().toISOString();
-        const { id, ...shoppingListWithoutId } = shoppingList;
-        const newList = await shoppingListService.create({
-          ...shoppingListWithoutId,
-          name: `${shoppingList.name} (kopia)`,
-          createdAt: now,
-          updatedAt: now,
-          status: "active",
-          userId,
-        });
+        const { id, groupId, ...shoppingListWithoutId } = shoppingList;
+        const newList = await shoppingListService.createWithGroup(
+          {
+            ...shoppingListWithoutId,
+            name: `${shoppingList.name} (kopia)`,
+            createdAt: now,
+            updatedAt: now,
+            status: "active",
+            userId,
+          },
+          groupId,
+        );
         return newList;
       } catch (error) {
         logger.error(
@@ -295,12 +329,14 @@ export function useDuplicateShoppingList() {
     },
     onMutate: async (shoppingList) => {
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: SHOPPING_LISTS_QUERY_KEY });
+      await queryClient.cancelQueries({
+        queryKey: [...COLLECTIONS.SHOPPING_LISTS],
+      });
 
       // Snapshot the previous value
-      const previousLists = queryClient.getQueryData<ShoppingList[]>(
-        SHOPPING_LISTS_QUERY_KEY,
-      );
+      const previousLists = queryClient.getQueryData<ShoppingList[]>([
+        ...COLLECTIONS.SHOPPING_LISTS,
+      ]);
 
       // Create optimistic duplicate
       const optimisticList: ShoppingList = {
@@ -319,7 +355,7 @@ export function useDuplicateShoppingList() {
 
       // Optimistically update to the new value
       queryClient.setQueryData<ShoppingList[]>(
-        SHOPPING_LISTS_QUERY_KEY,
+        [...COLLECTIONS.SHOPPING_LISTS],
         (old) => {
           if (!old) return [optimisticList];
           return [optimisticList, ...old];
@@ -327,7 +363,7 @@ export function useDuplicateShoppingList() {
       );
 
       queryClient.setQueryData(
-        [...SHOPPING_LISTS_QUERY_KEY, optimisticList.id],
+        [...COLLECTIONS.SHOPPING_LISTS, optimisticList.id],
         optimisticList,
       );
 
@@ -337,13 +373,13 @@ export function useDuplicateShoppingList() {
       // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousLists) {
         queryClient.setQueryData(
-          SHOPPING_LISTS_QUERY_KEY,
+          [...COLLECTIONS.SHOPPING_LISTS],
           context.previousLists,
         );
       }
       if (context?.optimisticList) {
         queryClient.removeQueries({
-          queryKey: [...SHOPPING_LISTS_QUERY_KEY, context.optimisticList.id],
+          queryKey: [...COLLECTIONS.SHOPPING_LISTS, context.optimisticList.id],
         });
       }
       showErrorToast("duplicate", err);
@@ -351,7 +387,7 @@ export function useDuplicateShoppingList() {
     onSuccess: (newList) => {
       // Update the optimistic list with the real one
       queryClient.setQueryData<ShoppingList[]>(
-        SHOPPING_LISTS_QUERY_KEY,
+        [...COLLECTIONS.SHOPPING_LISTS],
         (old) => {
           if (!old) return [newList];
           return old.map((list) => (list.id === newList.id ? newList : list));
@@ -359,13 +395,15 @@ export function useDuplicateShoppingList() {
       );
 
       queryClient.setQueryData(
-        [...SHOPPING_LISTS_QUERY_KEY, newList.id],
+        [...COLLECTIONS.SHOPPING_LISTS, newList.id],
         newList,
       );
 
-      queryClient.invalidateQueries({ queryKey: SHOPPING_LISTS_QUERY_KEY });
       queryClient.invalidateQueries({
-        queryKey: [...SHOPPING_LISTS_QUERY_KEY, newList.id],
+        queryKey: [...COLLECTIONS.SHOPPING_LISTS],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [...COLLECTIONS.SHOPPING_LISTS, newList.id],
       });
 
       showSuccessToast("duplicate");

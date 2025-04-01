@@ -1,7 +1,14 @@
 import { COLLECTIONS, FirestoreService } from "@/lib/firebase/firestore";
 import { t } from "@/lib/i18n/translations";
 import type { GroupInvitation, UserGroup } from "@/modules/settings/user-group";
-import { doc, getDoc, getFirestore, orderBy, where } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  getFirestore,
+  orderBy,
+  updateDoc,
+  where,
+} from "firebase/firestore";
 
 export class UserGroupService extends FirestoreService<UserGroup> {
   constructor() {
@@ -20,12 +27,16 @@ export class UserGroupService extends FirestoreService<UserGroup> {
     }
     const ownerData = ownerDoc.data();
 
-    return this.create({
+    const createdGroup = await this.create({
       ...group,
       memberEmails: [ownerData.email],
       createdAt: now,
       updatedAt: now,
     });
+
+    await this.addGroupToUser(group.ownerId, createdGroup.id!);
+
+    return createdGroup;
   }
 
   async getUserGroups(userId: string): Promise<UserGroup[]> {
@@ -51,6 +62,16 @@ export class UserGroupService extends FirestoreService<UserGroup> {
   }
 
   async deleteGroup(id: string): Promise<void> {
+    const group = await this.getGroupById(id);
+
+    if (!group) {
+      throw new Error(t("settings.groups.inviteError.groupNotFound"));
+    }
+
+    await Promise.all(
+      group.memberIds.map((memberId) => this.removeGroupFromUser(memberId, id)),
+    );
+
     // First, delete all invitations related to this group
     const invitationService = new GroupInvitationService();
     const invitations = await invitationService.getAll([
@@ -96,6 +117,8 @@ export class UserGroupService extends FirestoreService<UserGroup> {
       memberIds: updatedMemberIds,
       memberEmails: updatedMemberEmails,
     });
+
+    await this.removeGroupFromUser(userId, groupId);
   }
 
   async removeMember(
@@ -135,6 +158,46 @@ export class UserGroupService extends FirestoreService<UserGroup> {
       memberIds: updatedMemberIds,
       memberEmails: updatedMemberEmails,
     });
+
+    await this.removeGroupFromUser(memberId, groupId);
+  }
+
+  async addGroupToUser(userId: string, groupId: string): Promise<void> {
+    const db = getFirestore();
+    const userRef = doc(db, COLLECTIONS.USERS, userId);
+    const userDoc = await getDoc(userRef);
+
+    if (!userDoc.exists()) {
+      throw new Error(t("settings.groups.validation.userNotFound"));
+    }
+
+    const userData = userDoc.data();
+    const groupIds = userData.groupIds || [];
+
+    if (!groupIds.includes(groupId)) {
+      await updateDoc(userRef, {
+        groupIds: [...groupIds, groupId],
+      });
+    }
+  }
+
+  async removeGroupFromUser(userId: string, groupId: string): Promise<void> {
+    const db = getFirestore();
+    const userRef = doc(db, COLLECTIONS.USERS, userId);
+    const userDoc = await getDoc(userRef);
+
+    if (!userDoc.exists()) {
+      return;
+    }
+
+    const userData = userDoc.data();
+    const groupIds = userData.groupIds || [];
+
+    if (groupIds.includes(groupId)) {
+      await updateDoc(userRef, {
+        groupIds: groupIds.filter((id: string) => id !== groupId),
+      });
+    }
   }
 }
 

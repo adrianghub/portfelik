@@ -7,12 +7,13 @@ import {
 } from "@/components/ui/sheet";
 import { formatDisplayDate } from "@/lib/date-utils";
 import { cn } from "@/lib/styling-utils";
+import type { UserData } from "@/modules/admin/users/UserService";
 import type { ShoppingList } from "@/modules/shopping-lists/shopping-list";
 import { Link } from "@tanstack/react-router";
 import { Edit, ShoppingCart, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Transaction } from "../transaction";
-
+import { SharedTransactionIndicator } from "./SharedTransactionIndicator";
 interface TransactionDetailsSheetProps {
   selectedTransaction: Transaction | null;
   onClose: () => void;
@@ -24,6 +25,7 @@ interface TransactionDetailsSheetProps {
   loadingUsers: boolean;
   loadingShoppingLists: boolean;
   showUserInfo: boolean;
+  userData: UserData | null;
 }
 
 export function TransactionDetailsSheet({
@@ -37,6 +39,7 @@ export function TransactionDetailsSheet({
   loadingUsers,
   loadingShoppingLists,
   showUserInfo,
+  userData,
 }: TransactionDetailsSheetProps) {
   const { t } = useTranslation();
 
@@ -47,7 +50,8 @@ export function TransactionDetailsSheet({
           <>
             <SheetHeader>
               <SheetTitle>
-                {t("transactions.transactionDetailsSheet.title")}
+                {t("transactions.transactionDetailsSheet.title")}{" "}
+                <SharedTransactionIndicator transaction={selectedTransaction} />
               </SheetTitle>
             </SheetHeader>
             <div className="mt-6 space-y-4">
@@ -122,31 +126,34 @@ export function TransactionDetailsSheet({
                   </Link>
                 </div>
               )}
-              <div className="flex gap-2 mt-6">
-                {onEdit && (
+              {(userData?.role === "admin" ||
+                userData?.uid === selectedTransaction.userId) && (
+                <div className="flex gap-2 mt-6">
+                  {onEdit && (
+                    <Button
+                      onClick={() => {
+                        onEdit(selectedTransaction);
+                        onClose();
+                      }}
+                      className="flex items-center gap-1"
+                    >
+                      <Edit className="h-4 w-4" />
+                      {t("transactions.transactionDetailsSheet.edit")}
+                    </Button>
+                  )}
                   <Button
+                    variant="destructive"
                     onClick={() => {
-                      onEdit(selectedTransaction);
+                      handleDelete(selectedTransaction.id);
                       onClose();
                     }}
                     className="flex items-center gap-1"
                   >
-                    <Edit className="h-4 w-4" />
-                    {t("transactions.transactionDetailsSheet.edit")}
+                    <Trash2 className="h-4 w-4" />
+                    {t("transactions.transactionDetailsSheet.delete")}
                   </Button>
-                )}
-                <Button
-                  variant="destructive"
-                  onClick={() => {
-                    handleDelete(selectedTransaction.id);
-                    onClose();
-                  }}
-                  className="flex items-center gap-1"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  {t("transactions.transactionDetailsSheet.delete")}
-                </Button>
-              </div>
+                </div>
+              )}
             </div>
           </>
         )}

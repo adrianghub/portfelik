@@ -26,6 +26,7 @@ import {
   Plus,
   ShoppingBagIcon,
   Trash2Icon,
+  Users,
 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -332,6 +333,12 @@ function ShoppingListCard({
             <span>
               ({totalItems}) {t("shoppingLists.items")}
             </span>
+
+            {list.groupId && (
+              <span className="ml-2 text-muted-foreground" title="Shared list">
+                <Users className="h-4 w-4" />
+              </span>
+            )}
           </div>
 
           {totalItems > 0 && (

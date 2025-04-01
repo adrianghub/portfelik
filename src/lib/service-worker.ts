@@ -48,7 +48,6 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
     const existingRegistration =
       await navigator.serviceWorker.getRegistration();
     if (existingRegistration && existingRegistration.active) {
-      logger.info("Service Worker", "Using existing service worker");
       return existingRegistration;
     }
 
@@ -66,11 +65,9 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
       if (needsUpdate) {
         for (const registration of registrations) {
           await registration.unregister();
-          logger.info("Service Worker", "Unregistered outdated service worker");
         }
       } else {
         // Use the first valid registration
-        logger.info("Service Worker", "Using existing valid service worker");
         return registrations[0];
       }
     }
@@ -85,22 +82,6 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
       "Service Worker",
       `Registered with scope: ${registration.scope}`,
     );
-
-    // Handle service worker updates
-    registration.addEventListener("updatefound", () => {
-      const newWorker = registration.installing;
-      if (!newWorker) return;
-
-      newWorker.addEventListener("statechange", () => {
-        if (
-          newWorker.state === "installed" &&
-          navigator.serviceWorker.controller
-        ) {
-          logger.info("Service Worker", "New version available");
-          // You can show a notification to the user here
-        }
-      });
-    });
 
     return registration;
   } catch (error) {
@@ -133,8 +114,6 @@ export async function getFCMToken(): Promise<string | null> {
   try {
     // If we have a token in memory, verify it before returning
     if (lastGeneratedToken) {
-      logger.info("Notifications", "Verifying existing token");
-
       // Try to get current token to compare
       const currentToken = await getToken(messaging, { vapidKey: VAPID_KEY });
 

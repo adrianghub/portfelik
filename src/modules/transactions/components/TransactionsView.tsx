@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { getFirstDayOfMonth, getLastDayOfMonth } from "@/lib/date-utils";
-import { logger } from "@/lib/logger";
+import { COLLECTIONS } from "@/lib/firebase/firestore";
 import { FloatingActionButtonGroup } from "@/modules/shared/components/FloatingActionButtonGroup";
 import { TransactionTable } from "@/modules/transactions/components/TransactionTable";
 import { useQueryClient } from "@tanstack/react-query";
@@ -63,7 +63,9 @@ export function TransactionsView() {
     setIsRefreshing(true);
     try {
       const startTime = Date.now();
-      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      await queryClient.invalidateQueries({
+        queryKey: [COLLECTIONS.TRANSACTIONS],
+      });
       await refetch();
       showSuccessToast("refresh");
 
@@ -86,37 +88,29 @@ export function TransactionsView() {
           transaction: transaction,
         },
         {
-          onSuccess: (result) => {
-            logger.info(
-              "TransactionsView",
-              "Transaction updated successfully:",
-              result,
-            );
+          onSuccess: () => {
+            showSuccessToast("update");
             setIsDialogOpen(false);
             setEditingTransaction(null);
           },
           onError: (error) => {
-            logger.error(
-              "TransactionsView",
-              "Error updating transaction:",
-              error,
-            );
+            showErrorToast("update", error);
           },
         },
       );
     } else {
       addTransaction.mutate(transaction, {
-        onSuccess: (result) => {
-          logger.info(
-            "TransactionsView",
-            "Transaction added successfully:",
-            result,
-          );
+        onSuccess: () => {
+          showSuccessToast("create");
           setIsDialogOpen(false);
           setEditingTransaction(null);
+          queryClient.invalidateQueries({
+            queryKey: [COLLECTIONS.TRANSACTIONS],
+          });
+          refetch();
         },
         onError: (error) => {
-          logger.error("TransactionsView", "Error adding transaction:", error);
+          showErrorToast("create", error);
         },
       });
     }
@@ -132,17 +126,10 @@ export function TransactionsView() {
       if (rowSelection[id]) {
         deleteTransaction.mutate(id, {
           onSuccess: () => {
-            logger.info(
-              "TransactionsView",
-              `Transaction ${id} deleted successfully.`,
-            );
+            showSuccessToast("delete");
           },
           onError: (error) => {
-            logger.error(
-              "TransactionsView",
-              `Error deleting transaction ${id}:`,
-              error,
-            );
+            showErrorToast("delete", error);
           },
         });
       }
@@ -221,6 +208,7 @@ export function TransactionsView() {
           showUserInfo={isAdmin}
           rowSelection={rowSelection}
           setRowSelection={setRowSelection}
+          userData={userData}
         />
       ) : (
         <div className="shadow rounded-lg p-4 md:p-6 flex flex-col items-center justify-center">

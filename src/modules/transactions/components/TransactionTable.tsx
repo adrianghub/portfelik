@@ -1,4 +1,5 @@
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import type { UserData } from "@/modules/admin/users/UserService";
 import { useTransactionColumns } from "@/modules/transactions/hooks/useTransactionTableColumns";
 import type { Transaction } from "@/modules/transactions/transaction";
 import { getCoreRowModel, useReactTable } from "@tanstack/react-table";
@@ -15,6 +16,7 @@ interface TransactionTableProps {
   setRowSelection: React.Dispatch<
     React.SetStateAction<Record<string, boolean>>
   >;
+  userData: UserData | null;
 }
 
 export function TransactionTable({
@@ -23,6 +25,7 @@ export function TransactionTable({
   showUserInfo = false,
   rowSelection,
   setRowSelection,
+  userData,
 }: TransactionTableProps) {
   const {
     userEmails,
@@ -53,6 +56,7 @@ export function TransactionTable({
     getCategoryName,
     handleDelete,
     setSelectedTransaction,
+    userData,
   });
 
   const table = useReactTable({
@@ -89,6 +93,7 @@ export function TransactionTable({
         loadingUsers={loadingUsers}
         loadingShoppingLists={loadingShoppingLists}
         showUserInfo={showUserInfo}
+        userData={userData}
       />
     </>
   );

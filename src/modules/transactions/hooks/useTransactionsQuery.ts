@@ -37,32 +37,86 @@ export function useTransactions(startDate?: Date, endDate?: Date) {
       isAdmin,
       startDate?.toISOString(),
       endDate?.toISOString(),
+      "withShared",
     ],
     queryFn: async () => {
       if (!userId) return [];
 
       try {
-        const transactions =
-          startDate && endDate
-            ? isAdmin
-              ? await transactionService.getAllTransactionsByDateRange(
-                  startDate,
-                  endDate,
-                )
-              : await transactionService.getTransactionsByDateRange(
-                  userId,
-                  startDate,
-                  endDate,
-                )
-            : isAdmin
-              ? await transactionService.getAllTransactions()
-              : await transactionService.getUserTransactions(userId);
+        let transactions: Transaction[] = [];
+
+        if (startDate && endDate) {
+          transactions = isAdmin
+            ? await transactionService.getAllTransactionsByDateRange(
+                startDate,
+                endDate,
+              )
+            : await transactionService.getTransactionsByDateRange(
+                userId,
+                startDate,
+                endDate,
+              );
+        } else {
+          transactions = isAdmin
+            ? await transactionService.getAllTransactions()
+            : await transactionService.getUserTransactions(userId);
+        }
+
+        if (!isAdmin) {
+          const sharedTransactions =
+            await transactionService.getSharedTransactions(
+              userId,
+              startDate,
+              endDate,
+            );
+
+          transactions = [...transactions, ...sharedTransactions];
+
+          transactions.sort((a, b) => {
+            return new Date(b.date).getTime() - new Date(a.date).getTime();
+          });
+        }
 
         return startDate && endDate
           ? filterTransactionsByDate(transactions, startDate, endDate)
           : transactions;
       } catch (error) {
         console.error("Error fetching transactions:", error);
+        throw error;
+      }
+    },
+    enabled: !!userId,
+  });
+}
+
+export function useSharedTransactions(startDate?: Date, endDate?: Date) {
+  const { userData } = useAuth();
+  const userId = userData?.uid;
+
+  return useQuery({
+    queryKey: [
+      TRANSACTIONS_QUERY_KEY,
+      "shared",
+      userId,
+      startDate?.toISOString(),
+      endDate?.toISOString(),
+    ],
+    queryFn: async () => {
+      if (!userId) return [];
+
+      try {
+        const sharedTransactions =
+          await transactionService.getSharedTransactions(
+            userId,
+            startDate,
+            endDate,
+          );
+
+        return startDate && endDate
+          ? filterTransactionsByDate(sharedTransactions, startDate, endDate)
+          : sharedTransactions;
+      } catch (error) {
+        console.error("Error fetching shared transactions:", error);
         throw error;
       }
     },
@@ -151,4 +205,12 @@ export function useDeleteTransaction() {
       showErrorToast("delete", error);
     },
   });
+}
+
+export function isSharedTransaction(
+  transaction: Transaction,
+  currentUserId?: string,
+): boolean {
+  if (!currentUserId || !transaction.userId) return false;
+  return transaction.userId !== currentUserId;
 }

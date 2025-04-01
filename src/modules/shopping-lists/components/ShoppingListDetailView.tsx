@@ -39,6 +39,7 @@ import {
   PencilIcon,
   PlusIcon,
   ShoppingCart,
+  Users,
 } from "lucide-react";
 import { useState } from "react";
 import { ShoppingListItem as ShoppingListItemComponent } from "./ShoppingListItem";
@@ -239,7 +240,17 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold">{shoppingList.name}</h1>
+            <h1 className="text-2xl font-bold flex items-center">
+              {shoppingList.name}
+              {shoppingList.groupId && (
+                <span
+                  className="ml-2 text-muted-foreground"
+                  title="Shared list"
+                >
+                  <Users className="h-5 w-5" />
+                </span>
+              )}
+            </h1>
             {!isCompleted && (
               <Button
                 variant="ghost"

@@ -98,6 +98,27 @@ service cloud.firestore {
       );
     }
 
+    /** Checks if two users share at least one group based on their groupIds */
+    function usersShareGroup(userId1, userId2) {
+      return userId1 != userId2 &&
+        // Both user documents exist
+        exists(/databases/$(database)/documents/users/$(userId1)) &&
+        exists(/databases/$(database)/documents/users/$(userId2)) &&
+        // Both users have groupIds fields with at least one common element
+        get(/databases/$(database)/documents/users/$(userId1)).data.groupIds != null &&
+        get(/databases/$(database)/documents/users/$(userId2)).data.groupIds != null &&
+        get(/databases/$(database)/documents/users/$(userId1)).data.groupIds.hasAny(
+          get(/databases/$(database)/documents/users/$(userId2)).data.groupIds
+        );
+    }
+
+    /** Checks if the current user is a member of the specific group */
+    function isUserInGroup(groupId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/user-groups/$(groupId)) &&
+        get(/databases/$(database)/documents/user-groups/$(groupId)).data.memberIds.hasAny([request.auth.uid]);
+    }
+
     /** User collection rules */
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
@@ -108,17 +129,35 @@ service cloud.firestore {
 
     /** Transaction collection rules */
     match /transactions/{transactionId} {
-      allow read: if isAuthenticated() &&
-        (request.auth.uid == resource.data.userId || isAdmin());
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.userId ||
+        isAdmin() ||
+        usersShareGroup(request.auth.uid, resource.data.userId)
+      );
+
       allow create: if isAuthenticated() &&
         request.auth.uid == request.resource.data.userId;
+
       allow update, delete: if isAuthenticated() &&
         (request.auth.uid == resource.data.userId || isAdmin());
     }
 
     /** Shopping list collection rules */
     match /shopping-lists/{shoppingListId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.userId ||
+        isAdmin() ||
+        (resource.data.groupId != null && isUserInGroup(resource.data.groupId))
+      );
+
+      allow create: if isAuthenticated() &&
+        request.auth.uid == request.resource.data.userId;
+
+      allow update, delete: if isAuthenticated() && (
+        request.auth.uid == resource.data.userId ||
+        isAdmin() ||
+        (resource.data.groupId != null && isUserInGroup(resource.data.groupId))
+      );
     }
 
     /** Category collection rules */

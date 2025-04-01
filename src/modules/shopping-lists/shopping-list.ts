@@ -40,6 +40,7 @@ export function createShoppingList(
   name: string,
   userId: string,
   categoryId?: string,
+  groupId?: string,
 ): Omit<ShoppingList, "id"> {
   const now = new Date().toISOString();
   return {
@@ -50,5 +51,6 @@ export function createShoppingList(
     status: "active",
     userId,
     ...(categoryId && { categoryId }),
+    ...(groupId && { groupId }),
   };
 }

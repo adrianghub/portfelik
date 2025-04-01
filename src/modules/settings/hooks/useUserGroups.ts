@@ -13,9 +13,7 @@ export function useUserGroups() {
   const { data: groups, isLoading } = useQuery({
     queryKey: [COLLECTIONS.USER_GROUPS, userId],
     queryFn: async () => {
-      console.log("Fetching groups for user:", userId);
       const userGroups = await userGroupService.getUserGroups(userId!);
-      console.log("Fetched groups:", userGroups);
       return userGroups;
     },
     enabled: !!userId,
@@ -35,18 +33,13 @@ export function useCreateGroup() {
       memberIds: string[];
       memberEmails: string[];
     }) => {
-      console.log("Creating group with data:", group);
       const createdGroup = await userGroupService.createGroup(group);
-      console.log("Created group:", createdGroup);
       return createdGroup;
     },
     onSuccess: () => {
-      console.log("Group created successfully, invalidating queries");
       queryClient.invalidateQueries({ queryKey: [COLLECTIONS.USER_GROUPS] });
-      toast.success(t("settings.groups.groupCreated"));
     },
     onError: (error) => {
-      console.error("Error creating group:", error);
       toast.error(
         error instanceof Error
           ? error.message
@@ -254,6 +247,8 @@ export function useHandleInvitation() {
           memberIds: [...group.memberIds, userData.uid],
           memberEmails: [...group.memberEmails, userData.email || ""],
         });
+
+        await userGroupService.addGroupToUser(userData.uid, groupId);
 
         // Delete the invitation after accepting - don't show toast here
         await deleteInvitation.mutateAsync({ invitationId, showToast: false });
