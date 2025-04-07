@@ -1,6 +1,5 @@
 import dayjs, {
   DayjsDate,
-  formatMonth,
   getFirstDayOfMonth,
   getLastDayOfMonth,
 } from "@/lib/date-utils";
@@ -43,8 +42,4 @@ export function DateRangeFilter({ onDateRangeChange }: DateRangeFilterProps) {
       />
     </div>
   );
-}
-
-export function getMonthName(date: DayjsDate): string {
-  return formatMonth(date);
 }

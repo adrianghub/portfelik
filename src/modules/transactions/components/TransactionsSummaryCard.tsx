@@ -6,7 +6,8 @@ import { useTranslation } from "react-i18next";
 import { MonthlySummary } from "../hooks/useTransactionsSummaryQuery";
 
 // Fixed category id for now - I'm interesting in the category related to groceries
-const GROCERIES_CATEGORY_ID = "bT2wDeZ5wfCf3GJTfhLK";
+const GROCERIES_CATEGORY_ID_TEST = "bT2wDeZ5wfCf3GJTfhLK";
+const GROCERIES_CATEGORY_ID_PROD = "ceGNUblBuWKbynZ1FLtL";
 
 interface TransactionsSummaryCardProps {
   summary: MonthlySummary;
@@ -88,7 +89,9 @@ export function TransactionsSummaryCard({
           <div className="space-y-2">
             {sortedCategories
               .filter(
-                (category) => category.categoryId === GROCERIES_CATEGORY_ID,
+                (category) =>
+                  category.categoryId === GROCERIES_CATEGORY_ID_TEST ||
+                  category.categoryId === GROCERIES_CATEGORY_ID_PROD,
               )
               .map((category) => (
                 <div key={category.categoryId}>
@@ -111,13 +114,6 @@ export function TransactionsSummaryCard({
                   </div>
                 </div>
               ))}
-            {sortedCategories.length > 5 && (
-              <div className="text-xs text-muted-foreground text-center mt-1">
-                {t("transactions.andNMoreCategories", {
-                  count: sortedCategories.length - 5,
-                })}
-              </div>
-            )}
           </div>
         )}
       </div>

@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDisplayDate } from "@/lib/date-utils";
+import { formatCurrency } from "@/lib/format-currency";
 import { useFetchCategories } from "@/modules/shared/categories/useCategoriesQuery";
 import { FloatingActionButtonGroup } from "@/modules/shared/components/FloatingActionButtonGroup";
 import { ShoppingListCompleteDialog } from "@/modules/shopping-lists/components/ShoppingListCompleteDialog";
@@ -13,7 +14,10 @@ import {
   useCreateShoppingList,
   useShoppingList,
 } from "@/modules/shopping-lists/hooks/useShoppingListsQuery";
-import { type ShoppingListItem } from "@/modules/shopping-lists/shopping-list";
+import {
+  type ShoppingList,
+  type ShoppingListItem,
+} from "@/modules/shopping-lists/shopping-list";
 import { useAddTransaction } from "@/modules/transactions/hooks/useTransactionsQuery";
 import {
   closestCenter,
@@ -42,9 +46,9 @@ import {
   Users,
 } from "lucide-react";
 import { useState } from "react";
+import { ShoppingListDetailForm } from "./ShoppingListDetailForm";
 import { ShoppingListItem as ShoppingListItemComponent } from "./ShoppingListItem";
 import { ShoppingListItemDialog } from "./ShoppingListItemDialog";
-import { ShoppingListNameDialog } from "./ShoppingListNameDialog";
 
 interface ShoppingListDetailViewProps {
   id: string;
@@ -112,12 +116,12 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
     });
   };
 
-  const handleUpdateListName = (name: string) => {
+  const handleUpdateListName = (shoppingList: ShoppingList) => {
     if (!shoppingList) return;
 
     updateShoppingList.mutate({
       id: shoppingList.id!,
-      shoppingList: { name },
+      shoppingList,
     });
   };
 
@@ -303,7 +307,10 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
             Completed on {formatDisplayDate(shoppingList.updatedAt)}
           </div>
           <div className="font-medium">
-            Total amount: {shoppingList.totalAmount?.toFixed(2)} zł
+            Total amount:{" "}
+            {shoppingList.totalAmount
+              ? formatCurrency(shoppingList.totalAmount)
+              : formatCurrency(0)}
           </div>
           <div className="text-sm">
             Category: {selectedCategory?.name || "None"}
@@ -390,11 +397,11 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
         onAddItem={handleAddItem}
       />
 
-      <ShoppingListNameDialog
+      <ShoppingListDetailForm
         open={isEditNameDialogOpen}
         onOpenChange={setIsEditNameDialogOpen}
         onSave={handleUpdateListName}
-        initialName={shoppingList.name}
+        initialValues={shoppingList}
       />
 
       <ShoppingListCompleteDialog

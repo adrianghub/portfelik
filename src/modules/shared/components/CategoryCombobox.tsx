@@ -215,7 +215,7 @@ function CategoryComboboxDesktop({
   };
 
   return (
-    <div className="w-full">
+    <div className="w-full sm:w-auto">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button

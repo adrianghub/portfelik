@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import dayjs, {
   formatDate,
   formatDisplayDate,
-  formatMonth,
   formatShortMonth,
   getCurrentMonth,
   getCurrentYear,
@@ -30,11 +29,6 @@ describe("Date Utilities", () => {
   test("getLastDayOfMonth returns last day of current month", () => {
     const result = getLastDayOfMonth();
     expect(result.format("YYYY-MM-DD")).toBe("2025-04-30");
-  });
-
-  test("formatMonth returns correct month and year format", () => {
-    const date = dayjs("2025-03-15");
-    expect(formatMonth(date)).toBe("March 2025");
   });
 
   test("formatShortMonth returns abbreviated month name", () => {

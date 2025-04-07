@@ -6,6 +6,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { formatCurrency } from "@/lib/format-currency";
 import type { Category } from "@/modules/shared/category";
 
 interface ShoppingListCompleteDialogProps {
@@ -45,7 +46,7 @@ export function ShoppingListCompleteDialog({
               type="number"
               min="0.01"
               step="0.01"
-              placeholder="0.00 zł"
+              placeholder={formatCurrency(0)}
               value={totalAmount}
               onChange={(e) => setTotalAmount(Number(e.target.value))}
             />

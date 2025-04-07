@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDisplayDate } from "@/lib/date-utils";
+import { formatCurrency } from "@/lib/format-currency";
 import { useFetchCategories } from "@/modules/shared/categories/useCategoriesQuery";
 import type { Category } from "@/modules/shared/category";
 import { CategoryCombobox } from "@/modules/shared/components/CategoryCombobox";
@@ -351,7 +352,7 @@ function ShoppingListCard({
 
         {isCompleted && list.totalAmount && (
           <div className="mt-2 font-medium">
-            {t("shoppingLists.total")}: {list.totalAmount.toFixed(2)} zł
+            {t("shoppingLists.total")}: {formatCurrency(list.totalAmount)}
           </div>
         )}
       </div>

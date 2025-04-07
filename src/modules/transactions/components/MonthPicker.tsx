@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import dayjs, { DayjsDate } from "@/lib/date-utils";
+import dayjs, { DayjsDate, getMonthName } from "@/lib/date-utils";
 import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState } from "react";
 
@@ -43,8 +43,6 @@ export function MonthPicker({
   const minYear = minDate.year();
   const minMonth = minDate.month();
 
-  const formattedMonth = `${MONTHS[currentMonth]} ${currentYear}`;
-
   const handleYearChange = (increment: number) => {
     const newYear = viewYear + increment;
     if (newYear <= maxYear && newYear >= minYear) {
@@ -87,7 +85,9 @@ export function MonthPicker({
           className="inline-flex items-center gap-2 h-9 px-3"
         >
           <Calendar className="h-4 w-4" />
-          <span>{formattedMonth}</span>
+          <span>
+            {getMonthName(value)} {currentYear}
+          </span>
         </Button>
       </div>
 

@@ -9,17 +9,27 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useMobileDialog } from "@/hooks/useMobileDialog";
+import { useUserGroups } from "@/modules/settings/hooks/useUserGroups";
 import { FormField } from "@/modules/shared/components/FormField";
+import type { ShoppingList } from "@/modules/shopping-lists/shopping-list";
 import { useForm } from "@tanstack/react-form";
+import { Users } from "lucide-react";
 import { useRef, useState } from "react";
 
-interface ShoppingListNameDialogProps {
+interface ShoppingListDetailFormProps {
   trigger?: React.ReactNode;
-  onSave?: (name: string) => void;
+  onSave?: (shoppingList: ShoppingList) => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  initialName?: string;
+  initialValues?: Partial<ShoppingList>;
 }
 
 const validateName = (value: string) => {
@@ -32,29 +42,35 @@ const validateName = (value: string) => {
   return undefined;
 };
 
-export function ShoppingListNameDialog({
+export function ShoppingListDetailForm({
   trigger,
   onSave,
   open: controlledOpen,
   onOpenChange,
-  initialName,
-}: ShoppingListNameDialogProps) {
+  initialValues,
+}: ShoppingListDetailFormProps) {
   const [open, setOpen] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
-
   const isControlled = controlledOpen !== undefined;
   const isOpen = isControlled ? controlledOpen : open;
   const setIsOpen = isControlled ? onOpenChange! : setOpen;
 
   const { contentRef } = useMobileDialog(isOpen);
 
+  const { data: userGroups = [], isLoading: loadingGroups } = useUserGroups();
+
   const form = useForm({
     defaultValues: {
-      name: initialName || "",
+      name: initialValues?.name || "",
+      groupId: initialValues?.groupId,
     },
     onSubmit: ({ value }) => {
       if (onSave) {
-        onSave(value.name.trim());
+        onSave({
+          ...initialValues,
+          name: value.name.trim(),
+          groupId: value.groupId,
+        } as ShoppingList);
       }
       setIsOpen(false);
     },
@@ -105,6 +121,59 @@ export function ShoppingListNameDialog({
                   onChange={(e) => field.handleChange(e.target.value)}
                   autoFocus
                 />
+              </FormField>
+            )}
+          </form.Field>
+
+          <form.Field name="groupId">
+            {(field) => (
+              <FormField
+                name="group"
+                label="Share with Group"
+                error={field.state.meta.errors?.[0]}
+              >
+                <div className="relative">
+                  {loadingGroups ? (
+                    <div className="flex items-center space-x-2">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                      <span className="text-sm text-muted-foreground">
+                        Loading groups...
+                      </span>
+                    </div>
+                  ) : userGroups.length === 0 ? (
+                    <div className="text-sm text-muted-foreground flex items-center space-x-2">
+                      <Users className="h-4 w-4" />
+                      <span>You don't have any groups yet</span>
+                    </div>
+                  ) : (
+                    <Select
+                      value={field.state.value || "none"}
+                      onValueChange={(value) =>
+                        field.handleChange(value === "none" ? "" : value)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a group to share with" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(!initialValues?.groupId ||
+                          initialValues.groupId === "") && (
+                          <SelectItem value="none">
+                            Personal (not shared)
+                          </SelectItem>
+                        )}
+                        {userGroups.map((group) => (
+                          <SelectItem
+                            key={group.id}
+                            value={group.id || `group-${group.name}`}
+                          >
+                            {group.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
               </FormField>
             )}
           </form.Field>
