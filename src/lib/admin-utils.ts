@@ -46,7 +46,6 @@ export async function removeAdminRole(userId: string): Promise<void> {
     throw new Error(`User with ID ${userId} does not exist`);
   }
 
-  // Update the user's role to user
   await updateDoc(userRef, {
     role: "user",
   });

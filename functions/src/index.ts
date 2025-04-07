@@ -150,3 +150,6 @@ export const onGroupInvitationCreated = onDocumentCreated(
     }
   },
 );
+
+// Export role management functions
+export * from "./users/roles";
