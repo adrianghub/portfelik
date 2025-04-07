@@ -55,10 +55,21 @@ export function useAuth() {
     return unsubscribe;
   }, []);
 
+  const getIdToken = async (): Promise<string | null> => {
+    if (!currentUser) return null;
+    try {
+      return await currentUser.getIdToken();
+    } catch (error) {
+      console.error("Error getting ID token:", error);
+      return null;
+    }
+  };
+
   return {
     currentUser,
     userData,
     isLoading,
     isAuthenticated: !!currentUser,
+    getIdToken,
   };
 }

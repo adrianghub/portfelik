@@ -1,6 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { getFirstDayOfMonth, getLastDayOfMonth } from "@/lib/date-utils";
+import {
+  getFirstDayOfMonth,
+  getLastDayOfMonth,
+  getMonthName,
+} from "@/lib/date-utils";
 import { COLLECTIONS } from "@/lib/firebase/firestore";
 import { FloatingActionButtonGroup } from "@/modules/shared/components/FloatingActionButtonGroup";
 import { TransactionTable } from "@/modules/transactions/components/TransactionTable";
@@ -16,9 +20,10 @@ import {
 } from "../hooks/useTransactionsQuery";
 import { useTransactionToasts } from "../hooks/useTransactionToasts";
 import type { Transaction } from "../transaction";
-import { DateRange, getMonthName } from "./DateRangeFilter";
+import { DateRange } from "./DateRangeFilter";
 import { TableFilters } from "./TableFilters";
 import { TransactionDialog } from "./TransactionDialog";
+import { TransactionsSummary } from "./TransactionsSummary";
 
 export function TransactionsView() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -184,6 +189,13 @@ export function TransactionsView() {
             </Button>
           </div>
         </div>
+      </div>
+
+      <div className="mb-6">
+        <TransactionsSummary
+          startDate={dateRange.start.toDate()}
+          endDate={dateRange.end.toDate()}
+        />
       </div>
 
       {isLoading ? (

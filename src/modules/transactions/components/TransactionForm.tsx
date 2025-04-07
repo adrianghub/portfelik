@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import dayjs, { formatDate } from "@/lib/date-utils";
+import { formatCurrency } from "@/lib/format-currency";
 import { logger } from "@/lib/logger";
 import { useFetchCategories } from "@/modules/shared/categories/useCategoriesQuery";
 import { CategoryCombobox } from "@/modules/shared/components/CategoryCombobox";
@@ -41,6 +42,10 @@ export function TransactionForm({
   const { data: categories = [] } = useFetchCategories();
   const { minDate, maxDate } = getDateConstraints();
 
+  const initialAmount = initialValues?.amount
+    ? Math.abs(initialValues.amount)
+    : 0;
+
   const [transactionType, setTransactionType] = useState<"income" | "expense">(
     initialValues?.type ?? "expense",
   );
@@ -49,7 +54,7 @@ export function TransactionForm({
 
   const form = useForm({
     defaultValues: {
-      amount: initialValues?.amount ?? 0,
+      amount: initialAmount,
       description: initialValues?.description ?? "",
       date: initialValues?.date
         ? formatDate(dayjs(initialValues.date))
@@ -121,7 +126,7 @@ export function TransactionForm({
         <form.Field
           name="amount"
           validators={{
-            onChange: ({ value }) => validateAmount(value),
+            onChange: ({ value }) => validateAmount(Math.abs(value)),
           }}
         >
           {(field) => (
@@ -135,10 +140,11 @@ export function TransactionForm({
                 type="number"
                 min="0.01"
                 value={Math.abs(field.state.value) || ""}
-                onChange={(e) =>
-                  field.handleChange(parseFloat(e.target.value) || 0)
-                }
-                placeholder="0.00 zł"
+                onChange={(e) => {
+                  const value = parseFloat(e.target.value) || 0;
+                  field.handleChange(Math.abs(value));
+                }}
+                placeholder={formatCurrency(0)}
                 step="0.01"
               />
             </FormField>

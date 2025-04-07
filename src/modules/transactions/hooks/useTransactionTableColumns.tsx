@@ -2,6 +2,7 @@
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatDisplayDate } from "@/lib/date-utils";
+import { formatCurrency } from "@/lib/format-currency";
 import { cn } from "@/lib/styling-utils";
 import type { UserData } from "@/modules/admin/users/UserService";
 import { SharedTransactionIndicator } from "@/modules/transactions/components/SharedTransactionIndicator";
@@ -193,7 +194,7 @@ function renderAmount(transaction: Transaction) {
       )}
     >
       {transaction.type === "income" ? "+" : "-"}
-      {Math.abs(transaction.amount).toFixed(2)} zł
+      {formatCurrency(transaction.amount)}
     </p>
   );
 }

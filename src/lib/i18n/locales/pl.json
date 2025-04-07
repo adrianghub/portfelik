@@ -41,6 +41,13 @@
     "addTransaction": "Dodaj transakcję",
     "noTransactions": "Brak transakcji",
     "noTransactionsForThisMonth": "Brak transakcji w miesiącu {{month}}",
+    "errorLoadingSummaries": "Wystąpił błąd podczas ładowania podsumowań",
+    "noSummaryData": "Brak danych do podsumowania",
+    "income": "Przychód",
+    "expenses": "Wydatki",
+    "netIncome": "Dochód netto",
+    "surplus": "Nadwyżka",
+    "deficit": "Deficyt",
     "filters": {
       "deleteSelected": "Usuń wybrane",
       "unselectAll": "Odznacz wybrane"

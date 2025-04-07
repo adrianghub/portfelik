@@ -21,9 +21,13 @@ export const getLastDayOfMonth = (date = dayjs()) => {
   return date.endOf("month");
 };
 
-export const formatMonth = (date = dayjs()) => {
-  return date.format("MMMM YYYY");
-};
+export function getMonthName(date: DayjsDate): string {
+  const monthName = new Intl.DateTimeFormat("pl-PL", {
+    month: "long",
+  }).format(date.toDate());
+
+  return monthName.charAt(0).toUpperCase() + monthName.slice(1);
+}
 
 export const formatShortMonth = (date = dayjs()) => {
   return date.format("MMM");
@@ -31,6 +35,10 @@ export const formatShortMonth = (date = dayjs()) => {
 
 export const formatDate = (date: string | Date | dayjs.Dayjs) => {
   return dayjs(date).format("YYYY-MM-DD");
+};
+
+export const formatDateToISOString = (date: string | Date | dayjs.Dayjs) => {
+  return dayjs(date).toISOString();
 };
 
 export const formatDisplayDate = (date: string | Date | dayjs.Dayjs) => {

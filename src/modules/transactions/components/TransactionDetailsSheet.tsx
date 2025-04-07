@@ -6,6 +6,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { formatDisplayDate } from "@/lib/date-utils";
+import { formatCurrency } from "@/lib/format-currency";
 import { cn } from "@/lib/styling-utils";
 import type { UserData } from "@/modules/admin/users/UserService";
 import type { ShoppingList } from "@/modules/shopping-lists/shopping-list";
@@ -74,7 +75,7 @@ export function TransactionDetailsSheet({
                   )}
                 >
                   {selectedTransaction.type === "income" ? "+" : "-"}
-                  {Math.abs(selectedTransaction.amount).toFixed(2)} zł
+                  {formatCurrency(selectedTransaction.amount)}
                 </p>
               </div>
               <div>

@@ -1,85 +1,121 @@
 import { useAuth } from "@/hooks/useAuth";
+import { formatDate, formatDateToISOString } from "@/lib/date-utils";
+import { COLLECTIONS } from "@/lib/firebase/firestore";
+import { API_BASE_URL } from "@/modules/shared/constants";
+import { fetcher } from "@/modules/shared/fetcher";
 import type { Transaction } from "@/modules/transactions/transaction";
 import { transactionService } from "@/modules/transactions/TransactionService";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useTransactionToasts } from "./useTransactionToasts";
 
-const TRANSACTIONS_QUERY_KEY = ["transactions"];
+export type {
+  CategorySummary,
+  MonthlySummary,
+  TransactionSummaryResponse,
+} from "./useTransactionsSummaryQuery";
 
-const formatDate = (date: string | Date) => dayjs(date).toISOString();
+const fetchTransactions = async (
+  token: string,
+  startDate?: dayjs.Dayjs,
+  endDate?: dayjs.Dayjs,
+): Promise<Transaction[]> => {
+  let url = `${API_BASE_URL}/api/v1/transactions`;
 
-const filterTransactionsByDate = (
-  transactions: Transaction[],
-  startDate: Date,
-  endDate: Date,
-) => {
-  const start = dayjs(startDate);
-  const end = dayjs(endDate);
-  return transactions.filter((transaction) => {
-    const transactionDate = dayjs(transaction.date);
-    return (
-      transactionDate.isSameOrAfter(start, "day") &&
-      transactionDate.isSameOrBefore(end, "day")
-    );
-  });
+  if (startDate && endDate) {
+    const startDateStr = startDate.toISOString();
+    const endDateStr = endDate.toISOString();
+    url += `?startDate=${encodeURIComponent(startDateStr)}&endDate=${encodeURIComponent(endDateStr)}`;
+  }
+
+  try {
+    const response = await fetcher(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    return response.transactions;
+  } catch (error) {
+    console.error("Error fetching transactions:", error);
+    throw error;
+  }
+};
+
+const fetchSharedTransactions = async (
+  token: string,
+  startDate?: dayjs.Dayjs,
+  endDate?: dayjs.Dayjs,
+): Promise<Transaction[]> => {
+  let url = `${API_BASE_URL}/api/v1/transactions/shared`;
+
+  if (startDate && endDate) {
+    const startDateStr = startDate.toISOString();
+    const endDateStr = endDate.toISOString();
+    url += `?startDate=${encodeURIComponent(startDateStr)}&endDate=${encodeURIComponent(endDateStr)}`;
+  }
+
+  try {
+    const response = await fetcher(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    return response.transactions;
+  } catch (error) {
+    console.error("Error fetching shared transactions:", error);
+    throw error;
+  }
 };
 
 export function useTransactions(startDate?: Date, endDate?: Date) {
-  const { userData } = useAuth();
+  const { userData, getIdToken } = useAuth();
   const userId = userData?.uid;
   const isAdmin = userData?.role === "admin";
 
+  const dayjsStartDate = startDate ? dayjs(startDate) : undefined;
+  const dayjsEndDate = endDate ? dayjs(endDate) : undefined;
+
   return useQuery({
     queryKey: [
-      TRANSACTIONS_QUERY_KEY,
+      COLLECTIONS.TRANSACTIONS,
       userId,
       isAdmin,
-      startDate?.toISOString(),
-      endDate?.toISOString(),
+      dayjsStartDate?.toISOString(),
+      dayjsEndDate?.toISOString(),
       "withShared",
     ],
     queryFn: async () => {
       if (!userId) return [];
 
       try {
-        let transactions: Transaction[] = [];
-
-        if (startDate && endDate) {
-          transactions = isAdmin
-            ? await transactionService.getAllTransactionsByDateRange(
-                startDate,
-                endDate,
-              )
-            : await transactionService.getTransactionsByDateRange(
-                userId,
-                startDate,
-                endDate,
-              );
-        } else {
-          transactions = isAdmin
-            ? await transactionService.getAllTransactions()
-            : await transactionService.getUserTransactions(userId);
-        }
+        const token = await getIdToken();
+        if (!token) throw new Error("Authentication token not available");
+        const transactions = await fetchTransactions(
+          token,
+          dayjsStartDate,
+          dayjsEndDate,
+        );
 
         if (!isAdmin) {
-          const sharedTransactions =
-            await transactionService.getSharedTransactions(
-              userId,
-              startDate,
-              endDate,
-            );
+          const sharedTransactions = await fetchSharedTransactions(
+            token,
+            dayjsStartDate,
+            dayjsEndDate,
+          );
 
-          transactions = [...transactions, ...sharedTransactions];
-
-          transactions.sort((a, b) => {
-            return new Date(b.date).getTime() - new Date(a.date).getTime();
+          const allTransactions = [...transactions, ...sharedTransactions];
+          allTransactions.sort((a, b) => {
+            return dayjs(b.date).valueOf() - dayjs(a.date).valueOf();
           });
+
+          return allTransactions;
         }
 
-        return startDate && endDate
-          ? filterTransactionsByDate(transactions, startDate, endDate)
-          : transactions;
+        return transactions;
       } catch (error) {
         console.error("Error fetching transactions:", error);
         throw error;
@@ -90,31 +126,32 @@ export function useTransactions(startDate?: Date, endDate?: Date) {
 }
 
 export function useSharedTransactions(startDate?: Date, endDate?: Date) {
-  const { userData } = useAuth();
+  const { userData, getIdToken } = useAuth();
   const userId = userData?.uid;
+
+  const dayjsStartDate = startDate ? dayjs(startDate) : undefined;
+  const dayjsEndDate = endDate ? dayjs(endDate) : undefined;
 
   return useQuery({
     queryKey: [
-      TRANSACTIONS_QUERY_KEY,
+      COLLECTIONS.TRANSACTIONS,
       "shared",
       userId,
-      startDate?.toISOString(),
-      endDate?.toISOString(),
+      dayjsStartDate?.toISOString(),
+      dayjsEndDate?.toISOString(),
     ],
     queryFn: async () => {
       if (!userId) return [];
 
       try {
-        const sharedTransactions =
-          await transactionService.getSharedTransactions(
-            userId,
-            startDate,
-            endDate,
-          );
+        const token = await getIdToken();
+        if (!token) throw new Error("Authentication token not available");
 
-        return startDate && endDate
-          ? filterTransactionsByDate(sharedTransactions, startDate, endDate)
-          : sharedTransactions;
+        return await fetchSharedTransactions(
+          token,
+          dayjsStartDate,
+          dayjsEndDate,
+        );
       } catch (error) {
         console.error("Error fetching shared transactions:", error);
         throw error;
@@ -137,19 +174,19 @@ export function useAddTransaction() {
       const firestoreTransaction = {
         ...transaction,
         userId,
-        date: formatDate(transaction.date),
+        date: formatDateToISOString(transaction.date),
         amount:
           transaction.type === "expense"
             ? -Math.abs(transaction.amount)
             : Math.abs(transaction.amount),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: dayjs().toISOString(),
+        updatedAt: dayjs().toISOString(),
       };
 
       return transactionService.create(firestoreTransaction);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [TRANSACTIONS_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [COLLECTIONS.TRANSACTIONS] });
       showSuccessToast("create");
     },
     onError: (error) => {
@@ -177,12 +214,13 @@ export function useUpdateTransaction() {
           transaction.type === "expense"
             ? -Math.abs(transaction.amount ?? 0)
             : Math.abs(transaction.amount ?? 0),
+        updatedAt: dayjs().toISOString(),
       };
 
       return transactionService.update(id, firestoreTransaction);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [TRANSACTIONS_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [COLLECTIONS.TRANSACTIONS] });
       showSuccessToast("update");
     },
     onError: (error) => {
@@ -198,7 +236,7 @@ export function useDeleteTransaction() {
   return useMutation({
     mutationFn: (id: string) => transactionService.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [TRANSACTIONS_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [COLLECTIONS.TRANSACTIONS] });
       showSuccessToast("delete");
     },
     onError: (error) => {
