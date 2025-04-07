@@ -1,6 +1,14 @@
 # Portfelik
 
 A personal finance management application built with React, TypeScript, and Firebase.
+Some of the backend code is moved already either to Firebase Cloud Functions or [separate API layer written in Go](https://github.com/adrianghub/portfelik-bff).
+
+[Preview of the app](https://adrianzinko.com)
+
+![Transactions view - mobile](./.github/img/1.png)
+![Portfelik - logo draft](./.github/img/2.png)
+![Transactions view - desktop](./.github/img/3.png)
+
 
 ## Features
 
@@ -11,8 +19,8 @@ A personal finance management application built with React, TypeScript, and Fire
 
 ## Prerequisites
 
-- Node.js (v16 or higher)
-- npm or yarn
+- Node.js (v20 or higher)
+- npm
 - Firebase account
 
 ## Setup
@@ -21,8 +29,6 @@ A personal finance management application built with React, TypeScript, and Fire
 2. Install dependencies:
    ```bash
    npm install
-   # or
-   yarn
    ```
 3. Create a Firebase project at [https://console.firebase.google.com/](https://console.firebase.google.com/)
 4. Enable Authentication with Email/Password provider
