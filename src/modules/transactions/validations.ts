@@ -20,8 +20,7 @@ export const getDateConstraints = () => {
   const currentMonth = now.month();
 
   const minDate = dayjs().startOf("month").format("YYYY-MM-DD");
-
-  const maxDate = dayjs().endOf("month").format("YYYY-MM-DD");
+  const maxDate = dayjs().endOf("year").format("YYYY-MM-DD");
 
   return { minDate, maxDate, currentYear, currentMonth };
 };

@@ -82,7 +82,11 @@
         "categoryPlaceholder": "Wybierz kategorię",
         "descriptionPlaceholder": "e.g., Zakupy spożywcze, Wypłata, etc.",
         "noCategories": "Brak dostępnych kategorii",
-        "noMatchingCategories": "Nie znaleziono kategorii"
+        "noMatchingCategories": "Nie znaleziono kategorii",
+        "isRecurring": "Powtórz co miesiąc",
+        "recurringDay": "Dzień powtórzenia płatności",
+        "status": "Status",
+        "selectStatus": "Wybierz status"
       }
     },
     "toasts": {
@@ -114,7 +118,9 @@
       "date": "Data",
       "category": "Kategoria",
       "user": "Użytkownik",
-      "loadingShoppingList": "Ładowanie listy zakupów..."
+      "loadingShoppingList": "Ładowanie listy zakupów...",
+      "status": "Status",
+      "recurringDate": "Data powtórzenia płatności"
     }
   },
   "nav": {

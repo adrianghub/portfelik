@@ -1,10 +1,16 @@
 import dayjs from "dayjs";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
-import type { User } from "../index";
+import {
+  formatAmount,
+  getTranslatedMessage,
+  getTranslatedTitle,
+  getUserLanguage,
+} from "../i18n";
+import type { Notification } from "../types/notification";
+import type { Transaction } from "../types/transaction";
+import type { User } from "../types/user";
 import { createNotification } from "./createNotification";
-import type { Notification } from "./notification";
-import type { Transaction } from "./transaction";
 
 interface UserTransactionSummary {
   userId: string;
@@ -59,7 +65,7 @@ export async function sendAdminTransactionSummaryFunction() {
     const transactions = transactionsSnapshot.docs.map((doc) => ({
       ...doc.data(),
       id: doc.id,
-      date: dayjs(doc.data().date).toDate(),
+      date: dayjs(doc.data().date).toISOString(),
     })) as (Transaction & { id: string; userId: string })[];
 
     logger.info(`Found ${transactions.length} transactions from yesterday`);
@@ -115,31 +121,6 @@ export async function sendAdminTransactionSummaryFunction() {
       0,
     );
 
-    const title = "Admin Daily Transaction Summary";
-
-    let body = `Yesterday's platform activity (${yesterday.format("YYYY-MM-DD")}):\n`;
-    body += `Users with transactions: ${totalUsers}\n`;
-    body += `Total transactions: ${totalTransactions}\n`;
-    body += `Total income: ${totalIncome.toFixed(2)} zł\n`;
-    body += `Total expenses: ${totalExpenses.toFixed(2)} zł\n\n`;
-
-    if (userSummaries.size <= 10) {
-      body += "User breakdown:\n";
-      Array.from(userSummaries.values())
-        .sort((a, b) => b.transactionCount - a.transactionCount)
-        .forEach((summary) => {
-          body += `- ${summary.email}: ${summary.transactionCount} transactions, Income: ${summary.income.toFixed(2)} zł, Expenses: ${summary.expenses.toFixed(2)} zł\n`;
-        });
-    } else {
-      body += "Top 5 users by transaction count:\n";
-      Array.from(userSummaries.values())
-        .sort((a, b) => b.transactionCount - a.transactionCount)
-        .slice(0, 5)
-        .forEach((summary) => {
-          body += `- ${summary.email}: ${summary.transactionCount} transactions, Income: ${summary.income.toFixed(2)} zł, Expenses: ${summary.expenses.toFixed(2)} zł\n`;
-        });
-    }
-
     for (const adminUser of adminUsers) {
       const adminId = adminUser.uid;
 
@@ -155,6 +136,79 @@ export async function sendAdminTransactionSummaryFunction() {
       if (!adminId) {
         logger.error("Admin user has no uid, skipping notification");
         continue;
+      }
+
+      // Get user language preference
+      const language = await getUserLanguage(adminId);
+
+      // Use translated title
+      const title = getTranslatedTitle("admin_transaction_summary", language);
+
+      // Format the date according to language preference
+      const formattedDate = yesterday.format("YYYY-MM-DD");
+
+      // Format currency amounts according to language preference
+      const formattedTotalIncome = formatAmount(totalIncome, language);
+      const formattedTotalExpenses = formatAmount(totalExpenses, language);
+
+      // Get translated message with placeholders
+      let body = getTranslatedMessage(
+        "admin_transaction_summary_header",
+        language,
+        {
+          date: formattedDate,
+          userCount: totalUsers,
+          transactionCount: totalTransactions,
+          totalIncome: formattedTotalIncome,
+          totalExpenses: formattedTotalExpenses,
+        },
+      );
+
+      // Add user breakdown
+      if (userSummaries.size <= 10) {
+        body +=
+          getTranslatedMessage(
+            "admin_transaction_summary_all_users",
+            language,
+          ) + "\n";
+        Array.from(userSummaries.values())
+          .sort((a, b) => b.transactionCount - a.transactionCount)
+          .forEach((summary) => {
+            body +=
+              getTranslatedMessage(
+                "admin_transaction_summary_user_row",
+                language,
+                {
+                  email: summary.email,
+                  transactionCount: summary.transactionCount,
+                  income: formatAmount(summary.income, language),
+                  expenses: formatAmount(summary.expenses, language),
+                },
+              ) + "\n";
+          });
+      } else {
+        body +=
+          getTranslatedMessage(
+            "admin_transaction_summary_top_users",
+            language,
+            { count: 5 },
+          ) + "\n";
+        Array.from(userSummaries.values())
+          .sort((a, b) => b.transactionCount - a.transactionCount)
+          .slice(0, 5)
+          .forEach((summary) => {
+            body +=
+              getTranslatedMessage(
+                "admin_transaction_summary_user_row",
+                language,
+                {
+                  email: summary.email,
+                  transactionCount: summary.transactionCount,
+                  income: formatAmount(summary.income, language),
+                  expenses: formatAmount(summary.expenses, language),
+                },
+              ) + "\n";
+          });
       }
 
       const notification: Notification = {

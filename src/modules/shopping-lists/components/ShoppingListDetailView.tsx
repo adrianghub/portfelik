@@ -143,6 +143,8 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
         type: "expense" as const,
         categoryId: shoppingList.categoryId,
         shoppingListId: shoppingList.id,
+        status: "paid" as const,
+        isRecurring: false,
       };
 
       const result = await addTransaction.mutateAsync(transaction);

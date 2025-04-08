@@ -2,7 +2,10 @@ export type NotificationType =
   | "system_notification"
   | "transaction_summary"
   | "admin_transaction_summary"
-  | "group_invitation";
+  | "group_invitation"
+  | "transaction_upcoming"
+  | "transaction_overdue"
+  | "transaction_reminder";
 
 export interface Notification {
   userId: string;

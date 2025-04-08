@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -8,14 +9,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import dayjs, { formatDate } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/format-currency";
 import { logger } from "@/lib/logger";
 import { useFetchCategories } from "@/modules/shared/categories/useCategoriesQuery";
 import { CategoryCombobox } from "@/modules/shared/components/CategoryCombobox";
-import type { Transaction } from "@/modules/transactions/transaction";
+import {
+  statuses,
+  types,
+  type Transaction,
+  type TransactionStatus,
+  type TransactionType,
+} from "@/modules/transactions/transaction";
 import { useForm } from "@tanstack/react-form";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FormField } from "../../shared/components/FormField";
 import {
@@ -46,9 +54,26 @@ export function TransactionForm({
     ? Math.abs(initialValues.amount)
     : 0;
 
-  const [transactionType, setTransactionType] = useState<"income" | "expense">(
-    initialValues?.type ?? "expense",
+  const [transactionType, setTransactionType] = useState<TransactionType>(
+    initialValues?.type ?? types.expense,
   );
+
+  const [isRecurring, setIsRecurring] = useState(
+    initialValues?.isRecurring ?? false,
+  );
+  const [recurringDay, setRecurringDay] = useState(
+    initialValues?.recurringDate ||
+      (initialValues?.date ? dayjs(initialValues.date).date() : dayjs().date()),
+  );
+
+  const [isDateInFuture, setIsDateInFuture] = useState(() => {
+    if (initialValues?.date) {
+      const selectedDate = dayjs(initialValues.date).startOf("day");
+      const today = dayjs().startOf("day");
+      return selectedDate.isAfter(today);
+    }
+    return false;
+  });
 
   logger.debug("TransactionForm", "initialValues", initialValues);
 
@@ -59,17 +84,49 @@ export function TransactionForm({
       date: initialValues?.date
         ? formatDate(dayjs(initialValues.date))
         : formatDate(dayjs()),
-      type: initialValues?.type ?? "expense",
+      type: initialValues?.type ?? types.expense,
       categoryId: initialValues?.categoryId ?? "",
+      status: initialValues?.status ?? statuses.paid,
+      isRecurring: initialValues?.isRecurring ?? false,
+      recurringDate: initialValues?.recurringDate,
     },
     onSubmit: ({ value }) => {
       onSubmit({
         ...value,
         amount: Math.abs(value.amount),
         date: dayjs.utc(value.date).toISOString(),
+        isRecurring,
+        recurringDate: isRecurring ? recurringDay : undefined,
+        status: calculateStatus(value.status),
       });
     },
   });
+
+  useEffect(() => {
+    const dateValue = form.getFieldValue("date") || "";
+    const selectedDate = dayjs(dateValue).startOf("day");
+    const today = dayjs().startOf("day");
+    setIsDateInFuture(selectedDate.isAfter(today));
+  }, [form]);
+
+  const calculateStatus = (status: TransactionStatus): TransactionStatus => {
+    if (
+      isDateInFuture &&
+      (status === statuses.draft || status === statuses.paid)
+    ) {
+      return statuses.upcoming;
+    }
+
+    if (status !== statuses.draft && status !== statuses.paid) {
+      return status;
+    }
+
+    return status;
+  };
+
+  const allowedStatuses = isDateInFuture
+    ? [statuses.draft, statuses.paid, statuses.upcoming]
+    : [statuses.draft, statuses.paid];
 
   const filteredCategories = categories.filter(
     (category) => category.type === transactionType,
@@ -194,7 +251,32 @@ export function TransactionForm({
                 min={minDate}
                 max={maxDate}
                 value={field.state.value}
-                onChange={(e) => field.handleChange(e.target.value)}
+                onChange={(e) => {
+                  field.handleChange(e.target.value);
+
+                  const selectedDate = dayjs(e.target.value).startOf("day");
+                  const today = dayjs().startOf("day");
+                  const newIsDateInFuture = selectedDate.isAfter(today);
+                  setIsDateInFuture(newIsDateInFuture);
+
+                  const currentStatus = form.getFieldValue("status");
+
+                  // If date is in future and status is draft or paid, update to upcoming
+                  if (
+                    newIsDateInFuture &&
+                    (currentStatus === statuses.draft ||
+                      currentStatus === statuses.paid)
+                  ) {
+                    form.setFieldValue("status", statuses.upcoming);
+                  }
+                  // If date is not in future and status is upcoming, revert to paid
+                  else if (
+                    !newIsDateInFuture &&
+                    currentStatus === statuses.upcoming
+                  ) {
+                    form.setFieldValue("status", statuses.paid);
+                  }
+                }}
               />
             </FormField>
           )}
@@ -220,6 +302,72 @@ export function TransactionForm({
             </FormField>
           )}
         </form.Field>
+
+        <form.Field name="status">
+          {(field) => (
+            <FormField
+              name="status"
+              label={t("transactions.transactionDialog.form.status")}
+              error={field.state.meta.errors?.[0]}
+            >
+              <Select
+                value={field.state.value}
+                onValueChange={(value) => {
+                  field.handleChange(value as TransactionStatus);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={t(
+                      "transactions.transactionDialog.form.selectStatus",
+                    )}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {allowedStatuses.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status.charAt(0).toUpperCase() + status.slice(1)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+          )}
+        </form.Field>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="isRecurring">
+              {t("transactions.transactionDialog.form.isRecurring")}
+            </Label>
+            <Switch
+              id="isRecurring"
+              checked={isRecurring}
+              onCheckedChange={setIsRecurring}
+            />
+          </div>
+
+          {isRecurring && (
+            <FormField
+              name="recurringDate"
+              label={t("transactions.transactionDialog.form.recurringDay")}
+            >
+              <Input
+                id="recurringDate"
+                type="number"
+                min="1"
+                max="31"
+                value={recurringDay}
+                onChange={(e) => {
+                  const day = parseInt(e.target.value, 10);
+                  if (!isNaN(day) && day >= 1 && day <= 31) {
+                    setRecurringDay(day);
+                  }
+                }}
+              />
+            </FormField>
+          )}
+        </div>
       </div>
 
       <DialogFooter className="flex gap-2 mt-6">

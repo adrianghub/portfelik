@@ -1,6 +1,6 @@
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
-import { Notification } from "./notification";
+import { Notification } from "../types/notification";
 
 /**
  * Saves a notification to Firestore

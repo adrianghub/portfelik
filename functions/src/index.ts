@@ -13,10 +13,18 @@ import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { onRequest } from "firebase-functions/v2/https";
 import { ScheduledEvent, onSchedule } from "firebase-functions/v2/scheduler";
 import { sendAdminTransactionSummaryFunction } from "./notifications/sendAdminTransactionSummary";
-import {
-  GroupInvitation,
-  sendGroupInvitationNotification,
-} from "./notifications/sendGroupInvitationNotification";
+import { sendGroupInvitationNotification } from "./notifications/sendGroupInvitationNotification";
+import { migrateTransactionsFunction } from "./transactions/migrateTransactions";
+import { processRecurringTransactionsFunction } from "./transactions/processRecurringTransactions";
+import { updateTransactionStatusesFunction } from "./transactions/updateTransactionStatuses";
+import type { GroupInvitation } from "./types/group-invitation";
+import type { User } from "./types/user";
+
+const defaultProperties = {
+  timeZone: "Europe/Warsaw",
+  retryCount: 3,
+  region: "europe-central2",
+};
 
 try {
   admin.initializeApp();
@@ -25,40 +33,11 @@ try {
   throw error;
 }
 
-type UserRole = "user" | "admin";
-
-export interface User {
-  uid: string;
-  email: string | null;
-  role: UserRole;
-  createdAt: Date;
-  lastLoginAt: Date;
-  fcmTokens?: string[];
-  tokenMetadata: Record<string, object>;
-  settings?: {
-    notificationsEnabled?: boolean;
-  };
-}
-
-// Function to send daily transaction summaries to users - SKIPPED FOR NOW
-// export const sendTransactionSummary = onSchedule(
-//   {
-//     schedule: "0 8 * * *", // 8 AM every day
-//     timeZone: "Europe/Warsaw",
-//     retryCount: 3,
-//   },
-//   async (_event: ScheduledEvent) => {
-//     logger.info("Running sendTransactionSummary scheduled function");
-//     await sendTransactionSummaryFunction();
-//   },
-// );
-
+// Function to send admin transaction summary at 8 AM every Monday
 export const sendAdminTransactionSummary = onSchedule(
   {
-    schedule: "0 9 * * *",
-    timeZone: "Europe/Warsaw",
-    retryCount: 3,
-    region: "europe-central2",
+    schedule: "0 8 * * 1", // 8 AM every Monday
+    ...defaultProperties,
   },
   async (_event: ScheduledEvent) => {
     logger.info("Running sendAdminTransactionSummary scheduled function");
@@ -68,7 +47,7 @@ export const sendAdminTransactionSummary = onSchedule(
 
 export const sendAdminTransactionSummaryManual = onRequest(
   {
-    region: "europe-central2",
+    region: defaultProperties.region,
   },
   async (_req, res) => {
     try {
@@ -96,11 +75,10 @@ export const sendAdminTransactionSummaryManual = onRequest(
 export const onGroupInvitationCreated = onDocumentCreated(
   {
     document: "group-invitations/{invitationId}",
-    region: "europe-central2",
+    region: defaultProperties.region,
   },
   async (event) => {
     try {
-      // Get the invitation data
       const invitationData = event.data?.data();
       if (!invitationData || invitationData.status !== "pending") {
         logger.info("Skipping notification for non-pending invitation");
@@ -111,7 +89,6 @@ export const onGroupInvitationCreated = onDocumentCreated(
         `Processing new group invitation: ${event.params.invitationId}`,
       );
 
-      // Get the inviter's information to include their name in the notification
       const db = admin.firestore();
       const inviterDoc = await db
         .collection("users")
@@ -124,9 +101,8 @@ export const onGroupInvitationCreated = onDocumentCreated(
       }
 
       const inviter = inviterDoc.data() as User;
-      const inviterName = inviter.email?.split("@")[0] || "Someone"; // Use first part of email as name
+      const inviterName = inviter.email?.split("@")[0] || "Anonymous";
 
-      // Construct the invitation object with the required fields
       const invitation: GroupInvitation = {
         id: event.params.invitationId,
         groupId: invitationData.groupId,
@@ -147,6 +123,109 @@ export const onGroupInvitationCreated = onDocumentCreated(
       );
     } catch (error) {
       logger.error("Error processing group invitation:", error);
+    }
+  },
+);
+
+// Function to process recurring transactions at the beginning of each month
+export const processRecurringTransactions = onSchedule(
+  {
+    schedule: "0 0 1 * *", // Midnight on the 1st day of every month
+    ...defaultProperties,
+  },
+  async (_event: ScheduledEvent) => {
+    logger.info("Running processRecurringTransactions scheduled function");
+    await processRecurringTransactionsFunction();
+  },
+);
+
+export const processRecurringTransactionsManual = onRequest(
+  {
+    region: defaultProperties.region,
+  },
+  async (_req, res) => {
+    try {
+      logger.info("Running processRecurringTransactions manual function");
+      await processRecurringTransactionsFunction();
+
+      res.json({
+        success: true,
+        message: "Recurring transactions processed successfully",
+      });
+    } catch (error) {
+      logger.error("Error in manual recurring transactions processing:", error);
+      res.status(500).json({
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unknown error occurred while processing recurring transactions",
+      });
+    }
+  },
+);
+
+// Function to update transaction statuses daily
+export const updateTransactionStatuses = onSchedule(
+  {
+    schedule: "0 6 * * *", // 6 AM every day
+    ...defaultProperties,
+  },
+  async (_event: ScheduledEvent) => {
+    logger.info("Running updateTransactionStatuses scheduled function");
+    await updateTransactionStatusesFunction();
+  },
+);
+
+export const updateTransactionStatusesManual = onRequest(
+  {
+    region: defaultProperties.region,
+  },
+  async (_req, res) => {
+    try {
+      logger.info("Running updateTransactionStatuses manual function");
+      await updateTransactionStatusesFunction();
+
+      res.json({
+        success: true,
+        message: "Transaction statuses updated successfully",
+      });
+    } catch (error) {
+      logger.error("Error in manual transaction status update:", error);
+      res.status(500).json({
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unknown error occurred while updating transaction statuses",
+      });
+    }
+  },
+);
+
+// Manual trigger for migrating transactions to include status and recurring fields
+export const migrateTransactions = onRequest(
+  {
+    region: defaultProperties.region,
+  },
+  async (_req, res) => {
+    try {
+      logger.info("Running transaction migration function");
+      await migrateTransactionsFunction();
+
+      res.json({
+        success: true,
+        message: "Transactions migration completed successfully",
+      });
+    } catch (error) {
+      logger.error("Error in transaction migration:", error);
+      res.status(500).json({
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unknown error occurred while migrating transactions",
+      });
     }
   },
 );

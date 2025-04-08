@@ -1,5 +1,5 @@
 import { COLLECTIONS, FirestoreService } from "@/lib/firebase/firestore";
-import type { Transaction } from "@/modules/transactions/transaction";
+import { statuses, type Transaction } from "@/modules/transactions/transaction";
 import dayjs from "dayjs";
 import {
   doc,
@@ -20,12 +20,27 @@ export class TransactionService extends FirestoreService<Transaction> {
   }
 
   async create(transaction: Omit<Transaction, "id">): Promise<Transaction> {
-    // Ensure date is in ISO string format
-    const transactionWithFormattedDate = {
+    const transactionData = {
       ...transaction,
       date: dayjs(transaction.date).toISOString(),
+      status: transaction.status || statuses.paid,
+      isRecurring: transaction.isRecurring || false,
     };
-    return super.create(transactionWithFormattedDate);
+
+    const cleanedData = this.removeUndefinedValues(transactionData);
+    return super.create(cleanedData);
+  }
+
+  private removeUndefinedValues<T extends Record<string, unknown>>(obj: T): T {
+    const result = { ...obj } as Record<string, unknown>;
+
+    Object.keys(result).forEach((key) => {
+      if (result[key] === undefined) {
+        delete result[key];
+      }
+    });
+
+    return result as T;
   }
 
   async update(
@@ -37,7 +52,8 @@ export class TransactionService extends FirestoreService<Transaction> {
       ...updates,
       ...(updates.date && { date: dayjs(updates.date).toISOString() }),
     };
-    return super.update(id, updatesWithFormattedDate);
+    const cleanedUpdates = this.removeUndefinedValues(updatesWithFormattedDate);
+    return super.update(id, cleanedUpdates);
   }
 
   async delete(id: string): Promise<void> {

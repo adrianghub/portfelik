@@ -1,6 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { ExpansesByCategoryCard } from "@/modules/transactions/components/ExpansesByCategoryCard";
-import { useTranslation } from "react-i18next";
 import { useTransactionsSummary } from "../hooks/useTransactionsSummaryQuery";
 import { TransactionsSummaryCard } from "./TransactionsSummaryCard";
 
@@ -13,12 +12,10 @@ export function TransactionsSummary({
   startDate,
   endDate,
 }: TransactionsSummaryProps) {
-  const { t } = useTranslation();
-  const {
-    data: summary,
-    isLoading,
-    error,
-  } = useTransactionsSummary(startDate, endDate);
+  const { data: summary, isLoading } = useTransactionsSummary(
+    startDate,
+    endDate,
+  );
 
   if (isLoading) {
     return (
@@ -37,24 +34,8 @@ export function TransactionsSummary({
     );
   }
 
-  if (error) {
-    return (
-      <div className="bg-card rounded-lg p-4 shadow text-center">
-        <p className="text-destructive">
-          {t("transactions.errorLoadingSummaries")}
-        </p>
-      </div>
-    );
-  }
-
   if (!summary) {
-    return (
-      <div className="bg-card rounded-lg p-4 shadow text-center">
-        <p className="text-muted-foreground">
-          {t("transactions.noSummaryData")}
-        </p>
-      </div>
-    );
+    return null;
   }
 
   return (

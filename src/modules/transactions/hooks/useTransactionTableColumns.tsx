@@ -6,10 +6,14 @@ import { formatCurrency } from "@/lib/format-currency";
 import { cn } from "@/lib/styling-utils";
 import type { UserData } from "@/modules/admin/users/UserService";
 import { SharedTransactionIndicator } from "@/modules/transactions/components/SharedTransactionIndicator";
-import type { Transaction } from "@/modules/transactions/transaction";
+import type {
+  Transaction,
+  TransactionStatus,
+} from "@/modules/transactions/transaction";
+import { getStatusDisplayProperties } from "@/modules/transactions/utils/getStatusColor";
 import { Link } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Edit, ShoppingCart, Trash2 } from "lucide-react";
+import { Edit, Repeat, ShoppingCart, Trash2 } from "lucide-react";
 
 interface UseTransactionColumnsProps {
   isMobile: boolean;
@@ -58,7 +62,15 @@ function getMobileColumns({
             {renderAmount(row.original)}
           </div>
           <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <span>{formatDisplayDate(row.original.date)}</span>
+            <div className="flex items-center gap-2">
+              <span>{formatDisplayDate(row.original.date)}</span>
+              {renderStatusBadge(row.original.status)}
+              {row.original.isRecurring && (
+                <span className="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-full">
+                  <Repeat className="h-3 w-3" />
+                </span>
+              )}
+            </div>
             {row.original.shoppingListId && (
               <div onClick={(e) => e.stopPropagation()}>
                 {renderShoppingListLink(
@@ -120,6 +132,11 @@ function getDesktopColumns({
         <div className="font-medium truncate max-w-[250px] flex items-center">
           {row.original.description}
           <SharedTransactionIndicator transaction={row.original} />
+          {row.original.isRecurring && (
+            <span className="ml-1 text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-full">
+              <Repeat className="h-3 w-3" />
+            </span>
+          )}
         </div>
       ),
     },
@@ -127,6 +144,15 @@ function getDesktopColumns({
       accessorKey: "date",
       header: "Date",
       cell: ({ row }) => formatDisplayDate(row.original.date),
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2 justify-center">
+          {renderStatusBadge(row.original.status)}
+        </div>
+      ),
     },
     {
       accessorKey: "categoryId",
@@ -151,7 +177,7 @@ function getDesktopColumns({
             className="flex items-center gap-1 text-accent-foreground hover:underline"
           >
             <ShoppingCart className="h-3 w-3" />
-            {list.name}
+            <span className="truncate max-w-[100px]">{list.name}</span>
           </Link>
         );
       },
@@ -183,6 +209,11 @@ function getDesktopColumns({
   });
 
   return columns;
+}
+
+function renderStatusBadge(status: TransactionStatus) {
+  const { color, icon } = getStatusDisplayProperties(status);
+  return <span className={`rounded-full text-xs ${color}`}>{icon}</span>;
 }
 
 function renderAmount(transaction: Transaction) {
