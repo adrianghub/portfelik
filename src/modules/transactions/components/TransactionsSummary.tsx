@@ -15,7 +15,7 @@ export function TransactionsSummary({
 }: TransactionsSummaryProps) {
   const { t } = useTranslation();
   const {
-    data: summaries = [],
+    data: summary,
     isLoading,
     error,
   } = useTransactionsSummary(startDate, endDate);
@@ -47,7 +47,7 @@ export function TransactionsSummary({
     );
   }
 
-  if (summaries.length === 0) {
+  if (!summary) {
     return (
       <div className="bg-card rounded-lg p-4 shadow text-center">
         <p className="text-muted-foreground">
@@ -59,12 +59,8 @@ export function TransactionsSummary({
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {summaries.map((summary) => (
-        <TransactionsSummaryCard key={summary.month} summary={summary} />
-      ))}
-      {summaries.map((summary) => (
-        <ExpansesByCategoryCard key={summary.month} summary={summary} />
-      ))}
+      <TransactionsSummaryCard key={summary.month} summary={summary} />
+      <ExpansesByCategoryCard categorySummaries={summary.categorySummaries} />
     </div>
   );
 }

@@ -42,8 +42,11 @@
     "noTransactions": "Brak transakcji",
     "noTransactionsForThisMonth": "Brak transakcji w miesiącu {{month}}",
     "errorLoadingSummaries": "Wystąpił błąd podczas ładowania podsumowań",
-    "expensesByCategory": "Wydatki w kategoriach",
-    "expensesByCategoryDescription": "Posortowane malejąco po ilości transakcji",
+    "expensesByCategory": {
+      "title": "Wydatki w kategoriach",
+      "description": "Posortowane malejąco po ilości transakcji",
+      "more": "więcej"
+    },
     "noSummaryData": "Brak danych do podsumowania",
     "income": "Przychód",
     "expenses": "Wydatki",

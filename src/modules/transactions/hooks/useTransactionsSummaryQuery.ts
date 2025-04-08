@@ -21,7 +21,7 @@ export interface MonthlySummary {
 }
 
 export interface TransactionSummaryResponse {
-  summaries: MonthlySummary[];
+  summary: MonthlySummary | null;
 }
 
 export const TRANSACTION_SUMMARY_QUERY_KEY = ["transactions-summary"];
@@ -30,7 +30,7 @@ const fetchTransactionSummaries = async (
   token: string,
   startDate?: dayjs.Dayjs,
   endDate?: dayjs.Dayjs,
-): Promise<MonthlySummary[]> => {
+): Promise<MonthlySummary | null> => {
   let url = `${API_BASE_URL}/api/v1/transactions/summary`;
 
   if (startDate && endDate) {
@@ -47,7 +47,7 @@ const fetchTransactionSummaries = async (
       },
     });
 
-    return response.summaries;
+    return response.summary;
   } catch (error) {
     console.error("Error fetching transaction summaries:", error);
     throw error;
@@ -58,7 +58,7 @@ const fetchSharedTransactionSummaries = async (
   token: string,
   startDate?: dayjs.Dayjs,
   endDate?: dayjs.Dayjs,
-): Promise<MonthlySummary[]> => {
+): Promise<MonthlySummary | null> => {
   let url = `${API_BASE_URL}/api/v1/transactions/summary/shared`;
 
   if (startDate && endDate) {
@@ -75,7 +75,7 @@ const fetchSharedTransactionSummaries = async (
       },
     });
 
-    return response.summaries;
+    return response.summary;
   } catch (error) {
     console.error("Error fetching shared transaction summaries:", error);
     throw error;
@@ -100,138 +100,24 @@ export function useTransactionsSummary(startDate?: Date, endDate?: Date) {
       dayjsEndDate?.toISOString(),
     ],
     queryFn: async () => {
-      if (!userId) return [];
+      if (!userId) return null;
 
       try {
         const token = await getIdToken();
         if (!token) throw new Error("Authentication token not available");
 
-        const summaries = await fetchTransactionSummaries(
+        const summary = await fetchTransactionSummaries(
           token,
           dayjsStartDate,
           dayjsEndDate,
         );
 
-        if (!isAdmin) {
-          const sharedSummaries = await fetchSharedTransactionSummaries(
-            token,
-            dayjsStartDate,
-            dayjsEndDate,
-          );
-
-          // Merge summaries by month, combining regular and shared data
-          const allSummaries = [...summaries];
-
-          // Index regular summaries by month
-          const summariesByMonth = summaries.reduce(
-            (acc, summary) => {
-              acc[summary.month] = summary;
-              return acc;
-            },
-            {} as Record<string, MonthlySummary>,
-          );
-
-          // Process shared summaries
-          sharedSummaries.forEach((sharedSummary) => {
-            const monthKey = sharedSummary.month;
-
-            if (summariesByMonth[monthKey]) {
-              // Month exists in regular summaries, merge data
-              const existingSummary = summariesByMonth[monthKey];
-
-              // Build a map of category amounts from existing summary
-              const categoryMap = existingSummary.categorySummaries.reduce(
-                (acc, category) => {
-                  acc[category.categoryId] = {
-                    amount: category.amount,
-                    transactionCount: category.transactionCount,
-                  };
-                  return acc;
-                },
-                {} as Record<
-                  string,
-                  { amount: number; transactionCount: number }
-                >,
-              );
-
-              // Add amounts from shared categories
-              sharedSummary.categorySummaries.forEach((sharedCategory) => {
-                if (categoryMap[sharedCategory.categoryId]) {
-                  categoryMap[sharedCategory.categoryId].amount +=
-                    sharedCategory.amount;
-                  categoryMap[sharedCategory.categoryId].transactionCount +=
-                    sharedCategory.transactionCount;
-                } else {
-                  categoryMap[sharedCategory.categoryId] = {
-                    amount: sharedCategory.amount,
-                    transactionCount: sharedCategory.transactionCount,
-                  };
-                }
-              });
-
-              // Calculate combined total expenses
-              const combinedTotalExpenses =
-                existingSummary.totalExpenses + sharedSummary.totalExpenses;
-
-              // Create merged category summaries with updated percentages
-              const mergedCategorySummaries = Object.entries(categoryMap).map(
-                ([categoryId, categoryData]) => ({
-                  categoryId,
-                  amount: categoryData.amount,
-                  percentage:
-                    combinedTotalExpenses > 0
-                      ? (categoryData.amount / combinedTotalExpenses) * 100
-                      : 0,
-                  transactionCount: categoryData.transactionCount,
-                }),
-              );
-
-              // Replace the summary in allSummaries with merged data
-              const index = allSummaries.findIndex((s) => s.month === monthKey);
-              if (index !== -1) {
-                allSummaries[index] = {
-                  ...existingSummary,
-                  totalExpenses: combinedTotalExpenses,
-                  totalIncome:
-                    existingSummary.totalIncome + sharedSummary.totalIncome,
-                  delta:
-                    existingSummary.totalIncome +
-                    sharedSummary.totalIncome -
-                    combinedTotalExpenses,
-                  categorySummaries: mergedCategorySummaries,
-                };
-              }
-            } else {
-              // Month doesn't exist in regular summaries, add it
-              allSummaries.push(sharedSummary);
-            }
-          });
-
-          // Sort by month (newest first)
-          allSummaries.sort((a, b) => {
-            return (
-              dayjs(b.month + "-01").valueOf() -
-              dayjs(a.month + "-01").valueOf()
-            );
-          });
-
-          return allSummaries;
-        }
-
-        // Sort by month (newest first)
-        summaries.sort((a, b) => {
-          return (
-            dayjs(b.month + "-01").valueOf() - dayjs(a.month + "-01").valueOf()
-          );
-        });
-
-        return summaries;
+        return summary;
       } catch (error) {
-        console.error("Error fetching transaction summaries:", error);
+        console.error("Error in useTransactionsSummary:", error);
         throw error;
       }
     },
-    enabled: !!userId,
   });
 }
 
@@ -252,7 +138,7 @@ export function useSharedTransactionsSummary(startDate?: Date, endDate?: Date) {
       dayjsEndDate?.toISOString(),
     ],
     queryFn: async () => {
-      if (!userId) return [];
+      if (!userId) return null;
 
       try {
         const token = await getIdToken();

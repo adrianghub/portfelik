@@ -53,10 +53,10 @@ export function ExpansesByCategoryDialog({
       >
         <DialogHeader>
           <DialogTitle className="text-xl">
-            {t("transactions.expensesByCategory")}
+            {t("transactions.expensesByCategory.title")}
           </DialogTitle>
           <DialogDescription>
-            {t("transactions.expensesByCategoryDescription")}
+            {t("transactions.expensesByCategory.description")}
           </DialogDescription>
         </DialogHeader>
         <div className="mt-4">

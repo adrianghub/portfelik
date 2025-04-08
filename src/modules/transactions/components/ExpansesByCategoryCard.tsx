@@ -2,23 +2,25 @@ import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/format-currency";
 import { useFetchCategories } from "@/modules/shared/categories/useCategoriesQuery";
 import { ExpansesByCategoryDialog } from "@/modules/transactions/components/ExpansesByCategoryDialog";
-import { MonthlySummary } from "../hooks/useTransactionsSummaryQuery";
+import { useTranslation } from "react-i18next";
+import { type CategorySummary } from "../hooks/useTransactionsSummaryQuery";
 
 interface ExpansesByCategoryCardProps {
-  summary: MonthlySummary;
+  categorySummaries: CategorySummary[];
 }
 
 export function ExpansesByCategoryCard({
-  summary,
+  categorySummaries,
 }: ExpansesByCategoryCardProps) {
   const { data: categories = [] } = useFetchCategories();
+  const { t } = useTranslation();
 
   const getCategoryName = (categoryId: string) => {
     const category = categories.find((cat) => cat.id === categoryId);
     return category?.name || categoryId;
   };
 
-  const sortedCategories = [...summary.categorySummaries].sort(
+  const sortedCategories = [...categorySummaries].sort(
     (a, b) => b.transactionCount - a.transactionCount,
   );
 
@@ -51,15 +53,18 @@ export function ExpansesByCategoryCard({
             ))}
           </div>
         )}
-        <ExpansesByCategoryDialog
-          trigger={
-            <Button variant="ghost" className="text-sm w-full">
-              + {sortedCategories.length - 1} więcej
-            </Button>
-          }
-          categories={categories}
-          categoriesSummary={sortedCategories}
-        />
+        {sortedCategories.length > 1 && (
+          <ExpansesByCategoryDialog
+            trigger={
+              <Button variant="ghost" className="text-sm w-full">
+                + {sortedCategories.length - 1}{" "}
+                {t("transactions.expensesByCategory.more")}
+              </Button>
+            }
+            categories={categories}
+            categoriesSummary={sortedCategories}
+          />
+        )}
       </div>
     </div>
   );
