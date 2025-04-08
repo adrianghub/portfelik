@@ -8,6 +8,7 @@ import {
 import { COLLECTIONS } from "@/lib/firebase/firestore";
 import { FloatingActionButtonGroup } from "@/modules/shared/components/FloatingActionButtonGroup";
 import { TransactionTable } from "@/modules/transactions/components/TransactionTable";
+import { TRANSACTION_SUMMARY_QUERY_KEY } from "@/modules/transactions/hooks/useTransactionsSummaryQuery";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus, RefreshCw } from "lucide-react";
 import { useCallback, useState } from "react";
@@ -69,7 +70,7 @@ export function TransactionsView() {
     try {
       const startTime = Date.now();
       await queryClient.invalidateQueries({
-        queryKey: [COLLECTIONS.TRANSACTIONS],
+        queryKey: [COLLECTIONS.TRANSACTIONS, TRANSACTION_SUMMARY_QUERY_KEY],
       });
       await refetch();
       showSuccessToast("refresh");

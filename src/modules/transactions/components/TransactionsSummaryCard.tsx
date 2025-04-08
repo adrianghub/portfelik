@@ -1,13 +1,8 @@
 import { formatCurrency } from "@/lib/format-currency";
 import { cn } from "@/lib/styling-utils";
-import { useFetchCategories } from "@/modules/shared/categories/useCategoriesQuery";
 import { ArrowDownIcon, ArrowUpIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { MonthlySummary } from "../hooks/useTransactionsSummaryQuery";
-
-// Fixed category id for now - I'm interesting in the category related to groceries
-const GROCERIES_CATEGORY_ID_TEST = "bT2wDeZ5wfCf3GJTfhLK";
-const GROCERIES_CATEGORY_ID_PROD = "ceGNUblBuWKbynZ1FLtL";
 
 interface TransactionsSummaryCardProps {
   summary: MonthlySummary;
@@ -17,17 +12,6 @@ export function TransactionsSummaryCard({
   summary,
 }: TransactionsSummaryCardProps) {
   const { t } = useTranslation();
-  const { data: categories = [] } = useFetchCategories();
-
-  const getCategoryName = (categoryId: string) => {
-    const category = categories.find((cat) => cat.id === categoryId);
-    return category?.name || categoryId;
-  };
-
-  const sortedCategories = [...summary.categorySummaries].sort(
-    (a, b) => b.amount - a.amount,
-  );
-
   const isPositiveDelta = summary.delta >= 0;
 
   return (
@@ -84,38 +68,6 @@ export function TransactionsSummaryCard({
             {formatCurrency(summary.delta)}
           </div>
         </div>
-
-        {sortedCategories.length > 0 && (
-          <div className="space-y-2">
-            {sortedCategories
-              .filter(
-                (category) =>
-                  category.categoryId === GROCERIES_CATEGORY_ID_TEST ||
-                  category.categoryId === GROCERIES_CATEGORY_ID_PROD,
-              )
-              .map((category) => (
-                <div key={category.categoryId}>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="truncate max-w-[70%]">
-                      {getCategoryName(category.categoryId)}
-                    </span>
-                    <span>{Math.round(category.percentage)}%</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-full h-2 bg-muted rounded overflow-hidden">
-                      <div
-                        className={`h-full bg-accent-foreground`}
-                        style={{ width: `${category.percentage}%` }}
-                      ></div>
-                    </div>
-                    <span className="text-xs font-medium">
-                      {formatCurrency(category.amount)}
-                    </span>
-                  </div>
-                </div>
-              ))}
-          </div>
-        )}
       </div>
     </div>
   );

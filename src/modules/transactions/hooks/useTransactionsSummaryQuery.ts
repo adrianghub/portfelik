@@ -9,6 +9,7 @@ export interface CategorySummary {
   categoryId: string;
   amount: number;
   percentage: number;
+  transactionCount: number;
 }
 
 export interface MonthlySummary {
@@ -22,6 +23,8 @@ export interface MonthlySummary {
 export interface TransactionSummaryResponse {
   summaries: MonthlySummary[];
 }
+
+export const TRANSACTION_SUMMARY_QUERY_KEY = ["transactions-summary"];
 
 const fetchTransactionSummaries = async (
   token: string,
@@ -90,7 +93,7 @@ export function useTransactionsSummary(startDate?: Date, endDate?: Date) {
   return useQuery({
     queryKey: [
       COLLECTIONS.TRANSACTIONS,
-      "summary",
+      TRANSACTION_SUMMARY_QUERY_KEY,
       userId,
       isAdmin,
       dayjsStartDate?.toISOString(),
@@ -139,20 +142,30 @@ export function useTransactionsSummary(startDate?: Date, endDate?: Date) {
               // Build a map of category amounts from existing summary
               const categoryMap = existingSummary.categorySummaries.reduce(
                 (acc, category) => {
-                  acc[category.categoryId] = category.amount;
+                  acc[category.categoryId] = {
+                    amount: category.amount,
+                    transactionCount: category.transactionCount,
+                  };
                   return acc;
                 },
-                {} as Record<string, number>,
+                {} as Record<
+                  string,
+                  { amount: number; transactionCount: number }
+                >,
               );
 
               // Add amounts from shared categories
               sharedSummary.categorySummaries.forEach((sharedCategory) => {
                 if (categoryMap[sharedCategory.categoryId]) {
-                  categoryMap[sharedCategory.categoryId] +=
+                  categoryMap[sharedCategory.categoryId].amount +=
                     sharedCategory.amount;
+                  categoryMap[sharedCategory.categoryId].transactionCount +=
+                    sharedCategory.transactionCount;
                 } else {
-                  categoryMap[sharedCategory.categoryId] =
-                    sharedCategory.amount;
+                  categoryMap[sharedCategory.categoryId] = {
+                    amount: sharedCategory.amount,
+                    transactionCount: sharedCategory.transactionCount,
+                  };
                 }
               });
 
@@ -162,13 +175,14 @@ export function useTransactionsSummary(startDate?: Date, endDate?: Date) {
 
               // Create merged category summaries with updated percentages
               const mergedCategorySummaries = Object.entries(categoryMap).map(
-                ([categoryId, amount]) => ({
+                ([categoryId, categoryData]) => ({
                   categoryId,
-                  amount,
+                  amount: categoryData.amount,
                   percentage:
                     combinedTotalExpenses > 0
-                      ? (amount / combinedTotalExpenses) * 100
+                      ? (categoryData.amount / combinedTotalExpenses) * 100
                       : 0,
+                  transactionCount: categoryData.transactionCount,
                 }),
               );
 
@@ -231,7 +245,7 @@ export function useSharedTransactionsSummary(startDate?: Date, endDate?: Date) {
   return useQuery({
     queryKey: [
       COLLECTIONS.TRANSACTIONS,
-      "summary",
+      TRANSACTION_SUMMARY_QUERY_KEY,
       "shared",
       userId,
       dayjsStartDate?.toISOString(),

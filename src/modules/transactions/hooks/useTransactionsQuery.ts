@@ -7,7 +7,6 @@ import type { Transaction } from "@/modules/transactions/transaction";
 import { transactionService } from "@/modules/transactions/TransactionService";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
-import { useTransactionToasts } from "./useTransactionToasts";
 
 export type {
   CategorySummary,
@@ -165,7 +164,6 @@ export function useAddTransaction() {
   const queryClient = useQueryClient();
   const { userData } = useAuth();
   const userId = userData?.uid;
-  const { showSuccessToast, showErrorToast } = useTransactionToasts();
 
   return useMutation({
     mutationFn: (transaction: Transaction) => {
@@ -177,7 +175,7 @@ export function useAddTransaction() {
         date: formatDateToISOString(transaction.date),
         amount:
           transaction.type === "expense"
-            ? -Math.abs(transaction.amount)
+            ? Math.abs(transaction.amount)
             : Math.abs(transaction.amount),
         createdAt: dayjs().toISOString(),
         updatedAt: dayjs().toISOString(),
@@ -185,19 +183,13 @@ export function useAddTransaction() {
 
       return transactionService.create(firestoreTransaction);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [COLLECTIONS.TRANSACTIONS] });
-      showSuccessToast("create");
-    },
-    onError: (error) => {
-      showErrorToast("create", error);
-    },
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: [COLLECTIONS.TRANSACTIONS] }),
   });
 }
 
 export function useUpdateTransaction() {
   const queryClient = useQueryClient();
-  const { showSuccessToast, showErrorToast } = useTransactionToasts();
 
   return useMutation({
     mutationFn: ({
@@ -212,36 +204,25 @@ export function useUpdateTransaction() {
         date: transaction.date ? formatDate(transaction.date) : undefined,
         amount:
           transaction.type === "expense"
-            ? -Math.abs(transaction.amount ?? 0)
+            ? Math.abs(transaction.amount ?? 0)
             : Math.abs(transaction.amount ?? 0),
         updatedAt: dayjs().toISOString(),
       };
 
       return transactionService.update(id, firestoreTransaction);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [COLLECTIONS.TRANSACTIONS] });
-      showSuccessToast("update");
-    },
-    onError: (error) => {
-      showErrorToast("update", error);
-    },
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: [COLLECTIONS.TRANSACTIONS] }),
   });
 }
 
 export function useDeleteTransaction() {
   const queryClient = useQueryClient();
-  const { showSuccessToast, showErrorToast } = useTransactionToasts();
 
   return useMutation({
     mutationFn: (id: string) => transactionService.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [COLLECTIONS.TRANSACTIONS] });
-      showSuccessToast("delete");
-    },
-    onError: (error) => {
-      showErrorToast("delete", error);
-    },
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: [COLLECTIONS.TRANSACTIONS] }),
   });
 }
 
