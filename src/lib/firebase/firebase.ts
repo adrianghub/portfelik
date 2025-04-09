@@ -5,10 +5,12 @@ import {
   connectAuthEmulator,
   signOut as firebaseSignOut,
   getAuth,
+  GoogleAuthProvider,
   indexedDBLocalPersistence,
   onAuthStateChanged,
   setPersistence,
   signInWithEmailAndPassword,
+  signInWithPopup,
   User,
 } from "firebase/auth";
 import {
@@ -153,3 +155,29 @@ export const getCurrentUser = (): Promise<User | null> => {
     );
   });
 };
+
+/**
+ * Signs in a user with Google
+ * @returns A promise that resolves with the user's credentials
+ */
+export async function signInWithGoogle(): Promise<User> {
+  try {
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({
+      prompt: "select_account",
+    });
+
+    const userCredential = await signInWithPopup(auth, provider);
+    logger.info(
+      "Firebase Auth",
+      "Google sign-in successful:",
+      userCredential.user.email,
+    );
+    return userCredential.user;
+  } catch (error) {
+    if (error instanceof Error) {
+      logger.error("Firebase Auth", "Google sign in error:", error.message);
+    }
+    throw error;
+  }
+}

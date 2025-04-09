@@ -4,6 +4,7 @@ import type { SettingsSearch } from "@/routes/settings";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ProfileSection } from "./ProfileSection";
 import { UserGroupsSection } from "./UserGroupsSection";
 
 export function UserSettingsView() {
@@ -16,7 +17,6 @@ export function UserSettingsView() {
   });
 
   const [activeSubtab, setActiveSubtab] = useState(() => {
-    // Default to groups subtab, unless invitations is specified
     return search.subtab === "invitations" ? "invitations" : "groups";
   });
 
@@ -70,8 +70,9 @@ export function UserSettingsView() {
         className="space-y-4"
       >
         <TabsList className="w-full sm:w-auto">
-          <TabsTrigger value="groups" className="flex-1 sm:flex-none">
-            {t("settings.groups.title")}
+          <TabsTrigger value="groups">{t("settings.groups.title")}</TabsTrigger>
+          <TabsTrigger value="profile">
+            {t("settings.profile.title")}
           </TabsTrigger>
         </TabsList>
 
@@ -85,6 +86,17 @@ export function UserSettingsView() {
                 activeTab={activeSubtab}
                 onTabChange={handleSubtabChange}
               />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="profile">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("settings.profile.title")}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ProfileSection />
             </CardContent>
           </Card>
         </TabsContent>

@@ -3,11 +3,13 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { useTranslation } from "@/lib/i18n/useTranslation";
 import { useLoginForm } from "@/modules/login/useLoginForm";
 
@@ -17,10 +19,12 @@ export function LoginForm() {
     password,
     error,
     loading,
+    googleLoading,
     validationErrors,
     handleEmailChange,
     handlePasswordChange,
     handleSubmit,
+    handleGoogleSignIn,
   } = useLoginForm();
   const { t } = useTranslation();
 
@@ -71,10 +75,38 @@ export function LoginForm() {
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Logging in..." : "Login"}
+              {loading ? t("login.signingIn") : t("login.signIn")}
             </Button>
           </form>
         </CardContent>
+        <CardFooter className="flex flex-col space-y-4">
+          <div className="relative w-full">
+            <div className="absolute inset-0 flex items-center">
+              <Separator className="w-full" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">
+                {t("login.orContinueWith")}
+              </span>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={handleGoogleSignIn}
+            disabled={googleLoading}
+          >
+            {googleLoading ? (
+              t("login.signingInWithGoogle")
+            ) : (
+              <>
+                <img src="/google.svg" alt="Google" className="w-4 h-4" />
+                {t("login.signInWithGoogle")}
+              </>
+            )}
+          </Button>
+        </CardFooter>
       </Card>
     </div>
   );

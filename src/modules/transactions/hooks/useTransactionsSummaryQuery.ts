@@ -111,7 +111,14 @@ const combineCategorySummaries = (
 const combineSummaries = (
   userSummary: MonthlySummary | null,
   sharedSummary: MonthlySummary | null,
-): MonthlySummary => {
+): MonthlySummary | null => {
+  if (
+    !userSummary?.categorySummaries.length &&
+    !sharedSummary?.categorySummaries.length
+  ) {
+    return null;
+  }
+
   // Create base combined summary
   const combinedSummary: MonthlySummary = {
     month: userSummary?.month || sharedSummary?.month || "",
@@ -191,7 +198,6 @@ export function useTransactionsSummary(startDate?: Date, endDate?: Date) {
           fetchTransactionSummaries(token, dayjsStartDate, dayjsEndDate),
           fetchSharedTransactionSummaries(token, dayjsStartDate, dayjsEndDate),
         ]);
-
         return combineSummaries(userSummary, sharedSummary);
       } catch (error) {
         console.error("Error in useTransactionsSummary:", error);

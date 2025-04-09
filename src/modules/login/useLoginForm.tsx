@@ -1,3 +1,4 @@
+import { useAuth } from "@/hooks/useAuth";
 import { signIn } from "@/lib/firebase/firebase";
 import { useTranslation } from "@/lib/i18n/useTranslation";
 import { logger } from "@/lib/logger";
@@ -14,8 +15,10 @@ type LoginFormData = {
 
 export function useLoginForm() {
   const { t } = useTranslation();
+  const { signInWithGoogle } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [validationErrors, setValidationErrors] = useState<{
     email?: string;
     password?: string;
@@ -92,14 +95,34 @@ export function useLoginForm() {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    setError(null);
+    setGoogleLoading(true);
+
+    try {
+      await signInWithGoogle();
+      navigate({ to: getRedirectUrl() });
+    } catch (err) {
+      setError(t("login.error.generic"));
+      logger.error(
+        "Google login error:",
+        err instanceof Error ? err.message : String(err),
+      );
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   return {
     email: form.getFieldValue("email"),
     password: form.getFieldValue("password"),
     error,
     loading,
+    googleLoading,
     validationErrors,
     handleEmailChange,
     handlePasswordChange,
     handleSubmit,
+    handleGoogleSignIn,
   };
 }

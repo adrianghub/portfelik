@@ -24,8 +24,16 @@
       "tooManyAttempts": "Zbyt wiele nieudanych prób logowania. Spróbuj ponownie później.",
       "generic": "Wystąpił błąd podczas logowania. Spróbuj ponownie później.",
       "offline": "Nie jesteś połączony z internetem. Spróbuj ponownie później.",
-      "invalidCredentials": "Podany adres e-mail, bądź hasło jest niepoprawne. Spróbuj ponownie 😘"
-    }
+      "invalidCredentials": "Podany adres e-mail, bądź hasło jest niepoprawne. Spróbuj ponownie 😘",
+      "signInWithGoogle": "Zaloguj się z Google",
+      "signingIn": "Logowanie...",
+      "signIn": "Zaloguj się"
+    },
+    "signIn":"Zaloguj się",
+    "signingIn": "Logowanie...",
+    "orContinueWith": "Lub użyj innego konta",
+    "signInWithGoogle": "Zaloguj się z Google",
+    "signingInWithGoogle": "Logowanie z Google..."
   },
   "auth": {
     "signOut": "Wyloguj się"
@@ -168,7 +176,7 @@
   },
   "settings": {
     "title": "Ustawienia",
-    "description": "Zarządzaj swoimi ustawieniami",
+    "description": "Zarządzaj swoimi ustawieniami i preferencjami",
     "groups": {
       "title": "Grupy",
       "groupName": "Nazwa grupy",
@@ -272,6 +280,24 @@
       "inviteSuccess": "Zaproszenie zostało wysłane",
       "you": "Ty",
       "removeMember": "Usuń członka"
+    },
+    "profile": {
+      "title": "Profil",
+      "name": "Nazwa użytkownika",
+      "namePlaceholder": "Twoja nazwa użytkownika",
+      "save": "Zapisz zmiany",
+      "saving": "Zapisywanie...",
+      "saveSuccess": "Profil został zaktualizowany",
+      "saveError": "Wystąpił błąd podczas zapisywania profilu",
+      "dangerZone": "Strefa niebezpieczeństwa",
+      "deleteAccount": "Usuń konto",
+      "deleting": "Usuwanie...",
+      "deleteAccountConfirmTitle": "Czy na pewno chcesz usunąć swoje konto?",
+      "deleteAccountConfirmDescription": "Ta operacja jest nieodwracalna. Wszystkie Twoje dane, grupy i transakcje zostaną usunięte.",
+      "confirmDelete": "Tak, usuń moje konto",
+      "deleteSuccess": "Konto zostało usunięte",
+      "deleteError": "Wystąpił błąd podczas usuwania konta",
+      "cancel": "Anuluj"
     }
   }
 }
