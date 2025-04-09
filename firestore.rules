@@ -131,7 +131,6 @@ service cloud.firestore {
     match /transactions/{transactionId} {
       allow read: if isAuthenticated() && (
         request.auth.uid == resource.data.userId ||
-        isAdmin() ||
         usersShareGroup(request.auth.uid, resource.data.userId)
       );
 
@@ -139,14 +138,13 @@ service cloud.firestore {
         request.auth.uid == request.resource.data.userId;
 
       allow update, delete: if isAuthenticated() &&
-        (request.auth.uid == resource.data.userId || isAdmin());
+        request.auth.uid == resource.data.userId;
     }
 
     /** Shopping list collection rules */
     match /shopping-lists/{shoppingListId} {
       allow read: if isAuthenticated() && (
         request.auth.uid == resource.data.userId ||
-        isAdmin() ||
         (resource.data.groupId != null && isUserInGroup(resource.data.groupId))
       );
 
@@ -155,7 +153,6 @@ service cloud.firestore {
 
       allow update, delete: if isAuthenticated() && (
         request.auth.uid == resource.data.userId ||
-        isAdmin() ||
         (resource.data.groupId != null && isUserInGroup(resource.data.groupId))
       );
     }
@@ -188,7 +185,6 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (
         isCurrentUserGroupMember() ||
         isCurrentUserGroupOwner() ||
-        isAdmin() ||
         getUserEmail() != null  // For invited users
       );
 
@@ -215,8 +211,7 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (
         resource.data.createdBy == request.auth.uid || // Creator
         isInvitedUserByEmail() ||                      // Invited user
-        isGroupOwner(resource.data.groupId) ||         // Group owner
-        isAdmin()                                      // Admin
+        isGroupOwner(resource.data.groupId)         // Group owner
       );
 
       /** Create operations */

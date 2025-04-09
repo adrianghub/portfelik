@@ -29,7 +29,6 @@ interface TransactionDetailsSheetProps {
   shoppingLists: Record<string, ShoppingList>;
   loadingUsers: boolean;
   loadingShoppingLists: boolean;
-  showUserInfo: boolean;
   userData: UserData | null;
 }
 
@@ -43,7 +42,6 @@ export function TransactionDetailsSheet({
   shoppingLists,
   loadingUsers,
   loadingShoppingLists,
-  showUserInfo,
   userData,
 }: TransactionDetailsSheetProps) {
   const { t } = useTranslation();
@@ -129,7 +127,7 @@ export function TransactionDetailsSheet({
                   </div>
                 )}
               </div>
-              {showUserInfo && selectedTransaction.userId && (
+              {selectedTransaction.userId && (
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground">
                     {t("transactions.transactionDetailsSheet.user")}
@@ -162,8 +160,7 @@ export function TransactionDetailsSheet({
                   </Link>
                 </div>
               )}
-              {(userData?.role === "admin" ||
-                userData?.uid === selectedTransaction.userId) && (
+              {userData?.uid === selectedTransaction.userId && (
                 <div className="flex gap-2 mt-6">
                   {onEdit && (
                     <Button

@@ -7,25 +7,26 @@ import type { Transaction } from "@/modules/transactions/transaction";
 import { transactionService } from "@/modules/transactions/TransactionService";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
-
+import { buildUrl } from "./buildUrl";
 export type {
   CategorySummary,
   MonthlySummary,
   TransactionSummaryResponse,
 } from "./useTransactionsSummaryQuery";
 
+/**
+ * Fetches user transactions from the API
+ */
 const fetchTransactions = async (
   token: string,
   startDate?: dayjs.Dayjs,
   endDate?: dayjs.Dayjs,
 ): Promise<Transaction[]> => {
-  let url = `${API_BASE_URL}/api/v1/transactions`;
-
-  if (startDate && endDate) {
-    const startDateStr = startDate.toISOString();
-    const endDateStr = endDate.toISOString();
-    url += `?startDate=${encodeURIComponent(startDateStr)}&endDate=${encodeURIComponent(endDateStr)}`;
-  }
+  const url = buildUrl(
+    `${API_BASE_URL}/api/v1/transactions`,
+    startDate,
+    endDate,
+  );
 
   try {
     const response = await fetcher(url, {
@@ -42,18 +43,19 @@ const fetchTransactions = async (
   }
 };
 
+/**
+ * Fetches shared transactions from the API
+ */
 const fetchSharedTransactions = async (
   token: string,
   startDate?: dayjs.Dayjs,
   endDate?: dayjs.Dayjs,
 ): Promise<Transaction[]> => {
-  let url = `${API_BASE_URL}/api/v1/transactions/shared`;
-
-  if (startDate && endDate) {
-    const startDateStr = startDate.toISOString();
-    const endDateStr = endDate.toISOString();
-    url += `?startDate=${encodeURIComponent(startDateStr)}&endDate=${encodeURIComponent(endDateStr)}`;
-  }
+  const url = buildUrl(
+    `${API_BASE_URL}/api/v1/transactions/shared`,
+    startDate,
+    endDate,
+  );
 
   try {
     const response = await fetcher(url, {
@@ -70,10 +72,27 @@ const fetchSharedTransactions = async (
   }
 };
 
+/**
+ * Combines and sorts user and shared transactions
+ */
+const combineTransactions = (
+  userTransactions: Transaction[],
+  sharedTransactions: Transaction[],
+): Transaction[] => {
+  const allTransactions = [...userTransactions, ...sharedTransactions];
+
+  // Sort transactions by date (newest first)
+  return allTransactions.sort((a, b) => {
+    return dayjs(b.date).valueOf() - dayjs(a.date).valueOf();
+  });
+};
+
+/**
+ * Hook to fetch and combine user and shared transactions
+ */
 export function useTransactions(startDate?: Date, endDate?: Date) {
   const { userData, getIdToken } = useAuth();
   const userId = userData?.uid;
-  const isAdmin = userData?.role === "admin";
 
   const dayjsStartDate = startDate ? dayjs(startDate) : undefined;
   const dayjsEndDate = endDate ? dayjs(endDate) : undefined;
@@ -82,7 +101,6 @@ export function useTransactions(startDate?: Date, endDate?: Date) {
     queryKey: [
       COLLECTIONS.TRANSACTIONS,
       userId,
-      isAdmin,
       dayjsStartDate?.toISOString(),
       dayjsEndDate?.toISOString(),
       "withShared",
@@ -93,28 +111,14 @@ export function useTransactions(startDate?: Date, endDate?: Date) {
       try {
         const token = await getIdToken();
         if (!token) throw new Error("Authentication token not available");
-        const transactions = await fetchTransactions(
-          token,
-          dayjsStartDate,
-          dayjsEndDate,
-        );
 
-        if (!isAdmin) {
-          const sharedTransactions = await fetchSharedTransactions(
-            token,
-            dayjsStartDate,
-            dayjsEndDate,
-          );
+        // Fetch both transaction types concurrently using Promise.all
+        const [transactions, sharedTransactions] = await Promise.all([
+          fetchTransactions(token, dayjsStartDate, dayjsEndDate),
+          fetchSharedTransactions(token, dayjsStartDate, dayjsEndDate),
+        ]);
 
-          const allTransactions = [...transactions, ...sharedTransactions];
-          allTransactions.sort((a, b) => {
-            return dayjs(b.date).valueOf() - dayjs(a.date).valueOf();
-          });
-
-          return allTransactions;
-        }
-
-        return transactions;
+        return combineTransactions(transactions, sharedTransactions);
       } catch (error) {
         console.error("Error fetching transactions:", error);
         throw error;
@@ -124,6 +128,9 @@ export function useTransactions(startDate?: Date, endDate?: Date) {
   });
 }
 
+/**
+ * Hook to fetch only shared transactions
+ */
 export function useSharedTransactions(startDate?: Date, endDate?: Date) {
   const { userData, getIdToken } = useAuth();
   const userId = userData?.uid;
@@ -160,6 +167,9 @@ export function useSharedTransactions(startDate?: Date, endDate?: Date) {
   });
 }
 
+/**
+ * Hook to add a new transaction
+ */
 export function useAddTransaction() {
   const queryClient = useQueryClient();
   const { userData } = useAuth();
@@ -188,6 +198,9 @@ export function useAddTransaction() {
   });
 }
 
+/**
+ * Hook to update an existing transaction
+ */
 export function useUpdateTransaction() {
   const queryClient = useQueryClient();
 
@@ -216,6 +229,9 @@ export function useUpdateTransaction() {
   });
 }
 
+/**
+ * Hook to delete a transaction
+ */
 export function useDeleteTransaction() {
   const queryClient = useQueryClient();
 
@@ -226,6 +242,9 @@ export function useDeleteTransaction() {
   });
 }
 
+/**
+ * Utility function to check if a transaction is shared
+ */
 export function isSharedTransaction(
   transaction: Transaction,
   currentUserId?: string,

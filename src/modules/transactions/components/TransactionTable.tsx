@@ -22,7 +22,6 @@ interface TransactionTableProps {
 export function TransactionTable({
   transactions,
   onEdit,
-  showUserInfo = false,
   rowSelection,
   setRowSelection,
   userData,
@@ -35,7 +34,7 @@ export function TransactionTable({
     loadingShoppingLists,
     handleDelete,
     getCategoryName,
-  } = useTransactionTableData(transactions, showUserInfo);
+  } = useTransactionTableData(transactions, userData?.uid);
 
   const isMobile = useMediaQuery("(max-width: 768px)");
   const [selectedTransaction, setSelectedTransaction] =
@@ -47,7 +46,6 @@ export function TransactionTable({
   const columns = useTransactionColumns({
     isMobile,
     onEdit,
-    showUserInfo,
     userEmails,
     shoppingLists,
     loadingUsers,
@@ -92,7 +90,6 @@ export function TransactionTable({
         shoppingLists={shoppingLists}
         loadingUsers={loadingUsers}
         loadingShoppingLists={loadingShoppingLists}
-        showUserInfo={showUserInfo}
         userData={userData}
       />
     </>

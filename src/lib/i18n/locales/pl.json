@@ -31,9 +31,10 @@
     "signOut": "Wyloguj się"
   },
   "transactions": {
-    "allTransactions": "Wszystkie transakcje",
-    "myTransactions": "Moje transakcje",
-    "viewingTransactionsFromAllUsers": "Transakcje wszystkich użytkowników",
+    "greetings": "Hej, {{userName}}! 🌻",
+    "viewingUserTransactionsSummary": "Poniżej znajduje się podsumowanie Twoich transakcji.",
+    "viewingAllUsersTransactionsSummaryFromRelatedGroups": "Poniżej znajduje się podsumowanie Twoich transakcji (wraz z transakcjami innych użytkowników z powiązanych grup).",
+    "transactionsList": "Lista transakcji",
     "loadingTransactions": "Ładowanie transakcji...",
     "errorLoadingTransactions": "Wystąpił błąd podczas ładowania transakcji",
     "retry": "Spróbuj ponownie",

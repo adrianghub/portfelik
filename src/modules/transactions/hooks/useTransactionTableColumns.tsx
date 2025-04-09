@@ -18,7 +18,6 @@ import { Edit, Repeat, ShoppingCart, Trash2 } from "lucide-react";
 interface UseTransactionColumnsProps {
   isMobile: boolean;
   onEdit?: (transaction: Transaction) => void;
-  showUserInfo: boolean;
   userEmails: Record<string, string>;
   shoppingLists: Record<string, { name: string }>;
   loadingUsers: boolean;
@@ -89,7 +88,6 @@ function getMobileColumns({
 
 function getDesktopColumns({
   onEdit,
-  showUserInfo,
   userEmails,
   shoppingLists,
   loadingUsers,
@@ -184,16 +182,14 @@ function getDesktopColumns({
     });
   }
 
-  if (showUserInfo) {
-    columns.push({
-      accessorKey: "userId",
-      header: "User",
-      cell: ({ row }) =>
-        loadingUsers
-          ? "Loading..."
-          : userEmails[row.original.userId ?? ""] || "Unknown",
-    });
-  }
+  columns.push({
+    accessorKey: "userId",
+    header: "User",
+    cell: ({ row }) =>
+      loadingUsers
+        ? "Loading..."
+        : userEmails[row.original.userId ?? ""] || "Unknown",
+  });
 
   columns.push({
     accessorKey: "amount",
@@ -237,7 +233,7 @@ function renderActions(
   deletingId?: string | null,
   userData?: UserData | null,
 ) {
-  if (userData?.role !== "admin" && transaction.userId !== userData?.uid) {
+  if (transaction.userId !== userData?.uid) {
     return null;
   }
 

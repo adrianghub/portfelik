@@ -53,7 +53,7 @@ export function ExpansesByCategoryCard({
             ))}
           </div>
         )}
-        {sortedCategories.length > 1 && (
+        {sortedCategories.length > 2 && (
           <ExpansesByCategoryDialog
             trigger={
               <Button variant="ghost" className="text-sm w-full">

@@ -11,6 +11,7 @@ export interface UserData {
   role: UserRole;
   createdAt: Date;
   lastLoginAt: Date;
+  name?: string;
 }
 
 export function useAuth() {

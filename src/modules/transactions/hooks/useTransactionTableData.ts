@@ -1,5 +1,5 @@
 import { logger } from "@/lib/logger";
-import { userService } from "@/modules/admin/users/UserService";
+import { userGroupService } from "@/modules/settings/UserGroupService";
 import { useFetchCategories } from "@/modules/shared/categories/useCategoriesQuery";
 import type { ShoppingList } from "@/modules/shopping-lists/shopping-list";
 import { shoppingListService } from "@/modules/shopping-lists/ShoppingListService";
@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 
 export function useTransactionTableData(
   transactions: Transaction[],
-  showUserInfo: boolean,
+  userId?: string,
 ) {
   const deleteTransaction = useDeleteTransaction();
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -24,37 +24,31 @@ export function useTransactionTableData(
     useFetchCategories();
 
   useEffect(() => {
-    if (!showUserInfo) return;
+    if (!userId) return;
+    setLoadingUsers(true);
+
+    const fetchUserGroups = async () => {
+      const userGroups = await userGroupService.getUserGroups(userId);
+      return userGroups;
+    };
 
     const fetchUserEmails = async () => {
-      setLoadingUsers(true);
-      const userIds = [
-        ...new Set(transactions.map((t) => t.userId).filter(Boolean)),
-      ];
+      const userGroups = await fetchUserGroups();
 
-      const emailsMap: Record<string, string> = {};
-      await Promise.all(
-        userIds.map(async (userId) => {
-          try {
-            const user = await userService.getById(userId!);
-            emailsMap[userId!] = user?.email || "Unknown";
-          } catch (err) {
-            logger.error(
-              "useTransactionTableData",
-              `Failed to fetch user ${userId}`,
-              err,
-            );
-            emailsMap[userId!] = "Unknown";
-          }
-        }),
-      );
+      userGroups.forEach(async (group) => {
+        const { memberIds, memberEmails } = group;
 
-      setUserEmails(emailsMap);
-      setLoadingUsers(false);
+        memberIds.forEach((id, index) => {
+          userEmails[id] = memberEmails[index];
+        });
+
+        setUserEmails(userEmails);
+      });
     };
 
     fetchUserEmails();
-  }, [transactions, showUserInfo]);
+    setLoadingUsers(false);
+  }, [userEmails, userId]);
 
   useEffect(() => {
     const fetchShoppingLists = async () => {
@@ -115,8 +109,8 @@ export function useTransactionTableData(
     userEmails,
     shoppingLists,
     deletingId,
-    loadingUsers,
     loadingShoppingLists,
+    loadingUsers,
     loadingCategories,
     categories,
     handleDelete,

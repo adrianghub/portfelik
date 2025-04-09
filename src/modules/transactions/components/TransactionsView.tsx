@@ -6,6 +6,7 @@ import {
   getMonthName,
 } from "@/lib/date-utils";
 import { COLLECTIONS } from "@/lib/firebase/firestore";
+import { useUserGroups } from "@/modules/settings/hooks/useUserGroups";
 import { FloatingActionButtonGroup } from "@/modules/shared/components/FloatingActionButtonGroup";
 import { TransactionTable } from "@/modules/transactions/components/TransactionTable";
 import { TRANSACTION_SUMMARY_QUERY_KEY } from "@/modules/transactions/hooks/useTransactionsSummaryQuery";
@@ -35,9 +36,9 @@ export function TransactionsView() {
     end: getLastDayOfMonth(),
   });
   const { userData } = useAuth();
+  const { data: userGroups } = useUserGroups();
   const queryClient = useQueryClient();
   const { t } = useTranslation();
-  const isAdmin = userData?.role === "admin";
   const { showSuccessToast, showErrorToast } = useTransactionToasts();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -149,13 +150,19 @@ export function TransactionsView() {
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4">
           <div className="mb-3 sm:mb-0">
             <h1 className="flex items-center flex-wrap">
-              {isAdmin
-                ? t("transactions.allTransactions")
-                : t("transactions.myTransactions")}
+              {t("transactions.greetings", {
+                userName: userData?.name ?? userData?.email,
+              })}
             </h1>
-            {isAdmin && (
+            {userGroups && userGroups.length > 1 ? (
               <p className="text-sm text-muted-foreground mt-1">
-                {t("transactions.viewingTransactionsFromAllUsers")}
+                {t(
+                  "transactions.viewingAllUsersTransactionsSummaryFromRelatedGroups",
+                )}
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground mt-1">
+                {t("transactions.viewingUserTransactionsSummary")}
               </p>
             )}
           </div>
@@ -199,6 +206,12 @@ export function TransactionsView() {
         />
       </div>
 
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold">
+          {t("transactions.transactionsList")}
+        </h2>
+      </div>
+
       {isLoading ? (
         <div className="shadow rounded-lg p-4 md:p-6 flex justify-center">
           <p className="text-muted-foreground">
@@ -218,7 +231,6 @@ export function TransactionsView() {
         <TransactionTable
           transactions={transactions}
           onEdit={handleOpenDialog}
-          showUserInfo={isAdmin}
           rowSelection={rowSelection}
           setRowSelection={setRowSelection}
           userData={userData}
