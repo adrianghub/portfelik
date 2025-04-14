@@ -1,6 +1,10 @@
 {
   "common": {
-    "cancel": "Anuluj"
+    "cancel": "Anuluj",
+    "error": {
+      "title": "Coś poszło nie tak! 😢",
+      "description": "Spróbuj ponownie później lub skontaktuj się z nami."
+    }
   },
   "notifications": {
     "groupInvitation": {
