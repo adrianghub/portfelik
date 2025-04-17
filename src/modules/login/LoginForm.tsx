@@ -1,3 +1,4 @@
+import googleIcon from "@/assets/google.svg";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,7 +13,6 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useTranslation } from "@/lib/i18n/useTranslation";
 import { useLoginForm } from "@/modules/login/useLoginForm";
-
 export function LoginForm() {
   const {
     email,
@@ -101,7 +101,7 @@ export function LoginForm() {
               t("login.signingInWithGoogle")
             ) : (
               <>
-                <img src="/google.svg" alt="Google" className="w-4 h-4" />
+                <img src={googleIcon} alt="Google" className="w-4 h-4" />
                 {t("login.signInWithGoogle")}
               </>
             )}
