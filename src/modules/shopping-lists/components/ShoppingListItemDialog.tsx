@@ -176,7 +176,15 @@ export function ShoppingListItemDialog({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) {
+          handleCancel();
+        }
+        setIsOpen(open);
+      }}
+    >
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent ref={contentRef} className="sm:max-w-[425px]">
         <DialogHeader>
