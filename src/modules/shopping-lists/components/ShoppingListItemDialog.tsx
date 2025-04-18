@@ -19,6 +19,7 @@ import {
 } from "@/modules/shopping-lists/shopping-list";
 import { useForm } from "@tanstack/react-form";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ShoppingListItemSuggestions } from "./ShoppingListItemSuggestions";
 
 interface ShoppingListItemDialogProps {
@@ -57,6 +58,7 @@ export function ShoppingListItemDialog({
   const [nameQuery, setNameQuery] = useState("");
   const [isNameInputFocused, setIsNameInputFocused] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const { t } = useTranslation();
 
   const nameInputRef = useRef<HTMLInputElement>(null);
   const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -170,9 +172,7 @@ export function ShoppingListItemDialog({
 
   const handleSubmit = async () => {
     await form.handleSubmit();
-    if (createNext) {
-      setNameQuery("");
-    }
+    form.reset();
   };
 
   return (
@@ -188,11 +188,15 @@ export function ShoppingListItemDialog({
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent ref={contentRef} className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>{isEditing ? "Edit Item" : "Add Item"}</DialogTitle>
+          <DialogTitle>
+            {isEditing
+              ? t("shoppingLists.shoppingListItemDialog.editItem")
+              : t("shoppingLists.shoppingListItemDialog.addItem")}
+          </DialogTitle>
           <DialogDescription>
             {isEditing
-              ? "Edit the item details below."
-              : "Add a new item to your shopping list."}
+              ? t("shoppingLists.shoppingListItemDialog.editItemDescription")
+              : t("shoppingLists.shoppingListItemDialog.addItemDescription")}
           </DialogDescription>
         </DialogHeader>
 
@@ -212,7 +216,7 @@ export function ShoppingListItemDialog({
             {(field) => (
               <FormField
                 name="name"
-                label="Name"
+                label={t("shoppingLists.shoppingListItemDialog.name")}
                 error={field.state.meta.errors?.[0]}
                 className="relative"
               >
@@ -230,7 +234,9 @@ export function ShoppingListItemDialog({
                         setIsNameInputFocused(false);
                       }, 200);
                     }}
-                    placeholder="e.g., Milk, Bread, etc."
+                    placeholder={t(
+                      "shoppingLists.shoppingListItemDialog.namePlaceholder",
+                    )}
                   />
                   {showSuggestions && (
                     <ShoppingListItemSuggestions
@@ -253,14 +259,16 @@ export function ShoppingListItemDialog({
               {(field) => (
                 <FormField
                   name="quantity"
-                  label="Quantity"
+                  label={t("shoppingLists.shoppingListItemDialog.quantity")}
                   error={field.state.meta.errors?.[0]}
                 >
                   <Input
                     type="number"
                     value={field.state.value}
                     onChange={(e) => field.handleChange(e.target.value)}
-                    placeholder="e.g., 2"
+                    placeholder={t(
+                      "shoppingLists.shoppingListItemDialog.quantityPlaceholder",
+                    )}
                   />
                 </FormField>
               )}
@@ -270,13 +278,15 @@ export function ShoppingListItemDialog({
               {(field) => (
                 <FormField
                   name="unit"
-                  label="Unit"
+                  label={t("shoppingLists.shoppingListItemDialog.unit")}
                   error={field.state.meta.errors?.[0]}
                 >
                   <Input
                     value={field.state.value}
                     onChange={(e) => field.handleChange(e.target.value)}
-                    placeholder="e.g., kg, l"
+                    placeholder={t(
+                      "shoppingLists.shoppingListItemDialog.unitPlaceholder",
+                    )}
                   />
                 </FormField>
               )}
@@ -291,7 +301,7 @@ export function ShoppingListItemDialog({
                 onCheckedChange={(checked) => setCreateNext(checked as boolean)}
               />
               <Label htmlFor="createNext">
-                Create another item after this one
+                {t("shoppingLists.shoppingListItemDialog.createAnotherItem")}
               </Label>
             </div>
           )}
@@ -303,10 +313,12 @@ export function ShoppingListItemDialog({
               onClick={handleCancel}
               className="w-full sm:w-auto"
             >
-              Cancel
+              {t("shoppingLists.shoppingListItemDialog.cancel")}
             </Button>
             <Button type="submit" className="w-full sm:w-auto">
-              {isEditing ? "Save Changes" : "Add Item"}
+              {isEditing
+                ? t("shoppingLists.shoppingListItemDialog.saveChanges")
+                : t("shoppingLists.shoppingListItemDialog.addItem")}
             </Button>
           </DialogFooter>
         </form>

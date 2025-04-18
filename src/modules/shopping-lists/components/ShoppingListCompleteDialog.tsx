@@ -8,6 +8,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { formatCurrency } from "@/lib/format-currency";
 import type { Category } from "@/modules/shared/category";
+import { useTranslation } from "react-i18next";
 
 interface ShoppingListCompleteDialogProps {
   open: boolean;
@@ -29,17 +30,21 @@ export function ShoppingListCompleteDialog({
   completingList,
   selectedCategory,
 }: ShoppingListCompleteDialogProps) {
+  const { t } = useTranslation();
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Complete Shopping List</DialogTitle>
+          <DialogTitle>
+            {t("shoppingLists.shoppingListCompleteDialog.completeShoppingList")}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <label htmlFor="amount" className="text-sm font-medium">
-              Total Amount
+              {t("shoppingLists.shoppingListCompleteDialog.totalAmount")}
             </label>
             <Input
               id="amount"
@@ -53,24 +58,32 @@ export function ShoppingListCompleteDialog({
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Category</label>
+            <label className="text-sm font-medium">
+              {t("shoppingLists.shoppingListCompleteDialog.category")}
+            </label>
             <div className="p-2 border rounded bg-muted">
               {selectedCategory
                 ? selectedCategory.name
-                : "No category selected"}
+                : t(
+                    "shoppingLists.shoppingListCompleteDialog.noCategorySelected",
+                  )}
             </div>
           </div>
         </div>
 
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t("shoppingLists.shoppingListCompleteDialog.cancel")}
           </Button>
           <Button
             onClick={handleCompleteList}
             disabled={!totalAmount || !selectedCategory || completingList}
           >
-            {completingList ? "Processing..." : "Complete & Create Transaction"}
+            {completingList
+              ? t("shoppingLists.shoppingListCompleteDialog.processing")
+              : t(
+                  "shoppingLists.shoppingListCompleteDialog.completeAndCreateTransaction",
+                )}
           </Button>
         </div>
       </DialogContent>

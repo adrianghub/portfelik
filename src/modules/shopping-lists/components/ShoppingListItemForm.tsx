@@ -6,6 +6,7 @@ import {
 } from "@/modules/shopping-lists/shopping-list";
 import { PlusIcon } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface ShoppingListItemFormProps {
   onAddItem: (item: ShoppingListItem) => void;
@@ -14,12 +15,13 @@ interface ShoppingListItemFormProps {
 export function ShoppingListItemForm({ onAddItem }: ShoppingListItemFormProps) {
   const [itemName, setItemName] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const { t } = useTranslation();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!itemName.trim()) {
-      setError("Item name is required");
+      setError(t("shoppingLists.shoppingListItemForm.nameRequired"));
       return;
     }
 
@@ -33,7 +35,7 @@ export function ShoppingListItemForm({ onAddItem }: ShoppingListItemFormProps) {
     <form onSubmit={handleSubmit} className="flex items-center space-x-2">
       <div className="flex-1">
         <Input
-          placeholder="Add new item..."
+          placeholder={t("shoppingLists.shoppingListItemForm.placeholder")}
           value={itemName}
           onChange={(e) => {
             setItemName(e.target.value);

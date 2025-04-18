@@ -46,6 +46,7 @@ import {
   Users,
 } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ShoppingListDetailForm } from "./ShoppingListDetailForm";
 import { ShoppingListItem as ShoppingListItemComponent } from "./ShoppingListItem";
 import { ShoppingListItemDialog } from "./ShoppingListItemDialog";
@@ -76,6 +77,8 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   );
+
+  const { t } = useTranslation();
 
   const handleAddItem = (item: ShoppingListItem) => {
     if (!shoppingList) return;
@@ -138,7 +141,9 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
       // Create a transaction first
       const transaction = {
         amount: parseFloat(totalAmount),
-        description: `Shopping: ${shoppingList.name}`,
+        description: t("shoppingLists.shoppingListDetailView.shoppingList", {
+          name: shoppingList.name,
+        }),
         date: new Date().toISOString(),
         type: "expense" as const,
         categoryId: shoppingList.categoryId,
@@ -220,7 +225,11 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
   }
 
   if (!shoppingList) {
-    return <div>Shopping list not found</div>;
+    return (
+      <div>
+        {t("shoppingLists.shoppingListDetailView.shoppingListNotFound")}
+      </div>
+    );
   }
 
   const isCompleted = shoppingList.status === "completed";
@@ -246,12 +255,12 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold flex items-center">
-              {shoppingList.name}
+            <h1 className="font-bold flex items-center">
+              <div className="truncate max-w-2xl">{shoppingList.name}</div>
               {shoppingList.groupId && (
                 <span
                   className="ml-2 text-muted-foreground"
-                  title="Shared list"
+                  title={t("shoppingLists.shoppingListDetailView.sharedList")}
                 >
                   <Users className="h-5 w-5" />
                 </span>
@@ -274,7 +283,7 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
           {isCompleted && (
             <Button onClick={handleDuplicateList} className="flex items-center">
               <CopyIcon className="h-4 w-4 mr-2" />
-              Duplicate List
+              {t("shoppingLists.shoppingListDetailView.duplicateList")}
             </Button>
           )}
 
@@ -285,7 +294,7 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
               className="hidden md:flex"
             >
               <CheckIcon className="h-4 w-4 mr-2" />
-              Complete Shopping
+              {t("shoppingLists.shoppingListDetailView.completeShopping")}
             </Button>
           )}
         </div>
@@ -295,7 +304,10 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <div className="text-sm text-muted-foreground">
-              {itemsCompleted} of {totalItems} items completed
+              {t("shoppingLists.shoppingListDetailView.progress", {
+                total: totalItems,
+                count: itemsCompleted,
+              })}
             </div>
             <div className="text-sm font-medium">{Math.round(progress)}%</div>
           </div>
@@ -306,16 +318,23 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
       {isCompleted && (
         <div className="bg-muted p-4 rounded-md">
           <div className="text-sm text-muted-foreground">
-            Completed on {formatDisplayDate(shoppingList.updatedAt)}
+            {t("shoppingLists.shoppingListDetailView.completedOn", {
+              date: formatDisplayDate(shoppingList.updatedAt),
+            })}
           </div>
           <div className="font-medium">
-            Total amount:{" "}
-            {shoppingList.totalAmount
-              ? formatCurrency(shoppingList.totalAmount)
-              : formatCurrency(0)}
+            {t("shoppingLists.shoppingListDetailView.totalAmount", {
+              amount: shoppingList.totalAmount
+                ? formatCurrency(shoppingList.totalAmount)
+                : formatCurrency(0),
+            })}
           </div>
           <div className="text-sm">
-            Category: {selectedCategory?.name || "None"}
+            {t("shoppingLists.shoppingListDetailView.category", {
+              category:
+                selectedCategory?.name ||
+                t("shoppingLists.shoppingListDetailView.none"),
+            })}
           </div>
         </div>
       )}
@@ -323,10 +342,11 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
       <div className="bg-card rounded-md border">
         <div className="p-4 border-b flex flex-col md:flex-row justify-between items-center">
           <div>
-            <h2 className="font-medium">{totalItems} items</h2>
-            <div className="text-sm text-muted-foreground">
-              {itemsCompleted} of {totalItems} completed
-            </div>
+            <h2 className="font-medium">
+              {t("shoppingLists.shoppingListDetailView.items", {
+                count: totalItems,
+              })}
+            </h2>
           </div>
 
           {!isCompleted && (
@@ -337,7 +357,7 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
               className="mt-4 md:mt-0 hidden md:flex"
             >
               <PlusIcon className="h-4 w-4 mr-2" />
-              Add Item
+              {t("shoppingLists.shoppingListDetailView.addItem")}
             </Button>
           )}
         </div>
@@ -350,7 +370,7 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
           <div className="divide-y">
             {shoppingList.items.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground">
-                No items in this list yet
+                {t("shoppingLists.shoppingListDetailView.noItems")}
               </div>
             ) : (
               <SortableContext
@@ -380,14 +400,14 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
               icon: ShoppingCart,
               onClick: handleCompleteListClick,
               disabled: !allItemsCompleted || shoppingList.items.length === 0,
-              label: "Complete Shopping",
+              label: t("shoppingLists.shoppingListDetailView.completeShopping"),
               className: "bg-primary/90 hover:bg-primary text-background",
               iconClassName: "text-background",
             },
             {
               icon: PlusIcon,
               onClick: () => setShowAddItemDialog(true),
-              label: "Add Item",
+              label: t("shoppingLists.shoppingListDetailView.addItem"),
             },
           ]}
         />

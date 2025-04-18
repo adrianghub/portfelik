@@ -2,7 +2,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -23,6 +22,7 @@ import type { ShoppingList } from "@/modules/shopping-lists/shopping-list";
 import { useForm } from "@tanstack/react-form";
 import { Users } from "lucide-react";
 import { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface ShoppingListDetailFormProps {
   trigger?: React.ReactNode;
@@ -59,6 +59,8 @@ export function ShoppingListDetailForm({
 
   const { data: userGroups = [], isLoading: loadingGroups } = useUserGroups();
 
+  const { t } = useTranslation();
+
   const form = useForm({
     defaultValues: {
       name: initialValues?.name || "",
@@ -89,10 +91,9 @@ export function ShoppingListDetailForm({
         className="w-full max-w-md mx-auto p-4 sm:p-6"
       >
         <DialogHeader>
-          <DialogTitle className="text-xl">Edit Shopping List</DialogTitle>
-          <DialogDescription>
-            Change the name of your shopping list.
-          </DialogDescription>
+          <DialogTitle className="text-xl">
+            {t("shoppingLists.shoppingListDetailForm.editShoppingList")}
+          </DialogTitle>
         </DialogHeader>
         <form
           onSubmit={(e) => {
@@ -110,13 +111,15 @@ export function ShoppingListDetailForm({
             {(field) => (
               <FormField
                 name="name"
-                label="List Name"
+                label={t("shoppingLists.shoppingListDetailForm.listName")}
                 error={field.state.meta.errors?.[0]}
               >
                 <Input
                   ref={nameInputRef}
                   id="name"
-                  placeholder="Enter list name"
+                  placeholder={t(
+                    "shoppingLists.shoppingListDetailForm.listNamePlaceholder",
+                  )}
                   value={field.state.value}
                   onChange={(e) => field.handleChange(e.target.value)}
                   autoFocus
@@ -129,7 +132,7 @@ export function ShoppingListDetailForm({
             {(field) => (
               <FormField
                 name="group"
-                label="Share with Group"
+                label={t("shoppingLists.shoppingListDetailForm.shareWithGroup")}
                 error={field.state.meta.errors?.[0]}
               >
                 <div className="relative">
@@ -137,13 +140,17 @@ export function ShoppingListDetailForm({
                     <div className="flex items-center space-x-2">
                       <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                       <span className="text-sm text-muted-foreground">
-                        Loading groups...
+                        {t(
+                          "shoppingLists.shoppingListDetailForm.loadingGroups",
+                        )}
                       </span>
                     </div>
                   ) : userGroups.length === 0 ? (
                     <div className="text-sm text-muted-foreground flex items-center space-x-2">
                       <Users className="h-4 w-4" />
-                      <span>You don't have any groups yet</span>
+                      <span>
+                        {t("shoppingLists.shoppingListDetailForm.noGroups")}
+                      </span>
                     </div>
                   ) : (
                     <Select
@@ -153,13 +160,17 @@ export function ShoppingListDetailForm({
                       }
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a group to share with" />
+                        <SelectValue
+                          placeholder={t(
+                            "shoppingLists.shoppingListDetailForm.selectGroup",
+                          )}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {(!initialValues?.groupId ||
                           initialValues.groupId === "") && (
                           <SelectItem value="none">
-                            Personal (not shared)
+                            {t("shoppingLists.shoppingListDetailForm.personal")}
                           </SelectItem>
                         )}
                         {userGroups.map((group) => (
@@ -180,10 +191,10 @@ export function ShoppingListDetailForm({
 
           <DialogFooter className="flex gap-2 mt-6">
             <Button type="button" variant="outline" onClick={handleCancel}>
-              Cancel
+              {t("shoppingLists.shoppingListDetailForm.cancel")}
             </Button>
             <Button type="submit" disabled={form.state.canSubmit === false}>
-              Save Changes
+              {t("shoppingLists.shoppingListDetailForm.saveChanges")}
             </Button>
           </DialogFooter>
         </form>

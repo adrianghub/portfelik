@@ -176,6 +176,67 @@
       "completeError": "Wystąpił błąd podczas oznaczania listy jako zakończonej",
       "duplicateSuccess": "Lista zakupów została skopiowana",
       "duplicateError": "Wystąpił błąd podczas kopiowania listy zakupów"
+    },
+    "shoppingListItemForm": {
+      "nameRequired": "Nazwa produktu jest wymagana",
+      "placeholder": "Dodaj nowy produkt..."
+    },
+    "shoppingListItemDialog": {
+      "editItem": "Edytuj produkt",
+      "addItem": "Dodaj produkt",
+      "editItemDescription": "Edytuj szczegóły produktu poniżej.",
+      "addItemDescription": "Wypełnij formularz poniżej, aby dodać nowy produkt do listy zakupów.",
+      "quantity": "Ilość",
+      "unit": "Jednostka",
+      "quantityPlaceholder": "np. 2",
+      "unitPlaceholder": "np. szt., kg, litr",
+      "createAnotherItem": "Dodaj kolejny produkt",
+      "saveChanges": "Zapisz zmiany",
+      "cancel": "Anuluj",
+      "name": "Nazwa",
+      "namePlaceholder": "np. Mleko, Chleb, etc.",
+      "placeholder": "Dodaj nowy produkt..."
+    },
+    "shoppingListDetailForm": {
+      "editShoppingList": "Edytuj listę zakupów",
+      "listName": "Nazwa listy",
+      "listNamePlaceholder": "np. Zakupy domowe, Wspólne wydatki",
+      "shareWithGroup": "Udostępnij z grupą",
+      "selectGroup": "Wybierz grupę",
+      "personal": "Osobista (nieudostępniona)",
+      "loadingGroups": "Ładowanie grup...",
+      "noGroups": "Brak grup",
+      "saveChanges": "Zapisz zmiany",
+      "cancel": "Anuluj"
+    },
+    "shoppingListCompleteDialog": {
+      "completeShoppingList": "Zakończ listę zakupów",
+      "totalAmount": "Kwota",
+      "category": "Kategoria",
+      "noCategorySelected": "Brak kategorii",
+      "completeAndCreateTransaction": "Zakończ i utwórz transakcję",
+      "processing": "Przetwarzanie...",
+      "cancel": "Anuluj"
+    },
+    "shoppingListDetailView": {
+      "shoppingList": "Lista zakupów: {{name}}",
+      "shoppingListNotFound": "Lista zakupów nie znaleziona",
+      "sharedList": "Udostępniona grupie",
+      "duplicateList": "Duplikuj listę",
+      "completeShopping": "Zakończ listę",
+      "progress": "{{count}} z {{total}} produktów zakończonych",
+      "totalAmount": "Razem: {{amount}}",
+      "category": "Kategoria: {{category}}",
+      "none": "Brak",
+      "addItem": "Dodaj produkt",
+      "editName": "Edytuj nazwę",
+      "editNamePlaceholder": "np. Zakupy domowe, Wspólne wydatki",
+      "editNameDescription": "Edytuj nazwę listy zakupów",
+      "editNameSuccess": "Nazwa listy zakupów została zaktualizowana",
+      "editNameError": "Wystąpił błąd podczas edycji nazwy listy zakupów",
+      "items": "{{count}} produktów",
+      "noItems": "Brak produktów w tej liście",
+      "completedOn": "Zakończona dnia {{date}}"
     }
   },
   "settings": {
