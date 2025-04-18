@@ -155,8 +155,10 @@ const combineSummaries = (
           ),
         );
       } else {
-        // Category only exists in shared summary
-        categoryMap.set(category.categoryId, { ...category });
+        categoryMap.set(category.categoryId, {
+          ...category,
+          percentage: (category.amount / combinedSummary.totalExpenses) * 100,
+        });
       }
     });
   }
@@ -198,6 +200,7 @@ export function useTransactionsSummary(startDate?: Date, endDate?: Date) {
           fetchTransactionSummaries(token, dayjsStartDate, dayjsEndDate),
           fetchSharedTransactionSummaries(token, dayjsStartDate, dayjsEndDate),
         ]);
+
         return combineSummaries(userSummary, sharedSummary);
       } catch (error) {
         console.error("Error in useTransactionsSummary:", error);
