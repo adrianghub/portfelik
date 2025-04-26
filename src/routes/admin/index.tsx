@@ -22,11 +22,6 @@ function AdminView() {
         <div className="mt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <AdminCard
-              title="Categories"
-              description="Manage transaction categories"
-              link="/admin/categories"
-            />
-            <AdminCard
               title="Notifications"
               description="Manage notifications"
               link="/admin/notifications"
