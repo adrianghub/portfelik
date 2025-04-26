@@ -39,12 +39,13 @@ export function firestoreCategoriesToUICategories(
 export function uiCategoryToFirestoreCategory(
   category: Category,
   userId?: string,
-): Omit<Category, "id"> {
-  // Return a plain category object with userId set
-  const firestoreCategory: Omit<Category, "id"> = {
+): Omit<CategoryDTO, "id"> {
+  const firestoreCategory: Omit<CategoryDTO, "id"> = {
     name: category.name,
     type: category.type,
     userId: userId || category.userId || null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
   };
 
   return firestoreCategory;

@@ -47,7 +47,8 @@ export function TransactionForm({
   onCancel,
 }: TransactionFormProps) {
   const { t } = useTranslation();
-  const { data: categories = [] } = useFetchCategories();
+  const { data: categories = [], isLoading: categoriesLoading } =
+    useFetchCategories();
   const { minDate, maxDate } = getDateConstraints();
 
   const initialAmount = initialValues?.amount
@@ -158,6 +159,7 @@ export function TransactionForm({
                   const typeValue = value as "income" | "expense";
                   field.handleChange(typeValue);
                   setTransactionType(typeValue);
+                  form.setFieldValue("categoryId", "");
                 }}
               >
                 <SelectTrigger>
@@ -298,6 +300,7 @@ export function TransactionForm({
                 categories={filteredCategories}
                 value={field.state.value}
                 onValueChange={field.handleChange}
+                disabled={categoriesLoading}
               />
             </FormField>
           )}

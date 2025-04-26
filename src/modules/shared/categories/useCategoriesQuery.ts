@@ -8,23 +8,30 @@ import {
 } from "@/modules/shared/category";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-const CATEGORIES_QUERY_KEY = ["categories"];
+const USER_CATEGORIES_QUERY_KEY = ["userCategories"];
 
 export function useFetchCategories() {
+  const { userData } = useAuth();
+  const userId = userData?.uid;
+
   return useQuery({
-    queryKey: CATEGORIES_QUERY_KEY,
+    queryKey: [USER_CATEGORIES_QUERY_KEY, userId],
     queryFn: async () => {
+      if (!userId) {
+        return [];
+      }
       try {
-        const categories = await categoryService.getAllCategories();
+        const categories = await categoryService.getAllUserCategories(userId);
         const uiCategories = firestoreCategoriesToUICategories(
           categories as CategoryDTO[],
         );
         return uiCategories;
       } catch (error) {
-        console.error("Error fetching categories:", error);
+        console.error("Error fetching user categories:", error);
         throw error;
       }
     },
+    enabled: !!userId,
   });
 }
 
@@ -34,7 +41,7 @@ export function useAddCategory() {
   const userId = userData?.uid;
 
   return useMutation({
-    mutationFn: (category: UICategory) => {
+    mutationFn: async (category: UICategory) => {
       if (!userId) {
         throw new Error("User not authenticated");
       }
@@ -46,10 +53,14 @@ export function useAddCategory() {
         delete (categoryToSave as Record<string, unknown>).id;
       }
 
-      return categoryService.create(categoryToSave);
+      const result = await categoryService.create(categoryToSave);
+      return result;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: CATEGORIES_QUERY_KEY });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: [USER_CATEGORIES_QUERY_KEY, userId],
+        refetchType: "active",
+      });
     },
     onError: (error) => {
       console.error("Error adding category:", error);
@@ -59,6 +70,8 @@ export function useAddCategory() {
 
 export function useUpdateCategory() {
   const queryClient = useQueryClient();
+  const { userData } = useAuth();
+  const userId = userData?.uid;
 
   return useMutation({
     mutationFn: ({
@@ -75,19 +88,27 @@ export function useUpdateCategory() {
 
       return categoryService.update(categoryId, firestoreUpdates);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: CATEGORIES_QUERY_KEY });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: [USER_CATEGORIES_QUERY_KEY, userId],
+        refetchType: "active",
+      });
     },
   });
 }
 
 export function useDeleteCategory() {
   const queryClient = useQueryClient();
+  const { userData } = useAuth();
+  const userId = userData?.uid;
 
   return useMutation({
     mutationFn: (categoryId: string) => categoryService.delete(categoryId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: CATEGORIES_QUERY_KEY });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: [USER_CATEGORIES_QUERY_KEY, userId],
+        refetchType: "active",
+      });
     },
   });
 }

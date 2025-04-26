@@ -4,7 +4,13 @@
     "error": {
       "title": "Coś poszło nie tak! 😢",
       "description": "Spróbuj ponownie później lub skontaktuj się z nami."
-    }
+    },
+    "save": "Zapisz",
+    "loading": "Ładowanie...",
+    "saving": "Zapisywanie...",
+    "delete": "Usuń",
+    "deleting": "Usuwanie...",
+    "edit": "Edytuj"
   },
   "notifications": {
     "groupInvitation": {
@@ -82,6 +88,7 @@
       "editTransactionDescription": "Aktualizuj szczegóły transakcji poniżej.",
       "addTransactionDescription": "Wypełnij formularz poniżej, aby dodać nową transakcję.",
       "form": {
+        "createNewCategory": "Utwórz nową kategorię",
         "selectType": "Wybierz typ",
         "income": "Przychód",
         "expense": "Wydatki",
@@ -240,6 +247,35 @@
     }
   },
   "settings": {
+    "categories": {
+      "createNew": "Utwórz nową kategorię",
+      "createNewDescription": "Wypełnij formularz poniżej, aby utworzyć nową kategorię",
+      "type": "Typ",
+      "name": "Nazwa",
+      "typePlaceholder": "Wybierz typ kategorii",
+      "typeExpense": "Wydatki",
+      "typeIncome": "Przychód",
+      "namePlaceholder": "np. Zakupy, Transport, etc.",
+      "validation": {
+        "nameRequired": "Nazwa kategorii jest wymagana",
+        "nameMaxLength": "Nazwa kategorii nie może być dłuższa niż 50 znaków",
+        "nameExists": "Kategoria o tej nazwie już istnieje"
+      },
+      "title": "Kategorie",
+      "myCategories": "Moje kategorie",
+      "addCategory": "Dodaj kategorię",
+      "tableName": "Nazwa",
+      "tableType": "Typ",
+      "tableActions": "Akcje",
+      "edit": "Edytuj",
+      "delete": "Usuń",
+      "saving": "Zapisywanie...",
+      "deleteConfirmation": "Usunąć kategorię?",
+      "deleteConfirmationDescription": "Czy na pewno chcesz usunąć tę kategorię? Tej operacji nie można cofnąć.",
+      "deleteTitle": "Usuń kategorię",
+      "deleteDescription": "Czy na pewno chcesz usunąć tę kategorię? Ta operacja jest nieodwracalna.",
+      "noCategories": "Brak kategorii"
+    },
     "title": "Ustawienia",
     "description": "Zarządzaj swoimi ustawieniami i preferencjami",
     "groups": {

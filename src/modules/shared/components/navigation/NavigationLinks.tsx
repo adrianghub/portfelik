@@ -6,7 +6,6 @@ type ValidRoute =
   | "/transactions"
   | "/login"
   | "/admin"
-  | "/admin/categories"
   | "/shopping-lists"
   | "/settings";
 

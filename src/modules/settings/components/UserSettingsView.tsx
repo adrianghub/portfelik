@@ -2,8 +2,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { SettingsSearch } from "@/routes/settings";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { CategoriesSection } from "./CategoriesSection";
 import { ProfileSection } from "./ProfileSection";
 import { UserGroupsSection } from "./UserGroupsSection";
 
@@ -11,46 +12,36 @@ export function UserSettingsView() {
   const { t } = useTranslation();
   const search = useSearch({ from: "/settings" }) as SettingsSearch;
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState(() => {
-    // Default to groups tab
-    return search.tab || "groups";
-  });
 
-  const [activeSubtab, setActiveSubtab] = useState(() => {
-    return search.subtab === "invitations" ? "invitations" : "groups";
-  });
-
-  useEffect(() => {
-    if (search.invitation) {
-      setActiveTab("groups");
-    }
-    if (search.tab) {
-      setActiveTab(search.tab);
-    }
-    if (search.subtab === "invitations" || search.subtab === "groups") {
-      setActiveSubtab(search.subtab);
-    }
-  }, [search.invitation, search.tab, search.subtab]);
+  const [activeTab, setActiveTab] = useState(search.tab || "groups");
+  const [groupsSubtab, setGroupsSubtab] = useState(
+    search.subtab === "invitations" ? "invitations" : "groups",
+  );
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
-    navigate({
-      to: "/settings",
-      search: { tab: value },
-      replace: true,
-    });
+    if (value !== search.tab) {
+      navigate({
+        to: "/settings",
+        search: { tab: value },
+        replace: true,
+      });
+    }
   };
 
   const handleSubtabChange = (value: string) => {
-    setActiveSubtab(value);
-    navigate({
-      to: "/settings",
-      search: {
-        tab: activeTab,
-        subtab: value,
-      },
-      replace: true,
-    });
+    setGroupsSubtab(value);
+    // Only update URL if it's actually changed to avoid loops
+    if (value !== search.subtab) {
+      navigate({
+        to: "/settings",
+        search: {
+          tab: "groups",
+          subtab: value,
+        },
+        replace: true,
+      });
+    }
   };
 
   return (
@@ -68,9 +59,13 @@ export function UserSettingsView() {
         value={activeTab}
         onValueChange={handleTabChange}
         className="space-y-4"
+        defaultValue="groups"
       >
         <TabsList className="w-full sm:w-auto">
           <TabsTrigger value="groups">{t("settings.groups.title")}</TabsTrigger>
+          <TabsTrigger value="categories">
+            {t("settings.categories.title")}
+          </TabsTrigger>
           <TabsTrigger value="profile">
             {t("settings.profile.title")}
           </TabsTrigger>
@@ -83,9 +78,20 @@ export function UserSettingsView() {
             </CardHeader>
             <CardContent>
               <UserGroupsSection
-                activeTab={activeSubtab}
+                activeTab={groupsSubtab}
                 onTabChange={handleSubtabChange}
               />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="categories">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("settings.categories.title")}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CategoriesSection />
             </CardContent>
           </Card>
         </TabsContent>

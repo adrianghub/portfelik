@@ -6,6 +6,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
 } from "@/components/ui/command";
 import {
   Drawer,
@@ -21,7 +22,8 @@ import {
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/styling-utils";
 import type { Category } from "@/modules/shared/category";
-import { Check, ChevronsUpDown, X } from "lucide-react";
+import { CreateCategoryDialog } from "@/modules/shared/components/CreateCategoryDialog";
+import { Check, ChevronsUpDown, Plus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -45,6 +47,7 @@ function CategoryComboboxMobile({
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const selectedCategory = categories.find((category) => category.id === value);
@@ -69,6 +72,16 @@ function CategoryComboboxMobile({
 
   const handleSelect = (category: Category) => {
     onValueChange(category.id === value ? "" : category.id);
+    setOpen(false);
+    setInputValue("");
+  };
+
+  const handleCreateNew = () => {
+    setCreateDialogOpen(true);
+  };
+
+  const handleCategoryCreated = (categoryId: string) => {
+    onValueChange(categoryId);
     setOpen(false);
     setInputValue("");
   };
@@ -138,6 +151,15 @@ function CategoryComboboxMobile({
                     </Button>
                   ))
                 )}
+                <CommandSeparator />
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start text-primary"
+                  onClick={handleCreateNew}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  {t("transactions.transactionDialog.form.createNewCategory")}
+                </Button>
               </div>
             </Command>
           </div>
@@ -157,6 +179,11 @@ function CategoryComboboxMobile({
         {selectedCategory?.name || placeholder || defaultPlaceholder}
         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
       </Button>
+      <CreateCategoryDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onCategoryCreated={handleCategoryCreated}
+      />
     </div>
   );
 }
@@ -172,6 +199,7 @@ function CategoryComboboxDesktop({
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const selectedCategory = categories.find((category) => category.id === value);
@@ -206,12 +234,25 @@ function CategoryComboboxDesktop({
   };
 
   const handleSelect = (currentValue: string) => {
+    if (currentValue === "create-new") {
+      setCreateDialogOpen(true);
+      return;
+    }
+
     const selected = categories.find((cat) => cat.name === currentValue);
     if (selected) {
       onValueChange(selected.id === value ? "" : selected.id);
       setOpen(false);
       setInputValue("");
     }
+  };
+
+  const handleCategoryCreated = (categoryId: string) => {
+    setTimeout(() => {
+      onValueChange(categoryId);
+      setOpen(false);
+      setInputValue("");
+    }, 0);
   };
 
   return (
@@ -294,10 +335,26 @@ function CategoryComboboxDesktop({
                   ))}
                 </CommandGroup>
               )}
+              <CommandSeparator />
+              <CommandGroup>
+                <CommandItem
+                  value="create-new"
+                  className="text-primary"
+                  onSelect={handleSelect}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  {t("transactions.transactionDialog.form.createNewCategory")}
+                </CommandItem>
+              </CommandGroup>
             </CommandList>
           </Command>
         </PopoverContent>
       </Popover>
+      <CreateCategoryDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onCategoryCreated={handleCategoryCreated}
+      />
     </div>
   );
 }

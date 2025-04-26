@@ -19,7 +19,6 @@ import { Route as ShoppingListsIndexImport } from './routes/shopping-lists/index
 import { Route as AdminIndexImport } from './routes/admin/index'
 import { Route as ShoppingListsIdImport } from './routes/shopping-lists/$id'
 import { Route as AdminNotificationsImport } from './routes/admin/notifications'
-import { Route as AdminCategoriesImport } from './routes/admin/categories'
 
 // Create/Update Routes
 
@@ -71,12 +70,6 @@ const AdminNotificationsRoute = AdminNotificationsImport.update({
   getParentRoute: () => rootRoute,
 } as any)
 
-const AdminCategoriesRoute = AdminCategoriesImport.update({
-  id: '/admin/categories',
-  path: '/admin/categories',
-  getParentRoute: () => rootRoute,
-} as any)
-
 // Populate the FileRoutesByPath interface
 
 declare module '@tanstack/react-router' {
@@ -107,13 +100,6 @@ declare module '@tanstack/react-router' {
       path: '/transactions'
       fullPath: '/transactions'
       preLoaderRoute: typeof TransactionsImport
-      parentRoute: typeof rootRoute
-    }
-    '/admin/categories': {
-      id: '/admin/categories'
-      path: '/admin/categories'
-      fullPath: '/admin/categories'
-      preLoaderRoute: typeof AdminCategoriesImport
       parentRoute: typeof rootRoute
     }
     '/admin/notifications': {
@@ -154,7 +140,6 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
   '/transactions': typeof TransactionsRoute
-  '/admin/categories': typeof AdminCategoriesRoute
   '/admin/notifications': typeof AdminNotificationsRoute
   '/shopping-lists/$id': typeof ShoppingListsIdRoute
   '/admin': typeof AdminIndexRoute
@@ -166,7 +151,6 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
   '/transactions': typeof TransactionsRoute
-  '/admin/categories': typeof AdminCategoriesRoute
   '/admin/notifications': typeof AdminNotificationsRoute
   '/shopping-lists/$id': typeof ShoppingListsIdRoute
   '/admin': typeof AdminIndexRoute
@@ -179,7 +163,6 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
   '/transactions': typeof TransactionsRoute
-  '/admin/categories': typeof AdminCategoriesRoute
   '/admin/notifications': typeof AdminNotificationsRoute
   '/shopping-lists/$id': typeof ShoppingListsIdRoute
   '/admin/': typeof AdminIndexRoute
@@ -193,7 +176,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/settings'
     | '/transactions'
-    | '/admin/categories'
     | '/admin/notifications'
     | '/shopping-lists/$id'
     | '/admin'
@@ -204,7 +186,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/settings'
     | '/transactions'
-    | '/admin/categories'
     | '/admin/notifications'
     | '/shopping-lists/$id'
     | '/admin'
@@ -215,7 +196,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/settings'
     | '/transactions'
-    | '/admin/categories'
     | '/admin/notifications'
     | '/shopping-lists/$id'
     | '/admin/'
@@ -228,7 +208,6 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   SettingsRoute: typeof SettingsRoute
   TransactionsRoute: typeof TransactionsRoute
-  AdminCategoriesRoute: typeof AdminCategoriesRoute
   AdminNotificationsRoute: typeof AdminNotificationsRoute
   ShoppingListsIdRoute: typeof ShoppingListsIdRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -240,7 +219,6 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   SettingsRoute: SettingsRoute,
   TransactionsRoute: TransactionsRoute,
-  AdminCategoriesRoute: AdminCategoriesRoute,
   AdminNotificationsRoute: AdminNotificationsRoute,
   ShoppingListsIdRoute: ShoppingListsIdRoute,
   AdminIndexRoute: AdminIndexRoute,
@@ -261,7 +239,6 @@ export const routeTree = rootRoute
         "/login",
         "/settings",
         "/transactions",
-        "/admin/categories",
         "/admin/notifications",
         "/shopping-lists/$id",
         "/admin/",
@@ -279,9 +256,6 @@ export const routeTree = rootRoute
     },
     "/transactions": {
       "filePath": "transactions.tsx"
-    },
-    "/admin/categories": {
-      "filePath": "admin/categories.tsx"
     },
     "/admin/notifications": {
       "filePath": "admin/notifications.tsx"

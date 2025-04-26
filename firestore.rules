@@ -159,12 +159,13 @@ service cloud.firestore {
 
     /** Category collection rules */
     match /categories/{categoryId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() &&
-        (isAdmin() || request.auth.uid == request.resource.data.userId);
-      allow update, delete: if isAuthenticated() &&
-        (isAdmin() || request.auth.uid == resource.data.userId);
+      allow read: if isAuthenticated() &&
+        (isOwner(resource.data.userId) || usersShareGroup(request.auth.uid, resource.data.userId));
+
+      allow write: if isAuthenticated() &&
+                    request.resource.data.userId == request.auth.uid;
     }
+
 
     /** Notification collection rules */
     match /notifications/{notificationId} {
