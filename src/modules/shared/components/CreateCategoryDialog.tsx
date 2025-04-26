@@ -21,33 +21,32 @@ import {
 } from "@/modules/shared/categories/useCategoriesQuery";
 import { FormField } from "@/modules/shared/components/FormField";
 import { useForm } from "@tanstack/react-form";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 interface CreateCategoryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCategoryCreated?: (categoryId: string) => void;
-  categoryId?: string;
+  categoryName: string;
 }
 
 export function CreateCategoryDialog({
   open,
   onOpenChange,
   onCategoryCreated,
-  categoryId,
+  categoryName,
 }: CreateCategoryDialogProps) {
   const { t } = useTranslation();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const addCategory = useAddCategory();
   const { data: categories = [] } = useFetchCategories();
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm({
     defaultValues: {
-      name: categoryId ? categories.find((c) => c.id === categoryId)?.name : "",
-      type: categoryId
-        ? categories.find((c) => c.id === categoryId)?.type
-        : "expense",
+      name: categoryName,
+      type: "expense",
     },
     onSubmit: async ({ value }) => {
       setIsSubmitting(true);
@@ -69,7 +68,7 @@ export function CreateCategoryDialog({
         const result = await addCategory.mutateAsync({
           id: "",
           name: value.name ?? "",
-          type: value.type ?? "expense",
+          type: value.type as "expense" | "income",
         });
 
         form.reset();
@@ -112,7 +111,15 @@ export function CreateCategoryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent
+        className="sm:max-w-[425px]"
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          if (nameInputRef.current) {
+            nameInputRef.current.focus();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{t("settings.categories.createNew")}</DialogTitle>
           <DialogDescription>
@@ -142,6 +149,7 @@ export function CreateCategoryDialog({
                   placeholder={t("settings.categories.namePlaceholder")}
                   value={field.state.value}
                   onChange={(e) => field.handleChange(e.target.value)}
+                  ref={nameInputRef}
                 />
               </FormField>
             )}

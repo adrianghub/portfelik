@@ -10,7 +10,8 @@
     "saving": "Zapisywanie...",
     "delete": "Usuń",
     "deleting": "Usuwanie...",
-    "edit": "Edytuj"
+    "edit": "Edytuj",
+    "clear": "Wyczyść"
   },
   "notifications": {
     "groupInvitation": {
