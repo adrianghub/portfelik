@@ -28,12 +28,14 @@ interface CreateCategoryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCategoryCreated?: (categoryId: string) => void;
+  categoryId?: string;
 }
 
 export function CreateCategoryDialog({
   open,
   onOpenChange,
   onCategoryCreated,
+  categoryId,
 }: CreateCategoryDialogProps) {
   const { t } = useTranslation();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -42,15 +44,17 @@ export function CreateCategoryDialog({
 
   const form = useForm({
     defaultValues: {
-      name: "",
-      type: "expense" as "income" | "expense",
+      name: categoryId ? categories.find((c) => c.id === categoryId)?.name : "",
+      type: categoryId
+        ? categories.find((c) => c.id === categoryId)?.type
+        : "expense",
     },
     onSubmit: async ({ value }) => {
       setIsSubmitting(true);
       try {
         const categoryExists = categories.some(
           (category) =>
-            category.name.toLowerCase() === value.name.toLowerCase() &&
+            category.name.toLowerCase() === value.name?.toLowerCase() &&
             category.type === value.type,
         );
 
@@ -64,8 +68,8 @@ export function CreateCategoryDialog({
 
         const result = await addCategory.mutateAsync({
           id: "",
-          name: value.name,
-          type: value.type,
+          name: value.name ?? "",
+          type: value.type ?? "expense",
         });
 
         form.reset();
@@ -125,7 +129,7 @@ export function CreateCategoryDialog({
           <form.Field
             name="name"
             validators={{
-              onChange: ({ value }) => validateName(value),
+              onChange: ({ value }) => validateName(value ?? ""),
             }}
           >
             {(field) => (

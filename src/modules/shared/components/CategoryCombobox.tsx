@@ -183,6 +183,7 @@ function CategoryComboboxMobile({
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
         onCategoryCreated={handleCategoryCreated}
+        categoryId={value}
       />
     </div>
   );
