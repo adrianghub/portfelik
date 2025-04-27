@@ -59,7 +59,6 @@ export function BaseCombobox<T>({
           className="pr-8"
           aria-label={placeholder}
           onKeyDown={keyboardEventHandler}
-          disabled={isLoading}
         />
         {inputValue && (
           <Button
@@ -75,57 +74,48 @@ export function BaseCombobox<T>({
       </div>
       <CommandList id="category-list">
         {isLoading ? (
-          <Skeleton className="w-[90%] h-5 my-5 mx-auto" />
-        ) : (
+          <div className="flex flex-col items-center justify-center p-4 space-y-2">
+            <Skeleton className="w-full h-8" />
+            <Skeleton className="w-full h-8" />
+            <Skeleton className="w-3/4 h-8" />
+            <p className="text-xs text-muted-foreground mt-1">Loading...</p>
+          </div>
+        ) : filteredItems.length === 0 && !inputValue ? (
+          <CommandEmpty>{noItemsMessage}</CommandEmpty>
+        ) : filteredItems.length === 0 && inputValue ? (
           <>
-            {filteredItems.length === 0 && !inputValue ? (
-              <CommandEmpty>{noItemsMessage}</CommandEmpty>
-            ) : filteredItems.length === 0 && inputValue ? (
-              <>
-                <CommandEmpty>{noMatchingItemsMessage}</CommandEmpty>
-                <Button
-                  variant="ghost"
-                  onClick={onCreateNew}
-                  className="w-full"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  {createNewButtonText}
-                </Button>
-              </>
-            ) : (
-              <CommandGroup>
-                {filteredItems.map((item, index) => {
-                  const itemValue =
-                    typeof item === "object" && item !== null && "id" in item
-                      ? String(item.id)
-                      : typeof item === "string"
-                        ? item
-                        : `item-${index}`;
-
-                  return (
-                    <CommandItem
-                      key={itemValue}
-                      value={itemValue}
-                      onSelect={() => onSelectItem(item)}
-                    >
-                      {renderItem(item, selectedItem === item)}
-                    </CommandItem>
-                  );
-                })}
-              </CommandGroup>
-            )}
-            {filteredItems.length > 0 && (
-              <>
-                <CommandSeparator />
-                <CommandGroup>
-                  <CommandItem className="text-primary" onSelect={onCreateNew}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    {createNewButtonText}
-                  </CommandItem>
-                </CommandGroup>
-              </>
-            )}
+            <CommandEmpty>{noMatchingItemsMessage}</CommandEmpty>
+            <Button variant="ghost" onClick={onCreateNew} className="w-full">
+              <Plus className="mr-2 h-4 w-4" />
+              {createNewButtonText}
+            </Button>
           </>
+        ) : (
+          <CommandGroup>
+            {filteredItems.map((item, index) => {
+              const itemValue =
+                typeof item === "object" && item !== null && "id" in item
+                  ? String(item.id)
+                  : typeof item === "string"
+                    ? item
+                    : `item-${index}`;
+
+              return (
+                <CommandItem
+                  key={itemValue}
+                  value={itemValue}
+                  onSelect={() => onSelectItem(item)}
+                >
+                  {renderItem(item, selectedItem === item)}
+                </CommandItem>
+              );
+            })}
+            <CommandSeparator />
+            <CommandItem className="text-primary" onSelect={onCreateNew}>
+              <Plus className="mr-2 h-4 w-4" />
+              {createNewButtonText}
+            </CommandItem>
+          </CommandGroup>
         )}
       </CommandList>
     </Command>

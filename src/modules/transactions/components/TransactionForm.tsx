@@ -292,7 +292,7 @@ export function TransactionForm({
         >
           {(field) => (
             <FormField
-              name="categoryId"
+              name="category"
               label={t("transactions.transactionDialog.form.category")}
               error={field.state.meta.errors?.[0]}
             >

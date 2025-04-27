@@ -123,19 +123,12 @@ export function ShoppingListForm({
             label="Category"
             error={field.state.meta.errors?.[0]}
           >
-            <div className="relative">
-              <CategoryCombobox
-                categories={expenseCategories}
-                value={field.state.value}
-                onValueChange={field.handleChange}
-                isLoading={loadingCategories}
-              />
-              {loadingCategories && (
-                <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                </div>
-              )}
-            </div>
+            <CategoryCombobox
+              categories={expenseCategories}
+              value={field.state.value}
+              onValueChange={field.handleChange}
+              isLoading={loadingCategories}
+            />
           </FormField>
         )}
       </form.Field>
