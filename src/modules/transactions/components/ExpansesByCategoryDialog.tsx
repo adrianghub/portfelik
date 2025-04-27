@@ -8,7 +8,6 @@ import {
 } from "@/components/ui/dialog";
 import { useMobileDialog } from "@/hooks/useMobileDialog";
 import { formatCurrency } from "@/lib/format-currency";
-import type { Category } from "@/modules/shared/category";
 import type { CategorySummary } from "@/modules/transactions/hooks/useTransactionsSummaryQuery";
 import { type Transaction } from "@/modules/transactions/transaction";
 import { useState } from "react";
@@ -19,7 +18,6 @@ interface ExpansesByCategoryDialogProps {
   onSubmit?: (transaction: Transaction) => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  categories: Category[];
   categoriesSummary: CategorySummary[];
 }
 
@@ -27,7 +25,6 @@ export function ExpansesByCategoryDialog({
   trigger,
   open: controlledOpen,
   onOpenChange,
-  categories,
   categoriesSummary,
 }: ExpansesByCategoryDialogProps) {
   const [open, setOpen] = useState(false);
@@ -38,11 +35,6 @@ export function ExpansesByCategoryDialog({
   const setIsOpen = isControlled ? onOpenChange! : setOpen;
 
   const { contentRef } = useMobileDialog(isOpen);
-
-  const getCategoryName = (categoryId: string) => {
-    const category = categories.find((cat) => cat.id === categoryId);
-    return category?.name || categoryId;
-  };
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -65,7 +57,7 @@ export function ExpansesByCategoryDialog({
               <div key={category.categoryId}>
                 <div className="flex justify-between text-xs mb-1">
                   <span className="truncate max-w-[70%]">
-                    {getCategoryName(category.categoryId)} (
+                    {category.categoryName || category.categoryId} (
                     {category.transactionCount})
                   </span>
                   <span>{Math.round(category.percentage)}%</span>

@@ -1,6 +1,5 @@
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/format-currency";
-import { useFetchCategories } from "@/modules/shared/categories/useCategoriesQuery";
 import { ExpansesByCategoryDialog } from "@/modules/transactions/components/ExpansesByCategoryDialog";
 import { useTranslation } from "react-i18next";
 import { type CategorySummary } from "../hooks/useTransactionsSummaryQuery";
@@ -12,13 +11,7 @@ interface ExpansesByCategoryCardProps {
 export function ExpansesByCategoryCard({
   categorySummaries,
 }: ExpansesByCategoryCardProps) {
-  const { data: categories = [] } = useFetchCategories();
   const { t } = useTranslation();
-
-  const getCategoryName = (categoryId: string) => {
-    const category = categories.find((cat) => cat.id === categoryId);
-    return category?.name || categoryId;
-  };
 
   const sortedCategories = [...categorySummaries].sort(
     (a, b) => b.transactionCount - a.transactionCount,
@@ -33,8 +26,7 @@ export function ExpansesByCategoryCard({
               <div key={category.categoryId}>
                 <div className="flex justify-between text-xs mb-1">
                   <span className="truncate max-w-[70%]">
-                    {getCategoryName(category.categoryId)} (
-                    {category.transactionCount})
+                    {category.categoryName} ({category.transactionCount})
                   </span>
                   <span>{Math.round(category.percentage)}%</span>
                 </div>
@@ -61,7 +53,6 @@ export function ExpansesByCategoryCard({
                 {t("transactions.expensesByCategory.more")}
               </Button>
             }
-            categories={categories}
             categoriesSummary={sortedCategories}
           />
         )}

@@ -1,17 +1,21 @@
 import { useAuth } from "@/hooks/useAuth";
 import { categoryService } from "@/modules/shared/categories/CategoryService";
+import type { Category } from "@/modules/shared/category";
 import {
-  firestoreCategoriesToUICategories,
   uiCategoryToFirestoreCategory,
-  type CategoryDTO,
   type Category as UICategory,
 } from "@/modules/shared/category";
+import { API_BASE_URL } from "@/modules/shared/constants";
+import { fetcher } from "@/modules/shared/fetcher";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 const USER_CATEGORIES_QUERY_KEY = ["userCategories"];
 
+/**
+ * Fetches both user's own categories and shared categories from other users in the same groups.
+ */
 export function useFetchCategories() {
-  const { userData } = useAuth();
+  const { userData, getIdToken } = useAuth();
   const userId = userData?.uid;
 
   return useQuery({
@@ -20,15 +24,24 @@ export function useFetchCategories() {
       if (!userId) {
         return [];
       }
+
       try {
-        const categories = await categoryService.getAllUserCategories(userId);
-        const uiCategories = firestoreCategoriesToUICategories(
-          categories as CategoryDTO[],
-        );
-        return uiCategories;
+        const token = await getIdToken();
+        if (!token) throw new Error("Authentication token not available");
+
+        const url = `${API_BASE_URL}/api/v1/categories`;
+        const response = await fetcher(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        console.log(`Fetched ${response.categories?.length || 0} categories.`);
+        return response.categories as Category[];
       } catch (error) {
-        console.error("Error fetching user categories:", error);
-        throw error;
+        console.error("Error fetching categories from API:", error);
+        return [];
       }
     },
     enabled: !!userId,
@@ -48,10 +61,6 @@ export function useAddCategory() {
 
       const firestoreCategory = uiCategoryToFirestoreCategory(category, userId);
       const categoryToSave = { ...firestoreCategory };
-
-      if ("id" in categoryToSave) {
-        delete (categoryToSave as Record<string, unknown>).id;
-      }
 
       const result = await categoryService.create(categoryToSave);
       return result;
