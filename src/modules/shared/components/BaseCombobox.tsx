@@ -91,27 +91,37 @@ export function BaseCombobox<T>({
             </Button>
           </>
         ) : (
-          <CommandGroup>
+          <CommandGroup className="overflow-y-auto max-h-72">
             {filteredItems.map((item, index) => {
-              const itemValue =
+              const itemId =
                 typeof item === "object" && item !== null && "id" in item
                   ? String(item.id)
+                  : `item-${index}`;
+
+              const itemName =
+                typeof item === "object" && item !== null && "name" in item
+                  ? String(item.name)
                   : typeof item === "string"
                     ? item
-                    : `item-${index}`;
+                    : `Item ${index}`;
 
               return (
                 <CommandItem
-                  key={itemValue}
-                  value={itemValue}
+                  key={itemId}
+                  value={itemName}
                   onSelect={() => onSelectItem(item)}
+                  className="cursor-pointer"
                 >
                   {renderItem(item, selectedItem === item)}
                 </CommandItem>
               );
             })}
             <CommandSeparator />
-            <CommandItem className="text-primary" onSelect={onCreateNew}>
+            <CommandItem
+              className="text-primary cursor-pointer"
+              onSelect={onCreateNew}
+              value={createNewButtonText}
+            >
               <Plus className="mr-2 h-4 w-4" />
               {createNewButtonText}
             </CommandItem>

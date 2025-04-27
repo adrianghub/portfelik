@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/popover";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/styling-utils";
-import { normalizeText } from "@/lib/text";
 import type { Category } from "@/modules/shared/category";
 import { BaseCombobox } from "@/modules/shared/components/BaseCombobox";
 import { CreateCategoryDialog } from "@/modules/shared/components/CreateCategoryDialog";
@@ -55,17 +54,6 @@ function CategoryComboboxMobile({
   const displayValue = selectedCategory
     ? selectedCategory.name
     : placeholder || defaultPlaceholder;
-
-  // Enhanced filtering with normalized text comparison
-  const filteredCategories = useMemo(() => {
-    if (!inputValue) {
-      return categories;
-    }
-    const normalizedInput = normalizeText(inputValue);
-    return categories.filter((category) =>
-      normalizeText(category.name).includes(normalizedInput),
-    );
-  }, [categories, inputValue]);
 
   const handleSelectCategory = (category: Category) => {
     onValueChange(category.id === value ? "" : category.id);
@@ -118,7 +106,7 @@ function CategoryComboboxMobile({
               placeholder={defaultPlaceholder}
               inputRef={inputRef as React.RefObject<HTMLInputElement>}
               handleClearSearch={handleClearSearch}
-              filteredItems={filteredCategories}
+              filteredItems={categories}
               selectedItem={selectedCategory}
               onSelectItem={handleSelectCategory}
               onCreateNew={handleCreateNew}
@@ -188,22 +176,15 @@ function CategoryComboboxDesktop({
     ? selectedCategory.name
     : placeholder || defaultPlaceholder;
 
-  const filteredCategories = useMemo(() => {
-    if (!inputValue) {
-      return categories;
-    }
-    const normalizedInput = normalizeText(inputValue);
-    return categories.filter((category) =>
-      normalizeText(category.name).includes(normalizedInput),
-    );
-  }, [categories, inputValue]);
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !open) {
       e.preventDefault();
       setOpen(true);
     }
-    if (e.key === "Escape") {
+    // Handle selection of only item on Enter
+    else if (e.key === "Enter" && open && inputValue) {
+      // Let the Command component handle the selection
+    } else if (e.key === "Escape") {
       setOpen(false);
       setInputValue("");
     }
@@ -274,7 +255,7 @@ function CategoryComboboxDesktop({
             placeholder={defaultPlaceholder}
             inputRef={inputRef as React.RefObject<HTMLInputElement>}
             handleClearSearch={handleClearSearch}
-            filteredItems={filteredCategories}
+            filteredItems={categories}
             selectedItem={selectedCategory}
             onSelectItem={handleSelectCategory}
             onCreateNew={handleCreateNew}
