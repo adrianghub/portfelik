@@ -6,10 +6,11 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  CommandSeparator,
 } from "@/components/ui/command";
+import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, X } from "lucide-react";
+import { useCallback, useState } from "react"; // Import useEffect
 
 interface BaseComboboxProps<T> {
   inputValue: string;
@@ -17,7 +18,7 @@ interface BaseComboboxProps<T> {
   placeholder: string;
   inputRef: React.RefObject<HTMLInputElement>;
   handleClearSearch: () => void;
-  filteredItems: T[];
+  items: T[];
   selectedItem: T | undefined;
   onSelectItem: (item: T) => void;
   onCreateNew: () => void;
@@ -36,7 +37,7 @@ export function BaseCombobox<T>({
   placeholder,
   inputRef,
   handleClearSearch,
-  filteredItems,
+  items,
   selectedItem,
   onSelectItem,
   onCreateNew,
@@ -48,6 +49,31 @@ export function BaseCombobox<T>({
   keyboardEventHandler,
   isLoading,
 }: BaseComboboxProps<T>) {
+  const [filteredItemsEmpty, setFilteredItemsEmpty] = useState(false);
+
+  const handleFilterChange = useCallback(
+    (value: string) => {
+      if (!value) {
+        setFilteredItemsEmpty(false);
+        return;
+      }
+
+      const hasMatches = items.some((item) => {
+        const itemName =
+          typeof item === "object" && item !== null && "name" in item
+            ? String(item.name).toLowerCase()
+            : typeof item === "string"
+              ? item.toLowerCase()
+              : "";
+
+        return itemName.includes(value.toLowerCase());
+      });
+
+      setFilteredItemsEmpty(!hasMatches);
+    },
+    [items],
+  );
+
   return (
     <Command>
       <div className="relative">
@@ -55,7 +81,10 @@ export function BaseCombobox<T>({
           ref={inputRef}
           placeholder={placeholder}
           value={inputValue}
-          onValueChange={setInputValue}
+          onValueChange={(value) => {
+            setInputValue(value);
+            handleFilterChange(value);
+          }}
           className="pr-8"
           aria-label={placeholder}
           onKeyDown={keyboardEventHandler}
@@ -72,7 +101,7 @@ export function BaseCombobox<T>({
           </Button>
         )}
       </div>
-      <CommandList id="category-list">
+      <CommandList>
         {isLoading ? (
           <div className="flex flex-col items-center justify-center p-4 space-y-2">
             <Skeleton className="w-full h-8" />
@@ -80,31 +109,12 @@ export function BaseCombobox<T>({
             <Skeleton className="w-3/4 h-8" />
             <p className="text-xs text-muted-foreground mt-1">Loading...</p>
           </div>
-        ) : filteredItems.length === 0 && !inputValue ? (
+        ) : items.length === 0 && !inputValue ? (
           <CommandEmpty>{noItemsMessage}</CommandEmpty>
-        ) : filteredItems.length === 0 && inputValue ? (
-          <>
-            <CommandEmpty>{noMatchingItemsMessage}</CommandEmpty>
-            <Button variant="ghost" onClick={onCreateNew} className="w-full">
-              <Plus className="mr-2 h-4 w-4" />
-              {createNewButtonText}
-            </Button>
-          </>
         ) : (
-          <CommandGroup className="overflow-y-auto max-h-72">
-            {filteredItems.map((item, index) => {
-              const itemId =
-                typeof item === "object" && item !== null && "id" in item
-                  ? String(item.id)
-                  : `item-${index}`;
-
-              const itemName =
-                typeof item === "object" && item !== null && "name" in item
-                  ? String(item.name)
-                  : typeof item === "string"
-                    ? item
-                    : `Item ${index}`;
-
+          <CommandGroup>
+            {items.map((item, index) => {
+              const { itemId, itemName } = getItemProps(item, index);
               return (
                 <CommandItem
                   key={itemId}
@@ -116,18 +126,33 @@ export function BaseCombobox<T>({
                 </CommandItem>
               );
             })}
-            <CommandSeparator />
-            <CommandItem
-              className="text-primary cursor-pointer"
-              onSelect={onCreateNew}
-              value={createNewButtonText}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              {createNewButtonText}
-            </CommandItem>
           </CommandGroup>
         )}
+        {inputValue && filteredItemsEmpty && (
+          <CommandEmpty>{noMatchingItemsMessage}</CommandEmpty>
+        )}
       </CommandList>
+      <Separator />
+      <Button variant="ghost" onClick={onCreateNew}>
+        <Plus className="mr-2 h-4 w-4" />
+        {createNewButtonText}
+      </Button>
     </Command>
   );
 }
+
+const getItemProps = <T,>(item: T, index: number) => {
+  const itemId =
+    typeof item === "object" && item !== null && "id" in item
+      ? String(item.id)
+      : `item-${index}`;
+
+  const itemName =
+    typeof item === "object" && item !== null && "name" in item
+      ? String(item.name)
+      : typeof item === "string"
+        ? item
+        : `Item ${index}`;
+
+  return { itemId, itemName };
+};

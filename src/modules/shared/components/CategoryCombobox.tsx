@@ -106,7 +106,7 @@ function CategoryComboboxMobile({
               placeholder={defaultPlaceholder}
               inputRef={inputRef as React.RefObject<HTMLInputElement>}
               handleClearSearch={handleClearSearch}
-              filteredItems={categories}
+              items={categories}
               selectedItem={selectedCategory}
               onSelectItem={handleSelectCategory}
               onCreateNew={handleCreateNew}
@@ -255,7 +255,7 @@ function CategoryComboboxDesktop({
             placeholder={defaultPlaceholder}
             inputRef={inputRef as React.RefObject<HTMLInputElement>}
             handleClearSearch={handleClearSearch}
-            filteredItems={categories}
+            items={categories}
             selectedItem={selectedCategory}
             onSelectItem={handleSelectCategory}
             onCreateNew={handleCreateNew}
