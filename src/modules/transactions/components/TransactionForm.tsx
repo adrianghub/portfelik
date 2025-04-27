@@ -23,7 +23,7 @@ import {
   type TransactionType,
 } from "@/modules/transactions/transaction";
 import { useForm } from "@tanstack/react-form";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FormField } from "../../shared/components/FormField";
 import {
@@ -76,7 +76,27 @@ export function TransactionForm({
     return false;
   });
 
+  const expenseCategories = useMemo(
+    () => categories.filter((category) => category.type === "expense"),
+    [categories],
+  );
+
+  const incomeCategories = useMemo(
+    () => categories.filter((category) => category.type === "income"),
+    [categories],
+  );
+
+  const filteredCategories = useMemo(
+    () =>
+      transactionType === "expense" ? expenseCategories : incomeCategories,
+    [transactionType, expenseCategories, incomeCategories],
+  );
+
   logger.debug("TransactionForm", "initialValues", initialValues);
+  logger.debug(
+    "TransactionForm",
+    `Categories loaded: ${categories.length}, filtered: ${filteredCategories.length}`,
+  );
 
   const form = useForm({
     defaultValues: {
@@ -128,10 +148,6 @@ export function TransactionForm({
   const allowedStatuses = isDateInFuture
     ? [statuses.draft, statuses.paid, statuses.upcoming]
     : [statuses.draft, statuses.paid];
-
-  const filteredCategories = categories.filter(
-    (category) => category.type === transactionType,
-  );
 
   return (
     <form
