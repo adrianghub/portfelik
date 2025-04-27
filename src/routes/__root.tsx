@@ -1,3 +1,4 @@
+import { Loader } from "@/components/Loader";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { useAuth } from "@/hooks/useAuth";
 import { registerServiceWorker } from "@/lib/service-worker";
@@ -48,11 +49,7 @@ function RootLayout() {
   }, [userData, navigate, isLoading, currentUser]);
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-      </div>
-    );
+    return <Loader />;
   }
 
   return (

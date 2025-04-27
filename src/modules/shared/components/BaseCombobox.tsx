@@ -8,6 +8,7 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, X } from "lucide-react";
 
 interface BaseComboboxProps<T> {
@@ -26,6 +27,7 @@ interface BaseComboboxProps<T> {
   noMatchingItemsMessage: string;
   createNewButtonText: string;
   keyboardEventHandler?: (e: React.KeyboardEvent) => void;
+  isLoading?: boolean;
 }
 
 export function BaseCombobox<T>({
@@ -44,7 +46,10 @@ export function BaseCombobox<T>({
   noMatchingItemsMessage,
   createNewButtonText,
   keyboardEventHandler,
+  isLoading,
 }: BaseComboboxProps<T>) {
+  console.log(isLoading);
+
   return (
     <Command>
       <div className="relative">
@@ -56,6 +61,7 @@ export function BaseCombobox<T>({
           className="pr-8"
           aria-label={placeholder}
           onKeyDown={keyboardEventHandler}
+          disabled={isLoading}
         />
         {inputValue && (
           <Button
@@ -70,47 +76,57 @@ export function BaseCombobox<T>({
         )}
       </div>
       <CommandList id="category-list">
-        {filteredItems.length === 0 && !inputValue ? (
-          <CommandEmpty>{noItemsMessage}</CommandEmpty>
-        ) : filteredItems.length === 0 && inputValue ? (
-          <>
-            <CommandEmpty>{noMatchingItemsMessage}</CommandEmpty>
-            <Button variant="ghost" onClick={onCreateNew} className="w-full">
-              <Plus className="mr-2 h-4 w-4" />
-              {createNewButtonText}
-            </Button>
-          </>
+        {isLoading ? (
+          <Skeleton className="w-[90%] h-5 my-5 mx-auto" />
         ) : (
-          <CommandGroup>
-            {filteredItems.map((item, index) => {
-              const itemValue =
-                typeof item === "object" && item !== null && "id" in item
-                  ? String(item.id)
-                  : typeof item === "string"
-                    ? item
-                    : `item-${index}`;
-
-              return (
-                <CommandItem
-                  key={itemValue}
-                  value={itemValue}
-                  onSelect={() => onSelectItem(item)}
-                >
-                  {renderItem(item, selectedItem === item)}
-                </CommandItem>
-              );
-            })}
-          </CommandGroup>
-        )}
-        {filteredItems.length > 0 && (
           <>
-            <CommandSeparator />
-            <CommandGroup>
-              <CommandItem className="text-primary" onSelect={onCreateNew}>
-                <Plus className="mr-2 h-4 w-4" />
-                {createNewButtonText}
-              </CommandItem>
-            </CommandGroup>
+            {filteredItems.length === 0 && !inputValue ? (
+              <CommandEmpty>{noItemsMessage}</CommandEmpty>
+            ) : filteredItems.length === 0 && inputValue ? (
+              <>
+                <CommandEmpty>{noMatchingItemsMessage}</CommandEmpty>
+                <Button
+                  variant="ghost"
+                  onClick={onCreateNew}
+                  className="w-full"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  {createNewButtonText}
+                </Button>
+              </>
+            ) : (
+              <CommandGroup>
+                {filteredItems.map((item, index) => {
+                  const itemValue =
+                    typeof item === "object" && item !== null && "id" in item
+                      ? String(item.id)
+                      : typeof item === "string"
+                        ? item
+                        : `item-${index}`;
+
+                  return (
+                    <CommandItem
+                      key={itemValue}
+                      value={itemValue}
+                      onSelect={() => onSelectItem(item)}
+                    >
+                      {renderItem(item, selectedItem === item)}
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            )}
+            {filteredItems.length > 0 && (
+              <>
+                <CommandSeparator />
+                <CommandGroup>
+                  <CommandItem className="text-primary" onSelect={onCreateNew}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    {createNewButtonText}
+                  </CommandItem>
+                </CommandGroup>
+              </>
+            )}
           </>
         )}
       </CommandList>

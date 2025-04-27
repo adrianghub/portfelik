@@ -46,7 +46,8 @@ export function ShoppingListsView() {
 
   const createShoppingList = useCreateShoppingList();
   const deleteShoppingList = useDeleteShoppingList();
-  const { data: categories = [] } = useFetchCategories();
+  const { data: categories = [], isLoading: categoriesLoading } =
+    useFetchCategories();
 
   const { t } = useTranslation();
 
@@ -133,6 +134,7 @@ export function ShoppingListsView() {
             categories={expenseCategories}
             value={selectedCategoryId}
             onValueChange={setSelectedCategoryId}
+            isLoading={categoriesLoading}
           />
           {selectedCategoryId !== "all" && (
             <Button

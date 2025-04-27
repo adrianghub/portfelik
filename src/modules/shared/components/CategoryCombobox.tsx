@@ -25,7 +25,7 @@ interface CategoryComboboxProps {
   onValueChange: (value: string) => void;
   placeholder?: string;
   className?: string;
-  disabled?: boolean;
+  isLoading?: boolean;
 }
 
 function CategoryComboboxMobile({
@@ -34,7 +34,7 @@ function CategoryComboboxMobile({
   onValueChange,
   placeholder,
   className,
-  disabled = false,
+  isLoading = false,
 }: CategoryComboboxProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -84,7 +84,7 @@ function CategoryComboboxMobile({
     onValueChange(categoryId);
     setCreateDialogOpen(false);
     setOpen(false);
-    setInputValue(""); // Clear input after creation
+    setInputValue("");
   };
 
   const renderCategoryItem = (category: Category, isSelected: boolean) => (
@@ -131,6 +131,7 @@ function CategoryComboboxMobile({
               createNewButtonText={t(
                 "transactions.transactionDialog.form.createNewCategory",
               )}
+              isLoading={isLoading}
             />
           </div>
         </DrawerContent>
@@ -142,7 +143,6 @@ function CategoryComboboxMobile({
         aria-expanded={open}
         aria-controls="category-list"
         className={cn("w-full justify-between", className)}
-        disabled={disabled}
         type="button"
         onClick={() => setOpen(true)}
       >
@@ -165,7 +165,7 @@ function CategoryComboboxDesktop({
   onValueChange,
   placeholder,
   className,
-  disabled = false,
+  isLoading = false,
 }: CategoryComboboxProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -226,7 +226,7 @@ function CategoryComboboxDesktop({
     onValueChange(categoryId);
     setCreateDialogOpen(false);
     setOpen(false);
-    setInputValue(""); // Clear input after creation
+    setInputValue("");
   };
 
   const renderCategoryItem = (category: Category, isSelected: boolean) => (
@@ -238,7 +238,6 @@ function CategoryComboboxDesktop({
     </>
   );
 
-  // Effect to focus the input when the popover is open
   useEffect(() => {
     if (open && inputRef.current) {
       inputRef.current.focus();
@@ -256,7 +255,6 @@ function CategoryComboboxDesktop({
             aria-expanded={open}
             aria-controls="category-list"
             className={cn("w-full justify-between", className)}
-            disabled={disabled}
             onKeyDown={handleKeyDown}
           >
             {displayValue}
@@ -290,6 +288,7 @@ function CategoryComboboxDesktop({
               "transactions.transactionDialog.form.createNewCategory",
             )}
             keyboardEventHandler={handleKeyDown}
+            isLoading={isLoading}
           />
         </PopoverContent>
       </Popover>
@@ -305,6 +304,7 @@ function CategoryComboboxDesktop({
 
 export function CategoryCombobox(props: CategoryComboboxProps) {
   const isMobile = useMediaQuery("(max-width: 768px)");
+
   return isMobile ? (
     <CategoryComboboxMobile {...props} />
   ) : (

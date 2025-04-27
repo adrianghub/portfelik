@@ -300,7 +300,7 @@ export function TransactionForm({
                 categories={filteredCategories}
                 value={field.state.value}
                 onValueChange={field.handleChange}
-                disabled={categoriesLoading}
+                isLoading={categoriesLoading}
               />
             </FormField>
           )}
