@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/popover";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/styling-utils";
+import { normalizeText } from "@/lib/text";
 import type { Category } from "@/modules/shared/category";
 import { BaseCombobox } from "@/modules/shared/components/BaseCombobox";
 import { CreateCategoryDialog } from "@/modules/shared/components/CreateCategoryDialog";
@@ -55,13 +56,14 @@ function CategoryComboboxMobile({
     ? selectedCategory.name
     : placeholder || defaultPlaceholder;
 
+  // Enhanced filtering with normalized text comparison
   const filteredCategories = useMemo(() => {
     if (!inputValue) {
       return categories;
     }
-    const lowercasedInput = inputValue.toLowerCase();
+    const normalizedInput = normalizeText(inputValue);
     return categories.filter((category) =>
-      category.name.toLowerCase().includes(lowercasedInput),
+      normalizeText(category.name).includes(normalizedInput),
     );
   }, [categories, inputValue]);
 
@@ -190,9 +192,9 @@ function CategoryComboboxDesktop({
     if (!inputValue) {
       return categories;
     }
-    const lowercasedInput = inputValue.toLowerCase();
+    const normalizedInput = normalizeText(inputValue);
     return categories.filter((category) =>
-      category.name.toLowerCase().includes(lowercasedInput),
+      normalizeText(category.name).includes(normalizedInput),
     );
   }, [categories, inputValue]);
 
