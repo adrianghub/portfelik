@@ -48,8 +48,6 @@ export function BaseCombobox<T>({
   keyboardEventHandler,
   isLoading,
 }: BaseComboboxProps<T>) {
-  console.log(isLoading);
-
   return (
     <Command>
       <div className="relative">

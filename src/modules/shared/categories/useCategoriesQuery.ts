@@ -9,7 +9,7 @@ import { API_BASE_URL } from "@/modules/shared/constants";
 import { fetcher } from "@/modules/shared/fetcher";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-const USER_CATEGORIES_QUERY_KEY = ["userCategories"];
+export const USER_CATEGORIES_QUERY_KEY = ["userCategories"];
 
 /**
  * Fetches both user's own categories and shared categories from other users in the same groups.

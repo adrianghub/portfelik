@@ -2,6 +2,7 @@ import { Loader } from "@/components/Loader";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { useAuth } from "@/hooks/useAuth";
 import { registerServiceWorker } from "@/lib/service-worker";
+import { useCategoriesPrefetch } from "@/modules/shared/categories/useCategoriesPrefetch";
 import { Navigation } from "@/modules/shared/components/navigation/Navigation";
 import {
   createRootRoute,
@@ -26,6 +27,8 @@ async function registerSW() {
 function RootLayout() {
   const navigate = useNavigate();
   const { userData, isLoading, currentUser } = useAuth();
+
+  useCategoriesPrefetch();
 
   useEffect(() => {
     if (isLoading) return;

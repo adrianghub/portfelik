@@ -67,7 +67,6 @@ export function useTransactions(startDate?: Date, endDate?: Date) {
         const token = await getIdToken();
         if (!token) throw new Error("Authentication token not available");
 
-        // Fetch transactions from consolidated endpoint
         return await fetchTransactions(token, dayjsStartDate, dayjsEndDate);
       } catch (error) {
         console.error("Error fetching transactions:", error);
