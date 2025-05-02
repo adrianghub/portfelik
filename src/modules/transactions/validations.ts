@@ -15,30 +15,21 @@ export const validateDescription = (value: string): string | undefined => {
 };
 
 export const getDateConstraints = () => {
-  const now = dayjs();
-  const currentYear = now.year();
-  const currentMonth = now.month();
+  const minYear = dayjs("2024-01-01").year();
+  const minDate = dayjs("2024-01-01").format("YYYY-MM-DD");
 
-  const minDate = dayjs().startOf("year").format("YYYY-MM-DD");
-  const maxDate = dayjs().endOf("year").format("YYYY-MM-DD");
-
-  return { minDate, maxDate, currentYear, currentMonth };
+  return { minDate, minYear };
 };
 
 export const validateDate = (value: string): string | undefined => {
   if (!value) return "Date is required";
 
-  const { currentYear, currentMonth } = getDateConstraints();
+  const { minYear } = getDateConstraints();
   const selectedDate = dayjs(value);
   const selectedYear = selectedDate.year();
-  const selectedMonth = selectedDate.month();
 
-  if (selectedYear < currentYear) {
-    return "Date cannot be before current year";
-  }
-
-  if (selectedYear === currentYear && selectedMonth < currentMonth) {
-    return "Date cannot be before current month";
+  if (selectedYear < minYear) {
+    return "Date cannot be before 2024";
   }
 
   return undefined;

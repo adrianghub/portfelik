@@ -49,7 +49,7 @@ export function TransactionForm({
   const { t } = useTranslation();
   const { data: categories = [], isLoading: categoriesLoading } =
     useFetchCategories();
-  const { minDate, maxDate } = getDateConstraints();
+  const { minDate } = getDateConstraints();
 
   const initialAmount = initialValues?.amount
     ? Math.abs(initialValues.amount)
@@ -267,7 +267,6 @@ export function TransactionForm({
                 id="date"
                 type="date"
                 min={minDate}
-                max={maxDate}
                 value={field.state.value}
                 onChange={(e) => {
                   field.handleChange(e.target.value);

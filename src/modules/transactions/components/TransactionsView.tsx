@@ -1,18 +1,20 @@
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import {
+import dayjs, {
   getFirstDayOfMonth,
   getLastDayOfMonth,
-  getMonthName,
+  getMonthNameWithYear,
 } from "@/lib/date-utils";
 import { COLLECTIONS } from "@/lib/firebase/firestore";
 import { useUserGroups } from "@/modules/settings/hooks/useUserGroups";
 import { FloatingActionButtonGroup } from "@/modules/shared/components/FloatingActionButtonGroup";
 import { TransactionTable } from "@/modules/transactions/components/TransactionTable";
 import { TRANSACTION_SUMMARY_QUERY_KEY } from "@/modules/transactions/hooks/useTransactionsSummaryQuery";
+import { Route } from "@/routes/transactions";
 import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { Plus, RefreshCw } from "lucide-react";
-import { useCallback, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   useAddTransaction,
@@ -22,19 +24,38 @@ import {
 } from "../hooks/useTransactionsQuery";
 import { useTransactionToasts } from "../hooks/useTransactionToasts";
 import type { Transaction } from "../transaction";
-import { DateRange } from "./DateRangeFilter";
+import { type DateRange } from "./DateRangeFilter";
 import { TableFilters } from "./TableFilters";
 import { TransactionDialog } from "./TransactionDialog";
 import { TransactionsSummary } from "./TransactionsSummary";
 
 export function TransactionsView() {
+  const search = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] =
     useState<Transaction | null>(null);
-  const [dateRange, setDateRange] = useState<DateRange>({
-    start: getFirstDayOfMonth(),
-    end: getLastDayOfMonth(),
-  });
+
+  const dateRange = React.useMemo(() => {
+    const defaultStart = getFirstDayOfMonth();
+    const defaultEnd = getLastDayOfMonth();
+
+    const start =
+      search.startDate && dayjs(search.startDate, "YYYY-MM-DD", true).isValid()
+        ? dayjs(search.startDate, "YYYY-MM-DD", true)
+        : defaultStart;
+    const end =
+      search.endDate && dayjs(search.endDate, "YYYY-MM-DD", true).isValid()
+        ? dayjs(search.endDate, "YYYY-MM-DD", true)
+        : defaultEnd;
+
+    if (start.isAfter(end)) {
+      return { start: defaultStart, end: defaultEnd };
+    }
+    return { start, end };
+  }, [search.startDate, search.endDate]);
+
   const { userData } = useAuth();
   const { data: userGroups } = useUserGroups();
   const queryClient = useQueryClient();
@@ -53,9 +74,19 @@ export function TransactionsView() {
   const updateTransaction = useUpdateTransaction();
   const deleteTransaction = useDeleteTransaction();
 
-  const handleDateRangeChange = useCallback((newDateRange: DateRange) => {
-    setDateRange(newDateRange);
-  }, []);
+  const handleDateRangeChange = useCallback(
+    (newDateRange: DateRange) => {
+      navigate({
+        search: (prev) => ({
+          ...prev,
+          startDate: newDateRange.start.format("YYYY-MM-DD"),
+          endDate: newDateRange.end.format("YYYY-MM-DD"),
+        }),
+        replace: true,
+      });
+    },
+    [navigate],
+  );
 
   const handleOpenDialog = (transaction?: Transaction) => {
     if (transaction) {
@@ -124,7 +155,8 @@ export function TransactionsView() {
   };
 
   const hasTransactions = transactions.length > 0;
-  const currentMonthName = getMonthName(dateRange.start);
+
+  console.log(dateRange);
 
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
 
@@ -170,6 +202,8 @@ export function TransactionsView() {
 
         <div className="flex items-center">
           <TableFilters
+            startDate={dateRange.start}
+            endDate={dateRange.end}
             onDateRangeChange={handleDateRangeChange}
             rowSelection={rowSelection}
             onBulkDelete={handleBulkDelete}
@@ -238,9 +272,14 @@ export function TransactionsView() {
       ) : (
         <div className="shadow rounded-lg p-4 md:p-6 flex flex-col items-center justify-center">
           <p className="text-muted-foreground text-center py-6">
-            {t("transactions.noTransactionsForThisMonth", {
-              month: currentMonthName,
-            })}
+            {dateRange.start.isSame(dateRange.end, "month")
+              ? t("transactions.noTransactionsForMonth", {
+                  month: getMonthNameWithYear(dateRange.start),
+                })
+              : t("transactions.noTransactionsForDateRange", {
+                  startDate: getMonthNameWithYear(dateRange.start),
+                  endDate: getMonthNameWithYear(dateRange.end),
+                })}
           </p>
         </div>
       )}

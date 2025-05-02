@@ -45,11 +45,11 @@ export function ExpansesByCategoryCard({
             ))}
           </div>
         )}
-        {sortedCategories.length > 2 && (
+        {sortedCategories.length > 3 && (
           <ExpansesByCategoryDialog
             trigger={
               <Button variant="ghost" className="text-sm w-full">
-                + {sortedCategories.length - 1}{" "}
+                + {sortedCategories.length - 3}{" "}
                 {t("transactions.expensesByCategory.more")}
               </Button>
             }

@@ -34,7 +34,7 @@ export function TransactionsSummary({
     );
   }
 
-  if (!summary) {
+  if (!summary || summary.categorySummaries.length === 0) {
     return null;
   }
 

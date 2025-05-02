@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { DayjsDate } from "@/lib/date-utils";
 import { Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -6,6 +7,8 @@ import { DateRange, DateRangeFilter } from "./DateRangeFilter";
 import { DeleteTransactionDialog } from "./DeleteTransactionDialog";
 
 interface TableFiltersProps {
+  startDate: DayjsDate;
+  endDate: DayjsDate;
   onDateRangeChange: (dateRange: DateRange) => void;
   rowSelection: Record<string, boolean>;
   onBulkDelete: () => void;
@@ -13,6 +16,8 @@ interface TableFiltersProps {
 }
 
 export function TableFilters({
+  startDate,
+  endDate,
   onDateRangeChange,
   rowSelection,
   onBulkDelete,
@@ -32,7 +37,11 @@ export function TableFilters({
 
   return (
     <div className="flex items-center gap-2">
-      <DateRangeFilter onDateRangeChange={onDateRangeChange} />
+      <DateRangeFilter
+        startDate={startDate}
+        endDate={endDate}
+        onDateRangeChange={onDateRangeChange}
+      />
       {Object.keys(rowSelection).some((key) => rowSelection[key]) && (
         <div className="flex space-x-2">
           <Button

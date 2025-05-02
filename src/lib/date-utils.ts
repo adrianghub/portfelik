@@ -21,12 +21,12 @@ export const getLastDayOfMonth = (date = dayjs()) => {
   return date.endOf("month");
 };
 
-export function getMonthName(date: DayjsDate): string {
+export function getMonthNameWithYear(date: DayjsDate): string {
   const monthName = new Intl.DateTimeFormat("pl-PL", {
     month: "long",
   }).format(date.toDate());
 
-  return monthName.charAt(0).toUpperCase() + monthName.slice(1);
+  return `${monthName.charAt(0).toUpperCase() + monthName.slice(1)} ${date.year()}`;
 }
 
 export const formatShortMonth = (date = dayjs()) => {

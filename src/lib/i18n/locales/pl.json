@@ -60,7 +60,9 @@
     "refresh": "Odśwież",
     "addTransaction": "Dodaj transakcję",
     "noTransactions": "Brak transakcji",
-    "noTransactionsForThisMonth": "Brak transakcji w miesiącu {{month}}",
+    "noTransactionsForMonth": "Brak transakcji w miesiącu {{month}}",
+    "noTransactionsForDateRange": "Brak transakcji w okresie od {{startDate}} do {{endDate}}",
+    "pickAMonthRange": "Wybierz zakres miesięcy",
     "errorLoadingSummaries": "Wystąpił błąd podczas ładowania podsumowań",
     "expensesByCategory": {
       "title": "Wydatki w kategoriach",
