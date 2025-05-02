@@ -14,7 +14,6 @@ import { onRequest } from "firebase-functions/v2/https";
 import { ScheduledEvent, onSchedule } from "firebase-functions/v2/scheduler";
 import { sendAdminTransactionSummaryFunction } from "./notifications/sendAdminTransactionSummary";
 import { sendGroupInvitationNotification } from "./notifications/sendGroupInvitationNotification";
-import { migrateTransactionsFunction } from "./transactions/migrateTransactions";
 import { processRecurringTransactionsFunction } from "./transactions/processRecurringTransactions";
 import { updateTransactionStatusesFunction } from "./transactions/updateTransactionStatuses";
 import type { GroupInvitation } from "./types/group-invitation";
@@ -198,33 +197,6 @@ export const updateTransactionStatusesManual = onRequest(
           error instanceof Error
             ? error.message
             : "Unknown error occurred while updating transaction statuses",
-      });
-    }
-  },
-);
-
-// Manual trigger for migrating transactions to include status and recurring fields
-export const migrateTransactions = onRequest(
-  {
-    region: defaultProperties.region,
-  },
-  async (_req, res) => {
-    try {
-      logger.info("Running transaction migration function");
-      await migrateTransactionsFunction();
-
-      res.json({
-        success: true,
-        message: "Transactions migration completed successfully",
-      });
-    } catch (error) {
-      logger.error("Error in transaction migration:", error);
-      res.status(500).json({
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unknown error occurred while migrating transactions",
       });
     }
   },
