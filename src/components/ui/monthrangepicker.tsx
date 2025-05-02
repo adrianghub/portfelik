@@ -2,6 +2,7 @@ import dayjs from "@/lib/date-utils";
 import { cn } from "@/lib/styling-utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { Button, buttonVariants } from "./button";
 
 const addMonths = (input: Date, months: number) => {
@@ -25,65 +26,65 @@ type Month = {
   yearOffset: number;
 };
 
-const MONTHS: Month[][] = [
+const MONTHS: Omit<Month, "name">[][] = [
   [
-    { number: 0, name: "Jan", yearOffset: 0 },
-    { number: 1, name: "Feb", yearOffset: 0 },
-    { number: 2, name: "Mar", yearOffset: 0 },
-    { number: 3, name: "Apr", yearOffset: 0 },
-    { number: 0, name: "Jan", yearOffset: 1 },
-    { number: 1, name: "Feb", yearOffset: 1 },
-    { number: 2, name: "Mar", yearOffset: 1 },
-    { number: 3, name: "Apr", yearOffset: 1 },
+    { number: 0, yearOffset: 0 },
+    { number: 1, yearOffset: 0 },
+    { number: 2, yearOffset: 0 },
+    { number: 3, yearOffset: 0 },
+    { number: 0, yearOffset: 1 },
+    { number: 1, yearOffset: 1 },
+    { number: 2, yearOffset: 1 },
+    { number: 3, yearOffset: 1 },
   ],
   [
-    { number: 4, name: "May", yearOffset: 0 },
-    { number: 5, name: "Jun", yearOffset: 0 },
-    { number: 6, name: "Jul", yearOffset: 0 },
-    { number: 7, name: "Aug", yearOffset: 0 },
-    { number: 4, name: "May", yearOffset: 1 },
-    { number: 5, name: "Jun", yearOffset: 1 },
-    { number: 6, name: "Jul", yearOffset: 1 },
-    { number: 7, name: "Aug", yearOffset: 1 },
+    { number: 4, yearOffset: 0 },
+    { number: 5, yearOffset: 0 },
+    { number: 6, yearOffset: 0 },
+    { number: 7, yearOffset: 0 },
+    { number: 4, yearOffset: 1 },
+    { number: 5, yearOffset: 1 },
+    { number: 6, yearOffset: 1 },
+    { number: 7, yearOffset: 1 },
   ],
   [
-    { number: 8, name: "Sep", yearOffset: 0 },
-    { number: 9, name: "Oct", yearOffset: 0 },
-    { number: 10, name: "Nov", yearOffset: 0 },
-    { number: 11, name: "Dec", yearOffset: 0 },
-    { number: 8, name: "Sep", yearOffset: 1 },
-    { number: 9, name: "Oct", yearOffset: 1 },
-    { number: 10, name: "Nov", yearOffset: 1 },
-    { number: 11, name: "Dec", yearOffset: 1 },
+    { number: 8, yearOffset: 0 },
+    { number: 9, yearOffset: 0 },
+    { number: 10, yearOffset: 0 },
+    { number: 11, yearOffset: 0 },
+    { number: 8, yearOffset: 1 },
+    { number: 9, yearOffset: 1 },
+    { number: 10, yearOffset: 1 },
+    { number: 11, yearOffset: 1 },
   ],
 ];
 
 type QuickSelector = {
-  label: string;
+  key: string;
   startMonth: Date;
   endMonth: Date;
   variant?: ButtonVariant;
   onClick?: (selector: QuickSelector) => void;
 };
 
-const QUICK_SELECTORS: QuickSelector[] = [
+const getQuickSelectors = (): Omit<QuickSelector, "label">[] => [
   {
-    label: "This year",
+    key: "common.date.thisYear",
     startMonth: new Date(new Date().getFullYear(), 0),
     endMonth: new Date(new Date().getFullYear(), 11),
   },
   {
-    label: "Last year",
+    key: "common.date.lastYear",
     startMonth: new Date(new Date().getFullYear() - 1, 0),
     endMonth: new Date(new Date().getFullYear() - 1, 11),
   },
   {
-    label: "Last 6 months",
+    key: "common.date.last6Months",
     startMonth: new Date(addMonths(new Date(), -6)),
     endMonth: new Date(),
   },
   {
-    label: "Last 12 months",
+    key: "common.date.last12Months",
     startMonth: new Date(addMonths(new Date(), -12)),
     endMonth: new Date(),
   },
@@ -168,11 +169,16 @@ function MonthRangeCal({
   variant,
   minDate,
   maxDate,
-  quickSelectors = QUICK_SELECTORS,
+  quickSelectors: customQuickSelectors,
   showQuickSelectors = true,
   onYearBackward,
   onYearForward,
 }: MonthRangeCalProps) {
+  const { t, i18n } = useTranslation();
+  const currentLocale = i18n.language;
+
+  const quickSelectors = customQuickSelectors || getQuickSelectors();
+
   const [startYear, setStartYear] = React.useState<number>(
     selectedMonthRange?.start.getFullYear() ?? new Date().getFullYear(),
   );
@@ -180,7 +186,7 @@ function MonthRangeCal({
     selectedMonthRange?.start?.getMonth() ?? new Date().getMonth(),
   );
   const [endYear, setEndYear] = React.useState<number>(
-    selectedMonthRange?.end?.getFullYear() ?? new Date().getFullYear() + 1,
+    selectedMonthRange?.end?.getFullYear() ?? new Date().getFullYear(),
   );
   const [endMonth, setEndMonth] = React.useState<number>(
     selectedMonthRange?.end?.getMonth() ?? new Date().getMonth(),
@@ -190,6 +196,43 @@ function MonthRangeCal({
   const [menuYear, setMenuYear] = React.useState<number>(startYear);
 
   if (minDate && maxDate && minDate > maxDate) minDate = maxDate;
+
+  const currentMonthStart = dayjs().startOf("month").toDate();
+  const currentMonthEnd = dayjs().endOf("month").toDate();
+
+  const isCurrentMonthSelected =
+    selectedMonthRange &&
+    dayjs(selectedMonthRange.start).isSame(currentMonthStart, "month") &&
+    dayjs(selectedMonthRange.end).isSame(currentMonthEnd, "month");
+
+  const handleSelectCurrentMonth = () => {
+    const now = new Date();
+    const currentMonthStartDate = dayjs(now).startOf("month").toDate();
+    const currentMonthEndDate = dayjs(now).endOf("month").toDate();
+
+    setStartYear(currentMonthStartDate.getFullYear());
+    setEndYear(currentMonthEndDate.getFullYear());
+    setStartMonth(currentMonthStartDate.getMonth());
+    setEndMonth(currentMonthEndDate.getMonth());
+    setMenuYear(currentMonthStartDate.getFullYear());
+    setRangePending(false);
+    setEndLocked(true);
+    if (onMonthRangeSelect) {
+      onMonthRangeSelect({
+        start: currentMonthStartDate,
+        end: currentMonthEndDate,
+      });
+    }
+  };
+
+  const getShortMonthName = (year: number, monthNumber: number): string => {
+    const date = new Date(year, monthNumber);
+
+    const monthName = new Intl.DateTimeFormat(currentLocale, {
+      month: "short",
+    }).format(date);
+    return monthName.charAt(0).toUpperCase() + monthName.slice(1);
+  };
 
   return (
     <div className="flex gap-4">
@@ -236,9 +279,16 @@ function MonthRangeCal({
               return (
                 <tr key={"row-" + a} className="flex w-full mt-2">
                   {monthRow.map((m, i) => {
+                    const monthYear = menuYear + m.yearOffset;
+                    const monthNumber = m.number;
+                    const localizedMonthName = getShortMonthName(
+                      monthYear,
+                      monthNumber,
+                    );
+
                     return (
                       <td
-                        key={m.number + "-" + m.yearOffset}
+                        key={monthNumber + "-" + m.yearOffset}
                         className={cn(
                           cn(
                             cn(
@@ -353,8 +403,11 @@ function MonthRangeCal({
                           )}
                         >
                           {callbacks?.monthLabel
-                            ? callbacks.monthLabel(m)
-                            : m.name}
+                            ? callbacks.monthLabel({
+                                ...m,
+                                name: localizedMonthName,
+                              } as Month)
+                            : localizedMonthName}
                         </button>
                       </td>
                     );
@@ -368,13 +421,22 @@ function MonthRangeCal({
 
       {showQuickSelectors && (
         <div className="flex flex-col gap-2 max-w-[150px]">
+          <Button
+            size="sm"
+            variant={variant?.calendar?.main ?? "outline"}
+            onClick={handleSelectCurrentMonth}
+            disabled={isCurrentMonthSelected ?? false}
+          >
+            {t("common.date.currentMonth")}
+          </Button>
+          <hr className="my-1" />
           {quickSelectors.map((selector, i) => {
             const isDisabled = minDate
               ? dayjs(selector.startMonth).isBefore(dayjs(minDate))
               : false;
             return (
               <Button
-                key={selector.label + i}
+                key={selector.key + i}
                 size="sm"
                 disabled={isDisabled}
                 variant={
@@ -396,7 +458,7 @@ function MonthRangeCal({
                   if (selector.onClick) selector.onClick(selector);
                 }}
               >
-                {selector.label}
+                {t(selector.key)}
               </Button>
             );
           })}

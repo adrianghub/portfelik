@@ -15,6 +15,7 @@ i18n
   .use(initReactI18next)
   .init({
     resources,
+    lng: "pl",
     fallbackLng: "pl",
     debug: import.meta.env.DEV,
 

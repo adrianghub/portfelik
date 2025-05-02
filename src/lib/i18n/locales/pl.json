@@ -11,7 +11,14 @@
     "delete": "Usuń",
     "deleting": "Usuwanie...",
     "edit": "Edytuj",
-    "clear": "Wyczyść"
+    "clear": "Wyczyść",
+    "date": {
+      "thisYear": "Ten rok",
+      "lastYear": "Zeszły rok",
+      "last6Months": "Ostatnie 6 miesięcy",
+      "last12Months": "Ostatnie 12 miesięcy",
+      "currentMonth": "Bieżący miesiąc"
+    }
   },
   "notifications": {
     "groupInvitation": {
@@ -147,6 +154,17 @@
       "loadingShoppingList": "Ładowanie listy zakupów...",
       "status": "Status",
       "recurringDate": "Data powtórzenia płatności"
+    },
+    "tableHeaders": {
+      "select": "Zaznacz",
+      "description": "Opis",
+      "date": "Data",
+      "status": "Status",
+      "category": "Kategoria",
+      "shoppingList": "Lista Zakupów",
+      "user": "Użytkownik",
+      "amount": "Kwota",
+      "actions": "Akcje"
     }
   },
   "nav": {
