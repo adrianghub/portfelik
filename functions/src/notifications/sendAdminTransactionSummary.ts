@@ -23,7 +23,8 @@ interface UserTransactionSummary {
 export async function sendAdminTransactionSummaryFunction() {
   const db = admin.firestore();
   const now = dayjs();
-  const yesterday = now.subtract(1, "day").startOf("day");
+  const startOfPeriod = now.subtract(7, "days").startOf("day");
+  const endOfPeriod = now.startOf("day");
 
   try {
     const adminUsersSnapshot = await db
@@ -52,12 +53,13 @@ export async function sendAdminTransactionSummaryFunction() {
 
     const transactionsSnapshot = await db
       .collection("transactions")
-      .where("date", ">=", yesterday.toISOString())
+      .where("date", ">=", startOfPeriod.toISOString())
+      .where("date", "<", endOfPeriod.toISOString())
       .get();
 
     if (transactionsSnapshot.empty) {
       logger.info(
-        "No transactions found from yesterday, skipping admin summary",
+        `No transactions found from the past week (${startOfPeriod.format("YYYY-MM-DD")} to ${endOfPeriod.subtract(1, "day").format("YYYY-MM-DD")}), skipping admin summary`,
       );
       return;
     }
@@ -68,7 +70,9 @@ export async function sendAdminTransactionSummaryFunction() {
       date: dayjs(doc.data().date).toISOString(),
     })) as (Transaction & { id: string; userId: string })[];
 
-    logger.info(`Found ${transactions.length} transactions from yesterday`);
+    logger.info(
+      `Found ${transactions.length} transactions from the past week (${startOfPeriod.format("YYYY-MM-DD")} to ${endOfPeriod.subtract(1, "day").format("YYYY-MM-DD")})`,
+    );
 
     const usersSnapshot = await db.collection("users").get();
     const userMap = new Map<string, User>();
@@ -138,25 +142,27 @@ export async function sendAdminTransactionSummaryFunction() {
         continue;
       }
 
-      // Get user language preference
       const language = await getUserLanguage(adminId);
 
-      // Use translated title
-      const title = getTranslatedTitle("admin_transaction_summary", language);
+      const title = getTranslatedTitle(
+        "admin_weekly_transaction_summary",
+        language,
+      );
 
-      // Format the date according to language preference
-      const formattedDate = yesterday.format("YYYY-MM-DD");
+      const formattedStartDate = startOfPeriod.format("YYYY-MM-DD");
+      const formattedEndDate = endOfPeriod
+        .subtract(1, "day")
+        .format("YYYY-MM-DD");
 
-      // Format currency amounts according to language preference
       const formattedTotalIncome = formatAmount(totalIncome, language);
       const formattedTotalExpenses = formatAmount(totalExpenses, language);
 
-      // Get translated message with placeholders
       let body = getTranslatedMessage(
-        "admin_transaction_summary_header",
+        "admin_weekly_transaction_summary_header",
         language,
         {
-          date: formattedDate,
+          startDate: formattedStartDate,
+          endDate: formattedEndDate,
           userCount: totalUsers,
           transactionCount: totalTransactions,
           totalIncome: formattedTotalIncome,
@@ -164,7 +170,6 @@ export async function sendAdminTransactionSummaryFunction() {
         },
       );
 
-      // Add user breakdown
       if (userSummaries.size <= 10) {
         body +=
           getTranslatedMessage(
@@ -215,7 +220,7 @@ export async function sendAdminTransactionSummaryFunction() {
         userId: adminId,
         title,
         body,
-        type: "admin_transaction_summary",
+        type: "admin_weekly_transaction_summary",
         read: false,
         createdAt: now.toISOString(),
       };
@@ -248,8 +253,10 @@ export async function sendAdminTransactionSummaryFunction() {
             body: body.substring(0, 1000),
           },
           data: {
-            type: "admin_transaction_summary",
+            type: "admin_weekly_transaction_summary",
             date: now.toISOString(),
+            startDate: startOfPeriod.toISOString(),
+            endDate: endOfPeriod.toISOString(),
           },
         };
 

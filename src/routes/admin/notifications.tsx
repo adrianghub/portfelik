@@ -51,7 +51,6 @@ function AdminNotificationsManagerView() {
         userId: userData.uid,
         title: "Test Cloud Function",
         body: "This is a test notification sent via Firebase Cloud Functions",
-        type: "admin_transaction_summary",
       });
       const response = await fetch(`${FUNCTION_URL}?${params.toString()}`);
       const data = await response.json();

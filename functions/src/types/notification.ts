@@ -1,7 +1,7 @@
 export type NotificationType =
   | "system_notification"
   | "transaction_summary"
-  | "admin_transaction_summary"
+  | "admin_weekly_transaction_summary"
   | "group_invitation"
   | "transaction_upcoming"
   | "transaction_overdue"

@@ -46,14 +46,14 @@ export const translations: Record<string, Translation> = {
       pl: 'Transakcja "{description}" na kwotę {amount} jest do zapłaty jutro.',
     },
   },
-  admin_transaction_summary: {
+  admin_weekly_transaction_summary: {
     title: {
-      pl: "Podsumowanie transakcji",
+      pl: "Tygodniowe podsumowanie transakcji",
     },
   },
-  admin_transaction_summary_header: {
+  admin_weekly_transaction_summary_header: {
     body: {
-      pl: "Aktywność platformy z dnia {date}:\nUżytkownicy z transakcjami: {userCount}\nŁącznie transakcji: {transactionCount}\nŁączny przychód: {totalIncome}\nŁączne wydatki: {totalExpenses}\n\n",
+      pl: "Aktywność platformy (okres {startDate} - {endDate}):\nUżytkownicy z transakcjami: {userCount}\nŁącznie transakcji: {transactionCount}\nŁączny przychód: {totalIncome}\nŁączne wydatki: {totalExpenses}\n\n",
     },
   },
   admin_transaction_summary_all_users: {
