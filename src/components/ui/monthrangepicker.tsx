@@ -139,22 +139,22 @@ function MonthRangePicker({
   ...props
 }: React.HTMLAttributes<HTMLDivElement> & MonthRangeCalProps) {
   return (
-    <div className={cn("min-w-[400px]  p-3", className)} {...props}>
+    <div className={cn("min-w-[400px] p-3", className)} {...props}>
       <div className="flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0">
         <div className="w-full">
           <MonthRangeCal
+            selectedMonthRange={selectedMonthRange}
             onMonthRangeSelect={onMonthRangeSelect}
             onStartMonthSelect={onStartMonthSelect}
             callbacks={callbacks}
-            selectedMonthRange={selectedMonthRange}
-            onYearBackward={onYearBackward}
-            onYearForward={onYearForward}
             variant={variant}
             minDate={minDate}
             maxDate={maxDate}
             quickSelectors={quickSelectors}
             showQuickSelectors={showQuickSelectors}
-          ></MonthRangeCal>
+            onYearBackward={onYearBackward}
+            onYearForward={onYearForward}
+          />
         </div>
       </div>
     </div>
@@ -235,49 +235,49 @@ function MonthRangeCal({
   };
 
   return (
-    <div className="flex gap-4">
-      <div className="min-w-[400px] space-y-4">
-        <div className="flex justify-evenly pt-1 relative items-center">
-          <div className="text-sm font-medium">
+    <div className="flex flex-col md:flex-row gap-4">
+      <div className="space-y-4 flex-shrink md:flex-1 md:min-w-[400px] min-w-auto">
+        <div className="flex justify-between md:justify-evenly pt-1 relative items-center">
+          <button
+            onClick={() => {
+              setMenuYear(menuYear - 1);
+              if (onYearBackward) onYearBackward();
+            }}
+            className={cn(
+              buttonVariants({ variant: variant?.chevrons ?? "outline" }),
+              "inline-flex items-center justify-center h-7 w-7 p-0",
+              "md:absolute md:left-1",
+            )}
+          >
+            <ChevronLeft className="opacity-50 h-4 w-4" />
+          </button>
+          <div className="text-sm font-medium text-center flex-1 md:flex-initial md:text-left">
             {callbacks?.yearLabel ? callbacks?.yearLabel(menuYear) : menuYear}
           </div>
-          <div className="space-x-1 flex items-center">
-            <button
-              onClick={() => {
-                setMenuYear(menuYear - 1);
-                if (onYearBackward) onYearBackward();
-              }}
-              className={cn(
-                buttonVariants({ variant: variant?.chevrons ?? "outline" }),
-                "inline-flex items-center justify-center h-7 w-7 p-0 absolute left-1",
-              )}
-            >
-              <ChevronLeft className="opacity-50 h-4 w-4" />
-            </button>
-            <button
-              onClick={() => {
-                setMenuYear(menuYear + 1);
-                if (onYearForward) onYearForward();
-              }}
-              className={cn(
-                buttonVariants({ variant: variant?.chevrons ?? "outline" }),
-                "inline-flex items-center justify-center h-7 w-7 p-0 absolute right-1",
-              )}
-            >
-              <ChevronRight className="opacity-50 h-4 w-4" />
-            </button>
-          </div>
-          <div className="text-sm font-medium">
+          <div className="text-sm font-medium hidden md:block">
             {callbacks?.yearLabel
               ? callbacks?.yearLabel(menuYear + 1)
               : menuYear + 1}
           </div>
+          <button
+            onClick={() => {
+              setMenuYear(menuYear + 1);
+              if (onYearForward) onYearForward();
+            }}
+            className={cn(
+              buttonVariants({ variant: variant?.chevrons ?? "outline" }),
+              "inline-flex items-center justify-center h-7 w-7 p-0",
+              "md:absolute md:right-1",
+            )}
+          >
+            <ChevronRight className="opacity-50 h-4 w-4" />
+          </button>
         </div>
-        <table className="w-full border-collapse space-y-1">
+        <table className="w-full border-collapse space-y-1 hidden md:table">
           <tbody>
             {MONTHS.map((monthRow, a) => {
               return (
-                <tr key={"row-" + a} className="flex w-full mt-2">
+                <tr key={"row-md-" + a} className="flex w-full mt-2">
                   {monthRow.map((m, i) => {
                     const monthYear = menuYear + m.yearOffset;
                     const monthNumber = m.number;
@@ -286,118 +286,112 @@ function MonthRangeCal({
                       monthNumber,
                     );
 
+                    const currentDate = dayjs(new Date(monthYear, monthNumber));
+                    const startDate = dayjs(new Date(startYear, startMonth));
+                    const endDate = dayjs(new Date(endYear, endMonth));
+
+                    const isCurrentMonthStart = currentDate.isSame(
+                      startDate,
+                      "month",
+                    );
+                    const isCurrentMonthEnd = currentDate.isSame(
+                      endDate,
+                      "month",
+                    );
+
+                    const isInSelectedRange =
+                      (rangePending || endLocked) &&
+                      currentDate.isBetween(startDate, endDate, "month", "[]");
+
+                    const isSelectedFinal =
+                      (isCurrentMonthStart || isCurrentMonthEnd) &&
+                      !rangePending;
+
                     return (
                       <td
-                        key={monthNumber + "-" + m.yearOffset}
+                        key={monthNumber + "-" + m.yearOffset + "-md"}
                         className={cn(
-                          cn(
-                            cn(
-                              cn(
-                                "h-10 w-1/4 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-                                (menuYear + m.yearOffset > startYear ||
-                                  (menuYear + m.yearOffset == startYear &&
-                                    m.number > startMonth)) &&
-                                  (menuYear + m.yearOffset < endYear ||
-                                    (menuYear + m.yearOffset == endYear &&
-                                      m.number < endMonth)) &&
-                                  (rangePending || endLocked)
-                                  ? "text-accent-foreground bg-accent"
-                                  : "",
-                              ),
-                              menuYear + m.yearOffset == startYear &&
-                                m.number == startMonth &&
-                                (rangePending || endLocked)
-                                ? "text-accent-foreground bg-accent rounded-l-md"
-                                : "",
-                            ),
-                            menuYear + m.yearOffset == endYear &&
-                              m.number == endMonth &&
-                              (rangePending || endLocked) &&
-                              menuYear + m.yearOffset >= startYear &&
-                              m.number >= startMonth
-                              ? "text-accent-foreground bg-accent rounded-r-md"
-                              : "",
-                          ),
+                          "h-10 w-1/4 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+                          isInSelectedRange &&
+                            "bg-accent text-accent-foreground",
+                          isCurrentMonthStart &&
+                            isInSelectedRange &&
+                            "rounded-l-md",
+                          isCurrentMonthEnd &&
+                            isInSelectedRange &&
+                            "rounded-r-md",
                           i == 3 ? "mr-2" : i == 4 ? "ml-2" : "",
                         )}
                         onMouseEnter={() => {
                           if (rangePending && !endLocked) {
-                            setEndYear(menuYear + m.yearOffset);
-                            setEndMonth(m.number);
+                            const potentialEndDate = dayjs(
+                              new Date(monthYear, monthNumber),
+                            );
+                            if (
+                              !potentialEndDate.isBefore(startDate, "month")
+                            ) {
+                              setEndYear(monthYear);
+                              setEndMonth(monthNumber);
+                            }
                           }
                         }}
                       >
                         <button
                           onClick={() => {
+                            const clickedDate = dayjs(
+                              new Date(monthYear, monthNumber),
+                            );
                             if (rangePending) {
-                              if (
-                                menuYear + m.yearOffset < startYear ||
-                                (menuYear + m.yearOffset == startYear &&
-                                  m.number < startMonth)
-                              ) {
+                              if (clickedDate.isBefore(startDate, "month")) {
                                 setRangePending(true);
                                 setEndLocked(false);
-                                setStartMonth(m.number);
-                                setStartYear(menuYear + m.yearOffset);
-                                setEndYear(menuYear + m.yearOffset);
-                                setEndMonth(m.number);
+                                setStartMonth(monthNumber);
+                                setStartYear(monthYear);
+                                setEndYear(monthYear);
+                                setEndMonth(monthNumber);
                                 if (onStartMonthSelect)
-                                  onStartMonthSelect(
-                                    new Date(menuYear + m.yearOffset, m.number),
-                                  );
+                                  onStartMonthSelect(clickedDate.toDate());
                               } else {
                                 setRangePending(false);
                                 setEndLocked(true);
-                                // Event fire data selected
+                                const finalEndDate = clickedDate.isBefore(
+                                  startDate,
+                                  "month",
+                                )
+                                  ? startDate
+                                  : clickedDate;
+                                setEndYear(finalEndDate.year());
+                                setEndMonth(finalEndDate.month());
 
-                                if (onMonthRangeSelect)
+                                if (onMonthRangeSelect) {
                                   onMonthRangeSelect({
-                                    start: new Date(startYear, startMonth),
-                                    end: new Date(
-                                      menuYear + m.yearOffset,
-                                      m.number,
-                                    ),
+                                    start: startDate.toDate(),
+                                    end: finalEndDate.toDate(),
                                   });
+                                }
                               }
                             } else {
                               setRangePending(true);
                               setEndLocked(false);
-                              setStartMonth(m.number);
-                              setStartYear(menuYear + m.yearOffset);
-                              setEndYear(menuYear + m.yearOffset);
-                              setEndMonth(m.number);
+                              setStartMonth(monthNumber);
+                              setStartYear(monthYear);
+                              setEndYear(monthYear);
+                              setEndMonth(monthNumber);
                               if (onStartMonthSelect)
-                                onStartMonthSelect(
-                                  new Date(menuYear + m.yearOffset, m.number),
-                                );
+                                onStartMonthSelect(clickedDate.toDate());
                             }
                           }}
                           disabled={
-                            (maxDate
-                              ? menuYear + m.yearOffset >
-                                  maxDate?.getFullYear() ||
-                                (menuYear + m.yearOffset ==
-                                  maxDate?.getFullYear() &&
-                                  m.number > maxDate.getMonth())
-                              : false) ||
-                            (minDate
-                              ? menuYear + m.yearOffset <
-                                  minDate?.getFullYear() ||
-                                (menuYear + m.yearOffset ==
-                                  minDate?.getFullYear() &&
-                                  m.number < minDate.getMonth())
-                              : false)
+                            (maxDate &&
+                              currentDate.isAfter(dayjs(maxDate), "month")) ||
+                            (minDate &&
+                              currentDate.isBefore(dayjs(minDate), "month"))
                           }
                           className={cn(
                             buttonVariants({
-                              variant:
-                                (startMonth == m.number &&
-                                  menuYear + m.yearOffset == startYear) ||
-                                (endMonth == m.number &&
-                                  menuYear + m.yearOffset == endYear &&
-                                  !rangePending)
-                                  ? (variant?.calendar?.selected ?? "default")
-                                  : (variant?.calendar?.main ?? "ghost"),
+                              variant: isSelectedFinal
+                                ? (variant?.calendar?.selected ?? "default")
+                                : (variant?.calendar?.main ?? "ghost"),
                             }),
                             "h-full w-full p-0 font-normal aria-selected:opacity-100",
                           )}
@@ -417,10 +411,143 @@ function MonthRangeCal({
             })}
           </tbody>
         </table>
+
+        <table className="w-full border-collapse space-y-1 md:hidden">
+          <tbody>
+            {[0, 1, 2, 3].map((rowIndex) => (
+              <tr key={`row-sm-${rowIndex}`} className="flex w-full mt-2">
+                {[0, 1, 2].map((colIndex) => {
+                  const monthIndex = rowIndex * 3 + colIndex;
+                  if (monthIndex > 11)
+                    return (
+                      <td key={`empty-${colIndex}`} className="w-1/3 p-1"></td>
+                    );
+
+                  const monthNumber = monthIndex;
+                  const monthYear = menuYear;
+                  const localizedMonthName = getShortMonthName(
+                    monthYear,
+                    monthNumber,
+                  );
+
+                  const currentDate = dayjs(new Date(monthYear, monthNumber));
+                  const startDate = dayjs(new Date(startYear, startMonth));
+                  const endDate = dayjs(new Date(endYear, endMonth));
+
+                  const isCurrentMonthStart = currentDate.isSame(
+                    startDate,
+                    "month",
+                  );
+                  const isCurrentMonthEnd = currentDate.isSame(
+                    endDate,
+                    "month",
+                  );
+
+                  const isInSelectedRange =
+                    (rangePending || endLocked) &&
+                    currentDate.isBetween(startDate, endDate, "month", "[]");
+
+                  const isSelectedFinal =
+                    (isCurrentMonthStart || isCurrentMonthEnd) && !rangePending;
+
+                  return (
+                    <td
+                      key={`${monthNumber}-${monthYear}-sm`}
+                      className={cn(
+                        "h-10 w-1/3 text-center text-sm p-1 relative focus-within:relative focus-within:z-20",
+                        isInSelectedRange && "bg-accent text-accent-foreground",
+                        isCurrentMonthStart &&
+                          isInSelectedRange &&
+                          "rounded-l-md",
+                        isCurrentMonthEnd &&
+                          isInSelectedRange &&
+                          "rounded-r-md",
+                      )}
+                      onMouseEnter={() => {
+                        if (rangePending && !endLocked) {
+                          const potentialEndDate = dayjs(
+                            new Date(menuYear, monthNumber),
+                          );
+                          if (!potentialEndDate.isBefore(startDate, "month")) {
+                            setEndYear(menuYear);
+                            setEndMonth(monthNumber);
+                          }
+                        }
+                      }}
+                    >
+                      <button
+                        onClick={() => {
+                          const clickedDate = dayjs(
+                            new Date(monthYear, monthNumber),
+                          );
+                          if (rangePending) {
+                            if (clickedDate.isBefore(startDate, "month")) {
+                              setRangePending(true);
+                              setEndLocked(false);
+                              setStartMonth(monthNumber);
+                              setStartYear(monthYear);
+                              setEndYear(monthYear);
+                              setEndMonth(monthNumber);
+                              if (onStartMonthSelect)
+                                onStartMonthSelect(clickedDate.toDate());
+                            } else {
+                              setRangePending(false);
+                              setEndLocked(true);
+                              const finalEndDate = clickedDate.isBefore(
+                                startDate,
+                                "month",
+                              )
+                                ? startDate
+                                : clickedDate;
+                              setEndYear(finalEndDate.year());
+                              setEndMonth(finalEndDate.month());
+
+                              if (onMonthRangeSelect) {
+                                onMonthRangeSelect({
+                                  start: startDate.toDate(),
+                                  end: finalEndDate.toDate(),
+                                });
+                              }
+                            }
+                          } else {
+                            setRangePending(true);
+                            setEndLocked(false);
+                            setStartMonth(monthNumber);
+                            setStartYear(monthYear);
+                            setEndYear(monthYear);
+                            setEndMonth(monthNumber);
+                            if (onStartMonthSelect)
+                              onStartMonthSelect(clickedDate.toDate());
+                          }
+                        }}
+                        disabled={
+                          (maxDate &&
+                            currentDate.isAfter(dayjs(maxDate), "month")) ||
+                          (minDate &&
+                            currentDate.isBefore(dayjs(minDate), "month"))
+                        }
+                        className={cn(
+                          buttonVariants({
+                            variant: isSelectedFinal
+                              ? (variant?.calendar?.selected ?? "default")
+                              : (variant?.calendar?.main ?? "ghost"),
+                          }),
+                          "h-full w-full p-0 font-normal aria-selected:opacity-100",
+                        )}
+                      >
+                        {localizedMonthName}
+                      </button>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       {showQuickSelectors && (
-        <div className="flex flex-col gap-2 max-w-[150px]">
+        <div className="flex flex-col gap-2 md:max-w-[150px] flex-shrink-0">
           <Button
             size="sm"
             variant={variant?.calendar?.main ?? "outline"}

@@ -203,8 +203,6 @@ export function TransactionsView() {
 
   const hasTransactions = transactions.length > 0;
 
-  console.log(dateRange);
-
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
 
   const handleBulkDelete = () => {
