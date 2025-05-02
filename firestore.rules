@@ -100,16 +100,20 @@ service cloud.firestore {
 
     /** Checks if two users share at least one group based on their groupIds */
     function usersShareGroup(userId1, userId2) {
+      let user1Doc = get(/databases/$(database)/documents/users/$(userId1));
+      let user2Doc = get(/databases/$(database)/documents/users/$(userId2));
+
       return userId1 != userId2 &&
         // Both user documents exist
         exists(/databases/$(database)/documents/users/$(userId1)) &&
         exists(/databases/$(database)/documents/users/$(userId2)) &&
-        // Both users have groupIds fields with at least one common element
-        get(/databases/$(database)/documents/users/$(userId1)).data.groupIds != null &&
-        get(/databases/$(database)/documents/users/$(userId2)).data.groupIds != null &&
-        get(/databases/$(database)/documents/users/$(userId1)).data.groupIds.hasAny(
-          get(/databases/$(database)/documents/users/$(userId2)).data.groupIds
-        );
+        // Check if 'groupIds' field exists in both user documents before accessing
+        'groupIds' in user1Doc.data &&
+        'groupIds' in user2Doc.data &&
+        // Both users have non-null groupIds fields with at least one common element
+        user1Doc.data.groupIds != null &&
+        user2Doc.data.groupIds != null &&
+        user1Doc.data.groupIds.hasAny(user2Doc.data.groupIds);
     }
 
     /** Checks if the current user is a member of the specific group */
