@@ -23,7 +23,6 @@ export const onUserRoleChanged = onDocumentUpdated(
       }
 
       if (beforeData && beforeData.role === afterData.role) {
-        logger.info(`Role unchanged for user ${userId}, skipping`);
         return;
       }
 
