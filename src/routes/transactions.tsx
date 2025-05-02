@@ -6,7 +6,6 @@ import { z } from "zod";
 const transactionsSearchSchema = z.object({
   startDate: z.string().optional(),
   endDate: z.string().optional(),
-  categoryId: z.string().optional(),
   categoryName: z.string().optional(),
 });
 

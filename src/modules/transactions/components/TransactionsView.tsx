@@ -1,9 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import dayjs, {
-    getFirstDayOfMonth,
-    getLastDayOfMonth,
-    getMonthNameWithYear,
+  getFirstDayOfMonth,
+  getLastDayOfMonth,
+  getMonthNameWithYear,
 } from "@/lib/date-utils";
 import { COLLECTIONS } from "@/lib/firebase/firestore";
 import { useUserGroups } from "@/modules/settings/hooks/useUserGroups";
@@ -19,10 +19,10 @@ import { Plus, RefreshCw } from "lucide-react";
 import React, { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-    useAddTransaction,
-    useDeleteTransaction,
-    useTransactions,
-    useUpdateTransaction,
+  useAddTransaction,
+  useDeleteTransaction,
+  useTransactions,
+  useUpdateTransaction,
 } from "../hooks/useTransactionsQuery";
 import { useTransactionToasts } from "../hooks/useTransactionToasts";
 import type { Transaction } from "../transaction";
@@ -61,17 +61,48 @@ export function TransactionsView() {
   const { data: categories = [], isLoading: categoriesLoading } =
     useFetchCategories();
 
-  const categoryId = search.categoryId;
+  const categoryNameFromUrl = search.categoryName;
+
+  const { categoryIdForApi, selectedCategoryIdForFilter } =
+    React.useMemo(() => {
+      if (!categoryNameFromUrl) {
+        return {
+          categoryIdForApi: undefined,
+          selectedCategoryIdForFilter: "all",
+        };
+      }
+      const foundCategory = categories.find(
+        (c) => c.name === categoryNameFromUrl,
+      );
+      const derivedId = foundCategory?.id;
+      return {
+        categoryIdForApi: derivedId,
+        selectedCategoryIdForFilter: derivedId ?? "all",
+      };
+    }, [categoryNameFromUrl, categories]);
+
+  const {
+    data: transactions = [],
+    isLoading,
+    refetch,
+    error,
+  } = useTransactions(
+    dateRange.start.toDate(),
+    dateRange.end.toDate(),
+    categoryIdForApi,
+  );
 
   const handleCategoryChange = useCallback(
     (newCategoryId: string) => {
-      const selectedCategory = categories.find((c) => c.id === newCategoryId);
+      let newCategoryName: string | undefined = undefined;
+      if (newCategoryId !== "all") {
+        const selectedCategory = categories.find((c) => c.id === newCategoryId);
+        newCategoryName = selectedCategory?.name;
+      }
       navigate({
         search: (prev) => ({
           ...prev,
-          categoryId: newCategoryId === "all" ? undefined : newCategoryId,
-          categoryName:
-            newCategoryId === "all" ? undefined : selectedCategory?.name,
+          categoryName: newCategoryName,
         }),
         replace: true,
       });
@@ -85,17 +116,6 @@ export function TransactionsView() {
   const { t } = useTranslation();
   const { showSuccessToast, showErrorToast } = useTransactionToasts();
   const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const {
-    data: transactions = [],
-    isLoading,
-    refetch,
-    error,
-  } = useTransactions(
-    dateRange.start.toDate(),
-    dateRange.end.toDate(),
-    categoryId,
-  );
 
   const addTransaction = useAddTransaction();
   const updateTransaction = useUpdateTransaction();
@@ -239,7 +259,7 @@ export function TransactionsView() {
             />
             <CategoryFilter
               categories={categories}
-              selectedCategoryId={categoryId ?? "all"}
+              selectedCategoryId={selectedCategoryIdForFilter}
               onCategoryChange={handleCategoryChange}
               isLoading={categoriesLoading}
               comboboxPlaceholder={t("transactions.filterByCategory")}
@@ -274,7 +294,7 @@ export function TransactionsView() {
         <TransactionsSummary
           startDate={dateRange.start.toDate()}
           endDate={dateRange.end.toDate()}
-          categoryId={categoryId}
+          categoryId={categoryIdForApi}
           onCategoryClick={handleCategoryChange}
         />
       </div>
