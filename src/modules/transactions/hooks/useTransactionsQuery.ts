@@ -21,11 +21,13 @@ const fetchTransactions = async (
   token: string,
   startDate?: dayjs.Dayjs,
   endDate?: dayjs.Dayjs,
+  categoryId?: string,
 ): Promise<Transaction[]> => {
   const url = buildUrl(
     `${API_BASE_URL}/api/v1/transactions`,
     startDate,
     endDate,
+    categoryId,
   );
 
   try {
@@ -46,7 +48,11 @@ const fetchTransactions = async (
 /**
  * Hook to fetch user and shared transactions
  */
-export function useTransactions(startDate?: Date, endDate?: Date) {
+export function useTransactions(
+  startDate?: Date,
+  endDate?: Date,
+  categoryId?: string,
+) {
   const { userData, getIdToken } = useAuth();
   const userId = userData?.uid;
 
@@ -59,6 +65,7 @@ export function useTransactions(startDate?: Date, endDate?: Date) {
       userId,
       dayjsStartDate?.toISOString(),
       dayjsEndDate?.toISOString(),
+      categoryId,
     ],
     queryFn: async () => {
       if (!userId) return [];
@@ -67,7 +74,12 @@ export function useTransactions(startDate?: Date, endDate?: Date) {
         const token = await getIdToken();
         if (!token) throw new Error("Authentication token not available");
 
-        return await fetchTransactions(token, dayjsStartDate, dayjsEndDate);
+        return await fetchTransactions(
+          token,
+          dayjsStartDate,
+          dayjsEndDate,
+          categoryId,
+        );
       } catch (error) {
         console.error("Error fetching transactions:", error);
         throw error;

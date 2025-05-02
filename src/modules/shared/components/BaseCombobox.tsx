@@ -1,11 +1,11 @@
 import { Button } from "@/components/ui/button";
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
 } from "@/components/ui/command";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,7 +16,7 @@ interface BaseComboboxProps<T> {
   inputValue: string;
   setInputValue: (value: string) => void;
   placeholder: string;
-  inputRef: React.RefObject<HTMLInputElement>;
+  inputRef: React.RefObject<HTMLInputElement | null>;
   handleClearSearch: () => void;
   items: T[];
   selectedItem: T | undefined;
@@ -29,6 +29,7 @@ interface BaseComboboxProps<T> {
   createNewButtonText: string;
   keyboardEventHandler?: (e: React.KeyboardEvent) => void;
   isLoading?: boolean;
+  createNewCategory?: boolean;
 }
 
 export function BaseCombobox<T>({
@@ -48,6 +49,7 @@ export function BaseCombobox<T>({
   createNewButtonText,
   keyboardEventHandler,
   isLoading,
+  createNewCategory = true,
 }: BaseComboboxProps<T>) {
   const [filteredItemsEmpty, setFilteredItemsEmpty] = useState(false);
 
@@ -133,10 +135,12 @@ export function BaseCombobox<T>({
         )}
       </CommandList>
       <Separator />
-      <Button variant="ghost" onClick={onCreateNew}>
-        <Plus className="mr-2 h-4 w-4" />
-        {createNewButtonText}
-      </Button>
+      {createNewCategory && (
+        <Button variant="ghost" onClick={onCreateNew}>
+          <Plus className="mr-2 h-4 w-4" />
+          {createNewButtonText}
+        </Button>
+      )}
     </Command>
   );
 }

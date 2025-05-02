@@ -1,12 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import dayjs, {
-  getFirstDayOfMonth,
-  getLastDayOfMonth,
-  getMonthNameWithYear,
+    getFirstDayOfMonth,
+    getLastDayOfMonth,
+    getMonthNameWithYear,
 } from "@/lib/date-utils";
 import { COLLECTIONS } from "@/lib/firebase/firestore";
 import { useUserGroups } from "@/modules/settings/hooks/useUserGroups";
+import { useFetchCategories } from "@/modules/shared/categories/useCategoriesQuery";
+import { CategoryFilter } from "@/modules/shared/components/CategoryFilter";
 import { FloatingActionButtonGroup } from "@/modules/shared/components/FloatingActionButtonGroup";
 import { TransactionTable } from "@/modules/transactions/components/TransactionTable";
 import { TRANSACTION_SUMMARY_QUERY_KEY } from "@/modules/transactions/hooks/useTransactionsSummaryQuery";
@@ -17,10 +19,10 @@ import { Plus, RefreshCw } from "lucide-react";
 import React, { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  useAddTransaction,
-  useDeleteTransaction,
-  useTransactions,
-  useUpdateTransaction,
+    useAddTransaction,
+    useDeleteTransaction,
+    useTransactions,
+    useUpdateTransaction,
 } from "../hooks/useTransactionsQuery";
 import { useTransactionToasts } from "../hooks/useTransactionToasts";
 import type { Transaction } from "../transaction";
@@ -56,6 +58,27 @@ export function TransactionsView() {
     return { start, end };
   }, [search.startDate, search.endDate]);
 
+  const { data: categories = [], isLoading: categoriesLoading } =
+    useFetchCategories();
+
+  const categoryId = search.categoryId;
+
+  const handleCategoryChange = useCallback(
+    (newCategoryId: string) => {
+      const selectedCategory = categories.find((c) => c.id === newCategoryId);
+      navigate({
+        search: (prev) => ({
+          ...prev,
+          categoryId: newCategoryId === "all" ? undefined : newCategoryId,
+          categoryName:
+            newCategoryId === "all" ? undefined : selectedCategory?.name,
+        }),
+        replace: true,
+      });
+    },
+    [navigate, categories],
+  );
+
   const { userData } = useAuth();
   const { data: userGroups } = useUserGroups();
   const queryClient = useQueryClient();
@@ -68,7 +91,11 @@ export function TransactionsView() {
     isLoading,
     refetch,
     error,
-  } = useTransactions(dateRange.start.toDate(), dateRange.end.toDate());
+  } = useTransactions(
+    dateRange.start.toDate(),
+    dateRange.end.toDate(),
+    categoryId,
+  );
 
   const addTransaction = useAddTransaction();
   const updateTransaction = useUpdateTransaction();
@@ -200,17 +227,27 @@ export function TransactionsView() {
           </div>
         </div>
 
-        <div className="flex items-center">
-          <TableFilters
-            startDate={dateRange.start}
-            endDate={dateRange.end}
-            onDateRangeChange={handleDateRangeChange}
-            rowSelection={rowSelection}
-            onBulkDelete={handleBulkDelete}
-            onUnselectAll={() => setRowSelection({})}
-          />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-4">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2 flex-grow">
+            <TableFilters
+              startDate={dateRange.start}
+              endDate={dateRange.end}
+              onDateRangeChange={handleDateRangeChange}
+              rowSelection={rowSelection}
+              onBulkDelete={handleBulkDelete}
+              onUnselectAll={() => setRowSelection({})}
+            />
+            <CategoryFilter
+              categories={categories}
+              selectedCategoryId={categoryId ?? "all"}
+              onCategoryChange={handleCategoryChange}
+              isLoading={categoriesLoading}
+              comboboxPlaceholder={t("transactions.filterByCategory")}
+              clearFilterLabel={t("transactions.clearCategoryFilter")}
+            />
+          </div>
 
-          <div className="flex gap-2 ml-auto">
+          <div className="flex gap-2 self-end sm:self-center flex-shrink-0">
             <Button
               onClick={handleRefresh}
               disabled={isRefreshing}
@@ -237,6 +274,8 @@ export function TransactionsView() {
         <TransactionsSummary
           startDate={dateRange.start.toDate()}
           endDate={dateRange.end.toDate()}
+          categoryId={categoryId}
+          onCategoryClick={handleCategoryChange}
         />
       </div>
 

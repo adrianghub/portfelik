@@ -1,22 +1,23 @@
 import { Button } from "@/components/ui/button";
 import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
+    Drawer,
+    DrawerContent,
+    DrawerHeader,
+    DrawerTitle,
 } from "@/components/ui/drawer";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
 } from "@/components/ui/popover";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/styling-utils";
 import type { Category } from "@/modules/shared/category";
 import { BaseCombobox } from "@/modules/shared/components/BaseCombobox";
 import { CreateCategoryDialog } from "@/modules/shared/components/CreateCategoryDialog";
+import { useCategoryCombobox } from "@/modules/shared/components/useCategoryCombobox";
 import { Check, ChevronsUpDown } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 interface CategoryComboboxProps {
@@ -26,6 +27,7 @@ interface CategoryComboboxProps {
   placeholder?: string;
   className?: string;
   isLoading?: boolean;
+  createNewCategory?: boolean;
 }
 
 function CategoryComboboxMobile({
@@ -35,46 +37,40 @@ function CategoryComboboxMobile({
   placeholder,
   className,
   isLoading = false,
+  createNewCategory,
 }: CategoryComboboxProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const [inputValue, setInputValue] = useState("");
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+
+  const {
+    inputValue,
+    setInputValue,
+    createDialogOpen,
+    setCreateDialogOpen,
+    inputRef,
+    selectedCategory,
+    handleSelectCategory,
+    handleClearSearch,
+    handleCreateNew,
+    handleCategoryCreated,
+  } = useCategoryCombobox({ categories, value, onValueChange });
 
   const defaultPlaceholder = t(
     "transactions.transactionDialog.form.categoryPlaceholder",
-  );
-
-  const selectedCategory = useMemo(
-    () => categories.find((category) => category.id === value),
-    [categories, value],
   );
 
   const displayValue = selectedCategory
     ? selectedCategory.name
     : placeholder || defaultPlaceholder;
 
-  const handleSelectCategory = (category: Category) => {
-    onValueChange(category.id === value ? "" : category.id);
+  const onSelectCategory = (category: Category) => {
+    handleSelectCategory(category);
     setOpen(false);
-    setInputValue("");
   };
 
-  const handleClearSearch = () => {
-    setInputValue("");
-    inputRef.current?.focus();
-  };
-
-  const handleCreateNew = () => {
-    setCreateDialogOpen(true);
-  };
-
-  const handleCategoryCreated = (categoryId: string) => {
-    onValueChange(categoryId);
-    setCreateDialogOpen(false);
+  const onCategoryCreated = (categoryId: string) => {
+    handleCategoryCreated(categoryId);
     setOpen(false);
-    setInputValue("");
   };
 
   const renderCategoryItem = (category: Category, isSelected: boolean) => (
@@ -88,9 +84,10 @@ function CategoryComboboxMobile({
 
   useEffect(() => {
     if (open && inputRef.current) {
-      inputRef.current.focus();
+      const timer = setTimeout(() => inputRef.current?.focus(), 100);
+      return () => clearTimeout(timer);
     }
-  }, [open]);
+  }, [open, inputRef]);
 
   return (
     <div className="w-full">
@@ -104,11 +101,11 @@ function CategoryComboboxMobile({
               inputValue={inputValue}
               setInputValue={setInputValue}
               placeholder={defaultPlaceholder}
-              inputRef={inputRef as React.RefObject<HTMLInputElement>}
+              inputRef={inputRef}
               handleClearSearch={handleClearSearch}
               items={categories}
               selectedItem={selectedCategory}
-              onSelectItem={handleSelectCategory}
+              onSelectItem={onSelectCategory}
               onCreateNew={handleCreateNew}
               t={t}
               renderItem={renderCategoryItem}
@@ -122,6 +119,7 @@ function CategoryComboboxMobile({
                 "transactions.transactionDialog.form.createNewCategory",
               )}
               isLoading={isLoading}
+              createNewCategory={createNewCategory}
             />
           </div>
         </DrawerContent>
@@ -142,7 +140,7 @@ function CategoryComboboxMobile({
       <CreateCategoryDialog
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
-        onCategoryCreated={handleCategoryCreated}
+        onCategoryCreated={onCategoryCreated}
         categoryName={inputValue}
       />
     </div>
@@ -156,60 +154,50 @@ function CategoryComboboxDesktop({
   placeholder,
   className,
   isLoading = false,
+  createNewCategory,
 }: CategoryComboboxProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const [inputValue, setInputValue] = useState("");
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+
+  const {
+    inputValue,
+    setInputValue,
+    createDialogOpen,
+    setCreateDialogOpen,
+    inputRef,
+    selectedCategory,
+    handleSelectCategory,
+    handleClearSearch,
+    handleCreateNew,
+    handleCategoryCreated,
+  } = useCategoryCombobox({ categories, value, onValueChange });
 
   const defaultPlaceholder = t(
     "transactions.transactionDialog.form.categoryPlaceholder",
-  );
-
-  const selectedCategory = useMemo(
-    () => categories.find((category) => category.id === value),
-    [categories, value],
   );
 
   const displayValue = selectedCategory
     ? selectedCategory.name
     : placeholder || defaultPlaceholder;
 
+  const onSelectCategory = (category: Category) => {
+    handleSelectCategory(category);
+    setOpen(false);
+  };
+
+  const onCategoryCreated = (categoryId: string) => {
+    handleCategoryCreated(categoryId);
+    setOpen(false);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !open) {
       e.preventDefault();
       setOpen(true);
-    }
-    // Handle selection of only item on Enter
-    else if (e.key === "Enter" && open && inputValue) {
-      // Let the Command component handle the selection
     } else if (e.key === "Escape") {
       setOpen(false);
       setInputValue("");
     }
-  };
-
-  const handleSelectCategory = (category: Category) => {
-    onValueChange(category.id === value ? "" : category.id);
-    setOpen(false);
-    setInputValue("");
-  };
-
-  const handleClearSearch = () => {
-    setInputValue("");
-    inputRef.current?.focus();
-  };
-
-  const handleCreateNew = () => {
-    setCreateDialogOpen(true);
-  };
-
-  const handleCategoryCreated = (categoryId: string) => {
-    onValueChange(categoryId);
-    setCreateDialogOpen(false);
-    setOpen(false);
-    setInputValue("");
   };
 
   const renderCategoryItem = (category: Category, isSelected: boolean) => (
@@ -223,9 +211,10 @@ function CategoryComboboxDesktop({
 
   useEffect(() => {
     if (open && inputRef.current) {
-      inputRef.current.focus();
+      const timer = setTimeout(() => inputRef.current?.focus(), 0);
+      return () => clearTimeout(timer);
     }
-  }, [open]);
+  }, [open, inputRef]);
 
   return (
     <div className="w-full sm:w-auto">
@@ -253,11 +242,11 @@ function CategoryComboboxDesktop({
             inputValue={inputValue}
             setInputValue={setInputValue}
             placeholder={defaultPlaceholder}
-            inputRef={inputRef as React.RefObject<HTMLInputElement>}
+            inputRef={inputRef}
             handleClearSearch={handleClearSearch}
             items={categories}
             selectedItem={selectedCategory}
-            onSelectItem={handleSelectCategory}
+            onSelectItem={onSelectCategory}
             onCreateNew={handleCreateNew}
             t={t}
             renderItem={renderCategoryItem}
@@ -272,13 +261,14 @@ function CategoryComboboxDesktop({
             )}
             keyboardEventHandler={handleKeyDown}
             isLoading={isLoading}
+            createNewCategory={createNewCategory}
           />
         </PopoverContent>
       </Popover>
       <CreateCategoryDialog
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
-        onCategoryCreated={handleCategoryCreated}
+        onCategoryCreated={onCategoryCreated}
         categoryName={inputValue}
       />
     </div>

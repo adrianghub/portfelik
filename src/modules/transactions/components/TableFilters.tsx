@@ -36,7 +36,7 @@ export function TableFilters({
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="w-full sm:w-auto flex items-center gap-2">
       <DateRangeFilter
         startDate={startDate}
         endDate={endDate}

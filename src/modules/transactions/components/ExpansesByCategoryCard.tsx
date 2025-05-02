@@ -6,10 +6,12 @@ import { type CategorySummary } from "../hooks/useTransactionsSummaryQuery";
 
 interface ExpansesByCategoryCardProps {
   categorySummaries: CategorySummary[];
+  onCategoryClick: (categoryId: string, categoryName: string) => void;
 }
 
 export function ExpansesByCategoryCard({
   categorySummaries,
+  onCategoryClick,
 }: ExpansesByCategoryCardProps) {
   const { t } = useTranslation();
 
@@ -23,7 +25,13 @@ export function ExpansesByCategoryCard({
         {sortedCategories.length > 0 && (
           <div className="space-y-2">
             {sortedCategories.slice(0, 3).map((category) => (
-              <div key={category.categoryId}>
+              <div
+                key={category.categoryId}
+                className="cursor-pointer hover:bg-muted p-1 rounded"
+                onClick={() =>
+                  onCategoryClick(category.categoryId, category.categoryName)
+                }
+              >
                 <div className="flex justify-between text-xs mb-1">
                   <span className="truncate max-w-[70%]">
                     {category.categoryName} ({category.transactionCount})
@@ -54,6 +62,7 @@ export function ExpansesByCategoryCard({
               </Button>
             }
             categoriesSummary={sortedCategories}
+            onCategoryClick={onCategoryClick}
           />
         )}
       </div>

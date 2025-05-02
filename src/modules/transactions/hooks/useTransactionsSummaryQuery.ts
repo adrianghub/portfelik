@@ -35,11 +35,13 @@ const fetchTransactionSummaries = async (
   token: string,
   startDate?: dayjs.Dayjs,
   endDate?: dayjs.Dayjs,
+  categoryId?: string,
 ): Promise<MonthlySummary | null> => {
   const url = buildUrl(
     `${API_BASE_URL}/api/v1/transactions/summary`,
     startDate,
     endDate,
+    categoryId,
   );
 
   try {
@@ -60,7 +62,11 @@ const fetchTransactionSummaries = async (
 /**
  * Hook to fetch transaction summaries
  */
-export function useTransactionsSummary(startDate?: Date, endDate?: Date) {
+export function useTransactionsSummary(
+  startDate?: Date,
+  endDate?: Date,
+  categoryId?: string,
+) {
   const { userData, getIdToken } = useAuth();
   const userId = userData?.uid;
 
@@ -74,6 +80,7 @@ export function useTransactionsSummary(startDate?: Date, endDate?: Date) {
       userId,
       dayjsStartDate?.toISOString(),
       dayjsEndDate?.toISOString(),
+      categoryId,
     ],
     queryFn: async () => {
       if (!userId) return null;
@@ -86,6 +93,7 @@ export function useTransactionsSummary(startDate?: Date, endDate?: Date) {
           token,
           dayjsStartDate,
           dayjsEndDate,
+          categoryId,
         );
       } catch (error) {
         console.error("Error in useTransactionsSummary:", error);

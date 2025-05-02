@@ -10,7 +10,7 @@ import { formatDisplayDate } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/format-currency";
 import { useFetchCategories } from "@/modules/shared/categories/useCategoriesQuery";
 import type { Category } from "@/modules/shared/category";
-import { CategoryCombobox } from "@/modules/shared/components/CategoryCombobox";
+import { CategoryFilter } from "@/modules/shared/components/CategoryFilter";
 import { FloatingActionButtonGroup } from "@/modules/shared/components/FloatingActionButtonGroup";
 import {
   useCreateShoppingList,
@@ -22,7 +22,6 @@ import { useNavigate } from "@tanstack/react-router";
 import {
   CalendarIcon,
   CopyIcon,
-  FilterIcon,
   ListIcon,
   Plus,
   ShoppingBagIcon,
@@ -125,27 +124,15 @@ export function ShoppingListsView() {
       </div>
 
       <div className="mb-6">
-        <div className="flex items-center gap-2">
-          <FilterIcon className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">
-            {t("shoppingLists.filterByCategory")}
-          </span>
-          <CategoryCombobox
-            categories={expenseCategories}
-            value={selectedCategoryId}
-            onValueChange={setSelectedCategoryId}
-            isLoading={categoriesLoading}
-          />
-          {selectedCategoryId !== "all" && (
-            <Button
-              variant="ghost"
-              onClick={() => setSelectedCategoryId("all")}
-              size="sm"
-            >
-              {t("shoppingLists.clearFilter")}
-            </Button>
-          )}
-        </div>
+        <CategoryFilter
+          categories={expenseCategories}
+          selectedCategoryId={selectedCategoryId}
+          onCategoryChange={setSelectedCategoryId}
+          isLoading={categoriesLoading}
+          comboboxPlaceholder={t("shoppingLists.filterByCategory")}
+          clearFilterLabel={t("shoppingLists.clearFilter")}
+          className="w-full sm:max-w-xs"
+        />
       </div>
 
       <Tabs

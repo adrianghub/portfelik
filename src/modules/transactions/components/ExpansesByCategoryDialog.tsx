@@ -19,6 +19,7 @@ interface ExpansesByCategoryDialogProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   categoriesSummary: CategorySummary[];
+  onCategoryClick: (categoryId: string, categoryName: string) => void;
 }
 
 export function ExpansesByCategoryDialog({
@@ -26,6 +27,7 @@ export function ExpansesByCategoryDialog({
   open: controlledOpen,
   onOpenChange,
   categoriesSummary,
+  onCategoryClick,
 }: ExpansesByCategoryDialogProps) {
   const [open, setOpen] = useState(false);
   const { t } = useTranslation();
@@ -35,6 +37,11 @@ export function ExpansesByCategoryDialog({
   const setIsOpen = isControlled ? onOpenChange! : setOpen;
 
   const { contentRef } = useMobileDialog(isOpen);
+
+  const handleCategoryClick = (categoryId: string, categoryName: string) => {
+    onCategoryClick(categoryId, categoryName);
+    setIsOpen(false);
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -54,9 +61,21 @@ export function ExpansesByCategoryDialog({
         <div className="mt-4">
           <div className="space-y-2">
             {categoriesSummary.map((category) => (
-              <div key={category.categoryId}>
+              <div
+                key={category.categoryId}
+                className="cursor-pointer hover:bg-muted p-1 rounded"
+                onClick={() =>
+                  handleCategoryClick(
+                    category.categoryId,
+                    category.categoryName,
+                  )
+                }
+              >
                 <div className="flex justify-between text-xs mb-1">
-                  <span className="truncate max-w-[70%]">
+                  <span
+                    className="truncate max-w-[70%]"
+                    title={category.categoryName || category.categoryId}
+                  >
                     {category.categoryName || category.categoryId} (
                     {category.transactionCount})
                   </span>

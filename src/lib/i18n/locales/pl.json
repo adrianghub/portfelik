@@ -75,6 +75,9 @@
     "netIncome": "Dochód netto",
     "surplus": "Nadwyżka",
     "deficit": "Deficyt",
+    "filterByCategory": "Filtruj po kategorii",
+    "clearCategoryFilter": "Wyczyść filtr kategorii",
+    "showingTransactionsForCategory": "Wyświetlanie transakcji dla kategorii: {{categoryName}}",
     "filters": {
       "deleteSelected": "Usuń wybrane",
       "unselectAll": "Odznacz wybrane"

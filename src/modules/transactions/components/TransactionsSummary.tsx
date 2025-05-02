@@ -6,15 +6,20 @@ import { TransactionsSummaryCard } from "./TransactionsSummaryCard";
 interface TransactionsSummaryProps {
   startDate?: Date;
   endDate?: Date;
+  categoryId?: string;
+  onCategoryClick: (categoryId: string, categoryName: string) => void;
 }
 
 export function TransactionsSummary({
   startDate,
   endDate,
+  categoryId,
+  onCategoryClick,
 }: TransactionsSummaryProps) {
   const { data: summary, isLoading } = useTransactionsSummary(
     startDate,
     endDate,
+    categoryId,
   );
 
   if (isLoading) {
@@ -41,7 +46,10 @@ export function TransactionsSummary({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <TransactionsSummaryCard key={summary.month} summary={summary} />
-      <ExpansesByCategoryCard categorySummaries={summary.categorySummaries} />
+      <ExpansesByCategoryCard
+        categorySummaries={summary.categorySummaries}
+        onCategoryClick={onCategoryClick}
+      />
     </div>
   );
 }

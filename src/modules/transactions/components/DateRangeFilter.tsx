@@ -49,10 +49,10 @@ export function DateRangeFilter({
     <Popover>
       <PopoverTrigger asChild>
         <Button
-          id="date"
+          id="date-range-filter"
           variant={"outline"}
           className={cn(
-            "justify-start text-left font-normal h-9 px-3",
+            "justify-start text-left font-normal h-9 px-3 w-full sm:w-auto",
             !displayStartDate && "text-muted-foreground",
           )}
         >
