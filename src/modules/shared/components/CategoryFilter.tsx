@@ -47,7 +47,7 @@ export function CategoryFilter({
           onValueChange={onCategoryChange}
           isLoading={isLoading}
           placeholder={comboboxPlaceholder || defaultPlaceholder}
-          createNewCategory={false}
+          createNewCategory={true}
         />
       </div>
       {selectedCategoryId !== "all" && (
