@@ -1,9 +1,16 @@
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDisplayDate } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/format-currency";
 import { useFetchCategories } from "@/modules/shared/categories/useCategoriesQuery";
+import { CategoryCombobox } from "@/modules/shared/components/CategoryCombobox";
 import { FloatingActionButtonGroup } from "@/modules/shared/components/FloatingActionButtonGroup";
 import { ShoppingListCompleteDialog } from "@/modules/shopping-lists/components/ShoppingListCompleteDialog";
 import {
@@ -66,6 +73,8 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
 
   const [isCompletionDialogOpen, setIsCompletionDialogOpen] = useState(false);
   const [isEditNameDialogOpen, setIsEditNameDialogOpen] = useState(false);
+  const [isEditCategoryDialogOpen, setIsEditCategoryDialogOpen] =
+    useState(false);
   const [totalAmount, setTotalAmount] = useState<string>("");
   const [completingList, setCompletingList] = useState(false);
   const [showAddItemDialog, setShowAddItemDialog] = useState(false);
@@ -125,6 +134,15 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
     updateShoppingList.mutate({
       id: shoppingList.id!,
       shoppingList,
+    });
+  };
+
+  const handleUpdateCategory = (categoryId: string) => {
+    if (!shoppingList) return;
+
+    updateShoppingList.mutate({
+      id: shoppingList.id!,
+      shoppingList: { categoryId },
     });
   };
 
@@ -238,7 +256,7 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
   ).length;
   const totalItems = shoppingList.items.length;
   const progress = totalItems > 0 ? (itemsCompleted / totalItems) * 100 : 0;
-  const allItemsCompleted = totalItems > 0 && itemsCompleted === totalItems;
+  const hasCompletedItems = itemsCompleted > 0;
   const selectedCategory = categories.find(
     (c) => c.id === shoppingList.categoryId,
   );
@@ -290,15 +308,41 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
           {!isCompleted && (
             <Button
               onClick={handleCompleteListClick}
-              disabled={!allItemsCompleted || shoppingList.items.length === 0}
+              disabled={!hasCompletedItems || shoppingList.items.length === 0}
               className="hidden md:flex"
             >
               <CheckIcon className="h-4 w-4 mr-2" />
-              {t("shoppingLists.shoppingListDetailView.completeShopping")}
+              {t("shoppingLists.shoppingListDetailView.finalize")}
             </Button>
           )}
         </div>
       </div>
+
+      {/* Category section */}
+      {!isCompleted && (
+        <div className="bg-card rounded-md border p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-sm text-muted-foreground">
+                {t("shoppingLists.shoppingListDetailView.category")}
+              </span>
+              <p className="font-medium">
+                {selectedCategory?.name ||
+                  t("shoppingLists.shoppingListDetailView.noCategory")}
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsEditCategoryDialogOpen(true)}
+              className="flex items-center gap-1"
+            >
+              <PencilIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">{t("common.edit")}</span>
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="sticky top-0 z-10 bg-background pt-4 pb-2 -mx-4 md:-mx-6 lg:-mx-8 px-4 md:px-6 lg:px-8 border-b">
         <div className="space-y-2">
@@ -399,8 +443,8 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
             {
               icon: ShoppingCart,
               onClick: handleCompleteListClick,
-              disabled: !allItemsCompleted || shoppingList.items.length === 0,
-              label: t("shoppingLists.shoppingListDetailView.completeShopping"),
+              disabled: !hasCompletedItems || shoppingList.items.length === 0,
+              label: t("shoppingLists.shoppingListDetailView.finalize"),
               className: "bg-primary/90 hover:bg-primary text-background",
               iconClassName: "text-background",
             },
@@ -426,6 +470,30 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
         initialValues={shoppingList}
       />
 
+      <Dialog
+        open={isEditCategoryDialogOpen}
+        onOpenChange={setIsEditCategoryDialogOpen}
+      >
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>
+              {t("shoppingLists.shoppingListDetailView.editCategory")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <CategoryCombobox
+              categories={categories.filter((c) => c.type === "expense")}
+              value={shoppingList.categoryId || ""}
+              onValueChange={(categoryId) => {
+                handleUpdateCategory(categoryId);
+                setIsEditCategoryDialogOpen(false);
+              }}
+              isLoading={false}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <ShoppingListCompleteDialog
         open={isCompletionDialogOpen}
         onOpenChange={setIsCompletionDialogOpen}
@@ -435,6 +503,8 @@ export function ShoppingListDetailView({ id }: ShoppingListDetailViewProps) {
         completingList={completingList}
         categories={categories}
         selectedCategory={selectedCategory}
+        itemsCompleted={itemsCompleted}
+        totalItems={totalItems}
       />
     </div>
   );

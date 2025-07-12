@@ -130,6 +130,12 @@ export function TransactionForm({
     setIsDateInFuture(selectedDate.isAfter(today));
   }, [form]);
 
+  useEffect(() => {
+    if (isRecurring) {
+      form.setFieldValue("recurringDate", recurringDay);
+    }
+  }, [isRecurring, recurringDay, form]);
+
   const calculateStatus = (status: TransactionStatus): TransactionStatus => {
     if (
       isDateInFuture &&
@@ -366,24 +372,29 @@ export function TransactionForm({
           </div>
 
           {isRecurring && (
-            <FormField
-              name="recurringDate"
-              label={t("transactions.transactionDialog.form.recurringDay")}
-            >
-              <Input
-                id="recurringDate"
-                type="number"
-                min="1"
-                max="31"
-                value={recurringDay}
-                onChange={(e) => {
-                  const day = parseInt(e.target.value, 10);
-                  if (!isNaN(day) && day >= 1 && day <= 31) {
-                    setRecurringDay(day);
-                  }
-                }}
-              />
-            </FormField>
+            <form.Field name="recurringDate">
+              {(field) => (
+                <FormField
+                  name="recurringDate"
+                  label={t("transactions.transactionDialog.form.recurringDay")}
+                >
+                  <Input
+                    id="recurringDate"
+                    type="number"
+                    min="1"
+                    max="31"
+                    value={recurringDay}
+                    onChange={(e) => {
+                      const day = parseInt(e.target.value, 10);
+                      if (!isNaN(day) && day >= 1 && day <= 31) {
+                        setRecurringDay(day);
+                        field.handleChange(day);
+                      }
+                    }}
+                  />
+                </FormField>
+              )}
+            </form.Field>
           )}
         </div>
       </div>

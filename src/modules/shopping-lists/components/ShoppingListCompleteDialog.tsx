@@ -19,6 +19,8 @@ interface ShoppingListCompleteDialogProps {
   completingList: boolean;
   categories: Category[];
   selectedCategory: Category | undefined;
+  itemsCompleted: number;
+  totalItems: number;
 }
 
 export function ShoppingListCompleteDialog({
@@ -29,8 +31,12 @@ export function ShoppingListCompleteDialog({
   handleCompleteList,
   completingList,
   selectedCategory,
+  itemsCompleted,
+  totalItems,
 }: ShoppingListCompleteDialogProps) {
   const { t } = useTranslation();
+
+  const hasIncompleteItems = itemsCompleted < totalItems;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -42,6 +48,21 @@ export function ShoppingListCompleteDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {hasIncompleteItems && (
+            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+              <div className="text-sm text-yellow-800">
+                {t(
+                  "shoppingLists.shoppingListCompleteDialog.incompleteItemsWarning",
+                  {
+                    completed: itemsCompleted,
+                    total: totalItems,
+                    incomplete: totalItems - itemsCompleted,
+                  },
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <label htmlFor="amount" className="text-sm font-medium">
               {t("shoppingLists.shoppingListCompleteDialog.totalAmount")}

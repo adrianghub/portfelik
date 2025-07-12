@@ -32,7 +32,7 @@ try {
   throw error;
 }
 
-// Function to send admin transaction summary at 8 AM every Monday
+// Function to send admin transaction summary at 8 AM every Monday (for previous week)
 export const sendAdminTransactionSummary = onSchedule(
   {
     schedule: "0 8 * * 1", // 8 AM every Monday
