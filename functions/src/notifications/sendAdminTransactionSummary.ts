@@ -1,16 +1,19 @@
 import dayjs from "dayjs";
+import weekOfYear from "dayjs/plugin/weekOfYear";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 import {
-  formatAmount,
-  getTranslatedMessage,
-  getTranslatedTitle,
-  getUserLanguage,
+    formatAmount,
+    getTranslatedMessage,
+    getTranslatedTitle,
+    getUserLanguage,
 } from "../i18n";
 import type { Notification } from "../types/notification";
 import type { Transaction } from "../types/transaction";
 import type { User } from "../types/user";
 import { createNotification } from "./createNotification";
+
+dayjs.extend(weekOfYear);
 
 interface UserTransactionSummary {
   userId: string;
@@ -23,8 +26,14 @@ interface UserTransactionSummary {
 export async function sendAdminTransactionSummaryFunction() {
   const db = admin.firestore();
   const now = dayjs();
-  const startOfPeriod = now.subtract(7, "days").startOf("day");
-  const endOfPeriod = now.startOf("day");
+
+  // Calculate the previous full week (Monday to Sunday)
+  // If today is Monday, we want the previous week (Monday to Sunday)
+  const startOfPreviousWeek = now.subtract(1, "week").startOf("week").add(1, "day"); // Monday of previous week
+  const endOfPreviousWeek = startOfPreviousWeek.add(6, "days").endOf("day"); // Sunday of previous week
+
+  const startOfPeriod = startOfPreviousWeek;
+  const endOfPeriod = endOfPreviousWeek;
 
   try {
     const adminUsersSnapshot = await db
@@ -54,12 +63,12 @@ export async function sendAdminTransactionSummaryFunction() {
     const transactionsSnapshot = await db
       .collection("transactions")
       .where("date", ">=", startOfPeriod.toISOString())
-      .where("date", "<", endOfPeriod.toISOString())
+      .where("date", "<=", endOfPeriod.toISOString())
       .get();
 
     if (transactionsSnapshot.empty) {
       logger.info(
-        `No transactions found from the past week (${startOfPeriod.format("YYYY-MM-DD")} to ${endOfPeriod.subtract(1, "day").format("YYYY-MM-DD")}), skipping admin summary`,
+        `No transactions found from the previous week (${startOfPeriod.format("YYYY-MM-DD")} to ${endOfPeriod.format("YYYY-MM-DD")}), skipping admin summary`,
       );
       return;
     }
@@ -71,7 +80,7 @@ export async function sendAdminTransactionSummaryFunction() {
     })) as (Transaction & { id: string; userId: string })[];
 
     logger.info(
-      `Found ${transactions.length} transactions from the past week (${startOfPeriod.format("YYYY-MM-DD")} to ${endOfPeriod.subtract(1, "day").format("YYYY-MM-DD")})`,
+      `Found ${transactions.length} transactions from the previous week (${startOfPeriod.format("YYYY-MM-DD")} to ${endOfPeriod.format("YYYY-MM-DD")})`,
     );
 
     const usersSnapshot = await db.collection("users").get();
@@ -150,9 +159,7 @@ export async function sendAdminTransactionSummaryFunction() {
       );
 
       const formattedStartDate = startOfPeriod.format("YYYY-MM-DD");
-      const formattedEndDate = endOfPeriod
-        .subtract(1, "day")
-        .format("YYYY-MM-DD");
+      const formattedEndDate = endOfPeriod.format("YYYY-MM-DD");
 
       const formattedTotalIncome = formatAmount(totalIncome, language);
       const formattedTotalExpenses = formatAmount(totalExpenses, language);
