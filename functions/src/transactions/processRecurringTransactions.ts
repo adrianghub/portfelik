@@ -58,6 +58,24 @@ export async function processRecurringTransactionsFunction(): Promise<void> {
         nextDate = nextDate.add(1, "month");
       }
 
+      const existingTransactionQuery = await db
+        .collection("transactions")
+        .where("userId", "==", transaction.userId)
+        .where("description", "==", transaction.description)
+        .where("amount", "==", transaction.amount)
+        .where("categoryId", "==", transaction.categoryId)
+        .where("date", ">=", nextDate.startOf("month").toISOString())
+        .where("date", "<=", nextDate.endOf("month").toISOString())
+        .where("status", "==", "upcoming")
+        .get();
+
+      if (!existingTransactionQuery.empty) {
+        logger.info(
+          `Skipping recurring transaction for user ${transaction.userId} - already exists for ${nextDate.format("YYYY-MM")}`,
+        );
+        continue;
+      }
+
       // Create a new transaction with upcoming status
       const { id, ...transactionWithoutId } = transaction;
 
