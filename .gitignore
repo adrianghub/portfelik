@@ -27,3 +27,5 @@ dist-ssr
 
 .firebase/
 firebase-data/
+
+.mcp.json
