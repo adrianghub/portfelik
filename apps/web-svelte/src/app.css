@@ -4,3 +4,22 @@
 @theme {
   --font-sans: 'Inter', system-ui, sans-serif;
 }
+
+@layer base {
+  /* Prevent orange/blue tap flash on mobile */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+    color-scheme: light;
+  }
+
+  /* Better font rendering */
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}

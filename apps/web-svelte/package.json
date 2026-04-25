@@ -27,6 +27,11 @@
 	"dependencies": {
 		"@supabase/supabase-js": "^2.104.0",
 		"@tanstack/svelte-query": "^6.1.18",
-		"@tanstack/svelte-query-devtools": "^6.1.18"
+		"@tanstack/svelte-query-devtools": "^6.1.18",
+		"bits-ui": "^2.18.0",
+		"clsx": "^2.1.1",
+		"dayjs": "^1.11.20",
+		"lucide-svelte": "^1.0.1",
+		"tailwind-merge": "^3.5.0"
 	}
 }

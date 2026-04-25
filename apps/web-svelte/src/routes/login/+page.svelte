@@ -51,20 +51,20 @@
 	<title>{m.app_name()} – {m.login_sign_in()}</title>
 </svelte:head>
 
-<div class="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4">
-	<div class="w-full max-w-sm rounded-2xl bg-white p-8 shadow-sm">
-		<h1 class="mb-1 text-2xl font-semibold text-gray-900">{m.login_title()}</h1>
-		<p class="mb-6 text-sm text-gray-500">{m.login_description()}</p>
+<div class="flex min-h-screen flex-col items-center justify-center bg-zinc-50 px-4">
+	<div class="w-full max-w-sm rounded-2xl bg-white p-8 shadow-sm border border-zinc-100">
+		<h1 class="mb-1 text-2xl font-semibold text-zinc-900">{m.login_title()}</h1>
+		<p class="mb-6 text-sm text-zinc-500">{m.login_description()}</p>
 
 		{#if error}
-			<div class="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+			<div class="mb-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700" role="alert">
 				{error}
 			</div>
 		{/if}
 
 		<form onsubmit={signInWithEmail} class="space-y-4">
 			<div>
-				<label for="email" class="mb-1 block text-sm font-medium text-gray-700">
+				<label for="email" class="mb-1.5 block text-sm font-medium text-zinc-700">
 					{m.login_email()}
 				</label>
 				<input
@@ -74,12 +74,12 @@
 					placeholder={m.login_email_placeholder()}
 					autocomplete="email"
 					disabled={loading}
-					class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+					class="w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 disabled:opacity-50 disabled:bg-zinc-50"
 				/>
 			</div>
 
 			<div>
-				<label for="password" class="mb-1 block text-sm font-medium text-gray-700">
+				<label for="password" class="mb-1.5 block text-sm font-medium text-zinc-700">
 					{m.login_password()}
 				</label>
 				<input
@@ -88,31 +88,32 @@
 					bind:value={password}
 					autocomplete="current-password"
 					disabled={loading}
-					class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+					class="w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 disabled:opacity-50 disabled:bg-zinc-50"
 				/>
 			</div>
 
 			<button
 				type="submit"
 				disabled={loading}
-				class="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+				class="w-full rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
 			>
 				{loading ? m.login_signing_in() : m.login_sign_in()}
 			</button>
 		</form>
 
-		<div class="my-4 flex items-center gap-3">
-			<div class="h-px flex-1 bg-gray-200"></div>
-			<span class="text-xs text-gray-400">lub</span>
-			<div class="h-px flex-1 bg-gray-200"></div>
+		<div class="my-5 flex items-center gap-3">
+			<div class="h-px flex-1 bg-zinc-200"></div>
+			<span class="text-xs text-zinc-400">lub</span>
+			<div class="h-px flex-1 bg-zinc-200"></div>
 		</div>
 
 		<button
+			type="button"
 			onclick={signInWithGoogle}
 			disabled={loading}
-			class="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+			class="flex w-full items-center justify-center gap-2.5 rounded-lg border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
 		>
-			<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+			<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 				<path d="M17.64 9.2045C17.64 8.5663 17.5827 7.9527 17.4764 7.3636H9V10.845H13.8436C13.635 11.97 13.0009 12.9231 12.0477 13.5613V15.8195H14.9564C16.6582 14.2527 17.64 11.9454 17.64 9.2045Z" fill="#4285F4"/>
 				<path d="M9 18C11.43 18 13.4673 17.1941 14.9564 15.8195L12.0477 13.5613C11.2418 14.1013 10.2109 14.4204 9 14.4204C6.65591 14.4204 4.67182 12.8372 3.96409 10.71H0.957275V13.0418C2.43818 15.9831 5.48182 18 9 18Z" fill="#34A853"/>
 				<path d="M3.96409 10.71C3.78409 10.17 3.68182 9.5931 3.68182 9C3.68182 8.4069 3.78409 7.83 3.96409 7.29V4.9582H0.957275C0.347727 6.1731 0 7.5477 0 9C0 10.4523 0.347727 11.8269 0.957275 13.0418L3.96409 10.71Z" fill="#FBBC05"/>

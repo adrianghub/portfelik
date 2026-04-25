@@ -16,10 +16,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 1 — Supabase schema | ✅ Done | Local stack running; migration applied cleanly |
 | 2 — Data migration script | ⬜ Not started | `tools/migrate/` Node script |
 | 3 — SvelteKit skeleton | ✅ Done | Google OAuth login verified on staging (`dev.portfelik.pages.dev`) |
-| 4 — Read-only feature parity | ⬜ Not started | Port all read screens: categories → transactions → summary → shopping lists → groups |
+| 4 — Read-only feature parity | ✅ Done | All read screens ported: transactions+filters+summary, categories, groups, shopping lists, admin (role-gated) |
 | 5–8 | ⬜ Not started | See `MIGRATION_PLAN.md` |
 
-**Immediate next step (Phase 4):** Port read-only routes from React app. Order: categories → transactions list+filters → summary screen → shopping lists → groups → admin. Keep URL shapes identical so bookmarks survive.
+**Immediate next step (Phase 5):** Mutations + Cloud Functions replacements. Port create/update/delete for transactions, categories, groups, shopping lists. Generate VAPID keys + deploy Edge Functions.
+
+### Phase 4 — new files added
+- `apps/web-svelte/src/lib/types.ts` — shared domain types
+- `apps/web-svelte/src/lib/utils.ts` — `cn()`, `formatCurrency()`, `formatDate()`, `getMonthBounds()`, `monthName()`
+- `apps/web-svelte/src/lib/services/` — `categories.ts`, `transactions.ts`, `shopping-lists.ts`, `profiles.ts`, `groups.ts`
+- `apps/web-svelte/src/lib/components/Navigation.svelte` — desktop top bar + mobile bottom tabs
+- `apps/web-svelte/src/lib/components/transactions/` — `MonthPicker`, `CategoryFilter`, `TransactionTable`, `SummaryCards`, `CategoryBreakdown`
+- `apps/web-svelte/src/lib/components/settings/` — `CategoriesTab`, `GroupsTab`, `ProfileTab`
+- `apps/web-svelte/src/lib/components/shopping-lists/` — `ShoppingListCard`
+- `apps/web-svelte/src/routes/transactions/+page.svelte` — URL params: `?year=YYYY&month=M&categoryId=<uuid>`
+- `apps/web-svelte/src/routes/settings/+page.svelte` — URL param: `?tab=categories|groups|profile`
+- `apps/web-svelte/src/routes/shopping-lists/+page.svelte` + `[id]/+page.svelte`
+- `apps/web-svelte/src/routes/admin/+page.svelte` — role-gated, redirects non-admins
+- `apps/web-svelte/src/lib/supabase.types.ts` — generated from local stack (`supabase gen types`)
 
 ---
 
