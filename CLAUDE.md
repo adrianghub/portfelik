@@ -13,13 +13,104 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | Phase | Status | Notes |
 |---|---|---|
 | 0 — Baseline & safety net | ✅ Done | `firestore.rules` audited, `MIGRATION_PLAN.md` committed |
-| 1 — Supabase schema | ✅ Done | Local stack running; migration applied cleanly |
-| 2 — Data migration script | ⬜ Not started | `tools/migrate/` Node script |
+| 1 — Supabase schema | ✅ Done | Local stack running; migration applied cleanly. Two RLS recursion hotfixes applied 2026-04-24 |
+| 2 — Data migration script | ⬜ Not started | `tools/migrate/` Node script. Open question: real historical-data migration or fresh start |
 | 3 — SvelteKit skeleton | ✅ Done | Google OAuth login verified on staging (`dev.portfelik.pages.dev`) |
 | 4 — Read-only feature parity | ✅ Done | All read screens ported: transactions+filters+summary, categories, groups, shopping lists, admin (role-gated) |
-| 5–8 | ⬜ Not started | See `MIGRATION_PLAN.md` |
+| 5 — Mutations + Cloud Functions + push | 🟡 In progress | 5.1 ✅ 5.2 ✅ 5.3 ✅ 5.4 ✅ 5.5 SW+push ✅ — 5.6 CSV next |
+| 6 — Offline queue (Dexie outbox) | ⬜ Not started | Optional |
+| 7 — Cutover | 🟡 DNS already flipped | `portfelik.adrianzinko.com` CNAME → `dev.portfelik.pages.dev` (Cloudflare proxied). **Production already serves the Phase 4 read-only build.** Firebase Hosting decommission + Firestore freeze pending Phase 5 close-out |
+| 8 — Hardening + e2e | ⬜ Not started | Playwright |
 
-**Immediate next step (Phase 5):** Mutations + Cloud Functions replacements. Port create/update/delete for transactions, categories, groups, shopping lists. Generate VAPID keys + deploy Edge Functions.
+**Immediate next step (Phase 5.6):** CSV import/export. See Phase 5.6 section below.
+
+### Phase 5 scope decisions (2026-04-25)
+- **Go BFF (`portfelik-bff/`)**: retire fully — Svelte calls Supabase directly. Delete in Phase 5.7 final PR.
+- **Push notifications**: bundled with Phase 5 (VAPID + `push_subscriptions` table + Edge Functions).
+- **CSV import/export**: included in Phase 5 (cutover regression risk if dropped).
+- **Recurring + status cron**: pure SQL `pg_cron`. No Edge Function indirection.
+- **Schema additions needed**: `notifications` and `push_subscriptions` tables (not in initial migration).
+- **PR slicing**: 5.1 schema → 5.2 Edge Functions → 5.3 service writes → 5.4 forms → 5.5 SW+push → 5.6 CSV → 5.7 BFF deletion.
+
+### Phase 5.3 done (2026-04-25)
+- `services/transactions.ts` — `createTransaction`, `updateTransaction`, `deleteTransaction`. Amount always `Math.abs`. `user_id` fetched from `supabase.auth.getUser()` inside fn (see gotcha below).
+- `services/categories.ts` — `createCategory`, `updateCategory`, `deleteCategory`.
+- `services/groups.ts` — all SECURITY DEFINER RPCs: `createGroup`, `disbandGroup`, `leaveGroup`, `inviteUser`, `acceptInvitation`, `rejectInvitation`, `cancelInvitation`. Also `fetchGroupMembers`, `fetchReceivedInvitations`, `fetchSentInvitations`.
+- `services/shopping-lists.ts` — `createShoppingList`, `updateShoppingList`, `deleteShoppingList`, `completeShoppingList` (RPC, returns linked transaction), item CRUD.
+- `services/profiles.ts` — `updateProfile` (name only; role change blocked by `REVOKE UPDATE`).
+- `lib/types.ts` — added `GroupInvitation` interface.
+
+### Phase 5.4 done (2026-04-25)
+- `lib/components/ui/Dialog.svelte` — reusable modal base (backdrop click + Escape closes)
+- `lib/components/ui/ConfirmDialog.svelte` — destructive-action confirm
+- `lib/components/transactions/TransactionDialog.svelte` — create/edit, type toggle, all fields, recurring
+- `lib/components/settings/CategoryDialog.svelte` — create/edit
+- `lib/components/settings/CategoriesTab.svelte` — rewritten with add/edit/delete (system cats read-only)
+- `lib/components/settings/GroupsTab.svelte` — rewritten: create group, invite, disband, leave, accept/reject invitations
+- `lib/components/settings/ProfileTab.svelte` — rewritten with inline name edit
+- `routes/transactions/+page.svelte` — "+" button, edit/delete per-row
+- `routes/shopping-lists/+page.svelte` — create list dialog, delete per-card
+- `routes/shopping-lists/[id]/+page.svelte` — toggle items, add/delete items, complete list → transaction
+- `messages/pl.json` — 40+ new i18n keys; requires recompile after every change (see gotcha below)
+
+### Phase 5.5 done (2026-04-26)
+- `apps/web-svelte/static/sw.js` — push + notificationclick handler, basic asset caching. No VitePWA plugin — static file served at `/sw.js` by `adapter-static`. `group_invitation` notification type opens `/settings?tab=groups`.
+- `apps/web-svelte/src/lib/services/push.ts` — `registerServiceWorker()`, `subscribeToPush(userId)`, `unsubscribeFromPush()`. Checks existing subscription before creating new (idempotent). Upserts to `push_subscriptions` table.
+- `+layout.svelte` — wired: `registerServiceWorker` + `subscribeToPush` on mount (if session exists) and on `SIGNED_IN`; `unsubscribeFromPush` on `SIGNED_OUT`.
+- `PUBLIC_VAPID_KEY` added to `.env.local` and to `.github/workflows/cloudflare-deploy.yml` build env (needs GitHub secret added too — see pending manual steps).
+- All 15 svelte-check warnings cleared: `untrack()` in `$state()` dialog initializers, `role="presentation"` on backdrop divs, `svelte-ignore a11y_autofocus` on ProfileTab input.
+- Trigger functions migrated from GUC → Supabase Vault (see security section below).
+
+### Security fixes done (2026-04-26)
+- **Supabase Vault replaces GUC for `service_role_key`**: `ALTER DATABASE SET "app.settings.service_role_key"` is blocked by Supabase platform (no superuser) and would expose the key via `current_setting()` to any `authenticated` user. Triggers now read from `vault.decrypted_secrets` (RLS-protected, encrypted at rest). Migration `20260425000001_phase5_2_edge_function_hooks.sql` updated accordingly.
+- **`_setting()` helper revoked**: `REVOKE EXECUTE ON FUNCTION public._setting(text) FROM authenticated, anon` applied via migration.
+- **`functions_url` hardcoded**: `'https://emqzcygfwcvbmhxhfkcc.supabase.co/functions/v1'` is in trigger function bodies — not a secret, no config needed.
+
+### Pending manual steps before 5.5 push works end-to-end
+1. **Rotate service_role key** — it was accidentally exposed in a conversation transcript. Dashboard → Settings → API → Regenerate.
+2. **Insert rotated key into Vault** (MCP or Dashboard SQL Editor — both work, it's a function call not a GUC):
+   ```sql
+   select vault.create_secret('<new-service-role-JWT>', 'service_role_key');
+   ```
+3. **Add GitHub secret** `PUBLIC_VAPID_KEY` = `BFNIxbeo0Gp45xXH70nVddLD5T6eXn3PZ8LT7LYqaPYm-m4UlNMX7jby6Kdx0J5y8Jofm-PjRNtPzCotM0zCQ2I` → Repo → Settings → Secrets → Actions.
+4. **Edge Function secrets** (Dashboard → Edge Functions → Manage secrets): `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT=mailto:zinko.adrian00@gmail.com`. If VAPID private key was lost, regenerate pair: `npx web-push generate-vapid-keys` then update `PUBLIC_VAPID_KEY` everywhere.
+
+### Phase 5.6 — CSV import/export (next)
+- **Export**: `GET /api/transactions/export?year=YYYY&month=M` — query via PostgREST, format as CSV in browser (no server needed, `adapter-static`). Trigger download via `URL.createObjectURL`.
+- **Import**: file input → parse CSV in browser → validate rows → batch insert via `services/transactions.ts`. Match categories by name (case-insensitive). Skip rows with unknown categories (report errors to user).
+- Reference format: check the React app's existing export shape in `src/modules/transactions/` before designing the CSV schema.
+
+### Gotchas for future agents (hard-won — read before Phase 5.5+)
+
+1. **`createMutation` is NOT a Svelte store.** In `@tanstack/svelte-query` v6, `createQuery()` returns a store-compatible object (use `query.data` directly — reactive via runes). `createMutation()` returns a plain reactive object with NO `.subscribe` — never use `$mutation.xxx` syntax. Always: `mutation.mutate(...)`, `mutation.isPending`, `mutation.isError`.
+
+2. **Paraglide requires manual recompile after every pl.json edit.** The Vite plugin handles dev-time HMR, but `svelte-check` / `tsc` see the old generated file until you run: `pnpm exec paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide` from `apps/web-svelte/`.
+
+3. **PostgREST insert types require ALL NOT NULL columns.** Supabase-generated TypeScript types treat `user_id` as required on insert even though RLS will reject unauthorized writes. Pass `user_id: user.id` explicitly — get it from `supabase.auth.getUser()` inside service functions. Do NOT assume RLS auto-sets it.
+
+4. **`complete_shopping_list` RPC returns `transactions` row** (not void). It atomically marks the list completed AND creates a linked expense transaction. Invalidate both `shopping_list` and `transactions`/`summary` query keys on success.
+
+5. **Group write operations are ALL SECURITY DEFINER RPCs.** Direct writes to `user_groups`, `group_members`, `group_invitations` are blocked by `using (false)` RLS policies. Always use the named RPCs in `services/groups.ts`.
+
+6. **`$state()` initializer reading a prop triggers `state_referenced_locally` warning.** Svelte 5 warns when `$state(someprop?.value)` references a reactive prop — it only captures the initial value. Intentional one-time init pattern: wrap in `untrack(() => ...)`. The `$effect(() => { if (open) { reset fields } })` pattern handles re-sync when dialog reopens.
+
+7. **`svelte-ignore` on a11y rules downgrades to WARNING, not silent.** svelte-check still reports them. Use correct semantics: `role="presentation"` on backdrop divs, proper ARIA on interactive elements. Only use `svelte-ignore a11y_autofocus` for genuinely intentional autofocus.
+
+8. **`Uint8Array` type for VAPID key.** TypeScript infers `Uint8Array<ArrayBufferLike>` from `Uint8Array.from()`. `PushManager.subscribe({ applicationServerKey })` expects `Uint8Array<ArrayBuffer>`. Fix: allocate with `new ArrayBuffer(n)` + `new Uint8Array(buffer)` and declare return type explicitly as `Uint8Array<ArrayBuffer>`.
+
+9. **Supabase MCP lacks `ALTER DATABASE SET` privilege.** Any `app.*` GUC changes via MCP fail with `permission denied`. Use `apply_migration` for DDL that needs elevated privileges. For secrets, use Supabase Vault (`vault.create_secret`) — it's a function call, no special privilege needed.
+
+10. **Supabase Vault for trigger secrets.** Pattern: `select decrypted_secret into v_key from vault.decrypted_secrets where name = 'service_role_key' limit 1`. Must set `search_path = public, vault` on the SECURITY DEFINER function. Insert secret once: `select vault.create_secret('<jwt>', 'service_role_key')`. Update: `select vault.update_secret(id, '<new-jwt>') from vault.secrets where name = 'service_role_key'`.
+
+### Phase 5.1 + 5.2 done (2026-04-25)
+- New migrations: `20260425000000_phase5_notifications_push.sql`, `20260425000001_phase5_2_edge_function_hooks.sql` (both applied to cloud DB).
+- Edge Functions deployed: `send-push`, `sync-user-role`, `send-admin-summary`.
+- VAPID public key (safe to commit / expose): `BFNIxbeo0Gp45xXH70nVddLD5T6eXn3PZ8LT7LYqaPYm-m4UlNMX7jby6Kdx0J5y8Jofm-PjRNtPzCotM0zCQ2I`. Private key kept out of repo.
+
+### Manual config required before Phase 5.5 push works end-to-end
+See "Pending manual steps" section above — all four steps required.
+
+GUC approach was abandoned (Supabase blocks `ALTER DATABASE SET` even in Dashboard SQL Editor). Vault is the replacement — see gotcha #10.
 
 ### Phase 4 — new files added
 - `apps/web-svelte/src/lib/types.ts` — shared domain types

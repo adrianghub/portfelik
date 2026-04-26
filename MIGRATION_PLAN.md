@@ -270,6 +270,15 @@ RLS on `transactions` auto-applies because the function is `security invoker` (d
 - **Rollback**: users still on React app. **Exit**: every read screen renders correctly against staging DB; Phase 0 summary contract passes in SvelteKit.
 
 ### Phase 5 — Mutations + Cloud Functions replacements
+
+> **Status (2026-04-25):** 5.1 ✅ 5.2 ✅ 5.3 ✅ 5.4 ✅ — 5.5 SW+push next.
+>
+> Sub-PRs: 5.1 schema (notifications + push_subscriptions tables, pg_cron, triggers) → 5.2 Edge Functions (send-admin-summary, send-group-invitation-push, sync-user-role) + VAPID → 5.3 service writes → 5.4 forms → **5.5 SW + push subscribe** → 5.6 CSV import/export → 5.7 retire `portfelik-bff/`. Recurring + status cron use **pure SQL pg_cron** (no Edge Function indirection). Decisions captured in CLAUDE.md.
+>
+> **5.3 done:** Mutations added to all 5 service files (`transactions`, `categories`, `groups`, `shopping-lists`, `profiles`). Group writes via SECURITY DEFINER RPCs. `user_id` explicitly passed from `supabase.auth.getUser()` inside service fns (PostgREST requires all NOT NULL columns at write time even when RLS would normally set them).
+>
+> **5.4 done:** All forms + dialogs implemented. `ui/Dialog.svelte` + `ui/ConfirmDialog.svelte` reusable base. `TransactionDialog` (create/edit, type toggle, recurring), `CategoryDialog`, `GroupsTab` (create/invite/disband/leave/accept-reject), `CategoriesTab` (add/edit/delete), `ProfileTab` (inline name edit), shopping list create + item CRUD + complete-list-to-transaction. `TransactionTable` + `ShoppingListCard` extended with optional edit/delete callbacks. 40+ new i18n keys in `pl.json`.
+
 - Port all create/update/delete paths with `@tanstack/svelte-query` mutations + optimistic updates.
 - Generate VAPID keypair: `npx web-push generate-vapid-keys`. Public key → `VITE_VAPID_PUBLIC` env; private key → Supabase secret `VAPID_PRIVATE`.
 - Client subscribe flow: `registration.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: VITE_VAPID_PUBLIC})` → upsert `{endpoint, p256dh, auth}` into `push_subscriptions`.
@@ -294,6 +303,9 @@ RLS on `transactions` auto-applies because the function is `security invoker` (d
 - **Rollback**: trivial — feature-gate. **Exit**: airplane-mode add-transaction syncs on reconnect.
 
 ### Phase 7 — Cutover
+
+> **Status (2026-04-25):** DNS already flipped — `portfelik.adrianzinko.com` CNAME → `dev.portfelik.pages.dev` (Cloudflare proxied). Production currently serves the Phase 4 read-only Svelte build; users see read screens but every write button is dead until Phase 5 ships. Remaining cutover items (Firebase Hosting decommission, Firestore freeze + 30-day read-only retention, Cloud Functions disable, Cloud Run BFF stop) are gated on Phase 5 completion.
+
 - ~30-min maintenance window: re-run migration script in delta mode (or full re-import — low-cost personal app).
 - DNS flip: `portfelik.<prod-domain>` → Cloudflare Pages (was Firebase Hosting).
 - Stop Cloud Run BFF (if still deployed).
