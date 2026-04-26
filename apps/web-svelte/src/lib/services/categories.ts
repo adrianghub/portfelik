@@ -12,9 +12,12 @@ export async function fetchCategories(): Promise<Category[]> {
 }
 
 export async function createCategory(input: { name: string; type: TransactionType }): Promise<Category> {
+	const { data: { user }, error: userError } = await supabase.auth.getUser();
+	if (userError || !user) throw userError ?? new Error('Not authenticated');
+
 	const { data, error } = await supabase
 		.from('categories')
-		.insert(input)
+		.insert({ ...input, user_id: user.id })
 		.select()
 		.single();
 
