@@ -1373,6 +1373,20 @@ comment on view transactions_with_category is
 -- SECTION 11: GRANTS AND COLUMN-LEVEL SECURITY
 -- =============================================================================
 
+-- Schema usage — required for any client connection.
+grant usage on schema public to anon, authenticated;
+
+-- Table-level DML privileges for authenticated users.
+-- RLS policies enforce row-level access on top of these.
+-- anon gets no data access — all policies are scoped to authenticated.
+grant select, insert, update, delete
+  on all tables in schema public
+  to authenticated;
+
+grant usage, select
+  on all sequences in schema public
+  to authenticated;
+
 -- Revoke role column from direct client updates.
 -- profiles.role is only writable via assign_admin_role / revoke_admin_role RPCs
 -- (both SECURITY DEFINER, which bypass column-level grants).
