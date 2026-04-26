@@ -37,15 +37,15 @@ These rules apply to every task. Follow them regardless of phase or instruction 
 |---|---|---|
 | 0 — Baseline & safety net | ✅ Done | `firestore.rules` audited, `MIGRATION_PLAN.md` committed |
 | 1 — Supabase schema | ✅ Done | Local stack running; migration applied cleanly. Two RLS recursion hotfixes applied 2026-04-24 |
-| 2 — Data migration script | ⬜ Not started | `tools/migrate/` Node script. Open question: real historical-data migration or fresh start |
+| 2 — Data migration script | ⏭ Skipped | Fresh start confirmed — no historical Firebase data migration needed |
 | 3 — SvelteKit skeleton | ✅ Done | Google OAuth login verified on staging (`dev.portfelik.pages.dev`) |
 | 4 — Read-only feature parity | ✅ Done | All read screens ported: transactions+filters+summary, categories, groups, shopping lists, admin (role-gated) |
-| 5 — Mutations + Cloud Functions + push | 🟡 In progress | 5.1 ✅ 5.2 ✅ 5.3 ✅ 5.4 ✅ 5.5 SW+push ✅ — 5.6 CSV next |
-| 6 — Offline queue (Dexie outbox) | ⬜ Not started | Optional |
-| 7 — Cutover | 🟡 DNS already flipped | `portfelik.adrianzinko.com` CNAME → `dev.portfelik.pages.dev` (Cloudflare proxied). **Production already serves the Phase 4 read-only build.** Firebase Hosting decommission + Firestore freeze pending Phase 5 close-out |
+| 5 — Mutations + Cloud Functions + push | 🟡 In progress | 5.1–5.5 ✅ deployed to production — 5.6 CSV next, 5.7 BFF deletion |
+| 6 — Offline queue (Dexie outbox) | ⏭ Skipped | Post-launch optional; PWA service worker caches app shell only |
+| 7 — Cutover | 🟡 In progress | `dev` merged to `main` 2026-04-26 — GitHub Actions deployed Phase 5 build to production. Firebase decommission + Firestore freeze still pending. |
 | 8 — Hardening + e2e | ⬜ Not started | Playwright |
 
-**Immediate next step (Phase 5.6):** CSV import/export. See Phase 5.6 section below.
+**Immediate next step (Phase 5.6):** CSV import/export. See Phase 5.6 section below. Then Phase 5.7 (delete portfelik-bff/), then Firebase decommission to complete Phase 7.
 
 ### Phase 5 scope decisions (2026-04-25)
 - **Go BFF (`portfelik-bff/`)**: retire fully — Svelte calls Supabase directly. Delete in Phase 5.7 final PR.
@@ -102,6 +102,11 @@ Still required:
 2. **VAPID Edge Function secrets** — Dashboard → Edge Functions → Secrets:
    `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT=mailto:zinko.adrian00@gmail.com`
 
+### Bug fixes done (2026-04-26) — merged to main
+- **`createCategory` missing `user_id`** (`services/categories.ts`) — insert was passing `{name, type}` only; RLS `categories_insert_own` requires `user_id = auth.uid()`. Fix: fetch user via `supabase.auth.getUser()`, pass `user_id: user.id`.
+- **`fetchReceivedInvitations` returning sent invitations** (`services/groups.ts`) — RLS on `group_invitations` is visible to invitee, creator AND group owner. Fix: add `.eq('invited_user_email', user.email)` filter so only truly received invitations are returned. Guard: `!user?.email` (email is `string | undefined` in Supabase types).
+- **`process_recurring_transactions` dedup collision** (`20260426000000_fix_recurring_template_id.sql`) — previous dedup on `(user_id, description, amount, category_id, month)` silently skipped second identical-content template. Fix: added `recurring_template_id uuid FK → transactions(id)` column; dedup now `(user_id, recurring_template_id, month)` — unambiguous per template. `supabase.types.ts` and `types.ts` updated.
+
 ### Phase 5.6 — CSV import/export (next)
 - **Export**: `GET /api/transactions/export?year=YYYY&month=M` — query via PostgREST, format as CSV in browser (no server needed, `adapter-static`). Trigger download via `URL.createObjectURL`.
 - **Import**: file input → parse CSV in browser → validate rows → batch insert via `services/transactions.ts`. Match categories by name (case-insensitive). Skip rows with unknown categories (report errors to user).
@@ -127,7 +132,11 @@ Still required:
 
 9. **Supabase MCP lacks `ALTER DATABASE SET` privilege.** Any `app.*` GUC changes via MCP fail with `permission denied`. Use `apply_migration` for DDL that needs elevated privileges. For secrets, use Supabase Vault (`vault.create_secret`) — it's a function call, no special privilege needed.
 
-10. **Supabase Vault for trigger secrets.** Pattern: `select decrypted_secret into v_key from vault.decrypted_secrets where name = 'service_role_key' limit 1`. Must set `search_path = public, vault` on the SECURITY DEFINER function. Insert secret once: `select vault.create_secret('<jwt>', 'service_role_key')`. Update: `select vault.update_secret(id, '<new-jwt>') from vault.secrets where name = 'service_role_key'`.
+10. **Supabase Vault for trigger secrets.** Pattern: `select decrypted_secret into v_key from vault.decrypted_secrets where name = 'internal_trigger_secret' limit 1`. Must set `search_path = public, vault` on the SECURITY DEFINER function. Insert once: `select vault.create_secret('<hex>', 'internal_trigger_secret')`. Update: `select vault.update_secret(id, '<new>') from vault.secrets where name = 'internal_trigger_secret'`. The vault secret name is `internal_trigger_secret` (NOT `service_role_key` — that was the old GUC approach, abandoned).
+
+11. **`group_invitations` RLS is visible to invitee + creator + group owner.** `fetchReceivedInvitations()` must filter by `invited_user_email = user.email` to exclude own-sent invitations. Without this filter, Accept/Reject on own-sent rows fails with `email_mismatch` in the RPC. `user.email` is `string | undefined` in Supabase Auth types — guard with `!user?.email` before passing to PostgREST.
+
+12. **`createCategory` (and any insert to a user-owned table) must pass `user_id` explicitly.** RLS `categories_insert_own` requires `user_id = auth.uid()`. `NULL` is reserved for system categories (admin-managed). No `user_id` in insert = permission error for every non-admin user.
 
 ### Phase 5.1 + 5.2 done (2026-04-25)
 - New migrations: `20260425000000_phase5_notifications_push.sql`, `20260425000001_phase5_2_edge_function_hooks.sql` (both applied to cloud DB).
