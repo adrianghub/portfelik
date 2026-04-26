@@ -20,13 +20,7 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 	}
 }
 
-export async function subscribeToPush(userId: string): Promise<void> {
-	if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-	if (Notification.permission === 'denied') return;
-
-	const permission = await Notification.requestPermission();
-	if (permission !== 'granted') return;
-
+async function doSubscribe(userId: string): Promise<void> {
 	const registration = await navigator.serviceWorker.ready;
 
 	let subscription = await registration.pushManager.getSubscription();
@@ -51,6 +45,27 @@ export async function subscribeToPush(userId: string): Promise<void> {
 		},
 		{ onConflict: 'user_id,endpoint' }
 	);
+}
+
+// Call on auth events — subscribes silently if permission already granted.
+// Never triggers the browser permission prompt.
+export async function autoSubscribePush(userId: string): Promise<void> {
+	if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+	if (Notification.permission !== 'granted') return;
+	await doSubscribe(userId);
+}
+
+// Call only from a user-gesture handler (button click).
+// Triggers the browser permission prompt then subscribes.
+export async function requestAndSubscribePush(userId: string): Promise<boolean> {
+	if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+	if (Notification.permission === 'denied') return false;
+
+	const permission = await Notification.requestPermission();
+	if (permission !== 'granted') return false;
+
+	await doSubscribe(userId);
+	return true;
 }
 
 export async function unsubscribeFromPush(): Promise<void> {
