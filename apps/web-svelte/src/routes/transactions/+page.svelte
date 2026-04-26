@@ -1,16 +1,20 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { createQuery } from '@tanstack/svelte-query';
-	import { fetchTransactions, fetchMonthlySummary } from '$lib/services/transactions';
+	import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query';
+	import { fetchTransactions, fetchMonthlySummary, deleteTransaction } from '$lib/services/transactions';
 	import { fetchCategories } from '$lib/services/categories';
+	import type { TransactionWithCategory } from '$lib/types';
 	import MonthPicker from '$lib/components/transactions/MonthPicker.svelte';
 	import CategoryFilter from '$lib/components/transactions/CategoryFilter.svelte';
 	import SummaryCards from '$lib/components/transactions/SummaryCards.svelte';
 	import CategoryBreakdown from '$lib/components/transactions/CategoryBreakdown.svelte';
 	import TransactionTable from '$lib/components/transactions/TransactionTable.svelte';
+	import TransactionDialog from '$lib/components/transactions/TransactionDialog.svelte';
+	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import * as m from '$lib/paraglide/messages';
 
+	const queryClient = useQueryClient();
 	const now = new Date();
 
 	const year = $derived(Number($page.url.searchParams.get('year')) || now.getFullYear());
@@ -31,6 +35,25 @@
 		queryKey: ['categories'],
 		queryFn: fetchCategories
 	}));
+
+	// Dialog state
+	let dialogOpen = $state(false);
+	let editTarget = $state<TransactionWithCategory | null>(null);
+	let deleteTargetId = $state<string | null>(null);
+
+	const deleteMutation = createMutation(() => ({
+		mutationFn: () => deleteTransaction(deleteTargetId!),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['transactions'] });
+			queryClient.invalidateQueries({ queryKey: ['summary'] });
+			deleteTargetId = null;
+		}
+	}));
+
+	function openAdd() {
+		editTarget = null;
+		dialogOpen = true;
+	}
 
 	function onMonthChange(newYear: number, newMonth: number) {
 		const params = new URLSearchParams($page.url.searchParams);
@@ -59,6 +82,12 @@
 					onchange={onCategoryChange}
 				/>
 			{/if}
+			<button
+				onclick={openAdd}
+				class="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-700 transition-colors"
+			>
+				+ {m.transaction_add()}
+			</button>
 		</div>
 	</div>
 
@@ -77,10 +106,28 @@
 	{:else if txQuery.isError}
 		<p class="text-sm text-rose-600">{m.common_error_title()}</p>
 	{:else if txQuery.data}
-		<TransactionTable transactions={txQuery.data} />
+		<TransactionTable
+			transactions={txQuery.data}
+			onedit={(tx) => { editTarget = tx; dialogOpen = true; }}
+			ondelete={(id) => (deleteTargetId = id)}
+		/>
 	{/if}
 
 	{#if summaryQuery.data}
 		<CategoryBreakdown categories={summaryQuery.data.categories} />
 	{/if}
 </div>
+
+<TransactionDialog
+	open={dialogOpen}
+	onclose={() => (dialogOpen = false)}
+	initial={editTarget}
+/>
+
+<ConfirmDialog
+	open={!!deleteTargetId}
+	message={m.common_confirm_delete_description()}
+	onconfirm={() => deleteMutation.mutate()}
+	onclose={() => (deleteTargetId = null)}
+	pending={deleteMutation.isPending}
+/>

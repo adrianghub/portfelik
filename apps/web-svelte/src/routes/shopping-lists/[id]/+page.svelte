@@ -1,10 +1,19 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { createQuery } from '@tanstack/svelte-query';
-	import { fetchShoppingListById } from '$lib/services/shopping-lists';
+	import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query';
+	import {
+		fetchShoppingListById,
+		updateShoppingListItem,
+		createShoppingListItem,
+		deleteShoppingListItem,
+		completeShoppingList
+	} from '$lib/services/shopping-lists';
+	import { fetchCategories } from '$lib/services/categories';
 	import { formatCurrency, formatDate, cn } from '$lib/utils';
+	import Dialog from '$lib/components/ui/Dialog.svelte';
 	import * as m from '$lib/paraglide/messages';
 
+	const queryClient = useQueryClient();
 	const id = $derived($page.params.id ?? '');
 
 	const query = createQuery(() => ({
@@ -12,6 +21,81 @@
 		queryFn: () => fetchShoppingListById(id),
 		enabled: !!id
 	}));
+
+	const categoriesQuery = createQuery(() => ({
+		queryKey: ['categories'],
+		queryFn: fetchCategories
+	}));
+
+	const expenseCategories = $derived(
+		categoriesQuery.data?.filter((c) => c.type === 'expense') ?? []
+	);
+
+	// Toggle item completed
+	const toggleMutation = createMutation(() => ({
+		mutationFn: ({ itemId, completed }: { itemId: string; completed: boolean }) =>
+			updateShoppingListItem(itemId, { completed }),
+		onSuccess: () => queryClient.invalidateQueries({ queryKey: ['shopping_list', id] })
+	}));
+
+	// Add item
+	let showAddItem = $state(false);
+	let itemName = $state('');
+	let itemQty = $state('');
+	let itemUnit = $state('');
+
+	const addItemMutation = createMutation(() => ({
+		mutationFn: () =>
+			createShoppingListItem({
+				shopping_list_id: id,
+				name: itemName,
+				quantity: itemQty ? parseFloat(itemQty) : null,
+				unit: itemUnit || null,
+				position: (query.data?.shopping_list_items.length ?? 0) + 1
+			}),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['shopping_list', id] });
+			itemName = '';
+			itemQty = '';
+			itemUnit = '';
+			showAddItem = false;
+		}
+	}));
+
+	// Delete item
+	const deleteItemMutation = createMutation(() => ({
+		mutationFn: (itemId: string) => deleteShoppingListItem(itemId),
+		onSuccess: () => queryClient.invalidateQueries({ queryKey: ['shopping_list', id] })
+	}));
+
+	// Complete list
+	let showComplete = $state(false);
+	let completeAmount = $state('');
+	let completeCategoryId = $state('');
+
+	const completeMutation = createMutation(() => ({
+		mutationFn: () =>
+			completeShoppingList(id, parseFloat(completeAmount), completeCategoryId),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['shopping_list', id] });
+			queryClient.invalidateQueries({ queryKey: ['shopping_lists'] });
+			queryClient.invalidateQueries({ queryKey: ['transactions'] });
+			queryClient.invalidateQueries({ queryKey: ['summary'] });
+			showComplete = false;
+		}
+	}));
+
+	function submitAddItem(e: Event) {
+		e.preventDefault();
+		addItemMutation.mutate();
+	}
+
+	function submitComplete(e: Event) {
+		e.preventDefault();
+		completeMutation.mutate();
+	}
+
+	const isActive = $derived(query.data?.status === 'active');
 </script>
 
 <div class="container mx-auto max-w-2xl px-4 py-6 space-y-4">
@@ -51,14 +135,30 @@
 			<ul class="space-y-1">
 				{#each list.shopping_list_items as item}
 					<li class="flex items-center gap-3 rounded-xl border border-zinc-100 bg-white px-4 py-3">
-						<div class={cn(
-							'h-4 w-4 rounded border shrink-0 flex items-center justify-center',
-							item.completed ? 'bg-zinc-800 border-zinc-800' : 'border-zinc-300'
-						)}>
-							{#if item.completed}
-								<svg class="text-white w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-							{/if}
-						</div>
+						{#if isActive}
+							<button
+								onclick={() => toggleMutation.mutate({ itemId: item.id, completed: !item.completed })}
+								disabled={toggleMutation.isPending}
+								class={cn(
+									'h-4 w-4 rounded border shrink-0 flex items-center justify-center transition-colors',
+									item.completed ? 'bg-zinc-800 border-zinc-800' : 'border-zinc-300 hover:border-zinc-500'
+								)}
+								aria-label={item.completed ? 'Odznacz' : 'Zaznacz'}
+							>
+								{#if item.completed}
+									<svg class="text-white w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+								{/if}
+							</button>
+						{:else}
+							<div class={cn(
+								'h-4 w-4 rounded border shrink-0 flex items-center justify-center',
+								item.completed ? 'bg-zinc-800 border-zinc-800' : 'border-zinc-300'
+							)}>
+								{#if item.completed}
+									<svg class="text-white w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+								{/if}
+							</div>
+						{/if}
 						<span class={cn('text-sm flex-1', item.completed ? 'line-through text-zinc-400' : 'text-zinc-900')}>
 							{item.name}
 						</span>
@@ -67,9 +167,36 @@
 								{item.quantity}{item.unit ? ` ${item.unit}` : ''}
 							</span>
 						{/if}
+						{#if isActive}
+							<button
+								onclick={() => deleteItemMutation.mutate(item.id)}
+								disabled={deleteItemMutation.isPending}
+								class="p-1 text-zinc-300 hover:text-rose-500 transition-colors shrink-0"
+								aria-label={m.common_delete()}
+							>
+								<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+							</button>
+						{/if}
 					</li>
 				{/each}
 			</ul>
+		{/if}
+
+		{#if isActive}
+			<div class="flex gap-2">
+				<button
+					onclick={() => { showAddItem = true; itemName = ''; itemQty = ''; itemUnit = ''; }}
+					class="flex-1 rounded-xl border border-dashed border-zinc-300 py-2.5 text-sm font-medium text-zinc-500 hover:border-zinc-400 hover:text-zinc-700 transition-colors"
+				>
+					+ {m.shopping_list_item_add()}
+				</button>
+				<button
+					onclick={() => { showComplete = true; completeAmount = ''; completeCategoryId = ''; }}
+					class="rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 transition-colors"
+				>
+					{m.shopping_list_complete_title()}
+				</button>
+			</div>
 		{/if}
 
 		{#if list.total_amount != null}
@@ -80,3 +207,96 @@
 		{/if}
 	{/if}
 </div>
+
+<!-- Add item dialog -->
+<Dialog open={showAddItem} onclose={() => (showAddItem = false)} title={m.shopping_list_item_add()}>
+	<form onsubmit={submitAddItem} class="space-y-4">
+		<div class="space-y-1">
+			<label class="text-xs font-medium text-zinc-600" for="item-name">{m.shopping_list_item_name()}</label>
+			<input
+				id="item-name"
+				type="text"
+				required
+				bind:value={itemName}
+				class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+			/>
+		</div>
+		<div class="flex gap-3">
+			<div class="flex-1 space-y-1">
+				<label class="text-xs font-medium text-zinc-600" for="item-qty">{m.shopping_list_item_quantity()}</label>
+				<input
+					id="item-qty"
+					type="number"
+					min="0"
+					step="any"
+					bind:value={itemQty}
+					class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+				/>
+			</div>
+			<div class="flex-1 space-y-1">
+				<label class="text-xs font-medium text-zinc-600" for="item-unit">{m.shopping_list_item_unit()}</label>
+				<input
+					id="item-unit"
+					type="text"
+					bind:value={itemUnit}
+					placeholder="szt, kg, l…"
+					class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+				/>
+			</div>
+		</div>
+		{#if addItemMutation.isError}
+			<p class="text-sm text-rose-600">{m.common_error_title()}</p>
+		{/if}
+		<div class="flex gap-2 pt-1">
+			<button type="button" onclick={() => (showAddItem = false)} class="flex-1 rounded-lg border border-zinc-200 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-50 transition-colors">
+				{m.common_cancel()}
+			</button>
+			<button type="submit" disabled={addItemMutation.isPending} class="flex-1 rounded-lg bg-zinc-900 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 transition-colors">
+				{addItemMutation.isPending ? m.common_saving() : m.common_add()}
+			</button>
+		</div>
+	</form>
+</Dialog>
+
+<!-- Complete list dialog -->
+<Dialog open={showComplete} onclose={() => (showComplete = false)} title={m.shopping_list_complete_title()}>
+	<form onsubmit={submitComplete} class="space-y-4">
+		<div class="space-y-1">
+			<label class="text-xs font-medium text-zinc-600" for="comp-amount">{m.shopping_list_complete_amount()}</label>
+			<input
+				id="comp-amount"
+				type="number"
+				min="0.01"
+				step="0.01"
+				required
+				bind:value={completeAmount}
+				class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+			/>
+		</div>
+		<div class="space-y-1">
+			<label class="text-xs font-medium text-zinc-600" for="comp-cat">{m.shopping_list_complete_category()}</label>
+			<select
+				id="comp-cat"
+				required
+				bind:value={completeCategoryId}
+				class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 bg-white"
+			>
+				<option value="">{m.transaction_form_select_category()}</option>
+				{#each expenseCategories as cat}
+					<option value={cat.id}>{cat.name}</option>
+				{/each}
+			</select>
+		</div>
+		{#if completeMutation.isError}
+			<p class="text-sm text-rose-600">{m.common_error_title()}</p>
+		{/if}
+		<div class="flex gap-2 pt-1">
+			<button type="button" onclick={() => (showComplete = false)} class="flex-1 rounded-lg border border-zinc-200 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-50 transition-colors">
+				{m.common_cancel()}
+			</button>
+			<button type="submit" disabled={completeMutation.isPending} class="flex-1 rounded-lg bg-zinc-900 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 transition-colors">
+				{completeMutation.isPending ? m.common_saving() : m.shopping_list_complete_submit()}
+			</button>
+		</div>
+	</form>
+</Dialog>

@@ -5,8 +5,10 @@
 
 	interface Props {
 		transactions: TransactionWithCategory[];
+		onedit?: (tx: TransactionWithCategory) => void;
+		ondelete?: (id: string) => void;
 	}
-	let { transactions }: Props = $props();
+	let { transactions, onedit, ondelete }: Props = $props();
 
 	const statusLabel: Record<string, string> = {
 		paid: m.transactions_status_paid(),
@@ -58,6 +60,20 @@
 					>
 						{statusLabel[tx.status] ?? tx.status}
 					</span>
+					{#if onedit || ondelete}
+						<div class="flex gap-1 ml-1">
+							{#if onedit}
+								<button onclick={() => onedit(tx)} class="p-1 text-zinc-400 hover:text-zinc-600 transition-colors" aria-label={m.common_edit()}>
+									<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+								</button>
+							{/if}
+							{#if ondelete}
+								<button onclick={() => ondelete(tx.id)} class="p-1 text-zinc-400 hover:text-rose-600 transition-colors" aria-label={m.common_delete()}>
+									<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+								</button>
+							{/if}
+						</div>
+					{/if}
 				</div>
 			</li>
 		{/each}
@@ -73,6 +89,9 @@
 					<th scope="col" class="px-4 py-3 text-left text-xs font-medium text-zinc-500">{m.transactions_col_category()}</th>
 					<th scope="col" class="px-4 py-3 text-left text-xs font-medium text-zinc-500">{m.transactions_col_status()}</th>
 					<th scope="col" class="px-4 py-3 text-right text-xs font-medium text-zinc-500">{m.transactions_col_amount()}</th>
+					{#if onedit || ondelete}
+						<th scope="col" class="px-4 py-3"></th>
+					{/if}
 				</tr>
 			</thead>
 			<tbody>
@@ -94,6 +113,22 @@
 						<td class={cn('px-4 py-3 text-right font-medium tabular-nums whitespace-nowrap', tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600')}>
 							{tx.type === 'income' ? '+' : '−'}{formatCurrency(tx.amount, tx.currency)}
 						</td>
+						{#if onedit || ondelete}
+							<td class="px-4 py-3 text-right">
+								<div class="flex items-center justify-end gap-1">
+									{#if onedit}
+										<button onclick={() => onedit(tx)} class="p-1.5 text-zinc-400 hover:text-zinc-600 transition-colors rounded" aria-label={m.common_edit()}>
+											<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+										</button>
+									{/if}
+									{#if ondelete}
+										<button onclick={() => ondelete(tx.id)} class="p-1.5 text-zinc-400 hover:text-rose-600 transition-colors rounded" aria-label={m.common_delete()}>
+											<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+										</button>
+									{/if}
+								</div>
+							</td>
+						{/if}
 					</tr>
 				{/each}
 			</tbody>

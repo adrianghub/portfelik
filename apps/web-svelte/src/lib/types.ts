@@ -74,6 +74,18 @@ export interface GroupMember {
 	joined_at: string;
 }
 
+export interface GroupInvitation {
+	id: string;
+	group_id: string;
+	group_name: string;
+	invited_user_email: string;
+	invited_user_id: string | null;
+	created_by: string;
+	status: InvitationStatus;
+	created_at: string;
+	updated_at: string;
+}
+
 export interface ShoppingListItem {
 	id: string;
 	shopping_list_id: string;
