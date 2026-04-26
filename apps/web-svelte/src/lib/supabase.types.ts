@@ -316,6 +316,7 @@ export type Database = {
           id: string
           is_recurring: boolean
           recurring_day: number | null
+          recurring_template_id: string | null
           shopping_list_id: string | null
           status: Database["public"]["Enums"]["transaction_status"]
           type: Database["public"]["Enums"]["transaction_type"]
@@ -332,6 +333,7 @@ export type Database = {
           id?: string
           is_recurring?: boolean
           recurring_day?: number | null
+          recurring_template_id?: string | null
           shopping_list_id?: string | null
           status?: Database["public"]["Enums"]["transaction_status"]
           type: Database["public"]["Enums"]["transaction_type"]
@@ -348,6 +350,7 @@ export type Database = {
           id?: string
           is_recurring?: boolean
           recurring_day?: number | null
+          recurring_template_id?: string | null
           shopping_list_id?: string | null
           status?: Database["public"]["Enums"]["transaction_status"]
           type?: Database["public"]["Enums"]["transaction_type"]
@@ -360,6 +363,20 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_recurring_template_id_fkey"
+            columns: ["recurring_template_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_recurring_template_id_fkey"
+            columns: ["recurring_template_id"]
+            isOneToOne: false
+            referencedRelation: "transactions_with_category"
             referencedColumns: ["id"]
           },
           {
@@ -435,6 +452,7 @@ export type Database = {
       }
     }
     Functions: {
+      _setting: { Args: { p_name: string }; Returns: string }
       accept_invitation: {
         Args: { p_invitation_id: string }
         Returns: undefined
@@ -460,6 +478,7 @@ export type Database = {
           id: string
           is_recurring: boolean
           recurring_day: number | null
+          recurring_template_id: string | null
           shopping_list_id: string | null
           status: Database["public"]["Enums"]["transaction_status"]
           type: Database["public"]["Enums"]["transaction_type"]
@@ -534,6 +553,7 @@ export type Database = {
         Args: { p_group_id: string; p_new_owner_id: string }
         Returns: undefined
       }
+      trigger_send_admin_summary: { Args: never; Returns: undefined }
       update_transaction_statuses: { Args: never; Returns: undefined }
     }
     Enums: {
