@@ -7,6 +7,7 @@
 	import { onMount } from 'svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
 	import { fetchProfile } from '$lib/services/profiles';
+	import { registerServiceWorker, subscribeToPush, unsubscribeFromPush } from '$lib/services/push';
 	import type { Profile } from '$lib/types';
 
 	const queryClient = new QueryClient({
@@ -41,10 +42,12 @@
 			fetchProfile(session.user.id)
 				.then((p) => (profile = p))
 				.catch(() => {});
+			registerServiceWorker().then(() => subscribeToPush(session.user.id).catch(() => {}));
 		}
 
 		supabase.auth.onAuthStateChange((event, session) => {
 			if (event === 'SIGNED_OUT') {
+				unsubscribeFromPush().catch(() => {});
 				profile = null;
 				goto('/login');
 			}
@@ -52,6 +55,7 @@
 				fetchProfile(session.user.id)
 					.then((p) => (profile = p))
 					.catch(() => {});
+				registerServiceWorker().then(() => subscribeToPush(session.user.id).catch(() => {}));
 				if (page.url.pathname === '/login') goto('/transactions');
 			}
 		});
