@@ -4,6 +4,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
+## Agent Workflow Rules
+
+These rules apply to every task. Follow them regardless of phase or instruction scope.
+
+### After every change
+1. **Sanity check** — run `pnpm exec svelte-check --tsconfig ./tsconfig.json` (from `apps/web-svelte/`). Must exit with 0 errors, 0 warnings.
+2. **Security audit** — scan modified files for accidental exposure: API keys, JWTs, secrets, hardcoded credentials. Run: `grep -rE "(eyJ[a-zA-Z0-9_-]{20,}|sb_secret_|PRIVATE|password\s*=)" <changed files>`. Flag anything found before proceeding.
+3. **Relevant validation** — if schema changed: verify RLS enabled on new tables; if Edge Functions changed: verify verify_jwt setting matches intent; if migrations changed: confirm idempotent naming.
+
+### Before finalising a task
+4. **Paraglide recompile** if `messages/pl.json` was touched: `pnpm exec paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide` (from `apps/web-svelte/`).
+5. **Prepare commit list** — output: (a) ordered list of commit messages (Conventional Commits format), (b) exact file list for each commit. User commits manually.
+
+### After each increment
+6. **Update knowledge base** — update `CLAUDE.md` phase status table + relevant sections to reflect what changed. Update memory files at `~/.claude/projects/.../memory/` (project_state.md at minimum). Stale docs are worse than no docs.
+7. **Update handoff notes** — rewrite the "Immediate next step" line at top of CLAUDE.md. Add any new gotchas discovered. Next agent must be able to start cold from CLAUDE.md alone.
+
+### Increment discipline
+- Keep each increment small enough to audit in one pass. Split by concern: schema / services / components / config. Do not bundle unrelated changes.
+- One migration file per logical schema change. Never amend applied migrations.
+
+---
+
 ## Project Status — Active Migration
 
 **Portfelik** is a personal-finance PWA currently being rewritten from **React 19 + Firebase** to **SvelteKit + Supabase**. The full plan is in `MIGRATION_PLAN.md`. Read that file first before starting any phase.
@@ -66,14 +89,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **`_setting()` helper revoked**: `REVOKE EXECUTE ON FUNCTION public._setting(text) FROM authenticated, anon` applied via migration.
 - **`functions_url` hardcoded**: `'https://emqzcygfwcvbmhxhfkcc.supabase.co/functions/v1'` is in trigger function bodies — not a secret, no config needed.
 
-### Pending manual steps before 5.5 push works end-to-end
-1. **Rotate service_role key** — it was accidentally exposed in a conversation transcript. Dashboard → Settings → API → Regenerate.
-2. **Insert rotated key into Vault** (MCP or Dashboard SQL Editor — both work, it's a function call not a GUC):
-   ```sql
-   select vault.create_secret('<new-service-role-JWT>', 'service_role_key');
-   ```
-3. **Add GitHub secret** `PUBLIC_VAPID_KEY` = `BFNIxbeo0Gp45xXH70nVddLD5T6eXn3PZ8LT7LYqaPYm-m4UlNMX7jby6Kdx0J5y8Jofm-PjRNtPzCotM0zCQ2I` → Repo → Settings → Secrets → Actions.
-4. **Edge Function secrets** (Dashboard → Edge Functions → Manage secrets): `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT=mailto:zinko.adrian00@gmail.com`. If VAPID private key was lost, regenerate pair: `npx web-push generate-vapid-keys` then update `PUBLIC_VAPID_KEY` everywhere.
+### Pending manual steps before push works end-to-end
+✅ Legacy JWT API keys disabled (old service_role JWT invalidated)
+✅ `PUBLIC_SUPABASE_ANON_KEY` GitHub secret updated to `sb_publishable_` format
+✅ `PUBLIC_VAPID_KEY` GitHub secret set with new keypair
+✅ VAPID keypair regenerated (`npx web-push generate-vapid-keys`)
+
+Still required:
+1. **INTERNAL_TRIGGER_SECRET** — generate: `openssl rand -hex 32`
+   - Set as Edge Function secret: Dashboard → Edge Functions → Secrets → `INTERNAL_TRIGGER_SECRET=<hex>`
+   - Insert into Vault: `select vault.create_secret('<hex>', 'internal_trigger_secret');`
+2. **VAPID Edge Function secrets** — Dashboard → Edge Functions → Secrets:
+   `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT=mailto:zinko.adrian00@gmail.com`
 
 ### Phase 5.6 — CSV import/export (next)
 - **Export**: `GET /api/transactions/export?year=YYYY&month=M` — query via PostgREST, format as CSV in browser (no server needed, `adapter-static`). Trigger download via `URL.createObjectURL`.
@@ -105,7 +132,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Phase 5.1 + 5.2 done (2026-04-25)
 - New migrations: `20260425000000_phase5_notifications_push.sql`, `20260425000001_phase5_2_edge_function_hooks.sql` (both applied to cloud DB).
 - Edge Functions deployed: `send-push`, `sync-user-role`, `send-admin-summary`.
-- VAPID public key (safe to commit / expose): `BFNIxbeo0Gp45xXH70nVddLD5T6eXn3PZ8LT7LYqaPYm-m4UlNMX7jby6Kdx0J5y8Jofm-PjRNtPzCotM0zCQ2I`. Private key kept out of repo.
+- VAPID keypair regenerated 2026-04-26. Public key: `BHKoiccZwq3Y5Qw5dmFxVLJIA7w9zcSZkchPKWk-vxBeR421yieZW7gGxuluBBa6sRmpIsFXRSuFyRarLcdvqT4`. Private key kept out of repo (set as Edge Function secret `VAPID_PRIVATE_KEY`).
 
 ### Manual config required before Phase 5.5 push works end-to-end
 See "Pending manual steps" section above — all four steps required.
