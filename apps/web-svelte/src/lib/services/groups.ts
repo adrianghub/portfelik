@@ -22,10 +22,14 @@ export async function fetchGroupMembers(groupId: string): Promise<GroupMember[]>
 }
 
 export async function fetchReceivedInvitations(): Promise<GroupInvitation[]> {
+	const { data: { user }, error: userError } = await supabase.auth.getUser();
+	if (userError || !user?.email) throw userError ?? new Error('Not authenticated');
+
 	const { data, error } = await supabase
 		.from('group_invitations')
 		.select('*')
 		.eq('status', 'pending')
+		.eq('invited_user_email', user.email)
 		.order('created_at', { ascending: false });
 
 	if (error) throw error;
