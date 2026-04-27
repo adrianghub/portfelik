@@ -117,7 +117,6 @@ export async function fetchGroupMembersWithProfiles(
 }
 
 export async function removeGroupMember(groupId: string, userId: string): Promise<void> {
-  // @ts-expect-error RPC added in migration 20260427000001 — types regenerate after local apply
   const { error } = await supabase.rpc("remove_group_member", {
     p_group_id: groupId,
     p_user_id: userId,

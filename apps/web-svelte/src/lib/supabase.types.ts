@@ -542,6 +542,10 @@ export type Database = {
         Args: { p_invitation_id: string };
         Returns: undefined;
       };
+      remove_group_member: {
+        Args: { p_group_id: string; p_user_id: string };
+        Returns: undefined;
+      };
       revoke_admin_role: { Args: { p_user_id: string }; Returns: undefined };
       transfer_group_ownership: {
         Args: { p_group_id: string; p_new_owner_id: string };
