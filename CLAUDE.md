@@ -10,16 +10,18 @@ These rules apply to every task. Follow them regardless of phase or instruction 
 
 ### After every change
 1. **Sanity check** — run `pnpm exec svelte-check --tsconfig ./tsconfig.json` (from `apps/web-svelte/`). Must exit with 0 errors, 0 warnings.
-2. **Security audit** — scan modified files for accidental exposure: API keys, JWTs, secrets, hardcoded credentials. Run: `grep -rE "(eyJ[a-zA-Z0-9_-]{20,}|sb_secret_|PRIVATE|password\s*=)" <changed files>`. Flag anything found before proceeding.
-3. **Relevant validation** — if schema changed: verify RLS enabled on new tables; if Edge Functions changed: verify verify_jwt setting matches intent; if migrations changed: confirm idempotent naming.
+2. **Lint** — run `pnpm lint` (from `apps/web-svelte/`). Must exit with 0 errors.
+3. **Format** — run `pnpm format:check` (from `apps/web-svelte/`). If it fails, run `pnpm format` then re-check.
+4. **Security audit** — scan modified files for accidental exposure: API keys, JWTs, secrets, hardcoded credentials. Run: `grep -rE "(eyJ[a-zA-Z0-9_-]{20,}|sb_secret_|PRIVATE|password\s*=)" <changed files>`. Flag anything found before proceeding.
+5. **Relevant validation** — if schema changed: verify RLS enabled on new tables; if Edge Functions changed: verify verify_jwt setting matches intent; if migrations changed: confirm idempotent naming.
 
 ### Before finalising a task
-4. **Paraglide recompile** if `messages/pl.json` was touched: `pnpm exec paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide` (from `apps/web-svelte/`).
-5. **Prepare commit list** — output: (a) ordered list of commit messages (Conventional Commits format), (b) exact file list for each commit. User commits manually.
+6. **Paraglide recompile** if `messages/pl.json` was touched: `pnpm exec paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide` (from `apps/web-svelte/`).
+7. **Prepare commit list** — output: (a) ordered list of commit messages (Conventional Commits format), (b) exact file list for each commit. User commits manually.
 
 ### After each increment
-6. **Update knowledge base** — update `CLAUDE.md` phase status table + relevant sections to reflect what changed. Update memory files at `~/.claude/projects/.../memory/` (project_state.md at minimum). Stale docs are worse than no docs.
-7. **Update handoff notes** — rewrite the "Immediate next step" line at top of CLAUDE.md. Add any new gotchas discovered. Next agent must be able to start cold from CLAUDE.md alone.
+8. **Update knowledge base** — update `CLAUDE.md` phase status table + relevant sections to reflect what changed. Update memory files at `~/.claude/projects/.../memory/` (project_state.md at minimum). Stale docs are worse than no docs.
+9. **Update handoff notes** — rewrite the "Immediate next step" line at top of CLAUDE.md. Add any new gotchas discovered. Next agent must be able to start cold from CLAUDE.md alone.
 
 ### Increment discipline
 - Keep each increment small enough to audit in one pass. Split by concern: schema / services / components / config. Do not bundle unrelated changes.
