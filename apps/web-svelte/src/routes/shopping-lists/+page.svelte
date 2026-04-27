@@ -9,11 +9,7 @@
     deleteShoppingList,
     fetchShoppingLists,
   } from "$lib/services/shopping-lists";
-  import {
-    createMutation,
-    createQuery,
-    useQueryClient,
-  } from "@tanstack/svelte-query";
+  import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
 
   const queryClient = useQueryClient();
 
@@ -27,12 +23,8 @@
     queryFn: fetchUserGroups,
   }));
 
-  const active = $derived(
-    query.data?.filter((l) => l.status === "active") ?? [],
-  );
-  const completed = $derived(
-    query.data?.filter((l) => l.status === "completed") ?? [],
-  );
+  const active = $derived(query.data?.filter((l) => l.status === "active") ?? []);
+  const completed = $derived(query.data?.filter((l) => l.status === "completed") ?? []);
 
   // Create dialog
   let showCreate = $state(false);
@@ -40,8 +32,7 @@
   let newGroupId = $state("");
 
   const createMut = createMutation(() => ({
-    mutationFn: () =>
-      createShoppingList({ name: newName, group_id: newGroupId || null }),
+    mutationFn: () => createShoppingList({ name: newName, group_id: newGroupId || null }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
       newName = "";
@@ -67,7 +58,7 @@
   }));
 </script>
 
-<div class="container mx-auto max-w-3xl px-4 py-6 space-y-5">
+<div class="container mx-auto max-w-3xl space-y-5 px-4 py-6">
   <div class="flex items-center justify-between">
     <h1 class="text-xl font-semibold text-zinc-900">
       {m.shopping_lists_title()}
@@ -78,7 +69,7 @@
         newName = "";
         newGroupId = "";
       }}
-      class="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-700 transition-colors"
+      class="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
     >
       + {m.common_add()}
     </button>
@@ -86,23 +77,23 @@
 
   {#if query.isLoading}
     <div class="space-y-2">
-      {#each [0, 1, 2] as _}
-        <div class="h-16 rounded-xl bg-zinc-100 animate-pulse"></div>
+      {#each [0, 1, 2] as _, i (i)}
+        <div class="h-16 animate-pulse rounded-xl bg-zinc-100"></div>
       {/each}
     </div>
   {:else if query.isError}
     <p class="text-sm text-rose-600">{m.common_error_title()}</p>
   {:else if (query.data?.length ?? 0) === 0}
-    <p class="text-sm text-zinc-400 text-center py-12">
+    <p class="py-12 text-center text-sm text-zinc-400">
       {m.shopping_lists_empty()}
     </p>
   {:else}
     {#if active.length > 0}
       <section class="space-y-2">
-        <h2 class="text-xs font-medium text-zinc-500 uppercase tracking-wide">
+        <h2 class="text-xs font-medium tracking-wide text-zinc-500 uppercase">
           {m.shopping_lists_active()}
         </h2>
-        {#each active as list}
+        {#each active as list (list.id)}
           <ShoppingListCard {list} ondelete={(id) => (deleteTargetId = id)} />
         {/each}
       </section>
@@ -110,10 +101,10 @@
 
     {#if completed.length > 0}
       <section class="space-y-2">
-        <h2 class="text-xs font-medium text-zinc-500 uppercase tracking-wide">
+        <h2 class="text-xs font-medium tracking-wide text-zinc-500 uppercase">
           {m.shopping_lists_completed()}
         </h2>
-        {#each completed as list}
+        {#each completed as list (list.id)}
           <ShoppingListCard {list} ondelete={(id) => (deleteTargetId = id)} />
         {/each}
       </section>
@@ -137,7 +128,7 @@
         type="text"
         required
         bind:value={newName}
-        class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+        class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none"
       />
     </div>
     {#if groupsQuery.data && groupsQuery.data.length > 0}
@@ -148,10 +139,10 @@
         <select
           id="sl-group"
           bind:value={newGroupId}
-          class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 bg-white"
+          class="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none"
         >
           <option value="">{m.shopping_list_form_no_group()}</option>
-          {#each groupsQuery.data as group}
+          {#each groupsQuery.data as group (group.id)}
             <option value={group.id}>{group.name}</option>
           {/each}
         </select>
@@ -164,14 +155,14 @@
       <button
         type="button"
         onclick={() => (showCreate = false)}
-        class="flex-1 rounded-lg border border-zinc-200 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-50 transition-colors"
+        class="flex-1 rounded-lg border border-zinc-200 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50"
       >
         {m.common_cancel()}
       </button>
       <button
         type="submit"
         disabled={createMut.isPending}
-        class="flex-1 rounded-lg bg-zinc-900 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 transition-colors"
+        class="flex-1 rounded-lg bg-zinc-900 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
       >
         {createMut.isPending ? m.common_saving() : m.common_save()}
       </button>
