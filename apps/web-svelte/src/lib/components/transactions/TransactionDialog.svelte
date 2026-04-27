@@ -63,9 +63,9 @@
 			isEdit
 				? updateTransaction(initial!.id, input)
 				: createTransaction(input),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['transactions'] });
-			queryClient.invalidateQueries({ queryKey: ['summary'] });
+		onSuccess: async () => {
+			await queryClient.invalidateQueries({ queryKey: ['transactions'] });
+			await queryClient.invalidateQueries({ queryKey: ['summary'] });
 			onclose();
 		}
 	}));

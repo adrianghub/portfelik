@@ -33,8 +33,8 @@
 			isEdit
 				? updateCategory(initial!.id, { name, type })
 				: createCategory({ name, type }),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['categories'] });
+		onSuccess: async () => {
+			await queryClient.invalidateQueries({ queryKey: ['categories'] });
 			onclose();
 		}
 	}));

@@ -35,7 +35,7 @@
 	const toggleMutation = createMutation(() => ({
 		mutationFn: ({ itemId, completed }: { itemId: string; completed: boolean }) =>
 			updateShoppingListItem(itemId, { completed }),
-		onSuccess: () => queryClient.invalidateQueries({ queryKey: ['shopping_list', id] })
+		onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ['shopping_list', id] }); }
 	}));
 
 	// Add item
@@ -53,8 +53,8 @@
 				unit: itemUnit || null,
 				position: (query.data?.shopping_list_items.length ?? 0) + 1
 			}),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['shopping_list', id] });
+		onSuccess: async () => {
+			await queryClient.invalidateQueries({ queryKey: ['shopping_list', id] });
 			itemName = '';
 			itemQty = '';
 			itemUnit = '';
@@ -65,7 +65,7 @@
 	// Delete item
 	const deleteItemMutation = createMutation(() => ({
 		mutationFn: (itemId: string) => deleteShoppingListItem(itemId),
-		onSuccess: () => queryClient.invalidateQueries({ queryKey: ['shopping_list', id] })
+		onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ['shopping_list', id] }); }
 	}));
 
 	// Complete list
@@ -76,11 +76,11 @@
 	const completeMutation = createMutation(() => ({
 		mutationFn: () =>
 			completeShoppingList(id, parseFloat(completeAmount), completeCategoryId),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['shopping_list', id] });
-			queryClient.invalidateQueries({ queryKey: ['shopping_lists'] });
-			queryClient.invalidateQueries({ queryKey: ['transactions'] });
-			queryClient.invalidateQueries({ queryKey: ['summary'] });
+		onSuccess: async () => {
+			await queryClient.invalidateQueries({ queryKey: ['shopping_list', id] });
+			await queryClient.invalidateQueries({ queryKey: ['shopping_lists'] });
+			await queryClient.invalidateQueries({ queryKey: ['transactions'] });
+			await queryClient.invalidateQueries({ queryKey: ['summary'] });
 			showComplete = false;
 		}
 	}));

@@ -21,8 +21,8 @@
 
 	const mutation = createMutation(() => ({
 		mutationFn: () => updateProfile(profile!.id, { name: nameInput }),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['profile'] });
+		onSuccess: async () => {
+			await queryClient.invalidateQueries({ queryKey: ['profile'] });
 			editing = false;
 		}
 	}));

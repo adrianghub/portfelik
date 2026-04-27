@@ -1,15 +1,14 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
+	import { createQuery } from '@tanstack/svelte-query';
 	import { supabase } from '$lib/supabase';
 	import { fetchProfile } from '$lib/services/profiles';
 	import CategoriesTab from '$lib/components/settings/CategoriesTab.svelte';
 	import GroupsTab from '$lib/components/settings/GroupsTab.svelte';
 	import ProfileTab from '$lib/components/settings/ProfileTab.svelte';
 	import { cn } from '$lib/utils';
-	import type { Profile } from '$lib/types';
 	import * as m from '$lib/paraglide/messages';
-	import { onMount } from 'svelte';
 
 	type Tab = 'categories' | 'groups' | 'profile';
 
@@ -21,14 +20,18 @@
 		{ id: 'profile', label: m.settings_tab_profile() }
 	];
 
-	let profile = $state<Profile | null>(null);
-
-	onMount(async () => {
-		const { data } = await supabase.auth.getSession();
-		if (data.session) {
-			profile = await fetchProfile(data.session.user.id).catch(() => null);
-		}
+	let userId = $state<string | undefined>(undefined);
+	supabase.auth.getSession().then(({ data }) => {
+		userId = data.session?.user.id;
 	});
+
+	const profileQuery = createQuery(() => ({
+		queryKey: ['profile'],
+		queryFn: () => fetchProfile(userId!),
+		enabled: !!userId
+	}));
+
+	const profile = $derived(profileQuery.data ?? null);
 
 	function setTab(tab: Tab) {
 		const params = new URLSearchParams($page.url.searchParams);

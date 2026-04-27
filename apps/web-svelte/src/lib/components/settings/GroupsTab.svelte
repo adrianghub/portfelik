@@ -38,8 +38,8 @@
 
 	const createGroupMutation = createMutation(() => ({
 		mutationFn: () => createGroup(newGroupName),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['user_groups'] });
+		onSuccess: async () => {
+			await queryClient.invalidateQueries({ queryKey: ['user_groups'] });
 			newGroupName = '';
 			showCreateGroup = false;
 		}
@@ -62,8 +62,8 @@
 
 	const disbandMutation = createMutation(() => ({
 		mutationFn: () => disbandGroup(disbandGroupId!),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['user_groups'] });
+		onSuccess: async () => {
+			await queryClient.invalidateQueries({ queryKey: ['user_groups'] });
 			disbandGroupId = null;
 		}
 	}));
@@ -73,8 +73,8 @@
 
 	const leaveMutation = createMutation(() => ({
 		mutationFn: () => leaveGroup(leaveGroupId!),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['user_groups'] });
+		onSuccess: async () => {
+			await queryClient.invalidateQueries({ queryKey: ['user_groups'] });
 			leaveGroupId = null;
 		}
 	}));
@@ -82,16 +82,16 @@
 	// Accept/reject invitations
 	const acceptMutation = createMutation(() => ({
 		mutationFn: (id: string) => acceptInvitation(id),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['user_groups'] });
-			queryClient.invalidateQueries({ queryKey: ['group_invitations_received'] });
+		onSuccess: async () => {
+			await queryClient.invalidateQueries({ queryKey: ['user_groups'] });
+			await queryClient.invalidateQueries({ queryKey: ['group_invitations_received'] });
 		}
 	}));
 
 	const rejectMutation = createMutation(() => ({
 		mutationFn: (id: string) => rejectInvitation(id),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['group_invitations_received'] });
+		onSuccess: async () => {
+			await queryClient.invalidateQueries({ queryKey: ['group_invitations_received'] });
 		}
 	}));
 

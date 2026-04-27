@@ -20,8 +20,8 @@
 
 	const deleteMutation = createMutation(() => ({
 		mutationFn: () => deleteCategory(deleteTargetId!),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['categories'] });
+		onSuccess: async () => {
+			await queryClient.invalidateQueries({ queryKey: ['categories'] });
 			deleteTargetId = null;
 		}
 	}));
