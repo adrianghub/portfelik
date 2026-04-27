@@ -1,6 +1,7 @@
 <script lang="ts">
   import "../app.css";
   import { QueryClient, QueryClientProvider } from "@tanstack/svelte-query";
+  import { Toaster } from "svelte-sonner";
   import { supabase } from "$lib/supabase";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
@@ -83,6 +84,7 @@
   });
 </script>
 
+<Toaster richColors position="bottom-right" />
 <QueryClientProvider client={queryClient}>
   {#if !isPublicRoute}
     <Navigation {profile} />

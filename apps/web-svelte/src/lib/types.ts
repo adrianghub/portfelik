@@ -75,6 +75,13 @@ export interface GroupMember {
   joined_at: string;
 }
 
+export interface GroupMemberWithProfile {
+  user_id: string;
+  joined_at: string;
+  email: string;
+  name: string | null;
+}
+
 export interface GroupInvitation {
   id: string;
   group_id: string;

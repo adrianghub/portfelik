@@ -17,6 +17,7 @@
   } from "$lib/services/transactions";
   import type { TransactionWithCategory } from "$lib/types";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
+  import { toast } from "svelte-sonner";
 
   const queryClient = useQueryClient();
   const now = new Date();
@@ -50,8 +51,10 @@
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
       await queryClient.invalidateQueries({ queryKey: ["summary"] });
+      toast.success(m.toast_transaction_deleted());
       deleteTargetId = null;
     },
+    onError: () => toast.error(m.toast_error()),
   }));
 
   function openAdd() {

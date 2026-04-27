@@ -5,6 +5,7 @@
   import { cn } from "$lib/utils";
   import CategoryDialog from "./CategoryDialog.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
+  import { toast } from "svelte-sonner";
   import * as m from "$lib/paraglide/messages";
 
   const queryClient = useQueryClient();
@@ -22,8 +23,10 @@
     mutationFn: () => deleteCategory(deleteTargetId!),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["categories"] });
+      toast.success(m.toast_category_deleted());
       deleteTargetId = null;
     },
+    onError: () => toast.error(m.toast_error()),
   }));
 
   function openAdd() {

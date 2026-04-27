@@ -4,6 +4,7 @@
   import { createCategory, updateCategory } from "$lib/services/categories";
   import type { Category, TransactionType } from "$lib/types";
   import Dialog from "$lib/components/ui/Dialog.svelte";
+  import { toast } from "svelte-sonner";
   import * as m from "$lib/paraglide/messages";
 
   interface Props {
@@ -33,8 +34,10 @@
       isEdit ? updateCategory(initial!.id, { name, type }) : createCategory({ name, type }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["categories"] });
+      toast.success(isEdit ? m.toast_category_updated() : m.toast_category_created());
       onclose();
     },
+    onError: () => toast.error(m.toast_error()),
   }));
 
   function handleSubmit(e: Event) {

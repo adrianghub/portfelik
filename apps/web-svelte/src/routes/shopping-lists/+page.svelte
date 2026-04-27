@@ -4,12 +4,14 @@
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchUserGroups } from "$lib/services/groups";
+  import { fetchCategories } from "$lib/services/categories";
   import {
     createShoppingList,
     deleteShoppingList,
     fetchShoppingLists,
   } from "$lib/services/shopping-lists";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
+  import { toast } from "svelte-sonner";
 
   const queryClient = useQueryClient();
 
@@ -23,6 +25,15 @@
     queryFn: fetchUserGroups,
   }));
 
+  const categoriesQuery = createQuery(() => ({
+    queryKey: ["categories"],
+    queryFn: fetchCategories,
+  }));
+
+  const expenseCategories = $derived(
+    categoriesQuery.data?.filter((c) => c.type === "expense") ?? []
+  );
+
   const active = $derived(query.data?.filter((l) => l.status === "active") ?? []);
   const completed = $derived(query.data?.filter((l) => l.status === "completed") ?? []);
 
@@ -30,15 +41,24 @@
   let showCreate = $state(false);
   let newName = $state("");
   let newGroupId = $state("");
+  let newCategoryId = $state("");
 
   const createMut = createMutation(() => ({
-    mutationFn: () => createShoppingList({ name: newName, group_id: newGroupId || null }),
+    mutationFn: () =>
+      createShoppingList({
+        name: newName,
+        group_id: newGroupId || null,
+        category_id: newCategoryId || null,
+      }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
+      toast.success(m.toast_shopping_list_created());
       newName = "";
       newGroupId = "";
+      newCategoryId = "";
       showCreate = false;
     },
+    onError: () => toast.error(m.toast_error()),
   }));
 
   function submitCreate(e: Event) {
@@ -53,8 +73,10 @@
     mutationFn: () => deleteShoppingList(deleteTargetId!),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
+      toast.success(m.toast_shopping_list_deleted());
       deleteTargetId = null;
     },
+    onError: () => toast.error(m.toast_error()),
   }));
 </script>
 
@@ -68,6 +90,7 @@
         showCreate = true;
         newName = "";
         newGroupId = "";
+        newCategoryId = "";
       }}
       class="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
     >
@@ -130,6 +153,21 @@
         bind:value={newName}
         class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none"
       />
+    </div>
+    <div class="space-y-1">
+      <label class="text-xs font-medium text-zinc-600" for="sl-cat"
+        >{m.shopping_list_form_category()}</label
+      >
+      <select
+        id="sl-cat"
+        bind:value={newCategoryId}
+        class="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none"
+      >
+        <option value="">{m.shopping_list_form_no_category()}</option>
+        {#each expenseCategories as cat (cat.id)}
+          <option value={cat.id}>{cat.name}</option>
+        {/each}
+      </select>
     </div>
     {#if groupsQuery.data && groupsQuery.data.length > 0}
       <div class="space-y-1">

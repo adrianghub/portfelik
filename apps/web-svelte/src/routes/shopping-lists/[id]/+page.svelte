@@ -1,6 +1,7 @@
 <script lang="ts">
   import { page } from "$app/stores";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
+  import { toast } from "svelte-sonner";
   import {
     fetchShoppingListById,
     updateShoppingListItem,
@@ -57,11 +58,13 @@
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["shopping_list", id] });
+      toast.success(m.toast_shopping_list_item_added());
       itemName = "";
       itemQty = "";
       itemUnit = "";
       showAddItem = false;
     },
+    onError: () => toast.error(m.toast_error()),
   }));
 
   // Delete item
@@ -69,13 +72,21 @@
     mutationFn: (itemId: string) => deleteShoppingListItem(itemId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["shopping_list", id] });
+      toast.success(m.toast_shopping_list_item_deleted());
     },
+    onError: () => toast.error(m.toast_error()),
   }));
 
-  // Complete list
+  // Complete list — pre-fill category if list has one
   let showComplete = $state(false);
   let completeAmount = $state("");
   let completeCategoryId = $state("");
+
+  $effect(() => {
+    if (showComplete && query.data?.category_id) {
+      completeCategoryId = query.data.category_id;
+    }
+  });
 
   const completeMutation = createMutation(() => ({
     mutationFn: () => completeShoppingList(id, parseFloat(completeAmount), completeCategoryId),
@@ -84,8 +95,10 @@
       await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
       await queryClient.invalidateQueries({ queryKey: ["summary"] });
+      toast.success(m.toast_shopping_list_completed());
       showComplete = false;
     },
+    onError: () => toast.error(m.toast_error()),
   }));
 
   function submitAddItem(e: Event) {

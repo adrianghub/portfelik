@@ -1,5 +1,5 @@
 import { supabase } from "$lib/supabase";
-import type { GroupInvitation, GroupMember, UserGroup } from "$lib/types";
+import type { GroupInvitation, GroupMember, GroupMemberWithProfile, UserGroup } from "$lib/types";
 
 export async function fetchUserGroups(): Promise<UserGroup[]> {
   const { data, error } = await supabase
@@ -87,5 +87,45 @@ export async function rejectInvitation(invitationId: string): Promise<void> {
 
 export async function cancelInvitation(invitationId: string): Promise<void> {
   const { error } = await supabase.rpc("cancel_invitation", { p_invitation_id: invitationId });
+  if (error) throw error;
+}
+
+export async function fetchGroupMembersWithProfiles(
+  groupId: string
+): Promise<GroupMemberWithProfile[]> {
+  const { data: members, error } = await supabase
+    .from("group_members")
+    .select("user_id, joined_at")
+    .eq("group_id", groupId);
+  if (error) throw error;
+  if (!members.length) return [];
+
+  const userIds = members.map((m) => m.user_id);
+  const { data: profiles, error: pErr } = await supabase
+    .from("profiles")
+    .select("id, email, name")
+    .in("id", userIds);
+  if (pErr) throw pErr;
+
+  const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
+  return members.map((m) => ({
+    user_id: m.user_id,
+    joined_at: m.joined_at,
+    email: profileMap.get(m.user_id)?.email ?? "",
+    name: profileMap.get(m.user_id)?.name ?? null,
+  }));
+}
+
+export async function removeGroupMember(groupId: string, userId: string): Promise<void> {
+  // @ts-expect-error RPC added in migration 20260427000001 — types regenerate after local apply
+  const { error } = await supabase.rpc("remove_group_member", {
+    p_group_id: groupId,
+    p_user_id: userId,
+  });
+  if (error) throw error;
+}
+
+export async function deleteAccount(): Promise<void> {
+  const { error } = await supabase.rpc("delete_account");
   if (error) throw error;
 }

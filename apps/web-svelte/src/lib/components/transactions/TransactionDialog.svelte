@@ -5,6 +5,7 @@
   import { fetchCategories } from "$lib/services/categories";
   import type { Transaction, TransactionType, TransactionStatus } from "$lib/types";
   import Dialog from "$lib/components/ui/Dialog.svelte";
+  import { toast } from "svelte-sonner";
   import * as m from "$lib/paraglide/messages";
 
   interface Props {
@@ -66,8 +67,10 @@
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
       await queryClient.invalidateQueries({ queryKey: ["summary"] });
+      toast.success(isEdit ? m.toast_transaction_updated() : m.toast_transaction_created());
       onclose();
     },
+    onError: () => toast.error(m.toast_error()),
   }));
 
   function handleSubmit(e: Event) {

@@ -1,7 +1,12 @@
 <script lang="ts">
   import { createMutation, useQueryClient } from "@tanstack/svelte-query";
   import { updateProfile } from "$lib/services/profiles";
+  import { deleteAccount } from "$lib/services/groups";
+  import { supabase } from "$lib/supabase";
+  import { goto } from "$app/navigation";
   import type { Profile } from "$lib/types";
+  import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
+  import { toast } from "svelte-sonner";
   import * as m from "$lib/paraglide/messages";
 
   interface Props {
@@ -23,7 +28,29 @@
     mutationFn: () => updateProfile(profile!.id, { name: nameInput }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["profile"] });
+      toast.success(m.toast_profile_updated());
       editing = false;
+    },
+    onError: () => toast.error(m.toast_error()),
+  }));
+
+  let showDeleteConfirm = $state(false);
+  let deleteError = $state<string | null>(null);
+
+  const deleteMutation = createMutation(() => ({
+    mutationFn: deleteAccount,
+    onSuccess: async () => {
+      toast.success(m.toast_account_deleted());
+      await supabase.auth.signOut();
+      goto("/login");
+    },
+    onError: (err: Error) => {
+      if (err.message?.includes("has_owned_groups")) {
+        deleteError = m.profile_delete_account_has_groups();
+      } else {
+        deleteError = null;
+        toast.error(m.toast_error());
+      }
     },
   }));
 
@@ -98,4 +125,30 @@
       </span>
     </div>
   </div>
+
+  <div class="mt-6 rounded-xl border border-rose-200 bg-rose-50 p-4">
+    <p class="text-sm font-medium text-rose-700">{m.profile_delete_account()}</p>
+    <p class="mt-1 text-xs text-rose-600">{m.profile_delete_account_confirm()}</p>
+    {#if deleteError}
+      <p class="mt-2 text-xs font-medium text-rose-700">{deleteError}</p>
+    {/if}
+    <button
+      type="button"
+      onclick={() => {
+        deleteError = null;
+        showDeleteConfirm = true;
+      }}
+      class="mt-3 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-100"
+    >
+      {m.profile_delete_account()}
+    </button>
+  </div>
 {/if}
+
+<ConfirmDialog
+  open={showDeleteConfirm}
+  message={m.profile_delete_account_confirm()}
+  onconfirm={() => deleteMutation.mutate()}
+  onclose={() => (showDeleteConfirm = false)}
+  pending={deleteMutation.isPending}
+/>

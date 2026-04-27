@@ -3,16 +3,21 @@
   import {
     fetchUserGroups,
     fetchReceivedInvitations,
+    fetchSentInvitations,
+    fetchGroupMembersWithProfiles,
     createGroup,
     disbandGroup,
     leaveGroup,
     inviteUser,
     acceptInvitation,
     rejectInvitation,
+    cancelInvitation,
+    removeGroupMember,
   } from "$lib/services/groups";
   import { supabase } from "$lib/supabase";
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
+  import { toast } from "svelte-sonner";
   import * as m from "$lib/paraglide/messages";
 
   const queryClient = useQueryClient();
@@ -32,7 +37,7 @@
     currentUserId = data.session?.user.id;
   });
 
-  // Create group dialog
+  // ── Create group ──────────────────────────────────────────────────────────
   let showCreateGroup = $state(false);
   let newGroupName = $state("");
 
@@ -40,60 +45,133 @@
     mutationFn: () => createGroup(newGroupName),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["user_groups"] });
+      toast.success(m.toast_group_created());
       newGroupName = "";
       showCreateGroup = false;
     },
+    onError: () => toast.error(m.toast_error()),
   }));
 
-  // Invite dialog
+  // ── Invite ────────────────────────────────────────────────────────────────
   let inviteGroupId = $state<string | null>(null);
   let inviteEmail = $state("");
 
   const inviteMutation = createMutation(() => ({
     mutationFn: () => inviteUser(inviteGroupId!, inviteEmail),
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Invalidate sent invitations for this group so the panel updates
+      await queryClient.invalidateQueries({
+        queryKey: ["group_invitations_sent", inviteGroupId],
+      });
+      toast.success(m.toast_invitation_sent());
       inviteEmail = "";
       inviteGroupId = null;
     },
+    onError: () => toast.error(m.toast_error()),
   }));
 
-  // Disband confirm
+  // ── Disband ───────────────────────────────────────────────────────────────
   let disbandGroupId = $state<string | null>(null);
 
   const disbandMutation = createMutation(() => ({
     mutationFn: () => disbandGroup(disbandGroupId!),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["user_groups"] });
+      toast.success(m.toast_group_disbanded());
       disbandGroupId = null;
     },
+    onError: () => toast.error(m.toast_error()),
   }));
 
-  // Leave confirm
+  // ── Leave ─────────────────────────────────────────────────────────────────
   let leaveGroupId = $state<string | null>(null);
 
   const leaveMutation = createMutation(() => ({
     mutationFn: () => leaveGroup(leaveGroupId!),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["user_groups"] });
+      toast.success(m.toast_group_left());
       leaveGroupId = null;
     },
+    onError: () => toast.error(m.toast_error()),
   }));
 
-  // Accept/reject invitations
+  // ── Accept / reject received invitations ─────────────────────────────────
   const acceptMutation = createMutation(() => ({
     mutationFn: (id: string) => acceptInvitation(id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["user_groups"] });
       await queryClient.invalidateQueries({ queryKey: ["group_invitations_received"] });
+      toast.success(m.toast_invitation_accepted());
     },
+    onError: () => toast.error(m.toast_error()),
   }));
 
   const rejectMutation = createMutation(() => ({
     mutationFn: (id: string) => rejectInvitation(id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["group_invitations_received"] });
+      toast.success(m.toast_invitation_rejected());
     },
+    onError: () => toast.error(m.toast_error()),
   }));
+
+  // ── Sent invitations + cancel ─────────────────────────────────────────────
+  let sentInvGroupId = $state<string | null>(null);
+
+  const sentInvQuery = createQuery(() => ({
+    queryKey: ["group_invitations_sent", sentInvGroupId],
+    queryFn: () => fetchSentInvitations(sentInvGroupId!),
+    enabled: !!sentInvGroupId,
+  }));
+
+  const cancelMutation = createMutation(() => ({
+    mutationFn: (id: string) => cancelInvitation(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["group_invitations_sent", sentInvGroupId],
+      });
+      toast.success(m.toast_invitation_cancelled());
+    },
+    onError: () => toast.error(m.toast_error()),
+  }));
+
+  // ── Members ───────────────────────────────────────────────────────────────
+  let membersGroupId = $state<string | null>(null);
+
+  const membersQuery = createQuery(() => ({
+    queryKey: ["group_members_profiles", membersGroupId],
+    queryFn: () => fetchGroupMembersWithProfiles(membersGroupId!),
+    enabled: !!membersGroupId,
+  }));
+
+  let removeTargetUserId = $state<string | null>(null);
+
+  const removeMemberMutation = createMutation(() => ({
+    mutationFn: () => removeGroupMember(membersGroupId!, removeTargetUserId!),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["group_members_profiles", membersGroupId],
+      });
+      toast.success(m.toast_member_removed());
+      removeTargetUserId = null;
+    },
+    onError: () => toast.error(m.toast_error()),
+  }));
+
+  // ── Status label helper ───────────────────────────────────────────────────
+  function statusLabel(status: string) {
+    if (status === "pending") return m.group_invitation_status_pending();
+    if (status === "accepted") return m.group_invitation_status_accepted();
+    if (status === "rejected") return m.group_invitation_status_rejected();
+    return m.group_invitation_status_cancelled();
+  }
+
+  function statusClass(status: string) {
+    if (status === "pending") return "bg-blue-50 text-blue-700";
+    if (status === "accepted") return "bg-emerald-50 text-emerald-700";
+    return "bg-zinc-100 text-zinc-500";
+  }
 
   function submitCreateGroup(e: Event) {
     e.preventDefault();
@@ -161,7 +239,7 @@
             </span>
           </div>
           {#if group.owner_id === currentUserId}
-            <div class="flex gap-2">
+            <div class="flex flex-wrap gap-2">
               <button
                 onclick={() => {
                   inviteGroupId = group.id;
@@ -172,12 +250,69 @@
                 {m.group_invite()}
               </button>
               <button
+                onclick={() => {
+                  membersGroupId = group.id;
+                }}
+                class="rounded-lg border border-zinc-200 px-3 py-1 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50"
+              >
+                {m.group_members_title()}
+              </button>
+              <button
+                onclick={() => {
+                  sentInvGroupId = sentInvGroupId === group.id ? null : group.id;
+                }}
+                class="rounded-lg border border-zinc-200 px-3 py-1 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50"
+              >
+                {m.group_sent_invitations()}
+              </button>
+              <button
                 onclick={() => (disbandGroupId = group.id)}
                 class="rounded-lg border border-rose-200 px-3 py-1 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50"
               >
                 {m.group_disband()}
               </button>
             </div>
+
+            <!-- Sent invitations panel (inline toggle) -->
+            {#if sentInvGroupId === group.id}
+              <div class="mt-1 rounded-lg border border-zinc-100 bg-zinc-50 p-3">
+                {#if sentInvQuery.isLoading}
+                  <div class="h-8 animate-pulse rounded bg-zinc-200"></div>
+                {:else if sentInvQuery.data?.length === 0}
+                  <p class="text-xs text-zinc-400">{m.group_sent_invitations_empty()}</p>
+                {:else if sentInvQuery.data}
+                  <ul class="space-y-2">
+                    {#each sentInvQuery.data as inv (inv.id)}
+                      <li class="flex items-center justify-between gap-2">
+                        <div class="min-w-0">
+                          <p class="truncate text-xs font-medium text-zinc-800">
+                            {inv.invited_user_email}
+                          </p>
+                        </div>
+                        <div class="flex shrink-0 items-center gap-2">
+                          <span
+                            class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium {statusClass(
+                              inv.status
+                            )}"
+                          >
+                            {statusLabel(inv.status)}
+                          </span>
+                          {#if inv.status === "pending"}
+                            <button
+                              onclick={() => cancelMutation.mutate(inv.id)}
+                              disabled={cancelMutation.isPending}
+                              class="rounded border border-zinc-200 px-2 py-0.5 text-xs text-zinc-500 transition-colors hover:bg-zinc-100 disabled:opacity-50"
+                            >
+                              {m.group_invitation_cancel()}
+                            </button>
+                          {/if}
+                        </div>
+                      </li>
+                    {/each}
+                  </ul>
+                {/if}
+              </div>
+            {/if}
           {:else}
             <button
               onclick={() => (leaveGroupId = group.id)}
@@ -282,6 +417,47 @@
   </form>
 </Dialog>
 
+<!-- Members dialog -->
+<Dialog
+  open={!!membersGroupId}
+  onclose={() => {
+    membersGroupId = null;
+    removeTargetUserId = null;
+  }}
+  title={m.group_members_title()}
+>
+  {#if membersQuery.isLoading}
+    <div class="space-y-2">
+      {#each [0, 1, 2] as _, i (i)}
+        <div class="h-10 animate-pulse rounded-lg bg-zinc-100"></div>
+      {/each}
+    </div>
+  {:else if membersQuery.data?.length === 0}
+    <p class="py-4 text-center text-sm text-zinc-400">{m.group_members_empty()}</p>
+  {:else if membersQuery.data}
+    <ul class="divide-y divide-zinc-100">
+      {#each membersQuery.data as member (member.user_id)}
+        <li class="flex items-center justify-between gap-3 py-3">
+          <div class="min-w-0">
+            <p class="truncate text-sm font-medium text-zinc-900">{member.name ?? member.email}</p>
+            {#if member.name}
+              <p class="truncate text-xs text-zinc-400">{member.email}</p>
+            {/if}
+          </div>
+          {#if member.user_id !== currentUserId}
+            <button
+              onclick={() => (removeTargetUserId = member.user_id)}
+              class="shrink-0 rounded-lg border border-rose-200 px-2 py-1 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50"
+            >
+              {m.group_member_remove()}
+            </button>
+          {/if}
+        </li>
+      {/each}
+    </ul>
+  {/if}
+</Dialog>
+
 <!-- Disband confirm -->
 <ConfirmDialog
   open={!!disbandGroupId}
@@ -298,4 +474,13 @@
   onconfirm={() => leaveMutation.mutate()}
   onclose={() => (leaveGroupId = null)}
   pending={leaveMutation.isPending}
+/>
+
+<!-- Remove member confirm -->
+<ConfirmDialog
+  open={!!removeTargetUserId}
+  message={m.group_member_remove_confirm()}
+  onconfirm={() => removeMemberMutation.mutate()}
+  onclose={() => (removeTargetUserId = null)}
+  pending={removeMemberMutation.isPending}
 />
