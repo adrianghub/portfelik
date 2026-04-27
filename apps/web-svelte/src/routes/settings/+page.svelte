@@ -26,7 +26,7 @@
   });
 
   const profileQuery = createQuery(() => ({
-    queryKey: ["profile"],
+    queryKey: ["profile", userId],
     queryFn: () => fetchProfile(userId!),
     enabled: !!userId,
   }));
