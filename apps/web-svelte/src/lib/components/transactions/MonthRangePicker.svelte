@@ -26,7 +26,7 @@
 
   const now = new Date();
   const currentYear = now.getFullYear();
-  const years = Array.from({ length: 4 }, (_, i) => currentYear - 3 + i + 1).reverse(); // last 3 years + current + next
+  const years = Array.from({ length: 12 }, (_, i) => currentYear + 1 - i); // next year + current + 10 years back
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
 
   function openPicker() {
