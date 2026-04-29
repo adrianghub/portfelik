@@ -3,54 +3,63 @@
   import { page } from "$app/stores";
   import CategoryBreakdown from "$lib/components/transactions/CategoryBreakdown.svelte";
   import CategoryFilter from "$lib/components/transactions/CategoryFilter.svelte";
-  import MonthPicker from "$lib/components/transactions/MonthPicker.svelte";
+  import MonthRangePicker from "$lib/components/transactions/MonthRangePicker.svelte";
   import SummaryCards from "$lib/components/transactions/SummaryCards.svelte";
+  import TransactionDetailSheet from "$lib/components/transactions/TransactionDetailSheet.svelte";
   import TransactionDialog from "$lib/components/transactions/TransactionDialog.svelte";
   import TransactionTable from "$lib/components/transactions/TransactionTable.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchCategories } from "$lib/services/categories";
-  import {
-    deleteTransaction,
-    fetchMonthlySummary,
-    fetchTransactions,
-  } from "$lib/services/transactions";
+  import { computeSummary, deleteTransaction, fetchTransactions } from "$lib/services/transactions";
   import type { TransactionWithCategory } from "$lib/types";
+  import { getDateRangeBounds } from "$lib/utils";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
+  import { onMount } from "svelte";
+  import { supabase } from "$lib/supabase";
   import { toast } from "svelte-sonner";
 
   const queryClient = useQueryClient();
   const now = new Date();
 
-  const year = $derived(Number($page.url.searchParams.get("year")) || now.getFullYear());
-  const month = $derived(Number($page.url.searchParams.get("month")) || now.getMonth() + 1);
+  const startYear = $derived(Number($page.url.searchParams.get("startYear")) || now.getFullYear());
+  const startMonth = $derived(
+    Number($page.url.searchParams.get("startMonth")) || now.getMonth() + 1
+  );
+  const endYear = $derived(Number($page.url.searchParams.get("endYear")) || startYear);
+  const endMonth = $derived(Number($page.url.searchParams.get("endMonth")) || startMonth);
   const categoryId = $derived($page.url.searchParams.get("categoryId") ?? undefined);
 
+  const bounds = $derived(getDateRangeBounds(startYear, startMonth, endYear, endMonth));
+
   const txQuery = createQuery(() => ({
-    queryKey: ["transactions", year, month, categoryId],
-    queryFn: () => fetchTransactions(year, month, categoryId),
+    queryKey: ["transactions", startYear, startMonth, endYear, endMonth, categoryId],
+    queryFn: () => fetchTransactions(bounds.start, bounds.end, categoryId),
   }));
 
-  const summaryQuery = createQuery(() => ({
-    queryKey: ["summary", year, month],
-    queryFn: () => fetchMonthlySummary(year, month),
-  }));
+  const summary = $derived(txQuery.data ? computeSummary(txQuery.data) : null);
 
   const categoriesQuery = createQuery(() => ({
     queryKey: ["categories"],
     queryFn: fetchCategories,
   }));
 
+  let currentUserId = $state<string | null>(null);
+  onMount(async () => {
+    const { data } = await supabase.auth.getSession();
+    currentUserId = data.session?.user.id ?? null;
+  });
+
   // Dialog state
   let dialogOpen = $state(false);
   let editTarget = $state<TransactionWithCategory | null>(null);
   let deleteTargetId = $state<string | null>(null);
+  let sheetTx = $state<TransactionWithCategory | null>(null);
 
   const deleteMutation = createMutation(() => ({
     mutationFn: () => deleteTransaction(deleteTargetId!),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      await queryClient.invalidateQueries({ queryKey: ["summary"] });
       toast.success(m.toast_transaction_deleted());
       deleteTargetId = null;
     },
@@ -62,10 +71,12 @@
     dialogOpen = true;
   }
 
-  function onMonthChange(newYear: number, newMonth: number) {
+  function onRangeChange(sy: number, sm: number, ey: number, em: number) {
     const params = new URLSearchParams($page.url.searchParams);
-    params.set("year", String(newYear));
-    params.set("month", String(newMonth));
+    params.set("startYear", String(sy));
+    params.set("startMonth", String(sm));
+    params.set("endYear", String(ey));
+    params.set("endMonth", String(em));
     goto(`/transactions?${params.toString()}`, { replaceState: false });
   }
 
@@ -82,8 +93,8 @@
     <h1 class="text-xl font-semibold text-zinc-900">
       {m.transactions_title()}
     </h1>
-    <div class="flex flex-wrap items-center gap-3">
-      <MonthPicker {year} {month} onchange={onMonthChange} />
+    <div class="flex flex-wrap items-center gap-2">
+      <MonthRangePicker {startYear} {startMonth} {endYear} {endMonth} onchange={onRangeChange} />
       {#if categoriesQuery.data}
         <CategoryFilter
           categories={categoriesQuery.data}
@@ -100,9 +111,9 @@
     </div>
   </div>
 
-  {#if summaryQuery.data}
-    <SummaryCards summary={summaryQuery.data} />
-  {:else if summaryQuery.isLoading}
+  {#if summary}
+    <SummaryCards {summary} />
+  {:else if txQuery.isLoading}
     <div class="grid grid-cols-3 gap-3">
       {#each [0, 1, 2] as _, i (i)}
         <div class="h-20 animate-pulse rounded-xl border border-zinc-200 bg-zinc-50"></div>
@@ -117,6 +128,7 @@
   {:else if txQuery.data}
     <TransactionTable
       transactions={txQuery.data}
+      {currentUserId}
       onedit={(tx: TransactionWithCategory) => {
         editTarget = tx;
         dialogOpen = true;
@@ -125,8 +137,8 @@
     />
   {/if}
 
-  {#if summaryQuery.data}
-    <CategoryBreakdown categories={summaryQuery.data.categories} />
+  {#if summary}
+    <CategoryBreakdown categories={summary.categories} oncategoryclick={onCategoryChange} />
   {/if}
 </div>
 
