@@ -158,6 +158,8 @@
   "shopping_list_item_check": "Zaznacz",
   "shopping_list_item_uncheck": "Odznacz",
   "shopping_list_delete": "Usuń listę",
+  "shopping_list_duplicate": "Skopiuj listę",
+  "toast_shopping_list_duplicated": "Lista skopiowana",
   "profile_edit_title": "Edytuj profil",
   "profile_edit_name": "Imię i nazwisko",
   "profile_delete_account": "Usuń konto",
@@ -197,5 +199,9 @@
   "toast_shopping_list_completed": "Lista zakończona, transakcja dodana",
   "toast_shopping_list_item_added": "Element dodany",
   "toast_shopping_list_item_deleted": "Element usunięty",
-  "toast_error": "Coś poszło nie tak"
+  "toast_error": "Coś poszło nie tak",
+  "csv_export": "Eksportuj CSV",
+  "csv_import": "Importuj CSV",
+  "csv_importing": "Importowanie...",
+  "csv_import_error": "Błąd importu CSV"
 }
