@@ -6,25 +6,32 @@ import type {
   TransactionWithCategory,
 } from "$lib/types";
 
+const PAGE_SIZE = 1000;
+
 export async function fetchTransactions(
   start: string,
   end: string,
   categoryId?: string
 ): Promise<TransactionWithCategory[]> {
-  let query = supabase
+  const base = supabase
     .from("transactions_with_category")
     .select("*")
     .gte("date", start)
     .lt("date", end)
     .order("date", { ascending: false });
 
-  if (categoryId) {
-    query = query.eq("category_id", categoryId);
-  }
+  const baseQuery = categoryId ? base.eq("category_id", categoryId) : base;
 
-  const { data, error } = await query;
-  if (error) throw error;
-  return data as TransactionWithCategory[];
+  const all: TransactionWithCategory[] = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await baseQuery.range(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    all.push(...(data as TransactionWithCategory[]));
+    if (data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  return all;
 }
 
 export function computeSummary(transactions: TransactionWithCategory[]): MonthlySummary {
