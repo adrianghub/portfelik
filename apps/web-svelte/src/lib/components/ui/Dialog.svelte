@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
+  import * as m from "$lib/paraglide/messages";
 
   interface Props {
     open: boolean;
@@ -38,7 +39,7 @@
         <button
           onclick={onclose}
           class="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
-          aria-label="Zamknij"
+          aria-label={m.common_close()}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"

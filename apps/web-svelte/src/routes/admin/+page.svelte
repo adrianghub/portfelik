@@ -68,14 +68,14 @@
     },
     onSuccess: async (_data, profile) => {
       const wasAdmin = profile.role === "admin";
-      toast.success(wasAdmin ? "Rola zmieniona na użytkownik" : "Rola zmieniona na admin");
+      toast.success(wasAdmin ? m.admin_role_changed_to_user() : m.admin_role_changed_to_admin());
       await loadProfiles();
       await queryClient.invalidateQueries({ queryKey: ["profile"] });
     },
     onError: (err: Error) => {
       const msg = err.message.includes("cannot_revoke_own_admin")
-        ? "Nie możesz odebrać własnej roli admin"
-        : "Błąd zmiany roli";
+        ? m.admin_role_error_own()
+        : m.admin_role_error();
       toast.error(msg);
     },
   }));
@@ -88,7 +88,7 @@
   <input
     type="search"
     bind:value={search}
-    placeholder="Szukaj po e-mail lub nazwie…"
+    placeholder={m.admin_search_placeholder()}
     class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none sm:max-w-xs"
   />
 

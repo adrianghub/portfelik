@@ -1,0 +1,38 @@
+{
+  "name": "Portfelik",
+  "short_name": "Portfelik",
+  "description": "Personal finance tracker",
+  "start_url": "/transactions",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#18181b",
+  "background_color": "#18181b",
+  "lang": "pl",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Transakcje",
+      "url": "/transactions",
+      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Listy zakupów",
+      "url": "/shopping-lists",
+      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+    }
+  ]
+}
