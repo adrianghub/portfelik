@@ -50,7 +50,7 @@
   <!-- Sheet -->
   <aside
     class="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col bg-white shadow-xl"
-    aria-label="Szczegóły transakcji"
+    aria-label={m.transaction_detail_title()}
   >
     <div class="flex items-center justify-between border-b border-zinc-100 px-5 py-4">
       <h2 class="text-base font-semibold text-zinc-900">
@@ -63,7 +63,7 @@
         type="button"
         onclick={onclose}
         class="rounded-lg p-1 text-zinc-400 transition-colors hover:bg-zinc-50 hover:text-zinc-600"
-        aria-label={m.common_cancel()}
+        aria-label={m.common_close()}
       >
         <X size={18} />
       </button>
@@ -122,7 +122,9 @@
             <dt class="text-xs font-medium tracking-wide text-zinc-400 uppercase">
               {m.transaction_form_recurring_day()}
             </dt>
-            <dd class="mt-0.5 text-zinc-900">{transaction.recurring_day}. każdego miesiąca</dd>
+            <dd class="mt-0.5 text-zinc-900">
+              {transaction.recurring_day}. {m.transaction_detail_recurring_day()}
+            </dd>
           </div>
         {/if}
       </dl>
@@ -131,14 +133,14 @@
       {#if transaction.shopping_list_id}
         <div>
           <p class="mb-1 text-xs font-medium tracking-wide text-zinc-400 uppercase">
-            Lista zakupów
+            {m.nav_shopping_lists()}
           </p>
           <a
             href="/shopping-lists/{transaction.shopping_list_id}"
             class="inline-flex items-center gap-1.5 text-sm text-zinc-700 transition-colors hover:text-zinc-900"
           >
             <ShoppingCart size={14} />
-            Pokaż listę zakupów
+            {m.transaction_detail_show_shopping_list()}
           </a>
         </div>
       {/if}

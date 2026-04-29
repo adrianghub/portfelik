@@ -66,7 +66,6 @@
       isEdit ? updateTransaction(initial!.id, input) : createTransaction(input),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      await queryClient.invalidateQueries({ queryKey: ["summary"] });
       toast.success(isEdit ? m.toast_transaction_updated() : m.toast_transaction_created());
       onclose();
     },
