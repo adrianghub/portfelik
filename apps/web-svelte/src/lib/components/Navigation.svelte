@@ -6,6 +6,7 @@
   import type { Profile } from "$lib/types";
   import * as m from "$lib/paraglide/messages";
   import { Wallet, ShoppingBasket, Settings, ShieldCheck, LogOut } from "lucide-svelte";
+  import NotificationsPopover from "$lib/components/ui/NotificationsPopover.svelte";
 
   interface Props {
     profile: Profile | null;
@@ -67,10 +68,11 @@
     {/if}
   </nav>
 
-  <div class="ml-auto flex items-center gap-3">
+  <div class="ml-auto flex items-center gap-2">
     {#if profile}
       <span class="hidden text-xs text-zinc-400 lg:block">{profile.email}</span>
     {/if}
+    <NotificationsPopover />
     <button
       type="button"
       onclick={signOut}

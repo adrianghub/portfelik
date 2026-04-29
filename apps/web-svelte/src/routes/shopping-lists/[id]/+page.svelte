@@ -12,6 +12,7 @@
   import { fetchCategories } from "$lib/services/categories";
   import { formatCurrency, formatDate, cn } from "$lib/utils";
   import Dialog from "$lib/components/ui/Dialog.svelte";
+  import ShoppingListSuggestions from "$lib/components/shopping-lists/ShoppingListSuggestions.svelte";
   import * as m from "$lib/paraglide/messages";
 
   const queryClient = useQueryClient();
@@ -46,6 +47,7 @@
   let itemName = $state("");
   let itemQty = $state("");
   let itemUnit = $state("");
+  let suggestionRef = $state<{ handleKeydown: (e: KeyboardEvent) => void } | null>(null);
 
   const addItemMutation = createMutation(() => ({
     mutationFn: () =>
@@ -293,7 +295,7 @@
 <!-- Add item dialog -->
 <Dialog open={showAddItem} onclose={() => (showAddItem = false)} title={m.shopping_list_item_add()}>
   <form onsubmit={submitAddItem} class="space-y-4">
-    <div class="space-y-1">
+    <div class="relative space-y-1">
       <label class="text-xs font-medium text-zinc-600" for="item-name"
         >{m.shopping_list_item_name()}</label
       >
@@ -302,7 +304,18 @@
         type="text"
         required
         bind:value={itemName}
+        autocomplete="off"
+        onkeydown={(e) => suggestionRef?.handleKeydown(e)}
         class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none"
+      />
+      <ShoppingListSuggestions
+        bind:this={suggestionRef}
+        query={itemName}
+        onselect={(name, qty, unit) => {
+          itemName = name;
+          itemQty = qty != null ? String(qty) : "";
+          itemUnit = unit ?? "";
+        }}
       />
     </div>
     <div class="flex gap-3">

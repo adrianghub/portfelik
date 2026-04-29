@@ -5,8 +5,9 @@
 
   interface Props {
     categories: CategorySummary[];
+    oncategoryclick?: (categoryId: string) => void;
   }
-  let { categories }: Props = $props();
+  let { categories, oncategoryclick }: Props = $props();
 
   const expenses = $derived(categories.filter((c) => c.type === "expense"));
 </script>
@@ -17,17 +18,34 @@
     <ul class="space-y-2">
       {#each expenses as cat (cat.category_id)}
         <li class="flex items-center gap-2">
-          <div class="min-w-0 flex-1">
-            <div class="flex items-baseline justify-between">
-              <span class="truncate text-sm text-zinc-700">{cat.category_name}</span>
-              <span class="ml-2 shrink-0 text-sm font-medium text-zinc-900"
-                >{formatCurrency(cat.total)}</span
-              >
+          {#if oncategoryclick}
+            <button
+              onclick={() => oncategoryclick(cat.category_id)}
+              class="min-w-0 flex-1 text-left transition-opacity hover:opacity-70"
+            >
+              <div class="flex items-baseline justify-between">
+                <span class="truncate text-sm text-zinc-700">{cat.category_name}</span>
+                <span class="ml-2 shrink-0 text-sm font-medium text-zinc-900"
+                  >{formatCurrency(cat.total)}</span
+                >
+              </div>
+              <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-100">
+                <div class="h-full rounded-full bg-zinc-800" style="width: {cat.percentage}%"></div>
+              </div>
+            </button>
+          {:else}
+            <div class="min-w-0 flex-1">
+              <div class="flex items-baseline justify-between">
+                <span class="truncate text-sm text-zinc-700">{cat.category_name}</span>
+                <span class="ml-2 shrink-0 text-sm font-medium text-zinc-900"
+                  >{formatCurrency(cat.total)}</span
+                >
+              </div>
+              <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-100">
+                <div class="h-full rounded-full bg-zinc-800" style="width: {cat.percentage}%"></div>
+              </div>
             </div>
-            <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-100">
-              <div class="h-full rounded-full bg-zinc-800" style="width: {cat.percentage}%"></div>
-            </div>
-          </div>
+          {/if}
           <span class="w-10 shrink-0 text-right text-xs text-zinc-400">{cat.percentage}%</span>
         </li>
       {/each}

@@ -5,39 +5,73 @@ import type {
   TransactionType,
   TransactionWithCategory,
 } from "$lib/types";
-import { getMonthBounds } from "$lib/utils";
+
+const PAGE_SIZE = 1000;
 
 export async function fetchTransactions(
-  year: number,
-  month: number,
+  start: string,
+  end: string,
   categoryId?: string
 ): Promise<TransactionWithCategory[]> {
-  const { start, end } = getMonthBounds(year, month);
-
-  let query = supabase
+  const base = supabase
     .from("transactions_with_category")
     .select("*")
     .gte("date", start)
     .lt("date", end)
     .order("date", { ascending: false });
 
-  if (categoryId) {
-    query = query.eq("category_id", categoryId);
-  }
+  const baseQuery = categoryId ? base.eq("category_id", categoryId) : base;
 
-  const { data, error } = await query;
-  if (error) throw error;
-  return data as TransactionWithCategory[];
+  const all: TransactionWithCategory[] = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await baseQuery.range(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    all.push(...(data as TransactionWithCategory[]));
+    if (data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  return all;
 }
 
-export async function fetchMonthlySummary(year: number, month: number): Promise<MonthlySummary> {
-  const { data, error } = await supabase.rpc("get_monthly_summary", {
-    p_year: year,
-    p_month: month,
-  });
+export function computeSummary(transactions: TransactionWithCategory[]): MonthlySummary {
+  const totalIncome = transactions
+    .filter((t) => t.type === "income")
+    .reduce((s, t) => s + t.amount, 0);
+  const totalExpenses = transactions
+    .filter((t) => t.type === "expense")
+    .reduce((s, t) => s + t.amount, 0);
 
-  if (error) throw error;
-  return data as unknown as MonthlySummary;
+  const catMap = new Map<string, { name: string; total: number; count: number }>();
+  transactions
+    .filter((t) => t.type === "expense")
+    .forEach((t) => {
+      const e = catMap.get(t.category_id);
+      if (e) {
+        e.total += t.amount;
+        e.count++;
+      } else {
+        catMap.set(t.category_id, { name: t.category_name, total: t.amount, count: 1 });
+      }
+    });
+
+  const categories: MonthlySummary["categories"] = Array.from(catMap.entries())
+    .map(([id, { name, total, count }]) => ({
+      category_id: id,
+      category_name: name,
+      type: "expense" as const,
+      total,
+      percentage: totalExpenses ? Math.round((total / totalExpenses) * 100) : 0,
+      transaction_count: count,
+    }))
+    .sort((a, b) => b.total - a.total);
+
+  return {
+    total_income: totalIncome,
+    total_expenses: totalExpenses,
+    net: totalIncome - totalExpenses,
+    categories,
+  };
 }
 
 export interface CreateTransactionInput {

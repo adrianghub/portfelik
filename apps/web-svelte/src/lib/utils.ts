@@ -26,6 +26,22 @@ export function getMonthBounds(year: number, month: number): { start: string; en
   };
 }
 
+export function getDateRangeBounds(
+  startYear: number,
+  startMonth: number,
+  endYear: number,
+  endMonth: number
+): { start: string; end: string } {
+  return {
+    start: new Date(startYear, startMonth - 1, 1).toISOString(),
+    end: new Date(endYear, endMonth, 1).toISOString(),
+  };
+}
+
 export function monthName(month: number): string {
   return new Intl.DateTimeFormat("pl-PL", { month: "long" }).format(new Date(2000, month - 1, 1));
+}
+
+export function monthYearLabel(year: number, month: number): string {
+  return `${monthName(month)} ${year}`;
 }
