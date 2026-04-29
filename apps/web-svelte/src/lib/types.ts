@@ -121,3 +121,14 @@ export interface ShoppingList {
 export interface ShoppingListWithItems extends ShoppingList {
   shopping_list_items: ShoppingListItem[];
 }
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: string;
+  title: string;
+  body: string;
+  data: Record<string, unknown> | null;
+  read_at: string | null;
+  created_at: string;
+}

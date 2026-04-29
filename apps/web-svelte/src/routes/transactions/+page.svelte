@@ -129,6 +129,7 @@
     <TransactionTable
       transactions={txQuery.data}
       {currentUserId}
+      onrowclick={(tx) => (sheetTx = tx)}
       onedit={(tx: TransactionWithCategory) => {
         editTarget = tx;
         dialogOpen = true;
@@ -143,6 +144,21 @@
 </div>
 
 <TransactionDialog open={dialogOpen} onclose={() => (dialogOpen = false)} initial={editTarget} />
+
+<TransactionDetailSheet
+  transaction={sheetTx}
+  {currentUserId}
+  onclose={() => (sheetTx = null)}
+  onedit={(tx) => {
+    sheetTx = null;
+    editTarget = tx;
+    dialogOpen = true;
+  }}
+  ondelete={(id) => {
+    sheetTx = null;
+    deleteTargetId = id;
+  }}
+/>
 
 <ConfirmDialog
   open={!!deleteTargetId}

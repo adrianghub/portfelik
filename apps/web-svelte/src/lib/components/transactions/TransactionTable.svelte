@@ -1,14 +1,19 @@
 <script lang="ts">
+  import { Users } from "lucide-svelte";
   import * as m from "$lib/paraglide/messages";
   import type { TransactionWithCategory } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
 
   interface Props {
     transactions: TransactionWithCategory[];
+    currentUserId?: string | null;
     onedit?: (tx: TransactionWithCategory) => void;
     ondelete?: (id: string) => void;
+    onrowclick?: (tx: TransactionWithCategory) => void;
   }
-  let { transactions, onedit, ondelete }: Props = $props();
+  let { transactions, currentUserId, onedit, ondelete, onrowclick }: Props = $props();
+
+  const isShared = (tx: TransactionWithCategory) => !!currentUserId && tx.user_id !== currentUserId;
 
   const statusLabel: Record<string, string> = {
     paid: m.transactions_status_paid(),
@@ -33,12 +38,27 @@
   <!-- Mobile card list -->
   <ul class="space-y-1.5 sm:hidden" aria-label={m.transactions_title()}>
     {#each transactions as tx (tx.id)}
-      <li class="rounded-xl border border-zinc-200 bg-white px-4 py-3">
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+      <li
+        class="rounded-xl border border-zinc-200 bg-white px-4 py-3"
+        class:cursor-pointer={!!onrowclick}
+        role={onrowclick ? "button" : undefined}
+        tabindex={onrowclick ? 0 : undefined}
+        onclick={() => onrowclick?.(tx)}
+        onkeydown={(e) => { if (e.key === "Enter" || e.key === " ") onrowclick?.(tx); }}
+      >
         <div class="flex items-start justify-between gap-3">
           <span class="min-w-0 flex-1 truncate text-sm leading-snug font-medium text-zinc-900">
             {tx.description}
             {#if tx.is_recurring}
               <span class="ml-1 text-xs text-zinc-400" aria-label="cykliczna">↻</span>
+            {/if}
+            {#if isShared(tx)}
+              <span
+                class="ml-1 inline-flex items-center gap-0.5 rounded border border-zinc-200 px-1 py-0.5 text-[10px] text-zinc-400"
+              >
+                <Users size={9} />
+              </span>
             {/if}
           </span>
           <span
@@ -140,12 +160,26 @@
       </thead>
       <tbody>
         {#each transactions as tx (tx.id)}
-          <tr class="border-b border-zinc-50 transition-colors last:border-0 hover:bg-zinc-50">
+          <tr
+            class="border-b border-zinc-50 transition-colors last:border-0 hover:bg-zinc-50"
+            class:cursor-pointer={!!onrowclick}
+            role={onrowclick ? "button" : undefined}
+            tabindex={onrowclick ? 0 : undefined}
+            onclick={() => onrowclick?.(tx)}
+            onkeydown={(e) => { if (e.key === "Enter" || e.key === " ") onrowclick?.(tx); }}
+          >
             <td class="px-4 py-3 whitespace-nowrap text-zinc-500">{formatDate(tx.date)}</td>
             <td class="max-w-xs truncate px-4 py-3 text-zinc-900">
               {tx.description}
               {#if tx.is_recurring}
                 <span class="ml-1 text-xs text-zinc-400" aria-label="cykliczna">↻</span>
+              {/if}
+              {#if isShared(tx)}
+                <span
+                  class="ml-1 inline-flex items-center gap-0.5 rounded border border-zinc-200 px-1 py-0.5 text-[10px] text-zinc-400"
+                >
+                  <Users size={10} />
+                </span>
               {/if}
             </td>
             <td class="px-4 py-3 text-zinc-500">{tx.category_name}</td>
