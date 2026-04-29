@@ -38,6 +38,14 @@ export default tseslint.config(
     },
   },
   {
+    files: ["static/sw.js"],
+    languageOptions: {
+      globals: {
+        ...globals.serviceworker,
+      },
+    },
+  },
+  {
     ignores: [
       "build/",
       ".svelte-kit/",

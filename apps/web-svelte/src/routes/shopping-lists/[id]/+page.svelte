@@ -181,7 +181,9 @@
                     ? "border-zinc-800 bg-zinc-800"
                     : "border-zinc-300 hover:border-zinc-500"
                 )}
-                aria-label={item.completed ? "Odznacz" : "Zaznacz"}
+                aria-label={item.completed
+                  ? m.shopping_list_item_uncheck()
+                  : m.shopping_list_item_check()}
               >
                 {#if item.completed}
                   <svg
@@ -340,7 +342,7 @@
           id="item-unit"
           type="text"
           bind:value={itemUnit}
-          placeholder="szt, kg, l…"
+          placeholder={m.shopping_list_item_unit_placeholder()}
           class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none"
         />
       </div>

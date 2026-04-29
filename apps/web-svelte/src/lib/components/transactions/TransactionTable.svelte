@@ -88,7 +88,10 @@
             <div class="ml-1 flex gap-1">
               {#if onedit}
                 <button
-                  onclick={(e) => { e.stopPropagation(); onedit(tx); }}
+                  onclick={(e) => {
+                    e.stopPropagation();
+                    onedit(tx);
+                  }}
                   class="p-1 text-zinc-400 transition-colors hover:text-zinc-600"
                   aria-label={m.common_edit()}
                 >
@@ -108,7 +111,10 @@
               {/if}
               {#if ondelete}
                 <button
-                  onclick={(e) => { e.stopPropagation(); ondelete(tx.id); }}
+                  onclick={(e) => {
+                    e.stopPropagation();
+                    ondelete(tx.id);
+                  }}
                   class="p-1 text-zinc-400 transition-colors hover:text-rose-600"
                   aria-label={m.common_delete()}
                 >
@@ -210,7 +216,10 @@
                 <div class="flex items-center justify-end gap-1">
                   {#if onedit}
                     <button
-                      onclick={(e) => { e.stopPropagation(); onedit(tx); }}
+                      onclick={(e) => {
+                        e.stopPropagation();
+                        onedit(tx);
+                      }}
                       class="rounded p-1.5 text-zinc-400 transition-colors hover:text-zinc-600"
                       aria-label={m.common_edit()}
                     >
@@ -230,7 +239,10 @@
                   {/if}
                   {#if ondelete}
                     <button
-                      onclick={(e) => { e.stopPropagation(); ondelete(tx.id); }}
+                      onclick={(e) => {
+                        e.stopPropagation();
+                        ondelete(tx.id);
+                      }}
                       class="rounded p-1.5 text-zinc-400 transition-colors hover:text-rose-600"
                       aria-label={m.common_delete()}
                     >

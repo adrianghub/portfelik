@@ -15,6 +15,7 @@
     unsubscribeFromPush,
   } from "$lib/services/push";
   import type { Profile } from "$lib/types";
+  import * as m from "$lib/paraglide/messages";
 
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -92,20 +93,20 @@
       <div
         class="fixed inset-x-0 top-14 z-40 flex items-center justify-between gap-3 bg-zinc-900 px-4 py-2 text-sm text-white"
       >
-        <span class="text-zinc-300">Włącz powiadomienia push, aby być na bieżąco.</span>
+        <span class="text-zinc-300">{m.push_banner_text()}</span>
         <div class="flex shrink-0 items-center gap-2">
           <button
             type="button"
             onclick={enableNotifications}
             class="rounded-md bg-white px-3 py-1 text-xs font-medium text-zinc-900 transition-colors hover:bg-zinc-100"
           >
-            Włącz
+            {m.push_banner_enable()}
           </button>
           <button
             type="button"
             onclick={() => (notifPermission = "denied")}
             class="rounded-md px-2 py-1 text-xs text-zinc-400 transition-colors hover:text-white"
-            aria-label="Zamknij"
+            aria-label={m.common_close()}
           >
             ✕
           </button>
