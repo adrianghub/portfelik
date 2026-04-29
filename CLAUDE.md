@@ -31,7 +31,7 @@ Apply to every task regardless of phase.
 
 **Portfelik** — personal-finance PWA. Migrating React 19 + Firebase → SvelteKit + Supabase. Full plan: `MIGRATION_PLAN.md`.
 
-**Immediate next step:** Phase 5.6 CSV import/export. Then 5.7 (delete `portfelik-bff/`). Then Firebase decommission (Phase 7).
+**Immediate next step:** Phase 5.7 — delete `portfelik-bff/`. Then Firebase decommission (Phase 7). Then Phase 8 hardening.
 
 | Phase | Status |
 |---|---|
@@ -39,15 +39,22 @@ Apply to every task regardless of phase.
 | 5.1–5.5 — mutations, Edge Fns, push | ✅ Done + deployed to prod |
 | Gap fixes (2026-04-29) — shared tx badge, clickable category breakdown, admin role toggle+search, in-app notifications bell | ✅ Done |
 | Gap fixes (2026-04-29) — multi-month date range filter, tx detail sheet on row click, shopping list item suggestions | ✅ Done |
-| 5.6 — CSV import/export | ⬜ **Next** |
-| 5.7 — Retire `portfelik-bff/` | ⬜ Not started |
+| 5.6 — CSV import/export + status filter + duplicate shopping list | ✅ Done |
+| 5.7 — Retire `portfelik-bff/` | ⬜ **Next** |
 | 7 — Cutover | 🟡 Live in prod. Firebase decommission pending. |
-| 8 — Hardening + Playwright | ⬜ Not started |
+| 8 — Hardening (dark mode, bulk delete, Playwright, CI/CD) | ⬜ Not started |
 
-### Phase 5.6 — CSV import/export
-- **Export**: query via PostgREST → format CSV in browser → `URL.createObjectURL` download. No server needed (`adapter-static`).
-- **Import**: file input → parse CSV in browser → validate → batch insert via `services/transactions.ts`. Match categories by name (case-insensitive). Report unknown categories.
-- Check `src/modules/transactions/` in the React app for existing export field names before designing the CSV schema.
+### Phase 5.7 — Retire portfelik-bff/
+- Stop Go BFF service (Cloud Run or wherever it's hosted)
+- Delete `portfelik-bff/` directory from repo
+- Remove any references to BFF URLs from config/env
+
+### Phase 8 — Hardening (deferred UX + quality)
+- Dark mode: Tailwind `dark:` variants + `prefers-color-scheme` system detection
+- Bulk delete transactions: row selection + delete selected
+- Playwright e2e tests
+- GitHub Actions CI/CD
+- Old infra cleanup
 
 ### Pending before push works end-to-end
 1. **INTERNAL_TRIGGER_SECRET**: `openssl rand -hex 32` → Edge Function secret + `select vault.create_secret('<hex>', 'internal_trigger_secret');`
