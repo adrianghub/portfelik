@@ -21,7 +21,7 @@ Loaded automatically when working in `apps/web-svelte/`.
 - `transactions.ts` — `fetchTransactions(start, end, categoryId?)`, `computeSummary(txs)`, `createTransaction`, `updateTransaction`, `deleteTransaction`
 - `categories.ts` — `fetchCategories`, `createCategory`, `updateCategory`, `deleteCategory`
 - `groups.ts` — all group SECURITY DEFINER RPCs
-- `shopping-lists.ts` — `fetchShoppingLists`, `fetchShoppingListById`, `fetchShoppingListItemHistory`, item CRUD, `completeShoppingList`
+- `shopping-lists.ts` — `fetchShoppingLists`, `fetchShoppingListById`, `fetchShoppingListItemHistory`, item CRUD, `completeShoppingList`, `duplicateShoppingList`
 - `profiles.ts` — `fetchProfile`, `updateProfile`, `assignAdminRole`, `revokeAdminRole`
 - `notifications.ts` — `fetchNotifications`, `markNotificationRead`, `markAllNotificationsRead`, `deleteNotification`
 - `push.ts` — `registerServiceWorker`, `autoSubscribePush`, `requestAndSubscribePush`, `unsubscribeFromPush`
@@ -34,7 +34,7 @@ Loaded automatically when working in `apps/web-svelte/`.
 
 **Utils** (`src/lib/utils.ts`): `cn`, `formatCurrency`, `formatDate`, `getMonthBounds`, `getDateRangeBounds`, `monthName`, `monthYearLabel`
 
-**Types** (`src/lib/types.ts`): `Transaction`, `TransactionWithCategory`, `MonthlySummary`, `CategorySummary`, `Category`, `Profile`, `UserGroup`, `GroupMember`, `GroupMemberWithProfile`, `GroupInvitation`, `ShoppingList`, `ShoppingListItem`, `ShoppingListWithItems`, `Notification`
+**Types** (`src/lib/types.ts`): `Transaction`, `TransactionWithCategory`, `TransactionStatus`, `TransactionType`, `MonthlySummary`, `CategorySummary`, `Category`, `Profile`, `UserGroup`, `GroupMember`, `GroupMemberWithProfile`, `GroupInvitation`, `ShoppingList`, `ShoppingListSummary`, `ShoppingListItem`, `ShoppingListWithItems`, `Notification`
 
 **i18n**: `messages/pl.json` — always recompile after editing.
 
@@ -57,3 +57,4 @@ See `../../.claude/rules/svelte-gotchas.md` (auto-loaded for this directory). Cr
 - `$state()` reading a prop → `untrack()`
 - Clickable `<li>`/`<tr>`: use `role="button"` + `onkeydown` + conditional `tabindex` — NOT `svelte-ignore`
 - `void expr;` in `$effect` to track deps without lint error
+- Literal BOM (U+FEFF) in JS/TS source → ESLint `no-irregular-whitespace`. Use escape: `"﻿"` for strings, `/^﻿/` for regex. Never paste the literal character.

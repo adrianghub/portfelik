@@ -44,3 +44,5 @@ paths:
     Works for `export function` in the child's `<script>`.
 
 15. **`fetchTransactions(start, end)` not `(year, month)`.** Signature changed 2026-04-29 — takes ISO date strings. Use `getDateRangeBounds(sy, sm, ey, em)` from `utils.ts` to produce `{start, end}`. `computeSummary(transactions)` computes summary client-side — no separate RPC call.
+
+16. **Literal BOM (U+FEFF) in JS/TS source triggers ESLint `no-irregular-whitespace`.** For CSV UTF-8 BOM prefix use `"\uFEFF"` (escape form). Same in regex: `/^\uFEFF/`. Never paste the raw character — it's invisible in editors but breaks ESLint.
