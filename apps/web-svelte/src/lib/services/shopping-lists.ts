@@ -6,6 +6,18 @@ import type {
   Transaction,
 } from "$lib/types";
 
+export async function fetchShoppingListItemHistory(): Promise<
+  Pick<ShoppingListItem, "name" | "quantity" | "unit">[]
+> {
+  const { data, error } = await supabase
+    .from("shopping_list_items")
+    .select("name, quantity, unit")
+    .order("created_at", { ascending: false })
+    .limit(500);
+  if (error) throw error;
+  return data as Pick<ShoppingListItem, "name" | "quantity" | "unit">[];
+}
+
 export async function fetchShoppingLists(): Promise<ShoppingList[]> {
   const { data, error } = await supabase
     .from("shopping_lists")

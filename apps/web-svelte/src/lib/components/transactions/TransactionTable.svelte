@@ -45,7 +45,9 @@
         role={onrowclick ? "button" : undefined}
         tabindex={onrowclick ? 0 : undefined}
         onclick={() => onrowclick?.(tx)}
-        onkeydown={(e) => { if (e.key === "Enter" || e.key === " ") onrowclick?.(tx); }}
+        onkeydown={(e) => {
+          if (e.key === "Enter" || e.key === " ") onrowclick?.(tx);
+        }}
       >
         <div class="flex items-start justify-between gap-3">
           <span class="min-w-0 flex-1 truncate text-sm leading-snug font-medium text-zinc-900">
@@ -166,7 +168,9 @@
             role={onrowclick ? "button" : undefined}
             tabindex={onrowclick ? 0 : undefined}
             onclick={() => onrowclick?.(tx)}
-            onkeydown={(e) => { if (e.key === "Enter" || e.key === " ") onrowclick?.(tx); }}
+            onkeydown={(e) => {
+              if (e.key === "Enter" || e.key === " ") onrowclick?.(tx);
+            }}
           >
             <td class="px-4 py-3 whitespace-nowrap text-zinc-500">{formatDate(tx.date)}</td>
             <td class="max-w-xs truncate px-4 py-3 text-zinc-900">
