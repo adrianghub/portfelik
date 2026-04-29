@@ -111,6 +111,46 @@ export async function completeShoppingList(
   return data as unknown as Transaction;
 }
 
+export async function duplicateShoppingList(id: string): Promise<ShoppingList> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("not_authenticated");
+
+  const source = await fetchShoppingListById(id);
+
+  const { data, error } = await supabase
+    .from("shopping_lists")
+    .insert({
+      name: `${source.name} (kopia)`,
+      status: "active",
+      user_id: user.id,
+      group_id: source.group_id,
+      category_id: source.category_id,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  const newList = data as ShoppingList;
+
+  if (source.shopping_list_items.length > 0) {
+    const { error: itemsError } = await supabase.from("shopping_list_items").insert(
+      source.shopping_list_items.map((item, i) => ({
+        shopping_list_id: newList.id,
+        name: item.name,
+        completed: false,
+        quantity: item.quantity,
+        unit: item.unit,
+        position: i,
+      }))
+    );
+    if (itemsError) throw itemsError;
+  }
+
+  return newList;
+}
+
 export async function createShoppingListItem(input: {
   shopping_list_id: string;
   name: string;
