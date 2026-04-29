@@ -49,6 +49,8 @@
   "transactions_filter_category": "Kategoria",
   "transactions_filter_category_label": "Filtruj według kategorii",
   "transactions_filter_all_categories": "Wszystkie kategorie",
+  "transactions_filter_all_statuses": "Wszystkie statusy",
+  "transactions_filter_status_label": "Filtruj według statusu",
   "transactions_col_date": "Data",
   "transactions_col_description": "Opis",
   "transactions_col_category": "Kategoria",

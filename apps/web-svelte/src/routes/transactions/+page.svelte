@@ -12,11 +12,11 @@
   import * as m from "$lib/paraglide/messages";
   import { fetchCategories } from "$lib/services/categories";
   import { computeSummary, deleteTransaction, fetchTransactions } from "$lib/services/transactions";
+  import { supabase } from "$lib/supabase";
   import type { TransactionWithCategory } from "$lib/types";
   import { getDateRangeBounds } from "$lib/utils";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { onMount } from "svelte";
-  import { supabase } from "$lib/supabase";
   import { toast } from "svelte-sonner";
 
   const queryClient = useQueryClient();
@@ -29,6 +29,7 @@
   const endYear = $derived(Number($page.url.searchParams.get("endYear")) || startYear);
   const endMonth = $derived(Number($page.url.searchParams.get("endMonth")) || startMonth);
   const categoryId = $derived($page.url.searchParams.get("categoryId") ?? undefined);
+  const statusFilter = $derived($page.url.searchParams.get("status") ?? undefined);
 
   const bounds = $derived(getDateRangeBounds(startYear, startMonth, endYear, endMonth));
 
@@ -37,7 +38,15 @@
     queryFn: () => fetchTransactions(bounds.start, bounds.end, categoryId),
   }));
 
-  const summary = $derived(txQuery.data ? computeSummary(txQuery.data) : null);
+  const filteredTxs = $derived(
+    txQuery.data
+      ? statusFilter
+        ? txQuery.data.filter((tx) => tx.status === statusFilter)
+        : txQuery.data
+      : undefined
+  );
+
+  const summary = $derived(filteredTxs ? computeSummary(filteredTxs) : null);
 
   const categoriesQuery = createQuery(() => ({
     queryKey: ["categories"],
@@ -86,6 +95,13 @@
     else params.delete("categoryId");
     goto(`/transactions?${params.toString()}`, { replaceState: false });
   }
+
+  function onStatusChange(status: string | undefined) {
+    const params = new URLSearchParams($page.url.searchParams);
+    if (status) params.set("status", status);
+    else params.delete("status");
+    goto(`/transactions?${params.toString()}`, { replaceState: false });
+  }
 </script>
 
 <div class="container mx-auto max-w-4xl space-y-4 px-4 py-6">
@@ -102,6 +118,20 @@
           onchange={onCategoryChange}
         />
       {/if}
+      <label class="flex items-center gap-2">
+        <span class="sr-only">{m.transactions_filter_status_label()}</span>
+        <select
+          value={statusFilter ?? ""}
+          onchange={(e) => onStatusChange((e.target as HTMLSelectElement).value || undefined)}
+          class="min-h-10 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700 focus:ring-2 focus:ring-zinc-900 focus:ring-offset-1 focus:outline-none"
+        >
+          <option value="">{m.transactions_filter_all_statuses()}</option>
+          <option value="paid">{m.transactions_status_paid()}</option>
+          <option value="upcoming">{m.transactions_status_upcoming()}</option>
+          <option value="draft">{m.transactions_status_draft()}</option>
+          <option value="overdue">{m.transactions_status_overdue()}</option>
+        </select>
+      </label>
       <button
         onclick={openAdd}
         class="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
@@ -125,9 +155,9 @@
     <div class="h-48 animate-pulse rounded-xl border border-zinc-200 bg-zinc-50"></div>
   {:else if txQuery.isError}
     <p class="text-sm text-rose-600">{m.common_error_title()}</p>
-  {:else if txQuery.data}
+  {:else if filteredTxs}
     <TransactionTable
-      transactions={txQuery.data}
+      transactions={filteredTxs}
       {currentUserId}
       onrowclick={(tx) => (sheetTx = tx)}
       onedit={(tx: TransactionWithCategory) => {
