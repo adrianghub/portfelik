@@ -1,13 +1,17 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
-  import type { ShoppingList } from "$lib/types";
+  import type { ShoppingListSummary } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
 
   interface Props {
-    list: ShoppingList;
+    list: ShoppingListSummary;
     ondelete?: (id: string) => void;
   }
   let { list, ondelete }: Props = $props();
+
+  const progress = $derived(
+    list.item_total > 0 ? Math.round((list.item_completed / list.item_total) * 100) : null
+  );
 </script>
 
 <div class="flex items-stretch overflow-hidden rounded-xl border border-zinc-200 bg-white">
@@ -27,6 +31,13 @@
     </div>
     <div class="mt-1 flex items-center gap-3 text-xs text-zinc-400">
       <span>{formatDate(list.created_at)}</span>
+      {#if list.item_total > 0}
+        <span>·</span>
+        <span>{list.item_completed}/{list.item_total}</span>
+        {#if progress !== null && list.status === "active"}
+          <span class="text-zinc-300">({progress}%)</span>
+        {/if}
+      {/if}
       {#if list.total_amount != null}
         <span>·</span>
         <span>{formatCurrency(list.total_amount)}</span>

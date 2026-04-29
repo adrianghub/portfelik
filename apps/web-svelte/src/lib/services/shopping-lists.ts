@@ -2,6 +2,7 @@ import { supabase } from "$lib/supabase";
 import type {
   ShoppingList,
   ShoppingListItem,
+  ShoppingListSummary,
   ShoppingListWithItems,
   Transaction,
 } from "$lib/types";
@@ -18,16 +19,23 @@ export async function fetchShoppingListItemHistory(): Promise<
   return data as Pick<ShoppingListItem, "name" | "quantity" | "unit">[];
 }
 
-export async function fetchShoppingLists(): Promise<ShoppingList[]> {
+export async function fetchShoppingLists(): Promise<ShoppingListSummary[]> {
   const { data, error } = await supabase
     .from("shopping_lists")
     .select(
-      "id, name, status, user_id, group_id, category_id, total_amount, created_at, updated_at"
+      "id, name, status, user_id, group_id, category_id, total_amount, created_at, updated_at, shopping_list_items(id, completed)"
     )
     .order("created_at", { ascending: false });
 
   if (error) throw error;
-  return data as ShoppingList[];
+
+  return (
+    (data ?? []) as (ShoppingList & { shopping_list_items: { id: string; completed: boolean }[] })[]
+  ).map((list) => ({
+    ...list,
+    item_total: list.shopping_list_items.length,
+    item_completed: list.shopping_list_items.filter((i) => i.completed).length,
+  }));
 }
 
 export async function fetchShoppingListById(id: string): Promise<ShoppingListWithItems> {

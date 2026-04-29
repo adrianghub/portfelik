@@ -9,6 +9,18 @@
   } from "$lib/services/notifications";
   import { formatDate } from "$lib/utils";
 
+  interface Props {
+    /** "top" = popover opens downward (desktop header); "bottom" = opens upward (mobile nav) */
+    placement?: "top" | "bottom";
+    /** Class for the trigger button (mobile nav needs tab-style sizing) */
+    buttonClass?: string;
+  }
+  let { placement = "top", buttonClass }: Props = $props();
+
+  const popoverPositionClass = $derived(
+    placement === "bottom" ? "bottom-full right-0 mb-2" : "top-10 right-0"
+  );
+
   const queryClient = useQueryClient();
 
   let open = $state(false);
@@ -65,7 +77,8 @@
   <button
     type="button"
     onclick={handleOpen}
-    class="relative flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:outline-none"
+    class={buttonClass ??
+      "relative flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:outline-none"}
     aria-label="Powiadomienia"
   >
     <Bell size={17} aria-hidden="true" />
@@ -80,7 +93,7 @@
 
   {#if open}
     <div
-      class="absolute top-10 right-0 z-50 w-80 rounded-xl border border-zinc-200 bg-white shadow-lg"
+      class="absolute {popoverPositionClass} z-50 w-80 rounded-xl border border-zinc-200 bg-white shadow-lg"
       role="dialog"
       aria-label="Powiadomienia"
     >

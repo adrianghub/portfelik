@@ -122,6 +122,11 @@ export interface ShoppingListWithItems extends ShoppingList {
   shopping_list_items: ShoppingListItem[];
 }
 
+export interface ShoppingListSummary extends ShoppingList {
+  item_total: number;
+  item_completed: number;
+}
+
 export interface Notification {
   id: string;
   user_id: string;

@@ -105,6 +105,14 @@
     </a>
   {/each}
 
+  <!-- Notifications bell — sits between Settings and Admin -->
+  <div class="relative flex min-h-[56px] flex-1 items-center justify-center">
+    <NotificationsPopover
+      placement="bottom"
+      buttonClass="relative flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium text-zinc-400 transition-colors min-h-[56px] w-full"
+    />
+  </div>
+
   {#if profile?.role === "admin"}
     <a
       href="/admin"
