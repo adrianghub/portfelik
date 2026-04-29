@@ -13,7 +13,10 @@ Apply to every task regardless of phase.
 
 ### Before finalising
 6. **Paraglide recompile** if `messages/pl.json` touched: `pnpm exec paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide` (from `apps/web-svelte/`).
-7. **Commit list** — ordered Conventional Commits + exact file list per commit. User commits manually.
+7. **Commit list** — MANDATORY after every increment. Output:
+   - (a) Ordered list of Conventional Commit messages (feat/fix/chore/refactor + scope + body explaining WHY)
+   - (b) Exact file list per commit
+   - User commits manually. Do not skip this step even if changes seem minor.
 
 ### After each increment
 8. **Update CLAUDE.md** phase table + "Immediate next step". Update `~/.claude/projects/.../memory/project_state.md`. Stale docs are worse than none.
@@ -34,7 +37,8 @@ Apply to every task regardless of phase.
 |---|---|
 | 0–4 | ✅ Done |
 | 5.1–5.5 — mutations, Edge Fns, push | ✅ Done + deployed to prod |
-| Gap fixes — shared tx badge, clickable breakdown, admin role toggle, in-app notifications | ✅ Done 2026-04-29 |
+| Gap fixes (2026-04-29) — shared tx badge, clickable category breakdown, admin role toggle+search, in-app notifications bell | ✅ Done |
+| Gap fixes (2026-04-29) — multi-month date range filter, tx detail sheet on row click, shopping list item suggestions | ✅ Done |
 | 5.6 — CSV import/export | ⬜ **Next** |
 | 5.7 — Retire `portfelik-bff/` | ⬜ Not started |
 | 7 — Cutover | 🟡 Live in prod. Firebase decommission pending. |

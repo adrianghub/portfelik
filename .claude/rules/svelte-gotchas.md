@@ -16,9 +16,12 @@ paths:
 
 5. **Group writes are ALL SECURITY DEFINER RPCs.** Direct writes to `user_groups`, `group_members`, `group_invitations` blocked by `using (false)`. Use RPCs in `services/groups.ts`.
 
-6. **`$state()` reading a prop → `state_referenced_locally` warning.** Wrap in `untrack(() => ...)` for intentional one-time init. Use `$effect(() => { if (open) { ... } })` for re-sync on dialog reopen.
+6. **`$state()` reading a prop → `state_referenced_locally` warning.** Wrap in `untrack(() => ...)` for intentional one-time init. For re-sync on dialog reopen: use `$effect(() => { if (open) { reset fields } })`.
 
-7. **`svelte-ignore` on a11y rules → WARNING, not silent.** Use `role="presentation"` on backdrop divs; `svelte-ignore a11y_autofocus` only for genuinely intentional autofocus.
+7. **`svelte-ignore` + ESLint `svelte/no-unused-svelte-ignore` conflict.** ESLint errors if `svelte-ignore X` doesn't suppress anything from *ESLint's* perspective, even if `svelte-check` warns. Do NOT add `svelte-ignore` preemptively.
+   - For backdrop divs: `role="presentation"` (no svelte-ignore needed).
+   - For clickable `<li>`/`<tr>`: use `role="button"` + `tabindex={condition ? 0 : undefined}` + `onkeydown` (Enter/Space) — then add `<!-- svelte-ignore a11y_no_noninteractive_tabindex -->` ONLY if svelte-check still warns.
+   - For autofocus: `<!-- svelte-ignore a11y_autofocus -->` is fine (svelte-check warns, ESLint agrees).
 
 8. **`Uint8Array` type for VAPID key.** Use `new ArrayBuffer(n)` + `new Uint8Array(buffer)` and declare return type as `Uint8Array<ArrayBuffer>` explicitly.
 
@@ -29,3 +32,15 @@ paths:
 11. **`group_invitations` RLS visible to invitee + creator + owner.** `fetchReceivedInvitations()` must filter `.eq('invited_user_email', user.email)`. Guard: `!user?.email`.
 
 12. **`createCategory` and any user-owned table insert must pass `user_id` explicitly.** `NULL` = system category only.
+
+13. **`void expr` in `$effect` tracks reactive dependency without lint error.** Bare `expr;` triggers `@typescript-eslint/no-unused-expressions`. Use `void query;` or `void someReactiveProp;` to force dependency tracking.
+
+14. **`bind:this` on Svelte 5 component gets exported function handles.** Pattern for keyboard delegation:
+    ```svelte
+    let ref = $state<{ handleKeydown: (e: KeyboardEvent) => void } | null>(null);
+    <Child bind:this={ref} />
+    <input onkeydown={(e) => ref?.handleKeydown(e)} />
+    ```
+    Works for `export function` in the child's `<script>`.
+
+15. **`fetchTransactions(start, end)` not `(year, month)`.** Signature changed 2026-04-29 — takes ISO date strings. Use `getDateRangeBounds(sy, sm, ey, em)` from `utils.ts` to produce `{start, end}`. `computeSummary(transactions)` computes summary client-side — no separate RPC call.
