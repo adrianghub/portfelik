@@ -8,6 +8,7 @@
   import {
     createShoppingList,
     deleteShoppingList,
+    duplicateShoppingList,
     fetchShoppingLists,
   } from "$lib/services/shopping-lists";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
@@ -78,6 +79,16 @@
     },
     onError: () => toast.error(m.toast_error()),
   }));
+
+  // Duplicate
+  const duplicateMut = createMutation(() => ({
+    mutationFn: (id: string) => duplicateShoppingList(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
+      toast.success(m.toast_shopping_list_duplicated());
+    },
+    onError: () => toast.error(m.toast_error()),
+  }));
 </script>
 
 <div class="container mx-auto max-w-3xl space-y-5 px-4 py-6">
@@ -128,7 +139,11 @@
           {m.shopping_lists_completed()}
         </h2>
         {#each completed as list (list.id)}
-          <ShoppingListCard {list} ondelete={(id) => (deleteTargetId = id)} />
+          <ShoppingListCard
+            {list}
+            onduplicate={(id) => duplicateMut.mutate(id)}
+            ondelete={(id) => (deleteTargetId = id)}
+          />
         {/each}
       </section>
     {/if}

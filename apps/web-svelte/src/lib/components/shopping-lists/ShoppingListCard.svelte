@@ -6,8 +6,9 @@
   interface Props {
     list: ShoppingListSummary;
     ondelete?: (id: string) => void;
+    onduplicate?: (id: string) => void;
   }
-  let { list, ondelete }: Props = $props();
+  let { list, ondelete, onduplicate }: Props = $props();
 
   const progress = $derived(
     list.item_total > 0 ? Math.round((list.item_completed / list.item_total) * 100) : null
@@ -44,6 +45,28 @@
       {/if}
     </div>
   </a>
+  {#if onduplicate}
+    <button
+      onclick={() => onduplicate(list.id)}
+      class="border-l border-zinc-100 px-3 text-zinc-300 transition-colors hover:bg-zinc-50 hover:text-zinc-600"
+      aria-label={m.shopping_list_duplicate()}
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="15"
+        height="15"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        ><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path
+          d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"
+        /></svg
+      >
+    </button>
+  {/if}
   {#if ondelete}
     <button
       onclick={() => ondelete(list.id)}
