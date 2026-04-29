@@ -96,7 +96,6 @@
       await queryClient.invalidateQueries({ queryKey: ["shopping_list", id] });
       await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      await queryClient.invalidateQueries({ queryKey: ["summary"] });
       toast.success(m.toast_shopping_list_completed());
       showComplete = false;
     },

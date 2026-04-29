@@ -8,6 +8,7 @@
     deleteNotification,
   } from "$lib/services/notifications";
   import { formatDate } from "$lib/utils";
+  import * as m from "$lib/paraglide/messages";
 
   interface Props {
     /** "top" = popover opens downward (desktop header); "bottom" = opens upward (mobile nav) */
@@ -79,7 +80,7 @@
     onclick={handleOpen}
     class={buttonClass ??
       "relative flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:outline-none"}
-    aria-label="Powiadomienia"
+    aria-label={m.notifications_title()}
   >
     <Bell size={17} aria-hidden="true" />
     {#if unreadCount > 0}
@@ -95,10 +96,10 @@
     <div
       class="absolute {popoverPositionClass} z-50 w-80 rounded-xl border border-zinc-200 bg-white shadow-lg"
       role="dialog"
-      aria-label="Powiadomienia"
+      aria-label={m.notifications_title()}
     >
       <div class="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
-        <span class="text-sm font-medium text-zinc-900">Powiadomienia</span>
+        <span class="text-sm font-medium text-zinc-900">{m.notifications_title()}</span>
         {#if unreadCount > 0}
           <button
             onclick={() => markAllMutation.mutate()}
@@ -106,7 +107,7 @@
             class="flex items-center gap-1 text-xs text-zinc-500 transition-colors hover:text-zinc-900 disabled:opacity-40"
           >
             <CheckCheck size={12} />
-            Oznacz wszystkie
+            {m.notifications_mark_all_read()}
           </button>
         {/if}
       </div>
@@ -120,7 +121,7 @@
             </li>
           {/each}
         {:else if notifications.length === 0}
-          <li class="px-4 py-8 text-center text-sm text-zinc-400">Brak powiadomień</li>
+          <li class="px-4 py-8 text-center text-sm text-zinc-400">{m.notifications_empty()}</li>
         {:else}
           {#each notifications as n (n.id)}
             {@const isUnread = !n.read_at}

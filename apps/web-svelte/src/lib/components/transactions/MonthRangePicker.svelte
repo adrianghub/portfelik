@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { monthName, monthYearLabel } from "$lib/utils";
+  import * as m from "$lib/paraglide/messages";
 
   interface Props {
     startYear: number;
@@ -142,14 +143,14 @@
           onclick={() => (open = false)}
           class="flex-1 rounded-lg border border-zinc-200 py-1.5 text-sm text-zinc-600 transition-colors hover:bg-zinc-50"
         >
-          Anuluj
+          {m.common_cancel()}
         </button>
         <button
           type="button"
           onclick={apply}
           class="flex-1 rounded-lg bg-zinc-900 py-1.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
         >
-          Zastosuj
+          {m.common_apply()}
         </button>
       </div>
     </div>
