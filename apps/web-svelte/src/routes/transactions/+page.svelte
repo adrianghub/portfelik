@@ -11,9 +11,14 @@
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchCategories } from "$lib/services/categories";
-  import { computeSummary, deleteTransaction, fetchTransactions } from "$lib/services/transactions";
+  import {
+    computeSummary,
+    createTransaction,
+    deleteTransaction,
+    fetchTransactions,
+  } from "$lib/services/transactions";
   import { supabase } from "$lib/supabase";
-  import type { TransactionWithCategory } from "$lib/types";
+  import type { TransactionStatus, TransactionType, TransactionWithCategory } from "$lib/types";
   import { getDateRangeBounds } from "$lib/utils";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { onMount } from "svelte";
@@ -102,6 +107,144 @@
     else params.delete("status");
     goto(`/transactions?${params.toString()}`, { replaceState: false });
   }
+
+  // CSV helpers
+  function csvEscape(val: string): string {
+    if (val.includes(",") || val.includes('"') || val.includes("\n")) {
+      return '"' + val.replace(/"/g, '""') + '"';
+    }
+    return val;
+  }
+
+  function parseCSVRow(line: string): string[] {
+    const result: string[] = [];
+    let current = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      if (line[i] === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (line[i] === "," && !inQuotes) {
+        result.push(current);
+        current = "";
+      } else {
+        current += line[i];
+      }
+    }
+    result.push(current);
+    return result;
+  }
+
+  function handleExport() {
+    if (!filteredTxs?.length) return;
+    const headers = [
+      "date",
+      "description",
+      "amount",
+      "type",
+      "status",
+      "category",
+      "is_recurring",
+      "recurring_day",
+    ];
+    const rows = filteredTxs.map((tx) =>
+      [
+        tx.date,
+        tx.description,
+        tx.amount.toString(),
+        tx.type,
+        tx.status,
+        tx.category_name,
+        tx.is_recurring ? "true" : "false",
+        tx.recurring_day?.toString() ?? "",
+      ]
+        .map(csvEscape)
+        .join(",")
+    );
+    const csv = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `portfelik-transakcje-${new Date().toISOString().slice(0, 7)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  let fileInput = $state<HTMLInputElement | null>(null);
+  let importing = $state(false);
+
+  async function handleImport(e: Event) {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file || !categoriesQuery.data) return;
+    (e.target as HTMLInputElement).value = "";
+
+    importing = true;
+    try {
+      const text = await file.text();
+      const lines = text.split("\n").filter((l) => l.trim());
+      if (lines.length < 2) return;
+
+      const headers = parseCSVRow(lines[0]).map((h) => h.trim().replace(/^\uFEFF/, ""));
+      const catMap = new Map(categoriesQuery.data.map((c) => [c.name.toLowerCase(), c]));
+      const unknownCategories = new Set<string>();
+      let imported = 0;
+
+      for (const line of lines.slice(1)) {
+        const values = parseCSVRow(line);
+        const row: Record<string, string> = {};
+        headers.forEach((h, i) => {
+          row[h] = values[i]?.trim() ?? "";
+        });
+
+        const catName = row["category"]?.toLowerCase();
+        const cat = catMap.get(catName);
+        if (!cat) {
+          if (row["category"]) unknownCategories.add(row["category"]);
+          continue;
+        }
+
+        const amount = parseFloat(row["amount"]);
+        if (!row["date"] || !row["description"] || isNaN(amount) || !row["type"]) continue;
+        if (row["type"] !== "income" && row["type"] !== "expense") continue;
+
+        const validStatuses: TransactionStatus[] = ["paid", "draft", "upcoming", "overdue"];
+        const status: TransactionStatus = validStatuses.includes(row["status"] as TransactionStatus)
+          ? (row["status"] as TransactionStatus)
+          : "paid";
+
+        await createTransaction({
+          date: row["date"],
+          description: row["description"],
+          amount,
+          type: row["type"] as TransactionType,
+          status,
+          category_id: cat.id,
+          is_recurring: row["is_recurring"] === "true",
+          recurring_day: row["recurring_day"] ? parseInt(row["recurring_day"]) : null,
+        });
+        imported++;
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+
+      if (unknownCategories.size > 0) {
+        toast.success(
+          `Zaimportowano ${imported} transakcji. Nieznane kategorie: ${Array.from(unknownCategories).join(", ")}`
+        );
+      } else {
+        toast.success(`Zaimportowano ${imported} transakcji`);
+      }
+    } catch {
+      toast.error(m.csv_import_error());
+    } finally {
+      importing = false;
+    }
+  }
 </script>
 
 <div class="container mx-auto max-w-4xl space-y-4 px-4 py-6">
@@ -131,6 +274,56 @@
           <option value="draft">{m.transactions_status_draft()}</option>
           <option value="overdue">{m.transactions_status_overdue()}</option>
         </select>
+      </label>
+      <button
+        onclick={handleExport}
+        disabled={!filteredTxs?.length}
+        class="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-600 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
+        title={m.csv_export()}
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          ><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline
+            points="7 10 12 15 17 10"
+          /><line x1="12" x2="12" y1="15" y2="3" /></svg
+        >
+        <span class="hidden sm:inline">{m.csv_export()}</span>
+      </button>
+      <label
+        class="flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-600 transition-colors hover:bg-zinc-50"
+        title={m.csv_import()}
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          ><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline
+            points="17 8 12 3 7 8"
+          /><line x1="12" x2="12" y1="3" y2="15" /></svg
+        >
+        <span class="hidden sm:inline">{importing ? m.csv_importing() : m.csv_import()}</span>
+        <input
+          bind:this={fileInput}
+          type="file"
+          accept=".csv"
+          class="sr-only"
+          onchange={handleImport}
+          disabled={importing}
+        />
       </label>
       <button
         onclick={openAdd}
