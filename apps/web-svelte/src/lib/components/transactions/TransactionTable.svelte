@@ -10,8 +10,9 @@
     onedit?: (tx: TransactionWithCategory) => void;
     ondelete?: (id: string) => void;
     onrowclick?: (tx: TransactionWithCategory) => void;
+    emptyLabel?: string;
   }
-  let { transactions, currentUserId, onedit, ondelete, onrowclick }: Props = $props();
+  let { transactions, currentUserId, onedit, ondelete, onrowclick, emptyLabel }: Props = $props();
 
   const isShared = (tx: TransactionWithCategory) => !!currentUserId && tx.user_id !== currentUserId;
 
@@ -32,7 +33,7 @@
 
 {#if transactions.length === 0}
   <p class="py-12 text-center text-sm text-zinc-400">
-    {m.transactions_empty()}
+    {emptyLabel ?? m.transactions_empty()}
   </p>
 {:else}
   <!-- Mobile card list -->

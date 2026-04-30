@@ -163,11 +163,7 @@
           {m.shopping_lists_active()}
         </h2>
         {#each active as list (list.id)}
-          <ShoppingListCard
-            {list}
-            onedit={openEdit}
-            ondelete={(id) => (deleteTargetId = id)}
-          />
+          <ShoppingListCard {list} onedit={openEdit} ondelete={(id) => (deleteTargetId = id)} />
         {/each}
       </section>
     {/if}

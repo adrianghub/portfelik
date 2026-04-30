@@ -11,6 +11,8 @@
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchCategories } from "$lib/services/categories";
+  import { fetchUserGroups } from "$lib/services/groups";
+  import { fetchProfile } from "$lib/services/profiles";
   import {
     computeSummary,
     createTransaction,
@@ -19,7 +21,7 @@
   } from "$lib/services/transactions";
   import { supabase } from "$lib/supabase";
   import type { TransactionStatus, TransactionType, TransactionWithCategory } from "$lib/types";
-  import { getDateRangeBounds } from "$lib/utils";
+  import { getDateRangeBounds, monthYearLabel } from "$lib/utils";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { onMount } from "svelte";
   import { toast } from "svelte-sonner";
@@ -38,6 +40,15 @@
 
   const bounds = $derived(getDateRangeBounds(startYear, startMonth, endYear, endMonth));
 
+  const emptyLabel = $derived(
+    startYear === endYear && startMonth === endMonth
+      ? m.transactions_empty_month({ period: monthYearLabel(startYear, startMonth) })
+      : m.transactions_empty_range({
+          from: monthYearLabel(startYear, startMonth),
+          to: monthYearLabel(endYear, endMonth),
+        })
+  );
+
   const txQuery = createQuery(() => ({
     queryKey: ["transactions", startYear, startMonth, endYear, endMonth, categoryId],
     queryFn: () => fetchTransactions(bounds.start, bounds.end, categoryId),
@@ -53,16 +64,28 @@
 
   const summary = $derived(filteredTxs ? computeSummary(filteredTxs) : null);
 
-  const categoriesQuery = createQuery(() => ({
-    queryKey: ["categories"],
-    queryFn: fetchCategories,
-  }));
-
   let currentUserId = $state<string | null>(null);
   onMount(async () => {
     const { data } = await supabase.auth.getSession();
     currentUserId = data.session?.user.id ?? null;
   });
+
+  const categoriesQuery = createQuery(() => ({
+    queryKey: ["categories"],
+    queryFn: fetchCategories,
+  }));
+
+  const profileQuery = createQuery(() => ({
+    queryKey: ["profile", currentUserId],
+    queryFn: () => fetchProfile(currentUserId!),
+    enabled: !!currentUserId,
+  }));
+
+  const groupsQuery = createQuery(() => ({
+    queryKey: ["user_groups"],
+    queryFn: fetchUserGroups,
+    enabled: !!currentUserId,
+  }));
 
   // Dialog state
   let dialogOpen = $state(false);
@@ -250,9 +273,21 @@
 
 <div class="container mx-auto max-w-4xl space-y-4 px-4 py-6">
   <div class="flex flex-wrap items-center justify-between gap-3">
-    <h1 class="text-xl font-semibold text-zinc-900">
-      {m.transactions_title()}
-    </h1>
+    <div>
+      {#if profileQuery.data}
+        <p class="mb-0.5 text-sm text-zinc-500">
+          {m.transactions_greeting({ name: profileQuery.data.name ?? profileQuery.data.email })}
+        </p>
+      {/if}
+      <h1 class="text-xl font-semibold text-zinc-900">{m.transactions_title()}</h1>
+      {#if groupsQuery.data}
+        <p class="mt-0.5 text-xs text-zinc-400">
+          {groupsQuery.data.length > 0
+            ? m.transactions_subtitle_groups()
+            : m.transactions_subtitle_own()}
+        </p>
+      {/if}
+    </div>
     <div class="flex flex-wrap items-center gap-2">
       <MonthRangePicker {startYear} {startMonth} {endYear} {endMonth} onchange={onRangeChange} />
       {#if categoriesQuery.data}
@@ -353,6 +388,7 @@
     <TransactionTable
       transactions={filteredTxs}
       {currentUserId}
+      {emptyLabel}
       onrowclick={(tx) => (sheetTx = tx)}
       onedit={(tx: TransactionWithCategory) => {
         editTarget = tx;
@@ -366,6 +402,27 @@
     <CategoryBreakdown categories={summary.categories} oncategoryclick={onCategoryChange} />
   {/if}
 </div>
+
+<button
+  onclick={openAdd}
+  aria-label={m.transaction_add()}
+  class="fixed right-4 bottom-20 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-zinc-900 text-white shadow-lg transition-colors hover:bg-zinc-700 md:hidden"
+>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M12 5v14M5 12h14" />
+  </svg>
+</button>
 
 <TransactionDialog open={dialogOpen} onclose={() => (dialogOpen = false)} initial={editTarget} />
 
