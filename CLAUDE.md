@@ -52,9 +52,9 @@ Apply to every task regardless of phase.
 - GitHub Actions CI/CD
 - Old infra cleanup
 
-### Pending before push works end-to-end
-1. **INTERNAL_TRIGGER_SECRET**: `openssl rand -hex 32` → Edge Function secret + `select vault.create_secret('<hex>', 'internal_trigger_secret');`
-2. **VAPID secrets**: Edge Function → `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT=mailto:zinko.adrian00@gmail.com`
+### Push secrets — ✅ set in prod Supabase (2026-04-30)
+- `INTERNAL_TRIGGER_SECRET` — set in Supabase Edge Function secrets
+- `VAPID_PRIVATE_KEY`, `VAPID_PUBLIC_KEY` — set in Supabase Edge Function secrets
 
 ---
 
