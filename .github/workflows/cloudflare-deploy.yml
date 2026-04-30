@@ -31,10 +31,12 @@ jobs:
       - name: Typecheck
         working-directory: apps/web-svelte
         env:
-          PUBLIC_SUPABASE_URL: https://emqzcygfwcvbmhxhfkcc.supabase.co
           PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
           PUBLIC_VAPID_KEY: ${{ secrets.PUBLIC_VAPID_KEY }}
-        run: pnpm exec svelte-check --tsconfig ./tsconfig.json
+        run: |
+          printf 'PUBLIC_SUPABASE_URL=https://emqzcygfwcvbmhxhfkcc.supabase.co\nPUBLIC_SUPABASE_ANON_KEY=%s\nPUBLIC_VAPID_KEY=%s\n' \
+            "$PUBLIC_SUPABASE_ANON_KEY" "$PUBLIC_VAPID_KEY" > .env
+          pnpm exec svelte-check --tsconfig ./tsconfig.json
 
       - name: Lint
         working-directory: apps/web-svelte
