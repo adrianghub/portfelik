@@ -1,5 +1,6 @@
 {
   "app_name": "Portfelik",
+  "offline_indicator": "Brak połączenia z internetem",
   "common_cancel": "Anuluj",
   "common_close": "Zamknij",
   "common_apply": "Zastosuj",
@@ -159,7 +160,10 @@
   "shopping_list_item_uncheck": "Odznacz",
   "shopping_list_delete": "Usuń listę",
   "shopping_list_duplicate": "Skopiuj listę",
+  "shopping_list_edit": "Edytuj listę",
+  "shopping_list_form_title_edit": "Edytuj listę zakupów",
   "toast_shopping_list_duplicated": "Lista skopiowana",
+  "toast_shopping_list_updated": "Lista zakupów zaktualizowana",
   "profile_edit_title": "Edytuj profil",
   "profile_edit_name": "Imię i nazwisko",
   "profile_delete_account": "Usuń konto",

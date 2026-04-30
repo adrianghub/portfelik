@@ -7,8 +7,9 @@
     list: ShoppingListSummary;
     ondelete?: (id: string) => void;
     onduplicate?: (id: string) => void;
+    onedit?: (list: ShoppingListSummary) => void;
   }
-  let { list, ondelete, onduplicate }: Props = $props();
+  let { list, ondelete, onduplicate, onedit }: Props = $props();
 
   const progress = $derived(
     list.item_total > 0 ? Math.round((list.item_completed / list.item_total) * 100) : null
@@ -45,6 +46,28 @@
       {/if}
     </div>
   </a>
+  {#if onedit}
+    <button
+      onclick={() => onedit(list)}
+      class="border-l border-zinc-100 px-3 text-zinc-300 transition-colors hover:bg-zinc-50 hover:text-zinc-600"
+      aria-label={m.shopping_list_edit()}
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="15"
+        height="15"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        ><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path
+          d="m15 5 4 4"
+        /></svg
+      >
+    </button>
+  {/if}
   {#if onduplicate}
     <button
       onclick={() => onduplicate(list.id)}

@@ -10,7 +10,9 @@
     deleteShoppingList,
     duplicateShoppingList,
     fetchShoppingLists,
+    updateShoppingList,
   } from "$lib/services/shopping-lists";
+  import type { ShoppingListSummary } from "$lib/types";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { toast } from "svelte-sonner";
 
@@ -89,6 +91,39 @@
     },
     onError: () => toast.error(m.toast_error()),
   }));
+
+  // Edit
+  let editTarget = $state<ShoppingListSummary | null>(null);
+  let editName = $state("");
+  let editGroupId = $state("");
+  let editCategoryId = $state("");
+
+  function openEdit(list: ShoppingListSummary) {
+    editTarget = list;
+    editName = list.name;
+    editGroupId = list.group_id ?? "";
+    editCategoryId = list.category_id ?? "";
+  }
+
+  const updateMut = createMutation(() => ({
+    mutationFn: () =>
+      updateShoppingList(editTarget!.id, {
+        name: editName,
+        group_id: editGroupId || null,
+        category_id: editCategoryId || null,
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
+      toast.success(m.toast_shopping_list_updated());
+      editTarget = null;
+    },
+    onError: () => toast.error(m.toast_error()),
+  }));
+
+  function submitEdit(e: Event) {
+    e.preventDefault();
+    updateMut.mutate();
+  }
 </script>
 
 <div class="container mx-auto max-w-3xl space-y-5 px-4 py-6">
@@ -128,7 +163,11 @@
           {m.shopping_lists_active()}
         </h2>
         {#each active as list (list.id)}
-          <ShoppingListCard {list} ondelete={(id) => (deleteTargetId = id)} />
+          <ShoppingListCard
+            {list}
+            onedit={openEdit}
+            ondelete={(id) => (deleteTargetId = id)}
+          />
         {/each}
       </section>
     {/if}
@@ -141,6 +180,7 @@
         {#each completed as list (list.id)}
           <ShoppingListCard
             {list}
+            onedit={openEdit}
             onduplicate={(id) => duplicateMut.mutate(id)}
             ondelete={(id) => (deleteTargetId = id)}
           />
@@ -218,6 +258,79 @@
         class="flex-1 rounded-lg bg-zinc-900 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
       >
         {createMut.isPending ? m.common_saving() : m.common_save()}
+      </button>
+    </div>
+  </form>
+</Dialog>
+
+<!-- Edit dialog -->
+<Dialog
+  open={!!editTarget}
+  onclose={() => (editTarget = null)}
+  title={m.shopping_list_form_title_edit()}
+>
+  <form onsubmit={submitEdit} class="space-y-4">
+    <div class="space-y-1">
+      <label class="text-xs font-medium text-zinc-600" for="sl-edit-name"
+        >{m.shopping_list_form_name()}</label
+      >
+      <input
+        id="sl-edit-name"
+        type="text"
+        required
+        bind:value={editName}
+        class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none"
+      />
+    </div>
+    <div class="space-y-1">
+      <label class="text-xs font-medium text-zinc-600" for="sl-edit-cat"
+        >{m.shopping_list_form_category()}</label
+      >
+      <select
+        id="sl-edit-cat"
+        bind:value={editCategoryId}
+        class="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none"
+      >
+        <option value="">{m.shopping_list_form_no_category()}</option>
+        {#each expenseCategories as cat (cat.id)}
+          <option value={cat.id}>{cat.name}</option>
+        {/each}
+      </select>
+    </div>
+    {#if groupsQuery.data && groupsQuery.data.length > 0}
+      <div class="space-y-1">
+        <label class="text-xs font-medium text-zinc-600" for="sl-edit-group"
+          >{m.shopping_list_form_group()}</label
+        >
+        <select
+          id="sl-edit-group"
+          bind:value={editGroupId}
+          class="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none"
+        >
+          <option value="">{m.shopping_list_form_no_group()}</option>
+          {#each groupsQuery.data as group (group.id)}
+            <option value={group.id}>{group.name}</option>
+          {/each}
+        </select>
+      </div>
+    {/if}
+    {#if updateMut.isError}
+      <p class="text-sm text-rose-600">{m.common_error_title()}</p>
+    {/if}
+    <div class="flex gap-2 pt-1">
+      <button
+        type="button"
+        onclick={() => (editTarget = null)}
+        class="flex-1 rounded-lg border border-zinc-200 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50"
+      >
+        {m.common_cancel()}
+      </button>
+      <button
+        type="submit"
+        disabled={updateMut.isPending}
+        class="flex-1 rounded-lg bg-zinc-900 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
+      >
+        {updateMut.isPending ? m.common_saving() : m.common_save()}
       </button>
     </div>
   </form>
