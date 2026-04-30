@@ -30,12 +30,9 @@ jobs:
 
       - name: Typecheck
         working-directory: apps/web-svelte
-        env:
-          PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
-          PUBLIC_VAPID_KEY: ${{ secrets.PUBLIC_VAPID_KEY }}
         run: |
-          printf 'PUBLIC_SUPABASE_URL=https://emqzcygfwcvbmhxhfkcc.supabase.co\nPUBLIC_SUPABASE_ANON_KEY=%s\nPUBLIC_VAPID_KEY=%s\n' \
-            "$PUBLIC_SUPABASE_ANON_KEY" "$PUBLIC_VAPID_KEY" > .env
+          printf 'PUBLIC_SUPABASE_URL=https://placeholder.supabase.co\nPUBLIC_SUPABASE_ANON_KEY=placeholder\nPUBLIC_VAPID_KEY=placeholder\n' > .env
+          pnpm exec svelte-kit sync
           pnpm exec svelte-check --tsconfig ./tsconfig.json
 
       - name: Lint
