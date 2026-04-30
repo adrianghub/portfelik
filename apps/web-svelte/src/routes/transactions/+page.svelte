@@ -190,7 +190,9 @@
       if (lines.length < 2) return;
 
       const headers = parseCSVRow(lines[0]).map((h) => h.trim().replace(/^\uFEFF/, ""));
-      const catMap = new Map(categoriesQuery.data.map((c) => [c.name.toLowerCase(), c]));
+      const catMap = new Map(
+        categoriesQuery.data.map((c) => [`${c.name.toLowerCase()}|${c.type}`, c])
+      );
       const unknownCategories = new Set<string>();
       let imported = 0;
 
@@ -201,8 +203,7 @@
           row[h] = values[i]?.trim() ?? "";
         });
 
-        const catName = row["category"]?.toLowerCase();
-        const cat = catMap.get(catName);
+        const cat = catMap.get(`${row["category"]?.toLowerCase() ?? ""}|${row["type"]}`);
         if (!cat) {
           if (row["category"]) unknownCategories.add(row["category"]);
           continue;
