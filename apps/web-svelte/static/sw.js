@@ -1,4 +1,4 @@
-const CACHE_NAME = 'portfelik-v1';
+const CACHE_NAME = 'portfelik-20260430';
 
 const APP_SHELL = ['/', '/transactions', '/shopping-lists', '/settings'];
 

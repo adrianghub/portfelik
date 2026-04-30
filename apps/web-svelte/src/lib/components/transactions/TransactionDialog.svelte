@@ -216,7 +216,7 @@
           id="tx-recday"
           type="number"
           min="1"
-          max="28"
+          max="31"
           bind:value={recurring_day}
           class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none"
         />
