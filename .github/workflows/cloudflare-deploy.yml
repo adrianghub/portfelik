@@ -1,12 +1,45 @@
-name: Deploy to Cloudflare Pages
+name: CI / Deploy
 
 on:
   push:
-    branches:
-      - main
+    branches: ['**']
+  pull_request:
+    branches: [main]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  ci:
+    name: Typecheck & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        working-directory: apps/web-svelte
+        run: pnpm exec svelte-check --tsconfig ./tsconfig.json
+
+      - name: Lint
+        working-directory: apps/web-svelte
+        run: pnpm lint
+
   deploy:
+    name: Deploy to Cloudflare Pages
+    needs: ci
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     environment:
       name: Production
@@ -15,16 +48,13 @@ jobs:
       contents: read
       deployments: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v4
         with:
           version: 9
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'pnpm'
