@@ -31,7 +31,7 @@ Apply to every task regardless of phase.
 
 **Portfelik** — personal-finance PWA. Migrating React 19 + Firebase → SvelteKit + Supabase. Full plan: `MIGRATION_PLAN.md`.
 
-**Immediate next step:** Phase 5.7 — delete `portfelik-bff/`. Then Firebase decommission (Phase 7). Then Phase 8 hardening.
+**Immediate next step:** Firebase decommission (Phase 7) — disable Firebase Hosting, Cloud Functions, Firestore freeze. Then Phase 8 hardening.
 
 | Phase | Status |
 |---|---|
@@ -40,14 +40,10 @@ Apply to every task regardless of phase.
 | Gap fixes (2026-04-29) — shared tx badge, clickable category breakdown, admin role toggle+search, in-app notifications bell | ✅ Done |
 | Gap fixes (2026-04-29) — multi-month date range filter, tx detail sheet on row click, shopping list item suggestions | ✅ Done |
 | 5.6 — CSV import/export + status filter + duplicate shopping list | ✅ Done |
-| 5.7 — Retire `portfelik-bff/` | ⬜ **Next** |
+| 5.7 — Retire `portfelik-bff/` | ✅ Done (2026-04-30) — directory deleted, no URL refs existed |
+| Gap fixes (2026-04-30) — shopping list rename + offline indicator | ✅ Done |
 | 7 — Cutover | 🟡 Live in prod. Firebase decommission pending. |
 | 8 — Hardening (dark mode, bulk delete, Playwright, CI/CD) | ⬜ Not started |
-
-### Phase 5.7 — Retire portfelik-bff/
-- Stop Go BFF service (Cloud Run or wherever it's hosted)
-- Delete `portfelik-bff/` directory from repo
-- Remove any references to BFF URLs from config/env
 
 ### Phase 8 — Hardening (deferred UX + quality)
 - Dark mode: Tailwind `dark:` variants + `prefers-color-scheme` system detection
@@ -69,7 +65,6 @@ portfelik/portfelik/
 ├── apps/web-svelte/        ← SvelteKit app (active — see apps/web-svelte/CLAUDE.md)
 ├── src/                    ← React 19 app (LEGACY — frozen, read-only reference)
 ├── functions/src/          ← Firebase Cloud Functions (reference only, replaced by Edge Fns)
-├── portfelik-bff/          ← Go BFF (RETIRING in 5.7)
 ├── supabase/               ← Migrations + config (see supabase/CLAUDE.md)
 ├── MIGRATION_PLAN.md       ← Authoritative phase plan — read before each phase
 └── .claude/rules/svelte-gotchas.md  ← Auto-loaded for apps/web-svelte/** work

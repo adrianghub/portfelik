@@ -7,6 +7,7 @@
   import { page } from "$app/state";
   import { onMount } from "svelte";
   import Navigation from "$lib/components/Navigation.svelte";
+  import OfflineIndicator from "$lib/components/ui/OfflineIndicator.svelte";
   import { fetchProfile } from "$lib/services/profiles";
   import {
     registerServiceWorker,
@@ -86,6 +87,7 @@
 </script>
 
 <Toaster richColors position="bottom-right" />
+<OfflineIndicator />
 <QueryClientProvider client={queryClient}>
   {#if !isPublicRoute}
     <Navigation {profile} />
