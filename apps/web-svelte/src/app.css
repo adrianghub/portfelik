@@ -6,20 +6,18 @@
 }
 
 @layer base {
-  /* Prevent orange/blue tap flash on mobile */
   * {
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Smooth scrolling */
   html {
     scroll-behavior: smooth;
-    color-scheme: light;
+    color-scheme: light dark;
   }
 
-  /* Better font rendering */
   body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    @apply bg-white dark:bg-zinc-950;
   }
 }

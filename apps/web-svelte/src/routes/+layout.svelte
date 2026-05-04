@@ -115,7 +115,7 @@
         </div>
       </div>
     {/if}
-    <main class="min-h-screen pt-14 pb-16 md:pb-0">
+    <main class="min-h-screen pt-14 pb-16 md:pb-0 bg-white dark:bg-zinc-950">
       {@render children()}
     </main>
   {:else}
