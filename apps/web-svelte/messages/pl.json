@@ -212,5 +212,8 @@
   "csv_export": "Eksportuj CSV",
   "csv_import": "Importuj CSV",
   "csv_importing": "Importowanie...",
-  "csv_import_error": "Błąd importu CSV"
+  "csv_import_error": "Błąd importu CSV",
+  "profile_notifications_enabled": "Powiadomienia push aktywne",
+  "profile_notifications_disable": "Wyłącz powiadomienia",
+  "toast_push_unsubscribed": "Wyłączono powiadomienia push"
 }

@@ -2,8 +2,10 @@
   import { createMutation, useQueryClient } from "@tanstack/svelte-query";
   import { updateProfile } from "$lib/services/profiles";
   import { deleteAccount } from "$lib/services/groups";
+  import { unsubscribeFromPush } from "$lib/services/push";
   import { supabase } from "$lib/supabase";
   import { goto } from "$app/navigation";
+  import { onMount } from "svelte";
   import type { Profile } from "$lib/types";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import { toast } from "svelte-sonner";
@@ -58,6 +60,21 @@
     e.preventDefault();
     mutation.mutate();
   }
+
+  let notifPermission = $state<NotificationPermission>("default");
+
+  onMount(() => {
+    if ("Notification" in window) notifPermission = Notification.permission;
+  });
+
+  const unsubMutation = createMutation(() => ({
+    mutationFn: unsubscribeFromPush,
+    onSuccess: () => {
+      notifPermission = "default";
+      toast.success(m.toast_push_unsubscribed());
+    },
+    onError: () => toast.error(m.toast_error()),
+  }));
 </script>
 
 {#if !profile}
@@ -125,6 +142,22 @@
       </span>
     </div>
   </div>
+
+  {#if notifPermission === "granted"}
+    <div class="mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-white">
+      <div class="flex items-center justify-between gap-3 px-4 py-3">
+        <span class="text-sm font-medium text-zinc-900">{m.profile_notifications_enabled()}</span>
+        <button
+          type="button"
+          onclick={() => unsubMutation.mutate()}
+          disabled={unsubMutation.isPending}
+          class="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 disabled:opacity-50"
+        >
+          {unsubMutation.isPending ? m.common_saving() : m.profile_notifications_disable()}
+        </button>
+      </div>
+    </div>
+  {/if}
 
   <div class="mt-6 rounded-xl border border-rose-200 bg-rose-50 p-4">
     <p class="text-sm font-medium text-rose-700">{m.profile_delete_account()}</p>
