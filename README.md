@@ -1,81 +1,29 @@
 # Portfelik
 
-A personal finance management application built with React, TypeScript, and Firebase.
-Some of the backend code is moved already either to Firebase Cloud Functions or [separate API layer written in Go](https://github.com/adrianghub/portfelik-bff).
+Personal finance PWA — SvelteKit + Supabase + Cloudflare Pages.
 
-[Preview of the app](https://adrianzinko.com)
+## Stack
 
-![Transactions view - mobile](./.github/img/1.png)
-![Portfelik - logo draft](./.github/img/2.png)
-![Transactions view - desktop](./.github/img/3.png)
-
-
-## Features
-
-- User authentication with Firebase Auth
-- Protected routes for authenticated users
-- Admin-only routes and features
-- Firestore database with security rules
-
-## Prerequisites
-
-- Node.js (v20 or higher)
-- npm
-- Firebase account
-
-## Setup
-
-1. Clone the repository
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Create a Firebase project at [https://console.firebase.google.com/](https://console.firebase.google.com/)
-4. Enable Authentication with Email/Password provider
-5. Create a Firestore database
-6. Copy your Firebase configuration from the Firebase console
-7. Create a `.env` file in the root directory based on `.env.example` and fill in your Firebase configuration
-8. Deploy Firestore security rules:
-   ```bash
-   firebase deploy --only firestore:rules
-   ```
-9. Create an admin user in the Firebase console:
-   - Create a user with email and password in the Authentication section
-   - In the Firestore database, create a document in the `users` collection with the following structure:
-     ```
-     {
-       uid: "<user-uid-from-authentication>",
-       email: "<user-email>",
-       role: "admin",
-       createdAt: <timestamp>,
-       lastLoginAt: <timestamp>
-     }
-     ```
+- **Frontend:** SvelteKit 5 (adapter-static) + Tailwind v4 + shadcn-svelte + Paraglide (PL i18n)
+- **Backend:** Supabase (Postgres + Auth + Edge Functions + pg_cron)
+- **Hosting:** Cloudflare Pages (CI/CD via GitHub Actions on push to `main`)
 
 ## Development
 
-Start the development server:
-
 ```bash
-npm run dev
-# or
-yarn dev
+cd apps/web-svelte
+pnpm install
+pnpm dev
 ```
 
-## Build
+## Structure
 
-Build the project for production:
-
-```bash
-npm run build
-# or
-yarn build
+```
+apps/web-svelte/   ← SvelteKit app
+supabase/          ← Migrations + Edge Functions
+.github/workflows/ ← CI/CD (typecheck + lint + deploy)
 ```
 
-## Deployment
+## Deploy
 
-Deploy to Firebase Hosting:
-
-```bash
-firebase deploy --only hosting
-```
+Push to `main` — GitHub Actions builds and deploys to Cloudflare Pages automatically.
