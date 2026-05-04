@@ -58,6 +58,15 @@
     loading = false;
   }
 
+  const triggerSummaryMutation = createMutation(() => ({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc('trigger_admin_summary');
+      if (error) throw error;
+    },
+    onSuccess: () => toast.success(m.toast_admin_summary_triggered()),
+    onError: (err: Error) => toast.error(err.message),
+  }));
+
   const toggleRoleMutation = createMutation(() => ({
     mutationFn: async (profile: Profile) => {
       if (profile.role === "admin") {
@@ -154,4 +163,18 @@
       </table>
     </div>
   {/if}
+
+  <div class="mt-6 rounded-xl border border-zinc-200 bg-white p-4">
+    <h2 class="text-sm font-semibold text-zinc-700">Narzędzia diagnostyczne</h2>
+    <div class="mt-3">
+      <button
+        type="button"
+        onclick={() => triggerSummaryMutation.mutate()}
+        disabled={triggerSummaryMutation.isPending}
+        class="rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
+      >
+        {triggerSummaryMutation.isPending ? m.admin_trigger_summary_sending() : m.admin_trigger_summary()}
+      </button>
+    </div>
+  </div>
 </div>

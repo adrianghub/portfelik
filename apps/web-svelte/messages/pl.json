@@ -215,5 +215,8 @@
   "csv_import_error": "Błąd importu CSV",
   "profile_notifications_enabled": "Powiadomienia push aktywne",
   "profile_notifications_disable": "Wyłącz powiadomienia",
-  "toast_push_unsubscribed": "Wyłączono powiadomienia push"
+  "toast_push_unsubscribed": "Wyłączono powiadomienia push",
+  "admin_trigger_summary": "Wyślij podsumowanie tygodniowe",
+  "admin_trigger_summary_sending": "Wysyłanie...",
+  "toast_admin_summary_triggered": "Podsumowanie tygodniowe zostało wysłane"
 }

@@ -571,6 +571,7 @@ export type Database = {
         Args: { p_group_id: string; p_new_owner_id: string };
         Returns: undefined;
       };
+      trigger_admin_summary: { Args: never; Returns: Json };
       trigger_send_admin_summary: { Args: never; Returns: undefined };
       update_transaction_statuses: { Args: never; Returns: undefined };
     };
