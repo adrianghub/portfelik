@@ -25,7 +25,7 @@
     type="button"
     onclick={prev}
     aria-label={m.month_picker_prev()}
-    class="flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:outline-none"
+    class="flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:outline-none dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
   >
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -50,7 +50,7 @@
     type="button"
     onclick={next}
     aria-label={m.month_picker_next()}
-    class="flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:outline-none"
+    class="flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:outline-none dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
   >
     <svg
       xmlns="http://www.w3.org/2000/svg"

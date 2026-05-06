@@ -302,7 +302,7 @@
         <select
           value={statusFilter ?? ""}
           onchange={(e) => onStatusChange((e.target as HTMLSelectElement).value || undefined)}
-          class="min-h-10 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700 focus:ring-2 focus:ring-zinc-900 focus:ring-offset-1 focus:outline-none"
+          class="min-h-10 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700 focus:ring-2 focus:ring-zinc-900 focus:ring-offset-1 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
         >
           <option value="">{m.transactions_filter_all_statuses()}</option>
           <option value="paid">{m.transactions_status_paid()}</option>
@@ -314,7 +314,7 @@
       <button
         onclick={handleExport}
         disabled={!filteredTxs?.length}
-        class="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-600 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
+        class="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-600 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
         title={m.csv_export()}
       >
         <svg
@@ -334,7 +334,7 @@
         <span class="hidden sm:inline">{m.csv_export()}</span>
       </button>
       <label
-        class="flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-600 transition-colors hover:bg-zinc-50"
+        class="flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
         title={m.csv_import()}
       >
         <svg
@@ -363,7 +363,7 @@
       </label>
       <button
         onclick={openAdd}
-        class="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
+        class="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
       >
         + {m.transaction_add()}
       </button>
@@ -375,13 +375,13 @@
   {:else if txQuery.isLoading}
     <div class="grid grid-cols-3 gap-3">
       {#each [0, 1, 2] as _, i (i)}
-        <div class="h-20 animate-pulse rounded-xl border border-zinc-200 bg-zinc-50"></div>
+        <div class="h-20 animate-pulse rounded-xl border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800"></div>
       {/each}
     </div>
   {/if}
 
   {#if txQuery.isLoading}
-    <div class="h-48 animate-pulse rounded-xl border border-zinc-200 bg-zinc-50"></div>
+    <div class="h-48 animate-pulse rounded-xl border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800"></div>
   {:else if txQuery.isError}
     <p class="text-sm text-rose-600">{m.common_error_title()}</p>
   {:else if filteredTxs}
@@ -406,7 +406,7 @@
 <button
   onclick={openAdd}
   aria-label={m.transaction_add()}
-  class="fixed right-4 bottom-20 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-zinc-900 text-white shadow-lg transition-colors hover:bg-zinc-700 md:hidden"
+  class="fixed right-4 bottom-20 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-zinc-900 text-white shadow-lg transition-colors hover:bg-zinc-700 md:hidden dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
 >
   <svg
     xmlns="http://www.w3.org/2000/svg"
