@@ -73,21 +73,20 @@
 
 {#if suggestions.length > 0}
   <ul
-    class="absolute top-full right-0 left-0 z-30 mt-1 max-h-36 overflow-y-auto rounded-lg border border-zinc-200 bg-white shadow-md"
+    class="absolute top-full right-0 left-0 z-30 mt-1 max-h-36 overflow-y-auto rounded-lg border border-zinc-200 bg-white shadow-md dark:border-zinc-700 dark:bg-zinc-900"
     role="listbox"
   >
     {#each suggestions as s, i (s.name)}
       <li role="option" aria-selected={i === activeIndex}>
         <button
           type="button"
-          class="flex w-full items-center justify-between px-3 py-1.5 text-left text-sm transition-colors hover:bg-zinc-50"
-          class:bg-zinc-50={i === activeIndex}
+          class="flex w-full items-center justify-between px-3 py-1.5 text-left text-sm transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800 {i === activeIndex ? 'bg-zinc-50 dark:bg-zinc-800' : ''}"
           onclick={() => onselect(s.name, s.quantity, s.unit)}
           onmouseenter={() => (activeIndex = i)}
         >
-          <span class="truncate text-zinc-900">{s.name}</span>
+          <span class="truncate text-zinc-900 dark:text-white">{s.name}</span>
           {#if s.quantity != null || s.unit}
-            <span class="ml-2 shrink-0 text-xs text-zinc-400">
+            <span class="ml-2 shrink-0 text-xs text-zinc-400 dark:text-zinc-500">
               {s.quantity != null ? s.quantity : ""}{s.unit ? ` ${s.unit}` : ""}
             </span>
           {/if}

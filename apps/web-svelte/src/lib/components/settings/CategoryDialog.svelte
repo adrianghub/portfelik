@@ -49,7 +49,7 @@
 <Dialog {open} {onclose} {title}>
   <form onsubmit={handleSubmit} class="space-y-4">
     <div class="space-y-1">
-      <label class="text-xs font-medium text-zinc-600" for="cat-name"
+      <label class="text-xs font-medium text-zinc-600 dark:text-zinc-300" for="cat-name"
         >{m.category_form_name()}</label
       >
       <input
@@ -57,19 +57,19 @@
         type="text"
         required
         bind:value={name}
-        class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none"
+        class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-white dark:focus:ring-white/10"
       />
     </div>
 
     <div class="space-y-1">
-      <span class="text-xs font-medium text-zinc-600">{m.category_form_type()}</span>
-      <div class="flex overflow-hidden rounded-lg border border-zinc-200 text-sm">
+      <span class="text-xs font-medium text-zinc-600 dark:text-zinc-300">{m.category_form_type()}</span>
+      <div class="flex overflow-hidden rounded-lg border border-zinc-200 text-sm dark:border-zinc-700">
         <button
           type="button"
           onclick={() => (type = "expense")}
           class="flex-1 py-2 font-medium transition-colors {type === 'expense'
             ? 'bg-rose-600 text-white'
-            : 'bg-white text-zinc-500 hover:bg-zinc-50'}"
+            : 'bg-white text-zinc-500 hover:bg-zinc-50 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800'}"
         >
           {m.common_expense()}
         </button>
@@ -78,7 +78,7 @@
           onclick={() => (type = "income")}
           class="flex-1 py-2 font-medium transition-colors {type === 'income'
             ? 'bg-emerald-600 text-white'
-            : 'bg-white text-zinc-500 hover:bg-zinc-50'}"
+            : 'bg-white text-zinc-500 hover:bg-zinc-50 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800'}"
         >
           {m.common_income()}
         </button>
@@ -93,7 +93,7 @@
       <button
         type="button"
         onclick={onclose}
-        class="flex-1 rounded-lg border border-zinc-200 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50"
+        class="flex-1 rounded-lg border border-zinc-200 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
       >
         {m.common_cancel()}
       </button>

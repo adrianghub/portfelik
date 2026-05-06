@@ -91,38 +91,38 @@
 </script>
 
 <div class="container mx-auto max-w-4xl space-y-4 px-4 py-6">
-  <h1 class="text-xl font-semibold text-zinc-900">{m.admin_title()}</h1>
-  <h2 class="text-base font-medium text-zinc-700">{m.admin_users_title()}</h2>
+  <h1 class="text-xl font-semibold text-zinc-900 dark:text-white">{m.admin_title()}</h1>
+  <h2 class="text-base font-medium text-zinc-700 dark:text-zinc-200">{m.admin_users_title()}</h2>
 
   <input
     type="search"
     bind:value={search}
     placeholder={m.admin_search_placeholder()}
-    class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none sm:max-w-xs"
+    class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none sm:max-w-xs dark:border-zinc-700 dark:bg-zinc-900 dark:text-white dark:focus:ring-white/10"
   />
 
   {#if loading}
     <div class="space-y-2">
       {#each [0, 1, 2, 3] as _, i (i)}
-        <div class="h-10 animate-pulse rounded-lg bg-zinc-100"></div>
+        <div class="h-10 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800"></div>
       {/each}
     </div>
   {:else if error}
     <p class="text-sm text-rose-600">{error}</p>
   {:else if filtered.length === 0}
-    <p class="py-8 text-center text-sm text-zinc-400">{m.admin_users_empty()}</p>
+    <p class="py-8 text-center text-sm text-zinc-400 dark:text-zinc-500">{m.admin_users_empty()}</p>
   {:else}
-    <div class="overflow-hidden rounded-xl border border-zinc-200 bg-white">
+    <div class="overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
       <table class="w-full text-sm">
         <thead>
-          <tr class="border-b border-zinc-100 bg-zinc-50">
-            <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500"
+          <tr class="border-b border-zinc-100 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800">
+            <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400"
               >{m.admin_users_col_email()}</th
             >
-            <th class="hidden px-4 py-3 text-left text-xs font-medium text-zinc-500 sm:table-cell"
+            <th class="hidden px-4 py-3 text-left text-xs font-medium text-zinc-500 sm:table-cell dark:text-zinc-400"
               >{m.admin_users_col_name()}</th
             >
-            <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500"
+            <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400"
               >{m.admin_users_col_role()}</th
             >
             <th class="hidden px-4 py-3 text-left text-xs font-medium text-zinc-500 md:table-cell"
@@ -133,26 +133,26 @@
         </thead>
         <tbody>
           {#each filtered as p (p.id)}
-            <tr class="border-b border-zinc-50 last:border-0">
-              <td class="px-4 py-3 text-zinc-900">{p.email}</td>
-              <td class="hidden px-4 py-3 text-zinc-500 sm:table-cell">{p.name ?? "—"}</td>
+            <tr class="border-b border-zinc-50 last:border-0 dark:border-zinc-800">
+              <td class="px-4 py-3 text-zinc-900 dark:text-white">{p.email}</td>
+              <td class="hidden px-4 py-3 text-zinc-500 sm:table-cell dark:text-zinc-400">{p.name ?? "—"}</td>
               <td class="px-4 py-3">
                 <span
                   class={p.role === "admin"
-                    ? "inline-flex items-center rounded-full bg-zinc-900 px-2 py-0.5 text-xs font-medium text-white"
-                    : "inline-flex items-center rounded-full border border-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-500"}
+                    ? "inline-flex items-center rounded-full bg-zinc-900 px-2 py-0.5 text-xs font-medium text-white dark:bg-white dark:text-zinc-900"
+                    : "inline-flex items-center rounded-full border border-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-500 dark:border-zinc-600 dark:text-zinc-400"}
                 >
                   {p.role}
                 </span>
               </td>
-              <td class="hidden px-4 py-3 text-zinc-400 md:table-cell"
+              <td class="hidden px-4 py-3 text-zinc-400 md:table-cell dark:text-zinc-500"
                 >{formatDate(p.created_at)}</td
               >
               <td class="px-4 py-3 text-right">
                 <button
                   onclick={() => toggleRoleMutation.mutate(p)}
                   disabled={toggleRoleMutation.isPending}
-                  class="rounded px-2 py-1 text-xs text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-900 disabled:opacity-40"
+                  class="rounded px-2 py-1 text-xs text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-900 disabled:opacity-40 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white"
                 >
                   {p.role === "admin" ? "→ user" : "→ admin"}
                 </button>
@@ -164,8 +164,8 @@
     </div>
   {/if}
 
-  <div class="mt-6 rounded-xl border border-zinc-200 bg-white p-4">
-    <h2 class="text-sm font-semibold text-zinc-700">Narzędzia diagnostyczne</h2>
+  <div class="mt-6 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+    <h2 class="text-sm font-semibold text-zinc-700 dark:text-zinc-200">Narzędzia diagnostyczne</h2>
     <div class="mt-3">
       <button
         type="button"

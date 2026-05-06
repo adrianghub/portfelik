@@ -43,7 +43,7 @@
 {#if query.isLoading}
   <div class="space-y-2" aria-busy="true" aria-label={m.common_loading()}>
     {#each [0, 1, 2, 3, 4] as _, i (i)}
-      <div class="h-10 animate-pulse rounded-lg bg-zinc-100"></div>
+      <div class="h-10 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800"></div>
     {/each}
   </div>
 {:else if query.isError}
@@ -53,12 +53,12 @@
   <ul class="space-y-1.5 sm:hidden">
     {#each query.data as cat (cat.id)}
       <li
-        class="flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-4 py-3"
+        class="flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900"
       >
         <div class="flex min-w-0 items-center gap-2">
-          <span class="truncate text-sm text-zinc-900">{cat.name}</span>
+          <span class="truncate text-sm text-zinc-900 dark:text-white">{cat.name}</span>
           {#if !cat.user_id}
-            <span class="shrink-0 text-xs text-zinc-400">{m.categories_system()}</span>
+            <span class="shrink-0 text-xs text-zinc-400 dark:text-zinc-500">{m.categories_system()}</span>
           {/if}
         </div>
         <div class="flex shrink-0 items-center gap-2">
@@ -116,26 +116,26 @@
   </ul>
 
   <!-- Desktop table -->
-  <div class="hidden overflow-hidden rounded-xl border border-zinc-200 bg-white sm:block">
+  <div class="hidden overflow-hidden rounded-xl border border-zinc-200 bg-white sm:block dark:border-zinc-700 dark:bg-zinc-900">
     <table class="w-full text-sm">
       <thead>
-        <tr class="border-b border-zinc-100 bg-zinc-50">
-          <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-zinc-500"
+        <tr class="border-b border-zinc-100 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800">
+          <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400"
             >{m.categories_col_name()}</th
           >
-          <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-zinc-500"
+          <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400"
             >{m.categories_col_type()}</th
           >
-          <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-zinc-500"></th>
+          <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400"></th>
         </tr>
       </thead>
       <tbody>
         {#each query.data as cat (cat.id)}
-          <tr class="border-b border-zinc-50 last:border-0">
-            <td class="px-4 py-3 text-zinc-900">
+          <tr class="border-b border-zinc-50 last:border-0 dark:border-zinc-800">
+            <td class="px-4 py-3 text-zinc-900 dark:text-white">
               {cat.name}
               {#if !cat.user_id}
-                <span class="ml-1.5 text-xs text-zinc-400">{m.categories_system()}</span>
+                <span class="ml-1.5 text-xs text-zinc-400 dark:text-zinc-500">{m.categories_system()}</span>
               {/if}
             </td>
             <td class="px-4 py-3">
@@ -206,7 +206,7 @@
 
   <button
     onclick={openAdd}
-    class="mt-4 w-full rounded-xl border border-dashed border-zinc-300 py-3 text-sm font-medium text-zinc-500 transition-colors hover:border-zinc-400 hover:text-zinc-700"
+    class="mt-4 w-full rounded-xl border border-dashed border-zinc-300 py-3 text-sm font-medium text-zinc-500 transition-colors hover:border-zinc-400 hover:text-zinc-700 dark:border-zinc-600 dark:text-zinc-400 dark:hover:border-zinc-500 dark:hover:text-zinc-300"
   >
     + {m.category_form_title_add()}
   </button>
