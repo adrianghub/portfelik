@@ -17,6 +17,7 @@
     computeSummary,
     createTransaction,
     deleteTransaction,
+    deleteTransactions,
     fetchTransactions,
   } from "$lib/services/transactions";
   import { supabase } from "$lib/supabase";
@@ -92,6 +93,8 @@
   let editTarget = $state<TransactionWithCategory | null>(null);
   let deleteTargetId = $state<string | null>(null);
   let sheetTx = $state<TransactionWithCategory | null>(null);
+  let selectedIds = $state(new Set<string>());
+  let bulkDeleteConfirm = $state(false);
 
   const deleteMutation = createMutation(() => ({
     mutationFn: () => deleteTransaction(deleteTargetId!),
@@ -99,6 +102,18 @@
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
       toast.success(m.toast_transaction_deleted());
       deleteTargetId = null;
+    },
+    onError: () => toast.error(m.toast_error()),
+  }));
+
+  const bulkDeleteMutation = createMutation(() => ({
+    mutationFn: () => deleteTransactions(Array.from(selectedIds)),
+    onSuccess: async () => {
+      const count = selectedIds.size;
+      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      toast.success(m.toast_transactions_bulk_deleted({ count }));
+      selectedIds = new Set<string>();
+      bulkDeleteConfirm = false;
     },
     onError: () => toast.error(m.toast_error()),
   }));
@@ -361,6 +376,15 @@
           disabled={importing}
         />
       </label>
+      {#if selectedIds.size > 0}
+        <button
+          onclick={() => (bulkDeleteConfirm = true)}
+          class="flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-700"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+          {m.transactions_delete_selected({ count: selectedIds.size })}
+        </button>
+      {/if}
       <button
         onclick={openAdd}
         class="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
@@ -389,6 +413,7 @@
       transactions={filteredTxs}
       {currentUserId}
       {emptyLabel}
+      bind:selectedIds
       onrowclick={(tx) => (sheetTx = tx)}
       onedit={(tx: TransactionWithCategory) => {
         editTarget = tx;
@@ -447,4 +472,12 @@
   onconfirm={() => deleteMutation.mutate()}
   onclose={() => (deleteTargetId = null)}
   pending={deleteMutation.isPending}
+/>
+
+<ConfirmDialog
+  open={bulkDeleteConfirm}
+  message={m.transactions_delete_selected({ count: selectedIds.size })}
+  onconfirm={() => bulkDeleteMutation.mutate()}
+  onclose={() => (bulkDeleteConfirm = false)}
+  pending={bulkDeleteMutation.isPending}
 />

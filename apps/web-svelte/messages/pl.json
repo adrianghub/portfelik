@@ -218,5 +218,9 @@
   "toast_push_unsubscribed": "Wyłączono powiadomienia push",
   "admin_trigger_summary": "Wyślij podsumowanie tygodniowe",
   "admin_trigger_summary_sending": "Wysyłanie...",
-  "toast_admin_summary_triggered": "Podsumowanie tygodniowe zostało wysłane"
+  "toast_admin_summary_triggered": "Podsumowanie tygodniowe zostało wysłane",
+  "transactions_select_all": "Zaznacz wszystkie",
+  "transactions_deselect_all": "Odznacz wszystkie",
+  "transactions_delete_selected": "Usuń zaznaczone ({count})",
+  "toast_transactions_bulk_deleted": "Usunięto {count} transakcji"
 }
