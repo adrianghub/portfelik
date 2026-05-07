@@ -36,9 +36,54 @@ jobs:
         working-directory: apps/web-svelte
         run: pnpm lint
 
+  e2e:
+    name: Playwright E2E
+    needs: ci
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v5
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: apps/web-svelte
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Build app
+        working-directory: apps/web-svelte
+        env:
+          PUBLIC_SUPABASE_URL: https://emqzcygfwcvbmhxhfkcc.supabase.co
+          PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiJ9.fake
+          PUBLIC_VAPID_KEY: BHKoiccZwq3Y5Qw5dmFxVLJIA7w9zcSZkchPKWk-vxBeR421yieZW7gGxuluBBa6sRmpIsFXRSuFyRarLcdvqT4
+        run: pnpm build
+
+      - name: Run Playwright tests
+        working-directory: apps/web-svelte
+        env:
+          CI: true
+        run: pnpm exec playwright test
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/web-svelte/playwright-report/
+          retention-days: 7
+
   deploy:
     name: Deploy to Cloudflare Pages
-    needs: ci
+    needs: [ci, e2e]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     environment:
