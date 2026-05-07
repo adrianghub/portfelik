@@ -57,10 +57,10 @@
   <title>{m.app_name()} – {m.login_sign_in()}</title>
 </svelte:head>
 
-<div class="flex min-h-screen flex-col items-center justify-center bg-zinc-50 px-4">
-  <div class="w-full max-w-sm rounded-2xl border border-zinc-100 bg-white p-8 shadow-sm">
-    <h1 class="mb-1 text-2xl font-semibold text-zinc-900">{m.login_title()}</h1>
-    <p class="mb-6 text-sm text-zinc-500">{m.login_description()}</p>
+<div class="flex min-h-screen flex-col items-center justify-center bg-zinc-50 px-4 dark:bg-zinc-950">
+  <div class="w-full max-w-sm rounded-2xl border border-zinc-100 bg-white p-8 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+    <h1 class="mb-1 text-2xl font-semibold text-zinc-900 dark:text-zinc-100">{m.login_title()}</h1>
+    <p class="mb-6 text-sm text-zinc-500 dark:text-zinc-400">{m.login_description()}</p>
 
     {#if error}
       <div class="mb-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700" role="alert">
@@ -70,7 +70,7 @@
 
     <form onsubmit={signInWithEmail} class="space-y-4">
       <div>
-        <label for="email" class="mb-1.5 block text-sm font-medium text-zinc-700">
+        <label for="email" class="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
           {m.login_email()}
         </label>
         <input
@@ -80,12 +80,12 @@
           placeholder={m.login_email_placeholder()}
           autocomplete="email"
           disabled={loading}
-          class="w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 focus:outline-none disabled:bg-zinc-50 disabled:opacity-50"
+          class="w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 focus:outline-none disabled:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-zinc-400 dark:focus:ring-zinc-400 dark:disabled:bg-zinc-700"
         />
       </div>
 
       <div>
-        <label for="password" class="mb-1.5 block text-sm font-medium text-zinc-700">
+        <label for="password" class="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
           {m.login_password()}
         </label>
         <input
@@ -94,7 +94,7 @@
           bind:value={password}
           autocomplete="current-password"
           disabled={loading}
-          class="w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 focus:outline-none disabled:bg-zinc-50 disabled:opacity-50"
+          class="w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 focus:outline-none disabled:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-zinc-400 dark:focus:ring-zinc-400 dark:disabled:bg-zinc-700"
         />
       </div>
 
@@ -108,16 +108,16 @@
     </form>
 
     <div class="my-5 flex items-center gap-3">
-      <div class="h-px flex-1 bg-zinc-200"></div>
-      <span class="text-xs text-zinc-400">lub</span>
-      <div class="h-px flex-1 bg-zinc-200"></div>
+      <div class="h-px flex-1 bg-zinc-200 dark:bg-zinc-700"></div>
+      <span class="text-xs text-zinc-400 dark:text-zinc-500">lub</span>
+      <div class="h-px flex-1 bg-zinc-200 dark:bg-zinc-700"></div>
     </div>
 
     <button
       type="button"
       onclick={signInWithGoogle}
       disabled={loading}
-      class="flex w-full items-center justify-center gap-2.5 rounded-lg border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50"
+      class="flex w-full items-center justify-center gap-2.5 rounded-lg border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:focus-visible:ring-zinc-100"
     >
       <svg
         width="18"

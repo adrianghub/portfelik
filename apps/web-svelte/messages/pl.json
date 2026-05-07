@@ -47,6 +47,11 @@
   "nav_sign_out": "Wyloguj się",
   "transactions_title": "Transakcje",
   "transactions_empty": "Brak transakcji w tym miesiącu",
+  "transactions_empty_month": "Brak transakcji w {period}",
+  "transactions_empty_range": "Brak transakcji od {from} do {to}",
+  "transactions_greeting": "Cześć, {name}!",
+  "transactions_subtitle_groups": "Widzisz transakcje ze swoich grup",
+  "transactions_subtitle_own": "Widzisz swoje transakcje",
   "transactions_filter_category": "Kategoria",
   "transactions_filter_category_label": "Filtruj według kategorii",
   "transactions_filter_all_categories": "Wszystkie kategorie",
@@ -207,5 +212,15 @@
   "csv_export": "Eksportuj CSV",
   "csv_import": "Importuj CSV",
   "csv_importing": "Importowanie...",
-  "csv_import_error": "Błąd importu CSV"
+  "csv_import_error": "Błąd importu CSV",
+  "profile_notifications_enabled": "Powiadomienia push aktywne",
+  "profile_notifications_disable": "Wyłącz powiadomienia",
+  "toast_push_unsubscribed": "Wyłączono powiadomienia push",
+  "admin_trigger_summary": "Wyślij podsumowanie tygodniowe",
+  "admin_trigger_summary_sending": "Wysyłanie...",
+  "toast_admin_summary_triggered": "Podsumowanie tygodniowe zostało wysłane",
+  "transactions_select_all": "Zaznacz wszystkie",
+  "transactions_deselect_all": "Odznacz wszystkie",
+  "transactions_delete_selected": "Usuń zaznaczone ({count})",
+  "toast_transactions_bulk_deleted": "Usunięto {count} transakcji"
 }

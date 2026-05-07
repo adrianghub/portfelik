@@ -31,7 +31,7 @@ Apply to every task regardless of phase.
 
 **Portfelik** — personal-finance PWA. Migrating React 19 + Firebase → SvelteKit + Supabase. Full plan: `MIGRATION_PLAN.md`.
 
-**Immediate next step:** Firebase decommission (Phase 7) — disable Firebase Hosting, Cloud Functions, Firestore freeze. Then Phase 8 hardening.
+**Immediate next step:** Phase 8 — Hardening (dark mode, bulk delete, Playwright, CI/CD)
 
 | Phase | Status |
 |---|---|
@@ -42,7 +42,7 @@ Apply to every task regardless of phase.
 | 5.6 — CSV import/export + status filter + duplicate shopping list | ✅ Done |
 | 5.7 — Retire `portfelik-bff/` | ✅ Done (2026-04-30) — directory deleted, no URL refs existed |
 | Gap fixes (2026-04-30) — shopping list rename + offline indicator | ✅ Done |
-| 7 — Cutover | 🟡 Live in prod. Firebase decommission pending. |
+| 7 — Cutover | ✅ Done (2026-05-01) — src/, functions/, Firebase configs deleted. |
 | 8 — Hardening (dark mode, bulk delete, Playwright, CI/CD) | ⬜ Not started |
 
 ### Phase 8 — Hardening (deferred UX + quality)
@@ -52,9 +52,9 @@ Apply to every task regardless of phase.
 - GitHub Actions CI/CD
 - Old infra cleanup
 
-### Pending before push works end-to-end
-1. **INTERNAL_TRIGGER_SECRET**: `openssl rand -hex 32` → Edge Function secret + `select vault.create_secret('<hex>', 'internal_trigger_secret');`
-2. **VAPID secrets**: Edge Function → `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT=mailto:zinko.adrian00@gmail.com`
+### Push secrets — ✅ set in prod Supabase (2026-04-30)
+- `INTERNAL_TRIGGER_SECRET` — set in Supabase Edge Function secrets
+- `VAPID_PRIVATE_KEY`, `VAPID_PUBLIC_KEY` — set in Supabase Edge Function secrets
 
 ---
 
@@ -63,14 +63,10 @@ Apply to every task regardless of phase.
 ```
 portfelik/portfelik/
 ├── apps/web-svelte/        ← SvelteKit app (active — see apps/web-svelte/CLAUDE.md)
-├── src/                    ← React 19 app (LEGACY — frozen, read-only reference)
-├── functions/src/          ← Firebase Cloud Functions (reference only, replaced by Edge Fns)
 ├── supabase/               ← Migrations + config (see supabase/CLAUDE.md)
 ├── MIGRATION_PLAN.md       ← Authoritative phase plan — read before each phase
 └── .claude/rules/svelte-gotchas.md  ← Auto-loaded for apps/web-svelte/** work
 ```
-
-> Do not add features to `src/` (React). It is frozen.
 
 ---
 

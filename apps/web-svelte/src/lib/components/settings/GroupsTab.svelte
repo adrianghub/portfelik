@@ -192,9 +192,9 @@
     </h3>
     {#each invitationsQuery.data as inv (inv.id)}
       <div
-        class="flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50 px-4 py-3"
+        class="flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 dark:border-blue-900 dark:bg-blue-950"
       >
-        <span class="text-sm text-zinc-900">{inv.group_name}</span>
+        <span class="text-sm text-zinc-900 dark:text-white">{inv.group_name}</span>
         <div class="flex gap-2">
           <button
             onclick={() => acceptMutation.mutate(inv.id)}
@@ -220,7 +220,7 @@
 {#if groupsQuery.isLoading}
   <div class="space-y-2">
     {#each [0, 1, 2] as _, i (i)}
-      <div class="h-14 animate-pulse rounded-xl bg-zinc-100"></div>
+      <div class="h-14 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800"></div>
     {/each}
   </div>
 {:else if groupsQuery.isError}
@@ -231,10 +231,10 @@
   {:else if groupsQuery.data}
     <div class="space-y-2">
       {#each groupsQuery.data as group (group.id)}
-        <div class="space-y-2 rounded-xl border border-zinc-200 bg-white px-4 py-3">
+        <div class="space-y-2 rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900">
           <div class="flex items-center justify-between">
-            <span class="text-sm font-medium text-zinc-900">{group.name}</span>
-            <span class="text-xs text-zinc-400">
+            <span class="text-sm font-medium text-zinc-900 dark:text-white">{group.name}</span>
+            <span class="text-xs text-zinc-400 dark:text-zinc-500">
               {group.owner_id === currentUserId ? m.groups_role_owner() : m.groups_role_member()}
             </span>
           </div>
@@ -245,7 +245,7 @@
                   inviteGroupId = group.id;
                   inviteEmail = "";
                 }}
-                class="rounded-lg border border-zinc-200 px-3 py-1 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50"
+                class="rounded-lg border border-zinc-200 px-3 py-1 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
               >
                 {m.group_invite()}
               </button>
@@ -253,7 +253,7 @@
                 onclick={() => {
                   membersGroupId = group.id;
                 }}
-                class="rounded-lg border border-zinc-200 px-3 py-1 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50"
+                class="rounded-lg border border-zinc-200 px-3 py-1 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
               >
                 {m.group_members_title()}
               </button>
@@ -261,13 +261,13 @@
                 onclick={() => {
                   sentInvGroupId = sentInvGroupId === group.id ? null : group.id;
                 }}
-                class="rounded-lg border border-zinc-200 px-3 py-1 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50"
+                class="rounded-lg border border-zinc-200 px-3 py-1 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
               >
                 {m.group_sent_invitations()}
               </button>
               <button
                 onclick={() => (disbandGroupId = group.id)}
-                class="rounded-lg border border-rose-200 px-3 py-1 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50"
+                class="rounded-lg border border-rose-200 px-3 py-1 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50 dark:border-rose-900 dark:text-rose-400 dark:hover:bg-rose-950"
               >
                 {m.group_disband()}
               </button>
@@ -275,7 +275,7 @@
 
             <!-- Sent invitations panel (inline toggle) -->
             {#if sentInvGroupId === group.id}
-              <div class="mt-1 rounded-lg border border-zinc-100 bg-zinc-50 p-3">
+              <div class="mt-1 rounded-lg border border-zinc-100 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800">
                 {#if sentInvQuery.isLoading}
                   <div class="h-8 animate-pulse rounded bg-zinc-200"></div>
                 {:else if sentInvQuery.data?.length === 0}
@@ -285,7 +285,7 @@
                     {#each sentInvQuery.data as inv (inv.id)}
                       <li class="flex items-center justify-between gap-2">
                         <div class="min-w-0">
-                          <p class="truncate text-xs font-medium text-zinc-800">
+                          <p class="truncate text-xs font-medium text-zinc-800 dark:text-zinc-200">
                             {inv.invited_user_email}
                           </p>
                         </div>
@@ -301,7 +301,7 @@
                             <button
                               onclick={() => cancelMutation.mutate(inv.id)}
                               disabled={cancelMutation.isPending}
-                              class="rounded border border-zinc-200 px-2 py-0.5 text-xs text-zinc-500 transition-colors hover:bg-zinc-100 disabled:opacity-50"
+                              class="rounded border border-zinc-200 px-2 py-0.5 text-xs text-zinc-500 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
                             >
                               {m.group_invitation_cancel()}
                             </button>
@@ -331,7 +331,7 @@
       showCreateGroup = true;
       newGroupName = "";
     }}
-    class="mt-4 w-full rounded-xl border border-dashed border-zinc-300 py-3 text-sm font-medium text-zinc-500 transition-colors hover:border-zinc-400 hover:text-zinc-700"
+    class="mt-4 w-full rounded-xl border border-dashed border-zinc-300 py-3 text-sm font-medium text-zinc-500 transition-colors hover:border-zinc-400 hover:text-zinc-700 dark:border-zinc-600 dark:text-zinc-400 dark:hover:border-zinc-500 dark:hover:text-zinc-300"
   >
     + {m.group_form_title_add()}
   </button>
@@ -345,13 +345,13 @@
 >
   <form onsubmit={submitCreateGroup} class="space-y-4">
     <div class="space-y-1">
-      <label class="text-xs font-medium text-zinc-600" for="grp-name">{m.group_form_name()}</label>
+      <label class="text-xs font-medium text-zinc-600 dark:text-zinc-300" for="grp-name">{m.group_form_name()}</label>
       <input
         id="grp-name"
         type="text"
         required
         bind:value={newGroupName}
-        class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none"
+        class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-white dark:focus:ring-white/10"
       />
     </div>
     {#if createGroupMutation.isError}
@@ -361,7 +361,7 @@
       <button
         type="button"
         onclick={() => (showCreateGroup = false)}
-        class="flex-1 rounded-lg border border-zinc-200 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50"
+        class="flex-1 rounded-lg border border-zinc-200 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
       >
         {m.common_cancel()}
       </button>
@@ -384,7 +384,7 @@
 >
   <form onsubmit={submitInvite} class="space-y-4">
     <div class="space-y-1">
-      <label class="text-xs font-medium text-zinc-600" for="inv-email"
+      <label class="text-xs font-medium text-zinc-600 dark:text-zinc-300" for="inv-email"
         >{m.group_invite_email()}</label
       >
       <input
@@ -392,7 +392,7 @@
         type="email"
         required
         bind:value={inviteEmail}
-        class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none"
+        class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-white dark:focus:ring-white/10"
       />
     </div>
     {#if inviteMutation.isError}
@@ -402,7 +402,7 @@
       <button
         type="button"
         onclick={() => (inviteGroupId = null)}
-        class="flex-1 rounded-lg border border-zinc-200 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50"
+        class="flex-1 rounded-lg border border-zinc-200 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
       >
         {m.common_cancel()}
       </button>
@@ -429,25 +429,25 @@
   {#if membersQuery.isLoading}
     <div class="space-y-2">
       {#each [0, 1, 2] as _, i (i)}
-        <div class="h-10 animate-pulse rounded-lg bg-zinc-100"></div>
+        <div class="h-10 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800"></div>
       {/each}
     </div>
   {:else if membersQuery.data?.length === 0}
     <p class="py-4 text-center text-sm text-zinc-400">{m.group_members_empty()}</p>
   {:else if membersQuery.data}
-    <ul class="divide-y divide-zinc-100">
+    <ul class="divide-y divide-zinc-100 dark:divide-zinc-700">
       {#each membersQuery.data as member (member.user_id)}
         <li class="flex items-center justify-between gap-3 py-3">
           <div class="min-w-0">
-            <p class="truncate text-sm font-medium text-zinc-900">{member.name ?? member.email}</p>
+            <p class="truncate text-sm font-medium text-zinc-900 dark:text-white">{member.name ?? member.email}</p>
             {#if member.name}
-              <p class="truncate text-xs text-zinc-400">{member.email}</p>
+              <p class="truncate text-xs text-zinc-400 dark:text-zinc-500">{member.email}</p>
             {/if}
           </div>
           {#if member.user_id !== currentUserId}
             <button
               onclick={() => (removeTargetUserId = member.user_id)}
-              class="shrink-0 rounded-lg border border-rose-200 px-2 py-1 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50"
+              class="shrink-0 rounded-lg border border-rose-200 px-2 py-1 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50 dark:border-rose-900 dark:text-rose-400 dark:hover:bg-rose-950"
             >
               {m.group_member_remove()}
             </button>

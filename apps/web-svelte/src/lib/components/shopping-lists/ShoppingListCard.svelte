@@ -16,10 +16,10 @@
   );
 </script>
 
-<div class="flex items-stretch overflow-hidden rounded-xl border border-zinc-200 bg-white">
-  <a href="/shopping-lists/{list.id}" class="flex-1 p-4 transition-colors hover:bg-zinc-50">
+<div class="flex items-stretch overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+  <a href="/shopping-lists/{list.id}" class="flex-1 p-4 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800">
     <div class="flex items-start justify-between gap-2">
-      <span class="font-medium text-zinc-900">{list.name}</span>
+      <span class="font-medium text-zinc-900 dark:text-white">{list.name}</span>
       <span
         class={cn(
           "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium",
@@ -31,7 +31,7 @@
           : m.shopping_lists_status_completed()}
       </span>
     </div>
-    <div class="mt-1 flex items-center gap-3 text-xs text-zinc-400">
+    <div class="mt-1 flex items-center gap-3 text-xs text-zinc-400 dark:text-zinc-500">
       <span>{formatDate(list.created_at)}</span>
       {#if list.item_total > 0}
         <span>·</span>
@@ -49,7 +49,7 @@
   {#if onedit}
     <button
       onclick={() => onedit(list)}
-      class="border-l border-zinc-100 px-3 text-zinc-300 transition-colors hover:bg-zinc-50 hover:text-zinc-600"
+      class="border-l border-zinc-100 px-3 text-zinc-300 transition-colors hover:bg-zinc-50 hover:text-zinc-600 dark:border-zinc-800 dark:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-400"
       aria-label={m.shopping_list_edit()}
     >
       <svg
@@ -62,16 +62,14 @@
         stroke-width="2"
         stroke-linecap="round"
         stroke-linejoin="round"
-        ><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path
-          d="m15 5 4 4"
-        /></svg
+        ><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg
       >
     </button>
   {/if}
   {#if onduplicate}
     <button
       onclick={() => onduplicate(list.id)}
-      class="border-l border-zinc-100 px-3 text-zinc-300 transition-colors hover:bg-zinc-50 hover:text-zinc-600"
+      class="border-l border-zinc-100 px-3 text-zinc-300 transition-colors hover:bg-zinc-50 hover:text-zinc-600 dark:border-zinc-800 dark:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-400"
       aria-label={m.shopping_list_duplicate()}
     >
       <svg
@@ -93,7 +91,7 @@
   {#if ondelete}
     <button
       onclick={() => ondelete(list.id)}
-      class="border-l border-zinc-100 px-3 text-zinc-300 transition-colors hover:bg-rose-50 hover:text-rose-500"
+      class="border-l border-zinc-100 px-3 text-zinc-300 transition-colors hover:bg-rose-50 hover:text-rose-500 dark:border-zinc-800 dark:text-zinc-600 dark:hover:bg-rose-950 dark:hover:text-rose-400"
       aria-label={m.shopping_list_delete()}
     >
       <svg

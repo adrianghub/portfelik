@@ -29,16 +29,16 @@
     onkeydown={null}
   >
     <div
-      class="w-full max-w-sm space-y-4 rounded-2xl bg-white p-5 shadow-xl"
+      class="w-full max-w-sm space-y-4 rounded-2xl bg-white p-5 shadow-xl dark:bg-zinc-900"
       role="alertdialog"
       aria-modal="true"
     >
-      <h2 class="text-base font-semibold text-zinc-900">{m.common_confirm_delete()}</h2>
-      <p class="text-sm text-zinc-500">{message}</p>
+      <h2 class="text-base font-semibold text-zinc-900 dark:text-white">{m.common_confirm_delete()}</h2>
+      <p class="text-sm text-zinc-500 dark:text-zinc-400">{message}</p>
       <div class="flex gap-2">
         <button
           onclick={onclose}
-          class="flex-1 rounded-lg border border-zinc-200 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50"
+          class="flex-1 rounded-lg border border-zinc-200 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
         >
           {m.common_cancel()}
         </button>

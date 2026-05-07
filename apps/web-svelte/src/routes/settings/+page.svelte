@@ -41,9 +41,9 @@
 </script>
 
 <div class="container mx-auto max-w-3xl space-y-4 px-4 py-6">
-  <h1 class="text-xl font-semibold text-zinc-900">{m.settings_title()}</h1>
+  <h1 class="text-xl font-semibold text-zinc-900 dark:text-white">{m.settings_title()}</h1>
 
-  <div role="tablist" aria-label={m.settings_title()} class="flex gap-1 rounded-xl bg-zinc-100 p-1">
+  <div role="tablist" aria-label={m.settings_title()} class="flex gap-1 rounded-xl bg-zinc-100 p-1 dark:bg-zinc-800">
     {#each tabs as tab (tab.id)}
       <button
         role="tab"
@@ -54,8 +54,8 @@
         class={cn(
           "flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:outline-none",
           activeTab === tab.id
-            ? "bg-white text-zinc-900 shadow-sm"
-            : "text-zinc-500 hover:text-zinc-700"
+            ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-white dark:shadow-md"
+            : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
         )}
       >
         {tab.label}
