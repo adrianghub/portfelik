@@ -58,15 +58,6 @@
     loading = false;
   }
 
-  const triggerSummaryMutation = createMutation(() => ({
-    mutationFn: async () => {
-      const { error } = await supabase.rpc('trigger_admin_summary');
-      if (error) throw error;
-    },
-    onSuccess: () => toast.success(m.toast_admin_summary_triggered()),
-    onError: (err: Error) => toast.error(err.message),
-  }));
-
   const toggleRoleMutation = createMutation(() => ({
     mutationFn: async (profile: Profile) => {
       if (profile.role === "admin") {
@@ -92,6 +83,23 @@
 
 <div class="container mx-auto max-w-4xl space-y-4 px-4 py-6">
   <h1 class="text-xl font-semibold text-zinc-900 dark:text-white">{m.admin_title()}</h1>
+
+  <nav class="flex gap-2 border-b border-zinc-200 dark:border-zinc-700">
+    <a
+      href="/admin"
+      aria-current="page"
+      class="-mb-px border-b-2 border-zinc-900 px-3 py-2 text-sm font-medium text-zinc-900 dark:border-white dark:text-white"
+    >
+      {m.admin_tab_users()}
+    </a>
+    <a
+      href="/admin/notifications"
+      class="-mb-px border-b-2 border-transparent px-3 py-2 text-sm text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
+    >
+      {m.admin_tab_diagnostics()}
+    </a>
+  </nav>
+
   <h2 class="text-base font-medium text-zinc-700 dark:text-zinc-200">{m.admin_users_title()}</h2>
 
   <input
@@ -164,17 +172,4 @@
     </div>
   {/if}
 
-  <div class="mt-6 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
-    <h2 class="text-sm font-semibold text-zinc-700 dark:text-zinc-200">Narzędzia diagnostyczne</h2>
-    <div class="mt-3">
-      <button
-        type="button"
-        onclick={() => triggerSummaryMutation.mutate()}
-        disabled={triggerSummaryMutation.isPending}
-        class="rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
-      >
-        {triggerSummaryMutation.isPending ? m.admin_trigger_summary_sending() : m.admin_trigger_summary()}
-      </button>
-    </div>
-  </div>
 </div>

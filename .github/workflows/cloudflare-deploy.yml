@@ -37,9 +37,9 @@ jobs:
         run: pnpm lint
 
   e2e:
-    name: Playwright E2E
+    name: Playwright E2E (mocked)
     needs: ci
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -81,8 +81,8 @@ jobs:
           path: apps/web-svelte/playwright-report/
           retention-days: 7
 
-  deploy:
-    name: Deploy to Cloudflare Pages
+  deploy-prod:
+    name: Deploy to Cloudflare Pages (production)
     needs: [ci, e2e]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
@@ -122,4 +122,91 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: portfelik
           directory: apps/web-svelte/build
+          branch: main
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy-staging:
+    name: Deploy to Cloudflare Pages (staging)
+    needs: [ci, e2e]
+    if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment:
+      name: Staging
+      url: https://dev.portfelik.pages.dev
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v5
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build SvelteKit app
+        working-directory: apps/web-svelte
+        env:
+          PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
+          PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
+          PUBLIC_VAPID_KEY: ${{ secrets.PUBLIC_VAPID_KEY }}
+        run: pnpm build
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: portfelik
+          directory: apps/web-svelte/build
+          branch: dev
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+
+  smoke:
+    name: Real-DB smoke (staging)
+    needs: deploy-staging
+    if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v5
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: apps/web-svelte
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run smoke suite
+        working-directory: apps/web-svelte
+        env:
+          CI: true
+          SMOKE_BASE_URL: https://dev.portfelik.pages.dev
+          PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
+          PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
+          E2E_SMOKE_EMAIL: ${{ secrets.E2E_SMOKE_EMAIL }}
+          E2E_SMOKE_PASSWORD: ${{ secrets.E2E_SMOKE_PASSWORD }}
+        run: pnpm exec playwright test --config=playwright.smoke.config.ts
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-smoke-report
+          path: apps/web-svelte/playwright-report/
+          retention-days: 7
