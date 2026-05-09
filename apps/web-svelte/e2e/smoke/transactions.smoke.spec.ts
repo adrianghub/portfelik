@@ -2,16 +2,19 @@ import { expect, test } from '@playwright/test';
 import {
   cleanupSmokeData,
   injectRealSession,
+  seedSmokeCategory,
   signInRealUser,
   SMOKE_SENTINEL,
   type SmokeSession,
 } from './helpers/real-auth';
 
 let session: SmokeSession;
+let categoryId: string;
 
 test.beforeAll(async () => {
   session = await signInRealUser();
   await cleanupSmokeData(session);
+  categoryId = await seedSmokeCategory(session);
 });
 
 test.afterAll(async () => {
@@ -38,15 +41,13 @@ test('login + create + read + delete transaction against real Supabase', async (
   await page.locator('#tx-amount').fill('1.23');
   await page.locator('#tx-desc').fill(description);
 
-  // Pick the first non-empty option in the category select.
+  // Wait for the seeded category to appear in the select before picking it —
+  // categories load via TanStack Query on page mount, may not be ready yet.
   const categorySelect = page.locator('#tx-cat');
-  const firstOptionValue = await categorySelect
-    .locator('option:not([value=""])')
-    .first()
-    .getAttribute('value');
-  if (firstOptionValue) {
-    await categorySelect.selectOption(firstOptionValue);
-  }
+  await expect(categorySelect.locator(`option[value="${categoryId}"]`)).toBeAttached({
+    timeout: 10000,
+  });
+  await categorySelect.selectOption(categoryId);
 
   await page.getByRole('button', { name: 'Zapisz' }).click();
 

@@ -92,18 +92,54 @@ export async function injectRealSession(
 }
 
 /**
- * Delete every transaction for the current user whose description starts with the smoke sentinel.
- * Idempotent — safe to call before AND after a test as a belt-and-braces cleanup.
+ * Delete every transaction + category for the current user whose name/description
+ * starts with the smoke sentinel. Idempotent — safe to call before AND after a test.
+ * Transactions first (FK is ON DELETE SET NULL but explicit ordering keeps the trace clean).
  */
 export async function cleanupSmokeData(session: SmokeSession): Promise<void> {
   const { url, anonKey } = requireEnv();
-  const filter = `description=like.${encodeURIComponent(`${SMOKE_SENTINEL}%`)}&user_id=eq.${session.userId}`;
-  await fetch(`${url}/rest/v1/transactions?${filter}`, {
-    method: 'DELETE',
+  const headers = {
+    apikey: anonKey,
+    Authorization: `Bearer ${session.accessToken}`,
+    Prefer: 'return=minimal',
+  };
+  const sentinelLike = encodeURIComponent(`${SMOKE_SENTINEL}%`);
+  await fetch(
+    `${url}/rest/v1/transactions?description=like.${sentinelLike}&user_id=eq.${session.userId}`,
+    { method: 'DELETE', headers },
+  );
+  await fetch(
+    `${url}/rest/v1/categories?name=like.${sentinelLike}&user_id=eq.${session.userId}`,
+    { method: 'DELETE', headers },
+  );
+}
+
+/**
+ * Insert a sentinel-tagged expense category owned by the smoke test user.
+ * Returns the new row's id. Cleanup is handled by `cleanupSmokeData`.
+ */
+export async function seedSmokeCategory(session: SmokeSession): Promise<string> {
+  const { url, anonKey } = requireEnv();
+  const res = await fetch(`${url}/rest/v1/categories`, {
+    method: 'POST',
     headers: {
       apikey: anonKey,
       Authorization: `Bearer ${session.accessToken}`,
-      Prefer: 'return=minimal',
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
     },
+    body: JSON.stringify({
+      user_id: session.userId,
+      name: `${SMOKE_SENTINEL} cat`,
+      type: 'expense',
+    }),
   });
+  if (!res.ok) {
+    throw new Error(
+      `Failed to seed smoke category (${res.status}): ${await res.text()}`,
+    );
+  }
+  const rows = (await res.json()) as Array<{ id: string }>;
+  if (!rows[0]?.id) throw new Error('Smoke category insert returned no id.');
+  return rows[0].id;
 }
