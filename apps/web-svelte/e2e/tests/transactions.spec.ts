@@ -1,0 +1,100 @@
+import { expect, test } from '@playwright/test';
+import { injectFakeSession, mockSupabaseAPI } from '../helpers/mock-auth';
+
+// Desktop table locator helper — use this for all desktop-table assertions.
+// Both mobile cards (sm:hidden) and desktop table (hidden sm:block) are in the DOM at 1280px.
+// getByText() matches both, causing strict-mode violations; scope to the desktop table instead.
+const desktopTable = (page: Parameters<typeof test>[1]['page']) =>
+  page.locator('table');
+
+test.beforeEach(async ({ page }) => {
+  await injectFakeSession(page);
+  await mockSupabaseAPI(page);
+  await page.goto('/transactions');
+  // Wait for the desktop table to render at least one row
+  await expect(desktopTable(page).getByText('Zakupy spożywcze')).toBeVisible();
+});
+
+test('renders mocked transaction list', async ({ page }) => {
+  await expect(desktopTable(page).getByText('Zakupy spożywcze')).toBeVisible();
+  await expect(desktopTable(page).getByText('Bilet miesięczny')).toBeVisible();
+});
+
+test('add transaction: opens dialog and shows success toast', async ({ page }) => {
+  // Click the desktop "+ Dodaj transakcję" button (not the mobile FAB)
+  // The page renders `+ {m.transaction_add()}` = "+ Dodaj transakcję"
+  await page.getByRole('button', { name: /Dodaj transakcję/ }).first().click();
+
+  // Dialog opens
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByText('Nowa transakcja')).toBeVisible();
+
+  // Fill form
+  await page.locator('#tx-amount').fill('99.99');
+  await page.locator('#tx-desc').fill('Nowa transakcja testowa');
+  await page.locator('#tx-cat').selectOption('cat-1');
+
+  // Submit
+  await page.getByRole('button', { name: 'Zapisz' }).click();
+
+  // Toast appears
+  await expect(page.getByText('Transakcja dodana')).toBeVisible();
+});
+
+test('single delete: confirm dialog then success toast', async ({ page }) => {
+  // Click the first data row to open the detail sheet.
+  // Due to Svelte 5 event delegation, clicking the delete button inside a role="button" TR
+  // fires the row's onclick; so we use the sheet's own delete button instead.
+  await desktopTable(page).locator('tbody tr').first().click();
+
+  // Detail sheet appears
+  const sheet = page.locator('aside');
+  await expect(sheet).toBeVisible();
+
+  // The sheet delete button is shown when isOwner=true (same user_id).
+  // currentUserId is set via onMount; wait for the button to appear.
+  const sheetDeleteBtn = sheet.getByRole('button', { name: 'Usuń' });
+  await expect(sheetDeleteBtn).toBeVisible({ timeout: 5000 });
+  await sheetDeleteBtn.click();
+
+  // Confirm dialog appears
+  await expect(page.getByRole('alertdialog')).toBeVisible();
+  await expect(page.getByText('Potwierdź usunięcie')).toBeVisible();
+
+  // Confirm delete
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Usuń' }).click();
+
+  // Success toast
+  await expect(page.getByText('Transakcja usunięta')).toBeVisible();
+});
+
+test('bulk select: "Usuń zaznaczone (2)" button appears', async ({ page }) => {
+  // Click individual row checkboxes in the desktop table body
+  const rowCheckboxes = page.locator('tbody td:first-child button');
+  await rowCheckboxes.nth(0).click();
+  await rowCheckboxes.nth(1).click();
+
+  // Bulk delete button appears with count
+  await expect(
+    page.getByRole('button', { name: /Usuń zaznaczone \(2\)/ }),
+  ).toBeVisible();
+});
+
+test('bulk delete: confirm and show success toast', async ({ page }) => {
+  // Select both rows
+  const rowCheckboxes = page.locator('tbody td:first-child button');
+  await rowCheckboxes.nth(0).click();
+  await rowCheckboxes.nth(1).click();
+
+  // Click the bulk delete button
+  await page.getByRole('button', { name: /Usuń zaznaczone/ }).click();
+
+  // Confirm dialog appears
+  await expect(page.getByRole('alertdialog')).toBeVisible();
+
+  // Confirm
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Usuń' }).click();
+
+  // Success toast — message: "Usunięto 2 transakcji"
+  await expect(page.getByText(/Usunięto 2 transakcji/)).toBeVisible();
+});

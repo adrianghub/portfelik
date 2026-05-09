@@ -1,5 +1,9 @@
 # Portfelik Migration Plan — React+Firebase → SvelteKit+Supabase
 
+> **Status (2026-05-08):** Phases 0–7 shipped. Phase 8 in progress — see the phase table in `CLAUDE.md` for the live status.
+>
+> **Tombstone — `tools/migrate/`:** The one-off Firebase → Supabase migration script described in Phase 2 has been deleted from the tree. Cutover used a fresh-account approach (users re-authenticate with Google OAuth and create their own data); no legacy data was ported. The `firebase_uid` column referenced in the schema below was therefore never applied.
+
 ## Context
 
 Portfelik is a personal-finance PWA (React 19 SPA + Firebase). The goal is to:
@@ -39,7 +43,7 @@ Portfelik is a personal-finance PWA (React 19 SPA + Firebase). The goal is to:
 | UI kit | **shadcn-svelte** | Direct port of all components the app uses. |
 | i18n | **paraglide-js** | Compile-time, ~0 runtime KB, matches PL-only reality. |
 | Push notifications | **VAPID web-push** | Drops Firebase entirely at cutover. ~0KB runtime (native `PushManager`) vs ~200KB Firebase Messaging SDK. Send side: ~40 lines in an Edge Function using `web-push` npm. Bigger Phase 5 but cleaner end state. |
-| Auth | **Supabase Auth** (email/password + Google OAuth) | Migrate existing Firebase UIDs via `firebase_uid text unique` column on `users`. Admin role = Supabase custom claim set via `pg_cron` or trigger. |
+| Auth | **Supabase Auth** (Google OAuth only — email/password disabled) | Originally planned to migrate Firebase UIDs via a `firebase_uid` column; in practice users were re-created from scratch in Supabase Auth and the column was never added. Admin role lives in `profiles.role`, gated by SECURITY DEFINER `assign_admin_role` / `revoke_admin_role` RPCs. |
 | Amount sign | **Store positive magnitude + `type` enum** | Codebase already normalizes: `TransactionForm.tsx:117` writes `Math.abs(value.amount)`. Validated — no sign migration needed. |
 | Offline queue | **Defer to Phase 6; accept online-only in Phases 3–5** | Current FS offline queue is best-effort anyway. When added: Dexie-backed outbox. |
 | Frontend hosting | **Cloudflare Pages** | You already own Cloudflare DNS/Tunnel; free; edge cached; trivial PWA support. |

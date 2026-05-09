@@ -222,5 +222,18 @@
   "transactions_select_all": "Zaznacz wszystkie",
   "transactions_deselect_all": "Odznacz wszystkie",
   "transactions_delete_selected": "Usuń zaznaczone ({count})",
-  "toast_transactions_bulk_deleted": "Usunięto {count} transakcji"
+  "toast_transactions_bulk_deleted": "Usunięto {count} transakcji",
+  "admin_tab_users": "Użytkownicy",
+  "admin_tab_diagnostics": "Diagnostyka",
+  "admin_diagnostics_title": "Diagnostyka powiadomień",
+  "admin_notifications_recent": "Ostatnie powiadomienia",
+  "admin_notifications_empty": "Brak powiadomień",
+  "admin_push_subs_title": "Subskrypcje push",
+  "admin_push_subs_empty": "Brak aktywnych subskrypcji push",
+  "admin_push_sub_device": "Urządzenie",
+  "admin_push_sub_last_used": "Ostatnio użyte",
+  "admin_diag_section": "Manualne wyzwalacze",
+  "toast_push_sub_deleted": "Subskrypcja usunięta",
+  "admin_confirm_delete_sub": "Usunąć tę subskrypcję push?",
+  "admin_push_sub_delete": "Usuń"
 }

@@ -79,3 +79,28 @@ export async function unsubscribeFromPush(): Promise<void> {
   await subscription.unsubscribe();
   await supabase.from("push_subscriptions").delete().eq("endpoint", endpoint);
 }
+
+export type PushSubscriptionRow = {
+  endpoint: string;
+  device_type: string | null;
+  user_agent: string | null;
+  created_at: string;
+  last_used_at: string;
+};
+
+export async function fetchPushSubscriptions(): Promise<PushSubscriptionRow[]> {
+  const { data, error } = await supabase
+    .from("push_subscriptions")
+    .select("endpoint, device_type, user_agent, created_at, last_used_at")
+    .order("last_used_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as PushSubscriptionRow[];
+}
+
+export async function deletePushSubscriptionByEndpoint(endpoint: string): Promise<void> {
+  const { error } = await supabase
+    .from("push_subscriptions")
+    .delete()
+    .eq("endpoint", endpoint);
+  if (error) throw error;
+}
