@@ -1,0 +1,382 @@
+# Database
+
+Postgres 17 (Supabase Cloud, EU). Authoritative source of all application state. Authorisation is enforced exclusively by RLS.
+
+## ER diagram
+
+```mermaid
+erDiagram
+    auth_users ||--o| profiles : "1:1"
+    auth_users ||--o{ user_groups : owns
+    auth_users ||--o{ group_members : joins
+    auth_users ||--o{ group_invitations : "creates / receives"
+    auth_users ||--o{ categories : "owns (NULL = system)"
+    auth_users ||--o{ transactions : owns
+    auth_users ||--o{ shopping_lists : owns
+    auth_users ||--o{ notifications : receives
+    auth_users ||--o{ push_subscriptions : has
+
+    user_groups ||--o{ group_members : has
+    user_groups ||--o{ group_invitations : has
+    user_groups ||--o{ shopping_lists : "scopes (nullable)"
+
+    categories ||--o{ transactions : tags
+    categories ||--o{ shopping_lists : "tags (nullable)"
+
+    shopping_lists ||--o{ shopping_list_items : has
+    shopping_lists ||--o| transactions : "links via shopping_list_id"
+
+    transactions ||--o{ transactions : "recurring_template_id (self-ref)"
+
+    auth_users {
+        uuid id PK
+        text email
+    }
+    profiles {
+        uuid id PK_FK
+        text email
+        text name
+        user_role role
+        jsonb settings
+        timestamptz created_at
+        timestamptz last_login_at
+        timestamptz updated_at
+    }
+    user_groups {
+        uuid id PK
+        text name
+        uuid owner_id FK
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    group_members {
+        uuid group_id PK_FK
+        uuid user_id PK_FK
+        timestamptz joined_at
+    }
+    group_invitations {
+        uuid id PK
+        uuid group_id FK
+        text group_name
+        text invited_user_email
+        uuid invited_user_id FK_nullable
+        invitation_status status
+        uuid created_by FK
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    categories {
+        uuid id PK
+        text name
+        transaction_type type
+        uuid user_id FK_nullable
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    transactions {
+        uuid id PK
+        numeric amount
+        char currency
+        text description
+        timestamptz date
+        transaction_type type
+        transaction_status status
+        uuid category_id FK
+        uuid user_id FK
+        uuid shopping_list_id FK_nullable
+        bool is_recurring
+        smallint recurring_day
+        uuid recurring_template_id FK_nullable
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    shopping_lists {
+        uuid id PK
+        text name
+        shopping_list_status status
+        uuid user_id FK
+        uuid group_id FK_nullable
+        uuid category_id FK_nullable
+        numeric total_amount
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    shopping_list_items {
+        uuid id PK
+        uuid shopping_list_id FK
+        text name
+        bool completed
+        numeric quantity
+        text unit
+        smallint position
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    notifications {
+        uuid id PK
+        uuid user_id FK
+        text type
+        text title
+        text body
+        jsonb data
+        timestamptz read_at
+        timestamptz created_at
+    }
+    push_subscriptions {
+        uuid user_id PK_FK
+        text endpoint PK
+        text p256dh
+        text auth
+        text device_type
+        text user_agent
+        timestamptz created_at
+        timestamptz last_used_at
+    }
+```
+
+## Enums
+
+| Enum | Values |
+|---|---|
+| `user_role` | `user`, `admin` |
+| `transaction_type` | `income`, `expense` |
+| `transaction_status` | `draft`, `upcoming`, `overdue`, `paid` |
+| `shopping_list_status` | `active`, `completed` |
+| `invitation_status` | `pending`, `accepted`, `rejected`, `cancelled` |
+
+## Tables
+
+### `profiles`
+
+Mirrors `auth.users` 1:1. Created by `handle_new_user` trigger on `auth.users` insert; email kept in sync by `handle_user_email_update` on `auth.users` update. The `role` column is **revoked from `authenticated`** (`UPDATE`); changes flow only through `assign_admin_role` / `revoke_admin_role` RPCs.
+
+- **PK**: `id` (FK to `auth.users.id`, ON DELETE CASCADE).
+- **RLS**: read own row or any row if caller `is_admin()`; update own row only (role column itself is locked at the privilege layer).
+
+### `user_groups`
+
+A logical sharing unit. Owner has full lifecycle control via RPCs. Direct writes are blocked by `using (false)` — all mutations go through `create_group`, `disband_group`, `transfer_group_ownership`.
+
+- **PK**: `id`. **FK**: `owner_id` → `auth.users.id` (ON DELETE RESTRICT — must transfer or disband before deleting the user).
+- **RLS read**: members, owner, or pending invitees (matched by JWT email).
+- **RLS write**: blocked. Use RPCs.
+
+### `group_members`
+
+Join table between `user_groups` and `auth.users`. Compound PK; cascade-delete on either side.
+
+- **RLS read**: members of the group can read the full roster.
+- **RLS write**: blocked. Use `create_group`, `accept_invitation`, `leave_group`, `remove_group_member`, `disband_group`.
+
+### `group_invitations`
+
+Tracks the invitation workflow. Email is the join key (the invitee may not yet have a Supabase account at invite time); `invited_user_id` is denormalised once known but not authoritative.
+
+- **RLS read**: creator OR invitee-by-email OR group owner.
+- **RLS write**: blocked. Use `invite_user`, `accept_invitation`, `reject_invitation`, `cancel_invitation`.
+- Status flow: `pending` → `accepted | rejected | cancelled`.
+
+### `categories`
+
+Owner-scoped; `user_id IS NULL` denotes a **system category**, visible to every authenticated user. System categories are seeded from `supabase/seed.sql` (14 expense + 7 income).
+
+- **PK**: `id`. **FK**: `user_id` → `auth.users.id` (nullable, ON DELETE CASCADE).
+- **RLS read**: system, own, or group-shared (via the standard pair-of-`group_members` self-join).
+- **RLS write own**: by owner. **RLS write system**: by admin only.
+- **Indexes**: `idx_categories_user_name`, `idx_categories_type_name`.
+
+### `transactions`
+
+Core ledger. Amount is stored as a positive magnitude; sign is carried by `type`. Currency defaults to `PLN`. Date is `timestamptz` (not `date`, despite the name) — the legacy plan stored ISO strings; the migration kept that semantics on Supabase.
+
+- **PK**: `id`. **FKs**: `category_id` (RESTRICT), `user_id` (CASCADE), `shopping_list_id` (SET NULL), `recurring_template_id` (SET NULL self-ref).
+- **CHECK**: `amount > 0`, `recurring_day BETWEEN 1 AND 31`.
+- **RLS read**: own + group-shared. **RLS write**: own only.
+- **Indexes**: `idx_transactions_user_date_desc`, `idx_transactions_user_date_asc`, `idx_transactions_category_user_date`, `idx_transactions_status_date`, `idx_transactions_recurring`, `idx_transactions_recurring_template`.
+
+A view `transactions_with_category` joins to `categories` for display; the SvelteKit app reads this view in `fetchTransactions`.
+
+### `shopping_lists`
+
+Per-user list, optionally scoped to a group. Soft-completion is **not** used — `status` flips to `completed` (and `total_amount` is filled in) by the `complete_shopping_list` RPC, which also creates the linked expense transaction in the same DB transaction.
+
+- **PK**: `id`. **FKs**: `user_id` (CASCADE), `group_id` (SET NULL), `category_id` (SET NULL).
+- **RLS read**: own or group-shared.
+- **RLS write**: owner OR group member can update/delete (group members are co-editors). Direct insert is allowed for the owner.
+- **Indexes**: `idx_shopping_lists_user_updated`, `idx_shopping_lists_group_user_updated`, `idx_shopping_lists_status_updated`.
+
+### `shopping_list_items`
+
+Child rows of `shopping_lists`. Cascade-delete on parent. RLS uses `EXISTS` against the parent row, so all access derives from the parent's policies.
+
+- **PK**: `id`. **FK**: `shopping_list_id` (CASCADE).
+- **Indexes**: `idx_shopping_list_items_list_id`, `idx_shopping_list_items_list_position`.
+
+### `notifications`
+
+In-app inbox plus the data row that drives every push. Phase 5.2 wired a trigger so that **every insert** here also fires the `send-push` Edge Function, fanning the row out as web-push to all of the user's `push_subscriptions`.
+
+- **PK**: `id`. **FK**: `user_id` (CASCADE).
+- **RLS read/update/delete**: own. **RLS insert**: blocked from clients (only triggers and Edge Functions create rows).
+- `type` is a free-form string (not a Postgres enum) — see [audit](./audit-2026-05-09.md).
+- **Indexes**: `notifications_user_id_created_at_idx`, `notifications_unread_idx`.
+
+### `push_subscriptions`
+
+VAPID web-push subscriptions, one row per `(user_id, endpoint)` pair. `p256dh` and `auth` are base64url-encoded subscriber keys. `last_used_at` is auto-bumped on every UPDATE by `bump_last_used_at`.
+
+- **PK**: `(user_id, endpoint)`. **FK**: `user_id` (CASCADE).
+- **RLS**: users manage their own rows.
+- Stale rows are pruned by `send-push` when the upstream returns 404 or 410.
+
+## RLS strategy
+
+Two patterns:
+
+1. **Owner + group-shared read**, **owner-only write** — used on `transactions`, `categories`, `shopping_lists`. The read predicate is the standard pair-of-`group_members` self-join:
+
+   ```sql
+   user_id = (select auth.uid())
+   or exists (
+     select 1 from group_members gm1
+     join group_members gm2 on gm1.group_id = gm2.group_id
+     where gm1.user_id = (select auth.uid())
+       and gm2.user_id = <table>.user_id
+   )
+   ```
+
+   `auth.uid()` is always wrapped in `(select ...)` so Postgres evaluates it once per statement (initPlan optimisation), not once per row.
+
+2. **No direct writes — RPC-only** — used on `user_groups`, `group_members`, `group_invitations`. Writes are blocked by:
+
+   ```sql
+   create policy "<table>: no direct writes"
+     on <table> for all to authenticated
+     using (false) with check (false);
+   ```
+
+   Mutations are exposed through SECURITY DEFINER RPCs that bypass RLS and enforce the business invariants (only the owner can disband, only the invitee can accept, etc.). Two SECURITY DEFINER helpers — `is_group_member()` and `is_group_owner()` — break the recursion that direct subqueries against `user_groups`/`group_members` produce inside RLS policies.
+
+## Helper functions
+
+All `LANGUAGE plpgsql STABLE`, all SECURITY DEFINER except where noted.
+
+| Function | Used by | Notes |
+|---|---|---|
+| `is_admin()` | RLS, RPCs | Reads `profiles.role` for caller. |
+| `is_group_member(group_id)` | `shopping_lists` RLS | Breaks recursion. |
+| `is_group_owner(group_id)` | `group_invitations` RLS | Breaks recursion. |
+| `handle_updated_at()` | `BEFORE UPDATE` triggers on 7 tables | Generic timestamp bump. |
+| `handle_new_user()` | `auth.users` insert trigger | Creates `profiles` row. |
+| `handle_user_email_update()` | `auth.users` update trigger | Mirrors email change to `profiles`. |
+| `bump_last_used_at()` | `push_subscriptions` BEFORE UPDATE | Updates `last_used_at`. |
+| `notify_on_group_invitation()` | `group_invitations` AFTER INSERT trigger | Inserts a notification if invitee exists in `auth.users`. |
+| `notify_on_role_change()` | `profiles` AFTER UPDATE OF role trigger | Inserts a notification on role change. |
+| `trigger_send_push()` | `notifications` AFTER INSERT trigger | `pg_net.http_post` to `send-push` with vault secret. |
+| `trigger_sync_user_role()` | `profiles` AFTER UPDATE OF role trigger | `pg_net.http_post` to `sync-user-role`. |
+| `trigger_admin_summary()` | Admin-callable RPC | Manual fire of `send-admin-summary`. |
+
+## Domain RPCs
+
+All SECURITY DEFINER (bypass RLS) unless marked SECURITY INVOKER. Defined in `20260423000000_initial_schema.sql` plus follow-on migrations.
+
+**Groups (6)**
+
+| RPC | Auth | Behavior |
+|---|---|---|
+| `create_group(p_name)` | any user | Creates group; adds caller as owner and member atomically. |
+| `leave_group(p_group_id)` | non-owner member | Errors if caller is owner. |
+| `transfer_group_ownership(p_group_id, p_new_owner_id)` | current owner | New owner must already be a member. |
+| `disband_group(p_group_id)` | owner | Cascades to members and invitations. |
+| `remove_group_member(p_group_id, p_user_id)` | owner | Cannot remove self. |
+| `invite_user(p_group_id, p_email)` | owner | Validates no duplicate pending invite; lower-cases email. |
+
+**Invitations (3)**
+
+| RPC | Auth | Behavior |
+|---|---|---|
+| `accept_invitation(p_invitation_id)` | invitee (email match) | Atomically inserts `group_members` row and updates status. |
+| `reject_invitation(p_invitation_id)` | invitee | Sets status `rejected`. |
+| `cancel_invitation(p_invitation_id)` | creator OR group owner | Sets status `cancelled`. |
+
+**Shopping list (2)**
+
+| RPC | Auth | Behavior |
+|---|---|---|
+| `complete_shopping_list(p_list_id, p_total_amount, p_category_id)` | owner OR group member | Sets `status='completed'` + `total_amount`, inserts a linked `transactions` row, all in one DB transaction. |
+| `duplicate_shopping_list(p_list_id)` | SECURITY INVOKER — uses caller's RLS | Copies list + items, resets `status='active'`. |
+
+**Notifications (2 — both SECURITY INVOKER)**
+
+| RPC | Behavior |
+|---|---|
+| `mark_notification_read(p_notification_id)` | Sets `read_at`. |
+| `mark_all_notifications_read()` | Bulk update for caller. |
+
+**Admin (3)**
+
+| RPC | Auth | Behavior |
+|---|---|---|
+| `assign_admin_role(p_user_id)` | admin | Promotes target. |
+| `revoke_admin_role(p_user_id)` | admin | Cannot revoke self. |
+| `trigger_admin_summary()` | admin | Manually fires `send-admin-summary` Edge Function. |
+
+**Account**
+
+| RPC | Auth | Behavior |
+|---|---|---|
+| `delete_account()` | self | Errors if caller still owns any group. |
+
+**Reporting (1 — SECURITY INVOKER)**
+
+| RPC | Behavior |
+|---|---|
+| `get_monthly_summary(p_year int, p_month int)` | Aggregates the caller's visible transactions by category for the given month; returns JSON `{total_income, total_expenses, net, categories[]}`. **Currently unused by the SPA** — `computeSummary(transactions)` runs client-side instead. Kept as an alternative path. |
+
+## Triggers (summary)
+
+| Trigger | Table | Event | Action |
+|---|---|---|---|
+| `on_auth_user_created` | `auth.users` | AFTER INSERT | `handle_new_user()` |
+| `on_auth_user_email_updated` | `auth.users` | AFTER UPDATE OF email | `handle_user_email_update()` |
+| `set_updated_at` (×7) | profiles, user_groups, group_invitations, categories, shopping_lists, transactions, shopping_list_items | BEFORE UPDATE | `handle_updated_at()` |
+| `group_invitations_notify` | group_invitations | AFTER INSERT | `notify_on_group_invitation()` |
+| `profiles_role_change_notify` | profiles | AFTER UPDATE OF role | `notify_on_role_change()` |
+| `push_subscriptions_bump_last_used` | push_subscriptions | BEFORE UPDATE | `bump_last_used_at()` |
+| `notifications_send_push` | notifications | AFTER INSERT | `trigger_send_push()` (calls `pg_net.http_post`) |
+| `profiles_role_change_sync` | profiles | AFTER UPDATE OF role | `trigger_sync_user_role()` (calls `pg_net.http_post`) |
+
+## Scheduled jobs (`pg_cron`)
+
+| Job | Cron (UTC) | Action |
+|---|---|---|
+| `process_recurring_transactions` | `0 23 1 * *` (1st of month, 23:00 UTC) | Materialises new rows for all `is_recurring=true` templates due this month. Dedup keyed on `recurring_template_id`. |
+| `update_transaction_statuses` | `0 5 * * *` (daily 05:00 UTC) | Flips `status` based on `date` vs `now()`. |
+| `send-admin-summary` dispatch | `0 7 * * 1` (Monday 07:00 UTC ≈ 08:00/09:00 Warsaw) | `pg_net.http_post` → `send-admin-summary` Edge Function with Vault Bearer. |
+
+DST drift is acknowledged: pg_cron runs on UTC, so the local-Warsaw fire time shifts by one hour around DST transitions.
+
+## Migration timeline
+
+```text
+20260423000000_initial_schema.sql                  — baseline: 8 tables, 5 enums, helpers, 11 RPCs, 8 RLS policy groups, 12 indexes, auth triggers, monthly_summary view
+20260424000000_fix_group_members_rls_recursion    — replace direct subquery with is_group_member()
+20260424000001_fix_user_groups_rls_recursion      — replace direct subquery with is_group_owner()
+20260425000000_phase5_notifications_push          — notifications + push_subscriptions, mark_*_read, process_recurring_transactions, update_transaction_statuses, pg_cron schedules
+20260425000001_phase5_2_edge_function_hooks       — trigger_send_push, trigger_sync_user_role, weekly send-admin-summary cron, all using vault.decrypted_secret
+20260426000000_fix_recurring_template_id          — recurring_template_id FK + dedup
+20260426000001_grant_authenticated_table_access   — restore table grants after platform JWT API reset
+20260427000001_add_remove_group_member_rpc        — owner-only member removal
+20260430000000_duplicate_shopping_list_rpc        — duplicate_shopping_list (SECURITY INVOKER)
+20260504000000_admin_trigger_rpc                  — trigger_admin_summary
+```
+
+> **Drift note:** The Supabase `supabase_migrations.schema_migrations` table currently shows only the latest migration (`20260504195407 admin_trigger_rpc`). All earlier migrations were applied before the platform's migration tracking was wired up; the SQL files are the source of truth, not the migrations table. See [audit](./audit-2026-05-09.md).
+
+## Extensions installed
+
+`plpgsql`, `pgcrypto`, `uuid-ossp`, `pg_stat_statements`, **`pg_cron`**, **`pg_net`**, **`supabase_vault`**.
+
+## Open issues
+
+See the **[audit report](./audit-2026-05-09.md)** for the prioritised list (function `search_path` warnings, two unwrapped `auth.jwt()` calls in RLS policies, four unindexed FKs, several unused indexes, multiple permissive policies, and the offline-write-queue parity gap).
