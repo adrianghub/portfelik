@@ -116,14 +116,11 @@ jobs:
         run: pnpm build
 
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: portfelik
-          directory: apps/web-svelte/build
-          branch: main
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          command: pages deploy apps/web-svelte/build --project-name=portfelik --branch=main --commit-dirty=true
 
   deploy-staging:
     name: Deploy to Cloudflare Pages (staging)
@@ -160,14 +157,11 @@ jobs:
         run: pnpm build
 
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: portfelik
-          directory: apps/web-svelte/build
-          branch: dev
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          command: pages deploy apps/web-svelte/build --project-name=portfelik --branch=dev --commit-dirty=true
 
   smoke:
     name: Real-DB smoke (staging)

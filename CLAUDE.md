@@ -31,7 +31,7 @@ Apply to every task regardless of phase.
 
 **Portfelik** — personal-finance PWA. Migrating React 19 + Firebase → SvelteKit + Supabase. Full plan: `MIGRATION_PLAN.md`.
 
-**Immediate next step:** Phase 8 remainder — wire staging deploy, add real-DB smoke suite, port `/admin/notifications`, execute old-infra cleanup.
+**Immediate next step:** Phase 9 — post-audit quality items. Start with RLS regression tests and the security/perf advisor migration (see `docs/architecture/audit-2026-05-09.md`). Read `docs/architecture/README.md` first for the current architectural picture.
 
 | Phase | Status |
 |---|---|
@@ -43,7 +43,7 @@ Apply to every task regardless of phase.
 | 5.7 — Retire `portfelik-bff/` | ✅ Done (2026-04-30) — directory deleted, no URL refs existed |
 | Gap fixes (2026-04-30) — shopping list rename + offline indicator | ✅ Done |
 | 7 — Cutover | ✅ Done (2026-05-01) — src/, functions/, Firebase configs deleted. |
-| 8 — Hardening — see sub-table | 🟡 In progress (2026-05-08) |
+| 8 — Hardening — see sub-table | ✅ Done (2026-05-09) |
 
 ### Phase 8 — Hardening (deferred UX + quality)
 
@@ -53,10 +53,25 @@ Apply to every task regardless of phase.
 | Bulk delete transactions (row selection + delete selected) | ✅ Done — `8d37fec` |
 | Playwright e2e (mocked, login + transactions + shopping lists flows) | ✅ Done — `75dd6fd`, `86f6ebb`, `8ae80c3`, `3412ebb` |
 | GitHub Actions CI/CD (typecheck + lint + e2e gating prod deploy) | ✅ Done — `89f3e73` |
-| Staging deploy — `dev` branch → `dev.portfelik.pages.dev` | 🟡 Workflow ready (2026-05-08); needs first push to `dev` to verify |
-| Real-DB smoke suite — runs against staging post-deploy | 🟡 Specs + workflow ready (2026-05-08); blocked on Supabase Auth email-provider toggle + GH secrets `E2E_SMOKE_EMAIL` / `E2E_SMOKE_PASSWORD` |
+| Staging deploy — `dev` branch → `dev.portfelik.pages.dev` | ✅ Done (2026-05-09) — verified green on push to `dev`; uses `cloudflare/wrangler-action@v3` (legacy `pages-action@v1` was Node 20 deprecated) |
+| Real-DB smoke suite — runs against staging post-deploy | ✅ Done (2026-05-09) — full chain green: ci → mocked e2e → deploy-staging → smoke (real Supabase round-trip via dedicated test user, sentinel-tagged data, RLS-isolated) |
 | `/admin/notifications` diagnostic page (legacy parity) | ✅ Done (2026-05-08) |
 | Old infra cleanup — `tools/migrate/`, `apps/web-react/`, `functions/`, `portfelik-bff/`, `firestore.*` | ✅ Done — directories already gone; `firebase_uid` column was planned but never applied (no migration needed). Local untracked `dist/` from old React build is safe to `rm -rf`. |
+| Architecture audit + docs (`docs/architecture/`) — overview, ER + DB doc, 5 flow diagrams, 10 ADRs, audit report | ✅ Done (2026-05-09) — see `docs/architecture/README.md` and `docs/architecture/audit-2026-05-09.md` |
+
+### Phase 9 — Post-audit quality items (tracked from `docs/architecture/audit-2026-05-09.md`)
+
+| Item | Severity | Status |
+|---|---|---|
+| RLS regression test suite (Vitest, two JWTs) | Medium | ⏳ Backlog |
+| Function `search_path` pinning on all SECURITY DEFINER fns (security advisor) | Medium | ⏳ Backlog |
+| Four FK-covering indexes + two `auth.jwt()` initPlan wraps (perf advisor) | Medium | ⏳ Backlog |
+| Vault secret rotation runbook (`docs/runbooks/secret-rotation.md`) | Medium | ⏳ Backlog |
+| **Offline write queue (Dexie outbox) — parity gap vs legacy `FirestoreService`** | Medium | ⏳ Backlog |
+| `notifications.type` Postgres enum + `data` jsonb schema | Low | ⏳ Backlog |
+| Edge Function `deno.json` for each of 3 functions | Low | ⏳ Backlog |
+| pg_cron DST documentation in migration comments | Low | ⏳ Backlog |
+| Migration drift — re-import early migrations into `supabase_migrations.schema_migrations` | Low | ⏳ Backlog |
 
 **Branch flow:** `main` → prod (`portfelik.adrianzinko.com`); `dev` → staging (`dev.portfelik.pages.dev`). Same Cloudflare Pages project + same Supabase project for both — staging writes are isolated to the dedicated test user via RLS, smoke specs clean up via sentinel-tagged data.
 
@@ -78,7 +93,8 @@ Apply to every task regardless of phase.
 portfelik/portfelik/
 ├── apps/web-svelte/        ← SvelteKit app (active — see apps/web-svelte/CLAUDE.md)
 ├── supabase/               ← Migrations + config (see supabase/CLAUDE.md)
-├── MIGRATION_PLAN.md       ← Authoritative phase plan — read before each phase
+├── docs/architecture/      ← Canonical architecture docs (overview, DB, flows, ADRs, audit)
+├── MIGRATION_PLAN.md       ← Historical migration phase plan (now mostly complete)
 └── .claude/rules/svelte-gotchas.md  ← Auto-loaded for apps/web-svelte/** work
 ```
 
