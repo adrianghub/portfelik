@@ -31,3 +31,7 @@ firebase-data/
 .mcp.json
 
 docs/superpowers
+
+.worktrees/
+.superpowers/
+.claude/worktrees/
