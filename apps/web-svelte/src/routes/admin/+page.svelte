@@ -120,14 +120,17 @@
   {:else if filtered.length === 0}
     <p class="py-8 text-center text-sm text-zinc-400 dark:text-zinc-500">{m.admin_users_empty()}</p>
   {:else}
-    <div class="overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+    <div
+      class="overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900"
+    >
       <table class="w-full text-sm">
         <thead>
           <tr class="border-b border-zinc-100 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800">
             <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400"
               >{m.admin_users_col_email()}</th
             >
-            <th class="hidden px-4 py-3 text-left text-xs font-medium text-zinc-500 sm:table-cell dark:text-zinc-400"
+            <th
+              class="hidden px-4 py-3 text-left text-xs font-medium text-zinc-500 sm:table-cell dark:text-zinc-400"
               >{m.admin_users_col_name()}</th
             >
             <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400"
@@ -143,7 +146,9 @@
           {#each filtered as p (p.id)}
             <tr class="border-b border-zinc-50 last:border-0 dark:border-zinc-800">
               <td class="px-4 py-3 text-zinc-900 dark:text-white">{p.email}</td>
-              <td class="hidden px-4 py-3 text-zinc-500 sm:table-cell dark:text-zinc-400">{p.name ?? "—"}</td>
+              <td class="hidden px-4 py-3 text-zinc-500 sm:table-cell dark:text-zinc-400"
+                >{p.name ?? "—"}</td
+              >
               <td class="px-4 py-3">
                 <span
                   class={p.role === "admin"
@@ -171,5 +176,4 @@
       </table>
     </div>
   {/if}
-
 </div>

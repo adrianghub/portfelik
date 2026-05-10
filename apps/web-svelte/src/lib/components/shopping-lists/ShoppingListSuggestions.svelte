@@ -80,7 +80,10 @@
       <li role="option" aria-selected={i === activeIndex}>
         <button
           type="button"
-          class="flex w-full items-center justify-between px-3 py-1.5 text-left text-sm transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800 {i === activeIndex ? 'bg-zinc-50 dark:bg-zinc-800' : ''}"
+          class="flex w-full items-center justify-between px-3 py-1.5 text-left text-sm transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800 {i ===
+          activeIndex
+            ? 'bg-zinc-50 dark:bg-zinc-800'
+            : ''}"
           onclick={() => onselect(s.name, s.quantity, s.unit)}
           onmouseenter={() => (activeIndex = i)}
         >

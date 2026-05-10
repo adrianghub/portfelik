@@ -24,29 +24,41 @@
               class="min-w-0 flex-1 text-left transition-opacity hover:opacity-70"
             >
               <div class="flex items-baseline justify-between">
-                <span class="truncate text-sm text-zinc-700 dark:text-zinc-300">{cat.category_name}</span>
+                <span class="truncate text-sm text-zinc-700 dark:text-zinc-300"
+                  >{cat.category_name}</span
+                >
                 <span class="ml-2 shrink-0 text-sm font-medium text-zinc-900 dark:text-zinc-100"
                   >{formatCurrency(cat.total)}</span
                 >
               </div>
               <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-700">
-                <div class="h-full rounded-full bg-zinc-800 dark:bg-zinc-200" style="width: {cat.percentage}%"></div>
+                <div
+                  class="h-full rounded-full bg-zinc-800 dark:bg-zinc-200"
+                  style="width: {cat.percentage}%"
+                ></div>
               </div>
             </button>
           {:else}
             <div class="min-w-0 flex-1">
               <div class="flex items-baseline justify-between">
-                <span class="truncate text-sm text-zinc-700 dark:text-zinc-300">{cat.category_name}</span>
+                <span class="truncate text-sm text-zinc-700 dark:text-zinc-300"
+                  >{cat.category_name}</span
+                >
                 <span class="ml-2 shrink-0 text-sm font-medium text-zinc-900 dark:text-zinc-100"
                   >{formatCurrency(cat.total)}</span
                 >
               </div>
               <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-700">
-                <div class="h-full rounded-full bg-zinc-800 dark:bg-zinc-200" style="width: {cat.percentage}%"></div>
+                <div
+                  class="h-full rounded-full bg-zinc-800 dark:bg-zinc-200"
+                  style="width: {cat.percentage}%"
+                ></div>
               </div>
             </div>
           {/if}
-          <span class="w-10 shrink-0 text-right text-xs text-zinc-400 dark:text-zinc-500">{cat.percentage}%</span>
+          <span class="w-10 shrink-0 text-right text-xs text-zinc-400 dark:text-zinc-500"
+            >{cat.percentage}%</span
+          >
         </li>
       {/each}
     </ul>

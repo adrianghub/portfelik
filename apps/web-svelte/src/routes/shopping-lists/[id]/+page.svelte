@@ -164,11 +164,15 @@
     <div class="text-xs text-zinc-400 dark:text-zinc-500">{formatDate(list.created_at)}</div>
 
     {#if list.shopping_list_items.length === 0}
-      <p class="py-8 text-center text-sm text-zinc-400 dark:text-zinc-500">{m.shopping_list_items_empty()}</p>
+      <p class="py-8 text-center text-sm text-zinc-400 dark:text-zinc-500">
+        {m.shopping_list_items_empty()}
+      </p>
     {:else}
       <ul class="space-y-1">
         {#each list.shopping_list_items as item (item.id)}
-          <li class="flex items-center gap-3 rounded-xl border border-zinc-100 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
+          <li
+            class="flex items-center gap-3 rounded-xl border border-zinc-100 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900"
+          >
             {#if isActive}
               <button
                 onclick={() =>
@@ -201,7 +205,9 @@
               <div
                 class={cn(
                   "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
-                  item.completed ? "border-zinc-800 bg-zinc-800 dark:border-zinc-200 dark:bg-zinc-200" : "border-zinc-300 dark:border-zinc-600"
+                  item.completed
+                    ? "border-zinc-800 bg-zinc-800 dark:border-zinc-200 dark:bg-zinc-200"
+                    : "border-zinc-300 dark:border-zinc-600"
                 )}
               >
                 {#if item.completed}
@@ -221,7 +227,9 @@
             <span
               class={cn(
                 "flex-1 text-sm",
-                item.completed ? "text-zinc-400 line-through dark:text-zinc-500" : "text-zinc-900 dark:text-white"
+                item.completed
+                  ? "text-zinc-400 line-through dark:text-zinc-500"
+                  : "text-zinc-900 dark:text-white"
               )}
             >
               {item.name}
@@ -286,8 +294,12 @@
       <div
         class="flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900"
       >
-        <span class="text-sm font-medium text-zinc-700 dark:text-zinc-200">{m.shopping_list_total()}</span>
-        <span class="text-sm font-semibold text-zinc-900 dark:text-white">{formatCurrency(list.total_amount)}</span>
+        <span class="text-sm font-medium text-zinc-700 dark:text-zinc-200"
+          >{m.shopping_list_total()}</span
+        >
+        <span class="text-sm font-semibold text-zinc-900 dark:text-white"
+          >{formatCurrency(list.total_amount)}</span
+        >
       </div>
     {/if}
   {/if}

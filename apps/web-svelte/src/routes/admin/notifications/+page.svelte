@@ -40,10 +40,7 @@
     loading = true;
     error = null;
     try {
-      const [notifs, subs] = await Promise.all([
-        fetchNotifications(),
-        fetchPushSubscriptions(),
-      ]);
+      const [notifs, subs] = await Promise.all([fetchNotifications(), fetchPushSubscriptions()]);
       notifications = notifs;
       pushSubs = subs;
     } catch (err) {
@@ -111,8 +108,12 @@
     <p class="text-sm text-rose-600">{error}</p>
   {:else}
     <!-- Manual triggers -->
-    <section class="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
-      <h3 class="text-sm font-semibold text-zinc-700 dark:text-zinc-200">{m.admin_diag_section()}</h3>
+    <section
+      class="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900"
+    >
+      <h3 class="text-sm font-semibold text-zinc-700 dark:text-zinc-200">
+        {m.admin_diag_section()}
+      </h3>
       <div class="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
@@ -120,14 +121,20 @@
           disabled={triggerSummaryMutation.isPending}
           class="rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
         >
-          {triggerSummaryMutation.isPending ? m.admin_trigger_summary_sending() : m.admin_trigger_summary()}
+          {triggerSummaryMutation.isPending
+            ? m.admin_trigger_summary_sending()
+            : m.admin_trigger_summary()}
         </button>
       </div>
     </section>
 
     <!-- Push subscriptions -->
-    <section class="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
-      <h3 class="text-sm font-semibold text-zinc-700 dark:text-zinc-200">{m.admin_push_subs_title()}</h3>
+    <section
+      class="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900"
+    >
+      <h3 class="text-sm font-semibold text-zinc-700 dark:text-zinc-200">
+        {m.admin_push_subs_title()}
+      </h3>
       {#if pushSubs.length === 0}
         <p class="mt-3 text-sm text-zinc-400 dark:text-zinc-500">{m.admin_push_subs_empty()}</p>
       {:else}
@@ -138,7 +145,10 @@
                 <p class="text-zinc-900 dark:text-white">
                   {sub.device_type ?? m.admin_push_sub_device()}
                 </p>
-                <p class="truncate text-xs text-zinc-400 dark:text-zinc-500" title={sub.user_agent ?? ""}>
+                <p
+                  class="truncate text-xs text-zinc-400 dark:text-zinc-500"
+                  title={sub.user_agent ?? ""}
+                >
                   {sub.user_agent ?? "—"}
                 </p>
                 <p class="text-xs text-zinc-400 dark:text-zinc-500">
@@ -159,7 +169,9 @@
     </section>
 
     <!-- Recent notifications -->
-    <section class="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+    <section
+      class="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900"
+    >
       <h3 class="text-sm font-semibold text-zinc-700 dark:text-zinc-200">
         {m.admin_notifications_recent()}
       </h3>
@@ -171,7 +183,9 @@
             <li class="space-y-0.5 py-3 text-sm">
               <div class="flex items-center justify-between gap-2">
                 <span class="font-medium text-zinc-900 dark:text-white">{n.title ?? n.type}</span>
-                <span class="text-xs text-zinc-400 dark:text-zinc-500">{formatDate(n.created_at)}</span>
+                <span class="text-xs text-zinc-400 dark:text-zinc-500"
+                  >{formatDate(n.created_at)}</span
+                >
               </div>
               {#if n.body}
                 <p class="text-zinc-500 dark:text-zinc-400">{n.body}</p>

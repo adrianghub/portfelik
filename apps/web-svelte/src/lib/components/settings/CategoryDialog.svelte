@@ -62,8 +62,12 @@
     </div>
 
     <div class="space-y-1">
-      <span class="text-xs font-medium text-zinc-600 dark:text-zinc-300">{m.category_form_type()}</span>
-      <div class="flex overflow-hidden rounded-lg border border-zinc-200 text-sm dark:border-zinc-700">
+      <span class="text-xs font-medium text-zinc-600 dark:text-zinc-300"
+        >{m.category_form_type()}</span
+      >
+      <div
+        class="flex overflow-hidden rounded-lg border border-zinc-200 text-sm dark:border-zinc-700"
+      >
         <button
           type="button"
           onclick={() => (type = "expense")}

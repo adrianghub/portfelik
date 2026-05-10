@@ -43,7 +43,11 @@
 <div class="container mx-auto max-w-3xl space-y-4 px-4 py-6">
   <h1 class="text-xl font-semibold text-zinc-900 dark:text-white">{m.settings_title()}</h1>
 
-  <div role="tablist" aria-label={m.settings_title()} class="flex gap-1 rounded-xl bg-zinc-100 p-1 dark:bg-zinc-800">
+  <div
+    role="tablist"
+    aria-label={m.settings_title()}
+    class="flex gap-1 rounded-xl bg-zinc-100 p-1 dark:bg-zinc-800"
+  >
     {#each tabs as tab (tab.id)}
       <button
         role="tab"

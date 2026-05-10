@@ -231,7 +231,9 @@
   {:else if groupsQuery.data}
     <div class="space-y-2">
       {#each groupsQuery.data as group (group.id)}
-        <div class="space-y-2 rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900">
+        <div
+          class="space-y-2 rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900"
+        >
           <div class="flex items-center justify-between">
             <span class="text-sm font-medium text-zinc-900 dark:text-white">{group.name}</span>
             <span class="text-xs text-zinc-400 dark:text-zinc-500">
@@ -275,7 +277,9 @@
 
             <!-- Sent invitations panel (inline toggle) -->
             {#if sentInvGroupId === group.id}
-              <div class="mt-1 rounded-lg border border-zinc-100 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800">
+              <div
+                class="mt-1 rounded-lg border border-zinc-100 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800"
+              >
                 {#if sentInvQuery.isLoading}
                   <div class="h-8 animate-pulse rounded bg-zinc-200"></div>
                 {:else if sentInvQuery.data?.length === 0}
@@ -345,7 +349,9 @@
 >
   <form onsubmit={submitCreateGroup} class="space-y-4">
     <div class="space-y-1">
-      <label class="text-xs font-medium text-zinc-600 dark:text-zinc-300" for="grp-name">{m.group_form_name()}</label>
+      <label class="text-xs font-medium text-zinc-600 dark:text-zinc-300" for="grp-name"
+        >{m.group_form_name()}</label
+      >
       <input
         id="grp-name"
         type="text"
@@ -439,7 +445,9 @@
       {#each membersQuery.data as member (member.user_id)}
         <li class="flex items-center justify-between gap-3 py-3">
           <div class="min-w-0">
-            <p class="truncate text-sm font-medium text-zinc-900 dark:text-white">{member.name ?? member.email}</p>
+            <p class="truncate text-sm font-medium text-zinc-900 dark:text-white">
+              {member.name ?? member.email}
+            </p>
             {#if member.name}
               <p class="truncate text-xs text-zinc-400 dark:text-zinc-500">{member.email}</p>
             {/if}

@@ -80,7 +80,9 @@
 {#if !profile}
   <div class="h-32 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800"></div>
 {:else}
-  <div class="divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white dark:divide-zinc-700 dark:border-zinc-700 dark:bg-zinc-900">
+  <div
+    class="divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white dark:divide-zinc-700 dark:border-zinc-700 dark:bg-zinc-900"
+  >
     <div class="flex items-center justify-between gap-3 px-4 py-3">
       <span class="shrink-0 text-sm text-zinc-500 dark:text-zinc-400">{m.profile_name()}</span>
       {#if editing}
@@ -144,9 +146,13 @@
   </div>
 
   {#if notifPermission === "granted"}
-    <div class="mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+    <div
+      class="mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900"
+    >
       <div class="flex items-center justify-between gap-3 px-4 py-3">
-        <span class="text-sm font-medium text-zinc-900 dark:text-white">{m.profile_notifications_enabled()}</span>
+        <span class="text-sm font-medium text-zinc-900 dark:text-white"
+          >{m.profile_notifications_enabled()}</span
+        >
         <button
           type="button"
           onclick={() => unsubMutation.mutate()}
@@ -159,9 +165,13 @@
     </div>
   {/if}
 
-  <div class="mt-6 rounded-xl border border-rose-200 bg-rose-50 p-4 dark:border-rose-900 dark:bg-rose-950">
+  <div
+    class="mt-6 rounded-xl border border-rose-200 bg-rose-50 p-4 dark:border-rose-900 dark:bg-rose-950"
+  >
     <p class="text-sm font-medium text-rose-700 dark:text-rose-300">{m.profile_delete_account()}</p>
-    <p class="mt-1 text-xs text-rose-600 dark:text-rose-400">{m.profile_delete_account_confirm()}</p>
+    <p class="mt-1 text-xs text-rose-600 dark:text-rose-400">
+      {m.profile_delete_account_confirm()}
+    </p>
     {#if deleteError}
       <p class="mt-2 text-xs font-medium text-rose-700 dark:text-rose-300">{deleteError}</p>
     {/if}

@@ -16,8 +16,13 @@
   );
 </script>
 
-<div class="flex items-stretch overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
-  <a href="/shopping-lists/{list.id}" class="flex-1 p-4 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800">
+<div
+  class="flex items-stretch overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900"
+>
+  <a
+    href="/shopping-lists/{list.id}"
+    class="flex-1 p-4 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800"
+  >
     <div class="flex items-start justify-between gap-2">
       <span class="font-medium text-zinc-900 dark:text-white">{list.name}</span>
       <span

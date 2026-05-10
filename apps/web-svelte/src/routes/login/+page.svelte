@@ -57,8 +57,12 @@
   <title>{m.app_name()} – {m.login_sign_in()}</title>
 </svelte:head>
 
-<div class="flex min-h-screen flex-col items-center justify-center bg-zinc-50 px-4 dark:bg-zinc-950">
-  <div class="w-full max-w-sm rounded-2xl border border-zinc-100 bg-white p-8 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+<div
+  class="flex min-h-screen flex-col items-center justify-center bg-zinc-50 px-4 dark:bg-zinc-950"
+>
+  <div
+    class="w-full max-w-sm rounded-2xl border border-zinc-100 bg-white p-8 shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+  >
     <h1 class="mb-1 text-2xl font-semibold text-zinc-900 dark:text-zinc-100">{m.login_title()}</h1>
     <p class="mb-6 text-sm text-zinc-500 dark:text-zinc-400">{m.login_description()}</p>
 
@@ -70,7 +74,10 @@
 
     <form onsubmit={signInWithEmail} class="space-y-4">
       <div>
-        <label for="email" class="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        <label
+          for="email"
+          class="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+        >
           {m.login_email()}
         </label>
         <input
@@ -85,7 +92,10 @@
       </div>
 
       <div>
-        <label for="password" class="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        <label
+          for="password"
+          class="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+        >
           {m.login_password()}
         </label>
         <input

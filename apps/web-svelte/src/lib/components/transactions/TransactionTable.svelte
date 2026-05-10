@@ -13,11 +13,21 @@
     emptyLabel?: string;
     selectedIds?: Set<string>;
   }
-  let { transactions, currentUserId, onedit, ondelete, onrowclick, emptyLabel, selectedIds = $bindable(new Set<string>()) }: Props = $props();
+  let {
+    transactions,
+    currentUserId,
+    onedit,
+    ondelete,
+    onrowclick,
+    emptyLabel,
+    selectedIds = $bindable(new Set<string>()),
+  }: Props = $props();
 
   const isShared = (tx: TransactionWithCategory) => !!currentUserId && tx.user_id !== currentUserId;
 
-  const allSelected = $derived(transactions.length > 0 && transactions.every((tx) => selectedIds.has(tx.id)));
+  const allSelected = $derived(
+    transactions.length > 0 && transactions.every((tx) => selectedIds.has(tx.id))
+  );
   const someSelected = $derived(transactions.some((tx) => selectedIds.has(tx.id)));
 
   $effect(() => {
@@ -80,12 +90,27 @@
           {#if ondelete}
             <button
               type="button"
-              onclick={(e) => { e.stopPropagation(); toggleOne(tx.id); }}
-              class="mt-0.5 shrink-0 flex h-4 w-4 items-center justify-center rounded border border-zinc-300 transition-colors dark:border-zinc-600 {selectedIds.has(tx.id) ? 'border-zinc-900 bg-zinc-900 dark:border-zinc-200 dark:bg-zinc-200' : 'hover:border-zinc-500'}"
+              onclick={(e) => {
+                e.stopPropagation();
+                toggleOne(tx.id);
+              }}
+              class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border border-zinc-300 transition-colors dark:border-zinc-600 {selectedIds.has(
+                tx.id
+              )
+                ? 'border-zinc-900 bg-zinc-900 dark:border-zinc-200 dark:bg-zinc-200'
+                : 'hover:border-zinc-500'}"
               aria-label={m.transactions_select_all()}
             >
               {#if selectedIds.has(tx.id)}
-                <svg class="h-2.5 w-2.5 text-white dark:text-zinc-900" viewBox="0 0 10 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 4 7 9 1" /></svg>
+                <svg
+                  class="h-2.5 w-2.5 text-white dark:text-zinc-900"
+                  viewBox="0 0 10 8"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"><polyline points="1 4 4 7 9 1" /></svg
+                >
               {/if}
             </button>
           {/if}
@@ -191,17 +216,38 @@
       <thead>
         <tr class="border-b border-zinc-100 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-800">
           {#if ondelete}
-            <th scope="col" class="w-10 pl-4 py-3">
+            <th scope="col" class="w-10 py-3 pl-4">
               <button
                 type="button"
                 onclick={toggleAll}
-                class="flex h-4 w-4 items-center justify-center rounded border border-zinc-300 transition-colors dark:border-zinc-600 {allSelected ? 'border-zinc-900 bg-zinc-900 dark:border-zinc-200 dark:bg-zinc-200' : someSelected ? 'border-zinc-900 bg-zinc-400 dark:border-zinc-400 dark:bg-zinc-500' : 'hover:border-zinc-500'}"
-                aria-label={allSelected ? m.transactions_deselect_all() : m.transactions_select_all()}
+                class="flex h-4 w-4 items-center justify-center rounded border border-zinc-300 transition-colors dark:border-zinc-600 {allSelected
+                  ? 'border-zinc-900 bg-zinc-900 dark:border-zinc-200 dark:bg-zinc-200'
+                  : someSelected
+                    ? 'border-zinc-900 bg-zinc-400 dark:border-zinc-400 dark:bg-zinc-500'
+                    : 'hover:border-zinc-500'}"
+                aria-label={allSelected
+                  ? m.transactions_deselect_all()
+                  : m.transactions_select_all()}
               >
                 {#if allSelected}
-                  <svg class="h-2.5 w-2.5 text-white dark:text-zinc-900" viewBox="0 0 10 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 4 7 9 1" /></svg>
+                  <svg
+                    class="h-2.5 w-2.5 text-white dark:text-zinc-900"
+                    viewBox="0 0 10 8"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"><polyline points="1 4 4 7 9 1" /></svg
+                  >
                 {:else if someSelected}
-                  <svg class="h-2.5 w-2.5 text-white dark:text-zinc-900" viewBox="0 0 10 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="1" y1="1" x2="9" y2="1" /></svg>
+                  <svg
+                    class="h-2.5 w-2.5 text-white dark:text-zinc-900"
+                    viewBox="0 0 10 2"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"><line x1="1" y1="1" x2="9" y2="1" /></svg
+                  >
                 {/if}
               </button>
             </th>
@@ -251,15 +297,30 @@
             }}
           >
             {#if ondelete}
-              <td class="w-10 pl-4 py-3">
+              <td class="w-10 py-3 pl-4">
                 <button
                   type="button"
-                  onclick={(e) => { e.stopPropagation(); toggleOne(tx.id); }}
-                  class="flex h-4 w-4 items-center justify-center rounded border border-zinc-300 transition-colors dark:border-zinc-600 {selectedIds.has(tx.id) ? 'border-zinc-900 bg-zinc-900 dark:border-zinc-200 dark:bg-zinc-200' : 'hover:border-zinc-500'}"
+                  onclick={(e) => {
+                    e.stopPropagation();
+                    toggleOne(tx.id);
+                  }}
+                  class="flex h-4 w-4 items-center justify-center rounded border border-zinc-300 transition-colors dark:border-zinc-600 {selectedIds.has(
+                    tx.id
+                  )
+                    ? 'border-zinc-900 bg-zinc-900 dark:border-zinc-200 dark:bg-zinc-200'
+                    : 'hover:border-zinc-500'}"
                   aria-label={m.transactions_select_all()}
                 >
                   {#if selectedIds.has(tx.id)}
-                    <svg class="h-2.5 w-2.5 text-white dark:text-zinc-900" viewBox="0 0 10 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 4 7 9 1" /></svg>
+                    <svg
+                      class="h-2.5 w-2.5 text-white dark:text-zinc-900"
+                      viewBox="0 0 10 8"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"><polyline points="1 4 4 7 9 1" /></svg
+                    >
                   {/if}
                 </button>
               </td>
@@ -287,7 +348,8 @@
               <span
                 class={cn(
                   "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                  statusClass[tx.status] ?? "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
+                  statusClass[tx.status] ??
+                    "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
                 )}
               >
                 {statusLabel[tx.status] ?? tx.status}
