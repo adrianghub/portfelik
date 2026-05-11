@@ -15,8 +15,8 @@
   import { fetchUserGroups } from "$lib/services/groups";
   import { fetchProfile } from "$lib/services/profiles";
   import {
+    bulkCreateTransactions,
     computeSummary,
-    createTransaction,
     deleteTransaction,
     deleteTransactions,
     fetchTransactions,
@@ -233,7 +233,7 @@
         categoriesQuery.data.map((c) => [`${c.name.toLowerCase()}|${c.type}`, c])
       );
       const unknownCategories = new Set<string>();
-      let imported = 0;
+      const validRows: Parameters<typeof bulkCreateTransactions>[0] = [];
 
       for (const line of lines.slice(1)) {
         const values = parseCSVRow(line);
@@ -257,7 +257,7 @@
           ? (row["status"] as TransactionStatus)
           : "paid";
 
-        await createTransaction({
+        validRows.push({
           date: row["date"],
           description: row["description"],
           amount,
@@ -267,8 +267,9 @@
           is_recurring: row["is_recurring"] === "true",
           recurring_day: row["recurring_day"] ? parseInt(row["recurring_day"]) : null,
         });
-        imported++;
       }
+
+      const imported = validRows.length > 0 ? await bulkCreateTransactions(validRows) : 0;
 
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
 
