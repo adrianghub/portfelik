@@ -3,6 +3,7 @@
   import { page } from "$app/stores";
   import CategoryBreakdown from "$lib/components/transactions/CategoryBreakdown.svelte";
   import CategoryFilter from "$lib/components/transactions/CategoryFilter.svelte";
+  import FilterDrawer from "$lib/components/transactions/FilterDrawer.svelte";
   import MonthRangePicker from "$lib/components/transactions/MonthRangePicker.svelte";
   import SummaryCards from "$lib/components/transactions/SummaryCards.svelte";
   import TransactionDetailSheet from "$lib/components/transactions/TransactionDetailSheet.svelte";
@@ -118,6 +119,29 @@
     },
     onError: () => toast.error(m.toast_error()),
   }));
+
+  let filterDrawerOpen = $state(false);
+  const activeFilterCount = $derived((statusFilter ? 1 : 0) + (categoryId ? 1 : 0));
+
+  function onApplyFilters(params: {
+    startYear: number;
+    startMonth: number;
+    endYear: number;
+    endMonth: number;
+    categoryId: string | undefined;
+    status: string | undefined;
+  }) {
+    const p = new URLSearchParams($page.url.searchParams);
+    p.set("startYear", String(params.startYear));
+    p.set("startMonth", String(params.startMonth));
+    p.set("endYear", String(params.endYear));
+    p.set("endMonth", String(params.endMonth));
+    if (params.categoryId) p.set("categoryId", params.categoryId);
+    else p.delete("categoryId");
+    if (params.status) p.set("status", params.status);
+    else p.delete("status");
+    goto(`/transactions?${p.toString()}`, { replaceState: false });
+  }
 
   function openAdd() {
     editTarget = null;
@@ -306,27 +330,72 @@
       {/if}
     </div>
     <div class="flex flex-wrap items-center gap-2">
-      <MonthRangePicker {startYear} {startMonth} {endYear} {endMonth} onchange={onRangeChange} />
-      {#if categoriesQuery.data}
-        <CategoryFilter
-          categories={categoriesQuery.data}
-          selectedId={categoryId}
-          onchange={onCategoryChange}
-        />
-      {/if}
-      <label class="flex items-center gap-2">
-        <span class="sr-only">{m.transactions_filter_status_label()}</span>
-        <Select
-          value={statusFilter ?? ""}
-          onchange={(e) => onStatusChange((e.target as HTMLSelectElement).value || undefined)}
+      <!-- Mobile filter button (sm:hidden) -->
+      <button
+        type="button"
+        onclick={() => (filterDrawerOpen = true)}
+        class="relative flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 sm:hidden dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+          ><line x1="4" x2="4" y1="21" y2="14" /><line x1="4" x2="4" y1="10" y2="3" /><line
+            x1="12"
+            x2="12"
+            y1="21"
+            y2="16"
+          /><line x1="12" x2="12" y1="12" y2="3" /><line x1="20" x2="20" y1="21" y2="19" /><line
+            x1="20"
+            x2="20"
+            y1="15"
+            y2="3"
+          /><line x1="1" x2="7" y1="14" y2="14" /><line x1="9" x2="15" y1="16" y2="16" /><line
+            x1="17"
+            x2="23"
+            y1="19"
+            y2="19"
+          /></svg
         >
-          <option value="">{m.transactions_filter_all_statuses()}</option>
-          <option value="paid">{m.transactions_status_paid()}</option>
-          <option value="upcoming">{m.transactions_status_upcoming()}</option>
-          <option value="draft">{m.transactions_status_draft()}</option>
-          <option value="overdue">{m.transactions_status_overdue()}</option>
-        </Select>
-      </label>
+        {m.transactions_filter_button()}
+        {#if activeFilterCount > 0}
+          <span
+            class="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white"
+          >
+            {activeFilterCount}
+          </span>
+        {/if}
+      </button>
+      <div class="hidden flex-wrap items-center gap-2 sm:flex">
+        <MonthRangePicker {startYear} {startMonth} {endYear} {endMonth} onchange={onRangeChange} />
+        {#if categoriesQuery.data}
+          <CategoryFilter
+            categories={categoriesQuery.data}
+            selectedId={categoryId}
+            onchange={onCategoryChange}
+          />
+        {/if}
+        <label class="flex items-center gap-2">
+          <span class="sr-only">{m.transactions_filter_status_label()}</span>
+          <Select
+            value={statusFilter ?? ""}
+            onchange={(e) => onStatusChange((e.target as HTMLSelectElement).value || undefined)}
+          >
+            <option value="">{m.transactions_filter_all_statuses()}</option>
+            <option value="paid">{m.transactions_status_paid()}</option>
+            <option value="upcoming">{m.transactions_status_upcoming()}</option>
+            <option value="draft">{m.transactions_status_draft()}</option>
+            <option value="overdue">{m.transactions_status_overdue()}</option>
+          </Select>
+        </label>
+      </div>
       <button
         onclick={handleExport}
         disabled={!filteredTxs?.length}
@@ -443,6 +512,21 @@
 
   {#if summary}
     <CategoryBreakdown categories={summary.categories} oncategoryclick={onCategoryChange} />
+  {/if}
+
+  {#if categoriesQuery.data}
+    <FilterDrawer
+      open={filterDrawerOpen}
+      onclose={() => (filterDrawerOpen = false)}
+      onapply={onApplyFilters}
+      {startYear}
+      {startMonth}
+      {endYear}
+      {endMonth}
+      {categoryId}
+      status={statusFilter}
+      categories={categoriesQuery.data}
+    />
   {/if}
 </div>
 

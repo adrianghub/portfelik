@@ -242,5 +242,10 @@
   "admin_diag_section": "Manualne wyzwalacze",
   "toast_push_sub_deleted": "Subskrypcja usunięta",
   "admin_confirm_delete_sub": "Usunąć tę subskrypcję push?",
-  "admin_push_sub_delete": "Usuń"
+  "admin_push_sub_delete": "Usuń",
+  "transactions_filter_button": "Filtry",
+  "transactions_filter_drawer_title": "Filtry",
+  "transactions_filter_apply": "Zastosuj filtry",
+  "transactions_filter_clear": "Wyczyść",
+  "transactions_search_placeholder": "Szukaj transakcji…"
 }
