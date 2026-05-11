@@ -9,6 +9,7 @@
   import TransactionDialog from "$lib/components/transactions/TransactionDialog.svelte";
   import TransactionTable from "$lib/components/transactions/TransactionTable.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
+  import Select from "$lib/components/ui/Select.svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchCategories } from "$lib/services/categories";
   import { fetchUserGroups } from "$lib/services/groups";
@@ -290,13 +291,13 @@
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
       {#if profileQuery.data}
-        <p class="mb-0.5 text-sm text-zinc-500">
+        <p class="mb-0.5 text-sm text-slate-500">
           {m.transactions_greeting({ name: profileQuery.data.name ?? profileQuery.data.email })}
         </p>
       {/if}
-      <h1 class="text-xl font-semibold text-zinc-900">{m.transactions_title()}</h1>
+      <h1 class="text-xl font-semibold text-slate-900">{m.transactions_title()}</h1>
       {#if groupsQuery.data}
-        <p class="mt-0.5 text-xs text-zinc-400">
+        <p class="mt-0.5 text-xs text-slate-400">
           {groupsQuery.data.length > 0
             ? m.transactions_subtitle_groups()
             : m.transactions_subtitle_own()}
@@ -314,22 +315,21 @@
       {/if}
       <label class="flex items-center gap-2">
         <span class="sr-only">{m.transactions_filter_status_label()}</span>
-        <select
+        <Select
           value={statusFilter ?? ""}
           onchange={(e) => onStatusChange((e.target as HTMLSelectElement).value || undefined)}
-          class="min-h-10 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700 focus:ring-2 focus:ring-zinc-900 focus:ring-offset-1 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
         >
           <option value="">{m.transactions_filter_all_statuses()}</option>
           <option value="paid">{m.transactions_status_paid()}</option>
           <option value="upcoming">{m.transactions_status_upcoming()}</option>
           <option value="draft">{m.transactions_status_draft()}</option>
           <option value="overdue">{m.transactions_status_overdue()}</option>
-        </select>
+        </Select>
       </label>
       <button
         onclick={handleExport}
         disabled={!filteredTxs?.length}
-        class="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-600 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+        class="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
         title={m.csv_export()}
       >
         <svg
@@ -349,7 +349,7 @@
         <span class="hidden sm:inline">{m.csv_export()}</span>
       </button>
       <label
-        class="flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+        class="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
         title={m.csv_import()}
       >
         <svg
@@ -400,7 +400,7 @@
       {/if}
       <button
         onclick={openAdd}
-        class="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+        class="rounded-lg bg-emerald-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-600"
       >
         + {m.transaction_add()}
       </button>
@@ -413,7 +413,7 @@
     <div class="grid grid-cols-3 gap-3">
       {#each [0, 1, 2] as _, i (i)}
         <div
-          class="h-20 animate-pulse rounded-xl border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800"
+          class="h-20 animate-pulse rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800"
         ></div>
       {/each}
     </div>
@@ -421,7 +421,7 @@
 
   {#if txQuery.isLoading}
     <div
-      class="h-48 animate-pulse rounded-xl border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800"
+      class="h-48 animate-pulse rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800"
     ></div>
   {:else if txQuery.isError}
     <p class="text-sm text-rose-600">{m.common_error_title()}</p>
@@ -448,7 +448,7 @@
 <button
   onclick={openAdd}
   aria-label={m.transaction_add()}
-  class="fixed right-4 bottom-20 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-zinc-900 text-white shadow-lg transition-colors hover:bg-zinc-700 md:hidden dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+  class="fixed right-4 bottom-20 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-white shadow-lg transition-colors hover:bg-slate-700 md:hidden dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
 >
   <svg
     xmlns="http://www.w3.org/2000/svg"

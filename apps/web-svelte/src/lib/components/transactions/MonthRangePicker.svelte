@@ -62,7 +62,7 @@
   <button
     type="button"
     onclick={openPicker}
-    class="flex h-9 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-700 transition-colors hover:border-zinc-300 hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+    class="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
   >
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -87,17 +87,17 @@
 
   {#if open}
     <div
-      class="absolute top-11 left-0 z-50 w-72 rounded-xl border border-zinc-200 bg-white p-4 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+      class="absolute top-11 left-0 z-50 w-72 rounded-xl border border-slate-200 bg-white p-4 shadow-lg dark:border-slate-700 dark:bg-slate-900"
       role="dialog"
       aria-label="Wybierz zakres miesięcy"
     >
       <div class="space-y-3">
         <div>
-          <p class="mb-1.5 text-xs font-medium text-zinc-500">Od</p>
+          <p class="mb-1.5 text-xs font-medium text-slate-500">Od</p>
           <div class="flex gap-2">
             <select
               bind:value={draftStartMonth}
-              class="flex-1 rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-sm capitalize focus:ring-2 focus:ring-zinc-900/10 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800"
+              class="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm capitalize focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
             >
               {#each months as mo (mo)}
                 <option value={mo} class="capitalize">{monthName(mo)}</option>
@@ -105,7 +105,7 @@
             </select>
             <select
               bind:value={draftStartYear}
-              class="w-24 rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800"
+              class="w-24 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
             >
               {#each years as yr (yr)}
                 <option value={yr}>{yr}</option>
@@ -115,11 +115,11 @@
         </div>
 
         <div>
-          <p class="mb-1.5 text-xs font-medium text-zinc-500">Do</p>
+          <p class="mb-1.5 text-xs font-medium text-slate-500">Do</p>
           <div class="flex gap-2">
             <select
               bind:value={draftEndMonth}
-              class="flex-1 rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-sm capitalize focus:ring-2 focus:ring-zinc-900/10 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800"
+              class="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm capitalize focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
             >
               {#each months as mo (mo)}
                 <option value={mo} class="capitalize">{monthName(mo)}</option>
@@ -127,7 +127,7 @@
             </select>
             <select
               bind:value={draftEndYear}
-              class="w-24 rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800"
+              class="w-24 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
             >
               {#each years as yr (yr)}
                 <option value={yr}>{yr}</option>
@@ -141,14 +141,14 @@
         <button
           type="button"
           onclick={() => (open = false)}
-          class="flex-1 rounded-lg border border-zinc-200 py-1.5 text-sm text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-700"
+          class="flex-1 rounded-lg border border-slate-200 py-1.5 text-sm text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700"
         >
           {m.common_cancel()}
         </button>
         <button
           type="button"
           onclick={apply}
-          class="flex-1 rounded-lg bg-zinc-900 py-1.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+          class="flex-1 rounded-lg bg-slate-900 py-1.5 text-sm font-medium text-white transition-colors hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
         >
           {m.common_apply()}
         </button>

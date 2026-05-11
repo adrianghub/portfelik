@@ -90,13 +90,13 @@
 <Dialog {open} {onclose} {title}>
   <form onsubmit={handleSubmit} class="space-y-4">
     <!-- Type toggle -->
-    <div class="flex overflow-hidden rounded-lg border border-zinc-200 text-sm">
+    <div class="flex overflow-hidden rounded-lg border border-slate-200 text-sm">
       <button
         type="button"
         onclick={() => (type = "expense")}
         class="flex-1 py-2 font-medium transition-colors {type === 'expense'
           ? 'bg-rose-600 text-white'
-          : 'bg-white text-zinc-500 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'}"
+          : 'bg-white text-slate-500 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700'}"
       >
         {m.common_expense()}
       </button>
@@ -105,7 +105,7 @@
         onclick={() => (type = "income")}
         class="flex-1 py-2 font-medium transition-colors {type === 'income'
           ? 'bg-emerald-600 text-white'
-          : 'bg-white text-zinc-500 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'}"
+          : 'bg-white text-slate-500 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700'}"
       >
         {m.common_income()}
       </button>
@@ -113,7 +113,7 @@
 
     <!-- Amount -->
     <div class="space-y-1">
-      <label class="text-xs font-medium text-zinc-600 dark:text-zinc-300" for="tx-amount"
+      <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="tx-amount"
         >{m.transaction_form_amount()}</label
       >
       <input
@@ -123,13 +123,13 @@
         step="0.01"
         required
         bind:value={amount}
-        class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
       />
     </div>
 
     <!-- Description -->
     <div class="space-y-1">
-      <label class="text-xs font-medium text-zinc-600 dark:text-zinc-300" for="tx-desc"
+      <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="tx-desc"
         >{m.transaction_form_description()}</label
       >
       <input
@@ -137,13 +137,13 @@
         type="text"
         required
         bind:value={description}
-        class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
       />
     </div>
 
     <!-- Date -->
     <div class="space-y-1">
-      <label class="text-xs font-medium text-zinc-600 dark:text-zinc-300" for="tx-date"
+      <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="tx-date"
         >{m.transaction_form_date()}</label
       >
       <input
@@ -151,20 +151,20 @@
         type="date"
         required
         bind:value={date}
-        class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
       />
     </div>
 
     <!-- Category -->
     <div class="space-y-1">
-      <label class="text-xs font-medium text-zinc-600 dark:text-zinc-300" for="tx-cat"
+      <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="tx-cat"
         >{m.transaction_form_category()}</label
       >
       <select
         id="tx-cat"
         required
         bind:value={category_id}
-        class="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+        class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
       >
         <option value="">{m.transaction_form_select_category()}</option>
         {#each filteredCategories as cat (cat.id)}
@@ -175,13 +175,13 @@
 
     <!-- Status -->
     <div class="space-y-1">
-      <label class="text-xs font-medium text-zinc-600 dark:text-zinc-300" for="tx-status"
+      <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="tx-status"
         >{m.transaction_form_status()}</label
       >
       <select
         id="tx-status"
         bind:value={status}
-        class="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+        class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
       >
         <option value="paid">{m.transactions_status_paid()}</option>
         <option value="upcoming">{m.transactions_status_upcoming()}</option>
@@ -195,21 +195,23 @@
       <input type="checkbox" bind:checked={is_recurring} class="sr-only" />
       <div
         class="relative h-5 w-9 rounded-full transition-colors {is_recurring
-          ? 'bg-zinc-800'
-          : 'bg-zinc-200 dark:bg-zinc-600'}"
+          ? 'bg-slate-800'
+          : 'bg-slate-200 dark:bg-slate-600'}"
       >
         <div
-          class="absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform dark:bg-zinc-300 {is_recurring
+          class="absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform dark:bg-slate-300 {is_recurring
             ? 'translate-x-4'
             : 'translate-x-0'}"
         ></div>
       </div>
-      <span class="text-sm text-zinc-700 dark:text-zinc-300">{m.transaction_form_recurring()}</span>
+      <span class="text-sm text-slate-700 dark:text-slate-300"
+        >{m.transaction_form_recurring()}</span
+      >
     </label>
 
     {#if is_recurring}
       <div class="space-y-1">
-        <label class="text-xs font-medium text-zinc-600 dark:text-zinc-300" for="tx-recday"
+        <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="tx-recday"
           >{m.transaction_form_recurring_day()}</label
         >
         <input
@@ -218,7 +220,7 @@
           min="1"
           max="31"
           bind:value={recurring_day}
-          class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+          class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
         />
       </div>
     {/if}
@@ -231,14 +233,14 @@
       <button
         type="button"
         onclick={onclose}
-        class="flex-1 rounded-lg border border-zinc-200 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-700"
+        class="flex-1 rounded-lg border border-slate-200 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
       >
         {m.common_cancel()}
       </button>
       <button
         type="submit"
         disabled={mutation.isPending}
-        class="flex-1 rounded-lg bg-zinc-900 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
+        class="flex-1 rounded-lg bg-slate-900 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 disabled:opacity-50"
       >
         {mutation.isPending ? m.common_saving() : m.common_save()}
       </button>
