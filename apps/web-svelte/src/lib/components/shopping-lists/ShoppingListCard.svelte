@@ -17,18 +17,18 @@
 </script>
 
 <div
-  class="flex items-stretch overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900"
+  class="flex items-stretch overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
 >
   <a
     href="/shopping-lists/{list.id}"
-    class="flex-1 p-4 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800"
+    class="flex-1 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
   >
     <div class="flex items-start justify-between gap-2">
-      <span class="font-medium text-zinc-900 dark:text-white">{list.name}</span>
+      <span class="font-medium text-slate-900 dark:text-white">{list.name}</span>
       <span
         class={cn(
           "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium",
-          list.status === "active" ? "bg-blue-50 text-blue-700" : "bg-zinc-100 text-zinc-500"
+          list.status === "active" ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-500"
         )}
       >
         {list.status === "active"
@@ -36,13 +36,13 @@
           : m.shopping_lists_status_completed()}
       </span>
     </div>
-    <div class="mt-1 flex items-center gap-3 text-xs text-zinc-400 dark:text-zinc-500">
+    <div class="mt-1 flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
       <span>{formatDate(list.created_at)}</span>
       {#if list.item_total > 0}
         <span>·</span>
         <span>{list.item_completed}/{list.item_total}</span>
         {#if progress !== null && list.status === "active"}
-          <span class="text-zinc-300">({progress}%)</span>
+          <span class="text-slate-300">({progress}%)</span>
         {/if}
       {/if}
       {#if list.total_amount != null}
@@ -54,7 +54,7 @@
   {#if onedit}
     <button
       onclick={() => onedit(list)}
-      class="border-l border-zinc-100 px-3 text-zinc-300 transition-colors hover:bg-zinc-50 hover:text-zinc-600 dark:border-zinc-800 dark:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-400"
+      class="border-l border-slate-100 px-3 text-slate-300 transition-colors hover:bg-slate-50 hover:text-slate-600 dark:border-slate-800 dark:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-400"
       aria-label={m.shopping_list_edit()}
     >
       <svg
@@ -74,7 +74,7 @@
   {#if onduplicate}
     <button
       onclick={() => onduplicate(list.id)}
-      class="border-l border-zinc-100 px-3 text-zinc-300 transition-colors hover:bg-zinc-50 hover:text-zinc-600 dark:border-zinc-800 dark:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-400"
+      class="border-l border-slate-100 px-3 text-slate-300 transition-colors hover:bg-slate-50 hover:text-slate-600 dark:border-slate-800 dark:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-400"
       aria-label={m.shopping_list_duplicate()}
     >
       <svg
@@ -96,7 +96,7 @@
   {#if ondelete}
     <button
       onclick={() => ondelete(list.id)}
-      class="border-l border-zinc-100 px-3 text-zinc-300 transition-colors hover:bg-rose-50 hover:text-rose-500 dark:border-zinc-800 dark:text-zinc-600 dark:hover:bg-rose-950 dark:hover:text-rose-400"
+      class="border-l border-slate-100 px-3 text-slate-300 transition-colors hover:bg-rose-50 hover:text-rose-500 dark:border-slate-800 dark:text-slate-600 dark:hover:bg-rose-950 dark:hover:text-rose-400"
       aria-label={m.shopping_list_delete()}
     >
       <svg
