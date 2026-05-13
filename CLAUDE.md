@@ -31,7 +31,7 @@ Apply to every task regardless of phase.
 
 **Portfelik** — personal-finance PWA. Migrating React 19 + Firebase → SvelteKit + Supabase. Full plan: `MIGRATION_PLAN.md`.
 
-**Immediate next step:** Phase 9 P1 + P3 shipped 2026-05-13 (RLS Vitest suite + 4 FK indexes + emergency fix on `profiles.role` column-grant supersession that allowed any authenticated user to self-elevate to admin). Remaining Phase 9: P4 vault rotation runbook, Dexie offline outbox (legacy parity), Edge Fn `deno.json`, pg_cron DST docs, migration drift. Pick from `docs/architecture/audit-2026-05-09.md`.
+**Immediate next step:** Phase 9 quick wins shipped 2026-05-13 (Edge Fn `deno.json`, pg_cron DST docs, migration drift policy). Phase 9 remaining: vault rotation runbook (`docs/runbooks/secret-rotation.md`) and **Dexie offline outbox** (legacy parity gap, last-write-wins). All other audit items closed. Pick from `docs/architecture/audit-2026-05-09.md` for next sprint.
 
 | Phase | Status |
 |---|---|
@@ -85,9 +85,9 @@ Apply to every task regardless of phase.
 | Vault secret rotation runbook (`docs/runbooks/secret-rotation.md`) | Medium | ⏳ Backlog |
 | **Offline write queue (Dexie outbox) — parity gap vs legacy `FirestoreService`** | Medium | ⏳ Backlog |
 | `notifications.type` Postgres enum + `data` jsonb schema | Low | ✅ Done in Phase 10 — `6ec68aa` (enum part; `data` jsonb schema deferred — payload-by-type still untyped at DB layer) |
-| Edge Function `deno.json` for each of 3 functions | Low | ⏳ Backlog |
-| pg_cron DST documentation in migration comments | Low | ⏳ Backlog |
-| Migration drift — re-import early migrations into `supabase_migrations.schema_migrations` | Low | ⏳ Backlog |
+| Edge Function `deno.json` for each of 3 functions | Low | ✅ Done 2026-05-13 — per-function `imports` map pinning `@supabase/supabase-js`, edge runtime types, `web-push` |
+| pg_cron DST documentation | Low | ✅ Done 2026-05-13 — `supabase/CLAUDE.md` "Scheduled jobs" section (lives in CLAUDE.md per rule "never amend applied migrations") |
+| Migration drift — re-import early migrations into `supabase_migrations.schema_migrations` | Low | ✅ Done 2026-05-13 — declared SQL-files-as-canonical in `supabase/CLAUDE.md` "Migration tracking" section (backfill deferred; safe `supabase migration repair` instructions provided) |
 
 **Branch flow:** `main` → prod (`portfelik.adrianzinko.com`); `dev` → staging (`dev.portfelik.pages.dev`). Same Cloudflare Pages project + same Supabase project for both — staging writes are isolated to the dedicated test user via RLS, smoke specs clean up via sentinel-tagged data.
 
