@@ -31,7 +31,7 @@ Apply to every task regardless of phase.
 
 **Portfelik** — personal-finance PWA. Migrating React 19 + Firebase → SvelteKit + Supabase. Full plan: `MIGRATION_PLAN.md`.
 
-**Immediate next step:** Phase 9 — post-audit quality items. Start with RLS regression tests and the security/perf advisor migration (see `docs/architecture/audit-2026-05-09.md`). Read `docs/architecture/README.md` first for the current architectural picture.
+**Immediate next step:** Phase 9 — post-audit quality items, now reduced to 8 (T15 enum done in Phase 10). Start with RLS regression tests (P1), then `search_path` pinning (P2), then 4 FK indexes + 2 `auth.jwt()` initPlan wraps (P3). See `docs/architecture/audit-2026-05-09.md`. Read `docs/architecture/README.md` first for the current architectural picture.
 
 | Phase | Status |
 |---|---|
@@ -44,6 +44,7 @@ Apply to every task regardless of phase.
 | Gap fixes (2026-04-30) — shopping list rename + offline indicator | ✅ Done |
 | 7 — Cutover | ✅ Done (2026-05-01) — src/, functions/, Firebase configs deleted. |
 | 8 — Hardening — see sub-table | ✅ Done (2026-05-09) |
+| 10 — UX refresh (design tokens, UI primitives, navigation shell, page sweeps, dashboard, mobile filter drawer, search, batch CSV, notification enum) — see sub-table | ✅ Done (2026-05-13) — 16 commits merged to `dev`, staging green, T15 enum migration applied to prod Supabase |
 
 ### Phase 8 — Hardening (deferred UX + quality)
 
@@ -59,16 +60,30 @@ Apply to every task regardless of phase.
 | Old infra cleanup — `tools/migrate/`, `apps/web-react/`, `functions/`, `portfelik-bff/`, `firestore.*` | ✅ Done — directories already gone; `firebase_uid` column was planned but never applied (no migration needed). Local untracked `dist/` from old React build is safe to `rm -rf`. |
 | Architecture audit + docs (`docs/architecture/`) — overview, ER + DB doc, 5 flow diagrams, 10 ADRs, audit report | ✅ Done (2026-05-09) — see `docs/architecture/README.md` and `docs/architecture/audit-2026-05-09.md` |
 
+### Phase 10 — UX refresh (2026-05-11 → 2026-05-13)
+
+| Sub-item | Status |
+|---|---|
+| W1 — slate/emerald design tokens, `transition-colors` baseline in `app.css` | ✅ Done — `7b70b0f` |
+| W2 — UI primitives: `Button`, `Input`, `Select`, `Badge`, `Sheet`, `Dialog`/`ConfirmDialog` migration | ✅ Done — `b480ee7`, `adc2bd3`, `16b21b9`, `c20d047`, `62f24b2` |
+| W3 — `Navigation` shell + `+layout.svelte` slate tokens, mobile hamburger sheet, focus rings | ✅ Done — `885e87b` |
+| W4 — page sweeps: transactions, shopping lists (+ skeleton), settings/admin/login | ✅ Done — `6b25fa7`, `ef11131`, `557dc39` |
+| W5a — `/dashboard` route + root redirect, greeting, monthly summary, upcoming/overdue (max 5), mobile FAB | ✅ Done — `dd17e03` |
+| W5b — `FilterDrawer` mobile Sheet w/ Apply/Clear + active-filter count badge | ✅ Done — `d2b2ad6` |
+| W6a — client-side description search (`$derived` `visibleTxs`), desktop Input + mobile drawer field | ✅ Done — `9bdcc67` |
+| W6b — `bulkCreateTransactions` service + batched CSV import | ✅ Done — `3478bf1` |
+| W6c — `notification_type` Postgres enum + `Notification` discriminated union | ✅ Done — `6ec68aa` (migration applied to prod 2026-05-13) |
+
 ### Phase 9 — Post-audit quality items (tracked from `docs/architecture/audit-2026-05-09.md`)
 
 | Item | Severity | Status |
 |---|---|---|
-| RLS regression test suite (Vitest, two JWTs) | Medium | ⏳ Backlog |
-| Function `search_path` pinning on all SECURITY DEFINER fns (security advisor) | Medium | ⏳ Backlog |
-| Four FK-covering indexes + two `auth.jwt()` initPlan wraps (perf advisor) | Medium | ⏳ Backlog |
+| RLS regression test suite (Vitest, two JWTs) | Medium | ⏳ Backlog — **P1** |
+| Function `search_path` pinning on all SECURITY DEFINER fns (security advisor) | Medium | ⏳ Backlog — **P2** |
+| Four FK-covering indexes + two `auth.jwt()` initPlan wraps (perf advisor) | Medium | ⏳ Backlog — **P3** |
 | Vault secret rotation runbook (`docs/runbooks/secret-rotation.md`) | Medium | ⏳ Backlog |
 | **Offline write queue (Dexie outbox) — parity gap vs legacy `FirestoreService`** | Medium | ⏳ Backlog |
-| `notifications.type` Postgres enum + `data` jsonb schema | Low | ⏳ Backlog |
+| `notifications.type` Postgres enum + `data` jsonb schema | Low | ✅ Done in Phase 10 — `6ec68aa` (enum part; `data` jsonb schema deferred — payload-by-type still untyped at DB layer) |
 | Edge Function `deno.json` for each of 3 functions | Low | ⏳ Backlog |
 | pg_cron DST documentation in migration comments | Low | ⏳ Backlog |
 | Migration drift — re-import early migrations into `supabase_migrations.schema_migrations` | Low | ⏳ Backlog |
