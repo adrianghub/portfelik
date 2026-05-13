@@ -49,7 +49,7 @@
 <Dialog {open} {onclose} {title}>
   <form onsubmit={handleSubmit} class="space-y-4">
     <div class="space-y-1">
-      <label class="text-xs font-medium text-zinc-600 dark:text-zinc-300" for="cat-name"
+      <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="cat-name"
         >{m.category_form_name()}</label
       >
       <input
@@ -57,19 +57,23 @@
         type="text"
         required
         bind:value={name}
-        class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-white dark:focus:ring-white/10"
+        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:ring-white/10"
       />
     </div>
 
     <div class="space-y-1">
-      <span class="text-xs font-medium text-zinc-600 dark:text-zinc-300">{m.category_form_type()}</span>
-      <div class="flex overflow-hidden rounded-lg border border-zinc-200 text-sm dark:border-zinc-700">
+      <span class="text-xs font-medium text-slate-600 dark:text-slate-300"
+        >{m.category_form_type()}</span
+      >
+      <div
+        class="flex overflow-hidden rounded-lg border border-slate-200 text-sm dark:border-slate-700"
+      >
         <button
           type="button"
           onclick={() => (type = "expense")}
           class="flex-1 py-2 font-medium transition-colors {type === 'expense'
             ? 'bg-rose-600 text-white'
-            : 'bg-white text-zinc-500 hover:bg-zinc-50 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800'}"
+            : 'bg-white text-slate-500 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800'}"
         >
           {m.common_expense()}
         </button>
@@ -78,7 +82,7 @@
           onclick={() => (type = "income")}
           class="flex-1 py-2 font-medium transition-colors {type === 'income'
             ? 'bg-emerald-600 text-white'
-            : 'bg-white text-zinc-500 hover:bg-zinc-50 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800'}"
+            : 'bg-white text-slate-500 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800'}"
         >
           {m.common_income()}
         </button>
@@ -93,14 +97,14 @@
       <button
         type="button"
         onclick={onclose}
-        class="flex-1 rounded-lg border border-zinc-200 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        class="flex-1 rounded-lg border border-slate-200 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
       >
         {m.common_cancel()}
       </button>
       <button
         type="submit"
         disabled={mutation.isPending}
-        class="flex-1 rounded-lg bg-zinc-900 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
+        class="flex-1 rounded-lg bg-emerald-500 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
       >
         {mutation.isPending ? m.common_saving() : m.common_save()}
       </button>

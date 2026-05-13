@@ -44,7 +44,14 @@
   "nav_shopping_lists": "Listy",
   "nav_settings": "Ustawienia",
   "nav_admin": "Admin",
+  "nav_dashboard": "Panel",
   "nav_sign_out": "Wyloguj się",
+  "dashboard_title": "Panel",
+  "dashboard_month_label": "Ten miesiąc",
+  "dashboard_upcoming_title": "Nadchodzące i zaległe",
+  "dashboard_upcoming_see_all": "Zobacz wszystko →",
+  "dashboard_empty_upcoming": "Brak nadchodzących i zaległych transakcji",
+  "dashboard_empty": "Brak transakcji w tym miesiącu",
   "transactions_title": "Transakcje",
   "transactions_empty": "Brak transakcji w tym miesiącu",
   "transactions_empty_month": "Brak transakcji w {period}",
@@ -235,5 +242,10 @@
   "admin_diag_section": "Manualne wyzwalacze",
   "toast_push_sub_deleted": "Subskrypcja usunięta",
   "admin_confirm_delete_sub": "Usunąć tę subskrypcję push?",
-  "admin_push_sub_delete": "Usuń"
+  "admin_push_sub_delete": "Usuń",
+  "transactions_filter_button": "Filtry",
+  "transactions_filter_drawer_title": "Filtry",
+  "transactions_filter_apply": "Zastosuj filtry",
+  "transactions_filter_clear": "Wyczyść",
+  "transactions_search_placeholder": "Szukaj transakcji…"
 }

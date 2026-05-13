@@ -108,6 +108,25 @@ export async function createTransaction(input: CreateTransactionInput): Promise<
   return data as Transaction;
 }
 
+export async function bulkCreateTransactions(inputs: CreateTransactionInput[]): Promise<number> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("not_authenticated");
+
+  const rows = inputs.map((input) => ({
+    ...input,
+    user_id: user.id,
+    amount: Math.abs(input.amount),
+    status: input.status ?? "paid",
+    is_recurring: input.is_recurring ?? false,
+  }));
+
+  const { data, error } = await supabase.from("transactions").insert(rows).select("id");
+  if (error) throw error;
+  return data.length;
+}
+
 export async function updateTransaction(
   id: string,
   updates: Partial<CreateTransactionInput>

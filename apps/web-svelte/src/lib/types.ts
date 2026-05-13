@@ -127,13 +127,31 @@ export interface ShoppingListSummary extends ShoppingList {
   item_completed: number;
 }
 
+export type NotificationType =
+  | "transaction_summary"
+  | "transaction_upcoming"
+  | "transaction_overdue"
+  | "transaction_reminder"
+  | "group_invitation"
+  | "system_notification";
+
+export type NotificationData =
+  | { type: "group_invitation"; groupId: string; groupName: string; inviterEmail: string }
+  | { type: "transaction_summary"; period: string; totalExpenses: number }
+  | {
+      type: "transaction_upcoming" | "transaction_overdue" | "transaction_reminder";
+      transactionId: string;
+      amount: number;
+    }
+  | { type: "system_notification"; message: string };
+
 export interface Notification {
   id: string;
   user_id: string;
-  type: string;
+  type: NotificationType;
   title: string;
   body: string;
-  data: Record<string, unknown> | null;
+  data: NotificationData | null;
   read_at: string | null;
   created_at: string;
 }

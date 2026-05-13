@@ -3,19 +3,22 @@
   import { page } from "$app/stores";
   import CategoryBreakdown from "$lib/components/transactions/CategoryBreakdown.svelte";
   import CategoryFilter from "$lib/components/transactions/CategoryFilter.svelte";
+  import FilterDrawer from "$lib/components/transactions/FilterDrawer.svelte";
   import MonthRangePicker from "$lib/components/transactions/MonthRangePicker.svelte";
   import SummaryCards from "$lib/components/transactions/SummaryCards.svelte";
   import TransactionDetailSheet from "$lib/components/transactions/TransactionDetailSheet.svelte";
   import TransactionDialog from "$lib/components/transactions/TransactionDialog.svelte";
   import TransactionTable from "$lib/components/transactions/TransactionTable.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
+  import Input from "$lib/components/ui/Input.svelte";
+  import Select from "$lib/components/ui/Select.svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchCategories } from "$lib/services/categories";
   import { fetchUserGroups } from "$lib/services/groups";
   import { fetchProfile } from "$lib/services/profiles";
   import {
+    bulkCreateTransactions,
     computeSummary,
-    createTransaction,
     deleteTransaction,
     deleteTransactions,
     fetchTransactions,
@@ -61,6 +64,13 @@
         ? txQuery.data.filter((tx) => tx.status === statusFilter)
         : txQuery.data
       : undefined
+  );
+
+  let searchQuery = $state("");
+  const visibleTxs = $derived(
+    filteredTxs?.filter(
+      (tx) => !searchQuery || tx.description?.toLowerCase().includes(searchQuery.toLowerCase())
+    )
   );
 
   const summary = $derived(filteredTxs ? computeSummary(filteredTxs) : null);
@@ -118,12 +128,36 @@
     onError: () => toast.error(m.toast_error()),
   }));
 
+  let filterDrawerOpen = $state(false);
+  const activeFilterCount = $derived((statusFilter ? 1 : 0) + (categoryId ? 1 : 0));
+
+  function onApplyFilters(params: {
+    startYear: number;
+    startMonth: number;
+    endYear: number;
+    endMonth: number;
+    categoryId: string | undefined;
+    status: string | undefined;
+  }) {
+    const p = new URLSearchParams($page.url.searchParams);
+    p.set("startYear", String(params.startYear));
+    p.set("startMonth", String(params.startMonth));
+    p.set("endYear", String(params.endYear));
+    p.set("endMonth", String(params.endMonth));
+    if (params.categoryId) p.set("categoryId", params.categoryId);
+    else p.delete("categoryId");
+    if (params.status) p.set("status", params.status);
+    else p.delete("status");
+    goto(`/transactions?${p.toString()}`, { replaceState: false });
+  }
+
   function openAdd() {
     editTarget = null;
     dialogOpen = true;
   }
 
   function onRangeChange(sy: number, sm: number, ey: number, em: number) {
+    searchQuery = "";
     const params = new URLSearchParams($page.url.searchParams);
     params.set("startYear", String(sy));
     params.set("startMonth", String(sm));
@@ -232,7 +266,7 @@
         categoriesQuery.data.map((c) => [`${c.name.toLowerCase()}|${c.type}`, c])
       );
       const unknownCategories = new Set<string>();
-      let imported = 0;
+      const validRows: Parameters<typeof bulkCreateTransactions>[0] = [];
 
       for (const line of lines.slice(1)) {
         const values = parseCSVRow(line);
@@ -256,7 +290,7 @@
           ? (row["status"] as TransactionStatus)
           : "paid";
 
-        await createTransaction({
+        validRows.push({
           date: row["date"],
           description: row["description"],
           amount,
@@ -266,8 +300,9 @@
           is_recurring: row["is_recurring"] === "true",
           recurring_day: row["recurring_day"] ? parseInt(row["recurring_day"]) : null,
         });
-        imported++;
       }
+
+      const imported = validRows.length > 0 ? await bulkCreateTransactions(validRows) : 0;
 
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
 
@@ -290,13 +325,13 @@
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
       {#if profileQuery.data}
-        <p class="mb-0.5 text-sm text-zinc-500">
+        <p class="mb-0.5 text-sm text-slate-500">
           {m.transactions_greeting({ name: profileQuery.data.name ?? profileQuery.data.email })}
         </p>
       {/if}
-      <h1 class="text-xl font-semibold text-zinc-900">{m.transactions_title()}</h1>
+      <h1 class="text-xl font-semibold text-slate-900">{m.transactions_title()}</h1>
       {#if groupsQuery.data}
-        <p class="mt-0.5 text-xs text-zinc-400">
+        <p class="mt-0.5 text-xs text-slate-400">
           {groupsQuery.data.length > 0
             ? m.transactions_subtitle_groups()
             : m.transactions_subtitle_own()}
@@ -304,32 +339,82 @@
       {/if}
     </div>
     <div class="flex flex-wrap items-center gap-2">
-      <MonthRangePicker {startYear} {startMonth} {endYear} {endMonth} onchange={onRangeChange} />
-      {#if categoriesQuery.data}
-        <CategoryFilter
-          categories={categoriesQuery.data}
-          selectedId={categoryId}
-          onchange={onCategoryChange}
-        />
-      {/if}
-      <label class="flex items-center gap-2">
-        <span class="sr-only">{m.transactions_filter_status_label()}</span>
-        <select
-          value={statusFilter ?? ""}
-          onchange={(e) => onStatusChange((e.target as HTMLSelectElement).value || undefined)}
-          class="min-h-10 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700 focus:ring-2 focus:ring-zinc-900 focus:ring-offset-1 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+      <!-- Mobile filter button (sm:hidden) -->
+      <button
+        type="button"
+        onclick={() => (filterDrawerOpen = true)}
+        class="relative flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 sm:hidden dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+          ><line x1="4" x2="4" y1="21" y2="14" /><line x1="4" x2="4" y1="10" y2="3" /><line
+            x1="12"
+            x2="12"
+            y1="21"
+            y2="16"
+          /><line x1="12" x2="12" y1="12" y2="3" /><line x1="20" x2="20" y1="21" y2="19" /><line
+            x1="20"
+            x2="20"
+            y1="15"
+            y2="3"
+          /><line x1="1" x2="7" y1="14" y2="14" /><line x1="9" x2="15" y1="16" y2="16" /><line
+            x1="17"
+            x2="23"
+            y1="19"
+            y2="19"
+          /></svg
         >
-          <option value="">{m.transactions_filter_all_statuses()}</option>
-          <option value="paid">{m.transactions_status_paid()}</option>
-          <option value="upcoming">{m.transactions_status_upcoming()}</option>
-          <option value="draft">{m.transactions_status_draft()}</option>
-          <option value="overdue">{m.transactions_status_overdue()}</option>
-        </select>
-      </label>
+        {m.transactions_filter_button()}
+        {#if activeFilterCount > 0}
+          <span
+            class="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white"
+          >
+            {activeFilterCount}
+          </span>
+        {/if}
+      </button>
+      <div class="hidden flex-wrap items-center gap-2 sm:flex">
+        <Input
+          type="search"
+          bind:value={searchQuery}
+          placeholder={m.transactions_search_placeholder()}
+          class="w-44"
+        />
+        <MonthRangePicker {startYear} {startMonth} {endYear} {endMonth} onchange={onRangeChange} />
+        {#if categoriesQuery.data}
+          <CategoryFilter
+            categories={categoriesQuery.data}
+            selectedId={categoryId}
+            onchange={onCategoryChange}
+          />
+        {/if}
+        <label class="flex items-center gap-2">
+          <span class="sr-only">{m.transactions_filter_status_label()}</span>
+          <Select
+            value={statusFilter ?? ""}
+            onchange={(e) => onStatusChange((e.target as HTMLSelectElement).value || undefined)}
+          >
+            <option value="">{m.transactions_filter_all_statuses()}</option>
+            <option value="paid">{m.transactions_status_paid()}</option>
+            <option value="upcoming">{m.transactions_status_upcoming()}</option>
+            <option value="draft">{m.transactions_status_draft()}</option>
+            <option value="overdue">{m.transactions_status_overdue()}</option>
+          </Select>
+        </label>
+      </div>
       <button
         onclick={handleExport}
         disabled={!filteredTxs?.length}
-        class="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-600 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+        class="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
         title={m.csv_export()}
       >
         <svg
@@ -349,7 +434,7 @@
         <span class="hidden sm:inline">{m.csv_export()}</span>
       </button>
       <label
-        class="flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+        class="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
         title={m.csv_import()}
       >
         <svg
@@ -381,13 +466,26 @@
           onclick={() => (bulkDeleteConfirm = true)}
           class="flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-700"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            ><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path
+              d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
+            /></svg
+          >
           {m.transactions_delete_selected({ count: selectedIds.size })}
         </button>
       {/if}
       <button
         onclick={openAdd}
-        class="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+        class="rounded-lg bg-emerald-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-600"
       >
         + {m.transaction_add()}
       </button>
@@ -399,18 +497,22 @@
   {:else if txQuery.isLoading}
     <div class="grid grid-cols-3 gap-3">
       {#each [0, 1, 2] as _, i (i)}
-        <div class="h-20 animate-pulse rounded-xl border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800"></div>
+        <div
+          class="h-20 animate-pulse rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800"
+        ></div>
       {/each}
     </div>
   {/if}
 
   {#if txQuery.isLoading}
-    <div class="h-48 animate-pulse rounded-xl border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800"></div>
+    <div
+      class="h-48 animate-pulse rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800"
+    ></div>
   {:else if txQuery.isError}
     <p class="text-sm text-rose-600">{m.common_error_title()}</p>
-  {:else if filteredTxs}
+  {:else if visibleTxs}
     <TransactionTable
-      transactions={filteredTxs}
+      transactions={visibleTxs}
       {currentUserId}
       {emptyLabel}
       bind:selectedIds
@@ -426,12 +528,29 @@
   {#if summary}
     <CategoryBreakdown categories={summary.categories} oncategoryclick={onCategoryChange} />
   {/if}
+
+  {#if categoriesQuery.data}
+    <FilterDrawer
+      open={filterDrawerOpen}
+      onclose={() => (filterDrawerOpen = false)}
+      onapply={onApplyFilters}
+      {startYear}
+      {startMonth}
+      {endYear}
+      {endMonth}
+      {categoryId}
+      status={statusFilter}
+      categories={categoriesQuery.data}
+      {searchQuery}
+      onsearchchange={(q) => (searchQuery = q)}
+    />
+  {/if}
 </div>
 
 <button
   onclick={openAdd}
   aria-label={m.transaction_add()}
-  class="fixed right-4 bottom-20 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-zinc-900 text-white shadow-lg transition-colors hover:bg-zinc-700 md:hidden dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+  class="fixed right-4 bottom-20 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-white shadow-lg transition-colors hover:bg-slate-700 md:hidden dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
 >
   <svg
     xmlns="http://www.w3.org/2000/svg"

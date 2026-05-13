@@ -118,7 +118,7 @@
 <div class="container mx-auto max-w-2xl space-y-4 px-4 py-6">
   <a
     href="/shopping-lists"
-    class="inline-flex items-center gap-1 text-sm text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
+    class="inline-flex items-center gap-1 text-sm text-slate-500 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
   >
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -136,10 +136,10 @@
 
   {#if query.isLoading}
     <div class="space-y-3">
-      <div class="h-8 w-48 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800"></div>
+      <div class="h-8 w-48 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800"></div>
       <div class="space-y-2">
         {#each [0, 1, 2, 3, 4] as _, i (i)}
-          <div class="h-12 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800"></div>
+          <div class="h-12 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800"></div>
         {/each}
       </div>
     </div>
@@ -148,11 +148,11 @@
   {:else if query.data}
     {@const list = query.data}
     <div class="flex items-start justify-between gap-2">
-      <h1 class="text-xl font-semibold text-zinc-900 dark:text-white">{list.name}</h1>
+      <h1 class="text-xl font-semibold text-slate-900 dark:text-white">{list.name}</h1>
       <span
         class={cn(
           "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium",
-          list.status === "active" ? "bg-blue-50 text-blue-700" : "bg-zinc-100 text-zinc-500"
+          list.status === "active" ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-500"
         )}
       >
         {list.status === "active"
@@ -161,14 +161,18 @@
       </span>
     </div>
 
-    <div class="text-xs text-zinc-400 dark:text-zinc-500">{formatDate(list.created_at)}</div>
+    <div class="text-xs text-slate-400 dark:text-slate-500">{formatDate(list.created_at)}</div>
 
     {#if list.shopping_list_items.length === 0}
-      <p class="py-8 text-center text-sm text-zinc-400 dark:text-zinc-500">{m.shopping_list_items_empty()}</p>
+      <p class="py-8 text-center text-sm text-slate-400 dark:text-slate-500">
+        {m.shopping_list_items_empty()}
+      </p>
     {:else}
       <ul class="space-y-1">
         {#each list.shopping_list_items as item (item.id)}
-          <li class="flex items-center gap-3 rounded-xl border border-zinc-100 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
+          <li
+            class="flex items-center gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900"
+          >
             {#if isActive}
               <button
                 onclick={() =>
@@ -177,8 +181,8 @@
                 class={cn(
                   "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
                   item.completed
-                    ? "border-zinc-800 bg-zinc-800 dark:border-zinc-200 dark:bg-zinc-200"
-                    : "border-zinc-300 hover:border-zinc-500 dark:border-zinc-600 dark:hover:border-zinc-400"
+                    ? "border-slate-800 bg-slate-800 dark:border-slate-200 dark:bg-slate-200"
+                    : "border-slate-300 hover:border-slate-500 dark:border-slate-600 dark:hover:border-slate-400"
                 )}
                 aria-label={item.completed
                   ? m.shopping_list_item_uncheck()
@@ -186,7 +190,7 @@
               >
                 {#if item.completed}
                   <svg
-                    class="h-3 w-3 text-white dark:text-zinc-900"
+                    class="h-3 w-3 text-white dark:text-slate-900"
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 24 24"
                     fill="none"
@@ -201,12 +205,14 @@
               <div
                 class={cn(
                   "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
-                  item.completed ? "border-zinc-800 bg-zinc-800 dark:border-zinc-200 dark:bg-zinc-200" : "border-zinc-300 dark:border-zinc-600"
+                  item.completed
+                    ? "border-slate-800 bg-slate-800 dark:border-slate-200 dark:bg-slate-200"
+                    : "border-slate-300 dark:border-slate-600"
                 )}
               >
                 {#if item.completed}
                   <svg
-                    class="h-3 w-3 text-white dark:text-zinc-900"
+                    class="h-3 w-3 text-white dark:text-slate-900"
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 24 24"
                     fill="none"
@@ -221,13 +227,15 @@
             <span
               class={cn(
                 "flex-1 text-sm",
-                item.completed ? "text-zinc-400 line-through dark:text-zinc-500" : "text-zinc-900 dark:text-white"
+                item.completed
+                  ? "text-slate-400 line-through dark:text-slate-500"
+                  : "text-slate-900 dark:text-white"
               )}
             >
               {item.name}
             </span>
             {#if item.quantity != null}
-              <span class="shrink-0 text-xs text-zinc-400 dark:text-zinc-500">
+              <span class="shrink-0 text-xs text-slate-400 dark:text-slate-500">
                 {item.quantity}{item.unit ? ` ${item.unit}` : ""}
               </span>
             {/if}
@@ -235,7 +243,7 @@
               <button
                 onclick={() => deleteItemMutation.mutate(item.id)}
                 disabled={deleteItemMutation.isPending}
-                class="shrink-0 p-1 text-zinc-300 transition-colors hover:text-rose-500 dark:text-zinc-600 dark:hover:text-rose-400"
+                class="shrink-0 p-1 text-slate-300 transition-colors hover:text-rose-500 dark:text-slate-600 dark:hover:text-rose-400"
                 aria-label={m.common_delete()}
               >
                 <svg
@@ -265,7 +273,7 @@
             itemQty = "";
             itemUnit = "";
           }}
-          class="flex-1 rounded-xl border border-dashed border-zinc-300 py-2.5 text-sm font-medium text-zinc-500 transition-colors hover:border-zinc-400 hover:text-zinc-700 dark:border-zinc-600 dark:text-zinc-400 dark:hover:border-zinc-500 dark:hover:text-zinc-300"
+          class="flex-1 rounded-xl border border-dashed border-slate-300 py-2.5 text-sm font-medium text-slate-500 transition-colors hover:border-slate-400 hover:text-slate-700 dark:border-slate-600 dark:text-slate-400 dark:hover:border-slate-500 dark:hover:text-slate-300"
         >
           + {m.shopping_list_item_add()}
         </button>
@@ -275,7 +283,7 @@
             completeAmount = "";
             completeCategoryId = "";
           }}
-          class="rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
+          class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-700"
         >
           {m.shopping_list_complete_title()}
         </button>
@@ -284,10 +292,14 @@
 
     {#if list.total_amount != null}
       <div
-        class="flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900"
+        class="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900"
       >
-        <span class="text-sm font-medium text-zinc-700 dark:text-zinc-200">{m.shopping_list_total()}</span>
-        <span class="text-sm font-semibold text-zinc-900 dark:text-white">{formatCurrency(list.total_amount)}</span>
+        <span class="text-sm font-medium text-slate-700 dark:text-slate-200"
+          >{m.shopping_list_total()}</span
+        >
+        <span class="text-sm font-semibold text-slate-900 dark:text-white"
+          >{formatCurrency(list.total_amount)}</span
+        >
       </div>
     {/if}
   {/if}
@@ -297,7 +309,7 @@
 <Dialog open={showAddItem} onclose={() => (showAddItem = false)} title={m.shopping_list_item_add()}>
   <form onsubmit={submitAddItem} class="space-y-4">
     <div class="relative space-y-1">
-      <label class="text-xs font-medium text-zinc-600 dark:text-zinc-300" for="item-name"
+      <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="item-name"
         >{m.shopping_list_item_name()}</label
       >
       <input
@@ -307,7 +319,7 @@
         bind:value={itemName}
         autocomplete="off"
         onkeydown={(e) => suggestionRef?.handleKeydown(e)}
-        class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-white dark:focus:ring-white/10"
+        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:ring-white/10"
       />
       <ShoppingListSuggestions
         bind:this={suggestionRef}
@@ -321,7 +333,7 @@
     </div>
     <div class="flex gap-3">
       <div class="flex-1 space-y-1">
-        <label class="text-xs font-medium text-zinc-600 dark:text-zinc-300" for="item-qty"
+        <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="item-qty"
           >{m.shopping_list_item_quantity()}</label
         >
         <input
@@ -330,11 +342,11 @@
           min="0"
           step="any"
           bind:value={itemQty}
-          class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-white dark:focus:ring-white/10"
+          class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:ring-white/10"
         />
       </div>
       <div class="flex-1 space-y-1">
-        <label class="text-xs font-medium text-zinc-600 dark:text-zinc-300" for="item-unit"
+        <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="item-unit"
           >{m.shopping_list_item_unit()}</label
         >
         <input
@@ -342,7 +354,7 @@
           type="text"
           bind:value={itemUnit}
           placeholder={m.shopping_list_item_unit_placeholder()}
-          class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-white dark:focus:ring-white/10"
+          class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:ring-white/10"
         />
       </div>
     </div>
@@ -353,14 +365,14 @@
       <button
         type="button"
         onclick={() => (showAddItem = false)}
-        class="flex-1 rounded-lg border border-zinc-200 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        class="flex-1 rounded-lg border border-slate-200 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
       >
         {m.common_cancel()}
       </button>
       <button
         type="submit"
         disabled={addItemMutation.isPending}
-        class="flex-1 rounded-lg bg-zinc-900 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
+        class="flex-1 rounded-lg bg-slate-900 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 disabled:opacity-50"
       >
         {addItemMutation.isPending ? m.common_saving() : m.common_add()}
       </button>
@@ -376,7 +388,7 @@
 >
   <form onsubmit={submitComplete} class="space-y-4">
     <div class="space-y-1">
-      <label class="text-xs font-medium text-zinc-600 dark:text-zinc-300" for="comp-amount"
+      <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="comp-amount"
         >{m.shopping_list_complete_amount()}</label
       >
       <input
@@ -386,18 +398,18 @@
         step="0.01"
         required
         bind:value={completeAmount}
-        class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-white dark:focus:ring-white/10"
+        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:ring-white/10"
       />
     </div>
     <div class="space-y-1">
-      <label class="text-xs font-medium text-zinc-600 dark:text-zinc-300" for="comp-cat"
+      <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="comp-cat"
         >{m.shopping_list_complete_category()}</label
       >
       <select
         id="comp-cat"
         required
         bind:value={completeCategoryId}
-        class="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900/10 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-white dark:focus:ring-white/10"
+        class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:ring-white/10"
       >
         <option value="">{m.transaction_form_select_category()}</option>
         {#each expenseCategories as cat (cat.id)}
@@ -412,14 +424,14 @@
       <button
         type="button"
         onclick={() => (showComplete = false)}
-        class="flex-1 rounded-lg border border-zinc-200 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        class="flex-1 rounded-lg border border-slate-200 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
       >
         {m.common_cancel()}
       </button>
       <button
         type="submit"
         disabled={completeMutation.isPending}
-        class="flex-1 rounded-lg bg-zinc-900 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
+        class="flex-1 rounded-lg bg-slate-900 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 disabled:opacity-50"
       >
         {completeMutation.isPending ? m.common_saving() : m.shopping_list_complete_submit()}
       </button>

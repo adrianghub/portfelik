@@ -93,9 +93,9 @@
     <Navigation {profile} />
     {#if showNotifBanner}
       <div
-        class="fixed inset-x-0 top-14 z-40 flex items-center justify-between gap-3 bg-zinc-900 px-4 py-2 text-sm text-white"
+        class="fixed inset-x-0 top-14 z-40 flex items-center justify-between gap-3 bg-slate-900 px-4 py-2 text-sm text-white dark:bg-slate-800"
       >
-        <span class="text-zinc-300">{m.push_banner_text()}</span>
+        <span class="text-slate-300">{m.push_banner_text()}</span>
         <div class="flex shrink-0 items-center gap-2">
           <button
             type="button"
@@ -107,7 +107,7 @@
           <button
             type="button"
             onclick={() => (notifPermission = "denied")}
-            class="rounded-md px-2 py-1 text-xs text-zinc-400 transition-colors hover:text-white"
+            class="rounded-md px-2 py-1 text-xs text-slate-400 transition-colors hover:text-white"
             aria-label={m.common_close()}
           >
             ✕
@@ -115,7 +115,7 @@
         </div>
       </div>
     {/if}
-    <main class="min-h-screen pt-14 pb-16 md:pb-0 bg-white dark:bg-zinc-950">
+    <main class="min-h-screen bg-slate-50 pt-14 pb-16 md:pb-0 dark:bg-slate-950">
       {@render children()}
     </main>
   {:else}

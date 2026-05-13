@@ -98,9 +98,6 @@ export async function fetchPushSubscriptions(): Promise<PushSubscriptionRow[]> {
 }
 
 export async function deletePushSubscriptionByEndpoint(endpoint: string): Promise<void> {
-  const { error } = await supabase
-    .from("push_subscriptions")
-    .delete()
-    .eq("endpoint", endpoint);
+  const { error } = await supabase.from("push_subscriptions").delete().eq("endpoint", endpoint);
   if (error) throw error;
 }
