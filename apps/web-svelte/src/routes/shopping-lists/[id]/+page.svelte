@@ -9,9 +9,11 @@
     deleteShoppingListItem,
     completeShoppingList,
   } from "$lib/services/shopping-lists";
+  import type { ShoppingListItem, ShoppingListWithItems } from "$lib/types";
   import { fetchCategories } from "$lib/services/categories";
   import { formatCurrency, formatDate, cn } from "$lib/utils";
   import Dialog from "$lib/components/ui/Dialog.svelte";
+  import Fab from "$lib/components/ui/Fab.svelte";
   import ShoppingListSuggestions from "$lib/components/shopping-lists/ShoppingListSuggestions.svelte";
   import * as m from "$lib/paraglide/messages";
 
@@ -33,16 +35,33 @@
     categoriesQuery.data?.filter((c) => c.type === "expense") ?? []
   );
 
-  // Toggle item completed
+  const listKey = $derived(["shopping_list", id] as const);
+
+  // Toggle item completed — optimistic
   const toggleMutation = createMutation(() => ({
     mutationFn: ({ itemId, completed }: { itemId: string; completed: boolean }) =>
       updateShoppingListItem(itemId, { completed }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["shopping_list", id] });
+    onMutate: async ({ itemId, completed }) => {
+      await queryClient.cancelQueries({ queryKey: listKey });
+      const previous = queryClient.getQueryData<ShoppingListWithItems>(listKey);
+      if (previous) {
+        queryClient.setQueryData<ShoppingListWithItems>(listKey, {
+          ...previous,
+          shopping_list_items: previous.shopping_list_items.map((it) =>
+            it.id === itemId ? { ...it, completed } : it
+          ),
+        });
+      }
+      return { previous };
     },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(listKey, ctx.previous);
+      toast.error(m.toast_error());
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: listKey }),
   }));
 
-  // Add item
+  // Add item — optimistic with temp id
   let showAddItem = $state(false);
   let itemName = $state("");
   let itemQty = $state("");
@@ -58,25 +77,67 @@
         unit: itemUnit || null,
         position: (query.data?.shopping_list_items.length ?? 0) + 1,
       }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["shopping_list", id] });
-      toast.success(m.toast_shopping_list_item_added());
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: listKey });
+      const previous = queryClient.getQueryData<ShoppingListWithItems>(listKey);
+      const tempItem: ShoppingListItem = {
+        id: "__optimistic_" + crypto.randomUUID(),
+        shopping_list_id: id,
+        name: itemName,
+        quantity: itemQty ? parseFloat(itemQty) : null,
+        unit: itemUnit || null,
+        completed: false,
+        position: (previous?.shopping_list_items.length ?? 0) + 1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      if (previous) {
+        queryClient.setQueryData<ShoppingListWithItems>(listKey, {
+          ...previous,
+          shopping_list_items: [...previous.shopping_list_items, tempItem],
+        });
+      }
+      const submitted = { name: itemName, qty: itemQty, unit: itemUnit };
       itemName = "";
       itemQty = "";
       itemUnit = "";
       showAddItem = false;
+      return { previous, submitted };
     },
-    onError: () => toast.error(m.toast_error()),
+    onSuccess: () => toast.success(m.toast_shopping_list_item_added()),
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(listKey, ctx.previous);
+      if (ctx?.submitted) {
+        itemName = ctx.submitted.name;
+        itemQty = ctx.submitted.qty;
+        itemUnit = ctx.submitted.unit;
+        showAddItem = true;
+      }
+      toast.error(m.toast_error());
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: listKey }),
   }));
 
-  // Delete item
+  // Delete item — optimistic
   const deleteItemMutation = createMutation(() => ({
     mutationFn: (itemId: string) => deleteShoppingListItem(itemId),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["shopping_list", id] });
-      toast.success(m.toast_shopping_list_item_deleted());
+    onMutate: async (itemId) => {
+      await queryClient.cancelQueries({ queryKey: listKey });
+      const previous = queryClient.getQueryData<ShoppingListWithItems>(listKey);
+      if (previous) {
+        queryClient.setQueryData<ShoppingListWithItems>(listKey, {
+          ...previous,
+          shopping_list_items: previous.shopping_list_items.filter((it) => it.id !== itemId),
+        });
+      }
+      return { previous };
     },
-    onError: () => toast.error(m.toast_error()),
+    onSuccess: () => toast.success(m.toast_shopping_list_item_deleted()),
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(listKey, ctx.previous);
+      toast.error(m.toast_error());
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: listKey }),
   }));
 
   // Complete list — pre-fill category if list has one
@@ -92,14 +153,30 @@
 
   const completeMutation = createMutation(() => ({
     mutationFn: () => completeShoppingList(id, parseFloat(completeAmount), completeCategoryId),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: listKey });
+      const previous = queryClient.getQueryData<ShoppingListWithItems>(listKey);
+      if (previous) {
+        queryClient.setQueryData<ShoppingListWithItems>(listKey, {
+          ...previous,
+          status: "completed",
+        });
+      }
+      showComplete = false;
+      return { previous };
+    },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["shopping_list", id] });
       await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      toast.success(m.toast_shopping_list_completed());
-      showComplete = false;
+      toast.success(m.shopping_list_completed_celebration());
+      const { default: confetti } = await import("canvas-confetti");
+      confetti({ particleCount: 80, spread: 70, origin: { y: 0.7 } });
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(listKey, ctx.previous);
+      toast.error(m.toast_error());
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: listKey }),
   }));
 
   function submitAddItem(e: Event) {
@@ -148,7 +225,7 @@
   {:else if query.data}
     {@const list = query.data}
     <div class="flex items-start justify-between gap-2">
-      <h1 class="text-xl font-semibold text-slate-900 dark:text-white">{list.name}</h1>
+      <h1 class="text-2xl font-semibold text-slate-900 dark:text-white">{list.name}</h1>
       <span
         class={cn(
           "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium",
@@ -304,6 +381,18 @@
     {/if}
   {/if}
 </div>
+
+{#if isActive}
+  <Fab
+    onclick={() => {
+      showAddItem = true;
+      itemName = "";
+      itemQty = "";
+      itemUnit = "";
+    }}
+    aria-label={m.shopping_list_item_add()}
+  />
+{/if}
 
 <!-- Add item dialog -->
 <Dialog open={showAddItem} onclose={() => (showAddItem = false)} title={m.shopping_list_item_add()}>

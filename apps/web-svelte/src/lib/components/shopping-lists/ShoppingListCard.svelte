@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ProgressRing from "$lib/components/ui/ProgressRing.svelte";
   import * as m from "$lib/paraglide/messages";
   import type { ShoppingListSummary } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
@@ -11,9 +12,8 @@
   }
   let { list, ondelete, onduplicate, onedit }: Props = $props();
 
-  const progress = $derived(
-    list.item_total > 0 ? Math.round((list.item_completed / list.item_total) * 100) : null
-  );
+  const ratio = $derived(list.item_total > 0 ? list.item_completed / list.item_total : 0);
+  const progress = $derived(list.item_total > 0 ? Math.round(ratio * 100) : null);
 </script>
 
 <div
@@ -23,27 +23,32 @@
     href="/shopping-lists/{list.id}"
     class="flex-1 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
   >
-    <div class="flex items-start justify-between gap-2">
+    <div class="flex items-start justify-between gap-3">
       <span class="font-medium text-slate-900 dark:text-white">{list.name}</span>
-      <span
-        class={cn(
-          "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium",
-          list.status === "active" ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-500"
-        )}
-      >
-        {list.status === "active"
-          ? m.shopping_lists_status_active()
-          : m.shopping_lists_status_completed()}
-      </span>
+      <div class="flex shrink-0 items-center gap-2">
+        {#if list.item_total > 0 && list.status === "active"}
+          <ProgressRing
+            value={ratio}
+            label={`${list.item_completed} z ${list.item_total} (${progress}%)`}
+          />
+        {/if}
+        <span
+          class={cn(
+            "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+            list.status === "active" ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-500"
+          )}
+        >
+          {list.status === "active"
+            ? m.shopping_lists_status_active()
+            : m.shopping_lists_status_completed()}
+        </span>
+      </div>
     </div>
     <div class="mt-1 flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
       <span>{formatDate(list.created_at)}</span>
       {#if list.item_total > 0}
         <span>·</span>
         <span>{list.item_completed}/{list.item_total}</span>
-        {#if progress !== null && list.status === "active"}
-          <span class="text-slate-300">({progress}%)</span>
-        {/if}
       {/if}
       {#if list.total_amount != null}
         <span>·</span>

@@ -2,6 +2,7 @@
   import ShoppingListCard from "$lib/components/shopping-lists/ShoppingListCard.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import Dialog from "$lib/components/ui/Dialog.svelte";
+  import Fab from "$lib/components/ui/Fab.svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchUserGroups } from "$lib/services/groups";
   import { fetchCategories } from "$lib/services/categories";
@@ -53,15 +54,45 @@
         group_id: newGroupId || null,
         category_id: newCategoryId || null,
       }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
-      toast.success(m.toast_shopping_list_created());
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ["shopping_lists"] });
+      const previous = queryClient.getQueryData<ShoppingListSummary[]>(["shopping_lists"]);
+      const optimistic: ShoppingListSummary = {
+        id: "__optimistic_" + crypto.randomUUID(),
+        name: newName,
+        status: "active",
+        user_id: "",
+        group_id: newGroupId || null,
+        category_id: newCategoryId || null,
+        total_amount: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        item_total: 0,
+        item_completed: 0,
+      };
+      queryClient.setQueryData<ShoppingListSummary[]>(
+        ["shopping_lists"],
+        [optimistic, ...(previous ?? [])]
+      );
+      const submitted = { newName, newGroupId, newCategoryId };
       newName = "";
       newGroupId = "";
       newCategoryId = "";
       showCreate = false;
+      return { previous, submitted };
     },
-    onError: () => toast.error(m.toast_error()),
+    onSuccess: () => toast.success(m.toast_shopping_list_created()),
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(["shopping_lists"], ctx.previous);
+      if (ctx?.submitted) {
+        newName = ctx.submitted.newName;
+        newGroupId = ctx.submitted.newGroupId;
+        newCategoryId = ctx.submitted.newCategoryId;
+        showCreate = true;
+      }
+      toast.error(m.toast_error());
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["shopping_lists"] }),
   }));
 
   function submitCreate(e: Event) {
@@ -74,12 +105,24 @@
 
   const deleteMut = createMutation(() => ({
     mutationFn: () => deleteShoppingList(deleteTargetId!),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
-      toast.success(m.toast_shopping_list_deleted());
+    onMutate: async () => {
+      const targetId = deleteTargetId;
+      if (!targetId) return { previous: undefined, targetId };
+      await queryClient.cancelQueries({ queryKey: ["shopping_lists"] });
+      const previous = queryClient.getQueryData<ShoppingListSummary[]>(["shopping_lists"]);
+      queryClient.setQueryData<ShoppingListSummary[]>(
+        ["shopping_lists"],
+        (previous ?? []).filter((l) => l.id !== targetId)
+      );
       deleteTargetId = null;
+      return { previous, targetId };
     },
-    onError: () => toast.error(m.toast_error()),
+    onSuccess: () => toast.success(m.toast_shopping_list_deleted()),
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(["shopping_lists"], ctx.previous);
+      toast.error(m.toast_error());
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["shopping_lists"] }),
   }));
 
   // Duplicate
@@ -112,12 +155,29 @@
         group_id: editGroupId || null,
         category_id: editCategoryId || null,
       }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
-      toast.success(m.toast_shopping_list_updated());
+    onMutate: async () => {
+      const target = editTarget;
+      if (!target) return { previous: undefined };
+      await queryClient.cancelQueries({ queryKey: ["shopping_lists"] });
+      const previous = queryClient.getQueryData<ShoppingListSummary[]>(["shopping_lists"]);
+      const patch = {
+        name: editName,
+        group_id: editGroupId || null,
+        category_id: editCategoryId || null,
+      };
+      queryClient.setQueryData<ShoppingListSummary[]>(
+        ["shopping_lists"],
+        (previous ?? []).map((l) => (l.id === target.id ? { ...l, ...patch } : l))
+      );
       editTarget = null;
+      return { previous };
     },
-    onError: () => toast.error(m.toast_error()),
+    onSuccess: () => toast.success(m.toast_shopping_list_updated()),
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(["shopping_lists"], ctx.previous);
+      toast.error(m.toast_error());
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["shopping_lists"] }),
   }));
 
   function submitEdit(e: Event) {
@@ -128,7 +188,7 @@
 
 <div class="container mx-auto max-w-3xl space-y-5 px-4 py-6">
   <div class="flex items-center justify-between">
-    <h1 class="text-xl font-semibold text-slate-900 dark:text-white">
+    <h1 class="text-2xl font-semibold text-slate-900 dark:text-white">
       {m.shopping_lists_title()}
     </h1>
     <button
@@ -193,6 +253,16 @@
     {/if}
   {/if}
 </div>
+
+<Fab
+  onclick={() => {
+    showCreate = true;
+    newName = "";
+    newGroupId = "";
+    newCategoryId = "";
+  }}
+  aria-label={m.shopping_list_form_title_add()}
+/>
 
 <!-- Create dialog -->
 <Dialog
