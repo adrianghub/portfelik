@@ -73,6 +73,6 @@ test('complete list: dialog, submit, success toast', async ({ page }) => {
   // Submit — shopping_list_complete_submit = "Zakończ i utwórz transakcję"
   await page.getByRole('button', { name: 'Zakończ i utwórz transakcję' }).click();
 
-  // Success toast — toast_shopping_list_completed = "Lista zakończona, transakcja dodana"
-  await expect(page.getByText('Lista zakończona, transakcja dodana')).toBeVisible();
+  // Success toast — shopping_list_completed_celebration = "🎉 Lista zrobiona!"
+  await expect(page.getByText('Lista zrobiona')).toBeVisible();
 });
