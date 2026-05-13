@@ -1,8 +1,6 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5";
   };
@@ -113,7 +111,7 @@ export type Database = {
           id: string;
           read_at: string | null;
           title: string;
-          type: string;
+          type: Database["public"]["Enums"]["notification_type"];
           user_id: string;
         };
         Insert: {
@@ -123,7 +121,7 @@ export type Database = {
           id?: string;
           read_at?: string | null;
           title: string;
-          type: string;
+          type: Database["public"]["Enums"]["notification_type"];
           user_id: string;
         };
         Update: {
@@ -133,7 +131,7 @@ export type Database = {
           id?: string;
           read_at?: string | null;
           title?: string;
-          type?: string;
+          type?: Database["public"]["Enums"]["notification_type"];
           user_id?: string;
         };
         Relationships: [];
@@ -447,21 +445,11 @@ export type Database = {
     };
     Functions: {
       _setting: { Args: { p_name: string }; Returns: string };
-      accept_invitation: {
-        Args: { p_invitation_id: string };
-        Returns: undefined;
-      };
+      accept_invitation: { Args: { p_invitation_id: string }; Returns: undefined };
       assign_admin_role: { Args: { p_user_id: string }; Returns: undefined };
-      cancel_invitation: {
-        Args: { p_invitation_id: string };
-        Returns: undefined;
-      };
+      cancel_invitation: { Args: { p_invitation_id: string }; Returns: undefined };
       complete_shopping_list: {
-        Args: {
-          p_category_id: string;
-          p_list_id: string;
-          p_total_amount: number;
-        };
+        Args: { p_category_id: string; p_list_id: string; p_total_amount: number };
         Returns: {
           amount: number;
           category_id: string;
@@ -479,12 +467,7 @@ export type Database = {
           updated_at: string;
           user_id: string;
         };
-        SetofOptions: {
-          from: "*";
-          to: "transactions";
-          isOneToOne: true;
-          isSetofReturn: false;
-        };
+        SetofOptions: { from: "*"; to: "transactions"; isOneToOne: true; isSetofReturn: false };
       };
       create_group: {
         Args: { p_name: string };
@@ -495,14 +478,10 @@ export type Database = {
           owner_id: string;
           updated_at: string;
         };
-        SetofOptions: {
-          from: "*";
-          to: "user_groups";
-          isOneToOne: true;
-          isSetofReturn: false;
-        };
+        SetofOptions: { from: "*"; to: "user_groups"; isOneToOne: true; isSetofReturn: false };
       };
       delete_account: { Args: never; Returns: undefined };
+      delete_admin_push_subscription: { Args: { p_endpoint: string }; Returns: undefined };
       disband_group: { Args: { p_group_id: string }; Returns: undefined };
       duplicate_shopping_list: {
         Args: { p_list_id: string };
@@ -517,17 +496,33 @@ export type Database = {
           updated_at: string;
           user_id: string;
         };
-        SetofOptions: {
-          from: "*";
-          to: "shopping_lists";
-          isOneToOne: true;
-          isSetofReturn: false;
-        };
+        SetofOptions: { from: "*"; to: "shopping_lists"; isOneToOne: true; isSetofReturn: false };
       };
-      get_monthly_summary: {
-        Args: { p_month: number; p_year: number };
-        Returns: Json;
+      fetch_admin_notifications: {
+        Args: { p_limit?: number };
+        Returns: {
+          body: string;
+          created_at: string;
+          data: Json;
+          id: string;
+          read_at: string;
+          title: string;
+          type: Database["public"]["Enums"]["notification_type"];
+          user_id: string;
+        }[];
       };
+      fetch_admin_push_subscriptions: {
+        Args: never;
+        Returns: {
+          created_at: string;
+          device_type: string;
+          endpoint: string;
+          last_used_at: string;
+          user_agent: string;
+          user_id: string;
+        }[];
+      };
+      get_monthly_summary: { Args: { p_month: number; p_year: number }; Returns: Json };
       invite_user: {
         Args: { p_email: string; p_group_id: string };
         Returns: {
@@ -553,19 +548,10 @@ export type Database = {
       is_group_owner: { Args: { p_group_id: string }; Returns: boolean };
       leave_group: { Args: { p_group_id: string }; Returns: undefined };
       mark_all_notifications_read: { Args: never; Returns: undefined };
-      mark_notification_read: {
-        Args: { p_notification_id: string };
-        Returns: undefined;
-      };
+      mark_notification_read: { Args: { p_notification_id: string }; Returns: undefined };
       process_recurring_transactions: { Args: never; Returns: undefined };
-      reject_invitation: {
-        Args: { p_invitation_id: string };
-        Returns: undefined;
-      };
-      remove_group_member: {
-        Args: { p_group_id: string; p_user_id: string };
-        Returns: undefined;
-      };
+      reject_invitation: { Args: { p_invitation_id: string }; Returns: undefined };
+      remove_group_member: { Args: { p_group_id: string; p_user_id: string }; Returns: undefined };
       revoke_admin_role: { Args: { p_user_id: string }; Returns: undefined };
       transfer_group_ownership: {
         Args: { p_group_id: string; p_new_owner_id: string };
@@ -577,14 +563,19 @@ export type Database = {
     };
     Enums: {
       invitation_status: "pending" | "accepted" | "rejected" | "cancelled";
+      notification_type:
+        | "transaction_summary"
+        | "transaction_upcoming"
+        | "transaction_overdue"
+        | "transaction_reminder"
+        | "group_invitation"
+        | "system_notification";
       shopping_list_status: "active" | "completed";
       transaction_status: "draft" | "upcoming" | "overdue" | "paid";
       transaction_type: "income" | "expense";
       user_role: "user" | "admin";
     };
-    CompositeTypes: {
-      [_ in never]: never;
-    };
+    CompositeTypes: { [_ in never]: never };
   };
 };
 
@@ -602,9 +593,7 @@ export type Tables<
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
       DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R;
@@ -628,18 +617,14 @@ export type TablesInsert<
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I;
     }
     ? I
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I;
-      }
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends { Insert: infer I }
       ? I
       : never
     : never;
@@ -653,18 +638,14 @@ export type TablesUpdate<
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U;
     }
     ? U
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U;
-      }
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends { Update: infer U }
       ? U
       : never
     : never;
@@ -678,9 +659,7 @@ export type Enums<
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
+> = DefaultSchemaEnumNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
@@ -695,9 +674,7 @@ export type CompositeTypes<
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
-> = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
+> = PublicCompositeTypeNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
@@ -707,6 +684,14 @@ export const Constants = {
   public: {
     Enums: {
       invitation_status: ["pending", "accepted", "rejected", "cancelled"],
+      notification_type: [
+        "transaction_summary",
+        "transaction_upcoming",
+        "transaction_overdue",
+        "transaction_reminder",
+        "group_invitation",
+        "system_notification",
+      ],
       shopping_list_status: ["active", "completed"],
       transaction_status: ["draft", "upcoming", "overdue", "paid"],
       transaction_type: ["income", "expense"],

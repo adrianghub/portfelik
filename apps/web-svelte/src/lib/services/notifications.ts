@@ -12,6 +12,12 @@ export async function fetchNotifications(): Promise<Notification[]> {
   return (data ?? []) as Notification[];
 }
 
+export async function fetchAdminNotifications(limit = 50): Promise<Notification[]> {
+  const { data, error } = await supabase.rpc("fetch_admin_notifications", { p_limit: limit });
+  if (error) throw error;
+  return (data ?? []) as Notification[];
+}
+
 export async function markNotificationRead(notificationId: string): Promise<void> {
   const { error } = await supabase.rpc("mark_notification_read", {
     p_notification_id: notificationId,

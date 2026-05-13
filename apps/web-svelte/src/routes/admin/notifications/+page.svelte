@@ -3,11 +3,11 @@
   import { goto } from "$app/navigation";
   import { supabase } from "$lib/supabase";
   import { fetchProfile } from "$lib/services/profiles";
-  import { fetchNotifications } from "$lib/services/notifications";
+  import { fetchAdminNotifications } from "$lib/services/notifications";
   import {
-    fetchPushSubscriptions,
-    deletePushSubscriptionByEndpoint,
-    type PushSubscriptionRow,
+    fetchAdminPushSubscriptions,
+    deleteAdminPushSubscriptionByEndpoint,
+    type AdminPushSubscriptionRow,
   } from "$lib/services/push";
   import type { Notification } from "$lib/types";
   import { formatDate } from "$lib/utils";
@@ -17,7 +17,7 @@
   import * as m from "$lib/paraglide/messages";
 
   let notifications = $state<Notification[]>([]);
-  let pushSubs = $state<PushSubscriptionRow[]>([]);
+  let pushSubs = $state<AdminPushSubscriptionRow[]>([]);
   let loading = $state(true);
   let error = $state<string | null>(null);
   let pendingDelete = $state<string | null>(null);
@@ -40,7 +40,10 @@
     loading = true;
     error = null;
     try {
-      const [notifs, subs] = await Promise.all([fetchNotifications(), fetchPushSubscriptions()]);
+      const [notifs, subs] = await Promise.all([
+        fetchAdminNotifications(),
+        fetchAdminPushSubscriptions(),
+      ]);
       notifications = notifs;
       pushSubs = subs;
     } catch (err) {
@@ -61,7 +64,7 @@
 
   const deleteSubMutation = createMutation(() => ({
     mutationFn: async (endpoint: string) => {
-      await deletePushSubscriptionByEndpoint(endpoint);
+      await deleteAdminPushSubscriptionByEndpoint(endpoint);
     },
     onSuccess: async () => {
       toast.success(m.toast_push_sub_deleted());

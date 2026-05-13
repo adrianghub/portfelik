@@ -101,3 +101,18 @@ export async function deletePushSubscriptionByEndpoint(endpoint: string): Promis
   const { error } = await supabase.from("push_subscriptions").delete().eq("endpoint", endpoint);
   if (error) throw error;
 }
+
+export type AdminPushSubscriptionRow = PushSubscriptionRow & { user_id: string };
+
+export async function fetchAdminPushSubscriptions(): Promise<AdminPushSubscriptionRow[]> {
+  const { data, error } = await supabase.rpc("fetch_admin_push_subscriptions");
+  if (error) throw error;
+  return (data ?? []) as AdminPushSubscriptionRow[];
+}
+
+export async function deleteAdminPushSubscriptionByEndpoint(endpoint: string): Promise<void> {
+  const { error } = await supabase.rpc("delete_admin_push_subscription", {
+    p_endpoint: endpoint,
+  });
+  if (error) throw error;
+}
