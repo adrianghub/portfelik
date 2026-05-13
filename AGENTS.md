@@ -1,4 +1,4 @@
-# CLAUDE.md
+# AGENTS.md
 
 ## Agent Workflow Rules
 
@@ -19,8 +19,8 @@ Apply to every task regardless of phase.
    - User commits manually. Do not skip this step even if changes seem minor.
 
 ### After each increment
-8. **Update CLAUDE.md** phase table + "Immediate next step". Update `~/.claude/projects/.../memory/project_state.md`. Stale docs are worse than none.
-9. **Handoff notes** — next agent must cold-start from CLAUDE.md alone.
+8. **Update AGENTS.md** phase table + "Immediate next step". Update `~/.Codex/projects/.../memory/project_state.md`. Stale docs are worse than none.
+9. **Handoff notes** — next agent must cold-start from AGENTS.md alone.
 
 ### Increment discipline
 - Split by concern: schema / services / components / config. One migration per logical schema change. Never amend applied migrations.
@@ -87,8 +87,8 @@ Apply to every task regardless of phase.
 | **Offline write queue (Dexie outbox) — parity gap vs legacy `FirestoreService`** | Medium | ⏳ Backlog |
 | `notifications.type` Postgres enum + `data` jsonb schema | Low | ✅ Done in Phase 10 — `6ec68aa` (enum part; `data` jsonb schema deferred — payload-by-type still untyped at DB layer) |
 | Edge Function `deno.json` for each of 3 functions | Low | ✅ Done 2026-05-13 — per-function `imports` map pinning `@supabase/supabase-js`, edge runtime types, `web-push` |
-| pg_cron DST documentation | Low | ✅ Done 2026-05-13 — `supabase/CLAUDE.md` "Scheduled jobs" section (lives in CLAUDE.md per rule "never amend applied migrations") |
-| Migration drift — re-import early migrations into `supabase_migrations.schema_migrations` | Low | ✅ Done 2026-05-13 — declared SQL-files-as-canonical in `supabase/CLAUDE.md` "Migration tracking" section (backfill deferred; safe `supabase migration repair` instructions provided) |
+| pg_cron DST documentation | Low | ✅ Done 2026-05-13 — `supabase/AGENTS.md` "Scheduled jobs" section (lives in AGENTS.md per rule "never amend applied migrations") |
+| Migration drift — re-import early migrations into `supabase_migrations.schema_migrations` | Low | ✅ Done 2026-05-13 — declared SQL-files-as-canonical in `supabase/AGENTS.md` "Migration tracking" section (backfill deferred; safe `supabase migration repair` instructions provided) |
 
 **Branch flow:** `main` → prod (`portfelik.adrianzinko.com`); `dev` → staging (`dev.portfelik.pages.dev`). Same Cloudflare Pages project + same Supabase project for both — staging writes are isolated to the dedicated test user via RLS, smoke specs clean up via sentinel-tagged data.
 
@@ -108,11 +108,11 @@ Apply to every task regardless of phase.
 
 ```
 portfelik/portfelik/
-├── apps/web-svelte/        ← SvelteKit app (active — see apps/web-svelte/CLAUDE.md)
-├── supabase/               ← Migrations + config (see supabase/CLAUDE.md)
+├── apps/web-svelte/        ← SvelteKit app (active — see apps/web-svelte/AGENTS.md)
+├── supabase/               ← Migrations + config (see supabase/AGENTS.md)
 ├── docs/architecture/      ← Canonical architecture docs (overview, DB, flows, ADRs, audit)
 ├── MIGRATION_PLAN.md       ← Historical migration phase plan (now mostly complete)
-└── .claude/rules/svelte-gotchas.md  ← Auto-loaded for apps/web-svelte/** work
+└── .Codex/rules/svelte-gotchas.md  ← Auto-loaded for apps/web-svelte/** work
 ```
 
 ---

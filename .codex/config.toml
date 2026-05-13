@@ -1,0 +1,5 @@
+[mcp_servers.supabase]
+url = "https://mcp.supabase.com/mcp?project_ref=emqzcygfwcvbmhxhfkcc&features=storage%2Cbranching%2Cdevelopment%2Cfunctions%2Cdebugging%2Caccount%2Cdatabase%2Cdocs"
+
+[mcp_servers.svelte]
+url = "https://mcp.svelte.dev/mcp"
