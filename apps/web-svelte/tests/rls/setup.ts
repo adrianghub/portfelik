@@ -6,18 +6,20 @@ type Env = {
   url: string;
   anonKey: string;
   serviceRoleKey: string;
+  testPassword: string;
 };
 
 function requireEnv(): Env {
   const url = process.env.SUPABASE_URL ?? process.env.PUBLIC_SUPABASE_URL;
   const anonKey = process.env.SUPABASE_ANON_KEY ?? process.env.PUBLIC_SUPABASE_ANON_KEY;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !anonKey || !serviceRoleKey) {
+  const testPassword = process.env.RLS_TEST_PASSWORD;
+  if (!url || !anonKey || !serviceRoleKey || !testPassword) {
     throw new Error(
-      "RLS tests require SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY env vars (get via `supabase status` from repo root).",
+      "RLS tests require SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY and RLS_TEST_PASSWORD env vars (Supabase URL/keys via `supabase status` from repo root; password is any local string).",
     );
   }
-  return { url, anonKey, serviceRoleKey };
+  return { url, anonKey, serviceRoleKey, testPassword };
 }
 
 export function createAdminClient(): SupabaseClient {
@@ -37,13 +39,10 @@ export function createUserClient(accessToken: string): SupabaseClient {
 
 export type TestUser = {
   email: string;
-  password: string;
   userId: string;
   accessToken: string;
   client: SupabaseClient;
 };
-
-const TEST_PASSWORD = "rls-suite-pw-do-not-reuse-XYZ123";
 
 async function findUserByEmail(admin: SupabaseClient, email: string): Promise<string | null> {
   const { data } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
@@ -51,29 +50,37 @@ async function findUserByEmail(admin: SupabaseClient, email: string): Promise<st
 }
 
 async function ensureUser(admin: SupabaseClient, email: string): Promise<string> {
+  const { testPassword } = requireEnv();
   const existingId = await findUserByEmail(admin, email);
-  if (existingId) return existingId;
+  if (existingId) {
+    // Reset password in case prior run used a different one.
+    await admin.auth.admin.updateUserById(existingId, { password: testPassword });
+    return existingId;
+  }
 
   const { data, error } = await admin.auth.admin.createUser({
     email,
-    password: TEST_PASSWORD,
+    password: testPassword,
     email_confirm: true,
   });
   if (!error && data.user) return data.user.id;
 
   // Race: another concurrent setup created the user between our list and
-  // create. Re-fetch.
+  // create. Re-fetch and reset password.
   const refoundId = await findUserByEmail(admin, email);
-  if (refoundId) return refoundId;
+  if (refoundId) {
+    await admin.auth.admin.updateUserById(refoundId, { password: testPassword });
+    return refoundId;
+  }
   throw error ?? new Error("createUser returned no user");
 }
 
 async function signIn(email: string): Promise<string> {
-  const { url, anonKey } = requireEnv();
+  const { url, anonKey, testPassword } = requireEnv();
   const anon = createClient(url, anonKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
-  const { data, error } = await anon.auth.signInWithPassword({ email, password: TEST_PASSWORD });
+  const { data, error } = await anon.auth.signInWithPassword({ email, password: testPassword });
   if (error || !data.session) throw error ?? new Error("signIn returned no session");
   return data.session.access_token;
 }
@@ -103,14 +110,12 @@ export async function provisionTwoUsers(): Promise<TestContext> {
     admin,
     userA: {
       email: emailA,
-      password: TEST_PASSWORD,
       userId: userIdA,
       accessToken: tokenA,
       client: createUserClient(tokenA),
     },
     userB: {
       email: emailB,
-      password: TEST_PASSWORD,
       userId: userIdB,
       accessToken: tokenB,
       client: createUserClient(tokenB),

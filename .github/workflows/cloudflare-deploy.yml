@@ -72,6 +72,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generate ephemeral RLS test password
+        run: echo "RLS_TEST_PASSWORD=$(openssl rand -hex 24)" >> "$GITHUB_ENV"
+
       - name: Run RLS suite
         working-directory: apps/web-svelte
         run: pnpm test:rls
