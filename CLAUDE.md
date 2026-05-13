@@ -31,7 +31,7 @@ Apply to every task regardless of phase.
 
 **Portfelik** — personal-finance PWA. Migrating React 19 + Firebase → SvelteKit + Supabase. Full plan: `MIGRATION_PLAN.md`.
 
-**Immediate next step:** Phase 9 — post-audit quality items, now reduced to 8 (T15 enum done in Phase 10). Start with RLS regression tests (P1), then `search_path` pinning (P2), then 4 FK indexes + 2 `auth.jwt()` initPlan wraps (P3). See `docs/architecture/audit-2026-05-09.md`. Read `docs/architecture/README.md` first for the current architectural picture.
+**Immediate next step:** Phase 9 P1 + P3 shipped 2026-05-13 (RLS Vitest suite + 4 FK indexes + emergency fix on `profiles.role` column-grant supersession that allowed any authenticated user to self-elevate to admin). Remaining Phase 9: P4 vault rotation runbook, Dexie offline outbox (legacy parity), Edge Fn `deno.json`, pg_cron DST docs, migration drift. Pick from `docs/architecture/audit-2026-05-09.md`.
 
 | Phase | Status |
 |---|---|
@@ -78,9 +78,10 @@ Apply to every task regardless of phase.
 
 | Item | Severity | Status |
 |---|---|---|
-| RLS regression test suite (Vitest, two JWTs) | Medium | ⏳ Backlog — **P1** |
-| Function `search_path` pinning on all SECURITY DEFINER fns (security advisor) | Medium | ⏳ Backlog — **P2** |
-| Four FK-covering indexes + two `auth.jwt()` initPlan wraps (perf advisor) | Medium | ⏳ Backlog — **P3** |
+| RLS regression test suite (Vitest, two JWTs) | Medium | ✅ Done 2026-05-13 — `apps/web-svelte/tests/rls/` (9 spec files, 42 tests, local Supabase) |
+| Function `search_path` pinning on all SECURITY DEFINER fns (security advisor) | Medium | ✅ Already complete — all 28 SECURITY DEFINER fns pin `search_path` |
+| Four FK-covering indexes + two `auth.jwt()` initPlan wraps (perf advisor) | Medium | ✅ Done 2026-05-13 — 4 FK indexes added (`20260514000000_phase9_fk_indexes.sql`); `auth.jwt()` wraps already in place (advisor false-positive on 2 nested-EXISTS forms) |
+| **EMERGENCY**: `profiles.role` self-elevation via column-grant supersession (caught by P1 suite) | High | ✅ Patched 2026-05-13 — `20260514000001_phase9_lock_profile_role.sql` |
 | Vault secret rotation runbook (`docs/runbooks/secret-rotation.md`) | Medium | ⏳ Backlog |
 | **Offline write queue (Dexie outbox) — parity gap vs legacy `FirestoreService`** | Medium | ⏳ Backlog |
 | `notifications.type` Postgres enum + `data` jsonb schema | Low | ✅ Done in Phase 10 — `6ec68aa` (enum part; `data` jsonb schema deferred — payload-by-type still untyped at DB layer) |
