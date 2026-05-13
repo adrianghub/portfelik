@@ -51,3 +51,32 @@ supabase gen types typescript --local > apps/web-svelte/src/lib/supabase.types.t
 - `migrations/20260425000000_phase5_notifications_push.sql` — notifications + push_subscriptions tables, `mark_notification_read`, `mark_all_notifications_read`, `process_recurring_transactions`, pg_cron jobs
 - `migrations/20260425000001_phase5_2_edge_function_hooks.sql` — DB triggers → Edge Function calls (Vault-based)
 - `migrations/20260426000000_fix_recurring_template_id.sql` — added `recurring_template_id` FK for dedup
+
+## Scheduled jobs (pg_cron)
+
+All cron expressions are evaluated in **UTC**. Europe/Warsaw is UTC+1 in winter (CET, late Oct – late Mar) and UTC+2 in summer (CEST). For each job the table shows the UTC schedule and the resulting local fire window.
+
+| Job | UTC schedule | Local (winter / summer) | Source migration |
+|---|---|---|---|
+| `process-recurring-transactions` | `0 23 1 * *` (23:00 UTC, 1st of month) | 00:00 CET (2nd) / 01:00 CEST (2nd) | `20260425000000_phase5_notifications_push.sql:455` |
+| `update-transaction-statuses` | `0 5 * * *` (05:00 UTC daily) | 06:00 CET / 07:00 CEST | `20260425000000_phase5_notifications_push.sql:461` |
+| `send-admin-summary` | `0 7 * * 1` (07:00 UTC, Mondays) | 08:00 CET / 09:00 CEST | `20260425000001_phase5_2_edge_function_hooks.sql:151` |
+
+If exact local-time firing becomes important (e.g. always 09:00 Warsaw regardless of DST), switch to `cron.schedule_in_database(...)` with a timezone argument — this requires the `pg_cron.timezone` GUC set per database.
+
+The 1-hour DST drift is acceptable for these jobs (none are user-facing in a sub-hour way). On-call: if a Sunday morning incident reports "the recurring transaction job fired an hour earlier/later than usual," check DST transition dates rather than chasing scheduler bugs.
+
+## Migration tracking
+
+`supabase_migrations.schema_migrations` records the 6 migrations applied via Supabase MCP on 2026-05-13 plus `admin_trigger_rpc` (2026-05-04). The 7 earliest migrations (`20260423000000_initial_schema` through `20260430000000_duplicate_shopping_list_rpc`) were applied before tracking started and are absent from the table.
+
+**SQL files in `supabase/migrations/` are canonical** — the table is informational. Do NOT manually backfill the missing rows; the next `supabase db push` (or a deliberate `supabase migration repair --status applied <timestamp>` per missing file) will re-record them safely.
+
+To recover full tracking from scratch:
+
+```bash
+# repeat once per missing migration timestamp
+supabase migration repair --status applied 20260423000000
+```
+
+Edge Functions have per-function `deno.json` files (added 2026-05-13) pinning import versions for `@supabase/supabase-js`, the edge runtime types, and `web-push` (send-push only). Do not remove these — they prevent silent registry-side version drift on `supabase functions deploy`.
