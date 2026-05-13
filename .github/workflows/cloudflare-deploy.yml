@@ -36,9 +36,53 @@ jobs:
         working-directory: apps/web-svelte
         run: pnpm lint
 
+  rls:
+    name: RLS regression (local Supabase)
+    needs: ci
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v5
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase stack
+        run: supabase start
+
+      - name: Capture local Supabase env
+        run: |
+          eval "$(supabase status -o env | sed -E 's/^([A-Z_]+)="?([^"]+)"?$/export \1=\2/')"
+          {
+            echo "SUPABASE_URL=$API_URL"
+            echo "SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run RLS suite
+        working-directory: apps/web-svelte
+        run: pnpm test:rls
+
+      - name: Stop local Supabase stack
+        if: always()
+        run: supabase stop --no-backup
+
   e2e:
     name: Playwright E2E (mocked)
-    needs: ci
+    needs: [ci, rls]
     if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
@@ -83,7 +127,7 @@ jobs:
 
   deploy-prod:
     name: Deploy to Cloudflare Pages (production)
-    needs: [ci, e2e]
+    needs: [ci, rls, e2e]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     environment:
@@ -124,7 +168,7 @@ jobs:
 
   deploy-staging:
     name: Deploy to Cloudflare Pages (staging)
-    needs: [ci, e2e]
+    needs: [ci, rls, e2e]
     if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
     runs-on: ubuntu-latest
     environment:
