@@ -97,9 +97,12 @@ enable_signup                 = true
 enable_anonymous_sign_ins     = false
 enable_manual_linking         = false
 
-# Email auth — disabled in favour of Google OAuth only.
+# Email auth — disabled in prod (Google OAuth only). Enabled locally so
+# the RLS regression suite (tests/rls/) can password-grant two test users.
+# Prod auth config lives in the Supabase Dashboard; this toml only governs
+# the local `supabase start` stack.
 [auth.email]
-enable_signup         = false
+enable_signup         = true
 enable_confirmations  = false
 double_confirm_changes = true
 max_frequency         = "1s"
