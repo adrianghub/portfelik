@@ -247,5 +247,8 @@
   "transactions_filter_drawer_title": "Filtry",
   "transactions_filter_apply": "Zastosuj filtry",
   "transactions_filter_clear": "Wyczyść",
-  "transactions_search_placeholder": "Szukaj transakcji…"
+  "transactions_search_placeholder": "Szukaj transakcji…",
+  "shopping_list_completed_celebration": "🎉 Lista zrobiona!",
+  "dashboard_wins_title": "Sukcesy miesiąca",
+  "dashboard_wins_value": "🛒 {lists} list · ✅ {items} produktów"
 }
