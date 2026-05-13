@@ -24,6 +24,8 @@
     categoryId: string | undefined;
     status: string | undefined;
     categories: Category[];
+    searchQuery: string;
+    onsearchchange: (q: string) => void;
   }
 
   let {
@@ -37,6 +39,8 @@
     categoryId,
     status,
     categories,
+    searchQuery,
+    onsearchchange,
   }: Props = $props();
 
   let pendingStartYear = $state(untrack(() => startYear));
@@ -90,6 +94,18 @@
 
 <Sheet {open} {onclose} title={m.transactions_filter_drawer_title()}>
   <div class="space-y-5 pb-2">
+    <!-- Search -->
+    <div>
+      <p class="mb-2 text-xs font-medium text-slate-500 dark:text-slate-400">Szukaj</p>
+      <input
+        type="search"
+        value={searchQuery}
+        oninput={(e) => onsearchchange((e.target as HTMLInputElement).value)}
+        placeholder={m.transactions_search_placeholder()}
+        class="min-h-10 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-600"
+      />
+    </div>
+
     <!-- Date range -->
     <div>
       <p class="mb-2 text-xs font-medium text-slate-500 dark:text-slate-400">Zakres dat</p>

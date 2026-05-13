@@ -10,6 +10,7 @@
   import TransactionDialog from "$lib/components/transactions/TransactionDialog.svelte";
   import TransactionTable from "$lib/components/transactions/TransactionTable.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
+  import Input from "$lib/components/ui/Input.svelte";
   import Select from "$lib/components/ui/Select.svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchCategories } from "$lib/services/categories";
@@ -63,6 +64,13 @@
         ? txQuery.data.filter((tx) => tx.status === statusFilter)
         : txQuery.data
       : undefined
+  );
+
+  let searchQuery = $state("");
+  const visibleTxs = $derived(
+    filteredTxs?.filter(
+      (tx) => !searchQuery || tx.description?.toLowerCase().includes(searchQuery.toLowerCase())
+    )
   );
 
   const summary = $derived(filteredTxs ? computeSummary(filteredTxs) : null);
@@ -149,6 +157,7 @@
   }
 
   function onRangeChange(sy: number, sm: number, ey: number, em: number) {
+    searchQuery = "";
     const params = new URLSearchParams($page.url.searchParams);
     params.set("startYear", String(sy));
     params.set("startMonth", String(sm));
@@ -374,6 +383,12 @@
         {/if}
       </button>
       <div class="hidden flex-wrap items-center gap-2 sm:flex">
+        <Input
+          type="search"
+          bind:value={searchQuery}
+          placeholder={m.transactions_search_placeholder()}
+          class="w-44"
+        />
         <MonthRangePicker {startYear} {startMonth} {endYear} {endMonth} onchange={onRangeChange} />
         {#if categoriesQuery.data}
           <CategoryFilter
@@ -495,9 +510,9 @@
     ></div>
   {:else if txQuery.isError}
     <p class="text-sm text-rose-600">{m.common_error_title()}</p>
-  {:else if filteredTxs}
+  {:else if visibleTxs}
     <TransactionTable
-      transactions={filteredTxs}
+      transactions={visibleTxs}
       {currentUserId}
       {emptyLabel}
       bind:selectedIds
@@ -526,6 +541,8 @@
       {categoryId}
       status={statusFilter}
       categories={categoriesQuery.data}
+      {searchQuery}
+      onsearchchange={(q) => (searchQuery = q)}
     />
   {/if}
 </div>
