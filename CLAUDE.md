@@ -31,7 +31,7 @@ Apply to every task regardless of phase.
 
 **Portfelik** — personal-finance PWA. Migrating React 19 + Firebase → SvelteKit + Supabase. Full plan: `MIGRATION_PLAN.md`.
 
-**Immediate next step:** Phase 9 quick wins shipped 2026-05-13 (Edge Fn `deno.json`, pg_cron DST docs, migration drift policy). Phase 9 remaining: vault rotation runbook (`docs/runbooks/secret-rotation.md`) and **Dexie offline outbox** (legacy parity gap, last-write-wins). All other audit items closed. Pick from `docs/architecture/audit-2026-05-09.md` for next sprint.
+**Immediate next step:** Phase 11 UX polish shipped 2026-05-13 (optimistic shopping mutations + sticky FAB + ProgressRing on cards + dashboard "wins this month" widget + completion confetti + greeting/title typography bump). Remaining backlog: vault rotation runbook (`docs/runbooks/secret-rotation.md`) and **Dexie offline outbox** (legacy parity gap, last-write-wins decided).
 
 | Phase | Status |
 |---|---|
@@ -45,6 +45,7 @@ Apply to every task regardless of phase.
 | 7 — Cutover | ✅ Done (2026-05-01) — src/, functions/, Firebase configs deleted. |
 | 8 — Hardening — see sub-table | ✅ Done (2026-05-09) |
 | 10 — UX refresh (design tokens, UI primitives, navigation shell, page sweeps, dashboard, mobile filter drawer, search, batch CSV, notification enum) — see sub-table | ✅ Done (2026-05-13) — 16 commits merged to `dev`, staging green, T15 enum migration applied to prod Supabase |
+| 11 — UX polish (optimistic shopping mutations, sticky FAB, ProgressRing, dashboard wins widget, completion confetti, typography bump) | ✅ Done (2026-05-13) |
 
 ### Phase 8 — Hardening (deferred UX + quality)
 
