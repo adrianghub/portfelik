@@ -23,7 +23,7 @@ export async function fetchShoppingLists(): Promise<ShoppingListSummary[]> {
   const { data, error } = await supabase
     .from("shopping_lists")
     .select(
-      "id, name, status, user_id, group_id, category_id, total_amount, created_at, updated_at, shopping_list_items(id, completed)"
+      "id, name, status, user_id, group_id, category_id, total_amount, completed_at, created_at, updated_at, shopping_list_items(id, completed)"
     )
     .order("created_at", { ascending: false });
 
@@ -42,7 +42,7 @@ export async function fetchShoppingListById(id: string): Promise<ShoppingListWit
   const { data, error } = await supabase
     .from("shopping_lists")
     .select(
-      "id, name, status, user_id, group_id, category_id, total_amount, created_at, updated_at, shopping_list_items(id, name, completed, quantity, unit, position, created_at, updated_at, shopping_list_id)"
+      "id, name, status, user_id, group_id, category_id, total_amount, completed_at, created_at, updated_at, shopping_list_items(id, name, completed, quantity, unit, position, created_at, updated_at, shopping_list_id)"
     )
     .eq("id", id)
     .single();

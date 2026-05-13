@@ -249,6 +249,7 @@ export type Database = {
       shopping_lists: {
         Row: {
           category_id: string | null;
+          completed_at: string | null;
           created_at: string;
           group_id: string | null;
           id: string;
@@ -260,6 +261,7 @@ export type Database = {
         };
         Insert: {
           category_id?: string | null;
+          completed_at?: string | null;
           created_at?: string;
           group_id?: string | null;
           id?: string;
@@ -271,6 +273,7 @@ export type Database = {
         };
         Update: {
           category_id?: string | null;
+          completed_at?: string | null;
           created_at?: string;
           group_id?: string | null;
           id?: string;
@@ -487,6 +490,7 @@ export type Database = {
         Args: { p_list_id: string };
         Returns: {
           category_id: string | null;
+          completed_at: string | null;
           created_at: string;
           group_id: string | null;
           id: string;

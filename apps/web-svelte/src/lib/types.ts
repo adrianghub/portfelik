@@ -114,6 +114,7 @@ export interface ShoppingList {
   group_id: string | null;
   category_id: string | null;
   total_amount: number | null;
+  completed_at: string | null;
   created_at: string;
   updated_at: string;
 }

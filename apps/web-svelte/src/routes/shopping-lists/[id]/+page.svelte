@@ -145,21 +145,17 @@
   let completeAmount = $state("");
   let completeCategoryId = $state("");
 
-  $effect(() => {
-    if (showComplete && query.data?.category_id) {
-      completeCategoryId = query.data.category_id;
-    }
-  });
-
   const completeMutation = createMutation(() => ({
     mutationFn: () => completeShoppingList(id, parseFloat(completeAmount), completeCategoryId),
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: listKey });
       const previous = queryClient.getQueryData<ShoppingListWithItems>(listKey);
+      const completedAt = new Date().toISOString();
       if (previous) {
         queryClient.setQueryData<ShoppingListWithItems>(listKey, {
           ...previous,
           status: "completed",
+          completed_at: completedAt,
         });
       }
       showComplete = false;
@@ -187,6 +183,12 @@
   function submitComplete(e: Event) {
     e.preventDefault();
     completeMutation.mutate();
+  }
+
+  function openCompleteDialog() {
+    showComplete = true;
+    completeAmount = "";
+    completeCategoryId = query.data?.category_id ?? "";
   }
 
   const isActive = $derived(query.data?.status === "active");
@@ -355,11 +357,7 @@
           + {m.shopping_list_item_add()}
         </button>
         <button
-          onclick={() => {
-            showComplete = true;
-            completeAmount = "";
-            completeCategoryId = "";
-          }}
+          onclick={openCompleteDialog}
           class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-700"
         >
           {m.shopping_list_complete_title()}
