@@ -331,7 +331,7 @@
           {m.transactions_greeting({ name: profileQuery.data.name ?? profileQuery.data.email })}
         </p>
       {/if}
-      <h1 class="text-xl font-semibold text-slate-900">{m.transactions_title()}</h1>
+      <h1 class="text-2xl font-semibold text-slate-900">{m.transactions_title()}</h1>
       {#if groupsQuery.data}
         <p class="mt-0.5 text-xs text-slate-400">
           {groupsQuery.data.length > 0

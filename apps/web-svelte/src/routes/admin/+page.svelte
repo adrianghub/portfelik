@@ -82,7 +82,7 @@
 </script>
 
 <div class="container mx-auto max-w-4xl space-y-4 px-4 py-6">
-  <h1 class="text-xl font-semibold text-slate-900 dark:text-white">{m.admin_title()}</h1>
+  <h1 class="text-2xl font-semibold text-slate-900 dark:text-white">{m.admin_title()}</h1>
 
   <nav class="flex gap-2 border-b border-slate-200 dark:border-slate-700">
     <a
