@@ -95,7 +95,7 @@
       </p>
       {#if upcomingTxs.length > 0}
         <a
-          href="/transactions?status=upcoming"
+          href="/transactions?status=upcoming,overdue"
           class="text-xs font-medium text-emerald-600 hover:underline dark:text-emerald-400"
         >
           {m.dashboard_upcoming_see_all()}

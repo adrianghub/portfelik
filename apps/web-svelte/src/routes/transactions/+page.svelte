@@ -58,10 +58,12 @@
     queryFn: () => fetchTransactions(bounds.start, bounds.end, categoryId),
   }));
 
+  const statusSet = $derived(statusFilter ? new Set(statusFilter.split(",")) : null);
+
   const filteredTxs = $derived(
     txQuery.data
-      ? statusFilter
-        ? txQuery.data.filter((tx) => tx.status === statusFilter)
+      ? statusSet
+        ? txQuery.data.filter((tx) => statusSet.has(tx.status))
         : txQuery.data
       : undefined
   );
