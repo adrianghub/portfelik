@@ -4,6 +4,7 @@
   import TransactionTable from "$lib/components/transactions/TransactionTable.svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchProfile } from "$lib/services/profiles";
+  import { fetchShoppingLists } from "$lib/services/shopping-lists";
   import { computeSummary, fetchTransactions } from "$lib/services/transactions";
   import { supabase } from "$lib/supabase";
   import type { TransactionWithCategory } from "$lib/types";
@@ -36,6 +37,28 @@
 
   const summary = $derived(txQuery.data ? computeSummary(txQuery.data) : null);
 
+  const listsQuery = createQuery(() => ({
+    queryKey: ["shopping_lists"],
+    queryFn: fetchShoppingLists,
+  }));
+
+  const monthlyWins = $derived.by(() => {
+    if (!listsQuery.data) return null;
+    const monthStart = new Date(year, month - 1, 1);
+    const monthEnd = new Date(year, month, 1);
+    const completedThisMonth = listsQuery.data.filter(
+      (l) =>
+        l.status === "completed" &&
+        new Date(l.updated_at) >= monthStart &&
+        new Date(l.updated_at) < monthEnd
+    );
+    if (completedThisMonth.length === 0) return null;
+    return {
+      listsCompleted: completedThisMonth.length,
+      itemsChecked: completedThisMonth.reduce((sum, l) => sum + l.item_completed, 0),
+    };
+  });
+
   const upcomingTxs = $derived(
     txQuery.data?.filter((tx) => tx.status === "upcoming" || tx.status === "overdue").slice(0, 5) ??
       []
@@ -51,11 +74,11 @@
   <div class="flex items-center justify-between">
     <div>
       {#if profileQuery.data}
-        <p class="mb-0.5 text-sm text-slate-500 dark:text-slate-400">
+        <p class="mb-0.5 text-base text-slate-500 dark:text-slate-400">
           {m.transactions_greeting({ name: profileQuery.data.name ?? profileQuery.data.email })}
         </p>
       {/if}
-      <h1 class="text-xl font-semibold text-slate-900 dark:text-slate-100">
+      <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">
         {m.dashboard_title()}
       </h1>
       <p class="mt-0.5 text-xs text-slate-400">{m.dashboard_month_label()}</p>
@@ -85,6 +108,24 @@
     </div>
   {:else if summary}
     <SummaryCards {summary} />
+  {/if}
+
+  {#if monthlyWins}
+    <section
+      class="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-900 dark:bg-emerald-900/15"
+    >
+      <p
+        class="text-xs font-semibold tracking-wider text-emerald-700 uppercase dark:text-emerald-400"
+      >
+        {m.dashboard_wins_title()}
+      </p>
+      <p class="mt-1 text-2xl font-bold text-emerald-700 dark:text-emerald-300">
+        {m.dashboard_wins_value({
+          lists: monthlyWins.listsCompleted,
+          items: monthlyWins.itemsChecked,
+        })}
+      </p>
+    </section>
   {/if}
 
   <!-- Upcoming / overdue -->
