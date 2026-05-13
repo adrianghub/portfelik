@@ -65,6 +65,7 @@
         group_id: newGroupId || null,
         category_id: newCategoryId || null,
         total_amount: null,
+        completed_at: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         item_total: 0,

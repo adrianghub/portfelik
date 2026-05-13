@@ -49,8 +49,9 @@
     const completedThisMonth = listsQuery.data.filter(
       (l) =>
         l.status === "completed" &&
-        new Date(l.updated_at) >= monthStart &&
-        new Date(l.updated_at) < monthEnd
+        l.completed_at &&
+        new Date(l.completed_at) >= monthStart &&
+        new Date(l.completed_at) < monthEnd
     );
     if (completedThisMonth.length === 0) return null;
     return {
