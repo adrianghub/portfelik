@@ -3,8 +3,8 @@
   import type { Snippet } from "svelte";
 
   interface Props {
-    variant?: "primary" | "accent" | "ghost" | "danger";
-    size?: "default" | "sm" | "lg";
+    variant?: "primary" | "accent" | "ghost" | "danger" | "gradient";
+    size?: "default" | "sm" | "lg" | "icon";
     loading?: boolean;
     disabled?: boolean;
     type?: "button" | "submit" | "reset";
@@ -34,12 +34,15 @@
     ghost:
       "border border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800",
     danger: "bg-rose-600 text-white hover:bg-rose-700",
+    gradient:
+      "bg-accent-gradient text-slate-950 shadow-lg shadow-emerald-500/20 hover:brightness-110 active:scale-[0.98]",
   };
 
   const sizes = {
     default: "h-10 rounded-lg px-4 text-sm",
     sm: "h-8 rounded-lg px-3 text-xs",
     lg: "h-11 rounded-lg px-5 text-sm",
+    icon: "h-10 w-10 rounded-lg p-0",
   };
 </script>
 

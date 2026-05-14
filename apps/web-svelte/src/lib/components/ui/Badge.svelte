@@ -3,7 +3,7 @@
   import type { Snippet } from "svelte";
 
   interface Props {
-    variant: "paid" | "upcoming" | "overdue" | "draft" | "shared";
+    variant: "paid" | "upcoming" | "overdue" | "draft" | "shared" | "outline";
     class?: string;
     children: Snippet;
   }
@@ -16,6 +16,8 @@
     overdue: "bg-rose-50 text-rose-700 dark:bg-rose-900/15 dark:text-rose-400",
     draft: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
     shared: "bg-blue-50 text-blue-700 dark:bg-blue-900/15 dark:text-blue-400",
+    outline:
+      "border border-slate-200 bg-transparent text-slate-600 dark:border-slate-700 dark:text-slate-300",
   };
 </script>
 
