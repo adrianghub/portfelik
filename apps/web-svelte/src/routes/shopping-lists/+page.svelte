@@ -75,22 +75,18 @@
         ["shopping_lists"],
         [optimistic, ...(previous ?? [])]
       );
-      const submitted = { newName, newGroupId, newCategoryId };
+      showCreate = false;
+      return { previous };
+    },
+    onSuccess: () => {
       newName = "";
       newGroupId = "";
       newCategoryId = "";
-      showCreate = false;
-      return { previous, submitted };
+      toast.success(m.toast_shopping_list_created());
     },
-    onSuccess: () => toast.success(m.toast_shopping_list_created()),
     onError: (_err, _vars, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(["shopping_lists"], ctx.previous);
-      if (ctx?.submitted) {
-        newName = ctx.submitted.newName;
-        newGroupId = ctx.submitted.newGroupId;
-        newCategoryId = ctx.submitted.newCategoryId;
-        showCreate = true;
-      }
+      showCreate = true;
       toast.error(m.toast_error());
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["shopping_lists"] }),
@@ -170,10 +166,12 @@
         ["shopping_lists"],
         (previous ?? []).map((l) => (l.id === target.id ? { ...l, ...patch } : l))
       );
-      editTarget = null;
       return { previous };
     },
-    onSuccess: () => toast.success(m.toast_shopping_list_updated()),
+    onSuccess: () => {
+      editTarget = null;
+      toast.success(m.toast_shopping_list_updated());
+    },
     onError: (_err, _vars, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(["shopping_lists"], ctx.previous);
       toast.error(m.toast_error());
