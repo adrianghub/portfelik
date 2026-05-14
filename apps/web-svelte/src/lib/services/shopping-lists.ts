@@ -62,6 +62,9 @@ export async function createShoppingList(input: {
   group_id?: string | null;
   category_id?: string | null;
 }): Promise<ShoppingList> {
+  const name = input.name?.trim();
+  if (!name) throw new Error("name_required");
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -69,7 +72,7 @@ export async function createShoppingList(input: {
 
   const { data, error } = await supabase
     .from("shopping_lists")
-    .insert({ ...input, status: "active", user_id: user.id })
+    .insert({ ...input, name, status: "active", user_id: user.id })
     .select()
     .single();
 
@@ -81,6 +84,12 @@ export async function updateShoppingList(
   id: string,
   updates: Partial<{ name: string; group_id: string | null; category_id: string | null }>
 ): Promise<ShoppingList> {
+  if (updates.name !== undefined) {
+    const name = updates.name.trim();
+    if (!name) throw new Error("name_required");
+    updates = { ...updates, name };
+  }
+
   const { data, error } = await supabase
     .from("shopping_lists")
     .update(updates)
@@ -124,9 +133,12 @@ export async function createShoppingListItem(input: {
   unit?: string | null;
   position: number;
 }): Promise<ShoppingListItem> {
+  const name = input.name?.trim();
+  if (!name) throw new Error("name_required");
+
   const { data, error } = await supabase
     .from("shopping_list_items")
-    .insert({ ...input, completed: false })
+    .insert({ ...input, name, completed: false })
     .select()
     .single();
 
@@ -144,6 +156,12 @@ export async function updateShoppingListItem(
     position: number;
   }>
 ): Promise<ShoppingListItem> {
+  if (updates.name !== undefined) {
+    const name = updates.name.trim();
+    if (!name) throw new Error("name_required");
+    updates = { ...updates, name };
+  }
+
   const { data, error } = await supabase
     .from("shopping_list_items")
     .update(updates)

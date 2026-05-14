@@ -33,22 +33,54 @@
   let { children } = $props();
 
   const PUBLIC_PATHS = ["/login", "/auth/callback"];
+  const PUSH_PROMPT_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
+  const PUSH_PROMPT_STORAGE_KEY = "push_prompted_at";
+
   let profile = $state<Profile | null>(null);
   let userId = $state<string | null>(null);
   let notifPermission = $state<NotificationPermission>("default");
+  let pushPromptedRecently = $state(false);
   let isPublicRoute = $derived(PUBLIC_PATHS.includes(page.url.pathname));
   let showNotifBanner = $derived(
-    !!userId && !isPublicRoute && notifPermission === "default" && "Notification" in window
+    !!userId &&
+      !isPublicRoute &&
+      notifPermission === "default" &&
+      "Notification" in window &&
+      !pushPromptedRecently
   );
+
+  function readPushPromptCooldown() {
+    try {
+      const last = Number(localStorage.getItem(PUSH_PROMPT_STORAGE_KEY)) || 0;
+      pushPromptedRecently = last > 0 && Date.now() - last < PUSH_PROMPT_COOLDOWN_MS;
+    } catch {
+      pushPromptedRecently = false;
+    }
+  }
+
+  function markPushPrompted() {
+    try {
+      localStorage.setItem(PUSH_PROMPT_STORAGE_KEY, String(Date.now()));
+    } catch {
+      // localStorage unavailable (private mode etc.) — fall back to in-memory only
+    }
+    pushPromptedRecently = true;
+  }
 
   async function enableNotifications() {
     if (!userId) return;
     const granted = await requestAndSubscribePush(userId);
     notifPermission = granted ? "granted" : Notification.permission;
+    markPushPrompted();
+  }
+
+  function dismissPushBanner() {
+    markPushPrompted();
   }
 
   onMount(async () => {
     if ("Notification" in window) notifPermission = Notification.permission;
+    readPushPromptCooldown();
 
     const {
       data: { session },
@@ -106,7 +138,7 @@
           </button>
           <button
             type="button"
-            onclick={() => (notifPermission = "denied")}
+            onclick={dismissPushBanner}
             class="rounded-md px-2 py-1 text-xs text-slate-400 transition-colors hover:text-white"
             aria-label={m.common_close()}
           >

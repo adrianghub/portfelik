@@ -30,6 +30,7 @@
     }
     const profile = await fetchProfile(sessionData.session.user.id).catch(() => null);
     if (profile?.role !== "admin") {
+      toast.error(m.admin_required());
       goto("/transactions");
       return;
     }
