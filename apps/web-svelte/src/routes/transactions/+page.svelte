@@ -2,20 +2,15 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import CategoryBreakdown from "$lib/components/transactions/CategoryBreakdown.svelte";
-  import CategoryFilter from "$lib/components/transactions/CategoryFilter.svelte";
   import FilterDrawer from "$lib/components/transactions/FilterDrawer.svelte";
-  import MonthRangePicker from "$lib/components/transactions/MonthRangePicker.svelte";
   import SummaryCards from "$lib/components/transactions/SummaryCards.svelte";
   import TransactionDetailSheet from "$lib/components/transactions/TransactionDetailSheet.svelte";
   import TransactionDialog from "$lib/components/transactions/TransactionDialog.svelte";
   import TransactionTable from "$lib/components/transactions/TransactionTable.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
-  import Input from "$lib/components/ui/Input.svelte";
-  import Select from "$lib/components/ui/Select.svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchCategories } from "$lib/services/categories";
   import { fetchUserGroups } from "$lib/services/groups";
-  import { fetchProfile } from "$lib/services/profiles";
   import {
     bulkCreateTransactions,
     computeSummary,
@@ -88,12 +83,6 @@
     queryFn: fetchCategories,
   }));
 
-  const profileQuery = createQuery(() => ({
-    queryKey: ["profile", currentUserId],
-    queryFn: () => fetchProfile(currentUserId!),
-    enabled: !!currentUserId,
-  }));
-
   const groupsQuery = createQuery(() => ({
     queryKey: ["user_groups"],
     queryFn: fetchUserGroups,
@@ -158,27 +147,10 @@
     dialogOpen = true;
   }
 
-  function onRangeChange(sy: number, sm: number, ey: number, em: number) {
-    searchQuery = "";
-    const params = new URLSearchParams($page.url.searchParams);
-    params.set("startYear", String(sy));
-    params.set("startMonth", String(sm));
-    params.set("endYear", String(ey));
-    params.set("endMonth", String(em));
-    goto(`/transactions?${params.toString()}`, { replaceState: false });
-  }
-
   function onCategoryChange(id: string | undefined) {
     const params = new URLSearchParams($page.url.searchParams);
     if (id) params.set("categoryId", id);
     else params.delete("categoryId");
-    goto(`/transactions?${params.toString()}`, { replaceState: false });
-  }
-
-  function onStatusChange(status: string | undefined) {
-    const params = new URLSearchParams($page.url.searchParams);
-    if (status) params.set("status", status);
-    else params.delete("status");
     goto(`/transactions?${params.toString()}`, { replaceState: false });
   }
 
@@ -326,12 +298,7 @@
 <div class="container mx-auto max-w-4xl space-y-4 px-4 py-6">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
-      {#if profileQuery.data}
-        <p class="mb-0.5 text-sm text-slate-500">
-          {m.transactions_greeting({ name: profileQuery.data.name ?? profileQuery.data.email })}
-        </p>
-      {/if}
-      <h1 class="text-2xl font-semibold text-slate-900">{m.transactions_title()}</h1>
+      <h1 class="text-2xl font-semibold text-white">{m.transactions_title()}</h1>
       {#if groupsQuery.data}
         <p class="mt-0.5 text-xs text-slate-400">
           {groupsQuery.data.length > 0
@@ -341,11 +308,11 @@
       {/if}
     </div>
     <div class="flex flex-wrap items-center gap-2">
-      <!-- Mobile filter button (sm:hidden) -->
+      <!-- Filter button — opens drawer on every viewport (Phase U4 start) -->
       <button
         type="button"
         onclick={() => (filterDrawerOpen = true)}
-        class="relative flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 sm:hidden dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+        class="relative flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -384,35 +351,6 @@
           </span>
         {/if}
       </button>
-      <div class="hidden flex-wrap items-center gap-2 sm:flex">
-        <Input
-          type="search"
-          bind:value={searchQuery}
-          placeholder={m.transactions_search_placeholder()}
-          class="w-44"
-        />
-        <MonthRangePicker {startYear} {startMonth} {endYear} {endMonth} onchange={onRangeChange} />
-        {#if categoriesQuery.data}
-          <CategoryFilter
-            categories={categoriesQuery.data}
-            selectedId={categoryId}
-            onchange={onCategoryChange}
-          />
-        {/if}
-        <label class="flex items-center gap-2">
-          <span class="sr-only">{m.transactions_filter_status_label()}</span>
-          <Select
-            value={statusFilter ?? ""}
-            onchange={(e) => onStatusChange((e.target as HTMLSelectElement).value || undefined)}
-          >
-            <option value="">{m.transactions_filter_all_statuses()}</option>
-            <option value="paid">{m.transactions_status_paid()}</option>
-            <option value="upcoming">{m.transactions_status_upcoming()}</option>
-            <option value="draft">{m.transactions_status_draft()}</option>
-            <option value="overdue">{m.transactions_status_overdue()}</option>
-          </Select>
-        </label>
-      </div>
       <button
         onclick={handleExport}
         disabled={!filteredTxs?.length}
