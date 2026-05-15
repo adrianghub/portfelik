@@ -30,7 +30,6 @@ Apply to every task regardless of phase.
 ## Project Status
 
 **Portfelik** — personal-finance PWA. Migrating React 19 + Firebase → SvelteKit + Supabase. Full plan: `MIGRATION_PLAN.md`.
-
 **Immediate next step:** Phase 11.1 + 11.2 + 11.3 shipped 2026-05-14 (shopping-list bug fixes + data integrity constraints + admin redirect toast + push-banner cooldown + vault rotation runbook). Playwright MCP sweep against local dev verified all Spec #1 fixes in a real browser. Next: **Phase 12 — Dark-Neon UX uplift** (dark-only canvas, hero balance, glass cards, pill bottom nav, `<EmptyState>` primitive, avatar nav, page transitions). Plan + phased rollout in `~/.claude/plans/et-s-take-a-look-distributed-porcupine.md` (U1-U7). Remaining backlog after Phase 12: **Dexie offline outbox** (legacy parity gap, last-write-wins decided) and **bank CSV import + masked LLM categorisation** (next major candidate).
 
 | Phase | Status |
@@ -50,6 +49,7 @@ Apply to every task regardless of phase.
 | 11.2 — Data integrity hardening (`shopping_list_items.name` + `shopping_lists.name` → `length(btrim) > 0` check constraint; service-level `.trim()` guards; trimmed `"Bułka "` → `"Bułka"` in prod) | ✅ Done (2026-05-14) |
 | 11.3 — Config & infra hygiene (admin redirect → toast + redirect; push banner 30-day localStorage cooldown; vault rotation runbook at `docs/runbooks/secret-rotation.md`; localhost OAuth redirect URL whitelisted by user) | ✅ Done (2026-05-14) |
 | Playwright MCP sweep follow-up — local dev with Spec #1 + Phase 11.2 + 11.3 — all 3 Spec #1 fixes verified in real browser | ✅ Done (2026-05-14) — see `docs/superpowers/specs/2026-05-14-playwright-sweep-findings.md` |
+
 
 ### Phase 8 — Hardening (deferred UX + quality)
 
