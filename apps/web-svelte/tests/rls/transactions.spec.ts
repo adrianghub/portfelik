@@ -106,7 +106,7 @@ describe("RLS: transactions", () => {
     expectBlockedWrite(result);
   });
 
-  describe("group-shared visibility", () => {
+  describe("group-shared visibility (opt-in via tx.group_id)", () => {
     let groupId: string;
 
     beforeAll(async () => {
@@ -121,9 +121,18 @@ describe("RLS: transactions", () => {
         .from("group_members")
         .insert({ group_id: groupId, user_id: ctx.userB.userId });
       if (memberInsert.error) throw memberInsert.error;
+
+      // Assign user B's tx to the group so it becomes visible/writable to user A.
+      // Under the new (opt-in) model, group membership alone is NOT enough —
+      // tx.group_id must be set explicitly.
+      const assign = await ctx.admin
+        .from("transactions")
+        .update({ group_id: groupId })
+        .eq("description", `${SENTINEL} B tx`);
+      if (assign.error) throw assign.error;
     });
 
-    it("user A sees user B's tx via group share", async () => {
+    it("user A sees user B's tx once it's assigned to the shared group", async () => {
       const { data, error } = await ctx.userA.client
         .from("transactions")
         .select("id, description")
@@ -134,13 +143,14 @@ describe("RLS: transactions", () => {
       expect(descs).toContain(`${SENTINEL} B tx`);
     });
 
-    it("user A still cannot UPDATE user B's tx through group", async () => {
+    it("user A CAN update user B's tx through group share (flat membership)", async () => {
       const result = await ctx.userA.client
         .from("transactions")
         .update({ amount: 555 })
         .eq("description", `${SENTINEL} B tx`)
         .select();
-      expectBlockedWrite(result);
+      expect(result.error).toBeNull();
+      expect(result.data?.[0]?.amount).toBe(555);
     });
   });
 });
