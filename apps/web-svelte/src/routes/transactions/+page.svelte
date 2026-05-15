@@ -298,9 +298,9 @@
 <div class="container mx-auto max-w-4xl space-y-4 px-4 py-6">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
-      <h1 class="text-2xl font-semibold text-white">{m.transactions_title()}</h1>
+      <h1 class="text-hero font-semibold text-slate-100">{m.transactions_title()}</h1>
       {#if groupsQuery.data}
-        <p class="mt-0.5 text-xs text-slate-400">
+        <p class="mt-0.5 hidden text-xs text-slate-400 md:block">
           {groupsQuery.data.length > 0
             ? m.transactions_subtitle_groups()
             : m.transactions_subtitle_own()}
@@ -312,7 +312,7 @@
       <button
         type="button"
         onclick={() => (filterDrawerOpen = true)}
-        class="relative flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700"
+        class="relative flex items-center gap-1.5 rounded-full border border-white/10 bg-slate-900/60 px-3.5 py-1.5 text-sm font-medium text-slate-300 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -345,7 +345,7 @@
         {m.transactions_filter_button()}
         {#if activeFilterCount > 0}
           <span
-            class="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white"
+            class="bg-accent-gradient absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold text-slate-900"
           >
             {activeFilterCount}
           </span>
@@ -354,7 +354,7 @@
       <button
         onclick={handleExport}
         disabled={!filteredTxs?.length}
-        class="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+        class="flex items-center gap-1.5 rounded-full border border-white/10 bg-slate-900/60 px-3.5 py-1.5 text-sm font-medium text-slate-300 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
         title={m.csv_export()}
       >
         <svg
@@ -374,7 +374,7 @@
         <span class="hidden sm:inline">{m.csv_export()}</span>
       </button>
       <label
-        class="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+        class="flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 bg-slate-900/60 px-3.5 py-1.5 text-sm font-medium text-slate-300 backdrop-blur transition-colors focus-within:ring-2 focus-within:ring-emerald-400 hover:bg-white/5"
         title={m.csv_import()}
       >
         <svg
@@ -425,7 +425,7 @@
       {/if}
       <button
         onclick={openAdd}
-        class="rounded-lg bg-emerald-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-600"
+        class="bg-accent-gradient hidden items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none md:inline-flex"
       >
         + {m.transaction_add()}
       </button>
@@ -442,6 +442,10 @@
         ></div>
       {/each}
     </div>
+  {/if}
+
+  {#if summary}
+    <CategoryBreakdown categories={summary.categories} oncategoryclick={onCategoryChange} />
   {/if}
 
   {#if txQuery.isLoading}
@@ -465,10 +469,6 @@
     />
   {/if}
 
-  {#if summary}
-    <CategoryBreakdown categories={summary.categories} oncategoryclick={onCategoryChange} />
-  {/if}
-
   {#if categoriesQuery.data}
     <FilterDrawer
       open={filterDrawerOpen}
@@ -490,7 +490,8 @@
 <button
   onclick={openAdd}
   aria-label={m.transaction_add()}
-  class="fixed right-4 bottom-20 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-white shadow-lg transition-colors hover:bg-slate-700 md:hidden dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
+  class="bg-accent-gradient fixed right-4 bottom-24 z-40 flex h-14 w-14 items-center justify-center rounded-full text-slate-900 shadow-[0_0_24px_var(--color-accent-glow)] transition-transform active:scale-95 md:hidden"
+  style="margin-bottom: env(safe-area-inset-bottom);"
 >
   <svg
     xmlns="http://www.w3.org/2000/svg"

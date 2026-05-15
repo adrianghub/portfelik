@@ -123,11 +123,14 @@ portfelik/portfelik/
 
 ## Infrastructure
 
-- **Supabase Cloud:** `https://emqzcygfwcvbmhxhfkcc.supabase.co` — publishable key from Supabase Dashboard → Settings → API.
-- **Supabase MCP:** `.mcp.json` at repo root. Authenticate at session start via `mcp__supabase__authenticate`.
-- **Production:** `portfelik.adrianzinko.com` → Cloudflare Pages project `portfelik`. GitHub Actions deploys on push to `main`.
-- **Staging:** `https://dev.portfelik.pages.dev`
-- **Deploy (from `apps/web-svelte/`):**
+Three-tier env. Full map: `docs/architecture/env-workflow.md`.
+
+- **Local dev:** `pnpm dev` from `apps/web-svelte/` reads `.env.local`, which points at the **local Supabase stack** (`127.0.0.1:54321`). Boot the stack from repo root: `supabase start`. Apply migrations: `supabase db reset`. Cloud creds stashed in `apps/web-svelte/.env.cloud.local` (gitignored) for opt-in cloud debugging.
+- **Staging:** `https://dev.portfelik.pages.dev` — `dev` branch deploys via GH Actions. **Still shares the prod Supabase project** (isolation is RLS-only via `E2E_SMOKE_EMAIL`). Separating staging to its own Supabase project is backlog.
+- **Production:** `portfelik.adrianzinko.com` → Cloudflare Pages project `portfelik`. `main` branch deploys via GH Actions.
+- **Supabase Cloud (staging + prod DB):** `https://emqzcygfwcvbmhxhfkcc.supabase.co` — publishable key from Supabase Dashboard → Settings → API.
+- **Supabase MCP:** `.mcp.json` at repo root. Authenticate at session start via `mcp__supabase__authenticate`. MCP points at the cloud project; use with care.
+- **Manual deploy (from `apps/web-svelte/`):**
   ```bash
   PUBLIC_SUPABASE_URL=https://emqzcygfwcvbmhxhfkcc.supabase.co \
   PUBLIC_SUPABASE_ANON_KEY=<key from dashboard> \

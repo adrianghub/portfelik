@@ -16,7 +16,8 @@ If you are new to the project (or a new Claude session needs to cold-start), rea
    - [`shopping-list-complete.md`](./flows/shopping-list-complete.md) — complete-list-to-transaction RPC
    - [`notifications-push.md`](./flows/notifications-push.md) — DB trigger → Edge Function → VAPID push
    - [`recurring-transactions.md`](./flows/recurring-transactions.md) — pg_cron monthly materialization
-4. **[`adr/`](./adr/)** — architecture decision records explaining *why* the system looks the way it does.
+4. **[`env-workflow.md`](./env-workflow.md)** — local → staging → prod plumbing: what each tier deploys, what DB each one targets, how migrations propagate.
+5. **[`adr/`](./adr/)** — architecture decision records explaining *why* the system looks the way it does.
 
 All diagrams are written in **Mermaid** and render natively on GitHub.
 
