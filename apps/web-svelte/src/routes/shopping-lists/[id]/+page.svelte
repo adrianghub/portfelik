@@ -239,6 +239,9 @@
   let actionsTarget = $state<ShoppingListItem | null>(null);
   let showActions = $state(false);
   let longPressTimer: ReturnType<typeof setTimeout> | null = null;
+  // Set when the long-press setTimeout fires so the subsequent click event
+  // (synthesised on pointerup) doesn't also toggle the row.
+  let longPressTriggered = false;
 
   function openActions(item: ShoppingListItem) {
     actionsTarget = item;
@@ -250,7 +253,11 @@
   }
   function startLongPress(item: ShoppingListItem) {
     cancelLongPress();
-    longPressTimer = setTimeout(() => openActions(item), 500);
+    longPressTriggered = false;
+    longPressTimer = setTimeout(() => {
+      longPressTriggered = true;
+      openActions(item);
+    }, 500);
   }
   function cancelLongPress() {
     if (longPressTimer) {
@@ -279,7 +286,22 @@
     if (!isActive) return;
     toggleMutation.mutate({ itemId: item.id, completed: !item.completed });
   }
+  function rowClick(e: MouseEvent, item: ShoppingListItem) {
+    // Skip the click that follows a long-press (otherwise the actions sheet
+    // opens *and* the row toggles in the same gesture).
+    if (longPressTriggered) {
+      longPressTriggered = false;
+      return;
+    }
+    toggleItem(item);
+    // `e` is unused beyond signature parity; keep it referenced for clarity.
+    void e;
+  }
   function rowKeydown(e: KeyboardEvent, item: ShoppingListItem) {
+    // Only react when the row itself owns the key event. Bubbled events from
+    // the nested kebab/`Akcje` button or any future child control should not
+    // toggle completion.
+    if (e.currentTarget !== e.target) return;
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       toggleItem(item);
@@ -356,7 +378,7 @@
                 ? m.shopping_list_item_uncheck()
                 : m.shopping_list_item_check()
               : undefined}
-            onclick={() => toggleItem(item)}
+            onclick={(e) => rowClick(e, item)}
             onkeydown={(e) => rowKeydown(e, item)}
             onpointerdown={() => isActive && startLongPress(item)}
             onpointerup={cancelLongPress}
