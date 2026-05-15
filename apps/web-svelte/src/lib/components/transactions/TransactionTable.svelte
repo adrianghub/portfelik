@@ -57,15 +57,15 @@
   };
 
   const statusClass: Record<string, string> = {
-    paid: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400",
-    draft: "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
-    upcoming: "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-400",
-    overdue: "bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-400",
+    paid: "border border-emerald-400/20 bg-emerald-400/10 text-emerald-300",
+    draft: "border border-white/10 bg-slate-800/60 text-slate-400",
+    upcoming: "border border-sky-400/20 bg-sky-400/10 text-sky-300",
+    overdue: "border border-rose-400/20 bg-rose-400/10 text-rose-300",
   };
 </script>
 
 {#if transactions.length === 0}
-  <p class="py-12 text-center text-sm text-slate-400 dark:text-slate-500">
+  <p class="py-12 text-center text-sm text-slate-500">
     {emptyLabel ?? m.transactions_empty()}
   </p>
 {:else}
@@ -74,7 +74,7 @@
     {#each transactions as tx (tx.id)}
       <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
       <li
-        class="rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900"
+        class="rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3 backdrop-blur transition-colors hover:bg-white/5"
         class:cursor-pointer={!!onrowclick}
         class:ring-2={selectedIds.has(tx.id)}
         class:ring-slate-400={selectedIds.has(tx.id)}
@@ -93,7 +93,7 @@
                 e.stopPropagation();
                 toggleOne(tx.id);
               }}
-              class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border border-slate-300 transition-colors dark:border-slate-600 {selectedIds.has(
+              class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors {selectedIds.has(
                 tx.id
               )
                 ? 'border-slate-900 bg-slate-900 dark:border-slate-200 dark:bg-slate-200'
@@ -102,7 +102,7 @@
             >
               {#if selectedIds.has(tx.id)}
                 <svg
-                  class="h-2.5 w-2.5 text-white dark:text-slate-900"
+                  class="h-2.5 w-2.5 text-slate-900"
                   viewBox="0 0 10 8"
                   fill="none"
                   stroke="currentColor"
@@ -113,16 +113,14 @@
               {/if}
             </button>
           {/if}
-          <span
-            class="min-w-0 flex-1 truncate text-sm leading-snug font-medium text-slate-900 dark:text-slate-100"
-          >
+          <span class="min-w-0 flex-1 truncate text-sm leading-snug font-medium text-slate-100">
             {tx.description}
             {#if tx.is_recurring}
-              <span class="ml-1 text-xs text-slate-400" aria-label="cykliczna">↻</span>
+              <span class="ml-1 text-xs text-slate-500" aria-label="cykliczna">↻</span>
             {/if}
             {#if isShared(tx)}
               <span
-                class="ml-1 inline-flex items-center gap-0.5 rounded border border-slate-200 px-1 py-0.5 text-[10px] text-slate-400 dark:border-slate-700 dark:text-slate-500"
+                class="ml-1 inline-flex items-center gap-0.5 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] text-emerald-300"
               >
                 <Users size={9} />
               </span>
@@ -131,21 +129,20 @@
           <span
             class={cn(
               "shrink-0 text-sm font-semibold tabular-nums",
-              tx.type === "income" ? "text-emerald-600" : "text-rose-600"
+              tx.type === "income" ? "text-emerald-300" : "text-rose-300"
             )}
           >
             {tx.type === "income" ? "+" : "−"}{formatCurrency(tx.amount, tx.currency)}
           </span>
         </div>
         <div class="mt-1.5 flex flex-wrap items-center gap-2">
-          <span class="text-xs text-slate-400 dark:text-slate-500">{formatDate(tx.date)}</span>
-          <span class="text-xs text-slate-300 dark:text-slate-600" aria-hidden="true">·</span>
-          <span class="text-xs text-slate-400 dark:text-slate-500">{tx.category_name}</span>
+          <span class="text-xs text-slate-500">{formatDate(tx.date)}</span>
+          <span class="text-xs text-slate-700" aria-hidden="true">·</span>
+          <span class="text-xs text-slate-500">{tx.category_name}</span>
           <span
             class={cn(
               "ml-auto inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-              statusClass[tx.status] ??
-                "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+              statusClass[tx.status] ?? "border border-white/10 bg-slate-800/60 text-slate-400"
             )}
           >
             {statusLabel[tx.status] ?? tx.status}
@@ -158,7 +155,7 @@
                     e.stopPropagation();
                     onedit(tx);
                   }}
-                  class="p-1 text-slate-400 transition-colors hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+                  class="p-1 text-slate-500 transition-colors hover:text-slate-200"
                   aria-label={m.common_edit()}
                 >
                   <svg
@@ -181,7 +178,7 @@
                     e.stopPropagation();
                     ondelete(tx.id);
                   }}
-                  class="p-1 text-slate-400 transition-colors hover:text-rose-600 dark:text-slate-500"
+                  class="p-1 text-slate-500 transition-colors hover:text-rose-300"
                   aria-label={m.common_delete()}
                 >
                   <svg
@@ -209,17 +206,17 @@
 
   <!-- Desktop table -->
   <div
-    class="hidden overflow-hidden rounded-xl border border-slate-200 bg-white sm:block dark:border-slate-700 dark:bg-slate-900"
+    class="hidden overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur sm:block"
   >
     <table class="w-full text-sm">
       <thead>
-        <tr class="border-b border-slate-100 bg-slate-50 dark:border-slate-800 dark:bg-slate-800">
+        <tr class="border-b border-white/5 bg-white/5">
           {#if ondelete}
             <th scope="col" class="w-10 py-3 pl-4">
               <button
                 type="button"
                 onclick={toggleAll}
-                class="flex h-4 w-4 items-center justify-center rounded border border-slate-300 transition-colors dark:border-slate-600 {allSelected
+                class="flex h-4 w-4 items-center justify-center rounded border border-white/15 transition-colors {allSelected
                   ? 'border-slate-900 bg-slate-900 dark:border-slate-200 dark:bg-slate-200'
                   : someSelected
                     ? 'border-slate-900 bg-slate-400 dark:border-slate-400 dark:bg-slate-500'
@@ -230,7 +227,7 @@
               >
                 {#if allSelected}
                   <svg
-                    class="h-2.5 w-2.5 text-white dark:text-slate-900"
+                    class="h-2.5 w-2.5 text-slate-900"
                     viewBox="0 0 10 8"
                     fill="none"
                     stroke="currentColor"
@@ -240,7 +237,7 @@
                   >
                 {:else if someSelected}
                   <svg
-                    class="h-2.5 w-2.5 text-white dark:text-slate-900"
+                    class="h-2.5 w-2.5 text-slate-900"
                     viewBox="0 0 10 2"
                     fill="none"
                     stroke="currentColor"
@@ -251,24 +248,16 @@
               </button>
             </th>
           {/if}
-          <th
-            scope="col"
-            class="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400"
+          <th scope="col" class="text-eyebrow px-4 py-3 text-left text-slate-400"
             >{m.transactions_col_date()}</th
           >
-          <th
-            scope="col"
-            class="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400"
+          <th scope="col" class="text-eyebrow px-4 py-3 text-left text-slate-400"
             >{m.transactions_col_description()}</th
           >
-          <th
-            scope="col"
-            class="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400"
+          <th scope="col" class="text-eyebrow px-4 py-3 text-left text-slate-400"
             >{m.transactions_col_category()}</th
           >
-          <th
-            scope="col"
-            class="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400"
+          <th scope="col" class="text-eyebrow px-4 py-3 text-left text-slate-400"
             >{m.transactions_col_status()}</th
           >
           <th
@@ -284,10 +273,11 @@
       <tbody>
         {#each transactions as tx (tx.id)}
           <tr
-            class="border-b border-slate-50 transition-colors last:border-0 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800"
-            class:cursor-pointer={!!onrowclick}
-            class:bg-slate-50={selectedIds.has(tx.id)}
-            class:dark:bg-slate-800={selectedIds.has(tx.id)}
+            class={cn(
+              "border-b border-white/5 transition-colors last:border-0 hover:bg-white/5",
+              !!onrowclick && "cursor-pointer",
+              selectedIds.has(tx.id) && "bg-white/5"
+            )}
             role={onrowclick ? "button" : undefined}
             tabindex={onrowclick ? 0 : undefined}
             onclick={() => onrowclick?.(tx)}
@@ -303,16 +293,16 @@
                     e.stopPropagation();
                     toggleOne(tx.id);
                   }}
-                  class="flex h-4 w-4 items-center justify-center rounded border border-slate-300 transition-colors dark:border-slate-600 {selectedIds.has(
+                  class="flex h-4 w-4 items-center justify-center rounded border transition-colors {selectedIds.has(
                     tx.id
                   )
-                    ? 'border-slate-900 bg-slate-900 dark:border-slate-200 dark:bg-slate-200'
-                    : 'hover:border-slate-500'}"
+                    ? 'bg-accent-gradient border-transparent'
+                    : 'border-white/15 hover:border-white/30'}"
                   aria-label={m.transactions_select_all()}
                 >
                   {#if selectedIds.has(tx.id)}
                     <svg
-                      class="h-2.5 w-2.5 text-white dark:text-slate-900"
+                      class="h-2.5 w-2.5 text-slate-900"
                       viewBox="0 0 10 8"
                       fill="none"
                       stroke="currentColor"
@@ -324,19 +314,15 @@
                 </button>
               </td>
             {/if}
-            <td class="px-4 py-3 whitespace-nowrap text-slate-500 dark:text-slate-400"
-              >{formatDate(tx.date)}</td
-            >
-            <td class="max-w-xs truncate px-4 py-3 text-slate-900 dark:text-slate-100">
+            <td class="px-4 py-3 whitespace-nowrap text-slate-400">{formatDate(tx.date)}</td>
+            <td class="max-w-xs truncate px-4 py-3 text-slate-100">
               {tx.description}
               {#if tx.is_recurring}
-                <span class="ml-1 text-xs text-slate-400 dark:text-slate-500" aria-label="cykliczna"
-                  >↻</span
-                >
+                <span class="ml-1 text-xs text-slate-500" aria-label="cykliczna">↻</span>
               {/if}
               {#if isShared(tx)}
                 <span
-                  class="ml-1 inline-flex items-center gap-0.5 rounded border border-slate-200 px-1 py-0.5 text-[10px] text-slate-400 dark:border-slate-700 dark:text-slate-500"
+                  class="ml-1 inline-flex items-center gap-0.5 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] text-emerald-300"
                 >
                   <Users size={10} />
                 </span>
@@ -347,8 +333,7 @@
               <span
                 class={cn(
                   "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                  statusClass[tx.status] ??
-                    "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                  statusClass[tx.status] ?? "border border-white/10 bg-slate-800/60 text-slate-400"
                 )}
               >
                 {statusLabel[tx.status] ?? tx.status}
@@ -356,8 +341,8 @@
             </td>
             <td
               class={cn(
-                "px-4 py-3 text-right font-medium whitespace-nowrap tabular-nums",
-                tx.type === "income" ? "text-emerald-600" : "text-rose-600"
+                "px-4 py-3 text-right font-semibold whitespace-nowrap tabular-nums",
+                tx.type === "income" ? "text-emerald-300" : "text-rose-300"
               )}
             >
               {tx.type === "income" ? "+" : "−"}{formatCurrency(tx.amount, tx.currency)}
@@ -371,7 +356,7 @@
                         e.stopPropagation();
                         onedit(tx);
                       }}
-                      class="rounded p-1.5 text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-300"
+                      class="rounded p-1.5 text-slate-500 transition-colors hover:text-slate-200"
                       aria-label={m.common_edit()}
                     >
                       <svg
@@ -394,7 +379,7 @@
                         e.stopPropagation();
                         ondelete(tx.id);
                       }}
-                      class="rounded p-1.5 text-slate-400 transition-colors hover:text-rose-600 dark:hover:text-rose-400"
+                      class="rounded p-1.5 text-slate-500 transition-colors hover:text-rose-300"
                       aria-label={m.common_delete()}
                     >
                       <svg

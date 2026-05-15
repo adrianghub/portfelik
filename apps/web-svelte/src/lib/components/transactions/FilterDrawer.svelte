@@ -96,19 +96,19 @@
   <div class="space-y-5 pb-2">
     <!-- Search -->
     <div>
-      <p class="mb-2 text-xs font-medium text-slate-500 dark:text-slate-400">Szukaj</p>
+      <p class="text-eyebrow mb-2 text-slate-400">Szukaj</p>
       <input
         type="search"
         value={searchQuery}
         oninput={(e) => onsearchchange((e.target as HTMLInputElement).value)}
         placeholder={m.transactions_search_placeholder()}
-        class="min-h-10 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-600"
+        class="min-h-10 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
       />
     </div>
 
     <!-- Date range -->
     <div>
-      <p class="mb-2 text-xs font-medium text-slate-500 dark:text-slate-400">Zakres dat</p>
+      <p class="text-eyebrow mb-2 text-slate-400">Zakres dat</p>
       <MonthRangePicker
         startYear={pendingStartYear}
         startMonth={pendingStartMonth}
@@ -125,7 +125,7 @@
 
     <!-- Category -->
     <div>
-      <p class="mb-2 text-xs font-medium text-slate-500 dark:text-slate-400">Kategoria</p>
+      <p class="text-eyebrow mb-2 text-slate-400">Kategoria</p>
       <CategoryFilter
         {categories}
         selectedId={pendingCategoryId}
@@ -135,16 +135,16 @@
 
     <!-- Status chips -->
     <div>
-      <p class="mb-2 text-xs font-medium text-slate-500 dark:text-slate-400">Status</p>
+      <p class="text-eyebrow mb-2 text-slate-400">Status</p>
       <div class="flex flex-wrap gap-2">
         {#each statusOptions as opt (opt.value)}
           <button
             type="button"
             onclick={() => (pendingStatus = opt.value || undefined)}
-            class="rounded-full border px-3 py-1 text-xs font-medium transition-colors {(pendingStatus ??
+            class="rounded-full px-3 py-1 text-xs font-medium transition-colors {(pendingStatus ??
               '') === opt.value
-              ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/15 dark:text-emerald-400'
-              : 'border-slate-200 text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:text-slate-400'}"
+              ? 'bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]'
+              : 'border border-white/10 text-slate-300 hover:bg-white/5'}"
           >
             {opt.label}
           </button>
@@ -157,14 +157,14 @@
       <button
         type="button"
         onclick={clear}
-        class="flex-1 rounded-lg border border-slate-200 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+        class="flex-1 rounded-full border border-white/10 bg-slate-900/60 py-2.5 text-sm font-medium text-slate-200 backdrop-blur transition-colors hover:bg-white/5"
       >
         {m.transactions_filter_clear()}
       </button>
       <button
         type="button"
         onclick={apply}
-        class="flex-1 rounded-lg bg-emerald-500 py-2.5 text-sm font-medium text-white hover:bg-emerald-600"
+        class="bg-accent-gradient flex-1 rounded-full py-2.5 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
       >
         {m.transactions_filter_apply()}
       </button>

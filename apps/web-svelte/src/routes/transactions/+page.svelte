@@ -23,6 +23,7 @@
   import { cn, getDateRangeBounds, monthYearLabel } from "$lib/utils";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { onMount } from "svelte";
+  import { Download, Plus, SlidersHorizontal, Trash2, Upload } from "lucide-svelte";
   import { toast } from "svelte-sonner";
 
   const queryClient = useQueryClient();
@@ -320,34 +321,7 @@
         onclick={() => (filterDrawerOpen = true)}
         class="relative flex items-center gap-1.5 rounded-full border border-white/10 bg-slate-900/60 px-3.5 py-1.5 text-sm font-medium text-slate-300 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-          ><line x1="4" x2="4" y1="21" y2="14" /><line x1="4" x2="4" y1="10" y2="3" /><line
-            x1="12"
-            x2="12"
-            y1="21"
-            y2="16"
-          /><line x1="12" x2="12" y1="12" y2="3" /><line x1="20" x2="20" y1="21" y2="19" /><line
-            x1="20"
-            x2="20"
-            y1="15"
-            y2="3"
-          /><line x1="1" x2="7" y1="14" y2="14" /><line x1="9" x2="15" y1="16" y2="16" /><line
-            x1="17"
-            x2="23"
-            y1="19"
-            y2="19"
-          /></svg
-        >
+        <SlidersHorizontal size={14} strokeWidth={1.8} aria-hidden="true" />
         {m.transactions_filter_button()}
         {#if activeFilterCount > 0}
           <span
@@ -363,40 +337,14 @@
         class="flex items-center gap-1.5 rounded-full border border-white/10 bg-slate-900/60 px-3.5 py-1.5 text-sm font-medium text-slate-300 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
         title={m.csv_export()}
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          ><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline
-            points="7 10 12 15 17 10"
-          /><line x1="12" x2="12" y1="15" y2="3" /></svg
-        >
+        <Download size={14} strokeWidth={1.8} aria-hidden="true" />
         <span class="hidden sm:inline">{m.csv_export()}</span>
       </button>
       <label
         class="flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 bg-slate-900/60 px-3.5 py-1.5 text-sm font-medium text-slate-300 backdrop-blur transition-colors focus-within:ring-2 focus-within:ring-emerald-400 hover:bg-white/5"
         title={m.csv_import()}
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          ><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline
-            points="17 8 12 3 7 8"
-          /><line x1="12" x2="12" y1="3" y2="15" /></svg
-        >
+        <Upload size={14} strokeWidth={1.8} aria-hidden="true" />
         <span class="hidden sm:inline">{importing ? m.csv_importing() : m.csv_import()}</span>
         <input
           bind:this={fileInput}
@@ -410,22 +358,9 @@
       {#if selectedIds.size > 0}
         <button
           onclick={() => (bulkDeleteConfirm = true)}
-          class="flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-700"
+          class="flex items-center gap-1.5 rounded-full border border-rose-400/20 bg-rose-500/10 px-3 py-1.5 text-sm font-medium text-rose-300 backdrop-blur transition-colors hover:bg-rose-500/20"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            ><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path
-              d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
-            /></svg
-          >
+          <Trash2 size={14} strokeWidth={1.8} aria-hidden="true" />
           {m.transactions_delete_selected({ count: selectedIds.size })}
         </button>
       {/if}
@@ -499,16 +434,14 @@
     </div>
   {/if}
 
-  {#if summary}
+  {#if summary && summary.total_expenses > 0}
     <CategoryBreakdown categories={summary.categories} oncategoryclick={onCategoryChange} />
   {/if}
 
   {#if txQuery.isLoading}
-    <div
-      class="h-48 animate-pulse rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800"
-    ></div>
+    <div class="h-48 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
   {:else if txQuery.isError}
-    <p class="text-sm text-rose-600">{m.common_error_title()}</p>
+    <p class="text-sm text-rose-300">{m.common_error_title()}</p>
   {:else if visibleTxs}
     <TransactionTable
       transactions={visibleTxs}
@@ -548,20 +481,7 @@
   class="bg-accent-gradient fixed right-4 bottom-24 z-40 flex h-14 w-14 items-center justify-center rounded-full text-slate-900 shadow-[0_0_24px_var(--color-accent-glow)] transition-transform active:scale-95 md:hidden"
   style="margin-bottom: env(safe-area-inset-bottom);"
 >
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="24"
-    height="24"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="2"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    aria-hidden="true"
-  >
-    <path d="M12 5v14M5 12h14" />
-  </svg>
+  <Plus size={24} strokeWidth={2.3} aria-hidden="true" />
 </button>
 
 <TransactionDialog open={dialogOpen} onclose={() => (dialogOpen = false)} initial={editTarget} />
