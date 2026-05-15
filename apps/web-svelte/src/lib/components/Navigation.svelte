@@ -4,6 +4,7 @@
   import { supabase } from "$lib/supabase";
   import { cn } from "$lib/utils";
   import type { Profile } from "$lib/types";
+  import type { User } from "@supabase/supabase-js";
   import * as m from "$lib/paraglide/messages";
   import {
     LayoutDashboard,
@@ -17,8 +18,9 @@
 
   interface Props {
     profile: Profile | null;
+    user: User | null;
   }
-  let { profile }: Props = $props();
+  let { profile, user }: Props = $props();
 
   const navItems = [
     { href: "/dashboard", label: m.nav_dashboard(), icon: LayoutDashboard },
@@ -29,110 +31,208 @@
 
   const isActive = (href: string) => $page.url.pathname.startsWith(href);
 
+  let menuOpen = $state(false);
+  let menuButtonRef = $state<HTMLButtonElement | null>(null);
+  let menuButtonMobileRef = $state<HTMLButtonElement | null>(null);
+
+  const avatarUrl = $derived<string | null>(
+    (user?.user_metadata?.avatar_url as string | undefined) ?? null
+  );
+  const initials = $derived.by(() => {
+    const source = profile?.name?.trim() || profile?.email || user?.email || "";
+    if (!source) return "?";
+    const parts = source.split(/[\s@.]+/).filter(Boolean);
+    if (parts.length === 0) return source[0]?.toUpperCase() ?? "?";
+    return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
+  });
+  const email = $derived(profile?.email ?? user?.email ?? "");
+
   async function signOut() {
+    menuOpen = false;
     await supabase.auth.signOut();
     goto("/login");
   }
+
+  function onDocClick(e: MouseEvent) {
+    if (!menuOpen) return;
+    const target = e.target as Node | null;
+    if (!target) return;
+    if (menuButtonRef?.contains(target)) return;
+    if (menuButtonMobileRef?.contains(target)) return;
+    const popover = document.getElementById("nav-avatar-popover");
+    if (popover && !popover.contains(target)) menuOpen = false;
+  }
+
+  $effect(() => {
+    if (typeof document === "undefined") return;
+    document.addEventListener("click", onDocClick);
+    return () => document.removeEventListener("click", onDocClick);
+  });
 </script>
 
+<!-- Desktop top bar -->
 <header
-  class="fixed inset-x-0 top-0 z-50 hidden h-14 items-center gap-6 border-b border-slate-200 bg-white px-6 md:flex dark:border-slate-800 dark:bg-slate-900"
+  class="fixed inset-x-0 top-0 z-50 hidden h-14 items-center gap-4 border-b border-white/5 bg-slate-950/80 px-6 backdrop-blur md:flex"
 >
-  <span class="mr-2 shrink-0 font-bold text-slate-900 dark:text-slate-100">{m.app_name()}</span>
+  <span class="mr-2 shrink-0 text-base font-semibold tracking-tight text-slate-100"
+    >{m.app_name()}</span
+  >
 
   <nav aria-label={m.nav_main()} class="flex items-center gap-1">
     {#each navItems as item (item.href)}
       {@const Icon = item.icon}
+      {@const active = isActive(item.href)}
       <a
         href={item.href}
-        aria-current={isActive(item.href) ? "page" : undefined}
+        aria-current={active ? "page" : undefined}
         class={cn(
-          "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none dark:focus-visible:ring-emerald-400",
-          isActive(item.href)
-            ? "bg-slate-100 text-slate-900 dark:bg-emerald-500/10 dark:text-emerald-400"
-            : "text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+          "relative flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none",
+          active
+            ? "bg-accent-gradient text-slate-900 shadow-[0_0_24px_var(--color-accent-glow)]"
+            : "text-slate-300 hover:bg-white/5 hover:text-slate-100"
         )}
       >
-        <Icon size={15} aria-hidden="true" />
+        <Icon size={15} aria-hidden="true" strokeWidth={active ? 2.2 : 1.7} />
         {item.label}
       </a>
     {/each}
 
     {#if profile?.role === "admin"}
+      {@const active = isActive("/admin")}
       <a
         href="/admin"
-        aria-current={isActive("/admin") ? "page" : undefined}
+        aria-current={active ? "page" : undefined}
         class={cn(
-          "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none dark:focus-visible:ring-emerald-400",
-          isActive("/admin")
-            ? "bg-slate-100 text-slate-900 dark:bg-emerald-500/10 dark:text-emerald-400"
-            : "text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+          "relative flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none",
+          active
+            ? "bg-accent-gradient text-slate-900 shadow-[0_0_24px_var(--color-accent-glow)]"
+            : "text-slate-300 hover:bg-white/5 hover:text-slate-100"
         )}
       >
-        <ShieldCheck size={15} aria-hidden="true" />
+        <ShieldCheck size={15} aria-hidden="true" strokeWidth={active ? 2.2 : 1.7} />
         {m.nav_admin()}
       </a>
     {/if}
   </nav>
 
-  <div class="ml-auto flex items-center gap-2">
-    {#if profile}
-      <span class="hidden text-xs text-slate-400 lg:block">{profile.email}</span>
-    {/if}
+  <div class="relative ml-auto flex items-center gap-2">
     <NotificationsPopover />
     <button
+      bind:this={menuButtonRef}
       type="button"
+      onclick={() => (menuOpen = !menuOpen)}
+      aria-haspopup="menu"
+      aria-expanded={menuOpen}
+      aria-label={email || "Account"}
+      class="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-slate-800 text-xs font-semibold text-slate-100 transition-colors hover:border-white/20 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+    >
+      {#if avatarUrl}
+        <img
+          src={avatarUrl}
+          alt=""
+          class="h-full w-full object-cover"
+          referrerpolicy="no-referrer"
+        />
+      {:else}
+        <span aria-hidden="true">{initials}</span>
+      {/if}
+    </button>
+  </div>
+</header>
+
+<!-- Mobile top bar -->
+<header
+  class="fixed inset-x-0 top-0 z-50 flex h-14 items-center gap-3 border-b border-white/5 bg-slate-950/80 px-4 backdrop-blur md:hidden"
+>
+  <span class="text-base font-semibold tracking-tight text-slate-100">{m.app_name()}</span>
+  <button
+    bind:this={menuButtonMobileRef}
+    type="button"
+    onclick={() => (menuOpen = !menuOpen)}
+    aria-haspopup="menu"
+    aria-expanded={menuOpen}
+    aria-label={email || "Account"}
+    class="relative ml-auto flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-slate-800 text-xs font-semibold text-slate-100 transition-colors hover:border-white/20 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+  >
+    {#if avatarUrl}
+      <img src={avatarUrl} alt="" class="h-full w-full object-cover" referrerpolicy="no-referrer" />
+    {:else}
+      <span aria-hidden="true">{initials}</span>
+    {/if}
+  </button>
+</header>
+
+<!-- Shared avatar popover (fixed to viewport) -->
+{#if menuOpen}
+  <div
+    id="nav-avatar-popover"
+    role="menu"
+    class="fixed top-14 right-3 z-50 mt-1 w-56 overflow-hidden rounded-xl border border-white/10 bg-slate-900/95 shadow-lg backdrop-blur"
+  >
+    <div class="border-b border-white/5 px-3 py-2.5">
+      <p class="truncate text-xs text-slate-400">{email}</p>
+    </div>
+    <button
+      type="button"
+      role="menuitem"
       onclick={signOut}
-      class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100 dark:focus-visible:ring-emerald-400"
+      class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 transition-colors hover:bg-white/5"
     >
       <LogOut size={15} aria-hidden="true" />
       {m.nav_sign_out()}
     </button>
   </div>
-</header>
+{/if}
 
+<!-- Mobile floating pill bottom nav -->
 <nav
   aria-label={m.nav_main()}
-  class="fixed inset-x-0 bottom-0 z-50 flex border-t border-slate-200 bg-white md:hidden dark:border-slate-800 dark:bg-slate-900"
+  class="fixed inset-x-0 bottom-0 z-50 md:hidden"
   style="padding-bottom: env(safe-area-inset-bottom)"
 >
-  {#each navItems as item (item.href)}
-    {@const Icon = item.icon}
-    <a
-      href={item.href}
-      aria-current={isActive(item.href) ? "page" : undefined}
-      class={cn(
-        "flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors",
-        isActive(item.href)
-          ? "text-slate-900 dark:text-emerald-400"
-          : "text-slate-400 dark:text-slate-400"
-      )}
-    >
-      <Icon size={22} aria-hidden="true" />
-      {item.label}
-    </a>
-  {/each}
+  <div
+    class="mx-3 mb-3 flex items-center justify-around rounded-2xl border border-white/10 bg-slate-900/80 px-2 py-2 shadow-lg backdrop-blur"
+  >
+    {#each navItems as item (item.href)}
+      {@const Icon = item.icon}
+      {@const active = isActive(item.href)}
+      <a
+        href={item.href}
+        aria-current={active ? "page" : undefined}
+        aria-label={item.label}
+        class={cn(
+          "relative flex h-11 w-11 items-center justify-center rounded-full transition-all",
+          active
+            ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
+            : "text-slate-300 hover:text-slate-100"
+        )}
+      >
+        <Icon size={20} aria-hidden="true" strokeWidth={active ? 2.3 : 1.7} />
+      </a>
+    {/each}
 
-  <div class="relative flex min-h-[56px] flex-1 items-center justify-center">
-    <NotificationsPopover
-      placement="bottom"
-      buttonClass="relative flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium text-slate-400 transition-colors min-h-[56px] w-full"
-    />
+    <div class="relative flex h-11 w-11 items-center justify-center">
+      <NotificationsPopover
+        placement="bottom"
+        buttonClass="relative flex h-11 w-11 items-center justify-center rounded-full text-slate-300 transition-colors hover:text-slate-100"
+      />
+    </div>
+
+    {#if profile?.role === "admin"}
+      {@const active = isActive("/admin")}
+      <a
+        href="/admin"
+        aria-current={active ? "page" : undefined}
+        aria-label={m.nav_admin()}
+        class={cn(
+          "relative flex h-11 w-11 items-center justify-center rounded-full transition-all",
+          active
+            ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
+            : "text-slate-300 hover:text-slate-100"
+        )}
+      >
+        <ShieldCheck size={20} aria-hidden="true" strokeWidth={active ? 2.3 : 1.7} />
+      </a>
+    {/if}
   </div>
-
-  {#if profile?.role === "admin"}
-    <a
-      href="/admin"
-      aria-current={isActive("/admin") ? "page" : undefined}
-      class={cn(
-        "flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors",
-        isActive("/admin")
-          ? "text-slate-900 dark:text-emerald-400"
-          : "text-slate-400 dark:text-slate-400"
-      )}
-    >
-      <ShieldCheck size={22} aria-hidden="true" />
-      {m.nav_admin()}
-    </a>
-  {/if}
 </nav>

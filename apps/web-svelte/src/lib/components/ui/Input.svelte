@@ -57,8 +57,8 @@
   {onchange}
   {onblur}
   class={cn(
-    "h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 focus:outline-none",
-    "dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500",
+    "h-10 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500",
+    "focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none",
     "disabled:cursor-not-allowed disabled:opacity-50",
     className
   )}

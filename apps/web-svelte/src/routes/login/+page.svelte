@@ -57,29 +57,27 @@
   <title>{m.app_name()} – {m.login_sign_in()}</title>
 </svelte:head>
 
-<div
-  class="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4 dark:bg-slate-950"
->
+<div class="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4">
   <div
-    class="w-full max-w-sm rounded-2xl border border-slate-100 bg-white p-8 shadow-sm dark:border-slate-700 dark:bg-slate-900"
+    class="relative w-full max-w-sm overflow-hidden rounded-3xl border border-white/5 bg-slate-900/60 p-8 shadow-[0_0_60px_rgba(16,185,129,0.08)] backdrop-blur"
   >
-    <h1 class="mb-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">
+    <h1 class="text-hero mb-1 font-semibold text-slate-100">
       {m.login_title()}
     </h1>
-    <p class="mb-6 text-sm text-slate-500 dark:text-slate-400">{m.login_description()}</p>
+    <p class="mb-6 text-sm text-slate-400">{m.login_description()}</p>
 
     {#if error}
-      <div class="mb-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700" role="alert">
+      <div
+        class="mb-4 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-300"
+        role="alert"
+      >
         {error}
       </div>
     {/if}
 
     <form onsubmit={signInWithEmail} class="space-y-4">
       <div>
-        <label
-          for="email"
-          class="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300"
-        >
+        <label for="email" class="mb-1.5 block text-sm font-medium text-slate-200">
           {m.login_email()}
         </label>
         <input
@@ -89,15 +87,12 @@
           placeholder={m.login_email_placeholder()}
           autocomplete="email"
           disabled={loading}
-          class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-slate-900 focus:ring-1 focus:ring-emerald-500 focus:outline-none disabled:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-slate-400 dark:focus:ring-slate-400 dark:disabled:bg-slate-700"
+          class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2.5 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none disabled:opacity-50"
         />
       </div>
 
       <div>
-        <label
-          for="password"
-          class="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300"
-        >
+        <label for="password" class="mb-1.5 block text-sm font-medium text-slate-200">
           {m.login_password()}
         </label>
         <input
@@ -106,30 +101,30 @@
           bind:value={password}
           autocomplete="current-password"
           disabled={loading}
-          class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-slate-900 focus:ring-1 focus:ring-emerald-500 focus:outline-none disabled:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-slate-400 dark:focus:ring-slate-400 dark:disabled:bg-slate-700"
+          class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2.5 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none disabled:opacity-50"
         />
       </div>
 
       <button
         type="submit"
         disabled={loading}
-        class="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50"
+        class="bg-accent-gradient w-full rounded-full px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 focus-visible:outline-none disabled:opacity-50"
       >
         {loading ? m.login_signing_in() : m.login_sign_in()}
       </button>
     </form>
 
     <div class="my-5 flex items-center gap-3">
-      <div class="h-px flex-1 bg-slate-200 dark:bg-slate-700"></div>
-      <span class="text-xs text-slate-400 dark:text-slate-500">lub</span>
-      <div class="h-px flex-1 bg-slate-200 dark:bg-slate-700"></div>
+      <div class="h-px flex-1 bg-white/10"></div>
+      <span class="text-xs text-slate-500">lub</span>
+      <div class="h-px flex-1 bg-white/10"></div>
     </div>
 
     <button
       type="button"
       onclick={signInWithGoogle}
       disabled={loading}
-      class="flex w-full items-center justify-center gap-2.5 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:focus-visible:ring-slate-100"
+      class="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/10 bg-slate-900/60 px-4 py-2.5 text-sm font-medium text-slate-200 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 focus-visible:outline-none disabled:opacity-50"
     >
       <svg
         width="18"

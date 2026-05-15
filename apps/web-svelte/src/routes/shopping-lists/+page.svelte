@@ -197,7 +197,7 @@
         newGroupId = "";
         newCategoryId = "";
       }}
-      class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700"
+      class="bg-accent-gradient rounded-full px-4 py-1.5 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
     >
       + {m.common_add()}
     </button>
@@ -206,13 +206,11 @@
   {#if query.isLoading}
     <div class="grid gap-3 sm:grid-cols-2">
       {#each Array(4) as _, i (i)}
-        <div
-          class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800"
-        >
-          <div class="mb-3 h-4 w-2/3 animate-pulse rounded bg-slate-100 dark:bg-slate-700"></div>
+        <div class="rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur">
+          <div class="mb-3 h-4 w-2/3 animate-pulse rounded bg-slate-800/60"></div>
           <div class="space-y-2">
-            <div class="h-3 w-full animate-pulse rounded bg-slate-100 dark:bg-slate-700"></div>
-            <div class="h-3 w-4/5 animate-pulse rounded bg-slate-100 dark:bg-slate-700"></div>
+            <div class="h-3 w-full animate-pulse rounded bg-slate-800/60"></div>
+            <div class="h-3 w-4/5 animate-pulse rounded bg-slate-800/60"></div>
           </div>
         </div>
       {/each}
@@ -279,7 +277,7 @@
         type="text"
         required
         bind:value={newName}
-        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:ring-white/10"
+        class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
       />
     </div>
     <div class="space-y-1">
@@ -289,7 +287,7 @@
       <select
         id="sl-cat"
         bind:value={newCategoryId}
-        class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:ring-white/10"
+        class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
       >
         <option value="">{m.shopping_list_form_no_category()}</option>
         {#each expenseCategories as cat (cat.id)}
@@ -305,7 +303,7 @@
         <select
           id="sl-group"
           bind:value={newGroupId}
-          class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:ring-white/10"
+          class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
         >
           <option value="">{m.shopping_list_form_no_group()}</option>
           {#each groupsQuery.data as group (group.id)}
@@ -321,14 +319,14 @@
       <button
         type="button"
         onclick={() => (showCreate = false)}
-        class="flex-1 rounded-lg border border-slate-200 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+        class="flex-1 rounded-full border border-white/10 bg-slate-900/60 py-2 text-sm font-medium text-slate-200 backdrop-blur transition-colors hover:bg-white/5"
       >
         {m.common_cancel()}
       </button>
       <button
         type="submit"
         disabled={createMut.isPending}
-        class="flex-1 rounded-lg bg-slate-900 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 disabled:opacity-50"
+        class="bg-accent-gradient flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:opacity-50"
       >
         {createMut.isPending ? m.common_saving() : m.common_save()}
       </button>
@@ -352,7 +350,7 @@
         type="text"
         required
         bind:value={editName}
-        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:ring-white/10"
+        class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
       />
     </div>
     <div class="space-y-1">
@@ -362,7 +360,7 @@
       <select
         id="sl-edit-cat"
         bind:value={editCategoryId}
-        class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:ring-white/10"
+        class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
       >
         <option value="">{m.shopping_list_form_no_category()}</option>
         {#each expenseCategories as cat (cat.id)}
@@ -378,7 +376,7 @@
         <select
           id="sl-edit-group"
           bind:value={editGroupId}
-          class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:ring-white/10"
+          class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
         >
           <option value="">{m.shopping_list_form_no_group()}</option>
           {#each groupsQuery.data as group (group.id)}
@@ -394,14 +392,14 @@
       <button
         type="button"
         onclick={() => (editTarget = null)}
-        class="flex-1 rounded-lg border border-slate-200 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+        class="flex-1 rounded-full border border-white/10 bg-slate-900/60 py-2 text-sm font-medium text-slate-200 backdrop-blur transition-colors hover:bg-white/5"
       >
         {m.common_cancel()}
       </button>
       <button
         type="submit"
         disabled={updateMut.isPending}
-        class="flex-1 rounded-lg bg-slate-900 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 disabled:opacity-50"
+        class="bg-accent-gradient flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:opacity-50"
       >
         {updateMut.isPending ? m.common_saving() : m.common_save()}
       </button>

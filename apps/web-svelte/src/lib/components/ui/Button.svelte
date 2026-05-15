@@ -3,7 +3,7 @@
   import type { Snippet } from "svelte";
 
   interface Props {
-    variant?: "primary" | "accent" | "ghost" | "danger" | "gradient";
+    variant?: "primary" | "accent" | "ghost" | "danger" | "gradient" | "glass";
     size?: "default" | "sm" | "lg" | "icon";
     loading?: boolean;
     disabled?: boolean;
@@ -25,24 +25,25 @@
   }: Props = $props();
 
   const base =
-    "inline-flex items-center justify-center gap-1.5 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:focus-visible:ring-emerald-400 dark:focus-visible:ring-offset-slate-900 disabled:pointer-events-none disabled:opacity-50";
+    "inline-flex items-center justify-center gap-1.5 font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:pointer-events-none disabled:opacity-50";
+
+  const gradientLike =
+    "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] hover:brightness-110 active:scale-[0.98]";
 
   const variants = {
-    primary:
-      "bg-slate-900 text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200",
-    accent: "bg-emerald-500 text-white hover:bg-emerald-600 dark:hover:bg-emerald-400",
-    ghost:
-      "border border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800",
-    danger: "bg-rose-600 text-white hover:bg-rose-700",
-    gradient:
-      "bg-accent-gradient text-slate-950 shadow-lg shadow-emerald-500/20 hover:brightness-110 active:scale-[0.98]",
+    primary: gradientLike,
+    gradient: gradientLike,
+    accent: gradientLike,
+    glass: "border border-white/10 bg-slate-900/60 text-slate-200 backdrop-blur hover:bg-white/5",
+    ghost: "border border-white/10 bg-transparent text-slate-300 hover:bg-white/5",
+    danger: "bg-rose-500 text-white shadow-[0_0_18px_rgba(244,63,94,0.25)] hover:bg-rose-400",
   };
 
   const sizes = {
-    default: "h-10 rounded-lg px-4 text-sm",
-    sm: "h-8 rounded-lg px-3 text-xs",
-    lg: "h-11 rounded-lg px-5 text-sm",
-    icon: "h-10 w-10 rounded-lg p-0",
+    default: "h-10 rounded-full px-4 text-sm",
+    sm: "h-8 rounded-full px-3 text-xs",
+    lg: "h-11 rounded-full px-5 text-sm",
+    icon: "h-10 w-10 rounded-full p-0",
   };
 </script>
 
