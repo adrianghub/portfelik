@@ -268,5 +268,7 @@
   "group_assign_help": "Przypisz do grupy, aby udostępnić wszystkim członkom.",
   "group_badge_shared": "Współdzielone",
   "group_disband_blocked_title": "Nie można rozwiązać grupy",
-  "group_disband_blocked_body": "Grupa zawiera współdzielone listy lub transakcje. Najpierw usuń lub przenieś te elementy."
+  "group_disband_blocked_body": "Grupa zawiera współdzielone listy lub transakcje. Najpierw usuń lub przenieś te elementy.",
+  "group_filter_all": "Wszystkie",
+  "group_filter_own": "Tylko moje"
 }

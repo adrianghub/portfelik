@@ -14,6 +14,7 @@
     updateShoppingList,
   } from "$lib/services/shopping-lists";
   import type { ShoppingListSummary } from "$lib/types";
+  import { cn } from "$lib/utils";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { toast } from "svelte-sonner";
 
@@ -38,8 +39,16 @@
     categoriesQuery.data?.filter((c) => c.type === "expense") ?? []
   );
 
-  const active = $derived(query.data?.filter((l) => l.status === "active") ?? []);
-  const completed = $derived(query.data?.filter((l) => l.status === "completed") ?? []);
+  let groupFilter = $state<"all" | "own" | string>("all");
+  const filteredLists = $derived(
+    (query.data ?? []).filter((l) => {
+      if (groupFilter === "all") return true;
+      if (groupFilter === "own") return l.group_id === null;
+      return l.group_id === groupFilter;
+    })
+  );
+  const active = $derived(filteredLists.filter((l) => l.status === "active"));
+  const completed = $derived(filteredLists.filter((l) => l.status === "completed"));
 
   // Create dialog
   let showCreate = $state(false);
@@ -222,6 +231,55 @@
       {m.shopping_lists_empty()}
     </p>
   {:else}
+    {#if groupsQuery.data && groupsQuery.data.length > 0}
+      <div role="tablist" aria-label="Grupa" class="flex flex-wrap gap-1">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={groupFilter === "all"}
+          onclick={() => (groupFilter = "all")}
+          class={cn(
+            "rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none",
+            groupFilter === "all"
+              ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
+              : "border border-white/5 text-slate-300 hover:bg-white/5"
+          )}
+        >
+          {m.group_filter_all()}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={groupFilter === "own"}
+          onclick={() => (groupFilter = "own")}
+          class={cn(
+            "rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none",
+            groupFilter === "own"
+              ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
+              : "border border-white/5 text-slate-300 hover:bg-white/5"
+          )}
+        >
+          {m.group_filter_own()}
+        </button>
+        {#each groupsQuery.data as g (g.id)}
+          <button
+            type="button"
+            role="tab"
+            aria-selected={groupFilter === g.id}
+            onclick={() => (groupFilter = g.id)}
+            class={cn(
+              "rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none",
+              groupFilter === g.id
+                ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
+                : "border border-white/5 text-slate-300 hover:bg-white/5"
+            )}
+          >
+            {g.name}
+          </button>
+        {/each}
+      </div>
+    {/if}
+
     {#if active.length > 0}
       <section class="space-y-2">
         <h2 class="text-xs font-medium tracking-wide text-slate-500 uppercase dark:text-slate-400">

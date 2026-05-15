@@ -20,7 +20,7 @@
   } from "$lib/services/transactions";
   import { supabase } from "$lib/supabase";
   import type { TransactionStatus, TransactionType, TransactionWithCategory } from "$lib/types";
-  import { getDateRangeBounds, monthYearLabel } from "$lib/utils";
+  import { cn, getDateRangeBounds, monthYearLabel } from "$lib/utils";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { onMount } from "svelte";
   import { toast } from "svelte-sonner";
@@ -64,10 +64,16 @@
   );
 
   let searchQuery = $state("");
+  let groupFilter = $state<"all" | "own" | string>("all");
   const visibleTxs = $derived(
-    filteredTxs?.filter(
-      (tx) => !searchQuery || tx.description?.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+    filteredTxs?.filter((tx) => {
+      const matchSearch =
+        !searchQuery || tx.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchGroup =
+        groupFilter === "all" ||
+        (groupFilter === "own" ? tx.group_id === null : tx.group_id === groupFilter);
+      return matchSearch && matchGroup;
+    })
   );
 
   const summary = $derived(filteredTxs ? computeSummary(filteredTxs) : null);
@@ -431,6 +437,55 @@
       </button>
     </div>
   </div>
+
+  {#if groupsQuery.data && groupsQuery.data.length > 0}
+    <div role="tablist" aria-label="Grupa" class="flex flex-wrap gap-1">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={groupFilter === "all"}
+        onclick={() => (groupFilter = "all")}
+        class={cn(
+          "rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none",
+          groupFilter === "all"
+            ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
+            : "border border-white/5 text-slate-300 hover:bg-white/5"
+        )}
+      >
+        {m.group_filter_all()}
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={groupFilter === "own"}
+        onclick={() => (groupFilter = "own")}
+        class={cn(
+          "rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none",
+          groupFilter === "own"
+            ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
+            : "border border-white/5 text-slate-300 hover:bg-white/5"
+        )}
+      >
+        {m.group_filter_own()}
+      </button>
+      {#each groupsQuery.data as g (g.id)}
+        <button
+          type="button"
+          role="tab"
+          aria-selected={groupFilter === g.id}
+          onclick={() => (groupFilter = g.id)}
+          class={cn(
+            "rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none",
+            groupFilter === g.id
+              ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
+              : "border border-white/5 text-slate-300 hover:bg-white/5"
+          )}
+        >
+          {g.name}
+        </button>
+      {/each}
+    </div>
+  {/if}
 
   {#if summary}
     <SummaryCards {summary} />

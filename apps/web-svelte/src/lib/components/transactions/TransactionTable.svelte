@@ -15,7 +15,6 @@
   }
   let {
     transactions,
-    currentUserId,
     onedit,
     ondelete,
     onrowclick,
@@ -23,7 +22,7 @@
     selectedIds = $bindable(new Set<string>()),
   }: Props = $props();
 
-  const isShared = (tx: TransactionWithCategory) => !!currentUserId && tx.user_id !== currentUserId;
+  const isShared = (tx: TransactionWithCategory) => tx.group_id !== null;
 
   const allSelected = $derived(
     transactions.length > 0 && transactions.every((tx) => selectedIds.has(tx.id))
