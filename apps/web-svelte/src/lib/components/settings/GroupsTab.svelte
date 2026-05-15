@@ -7,6 +7,7 @@
     fetchGroupMembersWithProfiles,
     createGroup,
     disbandGroup,
+    GroupHasItemsError,
     leaveGroup,
     inviteUser,
     acceptInvitation,
@@ -80,7 +81,15 @@
       toast.success(m.toast_group_disbanded());
       disbandGroupId = null;
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => {
+      if (err instanceof GroupHasItemsError) {
+        toast.error(m.group_disband_blocked_title(), {
+          description: m.group_disband_blocked_body(),
+        });
+        return;
+      }
+      toast.error(m.toast_error());
+    },
   }));
 
   // ── Leave ─────────────────────────────────────────────────────────────────

@@ -56,9 +56,21 @@ export async function createGroup(name: string): Promise<UserGroup> {
   return data as UserGroup;
 }
 
+export class GroupHasItemsError extends Error {
+  constructor(message?: string) {
+    super(message ?? "group_has_items");
+    this.name = "GroupHasItemsError";
+  }
+}
+
 export async function disbandGroup(groupId: string): Promise<void> {
   const { error } = await supabase.rpc("disband_group", { p_group_id: groupId });
-  if (error) throw error;
+  if (error) {
+    if (error.message?.includes("group_has_items")) {
+      throw new GroupHasItemsError(error.hint ?? error.message);
+    }
+    throw error;
+  }
 }
 
 export async function leaveGroup(groupId: string): Promise<void> {

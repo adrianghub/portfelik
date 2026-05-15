@@ -255,5 +255,18 @@
   "transactions_search_placeholder": "Szukaj transakcji…",
   "shopping_list_completed_celebration": "🎉 Lista zrobiona!",
   "dashboard_wins_title": "Sukcesy miesiąca",
-  "dashboard_wins_value": "🛒 {lists} list · ✅ {items} produktów"
+  "dashboard_wins_value": "🛒 {lists} list · ✅ {items} produktów",
+  "dashboard_wins_lists": "{count} list",
+  "dashboard_wins_items": "{count} produktów",
+  "dashboard_balance_title": "Bilans",
+  "dashboard_period_week": "Tydzień",
+  "dashboard_period_month": "Miesiąc",
+  "dashboard_period_year": "Rok",
+  "summary_savings_ratio": "Stopa oszczędności",
+  "group_assign_label": "Grupa",
+  "group_assign_none": "Tylko ja",
+  "group_assign_help": "Przypisz do grupy, aby udostępnić wszystkim członkom.",
+  "group_badge_shared": "Współdzielone",
+  "group_disband_blocked_title": "Nie można rozwiązać grupy",
+  "group_disband_blocked_body": "Grupa zawiera współdzielone listy lub transakcje. Najpierw usuń lub przenieś te elementy."
 }
