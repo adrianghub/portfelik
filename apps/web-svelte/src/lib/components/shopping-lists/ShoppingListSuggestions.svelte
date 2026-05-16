@@ -87,9 +87,9 @@
           onclick={() => onselect(s.name, s.quantity, s.unit)}
           onmouseenter={() => (activeIndex = i)}
         >
-          <span class="truncate text-slate-900 dark:text-white">{s.name}</span>
+          <span class="truncate text-slate-100">{s.name}</span>
           {#if s.quantity != null || s.unit}
-            <span class="ml-2 shrink-0 text-xs text-slate-400 dark:text-slate-500">
+            <span class="ml-2 shrink-0 text-xs text-slate-500">
               {s.quantity != null ? s.quantity : ""}{s.unit ? ` ${s.unit}` : ""}
             </span>
           {/if}

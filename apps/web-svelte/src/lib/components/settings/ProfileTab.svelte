@@ -84,7 +84,7 @@
     class="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white dark:divide-slate-700 dark:border-slate-700 dark:bg-slate-900"
   >
     <div class="flex items-center justify-between gap-3 px-4 py-3">
-      <span class="shrink-0 text-sm text-slate-500 dark:text-slate-400">{m.profile_name()}</span>
+      <span class="shrink-0 text-sm text-slate-400">{m.profile_name()}</span>
       {#if editing}
         <form onsubmit={handleSubmit} class="flex flex-1 items-center gap-2">
           <!-- svelte-ignore a11y_autofocus -->
@@ -111,7 +111,7 @@
         </form>
       {:else}
         <div class="flex items-center gap-2">
-          <span class="text-sm text-slate-900 dark:text-white">{profile.name ?? "—"}</span>
+          <span class="text-sm text-slate-100">{profile.name ?? "—"}</span>
           <button
             onclick={startEdit}
             class="p-1 text-slate-400 transition-colors hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-400"
@@ -134,12 +134,12 @@
       {/if}
     </div>
     <div class="flex justify-between px-4 py-3">
-      <span class="text-sm text-slate-500 dark:text-slate-400">{m.profile_email()}</span>
-      <span class="text-sm text-slate-900 dark:text-white">{profile.email}</span>
+      <span class="text-sm text-slate-400">{m.profile_email()}</span>
+      <span class="text-sm text-slate-100">{profile.email}</span>
     </div>
     <div class="flex justify-between px-4 py-3">
-      <span class="text-sm text-slate-500 dark:text-slate-400">{m.profile_role()}</span>
-      <span class="text-sm text-slate-900 dark:text-white">
+      <span class="text-sm text-slate-400">{m.profile_role()}</span>
+      <span class="text-sm text-slate-100">
         {profile.role === "admin" ? m.profile_role_admin() : m.profile_role_user()}
       </span>
     </div>
@@ -147,12 +147,10 @@
 
   {#if notifPermission === "granted"}
     <div
-      class="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+      class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
     >
       <div class="flex items-center justify-between gap-3 px-4 py-3">
-        <span class="text-sm font-medium text-slate-900 dark:text-white"
-          >{m.profile_notifications_enabled()}</span
-        >
+        <span class="text-sm font-medium text-slate-100">{m.profile_notifications_enabled()}</span>
         <button
           type="button"
           onclick={() => unsubMutation.mutate()}
@@ -169,7 +167,7 @@
     class="mt-6 rounded-xl border border-rose-200 bg-rose-50 p-4 dark:border-rose-900 dark:bg-rose-950"
   >
     <p class="text-sm font-medium text-rose-700 dark:text-rose-300">{m.profile_delete_account()}</p>
-    <p class="mt-1 text-xs text-rose-600 dark:text-rose-400">
+    <p class="mt-1 text-xs text-rose-300 dark:text-rose-400">
       {m.profile_delete_account_confirm()}
     </p>
     {#if deleteError}
@@ -181,7 +179,7 @@
         deleteError = null;
         showDeleteConfirm = true;
       }}
-      class="mt-3 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-100 dark:border-rose-700 dark:bg-slate-900 dark:text-rose-400 dark:hover:bg-rose-900"
+      class="mt-3 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-medium text-rose-300 transition-colors hover:bg-rose-100 dark:border-rose-700 dark:bg-slate-900 dark:text-rose-400 dark:hover:bg-rose-900"
     >
       {m.profile_delete_account()}
     </button>

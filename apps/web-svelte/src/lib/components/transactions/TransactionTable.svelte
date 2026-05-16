@@ -2,7 +2,7 @@
   import * as m from "$lib/paraglide/messages";
   import type { TransactionWithCategory } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
-  import { Users } from "lucide-svelte";
+  import { Check, Pencil, Trash2, Users } from "lucide-svelte";
 
   interface Props {
     transactions: TransactionWithCategory[];
@@ -62,6 +62,32 @@
     upcoming: "border border-sky-400/20 bg-sky-400/10 text-sky-300",
     overdue: "border border-rose-400/20 bg-rose-400/10 text-rose-300",
   };
+
+  function dayKey(iso: string): string {
+    return iso.slice(0, 10);
+  }
+  function dayLabel(key: string): string {
+    const today = new Date().toISOString().slice(0, 10);
+    if (key === today) return "Dziś";
+    const y = new Date();
+    y.setDate(y.getDate() - 1);
+    if (key === y.toISOString().slice(0, 10)) return "Wczoraj";
+    return formatDate(key);
+  }
+  const dayGroups = $derived.by(() => {
+    const groups = new Map<string, TransactionWithCategory[]>();
+    for (const tx of transactions) {
+      const k = dayKey(tx.date);
+      const arr = groups.get(k) ?? [];
+      arr.push(tx);
+      groups.set(k, arr);
+    }
+    return Array.from(groups.entries()).map(([key, items]) => ({
+      key,
+      label: dayLabel(key),
+      items,
+    }));
+  });
 </script>
 
 {#if transactions.length === 0}
@@ -70,139 +96,121 @@
   </p>
 {:else}
   <!-- Mobile card list -->
-  <ul class="space-y-1.5 sm:hidden" aria-label={m.transactions_title()}>
-    {#each transactions as tx (tx.id)}
-      <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-      <li
-        class="rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3 backdrop-blur transition-colors hover:bg-white/5"
-        class:cursor-pointer={!!onrowclick}
-        class:ring-2={selectedIds.has(tx.id)}
-        class:ring-slate-400={selectedIds.has(tx.id)}
-        role={onrowclick ? "button" : undefined}
-        tabindex={onrowclick ? 0 : undefined}
-        onclick={() => onrowclick?.(tx)}
-        onkeydown={(e) => {
-          if (e.key === "Enter" || e.key === " ") onrowclick?.(tx);
-        }}
-      >
-        <div class="flex items-start justify-between gap-3">
-          {#if ondelete}
-            <button
-              type="button"
-              onclick={(e) => {
-                e.stopPropagation();
-                toggleOne(tx.id);
+  <div class="space-y-3 sm:hidden" aria-label={m.transactions_title()}>
+    {#each dayGroups as group (group.key)}
+      <section class="space-y-1.5">
+        <h3
+          class="text-eyebrow sticky top-14 z-10 -mx-1 bg-slate-950/95 px-1 py-1 text-slate-400 backdrop-blur"
+        >
+          {group.label}
+        </h3>
+        <ul class="space-y-1.5">
+          {#each group.items as tx (tx.id)}
+            <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+            <li
+              class="rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3 backdrop-blur transition-colors hover:bg-white/5"
+              class:cursor-pointer={!!onrowclick}
+              class:ring-2={selectedIds.has(tx.id)}
+              class:ring-slate-400={selectedIds.has(tx.id)}
+              role={onrowclick ? "button" : undefined}
+              tabindex={onrowclick ? 0 : undefined}
+              onclick={() => onrowclick?.(tx)}
+              onkeydown={(e) => {
+                if (e.key === "Enter" || e.key === " ") onrowclick?.(tx);
               }}
-              class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors {selectedIds.has(
-                tx.id
-              )
-                ? 'border-slate-900 bg-slate-900 dark:border-slate-200 dark:bg-slate-200'
-                : 'hover:border-slate-500'}"
-              aria-label={m.transactions_select_all()}
             >
-              {#if selectedIds.has(tx.id)}
-                <svg
-                  class="h-2.5 w-2.5 text-slate-900"
-                  viewBox="0 0 10 8"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"><polyline points="1 4 4 7 9 1" /></svg
-                >
-              {/if}
-            </button>
-          {/if}
-          <span class="min-w-0 flex-1 truncate text-sm leading-snug font-medium text-slate-100">
-            {tx.description}
-            {#if tx.is_recurring}
-              <span class="ml-1 text-xs text-slate-500" aria-label="cykliczna">↻</span>
-            {/if}
-            {#if isShared(tx)}
-              <span
-                class="ml-1 inline-flex items-center gap-0.5 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] text-emerald-300"
-              >
-                <Users size={9} />
-              </span>
-            {/if}
-          </span>
-          <span
-            class={cn(
-              "shrink-0 text-sm font-semibold tabular-nums",
-              tx.type === "income" ? "text-emerald-300" : "text-rose-300"
-            )}
-          >
-            {tx.type === "income" ? "+" : "−"}{formatCurrency(tx.amount, tx.currency)}
-          </span>
-        </div>
-        <div class="mt-1.5 flex flex-wrap items-center gap-2">
-          <span class="text-xs text-slate-500">{formatDate(tx.date)}</span>
-          <span class="text-xs text-slate-700" aria-hidden="true">·</span>
-          <span class="text-xs text-slate-500">{tx.category_name}</span>
-          <span
-            class={cn(
-              "ml-auto inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-              statusClass[tx.status] ?? "border border-white/10 bg-slate-800/60 text-slate-400"
-            )}
-          >
-            {statusLabel[tx.status] ?? tx.status}
-          </span>
-          {#if onedit || ondelete}
-            <div class="ml-1 flex gap-1">
-              {#if onedit}
-                <button
-                  onclick={(e) => {
-                    e.stopPropagation();
-                    onedit(tx);
-                  }}
-                  class="p-1 text-slate-500 transition-colors hover:text-slate-200"
-                  aria-label={m.common_edit()}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="13"
-                    height="13"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    ><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /></svg
+              <div class="flex items-start justify-between gap-3">
+                {#if ondelete}
+                  <button
+                    type="button"
+                    onclick={(e) => {
+                      e.stopPropagation();
+                      toggleOne(tx.id);
+                    }}
+                    class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors {selectedIds.has(
+                      tx.id
+                    )
+                      ? 'bg-accent-gradient border-transparent'
+                      : 'border-white/15 hover:border-white/30'}"
+                    aria-label={m.transactions_select_all()}
                   >
-                </button>
-              {/if}
-              {#if ondelete}
-                <button
-                  onclick={(e) => {
-                    e.stopPropagation();
-                    ondelete(tx.id);
-                  }}
-                  class="p-1 text-slate-500 transition-colors hover:text-rose-300"
-                  aria-label={m.common_delete()}
+                    {#if selectedIds.has(tx.id)}
+                      <Check size={11} strokeWidth={2.5} class="text-slate-900" />
+                    {/if}
+                  </button>
+                {/if}
+                <span
+                  class="min-w-0 flex-1 truncate text-sm leading-snug font-medium text-slate-100"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="13"
-                    height="13"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    ><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path
-                      d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
-                    /></svg
-                  >
-                </button>
-              {/if}
-            </div>
-          {/if}
-        </div>
-      </li>
+                  {tx.description}
+                  {#if tx.is_recurring}
+                    <span class="ml-1 text-xs text-slate-500" aria-label="cykliczna">↻</span>
+                  {/if}
+                  {#if isShared(tx)}
+                    <span
+                      class="ml-1 inline-flex items-center gap-0.5 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] text-emerald-300"
+                    >
+                      <Users size={9} />
+                    </span>
+                  {/if}
+                </span>
+                <span
+                  class={cn(
+                    "shrink-0 text-sm font-semibold tabular-nums",
+                    tx.type === "income" ? "text-emerald-300" : "text-rose-300"
+                  )}
+                >
+                  {tx.type === "income" ? "+" : "−"}{formatCurrency(tx.amount, tx.currency)}
+                </span>
+              </div>
+              <div class="mt-1.5 flex flex-wrap items-center gap-2">
+                <span class="text-xs text-slate-500">{formatDate(tx.date)}</span>
+                <span class="text-xs text-slate-700" aria-hidden="true">·</span>
+                <span class="text-xs text-slate-500">{tx.category_name}</span>
+                <span
+                  class={cn(
+                    "ml-auto inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                    statusClass[tx.status] ??
+                      "border border-white/10 bg-slate-800/60 text-slate-400"
+                  )}
+                >
+                  {statusLabel[tx.status] ?? tx.status}
+                </span>
+                {#if onedit || ondelete}
+                  <div class="ml-1 flex gap-1">
+                    {#if onedit}
+                      <button
+                        onclick={(e) => {
+                          e.stopPropagation();
+                          onedit(tx);
+                        }}
+                        class="p-1 text-slate-500 transition-colors hover:text-slate-200"
+                        aria-label={m.common_edit()}
+                      >
+                        <Pencil size={13} strokeWidth={1.8} />
+                      </button>
+                    {/if}
+                    {#if ondelete}
+                      <button
+                        onclick={(e) => {
+                          e.stopPropagation();
+                          ondelete(tx.id);
+                        }}
+                        class="p-1 text-slate-500 transition-colors hover:text-rose-300"
+                        aria-label={m.common_delete()}
+                      >
+                        <Trash2 size={13} strokeWidth={1.8} />
+                      </button>
+                    {/if}
+                  </div>
+                {/if}
+              </div>
+            </li>
+          {/each}
+        </ul>
+      </section>
     {/each}
-  </ul>
+  </div>
 
   <!-- Desktop table -->
   <div
@@ -217,33 +225,18 @@
                 type="button"
                 onclick={toggleAll}
                 class="flex h-4 w-4 items-center justify-center rounded border border-white/15 transition-colors {allSelected
-                  ? 'border-slate-900 bg-slate-900 dark:border-slate-200 dark:bg-slate-200'
+                  ? 'bg-accent-gradient border-transparent'
                   : someSelected
                     ? 'border-slate-900 bg-slate-400 dark:border-slate-400 dark:bg-slate-500'
-                    : 'hover:border-slate-500'}"
+                    : 'border-white/15 hover:border-white/30'}"
                 aria-label={allSelected
                   ? m.transactions_deselect_all()
                   : m.transactions_select_all()}
               >
                 {#if allSelected}
-                  <svg
-                    class="h-2.5 w-2.5 text-slate-900"
-                    viewBox="0 0 10 8"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"><polyline points="1 4 4 7 9 1" /></svg
-                  >
+                  <Check size={11} strokeWidth={2.5} class="text-slate-900" />
                 {:else if someSelected}
-                  <svg
-                    class="h-2.5 w-2.5 text-slate-900"
-                    viewBox="0 0 10 2"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"><line x1="1" y1="1" x2="9" y2="1" /></svg
-                  >
+                  <Check size={11} strokeWidth={2.5} class="text-slate-900" />
                 {/if}
               </button>
             </th>
@@ -260,9 +253,7 @@
           <th scope="col" class="text-eyebrow px-4 py-3 text-left text-slate-400"
             >{m.transactions_col_status()}</th
           >
-          <th
-            scope="col"
-            class="px-4 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400"
+          <th scope="col" class="text-eyebrow px-4 py-3 text-right text-slate-400"
             >{m.transactions_col_amount()}</th
           >
           {#if onedit || ondelete}
@@ -301,15 +292,7 @@
                   aria-label={m.transactions_select_all()}
                 >
                   {#if selectedIds.has(tx.id)}
-                    <svg
-                      class="h-2.5 w-2.5 text-slate-900"
-                      viewBox="0 0 10 8"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"><polyline points="1 4 4 7 9 1" /></svg
-                    >
+                    <Check size={11} strokeWidth={2.5} class="text-slate-900" />
                   {/if}
                 </button>
               </td>
@@ -328,7 +311,7 @@
                 </span>
               {/if}
             </td>
-            <td class="px-4 py-3 text-slate-500 dark:text-slate-400">{tx.category_name}</td>
+            <td class="px-4 py-3 text-slate-400">{tx.category_name}</td>
             <td class="px-4 py-3">
               <span
                 class={cn(
@@ -359,18 +342,7 @@
                       class="rounded p-1.5 text-slate-500 transition-colors hover:text-slate-200"
                       aria-label={m.common_edit()}
                     >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        ><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /></svg
-                      >
+                      <Pencil size={14} strokeWidth={1.8} />
                     </button>
                   {/if}
                   {#if ondelete}
@@ -382,20 +354,7 @@
                       class="rounded p-1.5 text-slate-500 transition-colors hover:text-rose-300"
                       aria-label={m.common_delete()}
                     >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        ><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path
-                          d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
-                        /></svg
-                      >
+                      <Trash2 size={14} strokeWidth={1.8} />
                     </button>
                   {/if}
                 </div>
