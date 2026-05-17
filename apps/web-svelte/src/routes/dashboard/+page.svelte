@@ -11,6 +11,10 @@
   import { createQuery } from "@tanstack/svelte-query";
   import { onMount } from "svelte";
   import { CheckCircle2, ShoppingCart } from "lucide-svelte";
+  import { dailyGreeting, dailyQuote } from "$lib/dashboard-daily";
+
+  const greeting = dailyGreeting();
+  const quote = dailyQuote();
 
   type Period = "week" | "month" | "year";
   let period = $state<Period>("month");
@@ -149,30 +153,32 @@
 </script>
 
 <div class="container mx-auto max-w-4xl space-y-5 px-4 py-6">
-  <!-- Header — mobile (single line) -->
-  <div class="flex items-center justify-between gap-3 md:hidden">
+  <!-- Header — mobile (single line greeting + quote underneath) -->
+  <div class="md:hidden">
     <p class="truncate text-base font-medium text-slate-100">
       {#if profileQuery.data}
-        {m.transactions_greeting({
-          name: profileQuery.data.name ?? profileQuery.data.email,
-        })}
+        {greeting}, {profileQuery.data.name ?? profileQuery.data.email}!
       {:else}
         &nbsp;
       {/if}
     </p>
+    <p class="mt-1 line-clamp-2 text-xs text-slate-400 italic">
+      {quote}
+    </p>
   </div>
 
   <!-- Header — desktop -->
-  <div class="hidden items-center justify-between md:flex">
+  <div class="hidden items-start justify-between md:flex">
     <div>
       {#if profileQuery.data}
         <p class="mb-0.5 text-base text-slate-400">
-          {m.transactions_greeting({ name: profileQuery.data.name ?? profileQuery.data.email })}
+          {greeting}, {profileQuery.data.name ?? profileQuery.data.email}!
         </p>
       {/if}
       <h1 class="text-hero font-semibold text-slate-100">
         {m.dashboard_title()}
       </h1>
+      <p class="mt-1 max-w-xl text-sm text-slate-400 italic">{quote}</p>
     </div>
   </div>
 

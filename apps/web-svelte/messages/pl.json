@@ -270,5 +270,9 @@
   "group_disband_blocked_title": "Nie można rozwiązać grupy",
   "group_disband_blocked_body": "Grupa zawiera współdzielone listy lub transakcje. Najpierw usuń lub przenieś te elementy.",
   "group_filter_all": "Wszystkie",
-  "group_filter_own": "Tylko moje"
+  "group_filter_own": "Tylko moje",
+  "shopping_list_connect_title": "Połącz z transakcją",
+  "shopping_list_connect_empty": "Brak transakcji do połączenia. Zaimportuj wyciąg lub dodaj transakcję ręcznie.",
+  "shopping_list_connect_help": "Lista zostanie zakończona, a transakcja przejmie kategorię listy.",
+  "toast_shopping_list_connected": "Lista połączona z transakcją"
 }

@@ -99,10 +99,9 @@ test('back-nav after add: shopping_lists summary refetches', async ({ page }) =>
   await expect(page).toHaveURL('/shopping-lists/list-1');
   await expect(page.getByText('Mleko')).toBeVisible();
 
-  // Add an item from the detail page
-  await page.getByRole('button', { name: /\+ Dodaj element/ }).click();
-  await page.locator('#item-name').fill('Cebula testowa');
-  await page.getByRole('button', { name: /^Dodaj$/ }).click();
+  // Add an item from the detail page (inline quick-add form)
+  await page.getByPlaceholder('Dodaj element').fill('Cebula testowa');
+  await page.getByRole('button', { name: 'Dodaj element' }).click();
   await expect(page.getByText('Element dodany')).toBeVisible();
 
   const before = listGetCount;

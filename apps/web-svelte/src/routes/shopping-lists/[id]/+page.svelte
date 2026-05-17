@@ -8,6 +8,8 @@
     createShoppingListItem,
     deleteShoppingListItem,
     completeShoppingList,
+    fetchAttachableTransactions,
+    attachShoppingListToTransaction,
   } from "$lib/services/shopping-lists";
   import type { ShoppingListItem, ShoppingListWithItems } from "$lib/types";
   import { fetchCategories } from "$lib/services/categories";
@@ -16,7 +18,7 @@
   import Sheet from "$lib/components/ui/Sheet.svelte";
   import ShoppingListSuggestions from "$lib/components/shopping-lists/ShoppingListSuggestions.svelte";
   import * as m from "$lib/paraglide/messages";
-  import { Check, MoreHorizontal, Plus } from "lucide-svelte";
+  import { Check, Link2, MoreHorizontal, Plus } from "lucide-svelte";
   import { flip } from "svelte/animate";
   import { slide } from "svelte/transition";
 
@@ -185,6 +187,29 @@
   let showComplete = $state(false);
   let completeAmount = $state("");
   let completeCategoryId = $state("");
+
+  // Connect-to-existing-tx state
+  let showConnect = $state(false);
+
+  const attachableQuery = createQuery(() => ({
+    queryKey: ["attachable_transactions"],
+    queryFn: () => fetchAttachableTransactions(),
+    enabled: showConnect,
+    staleTime: 30_000,
+  }));
+
+  const connectMutation = createMutation(() => ({
+    mutationFn: (txId: string) => attachShoppingListToTransaction(id, txId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
+      await queryClient.invalidateQueries({ queryKey: listKey });
+      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      await queryClient.invalidateQueries({ queryKey: ["attachable_transactions"] });
+      toast.success(m.toast_shopping_list_connected());
+      showConnect = false;
+    },
+    onError: () => toast.error(m.toast_error()),
+  }));
 
   const completeMutation = createMutation(() => ({
     mutationFn: () => completeShoppingList(id, parseFloat(completeAmount), completeCategoryId),
@@ -475,12 +500,23 @@
           <Plus size={18} strokeWidth={2.4} aria-hidden="true" />
         </button>
       </form>
-      <button
-        onclick={openCompleteDialog}
-        class="bg-accent-gradient w-full rounded-full px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
-      >
-        {m.shopping_list_complete_title()}
-      </button>
+      <div class="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onclick={() => (showConnect = true)}
+          class="flex items-center justify-center gap-1.5 rounded-full border border-white/10 bg-slate-900/60 px-4 py-2.5 text-sm font-medium text-slate-200 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+        >
+          <Link2 size={15} strokeWidth={1.8} aria-hidden="true" />
+          {m.shopping_list_connect_title()}
+        </button>
+        <button
+          type="button"
+          onclick={openCompleteDialog}
+          class="bg-accent-gradient rounded-full px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+        >
+          {m.shopping_list_complete_title()}
+        </button>
+      </div>
     {/if}
 
     {#if list.total_amount != null}
@@ -628,6 +664,49 @@
     </div>
   </form>
 </Dialog>
+
+<!-- Connect-to-existing-tx sheet -->
+<Sheet
+  open={showConnect}
+  onclose={() => (showConnect = false)}
+  title={m.shopping_list_connect_title()}
+>
+  <div class="space-y-3 pb-2">
+    <p class="text-xs text-slate-400">{m.shopping_list_connect_help()}</p>
+    {#if attachableQuery.isPending}
+      <div class="space-y-2">
+        {#each Array(4) as _, i (i)}
+          <div class="h-14 animate-pulse rounded-xl bg-slate-800/60"></div>
+        {/each}
+      </div>
+    {:else if (attachableQuery.data?.length ?? 0) === 0}
+      <p class="py-6 text-center text-sm text-slate-500">{m.shopping_list_connect_empty()}</p>
+    {:else}
+      <ul class="max-h-[60vh] space-y-1.5 overflow-y-auto">
+        {#each attachableQuery.data ?? [] as tx (tx.id)}
+          <li>
+            <button
+              type="button"
+              onclick={() => connectMutation.mutate(tx.id)}
+              disabled={connectMutation.isPending}
+              class="flex w-full items-center justify-between gap-3 rounded-xl border border-white/5 bg-slate-900/60 px-4 py-3 text-left backdrop-blur transition-colors hover:bg-white/5 disabled:opacity-40"
+            >
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-sm font-medium text-slate-100">{tx.description}</p>
+                <p class="mt-0.5 text-xs text-slate-500">
+                  {formatDate(tx.date)} · {tx.category_name}
+                </p>
+              </div>
+              <span class="shrink-0 text-sm font-semibold text-rose-300 tabular-nums"
+                >−{formatCurrency(tx.amount)}</span
+              >
+            </button>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </div>
+</Sheet>
 
 <!-- Item actions sheet (kebab / long-press) -->
 <Sheet

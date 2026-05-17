@@ -3,6 +3,7 @@ import type {
   ShoppingList,
   ShoppingListItem,
   ShoppingListSummary,
+  TransactionWithCategory,
   ShoppingListWithItems,
   Transaction,
 } from "$lib/types";
@@ -104,6 +105,30 @@ export async function updateShoppingList(
 export async function deleteShoppingList(id: string): Promise<void> {
   const { error } = await supabase.from("shopping_lists").delete().eq("id", id);
   if (error) throw error;
+}
+
+export async function attachShoppingListToTransaction(
+  listId: string,
+  txId: string
+): Promise<Transaction> {
+  const { data, error } = await supabase.rpc("attach_shopping_list_to_transaction", {
+    p_list_id: listId,
+    p_tx_id: txId,
+  });
+  if (error) throw error;
+  return data as unknown as Transaction;
+}
+
+export async function fetchAttachableTransactions(limit = 30): Promise<TransactionWithCategory[]> {
+  const { data, error } = await supabase
+    .from("transactions_with_category")
+    .select("*")
+    .eq("type", "expense")
+    .is("shopping_list_id", null)
+    .order("date", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as TransactionWithCategory[];
 }
 
 export async function completeShoppingList(

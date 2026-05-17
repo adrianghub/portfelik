@@ -508,6 +508,33 @@ export type Database = {
         Returns: undefined;
       };
       assign_admin_role: { Args: { p_user_id: string }; Returns: undefined };
+      attach_shopping_list_to_transaction: {
+        Args: { p_list_id: string; p_tx_id: string };
+        Returns: {
+          amount: number;
+          category_id: string;
+          created_at: string;
+          currency: string;
+          date: string;
+          description: string;
+          group_id: string | null;
+          id: string;
+          is_recurring: boolean;
+          recurring_day: number | null;
+          recurring_template_id: string | null;
+          shopping_list_id: string | null;
+          status: Database["public"]["Enums"]["transaction_status"];
+          type: Database["public"]["Enums"]["transaction_type"];
+          updated_at: string;
+          user_id: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "transactions";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       cancel_invitation: {
         Args: { p_invitation_id: string };
         Returns: undefined;
