@@ -18,7 +18,8 @@
   import Sheet from "$lib/components/ui/Sheet.svelte";
   import ShoppingListSuggestions from "$lib/components/shopping-lists/ShoppingListSuggestions.svelte";
   import * as m from "$lib/paraglide/messages";
-  import { Check, Link2, MoreHorizontal, Plus } from "lucide-svelte";
+  import { Check, Link2, ListPlus, MoreHorizontal, Plus } from "lucide-svelte";
+  import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import { flip } from "svelte/animate";
   import { slide } from "svelte/transition";
   import { motionDuration } from "$lib/motion";
@@ -408,9 +409,11 @@
     <div class="text-xs text-slate-400 dark:text-slate-500">{formatDate(list.created_at)}</div>
 
     {#if list.shopping_list_items.length === 0}
-      <p class="py-8 text-center text-sm text-slate-400 dark:text-slate-500">
-        {m.shopping_list_items_empty()}
-      </p>
+      <EmptyState title={m.shopping_list_items_empty()} body={m.shopping_list_items_empty_hint()}>
+        {#snippet icon()}
+          <ListPlus size={28} strokeWidth={1.4} />
+        {/snippet}
+      </EmptyState>
     {:else}
       <ul class="space-y-1">
         {#each list.shopping_list_items as item (item.id)}

@@ -2,7 +2,8 @@
   import * as m from "$lib/paraglide/messages";
   import type { TransactionWithCategory } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
-  import { Check, Pencil, Trash2, Users } from "lucide-svelte";
+  import { Check, Pencil, Trash2, Users, Wallet } from "lucide-svelte";
+  import EmptyState from "$lib/components/ui/EmptyState.svelte";
 
   interface Props {
     transactions: TransactionWithCategory[];
@@ -99,9 +100,11 @@
 </script>
 
 {#if transactions.length === 0}
-  <p class="py-12 text-center text-sm text-slate-500">
-    {emptyLabel ?? m.transactions_empty()}
-  </p>
+  <EmptyState title={emptyLabel ?? m.transactions_empty()} body={m.transactions_empty_hint()}>
+    {#snippet icon()}
+      <Wallet size={28} strokeWidth={1.4} />
+    {/snippet}
+  </EmptyState>
 {:else}
   <!-- Mobile card list -->
   <div class="space-y-3 sm:hidden" aria-label={m.transactions_title()}>

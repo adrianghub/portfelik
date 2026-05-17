@@ -8,6 +8,8 @@
   import { createMutation, useQueryClient } from "@tanstack/svelte-query";
   import { toast } from "svelte-sonner";
   import * as m from "$lib/paraglide/messages";
+  import EmptyState from "$lib/components/ui/EmptyState.svelte";
+  import { Users } from "lucide-svelte";
 
   const queryClient = useQueryClient();
 
@@ -119,9 +121,11 @@
   {:else if error}
     <p class="text-sm text-rose-600">{error}</p>
   {:else if filtered.length === 0}
-    <p class="py-8 text-center text-sm text-slate-500">
-      {m.admin_users_empty()}
-    </p>
+    <EmptyState title={m.admin_users_empty()} body={m.admin_users_empty_hint()}>
+      {#snippet icon()}
+        <Users size={28} strokeWidth={1.4} />
+      {/snippet}
+    </EmptyState>
   {:else}
     <div class="overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur">
       <table class="w-full text-sm">

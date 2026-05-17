@@ -3,6 +3,8 @@
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import Fab from "$lib/components/ui/Fab.svelte";
+  import EmptyState from "$lib/components/ui/EmptyState.svelte";
+  import { ShoppingBasket } from "lucide-svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchUserGroups } from "$lib/services/groups";
   import { fetchCategories } from "$lib/services/categories";
@@ -227,9 +229,11 @@
   {:else if query.isError}
     <p class="text-sm text-rose-600">{m.common_error_title()}</p>
   {:else if (query.data?.length ?? 0) === 0}
-    <p class="py-12 text-center text-sm text-slate-400 dark:text-slate-500">
-      {m.shopping_lists_empty()}
-    </p>
+    <EmptyState title={m.shopping_lists_empty()} body={m.shopping_lists_empty_hint()}>
+      {#snippet icon()}
+        <ShoppingBasket size={28} strokeWidth={1.4} />
+      {/snippet}
+    </EmptyState>
   {:else}
     {#if groupsQuery.data && groupsQuery.data.length > 0}
       <div role="tablist" aria-label="Grupa" class="flex flex-wrap gap-1">

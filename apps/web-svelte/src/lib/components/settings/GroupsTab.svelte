@@ -20,6 +20,8 @@
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import { toast } from "svelte-sonner";
   import * as m from "$lib/paraglide/messages";
+  import EmptyState from "$lib/components/ui/EmptyState.svelte";
+  import { Users } from "lucide-svelte";
 
   const queryClient = useQueryClient();
 
@@ -236,7 +238,11 @@
   <p class="text-sm text-rose-300">{m.common_error_title()}</p>
 {:else}
   {#if groupsQuery.data?.length === 0}
-    <p class="py-8 text-center text-sm text-slate-400">{m.groups_empty()}</p>
+    <EmptyState title={m.groups_empty()} body={m.groups_empty_hint()}>
+      {#snippet icon()}
+        <Users size={28} strokeWidth={1.4} />
+      {/snippet}
+    </EmptyState>
   {:else if groupsQuery.data}
     <div class="space-y-2">
       {#each groupsQuery.data as group (group.id)}

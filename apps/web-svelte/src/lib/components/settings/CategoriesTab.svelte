@@ -7,6 +7,8 @@
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import { toast } from "svelte-sonner";
   import * as m from "$lib/paraglide/messages";
+  import EmptyState from "$lib/components/ui/EmptyState.svelte";
+  import { Tag } from "lucide-svelte";
 
   const queryClient = useQueryClient();
 
@@ -203,7 +205,11 @@
   </div>
 
   {#if query.data.length === 0}
-    <p class="py-8 text-center text-sm text-slate-400">{m.categories_empty()}</p>
+    <EmptyState title={m.categories_empty()} body={m.categories_empty_hint()}>
+      {#snippet icon()}
+        <Tag size={28} strokeWidth={1.4} />
+      {/snippet}
+    </EmptyState>
   {/if}
 
   <button

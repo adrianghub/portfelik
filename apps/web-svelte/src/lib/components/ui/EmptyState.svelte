@@ -18,19 +18,18 @@
 
 <div
   class={cn(
-    "flex flex-col items-center justify-center gap-3 rounded-2xl px-6 py-12 text-center",
-    "surface",
+    "flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/5 bg-slate-900/60 px-6 py-12 text-center backdrop-blur",
     className
   )}
 >
   {#if icon}
-    <div class="text-slate-400 dark:text-slate-500">
+    <div class="text-slate-400">
       {@render icon()}
     </div>
   {/if}
-  <h3 class="text-base font-semibold text-slate-900 dark:text-white">{title}</h3>
+  <h3 class="text-base font-semibold text-slate-100">{title}</h3>
   {#if body}
-    <p class="max-w-xs text-sm text-slate-500 dark:text-slate-400">{body}</p>
+    <p class="max-w-xs text-sm text-slate-400">{body}</p>
   {/if}
   {#if action}
     <div class="mt-2">

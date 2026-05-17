@@ -277,5 +277,11 @@
   "toast_shopping_list_connected": "Lista połączona z transakcją",
   "shopping_list_requires_items": "Dodaj choć jeden produkt, aby zakończyć lub połączyć listę.",
   "toast_sharing_scope_mismatch": "Lista i transakcja muszą należeć do tej samej grupy.",
-  "toast_list_empty": "Dodaj choć jeden produkt do listy."
+  "toast_list_empty": "Dodaj choć jeden produkt do listy.",
+  "transactions_empty_hint": "Dodaj swoją pierwszą transakcję, aby zacząć śledzić wydatki.",
+  "shopping_lists_empty_hint": "Utwórz pierwszą listę zakupów — przyda się przed wyjściem do sklepu.",
+  "shopping_list_items_empty_hint": "Wpisz produkt poniżej, aby dodać go do listy.",
+  "categories_empty_hint": "Dodaj kategorię, aby grupować transakcje.",
+  "groups_empty_hint": "Stwórz grupę lub poczekaj na zaproszenie, aby dzielić listy i transakcje.",
+  "admin_users_empty_hint": "Brak użytkowników pasujących do filtra."
 }
