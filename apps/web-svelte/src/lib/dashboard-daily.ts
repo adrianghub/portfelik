@@ -51,8 +51,12 @@ const quotes: string[] = [
 ];
 
 function dayIndex(): number {
-  // UTC-day count since epoch. Same value for everyone within the same UTC day.
-  return Math.floor(Date.now() / 86_400_000);
+  // Local-day count: epoch days adjusted so the rotation flips at LOCAL
+  // midnight rather than UTC midnight (Warsaw is UTC+1/+2, so UTC days
+  // change in the middle of evening here).
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return Math.floor(d.getTime() / 86_400_000);
 }
 
 export function dailyGreeting(): string {

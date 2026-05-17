@@ -63,15 +63,23 @@
     overdue: "border border-rose-400/20 bg-rose-400/10 text-rose-300",
   };
 
+  function localYmd(d: Date): string {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
   function dayKey(iso: string): string {
-    return iso.slice(0, 10);
+    // Local-day grouping so a tx at 23:30 Warsaw doesn't bleed into the
+    // next UTC day's bucket.
+    return localYmd(new Date(iso));
   }
   function dayLabel(key: string): string {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localYmd(new Date());
     if (key === today) return "Dziś";
     const y = new Date();
     y.setDate(y.getDate() - 1);
-    if (key === y.toISOString().slice(0, 10)) return "Wczoraj";
+    if (key === localYmd(y)) return "Wczoraj";
     return formatDate(key);
   }
   const dayGroups = $derived.by(() => {

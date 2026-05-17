@@ -193,8 +193,8 @@
   let showConnect = $state(false);
 
   const attachableQuery = createQuery(() => ({
-    queryKey: ["attachable_transactions"],
-    queryFn: () => fetchAttachableTransactions(),
+    queryKey: ["attachable_transactions", query.data?.group_id ?? null],
+    queryFn: () => fetchAttachableTransactions(query.data?.group_id ?? null),
     enabled: showConnect,
     staleTime: 30_000,
   }));
@@ -209,7 +209,18 @@
       toast.success(m.toast_shopping_list_connected());
       showConnect = false;
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err: { message?: string } | Error) => {
+      const msg = (err as { message?: string }).message ?? "";
+      if (msg.includes("sharing_scope_mismatch")) {
+        toast.error(m.toast_sharing_scope_mismatch());
+        return;
+      }
+      if (msg.includes("list_empty")) {
+        toast.error(m.toast_list_empty());
+        return;
+      }
+      toast.error(m.toast_error());
+    },
   }));
 
   const completeMutation = createMutation(() => ({
@@ -267,6 +278,7 @@
   }
 
   const isActive = $derived(query.data?.status === "active");
+  const hasItems = $derived((query.data?.shopping_list_items?.length ?? 0) > 0);
 
   // Item row actions sheet (kebab + long-press) + helpers
   let actionsTarget = $state<ShoppingListItem | null>(null);
@@ -505,7 +517,9 @@
         <button
           type="button"
           onclick={() => (showConnect = true)}
-          class="flex items-center justify-center gap-1.5 rounded-full border border-white/10 bg-slate-900/60 px-4 py-2.5 text-sm font-medium text-slate-200 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+          disabled={!hasItems}
+          title={hasItems ? undefined : m.shopping_list_requires_items()}
+          class="flex items-center justify-center gap-1.5 rounded-full border border-white/10 bg-slate-900/60 px-4 py-2.5 text-sm font-medium text-slate-200 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Link2 size={15} strokeWidth={1.8} aria-hidden="true" />
           {m.shopping_list_connect_title()}
@@ -513,11 +527,16 @@
         <button
           type="button"
           onclick={openCompleteDialog}
-          class="bg-accent-gradient rounded-full px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+          disabled={!hasItems}
+          title={hasItems ? undefined : m.shopping_list_requires_items()}
+          class="bg-accent-gradient rounded-full px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
         >
           {m.shopping_list_complete_title()}
         </button>
       </div>
+      {#if !hasItems}
+        <p class="text-center text-xs text-slate-500">{m.shopping_list_requires_items()}</p>
+      {/if}
     {/if}
 
     {#if list.total_amount != null}

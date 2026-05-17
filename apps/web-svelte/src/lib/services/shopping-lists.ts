@@ -119,14 +119,23 @@ export async function attachShoppingListToTransaction(
   return data as unknown as Transaction;
 }
 
-export async function fetchAttachableTransactions(limit = 30): Promise<TransactionWithCategory[]> {
-  const { data, error } = await supabase
+export async function fetchAttachableTransactions(
+  listGroupId: string | null,
+  limit = 30
+): Promise<TransactionWithCategory[]> {
+  // Only show transactions on the same sharing surface as the list:
+  // - Private list (group_id null) → only private txs.
+  // - Group list → only txs in that same group.
+  // Matches the RPC's sharing_scope_mismatch check.
+  let q = supabase
     .from("transactions_with_category")
     .select("*")
     .eq("type", "expense")
     .is("shopping_list_id", null)
     .order("date", { ascending: false })
     .limit(limit);
+  q = listGroupId === null ? q.is("group_id", null) : q.eq("group_id", listGroupId);
+  const { data, error } = await q;
   if (error) throw error;
   return (data ?? []) as TransactionWithCategory[];
 }

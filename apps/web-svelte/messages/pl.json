@@ -274,5 +274,8 @@
   "shopping_list_connect_title": "Połącz z transakcją",
   "shopping_list_connect_empty": "Brak transakcji do połączenia. Zaimportuj wyciąg lub dodaj transakcję ręcznie.",
   "shopping_list_connect_help": "Lista zostanie zakończona, a transakcja przejmie kategorię listy.",
-  "toast_shopping_list_connected": "Lista połączona z transakcją"
+  "toast_shopping_list_connected": "Lista połączona z transakcją",
+  "shopping_list_requires_items": "Dodaj choć jeden produkt, aby zakończyć lub połączyć listę.",
+  "toast_sharing_scope_mismatch": "Lista i transakcja muszą należeć do tej samej grupy.",
+  "toast_list_empty": "Dodaj choć jeden produkt do listy."
 }
