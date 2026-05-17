@@ -14,9 +14,11 @@
   import { formatCurrency, formatDate, cn } from "$lib/utils";
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import Sheet from "$lib/components/ui/Sheet.svelte";
-  import Fab from "$lib/components/ui/Fab.svelte";
   import ShoppingListSuggestions from "$lib/components/shopping-lists/ShoppingListSuggestions.svelte";
   import * as m from "$lib/paraglide/messages";
+  import { Check, MoreHorizontal, Plus } from "lucide-svelte";
+  import { flip } from "svelte/animate";
+  import { slide } from "svelte/transition";
 
   const queryClient = useQueryClient();
   const id = $derived($page.params.id ?? "");
@@ -205,7 +207,12 @@
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
       toast.success(m.shopping_list_completed_celebration());
       const { default: confetti } = await import("canvas-confetti");
-      confetti({ particleCount: 80, spread: 70, origin: { y: 0.7 } });
+      confetti({
+        particleCount: 100,
+        spread: 75,
+        origin: { y: 0.7 },
+        colors: ["#34d399", "#bef264", "#a7f3d0", "#86efac"],
+      });
     },
     onError: (_err, _vars, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(listKey, ctx.previous);
@@ -366,10 +373,13 @@
         {#each list.shopping_list_items as item (item.id)}
           <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
           <li
+            animate:flip={{ duration: 240 }}
+            in:slide={{ duration: 180 }}
+            out:slide={{ duration: 160 }}
             class={cn(
-              "flex items-center gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900",
+              "flex items-center gap-3 rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3 backdrop-blur",
               isActive &&
-                "cursor-pointer transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-emerald-500/40 focus-visible:outline-none dark:hover:bg-slate-800"
+                "cursor-pointer transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400/40 focus-visible:outline-none"
             )}
             role={isActive ? "button" : undefined}
             tabindex={isActive ? 0 : undefined}
@@ -388,37 +398,24 @@
             <div
               class={cn(
                 "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
-                item.completed
-                  ? "border-slate-800 bg-slate-800 dark:border-slate-200 dark:bg-slate-200"
-                  : "border-slate-300 dark:border-slate-600"
+                item.completed ? "bg-accent-gradient border-transparent" : "border-white/15"
               )}
               aria-hidden="true"
             >
               {#if item.completed}
-                <svg
-                  class="h-3 w-3 text-white dark:text-slate-900"
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="3"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg
-                >
+                <Check size={11} strokeWidth={3} class="text-slate-900" />
               {/if}
             </div>
             <span
               class={cn(
                 "flex-1 text-sm",
-                item.completed
-                  ? "text-slate-400 line-through dark:text-slate-500"
-                  : "text-slate-900 dark:text-white"
+                item.completed ? "text-slate-500 line-through" : "text-slate-100"
               )}
             >
               {item.name}
             </span>
             {#if item.quantity != null}
-              <span class="shrink-0 text-xs text-slate-400 dark:text-slate-500">
+              <span class="shrink-0 text-xs text-slate-500">
                 {item.quantity}{item.unit ? ` ${item.unit}` : ""}
               </span>
             {/if}
@@ -429,27 +426,10 @@
                   e.stopPropagation();
                   openActions(item);
                 }}
-                class="shrink-0 rounded p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                class="shrink-0 rounded-full p-1.5 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-100"
                 aria-label={m.shopping_list_item_actions()}
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle
-                    cx="12"
-                    cy="19"
-                    r="1.5"
-                  />
-                </svg>
+                <MoreHorizontal size={16} strokeWidth={1.8} aria-hidden="true" />
               </button>
             {/if}
           </li>
@@ -458,53 +438,62 @@
     {/if}
 
     {#if isActive}
-      <div class="flex gap-2">
+      <!-- Inline quick-add -->
+      <form
+        onsubmit={(e) => {
+          e.preventDefault();
+          if (!itemName.trim()) return;
+          addItemMutation.mutate();
+        }}
+        class="flex gap-2"
+      >
+        <div class="relative flex-1">
+          <input
+            type="text"
+            bind:value={itemName}
+            autocomplete="off"
+            placeholder={m.shopping_list_item_add()}
+            onkeydown={(e) => suggestionRef?.handleKeydown(e)}
+            class="w-full rounded-full border border-white/10 bg-slate-900/60 px-4 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
+          />
+          <ShoppingListSuggestions
+            bind:this={suggestionRef}
+            query={itemName}
+            onselect={(name, qty, unit) => {
+              itemName = name;
+              itemQty = qty != null ? String(qty) : "";
+              itemUnit = unit ?? "";
+            }}
+          />
+        </div>
         <button
-          onclick={() => {
-            showAddItem = true;
-            itemName = "";
-            itemQty = "";
-            itemUnit = "";
-          }}
-          class="flex-1 rounded-xl border border-dashed border-slate-300 py-2.5 text-sm font-medium text-slate-500 transition-colors hover:border-slate-400 hover:text-slate-700 dark:border-slate-600 dark:text-slate-400 dark:hover:border-slate-500 dark:hover:text-slate-300"
+          type="submit"
+          disabled={!itemName.trim() || addItemMutation.isPending}
+          class="bg-accent-gradient flex h-10 w-10 items-center justify-center rounded-full text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:opacity-40"
+          aria-label={m.shopping_list_item_add()}
         >
-          + {m.shopping_list_item_add()}
+          <Plus size={18} strokeWidth={2.4} aria-hidden="true" />
         </button>
-        <button
-          onclick={openCompleteDialog}
-          class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-700"
-        >
-          {m.shopping_list_complete_title()}
-        </button>
-      </div>
+      </form>
+      <button
+        onclick={openCompleteDialog}
+        class="bg-accent-gradient w-full rounded-full px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+      >
+        {m.shopping_list_complete_title()}
+      </button>
     {/if}
 
     {#if list.total_amount != null}
       <div
-        class="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900"
+        class="flex items-center justify-between rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3 backdrop-blur"
       >
-        <span class="text-sm font-medium text-slate-700 dark:text-slate-200"
-          >{m.shopping_list_total()}</span
-        >
-        <span class="text-sm font-semibold text-slate-900 dark:text-white"
-          >{formatCurrency(list.total_amount)}</span
+        <span class="text-sm font-medium text-slate-200">{m.shopping_list_total()}</span>
+        <span class="text-sm font-semibold text-slate-100">{formatCurrency(list.total_amount)}</span
         >
       </div>
     {/if}
   {/if}
 </div>
-
-{#if isActive}
-  <Fab
-    onclick={() => {
-      showAddItem = true;
-      itemName = "";
-      itemQty = "";
-      itemUnit = "";
-    }}
-    aria-label={m.shopping_list_item_add()}
-  />
-{/if}
 
 <!-- Add item dialog -->
 <Dialog open={showAddItem} onclose={() => (showAddItem = false)} title={m.shopping_list_item_add()}>

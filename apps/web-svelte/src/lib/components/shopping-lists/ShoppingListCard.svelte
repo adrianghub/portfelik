@@ -18,8 +18,15 @@
 </script>
 
 <div
-  class="flex items-stretch overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
+  class="relative flex items-stretch overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
 >
+  {#if list.item_total > 0}
+    <span
+      class="bg-accent-gradient absolute top-0 left-0 h-[3px] rounded-r-full shadow-[0_0_8px_var(--color-accent-glow)] transition-[width] duration-500 ease-out"
+      style="width: {Math.max(ratio * 100, 4)}%; opacity: {list.status === 'completed' ? 0.45 : 1};"
+      aria-hidden="true"
+    ></span>
+  {/if}
   <a href="/shopping-lists/{list.id}" class="flex-1 p-4 transition-colors hover:bg-white/5">
     <div class="flex items-center justify-between gap-3">
       <div class="flex min-w-0 items-center gap-2">
