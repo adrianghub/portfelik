@@ -1,4 +1,15 @@
 import { defineConfig } from "vitest/config";
+import { loadEnv } from "vite";
+
+// Populate process.env from .env.test so RLS specs can run with
+// `pnpm test:rls` directly — no need for the long inline `SUPABASE_URL=...
+// pnpm test:rls` invocation. .env.test holds local Supabase demo creds
+// (public, identical on every dev machine). Real cloud creds stay in
+// .env.cloud.local (gitignored) and are not used here.
+const env = loadEnv("test", process.cwd(), "");
+for (const [k, v] of Object.entries(env)) {
+  if (!process.env[k]) process.env[k] = v;
+}
 
 export default defineConfig({
   test: {

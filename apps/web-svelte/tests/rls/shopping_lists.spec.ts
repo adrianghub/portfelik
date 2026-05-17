@@ -67,4 +67,174 @@ describe("RLS: shopping_lists", () => {
     });
     expect(result.error).not.toBeNull();
   });
+
+  describe("group-shared lists + attach hardening", () => {
+    let groupAId: string;
+    let groupBId: string;
+    let sharedListId: string;
+    let txInGroupAId: string;
+    let txPrivateId: string;
+    let categoryId: string;
+
+    beforeAll(async () => {
+      // groupA: A owner + B member. groupB: A owner, B not a member.
+      const { data: gA, error: gAErr } = await ctx.userA.client.rpc("create_group", {
+        p_name: `${SENTINEL} groupA`,
+      });
+      if (gAErr || !gA) throw gAErr ?? new Error("no groupA");
+      groupAId = (gA as { id: string }).id;
+      const memberA = await ctx.admin
+        .from("group_members")
+        .insert({ group_id: groupAId, user_id: ctx.userB.userId });
+      if (memberA.error) throw memberA.error;
+
+      const { data: gB, error: gBErr } = await ctx.userA.client.rpc("create_group", {
+        p_name: `${SENTINEL} groupB`,
+      });
+      if (gBErr || !gB) throw gBErr ?? new Error("no groupB");
+      groupBId = (gB as { id: string }).id;
+
+      // Seed a category owned by A so transactions can FK to it.
+      const cat = await ctx.admin
+        .from("categories")
+        .insert({ user_id: ctx.userA.userId, name: `${SENTINEL} cat`, type: "expense" })
+        .select("id")
+        .single();
+      if (cat.error) throw cat.error;
+      categoryId = cat.data.id;
+
+      // Shared list in groupA, with one item so complete/attach can pass empty-guard.
+      const shared = await ctx.admin
+        .from("shopping_lists")
+        .insert({
+          user_id: ctx.userA.userId,
+          name: `${SENTINEL} sharedListA`,
+          group_id: groupAId,
+        })
+        .select("id")
+        .single();
+      if (shared.error) throw shared.error;
+      sharedListId = shared.data.id;
+
+      await ctx.admin
+        .from("shopping_list_items")
+        .insert({
+          shopping_list_id: sharedListId,
+          name: `${SENTINEL} item`,
+          position: 1,
+        });
+
+      // Two txs owned by A: one in groupA, one private.
+      const txGroup = await ctx.admin
+        .from("transactions")
+        .insert({
+          user_id: ctx.userA.userId,
+          category_id: categoryId,
+          description: `${SENTINEL} tx-groupA`,
+          amount: 10,
+          type: "expense",
+          date: "2026-05-15",
+          group_id: groupAId,
+        })
+        .select("id")
+        .single();
+      if (txGroup.error) throw txGroup.error;
+      txInGroupAId = txGroup.data.id;
+
+      const txPriv = await ctx.admin
+        .from("transactions")
+        .insert({
+          user_id: ctx.userA.userId,
+          category_id: categoryId,
+          description: `${SENTINEL} tx-private`,
+          amount: 20,
+          type: "expense",
+          date: "2026-05-15",
+        })
+        .select("id")
+        .single();
+      if (txPriv.error) throw txPriv.error;
+      txPrivateId = txPriv.data.id;
+    });
+
+    it("INSERT: user B cannot create a list in groupB (not a member)", async () => {
+      const result = await ctx.userB.client.from("shopping_lists").insert({
+        user_id: ctx.userB.userId,
+        name: `${SENTINEL} unauthorized-group`,
+        group_id: groupBId,
+      });
+      expect(result.error).not.toBeNull();
+    });
+
+    it("INSERT: user B CAN create a list in groupA (is a member)", async () => {
+      const result = await ctx.userB.client
+        .from("shopping_lists")
+        .insert({
+          user_id: ctx.userB.userId,
+          name: `${SENTINEL} member-groupA`,
+          group_id: groupAId,
+        })
+        .select("id");
+      expect(result.error).toBeNull();
+    });
+
+    it("UPDATE: non-owner group member CANNOT change list.group_id", async () => {
+      // user B is member of groupA via shared list, tries to move it to groupB.
+      const result = await ctx.userB.client
+        .from("shopping_lists")
+        .update({ group_id: groupBId })
+        .eq("id", sharedListId)
+        .select();
+      expect(result.error).not.toBeNull();
+    });
+
+    it("UPDATE: non-owner can still edit other fields on a shared list", async () => {
+      const result = await ctx.userB.client
+        .from("shopping_lists")
+        .update({ name: `${SENTINEL} renamed-by-member` })
+        .eq("id", sharedListId)
+        .select();
+      expect(result.error).toBeNull();
+      expect(result.data?.[0]?.name).toBe(`${SENTINEL} renamed-by-member`);
+    });
+
+    it("ATTACH: rejects when list and tx are on different sharing scopes (private/group)", async () => {
+      // sharedListId is in groupA; txPrivateId is private.
+      const result = await ctx.userA.client.rpc("attach_shopping_list_to_transaction", {
+        p_list_id: sharedListId,
+        p_tx_id: txPrivateId,
+      });
+      expect(result.error).not.toBeNull();
+      expect(result.error?.message ?? "").toMatch(/sharing_scope_mismatch/);
+    });
+
+    it("ATTACH: accepts when list and tx are in the same group", async () => {
+      const result = await ctx.userA.client.rpc("attach_shopping_list_to_transaction", {
+        p_list_id: sharedListId,
+        p_tx_id: txInGroupAId,
+      });
+      expect(result.error).toBeNull();
+    });
+
+    it("COMPLETE: rejects an empty list", async () => {
+      // Create a fresh empty list and try to complete it.
+      const empty = await ctx.admin
+        .from("shopping_lists")
+        .insert({
+          user_id: ctx.userA.userId,
+          name: `${SENTINEL} empty-list`,
+        })
+        .select("id")
+        .single();
+      if (empty.error) throw empty.error;
+
+      const result = await ctx.userA.client.rpc("complete_shopping_list", {
+        p_list_id: empty.data.id,
+        p_total_amount: 5,
+        p_category_id: categoryId,
+      });
+      expect(result.error).not.toBeNull();
+      expect(result.error?.message ?? "").toMatch(/list_empty/);
+    });
+  });
 });

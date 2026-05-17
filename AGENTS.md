@@ -31,7 +31,9 @@ Apply to every task regardless of phase.
 
 **Portfelik** — personal-finance PWA. Migrating React 19 + Firebase → SvelteKit + Supabase. Full plan: `MIGRATION_PLAN.md`.
 
-**Immediate next step:** Phase 11 follow-up fixes shipped 2026-05-13 (mobile FAB clears bottom nav; `shopping_lists.completed_at` now drives dashboard completion analytics instead of mutable `updated_at`). Remaining backlog: vault rotation runbook (`docs/runbooks/secret-rotation.md`) and **Dexie offline outbox** (legacy parity gap, last-write-wins decided). Next major candidate: bank CSV import adapter + masked LLM categorisation workflow.
+**Immediate next step:** Phase 12 shipped through U6 (2026-05-17). Group hardening complete: tx + list user_id immutable, group_id reassign owner-only, attach-list-to-tx sharing-scope-matched, complete/attach require >= 1 item. Daily greeting + quote, list<->tx connect feature, drill-down navigation, type filter, and prefers-reduced-motion honored across animations. **Next major candidate: bank CSV import** (separate domain/adapter/preview/dedupe spec). Remaining backlog: **Dexie offline outbox** (legacy parity gap, last-write-wins decided), EmptyState primitive adoption sweep across screens, axe-core a11y sweep, **mortgage/debt domain** (separate track).
+
+For agent onboarding: `CLAUDE.md` is the authoritative live status doc. This file mirrors it for non-Claude tooling but may drift — when in doubt, defer to `CLAUDE.md`.
 
 | Phase | Status |
 |---|---|
@@ -83,7 +85,7 @@ Apply to every task regardless of phase.
 | Function `search_path` pinning on all SECURITY DEFINER fns (security advisor) | Medium | ✅ Already complete — all 28 SECURITY DEFINER fns pin `search_path` |
 | Four FK-covering indexes + two `auth.jwt()` initPlan wraps (perf advisor) | Medium | ✅ Done 2026-05-13 — 4 FK indexes added (`20260514000000_phase9_fk_indexes.sql`); `auth.jwt()` wraps already in place (advisor false-positive on 2 nested-EXISTS forms) |
 | **EMERGENCY**: `profiles.role` self-elevation via column-grant supersession (caught by P1 suite) | High | ✅ Patched 2026-05-13 — `20260514000001_phase9_lock_profile_role.sql` |
-| Vault secret rotation runbook (`docs/runbooks/secret-rotation.md`) | Medium | ⏳ Backlog |
+| Vault secret rotation runbook (`docs/runbooks/secret-rotation.md`) | Medium | ✅ Done — file exists, covers VAPID + internal_trigger_secret |
 | **Offline write queue (Dexie outbox) — parity gap vs legacy `FirestoreService`** | Medium | ⏳ Backlog |
 | `notifications.type` Postgres enum + `data` jsonb schema | Low | ✅ Done in Phase 10 — `6ec68aa` (enum part; `data` jsonb schema deferred — payload-by-type still untyped at DB layer) |
 | Edge Function `deno.json` for each of 3 functions | Low | ✅ Done 2026-05-13 — per-function `imports` map pinning `@supabase/supabase-js`, edge runtime types, `web-push` |

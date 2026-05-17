@@ -251,8 +251,13 @@
         colors: ["#34d399", "#bef264", "#a7f3d0", "#86efac"],
       });
     },
-    onError: (_err, _vars, ctx) => {
+    onError: (err: unknown, _vars, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(listKey, ctx.previous);
+      const msg = (err as { message?: string })?.message ?? "";
+      if (msg.includes("list_empty")) {
+        toast.error(m.toast_list_empty());
+        return;
+      }
       toast.error(m.toast_error());
     },
     onSettled: async () => {
