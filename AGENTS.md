@@ -8,7 +8,7 @@ Apply to every task regardless of phase.
 1. **Sanity check** — `pnpm exec svelte-check --tsconfig ./tsconfig.json` (from `apps/web-svelte/`). 0 errors, 0 warnings.
 2. **Lint** — `pnpm lint` (from `apps/web-svelte/`). 0 errors.
 3. **Format** — `pnpm format:check`; if fails run `pnpm format` then re-check.
-4. **Security** — `grep -rE "(eyJ[a-zA-Z0-9_-]{20,}|sb_secret_|PRIVATE|password\s*=)" <changed files>`. Flag anything before proceeding.
+4. **Security** — `grep -rE "(eyJ[a-zA-Z0-9_-]{20,}|sb_secret_|PRIVATE|password\s*=)" <changed files>`. Flag anything before proceeding. **Allowlist:** `apps/web-svelte/.env.test.example` intentionally carries public Supabase local-demo JWTs (identical on every `supabase start` install). Real cloud creds belong in `apps/web-svelte/.env.cloud.local` (gitignored).
 5. **Schema validation** — new tables: RLS enabled? Migrations: idempotent naming?
 
 ### Before finalising
@@ -31,7 +31,9 @@ Apply to every task regardless of phase.
 
 **Portfelik** — personal-finance PWA. Migrating React 19 + Firebase → SvelteKit + Supabase. Full plan: `MIGRATION_PLAN.md`.
 
-**Immediate next step:** Phase 11 follow-up fixes shipped 2026-05-13 (mobile FAB clears bottom nav; `shopping_lists.completed_at` now drives dashboard completion analytics instead of mutable `updated_at`). Remaining backlog: vault rotation runbook (`docs/runbooks/secret-rotation.md`) and **Dexie offline outbox** (legacy parity gap, last-write-wins decided). Next major candidate: bank CSV import adapter + masked LLM categorisation workflow.
+**Immediate next step:** Phase 12 U1–U6 + group hardening + EmptyState sweep complete (2026-05-17). Tx + list `user_id` immutable, `group_id` reassign owner-only, attach-list-to-tx sharing-scope-matched, complete/attach require ≥ 1 item. Daily greeting + quote, list↔tx connect, drill-down navigation, type filter, `prefers-reduced-motion` honored, `EmptyState` adopted across 6 screens. RLS suite 52/52 green. **Next major candidate: bank CSV import** (separate domain/adapter/preview/dedupe spec). Remaining backlog: **Dexie offline outbox** (legacy parity gap, last-write-wins decided), axe-core a11y sweep, staging DB separation, **mortgage/debt domain** (separate track).
+
+For agent onboarding: `CLAUDE.md` mirrors this file. When the two drift the rule is _the more detailed one wins_ — usually `CLAUDE.md` since live work updates land there first.
 
 | Phase | Status |
 |---|---|
@@ -83,7 +85,7 @@ Apply to every task regardless of phase.
 | Function `search_path` pinning on all SECURITY DEFINER fns (security advisor) | Medium | ✅ Already complete — all 28 SECURITY DEFINER fns pin `search_path` |
 | Four FK-covering indexes + two `auth.jwt()` initPlan wraps (perf advisor) | Medium | ✅ Done 2026-05-13 — 4 FK indexes added (`20260514000000_phase9_fk_indexes.sql`); `auth.jwt()` wraps already in place (advisor false-positive on 2 nested-EXISTS forms) |
 | **EMERGENCY**: `profiles.role` self-elevation via column-grant supersession (caught by P1 suite) | High | ✅ Patched 2026-05-13 — `20260514000001_phase9_lock_profile_role.sql` |
-| Vault secret rotation runbook (`docs/runbooks/secret-rotation.md`) | Medium | ⏳ Backlog |
+| Vault secret rotation runbook (`docs/runbooks/secret-rotation.md`) | Medium | ✅ Done — file exists, covers VAPID + internal_trigger_secret |
 | **Offline write queue (Dexie outbox) — parity gap vs legacy `FirestoreService`** | Medium | ⏳ Backlog |
 | `notifications.type` Postgres enum + `data` jsonb schema | Low | ✅ Done in Phase 10 — `6ec68aa` (enum part; `data` jsonb schema deferred — payload-by-type still untyped at DB layer) |
 | Edge Function `deno.json` for each of 3 functions | Low | ✅ Done 2026-05-13 — per-function `imports` map pinning `@supabase/supabase-js`, edge runtime types, `web-push` |

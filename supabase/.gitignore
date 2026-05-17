@@ -1,2 +1,5 @@
 # Supabase secrets — never commit
 .env
+
+# CLI scratch
+.temp/

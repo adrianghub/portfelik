@@ -7,6 +7,8 @@
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import { toast } from "svelte-sonner";
   import * as m from "$lib/paraglide/messages";
+  import EmptyState from "$lib/components/ui/EmptyState.svelte";
+  import { Tag } from "lucide-svelte";
 
   const queryClient = useQueryClient();
 
@@ -43,11 +45,11 @@
 {#if query.isLoading}
   <div class="space-y-2" aria-busy="true" aria-label={m.common_loading()}>
     {#each [0, 1, 2, 3, 4] as _, i (i)}
-      <div class="h-10 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800"></div>
+      <div class="h-10 animate-pulse rounded-xl bg-slate-800/60"></div>
     {/each}
   </div>
 {:else if query.isError}
-  <p class="text-sm text-rose-600" role="alert">{m.common_error_title()}</p>
+  <p class="text-sm text-rose-300" role="alert">{m.common_error_title()}</p>
 {:else if query.data}
   <!-- Mobile card list -->
   <ul class="space-y-1.5 sm:hidden">
@@ -56,11 +58,9 @@
         class="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900"
       >
         <div class="flex min-w-0 items-center gap-2">
-          <span class="truncate text-sm text-slate-900 dark:text-white">{cat.name}</span>
+          <span class="truncate text-sm text-slate-100">{cat.name}</span>
           {#if !cat.user_id}
-            <span class="shrink-0 text-xs text-slate-400 dark:text-slate-500"
-              >{m.categories_system()}</span
-            >
+            <span class="shrink-0 text-xs text-slate-500">{m.categories_system()}</span>
           {/if}
         </div>
         <div class="flex shrink-0 items-center gap-2">
@@ -93,7 +93,7 @@
             </button>
             <button
               onclick={() => (deleteTargetId = cat.id)}
-              class="p-1 text-slate-400 transition-colors hover:text-rose-600"
+              class="p-1 text-slate-400 transition-colors hover:text-rose-300"
               aria-label={m.common_delete()}
             >
               <svg
@@ -124,31 +124,22 @@
     <table class="w-full text-sm">
       <thead>
         <tr class="border-b border-slate-100 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
-          <th
-            scope="col"
-            class="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400"
+          <th scope="col" class="text-eyebrow px-4 py-3 text-left text-slate-400"
             >{m.categories_col_name()}</th
           >
-          <th
-            scope="col"
-            class="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400"
+          <th scope="col" class="text-eyebrow px-4 py-3 text-left text-slate-400"
             >{m.categories_col_type()}</th
           >
-          <th
-            scope="col"
-            class="px-4 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400"
-          ></th>
+          <th scope="col" class="text-eyebrow px-4 py-3 text-right text-slate-400"></th>
         </tr>
       </thead>
       <tbody>
         {#each query.data as cat (cat.id)}
           <tr class="border-b border-slate-50 last:border-0 dark:border-slate-800">
-            <td class="px-4 py-3 text-slate-900 dark:text-white">
+            <td class="px-4 py-3 text-slate-100">
               {cat.name}
               {#if !cat.user_id}
-                <span class="ml-1.5 text-xs text-slate-400 dark:text-slate-500"
-                  >{m.categories_system()}</span
-                >
+                <span class="ml-1.5 text-xs text-slate-500">{m.categories_system()}</span>
               {/if}
             </td>
             <td class="px-4 py-3">
@@ -186,7 +177,7 @@
                   </button>
                   <button
                     onclick={() => (deleteTargetId = cat.id)}
-                    class="rounded p-1.5 text-slate-400 transition-colors hover:text-rose-600"
+                    class="rounded p-1.5 text-slate-400 transition-colors hover:text-rose-300"
                     aria-label={m.common_delete()}
                   >
                     <svg
@@ -214,7 +205,11 @@
   </div>
 
   {#if query.data.length === 0}
-    <p class="py-8 text-center text-sm text-slate-400">{m.categories_empty()}</p>
+    <EmptyState title={m.categories_empty()} body={m.categories_empty_hint()}>
+      {#snippet icon()}
+        <Tag size={28} strokeWidth={1.4} />
+      {/snippet}
+    </EmptyState>
   {/if}
 
   <button

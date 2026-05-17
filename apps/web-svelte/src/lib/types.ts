@@ -27,6 +27,7 @@ export interface Transaction {
   is_recurring: boolean;
   recurring_day: number | null;
   recurring_template_id: string | null;
+  group_id: string | null;
   created_at: string;
   updated_at: string;
 }

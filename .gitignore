@@ -35,3 +35,5 @@ docs/superpowers
 .worktrees/
 .superpowers/
 .claude/worktrees/
+
+.playwright-mcp/

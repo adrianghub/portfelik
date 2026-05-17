@@ -6,6 +6,8 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import { onMount } from "svelte";
+  import { fade } from "svelte/transition";
+  import { motionDuration } from "$lib/motion";
   import Navigation from "$lib/components/Navigation.svelte";
   import OfflineIndicator from "$lib/components/ui/OfflineIndicator.svelte";
   import { fetchProfile } from "$lib/services/profiles";
@@ -16,6 +18,7 @@
     unsubscribeFromPush,
   } from "$lib/services/push";
   import type { Profile } from "$lib/types";
+  import type { User } from "@supabase/supabase-js";
   import * as m from "$lib/paraglide/messages";
 
   const queryClient = new QueryClient({
@@ -33,22 +36,55 @@
   let { children } = $props();
 
   const PUBLIC_PATHS = ["/login", "/auth/callback"];
+  const PUSH_PROMPT_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
+  const PUSH_PROMPT_STORAGE_KEY = "push_prompted_at";
+
   let profile = $state<Profile | null>(null);
+  let user = $state<User | null>(null);
   let userId = $state<string | null>(null);
   let notifPermission = $state<NotificationPermission>("default");
+  let pushPromptedRecently = $state(false);
   let isPublicRoute = $derived(PUBLIC_PATHS.includes(page.url.pathname));
   let showNotifBanner = $derived(
-    !!userId && !isPublicRoute && notifPermission === "default" && "Notification" in window
+    !!userId &&
+      !isPublicRoute &&
+      notifPermission === "default" &&
+      "Notification" in window &&
+      !pushPromptedRecently
   );
+
+  function readPushPromptCooldown() {
+    try {
+      const last = Number(localStorage.getItem(PUSH_PROMPT_STORAGE_KEY)) || 0;
+      pushPromptedRecently = last > 0 && Date.now() - last < PUSH_PROMPT_COOLDOWN_MS;
+    } catch {
+      pushPromptedRecently = false;
+    }
+  }
+
+  function markPushPrompted() {
+    try {
+      localStorage.setItem(PUSH_PROMPT_STORAGE_KEY, String(Date.now()));
+    } catch {
+      // localStorage unavailable (private mode etc.) — fall back to in-memory only
+    }
+    pushPromptedRecently = true;
+  }
 
   async function enableNotifications() {
     if (!userId) return;
     const granted = await requestAndSubscribePush(userId);
     notifPermission = granted ? "granted" : Notification.permission;
+    markPushPrompted();
+  }
+
+  function dismissPushBanner() {
+    markPushPrompted();
   }
 
   onMount(async () => {
     if ("Notification" in window) notifPermission = Notification.permission;
+    readPushPromptCooldown();
 
     const {
       data: { session },
@@ -60,6 +96,7 @@
     }
 
     if (session) {
+      user = session.user;
       userId = session.user.id;
       fetchProfile(session.user.id)
         .then((p) => (profile = p))
@@ -71,10 +108,12 @@
       if (event === "SIGNED_OUT") {
         unsubscribeFromPush().catch(() => {});
         profile = null;
+        user = null;
         userId = null;
         goto("/login");
       }
       if (event === "SIGNED_IN" && session) {
+        user = session.user;
         userId = session.user.id;
         fetchProfile(session.user.id)
           .then((p) => (profile = p))
@@ -90,10 +129,10 @@
 <OfflineIndicator />
 <QueryClientProvider client={queryClient}>
   {#if !isPublicRoute}
-    <Navigation {profile} />
+    <Navigation {profile} {user} />
     {#if showNotifBanner}
       <div
-        class="fixed inset-x-0 top-14 z-40 flex items-center justify-between gap-3 bg-slate-900 px-4 py-2 text-sm text-white dark:bg-slate-800"
+        class="fixed inset-x-0 top-14 z-40 flex items-center justify-between gap-3 border-b border-white/5 bg-slate-900/90 px-4 py-2 text-sm text-white backdrop-blur"
       >
         <span class="text-slate-300">{m.push_banner_text()}</span>
         <div class="flex shrink-0 items-center gap-2">
@@ -106,7 +145,7 @@
           </button>
           <button
             type="button"
-            onclick={() => (notifPermission = "denied")}
+            onclick={dismissPushBanner}
             class="rounded-md px-2 py-1 text-xs text-slate-400 transition-colors hover:text-white"
             aria-label={m.common_close()}
           >
@@ -115,8 +154,12 @@
         </div>
       </div>
     {/if}
-    <main class="min-h-screen bg-slate-50 pt-14 pb-16 md:pb-0 dark:bg-slate-950">
-      {@render children()}
+    <main class="min-h-screen bg-slate-950 pt-14 pb-24 md:pb-6">
+      {#key page.url.pathname}
+        <div in:fade={{ duration: motionDuration(140) }}>
+          {@render children()}
+        </div>
+      {/key}
     </main>
   {:else}
     {@render children()}

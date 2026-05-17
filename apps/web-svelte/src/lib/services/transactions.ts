@@ -84,6 +84,7 @@ export interface CreateTransactionInput {
   is_recurring?: boolean;
   recurring_day?: number | null;
   shopping_list_id?: string | null;
+  group_id?: string | null;
 }
 
 export async function createTransaction(input: CreateTransactionInput): Promise<Transaction> {

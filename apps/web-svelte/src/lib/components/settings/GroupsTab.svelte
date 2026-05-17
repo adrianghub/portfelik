@@ -7,6 +7,7 @@
     fetchGroupMembersWithProfiles,
     createGroup,
     disbandGroup,
+    GroupHasItemsError,
     leaveGroup,
     inviteUser,
     acceptInvitation,
@@ -19,6 +20,8 @@
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import { toast } from "svelte-sonner";
   import * as m from "$lib/paraglide/messages";
+  import EmptyState from "$lib/components/ui/EmptyState.svelte";
+  import { Users } from "lucide-svelte";
 
   const queryClient = useQueryClient();
 
@@ -80,7 +83,15 @@
       toast.success(m.toast_group_disbanded());
       disbandGroupId = null;
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => {
+      if (err instanceof GroupHasItemsError) {
+        toast.error(m.group_disband_blocked_title(), {
+          description: m.group_disband_blocked_body(),
+        });
+        return;
+      }
+      toast.error(m.toast_error());
+    },
   }));
 
   // ── Leave ─────────────────────────────────────────────────────────────────
@@ -194,7 +205,7 @@
       <div
         class="flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 dark:border-blue-900 dark:bg-blue-950"
       >
-        <span class="text-sm text-slate-900 dark:text-white">{inv.group_name}</span>
+        <span class="text-sm text-slate-100">{inv.group_name}</span>
         <div class="flex gap-2">
           <button
             onclick={() => acceptMutation.mutate(inv.id)}
@@ -224,10 +235,14 @@
     {/each}
   </div>
 {:else if groupsQuery.isError}
-  <p class="text-sm text-rose-600">{m.common_error_title()}</p>
+  <p class="text-sm text-rose-300">{m.common_error_title()}</p>
 {:else}
   {#if groupsQuery.data?.length === 0}
-    <p class="py-8 text-center text-sm text-slate-400">{m.groups_empty()}</p>
+    <EmptyState title={m.groups_empty()} body={m.groups_empty_hint()}>
+      {#snippet icon()}
+        <Users size={28} strokeWidth={1.4} />
+      {/snippet}
+    </EmptyState>
   {:else if groupsQuery.data}
     <div class="space-y-2">
       {#each groupsQuery.data as group (group.id)}
@@ -235,8 +250,8 @@
           class="space-y-2 rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900"
         >
           <div class="flex items-center justify-between">
-            <span class="text-sm font-medium text-slate-900 dark:text-white">{group.name}</span>
-            <span class="text-xs text-slate-400 dark:text-slate-500">
+            <span class="text-sm font-medium text-slate-100">{group.name}</span>
+            <span class="text-xs text-slate-500">
               {group.owner_id === currentUserId ? m.groups_role_owner() : m.groups_role_member()}
             </span>
           </div>
@@ -269,7 +284,7 @@
               </button>
               <button
                 onclick={() => (disbandGroupId = group.id)}
-                class="rounded-lg border border-rose-200 px-3 py-1 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50 dark:border-rose-900 dark:text-rose-400 dark:hover:bg-rose-950"
+                class="rounded-lg border border-rose-200 px-3 py-1 text-xs font-medium text-rose-300 transition-colors hover:bg-rose-50 dark:border-rose-900 dark:text-rose-400 dark:hover:bg-rose-950"
               >
                 {m.group_disband()}
               </button>
@@ -359,24 +374,24 @@
         type="text"
         required
         bind:value={newGroupName}
-        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:ring-white/10"
+        class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
       />
     </div>
     {#if createGroupMutation.isError}
-      <p class="text-sm text-rose-600">{m.common_error_title()}</p>
+      <p class="text-sm text-rose-300">{m.common_error_title()}</p>
     {/if}
     <div class="flex gap-2 pt-1">
       <button
         type="button"
         onclick={() => (showCreateGroup = false)}
-        class="flex-1 rounded-lg border border-slate-200 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+        class="flex-1 rounded-full border border-white/10 bg-slate-900/60 py-2 text-sm font-medium text-slate-200 backdrop-blur transition-colors hover:bg-white/5"
       >
         {m.common_cancel()}
       </button>
       <button
         type="submit"
         disabled={createGroupMutation.isPending}
-        class="flex-1 rounded-lg bg-slate-900 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 disabled:opacity-50"
+        class="bg-accent-gradient flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:opacity-50"
       >
         {createGroupMutation.isPending ? m.common_saving() : m.common_save()}
       </button>
@@ -400,24 +415,24 @@
         type="email"
         required
         bind:value={inviteEmail}
-        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:ring-white/10"
+        class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
       />
     </div>
     {#if inviteMutation.isError}
-      <p class="text-sm text-rose-600">{m.common_error_title()}</p>
+      <p class="text-sm text-rose-300">{m.common_error_title()}</p>
     {/if}
     <div class="flex gap-2 pt-1">
       <button
         type="button"
         onclick={() => (inviteGroupId = null)}
-        class="flex-1 rounded-lg border border-slate-200 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+        class="flex-1 rounded-full border border-white/10 bg-slate-900/60 py-2 text-sm font-medium text-slate-200 backdrop-blur transition-colors hover:bg-white/5"
       >
         {m.common_cancel()}
       </button>
       <button
         type="submit"
         disabled={inviteMutation.isPending}
-        class="flex-1 rounded-lg bg-slate-900 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 disabled:opacity-50"
+        class="bg-accent-gradient flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:opacity-50"
       >
         {inviteMutation.isPending ? m.common_saving() : m.group_invite()}
       </button>
@@ -437,7 +452,7 @@
   {#if membersQuery.isLoading}
     <div class="space-y-2">
       {#each [0, 1, 2] as _, i (i)}
-        <div class="h-10 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800"></div>
+        <div class="h-10 animate-pulse rounded-xl bg-slate-800/60"></div>
       {/each}
     </div>
   {:else if membersQuery.data?.length === 0}
@@ -447,17 +462,17 @@
       {#each membersQuery.data as member (member.user_id)}
         <li class="flex items-center justify-between gap-3 py-3">
           <div class="min-w-0">
-            <p class="truncate text-sm font-medium text-slate-900 dark:text-white">
+            <p class="truncate text-sm font-medium text-slate-100">
               {member.name ?? member.email}
             </p>
             {#if member.name}
-              <p class="truncate text-xs text-slate-400 dark:text-slate-500">{member.email}</p>
+              <p class="truncate text-xs text-slate-500">{member.email}</p>
             {/if}
           </div>
           {#if member.user_id !== currentUserId}
             <button
               onclick={() => (removeTargetUserId = member.user_id)}
-              class="shrink-0 rounded-lg border border-rose-200 px-2 py-1 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50 dark:border-rose-900 dark:text-rose-400 dark:hover:bg-rose-950"
+              class="shrink-0 rounded-lg border border-rose-200 px-2 py-1 text-xs font-medium text-rose-300 transition-colors hover:bg-rose-50 dark:border-rose-900 dark:text-rose-400 dark:hover:bg-rose-950"
             >
               {m.group_member_remove()}
             </button>

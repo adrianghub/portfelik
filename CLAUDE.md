@@ -8,7 +8,7 @@ Apply to every task regardless of phase.
 1. **Sanity check** — `pnpm exec svelte-check --tsconfig ./tsconfig.json` (from `apps/web-svelte/`). 0 errors, 0 warnings.
 2. **Lint** — `pnpm lint` (from `apps/web-svelte/`). 0 errors.
 3. **Format** — `pnpm format:check`; if fails run `pnpm format` then re-check.
-4. **Security** — `grep -rE "(eyJ[a-zA-Z0-9_-]{20,}|sb_secret_|PRIVATE|password\s*=)" <changed files>`. Flag anything before proceeding.
+4. **Security** — `grep -rE "(eyJ[a-zA-Z0-9_-]{20,}|sb_secret_|PRIVATE|password\s*=)" <changed files>`. Flag anything before proceeding. **Allowlist:** `apps/web-svelte/.env.test.example` intentionally carries public Supabase local-demo JWTs (identical on every `supabase start` install — documented in the Supabase CLI source). Real cloud creds belong in `apps/web-svelte/.env.cloud.local` (gitignored).
 5. **Schema validation** — new tables: RLS enabled? Migrations: idempotent naming?
 
 ### Before finalising
@@ -30,8 +30,16 @@ Apply to every task regardless of phase.
 ## Project Status
 
 **Portfelik** — personal-finance PWA. Migrating React 19 + Firebase → SvelteKit + Supabase. Full plan: `MIGRATION_PLAN.md`.
+**Immediate next step:** Phase 12 shipped through U6 + EmptyState sweep + group hardening (2026-05-17). Highlights:
+- Dark-neon UX uplift U1–U6: pill bottom nav, avatar menu, dashboard hero + sparklines + period chips, daily greeting + money quote, drill-down navigation, type filter, ConfirmDialog scale/fade, `prefers-reduced-motion` honored, EmptyState adopted across 6 screens.
+- Group hardening (`20260516000000` → `20260517000003`): `transactions.group_id` opt-in with explicit assignment, both `transactions` and `shopping_lists` lock `user_id` immutable, `group_id` reassign owner-only via trigger, `disband_group` raises when group has items, INSERT policies enforce member-only group assignment.
+- `attach_shopping_list_to_transaction` RPC connects existing tx to a list with sharing-scope match + ≥1 item guard.
+- RLS regression suite 52/52 green (added 7 group/list rules + tx user_id immutability tests).
+- Vitest auto-loads `.env.test.example` (committed local defaults) — `pnpm test:rls` works without inline env.
 
-**Immediate next step:** Phase 11 follow-up fixes shipped 2026-05-13 (mobile FAB clears bottom nav; `shopping_lists.completed_at` now drives dashboard completion analytics instead of mutable `updated_at`). Remaining backlog: vault rotation runbook (`docs/runbooks/secret-rotation.md`) and **Dexie offline outbox** (legacy parity gap, last-write-wins decided). Next major candidate: bank CSV import adapter + masked LLM categorisation workflow.
+**Next major candidate: bank CSV import** — separate spec covering adapters per bank, preview, dedupe, validation, mapping, import-session table, masked LLM categorization. Mortgage/debt tracking is a follow-on track.
+
+**Remaining backlog:** Dexie offline outbox (legacy parity, last-write-wins decided), axe-core a11y sweep (deferred U7), staging DB separation.
 
 | Phase | Status |
 |---|---|
@@ -46,6 +54,11 @@ Apply to every task regardless of phase.
 | 8 — Hardening — see sub-table | ✅ Done (2026-05-09) |
 | 10 — UX refresh (design tokens, UI primitives, navigation shell, page sweeps, dashboard, mobile filter drawer, search, batch CSV, notification enum) — see sub-table | ✅ Done (2026-05-13) — 16 commits merged to `dev`, staging green, T15 enum migration applied to prod Supabase |
 | 11 — UX polish (optimistic shopping mutations, sticky FAB, ProgressRing, dashboard wins widget, completion confetti, typography bump; follow-up: FAB bottom-nav clearance + `shopping_lists.completed_at`) | ✅ Done (2026-05-13) |
+| 11.1 — Shopping-list P0 bug fixes (form-clear timing, whole-row click + kebab/long-press rename, cross-route summary invalidation) + 3 Playwright regression specs | ✅ Done (2026-05-14) |
+| 11.2 — Data integrity hardening (`shopping_list_items.name` + `shopping_lists.name` → `length(btrim) > 0` check constraint; service-level `.trim()` guards; trimmed `"Bułka "` → `"Bułka"` in prod) | ✅ Done (2026-05-14) |
+| 11.3 — Config & infra hygiene (admin redirect → toast + redirect; push banner 30-day localStorage cooldown; vault rotation runbook at `docs/runbooks/secret-rotation.md`; localhost OAuth redirect URL whitelisted by user) | ✅ Done (2026-05-14) |
+| Playwright MCP sweep follow-up — local dev with Spec #1 + Phase 11.2 + 11.3 — all 3 Spec #1 fixes verified in real browser | ✅ Done (2026-05-14) — see `docs/superpowers/specs/2026-05-14-playwright-sweep-findings.md` |
+
 
 ### Phase 8 — Hardening (deferred UX + quality)
 
@@ -119,11 +132,14 @@ portfelik/portfelik/
 
 ## Infrastructure
 
-- **Supabase Cloud:** `https://emqzcygfwcvbmhxhfkcc.supabase.co` — publishable key from Supabase Dashboard → Settings → API.
-- **Supabase MCP:** `.mcp.json` at repo root. Authenticate at session start via `mcp__supabase__authenticate`.
-- **Production:** `portfelik.adrianzinko.com` → Cloudflare Pages project `portfelik`. GitHub Actions deploys on push to `main`.
-- **Staging:** `https://dev.portfelik.pages.dev`
-- **Deploy (from `apps/web-svelte/`):**
+Three-tier env. Full map: `docs/architecture/env-workflow.md`.
+
+- **Local dev:** `pnpm dev` from `apps/web-svelte/` reads `.env.local`, which points at the **local Supabase stack** (`127.0.0.1:54321`). Boot the stack from repo root: `supabase start`. Apply migrations: `supabase db reset`. Cloud creds stashed in `apps/web-svelte/.env.cloud.local` (gitignored) for opt-in cloud debugging.
+- **Staging:** `https://dev.portfelik.pages.dev` — `dev` branch deploys via GH Actions. **Still shares the prod Supabase project** (isolation is RLS-only via `E2E_SMOKE_EMAIL`). Separating staging to its own Supabase project is backlog.
+- **Production:** `portfelik.adrianzinko.com` → Cloudflare Pages project `portfelik`. `main` branch deploys via GH Actions.
+- **Supabase Cloud (staging + prod DB):** `https://emqzcygfwcvbmhxhfkcc.supabase.co` — publishable key from Supabase Dashboard → Settings → API.
+- **Supabase MCP:** `.mcp.json` at repo root. Authenticate at session start via `mcp__supabase__authenticate`. MCP points at the cloud project; use with care.
+- **Manual deploy (from `apps/web-svelte/`):**
   ```bash
   PUBLIC_SUPABASE_URL=https://emqzcygfwcvbmhxhfkcc.supabase.co \
   PUBLIC_SUPABASE_ANON_KEY=<key from dashboard> \

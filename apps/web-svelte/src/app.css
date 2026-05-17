@@ -1,8 +1,39 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap");
 @import "tailwindcss";
 
+/* Phase 12 / U1e — Force dark mode via class on <html>. All existing `dark:`
+   Tailwind utilities now apply unconditionally. Subsequent phases drop the
+   `dark:` prefix file-by-file as those files are touched. */
+@variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: "Inter", system-ui, sans-serif;
+
+  /* Phase 12 / U1 — Dark-Neon palette tokens.
+     Existing slate-* / emerald-* / rose-* utilities still resolve via the
+     Tailwind preset; these accent + canvas vars are referenced by Card / Glow
+     / Button gradient and by hand-written rules in @layer components. */
+  --color-canvas: oklch(0.16 0.02 240); /* slate-950-ish */
+  --color-surface: color-mix(in oklch, oklch(0.22 0.02 240) 80%, transparent);
+  --color-surface-hi: color-mix(in oklch, oklch(0.28 0.02 240) 60%, transparent);
+  --color-accent-from: oklch(0.78 0.18 158); /* emerald-400 */
+  --color-accent-to: oklch(0.92 0.18 122); /* lime-300 */
+  --color-accent-glow: color-mix(in oklch, oklch(0.78 0.18 158) 20%, transparent);
+
+  /* Typography scale */
+  --text-display: 3rem; /* 48px — hero balance */
+  --text-display--line-height: 1;
+  --text-hero: 1.875rem; /* 30px — page hero / large numbers */
+  --text-hero--line-height: 1.1;
+  --text-eyebrow: 0.6875rem; /* 11px — uppercase labels */
+  --text-eyebrow--line-height: 1.4;
+  --text-eyebrow--letter-spacing: 0.08em;
+
+  /* Motion */
+  --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
+  --duration-fast: 150ms;
+  --duration-base: 240ms;
+  --duration-slow: 320ms;
 }
 
 @layer base {
@@ -15,12 +46,91 @@
 
   html {
     scroll-behavior: smooth;
-    color-scheme: light dark;
+    color-scheme: dark;
   }
 
   body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    @apply bg-slate-50 dark:bg-slate-950;
+    @apply bg-slate-950 text-slate-100;
+  }
+}
+
+@layer components {
+  /* Hero numeric size with tabular figures — used by dashboard balance, totals. */
+  .text-display {
+    font-size: var(--text-display);
+    line-height: var(--text-display--line-height);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+  .text-hero {
+    font-size: var(--text-hero);
+    line-height: var(--text-hero--line-height);
+    font-variant-numeric: tabular-nums;
+  }
+  .text-eyebrow {
+    font-size: var(--text-eyebrow);
+    line-height: var(--text-eyebrow--line-height);
+    letter-spacing: var(--text-eyebrow--letter-spacing);
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  /* Glass card surface — used by Card primitive + ad-hoc hero panels.
+     `bg-surface` falls back to slate-900/80 if backdrop-blur isn't supported. */
+  .surface {
+    background-color: var(--color-surface);
+    border: 1px solid color-mix(in oklch, white 5%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .surface-hi {
+    background-color: var(--color-surface-hi);
+    border: 1px solid color-mix(in oklch, white 8%, transparent);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  /* Accent gradient — for primary CTA + active nav pill. */
+  .bg-accent-gradient {
+    background-image: linear-gradient(
+      135deg,
+      var(--color-accent-from) 0%,
+      var(--color-accent-to) 100%
+    );
+  }
+  .text-accent-gradient {
+    background-image: linear-gradient(
+      135deg,
+      var(--color-accent-from) 0%,
+      var(--color-accent-to) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Glow halo behind hero numbers / icons — positioned by parent. */
+  .glow-disc {
+    pointer-events: none;
+    position: absolute;
+    inset: auto;
+    width: 200px;
+    height: 200px;
+    border-radius: 9999px;
+    background: var(--color-accent-glow);
+    filter: blur(60px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

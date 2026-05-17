@@ -62,7 +62,7 @@
   <button
     type="button"
     onclick={openPicker}
-    class="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+    class="flex h-9 items-center gap-2 rounded-full border border-white/10 bg-slate-900/60 px-3.5 text-sm text-slate-200 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
   >
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -87,17 +87,17 @@
 
   {#if open}
     <div
-      class="absolute top-11 left-0 z-50 w-72 rounded-xl border border-slate-200 bg-white p-4 shadow-lg dark:border-slate-700 dark:bg-slate-900"
+      class="absolute top-11 left-0 z-50 w-72 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/95 p-4 shadow-[0_0_40px_rgba(0,0,0,0.4)] backdrop-blur"
       role="dialog"
       aria-label="Wybierz zakres miesięcy"
     >
       <div class="space-y-3">
         <div>
-          <p class="mb-1.5 text-xs font-medium text-slate-500">Od</p>
+          <p class="text-eyebrow mb-1.5 text-slate-400">Od</p>
           <div class="flex gap-2">
             <select
               bind:value={draftStartMonth}
-              class="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm capitalize focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
+              class="flex-1 rounded-xl border border-white/10 bg-slate-900/60 px-2.5 py-1.5 text-sm text-slate-100 capitalize backdrop-blur focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
             >
               {#each months as mo (mo)}
                 <option value={mo} class="capitalize">{monthName(mo)}</option>
@@ -105,7 +105,7 @@
             </select>
             <select
               bind:value={draftStartYear}
-              class="w-24 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
+              class="w-24 rounded-xl border border-white/10 bg-slate-900/60 px-2.5 py-1.5 text-sm text-slate-100 backdrop-blur focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
             >
               {#each years as yr (yr)}
                 <option value={yr}>{yr}</option>
@@ -115,11 +115,11 @@
         </div>
 
         <div>
-          <p class="mb-1.5 text-xs font-medium text-slate-500">Do</p>
+          <p class="text-eyebrow mb-1.5 text-slate-400">Do</p>
           <div class="flex gap-2">
             <select
               bind:value={draftEndMonth}
-              class="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm capitalize focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
+              class="flex-1 rounded-xl border border-white/10 bg-slate-900/60 px-2.5 py-1.5 text-sm text-slate-100 capitalize backdrop-blur focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
             >
               {#each months as mo (mo)}
                 <option value={mo} class="capitalize">{monthName(mo)}</option>
@@ -127,7 +127,7 @@
             </select>
             <select
               bind:value={draftEndYear}
-              class="w-24 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
+              class="w-24 rounded-xl border border-white/10 bg-slate-900/60 px-2.5 py-1.5 text-sm text-slate-100 backdrop-blur focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
             >
               {#each years as yr (yr)}
                 <option value={yr}>{yr}</option>

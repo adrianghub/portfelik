@@ -1,5 +1,7 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
+  import { fade, scale } from "svelte/transition";
+  import { motionDuration } from "$lib/motion";
 
   interface Props {
     open: boolean;
@@ -23,31 +25,33 @@
 
 {#if open}
   <div
-    class="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/70 px-4 pb-4 sm:items-center sm:pb-0"
+    class="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/70 px-4 pb-4 backdrop-blur-sm sm:items-center sm:pb-0"
     role="presentation"
     onclick={onbackdrop}
     onkeydown={null}
+    transition:fade={{ duration: motionDuration(140) }}
   >
     <div
-      class="w-full max-w-sm space-y-4 rounded-xl bg-white p-5 shadow-xl dark:bg-slate-800"
+      class="w-full max-w-sm space-y-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/95 p-5 shadow-[0_0_60px_rgba(244,63,94,0.12)] backdrop-blur"
       role="alertdialog"
       aria-modal="true"
+      transition:scale={{ duration: motionDuration(180), start: 0.95, opacity: 0 }}
     >
-      <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+      <h2 class="text-base font-semibold text-slate-100">
         {m.common_confirm_delete()}
       </h2>
-      <p class="text-sm text-slate-500 dark:text-slate-400">{message}</p>
+      <p class="text-sm text-slate-400">{message}</p>
       <div class="flex gap-2">
         <button
           onclick={onclose}
-          class="flex-1 rounded-lg border border-slate-200 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          class="flex-1 rounded-full border border-white/10 bg-slate-900/60 py-2 text-sm font-medium text-slate-200 backdrop-blur transition-colors hover:bg-white/5"
         >
           {m.common_cancel()}
         </button>
         <button
           onclick={onconfirm}
           disabled={pending}
-          class="flex-1 rounded-lg bg-rose-600 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
+          class="flex-1 rounded-full border border-rose-400/20 bg-rose-500/15 py-2 text-sm font-semibold text-rose-200 shadow-[0_0_18px_rgba(244,63,94,0.25)] backdrop-blur transition-colors hover:bg-rose-500/25 disabled:opacity-50"
         >
           {pending ? m.common_saving() : m.common_delete()}
         </button>

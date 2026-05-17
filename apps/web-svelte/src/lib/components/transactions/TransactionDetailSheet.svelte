@@ -13,15 +13,18 @@
   }
   let { transaction, currentUserId, onclose, onedit, ondelete }: Props = $props();
 
-  const isOwner = $derived(
-    !!currentUserId && !!transaction && transaction.user_id === currentUserId
+  // New RLS lets owner OR any group member of a shared row update/delete it.
+  // Visibility implies edit rights, so the gate mirrors the row's visibility:
+  // own row, or group-shared (we wouldn't see it otherwise).
+  const canEdit = $derived(
+    !!transaction && (transaction.user_id === currentUserId || transaction.group_id !== null)
   );
 
   const statusClass: Record<string, string> = {
-    paid: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400",
-    draft: "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
-    upcoming: "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-400",
-    overdue: "bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-400",
+    paid: "border border-emerald-400/20 bg-emerald-400/10 text-emerald-300",
+    draft: "border border-white/10 bg-slate-800/60 text-slate-400",
+    upcoming: "border border-sky-400/20 bg-sky-400/10 text-sky-300",
+    overdue: "border border-rose-400/20 bg-rose-400/10 text-rose-300",
   };
 
   const statusLabel: Record<string, string> = {
@@ -41,7 +44,7 @@
 {#if transaction}
   <!-- Backdrop -->
   <div
-    class="fixed inset-0 z-40 bg-black/20"
+    class="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm"
     role="presentation"
     onclick={onclose}
     aria-hidden="true"
@@ -49,22 +52,20 @@
 
   <!-- Sheet -->
   <aside
-    class="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col bg-white shadow-xl dark:bg-slate-900"
+    class="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col border-l border-white/5 bg-slate-950/95 shadow-[0_0_60px_rgba(16,185,129,0.08)] backdrop-blur"
     aria-label={m.transaction_detail_title()}
   >
-    <div
-      class="flex items-center justify-between border-b border-slate-100 px-5 py-4 dark:border-slate-800"
-    >
-      <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+    <div class="flex items-center justify-between border-b border-white/5 px-5 py-4">
+      <h2 class="text-base font-semibold text-slate-100">
         {transaction.description}
         {#if transaction.is_recurring}
-          <span class="ml-1 text-sm font-normal text-slate-400" title="Cykliczna">↻</span>
+          <span class="ml-1 text-sm font-normal text-slate-500" title="Cykliczna">↻</span>
         {/if}
       </h2>
       <button
         type="button"
         onclick={onclose}
-        class="rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+        class="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-100"
         aria-label={m.common_close()}
       >
         <X size={18} />
@@ -74,9 +75,7 @@
     <div class="flex-1 space-y-5 overflow-y-auto px-5 py-5">
       <!-- Amount -->
       <div>
-        <p
-          class="mb-1 text-xs font-medium tracking-wide text-slate-400 uppercase dark:text-slate-500"
-        >
+        <p class="text-eyebrow mb-1 text-slate-400">
           {m.transactions_col_amount()}
         </p>
         <p
@@ -95,24 +94,21 @@
       <!-- Meta grid -->
       <dl class="grid grid-cols-2 gap-x-4 gap-y-4 text-sm">
         <div>
-          <dt
-            class="text-xs font-medium tracking-wide text-slate-400 uppercase dark:text-slate-500"
-          >
+          <dt class="text-eyebrow text-slate-400">
             {m.transactions_col_date()}
           </dt>
-          <dd class="mt-0.5 text-slate-900 dark:text-slate-100">{formatDate(transaction.date)}</dd>
+          <dd class="mt-0.5 text-slate-100">{formatDate(transaction.date)}</dd>
         </div>
         <div>
-          <dt
-            class="text-xs font-medium tracking-wide text-slate-400 uppercase dark:text-slate-500"
-          >
+          <dt class="text-eyebrow text-slate-400">
             {m.transactions_col_status()}
           </dt>
           <dd class="mt-0.5">
             <span
               class={cn(
                 "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                statusClass[transaction.status] ?? "bg-slate-100 text-slate-500"
+                statusClass[transaction.status] ??
+                  "border border-white/10 bg-slate-800/60 text-slate-400"
               )}
             >
               {statusLabel[transaction.status] ?? transaction.status}
@@ -120,21 +116,17 @@
           </dd>
         </div>
         <div>
-          <dt
-            class="text-xs font-medium tracking-wide text-slate-400 uppercase dark:text-slate-500"
-          >
+          <dt class="text-eyebrow text-slate-400">
             {m.transactions_col_category()}
           </dt>
-          <dd class="mt-0.5 text-slate-900 dark:text-slate-100">{transaction.category_name}</dd>
+          <dd class="mt-0.5 text-slate-100">{transaction.category_name}</dd>
         </div>
         {#if transaction.is_recurring && transaction.recurring_day}
           <div>
-            <dt
-              class="text-xs font-medium tracking-wide text-slate-400 uppercase dark:text-slate-500"
-            >
+            <dt class="text-eyebrow text-slate-400">
               {m.transaction_form_recurring_day()}
             </dt>
-            <dd class="mt-0.5 text-slate-900 dark:text-slate-100">
+            <dd class="mt-0.5 text-slate-100">
               {transaction.recurring_day}. {m.transaction_detail_recurring_day()}
             </dd>
           </div>
@@ -144,14 +136,12 @@
       <!-- Linked shopping list -->
       {#if transaction.shopping_list_id}
         <div>
-          <p
-            class="mb-1 text-xs font-medium tracking-wide text-slate-400 uppercase dark:text-slate-500"
-          >
+          <p class="text-eyebrow mb-1 text-slate-400">
             {m.nav_shopping_lists()}
           </p>
           <a
             href="/shopping-lists/{transaction.shopping_list_id}"
-            class="inline-flex items-center gap-1.5 text-sm text-slate-700 transition-colors hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100"
+            class="inline-flex items-center gap-1.5 text-sm text-slate-200 transition-colors hover:text-emerald-300"
           >
             <ShoppingCart size={14} />
             {m.transaction_detail_show_shopping_list()}
@@ -160,8 +150,8 @@
       {/if}
     </div>
 
-    {#if isOwner && (onedit || ondelete)}
-      <div class="flex gap-2 border-t border-slate-100 px-5 py-4 dark:border-slate-800">
+    {#if canEdit && (onedit || ondelete)}
+      <div class="flex gap-2 border-t border-white/5 px-5 py-4">
         {#if onedit}
           <button
             type="button"
@@ -169,7 +159,7 @@
               onedit(transaction!);
               onclose();
             }}
-            class="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+            class="flex flex-1 items-center justify-center gap-1.5 rounded-full border border-white/10 bg-slate-900/60 py-2 text-sm font-medium text-slate-200 backdrop-blur transition-colors hover:bg-white/5"
           >
             <Edit size={14} />
             {m.common_edit()}
@@ -182,7 +172,7 @@
               ondelete(transaction!.id);
               onclose();
             }}
-            class="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-rose-50 py-2 text-sm font-medium text-rose-700 transition-colors hover:bg-rose-100 dark:bg-rose-950 dark:text-rose-400 dark:hover:bg-rose-900"
+            class="flex flex-1 items-center justify-center gap-1.5 rounded-full border border-rose-400/20 bg-rose-500/10 py-2 text-sm font-medium text-rose-300 backdrop-blur transition-colors hover:bg-rose-500/20"
           >
             <Trash2 size={14} />
             {m.common_delete()}

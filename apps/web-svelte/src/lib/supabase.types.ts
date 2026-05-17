@@ -1,8 +1,30 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
-  __InternalSupabase: {
-    PostgrestVersion: "14.5";
+  graphql_public: {
+    Tables: {
+      [_ in never]: never;
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json;
+          operationName?: string;
+          query?: string;
+          variables?: Json;
+        };
+        Returns: Json;
+      };
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
   };
   public: {
     Tables: {
@@ -308,6 +330,7 @@ export type Database = {
           currency: string;
           date: string;
           description: string;
+          group_id: string | null;
           id: string;
           is_recurring: boolean;
           recurring_day: number | null;
@@ -325,6 +348,7 @@ export type Database = {
           currency?: string;
           date: string;
           description: string;
+          group_id?: string | null;
           id?: string;
           is_recurring?: boolean;
           recurring_day?: number | null;
@@ -342,6 +366,7 @@ export type Database = {
           currency?: string;
           date?: string;
           description?: string;
+          group_id?: string | null;
           id?: string;
           is_recurring?: boolean;
           recurring_day?: number | null;
@@ -358,6 +383,13 @@ export type Database = {
             columns: ["category_id"];
             isOneToOne: false;
             referencedRelation: "categories";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transactions_group_id_fkey";
+            columns: ["group_id"];
+            isOneToOne: false;
+            referencedRelation: "user_groups";
             referencedColumns: ["id"];
           },
           {
@@ -419,9 +451,11 @@ export type Database = {
           currency: string | null;
           date: string | null;
           description: string | null;
+          group_id: string | null;
           id: string | null;
           is_recurring: boolean | null;
           recurring_day: number | null;
+          recurring_template_id: string | null;
           shopping_list_id: string | null;
           status: Database["public"]["Enums"]["transaction_status"] | null;
           type: Database["public"]["Enums"]["transaction_type"] | null;
@@ -437,6 +471,27 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "transactions_group_id_fkey";
+            columns: ["group_id"];
+            isOneToOne: false;
+            referencedRelation: "user_groups";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transactions_recurring_template_id_fkey";
+            columns: ["recurring_template_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transactions_recurring_template_id_fkey";
+            columns: ["recurring_template_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions_with_category";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "transactions_shopping_list_id_fkey";
             columns: ["shopping_list_id"];
             isOneToOne: false;
@@ -448,11 +503,13 @@ export type Database = {
     };
     Functions: {
       _setting: { Args: { p_name: string }; Returns: string };
-      accept_invitation: { Args: { p_invitation_id: string }; Returns: undefined };
+      accept_invitation: {
+        Args: { p_invitation_id: string };
+        Returns: undefined;
+      };
       assign_admin_role: { Args: { p_user_id: string }; Returns: undefined };
-      cancel_invitation: { Args: { p_invitation_id: string }; Returns: undefined };
-      complete_shopping_list: {
-        Args: { p_category_id: string; p_list_id: string; p_total_amount: number };
+      attach_shopping_list_to_transaction: {
+        Args: { p_list_id: string; p_tx_id: string };
         Returns: {
           amount: number;
           category_id: string;
@@ -460,6 +517,7 @@ export type Database = {
           currency: string;
           date: string;
           description: string;
+          group_id: string | null;
           id: string;
           is_recurring: boolean;
           recurring_day: number | null;
@@ -470,7 +528,47 @@ export type Database = {
           updated_at: string;
           user_id: string;
         };
-        SetofOptions: { from: "*"; to: "transactions"; isOneToOne: true; isSetofReturn: false };
+        SetofOptions: {
+          from: "*";
+          to: "transactions";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
+      cancel_invitation: {
+        Args: { p_invitation_id: string };
+        Returns: undefined;
+      };
+      complete_shopping_list: {
+        Args: {
+          p_category_id: string;
+          p_list_id: string;
+          p_total_amount: number;
+        };
+        Returns: {
+          amount: number;
+          category_id: string;
+          created_at: string;
+          currency: string;
+          date: string;
+          description: string;
+          group_id: string | null;
+          id: string;
+          is_recurring: boolean;
+          recurring_day: number | null;
+          recurring_template_id: string | null;
+          shopping_list_id: string | null;
+          status: Database["public"]["Enums"]["transaction_status"];
+          type: Database["public"]["Enums"]["transaction_type"];
+          updated_at: string;
+          user_id: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "transactions";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
       };
       create_group: {
         Args: { p_name: string };
@@ -481,10 +579,18 @@ export type Database = {
           owner_id: string;
           updated_at: string;
         };
-        SetofOptions: { from: "*"; to: "user_groups"; isOneToOne: true; isSetofReturn: false };
+        SetofOptions: {
+          from: "*";
+          to: "user_groups";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
       };
       delete_account: { Args: never; Returns: undefined };
-      delete_admin_push_subscription: { Args: { p_endpoint: string }; Returns: undefined };
+      delete_admin_push_subscription: {
+        Args: { p_endpoint: string };
+        Returns: undefined;
+      };
       disband_group: { Args: { p_group_id: string }; Returns: undefined };
       duplicate_shopping_list: {
         Args: { p_list_id: string };
@@ -500,7 +606,12 @@ export type Database = {
           updated_at: string;
           user_id: string;
         };
-        SetofOptions: { from: "*"; to: "shopping_lists"; isOneToOne: true; isSetofReturn: false };
+        SetofOptions: {
+          from: "*";
+          to: "shopping_lists";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
       };
       fetch_admin_notifications: {
         Args: { p_limit?: number };
@@ -526,7 +637,10 @@ export type Database = {
           user_id: string;
         }[];
       };
-      get_monthly_summary: { Args: { p_month: number; p_year: number }; Returns: Json };
+      get_monthly_summary: {
+        Args: { p_month: number; p_year: number };
+        Returns: Json;
+      };
       invite_user: {
         Args: { p_email: string; p_group_id: string };
         Returns: {
@@ -552,10 +666,19 @@ export type Database = {
       is_group_owner: { Args: { p_group_id: string }; Returns: boolean };
       leave_group: { Args: { p_group_id: string }; Returns: undefined };
       mark_all_notifications_read: { Args: never; Returns: undefined };
-      mark_notification_read: { Args: { p_notification_id: string }; Returns: undefined };
+      mark_notification_read: {
+        Args: { p_notification_id: string };
+        Returns: undefined;
+      };
       process_recurring_transactions: { Args: never; Returns: undefined };
-      reject_invitation: { Args: { p_invitation_id: string }; Returns: undefined };
-      remove_group_member: { Args: { p_group_id: string; p_user_id: string }; Returns: undefined };
+      reject_invitation: {
+        Args: { p_invitation_id: string };
+        Returns: undefined;
+      };
+      remove_group_member: {
+        Args: { p_group_id: string; p_user_id: string };
+        Returns: undefined;
+      };
       revoke_admin_role: { Args: { p_user_id: string }; Returns: undefined };
       transfer_group_ownership: {
         Args: { p_group_id: string; p_new_owner_id: string };
@@ -579,7 +702,9 @@ export type Database = {
       transaction_type: "income" | "expense";
       user_role: "user" | "admin";
     };
-    CompositeTypes: { [_ in never]: never };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
   };
 };
 
@@ -597,7 +722,9 @@ export type Tables<
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
       DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R;
@@ -621,14 +748,18 @@ export type TablesInsert<
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I;
     }
     ? I
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends { Insert: infer I }
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I;
+      }
       ? I
       : never
     : never;
@@ -642,14 +773,18 @@ export type TablesUpdate<
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U;
     }
     ? U
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends { Update: infer U }
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U;
+      }
       ? U
       : never
     : never;
@@ -663,7 +798,9 @@ export type Enums<
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = DefaultSchemaEnumNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
@@ -678,13 +815,18 @@ export type CompositeTypes<
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
-> = PublicCompositeTypeNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never;
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       invitation_status: ["pending", "accepted", "rejected", "cancelled"],

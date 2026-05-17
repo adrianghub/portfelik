@@ -49,6 +49,24 @@ pnpm format                                          # auto-fix
 pnpm exec paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide
 ```
 
+## Local Supabase (default for `pnpm dev`)
+
+`.env.local` points to the local Supabase stack (`127.0.0.1:54321`), NOT the cloud project. This is to keep dev writes off prod data. Cloud creds are stashed in `.env.cloud.local` (gitignored) for the rare case where you need to reproduce a real-user bug against prod data.
+
+From repo root:
+
+```bash
+supabase start                   # boot Postgres + API + Studio
+supabase db reset                # re-apply every migration in supabase/migrations/
+supabase status                  # show URLs + anon key
+supabase stop                    # shut down (preserves volumes)
+```
+
+- Studio: `http://127.0.0.1:54323` — manage auth users, browse tables.
+- DB direct: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
+- Swap to cloud temporarily: `cp .env.cloud.local .env.local` then restart `pnpm dev`. Swap back: rewrite `.env.local` from `.env.example` values or from `supabase status`.
+- Seed a test user: Studio → Authentication → Add User (email confirmed). Google OAuth does not work against the local stack — use email/password.
+
 ## Gotchas
 
 See `../../.claude/rules/svelte-gotchas.md` (auto-loaded for this directory). Critical:

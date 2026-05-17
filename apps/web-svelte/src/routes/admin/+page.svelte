@@ -8,6 +8,8 @@
   import { createMutation, useQueryClient } from "@tanstack/svelte-query";
   import { toast } from "svelte-sonner";
   import * as m from "$lib/paraglide/messages";
+  import EmptyState from "$lib/components/ui/EmptyState.svelte";
+  import { Users } from "lucide-svelte";
 
   const queryClient = useQueryClient();
 
@@ -35,6 +37,7 @@
 
     const currentProfile = await fetchProfile(sessionData.session.user.id).catch(() => null);
     if (currentProfile?.role !== "admin") {
+      toast.error(m.admin_required());
       goto("/transactions");
       return;
     }
@@ -82,63 +85,62 @@
 </script>
 
 <div class="container mx-auto max-w-4xl space-y-4 px-4 py-6">
-  <h1 class="text-2xl font-semibold text-slate-900 dark:text-white">{m.admin_title()}</h1>
+  <h1 class="text-hero font-semibold text-slate-100">{m.admin_title()}</h1>
 
-  <nav class="flex gap-2 border-b border-slate-200 dark:border-slate-700">
+  <nav class="flex gap-2 border-b border-white/5">
     <a
       href="/admin"
       aria-current="page"
-      class="-mb-px border-b-2 border-slate-900 px-3 py-2 text-sm font-medium text-slate-900 dark:border-white dark:text-white"
+      class="-mb-px border-b-2 border-emerald-400 px-3 py-2 text-sm font-medium text-slate-100"
     >
       {m.admin_tab_users()}
     </a>
     <a
       href="/admin/notifications"
-      class="-mb-px border-b-2 border-transparent px-3 py-2 text-sm text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+      class="-mb-px border-b-2 border-transparent px-3 py-2 text-sm text-slate-400 hover:text-slate-100"
     >
       {m.admin_tab_diagnostics()}
     </a>
   </nav>
 
-  <h2 class="text-base font-medium text-slate-700 dark:text-slate-200">{m.admin_users_title()}</h2>
+  <h2 class="text-eyebrow text-slate-300">{m.admin_users_title()}</h2>
 
   <input
     type="search"
     bind:value={search}
     placeholder={m.admin_search_placeholder()}
-    class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none sm:max-w-xs dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:ring-white/10"
+    class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none sm:max-w-xs"
   />
 
   {#if loading}
     <div class="space-y-2">
       {#each [0, 1, 2, 3] as _, i (i)}
-        <div class="h-10 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800"></div>
+        <div class="h-10 animate-pulse rounded-xl bg-slate-800/60"></div>
       {/each}
     </div>
   {:else if error}
     <p class="text-sm text-rose-600">{error}</p>
   {:else if filtered.length === 0}
-    <p class="py-8 text-center text-sm text-slate-400 dark:text-slate-500">
-      {m.admin_users_empty()}
-    </p>
+    <EmptyState title={m.admin_users_empty()} body={m.admin_users_empty_hint()}>
+      {#snippet icon()}
+        <Users size={28} strokeWidth={1.4} />
+      {/snippet}
+    </EmptyState>
   {:else}
-    <div
-      class="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
-    >
+    <div class="overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur">
       <table class="w-full text-sm">
         <thead>
-          <tr class="border-b border-slate-100 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
-            <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400"
+          <tr class="border-b border-white/5 bg-white/5">
+            <th class="text-eyebrow px-4 py-3 text-left text-slate-400"
               >{m.admin_users_col_email()}</th
             >
-            <th
-              class="hidden px-4 py-3 text-left text-xs font-medium text-slate-500 sm:table-cell dark:text-slate-400"
+            <th class="text-eyebrow hidden px-4 py-3 text-left text-slate-400 sm:table-cell"
               >{m.admin_users_col_name()}</th
             >
-            <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400"
+            <th class="text-eyebrow px-4 py-3 text-left text-slate-400"
               >{m.admin_users_col_role()}</th
             >
-            <th class="hidden px-4 py-3 text-left text-xs font-medium text-slate-500 md:table-cell"
+            <th class="text-eyebrow hidden px-4 py-3 text-left text-slate-400 md:table-cell"
               >{m.admin_users_col_created()}</th
             >
             <th class="px-4 py-3"></th>
@@ -146,11 +148,9 @@
         </thead>
         <tbody>
           {#each filtered as p (p.id)}
-            <tr class="border-b border-slate-50 last:border-0 dark:border-slate-800">
-              <td class="px-4 py-3 text-slate-900 dark:text-white">{p.email}</td>
-              <td class="hidden px-4 py-3 text-slate-500 sm:table-cell dark:text-slate-400"
-                >{p.name ?? "—"}</td
-              >
+            <tr class="border-b border-white/5 last:border-0">
+              <td class="px-4 py-3 text-slate-100">{p.email}</td>
+              <td class="hidden px-4 py-3 text-slate-400 sm:table-cell">{p.name ?? "—"}</td>
               <td class="px-4 py-3">
                 <span
                   class={p.role === "admin"
@@ -160,14 +160,14 @@
                   {p.role}
                 </span>
               </td>
-              <td class="hidden px-4 py-3 text-slate-400 md:table-cell dark:text-slate-500"
+              <td class="hidden px-4 py-3 text-slate-500 md:table-cell"
                 >{formatDate(p.created_at)}</td
               >
               <td class="px-4 py-3 text-right">
                 <button
                   onclick={() => toggleRoleMutation.mutate(p)}
                   disabled={toggleRoleMutation.isPending}
-                  class="rounded px-2 py-1 text-xs text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900 disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+                  class="rounded-full border border-white/10 bg-slate-900/60 px-2.5 py-1 text-xs text-slate-300 backdrop-blur transition-colors hover:bg-white/5 hover:text-slate-100 disabled:opacity-40"
                 >
                   {p.role === "admin" ? "→ user" : "→ admin"}
                 </button>

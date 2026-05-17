@@ -2,20 +2,15 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import CategoryBreakdown from "$lib/components/transactions/CategoryBreakdown.svelte";
-  import CategoryFilter from "$lib/components/transactions/CategoryFilter.svelte";
   import FilterDrawer from "$lib/components/transactions/FilterDrawer.svelte";
-  import MonthRangePicker from "$lib/components/transactions/MonthRangePicker.svelte";
   import SummaryCards from "$lib/components/transactions/SummaryCards.svelte";
   import TransactionDetailSheet from "$lib/components/transactions/TransactionDetailSheet.svelte";
   import TransactionDialog from "$lib/components/transactions/TransactionDialog.svelte";
   import TransactionTable from "$lib/components/transactions/TransactionTable.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
-  import Input from "$lib/components/ui/Input.svelte";
-  import Select from "$lib/components/ui/Select.svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchCategories } from "$lib/services/categories";
   import { fetchUserGroups } from "$lib/services/groups";
-  import { fetchProfile } from "$lib/services/profiles";
   import {
     bulkCreateTransactions,
     computeSummary,
@@ -25,9 +20,10 @@
   } from "$lib/services/transactions";
   import { supabase } from "$lib/supabase";
   import type { TransactionStatus, TransactionType, TransactionWithCategory } from "$lib/types";
-  import { getDateRangeBounds, monthYearLabel } from "$lib/utils";
+  import { cn, getDateRangeBounds, monthYearLabel } from "$lib/utils";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { onMount } from "svelte";
+  import { Download, Plus, SlidersHorizontal, Trash2, Upload } from "lucide-svelte";
   import { toast } from "svelte-sonner";
 
   const queryClient = useQueryClient();
@@ -41,6 +37,9 @@
   const endMonth = $derived(Number($page.url.searchParams.get("endMonth")) || startMonth);
   const categoryId = $derived($page.url.searchParams.get("categoryId") ?? undefined);
   const statusFilter = $derived($page.url.searchParams.get("status") ?? undefined);
+  const typeFilter = $derived(
+    ($page.url.searchParams.get("type") as "income" | "expense" | null) ?? undefined
+  );
 
   const bounds = $derived(getDateRangeBounds(startYear, startMonth, endYear, endMonth));
 
@@ -60,14 +59,25 @@
 
   const statusSet = $derived(statusFilter ? new Set(statusFilter.split(",")) : null);
 
-  const filteredTxs = $derived(
-    txQuery.data
-      ? statusSet
-        ? txQuery.data.filter((tx) => statusSet.has(tx.status))
-        : txQuery.data
-      : undefined
-  );
+  let groupFilter = $state<"all" | "own" | string>("all");
 
+  // filteredTxs: applies BOTH status filter AND group filter so it's the
+  // canonical "what the user is looking at" set used by summary,
+  // CategoryBreakdown, CSV export, etc.
+  const filteredTxs = $derived.by(() => {
+    if (!txQuery.data) return undefined;
+    return txQuery.data.filter((tx) => {
+      const matchStatus = !statusSet || statusSet.has(tx.status);
+      const matchType = !typeFilter || tx.type === typeFilter;
+      const matchGroup =
+        groupFilter === "all" ||
+        (groupFilter === "own" ? tx.group_id === null : tx.group_id === groupFilter);
+      return matchStatus && matchType && matchGroup;
+    });
+  });
+
+  // visibleTxs adds the search filter on top — search is row-only UI sugar
+  // so it deliberately doesn't affect totals.
   let searchQuery = $state("");
   const visibleTxs = $derived(
     filteredTxs?.filter(
@@ -86,12 +96,6 @@
   const categoriesQuery = createQuery(() => ({
     queryKey: ["categories"],
     queryFn: fetchCategories,
-  }));
-
-  const profileQuery = createQuery(() => ({
-    queryKey: ["profile", currentUserId],
-    queryFn: () => fetchProfile(currentUserId!),
-    enabled: !!currentUserId,
   }));
 
   const groupsQuery = createQuery(() => ({
@@ -131,7 +135,9 @@
   }));
 
   let filterDrawerOpen = $state(false);
-  const activeFilterCount = $derived((statusFilter ? 1 : 0) + (categoryId ? 1 : 0));
+  const activeFilterCount = $derived(
+    (statusFilter ? 1 : 0) + (categoryId ? 1 : 0) + (typeFilter ? 1 : 0)
+  );
 
   function onApplyFilters(params: {
     startYear: number;
@@ -140,6 +146,7 @@
     endMonth: number;
     categoryId: string | undefined;
     status: string | undefined;
+    type: "income" | "expense" | undefined;
   }) {
     const p = new URLSearchParams($page.url.searchParams);
     p.set("startYear", String(params.startYear));
@@ -150,6 +157,8 @@
     else p.delete("categoryId");
     if (params.status) p.set("status", params.status);
     else p.delete("status");
+    if (params.type) p.set("type", params.type);
+    else p.delete("type");
     goto(`/transactions?${p.toString()}`, { replaceState: false });
   }
 
@@ -158,27 +167,10 @@
     dialogOpen = true;
   }
 
-  function onRangeChange(sy: number, sm: number, ey: number, em: number) {
-    searchQuery = "";
-    const params = new URLSearchParams($page.url.searchParams);
-    params.set("startYear", String(sy));
-    params.set("startMonth", String(sm));
-    params.set("endYear", String(ey));
-    params.set("endMonth", String(em));
-    goto(`/transactions?${params.toString()}`, { replaceState: false });
-  }
-
   function onCategoryChange(id: string | undefined) {
     const params = new URLSearchParams($page.url.searchParams);
     if (id) params.set("categoryId", id);
     else params.delete("categoryId");
-    goto(`/transactions?${params.toString()}`, { replaceState: false });
-  }
-
-  function onStatusChange(status: string | undefined) {
-    const params = new URLSearchParams($page.url.searchParams);
-    if (status) params.set("status", status);
-    else params.delete("status");
     goto(`/transactions?${params.toString()}`, { replaceState: false });
   }
 
@@ -326,14 +318,9 @@
 <div class="container mx-auto max-w-4xl space-y-4 px-4 py-6">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
-      {#if profileQuery.data}
-        <p class="mb-0.5 text-sm text-slate-500">
-          {m.transactions_greeting({ name: profileQuery.data.name ?? profileQuery.data.email })}
-        </p>
-      {/if}
-      <h1 class="text-2xl font-semibold text-slate-900">{m.transactions_title()}</h1>
+      <h1 class="text-hero font-semibold text-slate-100">{m.transactions_title()}</h1>
       {#if groupsQuery.data}
-        <p class="mt-0.5 text-xs text-slate-400">
+        <p class="mt-0.5 hidden text-xs text-slate-400 md:block">
           {groupsQuery.data.length > 0
             ? m.transactions_subtitle_groups()
             : m.transactions_subtitle_own()}
@@ -341,118 +328,36 @@
       {/if}
     </div>
     <div class="flex flex-wrap items-center gap-2">
-      <!-- Mobile filter button (sm:hidden) -->
+      <!-- Filter button — opens drawer on every viewport (Phase U4 start) -->
       <button
         type="button"
         onclick={() => (filterDrawerOpen = true)}
-        class="relative flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 sm:hidden dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+        class="relative flex items-center gap-1.5 rounded-full border border-white/10 bg-slate-900/60 px-3.5 py-1.5 text-sm font-medium text-slate-300 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-          ><line x1="4" x2="4" y1="21" y2="14" /><line x1="4" x2="4" y1="10" y2="3" /><line
-            x1="12"
-            x2="12"
-            y1="21"
-            y2="16"
-          /><line x1="12" x2="12" y1="12" y2="3" /><line x1="20" x2="20" y1="21" y2="19" /><line
-            x1="20"
-            x2="20"
-            y1="15"
-            y2="3"
-          /><line x1="1" x2="7" y1="14" y2="14" /><line x1="9" x2="15" y1="16" y2="16" /><line
-            x1="17"
-            x2="23"
-            y1="19"
-            y2="19"
-          /></svg
-        >
+        <SlidersHorizontal size={14} strokeWidth={1.8} aria-hidden="true" />
         {m.transactions_filter_button()}
         {#if activeFilterCount > 0}
           <span
-            class="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white"
+            class="bg-accent-gradient absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold text-slate-900"
           >
             {activeFilterCount}
           </span>
         {/if}
       </button>
-      <div class="hidden flex-wrap items-center gap-2 sm:flex">
-        <Input
-          type="search"
-          bind:value={searchQuery}
-          placeholder={m.transactions_search_placeholder()}
-          class="w-44"
-        />
-        <MonthRangePicker {startYear} {startMonth} {endYear} {endMonth} onchange={onRangeChange} />
-        {#if categoriesQuery.data}
-          <CategoryFilter
-            categories={categoriesQuery.data}
-            selectedId={categoryId}
-            onchange={onCategoryChange}
-          />
-        {/if}
-        <label class="flex items-center gap-2">
-          <span class="sr-only">{m.transactions_filter_status_label()}</span>
-          <Select
-            value={statusFilter ?? ""}
-            onchange={(e) => onStatusChange((e.target as HTMLSelectElement).value || undefined)}
-          >
-            <option value="">{m.transactions_filter_all_statuses()}</option>
-            <option value="paid">{m.transactions_status_paid()}</option>
-            <option value="upcoming">{m.transactions_status_upcoming()}</option>
-            <option value="draft">{m.transactions_status_draft()}</option>
-            <option value="overdue">{m.transactions_status_overdue()}</option>
-          </Select>
-        </label>
-      </div>
       <button
         onclick={handleExport}
         disabled={!filteredTxs?.length}
-        class="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+        class="flex items-center gap-1.5 rounded-full border border-white/10 bg-slate-900/60 px-3.5 py-1.5 text-sm font-medium text-slate-300 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
         title={m.csv_export()}
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          ><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline
-            points="7 10 12 15 17 10"
-          /><line x1="12" x2="12" y1="15" y2="3" /></svg
-        >
+        <Download size={14} strokeWidth={1.8} aria-hidden="true" />
         <span class="hidden sm:inline">{m.csv_export()}</span>
       </button>
       <label
-        class="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+        class="flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 bg-slate-900/60 px-3.5 py-1.5 text-sm font-medium text-slate-300 backdrop-blur transition-colors focus-within:ring-2 focus-within:ring-emerald-400 hover:bg-white/5"
         title={m.csv_import()}
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          ><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline
-            points="17 8 12 3 7 8"
-          /><line x1="12" x2="12" y1="3" y2="15" /></svg
-        >
+        <Upload size={14} strokeWidth={1.8} aria-hidden="true" />
         <span class="hidden sm:inline">{importing ? m.csv_importing() : m.csv_import()}</span>
         <input
           bind:this={fileInput}
@@ -466,33 +371,69 @@
       {#if selectedIds.size > 0}
         <button
           onclick={() => (bulkDeleteConfirm = true)}
-          class="flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-700"
+          class="flex items-center gap-1.5 rounded-full border border-rose-400/20 bg-rose-500/10 px-3 py-1.5 text-sm font-medium text-rose-300 backdrop-blur transition-colors hover:bg-rose-500/20"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            ><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path
-              d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
-            /></svg
-          >
+          <Trash2 size={14} strokeWidth={1.8} aria-hidden="true" />
           {m.transactions_delete_selected({ count: selectedIds.size })}
         </button>
       {/if}
       <button
         onclick={openAdd}
-        class="rounded-lg bg-emerald-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-600"
+        class="bg-accent-gradient hidden items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none md:inline-flex"
       >
         + {m.transaction_add()}
       </button>
     </div>
   </div>
+
+  {#if groupsQuery.data && groupsQuery.data.length > 0}
+    <div role="tablist" aria-label="Grupa" class="flex flex-wrap gap-1">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={groupFilter === "all"}
+        onclick={() => (groupFilter = "all")}
+        class={cn(
+          "rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none",
+          groupFilter === "all"
+            ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
+            : "border border-white/5 text-slate-300 hover:bg-white/5"
+        )}
+      >
+        {m.group_filter_all()}
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={groupFilter === "own"}
+        onclick={() => (groupFilter = "own")}
+        class={cn(
+          "rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none",
+          groupFilter === "own"
+            ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
+            : "border border-white/5 text-slate-300 hover:bg-white/5"
+        )}
+      >
+        {m.group_filter_own()}
+      </button>
+      {#each groupsQuery.data as g (g.id)}
+        <button
+          type="button"
+          role="tab"
+          aria-selected={groupFilter === g.id}
+          onclick={() => (groupFilter = g.id)}
+          class={cn(
+            "rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none",
+            groupFilter === g.id
+              ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
+              : "border border-white/5 text-slate-300 hover:bg-white/5"
+          )}
+        >
+          {g.name}
+        </button>
+      {/each}
+    </div>
+  {/if}
 
   {#if summary}
     <SummaryCards {summary} />
@@ -506,12 +447,14 @@
     </div>
   {/if}
 
+  {#if summary && summary.total_expenses > 0}
+    <CategoryBreakdown categories={summary.categories} oncategoryclick={onCategoryChange} />
+  {/if}
+
   {#if txQuery.isLoading}
-    <div
-      class="h-48 animate-pulse rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800"
-    ></div>
+    <div class="h-48 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
   {:else if txQuery.isError}
-    <p class="text-sm text-rose-600">{m.common_error_title()}</p>
+    <p class="text-sm text-rose-300">{m.common_error_title()}</p>
   {:else if visibleTxs}
     <TransactionTable
       transactions={visibleTxs}
@@ -527,10 +470,6 @@
     />
   {/if}
 
-  {#if summary}
-    <CategoryBreakdown categories={summary.categories} oncategoryclick={onCategoryChange} />
-  {/if}
-
   {#if categoriesQuery.data}
     <FilterDrawer
       open={filterDrawerOpen}
@@ -542,6 +481,7 @@
       {endMonth}
       {categoryId}
       status={statusFilter}
+      type={typeFilter}
       categories={categoriesQuery.data}
       {searchQuery}
       onsearchchange={(q) => (searchQuery = q)}
@@ -552,22 +492,10 @@
 <button
   onclick={openAdd}
   aria-label={m.transaction_add()}
-  class="fixed right-4 bottom-20 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-white shadow-lg transition-colors hover:bg-slate-700 md:hidden dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
+  class="bg-accent-gradient fixed right-4 bottom-24 z-40 flex h-14 w-14 items-center justify-center rounded-full text-slate-900 shadow-[0_0_24px_var(--color-accent-glow)] transition-transform active:scale-95 md:hidden"
+  style="margin-bottom: env(safe-area-inset-bottom);"
 >
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="24"
-    height="24"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="2"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    aria-hidden="true"
-  >
-    <path d="M12 5v14M5 12h14" />
-  </svg>
+  <Plus size={24} strokeWidth={2.3} aria-hidden="true" />
 </button>
 
 <TransactionDialog open={dialogOpen} onclose={() => (dialogOpen = false)} initial={editTarget} />

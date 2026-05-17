@@ -3,6 +3,7 @@
   import * as m from "$lib/paraglide/messages";
   import type { ShoppingListSummary } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
+  import { Copy, Pencil, Trash2, Users } from "lucide-svelte";
 
   interface Props {
     list: ShoppingListSummary;
@@ -17,14 +18,29 @@
 </script>
 
 <div
-  class="flex items-stretch overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+  class="relative flex items-stretch overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
 >
-  <a
-    href="/shopping-lists/{list.id}"
-    class="flex-1 p-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
-  >
-    <div class="flex items-start justify-between gap-3">
-      <span class="font-medium text-slate-900 dark:text-white">{list.name}</span>
+  {#if list.item_total > 0}
+    <span
+      class="bg-accent-gradient absolute top-0 left-0 h-[3px] rounded-r-full shadow-[0_0_8px_var(--color-accent-glow)] transition-[width] duration-500 ease-out"
+      style="width: {Math.max(ratio * 100, 4)}%; opacity: {list.status === 'completed' ? 0.45 : 1};"
+      aria-hidden="true"
+    ></span>
+  {/if}
+  <a href="/shopping-lists/{list.id}" class="flex-1 p-4 transition-colors hover:bg-white/5">
+    <div class="flex items-center justify-between gap-3">
+      <div class="flex min-w-0 items-center gap-2">
+        <span class="truncate font-medium text-slate-100">{list.name}</span>
+        {#if list.group_id}
+          <span
+            class="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-medium tracking-wide text-emerald-300 uppercase"
+            title={m.group_badge_shared()}
+          >
+            <Users size={11} strokeWidth={2} aria-hidden="true" />
+            {m.group_badge_shared()}
+          </span>
+        {/if}
+      </div>
       <div class="flex shrink-0 items-center gap-2">
         {#if list.item_total > 0 && list.status === "active"}
           <ProgressRing
@@ -35,7 +51,9 @@
         <span
           class={cn(
             "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-            list.status === "active" ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-500"
+            list.status === "active"
+              ? "border border-emerald-400/20 bg-emerald-400/10 text-emerald-300"
+              : "border border-white/10 bg-slate-800/60 text-slate-400"
           )}
         >
           {list.status === "active"
@@ -44,7 +62,7 @@
         </span>
       </div>
     </div>
-    <div class="mt-1 flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
+    <div class="mt-1 flex items-center gap-3 text-xs text-slate-500">
       <span>{formatDate(list.created_at)}</span>
       {#if list.item_total > 0}
         <span>·</span>
@@ -59,65 +77,28 @@
   {#if onedit}
     <button
       onclick={() => onedit(list)}
-      class="border-l border-slate-100 px-3 text-slate-300 transition-colors hover:bg-slate-50 hover:text-slate-600 dark:border-slate-800 dark:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-400"
+      class="border-l border-white/5 px-3 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-200"
       aria-label={m.shopping_list_edit()}
     >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="15"
-        height="15"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        ><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg
-      >
+      <Pencil size={15} strokeWidth={1.8} aria-hidden="true" />
     </button>
   {/if}
   {#if onduplicate}
     <button
       onclick={() => onduplicate(list.id)}
-      class="border-l border-slate-100 px-3 text-slate-300 transition-colors hover:bg-slate-50 hover:text-slate-600 dark:border-slate-800 dark:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-400"
+      class="border-l border-white/5 px-3 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-200"
       aria-label={m.shopping_list_duplicate()}
     >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="15"
-        height="15"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        ><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path
-          d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"
-        /></svg
-      >
+      <Copy size={15} strokeWidth={1.8} aria-hidden="true" />
     </button>
   {/if}
   {#if ondelete}
     <button
       onclick={() => ondelete(list.id)}
-      class="border-l border-slate-100 px-3 text-slate-300 transition-colors hover:bg-rose-50 hover:text-rose-500 dark:border-slate-800 dark:text-slate-600 dark:hover:bg-rose-950 dark:hover:text-rose-400"
+      class="border-l border-white/5 px-3 text-slate-500 transition-colors hover:bg-rose-500/10 hover:text-rose-300"
       aria-label={m.shopping_list_delete()}
     >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="15"
-        height="15"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        ><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path
-          d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
-        /></svg
-      >
+      <Trash2 size={15} strokeWidth={1.8} aria-hidden="true" />
     </button>
   {/if}
 </div>

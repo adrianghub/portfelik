@@ -43,17 +43,75 @@ test('list detail: navigating to list shows items', async ({ page }) => {
   await expect(page.getByText('Chleb')).toBeVisible();
 });
 
-test('check off item: no error toast after clicking checkbox', async ({ page }) => {
+test('check off item: clicking the row body toggles without error', async ({ page }) => {
+  const patches: string[] = [];
+  page.on('request', (req) => {
+    if (req.method() === 'PATCH' && req.url().includes('/shopping_list_items')) {
+      patches.push(req.url());
+    }
+  });
+
   await page.goto('/shopping-lists/list-1');
   await expect(page.getByText('Mleko')).toBeVisible();
 
-  // Click the toggle button for the first item (Mleko, completed=false)
-  // Each li has: toggle button (first), then delete button (second)
-  const toggleButtons = page.locator('ul.space-y-1 li button').first();
-  await toggleButtons.click();
+  // Click the row body (the name span), NOT the small checkbox indicator
+  await page.getByText('Mleko').click();
+  await page.waitForTimeout(300);
 
-  // Verify no error toast
+  // Row click fires the toggle PATCH
+  expect(patches.length).toBeGreaterThan(0);
   await expect(page.getByText(/Coś poszło nie tak/)).not.toBeVisible();
+});
+
+test('row kebab: opens action sheet with rename + delete', async ({ page }) => {
+  await page.goto('/shopping-lists/list-1');
+  await expect(page.getByText('Mleko')).toBeVisible();
+
+  // Each item row has a kebab button labelled "Akcje"
+  const kebab = page
+    .locator('ul li')
+    .filter({ hasText: 'Mleko' })
+    .getByRole('button', { name: /Akcje/ });
+  await kebab.click();
+
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Zmień nazwę/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Usuń/ })).toBeVisible();
+});
+
+test('back-nav after add: shopping_lists summary refetches', async ({ page }) => {
+  let listGetCount = 0;
+  page.on('request', (req) => {
+    const url = req.url();
+    if (
+      req.method() === 'GET' &&
+      url.includes('/shopping_lists') &&
+      !url.includes('id=eq.')
+    ) {
+      listGetCount++;
+    }
+  });
+
+  await page.goto('/shopping-lists');
+  await expect(page.getByText('Tygodniowe zakupy')).toBeVisible();
+
+  await page.getByRole('link', { name: /Tygodniowe zakupy/ }).click();
+  await expect(page).toHaveURL('/shopping-lists/list-1');
+  await expect(page.getByText('Mleko')).toBeVisible();
+
+  // Add an item from the detail page (inline quick-add form)
+  await page.getByPlaceholder('Dodaj element').fill('Cebula testowa');
+  await page.getByRole('button', { name: 'Dodaj element' }).click();
+  await expect(page.getByText('Element dodany')).toBeVisible();
+
+  const before = listGetCount;
+
+  await page.goBack();
+  await expect(page.getByText('Tygodniowe zakupy')).toBeVisible();
+  await page.waitForTimeout(500);
+
+  // Detail-page mutation must invalidate the summary cache so back-nav refetches
+  expect(listGetCount).toBeGreaterThan(before);
 });
 
 test('complete list: dialog, submit, success toast', async ({ page }) => {

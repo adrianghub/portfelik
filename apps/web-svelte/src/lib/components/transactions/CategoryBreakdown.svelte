@@ -13,10 +13,8 @@
 </script>
 
 {#if expenses.length > 0}
-  <div
-    class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900"
-  >
-    <p class="mb-3 text-sm font-medium text-slate-900">{m.summary_by_category()}</p>
+  <div class="rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur">
+    <p class="text-eyebrow mb-3 text-slate-300">{m.summary_by_category()}</p>
     <ul class="space-y-2">
       {#each expenses as cat (cat.category_id)}
         <li class="flex items-center gap-2">
@@ -26,16 +24,14 @@
               class="min-w-0 flex-1 text-left transition-opacity hover:opacity-70"
             >
               <div class="flex items-baseline justify-between">
-                <span class="truncate text-sm text-slate-700 dark:text-slate-300"
-                  >{cat.category_name}</span
-                >
-                <span class="ml-2 shrink-0 text-sm font-medium text-slate-900 dark:text-slate-100"
+                <span class="truncate text-sm text-slate-300">{cat.category_name}</span>
+                <span class="ml-2 shrink-0 text-sm font-medium text-slate-100"
                   >{formatCurrency(cat.total)}</span
                 >
               </div>
-              <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
+              <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-white/5">
                 <div
-                  class="h-full rounded-full bg-slate-800 dark:bg-slate-200"
+                  class="bg-accent-gradient h-full rounded-full shadow-[0_0_12px_var(--color-accent-glow)]"
                   style="width: {cat.percentage}%"
                 ></div>
               </div>
@@ -43,28 +39,24 @@
           {:else}
             <div class="min-w-0 flex-1">
               <div class="flex items-baseline justify-between">
-                <span class="truncate text-sm text-slate-700 dark:text-slate-300"
-                  >{cat.category_name}</span
-                >
-                <span class="ml-2 shrink-0 text-sm font-medium text-slate-900 dark:text-slate-100"
+                <span class="truncate text-sm text-slate-300">{cat.category_name}</span>
+                <span class="ml-2 shrink-0 text-sm font-medium text-slate-100"
                   >{formatCurrency(cat.total)}</span
                 >
               </div>
-              <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
+              <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-white/5">
                 <div
-                  class="h-full rounded-full bg-slate-800 dark:bg-slate-200"
+                  class="bg-accent-gradient h-full rounded-full shadow-[0_0_12px_var(--color-accent-glow)]"
                   style="width: {cat.percentage}%"
                 ></div>
               </div>
             </div>
           {/if}
-          <span class="w-10 shrink-0 text-right text-xs text-slate-400 dark:text-slate-500"
-            >{cat.percentage}%</span
-          >
+          <span class="w-10 shrink-0 text-right text-xs text-slate-500">{cat.percentage}%</span>
         </li>
       {/each}
     </ul>
   </div>
 {:else}
-  <p class="py-4 text-center text-sm text-slate-400">{m.summary_no_expenses()}</p>
+  <p class="py-4 text-center text-sm text-slate-500">{m.summary_no_expenses()}</p>
 {/if}

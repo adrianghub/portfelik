@@ -3,6 +3,7 @@ import type {
   ShoppingList,
   ShoppingListItem,
   ShoppingListSummary,
+  TransactionWithCategory,
   ShoppingListWithItems,
   Transaction,
 } from "$lib/types";
@@ -62,6 +63,9 @@ export async function createShoppingList(input: {
   group_id?: string | null;
   category_id?: string | null;
 }): Promise<ShoppingList> {
+  const name = input.name?.trim();
+  if (!name) throw new Error("name_required");
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -69,7 +73,7 @@ export async function createShoppingList(input: {
 
   const { data, error } = await supabase
     .from("shopping_lists")
-    .insert({ ...input, status: "active", user_id: user.id })
+    .insert({ ...input, name, status: "active", user_id: user.id })
     .select()
     .single();
 
@@ -81,6 +85,12 @@ export async function updateShoppingList(
   id: string,
   updates: Partial<{ name: string; group_id: string | null; category_id: string | null }>
 ): Promise<ShoppingList> {
+  if (updates.name !== undefined) {
+    const name = updates.name.trim();
+    if (!name) throw new Error("name_required");
+    updates = { ...updates, name };
+  }
+
   const { data, error } = await supabase
     .from("shopping_lists")
     .update(updates)
@@ -95,6 +105,39 @@ export async function updateShoppingList(
 export async function deleteShoppingList(id: string): Promise<void> {
   const { error } = await supabase.from("shopping_lists").delete().eq("id", id);
   if (error) throw error;
+}
+
+export async function attachShoppingListToTransaction(
+  listId: string,
+  txId: string
+): Promise<Transaction> {
+  const { data, error } = await supabase.rpc("attach_shopping_list_to_transaction", {
+    p_list_id: listId,
+    p_tx_id: txId,
+  });
+  if (error) throw error;
+  return data as unknown as Transaction;
+}
+
+export async function fetchAttachableTransactions(
+  listGroupId: string | null,
+  limit = 30
+): Promise<TransactionWithCategory[]> {
+  // Only show transactions on the same sharing surface as the list:
+  // - Private list (group_id null) → only private txs.
+  // - Group list → only txs in that same group.
+  // Matches the RPC's sharing_scope_mismatch check.
+  let q = supabase
+    .from("transactions_with_category")
+    .select("*")
+    .eq("type", "expense")
+    .is("shopping_list_id", null)
+    .order("date", { ascending: false })
+    .limit(limit);
+  q = listGroupId === null ? q.is("group_id", null) : q.eq("group_id", listGroupId);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data ?? []) as TransactionWithCategory[];
 }
 
 export async function completeShoppingList(
@@ -124,9 +167,12 @@ export async function createShoppingListItem(input: {
   unit?: string | null;
   position: number;
 }): Promise<ShoppingListItem> {
+  const name = input.name?.trim();
+  if (!name) throw new Error("name_required");
+
   const { data, error } = await supabase
     .from("shopping_list_items")
-    .insert({ ...input, completed: false })
+    .insert({ ...input, name, completed: false })
     .select()
     .single();
 
@@ -144,6 +190,12 @@ export async function updateShoppingListItem(
     position: number;
   }>
 ): Promise<ShoppingListItem> {
+  if (updates.name !== undefined) {
+    const name = updates.name.trim();
+    if (!name) throw new Error("name_required");
+    updates = { ...updates, name };
+  }
+
   const { data, error } = await supabase
     .from("shopping_list_items")
     .update(updates)

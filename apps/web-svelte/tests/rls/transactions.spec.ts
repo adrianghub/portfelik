@@ -106,7 +106,7 @@ describe("RLS: transactions", () => {
     expectBlockedWrite(result);
   });
 
-  describe("group-shared visibility", () => {
+  describe("group-shared visibility (opt-in via tx.group_id)", () => {
     let groupId: string;
 
     beforeAll(async () => {
@@ -121,9 +121,18 @@ describe("RLS: transactions", () => {
         .from("group_members")
         .insert({ group_id: groupId, user_id: ctx.userB.userId });
       if (memberInsert.error) throw memberInsert.error;
+
+      // Assign user B's tx to the group so it becomes visible/writable to user A.
+      // Under the new (opt-in) model, group membership alone is NOT enough —
+      // tx.group_id must be set explicitly.
+      const assign = await ctx.admin
+        .from("transactions")
+        .update({ group_id: groupId })
+        .eq("description", `${SENTINEL} B tx`);
+      if (assign.error) throw assign.error;
     });
 
-    it("user A sees user B's tx via group share", async () => {
+    it("user A sees user B's tx once it's assigned to the shared group", async () => {
       const { data, error } = await ctx.userA.client
         .from("transactions")
         .select("id, description")
@@ -134,13 +143,76 @@ describe("RLS: transactions", () => {
       expect(descs).toContain(`${SENTINEL} B tx`);
     });
 
-    it("user A still cannot UPDATE user B's tx through group", async () => {
+    it("user A CAN update user B's tx through group share (flat membership)", async () => {
       const result = await ctx.userA.client
         .from("transactions")
         .update({ amount: 555 })
         .eq("description", `${SENTINEL} B tx`)
         .select();
-      expectBlockedWrite(result);
+      expect(result.error).toBeNull();
+      expect(result.data?.[0]?.amount).toBe(555);
+    });
+
+    it("user A CANNOT re-own user B's tx (user_id column locked)", async () => {
+      // user_id is REVOKE UPDATE — PostgREST drops the column silently and
+      // the row stays owned by B. Verify by reading back.
+      const update = await ctx.userA.client
+        .from("transactions")
+        .update({ user_id: ctx.userA.userId } as never)
+        .eq("description", `${SENTINEL} B tx`)
+        .select();
+      // PostgREST may either error or return without changing user_id.
+      // Either way the row's owner must NOT flip to A.
+      const after = await ctx.admin
+        .from("transactions")
+        .select("user_id")
+        .eq("description", `${SENTINEL} B tx`)
+        .single();
+      expect(after.error).toBeNull();
+      expect(after.data?.user_id).toBe(ctx.userB.userId);
+      void update;
+    });
+
+    it("user A CANNOT re-share user B's tx into another group (only owner can change group_id)", async () => {
+      // Create a second group owned by user A and try to move B's tx into it.
+      const { data: otherGroup, error: groupErr } = await ctx.userA.client.rpc("create_group", {
+        p_name: `${SENTINEL} other-group`,
+      });
+      if (groupErr || !otherGroup) throw groupErr ?? new Error("no other group");
+      const otherGroupId = (otherGroup as { id: string }).id;
+
+      const result = await ctx.userA.client
+        .from("transactions")
+        .update({ group_id: otherGroupId })
+        .eq("description", `${SENTINEL} B tx`)
+        .select();
+
+      // Trigger raises only_owner_can_change_group_id (P0001) → error.
+      expect(result.error).not.toBeNull();
+
+      const after = await ctx.admin
+        .from("transactions")
+        .select("group_id")
+        .eq("description", `${SENTINEL} B tx`)
+        .single();
+      expect(after.error).toBeNull();
+      expect(after.data?.group_id).toBe(groupId);
+    });
+
+    it("owner (user B) CAN change group_id of their own tx", async () => {
+      // Sanity: trigger only blocks non-owners. The owner is still free
+      // to add/remove sharing.
+      const result = await ctx.userB.client
+        .from("transactions")
+        .update({ group_id: null })
+        .eq("description", `${SENTINEL} B tx`)
+        .select();
+      expect(result.error).toBeNull();
+      // Put it back for subsequent test isolation.
+      await ctx.admin
+        .from("transactions")
+        .update({ group_id: groupId })
+        .eq("description", `${SENTINEL} B tx`);
     });
   });
 });

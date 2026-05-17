@@ -57,7 +57,7 @@
         type="text"
         required
         bind:value={name}
-        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:ring-white/10"
+        class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
       />
     </div>
 
@@ -90,14 +90,14 @@
     </div>
 
     {#if mutation.isError}
-      <p class="text-sm text-rose-600">{m.common_error_title()}</p>
+      <p class="text-sm text-rose-300">{m.common_error_title()}</p>
     {/if}
 
     <div class="flex gap-2 pt-1">
       <button
         type="button"
         onclick={onclose}
-        class="flex-1 rounded-lg border border-slate-200 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+        class="flex-1 rounded-full border border-white/10 bg-slate-900/60 py-2 text-sm font-medium text-slate-200 backdrop-blur transition-colors hover:bg-white/5"
       >
         {m.common_cancel()}
       </button>
