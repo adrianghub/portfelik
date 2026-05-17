@@ -56,25 +56,29 @@
 
   const statusSet = $derived(statusFilter ? new Set(statusFilter.split(",")) : null);
 
-  const filteredTxs = $derived(
-    txQuery.data
-      ? statusSet
-        ? txQuery.data.filter((tx) => statusSet.has(tx.status))
-        : txQuery.data
-      : undefined
-  );
-
-  let searchQuery = $state("");
   let groupFilter = $state<"all" | "own" | string>("all");
-  const visibleTxs = $derived(
-    filteredTxs?.filter((tx) => {
-      const matchSearch =
-        !searchQuery || tx.description?.toLowerCase().includes(searchQuery.toLowerCase());
+
+  // filteredTxs: applies BOTH status filter AND group filter so it's the
+  // canonical "what the user is looking at" set used by summary,
+  // CategoryBreakdown, CSV export, etc.
+  const filteredTxs = $derived.by(() => {
+    if (!txQuery.data) return undefined;
+    return txQuery.data.filter((tx) => {
+      const matchStatus = !statusSet || statusSet.has(tx.status);
       const matchGroup =
         groupFilter === "all" ||
         (groupFilter === "own" ? tx.group_id === null : tx.group_id === groupFilter);
-      return matchSearch && matchGroup;
-    })
+      return matchStatus && matchGroup;
+    });
+  });
+
+  // visibleTxs adds the search filter on top — search is row-only UI sugar
+  // so it deliberately doesn't affect totals.
+  let searchQuery = $state("");
+  const visibleTxs = $derived(
+    filteredTxs?.filter(
+      (tx) => !searchQuery || tx.description?.toLowerCase().includes(searchQuery.toLowerCase())
+    )
   );
 
   const summary = $derived(filteredTxs ? computeSummary(filteredTxs) : null);

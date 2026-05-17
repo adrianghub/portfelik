@@ -13,15 +13,18 @@
   }
   let { transaction, currentUserId, onclose, onedit, ondelete }: Props = $props();
 
-  const isOwner = $derived(
-    !!currentUserId && !!transaction && transaction.user_id === currentUserId
+  // New RLS lets owner OR any group member of a shared row update/delete it.
+  // Visibility implies edit rights, so the gate mirrors the row's visibility:
+  // own row, or group-shared (we wouldn't see it otherwise).
+  const canEdit = $derived(
+    !!transaction && (transaction.user_id === currentUserId || transaction.group_id !== null)
   );
 
   const statusClass: Record<string, string> = {
-    paid: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400",
-    draft: "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
-    upcoming: "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-400",
-    overdue: "bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-400",
+    paid: "border border-emerald-400/20 bg-emerald-400/10 text-emerald-300",
+    draft: "border border-white/10 bg-slate-800/60 text-slate-400",
+    upcoming: "border border-sky-400/20 bg-sky-400/10 text-sky-300",
+    overdue: "border border-rose-400/20 bg-rose-400/10 text-rose-300",
   };
 
   const statusLabel: Record<string, string> = {
@@ -104,7 +107,8 @@
             <span
               class={cn(
                 "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                statusClass[transaction.status] ?? "bg-slate-100 text-slate-500"
+                statusClass[transaction.status] ??
+                  "border border-white/10 bg-slate-800/60 text-slate-400"
               )}
             >
               {statusLabel[transaction.status] ?? transaction.status}
@@ -146,7 +150,7 @@
       {/if}
     </div>
 
-    {#if isOwner && (onedit || ondelete)}
+    {#if canEdit && (onedit || ondelete)}
       <div class="flex gap-2 border-t border-white/5 px-5 py-4">
         {#if onedit}
           <button
