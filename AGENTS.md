@@ -8,7 +8,7 @@ Apply to every task regardless of phase.
 1. **Sanity check** — `pnpm exec svelte-check --tsconfig ./tsconfig.json` (from `apps/web-svelte/`). 0 errors, 0 warnings.
 2. **Lint** — `pnpm lint` (from `apps/web-svelte/`). 0 errors.
 3. **Format** — `pnpm format:check`; if fails run `pnpm format` then re-check.
-4. **Security** — `grep -rE "(eyJ[a-zA-Z0-9_-]{20,}|sb_secret_|PRIVATE|password\s*=)" <changed files>`. Flag anything before proceeding.
+4. **Security** — `grep -rE "(eyJ[a-zA-Z0-9_-]{20,}|sb_secret_|PRIVATE|password\s*=)" <changed files>`. Flag anything before proceeding. **Allowlist:** `apps/web-svelte/.env.test.example` intentionally carries public Supabase local-demo JWTs (identical on every `supabase start` install). Real cloud creds belong in `apps/web-svelte/.env.cloud.local` (gitignored).
 5. **Schema validation** — new tables: RLS enabled? Migrations: idempotent naming?
 
 ### Before finalising
@@ -31,9 +31,9 @@ Apply to every task regardless of phase.
 
 **Portfelik** — personal-finance PWA. Migrating React 19 + Firebase → SvelteKit + Supabase. Full plan: `MIGRATION_PLAN.md`.
 
-**Immediate next step:** Phase 12 shipped through U6 (2026-05-17). Group hardening complete: tx + list user_id immutable, group_id reassign owner-only, attach-list-to-tx sharing-scope-matched, complete/attach require >= 1 item. Daily greeting + quote, list<->tx connect feature, drill-down navigation, type filter, and prefers-reduced-motion honored across animations. **Next major candidate: bank CSV import** (separate domain/adapter/preview/dedupe spec). Remaining backlog: **Dexie offline outbox** (legacy parity gap, last-write-wins decided), EmptyState primitive adoption sweep across screens, axe-core a11y sweep, **mortgage/debt domain** (separate track).
+**Immediate next step:** Phase 12 U1–U6 + group hardening + EmptyState sweep complete (2026-05-17). Tx + list `user_id` immutable, `group_id` reassign owner-only, attach-list-to-tx sharing-scope-matched, complete/attach require ≥ 1 item. Daily greeting + quote, list↔tx connect, drill-down navigation, type filter, `prefers-reduced-motion` honored, `EmptyState` adopted across 6 screens. RLS suite 52/52 green. **Next major candidate: bank CSV import** (separate domain/adapter/preview/dedupe spec). Remaining backlog: **Dexie offline outbox** (legacy parity gap, last-write-wins decided), axe-core a11y sweep, staging DB separation, **mortgage/debt domain** (separate track).
 
-For agent onboarding: `CLAUDE.md` is the authoritative live status doc. This file mirrors it for non-Claude tooling but may drift — when in doubt, defer to `CLAUDE.md`.
+For agent onboarding: `CLAUDE.md` mirrors this file. When the two drift the rule is _the more detailed one wins_ — usually `CLAUDE.md` since live work updates land there first.
 
 | Phase | Status |
 |---|---|

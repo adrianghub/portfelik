@@ -1,15 +1,29 @@
+import { existsSync, readFileSync } from "fs";
+import { resolve } from "path";
 import { defineConfig } from "vitest/config";
-import { loadEnv } from "vite";
 
-// Populate process.env from .env.test so RLS specs can run with
-// `pnpm test:rls` directly — no need for the long inline `SUPABASE_URL=...
-// pnpm test:rls` invocation. .env.test holds local Supabase demo creds
-// (public, identical on every dev machine). Real cloud creds stay in
-// .env.cloud.local (gitignored) and are not used here.
-const env = loadEnv("test", process.cwd(), "");
-for (const [k, v] of Object.entries(env)) {
-  if (!process.env[k]) process.env[k] = v;
+// Populate process.env from .env.test.example (committed local Supabase
+// demo creds, identical on every machine) and let .env.test override
+// when present (gitignored, per-dev). CI continues to inject vars via
+// $GITHUB_ENV — that path takes precedence over both because each
+// loader skips keys already set.
+//
+// Files are parsed manually rather than via Vite's loadEnv since
+// loadEnv wouldn't pick up .env.test.example (it's not in its known
+// filename list) and dotenv would be a fresh dep.
+function loadEnvFile(path: string): void {
+  if (!existsSync(path)) return;
+  for (const line of readFileSync(path, "utf-8").split("\n")) {
+    const match = /^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.+?)\s*$/.exec(line);
+    if (match && !process.env[match[1]]) {
+      process.env[match[1]] = match[2];
+    }
+  }
 }
+
+const cwd = process.cwd();
+loadEnvFile(resolve(cwd, ".env.test"));
+loadEnvFile(resolve(cwd, ".env.test.example"));
 
 export default defineConfig({
   test: {
