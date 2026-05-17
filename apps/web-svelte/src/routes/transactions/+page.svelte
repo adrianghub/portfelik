@@ -37,6 +37,9 @@
   const endMonth = $derived(Number($page.url.searchParams.get("endMonth")) || startMonth);
   const categoryId = $derived($page.url.searchParams.get("categoryId") ?? undefined);
   const statusFilter = $derived($page.url.searchParams.get("status") ?? undefined);
+  const typeFilter = $derived(
+    ($page.url.searchParams.get("type") as "income" | "expense" | null) ?? undefined
+  );
 
   const bounds = $derived(getDateRangeBounds(startYear, startMonth, endYear, endMonth));
 
@@ -65,10 +68,11 @@
     if (!txQuery.data) return undefined;
     return txQuery.data.filter((tx) => {
       const matchStatus = !statusSet || statusSet.has(tx.status);
+      const matchType = !typeFilter || tx.type === typeFilter;
       const matchGroup =
         groupFilter === "all" ||
         (groupFilter === "own" ? tx.group_id === null : tx.group_id === groupFilter);
-      return matchStatus && matchGroup;
+      return matchStatus && matchType && matchGroup;
     });
   });
 
@@ -131,7 +135,9 @@
   }));
 
   let filterDrawerOpen = $state(false);
-  const activeFilterCount = $derived((statusFilter ? 1 : 0) + (categoryId ? 1 : 0));
+  const activeFilterCount = $derived(
+    (statusFilter ? 1 : 0) + (categoryId ? 1 : 0) + (typeFilter ? 1 : 0)
+  );
 
   function onApplyFilters(params: {
     startYear: number;
@@ -140,6 +146,7 @@
     endMonth: number;
     categoryId: string | undefined;
     status: string | undefined;
+    type: "income" | "expense" | undefined;
   }) {
     const p = new URLSearchParams($page.url.searchParams);
     p.set("startYear", String(params.startYear));
@@ -150,6 +157,8 @@
     else p.delete("categoryId");
     if (params.status) p.set("status", params.status);
     else p.delete("status");
+    if (params.type) p.set("type", params.type);
+    else p.delete("type");
     goto(`/transactions?${p.toString()}`, { replaceState: false });
   }
 
@@ -472,6 +481,7 @@
       {endMonth}
       {categoryId}
       status={statusFilter}
+      type={typeFilter}
       categories={categoriesQuery.data}
       {searchQuery}
       onsearchchange={(q) => (searchQuery = q)}

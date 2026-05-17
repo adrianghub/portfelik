@@ -10,7 +10,7 @@
   import { cn, formatCurrency, getDateRangeBounds } from "$lib/utils";
   import { createQuery } from "@tanstack/svelte-query";
   import { onMount } from "svelte";
-  import { CheckCircle2, Plus, ShoppingCart } from "lucide-svelte";
+  import { CheckCircle2, ShoppingCart } from "lucide-svelte";
 
   type Period = "week" | "month" | "year";
   let period = $state<Period>("month");
@@ -197,8 +197,9 @@
   </div>
 
   <!-- Hero balance card -->
-  <section
-    class="relative overflow-hidden rounded-3xl border border-white/5 bg-slate-900/60 p-6 backdrop-blur"
+  <a
+    href="/transactions"
+    class="relative block overflow-hidden rounded-3xl border border-white/5 bg-slate-900/60 p-6 backdrop-blur transition-colors hover:bg-white/5"
   >
     <span class="glow-disc absolute -top-12 -right-12 h-40 w-40" aria-hidden="true"></span>
     <p class="text-eyebrow text-slate-400">
@@ -216,13 +217,14 @@
     {:else}
       <div class="mt-3 h-14 w-2/3 animate-pulse rounded-lg bg-slate-800/60"></div>
     {/if}
-  </section>
+  </a>
 
   <!-- Stat row with sparklines -->
   <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
     <!-- Income -->
-    <article
-      class="relative overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur"
+    <a
+      href="/transactions?type=income"
+      class="relative block overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
     >
       <p class="text-eyebrow text-slate-400">{m.summary_income()}</p>
       {#if summary}
@@ -249,11 +251,12 @@
           />
         {/if}
       </svg>
-    </article>
+    </a>
 
     <!-- Expenses -->
-    <article
-      class="relative overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur"
+    <a
+      href="/transactions?type=expense"
+      class="relative block overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
     >
       <p class="text-eyebrow text-slate-400">{m.summary_expenses()}</p>
       {#if summary}
@@ -280,11 +283,12 @@
           />
         {/if}
       </svg>
-    </article>
+    </a>
 
     <!-- Savings ratio -->
-    <article
-      class="relative col-span-2 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur sm:col-span-1"
+    <a
+      href="/transactions"
+      class="relative col-span-2 block overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none sm:col-span-1"
     >
       <p class="text-eyebrow text-slate-400">{m.summary_savings_ratio()}</p>
       {#if summary}
@@ -320,7 +324,7 @@
           />
         {/if}
       </svg>
-    </article>
+    </a>
   </div>
 
   <!-- Monthly wins -->
@@ -378,14 +382,3 @@
     {/if}
   </div>
 </div>
-
-<!-- Mobile floating FAB (above pill bottom nav) -->
-<button
-  type="button"
-  onclick={() => goto("/transactions")}
-  aria-label={m.transaction_add()}
-  class="bg-accent-gradient fixed right-4 bottom-24 z-40 flex h-14 w-14 items-center justify-center rounded-full text-slate-900 shadow-[0_0_24px_var(--color-accent-glow)] transition-transform active:scale-95 md:hidden"
-  style="margin-bottom: env(safe-area-inset-bottom);"
->
-  <Plus size={24} strokeWidth={2.5} aria-hidden="true" />
-</button>

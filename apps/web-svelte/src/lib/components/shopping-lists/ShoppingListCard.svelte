@@ -21,7 +21,7 @@
   class="flex items-stretch overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
 >
   <a href="/shopping-lists/{list.id}" class="flex-1 p-4 transition-colors hover:bg-white/5">
-    <div class="flex items-start justify-between gap-3">
+    <div class="flex items-center justify-between gap-3">
       <div class="flex min-w-0 items-center gap-2">
         <span class="truncate font-medium text-slate-100">{list.name}</span>
         {#if list.group_id}

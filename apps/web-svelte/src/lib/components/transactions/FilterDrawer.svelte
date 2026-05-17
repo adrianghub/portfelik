@@ -16,6 +16,7 @@
       endMonth: number;
       categoryId: string | undefined;
       status: string | undefined;
+      type: "income" | "expense" | undefined;
     }) => void;
     startYear: number;
     startMonth: number;
@@ -23,6 +24,7 @@
     endMonth: number;
     categoryId: string | undefined;
     status: string | undefined;
+    type: "income" | "expense" | undefined;
     categories: Category[];
     searchQuery: string;
     onsearchchange: (q: string) => void;
@@ -38,6 +40,7 @@
     endMonth,
     categoryId,
     status,
+    type,
     categories,
     searchQuery,
     onsearchchange,
@@ -49,6 +52,7 @@
   let pendingEndMonth = $state(untrack(() => endMonth));
   let pendingCategoryId = $state<string | undefined>(untrack(() => categoryId));
   let pendingStatus = $state<string | undefined>(untrack(() => status));
+  let pendingType = $state<"income" | "expense" | undefined>(untrack(() => type));
 
   $effect(() => {
     if (open) {
@@ -58,6 +62,7 @@
       pendingEndMonth = endMonth;
       pendingCategoryId = categoryId;
       pendingStatus = status;
+      pendingType = type;
     }
   });
 
@@ -69,6 +74,7 @@
       endMonth: pendingEndMonth,
       categoryId: pendingCategoryId,
       status: pendingStatus,
+      type: pendingType,
     });
     onclose();
   }
@@ -81,7 +87,14 @@
     pendingEndMonth = now.getMonth() + 1;
     pendingCategoryId = undefined;
     pendingStatus = undefined;
+    pendingType = undefined;
   }
+
+  const typeOptions: { value: "income" | "expense" | ""; label: string }[] = [
+    { value: "", label: m.transactions_filter_all_statuses() },
+    { value: "income", label: m.common_income() },
+    { value: "expense", label: m.common_expense() },
+  ];
 
   const statusOptions = [
     { value: "", label: m.transactions_filter_all_statuses() },
@@ -131,6 +144,26 @@
         selectedId={pendingCategoryId}
         onchange={(id) => (pendingCategoryId = id)}
       />
+    </div>
+
+    <!-- Type chips -->
+    <div>
+      <p class="text-eyebrow mb-2 text-slate-400">Typ</p>
+      <div class="flex flex-wrap gap-2">
+        {#each typeOptions as opt (opt.value)}
+          <button
+            type="button"
+            onclick={() =>
+              (pendingType = (opt.value || undefined) as "income" | "expense" | undefined)}
+            class="rounded-full px-3 py-1 text-xs font-medium transition-colors {(pendingType ??
+              '') === opt.value
+              ? 'bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]'
+              : 'border border-white/10 text-slate-300 hover:bg-white/5'}"
+          >
+            {opt.label}
+          </button>
+        {/each}
+      </div>
     </div>
 
     <!-- Status chips -->
