@@ -1,5 +1,7 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
+  import { fade, scale } from "svelte/transition";
+  import { motionDuration } from "$lib/motion";
 
   interface Props {
     open: boolean;
@@ -27,11 +29,13 @@
     role="presentation"
     onclick={onbackdrop}
     onkeydown={null}
+    transition:fade={{ duration: motionDuration(140) }}
   >
     <div
       class="w-full max-w-sm space-y-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/95 p-5 shadow-[0_0_60px_rgba(244,63,94,0.12)] backdrop-blur"
       role="alertdialog"
       aria-modal="true"
+      transition:scale={{ duration: motionDuration(180), start: 0.95, opacity: 0 }}
     >
       <h2 class="text-base font-semibold text-slate-100">
         {m.common_confirm_delete()}

@@ -21,6 +21,7 @@
   import { Check, Link2, MoreHorizontal, Plus } from "lucide-svelte";
   import { flip } from "svelte/animate";
   import { slide } from "svelte/transition";
+  import { motionDuration } from "$lib/motion";
 
   const queryClient = useQueryClient();
   const id = $derived($page.params.id ?? "");
@@ -398,9 +399,9 @@
         {#each list.shopping_list_items as item (item.id)}
           <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
           <li
-            animate:flip={{ duration: 240 }}
-            in:slide={{ duration: 180 }}
-            out:slide={{ duration: 160 }}
+            animate:flip={{ duration: motionDuration(240) }}
+            in:slide={{ duration: motionDuration(180) }}
+            out:slide={{ duration: motionDuration(160) }}
             class={cn(
               "flex items-center gap-3 rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3 backdrop-blur",
               isActive &&

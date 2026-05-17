@@ -7,6 +7,7 @@
   import { page } from "$app/state";
   import { onMount } from "svelte";
   import { fade } from "svelte/transition";
+  import { motionDuration } from "$lib/motion";
   import Navigation from "$lib/components/Navigation.svelte";
   import OfflineIndicator from "$lib/components/ui/OfflineIndicator.svelte";
   import { fetchProfile } from "$lib/services/profiles";
@@ -155,7 +156,7 @@
     {/if}
     <main class="min-h-screen bg-slate-950 pt-14 pb-24 md:pb-6">
       {#key page.url.pathname}
-        <div in:fade={{ duration: 140 }}>
+        <div in:fade={{ duration: motionDuration(140) }}>
           {@render children()}
         </div>
       {/key}
