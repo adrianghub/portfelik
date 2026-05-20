@@ -28,6 +28,39 @@ export type Database = {
   };
   public: {
     Tables: {
+      bank_accounts: {
+        Row: {
+          archived_at: string | null;
+          created_at: string;
+          currency: string;
+          id: string;
+          kind: string;
+          label: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          archived_at?: string | null;
+          created_at?: string;
+          currency?: string;
+          id?: string;
+          kind: string;
+          label: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          archived_at?: string | null;
+          created_at?: string;
+          currency?: string;
+          id?: string;
+          kind?: string;
+          label?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       categories: {
         Row: {
           created_at: string;
@@ -54,6 +87,50 @@ export type Database = {
           user_id?: string | null;
         };
         Relationships: [];
+      };
+      categorization_rules: {
+        Row: {
+          category_id: string;
+          created_at: string;
+          id: string;
+          kind: Database["public"]["Enums"]["categorization_rule_kind"];
+          match_counterparty: string | null;
+          match_description: string | null;
+          match_type: Database["public"]["Enums"]["transaction_type"] | null;
+          priority: number;
+          user_id: string;
+        };
+        Insert: {
+          category_id: string;
+          created_at?: string;
+          id?: string;
+          kind: Database["public"]["Enums"]["categorization_rule_kind"];
+          match_counterparty?: string | null;
+          match_description?: string | null;
+          match_type?: Database["public"]["Enums"]["transaction_type"] | null;
+          priority?: number;
+          user_id: string;
+        };
+        Update: {
+          category_id?: string;
+          created_at?: string;
+          id?: string;
+          kind?: Database["public"]["Enums"]["categorization_rule_kind"];
+          match_counterparty?: string | null;
+          match_description?: string | null;
+          match_type?: Database["public"]["Enums"]["transaction_type"] | null;
+          priority?: number;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "categorization_rules_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       group_invitations: {
         Row: {
@@ -318,6 +395,260 @@ export type Database = {
             columns: ["group_id"];
             isOneToOne: false;
             referencedRelation: "user_groups";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      transaction_import_links: {
+        Row: {
+          bank_account_id: string;
+          created_at: string;
+          external_transaction_id: string | null;
+          fingerprint: string;
+          row_id: string;
+          session_id: string;
+          source_file_hash: string;
+          source_row_index: number;
+          transaction_id: string;
+          user_id: string;
+        };
+        Insert: {
+          bank_account_id: string;
+          created_at?: string;
+          external_transaction_id?: string | null;
+          fingerprint: string;
+          row_id: string;
+          session_id: string;
+          source_file_hash: string;
+          source_row_index: number;
+          transaction_id: string;
+          user_id: string;
+        };
+        Update: {
+          bank_account_id?: string;
+          created_at?: string;
+          external_transaction_id?: string | null;
+          fingerprint?: string;
+          row_id?: string;
+          session_id?: string;
+          source_file_hash?: string;
+          source_row_index?: number;
+          transaction_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "transaction_import_links_bank_account_id_fkey";
+            columns: ["bank_account_id"];
+            isOneToOne: false;
+            referencedRelation: "bank_accounts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transaction_import_links_row_id_fkey";
+            columns: ["row_id"];
+            isOneToOne: false;
+            referencedRelation: "transaction_import_rows";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transaction_import_links_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "transaction_import_sessions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transaction_import_links_transaction_id_fkey";
+            columns: ["transaction_id"];
+            isOneToOne: true;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transaction_import_links_transaction_id_fkey";
+            columns: ["transaction_id"];
+            isOneToOne: true;
+            referencedRelation: "transactions_with_category";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      transaction_import_rows: {
+        Row: {
+          amount: number;
+          counterparty: string | null;
+          created_at: string;
+          currency: string;
+          decision: string;
+          description: string;
+          duplicate_of: string | null;
+          edited_description: string | null;
+          external_id: string | null;
+          id: string;
+          posted_at: string;
+          raw_row_hash: string;
+          row_index: number;
+          selected_category_id: string | null;
+          selected_group_id: string | null;
+          session_id: string;
+          suggested_category_id: string | null;
+          transaction_id: string | null;
+          type: Database["public"]["Enums"]["transaction_type"];
+        };
+        Insert: {
+          amount: number;
+          counterparty?: string | null;
+          created_at?: string;
+          currency: string;
+          decision?: string;
+          description: string;
+          duplicate_of?: string | null;
+          edited_description?: string | null;
+          external_id?: string | null;
+          id?: string;
+          posted_at: string;
+          raw_row_hash: string;
+          row_index: number;
+          selected_category_id?: string | null;
+          selected_group_id?: string | null;
+          session_id: string;
+          suggested_category_id?: string | null;
+          transaction_id?: string | null;
+          type: Database["public"]["Enums"]["transaction_type"];
+        };
+        Update: {
+          amount?: number;
+          counterparty?: string | null;
+          created_at?: string;
+          currency?: string;
+          decision?: string;
+          description?: string;
+          duplicate_of?: string | null;
+          edited_description?: string | null;
+          external_id?: string | null;
+          id?: string;
+          posted_at?: string;
+          raw_row_hash?: string;
+          row_index?: number;
+          selected_category_id?: string | null;
+          selected_group_id?: string | null;
+          session_id?: string;
+          suggested_category_id?: string | null;
+          transaction_id?: string | null;
+          type?: Database["public"]["Enums"]["transaction_type"];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "transaction_import_rows_duplicate_of_fkey";
+            columns: ["duplicate_of"];
+            isOneToOne: false;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transaction_import_rows_duplicate_of_fkey";
+            columns: ["duplicate_of"];
+            isOneToOne: false;
+            referencedRelation: "transactions_with_category";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transaction_import_rows_selected_category_id_fkey";
+            columns: ["selected_category_id"];
+            isOneToOne: false;
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transaction_import_rows_selected_group_id_fkey";
+            columns: ["selected_group_id"];
+            isOneToOne: false;
+            referencedRelation: "user_groups";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transaction_import_rows_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "transaction_import_sessions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transaction_import_rows_suggested_category_id_fkey";
+            columns: ["suggested_category_id"];
+            isOneToOne: false;
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transaction_import_rows_transaction_id_fkey";
+            columns: ["transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transaction_import_rows_transaction_id_fkey";
+            columns: ["transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions_with_category";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      transaction_import_sessions: {
+        Row: {
+          bank_account_id: string;
+          committed_at: string | null;
+          created_at: string;
+          detected_kind: string;
+          id: string;
+          rows_committed: number;
+          rows_duplicate: number;
+          rows_skipped: number;
+          rows_total: number;
+          source_file_hash: string;
+          source_filename: string | null;
+          status: string;
+          user_id: string;
+        };
+        Insert: {
+          bank_account_id: string;
+          committed_at?: string | null;
+          created_at?: string;
+          detected_kind: string;
+          id?: string;
+          rows_committed?: number;
+          rows_duplicate?: number;
+          rows_skipped?: number;
+          rows_total?: number;
+          source_file_hash: string;
+          source_filename?: string | null;
+          status?: string;
+          user_id: string;
+        };
+        Update: {
+          bank_account_id?: string;
+          committed_at?: string | null;
+          created_at?: string;
+          detected_kind?: string;
+          id?: string;
+          rows_committed?: number;
+          rows_duplicate?: number;
+          rows_skipped?: number;
+          rows_total?: number;
+          source_file_hash?: string;
+          source_filename?: string | null;
+          status?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "transaction_import_sessions_bank_account_id_fkey";
+            columns: ["bank_account_id"];
+            isOneToOne: false;
+            referencedRelation: "bank_accounts";
             referencedColumns: ["id"];
           },
         ];
@@ -689,6 +1020,7 @@ export type Database = {
       update_transaction_statuses: { Args: never; Returns: undefined };
     };
     Enums: {
+      categorization_rule_kind: "exact" | "contains" | "type" | "composite";
       invitation_status: "pending" | "accepted" | "rejected" | "cancelled";
       notification_type:
         | "transaction_summary"
@@ -829,6 +1161,7 @@ export const Constants = {
   },
   public: {
     Enums: {
+      categorization_rule_kind: ["exact", "contains", "type", "composite"],
       invitation_status: ["pending", "accepted", "rejected", "cancelled"],
       notification_type: [
         "transaction_summary",

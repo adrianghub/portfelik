@@ -130,10 +130,22 @@ export async function provisionTwoUsers(): Promise<TestContext> {
  */
 export async function cleanupSentinels(admin: SupabaseClient): Promise<void> {
   const pattern = `${SENTINEL}%`;
+  // transactions cascade to transaction_import_links (FK transaction_id ON DELETE CASCADE).
   await admin.from("transactions").delete().like("description", pattern);
   await admin.from("shopping_list_items").delete().like("name", pattern);
   await admin.from("shopping_lists").delete().like("name", pattern);
   await admin.from("notifications").delete().like("title", pattern);
+  // Import chain: rows → sessions → bank_accounts (all RESTRICT, so order matters).
+  // rows by raw_row_hash sentinel
+  await admin.from("transaction_import_rows").delete().like("raw_row_hash", `%${SENTINEL}%`);
+  // sessions by source_file_hash sentinel
+  await admin
+    .from("transaction_import_sessions")
+    .delete()
+    .like("source_file_hash", `%${SENTINEL}%`);
+  // bank_accounts by label sentinel
+  await admin.from("bank_accounts").delete().like("label", pattern);
+  // categories cascade to categorization_rules (FK category_id ON DELETE CASCADE).
   await admin.from("categories").delete().like("name", pattern);
   // group_invitations: clean by sentinel email domain
   await admin.from("group_invitations").delete().like("invited_user_email", "%@rls.test");
