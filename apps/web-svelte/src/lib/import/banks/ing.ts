@@ -51,6 +51,36 @@ function collapseWs(s: string): string {
   return s.replace(/\s+/g, " ").trim();
 }
 
+function hasTransactionSignal(cells: string[], idx: Record<string, number>): boolean {
+  const values = [
+    idx.counterparty,
+    idx.title,
+    idx.details,
+    idx.external,
+    idx.amountSigned,
+    idx.debit,
+    idx.credit,
+  ]
+    .filter((i) => i !== -1)
+    .map((i) => cells[i]?.trim() ?? "");
+
+  return values.some((value) => value !== "");
+}
+
+function suppressConstantExternalIds(rows: ParsedRow[]): ParsedRow[] {
+  const ids = rows.map((row) => row.external_id).filter((id): id is string => !!id);
+  if (ids.length <= 1) return rows;
+
+  // Some ING exports use the "Nr transakcji" column as a statement/list id
+  // repeated on every row. That value is not transaction-unique and would make
+  // hard dedupe collapse the whole statement into one row.
+  if (new Set(ids).size === 1) {
+    return rows.map((row) => ({ ...row, external_id: undefined }));
+  }
+
+  return rows;
+}
+
 export const ingAdapter: BankAdapter = {
   kind: "ing",
 
@@ -111,6 +141,7 @@ export const ingAdapter: BankAdapter = {
       const rawLine = csv.rowTexts[r];
       const localIndex = r - headerRowIdx - 1;
       if (cells.length === 1 && cells[0].trim() === "") continue;
+      if (!hasTransactionSignal(cells, idx)) continue;
 
       const dateRaw =
         (idx.dateOp !== -1 ? cells[idx.dateOp] : undefined) ??
@@ -162,6 +193,6 @@ export const ingAdapter: BankAdapter = {
       });
     }
 
-    return { kind: "ing", rows, errors };
+    return { kind: "ing", rows: suppressConstantExternalIds(rows), errors };
   },
 };

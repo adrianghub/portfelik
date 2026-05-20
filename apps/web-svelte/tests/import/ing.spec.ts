@@ -27,6 +27,32 @@ describe("ing adapter — synthetic fixture", () => {
     expect(ids).toEqual(["EXT-001", "EXT-002", "EXT-003", "EXT-004"]);
   });
 
+  it("suppresses Nr transakcji when it is a constant statement id", () => {
+    const withConstantStatementId = [
+      '"Data transakcji";"Dane kontrahenta";"Tytuł";"Nr transakcji";"Kwota transakcji (waluta rachunku)";"Waluta"',
+      '"2026-01-01";"SHOP A";"Zakup";"STATEMENT-001";"-10,00";"PLN"',
+      '"2026-01-02";"SHOP B";"Zakup";"STATEMENT-001";"-20,00";"PLN"',
+    ].join("\n");
+
+    const out = ingAdapter.parse(withConstantStatementId);
+    expect(out.errors).toEqual([]);
+    expect(out.rows).toHaveLength(2);
+    expect(out.rows.map((row) => row.external_id)).toEqual([undefined, undefined]);
+  });
+
+  it("skips blank and footer rows after the transaction table", () => {
+    const withFooterRows = [
+      '"Data transakcji";"Dane kontrahenta";"Tytuł";"Nr transakcji";"Kwota transakcji (waluta rachunku)";"Waluta"',
+      '"2026-01-01";"SHOP A";"Zakup";"EXT-001";"-10,00";"PLN"',
+      ';;;;;',
+      '"Wygenerowano dnia";;;;;',
+    ].join("\n");
+
+    const out = ingAdapter.parse(withFooterRows);
+    expect(out.errors).toEqual([]);
+    expect(out.rows).toHaveLength(1);
+  });
+
   it("signed amount column: negative → expense, positive → income", () => {
     const out = ingAdapter.parse(fixture);
     const netflix = out.rows.find((r) => r.description.includes("SUBSKRYPCJA"))!;
