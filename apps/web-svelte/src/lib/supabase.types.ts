@@ -870,6 +870,7 @@ export type Database = {
         Args: { p_invitation_id: string };
         Returns: undefined;
       };
+      commit_import_session: { Args: { p_session_id: string }; Returns: Json };
       complete_shopping_list: {
         Args: {
           p_category_id: string;
@@ -1000,6 +1001,10 @@ export type Database = {
       mark_notification_read: {
         Args: { p_notification_id: string };
         Returns: undefined;
+      };
+      preview_fingerprint_warnings: {
+        Args: { p_session_id: string };
+        Returns: Json;
       };
       process_recurring_transactions: { Args: never; Returns: undefined };
       reject_invitation: {
