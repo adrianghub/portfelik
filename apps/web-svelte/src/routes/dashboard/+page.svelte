@@ -3,14 +3,13 @@
   import TransactionTable from "$lib/components/transactions/TransactionTable.svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchProfile } from "$lib/services/profiles";
-  import { fetchShoppingLists } from "$lib/services/shopping-lists";
   import { computeSummary, fetchTransactions } from "$lib/services/transactions";
   import { supabase } from "$lib/supabase";
   import type { TransactionWithCategory } from "$lib/types";
   import { cn, formatCurrency, getDateRangeBounds } from "$lib/utils";
   import { createQuery } from "@tanstack/svelte-query";
   import { onMount } from "svelte";
-  import { CheckCircle2, ShoppingCart } from "lucide-svelte";
+  import { ListChecks, Target, TrendingDown } from "lucide-svelte";
   import { dailyGreeting, dailyQuote } from "$lib/dashboard-daily";
 
   const greeting = dailyGreeting();
@@ -18,6 +17,43 @@
 
   type Period = "week" | "month" | "year";
   let period = $state<Period>("month");
+
+  function toIsoDate(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function transactionsHref(extra: Record<string, string> = {}): string {
+    const now = new Date();
+    const params = new URLSearchParams();
+
+    if (period === "week") {
+      const start = new Date(now);
+      start.setDate(start.getDate() - 6);
+      params.set("startDate", toIsoDate(start));
+      params.set("endDate", toIsoDate(now));
+    } else if (period === "year") {
+      const year = now.getFullYear();
+      params.set("startYear", String(year));
+      params.set("startMonth", "1");
+      params.set("endYear", String(year));
+      params.set("endMonth", "12");
+    } else {
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1;
+      params.set("startYear", String(year));
+      params.set("startMonth", String(month));
+      params.set("endYear", String(year));
+      params.set("endMonth", String(month));
+    }
+
+    for (const [key, value] of Object.entries(extra)) {
+      params.set(key, value);
+    }
+    return `/transactions?${params.toString()}`;
+  }
 
   let userId = $state<string | null>(null);
   onMount(async () => {
@@ -35,11 +71,12 @@
     const now = new Date();
     if (period === "week") {
       const end = new Date(now);
+      end.setDate(end.getDate() + 1);
       const start = new Date(now);
       start.setDate(start.getDate() - 6);
       return {
-        start: start.toISOString().slice(0, 10),
-        end: end.toISOString().slice(0, 10),
+        start: toIsoDate(start),
+        end: toIsoDate(end),
         buckets: 7,
       };
     }
@@ -67,7 +104,7 @@
     const exp = new Array<number>(bounds.buckets).fill(0);
     if (!txQuery.data) return { income: inc, expense: exp };
     const startMs = new Date(bounds.start).getTime();
-    const endMs = new Date(bounds.end).getTime() + 86_400_000 - 1;
+    const endMs = new Date(bounds.end).getTime() - 1;
     for (const tx of txQuery.data) {
       const t = new Date(tx.date).getTime();
       if (t < startMs || t > endMs) continue;
@@ -110,28 +147,35 @@
     return Math.round((summary.net / summary.total_income) * 100);
   });
 
-  const listsQuery = createQuery(() => ({
-    queryKey: ["shopping_lists"],
-    queryFn: fetchShoppingLists,
-  }));
-  const monthlyWins = $derived.by(() => {
-    if (!listsQuery.data) return null;
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth() + 1;
-    const monthStart = new Date(year, month - 1, 1);
-    const monthEnd = new Date(year, month, 1);
-    const completedThisMonth = listsQuery.data.filter(
-      (l) =>
-        l.status === "completed" &&
-        l.completed_at &&
-        new Date(l.completed_at) >= monthStart &&
-        new Date(l.completed_at) < monthEnd
-    );
-    if (completedThisMonth.length === 0) return null;
+  const periodStats = $derived.by(() => {
+    const txs = txQuery.data ?? [];
+    const incomeTxs = txs.filter((tx) => tx.type === "income");
+    const expenseTxs = txs.filter((tx) => tx.type === "expense");
+    const topCategory = summary?.categories[0] ?? null;
+    const reduceTopByTen = topCategory ? topCategory.total * 0.1 : 0;
+
     return {
-      listsCompleted: completedThisMonth.length,
-      itemsChecked: completedThisMonth.reduce((sum, l) => sum + l.item_completed, 0),
+      incomeCount: incomeTxs.length,
+      expenseCount: expenseTxs.length,
+      totalCount: txs.length,
+      topCategory,
+      mission:
+        txs.length === 0
+          ? m.dashboard_insights_mission_import()
+          : summary && summary.total_income === 0 && summary.total_expenses > 0
+            ? m.dashboard_insights_mission_income()
+            : summary && summary.net < 0 && topCategory
+              ? m.dashboard_insights_mission_reduce_category({
+                  category: topCategory.category_name,
+                  amount: formatCurrency(reduceTopByTen),
+                })
+              : savingsRatio !== null && savingsRatio >= 20
+                ? m.dashboard_insights_mission_keep()
+                : savingsRatio !== null && summary
+                  ? m.dashboard_insights_mission_savings({
+                      amount: formatCurrency(Math.max(0, summary.total_income * 0.2 - summary.net)),
+                    })
+                  : m.dashboard_insights_mission_review(),
     };
   });
 
@@ -141,7 +185,7 @@
   );
 
   function openTransaction(tx: TransactionWithCategory) {
-    goto(`/transactions?status=${tx.status}`);
+    goto(transactionsHref({ status: tx.status }));
   }
 
   const periodChips: { value: Period; label: string }[] = $derived([
@@ -204,7 +248,7 @@
 
   <!-- Hero balance card -->
   <a
-    href="/transactions"
+    href={transactionsHref()}
     class="relative block overflow-hidden rounded-3xl border border-white/5 bg-slate-900/60 p-6 backdrop-blur transition-colors hover:bg-white/5"
   >
     <span class="glow-disc absolute -top-12 -right-12 h-40 w-40" aria-hidden="true"></span>
@@ -229,7 +273,7 @@
   <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
     <!-- Income -->
     <a
-      href="/transactions?type=income"
+      href={transactionsHref({ type: "income" })}
       class="relative block overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
     >
       <p class="text-eyebrow text-slate-400">{m.summary_income()}</p>
@@ -261,7 +305,7 @@
 
     <!-- Expenses -->
     <a
-      href="/transactions?type=expense"
+      href={transactionsHref({ type: "expense" })}
       class="relative block overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
     >
       <p class="text-eyebrow text-slate-400">{m.summary_expenses()}</p>
@@ -293,7 +337,7 @@
 
     <!-- Savings ratio -->
     <a
-      href="/transactions"
+      href={transactionsHref()}
       class="relative col-span-2 block overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none sm:col-span-1"
     >
       <p class="text-eyebrow text-slate-400">{m.summary_savings_ratio()}</p>
@@ -333,27 +377,81 @@
     </a>
   </div>
 
-  <!-- Monthly wins -->
-  {#if monthlyWins}
-    <section
-      class="relative overflow-hidden rounded-2xl border border-emerald-400/20 bg-emerald-400/5 p-4 backdrop-blur"
-    >
-      <span class="glow-disc absolute -top-8 -right-8 h-32 w-32" aria-hidden="true"></span>
-      <p class="text-eyebrow relative text-emerald-300">{m.dashboard_wins_title()}</p>
-      <div
-        class="relative mt-2 flex flex-wrap items-center gap-x-5 gap-y-2 text-base font-semibold text-emerald-100"
-      >
-        <span class="flex items-center gap-2">
-          <ShoppingCart size={18} strokeWidth={1.8} aria-hidden="true" />
-          {m.dashboard_wins_lists({ count: monthlyWins.listsCompleted })}
-        </span>
-        <span class="flex items-center gap-2">
-          <CheckCircle2 size={18} strokeWidth={1.8} aria-hidden="true" />
-          {m.dashboard_wins_items({ count: monthlyWins.itemsChecked })}
-        </span>
+  <!-- Period insights -->
+  <section
+    class="relative overflow-hidden rounded-2xl border border-emerald-400/20 bg-emerald-400/5 p-4 backdrop-blur"
+  >
+    <span class="glow-disc absolute -top-8 -right-8 h-32 w-32" aria-hidden="true"></span>
+    <div class="relative flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <p class="text-eyebrow text-emerald-300">{m.dashboard_insights_title()}</p>
+        <p class="mt-1 text-xs text-slate-400">
+          {m.dashboard_insights_period({ period: activePeriodLabel })}
+        </p>
       </div>
-    </section>
-  {/if}
+      <a
+        href={transactionsHref()}
+        class="rounded-full border border-emerald-400/20 px-3 py-1 text-xs font-medium text-emerald-200 transition-colors hover:bg-emerald-400/10"
+      >
+        {m.dashboard_insights_open_transactions()}
+      </a>
+    </div>
+
+    <div class="relative mt-4 grid gap-3 md:grid-cols-3">
+      <div class="rounded-xl border border-white/10 bg-slate-950/30 p-3">
+        <div class="flex items-center gap-2 text-slate-400">
+          <ListChecks size={16} strokeWidth={1.8} aria-hidden="true" />
+          <p class="text-eyebrow">{m.dashboard_insights_activity_title()}</p>
+        </div>
+        <p class="mt-2 text-sm font-semibold text-slate-100">
+          {m.dashboard_insights_activity_total({ count: periodStats.totalCount })}
+        </p>
+        <p class="mt-1 text-xs text-slate-400">
+          {m.dashboard_insights_activity_split({
+            income: periodStats.incomeCount,
+            expense: periodStats.expenseCount,
+          })}
+        </p>
+      </div>
+
+      <a
+        href={periodStats.topCategory
+          ? transactionsHref({ type: "expense", categoryId: periodStats.topCategory.category_id })
+          : transactionsHref({ type: "expense" })}
+        class="rounded-xl border border-white/10 bg-slate-950/30 p-3 transition-colors hover:bg-white/5"
+      >
+        <div class="flex items-center gap-2 text-slate-400">
+          <TrendingDown size={16} strokeWidth={1.8} aria-hidden="true" />
+          <p class="text-eyebrow">{m.dashboard_insights_top_category_title()}</p>
+        </div>
+        {#if periodStats.topCategory}
+          <p class="mt-2 truncate text-sm font-semibold text-slate-100">
+            {periodStats.topCategory.category_name}
+          </p>
+          <p class="mt-1 text-xs text-slate-400">
+            {m.dashboard_insights_top_category_value({
+              amount: formatCurrency(periodStats.topCategory.total),
+              percent: periodStats.topCategory.percentage,
+            })}
+          </p>
+        {:else}
+          <p class="mt-2 text-sm font-semibold text-slate-500">
+            {m.dashboard_insights_no_expenses()}
+          </p>
+        {/if}
+      </a>
+
+      <div class="rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3">
+        <div class="flex items-center gap-2 text-emerald-300">
+          <Target size={16} strokeWidth={1.8} aria-hidden="true" />
+          <p class="text-eyebrow">{m.dashboard_insights_mission_title()}</p>
+        </div>
+        <p class="mt-2 text-sm leading-relaxed font-semibold text-emerald-50">
+          {periodStats.mission}
+        </p>
+      </div>
+    </div>
+  </section>
 
   <!-- Upcoming / overdue -->
   <div>
@@ -361,7 +459,7 @@
       <p class="text-eyebrow text-slate-400">{m.dashboard_upcoming_title()}</p>
       {#if upcomingTxs.length > 0}
         <a
-          href="/transactions?status=upcoming,overdue"
+          href={transactionsHref({ status: "upcoming,overdue" })}
           class="text-xs font-medium text-emerald-300 hover:text-emerald-200"
         >
           {m.dashboard_upcoming_see_all()}

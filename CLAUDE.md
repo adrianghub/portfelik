@@ -8,7 +8,7 @@ Apply to every task regardless of phase.
 1. **Sanity check** — `pnpm exec svelte-check --tsconfig ./tsconfig.json` (from `apps/web-svelte/`). 0 errors, 0 warnings.
 2. **Lint** — `pnpm lint` (from `apps/web-svelte/`). 0 errors.
 3. **Format** — `pnpm format:check`; if fails run `pnpm format` then re-check.
-4. **Security** — `grep -rE "(eyJ[a-zA-Z0-9_-]{20,}|sb_secret_|PRIVATE|password\s*=)" <changed files>`. Flag anything before proceeding. **Allowlist:** `apps/web-svelte/.env.test.example` intentionally carries public Supabase local-demo JWTs (identical on every `supabase start` install — documented in the Supabase CLI source). Real cloud creds belong in `apps/web-svelte/.env.cloud.local` (gitignored).
+4. **Security** — `grep -rE "(eyJ[a-zA-Z0-9_-]{20,}|sb_secret_|PRIVATE|password\s*=)" <changed files>`. Flag anything before proceeding. Real cloud creds belong in `apps/web-svelte/.env.cloud.local` (gitignored). Local RLS JWTs belong in `apps/web-svelte/.env.test` (gitignored), never in `.env.test.example`.
 5. **Schema validation** — new tables: RLS enabled? Migrations: idempotent naming?
 
 ### Before finalising
@@ -37,7 +37,7 @@ Phase 12 shipped through U6 + EmptyState sweep + group hardening (2026-05-17). H
 - Group hardening (`20260516000000` → `20260517000003`): `transactions.group_id` opt-in with explicit assignment, both `transactions` and `shopping_lists` lock `user_id` immutable, `group_id` reassign owner-only via trigger, `disband_group` raises when group has items, INSERT policies enforce member-only group assignment.
 - `attach_shopping_list_to_transaction` RPC connects existing tx to a list with sharing-scope match + ≥1 item guard.
 - RLS regression suite 52/52 green (added 7 group/list rules + tx user_id immutability tests).
-- Vitest auto-loads `.env.test.example` (committed local defaults) — `pnpm test:rls` works without inline env.
+- Vitest auto-loads `.env.test` (gitignored local RLS keys) plus `.env.test.example` (non-secret defaults). Copy the example, then fill JWT keys from `supabase status -o env`.
 
 **Bank CSV import V1** — progress sub-table:
 
@@ -50,6 +50,10 @@ Phase 12 shipped through U6 + EmptyState sweep + group hardening (2026-05-17). H
 | 5 — UI wizard at `/transactions/import` (BankAccountPicker, FileUpload, ReviewTable, CommitSummary) + entry-point link on `/transactions`; legacy Portfelik-CSV import removed (handleImport / parseCSVRow / bulkCreateTransactions / csv_import* i18n keys deleted — no rollback path, bank wizard is the sole import) | ✅ Done locally 2026-05-21 — svelte-check 0/0, lint clean, 128/128 vitest |
 | 5.1 — Review findings: F1 re-upload of committed file (`findExistingSession`, "already imported" panel), F2 pre-commit `preview_fingerprint_warnings` RPC + per-row badge + bulk "Skip probable duplicates", F3 commit-time dup updates audit row (`decision='duplicate'`, `duplicate_of=<winner>`) with external_id-first lookup, F4 Tailwind opacity classes (`/10`, `/40`, `/5`) replacing invalid `-N` directives | ✅ Done 2026-05-21 — migration `20260521000001` applied to prod |
 | 5.2 — Walkthrough polish: drop upfront bank-kind picker (auto-detect + `findOrCreateActiveAccount`), drop subtitle, 3-step pill (upload/review/done), counterparty as primary description line + bank title as secondary, auto-flip decision on category set/clear, sticky top warnings+bulk bar + sticky bottom commit bar, safer committed-session cancel wording with "to nie cofnie już dodanych transakcji" hint, redundant decision Badge removed (sticky thead deferred to next polish pass — clashed with outer sticky bar) | ✅ Done on `dev` 2026-05-21 — end-to-end browser walkthrough verified F1/F2/F3/F4 + counterparty + auto-decision against real ING fixture |
+| 5.3 — Cloud grant hotfix: `20260521000002_bank_import_table_grants.sql` restores table-level `SELECT`/`INSERT` for import tables created after the initial global grants; `transaction_import_links` remains SELECT-only / RPC-write-only | ✅ Applied to prod via linked Supabase query 2026-05-21; fixes staging 403/42501 on `bank_accounts` |
+| 5.4 — Date-context navigation hotfix: bank import success + already-imported file panel route to the imported statement month; dashboard balance/income/expense/savings/upcoming links preserve selected period, including exact 7-day `startDate`/`endDate` for week | ✅ Done locally 2026-05-21 — svelte-check 0/0, lint clean, format clean; Vitest blocked by stale local walkthrough bank account unique-index collision until local Supabase reset/cleanup |
+| 5.5 — Transactions table sorting: desktop headers toggle date/description/category/status/amount ordering; default remains date descending; mobile day groups follow the active sort order | ✅ Done locally 2026-05-21 — svelte-check 0/0, lint clean, format clean |
+| Dashboard insight polish — replace vague "Sukcesy miesiąca" shopping-list widget with period-aware finance signals: transaction count, income/expense split, top expense category, and one actionable mission | ✅ Done locally 2026-05-21 — svelte-check 0/0, lint clean, format clean |
 | 6 — Save-as-rule + categorization rules engine + masked LLM suggested_category | ⏳ Backlog |
 
 Mortgage/debt tracking is a follow-on track.

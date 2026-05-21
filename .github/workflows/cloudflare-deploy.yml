@@ -111,7 +111,7 @@ jobs:
         working-directory: apps/web-svelte
         env:
           PUBLIC_SUPABASE_URL: https://emqzcygfwcvbmhxhfkcc.supabase.co
-          PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiJ9.fake
+          PUBLIC_SUPABASE_ANON_KEY: test-anon-key
           PUBLIC_VAPID_KEY: BHKoiccZwq3Y5Qw5dmFxVLJIA7w9zcSZkchPKWk-vxBeR421yieZW7gGxuluBBa6sRmpIsFXRSuFyRarLcdvqT4
         run: pnpm build
 

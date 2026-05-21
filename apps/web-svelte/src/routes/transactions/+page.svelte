@@ -19,7 +19,7 @@
   } from "$lib/services/transactions";
   import { supabase } from "$lib/supabase";
   import type { TransactionWithCategory } from "$lib/types";
-  import { cn, getDateRangeBounds, monthYearLabel } from "$lib/utils";
+  import { cn, formatDate, getDateRangeBounds, monthYearLabel } from "$lib/utils";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { onMount } from "svelte";
   import { Download, Landmark, Plus, SlidersHorizontal, Trash2 } from "lucide-svelte";
@@ -28,31 +28,82 @@
   const queryClient = useQueryClient();
   const now = new Date();
 
-  const startYear = $derived(Number($page.url.searchParams.get("startYear")) || now.getFullYear());
-  const startMonth = $derived(
-    Number($page.url.searchParams.get("startMonth")) || now.getMonth() + 1
+  function parseIsoDateParam(value: string | null): string | null {
+    return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+  }
+
+  function dateParts(value: string | null): { year: number; month: number } | null {
+    if (!value) return null;
+    const [year, month] = value.split("-").map(Number);
+    return year && month ? { year, month } : null;
+  }
+
+  function addOneDay(value: string): string {
+    const d = new Date(`${value}T00:00:00`);
+    d.setDate(d.getDate() + 1);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  const explicitStartDate = $derived(parseIsoDateParam($page.url.searchParams.get("startDate")));
+  const explicitEndDate = $derived(parseIsoDateParam($page.url.searchParams.get("endDate")));
+  const explicitStartParts = $derived(dateParts(explicitStartDate));
+  const explicitEndParts = $derived(dateParts(explicitEndDate));
+
+  const startYear = $derived(
+    Number($page.url.searchParams.get("startYear")) || explicitStartParts?.year || now.getFullYear()
   );
-  const endYear = $derived(Number($page.url.searchParams.get("endYear")) || startYear);
-  const endMonth = $derived(Number($page.url.searchParams.get("endMonth")) || startMonth);
+  const startMonth = $derived(
+    Number($page.url.searchParams.get("startMonth")) ||
+      explicitStartParts?.month ||
+      now.getMonth() + 1
+  );
+  const endYear = $derived(
+    Number($page.url.searchParams.get("endYear")) || explicitEndParts?.year || startYear
+  );
+  const endMonth = $derived(
+    Number($page.url.searchParams.get("endMonth")) || explicitEndParts?.month || startMonth
+  );
   const categoryId = $derived($page.url.searchParams.get("categoryId") ?? undefined);
   const statusFilter = $derived($page.url.searchParams.get("status") ?? undefined);
   const typeFilter = $derived(
     ($page.url.searchParams.get("type") as "income" | "expense" | null) ?? undefined
   );
 
-  const bounds = $derived(getDateRangeBounds(startYear, startMonth, endYear, endMonth));
+  const bounds = $derived.by(() => {
+    if (explicitStartDate && explicitEndDate) {
+      return { start: explicitStartDate, end: addOneDay(explicitEndDate) };
+    }
+    return getDateRangeBounds(startYear, startMonth, endYear, endMonth);
+  });
 
   const emptyLabel = $derived(
-    startYear === endYear && startMonth === endMonth
-      ? m.transactions_empty_month({ period: monthYearLabel(startYear, startMonth) })
-      : m.transactions_empty_range({
-          from: monthYearLabel(startYear, startMonth),
-          to: monthYearLabel(endYear, endMonth),
+    explicitStartDate && explicitEndDate
+      ? m.transactions_empty_range({
+          from: formatDate(explicitStartDate),
+          to: formatDate(explicitEndDate),
         })
+      : startYear === endYear && startMonth === endMonth
+        ? m.transactions_empty_month({ period: monthYearLabel(startYear, startMonth) })
+        : m.transactions_empty_range({
+            from: monthYearLabel(startYear, startMonth),
+            to: monthYearLabel(endYear, endMonth),
+          })
   );
 
   const txQuery = createQuery(() => ({
-    queryKey: ["transactions", startYear, startMonth, endYear, endMonth, categoryId],
+    queryKey: [
+      "transactions",
+      startYear,
+      startMonth,
+      endYear,
+      endMonth,
+      explicitStartDate,
+      explicitEndDate,
+      categoryId,
+    ],
     queryFn: () => fetchTransactions(bounds.start, bounds.end, categoryId),
   }));
 
@@ -152,6 +203,8 @@
     p.set("startMonth", String(params.startMonth));
     p.set("endYear", String(params.endYear));
     p.set("endMonth", String(params.endMonth));
+    p.delete("startDate");
+    p.delete("endDate");
     if (params.categoryId) p.set("categoryId", params.categoryId);
     else p.delete("categoryId");
     if (params.status) p.set("status", params.status);
@@ -358,10 +411,6 @@
       {emptyLabel}
       bind:selectedIds
       onrowclick={(tx) => (sheetTx = tx)}
-      onedit={(tx: TransactionWithCategory) => {
-        editTarget = tx;
-        dialogOpen = true;
-      }}
       ondelete={(id: string) => (deleteTargetId = id)}
     />
   {/if}

@@ -216,6 +216,10 @@
         toast.error(m.toast_sharing_scope_mismatch());
         return;
       }
+      if (msg.includes("transaction_not_expense")) {
+        toast.error(m.toast_transaction_not_expense());
+        return;
+      }
       if (msg.includes("list_empty")) {
         toast.error(m.toast_list_empty());
         return;

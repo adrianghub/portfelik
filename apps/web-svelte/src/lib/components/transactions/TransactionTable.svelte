@@ -2,13 +2,12 @@
   import * as m from "$lib/paraglide/messages";
   import type { TransactionWithCategory } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
-  import { Check, Pencil, Trash2, Users, Wallet } from "lucide-svelte";
+  import { ArrowDown, ArrowUp, ArrowUpDown, Check, Users, Wallet } from "lucide-svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
 
   interface Props {
     transactions: TransactionWithCategory[];
     currentUserId?: string | null;
-    onedit?: (tx: TransactionWithCategory) => void;
     ondelete?: (id: string) => void;
     onrowclick?: (tx: TransactionWithCategory) => void;
     emptyLabel?: string;
@@ -16,19 +15,19 @@
   }
   let {
     transactions,
-    onedit,
     ondelete,
     onrowclick,
     emptyLabel,
     selectedIds = $bindable(new Set<string>()),
   }: Props = $props();
 
-  const isShared = (tx: TransactionWithCategory) => tx.group_id !== null;
+  type SortKey = "date" | "description" | "category" | "status" | "amount";
+  type SortDirection = "asc" | "desc";
 
-  const allSelected = $derived(
-    transactions.length > 0 && transactions.every((tx) => selectedIds.has(tx.id))
-  );
-  const someSelected = $derived(transactions.some((tx) => selectedIds.has(tx.id)));
+  let sortKey = $state<SortKey>("date");
+  let sortDirection = $state<SortDirection>("desc");
+
+  const isShared = (tx: TransactionWithCategory) => tx.group_id !== null;
 
   $effect(() => {
     void transactions;
@@ -39,7 +38,7 @@
     if (allSelected) {
       selectedIds = new Set<string>();
     } else {
-      selectedIds = new Set(transactions.map((tx) => tx.id));
+      selectedIds = new Set(sortedTransactions.map((tx) => tx.id));
     }
   }
 
@@ -83,9 +82,83 @@
     if (key === localYmd(y)) return "Wczoraj";
     return formatDate(key);
   }
+
+  function signedAmount(tx: TransactionWithCategory): number {
+    return tx.type === "income" ? Number(tx.amount) : -Number(tx.amount);
+  }
+
+  function compareBySortKey(a: TransactionWithCategory, b: TransactionWithCategory): number {
+    switch (sortKey) {
+      case "date":
+        return new Date(a.date).getTime() - new Date(b.date).getTime();
+      case "description":
+        return a.description.localeCompare(b.description, "pl", { sensitivity: "base" });
+      case "category":
+        return a.category_name.localeCompare(b.category_name, "pl", { sensitivity: "base" });
+      case "status":
+        return (statusLabel[a.status] ?? a.status).localeCompare(
+          statusLabel[b.status] ?? b.status,
+          "pl",
+          {
+            sensitivity: "base",
+          }
+        );
+      case "amount":
+        return signedAmount(a) - signedAmount(b);
+    }
+  }
+
+  const sortedTransactions = $derived.by(() =>
+    transactions
+      .map((tx, index) => ({ tx, index }))
+      .sort((a, b) => {
+        const compared = compareBySortKey(a.tx, b.tx);
+        const directed = sortDirection === "asc" ? compared : -compared;
+        return directed || a.index - b.index;
+      })
+      .map(({ tx }) => tx)
+  );
+
+  const allSelected = $derived(
+    sortedTransactions.length > 0 && sortedTransactions.every((tx) => selectedIds.has(tx.id))
+  );
+  const someSelected = $derived(sortedTransactions.some((tx) => selectedIds.has(tx.id)));
+
+  function toggleSort(nextKey: SortKey): void {
+    if (sortKey === nextKey) {
+      sortDirection = sortDirection === "asc" ? "desc" : "asc";
+      return;
+    }
+    sortKey = nextKey;
+    sortDirection = nextKey === "date" ? "desc" : "asc";
+  }
+
+  function ariaSort(key: SortKey): "ascending" | "descending" | "none" {
+    if (sortKey !== key) return "none";
+    return sortDirection === "asc" ? "ascending" : "descending";
+  }
+
+  function sortLabel(key: SortKey, column: string): string {
+    const nextDirection =
+      sortKey === key
+        ? sortDirection === "asc"
+          ? "desc"
+          : "asc"
+        : key === "date"
+          ? "desc"
+          : "asc";
+    return m.transactions_sort_by({
+      column,
+      direction:
+        nextDirection === "desc"
+          ? m.transactions_sort_direction_desc()
+          : m.transactions_sort_direction_asc(),
+    });
+  }
+
   const dayGroups = $derived.by(() => {
     const groups = new Map<string, TransactionWithCategory[]>();
-    for (const tx of transactions) {
+    for (const tx of sortedTransactions) {
       const k = dayKey(tx.date);
       const arr = groups.get(k) ?? [];
       arr.push(tx);
@@ -98,6 +171,16 @@
     }));
   });
 </script>
+
+{#snippet sortIndicator(key: SortKey)}
+  {#if sortKey !== key}
+    <ArrowUpDown size={12} strokeWidth={1.8} />
+  {:else if sortDirection === "asc"}
+    <ArrowUp size={12} strokeWidth={1.8} />
+  {:else}
+    <ArrowDown size={12} strokeWidth={1.8} />
+  {/if}
+{/snippet}
 
 {#if transactions.length === 0}
   <EmptyState title={emptyLabel ?? m.transactions_empty()} body={m.transactions_empty_hint()}>
@@ -187,34 +270,6 @@
                 >
                   {statusLabel[tx.status] ?? tx.status}
                 </span>
-                {#if onedit || ondelete}
-                  <div class="ml-1 flex gap-1">
-                    {#if onedit}
-                      <button
-                        onclick={(e) => {
-                          e.stopPropagation();
-                          onedit(tx);
-                        }}
-                        class="p-1 text-slate-500 transition-colors hover:text-slate-200"
-                        aria-label={m.common_edit()}
-                      >
-                        <Pencil size={13} strokeWidth={1.8} />
-                      </button>
-                    {/if}
-                    {#if ondelete}
-                      <button
-                        onclick={(e) => {
-                          e.stopPropagation();
-                          ondelete(tx.id);
-                        }}
-                        class="p-1 text-slate-500 transition-colors hover:text-rose-300"
-                        aria-label={m.common_delete()}
-                      >
-                        <Trash2 size={13} strokeWidth={1.8} />
-                      </button>
-                    {/if}
-                  </div>
-                {/if}
               </div>
             </li>
           {/each}
@@ -252,28 +307,65 @@
               </button>
             </th>
           {/if}
-          <th scope="col" class="text-eyebrow px-4 py-3 text-left text-slate-400"
-            >{m.transactions_col_date()}</th
-          >
-          <th scope="col" class="text-eyebrow px-4 py-3 text-left text-slate-400"
-            >{m.transactions_col_description()}</th
-          >
-          <th scope="col" class="text-eyebrow px-4 py-3 text-left text-slate-400"
-            >{m.transactions_col_category()}</th
-          >
-          <th scope="col" class="text-eyebrow px-4 py-3 text-left text-slate-400"
-            >{m.transactions_col_status()}</th
-          >
-          <th scope="col" class="text-eyebrow px-4 py-3 text-right text-slate-400"
-            >{m.transactions_col_amount()}</th
-          >
-          {#if onedit || ondelete}
-            <th scope="col" class="px-4 py-3"></th>
-          {/if}
+          <th scope="col" aria-sort={ariaSort("date")} class="px-4 py-3 text-left">
+            <button
+              type="button"
+              class="text-eyebrow inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+              aria-label={sortLabel("date", m.transactions_col_date())}
+              onclick={() => toggleSort("date")}
+            >
+              {m.transactions_col_date()}
+              {@render sortIndicator("date")}
+            </button>
+          </th>
+          <th scope="col" aria-sort={ariaSort("description")} class="px-4 py-3 text-left">
+            <button
+              type="button"
+              class="text-eyebrow inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+              aria-label={sortLabel("description", m.transactions_col_description())}
+              onclick={() => toggleSort("description")}
+            >
+              {m.transactions_col_description()}
+              {@render sortIndicator("description")}
+            </button>
+          </th>
+          <th scope="col" aria-sort={ariaSort("category")} class="px-4 py-3 text-left">
+            <button
+              type="button"
+              class="text-eyebrow inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+              aria-label={sortLabel("category", m.transactions_col_category())}
+              onclick={() => toggleSort("category")}
+            >
+              {m.transactions_col_category()}
+              {@render sortIndicator("category")}
+            </button>
+          </th>
+          <th scope="col" aria-sort={ariaSort("status")} class="px-4 py-3 text-left">
+            <button
+              type="button"
+              class="text-eyebrow inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+              aria-label={sortLabel("status", m.transactions_col_status())}
+              onclick={() => toggleSort("status")}
+            >
+              {m.transactions_col_status()}
+              {@render sortIndicator("status")}
+            </button>
+          </th>
+          <th scope="col" aria-sort={ariaSort("amount")} class="px-4 py-3 text-right">
+            <button
+              type="button"
+              class="text-eyebrow ml-auto inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+              aria-label={sortLabel("amount", m.transactions_col_amount())}
+              onclick={() => toggleSort("amount")}
+            >
+              {m.transactions_col_amount()}
+              {@render sortIndicator("amount")}
+            </button>
+          </th>
         </tr>
       </thead>
       <tbody>
-        {#each transactions as tx (tx.id)}
+        {#each sortedTransactions as tx (tx.id)}
           <tr
             class={cn(
               "border-b border-white/5 transition-colors last:border-0 hover:bg-white/5",
@@ -341,36 +433,6 @@
             >
               {tx.type === "income" ? "+" : "−"}{formatCurrency(tx.amount, tx.currency)}
             </td>
-            {#if onedit || ondelete}
-              <td class="px-4 py-3 text-right">
-                <div class="flex items-center justify-end gap-1">
-                  {#if onedit}
-                    <button
-                      onclick={(e) => {
-                        e.stopPropagation();
-                        onedit(tx);
-                      }}
-                      class="rounded p-1.5 text-slate-500 transition-colors hover:text-slate-200"
-                      aria-label={m.common_edit()}
-                    >
-                      <Pencil size={14} strokeWidth={1.8} />
-                    </button>
-                  {/if}
-                  {#if ondelete}
-                    <button
-                      onclick={(e) => {
-                        e.stopPropagation();
-                        ondelete(tx.id);
-                      }}
-                      class="rounded p-1.5 text-slate-500 transition-colors hover:text-rose-300"
-                      aria-label={m.common_delete()}
-                    >
-                      <Trash2 size={14} strokeWidth={1.8} />
-                    </button>
-                  {/if}
-                </div>
-              </td>
-            {/if}
           </tr>
         {/each}
       </tbody>
