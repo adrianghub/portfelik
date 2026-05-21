@@ -2,6 +2,9 @@
   import { supabase } from "$lib/supabase";
   import { goto } from "$app/navigation";
   import * as m from "$lib/paraglide/messages";
+  import { dailyGreeting } from "$lib/dashboard-daily";
+
+  const greeting = dailyGreeting();
 
   let email = $state("");
   let password = $state("");
@@ -58,13 +61,15 @@
 </svelte:head>
 
 <div class="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4">
+  <p class="mb-3 text-xs font-medium tracking-[0.3em] text-slate-500 uppercase">
+    {m.app_name()}
+  </p>
   <div
     class="relative w-full max-w-sm overflow-hidden rounded-3xl border border-white/5 bg-slate-900/60 p-8 shadow-[0_0_60px_rgba(16,185,129,0.08)] backdrop-blur"
   >
-    <h1 class="text-hero mb-1 font-semibold text-slate-100">
-      {m.login_title()}
+    <h1 class="text-hero mb-6 font-semibold text-slate-100">
+      {greeting}!
     </h1>
-    <p class="mb-6 text-sm text-slate-400">{m.login_description()}</p>
 
     {#if error}
       <div
