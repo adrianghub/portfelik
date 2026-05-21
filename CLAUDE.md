@@ -53,6 +53,7 @@ Phase 12 shipped through U6 + EmptyState sweep + group hardening (2026-05-17). H
 | 5.3 — Cloud grant hotfix: `20260521000002_bank_import_table_grants.sql` restores table-level `SELECT`/`INSERT` for import tables created after the initial global grants; `transaction_import_links` remains SELECT-only / RPC-write-only | ✅ Applied to prod via linked Supabase query 2026-05-21; fixes staging 403/42501 on `bank_accounts` |
 | 5.4 — Date-context navigation hotfix: bank import success + already-imported file panel route to the imported statement month; dashboard balance/income/expense/savings/upcoming links preserve selected period, including exact 7-day `startDate`/`endDate` for week | ✅ Done locally 2026-05-21 — svelte-check 0/0, lint clean, format clean; Vitest blocked by stale local walkthrough bank account unique-index collision until local Supabase reset/cleanup |
 | 5.5 — Transactions table sorting: desktop headers toggle date/description/category/status/amount ordering; default remains date descending; mobile day groups follow the active sort order | ✅ Done locally 2026-05-21 — svelte-check 0/0, lint clean, format clean |
+| Dashboard insight polish — replace vague "Sukcesy miesiąca" shopping-list widget with period-aware finance signals: transaction count, income/expense split, top expense category, and one actionable mission | ✅ Done locally 2026-05-21 — svelte-check 0/0, lint clean, format clean |
 | 6 — Save-as-rule + categorization rules engine + masked LLM suggested_category | ⏳ Backlog |
 
 Mortgage/debt tracking is a follow-on track.
