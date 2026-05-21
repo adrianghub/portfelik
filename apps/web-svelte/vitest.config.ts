@@ -2,11 +2,10 @@ import { existsSync, readFileSync } from "fs";
 import { resolve } from "path";
 import { defineConfig } from "vitest/config";
 
-// Populate process.env from .env.test.example (committed local Supabase
-// demo creds, identical on every machine) and let .env.test override
-// when present (gitignored, per-dev). CI continues to inject vars via
-// $GITHUB_ENV — that path takes precedence over both because each
-// loader skips keys already set.
+// Populate process.env from `.env.test` (gitignored, per-dev) and fall
+// back to `.env.test.example` for non-secret defaults. CI continues to
+// inject vars via $GITHUB_ENV — that path takes precedence over both
+// because each loader skips keys already set.
 function loadEnvFile(path: string): void {
   if (!existsSync(path)) return;
   for (const line of readFileSync(path, "utf-8").split("\n")) {

@@ -7,9 +7,8 @@ const isCI = !!(
 ).process?.env?.CI;
 const port = isCI ? 4173 : 5173;
 
-// Fake but JWT-shaped anon key — real value not needed since all calls are mocked
-const FAKE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiJ9.fake';
+// Fake anon key — real value not needed since all calls are mocked.
+const FAKE_ANON_KEY = 'test-anon-key';
 
 export default defineConfig({
   testDir: './e2e/tests',

@@ -937,11 +937,8 @@ git commit -m "feat(transactions): bulk delete — checkbox selection + floating
 
 **Files:** `apps/web-svelte/package.json`, `apps/web-svelte/playwright.config.ts`, `apps/web-svelte/e2e/global-setup.ts`, `apps/web-svelte/e2e/helpers/session.ts`, `apps/web-svelte/.gitignore`
 
-Local Supabase default keys (same for every `supabase start` installation):
-- **Anon key:** `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRFA0NiK7W9oL8kT-UCHxflKRe4VXN-tS0MqJpSaYwU`
-- **Service role key:** `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hj04zWl196z2-SbVE`
-
-These are not secrets — they're Supabase's published demo keys for local dev.
+Local Supabase default keys are available from `supabase status -o env` after
+`supabase start`. Do not paste JWT literals into tracked docs or examples.
 
 - [ ] **Step 9.1: Install @playwright/test**
 
@@ -975,8 +972,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 const BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:4173';
 const SUPABASE_URL = process.env.E2E_SUPABASE_URL ?? 'http://127.0.0.1:54321';
-const SUPABASE_ANON = process.env.E2E_SUPABASE_ANON_KEY ??
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRFA0NiK7W9oL8kT-UCHxflKRe4VXN-tS0MqJpSaYwU';
+const SUPABASE_ANON = process.env.E2E_SUPABASE_ANON_KEY ?? 'test-anon-key';
 
 export default defineConfig({
   testDir: './e2e',
@@ -1021,10 +1017,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SUPABASE_URL = process.env.E2E_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const SERVICE_ROLE =
   process.env.E2E_SUPABASE_SERVICE_ROLE ??
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hj04zWl196z2-SbVE';
+  'test-service-role-key';
 const ANON_KEY =
   process.env.E2E_SUPABASE_ANON_KEY ??
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRFA0NiK7W9oL8kT-UCHxflKRe4VXN-tS0MqJpSaYwU';
+  'test-anon-key';
 const E2E_EMAIL = 'e2e@portfelik.test';
 const E2E_PASS = 'e2eTestPass123!';
 const BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:4173';
@@ -1331,10 +1327,10 @@ Open `.github/workflows/cloudflare-deploy.yml`. Add the following job after the 
       - name: Run Playwright tests
         working-directory: apps/web-svelte
         env:
-          # Local Supabase always uses these demo keys
+          # Fill these from `supabase status -o env` in real local runs.
           E2E_SUPABASE_URL: http://127.0.0.1:54321
-          E2E_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRFA0NiK7W9oL8kT-UCHxflKRe4VXN-tS0MqJpSaYwU
-          E2E_SUPABASE_SERVICE_ROLE: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hj04zWl196z2-SbVE
+          E2E_SUPABASE_ANON_KEY: <local anon key>
+          E2E_SUPABASE_SERVICE_ROLE: <local service role key>
           E2E_BASE_URL: http://localhost:4173
         run: pnpm test:e2e
 

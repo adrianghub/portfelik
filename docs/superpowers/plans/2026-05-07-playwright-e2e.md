@@ -68,9 +68,8 @@ import { defineConfig, devices } from '@playwright/test';
 const isCI = !!process.env.CI;
 const port = isCI ? 4173 : 5173;
 
-// Fake but JWT-shaped anon key — real value not needed since all calls are mocked
-const FAKE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiJ9.fake';
+// Fake anon key — real value not needed since all calls are mocked.
+const FAKE_ANON_KEY = 'test-anon-key';
 
 export default defineConfig({
   testDir: './e2e',
@@ -790,7 +789,7 @@ In `.github/workflows/ci.yml`, add this job after the `ci` job definition:
         working-directory: apps/web-svelte
         env:
           PUBLIC_SUPABASE_URL: https://emqzcygfwcvbmhxhfkcc.supabase.co
-          PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiJ9.fake
+          PUBLIC_SUPABASE_ANON_KEY: test-anon-key
           PUBLIC_VAPID_KEY: BHKoiccZwq3Y5Qw5dmFxVLJIA7w9zcSZkchPKWk-vxBeR421yieZW7gGxuluBBa6sRmpIsFXRSuFyRarLcdvqT4
         run: pnpm build
 

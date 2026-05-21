@@ -8,7 +8,7 @@ Apply to every task regardless of phase.
 1. **Sanity check** — `pnpm exec svelte-check --tsconfig ./tsconfig.json` (from `apps/web-svelte/`). 0 errors, 0 warnings.
 2. **Lint** — `pnpm lint` (from `apps/web-svelte/`). 0 errors.
 3. **Format** — `pnpm format:check`; if fails run `pnpm format` then re-check.
-4. **Security** — `grep -rE "(eyJ[a-zA-Z0-9_-]{20,}|sb_secret_|PRIVATE|password\s*=)" <changed files>`. Flag anything before proceeding. **Allowlist:** `apps/web-svelte/.env.test.example` intentionally carries public Supabase local-demo JWTs (identical on every `supabase start` install — documented in the Supabase CLI source). Real cloud creds belong in `apps/web-svelte/.env.cloud.local` (gitignored).
+4. **Security** — `grep -rE "(eyJ[a-zA-Z0-9_-]{20,}|sb_secret_|PRIVATE|password\s*=)" <changed files>`. Flag anything before proceeding. Real cloud creds belong in `apps/web-svelte/.env.cloud.local` (gitignored). Local RLS JWTs belong in `apps/web-svelte/.env.test` (gitignored), never in `.env.test.example`.
 5. **Schema validation** — new tables: RLS enabled? Migrations: idempotent naming?
 
 ### Before finalising
@@ -37,7 +37,7 @@ Phase 12 shipped through U6 + EmptyState sweep + group hardening (2026-05-17). H
 - Group hardening (`20260516000000` → `20260517000003`): `transactions.group_id` opt-in with explicit assignment, both `transactions` and `shopping_lists` lock `user_id` immutable, `group_id` reassign owner-only via trigger, `disband_group` raises when group has items, INSERT policies enforce member-only group assignment.
 - `attach_shopping_list_to_transaction` RPC connects existing tx to a list with sharing-scope match + ≥1 item guard.
 - RLS regression suite 52/52 green (added 7 group/list rules + tx user_id immutability tests).
-- Vitest auto-loads `.env.test.example` (committed local defaults) — `pnpm test:rls` works without inline env.
+- Vitest auto-loads `.env.test` (gitignored local RLS keys) plus `.env.test.example` (non-secret defaults). Copy the example, then fill JWT keys from `supabase status -o env`.
 
 **Bank CSV import V1** — progress sub-table:
 
