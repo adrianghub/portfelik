@@ -1,7 +1,7 @@
 # Bank CSV Import — Design Spec (V1)
 
 **Date:** 2026-05-20
-**Status:** Approved, in implementation
+**Status:** Shipped V1 (Steps 1–5.2) — 2026-05-21. See "What changed vs spec" at end of doc.
 **Plan:** `~/.claude/plans/i-ve-noticed-write-in-wiggly-fountain.md`
 
 ## Goal
@@ -51,8 +51,10 @@ Four layers, each with its own commit set + sanity gate.
                                   ▼
 ┌──────────────────────────────────────────────────────────────────────┐
 │ 4. Preview-first UI  (/transactions/import wizard)                   │
-│    upload → detect → account → preview → review → commit → summary   │
-│    Save-as-rule on review step. Probable-dup warnings.               │
+│    upload → auto-detect (findOrCreateActiveAccount) → review →       │
+│    commit → summary  (upfront bank-kind picker dropped in 5.2)       │
+│    Probable-dup warnings via preview_fingerprint_warnings RPC.       │
+│    Save-as-rule deferred to Step 6.                                  │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -165,13 +167,27 @@ No client-side DELETE on bank-import tables. `bank_accounts.archived_at` replace
 
 Each step ends with svelte-check / lint / format clean + targeted test suite green:
 
-1. **Spec doc** (this file) — review pass.
-2. **Parsers** — `pnpm test:rls` (after vitest include extension to `tests/import/**`). All parser cases on real anonymized fixtures.
-3. **Schema + RLS** — 52 existing RLS tests + ~25 new = ~77 pass locally. Migration applies to prod via MCP cleanly.
-4. **Service + commit RPC** — RPC contract specs (rows_pending guard, race-safe dup handling, kind-mismatch reject).
-5. **Wizard UI** — manual walkthrough on local stack with seeded fixtures.
-6. **e2e + docs** — mocked Playwright through full flow, including dedupe override + save-as-rule. Docs sweep across `CLAUDE.md`, `AGENTS.md`, `docs/architecture/database.md`.
+1. ✅ **Spec doc** (this file) — review pass.
+2. ✅ **Parsers** — `pnpm test:rls` (after vitest include extension to `tests/import/**`). All parser cases on real anonymized fixtures. (`c988707`, `8b40da2`)
+3. ✅ **Schema + RLS** — 52 existing RLS tests + new bank-import tests green locally. Migration applied to prod via MCP cleanly. (`91fc886`)
+4. ✅ **Service + commit RPC** — RPC contract specs (rows_pending guard, race-safe dup handling, kind-mismatch reject). 13 RPC tests. (`f7d1b47`)
+5. ✅ **Wizard UI** — manual walkthrough on local stack against real ING fixture; F1–F4 review-findings landed in 5.1; 5.2 polish pass shipped. (`d175157`, `daff3a1`)
+6. ⏳ **e2e + docs** — mocked Playwright through full flow (deferred to bank-import stabilization bundle). Docs sweep across `CLAUDE.md` + `docs/architecture/database.md` — this commit.
 
 ## Out of scope, logged
 
 See plan file's "Out of scope" section. Mortgage/debt tracking is the most likely follow-on consumer (`external_transaction_id` + `bank_account_id` make matching bank-reported debt payments straightforward).
+
+## What changed vs spec (post-ship deltas, 2026-05-21)
+
+The original architecture/dedupe/privacy sections above describe the shipped system accurately. UX-layer deltas observed during Steps 5.1 + 5.2 polish:
+
+- **Wizard collapsed to 3-step pill** (`upload / review / done`). The original `upload → detect → account → preview → review → commit → summary` flow exposed `detect` and `account` as separate user-visible steps; final UI auto-detects from headers and calls `findOrCreateActiveAccount(kind)` silently. The upfront bank-kind picker was dropped.
+- **Counterparty became the primary description line**, bank title secondary — closer to how real bank statements read.
+- **Auto-flip decision on category set/clear** — assigning a category flips the row to `import`; clearing it reverts to `pending`. UX nicety not in original spec.
+- **`preview_fingerprint_warnings` RPC added in 5.1** — original spec returned fingerprint warnings only via `commit_import_session`'s response, but the review UI needed warnings *before* commit so users can toggle "Import anyway" vs "Mark as duplicate". The shape matches the commit RPC's `fingerprint_warnings` exactly.
+- **F1 "already imported" re-upload panel** — `findExistingSession()` short-circuits when the same file hash is already committed; the wizard renders a dedicated "already imported" panel instead of dropping the user mid-review.
+- **F3 commit-time dup audit row** — external-id-first lookup; on hard-dedupe hit, the import row is marked `decision='duplicate'` + `duplicate_of=<winner>`.
+- **F4 Tailwind opacity fix** — replaced invalid `-N` directives with `/10`, `/40`, `/5` classes throughout the wizard.
+- **Sticky thead deferred to Step 6 polish pass** — clashed with the outer sticky warnings+bulk bar in 5.2; resolution lands with the review-table polish bundle alongside Playwright e2e.
+- **Save-as-rule deferred to Step 6** (rules UI) — the rule storage tables shipped in `20260520000000_bank_import` but no UI yet writes them.
