@@ -23,10 +23,17 @@
 
   interface Props {
     session: ImportSession;
-    onCommitted: (result: CommitResult) => void;
+    onCommitted: (result: CommitResult, dateRange?: ImportedDateRange) => void;
     onCancel: () => Promise<void> | void;
   }
   let { session, onCommitted, onCancel }: Props = $props();
+
+  interface ImportedDateRange {
+    startYear: number;
+    startMonth: number;
+    endYear: number;
+    endMonth: number;
+  }
 
   const LARGE_THRESHOLD = 500;
   const queryClient = useQueryClient();
@@ -204,6 +211,22 @@
     filter = "all";
   }
 
+  function getImportedDateRange(): ImportedDateRange | undefined {
+    const dates = rows
+      .filter((r) => r.decision === "import" || r.decision === "duplicate")
+      .map((r) => r.posted_at)
+      .sort();
+    const first = dates[0];
+    const last = dates.at(-1);
+    if (!first || !last) return undefined;
+
+    const [startYear, startMonth] = first.split("-").map(Number);
+    const [endYear, endMonth] = last.split("-").map(Number);
+    if (!startYear || !startMonth || !endYear || !endMonth) return undefined;
+
+    return { startYear, startMonth, endYear, endMonth };
+  }
+
   // Row refs for arrow-key focus management on desktop table.
   let rowRefs = $state<Record<string, HTMLTableRowElement | null>>({});
 
@@ -231,7 +254,7 @@
   const commitMut = createMutation(() => ({
     mutationFn: () => commitImportSession(session.id),
     onSuccess: (result) => {
-      onCommitted(result);
+      onCommitted(result, getImportedDateRange());
     },
     onError: (err: { message: string; details?: string | null }) => {
       const msg = err.message ?? "";

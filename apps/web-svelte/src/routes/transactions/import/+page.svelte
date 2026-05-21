@@ -17,10 +17,17 @@
   // by the user. State machine: upload → review → done.
 
   type Step = "upload" | "review" | "done";
+  interface ImportedDateRange {
+    startYear: number;
+    startMonth: number;
+    endYear: number;
+    endMonth: number;
+  }
 
   let step = $state<Step>("upload");
   let activeSession = $state<ImportSession | null>(null);
   let commitResult = $state<CommitResult | null>(null);
+  let committedDateRange = $state<ImportedDateRange | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -29,8 +36,9 @@
     step = "review";
   }
 
-  function handleCommitted(result: CommitResult): void {
+  function handleCommitted(result: CommitResult, dateRange?: ImportedDateRange): void {
     commitResult = result;
+    committedDateRange = dateRange ?? null;
     step = "done";
     queryClient.invalidateQueries({ queryKey: ["transactions"] });
     queryClient.invalidateQueries({ queryKey: ["summary"] });
@@ -53,11 +61,23 @@
   function resetToUpload(): void {
     activeSession = null;
     commitResult = null;
+    committedDateRange = null;
     step = "upload";
   }
 
   function backToTransactions(): void {
-    void goto("/transactions");
+    if (!committedDateRange) {
+      void goto("/transactions");
+      return;
+    }
+
+    const params = new URLSearchParams({
+      startYear: String(committedDateRange.startYear),
+      startMonth: String(committedDateRange.startMonth),
+      endYear: String(committedDateRange.endYear),
+      endMonth: String(committedDateRange.endMonth),
+    });
+    void goto(`/transactions?${params.toString()}`);
   }
 </script>
 

@@ -6,6 +6,7 @@
   import { normalize } from "$lib/import/normalize";
   import {
     cancelImportSession,
+    fetchSessionRows,
     findExistingSession,
     findOrCreateActiveAccount,
     insertPreviewRows,
@@ -108,6 +109,41 @@
     }
   }
 
+  async function viewCommittedTransactions(): Promise<void> {
+    if (!committedConflict) {
+      await goto("/transactions");
+      return;
+    }
+
+    try {
+      const rows = await fetchSessionRows(committedConflict.id);
+      const dates = rows.map((r) => r.posted_at).sort();
+      const first = dates[0];
+      const last = dates.at(-1);
+      if (!first || !last) {
+        await goto("/transactions");
+        return;
+      }
+
+      const [startYear, startMonth] = first.split("-").map(Number);
+      const [endYear, endMonth] = last.split("-").map(Number);
+      if (!startYear || !startMonth || !endYear || !endMonth) {
+        await goto("/transactions");
+        return;
+      }
+
+      const params = new URLSearchParams({
+        startYear: String(startYear),
+        startMonth: String(startMonth),
+        endYear: String(endYear),
+        endMonth: String(endMonth),
+      });
+      await goto(`/transactions?${params.toString()}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    }
+  }
+
   function onSelect(e: Event): void {
     const input = e.target as HTMLInputElement;
     const file = input.files?.[0];
@@ -177,7 +213,7 @@
         })}
       </p>
       <div class="flex flex-wrap gap-2">
-        <Button variant="ghost" size="sm" onclick={() => goto("/transactions")}>
+        <Button variant="ghost" size="sm" onclick={viewCommittedTransactions}>
           {m.bank_upload_view_transactions()}
         </Button>
         <Button variant="ghost" size="sm" onclick={cancelCommittedConflict}>

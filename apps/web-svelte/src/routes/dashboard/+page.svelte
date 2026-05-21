@@ -19,6 +19,43 @@
   type Period = "week" | "month" | "year";
   let period = $state<Period>("month");
 
+  function toIsoDate(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function transactionsHref(extra: Record<string, string> = {}): string {
+    const now = new Date();
+    const params = new URLSearchParams();
+
+    if (period === "week") {
+      const start = new Date(now);
+      start.setDate(start.getDate() - 6);
+      params.set("startDate", toIsoDate(start));
+      params.set("endDate", toIsoDate(now));
+    } else if (period === "year") {
+      const year = now.getFullYear();
+      params.set("startYear", String(year));
+      params.set("startMonth", "1");
+      params.set("endYear", String(year));
+      params.set("endMonth", "12");
+    } else {
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1;
+      params.set("startYear", String(year));
+      params.set("startMonth", String(month));
+      params.set("endYear", String(year));
+      params.set("endMonth", String(month));
+    }
+
+    for (const [key, value] of Object.entries(extra)) {
+      params.set(key, value);
+    }
+    return `/transactions?${params.toString()}`;
+  }
+
   let userId = $state<string | null>(null);
   onMount(async () => {
     const { data } = await supabase.auth.getSession();
@@ -35,11 +72,12 @@
     const now = new Date();
     if (period === "week") {
       const end = new Date(now);
+      end.setDate(end.getDate() + 1);
       const start = new Date(now);
       start.setDate(start.getDate() - 6);
       return {
-        start: start.toISOString().slice(0, 10),
-        end: end.toISOString().slice(0, 10),
+        start: toIsoDate(start),
+        end: toIsoDate(end),
         buckets: 7,
       };
     }
@@ -67,7 +105,7 @@
     const exp = new Array<number>(bounds.buckets).fill(0);
     if (!txQuery.data) return { income: inc, expense: exp };
     const startMs = new Date(bounds.start).getTime();
-    const endMs = new Date(bounds.end).getTime() + 86_400_000 - 1;
+    const endMs = new Date(bounds.end).getTime() - 1;
     for (const tx of txQuery.data) {
       const t = new Date(tx.date).getTime();
       if (t < startMs || t > endMs) continue;
@@ -141,7 +179,7 @@
   );
 
   function openTransaction(tx: TransactionWithCategory) {
-    goto(`/transactions?status=${tx.status}`);
+    goto(transactionsHref({ status: tx.status }));
   }
 
   const periodChips: { value: Period; label: string }[] = $derived([
@@ -204,7 +242,7 @@
 
   <!-- Hero balance card -->
   <a
-    href="/transactions"
+    href={transactionsHref()}
     class="relative block overflow-hidden rounded-3xl border border-white/5 bg-slate-900/60 p-6 backdrop-blur transition-colors hover:bg-white/5"
   >
     <span class="glow-disc absolute -top-12 -right-12 h-40 w-40" aria-hidden="true"></span>
@@ -229,7 +267,7 @@
   <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
     <!-- Income -->
     <a
-      href="/transactions?type=income"
+      href={transactionsHref({ type: "income" })}
       class="relative block overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
     >
       <p class="text-eyebrow text-slate-400">{m.summary_income()}</p>
@@ -261,7 +299,7 @@
 
     <!-- Expenses -->
     <a
-      href="/transactions?type=expense"
+      href={transactionsHref({ type: "expense" })}
       class="relative block overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
     >
       <p class="text-eyebrow text-slate-400">{m.summary_expenses()}</p>
@@ -293,7 +331,7 @@
 
     <!-- Savings ratio -->
     <a
-      href="/transactions"
+      href={transactionsHref()}
       class="relative col-span-2 block overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none sm:col-span-1"
     >
       <p class="text-eyebrow text-slate-400">{m.summary_savings_ratio()}</p>
@@ -361,7 +399,7 @@
       <p class="text-eyebrow text-slate-400">{m.dashboard_upcoming_title()}</p>
       {#if upcomingTxs.length > 0}
         <a
-          href="/transactions?status=upcoming,overdue"
+          href={transactionsHref({ status: "upcoming,overdue" })}
           class="text-xs font-medium text-emerald-300 hover:text-emerald-200"
         >
           {m.dashboard_upcoming_see_all()}
