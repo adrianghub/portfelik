@@ -411,10 +411,6 @@
       {emptyLabel}
       bind:selectedIds
       onrowclick={(tx) => (sheetTx = tx)}
-      onedit={(tx: TransactionWithCategory) => {
-        editTarget = tx;
-        dialogOpen = true;
-      }}
       ondelete={(id: string) => (deleteTargetId = id)}
     />
   {/if}
