@@ -148,7 +148,12 @@
         duplicateOf: effective.duplicate_of === undefined ? undefined : effective.duplicate_of,
       });
     } catch (e) {
-      if (previous) queryClient.setQueryData(rowsKey, previous);
+      const original = previous?.find((r) => r.id === rowId);
+      if (original) {
+        queryClient.setQueryData<ImportRow[]>(rowsKey, (curr) =>
+          (curr ?? []).map((r) => (r.id === rowId ? original : r))
+        );
+      }
       toast.error(e instanceof Error ? e.message : String(e));
     }
   }
