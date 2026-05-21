@@ -216,6 +216,50 @@ describe("RLS: shopping_lists", () => {
       expect(result.error).toBeNull();
     });
 
+    it("ATTACH: rejects when transaction is income", async () => {
+      // Seed a private income tx and a fresh private list with one item — both
+      // owned by A so the sharing-scope check passes and the type guard fires.
+      const incomeTx = await ctx.admin
+        .from("transactions")
+        .insert({
+          user_id: ctx.userA.userId,
+          category_id: categoryId,
+          description: `${SENTINEL} tx-income`,
+          amount: 500,
+          type: "income",
+          date: "2026-05-22",
+        })
+        .select("id")
+        .single();
+      if (incomeTx.error) throw incomeTx.error;
+
+      const list = await ctx.admin
+        .from("shopping_lists")
+        .insert({
+          user_id: ctx.userA.userId,
+          name: `${SENTINEL} list-for-income-guard`,
+        })
+        .select("id")
+        .single();
+      if (list.error) throw list.error;
+
+      const item = await ctx.admin
+        .from("shopping_list_items")
+        .insert({
+          shopping_list_id: list.data.id,
+          name: `${SENTINEL} item`,
+          position: 1,
+        });
+      if (item.error) throw item.error;
+
+      const result = await ctx.userA.client.rpc("attach_shopping_list_to_transaction", {
+        p_list_id: list.data.id,
+        p_tx_id: incomeTx.data.id,
+      });
+      expect(result.error).not.toBeNull();
+      expect(result.error?.message ?? "").toMatch(/transaction_not_expense/);
+    });
+
     it("COMPLETE: rejects an empty list", async () => {
       // Create a fresh empty list and try to complete it.
       const empty = await ctx.admin

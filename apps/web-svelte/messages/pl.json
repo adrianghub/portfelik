@@ -327,6 +327,7 @@
   "toast_shopping_list_connected": "Lista połączona z transakcją",
   "shopping_list_requires_items": "Dodaj choć jeden produkt, aby zakończyć lub połączyć listę.",
   "toast_sharing_scope_mismatch": "Lista i transakcja muszą należeć do tej samej grupy.",
+  "toast_transaction_not_expense": "Do listy zakupów można połączyć tylko transakcję typu wydatek.",
   "toast_list_empty": "Dodaj choć jeden produkt do listy.",
   "transactions_empty_hint": "Dodaj swoją pierwszą transakcję, aby zacząć śledzić wydatki.",
   "shopping_lists_empty_hint": "Utwórz pierwszą listę zakupów. To świetny sposób, aby zaplanować nadchodzące wydatki i nie zapomnieć o niczym ważnym podczas zakupów!",
