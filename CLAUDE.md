@@ -30,14 +30,29 @@ Apply to every task regardless of phase.
 ## Project Status
 
 **Portfelik** — personal-finance PWA. Migrating React 19 + Firebase → SvelteKit + Supabase. Full plan: `MIGRATION_PLAN.md`.
-**Immediate next step:** Phase 12 shipped through U6 + EmptyState sweep + group hardening (2026-05-17). Highlights:
+**Immediate next step:** Bank CSV import V1 — Steps 5 + 5.1 + 5.2 pushed to `dev` 2026-05-21 (upload-first wizard at `/transactions/import` + entry-point link on `/transactions`; recent commits `f7d1b47`, `daff3a1`, `d175157`, `c3f9fc8`). **All three migrations applied to prod via MCP** (`20260520000000_bank_import.sql` + `20260521000000_commit_import_session.sql` + `20260521000001_preview_fingerprint_warnings.sql`). Before Step 6 (rules UI): land stabilization bundle — mocked Playwright e2e for `/transactions/import` + review-table polish (mobile row cards, bulk category, table filters for pending/dup/uncat/income/expense, keyboard workflow, sticky thead inside single scroll container).
+
+Phase 12 shipped through U6 + EmptyState sweep + group hardening (2026-05-17). Highlights:
 - Dark-neon UX uplift U1–U6: pill bottom nav, avatar menu, dashboard hero + sparklines + period chips, daily greeting + money quote, drill-down navigation, type filter, ConfirmDialog scale/fade, `prefers-reduced-motion` honored, EmptyState adopted across 6 screens.
 - Group hardening (`20260516000000` → `20260517000003`): `transactions.group_id` opt-in with explicit assignment, both `transactions` and `shopping_lists` lock `user_id` immutable, `group_id` reassign owner-only via trigger, `disband_group` raises when group has items, INSERT policies enforce member-only group assignment.
 - `attach_shopping_list_to_transaction` RPC connects existing tx to a list with sharing-scope match + ≥1 item guard.
 - RLS regression suite 52/52 green (added 7 group/list rules + tx user_id immutability tests).
 - Vitest auto-loads `.env.test.example` (committed local defaults) — `pnpm test:rls` works without inline env.
 
-**Next major candidate: bank CSV import** — separate spec covering adapters per bank, preview, dedupe, validation, mapping, import-session table, masked LLM categorization. Mortgage/debt tracking is a follow-on track.
+**Bank CSV import V1** — progress sub-table:
+
+| Step | Status |
+|---|---|
+| 1 — Design spec | ✅ Done (`7f41b40`) |
+| 2 — Pure CSV parsers + mBank/ING adapters + tests | ✅ Done (`c988707`, `8b40da2`) |
+| 3 — Schema + RLS (5 tables, 0 cols on tx) + RLS tests | ✅ Done (`91fc886`) — applied to prod via MCP |
+| 4 — `commit_import_session` RPC + service layer + 13 RPC tests | ✅ Done 2026-05-21 — migration `20260521000000` applied to prod |
+| 5 — UI wizard at `/transactions/import` (BankAccountPicker, FileUpload, ReviewTable, CommitSummary) + entry-point link on `/transactions`; legacy Portfelik-CSV import removed (handleImport / parseCSVRow / bulkCreateTransactions / csv_import* i18n keys deleted — no rollback path, bank wizard is the sole import) | ✅ Done locally 2026-05-21 — svelte-check 0/0, lint clean, 128/128 vitest |
+| 5.1 — Review findings: F1 re-upload of committed file (`findExistingSession`, "already imported" panel), F2 pre-commit `preview_fingerprint_warnings` RPC + per-row badge + bulk "Skip probable duplicates", F3 commit-time dup updates audit row (`decision='duplicate'`, `duplicate_of=<winner>`) with external_id-first lookup, F4 Tailwind opacity classes (`/10`, `/40`, `/5`) replacing invalid `-N` directives | ✅ Done 2026-05-21 — migration `20260521000001` applied to prod |
+| 5.2 — Walkthrough polish: drop upfront bank-kind picker (auto-detect + `findOrCreateActiveAccount`), drop subtitle, 3-step pill (upload/review/done), counterparty as primary description line + bank title as secondary, auto-flip decision on category set/clear, sticky top warnings+bulk bar + sticky bottom commit bar, safer committed-session cancel wording with "to nie cofnie już dodanych transakcji" hint, redundant decision Badge removed (sticky thead deferred to next polish pass — clashed with outer sticky bar) | ✅ Done on `dev` 2026-05-21 — end-to-end browser walkthrough verified F1/F2/F3/F4 + counterparty + auto-decision against real ING fixture |
+| 6 — Save-as-rule + categorization rules engine + masked LLM suggested_category | ⏳ Backlog |
+
+Mortgage/debt tracking is a follow-on track.
 
 **Remaining backlog:** Dexie offline outbox (legacy parity, last-write-wins decided), axe-core a11y sweep (deferred U7), staging DB separation.
 

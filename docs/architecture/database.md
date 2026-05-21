@@ -15,18 +15,30 @@ erDiagram
     auth_users ||--o{ shopping_lists : owns
     auth_users ||--o{ notifications : receives
     auth_users ||--o{ push_subscriptions : has
+    auth_users ||--o{ bank_accounts : owns
+    auth_users ||--o{ categorization_rules : owns
 
     user_groups ||--o{ group_members : has
     user_groups ||--o{ group_invitations : has
     user_groups ||--o{ shopping_lists : "scopes (nullable)"
+    user_groups ||--o{ transaction_import_rows : "scopes review (nullable)"
 
     categories ||--o{ transactions : tags
     categories ||--o{ shopping_lists : "tags (nullable)"
+    categories ||--o{ transaction_import_rows : "suggests/selects (nullable)"
+    categories ||--o{ categorization_rules : tags
 
     shopping_lists ||--o{ shopping_list_items : has
     shopping_lists ||--o| transactions : "links via shopping_list_id"
 
     transactions ||--o{ transactions : "recurring_template_id (self-ref)"
+    transactions ||--o| transaction_import_links : "provenance (owner-only)"
+
+    bank_accounts ||--o{ transaction_import_sessions : has
+    bank_accounts ||--o{ transaction_import_links : tagged
+    transaction_import_sessions ||--o{ transaction_import_rows : has
+    transaction_import_sessions ||--o{ transaction_import_links : produced
+    transaction_import_rows ||--o| transaction_import_links : commits_into
 
     auth_users {
         uuid id PK
@@ -132,6 +144,75 @@ erDiagram
         timestamptz created_at
         timestamptz last_used_at
     }
+    bank_accounts {
+        uuid id PK
+        uuid user_id FK
+        text kind
+        text label
+        char currency
+        timestamptz archived_at
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    transaction_import_sessions {
+        uuid id PK
+        uuid user_id FK
+        uuid bank_account_id FK
+        text source_filename
+        text source_file_hash
+        text detected_kind
+        text status
+        int rows_total
+        int rows_committed
+        int rows_skipped
+        int rows_duplicate
+        timestamptz created_at
+        timestamptz committed_at
+    }
+    transaction_import_rows {
+        uuid id PK
+        uuid session_id FK
+        int row_index
+        date posted_at
+        numeric amount
+        transaction_type type
+        text description
+        text counterparty
+        char currency
+        text external_id
+        text raw_row_hash
+        uuid suggested_category_id FK_nullable
+        uuid selected_category_id FK_nullable
+        uuid selected_group_id FK_nullable
+        text edited_description
+        text decision
+        uuid duplicate_of FK_nullable
+        uuid transaction_id FK_nullable
+        timestamptz created_at
+    }
+    transaction_import_links {
+        uuid transaction_id PK_FK
+        uuid user_id FK
+        uuid bank_account_id FK
+        uuid session_id FK
+        uuid row_id FK
+        text external_transaction_id
+        text source_file_hash
+        int source_row_index
+        text fingerprint
+        timestamptz created_at
+    }
+    categorization_rules {
+        uuid id PK
+        uuid user_id FK
+        categorization_rule_kind kind
+        text match_description
+        text match_counterparty
+        transaction_type match_type
+        uuid category_id FK
+        int priority
+        timestamptz created_at
+    }
 ```
 
 ## Enums
@@ -143,6 +224,7 @@ erDiagram
 | `transaction_status` | `draft`, `upcoming`, `overdue`, `paid` |
 | `shopping_list_status` | `active`, `completed` |
 | `invitation_status` | `pending`, `accepted`, `rejected`, `cancelled` |
+| `categorization_rule_kind` | `exact`, `contains`, `type`, `composite` |
 
 ## Tables
 
@@ -228,6 +310,57 @@ VAPID web-push subscriptions, one row per `(user_id, endpoint)` pair. `p256dh` a
 - **PK**: `(user_id, endpoint)`. **FK**: `user_id` (CASCADE).
 - **RLS**: users manage their own rows.
 - Stale rows are pruned by `send-push` when the upstream returns 404 or 410.
+
+### `bank_accounts`
+
+Owner-only registry of bank sources for CSV import. **Soft-archive only** — no DELETE granted to clients; `archived_at` retires an account while preserving dedupe + audit chains. One active account per `(user_id, kind)` enforced by partial unique index. `user_id` is column-level immutable (excluded from UPDATE grant).
+
+- **PK**: `id`. **FK**: `user_id` → `auth.users.id` (CASCADE).
+- **CHECK**: `kind in ('mbank', 'ing')`; `currency` uppercase 3-letter.
+- **Index**: `bank_accounts_user_kind_active_idx` unique on `(user_id, kind) WHERE archived_at IS NULL`.
+- **RLS read/insert/update**: own. **DELETE**: not granted.
+- **Column GRANTs (UPDATE)**: `label`, `currency`, `archived_at`, `updated_at` only.
+
+### `transaction_import_sessions`
+
+One row per uploaded file. Status `preview` → `committed | cancelled`. Cancelled sessions don't block re-uploading the same file (partial unique index).
+
+- **PK**: `id`. **FKs**: `user_id` (CASCADE), `bank_account_id` (RESTRICT).
+- **CHECK**: `status in ('preview', 'committed', 'cancelled')`.
+- **Index**: `transaction_import_sessions_active_file_idx` unique on `(user_id, bank_account_id, source_file_hash) WHERE status <> 'cancelled'`.
+- **RLS read/insert/update**: own. **DELETE**: not granted.
+- **Column GRANTs (UPDATE)**: `source_filename`, `status`, `rows_total`, `rows_committed`, `rows_skipped`, `rows_duplicate`, `committed_at`.
+
+### `transaction_import_rows`
+
+Per-row preview state inside a session. Decision drives commit behaviour. Client UPDATEs limited to mutable review fields.
+
+- **PK**: `id`. **FKs**: `session_id` (RESTRICT), `suggested_category_id` (SET NULL), `selected_category_id` (SET NULL), `selected_group_id` (SET NULL), `duplicate_of` → `transactions(id)` (SET NULL), `transaction_id` → `transactions(id)` (SET NULL).
+- **CHECK**: `amount > 0`; `decision in ('pending', 'import', 'skip', 'duplicate')`; `currency` uppercase 3-letter.
+- **Constraint**: unique `(session_id, row_index)`.
+- **Index**: `transaction_import_rows_session_idx` on `(session_id)`.
+- **RLS read/insert/update**: own (via parent `transaction_import_sessions`).
+- **Column GRANTs (UPDATE)**: `suggested_category_id`, `selected_category_id`, `selected_group_id`, `edited_description`, `decision`, `duplicate_of`, `transaction_id`.
+
+### `transaction_import_links`
+
+Owner-only provenance for each imported transaction. **RPC-write-only** — INSERT/UPDATE/DELETE revoked from `authenticated`; only `commit_import_session` writes here. SELECT is granted so the review UI can scan fingerprints for probable-duplicate warnings. The shared `transactions` row carries zero bank metadata — this isolation is the privacy spine.
+
+- **PK**: `transaction_id` (1:1 with `transactions`, CASCADE).
+- **FKs**: `user_id` (CASCADE), `bank_account_id` (RESTRICT), `session_id` (RESTRICT), `row_id` (RESTRICT).
+- **Hard dedupe (unique)**: `transaction_import_links_external_idx` on `(user_id, bank_account_id, external_transaction_id) WHERE external_transaction_id IS NOT NULL`; `transaction_import_links_file_row_idx` on `(user_id, bank_account_id, source_file_hash, source_row_index)`.
+- **Soft dedupe (non-unique)**: `transaction_import_links_fingerprint_idx` on `(user_id, fingerprint)` — fingerprint must NOT back a unique index (two legit transactions can share one).
+- **RLS read**: own. **All writes**: revoked from `authenticated`.
+
+### `categorization_rules`
+
+Per-user deterministic categorization rules consumed by the import review step. Four kinds (`exact`, `contains`, `type`, `composite`) with a kind-specific CHECK constraint ensuring the relevant match field is non-null. Evaluated in `priority DESC` order.
+
+- **PK**: `id`. **FKs**: `user_id` (CASCADE), `category_id` → `categories(id)` (CASCADE).
+- **CHECK**: kind-specific match-field presence — `exact`/`contains` require `match_description` or `match_counterparty`; `type` requires `match_type`; `composite` requires both a text match field AND `match_type`.
+- **Index**: `categorization_rules_user_priority_idx` on `(user_id, priority DESC)`.
+- **RLS read/insert/update/delete**: own.
+- **Column GRANTs (UPDATE)**: `kind`, `match_description`, `match_counterparty`, `match_type`, `category_id`, `priority`.
 
 ## RLS strategy
 
@@ -327,6 +460,13 @@ All SECURITY DEFINER (bypass RLS) unless marked SECURITY INVOKER. Defined in `20
 |---|---|---|
 | `delete_account()` | self | Errors if caller still owns any group. |
 
+**Bank import (2)**
+
+| RPC | Auth | Behavior |
+|---|---|---|
+| `commit_import_session(p_session_id)` | session owner | SECURITY DEFINER. Rejects unless `status='preview'` and `rows_pending=0`. Validates ownership/account/category visibility/group membership/type-match. Per-row savepoint catches `unique_violation` from the hard-dedupe indexes and marks the row `duplicate` (with `duplicate_of`) without aborting the loop. Returns jsonb `{inserted, duplicates_preview, duplicates_commit, skipped, fingerprint_warnings:[{row_id, duplicate_of_transaction_id}]}`. Only writer of `transaction_import_links`. |
+| `preview_fingerprint_warnings(p_session_id)` | session owner | SECURITY DEFINER, read-only. Pre-commit scan over the caller's existing `transaction_import_links` returning probable-duplicate warnings for the review UI (shape matches `commit_import_session.fingerprint_warnings`). Fingerprint = `sha256(amount | currency | description | counterparty)`; tx date window ±3 days. |
+
 **Reporting (1 — SECURITY INVOKER)**
 
 | RPC | Behavior |
@@ -369,6 +509,9 @@ DST drift is acknowledged: pg_cron runs on UTC, so the local-Warsaw fire time sh
 20260427000001_add_remove_group_member_rpc        — owner-only member removal
 20260430000000_duplicate_shopping_list_rpc        — duplicate_shopping_list (SECURITY INVOKER)
 20260504000000_admin_trigger_rpc                  — trigger_admin_summary
+20260520000000_bank_import                         — 5 bank-import tables + RLS + categorization_rule_kind enum (privacy spine: 0 cols on transactions)
+20260521000000_commit_import_session               — SECURITY DEFINER commit RPC (race-safe per-row savepoint dedupe)
+20260521000001_preview_fingerprint_warnings       — SECURITY DEFINER pre-commit dup scan
 ```
 
 > **Drift note:** The Supabase `supabase_migrations.schema_migrations` table currently shows only the latest migration (`20260504195407 admin_trigger_rpc`). All earlier migrations were applied before the platform's migration tracking was wired up; the SQL files are the source of truth, not the migrations table. See [audit](./audit-2026-05-09.md).

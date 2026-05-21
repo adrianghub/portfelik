@@ -12,18 +12,17 @@
   import { fetchCategories } from "$lib/services/categories";
   import { fetchUserGroups } from "$lib/services/groups";
   import {
-    bulkCreateTransactions,
     computeSummary,
     deleteTransaction,
     deleteTransactions,
     fetchTransactions,
   } from "$lib/services/transactions";
   import { supabase } from "$lib/supabase";
-  import type { TransactionStatus, TransactionType, TransactionWithCategory } from "$lib/types";
+  import type { TransactionWithCategory } from "$lib/types";
   import { cn, getDateRangeBounds, monthYearLabel } from "$lib/utils";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { onMount } from "svelte";
-  import { Download, Plus, SlidersHorizontal, Trash2, Upload } from "lucide-svelte";
+  import { Download, Landmark, Plus, SlidersHorizontal, Trash2 } from "lucide-svelte";
   import { toast } from "svelte-sonner";
 
   const queryClient = useQueryClient();
@@ -182,29 +181,6 @@
     return val;
   }
 
-  function parseCSVRow(line: string): string[] {
-    const result: string[] = [];
-    let current = "";
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      if (line[i] === '"') {
-        if (inQuotes && line[i + 1] === '"') {
-          current += '"';
-          i++;
-        } else {
-          inQuotes = !inQuotes;
-        }
-      } else if (line[i] === "," && !inQuotes) {
-        result.push(current);
-        current = "";
-      } else {
-        current += line[i];
-      }
-    }
-    result.push(current);
-    return result;
-  }
-
   function handleExport() {
     if (!filteredTxs?.length) return;
     const headers = [
@@ -239,79 +215,6 @@
     a.download = `portfelik-transakcje-${new Date().toISOString().slice(0, 7)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-  }
-
-  let fileInput = $state<HTMLInputElement | null>(null);
-  let importing = $state(false);
-
-  async function handleImport(e: Event) {
-    const file = (e.target as HTMLInputElement).files?.[0];
-    if (!file || !categoriesQuery.data) return;
-    (e.target as HTMLInputElement).value = "";
-
-    importing = true;
-    try {
-      const text = await file.text();
-      const lines = text.split("\n").filter((l) => l.trim());
-      if (lines.length < 2) return;
-
-      const headers = parseCSVRow(lines[0]).map((h) => h.trim().replace(/^\uFEFF/, ""));
-      const catMap = new Map(
-        categoriesQuery.data.map((c) => [`${c.name.toLowerCase()}|${c.type}`, c])
-      );
-      const unknownCategories = new Set<string>();
-      const validRows: Parameters<typeof bulkCreateTransactions>[0] = [];
-
-      for (const line of lines.slice(1)) {
-        const values = parseCSVRow(line);
-        const row: Record<string, string> = {};
-        headers.forEach((h, i) => {
-          row[h] = values[i]?.trim() ?? "";
-        });
-
-        const cat = catMap.get(`${row["category"]?.toLowerCase() ?? ""}|${row["type"]}`);
-        if (!cat) {
-          if (row["category"]) unknownCategories.add(row["category"]);
-          continue;
-        }
-
-        const amount = parseFloat(row["amount"]);
-        if (!row["date"] || !row["description"] || isNaN(amount) || !row["type"]) continue;
-        if (row["type"] !== "income" && row["type"] !== "expense") continue;
-
-        const validStatuses: TransactionStatus[] = ["paid", "draft", "upcoming", "overdue"];
-        const status: TransactionStatus = validStatuses.includes(row["status"] as TransactionStatus)
-          ? (row["status"] as TransactionStatus)
-          : "paid";
-
-        validRows.push({
-          date: row["date"],
-          description: row["description"],
-          amount,
-          type: row["type"] as TransactionType,
-          status,
-          category_id: cat.id,
-          is_recurring: row["is_recurring"] === "true",
-          recurring_day: row["recurring_day"] ? parseInt(row["recurring_day"]) : null,
-        });
-      }
-
-      const imported = validRows.length > 0 ? await bulkCreateTransactions(validRows) : 0;
-
-      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
-
-      if (unknownCategories.size > 0) {
-        toast.success(
-          `Zaimportowano ${imported} transakcji. Nieznane kategorie: ${Array.from(unknownCategories).join(", ")}`
-        );
-      } else {
-        toast.success(`Zaimportowano ${imported} transakcji`);
-      }
-    } catch {
-      toast.error(m.csv_import_error());
-    } finally {
-      importing = false;
-    }
   }
 </script>
 
@@ -353,21 +256,14 @@
         <Download size={14} strokeWidth={1.8} aria-hidden="true" />
         <span class="hidden sm:inline">{m.csv_export()}</span>
       </button>
-      <label
-        class="flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 bg-slate-900/60 px-3.5 py-1.5 text-sm font-medium text-slate-300 backdrop-blur transition-colors focus-within:ring-2 focus-within:ring-emerald-400 hover:bg-white/5"
-        title={m.csv_import()}
+      <a
+        href="/transactions/import"
+        class="flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3.5 py-1.5 text-sm font-medium text-emerald-200 backdrop-blur transition-colors hover:bg-emerald-500/20 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+        title={m.bank_import_entry()}
       >
-        <Upload size={14} strokeWidth={1.8} aria-hidden="true" />
-        <span class="hidden sm:inline">{importing ? m.csv_importing() : m.csv_import()}</span>
-        <input
-          bind:this={fileInput}
-          type="file"
-          accept=".csv"
-          class="sr-only"
-          onchange={handleImport}
-          disabled={importing}
-        />
-      </label>
+        <Landmark size={14} strokeWidth={1.8} aria-hidden="true" />
+        <span class="hidden sm:inline">{m.bank_import_entry()}</span>
+      </a>
       {#if selectedIds.size > 0}
         <button
           onclick={() => (bulkDeleteConfirm = true)}

@@ -7,10 +7,6 @@ import { defineConfig } from "vitest/config";
 // when present (gitignored, per-dev). CI continues to inject vars via
 // $GITHUB_ENV — that path takes precedence over both because each
 // loader skips keys already set.
-//
-// Files are parsed manually rather than via Vite's loadEnv since
-// loadEnv wouldn't pick up .env.test.example (it's not in its known
-// filename list) and dotenv would be a fresh dep.
 function loadEnvFile(path: string): void {
   if (!existsSync(path)) return;
   for (const line of readFileSync(path, "utf-8").split("\n")) {
@@ -26,12 +22,17 @@ loadEnvFile(resolve(cwd, ".env.test"));
 loadEnvFile(resolve(cwd, ".env.test.example"));
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      $lib: resolve(cwd, "src/lib"),
+    },
+  },
   test: {
-    include: ["tests/rls/**/*.spec.ts"],
+    include: ["tests/rls/**/*.spec.ts", "tests/import/**/*.spec.ts"],
     environment: "node",
-    // Spec files share the cached two-user context defined in setup.ts.
-    // Disabling isolation prevents the test runner from re-initializing
-    // setup.ts per file (which would race on auth.admin.createUser).
+    // RLS specs share a cached two-user context defined in tests/rls/setup.ts.
+    // Disabling isolation prevents re-initializing setup per file (races on
+    // auth.admin.createUser).
     isolate: false,
     fileParallelism: false,
     testTimeout: 15_000,
