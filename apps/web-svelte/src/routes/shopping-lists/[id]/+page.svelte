@@ -16,6 +16,7 @@
   import Sheet from "$lib/components/ui/Sheet.svelte";
   import ShoppingListSuggestions from "$lib/components/shopping-lists/ShoppingListSuggestions.svelte";
   import ShoppingListItemQuickAdd from "$lib/components/shopping-lists/ShoppingListItemQuickAdd.svelte";
+  import ShoppingListItemEditSheet from "$lib/components/shopping-lists/ShoppingListItemEditSheet.svelte";
   import * as m from "$lib/paraglide/messages";
   import { Check, ListPlus, MoreHorizontal } from "lucide-svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
@@ -175,36 +176,22 @@
     },
   }));
 
-  // Rename item — optimistic, dual-key invalidation
-  let showRename = $state(false);
-  let renameTargetId = $state<string | null>(null);
-  let renameValue = $state("");
+  // Edit item (name + quantity + unit)
+  let editTarget = $state<ShoppingListItem | null>(null);
 
   const renameMutation = createMutation(() => ({
-    mutationFn: ({ itemId, name }: { itemId: string; name: string }) =>
-      updateShoppingListItem(itemId, { name }),
-    onMutate: async ({ itemId, name }) => {
-      await queryClient.cancelQueries({ queryKey: listKey });
-      const previous = queryClient.getQueryData<ShoppingListWithItems>(listKey);
-      if (previous) {
-        queryClient.setQueryData<ShoppingListWithItems>(listKey, {
-          ...previous,
-          shopping_list_items: previous.shopping_list_items.map((it) =>
-            it.id === itemId ? { ...it, name } : it
-          ),
-        });
-      }
-      showRename = false;
-      return { previous };
+    mutationFn: (args: {
+      id: string;
+      updates: { name: string; quantity: number | null; unit: string | null };
+    }) => updateShoppingListItem(args.id, args.updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: listKey });
+      queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
+      toast.success(m.toast_shopping_list_item_renamed());
+      editTarget = null;
     },
-    onSuccess: () => toast.success(m.toast_shopping_list_item_renamed()),
-    onError: (_err, _vars, ctx) => {
-      if (ctx?.previous) queryClient.setQueryData(listKey, ctx.previous);
+    onError: () => {
       toast.error(m.toast_error());
-    },
-    onSettled: async () => {
-      await queryClient.invalidateQueries({ queryKey: listKey });
-      await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
     },
   }));
 
@@ -313,15 +300,12 @@
   }
   function openRenameFromActions() {
     if (!actionsTarget) return;
-    renameTargetId = actionsTarget.id;
-    renameValue = actionsTarget.name;
-    showRename = true;
+    editTarget = actionsTarget;
     showActions = false;
   }
-  function submitRename(e: Event) {
-    e.preventDefault();
-    if (!renameTargetId || !renameValue.trim()) return;
-    renameMutation.mutate({ itemId: renameTargetId, name: renameValue.trim() });
+  function saveEdit(updates: { name: string; quantity: number | null; unit: string | null }) {
+    if (!editTarget) return;
+    renameMutation.mutate({ id: editTarget.id, updates });
   }
   function deleteFromActions() {
     if (!actionsTarget) return;
@@ -707,41 +691,11 @@
   </div>
 </Sheet>
 
-<!-- Rename item dialog -->
-<Dialog
-  open={showRename}
-  onclose={() => (showRename = false)}
-  title={m.shopping_list_item_rename_title()}
->
-  <form onsubmit={submitRename} class="space-y-4">
-    <div class="space-y-1">
-      <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="rename-input"
-        >{m.shopping_list_item_name()}</label
-      >
-      <input
-        id="rename-input"
-        type="text"
-        required
-        bind:value={renameValue}
-        autocomplete="off"
-        class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
-      />
-    </div>
-    <div class="flex gap-2 pt-1">
-      <button
-        type="button"
-        onclick={() => (showRename = false)}
-        class="flex-1 rounded-full border border-white/10 bg-slate-900/60 py-2 text-sm font-medium text-slate-200 backdrop-blur transition-colors hover:bg-white/5"
-      >
-        {m.common_cancel()}
-      </button>
-      <button
-        type="submit"
-        disabled={renameMutation.isPending}
-        class="bg-accent-gradient flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:opacity-50"
-      >
-        {renameMutation.isPending ? m.common_saving() : m.common_save()}
-      </button>
-    </div>
-  </form>
-</Dialog>
+{#if editTarget}
+  <ShoppingListItemEditSheet
+    item={editTarget}
+    onclose={() => (editTarget = null)}
+    onsave={saveEdit}
+    saving={renameMutation.isPending}
+  />
+{/if}
