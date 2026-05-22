@@ -1,8 +1,8 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
-  import ShoppingListSuggestions from "./ShoppingListSuggestions.svelte";
-  import { Plus, ChevronDown } from "lucide-svelte";
+  import { ChevronDown, Plus } from "lucide-svelte";
   import { slide } from "svelte/transition";
+  import ShoppingListSuggestions from "./ShoppingListSuggestions.svelte";
 
   interface Props {
     onsubmit: (payload: { name: string; quantity: number | null; unit: string | null }) => void;
@@ -39,6 +39,9 @@
       unit: detailsOpen && unit.trim() ? unit.trim() : null,
     });
     name = "";
+    quantity = null;
+    unit = "";
+    detailsOpen = false;
     inputFocused = false;
   }
 </script>

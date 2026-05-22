@@ -1,29 +1,29 @@
 <script lang="ts">
   import { page } from "$app/stores";
-  import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
-  import { toast } from "svelte-sonner";
-  import {
-    fetchShoppingListById,
-    updateShoppingListItem,
-    createShoppingListItem,
-    deleteShoppingListItem,
-    completeShoppingList,
-  } from "$lib/services/shopping-lists";
-  import type { ShoppingListItem, ShoppingListWithItems } from "$lib/types";
-  import { fetchCategories } from "$lib/services/categories";
-  import { formatCurrency, formatDate, cn } from "$lib/utils";
-  import Dialog from "$lib/components/ui/Dialog.svelte";
-  import Sheet from "$lib/components/ui/Sheet.svelte";
-  import ShoppingListSuggestions from "$lib/components/shopping-lists/ShoppingListSuggestions.svelte";
-  import ShoppingListItemQuickAdd from "$lib/components/shopping-lists/ShoppingListItemQuickAdd.svelte";
   import ShoppingListItemEditSheet from "$lib/components/shopping-lists/ShoppingListItemEditSheet.svelte";
-  import * as m from "$lib/paraglide/messages";
-  import { Check, ListPlus, MoreHorizontal } from "lucide-svelte";
+  import ShoppingListItemQuickAdd from "$lib/components/shopping-lists/ShoppingListItemQuickAdd.svelte";
+  import ShoppingListSuggestions from "$lib/components/shopping-lists/ShoppingListSuggestions.svelte";
+  import Dialog from "$lib/components/ui/Dialog.svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import ProgressBar from "$lib/components/ui/ProgressBar.svelte";
+  import Sheet from "$lib/components/ui/Sheet.svelte";
+  import { motionDuration } from "$lib/motion";
+  import * as m from "$lib/paraglide/messages";
+  import { fetchCategories } from "$lib/services/categories";
+  import {
+    completeShoppingList,
+    createShoppingListItem,
+    deleteShoppingListItem,
+    fetchShoppingListById,
+    updateShoppingListItem,
+  } from "$lib/services/shopping-lists";
+  import type { ShoppingListItem, ShoppingListWithItems } from "$lib/types";
+  import { cn, formatCurrency, formatDate } from "$lib/utils";
+  import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
+  import { Check, ListPlus, MoreHorizontal } from "lucide-svelte";
+  import { toast } from "svelte-sonner";
   import { flip } from "svelte/animate";
   import { slide } from "svelte/transition";
-  import { motionDuration } from "$lib/motion";
 
   const queryClient = useQueryClient();
   const id = $derived($page.params.id ?? "");
@@ -501,7 +501,7 @@
             name,
             quantity,
             unit,
-            position: list.shopping_list_items.length,
+            position: list.shopping_list_items.length + 1,
           })}
       />
       <div class="flex justify-end">
