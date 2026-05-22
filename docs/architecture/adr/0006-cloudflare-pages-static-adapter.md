@@ -39,7 +39,7 @@ The legacy app was hosted on Firebase Hosting as a CRA-style SPA. Cutover requir
 
 **Neutral**
 
-- Two simultaneous environments (prod and staging) live in the same Cloudflare Pages project. See ADR 0010 for why we share rather than separate.
+- Two simultaneous environments (prod and staging) live in the same Cloudflare Pages project. See ADR 0011 (which supersedes ADR 0010) for the Supabase side of the split — the Pages project stays shared, but the staging branch deploys against a dedicated `portfelik-staging` Supabase project.
 
 ## Alternatives considered
 
