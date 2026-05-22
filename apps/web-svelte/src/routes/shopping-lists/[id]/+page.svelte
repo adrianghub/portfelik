@@ -20,6 +20,7 @@
   import * as m from "$lib/paraglide/messages";
   import { Check, ListPlus, MoreHorizontal } from "lucide-svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
+  import ProgressBar from "$lib/components/ui/ProgressBar.svelte";
   import { flip } from "svelte/animate";
   import { slide } from "svelte/transition";
   import { motionDuration } from "$lib/motion";
@@ -267,6 +268,8 @@
 
   const isActive = $derived(query.data?.status === "active");
   const hasItems = $derived((query.data?.shopping_list_items?.length ?? 0) > 0);
+  const itemTotal = $derived(query.data?.shopping_list_items.length ?? 0);
+  const itemDone = $derived(query.data?.shopping_list_items.filter((i) => i.completed).length ?? 0);
 
   // Item row actions sheet (kebab + long-press) + helpers
   let actionsTarget = $state<ShoppingListItem | null>(null);
@@ -386,6 +389,32 @@
     </div>
 
     <div class="text-xs text-slate-400 dark:text-slate-500">{formatDate(list.created_at)}</div>
+
+    {#if list.status === "active" && itemTotal > 0}
+      <div class="mt-2 space-y-1">
+        <p class="text-xs text-slate-400">
+          {m.shopping_list_progress({ completed: itemDone, total: itemTotal })}
+        </p>
+        <ProgressBar
+          value={itemDone}
+          max={itemTotal}
+          label={m.shopping_list_progress({ completed: itemDone, total: itemTotal })}
+        />
+      </div>
+    {/if}
+
+    {#if list.status === "completed" && list.total_amount != null}
+      <div
+        class="mt-3 rounded-lg border border-emerald-400/20 bg-emerald-500/5 px-3 py-2 text-sm text-emerald-200"
+      >
+        <p class="text-xs tracking-wide text-emerald-300/80 uppercase">
+          {m.shopping_list_completed_tx_created()}
+        </p>
+        <p class="mt-0.5 tabular-nums">
+          {formatCurrency(list.total_amount, "PLN")}
+        </p>
+      </div>
+    {/if}
 
     {#if list.shopping_list_items.length === 0}
       <EmptyState title={m.shopping_list_items_empty()} body={m.shopping_list_items_empty_hint()}>
@@ -585,6 +614,7 @@
   title={m.shopping_list_complete_title()}
 >
   <form onsubmit={submitComplete} class="space-y-4">
+    <p class="text-sm text-slate-300">{m.shopping_list_complete_creates_tx_hint()}</p>
     <div class="space-y-1">
       <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="comp-amount"
         >{m.shopping_list_complete_amount()}</label

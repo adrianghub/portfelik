@@ -365,5 +365,8 @@
   "shopping_list_items_empty_hint": "Wpisz produkt poniżej, aby dodać go do listy.",
   "categories_empty_hint": "Dodaj kategorię, aby grupować transakcje.",
   "groups_empty_hint": "Stwórz grupę lub poczekaj na zaproszenie, aby dzielić listy i transakcje.",
-  "admin_users_empty_hint": "Brak użytkowników pasujących do filtra."
+  "admin_users_empty_hint": "Brak użytkowników pasujących do filtra.",
+  "shopping_list_progress": "{completed} / {total} ukończone",
+  "shopping_list_complete_creates_tx_hint": "Zakończenie listy utworzy transakcję wydatku w wybranej kategorii.",
+  "shopping_list_completed_tx_created": "Utworzono transakcję wydatku"
 }
