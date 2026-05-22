@@ -368,5 +368,9 @@
   "admin_users_empty_hint": "Brak użytkowników pasujących do filtra.",
   "shopping_list_progress": "{completed} / {total} ukończone",
   "shopping_list_complete_creates_tx_hint": "Zakończenie listy utworzy transakcję wydatku w wybranej kategorii.",
-  "shopping_list_completed_tx_created": "Utworzono transakcję wydatku"
+  "shopping_list_completed_tx_created": "Utworzono transakcję wydatku",
+  "shopping_list_linked_transaction": "Transakcja",
+  "shopping_list_unchecked_confirm_title": "Nie wszystko odhaczone",
+  "shopping_list_unchecked_confirm_body": "Na liście są jeszcze nieodhaczone produkty. Zakończyć ją mimo to?",
+  "shopping_list_unchecked_confirm_submit": "Zakończ mimo to"
 }

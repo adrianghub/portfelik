@@ -81,6 +81,7 @@
         updated_at: new Date().toISOString(),
         item_total: 0,
         item_completed: 0,
+        linked_transaction_id: null,
       };
       queryClient.setQueryData<ShoppingListSummary[]>(
         ["shopping_lists"],

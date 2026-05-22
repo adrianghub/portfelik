@@ -127,6 +127,7 @@ export interface ShoppingListWithItems extends ShoppingList {
 export interface ShoppingListSummary extends ShoppingList {
   item_total: number;
   item_completed: number;
+  linked_transaction_id: string | null;
 }
 
 export type NotificationType =
