@@ -62,14 +62,14 @@
         </span>
       </div>
     </div>
-    <div class="mt-1 flex items-center gap-3 text-xs text-slate-500">
+    <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500">
       <span>{formatDate(list.created_at)}</span>
       {#if list.item_total > 0}
-        <span>·</span>
+        <span aria-hidden="true">·</span>
         <span>{list.item_completed}/{list.item_total}</span>
       {/if}
       {#if list.total_amount != null}
-        <span>·</span>
+        <span aria-hidden="true">·</span>
         <span>{formatCurrency(list.total_amount)}</span>
       {/if}
     </div>
