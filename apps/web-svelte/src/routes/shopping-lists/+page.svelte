@@ -112,25 +112,25 @@
   let deleteTargetId = $state<string | null>(null);
 
   const deleteMut = createMutation(() => ({
-    mutationFn: () => deleteShoppingList(deleteTargetId!),
-    onMutate: async () => {
-      const targetId = deleteTargetId;
-      if (!targetId) return { previous: undefined, targetId };
+    mutationFn: (id: string) => deleteShoppingList(id),
+    onMutate: async (id: string) => {
       await queryClient.cancelQueries({ queryKey: ["shopping_lists"] });
       const previous = queryClient.getQueryData<ShoppingListSummary[]>(["shopping_lists"]);
       queryClient.setQueryData<ShoppingListSummary[]>(
         ["shopping_lists"],
-        (previous ?? []).filter((l) => l.id !== targetId)
+        (previous ?? []).filter((l) => l.id !== id)
       );
-      deleteTargetId = null;
-      return { previous, targetId };
+      return { previous };
     },
     onSuccess: () => toast.success(m.toast_shopping_list_deleted()),
     onError: (_err, _vars, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(["shopping_lists"], ctx.previous);
       toast.error(m.toast_error());
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ["shopping_lists"] }),
+    onSettled: () => {
+      deleteTargetId = null;
+      queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
+    },
   }));
 
   // Duplicate
@@ -472,7 +472,7 @@
 <ConfirmDialog
   open={!!deleteTargetId}
   message={m.common_confirm_delete_description()}
-  onconfirm={() => deleteMut.mutate()}
+  onconfirm={() => deleteTargetId && deleteMut.mutate(deleteTargetId)}
   onclose={() => (deleteTargetId = null)}
   pending={deleteMut.isPending}
 />
