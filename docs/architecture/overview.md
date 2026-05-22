@@ -77,16 +77,16 @@ flowchart TB
     vault -.-> ef_role
 ```
 
-| Container | Role |
-|---|---|
-| **SvelteKit SPA** | Static bundle (`adapter-static`), served by Cloudflare Pages. Handles all UI, talks to Supabase via `@supabase/supabase-js`. |
-| **Service worker** | Receives VAPID push payloads, displays browser notifications, no caching layer beyond what Cloudflare provides. |
-| **PostgREST** | Auto-generated REST surface over the `public` schema. RLS-enforced. |
-| **GoTrue** | Issues JWTs after Google OAuth. JWT carries `app_metadata.role` so RLS can check admin-ness without an extra round-trip. |
-| **Postgres** | Source of truth for all data; RLS is the authorisation engine. |
-| **pg_cron** | In-DB scheduler. Runs SQL jobs (`process_recurring_transactions`, `update_transaction_statuses`) and triggers the weekly admin-summary Edge Function. |
+| Container          | Role                                                                                                                                                                              |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **SvelteKit SPA**  | Static bundle (`adapter-static`), served by Cloudflare Pages. Handles all UI, talks to Supabase via `@supabase/supabase-js`.                                                      |
+| **Service worker** | Receives VAPID push payloads, displays browser notifications, no caching layer beyond what Cloudflare provides.                                                                   |
+| **PostgREST**      | Auto-generated REST surface over the `public` schema. RLS-enforced.                                                                                                               |
+| **GoTrue**         | Issues JWTs after Google OAuth. JWT carries `app_metadata.role` so RLS can check admin-ness without an extra round-trip.                                                          |
+| **Postgres**       | Source of truth for all data; RLS is the authorisation engine.                                                                                                                    |
+| **pg_cron**        | In-DB scheduler. Runs SQL jobs (`process_recurring_transactions`, `update_transaction_statuses`) and triggers the weekly admin-summary Edge Function.                             |
 | **Edge Functions** | Three Deno workers: `send-push` (VAPID fan-out on every notification insert), `send-admin-summary` (weekly aggregate), `sync-user-role` (mirrors `profiles.role` into JWT claim). |
-| **Vault** | Stores `internal_trigger_secret` so DB triggers can authenticate to Edge Functions (Bearer-token auth). |
+| **Vault**          | Stores `internal_trigger_secret` so DB triggers can authenticate to Edge Functions (Bearer-token auth).                                                                           |
 
 ## 3. SvelteKit SPA — component view
 
@@ -138,7 +138,7 @@ Every external mutation goes through `src/lib/services/*.ts`. Patterns:
 - **Reads** — direct PostgREST calls (`supabase.from(...).select(...)`). Pagination implemented in `fetchTransactions` (1000-row page size, while-loop accumulator).
 - **Writes** — direct PostgREST inserts/updates/deletes for owner-managed tables. `user_id` always passed explicitly from `supabase.auth.getUser()` because RLS does not auto-fill it.
 - **Group/invitation mutations** — `supabase.rpc(...)` to a SECURITY DEFINER function. Direct table writes are blocked by `using (false)` policies.
-- **Shopping list completion** — `complete_shopping_list(p_list_id, p_total_amount, p_category_id)` RPC; atomically marks list complete *and* creates the linked expense transaction.
+- **Shopping list completion** — `complete_shopping_list(p_list_id, p_total_amount, p_category_id)` RPC; atomically marks list complete _and_ creates the linked expense transaction.
 - **Shopping list attach** — `attach_shopping_list_to_transaction(p_list_id, p_tx_id)` RPC; transaction detail is the entry point for linking an already-recorded eligible expense to a non-empty visible list with matching sharing scope.
 
 ### State management
@@ -161,34 +161,34 @@ defaultOptions:
 
 Key conventions:
 
-| Concern | Key shape |
-|---|---|
-| Transactions in a window | `["transactions", start, end, categoryId?]` |
-| Categories | `["categories"]` |
-| Shopping lists (index) | `["shopping-lists"]` |
-| Single shopping list | `["shopping-list", id]` |
-| Profile | `["profile", userId]` |
-| User groups | `["user-groups"]`, `["group-members", groupId]`, `["invitations"]` |
+| Concern                  | Key shape                                                          |
+| ------------------------ | ------------------------------------------------------------------ |
+| Transactions in a window | `["transactions", start, end, categoryId?]`                        |
+| Categories               | `["categories"]`                                                   |
+| Shopping lists (index)   | `["shopping-lists"]`                                               |
+| Single shopping list     | `["shopping-list", id]`                                            |
+| Profile                  | `["profile", userId]`                                              |
+| User groups              | `["user-groups"]`, `["group-members", groupId]`, `["invitations"]` |
 
 After a mutation, the calling component invalidates only the keys it knows it changed. `complete_shopping_list` invalidates `shopping-lists`, `transactions`, and any summary keys.
 
 ## 4. Tech stack
 
-| Layer | Choice | Version | Reason |
-|---|---|---|---|
-| App framework | SvelteKit + `adapter-static` | 2.x | SPA, no SSR needed |
-| Reactivity | Svelte 5 runes | 5.x | Native; replaces stores |
-| Server cache | `@tanstack/svelte-query` | v6 | Offline-first; mutation pattern |
-| UI primitives | shadcn-svelte + bits-ui | latest | 1:1 port from legacy shadcn/ui |
-| Styling | Tailwind v4 | 4.x | Direct port from legacy |
-| i18n | Paraglide v2 | 2.x | Compile-time, Polish only |
-| Auth client | `@supabase/supabase-js` (base) | v2 | **Not** `@supabase/ssr` — adapter is static |
-| Push | Web Push API (VAPID) | native | Replaces Firebase Messaging |
-| Backend | Supabase Cloud (EU) | — | Postgres 17, pg_cron, pg_net, Vault |
-| Edge runtime | Deno (Supabase Edge Functions) | — | `web-push`, `@supabase/supabase-js` via npm: |
-| Frontend host | Cloudflare Pages | — | Static deploy, prod + staging branches |
-| E2E tests | Playwright | latest | Mocked suite + real-DB smoke suite |
-| CI/CD | GitHub Actions | — | Typecheck → lint → e2e → deploy → smoke |
+| Layer         | Choice                         | Version | Reason                                       |
+| ------------- | ------------------------------ | ------- | -------------------------------------------- |
+| App framework | SvelteKit + `adapter-static`   | 2.x     | SPA, no SSR needed                           |
+| Reactivity    | Svelte 5 runes                 | 5.x     | Native; replaces stores                      |
+| Server cache  | `@tanstack/svelte-query`       | v6      | Offline-first; mutation pattern              |
+| UI primitives | shadcn-svelte + bits-ui        | latest  | 1:1 port from legacy shadcn/ui               |
+| Styling       | Tailwind v4                    | 4.x     | Direct port from legacy                      |
+| i18n          | Paraglide v2                   | 2.x     | Compile-time, Polish only                    |
+| Auth client   | `@supabase/supabase-js` (base) | v2      | **Not** `@supabase/ssr` — adapter is static  |
+| Push          | Web Push API (VAPID)           | native  | Replaces Firebase Messaging                  |
+| Backend       | Supabase Cloud (EU)            | —       | Postgres 17, pg_cron, pg_net, Vault          |
+| Edge runtime  | Deno (Supabase Edge Functions) | —       | `web-push`, `@supabase/supabase-js` via npm: |
+| Frontend host | Cloudflare Pages               | —       | Static deploy, prod + staging branches       |
+| E2E tests     | Playwright                     | latest  | Mocked suite + real-DB smoke suite           |
+| CI/CD         | GitHub Actions                 | —       | Typecheck → lint → e2e → deploy → smoke      |
 
 ## 5. Cross-cutting concerns
 
@@ -236,4 +236,4 @@ pnpm exec paraglide-js compile --project ./project.inlang --outdir ./src/lib/par
 
 - `pnpm build` produces a static bundle in `apps/web-svelte/build/`.
 - GitHub Actions deploys `main` → production (`portfelik.adrianzinko.com`) and `dev` → staging (`dev.portfelik.pages.dev`) on push.
-- Both branches share the same Cloudflare Pages project and the same Supabase project. Staging writes are isolated to a single dedicated test user via RLS plus a `__e2e_smoke__` description prefix that the smoke suite cleans up before/after each run.
+- Both branches share the same Cloudflare Pages project. Supabase is split: `dev` migrates/seeds a dedicated `portfelik-staging` project before staging deploy and `main` stays on production. Staging smoke data still uses a dedicated CI user plus the `__e2e_smoke__` description prefix for idempotent cleanup.

@@ -1,6 +1,6 @@
 # ADR 0010 — Shared Cloudflare Pages project + shared Supabase project for prod & staging
 
-**Status:** Accepted (2026-05, Phase 8)
+**Status:** Superseded by [ADR 0011](./0011-dedicated-supabase-staging-project.md) (2026-05-22)
 
 ## Context
 
@@ -8,7 +8,7 @@ Phase 8 added a staging environment for verifying changes (and running real-DB s
 
 For a single-developer, single-user-soon-to-be-low-double-digit-users personal app, that conventional model is heavy. It doubles every secret, doubles every dashboard, doubles every migration push, and creates drift opportunities (a migration applied on prod but not staging is a real failure mode).
 
-We need *some* isolation though — staging writes must not pollute prod data, and a destructive smoke test cannot wipe real users' shopping lists.
+We need _some_ isolation though — staging writes must not pollute prod data, and a destructive smoke test cannot wipe real users' shopping lists.
 
 ## Decision
 
@@ -29,7 +29,7 @@ We need *some* isolation though — staging writes must not pollute prod data, a
 
 - One database to migrate, one to monitor, one set of secrets to manage.
 - Migrations applied to staging are also applied to prod; drift is structurally impossible.
-- Staging smoke runs against the *real* database engine, the real RLS, the real Edge Functions — not a mock that can lie.
+- Staging smoke runs against the _real_ database engine, the real RLS, the real Edge Functions — not a mock that can lie.
 - Deploy ergonomics are simple: push to `dev` to land on staging; merge `dev` → `main` to land on prod.
 
 **Bad**
