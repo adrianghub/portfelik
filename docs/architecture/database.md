@@ -217,14 +217,14 @@ erDiagram
 
 ## Enums
 
-| Enum | Values |
-|---|---|
-| `user_role` | `user`, `admin` |
-| `transaction_type` | `income`, `expense` |
-| `transaction_status` | `draft`, `upcoming`, `overdue`, `paid` |
-| `shopping_list_status` | `active`, `completed` |
-| `invitation_status` | `pending`, `accepted`, `rejected`, `cancelled` |
-| `categorization_rule_kind` | `exact`, `contains`, `type`, `composite` |
+| Enum                       | Values                                         |
+| -------------------------- | ---------------------------------------------- |
+| `user_role`                | `user`, `admin`                                |
+| `transaction_type`         | `income`, `expense`                            |
+| `transaction_status`       | `draft`, `upcoming`, `overdue`, `paid`         |
+| `shopping_list_status`     | `active`, `completed`                          |
+| `invitation_status`        | `pending`, `accepted`, `rejected`, `cancelled` |
+| `categorization_rule_kind` | `exact`, `contains`, `type`, `composite`       |
 
 ## Tables
 
@@ -394,20 +394,21 @@ Two patterns:
 
 All `LANGUAGE plpgsql STABLE`, all SECURITY DEFINER except where noted.
 
-| Function | Used by | Notes |
-|---|---|---|
-| `is_admin()` | RLS, RPCs | Reads `profiles.role` for caller. |
-| `is_group_member(group_id)` | `shopping_lists` RLS | Breaks recursion. |
-| `is_group_owner(group_id)` | `group_invitations` RLS | Breaks recursion. |
-| `handle_updated_at()` | `BEFORE UPDATE` triggers on 7 tables | Generic timestamp bump. |
-| `handle_new_user()` | `auth.users` insert trigger | Creates `profiles` row. |
-| `handle_user_email_update()` | `auth.users` update trigger | Mirrors email change to `profiles`. |
-| `bump_last_used_at()` | `push_subscriptions` BEFORE UPDATE | Updates `last_used_at`. |
-| `notify_on_group_invitation()` | `group_invitations` AFTER INSERT trigger | Inserts a notification if invitee exists in `auth.users`. |
-| `notify_on_role_change()` | `profiles` AFTER UPDATE OF role trigger | Inserts a notification on role change. |
-| `trigger_send_push()` | `notifications` AFTER INSERT trigger | `pg_net.http_post` to `send-push` with vault secret. |
-| `trigger_sync_user_role()` | `profiles` AFTER UPDATE OF role trigger | `pg_net.http_post` to `sync-user-role`. |
-| `trigger_admin_summary()` | Admin-callable RPC | Manual fire of `send-admin-summary`. |
+| Function                       | Used by                                  | Notes                                                                       |
+| ------------------------------ | ---------------------------------------- | --------------------------------------------------------------------------- |
+| `is_admin()`                   | RLS, RPCs                                | Reads `profiles.role` for caller.                                           |
+| `is_group_member(group_id)`    | `shopping_lists` RLS                     | Breaks recursion.                                                           |
+| `is_group_owner(group_id)`     | `group_invitations` RLS                  | Breaks recursion.                                                           |
+| `handle_updated_at()`          | `BEFORE UPDATE` triggers on 7 tables     | Generic timestamp bump.                                                     |
+| `handle_new_user()`            | `auth.users` insert trigger              | Creates `profiles` row.                                                     |
+| `handle_user_email_update()`   | `auth.users` update trigger              | Mirrors email change to `profiles`.                                         |
+| `bump_last_used_at()`          | `push_subscriptions` BEFORE UPDATE       | Updates `last_used_at`.                                                     |
+| `edge_functions_base_url()`    | DB hook helpers                          | Reads the environment-specific Edge Function base URL from Vault.           |
+| `notify_on_group_invitation()` | `group_invitations` AFTER INSERT trigger | Inserts a notification if invitee exists in `auth.users`.                   |
+| `notify_on_role_change()`      | `profiles` AFTER UPDATE OF role trigger  | Inserts a notification on role change.                                      |
+| `trigger_send_push()`          | `notifications` AFTER INSERT trigger     | `pg_net.http_post` to environment-configured `send-push` with Vault secret. |
+| `trigger_sync_user_role()`     | `profiles` AFTER UPDATE OF role trigger  | `pg_net.http_post` to environment-configured `sync-user-role`.              |
+| `trigger_admin_summary()`      | Admin-callable RPC                       | Manual fire of `send-admin-summary`.                                        |
 
 ## Domain RPCs
 
@@ -415,85 +416,85 @@ All SECURITY DEFINER (bypass RLS) unless marked SECURITY INVOKER. Defined in `20
 
 **Groups (6)**
 
-| RPC | Auth | Behavior |
-|---|---|---|
-| `create_group(p_name)` | any user | Creates group; adds caller as owner and member atomically. |
-| `leave_group(p_group_id)` | non-owner member | Errors if caller is owner. |
-| `transfer_group_ownership(p_group_id, p_new_owner_id)` | current owner | New owner must already be a member. |
-| `disband_group(p_group_id)` | owner | Cascades to members and invitations. |
-| `remove_group_member(p_group_id, p_user_id)` | owner | Cannot remove self. |
-| `invite_user(p_group_id, p_email)` | owner | Validates no duplicate pending invite; lower-cases email. |
+| RPC                                                    | Auth             | Behavior                                                   |
+| ------------------------------------------------------ | ---------------- | ---------------------------------------------------------- |
+| `create_group(p_name)`                                 | any user         | Creates group; adds caller as owner and member atomically. |
+| `leave_group(p_group_id)`                              | non-owner member | Errors if caller is owner.                                 |
+| `transfer_group_ownership(p_group_id, p_new_owner_id)` | current owner    | New owner must already be a member.                        |
+| `disband_group(p_group_id)`                            | owner            | Cascades to members and invitations.                       |
+| `remove_group_member(p_group_id, p_user_id)`           | owner            | Cannot remove self.                                        |
+| `invite_user(p_group_id, p_email)`                     | owner            | Validates no duplicate pending invite; lower-cases email.  |
 
 **Invitations (3)**
 
-| RPC | Auth | Behavior |
-|---|---|---|
-| `accept_invitation(p_invitation_id)` | invitee (email match) | Atomically inserts `group_members` row and updates status. |
-| `reject_invitation(p_invitation_id)` | invitee | Sets status `rejected`. |
-| `cancel_invitation(p_invitation_id)` | creator OR group owner | Sets status `cancelled`. |
+| RPC                                  | Auth                   | Behavior                                                   |
+| ------------------------------------ | ---------------------- | ---------------------------------------------------------- |
+| `accept_invitation(p_invitation_id)` | invitee (email match)  | Atomically inserts `group_members` row and updates status. |
+| `reject_invitation(p_invitation_id)` | invitee                | Sets status `rejected`.                                    |
+| `cancel_invitation(p_invitation_id)` | creator OR group owner | Sets status `cancelled`.                                   |
 
 **Shopping list (3)**
 
-| RPC | Auth | Behavior |
-|---|---|---|
-| `complete_shopping_list(p_list_id, p_total_amount, p_category_id)` | owner OR group member | Sets `status='completed'` + `total_amount`, inserts a linked `transactions` row, all in one DB transaction. |
-| `attach_shopping_list_to_transaction(p_list_id, p_tx_id)` | visible list + visible transaction | Links an existing unlinked expense transaction to an eligible non-empty shopping list with matching private/group sharing scope. UI entry point is the transaction detail sheet. |
-| `duplicate_shopping_list(p_list_id)` | SECURITY INVOKER — uses caller's RLS | Copies list + items, resets `status='active'`. |
+| RPC                                                                | Auth                                 | Behavior                                                                                                                                                                         |
+| ------------------------------------------------------------------ | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `complete_shopping_list(p_list_id, p_total_amount, p_category_id)` | owner OR group member                | Sets `status='completed'` + `total_amount`, inserts a linked `transactions` row, all in one DB transaction.                                                                      |
+| `attach_shopping_list_to_transaction(p_list_id, p_tx_id)`          | visible list + visible transaction   | Links an existing unlinked expense transaction to an eligible non-empty shopping list with matching private/group sharing scope. UI entry point is the transaction detail sheet. |
+| `duplicate_shopping_list(p_list_id)`                               | SECURITY INVOKER — uses caller's RLS | Copies list + items, resets `status='active'`.                                                                                                                                   |
 
 **Notifications (2 — both SECURITY INVOKER)**
 
-| RPC | Behavior |
-|---|---|
-| `mark_notification_read(p_notification_id)` | Sets `read_at`. |
-| `mark_all_notifications_read()` | Bulk update for caller. |
+| RPC                                         | Behavior                |
+| ------------------------------------------- | ----------------------- |
+| `mark_notification_read(p_notification_id)` | Sets `read_at`.         |
+| `mark_all_notifications_read()`             | Bulk update for caller. |
 
 **Admin (3)**
 
-| RPC | Auth | Behavior |
-|---|---|---|
-| `assign_admin_role(p_user_id)` | admin | Promotes target. |
-| `revoke_admin_role(p_user_id)` | admin | Cannot revoke self. |
-| `trigger_admin_summary()` | admin | Manually fires `send-admin-summary` Edge Function. |
+| RPC                            | Auth  | Behavior                                           |
+| ------------------------------ | ----- | -------------------------------------------------- |
+| `assign_admin_role(p_user_id)` | admin | Promotes target.                                   |
+| `revoke_admin_role(p_user_id)` | admin | Cannot revoke self.                                |
+| `trigger_admin_summary()`      | admin | Manually fires `send-admin-summary` Edge Function. |
 
 **Account**
 
-| RPC | Auth | Behavior |
-|---|---|---|
+| RPC                | Auth | Behavior                               |
+| ------------------ | ---- | -------------------------------------- |
 | `delete_account()` | self | Errors if caller still owns any group. |
 
 **Bank import (2)**
 
-| RPC | Auth | Behavior |
-|---|---|---|
-| `commit_import_session(p_session_id)` | session owner | SECURITY DEFINER. Rejects unless `status='preview'` and `rows_pending=0`. Validates ownership/account/category visibility/group membership/type-match. Per-row savepoint catches `unique_violation` from the hard-dedupe indexes and marks the row `duplicate` (with `duplicate_of`) without aborting the loop. Returns jsonb `{inserted, duplicates_preview, duplicates_commit, skipped, fingerprint_warnings:[{row_id, duplicate_of_transaction_id}]}`. Warning candidates include prior imported-link fingerprint matches and visible list-created expense transactions with exact amount/currency within ±3 days. Only writer of `transaction_import_links`. |
-| `preview_fingerprint_warnings(p_session_id)` | session owner | SECURITY DEFINER, read-only. Pre-commit scan returning probable-duplicate warnings for the review UI (shape matches `commit_import_session.fingerprint_warnings`). Path A scans the caller's existing import-link fingerprints. Path B scans visible list-created expense transactions with exact amount/currency and tx date within posted date ±3 days. |
+| RPC                                          | Auth          | Behavior                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| -------------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `commit_import_session(p_session_id)`        | session owner | SECURITY DEFINER. Rejects unless `status='preview'` and `rows_pending=0`. Validates ownership/account/category visibility/group membership/type-match. Per-row savepoint catches `unique_violation` from the hard-dedupe indexes and marks the row `duplicate` (with `duplicate_of`) without aborting the loop. Returns jsonb `{inserted, duplicates_preview, duplicates_commit, skipped, fingerprint_warnings:[{row_id, duplicate_of_transaction_id}]}`. Warning candidates include prior imported-link fingerprint matches and visible list-created expense transactions with exact amount/currency within ±3 days. Only writer of `transaction_import_links`. |
+| `preview_fingerprint_warnings(p_session_id)` | session owner | SECURITY DEFINER, read-only. Pre-commit scan returning probable-duplicate warnings for the review UI (shape matches `commit_import_session.fingerprint_warnings`). Path A scans the caller's existing import-link fingerprints. Path B scans visible list-created expense transactions with exact amount/currency and tx date within posted date ±3 days.                                                                                                                                                                                                                                                                                                        |
 
 **Reporting (1 — SECURITY INVOKER)**
 
-| RPC | Behavior |
-|---|---|
+| RPC                                            | Behavior                                                                                                                                                                                                                                                                |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `get_monthly_summary(p_year int, p_month int)` | Aggregates the caller's visible transactions by category for the given month; returns JSON `{total_income, total_expenses, net, categories[]}`. **Currently unused by the SPA** — `computeSummary(transactions)` runs client-side instead. Kept as an alternative path. |
 
 ## Triggers (summary)
 
-| Trigger | Table | Event | Action |
-|---|---|---|---|
-| `on_auth_user_created` | `auth.users` | AFTER INSERT | `handle_new_user()` |
-| `on_auth_user_email_updated` | `auth.users` | AFTER UPDATE OF email | `handle_user_email_update()` |
-| `set_updated_at` (×7) | profiles, user_groups, group_invitations, categories, shopping_lists, transactions, shopping_list_items | BEFORE UPDATE | `handle_updated_at()` |
-| `group_invitations_notify` | group_invitations | AFTER INSERT | `notify_on_group_invitation()` |
-| `profiles_role_change_notify` | profiles | AFTER UPDATE OF role | `notify_on_role_change()` |
-| `push_subscriptions_bump_last_used` | push_subscriptions | BEFORE UPDATE | `bump_last_used_at()` |
-| `notifications_send_push` | notifications | AFTER INSERT | `trigger_send_push()` (calls `pg_net.http_post`) |
-| `profiles_role_change_sync` | profiles | AFTER UPDATE OF role | `trigger_sync_user_role()` (calls `pg_net.http_post`) |
+| Trigger                             | Table                                                                                                   | Event                 | Action                                                |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------- | --------------------- | ----------------------------------------------------- |
+| `on_auth_user_created`              | `auth.users`                                                                                            | AFTER INSERT          | `handle_new_user()`                                   |
+| `on_auth_user_email_updated`        | `auth.users`                                                                                            | AFTER UPDATE OF email | `handle_user_email_update()`                          |
+| `set_updated_at` (×7)               | profiles, user_groups, group_invitations, categories, shopping_lists, transactions, shopping_list_items | BEFORE UPDATE         | `handle_updated_at()`                                 |
+| `group_invitations_notify`          | group_invitations                                                                                       | AFTER INSERT          | `notify_on_group_invitation()`                        |
+| `profiles_role_change_notify`       | profiles                                                                                                | AFTER UPDATE OF role  | `notify_on_role_change()`                             |
+| `push_subscriptions_bump_last_used` | push_subscriptions                                                                                      | BEFORE UPDATE         | `bump_last_used_at()`                                 |
+| `notifications_send_push`           | notifications                                                                                           | AFTER INSERT          | `trigger_send_push()` (calls `pg_net.http_post`)      |
+| `profiles_role_change_sync`         | profiles                                                                                                | AFTER UPDATE OF role  | `trigger_sync_user_role()` (calls `pg_net.http_post`) |
 
 ## Scheduled jobs (`pg_cron`)
 
-| Job | Cron (UTC) | Action |
-|---|---|---|
-| `process_recurring_transactions` | `0 23 1 * *` (1st of month, 23:00 UTC) | Materialises new rows for all `is_recurring=true` templates due this month. Dedup keyed on `recurring_template_id`. |
-| `update_transaction_statuses` | `0 5 * * *` (daily 05:00 UTC) | Flips `status` based on `date` vs `now()`. |
-| `send-admin-summary` dispatch | `0 7 * * 1` (Monday 07:00 UTC ≈ 08:00/09:00 Warsaw) | `pg_net.http_post` → `send-admin-summary` Edge Function with Vault Bearer. |
+| Job                              | Cron (UTC)                                          | Action                                                                                                              |
+| -------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `process_recurring_transactions` | `0 23 1 * *` (1st of month, 23:00 UTC)              | Materialises new rows for all `is_recurring=true` templates due this month. Dedup keyed on `recurring_template_id`. |
+| `update_transaction_statuses`    | `0 5 * * *` (daily 05:00 UTC)                       | Flips `status` based on `date` vs `now()`.                                                                          |
+| `send-admin-summary` dispatch    | `0 7 * * 1` (Monday 07:00 UTC ≈ 08:00/09:00 Warsaw) | `pg_net.http_post` → `send-admin-summary` Edge Function with Vault Bearer.                                          |
 
 DST drift is acknowledged: pg_cron runs on UTC, so the local-Warsaw fire time shifts by one hour around DST transitions.
 
@@ -514,6 +515,7 @@ DST drift is acknowledged: pg_cron runs on UTC, so the local-Warsaw fire time sh
 20260521000000_commit_import_session               — SECURITY DEFINER commit RPC (race-safe per-row savepoint dedupe)
 20260521000001_preview_fingerprint_warnings       — SECURITY DEFINER pre-commit dup scan
 20260523000000_warn_shopping_list_duplicates      — extend bank-import soft warnings to caller-visible list-created expense transactions
+20260524000000_environment_edge_function_urls     — move DB hook Edge Function roots behind environment-specific Vault config
 ```
 
 > **Drift note:** The Supabase `supabase_migrations.schema_migrations` table currently shows only the latest migration (`20260504195407 admin_trigger_rpc`). All earlier migrations were applied before the platform's migration tracking was wired up; the SQL files are the source of truth, not the migrations table. See [audit](./audit-2026-05-09.md).

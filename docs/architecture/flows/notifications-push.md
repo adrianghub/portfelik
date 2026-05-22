@@ -18,8 +18,8 @@ sequenceDiagram
 
     Origin->>N: INSERT INTO notifications<br/>(user_id, type, title, body, data)
     N->>T: AFTER INSERT trigger
-    T->>V: SELECT decrypted_secret<br/>FROM vault.decrypted_secrets<br/>WHERE name = 'internal_trigger_secret'
-    V-->>T: secret
+    T->>V: SELECT decrypted_secret<br/>FROM vault.decrypted_secrets<br/>WHERE name IN<br/>('edge_functions_base_url',<br/>'internal_trigger_secret')
+    V-->>T: function base URL + secret
     T->>EF: pg_net.http_post(<br/>  url=.../send-push,<br/>  headers={ Authorization: Bearer secret },<br/>  body={ notificationId }<br/>)
     EF->>EF: verify Bearer header
     EF->>N: SELECT user_id, title, body, type, data<br/>WHERE id = notificationId
@@ -38,20 +38,21 @@ sequenceDiagram
 
 Source:
 
-- `supabase/migrations/20260425000001_phase5_2_edge_function_hooks.sql` — `trigger_send_push`, the trigger that calls it
+- `supabase/migrations/20260425000001_phase5_2_edge_function_hooks.sql` — initial `trigger_send_push` trigger
+- `supabase/migrations/20260524000000_environment_edge_function_urls.sql` — environment-specific Edge Function URL lookup and staging no-op behavior when hook secrets are omitted
 - `supabase/functions/send-push/index.ts` — VAPID send + dead-row pruning
 - `apps/web-svelte/src/lib/services/push.ts` — client subscription/unsubscription
 - `apps/web-svelte/static/sw.js` — service worker push handler
 
 ## Sources of notification rows
 
-| Source | Trigger | Notification type |
-|---|---|---|
-| `group_invitations` insert | `notify_on_group_invitation` (after insert) | `group_invitation` |
-| `profiles.role` update | `notify_on_role_change` (after update of role) | `system_notification` |
-| `process_recurring_transactions` | weekly cron | `transaction_reminder` |
-| `update_transaction_statuses` | daily cron | `transaction_upcoming`, `transaction_overdue` |
-| `send-admin-summary` | weekly cron, fans across admins | `transaction_summary` |
+| Source                           | Trigger                                        | Notification type                             |
+| -------------------------------- | ---------------------------------------------- | --------------------------------------------- |
+| `group_invitations` insert       | `notify_on_group_invitation` (after insert)    | `group_invitation`                            |
+| `profiles.role` update           | `notify_on_role_change` (after update of role) | `system_notification`                         |
+| `process_recurring_transactions` | weekly cron                                    | `transaction_reminder`                        |
+| `update_transaction_statuses`    | daily cron                                     | `transaction_upcoming`, `transaction_overdue` |
+| `send-admin-summary`             | weekly cron, fans across admins                | `transaction_summary`                         |
 
 Every one of these ultimately just inserts a `notifications` row. The push trigger is the **single shared dispatcher** — there is no per-source HTTP indirection.
 
@@ -61,8 +62,11 @@ Edge Functions are deployed with `verify_jwt = false`. Authentication is a share
 
 1. `INTERNAL_TRIGGER_SECRET` is set as an Edge Function secret at deploy time.
 2. The same value is stored in Supabase Vault under name `internal_trigger_secret`.
-3. DB triggers read it via `vault.decrypted_secrets` and pass `Authorization: Bearer <secret>`.
-4. Edge Functions reject any request whose Bearer does not match.
+3. Each cloud environment stores its own Edge Function root in Vault as
+   `edge_functions_base_url` when DB hooks should dispatch. Staging omits that
+   URL and the trigger secret until real staging sends are needed.
+4. DB triggers read Vault values and pass `Authorization: Bearer <secret>`.
+5. Edge Functions reject any request whose Bearer does not match.
 
 This avoids needing a long-lived service-role JWT in the database, and avoids the Edge Function having to verify a user JWT it would not have access to anyway.
 
