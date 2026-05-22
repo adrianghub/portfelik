@@ -103,6 +103,8 @@ flowchart LR
 - Applied locally by `supabase db reset` (runs every file in order, then `seed.sql`).
 - `seed.sql` is the common system seed. `pnpm seed:staging` adds only synthetic
   cloud staging personas and fixture rows.
+- Manual local/staging/prod commands go through the guarded dispatcher and
+  command reference in [Supabase operations](../runbooks/supabase-operations.md).
 
 ## Common pitfalls
 

@@ -41,15 +41,19 @@ Group writes: ALL via SECURITY DEFINER RPCs. Direct writes to `user_groups`, `gr
   omit `edge_functions_base_url` and `internal_trigger_secret` until real
   staging push/cron dispatch is intentionally enabled.
 
-## Dev commands (from repo root)
+## Operations
+
+Use the guarded repo dispatcher from the repo root for ordinary local, staging,
+and production work:
 
 ```bash
-supabase start         # start local stack + apply migrations + seed
-supabase stop
-supabase db reset      # wipe + replay (containers must be running)
-supabase status        # get local URLs + anon key
-supabase gen types typescript --local > apps/web-svelte/src/lib/supabase.types.ts
+./scripts/supabase-ops.sh help
 ```
+
+The command reference and promotion flow live in
+`docs/runbooks/supabase-operations.md`. Remote mutations require an explicit
+target confirmation. Supabase CLI link state under `.temp/` and `.branches/` is
+ignored per-machine state, not project truth.
 
 ## Migration file locations
 

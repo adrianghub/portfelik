@@ -34,7 +34,7 @@ Apply to every task regardless of phase.
 ## Project Status
 
 **Portfelik** — personal-finance PWA. Migrating React 19 + Firebase → SvelteKit + Supabase. Full plan: `MIGRATION_PLAN.md`.
-**Immediate next step:** Split staging from production Supabase before bank-import Step 6 or mortgage/debt planning. Repo work is in progress: `dev` staging deploys gain a dedicated migration/seed leg, staging secrets are separated from prod secrets, DB-to-Edge-Function URLs move behind environment-specific Vault config, and synthetic staging personas are seeded without copying production data. Finish creating/configuring `portfelik-staging`, wire its GitHub Staging secrets + Google OAuth redirect URLs, verify `dev.portfelik.pages.dev` network calls hit the staging Supabase URL, then resume product planning.
+**Immediate next step:** Finish the dedicated staging verification before bank-import Step 6 or mortgage/debt planning. The repo split is landed: `dev` has a dedicated migration/seed leg, staging secrets are separated from prod secrets, DB-to-Edge-Function URLs are Vault-configured per environment, fresh staging seeding has the service-role grants it needs, and manual Supabase operations are now centralized in `docs/runbooks/supabase-operations.md`. Verify the first `dev.portfelik.pages.dev` deploy/smoke path against `portfelik-staging`, then close the bank-import browser/mobile QA gap before new product scope.
 
 Phase 12 shipped through U6 + EmptyState sweep + group hardening (2026-05-17). Highlights:
 
@@ -70,6 +70,7 @@ Phase 12 shipped through U6 + EmptyState sweep + group hardening (2026-05-17). H
 | 8 — Bank-import warning migration for matching list-created expense transactions                                                           | ✅ Pushed on `dev` 2026-05-22 — `20260523000000_warn_shopping_list_duplicates.sql`; shared-cloud apply completed via linked query                                                                 |
 | 9 — RLS coverage for private/group-visible list-created warning candidates                                                                 | ✅ Pushed on `dev` 2026-05-22 — targeted list-warning spec 10/10 green                                                                                                                            |
 | 10 — Full gates, docs, staging verification                                                                                                 | ⏳ In progress — local gates + cloud RPC metadata verified; authenticated staging behavior check moves behind the dedicated `portfelik-staging` split |
+| Supabase ops cleanup — CLI-state ignore + guarded local/staging/prod dispatcher + runbook                                                   | ✅ Local 2026-05-22 — tracked `.temp`/`.branches` state removed from Git; use `./scripts/supabase-ops.sh help` for manual operations                           |
 
 Mortgage/debt tracking is a follow-on track.
 
