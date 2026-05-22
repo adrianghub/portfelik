@@ -4,6 +4,7 @@
   import CategoryBreakdown from "$lib/components/transactions/CategoryBreakdown.svelte";
   import FilterDrawer from "$lib/components/transactions/FilterDrawer.svelte";
   import SummaryCards from "$lib/components/transactions/SummaryCards.svelte";
+  import AttachShoppingListSheet from "$lib/components/transactions/AttachShoppingListSheet.svelte";
   import TransactionDetailSheet from "$lib/components/transactions/TransactionDetailSheet.svelte";
   import TransactionDialog from "$lib/components/transactions/TransactionDialog.svelte";
   import TransactionTable from "$lib/components/transactions/TransactionTable.svelte";
@@ -159,6 +160,7 @@
   let editTarget = $state<TransactionWithCategory | null>(null);
   let deleteTargetId = $state<string | null>(null);
   let sheetTx = $state<TransactionWithCategory | null>(null);
+  let attachTarget = $state<TransactionWithCategory | null>(null);
   let selectedIds = $state(new Set<string>());
   let bulkDeleteConfirm = $state(false);
 
@@ -458,7 +460,16 @@
     sheetTx = null;
     deleteTargetId = id;
   }}
+  onattach={(tx) => (attachTarget = tx)}
 />
+
+{#if attachTarget}
+  <AttachShoppingListSheet
+    transaction={attachTarget}
+    onclose={() => (attachTarget = null)}
+    onattached={() => (attachTarget = null)}
+  />
+{/if}
 
 <ConfirmDialog
   open={!!deleteTargetId}
