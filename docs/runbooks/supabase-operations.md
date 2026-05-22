@@ -60,6 +60,7 @@ Inspect and promote staging:
 ./scripts/supabase-ops.sh staging migrations
 ./scripts/supabase-ops.sh staging push-preview
 ./scripts/supabase-ops.sh staging push --confirm staging
+./scripts/supabase-ops.sh staging repair-applied 20260423000000 --confirm staging
 ./scripts/supabase-ops.sh staging functions --confirm staging
 ./scripts/supabase-ops.sh staging seed --confirm staging
 ./scripts/supabase-ops.sh staging advisors
@@ -72,9 +73,26 @@ Inspect and promote production only after staging verification:
 ./scripts/supabase-ops.sh prod migrations
 ./scripts/supabase-ops.sh prod push-preview
 ./scripts/supabase-ops.sh prod push --confirm prod
+./scripts/supabase-ops.sh prod repair-applied 20260423000000 --confirm prod
 ./scripts/supabase-ops.sh prod functions --confirm prod
 ./scripts/supabase-ops.sh prod advisors
 ```
+
+## Migration history repair
+
+Use `repair-applied` only when a migration file in `supabase/migrations/` was
+already applied to the target database but is missing from its migration-history
+table. Inspect first:
+
+```bash
+./scripts/supabase-ops.sh prod migrations
+./scripts/supabase-ops.sh prod push-preview
+```
+
+Repair only the missing local versions confirmed by that inspection, then rerun
+both inspection commands. A remaining `push-preview` entry is a real unapplied
+migration until proven otherwise; do not turn it into history just to make the
+preview empty.
 
 ## Promotion flow
 

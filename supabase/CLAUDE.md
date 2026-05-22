@@ -78,16 +78,24 @@ The 1-hour DST drift is acceptable for these jobs (none are user-facing in a sub
 
 ## Migration tracking
 
-`supabase_migrations.schema_migrations` records the 6 migrations applied via Supabase MCP on 2026-05-13 plus `admin_trigger_rpc` (2026-05-04). The 7 earliest migrations (`20260423000000_initial_schema` through `20260430000000_duplicate_shopping_list_rpc`) were applied before tracking started and are absent from the table.
+Production `supabase_migrations.schema_migrations` was built partly through
+Supabase MCP applies before CLI promotion became the normal path. Some tracked
+production versions can therefore differ from the canonical local migration
+timestamps, and older applied SQL files can still need history repair.
 
-**SQL files in `supabase/migrations/` are canonical** — the table is informational. Do NOT manually backfill the missing rows; the next `supabase db push` (or a deliberate `supabase migration repair --status applied <timestamp>` per missing file) will re-record them safely.
-
-To recover full tracking from scratch:
+**SQL files in `supabase/migrations/` are canonical.** Do not manually edit the
+history table. Inspect the linked target first, then repair only a local
+migration timestamp that is already applied to that database but missing from
+history:
 
 ```bash
-# repeat once per missing migration timestamp
-supabase migration repair --status applied 20260423000000
+./scripts/supabase-ops.sh prod migrations
+./scripts/supabase-ops.sh prod push-preview
+./scripts/supabase-ops.sh prod repair-applied 20260423000000 --confirm prod
 ```
+
+If `push-preview` still reports a migration after history repair, treat it as a
+real unapplied migration until inspection proves otherwise.
 
 Edge Functions have per-function `deno.json` files (added 2026-05-13) pinning import versions for `@supabase/supabase-js`, the edge runtime types, and `web-push` (send-push only). Do not remove these — they prevent silent registry-side version drift on `supabase functions deploy`.
 

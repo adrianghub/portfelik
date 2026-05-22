@@ -41,10 +41,12 @@ Usage:
   ./scripts/supabase-ops.sh local <start|stop|status|reset|advisors|types>
   ./scripts/supabase-ops.sh migration new <slug>
   ./scripts/supabase-ops.sh <staging|prod> <link|migrations|push-preview|push|advisors|functions> [--confirm <target>]
+  ./scripts/supabase-ops.sh <staging|prod> repair-applied <version> [<version> ...] --confirm <target>
   ./scripts/supabase-ops.sh staging seed --confirm staging
 
 Remote mutations require an exact confirmation flag:
   ./scripts/supabase-ops.sh staging push --confirm staging
+  ./scripts/supabase-ops.sh prod repair-applied 20260423000000 --confirm prod
   ./scripts/supabase-ops.sh prod functions --confirm prod
 
 Remote project refs/passwords and staging seed credentials load from
@@ -129,6 +131,30 @@ push_remote() {
   fi
 }
 
+repair_applied_remote() {
+  local target="$1"
+  shift
+  local versions=()
+
+  while [[ "$#" -gt 0 && "${1:-}" != "--confirm" ]]; do
+    [[ "$1" =~ ^[0-9]{14}$ ]] ||
+      die "repair-applied versions must be 14-digit migration timestamps"
+    versions+=("$1")
+    shift
+  done
+
+  [[ "${#versions[@]}" -gt 0 ]] ||
+    die "$target repair-applied requires one or more migration versions"
+
+  need_confirmation "$target" "$@"
+  link_remote "$target"
+  supabase migration repair "${versions[@]}" \
+    --status applied \
+    --linked \
+    --yes \
+    --workdir "$ROOT_DIR"
+}
+
 run_local() {
   local operation="${1:-}"
   shift || true
@@ -203,6 +229,9 @@ run_remote() {
       need_confirmation "$target" "$@"
       link_remote "$target"
       push_remote "$target" --yes
+      ;;
+    repair-applied)
+      repair_applied_remote "$target" "$@"
       ;;
     advisors)
       [[ "$#" -eq 0 ]] || die "$target advisors does not accept extra arguments"

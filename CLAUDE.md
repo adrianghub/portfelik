@@ -34,7 +34,7 @@ Apply to every task regardless of phase.
 ## Project Status
 
 **Portfelik** — personal-finance PWA. Migrating React 19 + Firebase → SvelteKit + Supabase. Full plan: `MIGRATION_PLAN.md`.
-**Immediate next step:** Finish the dedicated staging verification before bank-import Step 6 or mortgage/debt planning. The repo split is landed: `dev` has a dedicated migration/seed leg, staging secrets are separated from prod secrets, DB-to-Edge-Function URLs are Vault-configured per environment, fresh staging seeding has the service-role grants it needs, and manual Supabase operations are now centralized in `docs/runbooks/supabase-operations.md`. Verify the first `dev.portfelik.pages.dev` deploy/smoke path against `portfelik-staging`, then close the bank-import browser/mobile QA gap before new product scope.
+**Immediate next step:** Finish production migration-history normalization through the guarded Supabase dispatcher once `PROD_SUPABASE_PROJECT_REF` and `PROD_SUPABASE_DB_PASSWORD` are available locally: inspect `prod migrations` and `prod push-preview`, repair only confirmed already-applied local timestamps, then recheck preview state. After that, finish the first dedicated `dev.portfelik.pages.dev` deploy/smoke verification against `portfelik-staging` before bank-import Step 6 or mortgage/debt planning.
 
 Phase 12 shipped through U6 + EmptyState sweep + group hardening (2026-05-17). Highlights:
 
@@ -71,6 +71,7 @@ Phase 12 shipped through U6 + EmptyState sweep + group hardening (2026-05-17). H
 | 9 — RLS coverage for private/group-visible list-created warning candidates                                                                 | ✅ Pushed on `dev` 2026-05-22 — targeted list-warning spec 10/10 green                                                                                                                            |
 | 10 — Full gates, docs, staging verification                                                                                                 | ⏳ In progress — local gates + cloud RPC metadata verified; authenticated staging behavior check moves behind the dedicated `portfelik-staging` split |
 | Supabase ops cleanup — CLI-state ignore + guarded local/staging/prod dispatcher + runbook                                                   | ✅ Local 2026-05-22 — tracked `.temp`/`.branches` state removed from Git; use `./scripts/supabase-ops.sh help` for manual operations                           |
+| Production migration-history normalization                                                                                                  | ⏳ Guarded 2026-05-22 — dispatcher has confirmed `repair-applied`; CLI inspection/repair waits for local prod ref + DB password inputs                        |
 
 Mortgage/debt tracking is a follow-on track.
 
@@ -135,7 +136,7 @@ Mortgage/debt tracking is a follow-on track.
 | `notifications.type` Postgres enum + `data` jsonb schema                                         | Low      | ✅ Done in Phase 10 — `6ec68aa` (enum part; `data` jsonb schema deferred — payload-by-type still untyped at DB layer)                                                                 |
 | Edge Function `deno.json` for each of 3 functions                                                | Low      | ✅ Done 2026-05-13 — per-function `imports` map pinning `@supabase/supabase-js`, edge runtime types, `web-push`                                                                       |
 | pg_cron DST documentation                                                                        | Low      | ✅ Done 2026-05-13 — `supabase/CLAUDE.md` "Scheduled jobs" section (lives in CLAUDE.md per rule "never amend applied migrations")                                                     |
-| Migration drift — re-import early migrations into `supabase_migrations.schema_migrations`        | Low      | ✅ Done 2026-05-13 — declared SQL-files-as-canonical in `supabase/CLAUDE.md` "Migration tracking" section (backfill deferred; safe `supabase migration repair` instructions provided) |
+| Migration drift — normalize production `supabase_migrations.schema_migrations` history           | Low      | ⏳ Pending CLI prod relink 2026-05-22 — SQL files stay canonical; use guarded `repair-applied` only for confirmed already-applied local timestamps             |
 
 **Branch flow:** `main` → prod (`portfelik.adrianzinko.com`); `dev` → staging (`dev.portfelik.pages.dev`). Both branches use one Cloudflare Pages project. Supabase is split: `main` uses production; `dev` must use the dedicated `portfelik-staging` project.
 

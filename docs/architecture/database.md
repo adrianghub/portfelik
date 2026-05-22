@@ -520,7 +520,11 @@ DST drift is acknowledged: pg_cron runs on UTC, so the local-Warsaw fire time sh
 20260524000000_environment_edge_function_urls     — move DB hook Edge Function roots behind environment-specific Vault config
 ```
 
-> **Drift note:** The Supabase `supabase_migrations.schema_migrations` table currently shows only the latest migration (`20260504195407 admin_trigger_rpc`). All earlier migrations were applied before the platform's migration tracking was wired up; the SQL files are the source of truth, not the migrations table. See [audit](./audit-2026-05-09.md).
+> **Drift note:** Production migration history was populated partly by earlier
+> Supabase MCP applies, so some recorded versions differ from canonical
+> timestamps under `supabase/migrations/` and older applied SQL can need a
+> history-only repair. Keep the SQL files canonical and use the guarded
+> inspection/repair flow in the [Supabase operations runbook](../runbooks/supabase-operations.md).
 
 ## Extensions installed
 
