@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import ShoppingListItemEditSheet from "$lib/components/shopping-lists/ShoppingListItemEditSheet.svelte";
   import ShoppingListItemQuickAdd from "$lib/components/shopping-lists/ShoppingListItemQuickAdd.svelte";
@@ -228,6 +229,7 @@
         origin: { y: 0.7 },
         colors: ["#34d399", "#bef264", "#a7f3d0", "#86efac"],
       });
+      await goto("/shopping-lists");
     },
     onError: (err: unknown, _vars, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(listKey, ctx.previous);
