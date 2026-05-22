@@ -169,6 +169,7 @@
   "shopping_list_item_name": "Nazwa elementu",
   "shopping_list_item_quantity": "Ilość",
   "shopping_list_item_unit": "Jednostka",
+  "shopping_list_item_details_toggle": "Ilość / jednostka",
   "shopping_list_item_unit_placeholder": "szt, kg, l…",
   "shopping_list_item_check": "Zaznacz",
   "shopping_list_item_uncheck": "Odznacz",

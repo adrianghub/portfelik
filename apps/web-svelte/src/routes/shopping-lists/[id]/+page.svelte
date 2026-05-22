@@ -15,8 +15,9 @@
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import Sheet from "$lib/components/ui/Sheet.svelte";
   import ShoppingListSuggestions from "$lib/components/shopping-lists/ShoppingListSuggestions.svelte";
+  import ShoppingListItemQuickAdd from "$lib/components/shopping-lists/ShoppingListItemQuickAdd.svelte";
   import * as m from "$lib/paraglide/messages";
-  import { Check, ListPlus, MoreHorizontal, Plus } from "lucide-svelte";
+  import { Check, ListPlus, MoreHorizontal } from "lucide-svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import { flip } from "svelte/animate";
   import { slide } from "svelte/transition";
@@ -77,23 +78,44 @@
   let suggestionRef = $state<{ handleKeydown: (e: KeyboardEvent) => void } | null>(null);
 
   const addItemMutation = createMutation(() => ({
-    mutationFn: () =>
+    mutationFn: ({
+      name,
+      quantity,
+      unit,
+      position,
+    }: {
+      shopping_list_id: string;
+      name: string;
+      quantity: number | null;
+      unit: string | null;
+      position: number;
+    }) =>
       createShoppingListItem({
         shopping_list_id: id,
-        name: itemName,
-        quantity: itemQty ? parseFloat(itemQty) : null,
-        unit: itemUnit || null,
-        position: (query.data?.shopping_list_items.length ?? 0) + 1,
+        name,
+        quantity,
+        unit,
+        position,
       }),
-    onMutate: async () => {
+    onMutate: async ({
+      name,
+      quantity,
+      unit,
+    }: {
+      name: string;
+      quantity: number | null;
+      unit: string | null;
+      position: number;
+      shopping_list_id: string;
+    }) => {
       await queryClient.cancelQueries({ queryKey: listKey });
       const previous = queryClient.getQueryData<ShoppingListWithItems>(listKey);
       const tempItem: ShoppingListItem = {
         id: "__optimistic_" + crypto.randomUUID(),
         shopping_list_id: id,
-        name: itemName,
-        quantity: itemQty ? parseFloat(itemQty) : null,
-        unit: itemUnit || null,
+        name,
+        quantity,
+        unit,
         completed: false,
         position: (previous?.shopping_list_items.length ?? 0) + 1,
         created_at: new Date().toISOString(),
@@ -233,7 +255,13 @@
 
   function submitAddItem(e: Event) {
     e.preventDefault();
-    addItemMutation.mutate();
+    addItemMutation.mutate({
+      shopping_list_id: id,
+      name: itemName,
+      quantity: itemQty ? parseFloat(itemQty) : null,
+      unit: itemUnit || null,
+      position: (query.data?.shopping_list_items.length ?? 0) + 1,
+    });
   }
 
   function submitComplete(e: Event) {
@@ -449,42 +477,17 @@
 
     {#if isActive}
       <!-- Inline quick-add -->
-      <form
-        onsubmit={(e) => {
-          e.preventDefault();
-          if (!itemName.trim()) return;
-          addItemMutation.mutate();
-        }}
-        class="flex gap-2"
-      >
-        <div class="relative flex-1">
-          <input
-            type="text"
-            bind:value={itemName}
-            autocomplete="off"
-            placeholder={m.shopping_list_item_add()}
-            onkeydown={(e) => suggestionRef?.handleKeydown(e)}
-            class="w-full rounded-full border border-white/10 bg-slate-900/60 px-4 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
-          />
-          <ShoppingListSuggestions
-            bind:this={suggestionRef}
-            query={itemName}
-            onselect={(name, qty, unit) => {
-              itemName = name;
-              itemQty = qty != null ? String(qty) : "";
-              itemUnit = unit ?? "";
-            }}
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={!itemName.trim() || addItemMutation.isPending}
-          class="bg-accent-gradient flex h-10 w-10 items-center justify-center rounded-full text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:opacity-40"
-          aria-label={m.shopping_list_item_add()}
-        >
-          <Plus size={18} strokeWidth={2.4} aria-hidden="true" />
-        </button>
-      </form>
+      <ShoppingListItemQuickAdd
+        disabled={addItemMutation.isPending}
+        onsubmit={({ name, quantity, unit }) =>
+          addItemMutation.mutate({
+            shopping_list_id: list.id,
+            name,
+            quantity,
+            unit,
+            position: list.shopping_list_items.length,
+          })}
+      />
       <div class="flex justify-end">
         <button
           type="button"
