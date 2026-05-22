@@ -2,7 +2,7 @@ name: CI / Deploy
 
 on:
   push:
-    branches: ['**']
+    branches: ["**"]
   pull_request:
     branches: [main]
 
@@ -19,8 +19,8 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: '22'
-          cache: 'pnpm'
+          node-version: "22"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -50,8 +50,8 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: '22'
-          cache: 'pnpm'
+          node-version: "22"
+          cache: "pnpm"
 
       - uses: supabase/setup-cli@v1
         with:
@@ -97,8 +97,8 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: '22'
-          cache: 'pnpm'
+          node-version: "22"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -148,8 +148,8 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: '22'
-          cache: 'pnpm'
+          node-version: "22"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -169,9 +169,71 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy apps/web-svelte/build --project-name=portfelik --branch=main --commit-dirty=true
 
+  migrate-staging:
+    name: Migrate and seed staging Supabase
+    needs: [ci, rls, e2e]
+    if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment:
+      name: Staging
+      url: https://dev.portfelik.pages.dev
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v5
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Link staging project
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.STAGING_SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.STAGING_SUPABASE_DB_PASSWORD }}
+          STAGING_SUPABASE_PROJECT_REF: ${{ secrets.STAGING_SUPABASE_PROJECT_REF }}
+        run: |
+          test "$STAGING_SUPABASE_PROJECT_REF" != "emqzcygfwcvbmhxhfkcc"
+          supabase link --project-ref "$STAGING_SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+
+      - name: Push migrations and system seed to staging
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.STAGING_SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.STAGING_SUPABASE_DB_PASSWORD }}
+        run: supabase db push --linked --include-seed --yes
+
+      - name: Deploy staging Edge Functions
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.STAGING_SUPABASE_ACCESS_TOKEN }}
+          STAGING_SUPABASE_PROJECT_REF: ${{ secrets.STAGING_SUPABASE_PROJECT_REF }}
+        run: |
+          supabase functions deploy send-push --project-ref "$STAGING_SUPABASE_PROJECT_REF"
+          supabase functions deploy send-admin-summary --project-ref "$STAGING_SUPABASE_PROJECT_REF"
+          supabase functions deploy sync-user-role --project-ref "$STAGING_SUPABASE_PROJECT_REF"
+
+      - name: Seed staging personas and synthetic fixtures
+        working-directory: apps/web-svelte
+        env:
+          STAGING_SUPABASE_URL: ${{ secrets.STAGING_PUBLIC_SUPABASE_URL }}
+          STAGING_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+          STAGING_DEMO_EMAIL: ${{ secrets.STAGING_DEMO_EMAIL }}
+          STAGING_DEMO_PASSWORD: ${{ secrets.STAGING_DEMO_PASSWORD }}
+          STAGING_E2E_SMOKE_EMAIL: ${{ secrets.STAGING_E2E_SMOKE_EMAIL }}
+          STAGING_E2E_SMOKE_PASSWORD: ${{ secrets.STAGING_E2E_SMOKE_PASSWORD }}
+        run: pnpm seed:staging
+
   deploy-staging:
     name: Deploy to Cloudflare Pages (staging)
-    needs: [ci, rls, e2e]
+    needs: [ci, rls, e2e, migrate-staging]
     if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
     runs-on: ubuntu-latest
     environment:
@@ -189,8 +251,8 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: '22'
-          cache: 'pnpm'
+          node-version: "22"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -198,10 +260,12 @@ jobs:
       - name: Build SvelteKit app
         working-directory: apps/web-svelte
         env:
-          PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
-          PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
-          PUBLIC_VAPID_KEY: ${{ secrets.PUBLIC_VAPID_KEY }}
-        run: pnpm build
+          PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_PUBLIC_SUPABASE_URL }}
+          PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.STAGING_PUBLIC_SUPABASE_ANON_KEY }}
+          PUBLIC_VAPID_KEY: ${{ secrets.STAGING_PUBLIC_VAPID_KEY }}
+        run: |
+          test "$PUBLIC_SUPABASE_URL" != "https://emqzcygfwcvbmhxhfkcc.supabase.co"
+          pnpm build
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
@@ -227,8 +291,8 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: '22'
-          cache: 'pnpm'
+          node-version: "22"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -242,11 +306,13 @@ jobs:
         env:
           CI: true
           SMOKE_BASE_URL: https://dev.portfelik.pages.dev
-          PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
-          PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
-          E2E_SMOKE_EMAIL: ${{ secrets.E2E_SMOKE_EMAIL }}
-          E2E_SMOKE_PASSWORD: ${{ secrets.E2E_SMOKE_PASSWORD }}
-        run: pnpm exec playwright test --config=playwright.smoke.config.ts
+          PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_PUBLIC_SUPABASE_URL }}
+          PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.STAGING_PUBLIC_SUPABASE_ANON_KEY }}
+          E2E_SMOKE_EMAIL: ${{ secrets.STAGING_E2E_SMOKE_EMAIL }}
+          E2E_SMOKE_PASSWORD: ${{ secrets.STAGING_E2E_SMOKE_PASSWORD }}
+        run: |
+          test "$PUBLIC_SUPABASE_URL" != "https://emqzcygfwcvbmhxhfkcc.supabase.co"
+          pnpm exec playwright test --config=playwright.smoke.config.ts
 
       - uses: actions/upload-artifact@v4
         if: failure()
