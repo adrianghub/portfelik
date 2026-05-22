@@ -100,7 +100,7 @@ test('back-nav after add: shopping_lists summary refetches', async ({ page }) =>
   await expect(page.getByText('Mleko')).toBeVisible();
 
   // Add an item from the detail page (inline quick-add form)
-  await page.getByPlaceholder('Dodaj element').fill('Cebula testowa');
+  await page.getByRole('combobox').fill('Cebula testowa');
   await page.getByRole('button', { name: 'Dodaj element' }).click();
   await expect(page.getByText('Element dodany')).toBeVisible();
 
