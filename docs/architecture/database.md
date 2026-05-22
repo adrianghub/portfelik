@@ -401,6 +401,7 @@ All `LANGUAGE plpgsql STABLE`, all SECURITY DEFINER except where noted.
 | `is_group_owner(group_id)`     | `group_invitations` RLS                  | Breaks recursion.                                                           |
 | `handle_updated_at()`          | `BEFORE UPDATE` triggers on 7 tables     | Generic timestamp bump.                                                     |
 | `handle_new_user()`            | `auth.users` insert trigger              | Creates `profiles` row.                                                     |
+| `enforce_max_user_cap()`        | `auth.users` insert trigger              | Vault-gated production cap for new Auth users.                              |
 | `handle_user_email_update()`   | `auth.users` update trigger              | Mirrors email change to `profiles`.                                         |
 | `bump_last_used_at()`          | `push_subscriptions` BEFORE UPDATE       | Updates `last_used_at`.                                                     |
 | `edge_functions_base_url()`    | DB hook helpers                          | Reads the environment-specific Edge Function base URL from Vault.           |
@@ -479,6 +480,7 @@ All SECURITY DEFINER (bypass RLS) unless marked SECURITY INVOKER. Defined in `20
 
 | Trigger                             | Table                                                                                                   | Event                 | Action                                                |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------- | --------------------- | ----------------------------------------------------- |
+| `enforce_max_user_cap_trigger`      | `auth.users`                                                                                            | BEFORE INSERT         | `enforce_max_user_cap()`                             |
 | `on_auth_user_created`              | `auth.users`                                                                                            | AFTER INSERT          | `handle_new_user()`                                   |
 | `on_auth_user_email_updated`        | `auth.users`                                                                                            | AFTER UPDATE OF email | `handle_user_email_update()`                          |
 | `set_updated_at` (×7)               | profiles, user_groups, group_invitations, categories, shopping_lists, transactions, shopping_list_items | BEFORE UPDATE         | `handle_updated_at()`                                 |

@@ -102,6 +102,9 @@ personas and fixture rows only for the configured staging users.
   `20260524000000_environment_edge_function_urls.sql` to production, make sure
   production Vault has the production `edge_functions_base_url` when push/cron
   DB hook dispatch must stay active.
+- Production user-cap enforcement is Vault-gated too. Set `max_user_cap` to a
+  non-negative integer to cap new `auth.users` rows; leave it absent on local
+  and staging when unrestricted persona churn is intended.
 - Staging DB hooks intentionally no-op until staging Vault and Edge Function
   secrets are deliberately configured for real sends.
 - If a linked operation appears to target the wrong environment, rerun the

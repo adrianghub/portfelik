@@ -26,6 +26,7 @@ sequenceDiagram
 
     Note over DB: First-time login only
     SB->>DB: INSERT INTO auth.users (...)
+    DB->>DB: BEFORE INSERT auth cap<br/>no-op unless vault.max_user_cap exists
     DB->>DB: trigger on_auth_user_created<br/>handle_new_user()
     DB->>DB: INSERT INTO profiles (id, email, role='user', ...)
 
@@ -35,11 +36,12 @@ sequenceDiagram
     SPA->>U: redirect to /transactions
 ```
 
-Source: `apps/web-svelte/src/routes/+layout.svelte` (session bootstrap), `apps/web-svelte/src/routes/login/+page.svelte` (sign-in entry), `supabase/migrations/20260423000000_initial_schema.sql` (`handle_new_user`, `on_auth_user_created`).
+Source: `apps/web-svelte/src/routes/+layout.svelte` (session bootstrap), `apps/web-svelte/src/routes/login/+page.svelte` (sign-in entry), `supabase/migrations/20260423000000_initial_schema.sql` (`handle_new_user`, `on_auth_user_created`), `supabase/migrations/20260526000000_enforce_max_user_cap.sql` and its follow-up (`enforce_max_user_cap`).
 
 Notes:
 
 - Email/password sign-up is **disabled** in `config.toml`; Google is the only enabled provider for production. The smoke-test user uses email/password explicitly enabled for the staging instance via the Supabase dashboard.
+- Production may set Vault key `max_user_cap` to a non-negative integer. The `auth.users` `BEFORE INSERT` cap trigger blocks first-time Google OAuth auto-provisioning once the cap is reached. Missing key leaves local/staging unrestricted; an invalid present value blocks signup as a configuration error.
 - The session lives in `localStorage` (default Supabase behaviour). `onAuthStateChange()` keeps the SPA's reactive `userId` and `profile` in sync.
 - `autoSubscribePush` never prompts; the prompt only fires from the user-gesture banner button (`requestAndSubscribePush`).
 
