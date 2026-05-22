@@ -139,6 +139,7 @@ Every external mutation goes through `src/lib/services/*.ts`. Patterns:
 - **Writes** — direct PostgREST inserts/updates/deletes for owner-managed tables. `user_id` always passed explicitly from `supabase.auth.getUser()` because RLS does not auto-fill it.
 - **Group/invitation mutations** — `supabase.rpc(...)` to a SECURITY DEFINER function. Direct table writes are blocked by `using (false)` policies.
 - **Shopping list completion** — `complete_shopping_list(p_list_id, p_total_amount, p_category_id)` RPC; atomically marks list complete *and* creates the linked expense transaction.
+- **Shopping list attach** — `attach_shopping_list_to_transaction(p_list_id, p_tx_id)` RPC; transaction detail is the entry point for linking an already-recorded eligible expense to a non-empty visible list with matching sharing scope.
 
 ### State management
 

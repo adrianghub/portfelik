@@ -3,7 +3,6 @@ import type {
   ShoppingList,
   ShoppingListItem,
   ShoppingListSummary,
-  TransactionWithCategory,
   ShoppingListWithItems,
   Transaction,
 } from "$lib/types";
@@ -119,25 +118,34 @@ export async function attachShoppingListToTransaction(
   return data as unknown as Transaction;
 }
 
-export async function fetchAttachableTransactions(
-  listGroupId: string | null,
+export async function fetchAttachableShoppingListsForTransaction(
+  txGroupId: string | null,
   limit = 30
-): Promise<TransactionWithCategory[]> {
-  // Only show transactions on the same sharing surface as the list:
-  // - Private list (group_id null) → only private txs.
-  // - Group list → only txs in that same group.
-  // Matches the RPC's sharing_scope_mismatch check.
+): Promise<ShoppingListSummary[]> {
+  // Mirror the RPC's sharing-scope check: private tx → private lists; group tx → same-group lists.
+  // RLS already enforces visibility; this scope filter mirrors server-side rejection.
   let q = supabase
-    .from("transactions_with_category")
-    .select("*")
-    .eq("type", "expense")
-    .is("shopping_list_id", null)
-    .order("date", { ascending: false })
+    .from("shopping_lists")
+    .select(
+      "id, name, status, user_id, group_id, category_id, total_amount, completed_at, created_at, updated_at, shopping_list_items(id, completed)"
+    )
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
     .limit(limit);
-  q = listGroupId === null ? q.is("group_id", null) : q.eq("group_id", listGroupId);
+  q = txGroupId === null ? q.is("group_id", null) : q.eq("group_id", txGroupId);
+
   const { data, error } = await q;
   if (error) throw error;
-  return (data ?? []) as TransactionWithCategory[];
+
+  return (
+    (data ?? []) as (ShoppingList & { shopping_list_items: { id: string; completed: boolean }[] })[]
+  )
+    .filter((list) => list.shopping_list_items.length > 0)
+    .map((list) => ({
+      ...list,
+      item_total: list.shopping_list_items.length,
+      item_completed: list.shopping_list_items.filter((i) => i.completed).length,
+    }));
 }
 
 export async function completeShoppingList(

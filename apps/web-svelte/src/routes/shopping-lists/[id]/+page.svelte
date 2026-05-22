@@ -1,28 +1,29 @@
 <script lang="ts">
   import { page } from "$app/stores";
-  import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
-  import { toast } from "svelte-sonner";
+  import ShoppingListItemEditSheet from "$lib/components/shopping-lists/ShoppingListItemEditSheet.svelte";
+  import ShoppingListItemQuickAdd from "$lib/components/shopping-lists/ShoppingListItemQuickAdd.svelte";
+  import ShoppingListSuggestions from "$lib/components/shopping-lists/ShoppingListSuggestions.svelte";
+  import Dialog from "$lib/components/ui/Dialog.svelte";
+  import EmptyState from "$lib/components/ui/EmptyState.svelte";
+  import ProgressBar from "$lib/components/ui/ProgressBar.svelte";
+  import Sheet from "$lib/components/ui/Sheet.svelte";
+  import { motionDuration } from "$lib/motion";
+  import * as m from "$lib/paraglide/messages";
+  import { fetchCategories } from "$lib/services/categories";
   import {
-    fetchShoppingListById,
-    updateShoppingListItem,
+    completeShoppingList,
     createShoppingListItem,
     deleteShoppingListItem,
-    completeShoppingList,
-    fetchAttachableTransactions,
-    attachShoppingListToTransaction,
+    fetchShoppingListById,
+    updateShoppingListItem,
   } from "$lib/services/shopping-lists";
   import type { ShoppingListItem, ShoppingListWithItems } from "$lib/types";
-  import { fetchCategories } from "$lib/services/categories";
-  import { formatCurrency, formatDate, cn } from "$lib/utils";
-  import Dialog from "$lib/components/ui/Dialog.svelte";
-  import Sheet from "$lib/components/ui/Sheet.svelte";
-  import ShoppingListSuggestions from "$lib/components/shopping-lists/ShoppingListSuggestions.svelte";
-  import * as m from "$lib/paraglide/messages";
-  import { Check, Link2, ListPlus, MoreHorizontal, Plus } from "lucide-svelte";
-  import EmptyState from "$lib/components/ui/EmptyState.svelte";
+  import { cn, formatCurrency, formatDate } from "$lib/utils";
+  import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
+  import { Check, ListPlus, MoreHorizontal } from "lucide-svelte";
+  import { toast } from "svelte-sonner";
   import { flip } from "svelte/animate";
   import { slide } from "svelte/transition";
-  import { motionDuration } from "$lib/motion";
 
   const queryClient = useQueryClient();
   const id = $derived($page.params.id ?? "");
@@ -76,26 +77,50 @@
   let itemName = $state("");
   let itemQty = $state("");
   let itemUnit = $state("");
-  let suggestionRef = $state<{ handleKeydown: (e: KeyboardEvent) => void } | null>(null);
+  let suggestionRef = $state<{
+    handleKeydown: (e: KeyboardEvent) => void;
+    activeId: () => string | null;
+  } | null>(null);
 
   const addItemMutation = createMutation(() => ({
-    mutationFn: () =>
+    mutationFn: ({
+      name,
+      quantity,
+      unit,
+      position,
+    }: {
+      shopping_list_id: string;
+      name: string;
+      quantity: number | null;
+      unit: string | null;
+      position: number;
+    }) =>
       createShoppingListItem({
         shopping_list_id: id,
-        name: itemName,
-        quantity: itemQty ? parseFloat(itemQty) : null,
-        unit: itemUnit || null,
-        position: (query.data?.shopping_list_items.length ?? 0) + 1,
+        name,
+        quantity,
+        unit,
+        position,
       }),
-    onMutate: async () => {
+    onMutate: async ({
+      name,
+      quantity,
+      unit,
+    }: {
+      name: string;
+      quantity: number | null;
+      unit: string | null;
+      position: number;
+      shopping_list_id: string;
+    }) => {
       await queryClient.cancelQueries({ queryKey: listKey });
       const previous = queryClient.getQueryData<ShoppingListWithItems>(listKey);
       const tempItem: ShoppingListItem = {
         id: "__optimistic_" + crypto.randomUUID(),
         shopping_list_id: id,
-        name: itemName,
-        quantity: itemQty ? parseFloat(itemQty) : null,
-        unit: itemUnit || null,
+        name,
+        quantity,
+        unit,
         completed: false,
         position: (previous?.shopping_list_items.length ?? 0) + 1,
         created_at: new Date().toISOString(),
@@ -152,36 +177,22 @@
     },
   }));
 
-  // Rename item — optimistic, dual-key invalidation
-  let showRename = $state(false);
-  let renameTargetId = $state<string | null>(null);
-  let renameValue = $state("");
+  // Edit item (name + quantity + unit)
+  let editTarget = $state<ShoppingListItem | null>(null);
 
   const renameMutation = createMutation(() => ({
-    mutationFn: ({ itemId, name }: { itemId: string; name: string }) =>
-      updateShoppingListItem(itemId, { name }),
-    onMutate: async ({ itemId, name }) => {
-      await queryClient.cancelQueries({ queryKey: listKey });
-      const previous = queryClient.getQueryData<ShoppingListWithItems>(listKey);
-      if (previous) {
-        queryClient.setQueryData<ShoppingListWithItems>(listKey, {
-          ...previous,
-          shopping_list_items: previous.shopping_list_items.map((it) =>
-            it.id === itemId ? { ...it, name } : it
-          ),
-        });
-      }
-      showRename = false;
-      return { previous };
+    mutationFn: (args: {
+      id: string;
+      updates: { name: string; quantity: number | null; unit: string | null };
+    }) => updateShoppingListItem(args.id, args.updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: listKey });
+      queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
+      toast.success(m.toast_shopping_list_item_renamed());
+      editTarget = null;
     },
-    onSuccess: () => toast.success(m.toast_shopping_list_item_renamed()),
-    onError: (_err, _vars, ctx) => {
-      if (ctx?.previous) queryClient.setQueryData(listKey, ctx.previous);
+    onError: () => {
       toast.error(m.toast_error());
-    },
-    onSettled: async () => {
-      await queryClient.invalidateQueries({ queryKey: listKey });
-      await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
     },
   }));
 
@@ -189,44 +200,6 @@
   let showComplete = $state(false);
   let completeAmount = $state("");
   let completeCategoryId = $state("");
-
-  // Connect-to-existing-tx state
-  let showConnect = $state(false);
-
-  const attachableQuery = createQuery(() => ({
-    queryKey: ["attachable_transactions", query.data?.group_id ?? null],
-    queryFn: () => fetchAttachableTransactions(query.data?.group_id ?? null),
-    enabled: showConnect,
-    staleTime: 30_000,
-  }));
-
-  const connectMutation = createMutation(() => ({
-    mutationFn: (txId: string) => attachShoppingListToTransaction(id, txId),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
-      await queryClient.invalidateQueries({ queryKey: listKey });
-      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      await queryClient.invalidateQueries({ queryKey: ["attachable_transactions"] });
-      toast.success(m.toast_shopping_list_connected());
-      showConnect = false;
-    },
-    onError: (err: { message?: string } | Error) => {
-      const msg = (err as { message?: string }).message ?? "";
-      if (msg.includes("sharing_scope_mismatch")) {
-        toast.error(m.toast_sharing_scope_mismatch());
-        return;
-      }
-      if (msg.includes("transaction_not_expense")) {
-        toast.error(m.toast_transaction_not_expense());
-        return;
-      }
-      if (msg.includes("list_empty")) {
-        toast.error(m.toast_list_empty());
-        return;
-      }
-      toast.error(m.toast_error());
-    },
-  }));
 
   const completeMutation = createMutation(() => ({
     mutationFn: () => completeShoppingList(id, parseFloat(completeAmount), completeCategoryId),
@@ -273,7 +246,13 @@
 
   function submitAddItem(e: Event) {
     e.preventDefault();
-    addItemMutation.mutate();
+    addItemMutation.mutate({
+      shopping_list_id: id,
+      name: itemName,
+      quantity: itemQty ? parseFloat(itemQty) : null,
+      unit: itemUnit || null,
+      position: (query.data?.shopping_list_items.length ?? 0) + 1,
+    });
   }
 
   function submitComplete(e: Event) {
@@ -289,6 +268,8 @@
 
   const isActive = $derived(query.data?.status === "active");
   const hasItems = $derived((query.data?.shopping_list_items?.length ?? 0) > 0);
+  const itemTotal = $derived(query.data?.shopping_list_items.length ?? 0);
+  const itemDone = $derived(query.data?.shopping_list_items.filter((i) => i.completed).length ?? 0);
 
   // Item row actions sheet (kebab + long-press) + helpers
   let actionsTarget = $state<ShoppingListItem | null>(null);
@@ -322,15 +303,12 @@
   }
   function openRenameFromActions() {
     if (!actionsTarget) return;
-    renameTargetId = actionsTarget.id;
-    renameValue = actionsTarget.name;
-    showRename = true;
+    editTarget = actionsTarget;
     showActions = false;
   }
-  function submitRename(e: Event) {
-    e.preventDefault();
-    if (!renameTargetId || !renameValue.trim()) return;
-    renameMutation.mutate({ itemId: renameTargetId, name: renameValue.trim() });
+  function saveEdit(updates: { name: string; quantity: number | null; unit: string | null }) {
+    if (!editTarget) return;
+    renameMutation.mutate({ id: editTarget.id, updates });
   }
   function deleteFromActions() {
     if (!actionsTarget) return;
@@ -412,6 +390,32 @@
 
     <div class="text-xs text-slate-400 dark:text-slate-500">{formatDate(list.created_at)}</div>
 
+    {#if list.status === "active" && itemTotal > 0}
+      <div class="mt-2 space-y-1">
+        <p class="text-xs text-slate-400">
+          {m.shopping_list_progress({ completed: itemDone, total: itemTotal })}
+        </p>
+        <ProgressBar
+          value={itemDone}
+          max={itemTotal}
+          label={m.shopping_list_progress({ completed: itemDone, total: itemTotal })}
+        />
+      </div>
+    {/if}
+
+    {#if list.status === "completed" && list.total_amount != null}
+      <div
+        class="mt-3 rounded-lg border border-emerald-400/20 bg-emerald-500/5 px-3 py-2 text-sm text-emerald-200"
+      >
+        <p class="text-xs tracking-wide text-emerald-300/80 uppercase">
+          {m.shopping_list_completed_tx_created()}
+        </p>
+        <p class="mt-0.5 tabular-nums">
+          {formatCurrency(list.total_amount, "PLN")}
+        </p>
+      </div>
+    {/if}
+
     {#if list.shopping_list_items.length === 0}
       <EmptyState title={m.shopping_list_items_empty()} body={m.shopping_list_items_empty_hint()}>
         {#snippet icon()}
@@ -489,53 +493,18 @@
 
     {#if isActive}
       <!-- Inline quick-add -->
-      <form
-        onsubmit={(e) => {
-          e.preventDefault();
-          if (!itemName.trim()) return;
-          addItemMutation.mutate();
-        }}
-        class="flex gap-2"
-      >
-        <div class="relative flex-1">
-          <input
-            type="text"
-            bind:value={itemName}
-            autocomplete="off"
-            placeholder={m.shopping_list_item_add()}
-            onkeydown={(e) => suggestionRef?.handleKeydown(e)}
-            class="w-full rounded-full border border-white/10 bg-slate-900/60 px-4 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
-          />
-          <ShoppingListSuggestions
-            bind:this={suggestionRef}
-            query={itemName}
-            onselect={(name, qty, unit) => {
-              itemName = name;
-              itemQty = qty != null ? String(qty) : "";
-              itemUnit = unit ?? "";
-            }}
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={!itemName.trim() || addItemMutation.isPending}
-          class="bg-accent-gradient flex h-10 w-10 items-center justify-center rounded-full text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:opacity-40"
-          aria-label={m.shopping_list_item_add()}
-        >
-          <Plus size={18} strokeWidth={2.4} aria-hidden="true" />
-        </button>
-      </form>
-      <div class="grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onclick={() => (showConnect = true)}
-          disabled={!hasItems}
-          title={hasItems ? undefined : m.shopping_list_requires_items()}
-          class="flex items-center justify-center gap-1.5 rounded-full border border-white/10 bg-slate-900/60 px-4 py-2.5 text-sm font-medium text-slate-200 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <Link2 size={15} strokeWidth={1.8} aria-hidden="true" />
-          {m.shopping_list_connect_title()}
-        </button>
+      <ShoppingListItemQuickAdd
+        disabled={addItemMutation.isPending}
+        onsubmit={({ name, quantity, unit }) =>
+          addItemMutation.mutate({
+            shopping_list_id: list.id,
+            name,
+            quantity,
+            unit,
+            position: list.shopping_list_items.length + 1,
+          })}
+      />
+      <div class="flex justify-end">
         <button
           type="button"
           onclick={openCompleteDialog}
@@ -645,6 +614,7 @@
   title={m.shopping_list_complete_title()}
 >
   <form onsubmit={submitComplete} class="space-y-4">
+    <p class="text-sm text-slate-300">{m.shopping_list_complete_creates_tx_hint()}</p>
     <div class="space-y-1">
       <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="comp-amount"
         >{m.shopping_list_complete_amount()}</label
@@ -696,49 +666,6 @@
     </div>
   </form>
 </Dialog>
-
-<!-- Connect-to-existing-tx sheet -->
-<Sheet
-  open={showConnect}
-  onclose={() => (showConnect = false)}
-  title={m.shopping_list_connect_title()}
->
-  <div class="space-y-3 pb-2">
-    <p class="text-xs text-slate-400">{m.shopping_list_connect_help()}</p>
-    {#if attachableQuery.isPending}
-      <div class="space-y-2">
-        {#each Array(4) as _, i (i)}
-          <div class="h-14 animate-pulse rounded-xl bg-slate-800/60"></div>
-        {/each}
-      </div>
-    {:else if (attachableQuery.data?.length ?? 0) === 0}
-      <p class="py-6 text-center text-sm text-slate-500">{m.shopping_list_connect_empty()}</p>
-    {:else}
-      <ul class="max-h-[60vh] space-y-1.5 overflow-y-auto">
-        {#each attachableQuery.data ?? [] as tx (tx.id)}
-          <li>
-            <button
-              type="button"
-              onclick={() => connectMutation.mutate(tx.id)}
-              disabled={connectMutation.isPending}
-              class="flex w-full items-center justify-between gap-3 rounded-xl border border-white/5 bg-slate-900/60 px-4 py-3 text-left backdrop-blur transition-colors hover:bg-white/5 disabled:opacity-40"
-            >
-              <div class="min-w-0 flex-1">
-                <p class="truncate text-sm font-medium text-slate-100">{tx.description}</p>
-                <p class="mt-0.5 text-xs text-slate-500">
-                  {formatDate(tx.date)} · {tx.category_name}
-                </p>
-              </div>
-              <span class="shrink-0 text-sm font-semibold text-rose-300 tabular-nums"
-                >−{formatCurrency(tx.amount)}</span
-              >
-            </button>
-          </li>
-        {/each}
-      </ul>
-    {/if}
-  </div>
-</Sheet>
 
 <!-- Item actions sheet (kebab / long-press) -->
 <Sheet
@@ -794,41 +721,11 @@
   </div>
 </Sheet>
 
-<!-- Rename item dialog -->
-<Dialog
-  open={showRename}
-  onclose={() => (showRename = false)}
-  title={m.shopping_list_item_rename_title()}
->
-  <form onsubmit={submitRename} class="space-y-4">
-    <div class="space-y-1">
-      <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="rename-input"
-        >{m.shopping_list_item_name()}</label
-      >
-      <input
-        id="rename-input"
-        type="text"
-        required
-        bind:value={renameValue}
-        autocomplete="off"
-        class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
-      />
-    </div>
-    <div class="flex gap-2 pt-1">
-      <button
-        type="button"
-        onclick={() => (showRename = false)}
-        class="flex-1 rounded-full border border-white/10 bg-slate-900/60 py-2 text-sm font-medium text-slate-200 backdrop-blur transition-colors hover:bg-white/5"
-      >
-        {m.common_cancel()}
-      </button>
-      <button
-        type="submit"
-        disabled={renameMutation.isPending}
-        class="bg-accent-gradient flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:opacity-50"
-      >
-        {renameMutation.isPending ? m.common_saving() : m.common_save()}
-      </button>
-    </div>
-  </form>
-</Dialog>
+{#if editTarget}
+  <ShoppingListItemEditSheet
+    item={editTarget}
+    onclose={() => (editTarget = null)}
+    onsave={saveEdit}
+    saving={renameMutation.isPending}
+  />
+{/if}

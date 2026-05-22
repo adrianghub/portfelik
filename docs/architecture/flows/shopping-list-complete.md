@@ -43,6 +43,14 @@ The RPC checks: caller is the owner OR a member of the list's `group_id` (if any
 
 Two writes from the client cannot be made atomic. The client could insert the transaction, then update the list, but a network failure between the two would leave the list `active` with an orphaned transaction. The RPC keeps both inside one Postgres transaction.
 
+## Related: attach an existing transaction
+
+There is one reverse path for already-recorded spend: from the transaction detail sheet, the user may choose **Połącz z listą zakupów** on an unlinked expense transaction. That invokes `attach_shopping_list_to_transaction(p_list_id, p_tx_id)` for an eligible active list visible to the caller.
+
+The list detail route does not start that attach flow. Its completion action is the stronger default because it records the completed list and its linked expense transaction together. Transaction-side attach is reserved for the case where the transaction already exists, for example after manual entry or bank import.
+
+The attach RPC keeps the same domain guards as before: the list must contain at least one item, the transaction must be an expense without an existing `shopping_list_id`, and list/transaction sharing scopes must match.
+
 ## Caveat — isolation level
 
 The RPC runs at the default Postgres isolation (READ COMMITTED). Two simultaneous completions of the same list would both succeed: the second one would mark a `completed` list `completed` again and create a second transaction. There is no explicit row lock or status check inside the RPC. Risk is negligible in practice (single user, slow UI), but it is a real edge case and is recorded in the audit.

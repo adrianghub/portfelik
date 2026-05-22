@@ -30,12 +30,12 @@ Apply to every task regardless of phase.
 ## Project Status
 
 **Portfelik** — personal-finance PWA. Migrating React 19 + Firebase → SvelteKit + Supabase. Full plan: `MIGRATION_PLAN.md`.
-**Immediate next step:** Bank CSV import V1 — Steps 5 + 5.1 + 5.2 pushed to `dev` 2026-05-21 (upload-first wizard at `/transactions/import` + entry-point link on `/transactions`; recent commits `f7d1b47`, `daff3a1`, `d175157`, `c3f9fc8`). **All three migrations applied to prod via MCP** (`20260520000000_bank_import.sql` + `20260521000000_commit_import_session.sql` + `20260521000001_preview_fingerprint_warnings.sql`). Before Step 6 (rules UI): land stabilization bundle — mocked Playwright e2e for `/transactions/import` + review-table polish (mobile row cards, bulk category, table filters for pending/dup/uncat/income/expense, keyboard workflow, sticky thead inside single scroll container).
+**Immediate next step:** Shopping-list stabilization is the active gate before bank-import Step 6 or mortgage/debt planning. Tasks 1–9 are pushed on `dev`: transaction-side list attach, quick-add qty/unit + suggestion combobox polish, item edit qty/unit, list progress/completion clarity, Playwright regressions, and bank-import warnings for matching list-created expense transactions. `20260523000000_warn_shopping_list_duplicates.sql` was applied once to shared cloud Supabase via linked query on 2026-05-22 and both warning RPCs verify with the list-warning path. Finish Task 10 with authenticated staging verification on `dev.portfelik.pages.dev`, then decide whether the bank-import Step 6 rules UI or the deferred import review-table polish is next.
 
 Phase 12 shipped through U6 + EmptyState sweep + group hardening (2026-05-17). Highlights:
 - Dark-neon UX uplift U1–U6: pill bottom nav, avatar menu, dashboard hero + sparklines + period chips, daily greeting + money quote, drill-down navigation, type filter, ConfirmDialog scale/fade, `prefers-reduced-motion` honored, EmptyState adopted across 6 screens.
 - Group hardening (`20260516000000` → `20260517000003`): `transactions.group_id` opt-in with explicit assignment, both `transactions` and `shopping_lists` lock `user_id` immutable, `group_id` reassign owner-only via trigger, `disband_group` raises when group has items, INSERT policies enforce member-only group assignment.
-- `attach_shopping_list_to_transaction` RPC connects existing tx to a list with sharing-scope match + ≥1 item guard.
+- `attach_shopping_list_to_transaction` RPC connects an existing expense tx to a list with sharing-scope match + ≥1 item guard. The user starts that flow from the transaction detail sheet; completing a list still creates its own linked expense transaction.
 - RLS regression suite 52/52 green (added 7 group/list rules + tx user_id immutability tests).
 - Vitest auto-loads `.env.test` (gitignored local RLS keys) plus `.env.test.example` (non-secret defaults). Copy the example, then fill JWT keys from `supabase status -o env`.
 
@@ -55,6 +55,16 @@ Phase 12 shipped through U6 + EmptyState sweep + group hardening (2026-05-17). H
 | 5.5 — Transactions table sorting: desktop headers toggle date/description/category/status/amount ordering; default remains date descending; mobile day groups follow the active sort order | ✅ Done locally 2026-05-21 — svelte-check 0/0, lint clean, format clean |
 | Dashboard insight polish — replace vague "Sukcesy miesiąca" shopping-list widget with period-aware finance signals: transaction count, income/expense split, top expense category, and one actionable mission | ✅ Done locally 2026-05-21 — svelte-check 0/0, lint clean, format clean |
 | 6 — Save-as-rule + categorization rules engine + masked LLM suggested_category | ⏳ Backlog |
+
+**Shopping-list stabilization** — current bundle:
+
+| Task | Status |
+|---|---|
+| 1–6 — Attach direction flip + quick-add qty/unit + focus-gated suggestion combobox + item edit qty/unit + list progress/completion clarity | ✅ Local on `dev` 2026-05-22 |
+| 7 — Mocked Playwright stabilization bundle | ✅ Local on `dev` 2026-05-22 — 8 shopping-list regression cases |
+| 8 — Bank-import warning migration for matching list-created expense transactions | ✅ Pushed on `dev` 2026-05-22 — `20260523000000_warn_shopping_list_duplicates.sql`; shared-cloud apply completed via linked query |
+| 9 — RLS coverage for private/group-visible list-created warning candidates | ✅ Pushed on `dev` 2026-05-22 — targeted list-warning spec 10/10 green |
+| 10 — Full gates, docs, push, shared-cloud migration, staging verification | ⏳ In progress — local gates + cloud RPC metadata verified; authenticated staging behavior check still pending |
 
 Mortgage/debt tracking is a follow-on track.
 

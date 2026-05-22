@@ -432,11 +432,12 @@ All SECURITY DEFINER (bypass RLS) unless marked SECURITY INVOKER. Defined in `20
 | `reject_invitation(p_invitation_id)` | invitee | Sets status `rejected`. |
 | `cancel_invitation(p_invitation_id)` | creator OR group owner | Sets status `cancelled`. |
 
-**Shopping list (2)**
+**Shopping list (3)**
 
 | RPC | Auth | Behavior |
 |---|---|---|
 | `complete_shopping_list(p_list_id, p_total_amount, p_category_id)` | owner OR group member | Sets `status='completed'` + `total_amount`, inserts a linked `transactions` row, all in one DB transaction. |
+| `attach_shopping_list_to_transaction(p_list_id, p_tx_id)` | visible list + visible transaction | Links an existing unlinked expense transaction to an eligible non-empty shopping list with matching private/group sharing scope. UI entry point is the transaction detail sheet. |
 | `duplicate_shopping_list(p_list_id)` | SECURITY INVOKER — uses caller's RLS | Copies list + items, resets `status='active'`. |
 
 **Notifications (2 — both SECURITY INVOKER)**
@@ -464,8 +465,8 @@ All SECURITY DEFINER (bypass RLS) unless marked SECURITY INVOKER. Defined in `20
 
 | RPC | Auth | Behavior |
 |---|---|---|
-| `commit_import_session(p_session_id)` | session owner | SECURITY DEFINER. Rejects unless `status='preview'` and `rows_pending=0`. Validates ownership/account/category visibility/group membership/type-match. Per-row savepoint catches `unique_violation` from the hard-dedupe indexes and marks the row `duplicate` (with `duplicate_of`) without aborting the loop. Returns jsonb `{inserted, duplicates_preview, duplicates_commit, skipped, fingerprint_warnings:[{row_id, duplicate_of_transaction_id}]}`. Only writer of `transaction_import_links`. |
-| `preview_fingerprint_warnings(p_session_id)` | session owner | SECURITY DEFINER, read-only. Pre-commit scan over the caller's existing `transaction_import_links` returning probable-duplicate warnings for the review UI (shape matches `commit_import_session.fingerprint_warnings`). Fingerprint = `sha256(amount | currency | description | counterparty)`; tx date window ±3 days. |
+| `commit_import_session(p_session_id)` | session owner | SECURITY DEFINER. Rejects unless `status='preview'` and `rows_pending=0`. Validates ownership/account/category visibility/group membership/type-match. Per-row savepoint catches `unique_violation` from the hard-dedupe indexes and marks the row `duplicate` (with `duplicate_of`) without aborting the loop. Returns jsonb `{inserted, duplicates_preview, duplicates_commit, skipped, fingerprint_warnings:[{row_id, duplicate_of_transaction_id}]}`. Warning candidates include prior imported-link fingerprint matches and visible list-created expense transactions with exact amount/currency within ±3 days. Only writer of `transaction_import_links`. |
+| `preview_fingerprint_warnings(p_session_id)` | session owner | SECURITY DEFINER, read-only. Pre-commit scan returning probable-duplicate warnings for the review UI (shape matches `commit_import_session.fingerprint_warnings`). Path A scans the caller's existing import-link fingerprints. Path B scans visible list-created expense transactions with exact amount/currency and tx date within posted date ±3 days. |
 
 **Reporting (1 — SECURITY INVOKER)**
 
@@ -512,6 +513,7 @@ DST drift is acknowledged: pg_cron runs on UTC, so the local-Warsaw fire time sh
 20260520000000_bank_import                         — 5 bank-import tables + RLS + categorization_rule_kind enum (privacy spine: 0 cols on transactions)
 20260521000000_commit_import_session               — SECURITY DEFINER commit RPC (race-safe per-row savepoint dedupe)
 20260521000001_preview_fingerprint_warnings       — SECURITY DEFINER pre-commit dup scan
+20260523000000_warn_shopping_list_duplicates      — extend bank-import soft warnings to caller-visible list-created expense transactions
 ```
 
 > **Drift note:** The Supabase `supabase_migrations.schema_migrations` table currently shows only the latest migration (`20260504195407 admin_trigger_rpc`). All earlier migrations were applied before the platform's migration tracking was wired up; the SQL files are the source of truth, not the migrations table. See [audit](./audit-2026-05-09.md).
