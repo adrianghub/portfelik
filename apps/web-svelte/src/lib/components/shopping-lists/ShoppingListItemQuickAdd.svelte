@@ -16,7 +16,10 @@
   let detailsOpen = $state(false);
   let inputFocused = $state(false);
 
-  let suggestionRef = $state<{ handleKeydown: (e: KeyboardEvent) => void } | null>(null);
+  let suggestionRef = $state<{
+    handleKeydown: (e: KeyboardEvent) => void;
+    activeId: () => string | null;
+  } | null>(null);
 
   function selectSuggestion(n: string, q: number | null, u: string | null) {
     name = n;
@@ -61,6 +64,7 @@
           bind:this={suggestionRef}
           query={name}
           onselect={selectSuggestion}
+          onescape={() => (inputFocused = false)}
         />
       {/if}
     </div>

@@ -11,8 +11,9 @@
   interface Props {
     query: string;
     onselect: (name: string, quantity: number | null, unit: string | null) => void;
+    onescape?: () => void;
   }
-  let { query, onselect }: Props = $props();
+  let { query, onselect, onescape }: Props = $props();
 
   const historyQuery = createQuery(() => ({
     queryKey: ["shopping_list_item_history"],
@@ -43,7 +44,7 @@
   });
 
   const suggestions = $derived.by(() => {
-    if (!query) return ranked.slice(0, 5);
+    if (!query.trim()) return [] as Suggestion[];
     const q = query.toLowerCase();
     return ranked.filter((s) => s.name.toLowerCase().includes(q)).slice(0, 5);
   });
@@ -55,7 +56,21 @@
     activeIndex = -1;
   });
 
+  function optionId(i: number) {
+    return `shopping-list-suggestion-${i}`;
+  }
+
+  export function activeId(): string | null {
+    return activeIndex >= 0 ? optionId(activeIndex) : null;
+  }
+
   export function handleKeydown(e: KeyboardEvent) {
+    if (e.key === "Escape" && onescape) {
+      e.preventDefault();
+      onescape();
+      activeIndex = -1;
+      return;
+    }
     if (suggestions.length === 0) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -73,16 +88,17 @@
 
 {#if suggestions.length > 0}
   <ul
-    class="absolute top-full right-0 left-0 z-30 mt-1 max-h-36 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-md dark:border-slate-700 dark:bg-slate-900"
+    id="shopping-list-item-suggestions"
+    class="absolute top-full right-0 left-0 z-30 mt-1 max-h-36 overflow-y-auto rounded-lg border border-white/10 bg-slate-900/95 shadow-md backdrop-blur"
     role="listbox"
   >
     {#each suggestions as s, i (s.name)}
-      <li role="option" aria-selected={i === activeIndex}>
+      <li role="option" id={optionId(i)} aria-selected={i === activeIndex}>
         <button
           type="button"
-          class="flex w-full items-center justify-between px-3 py-1.5 text-left text-sm transition-colors hover:bg-slate-50 dark:hover:bg-slate-800 {i ===
+          class="flex w-full items-center justify-between px-3 py-1.5 text-left text-sm transition-colors hover:bg-white/5 {i ===
           activeIndex
-            ? 'bg-slate-50 dark:bg-slate-800'
+            ? 'bg-white/5'
             : ''}"
           onclick={() => onselect(s.name, s.quantity, s.unit)}
           onmouseenter={() => (activeIndex = i)}

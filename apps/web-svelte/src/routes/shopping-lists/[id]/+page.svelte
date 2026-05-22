@@ -75,7 +75,10 @@
   let itemName = $state("");
   let itemQty = $state("");
   let itemUnit = $state("");
-  let suggestionRef = $state<{ handleKeydown: (e: KeyboardEvent) => void } | null>(null);
+  let suggestionRef = $state<{
+    handleKeydown: (e: KeyboardEvent) => void;
+    activeId: () => string | null;
+  } | null>(null);
 
   const addItemMutation = createMutation(() => ({
     mutationFn: ({
