@@ -14,22 +14,62 @@
   let {
     value = $bindable(DEFAULT_SHOPPING_LIST_UNIT),
     id = "shopping-list-unit",
-    label = m.shopping_list_item_unit(),
     placeholder = m.shopping_list_item_unit_placeholder(),
-    showLabel = true,
   }: Props = $props();
 
   let open = $state(false);
   let activeIndex = $state(-1);
   let inputRef = $state<HTMLInputElement | null>(null);
+  let dropAnchorY = $state(0);
+  let dropLeft = $state(0);
+  let dropWidth = $state(0);
+  let dropMaxHeight = $state(192);
+  let dropAbove = $state(false);
+
+  const DROPDOWN_PREFERRED_PX = 192;
+  const VIEWPORT_PADDING_PX = 8;
 
   const suggestions = $derived.by(() => {
     const query = value.trim().toLowerCase();
     if (!open) return [] as string[];
-    if (!query || SHOPPING_LIST_UNIT_OPTIONS.some((unit) => unit.toLowerCase() === query)) {
-      return [...SHOPPING_LIST_UNIT_OPTIONS];
-    }
+    if (!query) return [...SHOPPING_LIST_UNIT_OPTIONS];
     return SHOPPING_LIST_UNIT_OPTIONS.filter((unit) => unit.toLowerCase().includes(query));
+  });
+
+  function updateDropPosition() {
+    if (!inputRef || typeof window === "undefined") return;
+    const rect = inputRef.getBoundingClientRect();
+    const vv = window.visualViewport;
+    const viewTop = vv?.offsetTop ?? 0;
+    const viewLeft = vv?.offsetLeft ?? 0;
+    const viewHeight = vv?.height ?? window.innerHeight;
+    const viewBottom = viewTop + viewHeight;
+    const spaceBelow = viewBottom - rect.bottom - VIEWPORT_PADDING_PX;
+    const spaceAbove = rect.top - viewTop - VIEWPORT_PADDING_PX;
+    dropAbove = spaceBelow < DROPDOWN_PREFERRED_PX && spaceAbove > spaceBelow;
+    const available = Math.max(80, dropAbove ? spaceAbove : spaceBelow);
+    dropMaxHeight = Math.min(DROPDOWN_PREFERRED_PX, available);
+    dropLeft = rect.left - viewLeft;
+    dropWidth = rect.width;
+    dropAnchorY = dropAbove ? rect.top - 4 : rect.bottom + 4;
+  }
+
+  $effect(() => {
+    if (typeof window === "undefined") return;
+    const vv = window.visualViewport;
+    const handler = () => {
+      if (open) updateDropPosition();
+    };
+    window.addEventListener("scroll", handler, true);
+    window.addEventListener("resize", handler);
+    vv?.addEventListener("resize", handler);
+    vv?.addEventListener("scroll", handler);
+    return () => {
+      window.removeEventListener("scroll", handler, true);
+      window.removeEventListener("resize", handler);
+      vv?.removeEventListener("resize", handler);
+      vv?.removeEventListener("scroll", handler);
+    };
   });
 
   $effect(() => {
@@ -37,8 +77,21 @@
     activeIndex = suggestions.length > 0 ? Math.min(activeIndex, suggestions.length - 1) : -1;
   });
 
+  $effect(() => {
+    if (open) updateDropPosition();
+  });
+
   function optionId(index: number) {
     return `${id}-option-${index}`;
+  }
+
+  function portal(node: HTMLElement) {
+    document.body.appendChild(node);
+    return {
+      destroy() {
+        node.remove();
+      },
+    };
   }
 
   function closeList() {
@@ -78,9 +131,6 @@
 </script>
 
 <div class="relative w-full min-w-0 space-y-1">
-  {#if showLabel}
-    <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for={id}>{label}</label>
-  {/if}
   <div class="relative">
     <input
       bind:this={inputRef}
@@ -93,8 +143,12 @@
       aria-expanded={open && suggestions.length > 0}
       aria-autocomplete="list"
       aria-activedescendant={activeIndex >= 0 ? optionId(activeIndex) : undefined}
-      onfocus={() => (open = true)}
-      onblur={() => setTimeout(() => closeList(), 120)}
+      onfocus={() => {
+        open = true;
+        updateDropPosition();
+      }}
+      oninput={updateDropPosition}
+      onblur={() => setTimeout(() => closeList(), 150)}
       onkeydown={handleKeydown}
       {placeholder}
       class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
@@ -106,9 +160,14 @@
     />
     {#if open && suggestions.length > 0}
       <ul
+        use:portal
         id={`${id}-options`}
-        class="absolute top-full right-0 left-0 z-30 mt-1 max-h-36 overflow-y-auto rounded-xl border border-white/10 bg-slate-900/95 shadow-md backdrop-blur"
+        class="fixed z-[100] overflow-y-auto overscroll-contain rounded-xl border border-white/10 bg-slate-900/95 shadow-md backdrop-blur"
+        style="top: {dropAnchorY}px; left: {dropLeft}px; width: {dropWidth}px; max-height: {dropMaxHeight}px; transform: translateY({dropAbove
+          ? '-100%'
+          : '0'});"
         role="listbox"
+        onpointerdown={(e) => e.preventDefault()}
       >
         {#each suggestions as unit, index (unit)}
           <li role="option" id={optionId(index)} aria-selected={index === activeIndex}>

@@ -395,20 +395,16 @@ test("item edit sheet updates name, quantity and unit", async ({ page }) => {
   await expect(page.getByText("Lista do edycji")).toBeVisible();
   await expect(page.getByText("Chleb")).toBeVisible();
 
-  // Open item actions via the kebab button (aria-label="Akcje")
-  const kebab = page
+  // Inline pencil icon on the row opens the edit sheet directly (aria-label="Edytuj")
+  await page
     .locator("ul li")
     .filter({ hasText: "Chleb" })
-    .getByRole("button", { name: /Akcje/ });
-  await kebab.click();
+    .getByRole("button", { name: /Edytuj/ })
+    .click();
 
-  // Actions sheet — click "Zmień nazwę"
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await page.getByRole("button", { name: /Zmień nazwę/ }).click();
-
-  // Edit sheet opens (it's an <aside> with aria-label matching "Zmień nazwę elementu")
+  // Edit sheet opens (it's an <aside> with h2 "Edytuj element")
   const editSheet = page.locator("aside").filter({
-    has: page.locator("h2", { hasText: /Zmień nazwę/ }),
+    has: page.locator("h2", { hasText: /Edytuj element/ }),
   });
   await expect(editSheet).toBeVisible();
 
@@ -794,4 +790,155 @@ test("mobile detail keeps completion CTA above the bottom navigation", async ({ 
   const completeButton = page.getByRole("button", { name: "Zakończ listę" });
   await expect(completeButton).toBeVisible();
   await expect(completeButton).toBeInViewport();
+});
+
+// ── Case 11: Unit combobox opens, filters, picks ──────────────────────────────
+
+test("unit combobox: focus opens listbox, typing filters, click picks", async ({ page }) => {
+  await injectFakeSession(page);
+  await mockSupabaseAPI(page);
+  await page.goto("/shopping-lists/list-1");
+  await expect(page.getByText("Mleko")).toBeVisible();
+
+  // Open item edit sheet via inline pencil
+  await page
+    .locator("ul li")
+    .filter({ hasText: "Mleko" })
+    .getByRole("button", { name: /Edytuj/ })
+    .click();
+
+  const editSheet = page.locator("aside").filter({
+    has: page.locator("h2", { hasText: /Edytuj element/ }),
+  });
+  await expect(editSheet).toBeVisible();
+
+  const unitInput = editSheet.getByPlaceholder(/szt, kg, l/i);
+  await unitInput.click();
+
+  // Listbox is portaled to body — find globally
+  const listbox = page.getByRole("listbox");
+  await expect(listbox).toBeVisible();
+  await expect(listbox.getByRole("option", { name: "kg" })).toBeVisible();
+  await expect(listbox.getByRole("option", { name: "opak." })).toBeVisible();
+
+  // Typing narrows to "kg"
+  await unitInput.fill("k");
+  await expect(listbox.getByRole("option", { name: "kg" })).toBeVisible();
+  await expect(listbox.getByRole("option", { name: "szt." })).toHaveCount(0);
+
+  // Click picks
+  await listbox.getByRole("option", { name: "kg" }).click();
+  await expect(unitInput).toHaveValue("kg");
+});
+
+// ── Case 12: Bulk delete confirm dialog ───────────────────────────────────────
+
+test("bulk toggle: 'mark all' patches all items to completed", async ({ page }) => {
+  await injectFakeSession(page);
+  await mockSupabaseAPI(page);
+  let bulkPatchUrl = "";
+  await page.route(`${SUPABASE_URL}/rest/v1/shopping_list_items**`, (route) => {
+    const req = route.request();
+    if (req.method() === "PATCH" && req.url().includes("shopping_list_id=eq.")) {
+      bulkPatchUrl = req.url();
+      return route.fulfill({ status: 200, json: {} });
+    }
+    return route.fulfill({ status: 200, json: [] });
+  });
+
+  await page.goto("/shopping-lists/list-1");
+  await expect(page.getByText("Mleko")).toBeVisible();
+
+  await page.getByRole("button", { name: /Zaznacz wszystkie/ }).click();
+  await page.waitForTimeout(200);
+  expect(bulkPatchUrl).toContain("shopping_list_id=eq.list-1");
+});
+
+test("bulk delete: button opens confirm dialog, confirm fires DELETE", async ({ page }) => {
+  await injectFakeSession(page);
+  await mockSupabaseAPI(page);
+  let deleted = false;
+  await page.route(`${SUPABASE_URL}/rest/v1/shopping_list_items**`, (route) => {
+    const req = route.request();
+    if (req.method() === "DELETE" && req.url().includes("shopping_list_id=eq.")) {
+      deleted = true;
+      return route.fulfill({ status: 204, body: "" });
+    }
+    return route.fulfill({ status: 200, json: [] });
+  });
+
+  await page.goto("/shopping-lists/list-1");
+  await expect(page.getByText("Mleko")).toBeVisible();
+
+  await page.getByRole("button", { name: /Usuń wszystkie/ }).click();
+  await expect(page.getByRole("alertdialog")).toBeVisible();
+
+  // ConfirmDialog "Potwierdź" / "Usuń" button — accept default confirm text.
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: /Potwierdź|Usuń|Tak/i })
+    .click();
+
+  await page.waitForTimeout(200);
+  expect(deleted).toBeTruthy();
+});
+
+// ── Case 13: Edit-list dialog (name + date + group) ───────────────────────────
+
+test("list pencil: opens edit dialog with name, date, group", async ({ page }) => {
+  await injectFakeSession(page);
+  await mockSupabaseAPI(page);
+  await page.goto("/shopping-lists/list-1");
+  await expect(page.getByText("Tygodniowe zakupy")).toBeVisible();
+
+  await page
+    .getByRole("button", { name: /Edytuj listę/ })
+    .first()
+    .click();
+
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+
+  // Name input prefilled
+  await expect(dialog.locator("input[type=text]").first()).toHaveValue("Tygodniowe zakupy");
+  // Date input prefilled from created_at = 2026-05-01
+  await expect(dialog.locator("input[type=date]")).toHaveValue("2026-05-01");
+  // Group select includes private option
+  await expect(dialog.locator("select").first()).toBeVisible();
+});
+
+// ── Case 14: Linked-transaction card chip deep-links to /transactions?txId= ───
+
+test("linked-transaction chip on card navigates to /transactions?txId", async ({ page }) => {
+  await injectFakeSession(page);
+  await mockSupabaseAPI(page);
+  const completedListsRaw = [
+    {
+      id: "list-done",
+      name: "Zamknięte zakupy",
+      status: "completed",
+      user_id: "test-user-id",
+      group_id: null,
+      category_id: null,
+      total_amount: 200,
+      completed_at: "2026-05-01T10:00:00Z",
+      created_at: "2026-05-01T10:00:00Z",
+      updated_at: "2026-05-01T10:00:00Z",
+      shopping_list_items: [{ id: "i", completed: true }],
+      transactions: [{ id: "tx-link-1" }],
+    },
+  ];
+  await page.route(`${SUPABASE_URL}/rest/v1/shopping_lists**`, (route) => {
+    const url = route.request().url();
+    if (url.includes("id=eq.")) {
+      return route.fulfill({ status: 200, json: completedListsRaw[0] });
+    }
+    return route.fulfill({ status: 200, json: completedListsRaw });
+  });
+
+  await page.goto("/shopping-lists");
+  const chip = page.getByRole("link", { name: /Transakcja/i });
+  await expect(chip).toBeVisible();
+  await chip.click();
+  await expect(page).toHaveURL(/\/transactions\?txId=tx-link-1/);
 });

@@ -50,19 +50,20 @@ export async function fetchShoppingListById(id: string): Promise<ShoppingListWit
   const { data, error } = await supabase
     .from("shopping_lists")
     .select(
-      "id, name, status, user_id, group_id, category_id, total_amount, completed_at, created_at, updated_at, shopping_list_items(id, name, completed, quantity, unit, position, created_at, updated_at, shopping_list_id)"
+      "id, name, status, user_id, group_id, category_id, total_amount, completed_at, created_at, updated_at, shopping_list_items(id, name, completed, quantity, unit, position, created_at, updated_at, shopping_list_id), transactions(id)"
     )
     .eq("id", id)
     .single();
 
   if (error) throw error;
 
-  const list = data as ShoppingListWithItems & {
+  const raw = data as ShoppingListWithItems & {
     shopping_list_items: NonNullable<typeof data>["shopping_list_items"];
+    transactions?: { id: string }[];
   };
-  list.shopping_list_items =
-    list.shopping_list_items?.sort((a, b) => a.position - b.position) ?? [];
-  return list;
+  raw.shopping_list_items = raw.shopping_list_items?.sort((a, b) => a.position - b.position) ?? [];
+  raw.linked_transaction_id = raw.transactions?.[0]?.id ?? null;
+  return raw;
 }
 
 export async function createShoppingList(input: {
@@ -90,7 +91,12 @@ export async function createShoppingList(input: {
 
 export async function updateShoppingList(
   id: string,
-  updates: Partial<{ name: string; group_id: string | null; category_id: string | null }>
+  updates: Partial<{
+    name: string;
+    group_id: string | null;
+    category_id: string | null;
+    created_at: string;
+  }>
 ): Promise<ShoppingList> {
   if (updates.name !== undefined) {
     const name = updates.name.trim();
@@ -219,5 +225,24 @@ export async function updateShoppingListItem(
 
 export async function deleteShoppingListItem(id: string): Promise<void> {
   const { error } = await supabase.from("shopping_list_items").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function setAllShoppingListItemsCompleted(
+  listId: string,
+  completed: boolean
+): Promise<void> {
+  const { error } = await supabase
+    .from("shopping_list_items")
+    .update({ completed })
+    .eq("shopping_list_id", listId);
+  if (error) throw error;
+}
+
+export async function deleteAllShoppingListItems(listId: string): Promise<void> {
+  const { error } = await supabase
+    .from("shopping_list_items")
+    .delete()
+    .eq("shopping_list_id", listId);
   if (error) throw error;
 }

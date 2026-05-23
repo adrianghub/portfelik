@@ -10,10 +10,46 @@
 
   interface Props {
     query: string;
+    anchor?: HTMLElement | null;
     onselect: (name: string, quantity: number | null, unit: string | null) => void;
     onescape?: () => void;
   }
-  let { query, onselect, onescape }: Props = $props();
+  let { query, anchor = null, onselect, onescape }: Props = $props();
+
+  const DROPDOWN_PREFERRED_PX = 180;
+  const VIEWPORT_PADDING_PX = 8;
+  let dropAnchorY = $state(0);
+  let dropLeft = $state(0);
+  let dropWidth = $state(0);
+  let dropMaxHeight = $state(DROPDOWN_PREFERRED_PX);
+  let dropAbove = $state(false);
+
+  function updateDropPosition() {
+    if (!anchor || typeof window === "undefined") return;
+    const rect = anchor.getBoundingClientRect();
+    const vv = window.visualViewport;
+    const viewTop = vv?.offsetTop ?? 0;
+    const viewLeft = vv?.offsetLeft ?? 0;
+    const viewHeight = vv?.height ?? window.innerHeight;
+    const viewBottom = viewTop + viewHeight;
+    const spaceBelow = viewBottom - rect.bottom - VIEWPORT_PADDING_PX;
+    const spaceAbove = rect.top - viewTop - VIEWPORT_PADDING_PX;
+    dropAbove = spaceBelow < DROPDOWN_PREFERRED_PX && spaceAbove > spaceBelow;
+    const available = Math.max(80, dropAbove ? spaceAbove : spaceBelow);
+    dropMaxHeight = Math.min(DROPDOWN_PREFERRED_PX, available);
+    dropLeft = rect.left - viewLeft;
+    dropWidth = rect.width;
+    dropAnchorY = dropAbove ? rect.top - 4 : rect.bottom + 4;
+  }
+
+  function portal(node: HTMLElement) {
+    document.body.appendChild(node);
+    return {
+      destroy() {
+        node.remove();
+      },
+    };
+  }
 
   const historyQuery = createQuery(() => ({
     queryKey: ["shopping_list_item_history"],
@@ -56,6 +92,28 @@
     activeIndex = -1;
   });
 
+  $effect(() => {
+    if (suggestions.length > 0) updateDropPosition();
+  });
+
+  $effect(() => {
+    if (typeof window === "undefined") return;
+    const vv = window.visualViewport;
+    const handler = () => {
+      if (suggestions.length > 0) updateDropPosition();
+    };
+    window.addEventListener("scroll", handler, true);
+    window.addEventListener("resize", handler);
+    vv?.addEventListener("resize", handler);
+    vv?.addEventListener("scroll", handler);
+    return () => {
+      window.removeEventListener("scroll", handler, true);
+      window.removeEventListener("resize", handler);
+      vv?.removeEventListener("resize", handler);
+      vv?.removeEventListener("scroll", handler);
+    };
+  });
+
   function optionId(i: number) {
     return `shopping-list-suggestion-${i}`;
   }
@@ -88,9 +146,14 @@
 
 {#if suggestions.length > 0}
   <ul
+    use:portal
     id="shopping-list-item-suggestions"
-    class="absolute top-full right-0 left-0 z-30 mt-1 max-h-36 overflow-y-auto rounded-lg border border-white/10 bg-slate-900/95 shadow-md backdrop-blur"
+    class="fixed z-[100] overflow-y-auto overscroll-contain rounded-lg border border-white/10 bg-slate-900/95 shadow-md backdrop-blur"
+    style="top: {dropAnchorY}px; left: {dropLeft}px; width: {dropWidth}px; max-height: {dropMaxHeight}px; transform: translateY({dropAbove
+      ? '-100%'
+      : '0'});"
     role="listbox"
+    onpointerdown={(e) => e.preventDefault()}
   >
     {#each suggestions as s, i (s.name)}
       <li role="option" id={optionId(i)} aria-selected={i === activeIndex}>

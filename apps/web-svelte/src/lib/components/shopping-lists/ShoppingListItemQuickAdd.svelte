@@ -17,6 +17,7 @@
   let unit = $state(DEFAULT_SHOPPING_LIST_UNIT);
   let detailsOpen = $state(false);
   let inputFocused = $state(false);
+  let nameInputRef = $state<HTMLInputElement | null>(null);
 
   let suggestionRef = $state<{
     handleKeydown: (e: KeyboardEvent) => void;
@@ -52,6 +53,7 @@
   <div class="flex items-stretch gap-2">
     <div class="relative flex-1">
       <input
+        bind:this={nameInputRef}
         type="text"
         bind:value={name}
         onfocus={() => (inputFocused = true)}
@@ -68,6 +70,7 @@
         <ShoppingListSuggestions
           bind:this={suggestionRef}
           query={name}
+          anchor={nameInputRef}
           onselect={selectSuggestion}
           onescape={() => (inputFocused = false)}
         />

@@ -122,6 +122,7 @@ export interface ShoppingList {
 
 export interface ShoppingListWithItems extends ShoppingList {
   shopping_list_items: ShoppingListItem[];
+  linked_transaction_id?: string | null;
 }
 
 export interface ShoppingListSummary extends ShoppingList {

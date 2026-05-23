@@ -15,8 +15,8 @@ test("create list: dialog opens, submit shows success toast", async ({ page }) =
   await page.goto("/shopping-lists");
   await expect(page.getByText("Tygodniowe zakupy")).toBeVisible();
 
-  // Open create dialog — button text is "+ Dodaj" (common_add = "Dodaj")
-  await page.getByRole("button", { name: /\+ Dodaj/ }).click();
+  // Open create dialog via FAB (aria-label = "Nowa lista zakupów")
+  await page.getByRole("button", { name: "Nowa lista zakupów" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(page.getByText("Nowa lista zakupów")).toBeVisible();
 
@@ -63,20 +63,13 @@ test("check off item: clicking the row body toggles without error", async ({ pag
   await expect(page.getByText(/Coś poszło nie tak/)).not.toBeVisible();
 });
 
-test("row kebab: opens action sheet with rename + delete", async ({ page }) => {
+test("row icons: edit + delete are reachable inline", async ({ page }) => {
   await page.goto("/shopping-lists/list-1");
   await expect(page.getByText("Mleko")).toBeVisible();
 
-  // Each item row has a kebab button labelled "Akcje"
-  const kebab = page
-    .locator("ul li")
-    .filter({ hasText: "Mleko" })
-    .getByRole("button", { name: /Akcje/ });
-  await kebab.click();
-
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await expect(page.getByRole("button", { name: /Zmień nazwę/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Usuń/ })).toBeVisible();
+  const row = page.locator("ul li").filter({ hasText: "Mleko" });
+  await expect(row.getByRole("button", { name: /Edytuj/ })).toBeVisible();
+  await expect(row.getByRole("button", { name: /Usuń/ })).toBeVisible();
 });
 
 test("back-nav after add: shopping_lists summary refetches", async ({ page }) => {

@@ -160,6 +160,13 @@
   let editTarget = $state<TransactionWithCategory | null>(null);
   let deleteTargetId = $state<string | null>(null);
   let sheetTx = $state<TransactionWithCategory | null>(null);
+
+  const requestedTxId = $derived($page.url.searchParams.get("txId"));
+  $effect(() => {
+    if (!requestedTxId || !txQuery.data) return;
+    const match = txQuery.data.find((t) => t.id === requestedTxId);
+    if (match && sheetTx?.id !== match.id) sheetTx = match;
+  });
   let attachTarget = $state<TransactionWithCategory | null>(null);
   let selectedIds = $state(new Set<string>());
   let bulkDeleteConfirm = $state(false);

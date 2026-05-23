@@ -72,17 +72,18 @@
         <span aria-hidden="true">·</span>
         <span>{formatCurrency(list.total_amount)}</span>
       {/if}
-      {#if list.status === "completed" && list.linked_transaction_id}
-        <span aria-hidden="true">·</span>
-        <span
-          class="inline-flex items-center gap-1 rounded-full border border-cyan-300/15 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-medium tracking-wide text-cyan-200 uppercase"
-        >
-          <Receipt size={11} strokeWidth={2} aria-hidden="true" />
-          {m.shopping_list_linked_transaction()}
-        </span>
-      {/if}
     </div>
   </a>
+  {#if list.status === "completed" && list.linked_transaction_id}
+    <a
+      href={`/transactions?txId=${list.linked_transaction_id}`}
+      class="flex items-center gap-1 border-l border-white/5 px-3 text-[10px] font-medium tracking-wide text-cyan-200 uppercase transition-colors hover:bg-cyan-300/10 hover:text-cyan-100"
+      title={m.shopping_list_linked_transaction()}
+    >
+      <Receipt size={13} strokeWidth={2} aria-hidden="true" />
+      <span>{m.shopping_list_linked_transaction()}</span>
+    </a>
+  {/if}
   {#if onedit}
     <button
       onclick={() => onedit(list)}
