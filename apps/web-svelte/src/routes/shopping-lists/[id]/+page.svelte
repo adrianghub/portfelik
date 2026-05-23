@@ -359,7 +359,7 @@
   }
 </script>
 
-<div class="container mx-auto max-w-2xl space-y-4 px-4 pt-6 pb-40 md:pb-6">
+<div class="container mx-auto max-w-2xl space-y-4 px-4 pt-6 pb-56 md:pb-6">
   <a
     href="/shopping-lists"
     class="inline-flex items-center gap-1 text-sm text-slate-500 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"

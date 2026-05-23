@@ -23,8 +23,8 @@
 
   function selectSuggestion(n: string, q: number | null, u: string | null) {
     name = n;
-    if (q != null) quantity = q;
-    if (u) unit = u;
+    quantity = q;
+    unit = u ?? "";
     if (q != null || u) detailsOpen = true;
     inputFocused = false;
   }
@@ -95,21 +95,22 @@
     <div
       id="shopping-list-item-details"
       transition:slide={{ duration: 150 }}
-      class="grid grid-cols-[1fr_1fr] gap-2"
+      class="grid grid-cols-2 gap-2"
     >
       <input
         type="number"
         bind:value={quantity}
         step="0.01"
         min="0"
+        inputmode="decimal"
         placeholder={m.shopping_list_item_quantity()}
-        class="rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-emerald-400/40 focus:outline-none"
+        class="w-full min-w-0 rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-emerald-400/40 focus:outline-none"
       />
       <input
         type="text"
         bind:value={unit}
         placeholder={m.shopping_list_item_unit()}
-        class="rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-emerald-400/40 focus:outline-none"
+        class="w-full min-w-0 rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-emerald-400/40 focus:outline-none"
       />
     </div>
   {/if}
