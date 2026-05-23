@@ -7,6 +7,20 @@ import type {
   Transaction,
 } from "$lib/types";
 
+type ShoppingListSummaryRow = ShoppingList & {
+  shopping_list_items: { id: string; completed: boolean }[];
+  transactions?: { id: string }[];
+};
+
+function toShoppingListSummary(list: ShoppingListSummaryRow): ShoppingListSummary {
+  return {
+    ...list,
+    item_total: list.shopping_list_items.length,
+    item_completed: list.shopping_list_items.filter((i) => i.completed).length,
+    linked_transaction_id: list.transactions?.[0]?.id ?? null,
+  };
+}
+
 export async function fetchShoppingListItemHistory(): Promise<
   Pick<ShoppingListItem, "name" | "quantity" | "unit">[]
 > {
@@ -23,19 +37,13 @@ export async function fetchShoppingLists(): Promise<ShoppingListSummary[]> {
   const { data, error } = await supabase
     .from("shopping_lists")
     .select(
-      "id, name, status, user_id, group_id, category_id, total_amount, completed_at, created_at, updated_at, shopping_list_items(id, completed)"
+      "id, name, status, user_id, group_id, category_id, total_amount, completed_at, created_at, updated_at, shopping_list_items(id, completed), transactions(id)"
     )
     .order("created_at", { ascending: false });
 
   if (error) throw error;
 
-  return (
-    (data ?? []) as (ShoppingList & { shopping_list_items: { id: string; completed: boolean }[] })[]
-  ).map((list) => ({
-    ...list,
-    item_total: list.shopping_list_items.length,
-    item_completed: list.shopping_list_items.filter((i) => i.completed).length,
-  }));
+  return ((data ?? []) as ShoppingListSummaryRow[]).map(toShoppingListSummary);
 }
 
 export async function fetchShoppingListById(id: string): Promise<ShoppingListWithItems> {
@@ -137,15 +145,9 @@ export async function fetchAttachableShoppingListsForTransaction(
   const { data, error } = await q;
   if (error) throw error;
 
-  return (
-    (data ?? []) as (ShoppingList & { shopping_list_items: { id: string; completed: boolean }[] })[]
-  )
+  return ((data ?? []) as ShoppingListSummaryRow[])
     .filter((list) => list.shopping_list_items.length > 0)
-    .map((list) => ({
-      ...list,
-      item_total: list.shopping_list_items.length,
-      item_completed: list.shopping_list_items.filter((i) => i.completed).length,
-    }));
+    .map(toShoppingListSummary);
 }
 
 export async function completeShoppingList(

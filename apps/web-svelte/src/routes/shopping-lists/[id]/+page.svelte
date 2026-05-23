@@ -1,14 +1,17 @@
 <script lang="ts">
+  import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import ShoppingListItemEditSheet from "$lib/components/shopping-lists/ShoppingListItemEditSheet.svelte";
   import ShoppingListItemQuickAdd from "$lib/components/shopping-lists/ShoppingListItemQuickAdd.svelte";
   import ShoppingListSuggestions from "$lib/components/shopping-lists/ShoppingListSuggestions.svelte";
+  import ShoppingListUnitCombobox from "$lib/components/shopping-lists/ShoppingListUnitCombobox.svelte";
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import ProgressBar from "$lib/components/ui/ProgressBar.svelte";
   import Sheet from "$lib/components/ui/Sheet.svelte";
   import { motionDuration } from "$lib/motion";
   import * as m from "$lib/paraglide/messages";
+  import { DEFAULT_SHOPPING_LIST_UNIT, normalizeShoppingListUnit } from "$lib/shopping-list-units";
   import { fetchCategories } from "$lib/services/categories";
   import {
     completeShoppingList,
@@ -76,7 +79,7 @@
   let showAddItem = $state(false);
   let itemName = $state("");
   let itemQty = $state("");
-  let itemUnit = $state("");
+  let itemUnit = $state(DEFAULT_SHOPPING_LIST_UNIT);
   let suggestionRef = $state<{
     handleKeydown: (e: KeyboardEvent) => void;
     activeId: () => string | null;
@@ -138,7 +141,7 @@
     onSuccess: () => {
       itemName = "";
       itemQty = "";
-      itemUnit = "";
+      itemUnit = DEFAULT_SHOPPING_LIST_UNIT;
       toast.success(m.toast_shopping_list_item_added());
     },
     onError: (_err, _vars, ctx) => {
@@ -198,6 +201,7 @@
 
   // Complete list — pre-fill category if list has one
   let showComplete = $state(false);
+  let showUncheckedComplete = $state(false);
   let completeAmount = $state("");
   let completeCategoryId = $state("");
 
@@ -228,6 +232,7 @@
         origin: { y: 0.7 },
         colors: ["#34d399", "#bef264", "#a7f3d0", "#86efac"],
       });
+      await goto("/shopping-lists");
     },
     onError: (err: unknown, _vars, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(listKey, ctx.previous);
@@ -250,7 +255,7 @@
       shopping_list_id: id,
       name: itemName,
       quantity: itemQty ? parseFloat(itemQty) : null,
-      unit: itemUnit || null,
+      unit: normalizeShoppingListUnit(itemUnit),
       position: (query.data?.shopping_list_items.length ?? 0) + 1,
     });
   }
@@ -270,6 +275,20 @@
   const hasItems = $derived((query.data?.shopping_list_items?.length ?? 0) > 0);
   const itemTotal = $derived(query.data?.shopping_list_items.length ?? 0);
   const itemDone = $derived(query.data?.shopping_list_items.filter((i) => i.completed).length ?? 0);
+  const hasUncheckedItems = $derived(hasItems && itemDone < itemTotal);
+
+  function requestCompleteDialog() {
+    if (hasUncheckedItems) {
+      showUncheckedComplete = true;
+      return;
+    }
+    openCompleteDialog();
+  }
+
+  function continueCompleteDialog() {
+    showUncheckedComplete = false;
+    openCompleteDialog();
+  }
 
   // Item row actions sheet (kebab + long-press) + helpers
   let actionsTarget = $state<ShoppingListItem | null>(null);
@@ -342,7 +361,7 @@
   }
 </script>
 
-<div class="container mx-auto max-w-2xl space-y-4 px-4 py-6">
+<div class="container mx-auto max-w-2xl space-y-4 px-4 pt-6 pb-56 md:pb-6">
   <a
     href="/shopping-lists"
     class="inline-flex items-center gap-1 text-sm text-slate-500 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
@@ -504,19 +523,29 @@
             position: list.shopping_list_items.length + 1,
           })}
       />
-      <div class="flex justify-end">
+      <div
+        class="fixed inset-x-4 z-30 rounded-2xl border border-white/10 bg-slate-900/90 p-2.5 shadow-lg backdrop-blur md:static md:flex md:justify-end md:border-0 md:bg-transparent md:p-0 md:shadow-none"
+        style="bottom: calc(5.75rem + env(safe-area-inset-bottom));"
+      >
         <button
           type="button"
-          onclick={openCompleteDialog}
+          onclick={requestCompleteDialog}
           disabled={!hasItems}
           title={hasItems ? undefined : m.shopping_list_requires_items()}
-          class="bg-accent-gradient rounded-full px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+          class="bg-accent-gradient w-full rounded-full px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none md:w-auto"
         >
           {m.shopping_list_complete_title()}
         </button>
+        {#if !hasItems}
+          <p class="pt-2 text-center text-xs text-slate-500 md:hidden">
+            {m.shopping_list_requires_items()}
+          </p>
+        {/if}
       </div>
       {#if !hasItems}
-        <p class="text-center text-xs text-slate-500">{m.shopping_list_requires_items()}</p>
+        <p class="hidden text-center text-xs text-slate-500 md:block">
+          {m.shopping_list_requires_items()}
+        </p>
       {/if}
     {/if}
 
@@ -554,7 +583,7 @@
         onselect={(name, qty, unit) => {
           itemName = name;
           itemQty = qty != null ? String(qty) : "";
-          itemUnit = unit ?? "";
+          itemUnit = unit ?? DEFAULT_SHOPPING_LIST_UNIT;
         }}
       />
     </div>
@@ -572,18 +601,7 @@
           class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
         />
       </div>
-      <div class="flex-1 space-y-1">
-        <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="item-unit"
-          >{m.shopping_list_item_unit()}</label
-        >
-        <input
-          id="item-unit"
-          type="text"
-          bind:value={itemUnit}
-          placeholder={m.shopping_list_item_unit_placeholder()}
-          class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
-        />
-      </div>
+      <ShoppingListUnitCombobox bind:value={itemUnit} id="item-unit" />
     </div>
     {#if addItemMutation.isError}
       <p class="text-sm text-rose-600">{m.common_error_title()}</p>
@@ -665,6 +683,33 @@
       </button>
     </div>
   </form>
+</Dialog>
+
+<!-- Warn before opening completion form when shopping is still unchecked. -->
+<Dialog
+  open={showUncheckedComplete}
+  onclose={() => (showUncheckedComplete = false)}
+  title={m.shopping_list_unchecked_confirm_title()}
+>
+  <div class="space-y-4">
+    <p class="text-sm text-slate-300">{m.shopping_list_unchecked_confirm_body()}</p>
+    <div class="flex gap-2 pt-1">
+      <button
+        type="button"
+        onclick={() => (showUncheckedComplete = false)}
+        class="flex-1 rounded-full border border-white/10 bg-slate-900/60 py-2 text-sm font-medium text-slate-200 backdrop-blur transition-colors hover:bg-white/5"
+      >
+        {m.common_cancel()}
+      </button>
+      <button
+        type="button"
+        onclick={continueCompleteDialog}
+        class="bg-accent-gradient flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+      >
+        {m.shopping_list_unchecked_confirm_submit()}
+      </button>
+    </div>
+  </div>
 </Dialog>
 
 <!-- Item actions sheet (kebab / long-press) -->

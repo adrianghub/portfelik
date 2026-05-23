@@ -172,7 +172,7 @@ Each step ends with svelte-check / lint / format clean + targeted test suite gre
 3. ✅ **Schema + RLS** — 52 existing RLS tests + new bank-import tests green locally. Migration applied to prod via MCP cleanly. (`91fc886`)
 4. ✅ **Service + commit RPC** — RPC contract specs (rows_pending guard, race-safe dup handling, kind-mismatch reject). 13 RPC tests. (`f7d1b47`)
 5. ✅ **Wizard UI** — manual walkthrough on local stack against real ING fixture; F1–F4 review-findings landed in 5.1; 5.2 polish pass shipped. (`d175157`, `daff3a1`)
-6. ⏳ **e2e + docs** — mocked Playwright through full flow (deferred to bank-import stabilization bundle). Docs sweep across `CLAUDE.md` + `docs/architecture/database.md` — this commit.
+6. 🟡 **e2e + docs** — `e2e/tests/bank-import.spec.ts` mocked smoke (wizard heading, step pill, dropzone + invalid-CSV unknown-kind error). Full mocked flow through upload → review → commit + F1 re-upload panel + bulk skip-duplicates + mobile viewport project still queued under bank-import QA close-out. Docs sweep across `CLAUDE.md` + `docs/architecture/database.md` shipped earlier.
 
 ## Out of scope, logged
 
@@ -190,5 +190,5 @@ The original architecture/dedupe/privacy sections above describe the shipped sys
 - **F1 "already imported" re-upload panel** — `findExistingSession()` short-circuits when the same file hash is already committed; the wizard renders a dedicated "already imported" panel instead of dropping the user mid-review.
 - **F3 commit-time dup audit row** — external-id-first lookup; on hard-dedupe hit, the import row is marked `decision='duplicate'` + `duplicate_of=<winner>`.
 - **F4 Tailwind opacity fix** — replaced invalid `-N` directives with `/10`, `/40`, `/5` classes throughout the wizard.
-- **Sticky thead deferred to Step 6 polish pass** — clashed with the outer sticky warnings+bulk bar in 5.2; resolution lands with the review-table polish bundle alongside Playwright e2e.
+- **Sticky thead shipped in 5.2 polish pass** — `<thead class="sticky top-0 z-10 …">` is scoped to the table's own scroll container so it stays pinned without fighting the page-level sticky warnings+bulk bar above. Original "deferred" note in the spec was stale; behavior verified in `ReviewTable.svelte` and the new `bank-import.spec.ts` foundation.
 - **Save-as-rule deferred to Step 6** (rules UI) — the rule storage tables shipped in `20260520000000_bank_import` but no UI yet writes them.

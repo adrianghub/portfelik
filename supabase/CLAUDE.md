@@ -5,7 +5,7 @@ Loaded automatically when working in `supabase/`.
 ## Schema rules
 
 - **One migration file per logical change.** Never amend applied migrations.
-- **`LANGUAGE SQL` functions** validate table references at parse time — must be defined *after* tables they query. `LANGUAGE plpgsql` is exempt.
+- **`LANGUAGE SQL` functions** validate table references at parse time — must be defined _after_ tables they query. `LANGUAGE plpgsql` is exempt.
 - **Money:** `numeric(12,2)`, positive magnitude. `type` enum (`income`/`expense`) carries sign.
 - **System categories:** `user_id IS NULL` — visible to all via RLS. Seeded in `seed.sql`.
 - **Soft deletes:** none. Hard deletes everywhere.
@@ -13,6 +13,7 @@ Loaded automatically when working in `supabase/`.
 ## RLS patterns
 
 Group-shared visibility pattern (used on transactions, categories, shopping lists):
+
 ```sql
 user_id = (select auth.uid())
 or exists (
@@ -34,16 +35,25 @@ Group writes: ALL via SECURITY DEFINER RPCs. Direct writes to `user_groups`, `gr
 - `ALTER DATABASE SET` blocked — use `apply_migration` for privileged DDL
 - Secrets: use Vault (`vault.create_secret`) — no superuser needed
 - Vault pattern: `select decrypted_secret into v from vault.decrypted_secrets where name = '<name>'`
+- DB hooks call Edge Functions through Vault-configured `edge_functions_base_url`
+  after migration `20260524000000_environment_edge_function_urls.sql`. Keep the
+  production Vault URL pointed at the production function host. Staging should
+  omit `edge_functions_base_url` and `internal_trigger_secret` until real
+  staging push/cron dispatch is intentionally enabled.
 
-## Dev commands (from repo root)
+## Operations
+
+Use the guarded repo dispatcher from the repo root for ordinary local, staging,
+and production work:
 
 ```bash
-supabase start         # start local stack + apply migrations + seed
-supabase stop
-supabase db reset      # wipe + replay (containers must be running)
-supabase status        # get local URLs + anon key
-supabase gen types typescript --local > apps/web-svelte/src/lib/supabase.types.ts
+./scripts/supabase-ops.sh help
 ```
+
+The command reference and promotion flow live in
+`docs/runbooks/supabase-operations.md`. Remote mutations require an explicit
+target confirmation. Supabase CLI link state under `.temp/` and `.branches/` is
+ignored per-machine state, not project truth.
 
 ## Migration file locations
 
@@ -56,11 +66,11 @@ supabase gen types typescript --local > apps/web-svelte/src/lib/supabase.types.t
 
 All cron expressions are evaluated in **UTC**. Europe/Warsaw is UTC+1 in winter (CET, late Oct – late Mar) and UTC+2 in summer (CEST). For each job the table shows the UTC schedule and the resulting local fire window.
 
-| Job | UTC schedule | Local (winter / summer) | Source migration |
-|---|---|---|---|
-| `process-recurring-transactions` | `0 23 1 * *` (23:00 UTC, 1st of month) | 00:00 CET (2nd) / 01:00 CEST (2nd) | `20260425000000_phase5_notifications_push.sql:455` |
-| `update-transaction-statuses` | `0 5 * * *` (05:00 UTC daily) | 06:00 CET / 07:00 CEST | `20260425000000_phase5_notifications_push.sql:461` |
-| `send-admin-summary` | `0 7 * * 1` (07:00 UTC, Mondays) | 08:00 CET / 09:00 CEST | `20260425000001_phase5_2_edge_function_hooks.sql:151` |
+| Job                              | UTC schedule                           | Local (winter / summer)            | Source migration                                      |
+| -------------------------------- | -------------------------------------- | ---------------------------------- | ----------------------------------------------------- |
+| `process-recurring-transactions` | `0 23 1 * *` (23:00 UTC, 1st of month) | 00:00 CET (2nd) / 01:00 CEST (2nd) | `20260425000000_phase5_notifications_push.sql:455`    |
+| `update-transaction-statuses`    | `0 5 * * *` (05:00 UTC daily)          | 06:00 CET / 07:00 CEST             | `20260425000000_phase5_notifications_push.sql:461`    |
+| `send-admin-summary`             | `0 7 * * 1` (07:00 UTC, Mondays)       | 08:00 CET / 09:00 CEST             | `20260425000001_phase5_2_edge_function_hooks.sql:151` |
 
 If exact local-time firing becomes important (e.g. always 09:00 Warsaw regardless of DST), switch to `cron.schedule_in_database(...)` with a timezone argument — this requires the `pg_cron.timezone` GUC set per database.
 
@@ -68,15 +78,36 @@ The 1-hour DST drift is acceptable for these jobs (none are user-facing in a sub
 
 ## Migration tracking
 
-`supabase_migrations.schema_migrations` records the 6 migrations applied via Supabase MCP on 2026-05-13 plus `admin_trigger_rpc` (2026-05-04). The 7 earliest migrations (`20260423000000_initial_schema` through `20260430000000_duplicate_shopping_list_rpc`) were applied before tracking started and are absent from the table.
+Production `supabase_migrations.schema_migrations` was built partly through
+Supabase MCP applies before CLI promotion became the normal path. Some tracked
+production versions can therefore differ from the canonical local migration
+timestamps, and older applied SQL files can still need history repair.
 
-**SQL files in `supabase/migrations/` are canonical** — the table is informational. Do NOT manually backfill the missing rows; the next `supabase db push` (or a deliberate `supabase migration repair --status applied <timestamp>` per missing file) will re-record them safely.
-
-To recover full tracking from scratch:
+**SQL files in `supabase/migrations/` are canonical.** Do not manually edit the
+history table. Inspect the linked target first, then repair only a local
+migration timestamp that is already applied to that database but missing from
+history:
 
 ```bash
-# repeat once per missing migration timestamp
-supabase migration repair --status applied 20260423000000
+./scripts/supabase-ops.sh prod migrations
+./scripts/supabase-ops.sh prod push-preview
+./scripts/supabase-ops.sh prod repair-applied 20260423000000 --confirm prod
 ```
 
+If `push-preview` still reports a migration after history repair, treat it as a
+real unapplied migration until inspection proves otherwise.
+
 Edge Functions have per-function `deno.json` files (added 2026-05-13) pinning import versions for `@supabase/supabase-js`, the edge runtime types, and `web-push` (send-push only). Do not remove these — they prevent silent registry-side version drift on `supabase functions deploy`.
+
+## Cloud environment split
+
+- Local schema resets still replay every file in `supabase/migrations/` plus the
+  idempotent system `seed.sql`.
+- `dev` GitHub Actions applies committed migrations and `seed.sql` to the
+  dedicated `portfelik-staging` project before Cloudflare Pages staging deploy.
+- Production migrations stay manual/gated. Do not point `supabase db push`
+  automation at production until the early migration-history drift has been
+  deliberately normalized.
+- Synthetic staging fixtures live in
+  `apps/web-svelte/scripts/seed-staging.mjs`; they delete only `Demo:` rows
+  owned by the configured staging demo user.

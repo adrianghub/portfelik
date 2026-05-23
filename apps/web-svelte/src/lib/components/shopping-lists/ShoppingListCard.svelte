@@ -3,7 +3,7 @@
   import * as m from "$lib/paraglide/messages";
   import type { ShoppingListSummary } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
-  import { Copy, Pencil, Trash2, Users } from "lucide-svelte";
+  import { Copy, Pencil, Receipt, Trash2, Users } from "lucide-svelte";
 
   interface Props {
     list: ShoppingListSummary;
@@ -22,7 +22,7 @@
 >
   {#if list.item_total > 0}
     <span
-      class="bg-accent-gradient absolute top-0 left-0 h-[3px] rounded-r-full shadow-[0_0_8px_var(--color-accent-glow)] transition-[width] duration-500 ease-out"
+      class="bg-accent-gradient absolute top-0 left-0 h-0.75 rounded-r-full shadow-[0_0_8px_var(--color-accent-glow)] transition-[width] duration-500 ease-out"
       style="width: {Math.max(ratio * 100, 4)}%; opacity: {list.status === 'completed' ? 0.45 : 1};"
       aria-hidden="true"
     ></span>
@@ -62,15 +62,24 @@
         </span>
       </div>
     </div>
-    <div class="mt-1 flex items-center gap-3 text-xs text-slate-500">
+    <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500">
       <span>{formatDate(list.created_at)}</span>
       {#if list.item_total > 0}
-        <span>·</span>
+        <span aria-hidden="true">·</span>
         <span>{list.item_completed}/{list.item_total}</span>
       {/if}
       {#if list.total_amount != null}
-        <span>·</span>
+        <span aria-hidden="true">·</span>
         <span>{formatCurrency(list.total_amount)}</span>
+      {/if}
+      {#if list.status === "completed" && list.linked_transaction_id}
+        <span aria-hidden="true">·</span>
+        <span
+          class="inline-flex items-center gap-1 rounded-full border border-cyan-300/15 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-medium tracking-wide text-cyan-200 uppercase"
+        >
+          <Receipt size={11} strokeWidth={2} aria-hidden="true" />
+          {m.shopping_list_linked_transaction()}
+        </span>
       {/if}
     </div>
   </a>
