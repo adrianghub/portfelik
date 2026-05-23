@@ -77,7 +77,7 @@
   }
 </script>
 
-<div class="relative min-w-0 space-y-1">
+<div class="relative w-full min-w-0 space-y-1">
   {#if showLabel}
     <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for={id}>{label}</label>
   {/if}
