@@ -4,12 +4,14 @@
   import ShoppingListItemEditSheet from "$lib/components/shopping-lists/ShoppingListItemEditSheet.svelte";
   import ShoppingListItemQuickAdd from "$lib/components/shopping-lists/ShoppingListItemQuickAdd.svelte";
   import ShoppingListSuggestions from "$lib/components/shopping-lists/ShoppingListSuggestions.svelte";
+  import ShoppingListUnitCombobox from "$lib/components/shopping-lists/ShoppingListUnitCombobox.svelte";
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import ProgressBar from "$lib/components/ui/ProgressBar.svelte";
   import Sheet from "$lib/components/ui/Sheet.svelte";
   import { motionDuration } from "$lib/motion";
   import * as m from "$lib/paraglide/messages";
+  import { DEFAULT_SHOPPING_LIST_UNIT, normalizeShoppingListUnit } from "$lib/shopping-list-units";
   import { fetchCategories } from "$lib/services/categories";
   import {
     completeShoppingList,
@@ -77,7 +79,7 @@
   let showAddItem = $state(false);
   let itemName = $state("");
   let itemQty = $state("");
-  let itemUnit = $state("");
+  let itemUnit = $state(DEFAULT_SHOPPING_LIST_UNIT);
   let suggestionRef = $state<{
     handleKeydown: (e: KeyboardEvent) => void;
     activeId: () => string | null;
@@ -139,7 +141,7 @@
     onSuccess: () => {
       itemName = "";
       itemQty = "";
-      itemUnit = "";
+      itemUnit = DEFAULT_SHOPPING_LIST_UNIT;
       toast.success(m.toast_shopping_list_item_added());
     },
     onError: (_err, _vars, ctx) => {
@@ -253,7 +255,7 @@
       shopping_list_id: id,
       name: itemName,
       quantity: itemQty ? parseFloat(itemQty) : null,
-      unit: itemUnit || null,
+      unit: normalizeShoppingListUnit(itemUnit),
       position: (query.data?.shopping_list_items.length ?? 0) + 1,
     });
   }
@@ -581,7 +583,7 @@
         onselect={(name, qty, unit) => {
           itemName = name;
           itemQty = qty != null ? String(qty) : "";
-          itemUnit = unit ?? "";
+          itemUnit = unit ?? DEFAULT_SHOPPING_LIST_UNIT;
         }}
       />
     </div>
@@ -599,18 +601,7 @@
           class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
         />
       </div>
-      <div class="flex-1 space-y-1">
-        <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="item-unit"
-          >{m.shopping_list_item_unit()}</label
-        >
-        <input
-          id="item-unit"
-          type="text"
-          bind:value={itemUnit}
-          placeholder={m.shopping_list_item_unit_placeholder()}
-          class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
-        />
-      </div>
+      <ShoppingListUnitCombobox bind:value={itemUnit} id="item-unit" />
     </div>
     {#if addItemMutation.isError}
       <p class="text-sm text-rose-600">{m.common_error_title()}</p>

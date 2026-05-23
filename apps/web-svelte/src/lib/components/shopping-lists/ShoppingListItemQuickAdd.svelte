@@ -1,8 +1,10 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
+  import { DEFAULT_SHOPPING_LIST_UNIT, normalizeShoppingListUnit } from "$lib/shopping-list-units";
   import { ChevronDown, Plus } from "lucide-svelte";
   import { slide } from "svelte/transition";
   import ShoppingListSuggestions from "./ShoppingListSuggestions.svelte";
+  import ShoppingListUnitCombobox from "./ShoppingListUnitCombobox.svelte";
 
   interface Props {
     onsubmit: (payload: { name: string; quantity: number | null; unit: string | null }) => void;
@@ -12,7 +14,7 @@
 
   let name = $state("");
   let quantity = $state<number | null>(null);
-  let unit = $state("");
+  let unit = $state(DEFAULT_SHOPPING_LIST_UNIT);
   let detailsOpen = $state(false);
   let inputFocused = $state(false);
 
@@ -24,7 +26,7 @@
   function selectSuggestion(n: string, q: number | null, u: string | null) {
     name = n;
     quantity = q;
-    unit = u ?? "";
+    unit = u ?? DEFAULT_SHOPPING_LIST_UNIT;
     if (q != null || u) detailsOpen = true;
     inputFocused = false;
   }
@@ -36,11 +38,11 @@
     onsubmit({
       name: trimmed,
       quantity: detailsOpen ? quantity : null,
-      unit: detailsOpen && unit.trim() ? unit.trim() : null,
+      unit: detailsOpen ? normalizeShoppingListUnit(unit) : null,
     });
     name = "";
     quantity = null;
-    unit = "";
+    unit = DEFAULT_SHOPPING_LIST_UNIT;
     detailsOpen = false;
     inputFocused = false;
   }
@@ -73,7 +75,10 @@
     </div>
     <button
       type="button"
-      onclick={() => (detailsOpen = !detailsOpen)}
+      onclick={() => {
+        detailsOpen = !detailsOpen;
+        if (detailsOpen && !unit.trim()) unit = DEFAULT_SHOPPING_LIST_UNIT;
+      }}
       aria-expanded={detailsOpen}
       aria-controls="shopping-list-item-details"
       class="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-slate-900/60 px-3 text-xs text-slate-300 transition-colors hover:bg-white/5"
@@ -106,12 +111,7 @@
         placeholder={m.shopping_list_item_quantity()}
         class="w-full min-w-0 rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-emerald-400/40 focus:outline-none"
       />
-      <input
-        type="text"
-        bind:value={unit}
-        placeholder={m.shopping_list_item_unit()}
-        class="w-full min-w-0 rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-emerald-400/40 focus:outline-none"
-      />
+      <ShoppingListUnitCombobox bind:value={unit} showLabel={false} />
     </div>
   {/if}
 </form>
