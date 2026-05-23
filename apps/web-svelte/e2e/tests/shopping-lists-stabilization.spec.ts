@@ -198,7 +198,7 @@ test("quick-add accepts name-only items", async ({ page }) => {
   await expect(page.getByText("Lista bez elementów")).toBeVisible();
 
   // The ShoppingListItemQuickAdd form has a combobox input with placeholder "Nazwa elementu"
-  const nameInput = page.getByRole("combobox");
+  const nameInput = page.getByPlaceholder("Nazwa elementu");
   await nameInput.fill("Pomidory");
 
   // Click the submit button — aria label is the submit button next to the toggle
@@ -263,12 +263,12 @@ test("quick-add accepts inline quantity + unit", async ({ page }) => {
   // The details row should now be visible — fill qty and unit
   await expect(page.locator("#shopping-list-item-details")).toBeVisible();
 
-  // Fill qty (type="number" placeholder = "Ilość") and unit (type="text" placeholder = "Jednostka")
+  // Fill qty (placeholder = "Ilość") and unit combobox (placeholder = "szt, kg, l…")
   await page.getByPlaceholder("Ilość").fill("2");
-  await page.getByPlaceholder("Jednostka").fill("szt");
+  await page.getByPlaceholder("szt, kg, l…").fill("szt");
 
   // Fill name and submit
-  const nameInput = page.getByRole("combobox");
+  const nameInput = page.getByPlaceholder("Nazwa elementu");
   await nameInput.fill("Bułka");
   await page.getByRole("button", { name: /Dodaj element/ }).click();
 
@@ -303,7 +303,7 @@ test("suggestion dropdown hides on Escape", async ({ page }) => {
   await page.goto("/shopping-lists/list-empty");
   await expect(page.getByText("Lista bez elementów")).toBeVisible();
 
-  const nameInput = page.getByRole("combobox");
+  const nameInput = page.getByPlaceholder("Nazwa elementu");
   await nameInput.focus();
   await nameInput.fill("ch");
 
@@ -338,7 +338,7 @@ test("suggestion select fills name and auto-opens details", async ({ page }) => 
   await page.goto("/shopping-lists/list-empty");
   await expect(page.getByText("Lista bez elementów")).toBeVisible();
 
-  const nameInput = page.getByRole("combobox");
+  const nameInput = page.getByPlaceholder("Nazwa elementu");
   await nameInput.focus();
   await nameInput.fill("ml");
 
@@ -357,7 +357,7 @@ test("suggestion select fills name and auto-opens details", async ({ page }) => 
 
   // The qty and unit inputs should be pre-filled
   await expect(page.getByPlaceholder("Ilość")).toHaveValue("1");
-  await expect(page.getByPlaceholder("Jednostka")).toHaveValue("l");
+  await expect(page.getByPlaceholder("szt, kg, l…")).toHaveValue("l");
 });
 
 // ── Case 5: Item edit sheet updates name + qty + unit ─────────────────────────
@@ -419,7 +419,7 @@ test("item edit sheet updates name, quantity and unit", async ({ page }) => {
 
   // Fill qty and unit
   await editSheet.getByPlaceholder("Ilość").fill("2");
-  await editSheet.getByPlaceholder("Jednostka").fill("szt");
+  await editSheet.getByPlaceholder("szt, kg, l…").fill("szt");
 
   // Save
   await editSheet.getByRole("button", { name: /Zapisz/ }).click();
