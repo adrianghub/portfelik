@@ -54,6 +54,12 @@
     -moz-osx-font-smoothing: grayscale;
     @apply bg-slate-950 text-slate-100;
   }
+
+  input,
+  select,
+  textarea {
+    scroll-margin-bottom: 5rem;
+  }
 }
 
 @layer components {

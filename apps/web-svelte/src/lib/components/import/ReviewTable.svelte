@@ -551,7 +551,7 @@
 
           <div class="grid grid-cols-2 gap-2">
             <Select
-              class="w-full"
+              class="w-full min-w-0"
               value={row.selected_category_id ?? ""}
               onchange={(e) => {
                 const v = (e.target as HTMLSelectElement).value;
@@ -564,7 +564,7 @@
               {/each}
             </Select>
             <Select
-              class="w-full"
+              class="w-full min-w-0"
               value={row.decision}
               onchange={(e) => {
                 const v = (e.target as HTMLSelectElement).value as RowDecision;
@@ -594,7 +594,7 @@
 
   <!-- Sticky bottom commit bar — always reachable on mobile + long lists. -->
   <div
-    class="sticky bottom-0 z-20 -mx-4 flex flex-wrap items-center justify-end gap-2 border-t border-white/10 bg-slate-950/90 px-4 py-3 backdrop-blur"
+    class="sticky bottom-0 z-20 -mx-4 flex flex-wrap items-center justify-end gap-2 border-t border-white/10 bg-slate-950/90 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur"
   >
     <Button variant="ghost" onclick={() => void onCancel()}>
       {m.bank_review_cancel()}
