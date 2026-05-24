@@ -52,7 +52,11 @@ flowchart LR
 - Stack boot (from repo root): `supabase start`. Stops with `supabase stop`. Resets schema + re-applies all migrations: `supabase db reset`.
 - Studio at `http://127.0.0.1:54323`. DB direct: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 - Cloud creds stashed in `apps/web-svelte/.env.cloud.local` (gitignored). Swap in when you need to reproduce a real-user bug: `cp .env.cloud.local .env.local && pnpm dev`.
-- Google OAuth doesn't work against the local stack. Seed a test user in Studio → Authentication → Add User, with email/password.
+- Google OAuth doesn't work against the local stack. After `supabase db reset`, run
+  `cd apps/web-svelte && pnpm seed:local` or
+  `./scripts/supabase-ops.sh local seed`. This creates
+  `admin@portfelik.test` and `user@portfelik.test`, each with password equal to
+  login, plus shopping-item category vocabulary.
 
 ### Staging
 
@@ -69,9 +73,11 @@ flowchart LR
 - After deploy: real-DB smoke job (`smoke`) runs Playwright against staging URL
   using `STAGING_E2E_SMOKE_EMAIL` / `STAGING_E2E_SMOKE_PASSWORD`. Smoke data is
   tagged `__e2e_smoke__` in `description` and cleaned up idempotently per run.
-- `apps/web-svelte/scripts/seed-staging.mjs` owns the synthetic manual-testing
-  persona. It rewrites only `Demo:`-tagged fixture rows for the configured demo
-  user; it never copies production data.
+- `apps/web-svelte/scripts/seed-personas.mjs` owns synthetic personas for local
+  and staging. Staging creates the smoke/demo users plus manual
+  `admin@portfelik.test` and `user@portfelik.test` logins; it rewrites only
+  `Demo:`-tagged fixture rows for demo-capable users and never copies production
+  data.
 
 ### Production
 
@@ -101,8 +107,9 @@ flowchart LR
   prod-scoped Supabase MCP/CLI target; production migration tracking still has
   early-history caveats documented in `supabase/CLAUDE.md`.
 - Applied locally by `supabase db reset` (runs every file in order, then `seed.sql`).
-- `seed.sql` is the common system seed. `pnpm seed:staging` adds only synthetic
-  cloud staging personas and fixture rows.
+- `seed.sql` is the common system seed. `pnpm seed:local` and
+  `pnpm seed:staging` add synthetic personas, default shopping-item categories,
+  and fixture rows.
 - Manual local/staging/prod commands go through the guarded dispatcher and
   command reference in [Supabase operations](../runbooks/supabase-operations.md).
 

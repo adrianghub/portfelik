@@ -9,11 +9,11 @@ repository. The canonical entrypoint is the guarded dispatcher:
 
 ## Environment model
 
-| Target     | Purpose                                  | Mutation policy                                              |
-| ---------- | ---------------------------------------- | ------------------------------------------------------------ |
-| `local`    | Laptop Supabase stack and generated types | Local reset is expected during migration verification.        |
-| `staging`  | Dedicated `portfelik-staging` project     | Remote changes require `--confirm staging`.                  |
-| `prod`     | Live production project                  | Preview first; remote changes require exact `--confirm prod`. |
+| Target    | Purpose                                   | Mutation policy                                               |
+| --------- | ----------------------------------------- | ------------------------------------------------------------- |
+| `local`   | Laptop Supabase stack and generated types | Local reset is expected during migration verification.        |
+| `staging` | Dedicated `portfelik-staging` project     | Remote changes require `--confirm staging`.                   |
+| `prod`    | Live production project                   | Preview first; remote changes require exact `--confirm prod`. |
 
 Supabase CLI link state lives under ignored `supabase/.temp/` and
 `supabase/.branches/`. It is per-machine state and must not be committed.
@@ -27,7 +27,10 @@ operation values there:
   staging project.
 - `PROD_SUPABASE_PROJECT_REF` and `PROD_SUPABASE_DB_PASSWORD` link production.
 - `STAGING_SUPABASE_URL`, `STAGING_SUPABASE_SERVICE_ROLE_KEY`, and the staging
-  demo/smoke user variables power the synthetic staging seed.
+  demo/smoke user variables power the synthetic staging seed. Manual staging
+  personas default to `admin@portfelik.test` and `user@portfelik.test` with
+  password equal to login; override with `STAGING_ADMIN_*` / `STAGING_USER_*`
+  only if needed.
 
 The dispatcher does not own Supabase API authentication. Log in with the
 Supabase CLI profile you intend to use, or provide `SUPABASE_ACCESS_TOKEN`
@@ -41,6 +44,7 @@ Local stack and schema replay:
 ./scripts/supabase-ops.sh local start
 ./scripts/supabase-ops.sh local status
 ./scripts/supabase-ops.sh local reset
+./scripts/supabase-ops.sh local seed
 ./scripts/supabase-ops.sh local advisors
 ./scripts/supabase-ops.sh local types
 ./scripts/supabase-ops.sh local stop
@@ -107,8 +111,12 @@ preview empty.
    Edge Functions only when the code changed.
 
 `supabase/seed.sql` is the system seed shared by local reset and staging pushes.
-Production push commands apply migrations only. `staging seed` adds synthetic
-personas and fixture rows only for the configured staging users.
+Production push commands apply migrations only. `local seed` and `staging seed`
+run `apps/web-svelte/scripts/seed-personas.mjs`, which creates manual
+`admin@portfelik.test` and `user@portfelik.test` personas with password equal to
+login and seeds the shopping-item category vocabulary for every persona.
+`staging seed` also keeps the smoke/demo personas and synthetic fixture rows
+ready for the configured staging users.
 
 ## Safety notes
 

@@ -4,20 +4,21 @@ Loaded automatically when working in `apps/web-svelte/`.
 
 ## Architecture decisions
 
-| Choice | Rule |
-|---|---|
-| `adapter-static` | No SSR. Use `@supabase/supabase-js` base client. **Do NOT use `@supabase/ssr`**. |
-| Svelte 5 runes | `$state`, `$derived`, `$effect` — not stores. |
-| TanStack Query v6 | Options as functions (runes API). `createQuery`, `createMutation` from `@tanstack/svelte-query`. |
-| Paraglide v2 | Vite plugin only — no adapter. Compile-time i18n. Recompile after `messages/pl.json` edits. |
-| Supabase client | Singleton at `src/lib/supabase.ts`. Query client provided in `+layout.svelte`. |
-| Auth | Google OAuth only. Email/password sign-up disabled. |
-| Group writes | All via SECURITY DEFINER RPCs in `services/groups.ts`. Direct table writes blocked by RLS. |
-| Summary computation | `computeSummary(transactions)` in `services/transactions.ts` — derived client-side, no RPC round-trip. |
+| Choice              | Rule                                                                                                                       |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `adapter-static`    | No SSR. Use `@supabase/supabase-js` base client. **Do NOT use `@supabase/ssr`**.                                           |
+| Svelte 5 runes      | `$state`, `$derived`, `$effect` — not stores.                                                                              |
+| TanStack Query v6   | Options as functions (runes API). `createQuery`, `createMutation` from `@tanstack/svelte-query`.                           |
+| Paraglide v2        | Vite plugin only — no adapter. Compile-time i18n. Recompile after `messages/pl.json` edits.                                |
+| Supabase client     | Singleton at `src/lib/supabase.ts`. Query client provided in `+layout.svelte`.                                             |
+| Auth                | Google OAuth for real users. Email/password sign-up stays disabled; local/staging use seeded email/password personas only. |
+| Group writes        | All via SECURITY DEFINER RPCs in `services/groups.ts`. Direct table writes blocked by RLS.                                 |
+| Summary computation | `computeSummary(transactions)` in `services/transactions.ts` — derived client-side, no RPC round-trip.                     |
 
 ## Key file locations
 
 **Services** (`src/lib/services/`):
+
 - `transactions.ts` — `fetchTransactions(start, end, categoryId?)`, `computeSummary(txs)`, `createTransaction`, `updateTransaction`, `deleteTransaction`
 - `categories.ts` — `fetchCategories`, `createCategory`, `updateCategory`, `deleteCategory`
 - `groups.ts` — all group SECURITY DEFINER RPCs
@@ -27,6 +28,7 @@ Loaded automatically when working in `apps/web-svelte/`.
 - `push.ts` — `registerServiceWorker`, `autoSubscribePush`, `requestAndSubscribePush`, `unsubscribeFromPush`
 
 **Components** (`src/lib/components/`):
+
 - `ui/` — `Dialog`, `ConfirmDialog`, `NotificationsPopover`
 - `transactions/` — `MonthRangePicker`, `CategoryFilter`, `TransactionTable` (shared tx badge, row click), `TransactionDialog`, `TransactionDetailSheet`, `SummaryCards`, `CategoryBreakdown` (clickable)
 - `settings/` — `CategoriesTab`, `GroupsTab`, `ProfileTab`, `CategoryDialog`
@@ -43,6 +45,7 @@ Loaded automatically when working in `apps/web-svelte/`.
 ```bash
 pnpm dev
 pnpm build
+pnpm seed:local                                     # creates local admin/user personas
 pnpm exec svelte-check --tsconfig ./tsconfig.json   # must be 0 errors, 0 warnings
 pnpm lint                                            # must be 0 errors
 pnpm format                                          # auto-fix
@@ -66,10 +69,12 @@ supabase stop                    # shut down (preserves volumes)
 - DB direct: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 - Swap to cloud temporarily: `cp .env.cloud.local .env.local` then restart `pnpm dev`. Swap back: rewrite `.env.local` from `.env.example` values or from `supabase status`.
 - Seed a test user: Studio → Authentication → Add User (email confirmed). Google OAuth does not work against the local stack — use email/password.
+- Seed standard local personas after `supabase db reset`: `cd apps/web-svelte && pnpm seed:local`. Defaults are `admin@portfelik.test` / same password and `user@portfelik.test` / same password; local overrides live in `.env.test`.
 
 ## Gotchas
 
 See `../../.claude/rules/svelte-gotchas.md` (auto-loaded for this directory). Critical:
+
 - `createMutation` is NOT a store — never `$mutation.xxx`
 - PostgREST inserts need `user_id` explicitly
 - `$state()` reading a prop → `untrack()`

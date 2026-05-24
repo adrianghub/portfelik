@@ -105,6 +105,12 @@ Edge Functions have per-function `deno.json` files (added 2026-05-13) pinning im
   idempotent system `seed.sql`.
 - `dev` GitHub Actions applies committed migrations and `seed.sql` to the
   dedicated `portfelik-staging` project before Cloudflare Pages staging deploy.
+- Local and staging persona seeding lives in
+  `apps/web-svelte/scripts/seed-personas.mjs`. Run local personas after a reset
+  with `./scripts/supabase-ops.sh local seed` or `pnpm seed:local` from
+  `apps/web-svelte/`. CI runs `pnpm seed:staging`; it also creates manual
+  `admin@portfelik.test` / `user@portfelik.test` personas with password equal to
+  login.
 - Production migrations stay manual/gated. Do not point `supabase db push`
   automation at production until the early migration-history drift has been
   deliberately normalized.
