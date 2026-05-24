@@ -13,6 +13,7 @@
 		"lint": "eslint src/",
 		"format": "prettier --write src/",
 		"format:check": "prettier --check src/",
+		"seed:local": "SEED_TARGET=local node ./scripts/seed-personas.mjs",
 		"seed:staging": "node ./scripts/seed-staging.mjs",
 		"test:e2e": "playwright test",
 		"test:rls": "vitest run",
