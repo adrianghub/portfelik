@@ -1,17 +1,24 @@
 <script lang="ts">
   import { createQuery } from "@tanstack/svelte-query";
   import { fetchShoppingListItemHistory } from "$lib/services/shopping-lists";
+  import { inferShoppingListCategory } from "$lib/shopping-list-categories";
 
   interface Suggestion {
     name: string;
     quantity: number | null;
     unit: string | null;
+    category: string | null;
   }
 
   interface Props {
     query: string;
     anchor?: HTMLElement | null;
-    onselect: (name: string, quantity: number | null, unit: string | null) => void;
+    onselect: (
+      name: string,
+      quantity: number | null,
+      unit: string | null,
+      category: string | null
+    ) => void;
     onescape?: () => void;
   }
   let { query, anchor = null, onselect, onescape }: Props = $props();
@@ -67,11 +74,13 @@
         existing.count++;
         if (item.quantity != null && existing.quantity == null) existing.quantity = item.quantity;
         if (item.unit && !existing.unit) existing.unit = item.unit;
+        if (item.category && !existing.category) existing.category = item.category;
       } else {
         map.set(key, {
           name: item.name,
           quantity: item.quantity ?? null,
           unit: item.unit ?? null,
+          category: item.category ?? inferShoppingListCategory(item.name),
           count: 1,
         });
       }
@@ -139,7 +148,7 @@
     } else if (e.key === "Enter" && activeIndex >= 0) {
       e.preventDefault();
       const s = suggestions[activeIndex];
-      onselect(s.name, s.quantity, s.unit);
+      onselect(s.name, s.quantity, s.unit, s.category);
     }
   }
 </script>
@@ -163,15 +172,22 @@
           activeIndex
             ? 'bg-white/5'
             : ''}"
-          onclick={() => onselect(s.name, s.quantity, s.unit)}
+          onclick={() => onselect(s.name, s.quantity, s.unit, s.category)}
           onmouseenter={() => (activeIndex = i)}
         >
-          <span class="truncate text-slate-100">{s.name}</span>
-          {#if s.quantity != null || s.unit}
-            <span class="ml-2 shrink-0 text-xs text-slate-500">
-              {s.quantity != null ? s.quantity : ""}{s.unit ? ` ${s.unit}` : ""}
-            </span>
-          {/if}
+          <span class="min-w-0 truncate text-slate-100">{s.name}</span>
+          <span class="ml-2 flex shrink-0 items-center gap-1 text-xs text-slate-500">
+            {#if s.category}
+              <span
+                class="rounded-full border border-white/10 px-1.5 py-0.5 text-[10px] text-slate-400"
+              >
+                {s.category}
+              </span>
+            {/if}
+            {#if s.quantity != null || s.unit}
+              <span>{s.quantity != null ? s.quantity : ""}{s.unit ? ` ${s.unit}` : ""}</span>
+            {/if}
+          </span>
         </button>
       </li>
     {/each}

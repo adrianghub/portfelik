@@ -7,15 +7,17 @@
   import CategoriesTab from "$lib/components/settings/CategoriesTab.svelte";
   import GroupsTab from "$lib/components/settings/GroupsTab.svelte";
   import ProfileTab from "$lib/components/settings/ProfileTab.svelte";
+  import ShoppingItemCategoriesTab from "$lib/components/settings/ShoppingItemCategoriesTab.svelte";
   import { cn } from "$lib/utils";
   import * as m from "$lib/paraglide/messages";
 
-  type Tab = "categories" | "groups" | "profile";
+  type Tab = "categories" | "shopping-item-categories" | "groups" | "profile";
 
   const activeTab = $derived(($page.url.searchParams.get("tab") ?? "categories") as Tab);
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "categories", label: m.settings_tab_categories() },
+    { id: "shopping-item-categories", label: m.settings_tab_shopping_item_categories() },
     { id: "groups", label: m.settings_tab_groups() },
     { id: "profile", label: m.settings_tab_profile() },
   ];
@@ -70,6 +72,8 @@
   <div role="tabpanel">
     {#if activeTab === "categories"}
       <CategoriesTab />
+    {:else if activeTab === "shopping-item-categories"}
+      <ShoppingItemCategoriesTab />
     {:else if activeTab === "groups"}
       <GroupsTab />
     {:else if activeTab === "profile"}

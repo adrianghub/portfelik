@@ -1,15 +1,22 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
+  import { normalizeShoppingListCategory } from "$lib/shopping-list-categories";
   import { DEFAULT_SHOPPING_LIST_UNIT, normalizeShoppingListUnit } from "$lib/shopping-list-units";
   import type { ShoppingListItem } from "$lib/types";
   import { X } from "lucide-svelte";
   import { untrack } from "svelte";
+  import ShoppingListCategoryCombobox from "./ShoppingListCategoryCombobox.svelte";
   import ShoppingListUnitCombobox from "./ShoppingListUnitCombobox.svelte";
 
   interface Props {
     item: ShoppingListItem;
     onclose: () => void;
-    onsave: (updates: { name: string; quantity: number | null; unit: string | null }) => void;
+    onsave: (updates: {
+      name: string;
+      quantity: number | null;
+      unit: string | null;
+      category: string | null;
+    }) => void;
     saving?: boolean;
   }
   let { item, onclose, onsave, saving = false }: Props = $props();
@@ -17,6 +24,7 @@
   let name = $state(untrack(() => item.name));
   let quantity = $state<number | null>(untrack(() => item.quantity ?? null));
   let unit = $state(untrack(() => item.unit ?? DEFAULT_SHOPPING_LIST_UNIT));
+  let category = $state(untrack(() => item.category ?? ""));
 
   function submit(e: SubmitEvent) {
     e.preventDefault();
@@ -26,6 +34,7 @@
       name: trimmed,
       quantity,
       unit: normalizeShoppingListUnit(unit),
+      category: normalizeShoppingListCategory(category),
     });
   }
 
@@ -81,6 +90,7 @@
       />
       <ShoppingListUnitCombobox bind:value={unit} placeholder={m.shopping_list_item_unit()} />
     </div>
+    <ShoppingListCategoryCombobox bind:value={category} id="edit-item-category" />
     <button
       type="submit"
       disabled={saving || !name.trim()}
