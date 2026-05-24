@@ -130,3 +130,16 @@ redirect_uri = ""   # uses default: <api_url>/auth/v1/callback
 # =============================================================================
 [analytics]
 enabled = false
+
+# =============================================================================
+# EDGE FUNCTIONS
+# All three functions use verify_jwt = false and check INTERNAL_TRIGGER_SECRET.
+# =============================================================================
+[functions.send-push]
+verify_jwt = false
+
+[functions.send-admin-summary]
+verify_jwt = false
+
+[functions.sync-user-role]
+verify_jwt = false
