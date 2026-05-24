@@ -186,19 +186,28 @@
     },
   }));
 
-  // Delete item — optimistic
+  // Delete item — optimistic; expose undo only after the delete is confirmed.
   const deleteItemMutation = createMutation(() => ({
-    mutationFn: (itemId: string) => deleteShoppingListItem(itemId),
-    onMutate: async (itemId) => {
+    mutationFn: (item: ShoppingListItem) => deleteShoppingListItem(item.id),
+    onMutate: async (item) => {
       await queryClient.cancelQueries({ queryKey: listKey });
       const previous = queryClient.getQueryData<ShoppingListWithItems>(listKey);
       if (previous) {
         queryClient.setQueryData<ShoppingListWithItems>(listKey, {
           ...previous,
-          shopping_list_items: previous.shopping_list_items.filter((it) => it.id !== itemId),
+          shopping_list_items: previous.shopping_list_items.filter((it) => it.id !== item.id),
         });
       }
       return { previous };
+    },
+    onSuccess: (_data, item) => {
+      toast.success(m.toast_shopping_list_item_deleted(), {
+        action: {
+          label: m.common_undo(),
+          onClick: () => restoreDeletedItem(item),
+        },
+        duration: 6000,
+      });
     },
     onError: (_err, _vars, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(listKey, ctx.previous);
@@ -650,14 +659,7 @@
     renameMutation.mutate({ id: editTarget.id, updates });
   }
   function deleteItem(item: ShoppingListItem) {
-    deleteItemMutation.mutate(item.id);
-    toast.success(m.toast_shopping_list_item_deleted(), {
-      action: {
-        label: m.common_undo(),
-        onClick: () => restoreDeletedItem(item),
-      },
-      duration: 6000,
-    });
+    deleteItemMutation.mutate(item);
   }
   function toggleItem(item: ShoppingListItem) {
     if (!isActive) return;

@@ -16,6 +16,7 @@
     computeSummary,
     deleteTransaction,
     deleteTransactions,
+    fetchTransactionById,
     fetchTransactions,
   } from "$lib/services/transactions";
   import { supabase } from "$lib/supabase";
@@ -160,11 +161,26 @@
   let editTarget = $state<TransactionWithCategory | null>(null);
   let deleteTargetId = $state<string | null>(null);
   let sheetTx = $state<TransactionWithCategory | null>(null);
+  let dismissedRequestedTxId = $state<string | null>(null);
 
   const requestedTxId = $derived($page.url.searchParams.get("txId"));
+  const requestedTxFromCurrentPage = $derived.by(() => {
+    if (!requestedTxId || !txQuery.data) return null;
+    return txQuery.data.find((t) => t.id === requestedTxId) ?? null;
+  });
+  const requestedTxQuery = createQuery(() => ({
+    queryKey: ["transactions", "by-id", requestedTxId],
+    queryFn: () => fetchTransactionById(requestedTxId!),
+    enabled: !!requestedTxId && !requestedTxFromCurrentPage,
+  }));
+
   $effect(() => {
-    if (!requestedTxId || !txQuery.data) return;
-    const match = txQuery.data.find((t) => t.id === requestedTxId);
+    if (!requestedTxId) {
+      dismissedRequestedTxId = null;
+      return;
+    }
+    if (requestedTxId === dismissedRequestedTxId) return;
+    const match = requestedTxFromCurrentPage ?? requestedTxQuery.data;
     if (match && sheetTx?.id !== match.id) sheetTx = match;
   });
   let attachTarget = $state<TransactionWithCategory | null>(null);
@@ -233,6 +249,21 @@
     if (id) params.set("categoryId", id);
     else params.delete("categoryId");
     goto(`/transactions?${params.toString()}`, { replaceState: false });
+  }
+
+  function closeTransactionSheet() {
+    if (requestedTxId) {
+      dismissedRequestedTxId = requestedTxId;
+      const params = new URLSearchParams($page.url.searchParams);
+      params.delete("txId");
+      const query = params.toString();
+      void goto(query ? `/transactions?${query}` : "/transactions", {
+        replaceState: true,
+        noScroll: true,
+        keepFocus: true,
+      });
+    }
+    sheetTx = null;
   }
 
   // CSV helpers
@@ -457,7 +488,7 @@
 <TransactionDetailSheet
   transaction={sheetTx}
   {currentUserId}
-  onclose={() => (sheetTx = null)}
+  onclose={closeTransactionSheet}
   onedit={(tx) => {
     sheetTx = null;
     editTarget = tx;

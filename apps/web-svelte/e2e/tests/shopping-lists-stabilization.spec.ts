@@ -501,6 +501,39 @@ test("item edit sheet updates name, quantity and unit", async ({ page }) => {
   expect(patchedBody.unit).toBe("szt");
 });
 
+test("item delete failure restores row without showing undo", async ({ page }) => {
+  await injectFakeSession(page);
+  await mockSupabaseAPI(page);
+
+  const fixture = singleItemListFixture();
+  await page.route(`${SUPABASE_URL}/rest/v1/shopping_lists**`, (route) => {
+    const url = route.request().url();
+    const method = route.request().method();
+    if (url.includes("id=eq.") && method === "GET") {
+      return route.fulfill({ status: 200, json: fixture });
+    }
+    if (method === "GET") return route.fulfill({ status: 200, json: [fixture] });
+    return route.fulfill({ status: 204, body: "" });
+  });
+
+  await page.route(`${SUPABASE_URL}/rest/v1/shopping_list_items**`, (route) => {
+    if (route.request().method() === "DELETE") {
+      return route.fulfill({ status: 500, json: { message: "delete failed" } });
+    }
+    return route.fulfill({ status: 200, json: [] });
+  });
+
+  await page.goto("/shopping-lists/list-edit");
+
+  const itemRow = page.locator("li").filter({ hasText: "Chleb" });
+  await expect(itemRow).toBeVisible();
+  await itemRow.getByRole("button", { name: "Usuń" }).click();
+
+  await expect(page.getByText("Coś poszło nie tak")).toBeVisible();
+  await expect(itemRow).toBeVisible();
+  await expect(page.getByText("Cofnij")).toHaveCount(0);
+});
+
 // ── Case 5b: Category sections show progress and completed groups sink ──────
 
 test("shopping item category sections show progress and sink completed groups", async ({

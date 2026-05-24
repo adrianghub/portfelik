@@ -34,6 +34,17 @@ export async function fetchTransactions(
   return all;
 }
 
+export async function fetchTransactionById(id: string): Promise<TransactionWithCategory> {
+  const { data, error } = await supabase
+    .from("transactions_with_category")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (error) throw error;
+  return data as TransactionWithCategory;
+}
+
 export function computeSummary(transactions: TransactionWithCategory[]): MonthlySummary {
   const totalIncome = transactions
     .filter((t) => t.type === "income")
