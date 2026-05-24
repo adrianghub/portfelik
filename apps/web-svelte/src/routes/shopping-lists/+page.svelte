@@ -198,22 +198,9 @@
 </script>
 
 <div class="container mx-auto max-w-3xl space-y-5 px-4 py-6">
-  <div class="flex items-center justify-between">
-    <h1 class="text-2xl font-semibold text-slate-900 dark:text-white">
-      {m.shopping_lists_title()}
-    </h1>
-    <button
-      onclick={() => {
-        showCreate = true;
-        newName = "";
-        newGroupId = "";
-        newCategoryId = "";
-      }}
-      class="bg-accent-gradient rounded-full px-4 py-1.5 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
-    >
-      + {m.common_add()}
-    </button>
-  </div>
+  <h1 class="text-2xl font-semibold text-slate-900 dark:text-white">
+    {m.shopping_lists_title()}
+  </h1>
 
   {#if query.isLoading}
     <div class="grid gap-3 sm:grid-cols-2">

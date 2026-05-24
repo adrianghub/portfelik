@@ -62,4 +62,22 @@ describe("RLS: shopping_list_items", () => {
       .select();
     expectBlockedWrite(result);
   });
+
+  it("list owner can update item category and other users cannot", async () => {
+    const ownerUpdate = await ctx.userB.client
+      .from("shopping_list_items")
+      .update({ category: `${SENTINEL} category` })
+      .eq("id", itemBId)
+      .select("id, category")
+      .single();
+    expect(ownerUpdate.error).toBeNull();
+    expect(ownerUpdate.data?.category).toBe(`${SENTINEL} category`);
+
+    const blockedUpdate = await ctx.userA.client
+      .from("shopping_list_items")
+      .update({ category: `${SENTINEL} hacked` })
+      .eq("id", itemBId)
+      .select();
+    expectBlockedWrite(blockedUpdate);
+  });
 });

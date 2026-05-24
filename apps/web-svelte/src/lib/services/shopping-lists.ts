@@ -1,4 +1,5 @@
 import { supabase } from "$lib/supabase";
+import { normalizeShoppingListCategory } from "$lib/shopping-list-categories";
 import type {
   ShoppingList,
   ShoppingListItem,
@@ -22,15 +23,15 @@ function toShoppingListSummary(list: ShoppingListSummaryRow): ShoppingListSummar
 }
 
 export async function fetchShoppingListItemHistory(): Promise<
-  Pick<ShoppingListItem, "name" | "quantity" | "unit">[]
+  Pick<ShoppingListItem, "name" | "quantity" | "unit" | "category">[]
 > {
   const { data, error } = await supabase
     .from("shopping_list_items")
-    .select("name, quantity, unit")
+    .select("name, quantity, unit, category")
     .order("created_at", { ascending: false })
     .limit(500);
   if (error) throw error;
-  return data as Pick<ShoppingListItem, "name" | "quantity" | "unit">[];
+  return data as Pick<ShoppingListItem, "name" | "quantity" | "unit" | "category">[];
 }
 
 export async function fetchShoppingLists(): Promise<ShoppingListSummary[]> {
@@ -50,19 +51,20 @@ export async function fetchShoppingListById(id: string): Promise<ShoppingListWit
   const { data, error } = await supabase
     .from("shopping_lists")
     .select(
-      "id, name, status, user_id, group_id, category_id, total_amount, completed_at, created_at, updated_at, shopping_list_items(id, name, completed, quantity, unit, position, created_at, updated_at, shopping_list_id)"
+      "id, name, status, user_id, group_id, category_id, total_amount, completed_at, created_at, updated_at, shopping_list_items(id, name, completed, quantity, unit, category, position, created_at, updated_at, shopping_list_id), transactions(id)"
     )
     .eq("id", id)
     .single();
 
   if (error) throw error;
 
-  const list = data as ShoppingListWithItems & {
+  const raw = data as ShoppingListWithItems & {
     shopping_list_items: NonNullable<typeof data>["shopping_list_items"];
+    transactions?: { id: string }[];
   };
-  list.shopping_list_items =
-    list.shopping_list_items?.sort((a, b) => a.position - b.position) ?? [];
-  return list;
+  raw.shopping_list_items = raw.shopping_list_items?.sort((a, b) => a.position - b.position) ?? [];
+  raw.linked_transaction_id = raw.transactions?.[0]?.id ?? null;
+  return raw;
 }
 
 export async function createShoppingList(input: {
@@ -90,7 +92,12 @@ export async function createShoppingList(input: {
 
 export async function updateShoppingList(
   id: string,
-  updates: Partial<{ name: string; group_id: string | null; category_id: string | null }>
+  updates: Partial<{
+    name: string;
+    group_id: string | null;
+    category_id: string | null;
+    created_at: string;
+  }>
 ): Promise<ShoppingList> {
   if (updates.name !== undefined) {
     const name = updates.name.trim();
@@ -175,14 +182,16 @@ export async function createShoppingListItem(input: {
   name: string;
   quantity?: number | null;
   unit?: string | null;
+  category?: string | null;
   position: number;
 }): Promise<ShoppingListItem> {
   const name = input.name?.trim();
   if (!name) throw new Error("name_required");
+  const category = normalizeShoppingListCategory(input.category);
 
   const { data, error } = await supabase
     .from("shopping_list_items")
-    .insert({ ...input, name, completed: false })
+    .insert({ ...input, name, category, completed: false })
     .select()
     .single();
 
@@ -197,6 +206,7 @@ export async function updateShoppingListItem(
     completed: boolean;
     quantity: number | null;
     unit: string | null;
+    category: string | null;
     position: number;
   }>
 ): Promise<ShoppingListItem> {
@@ -204,6 +214,9 @@ export async function updateShoppingListItem(
     const name = updates.name.trim();
     if (!name) throw new Error("name_required");
     updates = { ...updates, name };
+  }
+  if (updates.category !== undefined) {
+    updates = { ...updates, category: normalizeShoppingListCategory(updates.category) };
   }
 
   const { data, error } = await supabase
@@ -217,7 +230,38 @@ export async function updateShoppingListItem(
   return data as ShoppingListItem;
 }
 
+export async function updateShoppingListItemsCategory(
+  itemIds: string[],
+  category: string | null
+): Promise<void> {
+  if (itemIds.length === 0) return;
+  const { error } = await supabase
+    .from("shopping_list_items")
+    .update({ category: normalizeShoppingListCategory(category) })
+    .in("id", itemIds);
+  if (error) throw error;
+}
+
 export async function deleteShoppingListItem(id: string): Promise<void> {
   const { error } = await supabase.from("shopping_list_items").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function setAllShoppingListItemsCompleted(
+  listId: string,
+  completed: boolean
+): Promise<void> {
+  const { error } = await supabase
+    .from("shopping_list_items")
+    .update({ completed })
+    .eq("shopping_list_id", listId);
+  if (error) throw error;
+}
+
+export async function deleteAllShoppingListItems(listId: string): Promise<void> {
+  const { error } = await supabase
+    .from("shopping_list_items")
+    .delete()
+    .eq("shopping_list_id", listId);
   if (error) throw error;
 }

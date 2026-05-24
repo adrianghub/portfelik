@@ -102,6 +102,16 @@ export interface ShoppingListItem {
   completed: boolean;
   quantity: number | null;
   unit: string | null;
+  category: string | null;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ShoppingItemCategory {
+  id: string;
+  user_id: string;
+  name: string;
   position: number;
   created_at: string;
   updated_at: string;
@@ -122,6 +132,7 @@ export interface ShoppingList {
 
 export interface ShoppingListWithItems extends ShoppingList {
   shopping_list_items: ShoppingListItem[];
+  linked_transaction_id?: string | null;
 }
 
 export interface ShoppingListSummary extends ShoppingList {

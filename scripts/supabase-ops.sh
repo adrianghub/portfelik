@@ -38,7 +38,7 @@ load_env_file
 usage() {
   cat <<'EOF'
 Usage:
-  ./scripts/supabase-ops.sh local <start|stop|status|reset|advisors|types>
+  ./scripts/supabase-ops.sh local <start|stop|status|reset|seed|advisors|types>
   ./scripts/supabase-ops.sh migration new <slug>
   ./scripts/supabase-ops.sh <staging|prod> <link|migrations|push-preview|push|advisors|functions> [--confirm <target>]
   ./scripts/supabase-ops.sh <staging|prod> repair-applied <version> [<version> ...] --confirm <target>
@@ -165,6 +165,12 @@ run_local() {
     stop) supabase stop --workdir "$ROOT_DIR" ;;
     status) supabase status --workdir "$ROOT_DIR" ;;
     reset) supabase db reset --local --workdir "$ROOT_DIR" ;;
+    seed)
+      (
+        cd "$ROOT_DIR/apps/web-svelte"
+        pnpm seed:local
+      )
+      ;;
     advisors) supabase db advisors --local --workdir "$ROOT_DIR" ;;
     types)
       supabase gen types typescript --local --workdir "$ROOT_DIR" >"$TYPES_FILE"

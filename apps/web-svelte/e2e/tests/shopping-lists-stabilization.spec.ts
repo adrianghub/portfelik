@@ -138,19 +138,81 @@ function singleItemListFixture() {
   };
 }
 
+function groupedListFixture() {
+  return {
+    id: "list-grouped",
+    name: "Lista z kategoriami",
+    status: "active",
+    user_id: TEST_USER_ID,
+    group_id: null,
+    category_id: null,
+    total_amount: null,
+    completed_at: null,
+    created_at: "2026-05-20T10:00:00Z",
+    updated_at: "2026-05-20T10:00:00Z",
+    shopping_list_items: [
+      {
+        id: "gi-1",
+        name: "Pomidor",
+        quantity: null,
+        unit: null,
+        category: "Warzywa",
+        completed: true,
+        position: 1,
+        shopping_list_id: "list-grouped",
+        created_at: "2026-05-20T10:00:00Z",
+        updated_at: "2026-05-20T10:00:00Z",
+      },
+      {
+        id: "gi-2",
+        name: "Ogórek",
+        quantity: null,
+        unit: null,
+        category: "Warzywa",
+        completed: true,
+        position: 2,
+        shopping_list_id: "list-grouped",
+        created_at: "2026-05-20T10:00:00Z",
+        updated_at: "2026-05-20T10:00:00Z",
+      },
+      {
+        id: "gi-3",
+        name: "Mleko",
+        quantity: null,
+        unit: null,
+        category: "Nabiał",
+        completed: false,
+        position: 3,
+        shopping_list_id: "list-grouped",
+        created_at: "2026-05-20T10:00:00Z",
+        updated_at: "2026-05-20T10:00:00Z",
+      },
+    ],
+  };
+}
+
 /**
  * Override the shopping_list_items GET endpoint with a static list — used to
  * seed suggestion history for the combobox tests.
  */
 async function seedItemHistory(
   page: Page,
-  items: { name: string; quantity: number | null; unit: string | null }[]
+  items: { name: string; quantity: number | null; unit: string | null; category?: string | null }[]
 ) {
   await page.route(`${SUPABASE_URL}/rest/v1/shopping_list_items**`, (route) => {
     const method = route.request().method();
     if (method === "GET") return route.fulfill({ status: 200, json: items });
     return route.fulfill({ status: 200, json: {} });
   });
+}
+
+async function addShoppingCategorySection(page: Page, category = "Warzywa") {
+  await page.getByPlaceholder("Warzywa, Nabiał, Chemia...").fill(category);
+  await page.getByRole("button", { name: "Dodaj sekcję" }).click();
+  await expect(
+    page.getByRole("button", { name: `Pokaż lub ukryj kategorię ${category}` })
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
 }
 
 // ── Case 1: Quick-add accepts name-only items ─────────────────────────────────
@@ -161,7 +223,7 @@ test("quick-add accepts name-only items", async ({ page }) => {
 
   // Return the empty list for the detail route
   const fixture = emptyListFixture();
-  await page.route(`${SUPABASE_URL}/rest/v1/shopping_lists**`, (route) => {
+  await page.route(/.*\/rest\/v1\/shopping_lists.*/, (route) => {
     const url = route.request().url();
     const method = route.request().method();
     if (url.includes("id=eq.") && method === "GET") {
@@ -173,9 +235,11 @@ test("quick-add accepts name-only items", async ({ page }) => {
   });
 
   // POST to shopping_list_items returns the new item
+  let postedBody: Record<string, unknown> = {};
   await page.route(`${SUPABASE_URL}/rest/v1/shopping_list_items**`, (route) => {
     const method = route.request().method();
     if (method === "POST") {
+      postedBody = JSON.parse(route.request().postData() ?? "{}") as Record<string, unknown>;
       return route.fulfill({
         status: 201,
         json: {
@@ -183,6 +247,7 @@ test("quick-add accepts name-only items", async ({ page }) => {
           name: "Pomidory",
           quantity: null,
           unit: null,
+          category: "Warzywa",
           completed: false,
           position: 1,
           shopping_list_id: fixture.id,
@@ -196,6 +261,7 @@ test("quick-add accepts name-only items", async ({ page }) => {
 
   await page.goto("/shopping-lists/list-empty");
   await expect(page.getByText("Lista bez elementów")).toBeVisible();
+  await addShoppingCategorySection(page, "Warzywa");
 
   // The ShoppingListItemQuickAdd form has a combobox input with placeholder "Nazwa elementu"
   const nameInput = page.getByPlaceholder("Nazwa elementu");
@@ -206,6 +272,7 @@ test("quick-add accepts name-only items", async ({ page }) => {
 
   // Toast: "Element dodany"
   await expect(page.getByText("Element dodany")).toBeVisible();
+  expect(postedBody.category).toBe("Warzywa");
 });
 
 // ── Case 2: Quick-add accepts inline quantity + unit ──────────────────────────
@@ -215,7 +282,7 @@ test("quick-add accepts inline quantity + unit", async ({ page }) => {
   await mockSupabaseAPI(page);
 
   const fixture = emptyListFixture();
-  await page.route(`${SUPABASE_URL}/rest/v1/shopping_lists**`, (route) => {
+  await page.route(/.*\/rest\/v1\/shopping_lists.*/, (route) => {
     const url = route.request().url();
     const method = route.request().method();
     if (url.includes("id=eq.") && method === "GET") {
@@ -242,6 +309,7 @@ test("quick-add accepts inline quantity + unit", async ({ page }) => {
           name: "Bułka",
           quantity: 2,
           unit: "szt",
+          category: "Pieczywo",
           completed: false,
           position: 1,
           shopping_list_id: fixture.id,
@@ -255,6 +323,7 @@ test("quick-add accepts inline quantity + unit", async ({ page }) => {
 
   await page.goto("/shopping-lists/list-empty");
   await expect(page.getByText("Lista bez elementów")).toBeVisible();
+  await addShoppingCategorySection(page, "Pieczywo");
 
   // Click the "Ilość / jednostka" toggle button via aria-controls attribute
   const detailsToggle = page.locator('[aria-controls="shopping-list-item-details"]');
@@ -278,6 +347,7 @@ test("quick-add accepts inline quantity + unit", async ({ page }) => {
   // The POST body should include quantity=2 and unit="szt"
   expect(postedBody.quantity).toBe(2);
   expect(postedBody.unit).toBe("szt");
+  expect(postedBody.category).toBe("Pieczywo");
 });
 
 // ── Case 3: Suggestion dropdown hides on Escape ───────────────────────────────
@@ -302,6 +372,7 @@ test("suggestion dropdown hides on Escape", async ({ page }) => {
 
   await page.goto("/shopping-lists/list-empty");
   await expect(page.getByText("Lista bez elementów")).toBeVisible();
+  await addShoppingCategorySection(page, "Pieczywo");
 
   const nameInput = page.getByPlaceholder("Nazwa elementu");
   await nameInput.focus();
@@ -337,6 +408,7 @@ test("suggestion select fills name and auto-opens details", async ({ page }) => 
 
   await page.goto("/shopping-lists/list-empty");
   await expect(page.getByText("Lista bez elementów")).toBeVisible();
+  await addShoppingCategorySection(page, "Nabiał");
 
   const nameInput = page.getByPlaceholder("Nazwa elementu");
   await nameInput.focus();
@@ -395,20 +467,16 @@ test("item edit sheet updates name, quantity and unit", async ({ page }) => {
   await expect(page.getByText("Lista do edycji")).toBeVisible();
   await expect(page.getByText("Chleb")).toBeVisible();
 
-  // Open item actions via the kebab button (aria-label="Akcje")
-  const kebab = page
+  // Inline pencil icon on the row opens the edit sheet directly (aria-label="Edytuj")
+  await page
     .locator("ul li")
     .filter({ hasText: "Chleb" })
-    .getByRole("button", { name: /Akcje/ });
-  await kebab.click();
+    .getByRole("button", { name: /Edytuj/ })
+    .click();
 
-  // Actions sheet — click "Zmień nazwę"
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await page.getByRole("button", { name: /Zmień nazwę/ }).click();
-
-  // Edit sheet opens (it's an <aside> with aria-label matching "Zmień nazwę elementu")
+  // Edit sheet opens (it's an <aside> with h2 "Edytuj element")
   const editSheet = page.locator("aside").filter({
-    has: page.locator("h2", { hasText: /Zmień nazwę/ }),
+    has: page.locator("h2", { hasText: /Edytuj element/ }),
   });
   await expect(editSheet).toBeVisible();
 
@@ -419,7 +487,7 @@ test("item edit sheet updates name, quantity and unit", async ({ page }) => {
 
   // Fill qty and unit
   await editSheet.getByPlaceholder("Ilość").fill("2");
-  await editSheet.getByPlaceholder("szt, kg, l…").fill("szt");
+  await editSheet.locator("#shopping-list-unit").fill("szt");
 
   // Save
   await editSheet.getByRole("button", { name: /Zapisz/ }).click();
@@ -431,6 +499,77 @@ test("item edit sheet updates name, quantity and unit", async ({ page }) => {
   expect(patchedBody.name).toBe("Chleb razowy");
   expect(patchedBody.quantity).toBe(2);
   expect(patchedBody.unit).toBe("szt");
+});
+
+test("item delete failure restores row without showing undo", async ({ page }) => {
+  await injectFakeSession(page);
+  await mockSupabaseAPI(page);
+
+  const fixture = singleItemListFixture();
+  await page.route(`${SUPABASE_URL}/rest/v1/shopping_lists**`, (route) => {
+    const url = route.request().url();
+    const method = route.request().method();
+    if (url.includes("id=eq.") && method === "GET") {
+      return route.fulfill({ status: 200, json: fixture });
+    }
+    if (method === "GET") return route.fulfill({ status: 200, json: [fixture] });
+    return route.fulfill({ status: 204, body: "" });
+  });
+
+  await page.route(`${SUPABASE_URL}/rest/v1/shopping_list_items**`, (route) => {
+    if (route.request().method() === "DELETE") {
+      return route.fulfill({ status: 500, json: { message: "delete failed" } });
+    }
+    return route.fulfill({ status: 200, json: [] });
+  });
+
+  await page.goto("/shopping-lists/list-edit");
+
+  const itemRow = page.locator("li").filter({ hasText: "Chleb" });
+  await expect(itemRow).toBeVisible();
+  await itemRow.getByRole("button", { name: "Usuń" }).click();
+
+  await expect(page.getByText("Coś poszło nie tak")).toBeVisible();
+  await expect(itemRow).toBeVisible();
+  await expect(page.getByText("Cofnij")).toHaveCount(0);
+});
+
+// ── Case 5b: Category sections show progress and completed groups sink ──────
+
+test("shopping item category sections show progress and sink completed groups", async ({
+  page,
+}) => {
+  await injectFakeSession(page);
+  await mockSupabaseAPI(page);
+
+  const fixture = groupedListFixture();
+  await page.route(/.*\/rest\/v1\/shopping_lists.*/, (route) => {
+    const url = route.request().url();
+    const method = route.request().method();
+    if (url.includes("id=eq.") && method === "GET") {
+      return route.fulfill({ status: 200, json: fixture });
+    }
+    if (method === "GET") return route.fulfill({ status: 200, json: [fixture] });
+    return route.fulfill({ status: 204, body: "" });
+  });
+
+  await page.goto("/shopping-lists/list-grouped");
+  await expect(page.getByText("Lista z kategoriami")).toBeVisible();
+
+  const dairySection = page
+    .locator("section")
+    .filter({ has: page.getByRole("button", { name: "Pokaż lub ukryj kategorię Nabiał" }) });
+  const vegetableSection = page
+    .locator("section")
+    .filter({ has: page.getByRole("button", { name: "Pokaż lub ukryj kategorię Warzywa" }) });
+
+  await expect(dairySection).toBeVisible();
+  await expect(dairySection).toContainText("0/1");
+  await expect(vegetableSection).toBeVisible();
+  await expect(vegetableSection).toContainText("2/2");
+  await expect(vegetableSection.locator("span").filter({ hasText: "Warzywa" })).toHaveClass(
+    /line-through/
+  );
 });
 
 // ── Case 6: Attach action visible/hidden per transaction type ─────────────────
@@ -769,7 +908,7 @@ test("completed list card shows a linked transaction chip", async ({ page }) => 
   await page.goto("/shopping-lists");
   const card = page.getByRole("link", { name: /Zamknięte zakupy/ });
   await expect(card).toBeVisible();
-  await expect(card.getByText("Transakcja")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Transakcja" })).toBeVisible();
 });
 
 // ── Case 10: Mobile detail keeps completion CTA accessible ───────────────────
@@ -794,4 +933,154 @@ test("mobile detail keeps completion CTA above the bottom navigation", async ({ 
   const completeButton = page.getByRole("button", { name: "Zakończ listę" });
   await expect(completeButton).toBeVisible();
   await expect(completeButton).toBeInViewport();
+});
+
+// ── Case 11: Unit combobox opens, filters, picks ──────────────────────────────
+
+test("unit combobox: focus opens listbox, typing filters, click picks", async ({ page }) => {
+  await injectFakeSession(page);
+  await mockSupabaseAPI(page);
+  await page.goto("/shopping-lists/list-1");
+  await expect(page.getByText("Mleko")).toBeVisible();
+
+  // Open item edit sheet via inline pencil
+  await page
+    .locator("ul li")
+    .filter({ hasText: "Mleko" })
+    .getByRole("button", { name: /Edytuj/ })
+    .click();
+
+  const editSheet = page.locator("aside").filter({
+    has: page.locator("h2", { hasText: /Edytuj element/ }),
+  });
+  await expect(editSheet).toBeVisible();
+
+  const unitInput = editSheet.locator("#shopping-list-unit");
+  await unitInput.click();
+
+  // Listbox is portaled to body — find globally
+  const listbox = page.getByRole("listbox");
+  await expect(listbox).toBeVisible();
+  await expect(listbox.getByRole("option", { name: "l" })).toBeVisible();
+
+  // Typing narrows to "kg"
+  await unitInput.fill("k");
+  await expect(listbox.getByRole("option", { name: "kg" })).toBeVisible();
+  await expect(listbox.getByRole("option", { name: "szt." })).toHaveCount(0);
+
+  // Click picks
+  await listbox.getByRole("option", { name: "kg" }).click();
+  await expect(unitInput).toHaveValue("kg");
+});
+
+// ── Case 12: Bulk delete confirm dialog ───────────────────────────────────────
+
+test("bulk toggle: 'mark all' patches all items to completed", async ({ page }) => {
+  await injectFakeSession(page);
+  await mockSupabaseAPI(page);
+  let bulkPatchUrl = "";
+  await page.route(`${SUPABASE_URL}/rest/v1/shopping_list_items**`, (route) => {
+    const req = route.request();
+    if (req.method() === "PATCH" && req.url().includes("shopping_list_id=eq.")) {
+      bulkPatchUrl = req.url();
+      return route.fulfill({ status: 200, json: {} });
+    }
+    return route.fulfill({ status: 200, json: [] });
+  });
+
+  await page.goto("/shopping-lists/list-1");
+  await expect(page.getByText("Mleko")).toBeVisible();
+
+  await page.getByRole("button", { name: /Zaznacz wszystkie/ }).click();
+  await page.waitForTimeout(200);
+  expect(bulkPatchUrl).toContain("shopping_list_id=eq.list-1");
+});
+
+test("bulk delete: button opens confirm dialog, confirm fires DELETE", async ({ page }) => {
+  await injectFakeSession(page);
+  await mockSupabaseAPI(page);
+  let deleted = false;
+  await page.route(`${SUPABASE_URL}/rest/v1/shopping_list_items**`, (route) => {
+    const req = route.request();
+    if (req.method() === "DELETE" && req.url().includes("shopping_list_id=eq.")) {
+      deleted = true;
+      return route.fulfill({ status: 204, body: "" });
+    }
+    return route.fulfill({ status: 200, json: [] });
+  });
+
+  await page.goto("/shopping-lists/list-1");
+  await expect(page.getByText("Mleko")).toBeVisible();
+
+  await page.getByRole("button", { name: /Usuń wszystkie/ }).click();
+  await expect(page.getByRole("alertdialog")).toBeVisible();
+
+  // ConfirmDialog "Potwierdź" / "Usuń" button — accept default confirm text.
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: /Potwierdź|Usuń|Tak/i })
+    .click();
+
+  await page.waitForTimeout(200);
+  expect(deleted).toBeTruthy();
+});
+
+// ── Case 13: Edit-list dialog (name + date + group) ───────────────────────────
+
+test("list pencil: opens edit dialog with name, date, group", async ({ page }) => {
+  await injectFakeSession(page);
+  await mockSupabaseAPI(page);
+  await page.goto("/shopping-lists/list-1");
+  await expect(page.getByText("Tygodniowe zakupy")).toBeVisible();
+
+  await page
+    .getByRole("button", { name: /Edytuj listę/ })
+    .first()
+    .click();
+
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+
+  // Name input prefilled
+  await expect(dialog.locator("input[type=text]").first()).toHaveValue("Tygodniowe zakupy");
+  // Date input prefilled from created_at = 2026-05-01
+  await expect(dialog.locator("input[type=date]")).toHaveValue("2026-05-01");
+  // Group select includes private option
+  await expect(dialog.locator("select").first()).toBeVisible();
+});
+
+// ── Case 14: Linked-transaction card chip deep-links to /transactions?txId= ───
+
+test("linked-transaction chip on card navigates to /transactions?txId", async ({ page }) => {
+  await injectFakeSession(page);
+  await mockSupabaseAPI(page);
+  const completedListsRaw = [
+    {
+      id: "list-done",
+      name: "Zamknięte zakupy",
+      status: "completed",
+      user_id: "test-user-id",
+      group_id: null,
+      category_id: null,
+      total_amount: 200,
+      completed_at: "2026-05-01T10:00:00Z",
+      created_at: "2026-05-01T10:00:00Z",
+      updated_at: "2026-05-01T10:00:00Z",
+      shopping_list_items: [{ id: "i", completed: true }],
+      transactions: [{ id: "tx-link-1" }],
+    },
+  ];
+  await page.route(`${SUPABASE_URL}/rest/v1/shopping_lists**`, (route) => {
+    const url = route.request().url();
+    if (url.includes("id=eq.")) {
+      return route.fulfill({ status: 200, json: completedListsRaw[0] });
+    }
+    return route.fulfill({ status: 200, json: completedListsRaw });
+  });
+
+  await page.goto("/shopping-lists");
+  const chip = page.getByRole("link", { name: /Transakcja/i });
+  await expect(chip).toBeVisible();
+  await chip.click();
+  await expect(page).toHaveURL(/\/transactions\?txId=tx-link-1/);
 });

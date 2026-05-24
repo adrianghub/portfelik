@@ -303,6 +303,7 @@ export type Database = {
       };
       shopping_list_items: {
         Row: {
+          category: string | null;
           completed: boolean;
           created_at: string;
           id: string;
@@ -314,6 +315,7 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          category?: string | null;
           completed?: boolean;
           created_at?: string;
           id?: string;
@@ -325,6 +327,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          category?: string | null;
           completed?: boolean;
           created_at?: string;
           id?: string;
@@ -341,6 +344,41 @@ export type Database = {
             columns: ["shopping_list_id"];
             isOneToOne: false;
             referencedRelation: "shopping_lists";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      shopping_item_categories: {
+        Row: {
+          created_at: string;
+          id: string;
+          name: string;
+          position: number;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          name: string;
+          position?: number;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          name?: string;
+          position?: number;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "shopping_item_categories_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];

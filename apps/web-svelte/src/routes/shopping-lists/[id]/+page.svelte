@@ -1,29 +1,53 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
+  import ShoppingListCategoryCombobox from "$lib/components/shopping-lists/ShoppingListCategoryCombobox.svelte";
   import ShoppingListItemEditSheet from "$lib/components/shopping-lists/ShoppingListItemEditSheet.svelte";
   import ShoppingListItemQuickAdd from "$lib/components/shopping-lists/ShoppingListItemQuickAdd.svelte";
-  import ShoppingListSuggestions from "$lib/components/shopping-lists/ShoppingListSuggestions.svelte";
-  import ShoppingListUnitCombobox from "$lib/components/shopping-lists/ShoppingListUnitCombobox.svelte";
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import ProgressBar from "$lib/components/ui/ProgressBar.svelte";
-  import Sheet from "$lib/components/ui/Sheet.svelte";
+  import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import { motionDuration } from "$lib/motion";
   import * as m from "$lib/paraglide/messages";
-  import { DEFAULT_SHOPPING_LIST_UNIT, normalizeShoppingListUnit } from "$lib/shopping-list-units";
+  import {
+    compareShoppingListCategoryGroups,
+    isShoppingListCategoryGroupDone,
+    normalizeShoppingListCategory,
+    SHOPPING_LIST_CATEGORY_FALLBACK,
+  } from "$lib/shopping-list-categories";
   import { fetchCategories } from "$lib/services/categories";
+  import { fetchUserGroups } from "$lib/services/groups";
+  import {
+    createShoppingItemCategory,
+    fetchShoppingItemCategories,
+  } from "$lib/services/shopping-item-categories";
   import {
     completeShoppingList,
     createShoppingListItem,
+    deleteAllShoppingListItems,
     deleteShoppingListItem,
     fetchShoppingListById,
+    setAllShoppingListItemsCompleted,
+    updateShoppingList,
     updateShoppingListItem,
+    updateShoppingListItemsCategory,
   } from "$lib/services/shopping-lists";
   import type { ShoppingListItem, ShoppingListWithItems } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
-  import { Check, ListPlus, MoreHorizontal } from "lucide-svelte";
+  import {
+    Check,
+    CheckCheck,
+    ChevronDown,
+    ListPlus,
+    Pencil,
+    Plus,
+    Square,
+    Trash2,
+    Users,
+  } from "lucide-svelte";
+  import { onMount, tick } from "svelte";
   import { toast } from "svelte-sonner";
   import { flip } from "svelte/animate";
   import { slide } from "svelte/transition";
@@ -40,6 +64,12 @@
   const categoriesQuery = createQuery(() => ({
     queryKey: ["categories"],
     queryFn: fetchCategories,
+  }));
+
+  const itemCategoriesQuery = createQuery(() => ({
+    queryKey: ["shopping_item_categories"],
+    queryFn: fetchShoppingItemCategories,
+    staleTime: 5 * 60_000,
   }));
 
   const expenseCategories = $derived(
@@ -76,26 +106,20 @@
   }));
 
   // Add item — optimistic with temp id
-  let showAddItem = $state(false);
-  let itemName = $state("");
-  let itemQty = $state("");
-  let itemUnit = $state(DEFAULT_SHOPPING_LIST_UNIT);
-  let suggestionRef = $state<{
-    handleKeydown: (e: KeyboardEvent) => void;
-    activeId: () => string | null;
-  } | null>(null);
 
   const addItemMutation = createMutation(() => ({
     mutationFn: ({
       name,
       quantity,
       unit,
+      category,
       position,
     }: {
       shopping_list_id: string;
       name: string;
       quantity: number | null;
       unit: string | null;
+      category: string | null;
       position: number;
     }) =>
       createShoppingListItem({
@@ -103,27 +127,32 @@
         name,
         quantity,
         unit,
+        category,
         position,
       }),
     onMutate: async ({
       name,
       quantity,
       unit,
+      category,
     }: {
       name: string;
       quantity: number | null;
       unit: string | null;
+      category: string | null;
       position: number;
       shopping_list_id: string;
     }) => {
       await queryClient.cancelQueries({ queryKey: listKey });
       const previous = queryClient.getQueryData<ShoppingListWithItems>(listKey);
+      const tempId = "__optimistic_" + crypto.randomUUID();
       const tempItem: ShoppingListItem = {
-        id: "__optimistic_" + crypto.randomUUID(),
+        id: tempId,
         shopping_list_id: id,
         name,
         quantity,
         unit,
+        category,
         completed: false,
         position: (previous?.shopping_list_items.length ?? 0) + 1,
         created_at: new Date().toISOString(),
@@ -135,18 +164,20 @@
           shopping_list_items: [...previous.shopping_list_items, tempItem],
         });
       }
-      showAddItem = false;
-      return { previous };
+      return { previous, tempId };
     },
-    onSuccess: () => {
-      itemName = "";
-      itemQty = "";
-      itemUnit = DEFAULT_SHOPPING_LIST_UNIT;
+    onSuccess: (real, _vars, ctx) => {
+      const cur = queryClient.getQueryData<ShoppingListWithItems>(listKey);
+      if (cur && ctx?.tempId) {
+        queryClient.setQueryData<ShoppingListWithItems>(listKey, {
+          ...cur,
+          shopping_list_items: cur.shopping_list_items.map((i) => (i.id === ctx.tempId ? real : i)),
+        });
+      }
       toast.success(m.toast_shopping_list_item_added());
     },
     onError: (_err, _vars, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(listKey, ctx.previous);
-      showAddItem = true;
       toast.error(m.toast_error());
     },
     onSettled: async () => {
@@ -155,21 +186,29 @@
     },
   }));
 
-  // Delete item — optimistic
+  // Delete item — optimistic; expose undo only after the delete is confirmed.
   const deleteItemMutation = createMutation(() => ({
-    mutationFn: (itemId: string) => deleteShoppingListItem(itemId),
-    onMutate: async (itemId) => {
+    mutationFn: (item: ShoppingListItem) => deleteShoppingListItem(item.id),
+    onMutate: async (item) => {
       await queryClient.cancelQueries({ queryKey: listKey });
       const previous = queryClient.getQueryData<ShoppingListWithItems>(listKey);
       if (previous) {
         queryClient.setQueryData<ShoppingListWithItems>(listKey, {
           ...previous,
-          shopping_list_items: previous.shopping_list_items.filter((it) => it.id !== itemId),
+          shopping_list_items: previous.shopping_list_items.filter((it) => it.id !== item.id),
         });
       }
       return { previous };
     },
-    onSuccess: () => toast.success(m.toast_shopping_list_item_deleted()),
+    onSuccess: (_data, item) => {
+      toast.success(m.toast_shopping_list_item_deleted(), {
+        action: {
+          label: m.common_undo(),
+          onClick: () => restoreDeletedItem(item),
+        },
+        duration: 6000,
+      });
+    },
     onError: (_err, _vars, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(listKey, ctx.previous);
       toast.error(m.toast_error());
@@ -180,24 +219,169 @@
     },
   }));
 
-  // Edit item (name + quantity + unit)
+  async function restoreDeletedItem(item: ShoppingListItem) {
+    try {
+      await createShoppingListItem({
+        shopping_list_id: item.shopping_list_id,
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit,
+        category: item.category,
+        position: item.position,
+      });
+      await queryClient.invalidateQueries({ queryKey: listKey });
+      await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
+    } catch {
+      toast.error(m.toast_error());
+    }
+  }
+
+  // Edit item (name + quantity + unit) — optimistic
   let editTarget = $state<ShoppingListItem | null>(null);
 
   const renameMutation = createMutation(() => ({
     mutationFn: (args: {
       id: string;
-      updates: { name: string; quantity: number | null; unit: string | null };
+      updates: {
+        name: string;
+        quantity: number | null;
+        unit: string | null;
+        category: string | null;
+      };
     }) => updateShoppingListItem(args.id, args.updates),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: listKey });
-      queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
-      toast.success(m.toast_shopping_list_item_renamed());
+    onMutate: async (args) => {
+      await queryClient.cancelQueries({ queryKey: listKey });
+      const previous = queryClient.getQueryData<ShoppingListWithItems>(listKey);
+      if (previous) {
+        queryClient.setQueryData<ShoppingListWithItems>(listKey, {
+          ...previous,
+          shopping_list_items: previous.shopping_list_items.map((it) =>
+            it.id === args.id ? { ...it, ...args.updates } : it
+          ),
+        });
+      }
       editTarget = null;
+      return { previous };
     },
-    onError: () => {
+    onSuccess: (real) => {
+      const cur = queryClient.getQueryData<ShoppingListWithItems>(listKey);
+      if (cur) {
+        queryClient.setQueryData<ShoppingListWithItems>(listKey, {
+          ...cur,
+          shopping_list_items: cur.shopping_list_items.map((it) => (it.id === real.id ? real : it)),
+        });
+      }
+      toast.success(m.toast_shopping_list_item_renamed());
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(listKey, ctx.previous);
       toast.error(m.toast_error());
     },
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
+    },
   }));
+
+  const removeCategoryMutation = createMutation(() => ({
+    mutationFn: ({ itemIds }: { category: string; itemIds: string[] }) =>
+      updateShoppingListItemsCategory(itemIds, null),
+    onMutate: async ({ category, itemIds }) => {
+      await queryClient.cancelQueries({ queryKey: listKey });
+      const previous = queryClient.getQueryData<ShoppingListWithItems>(listKey);
+      if (previous) {
+        queryClient.setQueryData<ShoppingListWithItems>(listKey, {
+          ...previous,
+          shopping_list_items: previous.shopping_list_items.map((item) =>
+            itemIds.includes(item.id) ? { ...item, category: null } : item
+          ),
+        });
+      }
+      removeDraftCategory(category);
+      removeCategoryTarget = null;
+      return { previous };
+    },
+    onSuccess: () => toast.success(m.shopping_list_category_removed()),
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(listKey, ctx.previous);
+      toast.error(m.toast_error());
+    },
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey: listKey });
+      await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
+    },
+  }));
+
+  // Edit list — name + group sharing + date — optimistic
+  let showRenameList = $state(false);
+  let renameListName = $state("");
+  let renameListGroupId = $state<string | null>(null);
+  let renameListDate = $state("");
+
+  const groupsQuery = createQuery(() => ({
+    queryKey: ["user_groups"],
+    queryFn: fetchUserGroups,
+  }));
+
+  const renameListMutation = createMutation(() => ({
+    mutationFn: (vars: { name: string; group_id: string | null; created_at: string }) =>
+      updateShoppingList(id, vars),
+    onMutate: async (vars) => {
+      await queryClient.cancelQueries({ queryKey: listKey });
+      const previous = queryClient.getQueryData<ShoppingListWithItems>(listKey);
+      if (previous) {
+        queryClient.setQueryData<ShoppingListWithItems>(listKey, {
+          ...previous,
+          name: vars.name,
+          group_id: vars.group_id,
+          created_at: vars.created_at,
+        });
+      }
+      showRenameList = false;
+      return { previous };
+    },
+    onSuccess: () => toast.success(m.toast_shopping_list_updated()),
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(listKey, ctx.previous);
+      toast.error(m.toast_error());
+    },
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
+    },
+  }));
+
+  function toDateInput(iso: string | null | undefined): string {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+
+  function fromDateInput(dateStr: string, original: string): string {
+    if (!dateStr) return original;
+    const o = new Date(original);
+    const [y, m2, d] = dateStr.split("-").map(Number);
+    if (!y || !m2 || !d) return original;
+    o.setFullYear(y, m2 - 1, d);
+    return o.toISOString();
+  }
+
+  function openRenameListDialog() {
+    renameListName = query.data?.name ?? "";
+    renameListGroupId = query.data?.group_id ?? null;
+    renameListDate = toDateInput(query.data?.created_at);
+    showRenameList = true;
+  }
+
+  function submitRenameList(e: SubmitEvent) {
+    e.preventDefault();
+    const trimmed = renameListName.trim();
+    if (!trimmed) return;
+    const created_at = fromDateInput(
+      renameListDate,
+      query.data?.created_at ?? new Date().toISOString()
+    );
+    renameListMutation.mutate({ name: trimmed, group_id: renameListGroupId, created_at });
+  }
 
   // Complete list — pre-fill category if list has one
   let showComplete = $state(false);
@@ -249,17 +433,6 @@
     },
   }));
 
-  function submitAddItem(e: Event) {
-    e.preventDefault();
-    addItemMutation.mutate({
-      shopping_list_id: id,
-      name: itemName,
-      quantity: itemQty ? parseFloat(itemQty) : null,
-      unit: normalizeShoppingListUnit(itemUnit),
-      position: (query.data?.shopping_list_items.length ?? 0) + 1,
-    });
-  }
-
   function submitComplete(e: Event) {
     e.preventDefault();
     completeMutation.mutate();
@@ -276,6 +449,192 @@
   const itemTotal = $derived(query.data?.shopping_list_items.length ?? 0);
   const itemDone = $derived(query.data?.shopping_list_items.filter((i) => i.completed).length ?? 0);
   const hasUncheckedItems = $derived(hasItems && itemDone < itemTotal);
+  let itemSearch = $state("");
+  const sortedItems = $derived(
+    [...(query.data?.shopping_list_items ?? [])].sort((a, b) => {
+      if (a.completed !== b.completed) return a.completed ? 1 : -1;
+      return a.position - b.position;
+    })
+  );
+  const visibleItems = $derived.by(() => {
+    const q = itemSearch.trim().toLowerCase();
+    if (!q) return sortedItems;
+    return sortedItems.filter((i) => i.name.toLowerCase().includes(q));
+  });
+  const collapseStorageKey = $derived(id ? `shopping_list_collapsed_categories:${id}` : "");
+  let collapsedCategories = $state(new Set<string>());
+  let draftCategories = $state(new Set<string>());
+  let newSectionCategory = $state("");
+  let removeCategoryTarget = $state<{ category: string; items: ShoppingListItem[] } | null>(null);
+  let collapseStateLoaded = $state(false);
+  let shoppingMode = $state(false);
+  let activeShoppingCategory = $state<string | null>(null);
+
+  const groupedItems = $derived.by(() => {
+    const map = new Map<string, ShoppingListItem[]>();
+    for (const item of visibleItems) {
+      const category = item.category?.trim() || SHOPPING_LIST_CATEGORY_FALLBACK;
+      map.set(category, [...(map.get(category) ?? []), item]);
+    }
+    if (!itemSearch.trim()) {
+      for (const category of draftCategories) {
+        if (!map.has(category)) map.set(category, []);
+      }
+    }
+    const order = new Map(
+      (itemCategoriesQuery.data ?? []).map((category, index) => [category.name, index])
+    );
+    return Array.from(map.entries()).sort(([a, itemsA], [b, itemsB]) =>
+      compareShoppingListCategoryGroups(
+        {
+          category: a,
+          completed: completedInGroup(itemsA),
+          total: itemsA.length,
+          orderIndex: order.get(a),
+        },
+        {
+          category: b,
+          completed: completedInGroup(itemsB),
+          total: itemsB.length,
+          orderIndex: order.get(b),
+        }
+      )
+    );
+  });
+
+  function completedInGroup(items: ShoppingListItem[]): number {
+    return items.filter((item) => item.completed).length;
+  }
+
+  function isGroupDone(items: ShoppingListItem[]): boolean {
+    return isShoppingListCategoryGroupDone({
+      category: "",
+      completed: completedInGroup(items),
+      total: items.length,
+    });
+  }
+
+  function itemCategoryName(item: ShoppingListItem): string {
+    return item.category?.trim() || SHOPPING_LIST_CATEGORY_FALLBACK;
+  }
+
+  function allItemsInCategory(category: string): ShoppingListItem[] {
+    return (query.data?.shopping_list_items ?? []).filter(
+      (item) => itemCategoryName(item) === category
+    );
+  }
+
+  onMount(() => {
+    if (!collapseStorageKey) return;
+    try {
+      const raw = localStorage.getItem(collapseStorageKey);
+      collapsedCategories = new Set(raw ? (JSON.parse(raw) as string[]) : []);
+    } catch {
+      collapsedCategories = new Set();
+    }
+    collapseStateLoaded = true;
+  });
+
+  $effect(() => {
+    if (!collapseStateLoaded || !collapseStorageKey || typeof localStorage === "undefined") return;
+    localStorage.setItem(collapseStorageKey, JSON.stringify(Array.from(collapsedCategories)));
+  });
+
+  $effect(() => {
+    if (!shoppingMode) return;
+    const categoryNames = groupedItems.map(([category]) => category);
+    if (categoryNames.length === 0) {
+      activeShoppingCategory = null;
+    } else if (!activeShoppingCategory || !categoryNames.includes(activeShoppingCategory)) {
+      activeShoppingCategory = categoryNames[0];
+    }
+  });
+
+  function isCategoryCollapsed(category: string): boolean {
+    if (shoppingMode) return activeShoppingCategory !== category;
+    return collapsedCategories.has(category);
+  }
+
+  function toggleCategory(category: string) {
+    if (shoppingMode) {
+      activeShoppingCategory = category;
+      return;
+    }
+    const next = new Set(collapsedCategories);
+    if (next.has(category)) next.delete(category);
+    else next.add(category);
+    collapsedCategories = next;
+  }
+
+  function toggleShoppingMode() {
+    shoppingMode = !shoppingMode;
+    if (shoppingMode) activeShoppingCategory = groupedItems[0]?.[0] ?? null;
+  }
+
+  function categoryToStoredValue(category: string): string | null {
+    return normalizeShoppingListCategory(category);
+  }
+
+  async function addCategorySection(e?: SubmitEvent) {
+    e?.preventDefault();
+    const category =
+      normalizeShoppingListCategory(newSectionCategory) ?? SHOPPING_LIST_CATEGORY_FALLBACK;
+    const next = new Set(draftCategories);
+    next.add(category);
+    draftCategories = next;
+    const collapsedNext = new Set(collapsedCategories);
+    collapsedNext.delete(category);
+    collapsedCategories = collapsedNext;
+    activeShoppingCategory = category;
+    newSectionCategory = "";
+    await tick();
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    const exists = (itemCategoriesQuery.data ?? []).some(
+      (itemCategory) => itemCategory.name === category
+    );
+    if (category !== SHOPPING_LIST_CATEGORY_FALLBACK && !exists) {
+      try {
+        await createShoppingItemCategory({
+          name: category,
+          position: itemCategoriesQuery.data?.length ?? 0,
+        });
+        await queryClient.invalidateQueries({ queryKey: ["shopping_item_categories"] });
+      } catch {
+        // The section is still useful even if saving it to the reusable vocabulary fails.
+      }
+    }
+  }
+
+  function removeDraftCategory(category: string) {
+    const next = new Set(draftCategories);
+    next.delete(category);
+    draftCategories = next;
+
+    const collapsedNext = new Set(collapsedCategories);
+    collapsedNext.delete(category);
+    collapsedCategories = collapsedNext;
+
+    if (activeShoppingCategory === category) activeShoppingCategory = groupedItems[0]?.[0] ?? null;
+  }
+
+  function requestRemoveCategory(category: string) {
+    const items = allItemsInCategory(category);
+    if (items.length === 0) {
+      removeDraftCategory(category);
+      return;
+    }
+    removeCategoryTarget = { category, items };
+  }
+
+  function confirmRemoveCategory() {
+    if (!removeCategoryTarget) return;
+    removeCategoryMutation.mutate({
+      category: removeCategoryTarget.category,
+      itemIds: removeCategoryTarget.items.map((item) => item.id),
+    });
+  }
 
   function requestCompleteDialog() {
     if (hasUncheckedItems) {
@@ -290,75 +649,82 @@
     openCompleteDialog();
   }
 
-  // Item row actions sheet (kebab + long-press) + helpers
-  let actionsTarget = $state<ShoppingListItem | null>(null);
-  let showActions = $state(false);
-  let longPressTimer: ReturnType<typeof setTimeout> | null = null;
-  // Set when the long-press setTimeout fires so the subsequent click event
-  // (synthesised on pointerup) doesn't also toggle the row.
-  let longPressTriggered = false;
-
-  function openActions(item: ShoppingListItem) {
-    actionsTarget = item;
-    showActions = true;
-  }
-  function closeActions() {
-    showActions = false;
-    actionsTarget = null;
-  }
-  function startLongPress(item: ShoppingListItem) {
-    cancelLongPress();
-    longPressTriggered = false;
-    longPressTimer = setTimeout(() => {
-      longPressTriggered = true;
-      openActions(item);
-    }, 500);
-  }
-  function cancelLongPress() {
-    if (longPressTimer) {
-      clearTimeout(longPressTimer);
-      longPressTimer = null;
-    }
-  }
-  function openRenameFromActions() {
-    if (!actionsTarget) return;
-    editTarget = actionsTarget;
-    showActions = false;
-  }
-  function saveEdit(updates: { name: string; quantity: number | null; unit: string | null }) {
+  function saveEdit(updates: {
+    name: string;
+    quantity: number | null;
+    unit: string | null;
+    category: string | null;
+  }) {
     if (!editTarget) return;
     renameMutation.mutate({ id: editTarget.id, updates });
   }
-  function deleteFromActions() {
-    if (!actionsTarget) return;
-    deleteItemMutation.mutate(actionsTarget.id);
-    closeActions();
+  function deleteItem(item: ShoppingListItem) {
+    deleteItemMutation.mutate(item);
   }
   function toggleItem(item: ShoppingListItem) {
     if (!isActive) return;
     toggleMutation.mutate({ itemId: item.id, completed: !item.completed });
   }
-  function rowClick(e: MouseEvent, item: ShoppingListItem) {
-    // Skip the click that follows a long-press (otherwise the actions sheet
-    // opens *and* the row toggles in the same gesture).
-    if (longPressTriggered) {
-      longPressTriggered = false;
-      return;
-    }
+  function rowClick(item: ShoppingListItem) {
     toggleItem(item);
-    // `e` is unused beyond signature parity; keep it referenced for clarity.
-    void e;
   }
   function rowKeydown(e: KeyboardEvent, item: ShoppingListItem) {
-    // Only react when the row itself owns the key event. Bubbled events from
-    // the nested kebab/`Akcje` button or any future child control should not
-    // toggle completion.
     if (e.currentTarget !== e.target) return;
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       toggleItem(item);
     }
   }
+
+  // Bulk
+  let bulkDeleteConfirm = $state(false);
+
+  const bulkToggleMutation = createMutation(() => ({
+    mutationFn: (completed: boolean) => setAllShoppingListItemsCompleted(id, completed),
+    onMutate: async (completed) => {
+      await queryClient.cancelQueries({ queryKey: listKey });
+      const previous = queryClient.getQueryData<ShoppingListWithItems>(listKey);
+      if (previous) {
+        queryClient.setQueryData<ShoppingListWithItems>(listKey, {
+          ...previous,
+          shopping_list_items: previous.shopping_list_items.map((it) => ({ ...it, completed })),
+        });
+      }
+      return { previous };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(listKey, ctx.previous);
+      toast.error(m.toast_error());
+    },
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey: listKey });
+      await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
+    },
+  }));
+
+  const bulkDeleteMutation = createMutation(() => ({
+    mutationFn: () => deleteAllShoppingListItems(id),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: listKey });
+      const previous = queryClient.getQueryData<ShoppingListWithItems>(listKey);
+      if (previous) {
+        queryClient.setQueryData<ShoppingListWithItems>(listKey, {
+          ...previous,
+          shopping_list_items: [],
+        });
+      }
+      bulkDeleteConfirm = false;
+      return { previous };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(listKey, ctx.previous);
+      toast.error(m.toast_error());
+    },
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey: listKey });
+      await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
+    },
+  }));
 </script>
 
 <div class="container mx-auto max-w-2xl space-y-4 px-4 pt-6 pb-56 md:pb-6">
@@ -394,7 +760,28 @@
   {:else if query.data}
     {@const list = query.data}
     <div class="flex items-start justify-between gap-2">
-      <h1 class="text-2xl font-semibold text-slate-900 dark:text-white">{list.name}</h1>
+      <div class="flex min-w-0 items-center gap-2">
+        <h1 class="truncate text-2xl font-semibold text-slate-900 dark:text-white">{list.name}</h1>
+        {#if list.group_id}
+          <span
+            class="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-medium tracking-wide text-emerald-300 uppercase"
+            title={m.group_badge_shared()}
+          >
+            <Users size={11} strokeWidth={2} aria-hidden="true" />
+            {m.group_badge_shared()}
+          </span>
+        {/if}
+        {#if isActive}
+          <button
+            type="button"
+            onclick={openRenameListDialog}
+            class="shrink-0 rounded-full p-1.5 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-100"
+            aria-label={m.shopping_list_rename_title()}
+          >
+            <Pencil size={15} strokeWidth={1.8} aria-hidden="true" />
+          </button>
+        {/if}
+      </div>
       <span
         class={cn(
           "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium",
@@ -423,130 +810,303 @@
     {/if}
 
     {#if list.status === "completed" && list.total_amount != null}
-      <div
-        class="mt-3 rounded-lg border border-emerald-400/20 bg-emerald-500/5 px-3 py-2 text-sm text-emerald-200"
-      >
-        <p class="text-xs tracking-wide text-emerald-300/80 uppercase">
-          {m.shopping_list_completed_tx_created()}
-        </p>
-        <p class="mt-0.5 tabular-nums">
-          {formatCurrency(list.total_amount, "PLN")}
-        </p>
-      </div>
+      {#if list.linked_transaction_id}
+        <a
+          href={`/transactions?txId=${list.linked_transaction_id}`}
+          class="mt-3 block rounded-lg border border-emerald-400/20 bg-emerald-500/5 px-3 py-2 text-sm text-emerald-200 transition-colors hover:bg-emerald-500/10 focus-visible:ring-2 focus-visible:ring-emerald-400/40 focus-visible:outline-none"
+        >
+          <p class="text-xs tracking-wide text-emerald-300/80 uppercase">
+            {m.shopping_list_completed_tx_created()}
+          </p>
+          <p class="mt-0.5 tabular-nums">
+            {formatCurrency(list.total_amount, "PLN")}
+          </p>
+        </a>
+      {:else}
+        <div
+          class="mt-3 rounded-lg border border-emerald-400/20 bg-emerald-500/5 px-3 py-2 text-sm text-emerald-200"
+        >
+          <p class="text-xs tracking-wide text-emerald-300/80 uppercase">
+            {m.shopping_list_completed_tx_created()}
+          </p>
+          <p class="mt-0.5 tabular-nums">
+            {formatCurrency(list.total_amount, "PLN")}
+          </p>
+        </div>
+      {/if}
     {/if}
 
-    {#if list.shopping_list_items.length === 0}
+    {#if list.shopping_list_items.length === 0 && groupedItems.length === 0}
       <EmptyState title={m.shopping_list_items_empty()} body={m.shopping_list_items_empty_hint()}>
         {#snippet icon()}
           <ListPlus size={28} strokeWidth={1.4} />
         {/snippet}
       </EmptyState>
-    {:else}
-      <ul class="space-y-1">
-        {#each list.shopping_list_items as item (item.id)}
-          <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-          <li
-            animate:flip={{ duration: motionDuration(240) }}
-            in:slide={{ duration: motionDuration(180) }}
-            out:slide={{ duration: motionDuration(160) }}
-            class={cn(
-              "flex items-center gap-3 rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3 backdrop-blur",
-              isActive &&
-                "cursor-pointer transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400/40 focus-visible:outline-none"
-            )}
-            role={isActive ? "button" : undefined}
-            tabindex={isActive ? 0 : undefined}
-            aria-label={isActive
-              ? item.completed
-                ? m.shopping_list_item_uncheck()
-                : m.shopping_list_item_check()
-              : undefined}
-            onclick={(e) => rowClick(e, item)}
-            onkeydown={(e) => rowKeydown(e, item)}
-            onpointerdown={() => isActive && startLongPress(item)}
-            onpointerup={cancelLongPress}
-            onpointercancel={cancelLongPress}
-            onpointermove={cancelLongPress}
-          >
-            <div
-              class={cn(
-                "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
-                item.completed ? "bg-accent-gradient border-transparent" : "border-white/15"
-              )}
-              aria-hidden="true"
-            >
-              {#if item.completed}
-                <Check size={11} strokeWidth={3} class="text-slate-900" />
-              {/if}
-            </div>
-            <span
-              class={cn(
-                "flex-1 text-sm",
-                item.completed ? "text-slate-500 line-through" : "text-slate-100"
-              )}
-            >
-              {item.name}
-            </span>
-            {#if item.quantity != null}
-              <span class="shrink-0 text-xs text-slate-500">
-                {item.quantity}{item.unit ? ` ${item.unit}` : ""}
-              </span>
-            {/if}
-            {#if isActive}
-              <button
-                type="button"
-                onclick={(e) => {
-                  e.stopPropagation();
-                  openActions(item);
-                }}
-                class="shrink-0 rounded-full p-1.5 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-100"
-                aria-label={m.shopping_list_item_actions()}
-              >
-                <MoreHorizontal size={16} strokeWidth={1.8} aria-hidden="true" />
-              </button>
-            {/if}
-          </li>
-        {/each}
-      </ul>
     {/if}
 
     {#if isActive}
-      <!-- Inline quick-add -->
-      <ShoppingListItemQuickAdd
-        disabled={addItemMutation.isPending}
-        onsubmit={({ name, quantity, unit }) =>
-          addItemMutation.mutate({
-            shopping_list_id: list.id,
-            name,
-            quantity,
-            unit,
-            position: list.shopping_list_items.length + 1,
-          })}
-      />
-      <div
-        class="fixed inset-x-4 z-30 rounded-2xl border border-white/10 bg-slate-900/90 p-2.5 shadow-lg backdrop-blur md:static md:flex md:justify-end md:border-0 md:bg-transparent md:p-0 md:shadow-none"
-        style="bottom: calc(5.75rem + env(safe-area-inset-bottom));"
+      <form
+        onsubmit={addCategorySection}
+        class="space-y-2 rounded-2xl border border-white/5 bg-slate-900/50 p-3"
       >
-        <button
-          type="button"
-          onclick={requestCompleteDialog}
-          disabled={!hasItems}
-          title={hasItems ? undefined : m.shopping_list_requires_items()}
-          class="bg-accent-gradient w-full rounded-full px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none md:w-auto"
-        >
-          {m.shopping_list_complete_title()}
-        </button>
-        {#if !hasItems}
-          <p class="pt-2 text-center text-xs text-slate-500 md:hidden">
-            {m.shopping_list_requires_items()}
-          </p>
+        <p class="text-xs text-slate-400">{m.shopping_list_category_section_hint()}</p>
+        <div class="flex items-start gap-2">
+          <ShoppingListCategoryCombobox
+            bind:value={newSectionCategory}
+            showLabel={false}
+            id="new-shopping-list-section"
+            placeholder={m.shopping_list_category_section_placeholder()}
+          />
+          <button
+            type="submit"
+            disabled={!newSectionCategory.trim()}
+            class="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg border border-emerald-400/30 bg-emerald-500/15 px-3 text-sm font-medium text-emerald-200 transition-colors hover:bg-emerald-500/25 disabled:opacity-50"
+          >
+            <Plus size={14} aria-hidden="true" />
+            <span class="hidden sm:inline">{m.shopping_list_category_section_submit()}</span>
+          </button>
+        </div>
+      </form>
+    {/if}
+
+    {#if list.shopping_list_items.length > 0 || groupedItems.length > 0}
+      {#if itemTotal > 5}
+        <input
+          type="search"
+          bind:value={itemSearch}
+          placeholder={m.shopping_list_items_search_placeholder()}
+          class="w-full rounded-lg border border-white/5 bg-slate-900/40 px-3 py-1.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-emerald-400/30 focus:ring-1 focus:ring-emerald-400/20 focus:outline-none"
+        />
+      {/if}
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        {#if groupedItems.length > 1}
+          <button
+            type="button"
+            onclick={toggleShoppingMode}
+            aria-pressed={shoppingMode}
+            class={cn(
+              "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+              shoppingMode
+                ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-200"
+                : "border-white/10 text-slate-400 hover:bg-white/5 hover:text-slate-200"
+            )}
+          >
+            {m.shopping_list_shopping_mode()}
+          </button>
+        {/if}
+        {#if isActive && itemTotal > 1}
+          <div class="ml-auto flex items-center gap-1 text-slate-500">
+            <button
+              type="button"
+              onclick={() => bulkToggleMutation.mutate(hasUncheckedItems)}
+              disabled={bulkToggleMutation.isPending}
+              class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs opacity-60 transition hover:bg-white/5 hover:text-slate-200 hover:opacity-100"
+            >
+              {#if hasUncheckedItems}
+                <CheckCheck size={13} strokeWidth={1.8} aria-hidden="true" />
+                {m.shopping_list_items_bulk_check_all()}
+              {:else}
+                <Square size={13} strokeWidth={1.8} aria-hidden="true" />
+                {m.shopping_list_items_bulk_uncheck_all()}
+              {/if}
+            </button>
+            <button
+              type="button"
+              onclick={() => (bulkDeleteConfirm = true)}
+              class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs opacity-60 transition hover:bg-rose-500/10 hover:text-rose-300 hover:opacity-100"
+            >
+              <Trash2 size={13} strokeWidth={1.8} aria-hidden="true" />
+              {m.shopping_list_items_bulk_delete_all()}
+            </button>
+          </div>
         {/if}
       </div>
-      {#if !hasItems}
-        <p class="hidden text-center text-xs text-slate-500 md:block">
-          {m.shopping_list_requires_items()}
+
+      {#if groupedItems.length === 0}
+        <p
+          class="rounded-xl border border-white/5 bg-slate-900/40 px-3 py-4 text-sm text-slate-500"
+        >
+          {m.shopping_list_items_search_empty()}
         </p>
+      {:else}
+        <div class="space-y-2">
+          {#each groupedItems as [category, items] (category)}
+            {@const collapsed = isCategoryCollapsed(category)}
+            {@const completedCount = completedInGroup(items)}
+            {@const groupDone = isGroupDone(items)}
+            <section
+              class={cn(
+                "space-y-2 rounded-2xl border p-2 transition-colors",
+                groupDone
+                  ? "border-white/5 bg-slate-900/25 opacity-75"
+                  : "border-white/5 bg-slate-900/45"
+              )}
+            >
+              <div
+                class={cn(
+                  "flex items-center gap-1 rounded-xl border border-transparent transition-colors",
+                  shoppingMode && activeShoppingCategory === category
+                    ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-100"
+                    : "text-slate-200"
+                )}
+              >
+                <button
+                  type="button"
+                  onclick={() => toggleCategory(category)}
+                  class="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-white/5"
+                  aria-expanded={!collapsed}
+                  aria-label={m.shopping_list_category_toggle({ category })}
+                >
+                  <ChevronDown
+                    size={15}
+                    strokeWidth={1.8}
+                    class={cn("shrink-0 transition-transform", collapsed && "-rotate-90")}
+                    aria-hidden="true"
+                  />
+                  <span
+                    class={cn(
+                      "min-w-0 flex-1 truncate font-medium",
+                      groupDone && "text-slate-500 line-through"
+                    )}
+                  >
+                    {category}
+                  </span>
+                </button>
+                <span
+                  class={cn(
+                    "shrink-0 rounded-full border px-2 py-0.5 text-xs tabular-nums",
+                    groupDone
+                      ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-300"
+                      : "border-white/10 text-slate-400"
+                  )}
+                >
+                  {completedCount}/{items.length}
+                </span>
+                {#if isActive && (category !== SHOPPING_LIST_CATEGORY_FALLBACK || items.length === 0)}
+                  <button
+                    type="button"
+                    onclick={() => requestRemoveCategory(category)}
+                    disabled={removeCategoryMutation.isPending}
+                    class="shrink-0 rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-rose-500/10 hover:text-rose-300 disabled:opacity-40"
+                    aria-label={m.shopping_list_category_remove({ category })}
+                    title={m.shopping_list_category_remove({ category })}
+                  >
+                    <Trash2 size={14} strokeWidth={1.8} aria-hidden="true" />
+                  </button>
+                {/if}
+              </div>
+              {#if !collapsed}
+                <ul class="space-y-1" transition:slide={{ duration: motionDuration(160) }}>
+                  {#each items as item (item.id)}
+                    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+                    <li
+                      animate:flip={{ duration: motionDuration(240) }}
+                      in:slide={{ duration: motionDuration(180) }}
+                      out:slide={{ duration: motionDuration(160) }}
+                      class={cn(
+                        "flex min-w-0 items-center gap-3 rounded-xl border border-white/5 bg-slate-900/40 px-3 py-2",
+                        isActive &&
+                          "cursor-pointer transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400/30 focus-visible:outline-none"
+                      )}
+                      role={isActive ? "button" : undefined}
+                      tabindex={isActive ? 0 : undefined}
+                      aria-label={isActive
+                        ? item.completed
+                          ? m.shopping_list_item_uncheck()
+                          : m.shopping_list_item_check()
+                        : undefined}
+                      onclick={() => rowClick(item)}
+                      onkeydown={(e) => rowKeydown(e, item)}
+                    >
+                      <div
+                        class={cn(
+                          "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
+                          item.completed
+                            ? "border-emerald-400/60 bg-emerald-400/20"
+                            : "border-white/15"
+                        )}
+                        aria-hidden="true"
+                      >
+                        {#if item.completed}
+                          <Check size={11} strokeWidth={3} class="text-emerald-300" />
+                        {/if}
+                      </div>
+                      <span
+                        class={cn(
+                          "min-w-0 flex-1 truncate text-sm",
+                          item.completed ? "text-slate-500 line-through" : "text-slate-100"
+                        )}
+                      >
+                        {item.name}
+                      </span>
+                      {#if item.quantity != null}
+                        <span class="shrink-0 text-xs text-slate-500">
+                          {item.quantity}{item.unit ? ` ${item.unit}` : ""}
+                        </span>
+                      {/if}
+                      {#if isActive}
+                        <button
+                          type="button"
+                          onclick={(e) => {
+                            e.stopPropagation();
+                            editTarget = item;
+                          }}
+                          class="shrink-0 rounded-md p-1 text-slate-500 opacity-60 transition hover:bg-white/5 hover:text-slate-200 hover:opacity-100"
+                          aria-label={m.shopping_list_item_edit()}
+                        >
+                          <Pencil size={14} strokeWidth={1.8} aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          onclick={(e) => {
+                            e.stopPropagation();
+                            deleteItem(item);
+                          }}
+                          class="shrink-0 rounded-md p-1 text-slate-500 opacity-60 transition hover:bg-rose-500/10 hover:text-rose-300 hover:opacity-100"
+                          aria-label={m.common_delete()}
+                        >
+                          <Trash2 size={14} strokeWidth={1.8} aria-hidden="true" />
+                        </button>
+                      {/if}
+                    </li>
+                  {/each}
+                </ul>
+              {/if}
+              {#if isActive && !collapsed}
+                <div class="pt-1">
+                  <ShoppingListItemQuickAdd
+                    fixedCategory={categoryToStoredValue(category)}
+                    disabled={addItemMutation.isPending}
+                    onsubmit={({ name, quantity, unit, category: itemCategory }) =>
+                      addItemMutation.mutate({
+                        shopping_list_id: list.id,
+                        name,
+                        quantity,
+                        unit,
+                        category: itemCategory,
+                        position: list.shopping_list_items.length + 1,
+                      })}
+                  />
+                </div>
+              {/if}
+            </section>
+          {/each}
+        </div>
       {/if}
+    {/if}
+
+    {#if isActive}
+      <button
+        type="button"
+        onclick={requestCompleteDialog}
+        disabled={!hasItems}
+        title={hasItems ? m.shopping_list_complete_title() : m.shopping_list_requires_items()}
+        aria-label={m.shopping_list_complete_title()}
+        class="fixed right-4 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-emerald-400/25 bg-emerald-500/10 text-emerald-300 backdrop-blur transition-colors hover:bg-emerald-500/20 hover:text-emerald-200 focus-visible:ring-2 focus-visible:ring-emerald-400/40 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-30"
+        style="bottom: calc(5.75rem + env(safe-area-inset-bottom));"
+      >
+        <Check size={18} strokeWidth={2} aria-hidden="true" />
+      </button>
     {/if}
 
     {#if list.total_amount != null}
@@ -560,70 +1120,6 @@
     {/if}
   {/if}
 </div>
-
-<!-- Add item dialog -->
-<Dialog open={showAddItem} onclose={() => (showAddItem = false)} title={m.shopping_list_item_add()}>
-  <form onsubmit={submitAddItem} class="space-y-4">
-    <div class="relative space-y-1">
-      <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="item-name"
-        >{m.shopping_list_item_name()}</label
-      >
-      <input
-        id="item-name"
-        type="text"
-        required
-        bind:value={itemName}
-        autocomplete="off"
-        onkeydown={(e) => suggestionRef?.handleKeydown(e)}
-        class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
-      />
-      <ShoppingListSuggestions
-        bind:this={suggestionRef}
-        query={itemName}
-        onselect={(name, qty, unit) => {
-          itemName = name;
-          itemQty = qty != null ? String(qty) : "";
-          itemUnit = unit ?? DEFAULT_SHOPPING_LIST_UNIT;
-        }}
-      />
-    </div>
-    <div class="flex gap-3">
-      <div class="flex-1 space-y-1">
-        <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="item-qty"
-          >{m.shopping_list_item_quantity()}</label
-        >
-        <input
-          id="item-qty"
-          type="number"
-          min="0"
-          step="any"
-          bind:value={itemQty}
-          class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
-        />
-      </div>
-      <ShoppingListUnitCombobox bind:value={itemUnit} id="item-unit" />
-    </div>
-    {#if addItemMutation.isError}
-      <p class="text-sm text-rose-600">{m.common_error_title()}</p>
-    {/if}
-    <div class="flex gap-2 pt-1">
-      <button
-        type="button"
-        onclick={() => (showAddItem = false)}
-        class="flex-1 rounded-full border border-white/10 bg-slate-900/60 py-2 text-sm font-medium text-slate-200 backdrop-blur transition-colors hover:bg-white/5"
-      >
-        {m.common_cancel()}
-      </button>
-      <button
-        type="submit"
-        disabled={addItemMutation.isPending}
-        class="bg-accent-gradient flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:opacity-50"
-      >
-        {addItemMutation.isPending ? m.common_saving() : m.common_add()}
-      </button>
-    </div>
-  </form>
-</Dialog>
 
 <!-- Complete list dialog -->
 <Dialog
@@ -712,59 +1208,23 @@
   </div>
 </Dialog>
 
-<!-- Item actions sheet (kebab / long-press) -->
-<Sheet
-  open={showActions}
-  onclose={closeActions}
-  title={actionsTarget?.name ?? m.shopping_list_item_actions()}
->
-  <div class="space-y-2">
-    <button
-      type="button"
-      onclick={openRenameFromActions}
-      class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-      </svg>
-      {m.shopping_list_item_rename()}
-    </button>
-    <button
-      type="button"
-      onclick={deleteFromActions}
-      class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30"
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><path
-          d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
-        />
-      </svg>
-      {m.common_delete()}
-    </button>
-  </div>
-</Sheet>
+<ConfirmDialog
+  open={bulkDeleteConfirm}
+  message={m.shopping_list_items_bulk_delete_confirm()}
+  onconfirm={() => bulkDeleteMutation.mutate()}
+  onclose={() => (bulkDeleteConfirm = false)}
+/>
+
+<ConfirmDialog
+  open={!!removeCategoryTarget}
+  message={m.shopping_list_category_remove_confirm({
+    category: removeCategoryTarget?.category ?? "",
+    count: removeCategoryTarget?.items.length ?? 0,
+  })}
+  onconfirm={confirmRemoveCategory}
+  onclose={() => (removeCategoryTarget = null)}
+  pending={removeCategoryMutation.isPending}
+/>
 
 {#if editTarget}
   <ShoppingListItemEditSheet
@@ -774,3 +1234,62 @@
     saving={renameMutation.isPending}
   />
 {/if}
+
+<!-- Rename list dialog -->
+<Dialog
+  open={showRenameList}
+  onclose={() => (showRenameList = false)}
+  title={m.shopping_list_rename_title()}
+>
+  <form onsubmit={submitRenameList} class="space-y-3">
+    <input
+      type="text"
+      bind:value={renameListName}
+      placeholder={m.shopping_list_rename_placeholder()}
+      required
+      class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
+    />
+    <div class="space-y-1">
+      <label class="text-xs font-medium text-slate-400" for="list-date">
+        {m.shopping_list_date_label()}
+      </label>
+      <input
+        id="list-date"
+        type="date"
+        bind:value={renameListDate}
+        class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
+      />
+    </div>
+    <div class="space-y-1">
+      <label class="text-xs font-medium text-slate-400" for="list-share-group">
+        {m.shopping_list_share_label()}
+      </label>
+      <select
+        id="list-share-group"
+        bind:value={renameListGroupId}
+        class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
+      >
+        <option value={null}>{m.shopping_list_share_private()}</option>
+        {#each groupsQuery.data ?? [] as group (group.id)}
+          <option value={group.id}>{group.name}</option>
+        {/each}
+      </select>
+    </div>
+    <div class="flex gap-2 pt-1">
+      <button
+        type="button"
+        onclick={() => (showRenameList = false)}
+        class="flex-1 rounded-full border border-white/10 bg-slate-900/60 py-2 text-sm font-medium text-slate-200 backdrop-blur transition-colors hover:bg-white/5"
+      >
+        {m.common_cancel()}
+      </button>
+      <button
+        type="submit"
+        disabled={renameListMutation.isPending || !renameListName.trim()}
+        class="bg-accent-gradient flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:opacity-50"
+      >
+        {renameListMutation.isPending ? m.common_saving() : m.common_save()}
+      </button>
+    </div>
+  </form>
+</Dialog>

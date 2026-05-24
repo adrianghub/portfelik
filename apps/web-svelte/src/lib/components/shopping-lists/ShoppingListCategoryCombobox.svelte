@@ -1,6 +1,11 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
-  import { DEFAULT_SHOPPING_LIST_UNIT, SHOPPING_LIST_UNIT_OPTIONS } from "$lib/shopping-list-units";
+  import {
+    DEFAULT_SHOPPING_LIST_ITEM_CATEGORIES,
+    SHOPPING_LIST_CATEGORY_FALLBACK,
+  } from "$lib/shopping-list-categories";
+  import { fetchShoppingItemCategories } from "$lib/services/shopping-item-categories";
+  import { createQuery } from "@tanstack/svelte-query";
   import { ChevronDown } from "lucide-svelte";
 
   interface Props {
@@ -12,9 +17,11 @@
   }
 
   let {
-    value = $bindable(DEFAULT_SHOPPING_LIST_UNIT),
-    id = "shopping-list-unit",
-    placeholder = m.shopping_list_item_unit_placeholder(),
+    value = $bindable(""),
+    id = "shopping-list-category",
+    label = m.shopping_list_item_category(),
+    placeholder = m.shopping_list_item_category_placeholder(),
+    showLabel = true,
   }: Props = $props();
 
   let open = $state(false);
@@ -23,17 +30,30 @@
   let dropAnchorY = $state(0);
   let dropLeft = $state(0);
   let dropWidth = $state(0);
-  let dropMaxHeight = $state(192);
+  let dropMaxHeight = $state(240);
   let dropAbove = $state(false);
 
-  const DROPDOWN_PREFERRED_PX = 192;
+  const DROPDOWN_PREFERRED_PX = 240;
   const VIEWPORT_PADDING_PX = 8;
+  const categoriesQuery = createQuery(() => ({
+    queryKey: ["shopping_item_categories"],
+    queryFn: fetchShoppingItemCategories,
+    staleTime: 5 * 60_000,
+  }));
+
+  const categoryOptions = $derived.by(() => {
+    const saved = categoriesQuery.data?.map((category) => category.name);
+    const base = saved && saved.length > 0 ? saved : DEFAULT_SHOPPING_LIST_ITEM_CATEGORIES;
+    return [...base, SHOPPING_LIST_CATEGORY_FALLBACK].filter(
+      (name, index, all) => all.indexOf(name) === index
+    );
+  });
 
   const suggestions = $derived.by(() => {
     const query = value.trim().toLowerCase();
     if (!open) return [] as string[];
-    if (!query) return [...SHOPPING_LIST_UNIT_OPTIONS];
-    return SHOPPING_LIST_UNIT_OPTIONS.filter((unit) => unit.toLowerCase().includes(query));
+    if (!query) return categoryOptions;
+    return categoryOptions.filter((c) => c.toLowerCase().includes(query));
   });
 
   function updateDropPosition() {
@@ -99,8 +119,8 @@
     activeIndex = -1;
   }
 
-  function selectUnit(unit: string) {
-    value = unit;
+  function selectCategory(c: string) {
+    value = c;
     closeList();
   }
 
@@ -125,12 +145,15 @@
       activeIndex = Math.max(activeIndex - 1, 0);
     } else if (e.key === "Enter" && open && activeIndex >= 0) {
       e.preventDefault();
-      selectUnit(suggestions[activeIndex]);
+      selectCategory(suggestions[activeIndex]);
     }
   }
 </script>
 
 <div class="relative w-full min-w-0 space-y-1">
+  {#if showLabel}
+    <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for={id}>{label}</label>
+  {/if}
   <div class="relative">
     <input
       bind:this={inputRef}
@@ -169,17 +192,17 @@
         role="listbox"
         onpointerdown={(e) => e.preventDefault()}
       >
-        {#each suggestions as unit, index (unit)}
+        {#each suggestions as category, index (category)}
           <li role="option" id={optionId(index)} aria-selected={index === activeIndex}>
             <button
               type="button"
               class={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors hover:bg-white/5 ${
                 index === activeIndex ? "bg-white/5" : ""
               }`}
-              onclick={() => selectUnit(unit)}
+              onclick={() => selectCategory(category)}
               onmouseenter={() => (activeIndex = index)}
             >
-              <span class="truncate text-slate-100">{unit}</span>
+              <span class="truncate text-slate-100">{category}</span>
             </button>
           </li>
         {/each}
