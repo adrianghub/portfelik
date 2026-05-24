@@ -29,12 +29,21 @@ Apply to every task regardless of phase.
 
 - Split by concern: schema / services / components / config. One migration per logical schema change. Never amend applied migrations.
 
+### Branch sync discipline
+
+- `main` is production truth. `dev` is staging/integration and must not drift as an independent source of truth.
+- Before starting work on `dev`: `git fetch origin`, ensure the worktree is clean, then merge `origin/main` into `dev` and resolve conflicts immediately.
+- After anything lands on `main`: immediately sync `dev` from `origin/main`, run the relevant gates, and push `dev`.
+- Feature branches start from current `dev`; before pushing a feature branch, merge the latest `origin/dev` and re-run relevant gates.
+- Before production promotion: sync `dev` from `origin/main`, verify, then PR/merge `dev` into `main`; after the merge, sync `dev` from `origin/main` again.
+- Do not let `main` and `dev` independently evolve hot files (`CLAUDE.md`, shopping-list pages/components, seed scripts, Supabase docs/runbooks, E2E specs). Sync first, then edit.
+
 ---
 
 ## Project Status
 
 **Portfelik** — personal-finance PWA. Migrating React 19 + Firebase → SvelteKit + Supabase. Full plan: `MIGRATION_PLAN.md`.
-**Immediate next step:** Shopping-list enhancements are locally closed out (2026-05-24) — item category sections + editable vocabulary are implemented, local/staging persona seed now covers default shopping item categories plus manual `admin@portfelik.test` and `user@portfelik.test` accounts (password = login), Paraglide recompiled, svelte-check/lint/format/Vitest gates are green, focused shopping-list Playwright is 16/16, and the changed-file secret scan found only expected CLAUDE.md rule text. Next: commit/push this shopping-list bundle to `dev`, let staging apply `20260528000000_shopping_list_items_category.sql` and `pnpm seed:staging`, then finish the first dedicated `dev.portfelik.pages.dev` deploy/smoke verification before bank-import Step 6 or mortgage/debt planning. Going forward, never apply prod/staging schema out-of-band (MCP `apply_migration` / linked query) — let merges to the synced branch be the only path that mutates remote schema, or history drifts again.
+**Immediate next step:** Shopping-list enhancements were pushed to `dev` on 2026-05-24 — item category sections + editable vocabulary are implemented, local/staging persona seed covers default shopping item categories plus manual `admin@portfelik.test` and `user@portfelik.test` accounts (password = login), Paraglide recompiled, svelte-check/lint/format/Vitest gates are green, focused shopping-list Playwright is 16/16, and the changed-file secret scan found only expected CLAUDE.md rule text. Current handoff: `origin/main` has been synced into `dev`; push the synced branch, then let staging apply `20260528000000_shopping_list_items_category.sql` and `pnpm seed:staging` before browser/smoke verification. Going forward, never apply prod/staging schema out-of-band (MCP `apply_migration` / linked query) — let merges to the synced branch be the only path that mutates remote schema, or history drifts again.
 
 Phase 12 shipped through U6 + EmptyState sweep + group hardening (2026-05-17). Highlights:
 

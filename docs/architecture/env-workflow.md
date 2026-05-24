@@ -16,6 +16,24 @@ Cloudflare Pages still splits by branch inside one Pages project. Supabase does
 not: staging and production now have separate projects, credentials, Auth users,
 and migration targets.
 
+## Git workflow rule
+
+- `main` is production truth.
+- `dev` is staging/integration and must be kept synced from `main`; it is not a
+  second long-running source of truth.
+- Before work on `dev`: fetch remotes, confirm a clean worktree, merge
+  `origin/main` into `dev`, resolve conflicts immediately, and run the relevant
+  gates.
+- After anything lands on `main`: sync `dev` from `origin/main` and push `dev`
+  before continuing feature work.
+- Feature branches start from current `dev`; before pushing a feature branch,
+  merge the latest `origin/dev` and re-run relevant gates.
+- Production promotion flows `dev` → `main`; after merge, sync `dev` from
+  `origin/main` again.
+- Hot files must not evolve independently on both branches: `CLAUDE.md`,
+  shopping-list pages/components, seed scripts, Supabase docs/runbooks, and E2E
+  specs.
+
 ## Flow diagram
 
 ```mermaid
