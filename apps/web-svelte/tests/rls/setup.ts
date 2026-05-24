@@ -16,7 +16,7 @@ function requireEnv(): Env {
   const testPassword = process.env.RLS_TEST_PASSWORD;
   if (!url || !anonKey || !serviceRoleKey || !testPassword) {
     throw new Error(
-      "RLS tests require SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY and RLS_TEST_PASSWORD env vars (Supabase URL/keys via `supabase status` from repo root; password is any local string).",
+      "RLS tests require SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY and RLS_TEST_PASSWORD env vars (Supabase URL/keys via `supabase status` from repo root; password is any local string)."
     );
   }
   return { url, anonKey, serviceRoleKey, testPassword };
@@ -147,6 +147,7 @@ export async function cleanupSentinels(admin: SupabaseClient): Promise<void> {
   await admin.from("bank_accounts").delete().like("label", pattern);
   // categories cascade to categorization_rules (FK category_id ON DELETE CASCADE).
   await admin.from("categories").delete().like("name", pattern);
+  await admin.from("shopping_item_categories").delete().like("name", pattern);
   // group_invitations: clean by sentinel email domain
   await admin.from("group_invitations").delete().like("invited_user_email", "%@rls.test");
   // user_groups: cascades to group_members + group_invitations
@@ -158,7 +159,8 @@ export async function cleanupSentinels(admin: SupabaseClient): Promise<void> {
  * PostgREST + RLS hides rows silently rather than erroring.
  */
 export function expectEmpty<T>(result: { data: T[] | null; error: unknown }): void {
-  if (result.error) throw new Error(`Expected empty result, got error: ${JSON.stringify(result.error)}`);
+  if (result.error)
+    throw new Error(`Expected empty result, got error: ${JSON.stringify(result.error)}`);
   if (!Array.isArray(result.data) || result.data.length !== 0) {
     throw new Error(`Expected empty data, got: ${JSON.stringify(result.data)}`);
   }
