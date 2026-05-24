@@ -12,10 +12,11 @@ test("lists page renders active lists", async ({ page }) => {
 });
 
 test("create list: dialog opens, submit shows success toast", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/shopping-lists");
   await expect(page.getByText("Tygodniowe zakupy")).toBeVisible();
 
-  // Open create dialog via FAB (aria-label = "Nowa lista zakupów")
+  // Open create dialog via FAB (aria-label = "Nowa lista zakupów") — FAB is mobile-only (md:hidden)
   await page.getByRole("button", { name: "Nowa lista zakupów" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(page.getByText("Nowa lista zakupów")).toBeVisible();
@@ -89,7 +90,7 @@ test("back-nav after add: shopping_lists summary refetches", async ({ page }) =>
   await expect(page.getByText("Mleko")).toBeVisible();
 
   // Add an item from the detail page (inline quick-add form)
-  await page.getByRole("combobox").fill("Cebula testowa");
+  await page.getByRole("combobox", { name: "Nazwa elementu" }).fill("Cebula testowa");
   await page.getByRole("button", { name: "Dodaj element" }).click();
   await expect(page.getByText("Element dodany")).toBeVisible();
 
