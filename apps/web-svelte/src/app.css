@@ -47,6 +47,11 @@
   html {
     scroll-behavior: smooth;
     color-scheme: dark;
+    --mobile-action-bottom: calc(6rem + env(safe-area-inset-bottom));
+  }
+
+  html.mobile-nav-hidden {
+    --mobile-action-bottom: calc(1rem + env(safe-area-inset-bottom));
   }
 
   body {
@@ -127,6 +132,15 @@
     border-radius: 9999px;
     background: var(--color-accent-glow);
     filter: blur(60px);
+  }
+
+  .mobile-floating-action {
+    transition:
+      bottom var(--duration-base) var(--ease-out-expo),
+      transform var(--duration-fast) ease-out,
+      background-color var(--duration-fast) ease-out,
+      border-color var(--duration-fast) ease-out,
+      color var(--duration-fast) ease-out;
   }
 }
 
