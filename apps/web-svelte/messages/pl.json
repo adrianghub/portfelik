@@ -402,6 +402,8 @@
   "transactions_search_open": "Szukaj transakcji",
   "transactions_search_hint": "Wpisz, aby filtrować transakcje na liście.",
   "transactions_search_clear": "Wyczyść wyszukiwanie",
+  "transactions_search_close": "Zamknij wyszukiwanie",
+  "transactions_search_esc": "ESC",
   "transactions_date_range_label": "Zakres dat",
   "transactions_date_preset_this_month": "Ten miesiąc",
   "transactions_date_preset_last_month": "Poprzedni miesiąc",
