@@ -216,6 +216,16 @@
   let bulkDeleteConfirm = $state(false);
   let searchModalOpen = $state(false);
 
+  function closeSearch() {
+    searchModalOpen = false;
+    searchQuery = "";
+  }
+
+  function toggleSearch() {
+    if (searchModalOpen) closeSearch();
+    else searchModalOpen = true;
+  }
+
   function onWindowKeydown(e: KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
       e.preventDefault();
@@ -435,16 +445,14 @@
     >
       <button
         type="button"
-        onclick={() => (searchModalOpen = !searchModalOpen)}
-        class="relative hidden h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-slate-900/60 text-slate-300 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none md:flex"
-        aria-label={m.transactions_search_open()}
+        onclick={toggleSearch}
+        class="relative hidden h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none md:flex {searchModalOpen
+          ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-200'
+          : 'border-white/10 bg-slate-900/60 text-slate-300 hover:bg-white/5'}"
+        aria-label={searchModalOpen ? m.transactions_search_close() : m.transactions_search_open()}
         aria-pressed={searchModalOpen}
       >
-        {#if searchModalOpen}
-          <X size={15} strokeWidth={1.9} aria-hidden="true" />
-        {:else}
-          <Search size={15} strokeWidth={1.8} aria-hidden="true" />
-        {/if}
+        <Search size={15} strokeWidth={1.8} aria-hidden="true" />
         {#if searchQuery}
           <span class="bg-accent-gradient absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full"
           ></span>
@@ -593,16 +601,14 @@
 </button>
 
 <button
-  onclick={() => (searchModalOpen = !searchModalOpen)}
-  aria-label={m.transactions_search_open()}
+  onclick={toggleSearch}
+  aria-label={searchModalOpen ? m.transactions_search_close() : m.transactions_search_open()}
   aria-pressed={searchModalOpen}
-  class="mobile-floating-action fixed bottom-[var(--mobile-action-bottom)] left-4 z-40 flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-slate-900/90 text-slate-100 shadow-[0_0_24px_rgba(15,23,42,0.55)] transition-all active:scale-95 md:hidden"
+  class="mobile-floating-action fixed bottom-[var(--mobile-action-bottom)] left-4 z-40 flex h-14 w-14 items-center justify-center rounded-full border shadow-[0_0_24px_rgba(15,23,42,0.55)] transition-all active:scale-95 md:hidden {searchModalOpen
+    ? 'border-emerald-400/40 bg-emerald-500/20 text-emerald-200'
+    : 'border-white/10 bg-slate-900/90 text-slate-100'}"
 >
-  {#if searchModalOpen}
-    <X size={23} strokeWidth={2.1} aria-hidden="true" />
-  {:else}
-    <Search size={23} strokeWidth={2.1} aria-hidden="true" />
-  {/if}
+  <Search size={23} strokeWidth={2.1} aria-hidden="true" />
   {#if searchQuery}
     <span class="bg-accent-gradient absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full"></span>
   {/if}
@@ -610,10 +616,20 @@
 
 <SearchModal
   open={searchModalOpen}
-  onclose={() => (searchModalOpen = false)}
+  onclose={closeSearch}
   value={searchQuery}
   onsearchchange={(q) => (searchQuery = q)}
-/>
+>
+  <TransactionTable
+    transactions={visibleTxs ?? []}
+    {currentUserId}
+    {emptyLabel}
+    onrowclick={(tx) => {
+      closeSearch();
+      sheetTx = tx;
+    }}
+  />
+</SearchModal>
 
 <TransactionDialog open={dialogOpen} onclose={() => (dialogOpen = false)} initial={editTarget} />
 
