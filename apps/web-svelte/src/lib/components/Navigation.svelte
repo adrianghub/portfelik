@@ -26,7 +26,6 @@
     { href: "/dashboard", label: m.nav_dashboard(), icon: LayoutDashboard },
     { href: "/transactions", label: m.nav_transactions(), icon: Wallet },
     { href: "/shopping-lists", label: m.nav_shopping_lists(), icon: ShoppingBasket },
-    { href: "/settings", label: m.nav_settings(), icon: Settings },
   ];
 
   const isActive = (href: string) => $page.url.pathname.startsWith(href);
@@ -34,6 +33,8 @@
   let menuOpen = $state(false);
   let menuButtonRef = $state<HTMLButtonElement | null>(null);
   let menuButtonMobileRef = $state<HTMLButtonElement | null>(null);
+  let mobileNavHidden = $state(false);
+  let lastScrollY = 0;
 
   const avatarUrl = $derived<string | null>(
     (user?.user_metadata?.avatar_url as string | undefined) ?? null
@@ -53,6 +54,19 @@
     goto("/login");
   }
 
+  function onWindowScroll() {
+    const y = window.scrollY;
+    const delta = y - lastScrollY;
+    if (y < 24) {
+      mobileNavHidden = false;
+    } else if (delta > 8 && y > 80) {
+      mobileNavHidden = true;
+    } else if (delta < -8) {
+      mobileNavHidden = false;
+    }
+    lastScrollY = y;
+  }
+
   function onDocClick(e: MouseEvent) {
     if (!menuOpen) return;
     const target = e.target as Node | null;
@@ -68,7 +82,15 @@
     document.addEventListener("click", onDocClick);
     return () => document.removeEventListener("click", onDocClick);
   });
+
+  $effect(() => {
+    if (typeof document === "undefined") return;
+    document.documentElement.classList.toggle("mobile-nav-hidden", mobileNavHidden);
+    return () => document.documentElement.classList.remove("mobile-nav-hidden");
+  });
 </script>
+
+<svelte:window onscroll={onWindowScroll} />
 
 <!-- Desktop top bar -->
 <header
@@ -145,6 +167,9 @@
   class="fixed inset-x-0 top-0 z-50 flex h-14 items-center gap-3 border-b border-white/5 bg-slate-950/80 px-4 backdrop-blur md:hidden"
 >
   <span class="text-base font-semibold tracking-tight text-slate-100">{m.app_name()}</span>
+  <div class="ml-auto">
+    <NotificationsPopover />
+  </div>
   <button
     bind:this={menuButtonMobileRef}
     type="button"
@@ -152,7 +177,7 @@
     aria-haspopup="menu"
     aria-expanded={menuOpen}
     aria-label={email || "Account"}
-    class="relative ml-auto flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-slate-800 text-xs font-semibold text-slate-100 transition-colors hover:border-white/20 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+    class="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-slate-800 text-xs font-semibold text-slate-100 transition-colors hover:border-white/20 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
   >
     {#if avatarUrl}
       <img src={avatarUrl} alt="" class="h-full w-full object-cover" referrerpolicy="no-referrer" />
@@ -172,6 +197,18 @@
     <div class="border-b border-white/5 px-3 py-2.5">
       <p class="truncate text-xs text-slate-400">{email}</p>
     </div>
+    <a
+      href="/settings"
+      role="menuitem"
+      onclick={() => (menuOpen = false)}
+      class={cn(
+        "flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition-colors hover:bg-white/5",
+        isActive("/settings") ? "text-emerald-200" : "text-slate-200"
+      )}
+    >
+      <Settings size={15} aria-hidden="true" />
+      {m.nav_settings()}
+    </a>
     <button
       type="button"
       role="menuitem"
@@ -187,7 +224,8 @@
 <!-- Mobile floating pill bottom nav -->
 <nav
   aria-label={m.nav_main()}
-  class="fixed inset-x-0 bottom-0 z-50 md:hidden"
+  class="mobile-bottom-nav fixed inset-x-0 bottom-0 z-50 transition-transform duration-200 ease-out md:hidden"
+  class:translate-y-full={mobileNavHidden}
   style="padding-bottom: env(safe-area-inset-bottom)"
 >
   <div
@@ -210,13 +248,6 @@
         <Icon size={20} aria-hidden="true" strokeWidth={active ? 2.3 : 1.7} />
       </a>
     {/each}
-
-    <div class="relative flex h-11 w-11 items-center justify-center">
-      <NotificationsPopover
-        placement="bottom"
-        buttonClass="relative flex h-11 w-11 items-center justify-center rounded-full text-slate-300 transition-colors hover:text-slate-100"
-      />
-    </div>
 
     {#if profile?.role === "admin"}
       {@const active = isActive("/admin")}

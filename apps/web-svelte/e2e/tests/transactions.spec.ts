@@ -20,6 +20,27 @@ test("renders mocked transaction list", async ({ page }) => {
   await expect(desktopTable(page).getByText("Bilet miesięczny")).toBeVisible();
 });
 
+test("search filters the reusable table and toggles closed", async ({ page }) => {
+  const searchButton = page.getByRole("button", { name: "Szukaj transakcji" });
+  await searchButton.click();
+
+  await page.getByPlaceholder("Szukaj transakcji…").fill("bilet");
+  await expect(desktopTable(page).getByText("Bilet miesięczny")).toBeVisible();
+  await expect(desktopTable(page).getByText("Zakupy spożywcze")).toBeHidden();
+
+  await searchButton.click();
+  await expect(page.getByPlaceholder("Szukaj transakcji…")).toBeHidden();
+
+  await searchButton.click();
+  await expect(page.getByPlaceholder("Szukaj transakcji…")).toBeVisible();
+
+  await desktopTable(page).getByText("Bilet miesięczny").click();
+  await expect(page.locator("aside").getByText("Bilet miesięczny")).toBeVisible();
+
+  await page.keyboard.press("Escape");
+  await expect(page.getByPlaceholder("Szukaj transakcji…")).toBeHidden();
+});
+
 test("txId deep link opens transaction outside the current date range", async ({ page }) => {
   const oldLinkedTransaction = {
     id: "tx-old-linked",
@@ -108,14 +129,15 @@ test("single delete: confirm dialog then success toast", async ({ page }) => {
   await expect(page.getByText("Transakcja usunięta")).toBeVisible();
 });
 
-test('bulk select: "Usuń zaznaczone (2)" button appears', async ({ page }) => {
+test('bulk select: "Zaznaczono 2" bar appears', async ({ page }) => {
   // Click individual row checkboxes in the desktop table body
   const rowCheckboxes = page.locator("tbody td:first-child button");
   await rowCheckboxes.nth(0).click();
   await rowCheckboxes.nth(1).click();
 
-  // Bulk delete button appears with count
-  await expect(page.getByRole("button", { name: /Usuń zaznaczone \(2\)/ })).toBeVisible();
+  const bulkBar = page.locator(".surface-hi").filter({ hasText: "Zaznaczono 2" });
+  await expect(bulkBar).toBeVisible();
+  await expect(bulkBar.getByRole("button", { name: "Usuń" })).toBeVisible();
 });
 
 test("bulk delete: confirm and show success toast", async ({ page }) => {
@@ -124,8 +146,8 @@ test("bulk delete: confirm and show success toast", async ({ page }) => {
   await rowCheckboxes.nth(0).click();
   await rowCheckboxes.nth(1).click();
 
-  // Click the bulk delete button
-  await page.getByRole("button", { name: /Usuń zaznaczone/ }).click();
+  const bulkBar = page.locator(".surface-hi").filter({ hasText: "Zaznaczono 2" });
+  await bulkBar.getByRole("button", { name: "Usuń" }).click();
 
   // Confirm dialog appears
   await expect(page.getByRole("alertdialog")).toBeVisible();

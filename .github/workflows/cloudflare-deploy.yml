@@ -12,6 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v5
         with:
@@ -35,6 +37,24 @@ jobs:
       - name: Lint
         working-directory: apps/web-svelte
         run: pnpm lint
+
+      - name: Format check
+        working-directory: apps/web-svelte
+        run: pnpm format:check
+
+      - name: Unit tests
+        working-directory: apps/web-svelte
+        run: pnpm test:unit
+
+      - name: Secret scan
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          curl -fsSL -o /tmp/gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  /tmp/gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          /tmp/gitleaks git --no-banner --redact --config .gitleaks.toml .
 
   rls:
     name: RLS regression (local Supabase)

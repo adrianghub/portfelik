@@ -9,7 +9,6 @@
   import { cn, formatCurrency, getDateRangeBounds } from "$lib/utils";
   import { createQuery } from "@tanstack/svelte-query";
   import { onMount } from "svelte";
-  import { ListChecks, Target, TrendingDown } from "lucide-svelte";
   import { dailyGreeting, dailyQuote } from "$lib/dashboard-daily";
 
   const greeting = dailyGreeting();
@@ -145,38 +144,6 @@
     if (!summary) return null;
     if (summary.total_income <= 0) return null;
     return Math.round((summary.net / summary.total_income) * 100);
-  });
-
-  const periodStats = $derived.by(() => {
-    const txs = txQuery.data ?? [];
-    const incomeTxs = txs.filter((tx) => tx.type === "income");
-    const expenseTxs = txs.filter((tx) => tx.type === "expense");
-    const topCategory = summary?.categories[0] ?? null;
-    const reduceTopByTen = topCategory ? topCategory.total * 0.1 : 0;
-
-    return {
-      incomeCount: incomeTxs.length,
-      expenseCount: expenseTxs.length,
-      totalCount: txs.length,
-      topCategory,
-      mission:
-        txs.length === 0
-          ? m.dashboard_insights_mission_import()
-          : summary && summary.total_income === 0 && summary.total_expenses > 0
-            ? m.dashboard_insights_mission_income()
-            : summary && summary.net < 0 && topCategory
-              ? m.dashboard_insights_mission_reduce_category({
-                  category: topCategory.category_name,
-                  amount: formatCurrency(reduceTopByTen),
-                })
-              : savingsRatio !== null && savingsRatio >= 20
-                ? m.dashboard_insights_mission_keep()
-                : savingsRatio !== null && summary
-                  ? m.dashboard_insights_mission_savings({
-                      amount: formatCurrency(Math.max(0, summary.total_income * 0.2 - summary.net)),
-                    })
-                  : m.dashboard_insights_mission_review(),
-    };
   });
 
   const upcomingTxs = $derived(
@@ -376,82 +343,6 @@
       </svg>
     </a>
   </div>
-
-  <!-- Period insights -->
-  <section
-    class="relative overflow-hidden rounded-2xl border border-emerald-400/20 bg-emerald-400/5 p-4 backdrop-blur"
-  >
-    <span class="glow-disc absolute -top-8 -right-8 h-32 w-32" aria-hidden="true"></span>
-    <div class="relative flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <p class="text-eyebrow text-emerald-300">{m.dashboard_insights_title()}</p>
-        <p class="mt-1 text-xs text-slate-400">
-          {m.dashboard_insights_period({ period: activePeriodLabel })}
-        </p>
-      </div>
-      <a
-        href={transactionsHref()}
-        class="rounded-full border border-emerald-400/20 px-3 py-1 text-xs font-medium text-emerald-200 transition-colors hover:bg-emerald-400/10"
-      >
-        {m.dashboard_insights_open_transactions()}
-      </a>
-    </div>
-
-    <div class="relative mt-4 grid gap-3 md:grid-cols-3">
-      <div class="rounded-xl border border-white/10 bg-slate-950/30 p-3">
-        <div class="flex items-center gap-2 text-slate-400">
-          <ListChecks size={16} strokeWidth={1.8} aria-hidden="true" />
-          <p class="text-eyebrow">{m.dashboard_insights_activity_title()}</p>
-        </div>
-        <p class="mt-2 text-sm font-semibold text-slate-100">
-          {m.dashboard_insights_activity_total({ count: periodStats.totalCount })}
-        </p>
-        <p class="mt-1 text-xs text-slate-400">
-          {m.dashboard_insights_activity_split({
-            income: periodStats.incomeCount,
-            expense: periodStats.expenseCount,
-          })}
-        </p>
-      </div>
-
-      <a
-        href={periodStats.topCategory
-          ? transactionsHref({ type: "expense", categoryId: periodStats.topCategory.category_id })
-          : transactionsHref({ type: "expense" })}
-        class="rounded-xl border border-white/10 bg-slate-950/30 p-3 transition-colors hover:bg-white/5"
-      >
-        <div class="flex items-center gap-2 text-slate-400">
-          <TrendingDown size={16} strokeWidth={1.8} aria-hidden="true" />
-          <p class="text-eyebrow">{m.dashboard_insights_top_category_title()}</p>
-        </div>
-        {#if periodStats.topCategory}
-          <p class="mt-2 truncate text-sm font-semibold text-slate-100">
-            {periodStats.topCategory.category_name}
-          </p>
-          <p class="mt-1 text-xs text-slate-400">
-            {m.dashboard_insights_top_category_value({
-              amount: formatCurrency(periodStats.topCategory.total),
-              percent: periodStats.topCategory.percentage,
-            })}
-          </p>
-        {:else}
-          <p class="mt-2 text-sm font-semibold text-slate-500">
-            {m.dashboard_insights_no_expenses()}
-          </p>
-        {/if}
-      </a>
-
-      <div class="rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3">
-        <div class="flex items-center gap-2 text-emerald-300">
-          <Target size={16} strokeWidth={1.8} aria-hidden="true" />
-          <p class="text-eyebrow">{m.dashboard_insights_mission_title()}</p>
-        </div>
-        <p class="mt-2 text-sm leading-relaxed font-semibold text-emerald-50">
-          {periodStats.mission}
-        </p>
-      </div>
-    </div>
-  </section>
 
   <!-- Upcoming / overdue -->
   <div>

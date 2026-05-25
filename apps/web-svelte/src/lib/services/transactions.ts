@@ -2,6 +2,7 @@ import { supabase } from "$lib/supabase";
 import type {
   MonthlySummary,
   Transaction,
+  TransactionStatus,
   TransactionType,
   TransactionWithCategory,
 } from "$lib/types";
@@ -146,5 +147,23 @@ export async function deleteTransaction(id: string): Promise<void> {
 export async function deleteTransactions(ids: string[]): Promise<void> {
   if (ids.length === 0) return;
   const { error } = await supabase.from("transactions").delete().in("id", ids);
+  if (error) throw error;
+}
+
+export async function updateTransactionsStatus(
+  ids: string[],
+  status: TransactionStatus
+): Promise<void> {
+  if (ids.length === 0) return;
+  const { error } = await supabase.from("transactions").update({ status }).in("id", ids);
+  if (error) throw error;
+}
+
+export async function updateTransactionsCategory(ids: string[], categoryId: string): Promise<void> {
+  if (ids.length === 0) return;
+  const { error } = await supabase
+    .from("transactions")
+    .update({ category_id: categoryId })
+    .in("id", ids);
   if (error) throw error;
 }

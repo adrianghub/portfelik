@@ -193,11 +193,7 @@
   <div class="space-y-3 sm:hidden" aria-label={m.transactions_title()}>
     {#each dayGroups as group (group.key)}
       <section class="space-y-1.5">
-        <h3
-          class="text-eyebrow sticky top-14 z-10 -mx-1 bg-slate-950/95 px-1 py-1 text-slate-400 backdrop-blur"
-        >
-          {group.label}
-        </h3>
+        <h3 class="text-eyebrow px-1 py-1 text-slate-400">{group.label}</h3>
         <ul class="space-y-1.5">
           {#each group.items as tx (tx.id)}
             <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
@@ -258,8 +254,6 @@
                 </span>
               </div>
               <div class="mt-1.5 flex flex-wrap items-center gap-2">
-                <span class="text-xs text-slate-500">{formatDate(tx.date)}</span>
-                <span class="text-xs text-slate-700" aria-hidden="true">·</span>
                 <span class="text-xs text-slate-500">{tx.category_name}</span>
                 <span
                   class={cn(

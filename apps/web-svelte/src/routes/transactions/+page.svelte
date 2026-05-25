@@ -1,14 +1,19 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
+  import ActionsMenu from "$lib/components/transactions/ActionsMenu.svelte";
+  import BulkActionsBar from "$lib/components/transactions/BulkActionsBar.svelte";
   import CategoryBreakdown from "$lib/components/transactions/CategoryBreakdown.svelte";
-  import FilterDrawer from "$lib/components/transactions/FilterDrawer.svelte";
+  import CategoryFilterControl from "$lib/components/transactions/CategoryFilterControl.svelte";
+  import DateRangePicker from "$lib/components/transactions/DateRangePicker.svelte";
+  import FiltersMenu from "$lib/components/transactions/FiltersMenu.svelte";
   import SummaryCards from "$lib/components/transactions/SummaryCards.svelte";
   import AttachShoppingListSheet from "$lib/components/transactions/AttachShoppingListSheet.svelte";
   import TransactionDetailSheet from "$lib/components/transactions/TransactionDetailSheet.svelte";
   import TransactionDialog from "$lib/components/transactions/TransactionDialog.svelte";
   import TransactionTable from "$lib/components/transactions/TransactionTable.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
+  import SearchModal from "$lib/components/ui/SearchModal.svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchCategories } from "$lib/services/categories";
   import { fetchUserGroups } from "$lib/services/groups";
@@ -18,13 +23,15 @@
     deleteTransactions,
     fetchTransactionById,
     fetchTransactions,
+    updateTransactionsCategory,
+    updateTransactionsStatus,
   } from "$lib/services/transactions";
   import { supabase } from "$lib/supabase";
-  import type { TransactionWithCategory } from "$lib/types";
+  import type { TransactionStatus, TransactionWithCategory } from "$lib/types";
   import { cn, formatDate, getDateRangeBounds, monthYearLabel } from "$lib/utils";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { onMount } from "svelte";
-  import { Download, Landmark, Plus, SlidersHorizontal, Trash2 } from "lucide-svelte";
+  import { Plus, Search, X } from "lucide-svelte";
   import { toast } from "svelte-sonner";
 
   const queryClient = useQueryClient();
@@ -79,6 +86,27 @@
       return { start: explicitStartDate, end: addOneDay(explicitEndDate) };
     }
     return getDateRangeBounds(startYear, startMonth, endYear, endMonth);
+  });
+
+  const shortMonth = (mo: number) =>
+    new Intl.DateTimeFormat("pl-PL", { month: "short" }).format(new Date(2000, mo - 1, 1));
+  function compactDay(iso: string, withYear: boolean): string {
+    const [y, mo, d] = iso.split("-").map(Number);
+    return `${d} ${shortMonth(mo)}${withYear ? ` ${y}` : ""}`;
+  }
+  const dateLabel = $derived.by(() => {
+    if (explicitStartDate && explicitEndDate) {
+      const [sy, sm, sd] = explicitStartDate.split("-").map(Number);
+      const [ey, em] = explicitEndDate.split("-").map(Number);
+      if (explicitStartDate === explicitEndDate) return compactDay(explicitStartDate, true);
+      if (sy === ey && sm === em) return `${sd}–${compactDay(explicitEndDate, true)}`;
+      if (sy === ey)
+        return `${compactDay(explicitStartDate, false)} – ${compactDay(explicitEndDate, true)}`;
+      return `${compactDay(explicitStartDate, true)} – ${compactDay(explicitEndDate, true)}`;
+    }
+    return startYear === endYear && startMonth === endMonth
+      ? monthYearLabel(startYear, startMonth)
+      : `${monthYearLabel(startYear, startMonth)} – ${monthYearLabel(endYear, endMonth)}`;
   });
 
   const emptyLabel = $derived(
@@ -186,6 +214,14 @@
   let attachTarget = $state<TransactionWithCategory | null>(null);
   let selectedIds = $state(new Set<string>());
   let bulkDeleteConfirm = $state(false);
+  let searchModalOpen = $state(false);
+
+  function onWindowKeydown(e: KeyboardEvent) {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      searchModalOpen = true;
+    }
+  }
 
   const deleteMutation = createMutation(() => ({
     mutationFn: () => deleteTransaction(deleteTargetId!),
@@ -209,35 +245,91 @@
     onError: () => toast.error(m.toast_error()),
   }));
 
-  let filterDrawerOpen = $state(false);
-  const activeFilterCount = $derived(
-    (statusFilter ? 1 : 0) + (categoryId ? 1 : 0) + (typeFilter ? 1 : 0)
+  const bulkStatusMutation = createMutation(() => ({
+    mutationFn: (status: TransactionStatus) =>
+      updateTransactionsStatus(Array.from(selectedIds), status),
+    onSuccess: async () => {
+      const count = selectedIds.size;
+      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      toast.success(m.toast_transactions_bulk_status({ count }));
+      selectedIds = new Set<string>();
+    },
+    onError: () => toast.error(m.toast_error()),
+  }));
+
+  const bulkCategoryMutation = createMutation(() => ({
+    mutationFn: (catId: string) => updateTransactionsCategory(Array.from(selectedIds), catId),
+    onSuccess: async () => {
+      const count = selectedIds.size;
+      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      toast.success(m.toast_transactions_bulk_category({ count }));
+      selectedIds = new Set<string>();
+    },
+    onError: () => toast.error(m.toast_error()),
+  }));
+
+  const bulkPending = $derived(
+    bulkDeleteMutation.isPending || bulkStatusMutation.isPending || bulkCategoryMutation.isPending
   );
 
-  function onApplyFilters(params: {
-    startYear: number;
-    startMonth: number;
-    endYear: number;
-    endMonth: number;
-    categoryId: string | undefined;
-    status: string | undefined;
-    type: "income" | "expense" | undefined;
-  }) {
+  function onApplyDateRange(start: string, end: string) {
     const p = new URLSearchParams($page.url.searchParams);
-    p.set("startYear", String(params.startYear));
-    p.set("startMonth", String(params.startMonth));
-    p.set("endYear", String(params.endYear));
-    p.set("endMonth", String(params.endMonth));
-    p.delete("startDate");
-    p.delete("endDate");
-    if (params.categoryId) p.set("categoryId", params.categoryId);
-    else p.delete("categoryId");
-    if (params.status) p.set("status", params.status);
-    else p.delete("status");
-    if (params.type) p.set("type", params.type);
+    p.set("startDate", start);
+    p.set("endDate", end);
+    p.delete("startYear");
+    p.delete("startMonth");
+    p.delete("endYear");
+    p.delete("endMonth");
+    goto(`/transactions?${p.toString()}`, { replaceState: false });
+  }
+
+  function onTypeChange(type: "income" | "expense" | undefined) {
+    const p = new URLSearchParams($page.url.searchParams);
+    if (type) p.set("type", type);
     else p.delete("type");
     goto(`/transactions?${p.toString()}`, { replaceState: false });
   }
+
+  function onStatusChange(status: string | undefined) {
+    const p = new URLSearchParams($page.url.searchParams);
+    if (status) p.set("status", status);
+    else p.delete("status");
+    goto(`/transactions?${p.toString()}`, { replaceState: false });
+  }
+
+  function onClearFilters() {
+    const p = new URLSearchParams($page.url.searchParams);
+    p.delete("type");
+    p.delete("status");
+    goto(`/transactions?${p.toString()}`, { replaceState: false });
+  }
+
+  const statusLabels: Record<string, string> = {
+    paid: m.transactions_status_paid(),
+    upcoming: m.transactions_status_upcoming(),
+    draft: m.transactions_status_draft(),
+    overdue: m.transactions_status_overdue(),
+  };
+
+  // Applied filters shown as removable chips below the toolbar (only when set).
+  const activeFilters = $derived.by(() => {
+    const chips: { key: string; label: string; clear: () => void }[] = [];
+    if (typeFilter) {
+      chips.push({
+        key: "type",
+        label: typeFilter === "income" ? m.common_income() : m.common_expense(),
+        clear: () => onTypeChange(undefined),
+      });
+    }
+    if (statusFilter) {
+      chips.push({
+        key: "status",
+        label: statusLabels[statusFilter] ?? statusFilter,
+        clear: () => onStatusChange(undefined),
+      });
+    }
+    return chips;
+  });
 
   function openAdd() {
     editTarget = null;
@@ -311,6 +403,8 @@
   }
 </script>
 
+<svelte:window onkeydown={onWindowKeydown} />
+
 <div class="container mx-auto max-w-4xl space-y-4 px-4 py-6">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
@@ -323,57 +417,79 @@
         </p>
       {/if}
     </div>
-    <div class="flex flex-wrap items-center gap-2">
-      <!-- Filter button — opens drawer on every viewport (Phase U4 start) -->
-      <button
-        type="button"
-        onclick={() => (filterDrawerOpen = true)}
-        class="relative flex items-center gap-1.5 rounded-full border border-white/10 bg-slate-900/60 px-3.5 py-1.5 text-sm font-medium text-slate-300 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
-      >
-        <SlidersHorizontal size={14} strokeWidth={1.8} aria-hidden="true" />
-        {m.transactions_filter_button()}
-        {#if activeFilterCount > 0}
-          <span
-            class="bg-accent-gradient absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold text-slate-900"
-          >
-            {activeFilterCount}
-          </span>
-        {/if}
-      </button>
-      <button
-        onclick={handleExport}
-        disabled={!filteredTxs?.length}
-        class="flex items-center gap-1.5 rounded-full border border-white/10 bg-slate-900/60 px-3.5 py-1.5 text-sm font-medium text-slate-300 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
-        title={m.csv_export()}
-      >
-        <Download size={14} strokeWidth={1.8} aria-hidden="true" />
-        <span class="hidden sm:inline">{m.csv_export()}</span>
-      </button>
-      <a
-        href="/transactions/import"
-        class="flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3.5 py-1.5 text-sm font-medium text-emerald-200 backdrop-blur transition-colors hover:bg-emerald-500/20 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
-        title={m.bank_import_entry()}
-      >
-        <Landmark size={14} strokeWidth={1.8} aria-hidden="true" />
-        <span class="hidden sm:inline">{m.bank_import_entry()}</span>
-      </a>
-      {#if selectedIds.size > 0}
-        <button
-          onclick={() => (bulkDeleteConfirm = true)}
-          class="flex items-center gap-1.5 rounded-full border border-rose-400/20 bg-rose-500/10 px-3 py-1.5 text-sm font-medium text-rose-300 backdrop-blur transition-colors hover:bg-rose-500/20"
-        >
-          <Trash2 size={14} strokeWidth={1.8} aria-hidden="true" />
-          {m.transactions_delete_selected({ count: selectedIds.size })}
-        </button>
-      {/if}
+    <div class="flex shrink-0 items-center gap-2">
       <button
         onclick={openAdd}
-        class="bg-accent-gradient hidden items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none md:inline-flex"
+        class="bg-accent-gradient hidden h-9 items-center gap-1.5 rounded-full px-4 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none md:inline-flex"
       >
         + {m.transaction_add()}
       </button>
+      <ActionsMenu exportDisabled={!filteredTxs?.length} onexport={handleExport} />
     </div>
   </div>
+
+  <!-- Sticky filter bar: date + category visible, type/status behind Filtry -->
+  {#if categoriesQuery.data && selectedIds.size === 0}
+    <div
+      class="sticky top-14 z-30 -mx-4 flex items-center gap-2 overflow-x-auto border-b border-white/5 bg-slate-950 px-4 py-2 sm:overflow-x-visible"
+    >
+      <button
+        type="button"
+        onclick={() => (searchModalOpen = !searchModalOpen)}
+        class="relative hidden h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-slate-900/60 text-slate-300 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none md:flex"
+        aria-label={m.transactions_search_open()}
+        aria-pressed={searchModalOpen}
+      >
+        {#if searchModalOpen}
+          <X size={15} strokeWidth={1.9} aria-hidden="true" />
+        {:else}
+          <Search size={15} strokeWidth={1.8} aria-hidden="true" />
+        {/if}
+        {#if searchQuery}
+          <span class="bg-accent-gradient absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full"
+          ></span>
+        {/if}
+      </button>
+      <DateRangePicker
+        label={dateLabel}
+        startDate={explicitStartDate}
+        endDate={explicitEndDate}
+        onchange={onApplyDateRange}
+      />
+      <CategoryFilterControl
+        categories={categoriesQuery.data}
+        selectedId={categoryId}
+        onchange={onCategoryChange}
+      />
+      <FiltersMenu
+        type={typeFilter}
+        status={statusFilter}
+        ontypechange={onTypeChange}
+        onstatuschange={onStatusChange}
+        onclear={onClearFilters}
+      />
+    </div>
+  {/if}
+
+  {#if activeFilters.length > 0}
+    <div class="flex flex-wrap gap-2">
+      {#each activeFilters as f (f.key)}
+        <span
+          class="flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-500/10 py-1 pr-1 pl-3 text-xs font-medium text-emerald-200"
+        >
+          {f.label}
+          <button
+            type="button"
+            onclick={f.clear}
+            class="rounded-full p-0.5 text-emerald-200/80 transition-colors hover:bg-emerald-500/20 hover:text-emerald-100"
+            aria-label={m.transactions_filter_clear()}
+          >
+            <X size={12} strokeWidth={2} aria-hidden="true" />
+          </button>
+        </span>
+      {/each}
+    </div>
+  {/if}
 
   {#if groupsQuery.data && groupsQuery.data.length > 0}
     <div role="tablist" aria-label="Grupa" class="flex flex-wrap gap-1">
@@ -440,6 +556,18 @@
     <CategoryBreakdown categories={summary.categories} oncategoryclick={onCategoryChange} />
   {/if}
 
+  {#if selectedIds.size > 0 && categoriesQuery.data}
+    <BulkActionsBar
+      count={selectedIds.size}
+      categories={categoriesQuery.data}
+      pending={bulkPending}
+      onclear={() => (selectedIds = new Set<string>())}
+      onsetstatus={(status) => bulkStatusMutation.mutate(status)}
+      onsetcategory={(catId) => bulkCategoryMutation.mutate(catId)}
+      ondelete={() => (bulkDeleteConfirm = true)}
+    />
+  {/if}
+
   {#if txQuery.isLoading}
     <div class="h-48 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
   {:else if txQuery.isError}
@@ -454,34 +582,38 @@
       ondelete={(id: string) => (deleteTargetId = id)}
     />
   {/if}
-
-  {#if categoriesQuery.data}
-    <FilterDrawer
-      open={filterDrawerOpen}
-      onclose={() => (filterDrawerOpen = false)}
-      onapply={onApplyFilters}
-      {startYear}
-      {startMonth}
-      {endYear}
-      {endMonth}
-      {categoryId}
-      status={statusFilter}
-      type={typeFilter}
-      categories={categoriesQuery.data}
-      {searchQuery}
-      onsearchchange={(q) => (searchQuery = q)}
-    />
-  {/if}
 </div>
 
 <button
   onclick={openAdd}
   aria-label={m.transaction_add()}
-  class="bg-accent-gradient fixed right-4 bottom-24 z-40 flex h-14 w-14 items-center justify-center rounded-full text-slate-900 shadow-[0_0_24px_var(--color-accent-glow)] transition-transform active:scale-95 md:hidden"
-  style="margin-bottom: env(safe-area-inset-bottom);"
+  class="mobile-floating-action bg-accent-gradient fixed right-4 bottom-[var(--mobile-action-bottom)] z-40 flex h-14 w-14 items-center justify-center rounded-full text-slate-900 shadow-[0_0_24px_var(--color-accent-glow)] transition-all active:scale-95 md:hidden"
 >
   <Plus size={24} strokeWidth={2.3} aria-hidden="true" />
 </button>
+
+<button
+  onclick={() => (searchModalOpen = !searchModalOpen)}
+  aria-label={m.transactions_search_open()}
+  aria-pressed={searchModalOpen}
+  class="mobile-floating-action fixed bottom-[var(--mobile-action-bottom)] left-4 z-40 flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-slate-900/90 text-slate-100 shadow-[0_0_24px_rgba(15,23,42,0.55)] transition-all active:scale-95 md:hidden"
+>
+  {#if searchModalOpen}
+    <X size={23} strokeWidth={2.1} aria-hidden="true" />
+  {:else}
+    <Search size={23} strokeWidth={2.1} aria-hidden="true" />
+  {/if}
+  {#if searchQuery}
+    <span class="bg-accent-gradient absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full"></span>
+  {/if}
+</button>
+
+<SearchModal
+  open={searchModalOpen}
+  onclose={() => (searchModalOpen = false)}
+  value={searchQuery}
+  onsearchchange={(q) => (searchQuery = q)}
+/>
 
 <TransactionDialog open={dialogOpen} onclose={() => (dialogOpen = false)} initial={editTarget} />
 
