@@ -606,7 +606,10 @@
 
 <SearchModal
   open={searchModalOpen}
-  onclose={() => (searchModalOpen = false)}
+  onclose={() => {
+    searchModalOpen = false;
+    searchQuery = "";
+  }}
   value={searchQuery}
   onsearchchange={(q) => (searchQuery = q)}
 >
@@ -616,6 +619,7 @@
     {emptyLabel}
     onrowclick={(tx) => {
       searchModalOpen = false;
+      searchQuery = "";
       sheetTx = tx;
     }}
   />
