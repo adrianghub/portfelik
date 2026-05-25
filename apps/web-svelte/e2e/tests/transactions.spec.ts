@@ -1,11 +1,12 @@
+import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
 import { TEST_USER_ID } from "../helpers/fixtures";
+import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
 
 // Desktop table locator helper — use this for all desktop-table assertions.
 // Both mobile cards (sm:hidden) and desktop table (hidden sm:block) are in the DOM at 1280px.
 // getByText() matches both, causing strict-mode violations; scope to the desktop table instead.
-const desktopTable = (page: Parameters<typeof test>[1]["page"]) => page.locator("table");
+const desktopTable = (page: Page) => page.locator("table");
 
 test.beforeEach(async ({ page }) => {
   await injectFakeSession(page);
@@ -76,6 +77,22 @@ test("txId deep link opens transaction outside the current date range", async ({
   const sheet = page.locator("aside");
   await expect(sheet).toBeVisible();
   await expect(sheet.getByText("Stara transakcja z listy")).toBeVisible();
+});
+
+test("mobile date range sheet stays open while interacting with controls", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/transactions");
+  await expect(page.locator("li").filter({ hasText: "Zakupy spożywcze" }).first()).toBeVisible();
+
+  await page.getByRole("button", { name: /maj 2026/i }).click();
+  const dialog = page.getByRole("dialog", { name: "Zakres dat" });
+  await expect(dialog).toBeVisible();
+
+  await dialog.getByRole("button", { name: "Dni", exact: true }).click();
+  await expect(dialog).toBeVisible();
+
+  await dialog.getByRole("button", { name: "Miesiące", exact: true }).click();
+  await expect(dialog).toBeVisible();
 });
 
 test("add transaction: opens dialog and shows success toast", async ({ page }) => {
