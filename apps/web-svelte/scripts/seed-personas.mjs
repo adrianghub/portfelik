@@ -203,17 +203,78 @@ async function cleanupDemoRows(userId) {
   );
 }
 
+function isoDaysAgo(days) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
+// Build a varied transaction set spanning ~3 months with mixed categories,
+// statuses and types so the local UI (date-range picker, category/status
+// filters, search, bulk ops) has realistic data to exercise after each
+// increment. All descriptions keep the DEMO_PREFIX so cleanupDemoRows removes
+// them idempotently.
+function buildDemoTransactions(userId, { groupId, groceries, salary, transport, dining }) {
+  const rows = [
+    // This week — covers the "Ten tydzień" preset
+    { d: 1, amount: 42.9, cat: dining, type: "expense", status: "paid", label: "Lunch w mieście" },
+    { d: 2, amount: 19.5, cat: transport, type: "expense", status: "paid", label: "Bilet MPK" },
+    { d: 4, amount: 230.0, cat: groceries, type: "expense", status: "paid", label: "Zakupy tygodniowe" },
+    // Earlier this month
+    { d: 9, amount: 6900, cat: salary, type: "income", status: "paid", label: "Pensja" },
+    { d: 12, amount: 89.99, cat: dining, type: "expense", status: "paid", label: "Kolacja" },
+    { d: 15, amount: 54.0, cat: transport, type: "expense", status: "paid", label: "Paliwo" },
+    { d: 18, amount: 320.5, cat: groceries, type: "expense", status: "paid", label: "Wielkie zakupy", groupId },
+    { d: 20, amount: 150.0, cat: dining, type: "expense", status: "draft", label: "Rezerwacja restauracji" },
+    { d: 22, amount: 60.0, cat: transport, type: "expense", status: "upcoming", label: "Przegląd auta" },
+    // Last month
+    { d: 33, amount: 6900, cat: salary, type: "income", status: "paid", label: "Pensja (poprzedni miesiąc)" },
+    { d: 36, amount: 199.0, cat: groceries, type: "expense", status: "paid", label: "Zakupy" },
+    { d: 40, amount: 75.0, cat: dining, type: "expense", status: "paid", label: "Obiad rodzinny" },
+    { d: 45, amount: 40.0, cat: transport, type: "expense", status: "overdue", label: "Mandat" },
+    { d: 50, amount: 500.0, cat: groceries, type: "expense", status: "paid", label: "Duże zakupy domowe", groupId },
+    // Two months ago
+    { d: 63, amount: 6900, cat: salary, type: "income", status: "paid", label: "Pensja (dwa miesiące temu)" },
+    { d: 68, amount: 120.0, cat: dining, type: "expense", status: "paid", label: "Wyjście ze znajomymi" },
+    { d: 74, amount: 88.0, cat: transport, type: "expense", status: "paid", label: "Taxi" },
+    { d: 80, amount: 260.0, cat: groceries, type: "expense", status: "paid", label: "Zakupy miesięczne" },
+    // Future — exercises "upcoming" status / forward date filtering
+    { d: -5, amount: 1200, cat: groceries, type: "expense", status: "upcoming", label: "Planowany wydatek" },
+    { d: -10, amount: 99.0, cat: dining, type: "expense", status: "upcoming", label: "Zaplanowana kolacja" },
+  ];
+
+  return rows.map((r) => ({
+    user_id: userId,
+    ...(r.groupId ? { group_id: r.groupId } : {}),
+    amount: r.amount,
+    currency: "PLN",
+    description: `${DEMO_PREFIX} ${r.label}`,
+    date: isoDaysAgo(r.d),
+    type: r.type,
+    status: r.status,
+    category_id: r.cat,
+  }));
+}
+
 async function seedDemoRows(userId) {
-  const [groceries, salary] = await must(
+  const demoCategories = await must(
     "create demo categories",
     supabase
       .from("categories")
       .insert([
         { user_id: userId, name: `${DEMO_PREFIX} Zakupy`, type: "expense" },
         { user_id: userId, name: `${DEMO_PREFIX} Wynagrodzenie`, type: "income" },
+        { user_id: userId, name: `${DEMO_PREFIX} Transport`, type: "expense" },
+        { user_id: userId, name: `${DEMO_PREFIX} Restauracje`, type: "expense" },
       ])
-      .select("id, type")
+      .select("id, name, type")
   );
+  const byName = (suffix) =>
+    demoCategories.find((c) => c.name === `${DEMO_PREFIX} ${suffix}`)?.id;
+  const groceries = { id: byName("Zakupy"), type: "expense" };
+  const salary = { id: byName("Wynagrodzenie"), type: "income" };
+  const transport = byName("Transport");
+  const dining = byName("Restauracje");
 
   const group = await must(
     "create demo group",
@@ -287,43 +348,28 @@ async function seedDemoRows(userId) {
     ])
   );
 
-  await must(
-    "create demo transactions",
-    supabase.from("transactions").insert([
-      {
-        user_id: userId,
-        amount: 6900,
-        currency: "PLN",
-        description: `${DEMO_PREFIX} Pensja`,
-        date: "2026-05-01",
-        type: "income",
-        status: "paid",
-        category_id: salary.id,
-      },
-      {
-        user_id: userId,
-        group_id: group.id,
-        amount: 126.4,
-        currency: "PLN",
-        description: `${DEMO_PREFIX} Zakupy domowe`,
-        date: "2026-05-18",
-        type: "expense",
-        status: "paid",
-        category_id: groceries.id,
-      },
-      {
-        user_id: userId,
-        amount: 84.2,
-        currency: "PLN",
-        description: `${DEMO_PREFIX} Lista z paragonem`,
-        date: "2026-05-20",
-        type: "expense",
-        status: "paid",
-        category_id: groceries.id,
-        shopping_list_id: completedList.id,
-      },
-    ])
-  );
+  const demoTransactions = buildDemoTransactions(userId, {
+    groupId: group.id,
+    groceries: groceries.id,
+    salary: salary.id,
+    transport,
+    dining,
+  });
+
+  // Plus the expense transaction linked to the completed shopping list.
+  demoTransactions.push({
+    user_id: userId,
+    amount: 84.2,
+    currency: "PLN",
+    description: `${DEMO_PREFIX} Lista z paragonem`,
+    date: isoDaysAgo(6),
+    type: "expense",
+    status: "paid",
+    category_id: groceries.id,
+    shopping_list_id: completedList.id,
+  });
+
+  await must("create demo transactions", supabase.from("transactions").insert(demoTransactions));
 }
 
 function manualPersonas() {
@@ -336,7 +382,7 @@ function manualPersonas() {
       password: targetEnv("ADMIN_PASSWORD") ?? process.env.SEED_ADMIN_PASSWORD ?? adminEmail,
       label: "Portfelik Admin",
       role: "admin",
-      withDemoRows: false,
+      withDemoRows: true,
     },
     {
       email: userEmail,
