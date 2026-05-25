@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Search, X } from "lucide-svelte";
-  import { tick } from "svelte";
-  import { fly } from "svelte/transition";
+  import { tick, type Snippet } from "svelte";
+  import { fade, fly } from "svelte/transition";
   import { motionDuration } from "$lib/motion";
   import * as m from "$lib/paraglide/messages";
 
@@ -10,9 +10,10 @@
     onclose: () => void;
     value: string;
     onsearchchange: (q: string) => void;
+    children?: Snippet;
   }
 
-  let { open, onclose, value, onsearchchange }: Props = $props();
+  let { open, onclose, value, onsearchchange, children }: Props = $props();
   let inputRef = $state<HTMLInputElement | null>(null);
 
   function onkeydown(e: KeyboardEvent) {
@@ -28,21 +29,30 @@
 <svelte:window {onkeydown} />
 
 {#if open}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <div
-    class="pointer-events-none fixed inset-x-0 top-16 z-40 flex items-start justify-center px-4"
-    role="search"
+    class="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto px-4 py-[10vh]"
+    role="presentation"
+    onclick={onclose}
   >
     <div
-      class="pointer-events-auto w-full max-w-xl overflow-hidden rounded-2xl border border-white/10 bg-slate-900/95 shadow-[0_0_60px_rgba(15,23,42,0.65)]"
+      class="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
+      transition:fade={{ duration: motionDuration(160) }}
+    ></div>
+    <div
+      class="relative flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-900/95 shadow-[0_0_60px_rgba(15,23,42,0.65)]"
+      role="search"
       aria-label={m.transactions_search_open()}
       transition:fly={{ duration: motionDuration(160), y: -8 }}
+      onclick={(e) => e.stopPropagation()}
     >
-      <div class="flex items-center gap-3 px-4 py-3">
+      <div class="flex items-center gap-3 border-b border-white/5 px-4 py-3">
         <Search size={18} strokeWidth={1.8} class="shrink-0 text-slate-400" aria-hidden="true" />
         <!-- svelte-ignore a11y_autofocus -->
         <input
           bind:this={inputRef}
-          type="search"
+          type="text"
           autofocus
           {value}
           oninput={(e) => onsearchchange((e.target as HTMLInputElement).value)}
@@ -59,9 +69,17 @@
             <X size={16} strokeWidth={1.8} aria-hidden="true" />
           </button>
         {/if}
+        <button
+          type="button"
+          onclick={onclose}
+          class="shrink-0 rounded-md border border-white/10 px-2 py-1 text-xs font-medium text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-200"
+          aria-label={m.transactions_search_close()}
+        >
+          {m.transactions_search_esc()}
+        </button>
       </div>
-      <div class="border-t border-white/5 px-4 py-2.5">
-        <p class="text-xs text-slate-500">{m.transactions_search_hint()}</p>
+      <div class="min-h-0 flex-1 overflow-y-auto p-2">
+        {@render children?.()}
       </div>
     </div>
   </div>
