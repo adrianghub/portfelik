@@ -216,6 +216,16 @@
   let bulkDeleteConfirm = $state(false);
   let searchModalOpen = $state(false);
 
+  function closeSearch() {
+    searchModalOpen = false;
+    searchQuery = "";
+  }
+
+  function toggleSearch() {
+    if (searchModalOpen) closeSearch();
+    else searchModalOpen = true;
+  }
+
   function onWindowKeydown(e: KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
       e.preventDefault();
@@ -435,7 +445,7 @@
     >
       <button
         type="button"
-        onclick={() => (searchModalOpen = !searchModalOpen)}
+        onclick={toggleSearch}
         class="relative hidden h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none md:flex {searchModalOpen
           ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-200'
           : 'border-white/10 bg-slate-900/60 text-slate-300 hover:bg-white/5'}"
@@ -591,7 +601,7 @@
 </button>
 
 <button
-  onclick={() => (searchModalOpen = !searchModalOpen)}
+  onclick={toggleSearch}
   aria-label={searchModalOpen ? m.transactions_search_close() : m.transactions_search_open()}
   aria-pressed={searchModalOpen}
   class="mobile-floating-action fixed bottom-[var(--mobile-action-bottom)] left-4 z-40 flex h-14 w-14 items-center justify-center rounded-full border shadow-[0_0_24px_rgba(15,23,42,0.55)] transition-all active:scale-95 md:hidden {searchModalOpen
@@ -606,10 +616,7 @@
 
 <SearchModal
   open={searchModalOpen}
-  onclose={() => {
-    searchModalOpen = false;
-    searchQuery = "";
-  }}
+  onclose={closeSearch}
   value={searchQuery}
   onsearchchange={(q) => (searchQuery = q)}
 >
@@ -618,8 +625,7 @@
     {currentUserId}
     {emptyLabel}
     onrowclick={(tx) => {
-      searchModalOpen = false;
-      searchQuery = "";
+      closeSearch();
       sheetTx = tx;
     }}
   />

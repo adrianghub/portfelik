@@ -47,6 +47,24 @@ test("search palette opens and closes via Escape", async ({ page }) => {
   await expect(page.getByRole("search")).toBeHidden();
 });
 
+test("closing the palette clears the search query", async ({ page }) => {
+  const toggle = page.getByRole("button", { name: "Szukaj transakcji" });
+  await toggle.click();
+
+  const palette = page.getByRole("search");
+  await palette.getByPlaceholder("Szukaj transakcji…").fill("bilet");
+  await expect(palette.locator("table").getByText("Zakupy spożywcze")).toBeHidden();
+
+  // Close via the palette's ESC chip (the toggle is covered by the backdrop while open).
+  await palette.getByRole("button", { name: "Zamknij wyszukiwanie" }).click();
+  await expect(palette).toBeHidden();
+
+  // Reopen: query is reset and the full list is back — no silent filter.
+  await toggle.click();
+  await expect(palette.getByPlaceholder("Szukaj transakcji…")).toHaveValue("");
+  await expect(palette.locator("table").getByText("Zakupy spożywcze")).toBeVisible();
+});
+
 test("txId deep link opens transaction outside the current date range", async ({ page }) => {
   const oldLinkedTransaction = {
     id: "tx-old-linked",
