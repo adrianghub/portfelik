@@ -54,6 +54,10 @@
     --mobile-action-bottom: calc(1rem + env(safe-area-inset-bottom));
   }
 
+  html.mobile-overlay-open {
+    --mobile-action-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+
   body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -136,11 +140,22 @@
 
   .mobile-floating-action {
     transition:
+      opacity var(--duration-fast) ease-out,
       bottom var(--duration-base) var(--ease-out-expo),
       transform var(--duration-fast) ease-out,
       background-color var(--duration-fast) ease-out,
       border-color var(--duration-fast) ease-out,
       color var(--duration-fast) ease-out;
+  }
+
+  html.mobile-overlay-open .mobile-floating-action {
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(1rem) scale(0.96);
+  }
+
+  html.mobile-overlay-open .mobile-bottom-nav {
+    transform: translateY(100%);
   }
 }
 

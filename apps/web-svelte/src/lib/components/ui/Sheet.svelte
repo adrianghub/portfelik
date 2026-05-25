@@ -1,3 +1,12 @@
+<script module lang="ts">
+  let openSheetCount = 0;
+
+  function syncMobileOverlayClass() {
+    if (typeof document === "undefined") return;
+    document.documentElement.classList.toggle("mobile-overlay-open", openSheetCount > 0);
+  }
+</script>
+
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { X } from "lucide-svelte";
@@ -18,6 +27,16 @@
   function onkeydown(e: KeyboardEvent) {
     if (e.key === "Escape") onclose();
   }
+
+  $effect(() => {
+    if (!open || typeof document === "undefined") return;
+    openSheetCount += 1;
+    syncMobileOverlayClass();
+    return () => {
+      openSheetCount = Math.max(0, openSheetCount - 1);
+      syncMobileOverlayClass();
+    };
+  });
 </script>
 
 <svelte:window {onkeydown} />
