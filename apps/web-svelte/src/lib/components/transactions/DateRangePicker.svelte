@@ -128,6 +128,7 @@
   ];
 
   function clickOutside(e: MouseEvent) {
+    if (!isDesktop.current) return;
     const t = e.target as HTMLElement;
     if (!t.closest("[data-date-range-picker]")) open = false;
   }

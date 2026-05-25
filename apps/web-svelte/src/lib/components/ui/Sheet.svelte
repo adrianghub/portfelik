@@ -10,6 +10,8 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { X } from "lucide-svelte";
+  import { fade, fly } from "svelte/transition";
+  import { motionDuration } from "$lib/motion";
 
   interface Props {
     open: boolean;
@@ -47,15 +49,26 @@
     role="presentation"
     onclick={onbackdrop}
     onkeydown={null}
+    transition:fade={{ duration: motionDuration(140) }}
   >
     <div
       class="w-full max-w-lg overflow-hidden rounded-t-2xl border border-white/5 bg-slate-900/95 shadow-[0_-12px_40px_rgba(0,0,0,0.4)] backdrop-blur"
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? "sheet-title" : undefined}
+      transition:fly={{ y: "100%", duration: motionDuration(220), opacity: 1 }}
     >
       <div class="flex justify-center pt-3 pb-1">
-        <div class="h-1 w-10 rounded-full bg-white/15"></div>
+        <button
+          type="button"
+          onclick={onclose}
+          class="group -my-2 rounded-full px-8 py-3 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+          aria-label="Zamknij"
+        >
+          <span
+            class="block h-1 w-10 rounded-full bg-white/20 transition-all group-hover:w-12 group-hover:bg-white/35 group-active:translate-y-1 group-active:bg-white/45"
+          ></span>
+        </button>
       </div>
 
       {#if title}
