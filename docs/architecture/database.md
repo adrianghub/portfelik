@@ -17,6 +17,7 @@ erDiagram
     auth_users ||--o{ push_subscriptions : has
     auth_users ||--o{ bank_accounts : owns
     auth_users ||--o{ categorization_rules : owns
+    auth_users ||--o{ shopping_item_categories : owns
 
     user_groups ||--o{ group_members : has
     user_groups ||--o{ group_invitations : has
@@ -274,7 +275,7 @@ Core ledger. Amount is stored as a positive magnitude; sign is carried by `type`
 - **PK**: `id`. **FKs**: `category_id` (RESTRICT), `user_id` (CASCADE), `shopping_list_id` (SET NULL), `recurring_template_id` (SET NULL self-ref).
 - **CHECK**: `amount > 0`, `recurring_day BETWEEN 1 AND 31`.
 - **RLS read**: own + group-shared. **RLS write**: own only.
-- **Indexes**: `idx_transactions_user_date_desc`, `idx_transactions_user_date_asc`, `idx_transactions_category_user_date`, `idx_transactions_status_date`, `idx_transactions_recurring`, `idx_transactions_recurring_template`.
+- **Indexes**: `idx_transactions_user_date_asc`, `idx_transactions_category_user_date`, `idx_transactions_status_date`, `idx_transactions_recurring`, `idx_transactions_recurring_template` (redundant `idx_transactions_user_date_desc` dropped in `20260530000000`).
 
 A view `transactions_with_category` joins to `categories` for display; the SvelteKit app reads this view in `fetchTransactions`.
 
@@ -292,7 +293,19 @@ Per-user list, optionally scoped to a group. Soft-completion is **not** used —
 Child rows of `shopping_lists`. Cascade-delete on parent. RLS uses `EXISTS` against the parent row, so all access derives from the parent's policies.
 
 - **PK**: `id`. **FK**: `shopping_list_id` (CASCADE).
+- **Columns of note**: `category` (TEXT, nullable; free-text section label, CHECK `shopping_list_items_category_nonempty` = NULL or non-blank — `20260528000000`).
 - **Indexes**: `idx_shopping_list_items_list_id`, `idx_shopping_list_items_list_position`.
+
+### `shopping_item_categories`
+
+Owner-scoped vocabulary of reusable item-category labels (the section names users assign to `shopping_list_items.category`). Private per user — not group-shared. Added `20260528000000`.
+
+- **PK**: `id`. **FK**: `user_id` → `profiles(id)` (CASCADE).
+- **Columns**: `name` (TEXT), `position` (INTEGER, default 0, CHECK ≥ 0), `created_at`, `updated_at`.
+- **CHECK**: `shopping_item_categories_name_nonempty` (non-blank name). **UNIQUE**: `(user_id, name)`.
+- **RLS**: owner-only — 4 policies (`select`/`insert`/`update`/`delete`) all gated on `user_id = (select auth.uid())`.
+- **Indexes**: `idx_shopping_item_categories_user_position` on `(user_id, position, name)`.
+- **Trigger**: `set_shopping_item_categories_updated_at` → `handle_updated_at()`.
 
 ### `notifications`
 
@@ -393,6 +406,8 @@ Two patterns:
 ## Helper functions
 
 All `LANGUAGE plpgsql STABLE`, all SECURITY DEFINER except where noted.
+
+> **Execute hardening (`20260529000000`):** `EXECUTE` is revoked from `public`/`anon` on every `public` function, and internal trigger/cron functions are also revoked from `authenticated` (so they cannot be reached over PostgREST `/rpc/`). Only the client-callable RPC set + RLS helpers (`is_admin`, `is_group_member`, `is_group_owner`) are granted to `authenticated`. Seven previously-mutable functions now pin `search_path=public`; a clean `SELECT proname FROM pg_proc WHERE prosecdef AND proconfig IS NULL AND pronamespace='public'::regnamespace` (verified `[]` on prod 2026-05-25) is the audit check.
 
 | Function                       | Used by                                  | Notes                                                                       |
 | ------------------------------ | ---------------------------------------- | --------------------------------------------------------------------------- |
@@ -518,13 +533,17 @@ DST drift is acknowledged: pg_cron runs on UTC, so the local-Warsaw fire time sh
 20260521000001_preview_fingerprint_warnings       — SECURITY DEFINER pre-commit dup scan
 20260523000000_warn_shopping_list_duplicates      — extend bank-import soft warnings to caller-visible list-created expense transactions
 20260524000000_environment_edge_function_urls     — move DB hook Edge Function roots behind environment-specific Vault config
+20260525000000_grant_service_role_table_access     — restore table grants for bank-import tables created after global grants
+20260526000000_enforce_max_user_cap                — Vault-gated max-user cap trigger on auth.users (BEFORE INSERT)
+20260527000000_fix_max_user_cap_locking            — switch cap lock to pg_advisory_xact_lock; explicit errors on bad Vault values
+20260528000000_shopping_list_items_category        — shopping_list_items.category column + owner-scoped shopping_item_categories table/RLS
+20260529000000_function_execute_hardening          — revoke EXECUTE from public/anon, grant only client RPCs to authenticated, pin search_path on 7 fns
+20260530000000_index_cleanup                       — drop redundant idx_transactions_user_date_desc; add 10 FK-covering indexes on import tables + categorization_rules
+
+> **Chronology note:** `20260526000000`–`20260530000000` are dated ahead of their 2026-05-24/25 authoring date but are already applied to prod, staging, and local. They are frozen — never rename an applied migration.
 ```
 
-> **Drift note:** Production migration history was populated partly by earlier
-> Supabase MCP applies, so some recorded versions differ from canonical
-> timestamps under `supabase/migrations/` and older applied SQL can need a
-> history-only repair. Keep the SQL files canonical and use the guarded
-> inspection/repair flow in the [Supabase operations runbook](../runbooks/supabase-operations.md).
+> **History note:** Production migration history was normalized on 2026-05-24 to mirror the canonical `supabase/migrations/` files. As of 2026-05-25, prod, staging, and local all report the same 35 applied migrations — no drift. Keep the SQL files canonical and use the guarded inspection/repair flow in the [Supabase operations runbook](../runbooks/supabase-operations.md). Never apply remote schema out-of-band; let branch merges be the only path that mutates remote schema.
 
 ## Extensions installed
 
@@ -533,3 +552,7 @@ DST drift is acknowledged: pg_cron runs on UTC, so the local-Warsaw fire time sh
 ## Open issues
 
 See the **[audit report](./audit-2026-05-09.md)** for the prioritised list (function `search_path` warnings, two unwrapped `auth.jwt()` calls in RLS policies, four unindexed FKs, several unused indexes, multiple permissive policies, and the offline-write-queue parity gap).
+
+---
+
+*Last reviewed: 2026-05-25 (see [`PRODUCT_REVIEW_2026-05-25.md`](../PRODUCT_REVIEW_2026-05-25.md)).*
