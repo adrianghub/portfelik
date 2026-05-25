@@ -42,13 +42,16 @@
   let profile = $state<Profile | null>(null);
   let user = $state<User | null>(null);
   let userId = $state<string | null>(null);
+  let authStatus = $state<"checking" | "authenticated" | "anonymous">("checking");
   let notifPermission = $state<NotificationPermission>("default");
   let pushPromptedRecently = $state(false);
   let isPublicRoute = $derived(PUBLIC_PATHS.includes(page.url.pathname));
+  let canRenderProtectedRoute = $derived(isPublicRoute || authStatus === "authenticated");
   let showNotifBanner = $derived(
     !!userId &&
       !isPublicRoute &&
       notifPermission === "default" &&
+      typeof window !== "undefined" &&
       "Notification" in window &&
       !pushPromptedRecently
   );
@@ -82,44 +85,74 @@
     markPushPrompted();
   }
 
+  $effect(() => {
+    if (typeof window === "undefined" || authStatus === "checking") return;
+    if (!isPublicRoute && authStatus === "anonymous") {
+      goto("/login");
+    } else if (page.url.pathname === "/login" && authStatus === "authenticated") {
+      goto("/transactions");
+    }
+  });
+
+  function clearAuthenticatedUser() {
+    profile = null;
+    user = null;
+    userId = null;
+    authStatus = "anonymous";
+  }
+
+  function loadAuthenticatedUser(authUser: User) {
+    user = authUser;
+    userId = authUser.id;
+    authStatus = "authenticated";
+    fetchProfile(authUser.id)
+      .then((p) => (profile = p))
+      .catch(() => {});
+    registerServiceWorker().then(() => autoSubscribePush(authUser.id).catch(() => {}));
+  }
+
   onMount(async () => {
     if ("Notification" in window) notifPermission = Notification.permission;
     readPushPromptCooldown();
 
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
+      data: { user: authUser },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-    if (!session && !isPublicRoute) {
-      goto("/login");
-      return;
+    if (userError || !authUser) {
+      clearAuthenticatedUser();
+    } else {
+      loadAuthenticatedUser(authUser);
     }
 
-    if (session) {
-      user = session.user;
-      userId = session.user.id;
-      fetchProfile(session.user.id)
-        .then((p) => (profile = p))
-        .catch(() => {});
-      registerServiceWorker().then(() => autoSubscribePush(session.user.id).catch(() => {}));
+    if (!authUser && !isPublicRoute) {
+      goto("/login");
+      return;
     }
 
     supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
         unsubscribeFromPush().catch(() => {});
-        profile = null;
-        user = null;
-        userId = null;
+        clearAuthenticatedUser();
         goto("/login");
       }
       if (event === "SIGNED_IN" && session) {
-        user = session.user;
-        userId = session.user.id;
-        fetchProfile(session.user.id)
-          .then((p) => (profile = p))
-          .catch(() => {});
-        registerServiceWorker().then(() => autoSubscribePush(session.user.id).catch(() => {}));
-        if (page.url.pathname === "/login") goto("/transactions");
+        supabase.auth
+          .getUser()
+          .then(({ data, error }) => {
+            if (error || !data.user) {
+              clearAuthenticatedUser();
+              if (!isPublicRoute) goto("/login");
+              return;
+            }
+            loadAuthenticatedUser(data.user);
+            if (page.url.pathname === "/login") goto("/transactions");
+          })
+          .catch(() => {
+            clearAuthenticatedUser();
+            if (!isPublicRoute) goto("/login");
+          });
       }
     });
   });
@@ -128,7 +161,16 @@
 <Toaster richColors position="bottom-right" />
 <OfflineIndicator />
 <QueryClientProvider client={queryClient}>
-  {#if !isPublicRoute}
+  {#if !canRenderProtectedRoute}
+    <main class="grid min-h-screen place-items-center bg-slate-950 px-4">
+      <div class="text-center">
+        <p class="text-base font-semibold tracking-tight text-slate-100">{m.app_name()}</p>
+        <div class="mx-auto mt-4 h-1 w-24 overflow-hidden rounded-full bg-white/10">
+          <div class="bg-accent-gradient h-full w-1/2 animate-pulse rounded-full"></div>
+        </div>
+      </div>
+    </main>
+  {:else if !isPublicRoute}
     <Navigation {profile} {user} />
     {#if showNotifBanner}
       <div
