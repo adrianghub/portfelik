@@ -5,6 +5,7 @@ describe("RLS: group_invitations (direct writes blocked, visible to invitee/crea
   let ctx: TestContext;
   let groupId: string;
   let inviteId: string;
+  let signupInviteeUserId: string | null = null;
 
   beforeAll(async () => {
     ctx = await provisionTwoUsers();
@@ -26,6 +27,9 @@ describe("RLS: group_invitations (direct writes blocked, visible to invitee/crea
   });
 
   afterAll(async () => {
+    if (signupInviteeUserId) {
+      await ctx.admin.auth.admin.deleteUser(signupInviteeUserId);
+    }
     await cleanupSentinels(ctx.admin);
   });
 
@@ -56,5 +60,49 @@ describe("RLS: group_invitations (direct writes blocked, visible to invitee/crea
       .eq("id", inviteId);
     expect(error).toBeNull();
     expect(data?.length).toBe(1);
+  });
+
+  it("creates a notification when a pending invitee signs up after the invite", async () => {
+    const invitedEmail = `pending-invite-${crypto.randomUUID()}@rls.test`;
+    const { data: futureInvite, error: futureInviteErr } = await ctx.userA.client.rpc(
+      "invite_user",
+      {
+        p_group_id: groupId,
+        p_email: invitedEmail,
+      }
+    );
+    if (futureInviteErr || !futureInvite) throw futureInviteErr ?? new Error("no future invite");
+    const futureInviteId = (futureInvite as { id: string }).id;
+
+    const { data: before } = await ctx.admin
+      .from("notifications")
+      .select("id")
+      .eq("type", "group_invitation")
+      .contains("data", { invitationId: futureInviteId });
+    expect(before?.length ?? 0).toBe(0);
+
+    const { data: createdUser, error: createUserErr } = await ctx.admin.auth.admin.createUser({
+      email: invitedEmail,
+      password: process.env.RLS_TEST_PASSWORD ?? "local-password",
+      email_confirm: true,
+    });
+    if (createUserErr || !createdUser.user) {
+      throw createUserErr ?? new Error("createUser returned no user");
+    }
+    signupInviteeUserId = createdUser.user.id;
+
+    const { data: notifications, error: notificationsErr } = await ctx.admin
+      .from("notifications")
+      .select("id, user_id, type, data")
+      .eq("user_id", signupInviteeUserId)
+      .eq("type", "group_invitation")
+      .contains("data", { invitationId: futureInviteId });
+
+    expect(notificationsErr).toBeNull();
+    expect(notifications?.length).toBe(1);
+    expect(notifications?.[0]?.data).toMatchObject({
+      invitationId: futureInviteId,
+      groupId,
+    });
   });
 });

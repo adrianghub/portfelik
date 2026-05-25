@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { goto } from "$app/navigation";
   import { Bell, X, CheckCheck } from "lucide-svelte";
   import { createQuery, createMutation, useQueryClient } from "@tanstack/svelte-query";
   import {
@@ -70,6 +71,14 @@
     if (diffH < 24) return `${diffH}h`;
     return formatDate(dateStr);
   }
+
+  function handleNotificationClick(notification: (typeof notifications)[number]) {
+    if (!notification.read_at) markReadMutation.mutate(notification.id);
+    if (notification.type === "group_invitation") {
+      open = false;
+      void goto("/settings?tab=groups");
+    }
+  }
 </script>
 
 <svelte:window onclick={handleClickOutside} />
@@ -140,13 +149,7 @@
                 <div class="mt-1.5 h-1.5 w-1.5 shrink-0"></div>
               {/if}
               <div class="min-w-0 flex-1">
-                <button
-                  onclick={() => {
-                    if (isUnread) markReadMutation.mutate(n.id);
-                  }}
-                  class="block w-full text-left"
-                  disabled={!isUnread}
-                >
+                <button onclick={() => handleNotificationClick(n)} class="block w-full text-left">
                   <p class="truncate text-xs font-medium text-slate-100">
                     {n.title}
                   </p>
