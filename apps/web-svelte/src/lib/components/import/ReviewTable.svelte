@@ -5,6 +5,7 @@
   import Input from "$lib/components/ui/Input.svelte";
   import Badge from "$lib/components/ui/Badge.svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
+  import Dialog from "$lib/components/ui/Dialog.svelte";
   import { fetchCategories } from "$lib/services/categories";
   import { fetchUserGroups } from "$lib/services/groups";
   import {
@@ -70,9 +71,8 @@
 
   type FilterKind = "all" | "pending" | "uncategorized" | "income" | "expense";
   let filter = $state<FilterKind>("all");
-  let selectedRowIds = $state<Set<string>>(new Set());
-  let bulkCategoryId = $state<string>("");
   let focusedRowId = $state<string | null>(null);
+  let confirmOpen = $state(false);
 
   const filterCounts = $derived({
     all: rows.length,
@@ -97,15 +97,20 @@
     }
   });
 
-  const selectedCount = $derived(selectedRowIds.size);
-
-  const allVisibleSelected = $derived(
-    visibleRows.length > 0 && visibleRows.every((r) => selectedRowIds.has(r.id))
-  );
-
   function categoriesFor(type: "income" | "expense") {
     return (categoriesQuery.data ?? []).filter((c) => c.type === type);
   }
+
+  function categoryName(id: string | null): string | null {
+    if (!id) return null;
+    return (categoriesQuery.data ?? []).find((c) => c.id === id)?.name ?? null;
+  }
+
+  // Final-confirmation digest: only the rows that will actually become
+  // transactions, plus a flag for any probable duplicates still set to import.
+  const importRows = $derived(rows.filter((r) => r.decision === "import"));
+  const skipCount = $derived(rows.filter((r) => r.decision === "skip").length);
+  const dupAmongImport = $derived(importRows.filter((r) => warningsByRow.has(r.id)).length);
 
   /**
    * Optimistic patch + automatic decision flip on category set/clear:
@@ -168,48 +173,12 @@
     await Promise.all(targets.map((r) => patchRow(r.id, { decision: "skip" })));
   }
 
+  // Probable-duplicate rows are flagged by the fingerprint preview. The user
+  // sweeps them to 'skip' in one tap; true hard duplicates (external-id /
+  // file-hash matches) are caught again at commit time by the RPC regardless.
   async function bulkSkipProbableDuplicates(): Promise<void> {
-    const flagged = rows.filter((r) => warningsByRow.has(r.id) && r.decision !== "duplicate");
-    await Promise.all(
-      flagged.map((r) =>
-        patchRow(r.id, {
-          decision: "duplicate",
-          duplicate_of: warningsByRow.get(r.id) ?? null,
-        })
-      )
-    );
-  }
-
-  async function bulkSetCategory(categoryId: string): Promise<void> {
-    if (!categoryId || selectedRowIds.size === 0) return;
-    const cat = (categoriesQuery.data ?? []).find((c) => c.id === categoryId);
-    if (!cat) return;
-    const selectedRows = rows.filter((r) => selectedRowIds.has(r.id));
-    const targets = selectedRows.filter((r) => r.type === cat.type);
-    const skipped = selectedRows.length - targets.length;
-    await Promise.all(targets.map((r) => patchRow(r.id, { selected_category_id: categoryId })));
-    selectedRowIds = new Set();
-    bulkCategoryId = "";
-    if (skipped > 0) {
-      toast.message(m.bank_review_bulk_set_category_skipped({ count: skipped }));
-    }
-  }
-
-  function toggleRow(id: string): void {
-    const next = new Set(selectedRowIds);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    selectedRowIds = next;
-  }
-
-  function toggleAllVisible(): void {
-    const next = new Set(selectedRowIds);
-    if (allVisibleSelected) {
-      for (const r of visibleRows) next.delete(r.id);
-    } else {
-      for (const r of visibleRows) next.add(r.id);
-    }
-    selectedRowIds = next;
+    const flagged = rows.filter((r) => warningsByRow.has(r.id) && r.decision !== "skip");
+    await Promise.all(flagged.map((r) => patchRow(r.id, { decision: "skip" })));
   }
 
   function clearFilter(): void {
@@ -218,7 +187,7 @@
 
   function getImportedDateRange(): ImportedDateRange | undefined {
     const dates = rows
-      .filter((r) => r.decision === "import" || r.decision === "duplicate")
+      .filter((r) => r.decision === "import")
       .map((r) => r.posted_at)
       .sort();
     const first = dates[0];
@@ -274,18 +243,6 @@
     },
   }));
 
-  // Categories shown in the bulk dropdown: filter by the dominant type
-  // across the current selection so the picker is never overwhelming.
-  const bulkCategoryOptions = $derived.by(() => {
-    if (selectedCount === 0) return [];
-    const selectedRows = rows.filter((r) => selectedRowIds.has(r.id));
-    const incomeRows = selectedRows.filter((r) => r.type === "income").length;
-    const expenseRows = selectedRows.filter((r) => r.type === "expense").length;
-    // Tie → expense (safer default).
-    const dominant: "income" | "expense" = incomeRows > expenseRows ? "income" : "expense";
-    return categoriesFor(dominant);
-  });
-
   const filterOptions: { kind: FilterKind; label: string }[] = $derived([
     { kind: "all", label: m.bank_review_filter_all() },
     { kind: "pending", label: m.bank_review_filter_pending() },
@@ -296,9 +253,9 @@
 </script>
 
 <div class="space-y-4 pb-24">
-  <!-- Sticky top bar: warnings + bulk actions. Stays in view while
-       scrolling through a long preview list. -->
-  <div class="sticky top-0 z-20 -mx-4 space-y-2 bg-slate-950/85 px-4 py-2 backdrop-blur">
+  <!-- Warnings + bulk actions. One-time setup at the top of the list; scrolls
+       away with the page so only the table header stays pinned. -->
+  <div class="space-y-2">
     {#if rows.length > LARGE_THRESHOLD}
       <p
         class="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200"
@@ -330,26 +287,6 @@
       >
         {m.bank_review_bulk_skip_duplicates()}
       </Button>
-
-      {#if selectedCount > 0}
-        <span class="ml-2 text-xs text-slate-400">
-          {m.bank_review_selected_count({ count: selectedCount })}
-        </span>
-        <Select
-          value={bulkCategoryId}
-          onchange={(e) => {
-            const v = (e.target as HTMLSelectElement).value;
-            bulkCategoryId = v;
-            if (v) void bulkSetCategory(v);
-          }}
-          class="w-auto"
-        >
-          <option value="">{m.bank_review_bulk_set_category()}</option>
-          {#each bulkCategoryOptions as c (c.id)}
-            <option value={c.id}>{c.name}</option>
-          {/each}
-        </Select>
-      {/if}
     </div>
   </div>
 
@@ -380,24 +317,12 @@
       {/snippet}
     </EmptyState>
   {:else}
-    <!-- Desktop: table inside its own scroll container so the <thead>
-         can stay sticky to the table region without fighting the
-         page-level sticky warnings+bulk bar above. -->
-    <div
-      class="hidden max-h-[calc(100vh-22rem)] overflow-y-auto rounded-2xl border border-white/10 focus:outline-none md:block"
-    >
+    <!-- Desktop: no inner scroll — the page is the single scroll surface and
+         the <thead> stays pinned just below the fixed app nav (top-14). -->
+    <div class="hidden rounded-2xl border border-white/10 md:block">
       <table class="min-w-full divide-y divide-white/5 text-sm">
-        <thead class="sticky top-0 z-10 bg-slate-900/95 text-xs text-slate-400 uppercase">
+        <thead class="sticky top-16 z-10 bg-slate-900 text-xs text-slate-400 uppercase">
           <tr>
-            <th class="px-3 py-2 text-left">
-              <input
-                type="checkbox"
-                aria-label={m.bank_review_select_all_visible()}
-                checked={allVisibleSelected}
-                onchange={toggleAllVisible}
-                class="h-4 w-4 rounded border-white/20 bg-slate-900/60"
-              />
-            </th>
             <th class="px-3 py-2 text-left">{m.bank_review_header_date()}</th>
             <th class="px-3 py-2 text-right">{m.bank_review_header_amount()}</th>
             <th class="px-3 py-2 text-left">{m.bank_review_header_description()}</th>
@@ -413,20 +338,8 @@
               tabindex={focusedRowId === row.id || (focusedRowId === null && idx === 0) ? 0 : -1}
               onfocus={() => (focusedRowId = row.id)}
               onkeydown={handleTableKeydown}
-              class={cn(
-                "focus:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50",
-                selectedRowIds.has(row.id) && "bg-emerald-500/5"
-              )}
+              class="focus:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50"
             >
-              <td class="px-3 py-2 align-top">
-                <input
-                  type="checkbox"
-                  aria-label={m.bank_review_select_row()}
-                  checked={selectedRowIds.has(row.id)}
-                  onchange={() => toggleRow(row.id)}
-                  class="h-4 w-4 rounded border-white/20 bg-slate-900/60"
-                />
-              </td>
               <td class="px-3 py-2 align-top whitespace-nowrap text-slate-300">{row.posted_at}</td>
               <td
                 class="px-3 py-2 text-right align-top tabular-nums"
@@ -495,7 +408,6 @@
                   <option value="pending">{m.bank_review_decision_pending()}</option>
                   <option value="import">{m.bank_review_decision_import()}</option>
                   <option value="skip">{m.bank_review_decision_skip()}</option>
-                  <option value="duplicate">{m.bank_review_decision_duplicate()}</option>
                 </Select>
               </td>
             </tr>
@@ -504,50 +416,44 @@
       </table>
     </div>
 
-    <!-- Mobile: card list. Each card carries the same controls as the desktop
-         row except the group select (most users never change it on phones; if
-         a group is already set we surface it as a small badge). -->
-    <ul class="space-y-2 md:hidden">
+    <!-- Mobile: concise card list mirroring the transactions page. Each card
+         carries the per-row category + decision selects; the group select is
+         dropped on phones (a set group surfaces as a small badge instead). -->
+    <ul class="space-y-1.5 md:hidden">
       {#each visibleRows as row (row.id)}
         {@const groupName = (groupsQuery.data ?? []).find(
           (g) => g.id === row.selected_group_id
         )?.name}
+        {@const secondary = row.counterparty ? (row.edited_description ?? row.description) : null}
         <li
-          class={cn(
-            "space-y-2 rounded-2xl border border-white/10 bg-slate-900/40 p-3",
-            selectedRowIds.has(row.id) && "border-emerald-400/40 bg-emerald-500/5"
-          )}
+          class="space-y-2 rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3 backdrop-blur"
         >
-          <header class="flex items-start justify-between gap-2">
-            <div class="min-w-0 flex-1">
-              <p class="text-xs text-slate-500">{row.posted_at}</p>
-              <p class="truncate text-sm font-medium text-slate-100">
-                {row.counterparty ?? row.edited_description ?? row.description}
-              </p>
-              {#if row.counterparty}
-                <p class="truncate text-xs text-slate-400">
-                  {row.edited_description ?? row.description}
-                </p>
-              {/if}
-              {#if groupName}
-                <div class="mt-1">
-                  <Badge variant="shared">{groupName}</Badge>
-                </div>
-              {/if}
-            </div>
-            <div class="space-y-1 text-right">
-              <p
-                class="tabular-nums"
-                class:text-rose-300={row.type === "expense"}
-                class:text-emerald-300={row.type === "income"}
-              >
-                {row.type === "expense" ? "-" : "+"}{formatCurrency(row.amount, row.currency)}
-              </p>
-              {#if warningsByRow.has(row.id)}
-                <Badge variant="overdue">{m.bank_review_probable_duplicate()}</Badge>
-              {/if}
-            </div>
-          </header>
+          <div class="flex items-start justify-between gap-3">
+            <span class="min-w-0 flex-1 truncate text-sm leading-snug font-medium text-slate-100">
+              {row.counterparty ?? row.edited_description ?? row.description}
+            </span>
+            <span
+              class={cn(
+                "shrink-0 text-sm font-semibold tabular-nums",
+                row.type === "income" ? "text-emerald-300" : "text-rose-300"
+              )}
+            >
+              {row.type === "income" ? "+" : "−"}{formatCurrency(row.amount, row.currency)}
+            </span>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs text-slate-500">{row.posted_at}</span>
+            {#if secondary}
+              <span class="min-w-0 flex-1 truncate text-xs text-slate-500">· {secondary}</span>
+            {/if}
+            {#if groupName}
+              <Badge variant="shared">{groupName}</Badge>
+            {/if}
+            {#if warningsByRow.has(row.id)}
+              <Badge variant="overdue">{m.bank_review_probable_duplicate()}</Badge>
+            {/if}
+          </div>
 
           <div class="grid grid-cols-2 gap-2">
             <Select
@@ -574,19 +480,8 @@
               <option value="pending">{m.bank_review_decision_pending()}</option>
               <option value="import">{m.bank_review_decision_import()}</option>
               <option value="skip">{m.bank_review_decision_skip()}</option>
-              <option value="duplicate">{m.bank_review_decision_duplicate()}</option>
             </Select>
           </div>
-
-          <label class="flex items-center gap-2 text-xs text-slate-400">
-            <input
-              type="checkbox"
-              checked={selectedRowIds.has(row.id)}
-              onchange={() => toggleRow(row.id)}
-              class="h-4 w-4 rounded border-white/20 bg-slate-900/60"
-            />
-            {m.bank_review_select_row()}
-          </label>
         </li>
       {/each}
     </ul>
@@ -594,7 +489,7 @@
 
   <!-- Sticky bottom commit bar — always reachable on mobile + long lists. -->
   <div
-    class="sticky bottom-0 z-20 -mx-4 flex flex-wrap items-center justify-end gap-2 border-t border-white/10 bg-slate-950/90 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur"
+    class="sticky bottom-0 z-20 -mx-4 flex flex-wrap items-center justify-end gap-2 border-t border-white/10 bg-slate-950/90 px-4 py-3 pb-[var(--mobile-action-bottom)] backdrop-blur md:pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
   >
     <Button variant="ghost" onclick={() => void onCancel()}>
       {m.bank_review_cancel()}
@@ -602,10 +497,67 @@
     <Button
       variant="primary"
       disabled={!canCommit || commitMut.isPending}
-      loading={commitMut.isPending}
-      onclick={() => commitMut.mutate()}
+      onclick={() => (confirmOpen = true)}
     >
-      {commitMut.isPending ? m.bank_commit_running() : m.bank_review_commit()}
+      {m.bank_review_commit()}
     </Button>
   </div>
 </div>
+
+<!-- Final confirmation: read-only digest of exactly what will be created,
+     shown before the irreversible commit. -->
+<Dialog open={confirmOpen} onclose={() => (confirmOpen = false)} title={m.bank_confirm_title()}>
+  <div class="space-y-4">
+    <p class="text-sm text-slate-300">
+      {m.bank_confirm_summary({ add: importRows.length, skip: skipCount })}
+    </p>
+
+    {#if dupAmongImport > 0}
+      <p
+        class="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200"
+      >
+        {m.bank_confirm_dup_warning({ count: dupAmongImport })}
+      </p>
+    {/if}
+
+    <ul class="max-h-72 space-y-1.5 overflow-y-auto">
+      {#each importRows as row (row.id)}
+        {@const cat = categoryName(row.selected_category_id)}
+        <li class="rounded-xl border border-white/5 bg-slate-950/40 px-3 py-2">
+          <div class="flex items-start justify-between gap-3">
+            <span class="min-w-0 flex-1 truncate text-sm font-medium text-slate-100">
+              {row.counterparty ?? row.edited_description ?? row.description}
+            </span>
+            <span
+              class={cn(
+                "shrink-0 text-sm font-semibold tabular-nums",
+                row.type === "income" ? "text-emerald-300" : "text-rose-300"
+              )}
+            >
+              {row.type === "income" ? "+" : "−"}{formatCurrency(row.amount, row.currency)}
+            </span>
+          </div>
+          <p class="mt-0.5 text-xs text-slate-500">
+            {cat ?? m.bank_confirm_no_category()} · {row.posted_at}
+          </p>
+        </li>
+      {/each}
+    </ul>
+
+    <div class="flex justify-end gap-2">
+      <Button variant="ghost" onclick={() => (confirmOpen = false)} disabled={commitMut.isPending}>
+        {m.bank_confirm_back()}
+      </Button>
+      <Button
+        variant="primary"
+        disabled={commitMut.isPending}
+        loading={commitMut.isPending}
+        onclick={() => commitMut.mutate()}
+      >
+        {commitMut.isPending
+          ? m.bank_commit_running()
+          : m.bank_confirm_submit({ count: importRows.length })}
+      </Button>
+    </div>
+  </div>
+</Dialog>

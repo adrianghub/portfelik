@@ -9,6 +9,7 @@
   import { fade } from "svelte/transition";
   import { motionDuration } from "$lib/motion";
   import Navigation from "$lib/components/Navigation.svelte";
+  import Breadcrumbs from "$lib/components/ui/Breadcrumbs.svelte";
   import OfflineIndicator from "$lib/components/ui/OfflineIndicator.svelte";
   import { fetchProfile } from "$lib/services/profiles";
   import {
@@ -197,6 +198,7 @@
       </div>
     {/if}
     <main class="min-h-screen bg-slate-950 pt-14 pb-24 md:pb-6">
+      <Breadcrumbs />
       {#key page.url.pathname}
         <div in:fade={{ duration: motionDuration(140) }}>
           {@render children()}

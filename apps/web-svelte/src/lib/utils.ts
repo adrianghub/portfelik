@@ -38,6 +38,28 @@ export function getDateRangeBounds(
   };
 }
 
+/**
+ * Build the transactions list URL filtered to a year/month range. Used after a
+ * bank import commit (and the already-imported panel) to land the user on the
+ * exact period they just imported. Returns the bare `/transactions` path when
+ * no range is given.
+ */
+export function transactionsUrlForRange(range?: {
+  startYear: number;
+  startMonth: number;
+  endYear: number;
+  endMonth: number;
+}): string {
+  if (!range) return "/transactions";
+  const params = new URLSearchParams({
+    startYear: String(range.startYear),
+    startMonth: String(range.startMonth),
+    endYear: String(range.endYear),
+    endMonth: String(range.endMonth),
+  });
+  return `/transactions?${params.toString()}`;
+}
+
 export function monthName(month: number): string {
   return new Intl.DateTimeFormat("pl-PL", { month: "long" }).format(new Date(2000, month - 1, 1));
 }
