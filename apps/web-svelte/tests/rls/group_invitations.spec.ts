@@ -6,6 +6,7 @@ describe("RLS: group_invitations (direct writes blocked, visible to invitee/crea
   let groupId: string;
   let inviteId: string;
   let signupInviteeUserId: string | null = null;
+  const emailReuseInviteeUserIds: string[] = [];
 
   beforeAll(async () => {
     ctx = await provisionTwoUsers();
@@ -27,6 +28,10 @@ describe("RLS: group_invitations (direct writes blocked, visible to invitee/crea
   });
 
   afterAll(async () => {
+    if (!ctx) return;
+    for (const userId of emailReuseInviteeUserIds) {
+      await ctx.admin.auth.admin.deleteUser(userId);
+    }
     if (signupInviteeUserId) {
       await ctx.admin.auth.admin.deleteUser(signupInviteeUserId);
     }
@@ -104,5 +109,54 @@ describe("RLS: group_invitations (direct writes blocked, visible to invitee/crea
       invitationId: futureInviteId,
       groupId,
     });
+  });
+
+  it("dedupes pending invite notifications per recipient, not only per invitation", async () => {
+    const invitedEmail = `pending-reused-${crypto.randomUUID()}@rls.test`;
+    const movedEmail = `pending-reused-moved-${crypto.randomUUID()}@rls.test`;
+    const testPassword = process.env.RLS_TEST_PASSWORD ?? "local-password";
+
+    const { data: futureInvite, error: futureInviteErr } = await ctx.userA.client.rpc(
+      "invite_user",
+      {
+        p_group_id: groupId,
+        p_email: invitedEmail,
+      }
+    );
+    if (futureInviteErr || !futureInvite) throw futureInviteErr ?? new Error("no future invite");
+    const futureInviteId = (futureInvite as { id: string }).id;
+
+    const { data: firstUser, error: firstUserErr } = await ctx.admin.auth.admin.createUser({
+      email: invitedEmail,
+      password: testPassword,
+      email_confirm: true,
+    });
+    if (firstUserErr || !firstUser.user) throw firstUserErr ?? new Error("no first invitee");
+    emailReuseInviteeUserIds.push(firstUser.user.id);
+
+    await ctx.admin.auth.admin.updateUserById(firstUser.user.id, {
+      email: movedEmail,
+      email_confirm: true,
+    });
+
+    const { data: secondUser, error: secondUserErr } = await ctx.admin.auth.admin.createUser({
+      email: invitedEmail,
+      password: testPassword,
+      email_confirm: true,
+    });
+    if (secondUserErr || !secondUser.user) throw secondUserErr ?? new Error("no second invitee");
+    emailReuseInviteeUserIds.push(secondUser.user.id);
+
+    const { data: notifications, error: notificationsErr } = await ctx.admin
+      .from("notifications")
+      .select("id, user_id, type, data")
+      .in("user_id", [firstUser.user.id, secondUser.user.id])
+      .eq("type", "group_invitation")
+      .contains("data", { invitationId: futureInviteId });
+
+    expect(notificationsErr).toBeNull();
+    expect(notifications?.map((n) => n.user_id).sort()).toEqual(
+      [firstUser.user.id, secondUser.user.id].sort()
+    );
   });
 });
