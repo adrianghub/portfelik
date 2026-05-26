@@ -1,21 +1,23 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
+  import { consumeLoginRedirect } from "$lib/auth-redirect";
   import { supabase } from "$lib/supabase";
   import * as m from "$lib/paraglide/messages";
 
   let error = $state<string | null>(null);
 
   onMount(async () => {
+    const currentUrl = new URL(window.location.href);
     // PKCE flow: Supabase redirects with ?code=
-    const code = new URLSearchParams(window.location.search).get("code");
+    const code = currentUrl.searchParams.get("code");
     if (code) {
       const { error: authError } = await supabase.auth.exchangeCodeForSession(code);
       if (authError) {
         error = m.login_error_generic();
         return;
       }
-      goto("/");
+      goto(consumeLoginRedirect(currentUrl), { replaceState: true });
       return;
     }
 
@@ -25,7 +27,7 @@
       data: { session },
     } = await supabase.auth.getSession();
     if (session) {
-      goto("/");
+      goto(consumeLoginRedirect(currentUrl), { replaceState: true });
       return;
     }
 
@@ -39,7 +41,7 @@
       if (event === "SIGNED_IN" && session) {
         clearTimeout(timer);
         subscription.unsubscribe();
-        goto("/");
+        goto(consumeLoginRedirect(currentUrl), { replaceState: true });
       }
     });
   });
