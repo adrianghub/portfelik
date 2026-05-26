@@ -728,24 +728,6 @@
 </script>
 
 <div class="container mx-auto max-w-2xl space-y-4 px-4 pt-6 pb-56 md:pb-6">
-  <a
-    href="/shopping-lists"
-    class="inline-flex items-center gap-1 text-sm text-slate-500 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-  >
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"><path d="m15 18-6-6 6-6" /></svg
-    >
-    {m.common_back()}
-  </a>
-
   {#if query.isLoading}
     <div class="space-y-3">
       <div class="h-8 w-48 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800"></div>

@@ -586,6 +586,7 @@
       {currentUserId}
       {emptyLabel}
       bind:selectedIds
+      stickyHeaderOffset="top-[6.75rem]"
       onrowclick={(tx) => (sheetTx = tx)}
       ondelete={(id: string) => (deleteTargetId = id)}
     />

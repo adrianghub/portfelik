@@ -90,7 +90,7 @@ Phase 12 shipped through U6 + EmptyState sweep + group hardening (2026-05-17). H
 
 Mortgage/debt tracking is a follow-on track.
 
-**Remaining backlog:** Dexie offline outbox (legacy parity, last-write-wins decided), axe-core a11y sweep (deferred U7).
+**Remaining backlog:** Dexie offline outbox (legacy parity, last-write-wins decided), axe-core a11y sweep (deferred U7). **Virtualized/infinite scroll for long lists** — transactions table + bank-import review render every row; add windowing or paged infinite scroll once dataset size warrants (noted 2026-05-26 during import UX pass).
 
 | Phase                                                                                                                                                                                                                       | Status                                                                                                        |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |

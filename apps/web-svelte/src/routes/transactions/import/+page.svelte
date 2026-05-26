@@ -2,7 +2,6 @@
   import * as m from "$lib/paraglide/messages";
   import FileUpload from "$lib/components/import/FileUpload.svelte";
   import ReviewTable from "$lib/components/import/ReviewTable.svelte";
-  import CommitSummary from "$lib/components/import/CommitSummary.svelte";
   import {
     cancelImportSession,
     type CommitResult,
@@ -11,12 +10,13 @@
   import { useQueryClient } from "@tanstack/svelte-query";
   import { goto } from "$app/navigation";
   import { toast } from "svelte-sonner";
-  import { cn } from "$lib/utils";
+  import { cn, transactionsUrlForRange } from "$lib/utils";
 
   // Wizard state machine — bank kind is detected from the CSV, never picked
-  // by the user. State machine: upload → review → done.
+  // by the user. State machine: upload → review. On commit we redirect straight
+  // to the transactions list filtered to the imported period (no "done" step).
 
-  type Step = "upload" | "review" | "done";
+  type Step = "upload" | "review";
   interface ImportedDateRange {
     startYear: number;
     startMonth: number;
@@ -24,10 +24,10 @@
     endMonth: number;
   }
 
+  const steps: Step[] = ["upload", "review"];
+
   let step = $state<Step>("upload");
   let activeSession = $state<ImportSession | null>(null);
-  let commitResult = $state<CommitResult | null>(null);
-  let committedDateRange = $state<ImportedDateRange | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -37,12 +37,15 @@
   }
 
   function handleCommitted(result: CommitResult, dateRange?: ImportedDateRange): void {
-    commitResult = result;
-    committedDateRange = dateRange ?? null;
-    step = "done";
     queryClient.invalidateQueries({ queryKey: ["transactions"] });
     queryClient.invalidateQueries({ queryKey: ["summary"] });
-    toast.success(m.bank_commit_success({ count: result.inserted }));
+    toast.success(m.bank_commit_success({ count: result.inserted }), {
+      description: m.bank_commit_toast_detail({
+        skipped: result.skipped,
+        duplicates: result.duplicates_preview + result.duplicates_commit,
+      }),
+    });
+    void goto(transactionsUrlForRange(dateRange));
   }
 
   async function handleCancel(): Promise<void> {
@@ -60,24 +63,7 @@
 
   function resetToUpload(): void {
     activeSession = null;
-    commitResult = null;
-    committedDateRange = null;
     step = "upload";
-  }
-
-  function backToTransactions(): void {
-    if (!committedDateRange) {
-      void goto("/transactions");
-      return;
-    }
-
-    const params = new URLSearchParams({
-      startYear: String(committedDateRange.startYear),
-      startMonth: String(committedDateRange.startMonth),
-      endYear: String(committedDateRange.endYear),
-      endMonth: String(committedDateRange.endMonth),
-    });
-    void goto(`/transactions?${params.toString()}`);
   }
 </script>
 
@@ -91,22 +77,32 @@
   </header>
 
   <ol class="flex flex-wrap items-center gap-2 text-xs text-slate-400">
-    {#each ["upload", "review", "done"] as s, i (s)}
+    {#each steps as s, i (s)}
       {@const active = step === s}
-      {@const completed = (["upload", "review", "done"] as Step[]).indexOf(step) > i}
-      <li
-        class={cn(
-          "rounded-full border px-3 py-1 transition-colors",
-          active && "border-emerald-400 text-emerald-300",
-          completed && !active && "border-emerald-400/40 text-emerald-300/70",
-          !active && !completed && "border-white/10"
-        )}
-      >
-        {#if s === "upload"}{m.bank_import_step_upload()}{/if}
-        {#if s === "review"}{m.bank_import_step_review()}{/if}
-        {#if s === "done"}{m.bank_import_step_done()}{/if}
+      {@const completed = steps.indexOf(step) > i}
+      {@const label = s === "upload" ? m.bank_import_step_upload() : m.bank_import_step_review()}
+      {@const pillClass = cn(
+        "rounded-full border px-3 py-1 transition-colors",
+        active && "border-emerald-400 text-emerald-300",
+        completed && !active && "border-emerald-400/40 text-emerald-300/70",
+        !active && !completed && "border-white/10"
+      )}
+      <li>
+        {#if completed}
+          <!-- Completed step is a back button: returns to upload and abandons
+               the in-progress review session. -->
+          <button
+            type="button"
+            class={cn(pillClass, "hover:border-emerald-400 hover:text-emerald-200")}
+            onclick={() => void handleCancel()}
+          >
+            {label}
+          </button>
+        {:else}
+          <span class={pillClass}>{label}</span>
+        {/if}
       </li>
-      {#if i < 2}
+      {#if i < steps.length - 1}
         <span class="text-slate-600">›</span>
       {/if}
     {/each}
@@ -117,8 +113,6 @@
       <FileUpload onSessionReady={handleSessionReady} />
     {:else if step === "review" && activeSession}
       <ReviewTable session={activeSession} onCommitted={handleCommitted} onCancel={handleCancel} />
-    {:else if step === "done" && commitResult}
-      <CommitSummary result={commitResult} onDone={backToTransactions} />
     {/if}
   </section>
 </div>

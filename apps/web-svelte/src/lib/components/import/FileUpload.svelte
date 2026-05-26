@@ -15,7 +15,7 @@
     type ImportSession,
   } from "$lib/services/bank-import";
   import Button from "$lib/components/ui/Button.svelte";
-  import { cn } from "$lib/utils";
+  import { cn, transactionsUrlForRange } from "$lib/utils";
   import { toast } from "svelte-sonner";
   import { Upload } from "lucide-svelte";
 
@@ -74,10 +74,11 @@
         committedConflict = existing;
         return;
       }
+      // An uncommitted preview for the same file is an abandoned earlier
+      // attempt. Cancel it (frees the partial unique index on file hash) and
+      // start fresh — no mid-review resume.
       if (existing?.status === "preview") {
-        toast.success(m.bank_upload_resumed());
-        onSessionReady(existing);
-        return;
+        await cancelImportSession(existing.id);
       }
 
       const session = await openImportSession({
@@ -132,13 +133,7 @@
         return;
       }
 
-      const params = new URLSearchParams({
-        startYear: String(startYear),
-        startMonth: String(startMonth),
-        endYear: String(endYear),
-        endMonth: String(endMonth),
-      });
-      await goto(`/transactions?${params.toString()}`);
+      await goto(transactionsUrlForRange({ startYear, startMonth, endYear, endMonth }));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
     }
