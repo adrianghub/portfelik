@@ -1,6 +1,12 @@
 <script lang="ts">
   import { supabase } from "$lib/supabase";
   import { goto } from "$app/navigation";
+  import { page } from "$app/state";
+  import {
+    clearLoginRedirect,
+    redirectTargetFromUrl,
+    rememberLoginRedirect,
+  } from "$lib/auth-redirect";
   import * as m from "$lib/paraglide/messages";
   import { dailyGreeting } from "$lib/dashboard-daily";
 
@@ -13,7 +19,8 @@
 
   async function signInWithEmail(e: SubmitEvent) {
     e.preventDefault();
-    if (!email) {
+    const normalizedEmail = email.trim();
+    if (!normalizedEmail) {
       error = m.login_error_email_required();
       return;
     }
@@ -24,8 +31,12 @@
 
     loading = true;
     error = null;
+    const redirectTarget = redirectTargetFromUrl(page.url);
 
-    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: normalizedEmail,
+      password,
+    });
 
     if (authError) {
       if (authError.message.includes("Invalid login credentials")) {
@@ -39,12 +50,15 @@
       return;
     }
 
-    goto("/");
+    clearLoginRedirect();
+    await goto(redirectTarget, { replaceState: true });
+    loading = false;
   }
 
   async function signInWithGoogle() {
     loading = true;
     error = null;
+    rememberLoginRedirect(redirectTargetFromUrl(page.url));
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: `${window.location.origin}/auth/callback` },
