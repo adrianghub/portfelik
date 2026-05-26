@@ -18,18 +18,6 @@ declare
   v_count int;
   v_has_pending_invitation boolean;
 begin
-  select exists (
-    select 1
-    from public.group_invitations gi
-    where gi.status = 'pending'
-      and lower(gi.invited_user_email) = lower(new.email)
-  )
-  into v_has_pending_invitation;
-
-  if v_has_pending_invitation then
-    return new;
-  end if;
-
   select decrypted_secret into v_cap_text
   from vault.decrypted_secrets
   where name = 'max_user_cap'
@@ -51,7 +39,21 @@ begin
       using errcode = 'invalid_parameter_value';
   end if;
 
+  -- Invited and non-invited signups share one lock boundary, so a
+  -- non-invited count check cannot race an invited insert commit.
   perform pg_advisory_xact_lock(hashtext('max_user_cap'));
+
+  select exists (
+    select 1
+    from public.group_invitations gi
+    where gi.status = 'pending'
+      and lower(gi.invited_user_email) = lower(new.email)
+  )
+  into v_has_pending_invitation;
+
+  if v_has_pending_invitation then
+    return new;
+  end if;
 
   select count(*) into v_count from auth.users;
 
