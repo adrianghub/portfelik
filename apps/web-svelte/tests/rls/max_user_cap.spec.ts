@@ -5,6 +5,7 @@ import { createAdminClient, provisionTwoUsers, type TestContext } from "./setup"
 
 const CAP_SECRET_NAME = "max_user_cap";
 const EMAIL_PREFIX = "cap-";
+const INVITED_EMAIL_PREFIX = "cap-invited-";
 const REPO_ROOT = resolve(process.cwd(), "../..");
 
 let ctx: TestContext;
@@ -77,6 +78,31 @@ describe("Auth: max_user_cap", () => {
 
     expect(result.data.user).toBeNull();
     expect(result.error).not.toBeNull();
+  });
+
+  it("allows invited auth user creation even when the Vault cap is reached", async () => {
+    const { data: groupData, error: groupErr } = await ctx.userA.client.rpc("create_group", {
+      p_name: `__rls__ invite-cap-${crypto.randomUUID()}`,
+    });
+    if (groupErr || !groupData) throw groupErr ?? new Error("no group");
+
+    const invitedEmail = `${INVITED_EMAIL_PREFIX}${crypto.randomUUID()}@rls.test`;
+    const { error: inviteErr } = await ctx.userA.client.rpc("invite_user", {
+      p_group_id: (groupData as { id: string }).id,
+      p_email: invitedEmail,
+    });
+    if (inviteErr) throw inviteErr;
+
+    const { data } = await ctx.admin.auth.admin.listUsers({ page: 1, perPage: 200 });
+    await setCapSecret(String(data.users.length));
+
+    const result = await ctx.admin.auth.admin.createUser({
+      email: invitedEmail,
+      email_confirm: true,
+    });
+
+    expect(result.error).toBeNull();
+    expect(result.data.user?.id).toBeTruthy();
   });
 
   it("fails closed when the configured Vault cap is invalid", async () => {

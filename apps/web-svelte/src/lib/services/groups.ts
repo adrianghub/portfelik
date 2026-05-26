@@ -28,11 +28,13 @@ export async function fetchReceivedInvitations(): Promise<GroupInvitation[]> {
   } = await supabase.auth.getUser();
   if (userError || !user?.email) throw userError ?? new Error("Not authenticated");
 
+  const email = user.email.trim().toLowerCase();
+
   const { data, error } = await supabase
     .from("group_invitations")
     .select("*")
     .eq("status", "pending")
-    .eq("invited_user_email", user.email)
+    .eq("invited_user_email", email)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
@@ -81,7 +83,7 @@ export async function leaveGroup(groupId: string): Promise<void> {
 export async function inviteUser(groupId: string, email: string): Promise<GroupInvitation> {
   const { data, error } = await supabase.rpc("invite_user", {
     p_group_id: groupId,
-    p_email: email,
+    p_email: email.trim().toLowerCase(),
   });
   if (error) throw error;
   return data as GroupInvitation;
