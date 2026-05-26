@@ -2,12 +2,10 @@ import { expect, test, type Page } from "@playwright/test";
 import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
 import { MOCK_CATEGORIES, MOCK_PROFILE, MOCK_TRANSACTIONS, MOCK_USER } from "../helpers/fixtures";
 
-const SUPABASE = "https://emqzcygfwcvbmhxhfkcc.supabase.co";
-
 async function mockPasswordLogin(page: Page) {
   let signedIn = false;
 
-  await page.route(`${SUPABASE}/auth/v1/**`, async (route) => {
+  await page.route("**/auth/v1/**", async (route) => {
     const url = route.request().url();
     if (url.includes("/token") && route.request().method() === "POST") {
       signedIn = true;
@@ -28,7 +26,7 @@ async function mockPasswordLogin(page: Page) {
     return route.fulfill({ status: 401, json: { message: "Auth session missing" } });
   });
 
-  await page.route(`${SUPABASE}/rest/v1/**`, async (route) => {
+  await page.route("**/rest/v1/**", async (route) => {
     const url = route.request().url();
     if (url.includes("/profiles")) return route.fulfill({ status: 200, json: [MOCK_PROFILE] });
     if (url.includes("/categories")) return route.fulfill({ status: 200, json: MOCK_CATEGORIES });
