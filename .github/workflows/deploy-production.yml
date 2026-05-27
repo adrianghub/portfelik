@@ -1,0 +1,152 @@
+name: Deploy production
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  quality:
+    name: Typecheck, lint, format, unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-web
+
+      - name: Typecheck
+        working-directory: apps/web-svelte
+        run: |
+          printf 'PUBLIC_SUPABASE_URL=https://placeholder.supabase.co\nPUBLIC_SUPABASE_ANON_KEY=placeholder\nPUBLIC_VAPID_KEY=placeholder\n' > .env
+          pnpm exec svelte-kit sync
+          pnpm exec svelte-check --tsconfig ./tsconfig.json
+
+      - name: Lint
+        working-directory: apps/web-svelte
+        run: pnpm lint
+
+      - name: Format check
+        working-directory: apps/web-svelte
+        run: pnpm format:check
+
+      - name: Unit tests
+        working-directory: apps/web-svelte
+        run: pnpm test:unit
+
+      - name: Secret scan
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          curl -fsSL -o /tmp/gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  /tmp/gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          /tmp/gitleaks git --no-banner --redact --config .gitleaks.toml .
+
+  rls:
+    name: RLS regression
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-web
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase stack
+        run: supabase start
+
+      - name: Capture local Supabase env
+        run: |
+          eval "$(supabase status -o env | sed -E 's/^([A-Z_]+)="?([^"]+)"?$/export \1=\2/')"
+          {
+            echo "SUPABASE_URL=$API_URL"
+            echo "SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
+
+      - name: Generate ephemeral RLS test password
+        run: echo "RLS_TEST_PASSWORD=$(openssl rand -hex 24)" >> "$GITHUB_ENV"
+
+      - name: Run RLS suite
+        working-directory: apps/web-svelte
+        run: pnpm test:rls
+
+      - name: Stop local Supabase stack
+        if: always()
+        run: supabase stop --no-backup
+
+  e2e:
+    name: Playwright E2E mocked
+    needs: [quality, rls]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-web
+
+      - name: Install Playwright browsers
+        working-directory: apps/web-svelte
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Build app
+        working-directory: apps/web-svelte
+        env:
+          PUBLIC_SUPABASE_URL: https://emqzcygfwcvbmhxhfkcc.supabase.co
+          PUBLIC_SUPABASE_ANON_KEY: test-anon-key
+          PUBLIC_VAPID_KEY: BHKoiccZwq3Y5Qw5dmFxRSuFyRarLcdvqT4
+        run: pnpm build
+
+      - name: Run Playwright tests
+        working-directory: apps/web-svelte
+        env:
+          CI: true
+        run: pnpm exec playwright test
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/web-svelte/playwright-report/
+          retention-days: 7
+
+  deploy:
+    name: Cloudflare Pages production
+    needs: [quality, rls, e2e]
+    runs-on: ubuntu-latest
+    environment:
+      name: Production
+      url: https://portfelik.adrianzinko.com
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-web
+
+      - name: Build SvelteKit app
+        working-directory: apps/web-svelte
+        env:
+          PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
+          PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
+          PUBLIC_VAPID_KEY: ${{ secrets.PUBLIC_VAPID_KEY }}
+        run: pnpm build
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy apps/web-svelte/build --project-name=portfelik --branch=main --commit-dirty=true

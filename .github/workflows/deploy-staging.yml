@@ -1,31 +1,26 @@
-name: CI / Deploy
+name: Deploy staging
 
 on:
   push:
-    branches: ["**"]
-  pull_request:
-    branches: [main]
+    branches: [dev]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: true
 
 jobs:
-  ci:
-    name: Typecheck & Lint
+  quality:
+    name: Typecheck, lint, format, unit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v5
-        with:
-          version: 10
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "22"
-          cache: "pnpm"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup-web
 
       - name: Typecheck
         working-directory: apps/web-svelte
@@ -57,21 +52,13 @@ jobs:
           /tmp/gitleaks git --no-banner --redact --config .gitleaks.toml .
 
   rls:
-    name: RLS regression (local Supabase)
-    needs: ci
-    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && github.event_name == 'push'
+    name: RLS regression
+    needs: quality
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v5
-        with:
-          version: 10
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "22"
-          cache: "pnpm"
+      - uses: ./.github/actions/setup-web
 
       - uses: supabase/setup-cli@v1
         with:
@@ -89,9 +76,6 @@ jobs:
             echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
           } >> "$GITHUB_ENV"
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
       - name: Generate ephemeral RLS test password
         run: echo "RLS_TEST_PASSWORD=$(openssl rand -hex 24)" >> "$GITHUB_ENV"
 
@@ -104,24 +88,13 @@ jobs:
         run: supabase stop --no-backup
 
   e2e:
-    name: Playwright E2E (mocked)
-    needs: [ci, rls]
-    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && github.event_name == 'push'
+    name: Playwright E2E mocked
+    needs: [quality, rls]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v5
-        with:
-          version: 10
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "22"
-          cache: "pnpm"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup-web
 
       - name: Install Playwright browsers
         working-directory: apps/web-svelte
@@ -148,51 +121,9 @@ jobs:
           path: apps/web-svelte/playwright-report/
           retention-days: 7
 
-  deploy-prod:
-    name: Deploy to Cloudflare Pages (production)
-    needs: [ci, rls, e2e]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    runs-on: ubuntu-latest
-    environment:
-      name: Production
-      url: https://portfelik.adrianzinko.com
-    permissions:
-      contents: read
-      deployments: write
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: pnpm/action-setup@v5
-        with:
-          version: 10
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "22"
-          cache: "pnpm"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build SvelteKit app
-        working-directory: apps/web-svelte
-        env:
-          PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
-          PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
-          PUBLIC_VAPID_KEY: ${{ secrets.PUBLIC_VAPID_KEY }}
-        run: pnpm build
-
-      - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy apps/web-svelte/build --project-name=portfelik --branch=main --commit-dirty=true
-
-  migrate-staging:
-    name: Migrate and seed staging Supabase
-    needs: [ci, rls, e2e]
-    if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
+  migrate:
+    name: Migrate and seed Supabase
+    needs: [quality, rls, e2e]
     runs-on: ubuntu-latest
     environment:
       name: Staging
@@ -200,21 +131,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v5
-        with:
-          version: 10
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "22"
-          cache: "pnpm"
+      - uses: ./.github/actions/setup-web
 
       - uses: supabase/setup-cli@v1
         with:
           version: latest
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
 
       - name: Link staging project
         env:
@@ -251,10 +172,9 @@ jobs:
           STAGING_E2E_SMOKE_PASSWORD: ${{ secrets.STAGING_E2E_SMOKE_PASSWORD }}
         run: pnpm seed:staging
 
-  deploy-staging:
-    name: Deploy to Cloudflare Pages (staging)
-    needs: [ci, rls, e2e, migrate-staging]
-    if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
+  deploy:
+    name: Cloudflare Pages
+    needs: migrate
     runs-on: ubuntu-latest
     environment:
       name: Staging
@@ -265,17 +185,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v5
-        with:
-          version: 10
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "22"
-          cache: "pnpm"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup-web
 
       - name: Build SvelteKit app
         working-directory: apps/web-svelte
@@ -295,9 +205,8 @@ jobs:
           command: pages deploy apps/web-svelte/build --project-name=portfelik --branch=dev --commit-dirty=true
 
   smoke:
-    name: Real-DB smoke (staging)
-    needs: deploy-staging
-    if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
+    name: Real-DB smoke
+    needs: deploy
     runs-on: ubuntu-latest
     environment:
       name: Staging
@@ -305,17 +214,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v5
-        with:
-          version: 10
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "22"
-          cache: "pnpm"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup-web
 
       - name: Install Playwright browsers
         working-directory: apps/web-svelte
