@@ -8,6 +8,9 @@
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import { fetchCategories } from "$lib/services/categories";
   import { fetchUserGroups } from "$lib/services/groups";
+  import { createCategorizationRule } from "$lib/services/categorization-rules";
+  import { matchCategory } from "$lib/import/categorize";
+  import type { CategorizationRule } from "$lib/types";
   import {
     commitImportSession,
     fetchSessionRows,
@@ -21,6 +24,7 @@
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { toast } from "svelte-sonner";
   import { cn, formatCurrency } from "$lib/utils";
+  import { BookmarkPlus } from "lucide-svelte";
 
   interface Props {
     session: ImportSession;
@@ -163,6 +167,13 @@
     }
   }
 
+  // Eligible = has a category but is not yet marked import. When zero, the
+  // "import all with category" button is disabled (it would otherwise no-op
+  // silently in the default, uncategorized state).
+  const bulkImportableCount = $derived(
+    rows.filter((r) => r.selected_category_id !== null && r.decision !== "import").length
+  );
+
   async function bulkImportValid(): Promise<void> {
     const targets = rows.filter((r) => r.selected_category_id !== null && r.decision !== "import");
     await Promise.all(targets.map((r) => patchRow(r.id, { decision: "import" })));
@@ -183,6 +194,88 @@
 
   function clearFilter(): void {
     filter = "all";
+  }
+
+  // "Save as rule": turn a categorized row into a reusable categorization rule
+  // so future imports pre-fill the same category. Match phrase defaults to the
+  // counterparty when present (more stable than the free-text description).
+  let ruleRow = $state<ImportRow | null>(null);
+  let ruleField = $state<"description" | "counterparty">("description");
+  let ruleKind = $state<"contains" | "exact">("contains");
+  let ruleText = $state("");
+  let ruleSaving = $state(false);
+
+  // Candidate rule from the live dialog state — drives the match-count preview
+  // and the "apply to current batch" step on save.
+  function draftRule(): CategorizationRule | null {
+    const catId = ruleRow?.selected_category_id;
+    const text = ruleText.trim();
+    if (!catId || text === "") return null;
+    return {
+      id: "__draft__",
+      user_id: "__draft__",
+      kind: ruleKind,
+      match_description: ruleField === "description" ? text : null,
+      match_counterparty: ruleField === "counterparty" ? text : null,
+      match_type: null,
+      category_id: catId,
+      priority: 0,
+      created_at: "",
+    };
+  }
+
+  const ruleMatchCount = $derived.by(() => {
+    const draft = draftRule();
+    if (!draft) return 0;
+    const cats = categoriesQuery.data ?? [];
+    return rows.filter((r) => matchCategory(r, [draft], cats) !== null).length;
+  });
+
+  function openRuleDialog(row: ImportRow): void {
+    if (!row.selected_category_id) return;
+    ruleRow = row;
+    ruleField = row.counterparty ? "counterparty" : "description";
+    ruleKind = "contains";
+    ruleText = row.counterparty ?? row.edited_description ?? row.description;
+  }
+
+  async function saveRule(): Promise<void> {
+    const row = ruleRow;
+    const text = ruleText.trim();
+    if (!row || !row.selected_category_id || text === "") return;
+    ruleSaving = true;
+    try {
+      const created = await createCategorizationRule({
+        kind: ruleKind,
+        category_id: row.selected_category_id,
+        match_description: ruleField === "description" ? text : null,
+        match_counterparty: ruleField === "counterparty" ? text : null,
+      });
+      await queryClient.invalidateQueries({ queryKey: ["categorization_rules"] });
+
+      // Apply to the current batch: fill matching rows that are still
+      // uncategorized (never overwrite a manual category pick). patchRow flips
+      // pending → import when a category lands.
+      const cats = categoriesQuery.data ?? [];
+      const targets = rows.filter(
+        (r) => r.selected_category_id == null && matchCategory(r, [created], cats) !== null
+      );
+      await Promise.all(
+        targets.map((r) => patchRow(r.id, { selected_category_id: created.category_id }))
+      );
+
+      toast.success(
+        m.bank_review_save_rule_success(),
+        targets.length > 0
+          ? { description: m.bank_review_rule_applied({ count: targets.length }) }
+          : undefined
+      );
+      ruleRow = null;
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      ruleSaving = false;
+    }
   }
 
   function getImportedDateRange(): ImportedDateRange | undefined {
@@ -273,7 +366,12 @@
     {/if}
 
     <div class="flex flex-wrap items-center gap-2">
-      <Button variant="ghost" size="sm" onclick={bulkImportValid}>
+      <Button
+        variant="ghost"
+        size="sm"
+        disabled={bulkImportableCount === 0}
+        onclick={bulkImportValid}
+      >
         {m.bank_review_bulk_import_valid()}
       </Button>
       <Button variant="ghost" size="sm" onclick={bulkSkipAll}>
@@ -370,18 +468,29 @@
                 {/if}
               </td>
               <td class="px-3 py-2 align-top">
-                <Select
-                  value={row.selected_category_id ?? ""}
-                  onchange={(e) => {
-                    const v = (e.target as HTMLSelectElement).value;
-                    void patchRow(row.id, { selected_category_id: v === "" ? null : v });
-                  }}
-                >
-                  <option value="">—</option>
-                  {#each categoriesFor(row.type) as c (c.id)}
-                    <option value={c.id}>{c.name}</option>
-                  {/each}
-                </Select>
+                <div class="flex items-center gap-1">
+                  <Select
+                    value={row.selected_category_id ?? ""}
+                    onchange={(e) => {
+                      const v = (e.target as HTMLSelectElement).value;
+                      void patchRow(row.id, { selected_category_id: v === "" ? null : v });
+                    }}
+                  >
+                    <option value="">—</option>
+                    {#each categoriesFor(row.type) as c (c.id)}
+                      <option value={c.id}>{c.name}</option>
+                    {/each}
+                  </Select>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    title={m.bank_review_save_rule()}
+                    disabled={!row.selected_category_id}
+                    onclick={() => openRuleDialog(row)}
+                  >
+                    <BookmarkPlus size={16} aria-hidden="true" />
+                  </Button>
+                </div>
               </td>
               <td class="px-3 py-2 align-top">
                 <Select
@@ -456,19 +565,30 @@
           </div>
 
           <div class="grid grid-cols-2 gap-2">
-            <Select
-              class="w-full min-w-0"
-              value={row.selected_category_id ?? ""}
-              onchange={(e) => {
-                const v = (e.target as HTMLSelectElement).value;
-                void patchRow(row.id, { selected_category_id: v === "" ? null : v });
-              }}
-            >
-              <option value="">{m.bank_review_header_category()}</option>
-              {#each categoriesFor(row.type) as c (c.id)}
-                <option value={c.id}>{c.name}</option>
-              {/each}
-            </Select>
+            <div class="flex min-w-0 items-center gap-1">
+              <Select
+                class="w-full min-w-0"
+                value={row.selected_category_id ?? ""}
+                onchange={(e) => {
+                  const v = (e.target as HTMLSelectElement).value;
+                  void patchRow(row.id, { selected_category_id: v === "" ? null : v });
+                }}
+              >
+                <option value="">{m.bank_review_header_category()}</option>
+                {#each categoriesFor(row.type) as c (c.id)}
+                  <option value={c.id}>{c.name}</option>
+                {/each}
+              </Select>
+              <Button
+                variant="ghost"
+                size="sm"
+                title={m.bank_review_save_rule()}
+                disabled={!row.selected_category_id}
+                onclick={() => openRuleDialog(row)}
+              >
+                <BookmarkPlus size={16} aria-hidden="true" />
+              </Button>
+            </div>
             <Select
               class="w-full min-w-0"
               value={row.decision}
@@ -503,6 +623,64 @@
     </Button>
   </div>
 </div>
+
+<!-- Save-as-rule: create a reusable categorization rule from a categorized row. -->
+<Dialog
+  open={ruleRow !== null}
+  onclose={() => (ruleRow = null)}
+  title={m.bank_review_save_rule_title()}
+>
+  {#if ruleRow}
+    <div class="space-y-4">
+      <label class="block space-y-1">
+        <span class="text-xs text-slate-400">{m.bank_review_save_rule_match_label()}</span>
+        <Select
+          value={ruleField}
+          onchange={(e) =>
+            (ruleField = (e.target as HTMLSelectElement).value as "description" | "counterparty")}
+        >
+          <option value="counterparty">{m.bank_review_save_rule_field_counterparty()}</option>
+          <option value="description">{m.bank_review_save_rule_field_description()}</option>
+        </Select>
+      </label>
+      <label class="block space-y-1">
+        <span class="text-xs text-slate-400">{m.bank_review_save_rule_kind_label()}</span>
+        <Select
+          value={ruleKind}
+          onchange={(e) =>
+            (ruleKind = (e.target as HTMLSelectElement).value as "contains" | "exact")}
+        >
+          <option value="contains">{m.bank_review_save_rule_kind_contains()}</option>
+          <option value="exact">{m.bank_review_save_rule_kind_exact()}</option>
+        </Select>
+      </label>
+      <label class="block space-y-1">
+        <span class="text-xs text-slate-400">{m.bank_review_save_rule_text_label()}</span>
+        <Input bind:value={ruleText} />
+      </label>
+      <p class="text-xs text-slate-500">
+        {m.bank_review_save_rule_preview({ count: ruleMatchCount, total: rows.length })}
+      </p>
+      <p class="text-xs text-slate-400">
+        {m.bank_review_save_rule_category_label()}: {categoryName(ruleRow.selected_category_id) ??
+          "—"}
+      </p>
+      <div class="flex justify-end gap-2">
+        <Button variant="ghost" onclick={() => (ruleRow = null)} disabled={ruleSaving}>
+          {m.bank_review_save_rule_cancel()}
+        </Button>
+        <Button
+          variant="primary"
+          disabled={ruleSaving || ruleText.trim() === ""}
+          loading={ruleSaving}
+          onclick={() => void saveRule()}
+        >
+          {m.bank_review_save_rule_submit()}
+        </Button>
+      </div>
+    </div>
+  {/if}
+</Dialog>
 
 <!-- Final confirmation: read-only digest of exactly what will be created,
      shown before the irreversible commit. -->

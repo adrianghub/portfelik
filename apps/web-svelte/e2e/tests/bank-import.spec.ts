@@ -46,3 +46,22 @@ test("import wizard: invalid CSV surfaces unknown-kind error", async ({ page }) 
     timeout: 10_000,
   });
 });
+
+test("import wizard: selected file is retained as a chip and can be removed", async ({ page }) => {
+  await page.goto("/transactions/import");
+
+  const fileInput = page.locator('input[type="file"]');
+  await fileInput.setInputFiles({
+    name: "wyciag.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from("not a real bank export\nfoo,bar,baz\n1,2,3\n", "utf8"),
+  });
+
+  // The file persists on the upload panel as a chip with re-process + remove.
+  await expect(page.getByText("wyciag.csv")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("button", { name: "Przetwórz ponownie" })).toBeVisible();
+
+  // Removing clears the chip.
+  await page.getByRole("button", { name: "Usuń plik" }).click();
+  await expect(page.getByText("wyciag.csv")).toHaveCount(0);
+});
