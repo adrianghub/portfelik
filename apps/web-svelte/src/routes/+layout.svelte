@@ -8,7 +8,14 @@
   import { onMount } from "svelte";
   import { fade } from "svelte/transition";
   import { motionDuration } from "$lib/motion";
+  import {
+    clearLoginRedirect,
+    consumeLoginRedirect,
+    loginUrlForTarget,
+    rememberLoginRedirect,
+  } from "$lib/auth-redirect";
   import Navigation from "$lib/components/Navigation.svelte";
+  import Breadcrumbs from "$lib/components/ui/Breadcrumbs.svelte";
   import OfflineIndicator from "$lib/components/ui/OfflineIndicator.svelte";
   import { fetchProfile } from "$lib/services/profiles";
   import {
@@ -43,6 +50,7 @@
   let user = $state<User | null>(null);
   let userId = $state<string | null>(null);
   let authStatus = $state<"checking" | "authenticated" | "anonymous">("checking");
+  let authRevision = 0;
   let notifPermission = $state<NotificationPermission>("default");
   let pushPromptedRecently = $state(false);
   let isPublicRoute = $derived(PUBLIC_PATHS.includes(page.url.pathname));
@@ -85,16 +93,23 @@
     markPushPrompted();
   }
 
+  function redirectToLogin() {
+    const target = `${page.url.pathname}${page.url.search}`;
+    rememberLoginRedirect(target);
+    void goto(loginUrlForTarget(target), { replaceState: true });
+  }
+
   $effect(() => {
     if (typeof window === "undefined" || authStatus === "checking") return;
     if (!isPublicRoute && authStatus === "anonymous") {
-      goto("/login");
+      redirectToLogin();
     } else if (page.url.pathname === "/login" && authStatus === "authenticated") {
-      goto("/transactions");
+      void goto(consumeLoginRedirect(page.url), { replaceState: true });
     }
   });
 
   function clearAuthenticatedUser() {
+    authRevision += 1;
     profile = null;
     user = null;
     userId = null;
@@ -102,11 +117,14 @@
   }
 
   function loadAuthenticatedUser(authUser: User) {
+    const revision = (authRevision += 1);
     user = authUser;
     userId = authUser.id;
     authStatus = "authenticated";
     fetchProfile(authUser.id)
-      .then((p) => (profile = p))
+      .then((p) => {
+        if (revision === authRevision) profile = p;
+      })
       .catch(() => {});
     registerServiceWorker().then(() => autoSubscribePush(authUser.id).catch(() => {}));
   }
@@ -115,10 +133,13 @@
     if ("Notification" in window) notifPermission = Notification.permission;
     readPushPromptCooldown();
 
+    const bootstrapRevision = authRevision;
     const {
       data: { user: authUser },
       error: userError,
     } = await supabase.auth.getUser();
+
+    if (bootstrapRevision !== authRevision) return;
 
     if (userError || !authUser) {
       clearAuthenticatedUser();
@@ -127,32 +148,22 @@
     }
 
     if (!authUser && !isPublicRoute) {
-      goto("/login");
+      redirectToLogin();
       return;
     }
 
     supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
         unsubscribeFromPush().catch(() => {});
+        clearLoginRedirect();
         clearAuthenticatedUser();
-        goto("/login");
+        void goto("/login", { replaceState: true });
       }
-      if (event === "SIGNED_IN" && session) {
-        supabase.auth
-          .getUser()
-          .then(({ data, error }) => {
-            if (error || !data.user) {
-              clearAuthenticatedUser();
-              if (!isPublicRoute) goto("/login");
-              return;
-            }
-            loadAuthenticatedUser(data.user);
-            if (page.url.pathname === "/login") goto("/transactions");
-          })
-          .catch(() => {
-            clearAuthenticatedUser();
-            if (!isPublicRoute) goto("/login");
-          });
+      if (event === "SIGNED_IN" && session?.user) {
+        loadAuthenticatedUser(session.user);
+        if (page.url.pathname === "/login") {
+          void goto(consumeLoginRedirect(page.url), { replaceState: true });
+        }
       }
     });
   });
@@ -197,6 +208,7 @@
       </div>
     {/if}
     <main class="min-h-screen bg-slate-950 pt-14 pb-24 md:pb-6">
+      <Breadcrumbs />
       {#key page.url.pathname}
         <div in:fade={{ duration: motionDuration(140) }}>
           {@render children()}
