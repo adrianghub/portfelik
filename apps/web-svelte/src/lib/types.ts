@@ -13,6 +13,20 @@ export interface Category {
   updated_at: string;
 }
 
+export type CategorizationRuleKind = "exact" | "contains" | "type" | "composite";
+
+export interface CategorizationRule {
+  id: string;
+  user_id: string;
+  kind: CategorizationRuleKind;
+  match_description: string | null;
+  match_counterparty: string | null;
+  match_type: TransactionType | null;
+  category_id: string;
+  priority: number;
+  created_at: string;
+}
+
 export interface Transaction {
   id: string;
   amount: number;

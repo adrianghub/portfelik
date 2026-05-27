@@ -1,14 +1,21 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { SENTINEL, cleanupSentinels, provisionTwoUsers, type TestContext } from "./setup";
 
-// Path B coverage for preview_fingerprint_warnings + commit_import_session —
-// shopping-list-created expenses (no transaction_import_links) must surface as
-// fingerprint warnings when an import row matches by (type='expense', amount,
-// currency, ±3 days) and the caller can see the transaction (own or group).
-// Warning shape is privacy-safe: {row_id, duplicate_of_transaction_id} only.
+// Path B/C coverage for preview_fingerprint_warnings + commit_import_session.
+// Shopping-list-created expenses and manual/non-list transactions must surface
+// as warnings when an import row matches by type/amount/currency/date window
+// and the caller can see the transaction.
 
-describe("Path B: list-created duplicate warnings (preview + commit)", () => {
+describe("Path B/C: cross-source duplicate warnings (preview + commit)", () => {
   let ctx: TestContext;
+  const warningKeys = [
+    "duplicate_of_amount",
+    "duplicate_of_currency",
+    "duplicate_of_date",
+    "duplicate_of_description",
+    "duplicate_of_transaction_id",
+    "row_id",
+  ];
 
   beforeAll(async () => {
     ctx = await provisionTwoUsers();
@@ -164,13 +171,19 @@ describe("Path B: list-created duplicate warnings (preview + commit)", () => {
     const warnings = data as Array<Record<string, unknown>>;
     expect(warnings).toHaveLength(1);
     const w = warnings[0];
-    expect(Object.keys(w).sort()).toEqual(["duplicate_of_transaction_id", "row_id"]);
+    expect(Object.keys(w).sort()).toEqual(warningKeys);
     expect(w.row_id).toBe(preview.rowId);
     expect(w.duplicate_of_transaction_id).toBe(fixture.txId);
+    expect(w).toMatchObject({
+      duplicate_of_amount: 42.5,
+      duplicate_of_currency: "PLN",
+      duplicate_of_date: "2026-03-10",
+      duplicate_of_description: `${SENTINEL} tx-match-A`,
+    });
   });
 
-  it("ignores non-list manual expense (shopping_list_id is null)", async () => {
-    await makeListAndExpenseTx({
+  it("warns for a matching manual/non-list expense within ±1 day", async () => {
+    const fixture = await makeListAndExpenseTx({
       suffix: "nolist-A",
       txUserId: ctx.userA.userId,
       amount: 42.5,
@@ -180,6 +193,38 @@ describe("Path B: list-created duplicate warnings (preview + commit)", () => {
 
     const preview = await makeImportSessionAndRow({
       suffix: "nolist-A",
+      sessionUserId: ctx.userA.userId,
+      postedAt: "2026-03-11",
+      amount: 42.5,
+    });
+
+    const { data, error } = await ctx.userA.client.rpc("preview_fingerprint_warnings", {
+      p_session_id: preview.sessionId,
+    });
+    expect(error).toBeNull();
+    const warnings = data as Array<Record<string, unknown>>;
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatchObject({
+      row_id: preview.rowId,
+      duplicate_of_transaction_id: fixture.txId,
+      duplicate_of_date: "2026-03-10",
+      duplicate_of_amount: 42.5,
+      duplicate_of_currency: "PLN",
+      duplicate_of_description: `${SENTINEL} tx-nolist-A`,
+    });
+  });
+
+  it("ignores manual/non-list candidates outside the tighter ±1-day window", async () => {
+    await makeListAndExpenseTx({
+      suffix: "nolist-window-A",
+      txUserId: ctx.userA.userId,
+      amount: 42.5,
+      txDate: "2026-03-10T12:00:00Z",
+      hasShoppingList: false,
+    });
+
+    const preview = await makeImportSessionAndRow({
+      suffix: "nolist-window-A",
       sessionUserId: ctx.userA.userId,
       postedAt: "2026-03-12",
       amount: 42.5,
@@ -416,11 +461,17 @@ describe("Path B: list-created duplicate warnings (preview + commit)", () => {
     expect(result.inserted).toBe(1);
     expect(result.fingerprint_warnings).toHaveLength(1);
     const w = result.fingerprint_warnings[0];
-    expect(Object.keys(w).sort()).toEqual(["duplicate_of_transaction_id", "row_id"]);
+    expect(Object.keys(w).sort()).toEqual(warningKeys);
     expect(w.row_id).toBe(preview.rowId);
     // The list-created tx is the original; the freshly inserted import tx
     // is excluded by the `t.id <> v_new_tx_id` guard, so the warning points
     // back to the list-created transaction.
     expect(w.duplicate_of_transaction_id).toBe(fixture.txId);
+    expect(w).toMatchObject({
+      duplicate_of_date: "2026-03-10",
+      duplicate_of_amount: 42.5,
+      duplicate_of_currency: "PLN",
+      duplicate_of_description: `${SENTINEL} tx-commit-A`,
+    });
   });
 });

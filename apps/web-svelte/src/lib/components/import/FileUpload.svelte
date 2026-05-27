@@ -4,6 +4,9 @@
   import { decodeBankCsv } from "$lib/import/csv/decode";
   import { detectBank, getAdapter } from "$lib/import/banks/detect";
   import { normalize } from "$lib/import/normalize";
+  import { matchCategory } from "$lib/import/categorize";
+  import { fetchCategorizationRules } from "$lib/services/categorization-rules";
+  import { fetchCategories } from "$lib/services/categories";
   import {
     cancelImportSession,
     fetchSessionRows,
@@ -17,12 +20,16 @@
   import Button from "$lib/components/ui/Button.svelte";
   import { cn, transactionsUrlForRange } from "$lib/utils";
   import { toast } from "svelte-sonner";
-  import { Upload } from "lucide-svelte";
+  import { Upload, FileText, X } from "lucide-svelte";
 
   interface Props {
     onSessionReady: (session: ImportSession) => void;
+    /** Last selected file, lifted to the page so it survives a back-nav. */
+    initialFile?: File | null;
+    /** Report the current file up so the page can retain it across steps. */
+    onFileRetained?: (file: File | null) => void;
   }
-  let { onSessionReady }: Props = $props();
+  let { onSessionReady, initialFile = null, onFileRetained }: Props = $props();
 
   let busy = $state(false);
   let dragOver = $state(false);
@@ -36,6 +43,8 @@
   }
 
   async function handleFile(file: File): Promise<void> {
+    // Retain the file on the page so returning to this step shows it again.
+    onFileRetained?.(file);
     error = null;
     parseErrorCount = 0;
     detectedBankLabel = null;
@@ -88,7 +97,20 @@
         detectedKind: detected,
       });
 
-      await insertPreviewRows(session.id, normalized.rows);
+      // Pre-fill categories from the user's deterministic rules when available.
+      // Rule/category loading is optional; if it fails, keep the import usable
+      // and let the user categorize rows manually in review.
+      let resolver: ((row: (typeof normalized.rows)[number]) => string | null) | undefined;
+      try {
+        const [rules, categories] = await Promise.all([
+          fetchCategorizationRules(),
+          fetchCategories(),
+        ]);
+        resolver = (r) => matchCategory(r, rules, categories);
+      } catch {
+        resolver = undefined;
+      }
+      await insertPreviewRows(session.id, normalized.rows, resolver);
       onSessionReady(session);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -152,6 +174,24 @@
     const file = e.dataTransfer?.files?.[0];
     if (file) void handleFile(file);
   }
+
+  function removeFile(): void {
+    onFileRetained?.(null);
+    error = null;
+    parseErrorCount = 0;
+    detectedBankLabel = null;
+    committedConflict = null;
+  }
+
+  function reprocess(): void {
+    if (initialFile) void handleFile(initialFile);
+  }
+
+  function formatSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
 </script>
 
 <div class="space-y-3 rounded-2xl border border-white/10 bg-slate-900/60 p-6 backdrop-blur">
@@ -171,6 +211,25 @@
     <p class="text-sm text-slate-300">{m.bank_upload_drop()}</p>
     <input type="file" accept=".csv,text/csv" class="hidden" disabled={busy} onchange={onSelect} />
   </label>
+
+  {#if initialFile && !busy}
+    <!-- Retained file from a previous step: ready to re-process or remove. -->
+    <div
+      class="flex items-center gap-3 rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3"
+    >
+      <FileText class="shrink-0 text-slate-400" size={20} aria-hidden="true" />
+      <div class="min-w-0 flex-1">
+        <p class="truncate text-sm text-slate-100">{initialFile.name}</p>
+        <p class="text-xs text-slate-500">{formatSize(initialFile.size)}</p>
+      </div>
+      <Button variant="ghost" size="sm" onclick={reprocess}>
+        {m.bank_upload_reprocess()}
+      </Button>
+      <Button variant="ghost" size="sm" title={m.bank_upload_remove_file()} onclick={removeFile}>
+        <X size={16} aria-hidden="true" />
+      </Button>
+    </div>
+  {/if}
 
   {#if busy}
     <p class="text-sm text-slate-400">{m.bank_upload_parsing()}</p>
