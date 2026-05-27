@@ -97,15 +97,20 @@
         detectedKind: detected,
       });
 
-      // Pre-fill categories from the user's deterministic rules so review
-      // starts pre-categorized. Failure to load rules must not block import.
-      const [rules, categories] = await Promise.all([
-        fetchCategorizationRules(),
-        fetchCategories(),
-      ]);
-      await insertPreviewRows(session.id, normalized.rows, (r) =>
-        matchCategory(r, rules, categories)
-      );
+      // Pre-fill categories from the user's deterministic rules when available.
+      // Rule/category loading is optional; if it fails, keep the import usable
+      // and let the user categorize rows manually in review.
+      let resolver: ((row: (typeof normalized.rows)[number]) => string | null) | undefined;
+      try {
+        const [rules, categories] = await Promise.all([
+          fetchCategorizationRules(),
+          fetchCategories(),
+        ]);
+        resolver = (r) => matchCategory(r, rules, categories);
+      } catch {
+        resolver = undefined;
+      }
+      await insertPreviewRows(session.id, normalized.rows, resolver);
       onSessionReady(session);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
