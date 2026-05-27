@@ -72,10 +72,16 @@ export interface CommitResult {
   duplicates_preview: number;
   duplicates_commit: number;
   skipped: number;
-  fingerprint_warnings: Array<{
-    row_id: string;
-    duplicate_of_transaction_id: string;
-  }>;
+  fingerprint_warnings: DuplicateWarning[];
+}
+
+export interface DuplicateWarning {
+  row_id: string;
+  duplicate_of_transaction_id: string;
+  duplicate_of_date: string;
+  duplicate_of_amount: number;
+  duplicate_of_currency: string;
+  duplicate_of_description: string;
 }
 
 // -------------------- bank_accounts --------------------
@@ -157,17 +163,15 @@ export async function findExistingSession(input: {
 
 /**
  * Read-only pre-commit probable-dup scan. Calls the SECURITY DEFINER RPC that
- * recomputes each preview row's fingerprint and joins to transaction_import_links.
+ * checks prior imports, shopping-list expenses, and manual/non-list transactions.
  * Result shape mirrors commit-time fingerprint_warnings exactly.
  */
-export async function previewFingerprintWarnings(
-  sessionId: string
-): Promise<Array<{ row_id: string; duplicate_of_transaction_id: string }>> {
+export async function previewFingerprintWarnings(sessionId: string): Promise<DuplicateWarning[]> {
   const { data, error } = await supabase.rpc("preview_fingerprint_warnings", {
     p_session_id: sessionId,
   });
   if (error) throw error;
-  return data as unknown as Array<{ row_id: string; duplicate_of_transaction_id: string }>;
+  return data as unknown as DuplicateWarning[];
 }
 
 export async function openImportSession(input: {

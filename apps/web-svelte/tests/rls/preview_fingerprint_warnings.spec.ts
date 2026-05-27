@@ -3,10 +3,19 @@ import { SENTINEL, cleanupSentinels, provisionTwoUsers, type TestContext } from 
 
 // Behavior spec for preview_fingerprint_warnings — pre-commit probable-dup scan.
 // Must use the same fingerprint formula as commit_import_session and the same
-// ±3-day window. Result shape is privacy-safe: only {row_id, duplicate_of_transaction_id}.
+// ±3-day window. Result shape includes matched-transaction context so the UI can
+// show what the duplicate badge refers to.
 
 describe("RPC: preview_fingerprint_warnings", () => {
   let ctx: TestContext;
+  const warningKeys = [
+    "duplicate_of_amount",
+    "duplicate_of_currency",
+    "duplicate_of_date",
+    "duplicate_of_description",
+    "duplicate_of_transaction_id",
+    "row_id",
+  ];
 
   beforeAll(async () => {
     ctx = await provisionTwoUsers();
@@ -191,9 +200,15 @@ describe("RPC: preview_fingerprint_warnings", () => {
     expect(warnings).toHaveLength(1);
 
     const w = warnings[0];
-    expect(Object.keys(w).sort()).toEqual(["duplicate_of_transaction_id", "row_id"]);
+    expect(Object.keys(w).sort()).toEqual(warningKeys);
     expect(w.row_id).toBe(preview.rowIds[0]);
     expect(typeof w.duplicate_of_transaction_id).toBe("string");
+    expect(w).toMatchObject({
+      duplicate_of_amount: 99.5,
+      duplicate_of_currency: "PLN",
+      duplicate_of_date: "2026-03-10",
+      duplicate_of_description: `${SENTINEL} FP MATCH`,
+    });
   });
 
   it("does NOT flag rows outside the ±3-day window even with matching fingerprint", async () => {

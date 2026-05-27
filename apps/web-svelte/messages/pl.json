@@ -300,6 +300,7 @@
   "bank_upload_cancel_previous_hint": "To nie cofnie już dodanych transakcji.",
   "bank_upload_view_transactions": "Zobacz transakcje",
   "bank_review_probable_duplicate": "Możliwy duplikat",
+  "bank_review_probable_duplicate_detail": "Pasuje do: {date} · {amount} · {description}",
   "bank_review_header_date": "Data",
   "bank_review_header_amount": "Kwota",
   "bank_review_header_description": "Opis",

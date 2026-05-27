@@ -65,9 +65,7 @@
     queryFn: () => previewFingerprintWarnings(session.id),
   }));
 
-  const warningsByRow = $derived(
-    new Map((warningsQuery.data ?? []).map((w) => [w.row_id, w.duplicate_of_transaction_id]))
-  );
+  const warningsByRow = $derived(new Map((warningsQuery.data ?? []).map((w) => [w.row_id, w])));
 
   const rows = $derived<ImportRow[]>(rowsQuery.data ?? []);
   const pendingCount = $derived(rows.filter((r) => r.decision === "pending").length);
@@ -108,6 +106,16 @@
   function categoryName(id: string | null): string | null {
     if (!id) return null;
     return (categoriesQuery.data ?? []).find((c) => c.id === id)?.name ?? null;
+  }
+
+  function duplicateDetail(rowId: string): string | null {
+    const warning = warningsByRow.get(rowId);
+    if (!warning) return null;
+    return m.bank_review_probable_duplicate_detail({
+      date: warning.duplicate_of_date,
+      amount: formatCurrency(warning.duplicate_of_amount, warning.duplicate_of_currency),
+      description: warning.duplicate_of_description,
+    });
   }
 
   // Final-confirmation digest: only the rows that will actually become
@@ -450,6 +458,7 @@
                 {#if warningsByRow.has(row.id)}
                   <div class="mb-1">
                     <Badge variant="overdue">{m.bank_review_probable_duplicate()}</Badge>
+                    <p class="mt-1 truncate text-xs text-amber-200/80">{duplicateDetail(row.id)}</p>
                   </div>
                 {/if}
                 {#if row.counterparty}
@@ -563,6 +572,10 @@
               <Badge variant="overdue">{m.bank_review_probable_duplicate()}</Badge>
             {/if}
           </div>
+
+          {#if warningsByRow.has(row.id)}
+            <p class="truncate text-xs text-amber-200/80">{duplicateDetail(row.id)}</p>
+          {/if}
 
           <div class="grid grid-cols-2 gap-2">
             <div class="flex min-w-0 items-center gap-1">
