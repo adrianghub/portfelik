@@ -16,6 +16,18 @@ const mbankSample = readFileSync(
   new URL("../../tests/import/fixtures/mbank/sample.csv", import.meta.url)
 );
 
+const mbankNoCounterpartySample = Buffer.from(
+  `"mBank S.A."
+"Historia operacji"
+"Klient";"Jan Kowalski"
+"Numer rachunku";"PL00 0000 0000 0000 0000 0000 0000"
+""
+#Data księgowania;#Data operacji;#Opis operacji;#Tytuł;#Nadawca/Odbiorca;#Numer konta;#Kwota;#Saldo po operacji
+2026-05-06;2026-05-06;"ZAKUP TOWARÓW I USŁUG";"KAWIARNIA TEST";"";"PL00 5555 5555 5555 5555 5555 5555";-24,00;9217,81
+`,
+  "utf8"
+);
+
 type ImportRow = {
   id: string;
   session_id: string;
@@ -383,6 +395,34 @@ test("import wizard: uploads, flags probable duplicates, commits, and blocks re-
   await expect(page.getByText("Ten plik został już zaimportowany")).toBeVisible({
     timeout: 10_000,
   });
+});
+
+test("import wizard: save-rule dialog defaults to raw description after review edit", async ({
+  page,
+}) => {
+  await page.goto("/transactions/import");
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "wyciag.csv",
+    mimeType: "text/csv",
+    buffer: mbankNoCounterpartySample,
+  });
+
+  const rawDescription = "ZAKUP TOWARÓW I USŁUG — KAWIARNIA TEST";
+  const editedDescription = "Kawa po spotkaniu";
+
+  const descriptionInput = page.getByRole("table").locator("input");
+  await expect(descriptionInput).toHaveValue(rawDescription, { timeout: 10_000 });
+  await descriptionInput.fill(editedDescription);
+  await descriptionInput.blur();
+
+  await page.locator('button[title="Zapisz regułę"]').first().click();
+
+  const dialog = page.getByRole("dialog", { name: "Zapisz regułę kategoryzacji" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator("input")).toHaveValue(rawDescription);
+  await expect(dialog.locator("input")).not.toHaveValue(editedDescription);
+  await expect(dialog.getByText("Pasuje do 1 z 1 pozycji")).toBeVisible();
 });
 
 test("import wizard: continues when rule prefill cannot load", async ({ page }) => {
