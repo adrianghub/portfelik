@@ -114,7 +114,7 @@ export const MOCK_SHOPPING_LIST_DETAIL = {
   category_id: null,
   total_amount: null,
   completed_at: null,
-  planned_for: "2026-05-28",
+  planned_for: "2026-05-01",
   shopping_started_at: null,
   created_at: "2026-05-01T10:00:00Z",
   updated_at: "2026-05-01T10:00:00Z",

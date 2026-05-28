@@ -4,11 +4,15 @@
   import { motionDuration } from "$lib/motion";
   import * as m from "$lib/paraglide/messages";
   import { fetchShoppingItemCategories } from "$lib/services/shopping-item-categories";
-  import { createShoppingListItem, updateShoppingListItem } from "$lib/services/shopping-lists";
+  import {
+    createShoppingListItem,
+    setAllShoppingListItemsCompleted,
+    updateShoppingListItem,
+  } from "$lib/services/shopping-lists";
   import type { ShoppingListItem, ShoppingListWithItems } from "$lib/types";
   import { cn } from "$lib/utils";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
-  import { Check, ChevronDown } from "lucide-svelte";
+  import { Check, CheckCheck, ChevronDown, Square } from "lucide-svelte";
   import { onMount } from "svelte";
   import { SvelteSet } from "svelte/reactivity";
   import { toast } from "svelte-sonner";
@@ -115,6 +119,31 @@
     },
   }));
 
+  const hasUncheckedItems = $derived(itemDone < itemTotal);
+
+  const bulkToggleMutation = createMutation(() => ({
+    mutationFn: (completed: boolean) => setAllShoppingListItemsCompleted(list.id, completed),
+    onMutate: async (completed) => {
+      await queryClient.cancelQueries({ queryKey: listKey });
+      const previous = queryClient.getQueryData<ShoppingListWithItems>(listKey);
+      if (previous) {
+        queryClient.setQueryData<ShoppingListWithItems>(listKey, {
+          ...previous,
+          shopping_list_items: previous.shopping_list_items.map((it) => ({ ...it, completed })),
+        });
+      }
+      return { previous };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(listKey, ctx.previous);
+      toast.error(m.toast_error());
+    },
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey: listKey });
+      await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
+    },
+  }));
+
   function toggleItem(item: ShoppingListItem) {
     toggleMutation.mutate({ itemId: item.id, completed: !item.completed });
   }
@@ -139,6 +168,25 @@
       max={itemTotal}
       label={m.shopping_list_progress({ completed: itemDone, total: itemTotal })}
     />
+  </div>
+{/if}
+
+{#if itemTotal > 1}
+  <div class="flex items-center justify-end gap-1">
+    <button
+      type="button"
+      onclick={() => bulkToggleMutation.mutate(hasUncheckedItems)}
+      disabled={bulkToggleMutation.isPending}
+      class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-slate-400 opacity-60 transition hover:bg-white/5 hover:text-slate-200 hover:opacity-100"
+    >
+      {#if hasUncheckedItems}
+        <CheckCheck size={13} strokeWidth={1.8} aria-hidden="true" />
+        {m.shopping_list_items_bulk_check_all()}
+      {:else}
+        <Square size={13} strokeWidth={1.8} aria-hidden="true" />
+        {m.shopping_list_items_bulk_uncheck_all()}
+      {/if}
+    </button>
   </div>
 {/if}
 

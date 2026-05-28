@@ -303,14 +303,18 @@ test("shopping lists follow planning, shopping, archived, duplicate, and upcomin
   });
 
   await test.step("duplicate archived list creates fresh active unchecked copy", async () => {
+    const dupeResponse = page.waitForResponse((r) =>
+      r.url().includes("/rpc/duplicate_shopping_list") && r.status() === 200
+    );
     await page.getByRole("button", { name: "Duplikuj listę" }).click();
+    await dupeResponse;
     await expect(page.getByText("Lista skopiowana")).toBeVisible();
     await expect(page.getByRole("link", { name: /Zakupy na dziś \(kopia\)/ })).toBeVisible();
 
     await page.getByRole("link", { name: /Zakupy na dziś \(kopia\)/ }).click();
     await expect(page.getByText("Planowanie")).toBeVisible();
     await page.getByRole("button", { name: "Zacznij zakupy" }).click();
-    await expect(page.getByRole("button", { name: "Zaznacz" })).toHaveCount(3);
+    await expect(page.getByRole("button", { name: "Zaznacz", exact: true })).toHaveCount(3);
   });
 
   await test.step("future list lands in upcoming but can still start shopping", async () => {
