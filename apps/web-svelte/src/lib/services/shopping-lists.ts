@@ -2,23 +2,56 @@ import { supabase } from "$lib/supabase";
 import { normalizeShoppingListCategory } from "$lib/shopping-list-categories";
 import type {
   ShoppingList,
+  ShoppingListBucket,
   ShoppingListItem,
+  ShoppingListMode,
   ShoppingListSummary,
   ShoppingListWithItems,
   Transaction,
 } from "$lib/types";
+
+const LIST_COLUMNS =
+  "id, name, status, user_id, group_id, category_id, total_amount, completed_at, planned_for, shopping_started_at, created_at, updated_at";
 
 type ShoppingListSummaryRow = ShoppingList & {
   shopping_list_items: { id: string; completed: boolean }[];
   transactions?: { id: string }[];
 };
 
-function toShoppingListSummary(list: ShoppingListSummaryRow): ShoppingListSummary {
+function todayIso(): string {
+  // Local-day comparison matches Postgres `current_date` for the user's timezone.
+  // Buckets only need day granularity; the small DST/UTC edge near midnight
+  // is acceptable for a one-day-resolution input.
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+export function deriveShoppingListMode(list: ShoppingList): ShoppingListMode {
+  if (list.completed_at) return "done";
+  if (list.shopping_started_at) return "shopping";
+  return "planning";
+}
+
+export function deriveShoppingListBucket(
+  list: ShoppingList,
+  today = todayIso()
+): ShoppingListBucket {
+  if (list.completed_at) return "archived";
+  if (list.shopping_started_at) return "active";
+  return list.planned_for > today ? "upcoming" : "active";
+}
+
+function toShoppingListSummary(list: ShoppingListSummaryRow, today: string): ShoppingListSummary {
   return {
     ...list,
     item_total: list.shopping_list_items.length,
     item_completed: list.shopping_list_items.filter((i) => i.completed).length,
     linked_transaction_id: list.transactions?.[0]?.id ?? null,
+    mode: deriveShoppingListMode(list),
+    bucket: deriveShoppingListBucket(list, today),
   };
 }
 
@@ -37,21 +70,20 @@ export async function fetchShoppingListItemHistory(): Promise<
 export async function fetchShoppingLists(): Promise<ShoppingListSummary[]> {
   const { data, error } = await supabase
     .from("shopping_lists")
-    .select(
-      "id, name, status, user_id, group_id, category_id, total_amount, completed_at, created_at, updated_at, shopping_list_items(id, completed), transactions(id)"
-    )
+    .select(`${LIST_COLUMNS}, shopping_list_items(id, completed), transactions(id)`)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
 
-  return ((data ?? []) as ShoppingListSummaryRow[]).map(toShoppingListSummary);
+  const today = todayIso();
+  return ((data ?? []) as ShoppingListSummaryRow[]).map((row) => toShoppingListSummary(row, today));
 }
 
 export async function fetchShoppingListById(id: string): Promise<ShoppingListWithItems> {
   const { data, error } = await supabase
     .from("shopping_lists")
     .select(
-      "id, name, status, user_id, group_id, category_id, total_amount, completed_at, created_at, updated_at, shopping_list_items(id, name, completed, quantity, unit, category, position, created_at, updated_at, shopping_list_id), transactions(id)"
+      `${LIST_COLUMNS}, shopping_list_items(id, name, completed, quantity, unit, category, position, created_at, updated_at, shopping_list_id), transactions(id)`
     )
     .eq("id", id)
     .single();
@@ -71,6 +103,7 @@ export async function createShoppingList(input: {
   name: string;
   group_id?: string | null;
   category_id?: string | null;
+  planned_for?: string | null;
 }): Promise<ShoppingList> {
   const name = input.name?.trim();
   if (!name) throw new Error("name_required");
@@ -80,11 +113,16 @@ export async function createShoppingList(input: {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("not_authenticated");
 
-  const { data, error } = await supabase
-    .from("shopping_lists")
-    .insert({ ...input, name, status: "active", user_id: user.id })
-    .select()
-    .single();
+  const payload = {
+    name,
+    status: "active" as const,
+    user_id: user.id,
+    group_id: input.group_id ?? null,
+    category_id: input.category_id ?? null,
+    ...(input.planned_for ? { planned_for: input.planned_for } : {}),
+  };
+
+  const { data, error } = await supabase.from("shopping_lists").insert(payload).select().single();
 
   if (error) throw error;
   return data as ShoppingList;
@@ -96,7 +134,7 @@ export async function updateShoppingList(
     name: string;
     group_id: string | null;
     category_id: string | null;
-    created_at: string;
+    planned_for: string;
   }>
 ): Promise<ShoppingList> {
   if (updates.name !== undefined) {
@@ -112,6 +150,28 @@ export async function updateShoppingList(
     .select()
     .single();
 
+  if (error) throw error;
+  return data as ShoppingList;
+}
+
+export async function startShoppingList(id: string): Promise<ShoppingList> {
+  const { data, error } = await supabase
+    .from("shopping_lists")
+    .update({ shopping_started_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as ShoppingList;
+}
+
+export async function returnShoppingListToPlanning(id: string): Promise<ShoppingList> {
+  const { data, error } = await supabase
+    .from("shopping_lists")
+    .update({ shopping_started_at: null })
+    .eq("id", id)
+    .select()
+    .single();
   if (error) throw error;
   return data as ShoppingList;
 }
@@ -141,9 +201,7 @@ export async function fetchAttachableShoppingListsForTransaction(
   // RLS already enforces visibility; this scope filter mirrors server-side rejection.
   let q = supabase
     .from("shopping_lists")
-    .select(
-      "id, name, status, user_id, group_id, category_id, total_amount, completed_at, created_at, updated_at, shopping_list_items(id, completed)"
-    )
+    .select(`${LIST_COLUMNS}, shopping_list_items(id, completed)`)
     .eq("status", "active")
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -152,9 +210,10 @@ export async function fetchAttachableShoppingListsForTransaction(
   const { data, error } = await q;
   if (error) throw error;
 
+  const today = todayIso();
   return ((data ?? []) as ShoppingListSummaryRow[])
     .filter((list) => list.shopping_list_items.length > 0)
-    .map(toShoppingListSummary);
+    .map((row) => toShoppingListSummary(row, today));
 }
 
 export async function completeShoppingList(

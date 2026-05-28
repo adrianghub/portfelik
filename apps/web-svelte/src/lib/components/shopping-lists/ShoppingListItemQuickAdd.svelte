@@ -20,8 +20,16 @@
     }) => void;
     disabled?: boolean;
     fixedCategory?: string | null;
+    placeholder?: string;
+    compact?: boolean;
   }
-  let { onsubmit, disabled = false, fixedCategory = undefined }: Props = $props();
+  let {
+    onsubmit,
+    disabled = false,
+    fixedCategory = undefined,
+    placeholder = m.shopping_list_item_name(),
+    compact = false,
+  }: Props = $props();
 
   let name = $state("");
   let quantity = $state<number | null>(null);
@@ -90,7 +98,7 @@
         onfocus={() => (inputFocused = true)}
         onblur={() => setTimeout(() => (inputFocused = false), 120)}
         onkeydown={(e) => suggestionRef?.handleKeydown(e)}
-        placeholder={m.shopping_list_item_name()}
+        {placeholder}
         role="combobox"
         aria-controls="shopping-list-item-suggestions"
         aria-expanded={inputFocused && name.trim().length > 0}
@@ -107,16 +115,18 @@
         />
       {/if}
     </div>
-    <button
-      type="button"
-      onclick={toggleDetails}
-      aria-expanded={detailsOpen}
-      aria-controls="shopping-list-item-details"
-      class="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-slate-900/60 px-3 text-xs text-slate-300 transition-colors hover:bg-white/5"
-    >
-      <ChevronDown size={14} class={detailsOpen ? "rotate-180" : ""} />
-      <span class="hidden sm:inline">{m.shopping_list_item_details_toggle()}</span>
-    </button>
+    {#if !compact}
+      <button
+        type="button"
+        onclick={toggleDetails}
+        aria-expanded={detailsOpen}
+        aria-controls="shopping-list-item-details"
+        class="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-slate-900/60 px-3 text-xs text-slate-300 transition-colors hover:bg-white/5"
+      >
+        <ChevronDown size={14} class={detailsOpen ? "rotate-180" : ""} />
+        <span class="hidden sm:inline">{m.shopping_list_item_details_toggle()}</span>
+      </button>
+    {/if}
     <button
       type="submit"
       disabled={disabled || !name.trim()}
@@ -127,7 +137,7 @@
     </button>
   </div>
 
-  {#if detailsOpen}
+  {#if detailsOpen && !compact}
     <div id="shopping-list-item-details" transition:slide={{ duration: 150 }} class="space-y-2">
       <div class="grid grid-cols-2 gap-2">
         <input

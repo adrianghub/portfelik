@@ -35,10 +35,7 @@ describe("RLS: shopping_lists", () => {
   });
 
   it("user A sees own list", async () => {
-    const { data } = await ctx.userA.client
-      .from("shopping_lists")
-      .select("id")
-      .eq("id", listAId);
+    const { data } = await ctx.userA.client.from("shopping_lists").select("id").eq("id", listAId);
     expect(data?.length).toBe(1);
   });
 
@@ -60,12 +57,57 @@ describe("RLS: shopping_lists", () => {
     expectBlockedWrite(result);
   });
 
+  it("owner can update planning mode fields", async () => {
+    const result = await ctx.userA.client
+      .from("shopping_lists")
+      .update({
+        planned_for: "2026-05-30",
+        shopping_started_at: "2026-05-28T12:00:00Z",
+      })
+      .eq("id", listAId)
+      .select("planned_for, shopping_started_at")
+      .single();
+
+    expect(result.error).toBeNull();
+    expect(result.data?.planned_for).toBe("2026-05-30");
+    expect(result.data?.shopping_started_at).toBe("2026-05-28T12:00:00+00:00");
+  });
+
+  it("user A cannot update user B's planning mode fields", async () => {
+    const result = await ctx.userA.client
+      .from("shopping_lists")
+      .update({
+        planned_for: "2026-06-01",
+        shopping_started_at: "2026-05-28T13:00:00Z",
+      })
+      .eq("id", listBId)
+      .select("planned_for, shopping_started_at");
+
+    expectBlockedWrite(result);
+  });
+
   it("user A cannot insert list with user_id = B", async () => {
     const result = await ctx.userA.client.from("shopping_lists").insert({
       user_id: ctx.userB.userId,
       name: `${SENTINEL} spoofed`,
     });
     expect(result.error).not.toBeNull();
+  });
+
+  it("client cannot mutate user_id on an existing list", async () => {
+    const result = await ctx.userA.client
+      .from("shopping_lists")
+      .update({ user_id: ctx.userB.userId } as never)
+      .eq("id", listAId)
+      .select("user_id");
+    expectBlockedWrite(result);
+
+    const after = await ctx.admin
+      .from("shopping_lists")
+      .select("user_id")
+      .eq("id", listAId)
+      .single();
+    expect(after.data?.user_id).toBe(ctx.userA.userId);
   });
 
   describe("group-shared lists + attach hardening", () => {
@@ -116,13 +158,11 @@ describe("RLS: shopping_lists", () => {
       if (shared.error) throw shared.error;
       sharedListId = shared.data.id;
 
-      await ctx.admin
-        .from("shopping_list_items")
-        .insert({
-          shopping_list_id: sharedListId,
-          name: `${SENTINEL} item`,
-          position: 1,
-        });
+      await ctx.admin.from("shopping_list_items").insert({
+        shopping_list_id: sharedListId,
+        name: `${SENTINEL} item`,
+        position: 1,
+      });
 
       // Two txs owned by A: one in groupA, one private.
       const txGroup = await ctx.admin
@@ -243,13 +283,11 @@ describe("RLS: shopping_lists", () => {
         .single();
       if (list.error) throw list.error;
 
-      const item = await ctx.admin
-        .from("shopping_list_items")
-        .insert({
-          shopping_list_id: list.data.id,
-          name: `${SENTINEL} item`,
-          position: 1,
-        });
+      const item = await ctx.admin.from("shopping_list_items").insert({
+        shopping_list_id: list.data.id,
+        name: `${SENTINEL} item`,
+        position: 1,
+      });
       if (item.error) throw item.error;
 
       const result = await ctx.userA.client.rpc("attach_shopping_list_to_transaction", {
