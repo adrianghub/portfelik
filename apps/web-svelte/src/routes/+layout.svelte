@@ -1,13 +1,6 @@
 <script lang="ts">
-  import "../app.css";
-  import { QueryClient, QueryClientProvider } from "@tanstack/svelte-query";
-  import { Toaster } from "svelte-sonner";
-  import { supabase } from "$lib/supabase";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
-  import { onMount } from "svelte";
-  import { fade } from "svelte/transition";
-  import { motionDuration } from "$lib/motion";
   import {
     clearLoginRedirect,
     consumeLoginRedirect,
@@ -17,16 +10,23 @@
   import Navigation from "$lib/components/Navigation.svelte";
   import Breadcrumbs from "$lib/components/ui/Breadcrumbs.svelte";
   import OfflineIndicator from "$lib/components/ui/OfflineIndicator.svelte";
+  import { motionDuration } from "$lib/motion";
+  import * as m from "$lib/paraglide/messages";
   import { fetchProfile } from "$lib/services/profiles";
   import {
-    registerServiceWorker,
     autoSubscribePush,
+    registerServiceWorker,
     requestAndSubscribePush,
     unsubscribeFromPush,
   } from "$lib/services/push";
+  import { supabase } from "$lib/supabase";
   import type { Profile } from "$lib/types";
   import type { User } from "@supabase/supabase-js";
-  import * as m from "$lib/paraglide/messages";
+  import { QueryClient, QueryClientProvider } from "@tanstack/svelte-query";
+  import { onMount } from "svelte";
+  import { Toaster } from "svelte-sonner";
+  import { fade } from "svelte/transition";
+  import "../app.css";
 
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -133,25 +133,6 @@
     if ("Notification" in window) notifPermission = Notification.permission;
     readPushPromptCooldown();
 
-    const bootstrapRevision = authRevision;
-    const {
-      data: { user: authUser },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (bootstrapRevision !== authRevision) return;
-
-    if (userError || !authUser) {
-      clearAuthenticatedUser();
-    } else {
-      loadAuthenticatedUser(authUser);
-    }
-
-    if (!authUser && !isPublicRoute) {
-      redirectToLogin();
-      return;
-    }
-
     supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
         unsubscribeFromPush().catch(() => {});
@@ -166,6 +147,26 @@
         }
       }
     });
+
+    const bootstrapRevision = authRevision;
+    const {
+      data: { user: authUser },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    // A sign-in (or sign-out) landed while getUser() was in flight — its result
+    // is authoritative, so discard this now-stale bootstrap snapshot.
+    if (bootstrapRevision !== authRevision) return;
+
+    if (userError || !authUser) {
+      clearAuthenticatedUser();
+    } else {
+      loadAuthenticatedUser(authUser);
+    }
+
+    if (!authUser && !isPublicRoute) {
+      redirectToLogin();
+    }
   });
 </script>
 

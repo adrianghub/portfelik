@@ -28,6 +28,10 @@
 
   let step = $state<Step>("upload");
   let activeSession = $state<ImportSession | null>(null);
+  // Retained across the upload⇄review back-nav so returning to "Wgraj plik"
+  // shows the last file ready to re-process or remove. Cancelling the session
+  // abandons the DB preview rows but keeps this in-memory file reference.
+  let retainedFile = $state<File | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -110,7 +114,11 @@
 
   <section class="space-y-4">
     {#if step === "upload"}
-      <FileUpload onSessionReady={handleSessionReady} />
+      <FileUpload
+        onSessionReady={handleSessionReady}
+        initialFile={retainedFile}
+        onFileRetained={(f) => (retainedFile = f)}
+      />
     {:else if step === "review" && activeSession}
       <ReviewTable session={activeSession} onCommitted={handleCommitted} onCancel={handleCancel} />
     {/if}

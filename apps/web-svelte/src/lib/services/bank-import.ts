@@ -72,10 +72,16 @@ export interface CommitResult {
   duplicates_preview: number;
   duplicates_commit: number;
   skipped: number;
-  fingerprint_warnings: Array<{
-    row_id: string;
-    duplicate_of_transaction_id: string;
-  }>;
+  fingerprint_warnings: DuplicateWarning[];
+}
+
+export interface DuplicateWarning {
+  row_id: string;
+  duplicate_of_transaction_id: string;
+  duplicate_of_date: string;
+  duplicate_of_amount: number;
+  duplicate_of_currency: string;
+  duplicate_of_description: string;
 }
 
 // -------------------- bank_accounts --------------------
@@ -157,17 +163,15 @@ export async function findExistingSession(input: {
 
 /**
  * Read-only pre-commit probable-dup scan. Calls the SECURITY DEFINER RPC that
- * recomputes each preview row's fingerprint and joins to transaction_import_links.
+ * checks prior imports, shopping-list expenses, and manual/non-list transactions.
  * Result shape mirrors commit-time fingerprint_warnings exactly.
  */
-export async function previewFingerprintWarnings(
-  sessionId: string
-): Promise<Array<{ row_id: string; duplicate_of_transaction_id: string }>> {
+export async function previewFingerprintWarnings(sessionId: string): Promise<DuplicateWarning[]> {
   const { data, error } = await supabase.rpc("preview_fingerprint_warnings", {
     p_session_id: sessionId,
   });
   if (error) throw error;
-  return data as unknown as Array<{ row_id: string; duplicate_of_transaction_id: string }>;
+  return data as unknown as DuplicateWarning[];
 }
 
 export async function openImportSession(input: {
@@ -221,29 +225,41 @@ export async function cancelImportSession(id: string): Promise<void> {
  * pass so raw_row_hash is computed. `rows_total` on the session is updated
  * to match the inserted count.
  *
+ * `resolveCategory` optionally pre-fills a category per row (deterministic
+ * categorization rules — see import/categorize.ts). When it returns a category
+ * id, both suggested_category_id (provenance: the suggestion) and
+ * selected_category_id (the editable pick) are set so the row arrives already
+ * categorized. Decision stays 'pending' — the user still confirms in review.
+ *
  * Intra-batch hard duplicates (same external_id or same row_index in the
  * same session+file_hash) are NOT pre-filtered here — the unique indexes
  * on transaction_import_links catch them at commit time as duplicates_commit.
  */
 export async function insertPreviewRows(
   sessionId: string,
-  rows: NormalizedRow[]
+  rows: NormalizedRow[],
+  resolveCategory?: (row: NormalizedRow) => string | null
 ): Promise<ImportRow[]> {
   if (rows.length === 0) return [];
 
-  const payload = rows.map((r) => ({
-    session_id: sessionId,
-    row_index: r.row_index,
-    posted_at: r.posted_at,
-    amount: r.amount,
-    type: r.type,
-    description: r.description,
-    counterparty: r.counterparty ?? null,
-    currency: r.currency,
-    external_id: r.external_id ?? null,
-    raw_row_hash: r.raw_row_hash,
-    decision: "pending" as const,
-  }));
+  const payload = rows.map((r) => {
+    const categoryId = resolveCategory?.(r) ?? null;
+    return {
+      session_id: sessionId,
+      row_index: r.row_index,
+      posted_at: r.posted_at,
+      amount: r.amount,
+      type: r.type,
+      description: r.description,
+      counterparty: r.counterparty ?? null,
+      currency: r.currency,
+      external_id: r.external_id ?? null,
+      raw_row_hash: r.raw_row_hash,
+      suggested_category_id: categoryId,
+      selected_category_id: categoryId,
+      decision: "pending" as const,
+    };
+  });
 
   const { data, error } = await supabase
     .from("transaction_import_rows")

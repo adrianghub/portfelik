@@ -9,6 +9,7 @@ Loaded automatically when working in `supabase/`.
 - **Money:** `numeric(12,2)`, positive magnitude. `type` enum (`income`/`expense`) carries sign.
 - **System categories:** `user_id IS NULL` — visible to all via RLS. Seeded in `seed.sql`.
 - **Soft deletes:** none. Hard deletes everywhere.
+- **Supabase Data API grants:** Supabase's 2026-05-30 / 2026-10-30 rollout stops auto-exposing new `public` tables to PostgREST, GraphQL, and `supabase-js`. Any migration that creates a `public` table, sequence, or Data-API-facing view must include explicit, narrow `GRANT` statements next to the RLS policies so `supabase db reset` replays them locally. Existing prod/staging tables keep current grants; the risk is future migrations without grants. Source: https://github.com/orgs/supabase/discussions/45329
 
 ## RLS patterns
 

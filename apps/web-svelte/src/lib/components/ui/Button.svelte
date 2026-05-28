@@ -9,6 +9,7 @@
     disabled?: boolean;
     type?: "button" | "submit" | "reset";
     onclick?: (e: MouseEvent) => void;
+    title?: string;
     children: Snippet;
     class?: string;
   }
@@ -20,6 +21,7 @@
     disabled = false,
     type = "button",
     onclick,
+    title,
     children,
     class: className,
   }: Props = $props();
@@ -47,7 +49,13 @@
   };
 </script>
 
-<button {type} {disabled} {onclick} class={cn(base, variants[variant], sizes[size], className)}>
+<button
+  {type}
+  {disabled}
+  {onclick}
+  {title}
+  class={cn(base, variants[variant], sizes[size], className)}
+>
   {#if loading}
     <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />

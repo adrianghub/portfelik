@@ -7,11 +7,18 @@ import { SENTINEL, cleanupSentinels, provisionTwoUsers, type TestContext } from 
 // validation (own + not-archived + kind match), category visibility
 // (system / own / group-shared / type match), group membership, per-row
 // savepoint on unique_violation (duplicates_commit), pre-validation
-// rollback (session stays preview), fingerprint_warnings shape (no
-// description / amount leak), and counts.
+// rollback (session stays preview), fingerprint_warnings shape, and counts.
 
 describe("RPC: commit_import_session", () => {
   let ctx: TestContext;
+  const warningKeys = [
+    "duplicate_of_amount",
+    "duplicate_of_currency",
+    "duplicate_of_date",
+    "duplicate_of_description",
+    "duplicate_of_transaction_id",
+    "row_id",
+  ];
 
   beforeAll(async () => {
     ctx = await provisionTwoUsers();
@@ -416,7 +423,7 @@ describe("RPC: commit_import_session", () => {
     expect(txs.data?.length).toBe(0);
   });
 
-  it("fingerprint_warnings: privacy-safe shape (row_id + duplicate_of_transaction_id only)", async () => {
+  it("fingerprint_warnings: includes matched transaction context", async () => {
     // Commit session A with one row → creates link with fingerprint X.
     // Use different bank kinds for A vs B so (user_id, kind, archived_at IS NULL)
     // unique idx doesn't fire.
@@ -468,10 +475,15 @@ describe("RPC: commit_import_session", () => {
     expect(out.fingerprint_warnings).toHaveLength(1);
 
     const warn = out.fingerprint_warnings[0];
-    // Privacy spine: only these two keys, nothing else.
-    expect(Object.keys(warn).sort()).toEqual(["duplicate_of_transaction_id", "row_id"]);
+    expect(Object.keys(warn).sort()).toEqual(warningKeys);
     expect(warn.row_id).toBe(rowBId);
     expect(warn.duplicate_of_transaction_id).toBe(linkA.data.transaction_id);
+    expect(warn).toMatchObject({
+      duplicate_of_amount: 42.5,
+      duplicate_of_currency: "PLN",
+      duplicate_of_date: "2026-02-10",
+      duplicate_of_description: `${SENTINEL} FP-SAME`,
+    });
   });
 
   it("foreign session: user B cannot commit user A's session", async () => {
