@@ -151,8 +151,8 @@
   const duplicateMut = createMutation(() => ({
     mutationFn: (id: string) => duplicateShoppingList(id),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
       toast.success(m.toast_shopping_list_duplicated());
+      await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
     },
     onError: () => toast.error(m.toast_error()),
   }));
