@@ -8,6 +8,9 @@ description = "Public VAPID key, safe to publish by design"
 regexTarget = "match"
 regexes = [
   '''BHKoiccZwq3Y5Qw5dmFxVLJIA7w9zcSZkchPKWk-vxBeR421yieZW7gGxuluBBa6sRmpIsFXRSuFyRarLcdvqT4''',
+  # Historical malformed public VAPID placeholder from a93a161; kept so
+  # full-history scans do not fail on a non-secret PUBLIC_* value.
+  '''BHKoiccZwq3Y5Qw5dmFxRSuFyRarLcdvqT4''',
 ]
 
 [[allowlists]]
