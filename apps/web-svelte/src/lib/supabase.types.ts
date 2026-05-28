@@ -301,6 +301,41 @@ export type Database = {
         };
         Relationships: [];
       };
+      shopping_item_categories: {
+        Row: {
+          created_at: string;
+          id: string;
+          name: string;
+          position: number;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          name: string;
+          position?: number;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          name?: string;
+          position?: number;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "shopping_item_categories_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       shopping_list_items: {
         Row: {
           category: string | null;
@@ -348,41 +383,6 @@ export type Database = {
           },
         ];
       };
-      shopping_item_categories: {
-        Row: {
-          created_at: string;
-          id: string;
-          name: string;
-          position: number;
-          updated_at: string;
-          user_id: string;
-        };
-        Insert: {
-          created_at?: string;
-          id?: string;
-          name: string;
-          position?: number;
-          updated_at?: string;
-          user_id: string;
-        };
-        Update: {
-          created_at?: string;
-          id?: string;
-          name?: string;
-          position?: number;
-          updated_at?: string;
-          user_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "shopping_item_categories_user_id_fkey";
-            columns: ["user_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
       shopping_lists: {
         Row: {
           category_id: string | null;
@@ -391,6 +391,8 @@ export type Database = {
           group_id: string | null;
           id: string;
           name: string;
+          planned_for: string;
+          shopping_started_at: string | null;
           status: Database["public"]["Enums"]["shopping_list_status"];
           total_amount: number | null;
           updated_at: string;
@@ -403,6 +405,8 @@ export type Database = {
           group_id?: string | null;
           id?: string;
           name: string;
+          planned_for?: string;
+          shopping_started_at?: string | null;
           status?: Database["public"]["Enums"]["shopping_list_status"];
           total_amount?: number | null;
           updated_at?: string;
@@ -415,6 +419,8 @@ export type Database = {
           group_id?: string | null;
           id?: string;
           name?: string;
+          planned_for?: string;
+          shopping_started_at?: string | null;
           status?: Database["public"]["Enums"]["shopping_list_status"];
           total_amount?: number | null;
           updated_at?: string;
@@ -971,6 +977,8 @@ export type Database = {
           group_id: string | null;
           id: string;
           name: string;
+          planned_for: string;
+          shopping_started_at: string | null;
           status: Database["public"]["Enums"]["shopping_list_status"];
           total_amount: number | null;
           updated_at: string;
@@ -983,6 +991,7 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      edge_functions_base_url: { Args: never; Returns: string };
       fetch_admin_notifications: {
         Args: { p_limit?: number };
         Returns: {
