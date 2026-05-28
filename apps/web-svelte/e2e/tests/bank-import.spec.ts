@@ -66,9 +66,22 @@ type ImportSession = {
   committed_at: string | null;
 };
 
+type CategorizationRule = {
+  id: string;
+  user_id: string;
+  kind: "exact" | "contains" | "type" | "composite";
+  match_description: string | null;
+  match_counterparty: string | null;
+  match_type: "income" | "expense" | null;
+  category_id: string;
+  priority: number;
+  created_at: string;
+};
+
 type BankImportMockOptions = {
   failRulesOnce?: boolean;
   failCategoriesOnce?: boolean;
+  defaultRules?: boolean;
 };
 
 async function mockBankImportAPI(page: Page, options = {}) {
@@ -85,8 +98,37 @@ async function mockBankImportAPI(page: Page, options = {}) {
   };
   const sessions: ImportSession[] = [];
   let rows: ImportRow[] = [];
+  let rules: CategorizationRule[] =
+    (opts.defaultRules ?? true)
+      ? [
+          {
+            id: "rule-expense",
+            user_id: TEST_USER_ID,
+            kind: "type",
+            match_description: null,
+            match_counterparty: null,
+            match_type: "expense",
+            category_id: "cat-1",
+            priority: 0,
+            created_at: "2026-05-01T00:00:00Z",
+          },
+          {
+            id: "rule-income",
+            user_id: TEST_USER_ID,
+            kind: "type",
+            match_description: null,
+            match_counterparty: null,
+            match_type: "income",
+            category_id: "cat-3",
+            priority: 0,
+            created_at: "2026-05-01T00:00:01Z",
+          },
+        ]
+      : [];
   let failRulesOnce = opts.failRulesOnce ?? false;
   let failCategoriesOnce = opts.failCategoriesOnce ?? false;
+
+  const normalize = (value: string | null | undefined) => (value ?? "").trim().toLowerCase();
 
   for (const url of SUPABASE_URLS) {
     await page.route(`${url}/auth/v1/**`, async (route) => {
@@ -118,33 +160,44 @@ async function mockBankImportAPI(page: Page, options = {}) {
           failRulesOnce = false;
           return route.fulfill({ status: 500, json: { message: "temporary rules failure" } });
         }
-        return route.fulfill({
-          status: 200,
-          json: [
-            {
-              id: "rule-expense",
-              user_id: TEST_USER_ID,
-              kind: "type",
-              match_description: null,
-              match_counterparty: null,
-              match_type: "expense",
-              category_id: "cat-1",
-              priority: 0,
-              created_at: "2026-05-01T00:00:00Z",
-            },
-            {
-              id: "rule-income",
-              user_id: TEST_USER_ID,
-              kind: "type",
-              match_description: null,
-              match_counterparty: null,
-              match_type: "income",
-              category_id: "cat-3",
-              priority: 0,
-              created_at: "2026-05-01T00:00:01Z",
-            },
-          ],
-        });
+        if (method === "POST") {
+          const body = request.postDataJSON() as Partial<CategorizationRule>;
+          const duplicate = rules.some(
+            (rule) =>
+              rule.kind === body.kind &&
+              normalize(rule.match_description) === normalize(body.match_description) &&
+              normalize(rule.match_counterparty) === normalize(body.match_counterparty) &&
+              (rule.match_type ?? null) === (body.match_type ?? null) &&
+              rule.category_id === body.category_id
+          );
+          if (duplicate) {
+            return route.fulfill({
+              status: 409,
+              json: { code: "23505", message: "duplicate key value violates unique constraint" },
+            });
+          }
+          const created: CategorizationRule = {
+            id: `rule-${rules.length + 1}`,
+            user_id: TEST_USER_ID,
+            kind: body.kind ?? "contains",
+            match_description: body.match_description ?? null,
+            match_counterparty: body.match_counterparty ?? null,
+            match_type: body.match_type ?? null,
+            category_id: body.category_id ?? "cat-1",
+            priority: body.priority ?? 0,
+            created_at: `2026-05-01T00:00:${String(rules.length + 2).padStart(2, "0")}Z`,
+          };
+          rules = [...rules, created];
+          return route.fulfill({ status: 201, json: created });
+        }
+
+        if (method === "DELETE") {
+          const id = url.searchParams.get("id")?.replace("eq.", "");
+          rules = rules.filter((rule) => rule.id !== id);
+          return route.fulfill({ status: 204, json: [] });
+        }
+
+        return route.fulfill({ status: 200, json: rules });
       }
 
       if (pathname.endsWith("/bank_accounts")) {
@@ -376,8 +429,8 @@ test("import wizard: uploads, flags probable duplicates, commits, and blocks re-
     page.getByRole("table").getByText(/Pasuje do: 2026-05-02 .* Biedronka wpisana ręcznie/)
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "Importuj wszystkie z kategorią" }).click();
-  await expect(page.getByText(/wierszy bez decyzji/)).toHaveCount(0);
+  await page.getByRole("button", { name: /^Importuj gotowe/ }).click();
+  await expect(page.getByText(/bez kategorii/)).toHaveCount(0);
 
   await page.getByRole("button", { name: "Zatwierdź import" }).click();
   await expect(page.getByRole("heading", { name: "Potwierdź import" })).toBeVisible();
@@ -397,7 +450,7 @@ test("import wizard: uploads, flags probable duplicates, commits, and blocks re-
   });
 });
 
-test("import wizard: save-rule dialog defaults to raw description after review edit", async ({
+test("import wizard: bookmark = one-tap save-as-rule with smart default text", async ({
   page,
 }) => {
   await page.goto("/transactions/import");
@@ -411,18 +464,19 @@ test("import wizard: save-rule dialog defaults to raw description after review e
   const rawDescription = "ZAKUP TOWARÓW I USŁUG — KAWIARNIA TEST";
   const editedDescription = "Kawa po spotkaniu";
 
-  const descriptionInput = page.getByRole("table").locator("input");
+  // Even after editing the review-time description, the saved rule should
+  // default to a stable token derived from the raw bank field — not the edit.
+  const descriptionInput = page.getByRole("table").getByRole("textbox");
   await expect(descriptionInput).toHaveValue(rawDescription, { timeout: 10_000 });
   await descriptionInput.fill(editedDescription);
   await descriptionInput.blur();
 
-  await page.locator('button[title="Zapisz regułę"]').first().click();
+  // One-tap: clicking the bookmark icon must save the rule directly — no
+  // dialog should open.
+  await page.locator('button[title="Zapisz jako regułę"]').first().click();
 
-  const dialog = page.getByRole("dialog", { name: "Zapisz regułę kategoryzacji" });
-  await expect(dialog).toBeVisible();
-  await expect(dialog.locator("input")).toHaveValue(rawDescription);
-  await expect(dialog.locator("input")).not.toHaveValue(editedDescription);
-  await expect(dialog.getByText("Pasuje do 1 z 1 pozycji")).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByText(/Reguła zapisana/)).toBeVisible({ timeout: 5_000 });
 });
 
 test("import wizard: continues when rule prefill cannot load", async ({ page }) => {
@@ -440,7 +494,7 @@ test("import wizard: continues when rule prefill cannot load", async ({ page }) 
   await expect(page.getByRole("table").getByText("BIEDRONKA", { exact: true })).toBeVisible({
     timeout: 10_000,
   });
-  await expect(page.getByRole("button", { name: "Importuj wszystkie z kategorią" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /^Importuj gotowe/ })).toHaveCount(0);
 });
 
 test("import wizard: continues when categories cannot load for optional prefill", async ({
@@ -460,5 +514,5 @@ test("import wizard: continues when categories cannot load for optional prefill"
   await expect(page.getByRole("table").getByText("BIEDRONKA", { exact: true })).toBeVisible({
     timeout: 10_000,
   });
-  await expect(page.getByRole("button", { name: "Importuj wszystkie z kategorią" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /^Importuj gotowe/ })).toHaveCount(0);
 });
