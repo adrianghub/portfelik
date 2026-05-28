@@ -136,6 +136,15 @@
       <Pencil size={15} strokeWidth={1.8} aria-hidden="true" />
     </button>
   {/if}
+  {#if isArchived && list.linked_transaction_id}
+    <a
+      href="/transactions?txId={list.linked_transaction_id}"
+      class="flex items-center border-l border-white/5 px-3 text-xs text-emerald-400/80 transition-colors hover:bg-white/5 hover:text-emerald-300"
+      onclick={(e) => e.stopPropagation()}
+    >
+      {m.shopping_list_linked_transaction()}
+    </a>
+  {/if}
   {#if onduplicate}
     <button
       onclick={() => onduplicate(list.id)}
