@@ -2,6 +2,8 @@
   import { createQuery } from "@tanstack/svelte-query";
   import { fetchShoppingListItemHistory } from "$lib/services/shopping-lists";
   import { inferShoppingListCategory } from "$lib/shopping-list-categories";
+  import * as m from "$lib/paraglide/messages";
+  import { Plus } from "lucide-svelte";
 
   interface Suggestion {
     name: string;
@@ -88,11 +90,15 @@
     return Array.from(map.values()).sort((a, b) => b.count - a.count);
   });
 
+  const trimmedQuery = $derived(query.trim());
+
   const suggestions = $derived.by(() => {
-    if (!query.trim()) return [] as Suggestion[];
+    if (!trimmedQuery) return [] as Suggestion[];
     const q = query.toLowerCase();
     return ranked.filter((s) => s.name.toLowerCase().includes(q)).slice(0, 5);
   });
+
+  const optionCount = $derived(suggestions.length + (trimmedQuery ? 1 : 0));
 
   let activeIndex = $state(-1);
 
@@ -102,7 +108,7 @@
   });
 
   $effect(() => {
-    if (suggestions.length > 0) updateDropPosition();
+    if (optionCount > 0) updateDropPosition();
   });
 
   $effect(() => {
@@ -131,6 +137,11 @@
     return activeIndex >= 0 ? optionId(activeIndex) : null;
   }
 
+  function createCurrent() {
+    if (!trimmedQuery) return;
+    onselect(trimmedQuery, null, null, inferShoppingListCategory(trimmedQuery));
+  }
+
   export function handleKeydown(e: KeyboardEvent) {
     if (e.key === "Escape" && onescape) {
       e.preventDefault();
@@ -138,22 +149,23 @@
       activeIndex = -1;
       return;
     }
-    if (suggestions.length === 0) return;
+    if (optionCount === 0) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      activeIndex = Math.min(activeIndex + 1, suggestions.length - 1);
+      activeIndex = Math.min(activeIndex + 1, optionCount - 1);
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       activeIndex = Math.max(activeIndex - 1, 0);
     } else if (e.key === "Enter" && activeIndex >= 0) {
       e.preventDefault();
       const s = suggestions[activeIndex];
-      onselect(s.name, s.quantity, s.unit, s.category);
+      if (s) onselect(s.name, s.quantity, s.unit, s.category);
+      else createCurrent();
     }
   }
 </script>
 
-{#if suggestions.length > 0}
+{#if optionCount > 0}
   <ul
     use:portal
     id="shopping-list-item-suggestions"
@@ -164,6 +176,9 @@
     role="listbox"
     onpointerdown={(e) => e.preventDefault()}
   >
+    {#if suggestions.length === 0}
+      <li class="px-3 py-2 text-sm text-slate-500">{m.combobox_empty()}</li>
+    {/if}
     {#each suggestions as s, i (s.name)}
       <li role="option" id={optionId(i)} aria-selected={i === activeIndex}>
         <button
@@ -191,5 +206,22 @@
         </button>
       </li>
     {/each}
+    {#if trimmedQuery}
+      {@const createIndex = suggestions.length}
+      <li role="option" id={optionId(createIndex)} aria-selected={createIndex === activeIndex}>
+        <button
+          type="button"
+          class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-emerald-200 transition-colors hover:bg-emerald-500/10 {createIndex ===
+          activeIndex
+            ? 'bg-emerald-500/10'
+            : ''}"
+          onclick={createCurrent}
+          onmouseenter={() => (activeIndex = createIndex)}
+        >
+          <Plus size={14} class="shrink-0" aria-hidden="true" />
+          <span class="min-w-0 truncate">{m.combobox_create({ value: trimmedQuery })}</span>
+        </button>
+      </li>
+    {/if}
   </ul>
 {/if}

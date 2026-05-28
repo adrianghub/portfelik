@@ -1,10 +1,11 @@
 <script lang="ts">
   import ShoppingListCard from "$lib/components/shopping-lists/ShoppingListCard.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
+  import DayPicker from "$lib/components/ui/DayPicker.svelte";
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import Fab from "$lib/components/ui/Fab.svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
-  import { ShoppingBasket } from "lucide-svelte";
+  import { Plus, ShoppingBasket } from "lucide-svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchUserGroups } from "$lib/services/groups";
   import { fetchCategories } from "$lib/services/categories";
@@ -122,6 +123,14 @@
     createMut.mutate();
   }
 
+  function openCreateDialog() {
+    showCreate = true;
+    newName = "";
+    newGroupId = "";
+    newCategoryId = "";
+    newPlannedFor = todayIsoLocal();
+  }
+
   // Delete
   let deleteTargetId = $state<string | null>(null);
 
@@ -228,9 +237,19 @@
 </script>
 
 <div class="container mx-auto max-w-3xl space-y-5 px-4 py-6">
-  <h1 class="text-2xl font-semibold text-slate-900 dark:text-white">
-    {m.shopping_lists_title()}
-  </h1>
+  <div class="flex items-center justify-between gap-3">
+    <h1 class="text-2xl font-semibold text-slate-900 dark:text-white">
+      {m.shopping_lists_title()}
+    </h1>
+    <button
+      type="button"
+      onclick={openCreateDialog}
+      class="bg-accent-gradient hidden items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none md:inline-flex"
+    >
+      <Plus size={16} aria-hidden="true" />
+      {m.shopping_list_form_title_add()}
+    </button>
+  </div>
 
   {#if query.isLoading}
     <div class="grid gap-3 sm:grid-cols-2">
@@ -369,16 +388,7 @@
   {/if}
 </div>
 
-<Fab
-  onclick={() => {
-    showCreate = true;
-    newName = "";
-    newGroupId = "";
-    newCategoryId = "";
-    newPlannedFor = todayIsoLocal();
-  }}
-  aria-label={m.shopping_list_form_title_add()}
-/>
+<Fab onclick={openCreateDialog} aria-label={m.shopping_list_form_title_add()} />
 
 <!-- Create dialog -->
 <Dialog
@@ -399,18 +409,12 @@
         class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
       />
     </div>
-    <div class="space-y-1">
-      <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="sl-planned"
-        >{m.shopping_list_planned_for_input_label()}</label
-      >
-      <input
-        id="sl-planned"
-        type="date"
-        required
-        bind:value={newPlannedFor}
-        class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
-      />
-    </div>
+    <DayPicker
+      id="sl-planned"
+      bind:value={newPlannedFor}
+      label={m.shopping_list_planned_for_input_label()}
+      required
+    />
     <div class="space-y-1">
       <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="sl-cat"
         >{m.shopping_list_form_category()}</label
@@ -484,18 +488,12 @@
         class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
       />
     </div>
-    <div class="space-y-1">
-      <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="sl-edit-planned"
-        >{m.shopping_list_planned_for_input_label()}</label
-      >
-      <input
-        id="sl-edit-planned"
-        type="date"
-        required
-        bind:value={editPlannedFor}
-        class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
-      />
-    </div>
+    <DayPicker
+      id="sl-edit-planned"
+      bind:value={editPlannedFor}
+      label={m.shopping_list_planned_for_input_label()}
+      required
+    />
     <div class="space-y-1">
       <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="sl-edit-cat"
         >{m.shopping_list_form_category()}</label

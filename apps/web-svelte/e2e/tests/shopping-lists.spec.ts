@@ -43,6 +43,15 @@ function isoDate(daysFromToday = 0): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+function displayDate(iso: string): string {
+  const [year, month, day] = iso.split("-").map(Number);
+  return new Intl.DateTimeFormat("pl-PL", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(year, month - 1, day));
+}
+
 function makeList(id: string, name: string, plannedFor = isoDate()): List {
   return {
     id,
@@ -249,7 +258,7 @@ test("shopping lists follow planning, shopping, archived, duplicate, and upcomin
 
     await page.getByRole("button", { name: "Nowa lista zakupów" }).click();
     await page.locator("#sl-name").fill("Zakupy na dziś");
-    await expect(page.locator("#sl-planned")).toHaveValue(isoDate());
+    await expect(page.locator("#sl-planned")).toContainText(displayDate(isoDate()));
     await page.getByRole("button", { name: "Zapisz" }).click();
 
     await expect(page.getByRole("heading", { name: "Aktywne" })).toBeVisible();
@@ -319,7 +328,8 @@ test("shopping lists follow planning, shopping, archived, duplicate, and upcomin
     await page.goto("/shopping-lists");
     await page.getByRole("button", { name: "Nowa lista zakupów" }).click();
     await page.locator("#sl-name").fill("Zakupy jutro");
-    await page.locator("#sl-planned").fill(isoDate(1));
+    await page.locator("#sl-planned").click();
+    await page.locator(`[data-date="${isoDate(1)}"]`).click();
     await page.getByRole("button", { name: "Zapisz" }).click();
 
     await expect(page.getByRole("heading", { name: "Nadchodzące" })).toBeVisible();
