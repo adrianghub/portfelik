@@ -6,28 +6,41 @@
 --   match_counterparty + match_type + category_id
 --
 -- Normalization intentionally mirrors the client helper: trim, collapse
--- whitespace, lower-case. Existing duplicates are removed first, keeping the
--- highest priority rule and then the earliest created rule.
+-- whitespace, lower-case. This migration never deletes user rules. If existing
+-- duplicates are present, it aborts before creating the unique index so the
+-- duplicates can be reviewed and cleaned up intentionally.
 
-with ranked as (
-  select
-    id,
-    row_number() over (
-      partition by
+do $$
+declare
+  v_duplicate_groups integer;
+  v_duplicate_rows integer;
+begin
+  with duplicate_groups as (
+    select count(*) as row_count
+    from public.categorization_rules
+    group by
         user_id,
         kind,
         coalesce(lower(btrim(regexp_replace(match_description, '\s+', ' ', 'g'))), ''),
         coalesce(lower(btrim(regexp_replace(match_counterparty, '\s+', ' ', 'g'))), ''),
         match_type,
         category_id
-      order by priority desc, created_at asc, id asc
-    ) as rn
-  from public.categorization_rules
-)
-delete from public.categorization_rules r
-using ranked d
-where r.id = d.id
-  and d.rn > 1;
+    having count(*) > 1
+  )
+  select
+    count(*),
+    coalesce(sum(row_count), 0)
+  into v_duplicate_groups, v_duplicate_rows
+  from duplicate_groups;
+
+  if v_duplicate_groups > 0 then
+    raise exception
+      'Cannot create categorization_rules_duplicate_identity_uidx: found % duplicate identity groups covering % rows. Review duplicate categorization_rules manually before applying this migration.',
+      v_duplicate_groups,
+      v_duplicate_rows
+      using errcode = '23505';
+  end if;
+end $$;
 
 create unique index if not exists categorization_rules_duplicate_identity_uidx
   on public.categorization_rules (

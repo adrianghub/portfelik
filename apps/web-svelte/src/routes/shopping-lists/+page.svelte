@@ -49,14 +49,21 @@
       return l.group_id === groupFilter;
     })
   );
-  const active = $derived(filteredLists.filter((l) => l.status === "active"));
-  const completed = $derived(filteredLists.filter((l) => l.status === "completed"));
+  const upcoming = $derived(filteredLists.filter((l) => l.bucket === "upcoming"));
+  const active = $derived(filteredLists.filter((l) => l.bucket === "active"));
+  const archived = $derived(filteredLists.filter((l) => l.bucket === "archived"));
+
+  function todayIsoLocal(): string {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  }
 
   // Create dialog
   let showCreate = $state(false);
   let newName = $state("");
   let newGroupId = $state("");
   let newCategoryId = $state("");
+  let newPlannedFor = $state(todayIsoLocal());
 
   const createMut = createMutation(() => ({
     mutationFn: () =>
@@ -64,6 +71,7 @@
         name: newName,
         group_id: newGroupId || null,
         category_id: newCategoryId || null,
+        planned_for: newPlannedFor || null,
       }),
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: ["shopping_lists"] });
@@ -82,6 +90,10 @@
         item_total: 0,
         item_completed: 0,
         linked_transaction_id: null,
+        planned_for: newPlannedFor,
+        shopping_started_at: null,
+        bucket: newPlannedFor > todayIsoLocal() ? "upcoming" : "active",
+        mode: "planning",
       };
       queryClient.setQueryData<ShoppingListSummary[]>(
         ["shopping_lists"],
@@ -94,6 +106,7 @@
       newName = "";
       newGroupId = "";
       newCategoryId = "";
+      newPlannedFor = todayIsoLocal();
       toast.success(m.toast_shopping_list_created());
     },
     onError: (_err, _vars, ctx) => {
@@ -149,12 +162,14 @@
   let editName = $state("");
   let editGroupId = $state("");
   let editCategoryId = $state("");
+  let editPlannedFor = $state("");
 
   function openEdit(list: ShoppingListSummary) {
     editTarget = list;
     editName = list.name;
     editGroupId = list.group_id ?? "";
     editCategoryId = list.category_id ?? "";
+    editPlannedFor = list.planned_for;
   }
 
   const updateMut = createMutation(() => ({
@@ -163,20 +178,35 @@
         name: editName,
         group_id: editGroupId || null,
         category_id: editCategoryId || null,
+        planned_for: editPlannedFor,
       }),
     onMutate: async () => {
       const target = editTarget;
       if (!target) return { previous: undefined };
       await queryClient.cancelQueries({ queryKey: ["shopping_lists"] });
       const previous = queryClient.getQueryData<ShoppingListSummary[]>(["shopping_lists"]);
+      const today = todayIsoLocal();
       const patch = {
         name: editName,
         group_id: editGroupId || null,
         category_id: editCategoryId || null,
+        planned_for: editPlannedFor,
       };
       queryClient.setQueryData<ShoppingListSummary[]>(
         ["shopping_lists"],
-        (previous ?? []).map((l) => (l.id === target.id ? { ...l, ...patch } : l))
+        (previous ?? []).map((l) =>
+          l.id === target.id
+            ? {
+                ...l,
+                ...patch,
+                bucket: l.completed_at
+                  ? "archived"
+                  : l.shopping_started_at || editPlannedFor <= today
+                    ? "active"
+                    : "upcoming",
+              }
+            : l
+        )
       );
       return { previous };
     },
@@ -272,32 +302,70 @@
       </div>
     {/if}
 
-    {#if active.length > 0}
-      <section class="space-y-2">
-        <h2 class="text-xs font-medium tracking-wide text-slate-500 uppercase dark:text-slate-400">
-          {m.shopping_lists_active()}
-        </h2>
+    <section class="space-y-2">
+      <h2 class="text-xs font-medium tracking-wide text-slate-500 uppercase dark:text-slate-400">
+        {m.shopping_lists_section_active()}
+      </h2>
+      {#if active.length === 0}
+        <p
+          class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-500"
+        >
+          {m.shopping_lists_section_active_empty()}
+        </p>
+      {:else}
         {#each active as list (list.id)}
-          <ShoppingListCard {list} onedit={openEdit} ondelete={(id) => (deleteTargetId = id)} />
-        {/each}
-      </section>
-    {/if}
-
-    {#if completed.length > 0}
-      <section class="space-y-2">
-        <h2 class="text-xs font-medium tracking-wide text-slate-500 uppercase dark:text-slate-400">
-          {m.shopping_lists_completed()}
-        </h2>
-        {#each completed as list (list.id)}
           <ShoppingListCard
             {list}
+            variant="active"
             onedit={openEdit}
-            onduplicate={(id) => duplicateMut.mutate(id)}
             ondelete={(id) => (deleteTargetId = id)}
           />
         {/each}
-      </section>
-    {/if}
+      {/if}
+    </section>
+
+    <section class="space-y-2">
+      <h2 class="text-xs font-medium tracking-wide text-slate-500 uppercase dark:text-slate-400">
+        {m.shopping_lists_section_upcoming()}
+      </h2>
+      {#if upcoming.length === 0}
+        <p
+          class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-500"
+        >
+          {m.shopping_lists_section_upcoming_empty()}
+        </p>
+      {:else}
+        {#each upcoming as list (list.id)}
+          <ShoppingListCard
+            {list}
+            variant="upcoming"
+            onedit={openEdit}
+            ondelete={(id) => (deleteTargetId = id)}
+          />
+        {/each}
+      {/if}
+    </section>
+
+    <section class="space-y-2">
+      <h2 class="text-xs font-medium tracking-wide text-slate-500 uppercase dark:text-slate-400">
+        {m.shopping_lists_section_archived()}
+      </h2>
+      {#if archived.length === 0}
+        <p
+          class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-500"
+        >
+          {m.shopping_lists_section_archived_empty()}
+        </p>
+      {:else}
+        {#each archived as list (list.id)}
+          <ShoppingListCard
+            {list}
+            variant="archived"
+            onduplicate={(id) => duplicateMut.mutate(id)}
+          />
+        {/each}
+      {/if}
+    </section>
   {/if}
 </div>
 
@@ -307,6 +375,7 @@
     newName = "";
     newGroupId = "";
     newCategoryId = "";
+    newPlannedFor = todayIsoLocal();
   }}
   aria-label={m.shopping_list_form_title_add()}
 />
@@ -328,6 +397,18 @@
         required
         bind:value={newName}
         class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
+      />
+    </div>
+    <div class="space-y-1">
+      <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="sl-planned"
+        >{m.shopping_list_planned_for_input_label()}</label
+      >
+      <input
+        id="sl-planned"
+        type="date"
+        required
+        bind:value={newPlannedFor}
+        class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
       />
     </div>
     <div class="space-y-1">
@@ -401,6 +482,18 @@
         required
         bind:value={editName}
         class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
+      />
+    </div>
+    <div class="space-y-1">
+      <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="sl-edit-planned"
+        >{m.shopping_list_planned_for_input_label()}</label
+      >
+      <input
+        id="sl-edit-planned"
+        type="date"
+        required
+        bind:value={editPlannedFor}
+        class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
       />
     </div>
     <div class="space-y-1">

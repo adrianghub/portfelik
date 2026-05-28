@@ -1,132 +1,333 @@
-import { expect, test } from "@playwright/test";
-import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
+import { expect, type Page, test } from "@playwright/test";
+import { injectFakeSession } from "../helpers/mock-auth";
+import { MOCK_CATEGORIES, MOCK_PROFILE, MOCK_USER } from "../helpers/fixtures";
+
+const SUPABASE_URLS = [
+  "https://emqzcygfwcvbmhxhfkcc.supabase.co",
+  "http://127.0.0.1:54321",
+  "http://localhost:54321",
+] as const;
+
+type Item = {
+  id: string;
+  shopping_list_id: string;
+  name: string;
+  quantity: number | null;
+  unit: string | null;
+  category: string | null;
+  completed: boolean;
+  position: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type List = {
+  id: string;
+  name: string;
+  status: "active" | "completed";
+  user_id: string;
+  group_id: string | null;
+  category_id: string | null;
+  total_amount: number | null;
+  completed_at: string | null;
+  planned_for: string;
+  shopping_started_at: string | null;
+  created_at: string;
+  updated_at: string;
+  linked_transaction_id?: string | null;
+};
+
+function isoDate(daysFromToday = 0): string {
+  const d = new Date();
+  d.setDate(d.getDate() + daysFromToday);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function makeList(id: string, name: string, plannedFor = isoDate()): List {
+  return {
+    id,
+    name,
+    status: "active",
+    user_id: MOCK_USER.id,
+    group_id: null,
+    category_id: "cat-1",
+    total_amount: null,
+    completed_at: null,
+    planned_for: plannedFor,
+    shopping_started_at: null,
+    created_at: "2026-05-28T08:00:00Z",
+    updated_at: "2026-05-28T08:00:00Z",
+    linked_transaction_id: null,
+  };
+}
+
+function item(listId: string, id: string, name: string, position: number): Item {
+  return {
+    id,
+    shopping_list_id: listId,
+    name,
+    quantity: null,
+    unit: null,
+    category: null,
+    completed: false,
+    position,
+    created_at: "2026-05-28T08:00:00Z",
+    updated_at: "2026-05-28T08:00:00Z",
+  };
+}
+
+function idFromEq(url: string): string | null {
+  return decodeURIComponent(url).match(/id=eq\.([^&]+)/)?.[1] ?? null;
+}
+
+async function setupShoppingListFlowMock(page: Page) {
+  const lists = new Map<string, List>();
+  const items = new Map<string, Item[]>();
+  let nextList = 1;
+  let nextItem = 1;
+
+  const serializeList = (list: List) => ({
+    ...list,
+    shopping_list_items:
+      items.get(list.id)?.map((i) => ({ id: i.id, completed: i.completed })) ?? [],
+    transactions: list.linked_transaction_id ? [{ id: list.linked_transaction_id }] : [],
+  });
+  const serializeDetail = (list: List) => ({
+    ...list,
+    shopping_list_items: items.get(list.id) ?? [],
+    transactions: list.linked_transaction_id ? [{ id: list.linked_transaction_id }] : [],
+  });
+
+  for (const url of SUPABASE_URLS) {
+    await page.route(`${url}/auth/v1/**`, (route) =>
+      route.fulfill({ status: 200, json: MOCK_USER })
+    );
+    await page.route(`${url}/rest/v1/**`, async (route) => {
+      const request = route.request();
+      const requestUrl = request.url();
+      const method = request.method();
+
+      if (requestUrl.includes("/rpc/complete_shopping_list")) {
+        const body = JSON.parse(request.postData() ?? "{}") as {
+          p_list_id: string;
+          p_total_amount: number;
+          p_category_id: string;
+        };
+        const list = lists.get(body.p_list_id);
+        if (!list)
+          return route.fulfill({ status: 404, json: { message: "shopping_list_not_found" } });
+        list.status = "completed";
+        list.completed_at = "2026-05-28T11:00:00Z";
+        list.total_amount = body.p_total_amount;
+        list.category_id = body.p_category_id;
+        list.linked_transaction_id = "tx-from-list";
+        return route.fulfill({
+          status: 200,
+          json: {
+            id: "tx-from-list",
+            amount: body.p_total_amount,
+            category_id: body.p_category_id,
+          },
+        });
+      }
+
+      if (requestUrl.includes("/rpc/duplicate_shopping_list")) {
+        const body = JSON.parse(request.postData() ?? "{}") as { p_list_id: string };
+        const source = lists.get(body.p_list_id);
+        if (!source)
+          return route.fulfill({ status: 404, json: { message: "shopping_list_not_found" } });
+        const duplicate = makeList(`list-${nextList++}`, `${source.name} (kopia)`, isoDate());
+        duplicate.category_id = source.category_id;
+        lists.set(duplicate.id, duplicate);
+        items.set(
+          duplicate.id,
+          (items.get(source.id) ?? []).map((sourceItem, index) => ({
+            ...sourceItem,
+            id: `item-${nextItem++}`,
+            shopping_list_id: duplicate.id,
+            completed: false,
+            position: index + 1,
+          }))
+        );
+        return route.fulfill({ status: 200, json: duplicate });
+      }
+
+      if (requestUrl.includes("/profiles")) {
+        return route.fulfill({ status: 200, json: [MOCK_PROFILE] });
+      }
+      if (requestUrl.includes("/categories")) {
+        return route.fulfill({ status: 200, json: MOCK_CATEGORIES });
+      }
+      if (requestUrl.includes("/user_groups") || requestUrl.includes("/shopping_item_categories")) {
+        return route.fulfill({ status: 200, json: [] });
+      }
+
+      if (requestUrl.includes("/shopping_list_items")) {
+        if (method === "POST") {
+          const body = JSON.parse(request.postData() ?? "{}") as Partial<Item>;
+          const listItems = items.get(body.shopping_list_id ?? "") ?? [];
+          const created = item(
+            body.shopping_list_id ?? "",
+            `item-${nextItem++}`,
+            body.name ?? "Produkt",
+            listItems.length + 1
+          );
+          created.quantity = body.quantity ?? null;
+          created.unit = body.unit ?? null;
+          created.category = body.category ?? null;
+          listItems.push(created);
+          items.set(created.shopping_list_id, listItems);
+          return route.fulfill({ status: 201, json: created });
+        }
+        if (method === "PATCH") {
+          const id = idFromEq(requestUrl);
+          const body = JSON.parse(request.postData() ?? "{}") as Partial<Item>;
+          for (const listItems of items.values()) {
+            const found = listItems.find((i) => i.id === id);
+            if (found) {
+              Object.assign(found, body, { updated_at: "2026-05-28T10:00:00Z" });
+              return route.fulfill({ status: 200, json: found });
+            }
+          }
+        }
+        return route.fulfill({ status: 200, json: [] });
+      }
+
+      if (requestUrl.includes("/shopping_lists")) {
+        if (method === "POST") {
+          const body = JSON.parse(request.postData() ?? "{}") as Partial<List>;
+          const created = makeList(`list-${nextList++}`, body.name ?? "Lista", body.planned_for);
+          created.group_id = body.group_id ?? null;
+          created.category_id = body.category_id ?? null;
+          lists.set(created.id, created);
+          items.set(created.id, []);
+          return route.fulfill({ status: 201, json: created });
+        }
+        if (method === "PATCH") {
+          const id = idFromEq(requestUrl);
+          const list = id ? lists.get(id) : null;
+          if (!list) return route.fulfill({ status: 404, json: {} });
+          Object.assign(list, JSON.parse(request.postData() ?? "{}"), {
+            updated_at: "2026-05-28T10:00:00Z",
+          });
+          return route.fulfill({ status: 200, json: serializeDetail(list) });
+        }
+        const id = idFromEq(requestUrl);
+        if (id) {
+          const list = lists.get(id);
+          return route.fulfill({
+            status: list ? 200 : 404,
+            json: list ? serializeDetail(list) : {},
+          });
+        }
+        return route.fulfill({
+          status: 200,
+          json: Array.from(lists.values()).map(serializeList),
+        });
+      }
+
+      return route.fulfill({ status: 200, json: [] });
+    });
+  }
+}
+
+async function dismissToasts(page: Page) {
+  await page.locator("[data-sonner-toast]").evaluateAll((nodes) => {
+    for (const node of nodes) node.remove();
+  });
+}
 
 test.beforeEach(async ({ page }) => {
   await injectFakeSession(page);
-  await mockSupabaseAPI(page);
+  await setupShoppingListFlowMock(page);
 });
 
-test("lists page renders active lists", async ({ page }) => {
-  await page.goto("/shopping-lists");
-  await expect(page.getByText("Tygodniowe zakupy")).toBeVisible();
-});
+test("shopping lists follow planning, shopping, archived, duplicate, and upcoming flows", async ({
+  page,
+}) => {
+  await test.step("create list defaults to today, lands in active, and opens in planning", async () => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/shopping-lists");
 
-test("create list: dialog opens, submit shows success toast", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/shopping-lists");
-  await expect(page.getByText("Tygodniowe zakupy")).toBeVisible();
+    await page.getByRole("button", { name: "Nowa lista zakupów" }).click();
+    await page.locator("#sl-name").fill("Zakupy na dziś");
+    await expect(page.locator("#sl-planned")).toHaveValue(isoDate());
+    await page.getByRole("button", { name: "Zapisz" }).click();
 
-  // Open create dialog via FAB (aria-label = "Nowa lista zakupów") — FAB is mobile-only (md:hidden)
-  await page.getByRole("button", { name: "Nowa lista zakupów" }).click();
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await expect(page.getByText("Nowa lista zakupów")).toBeVisible();
-
-  // Fill name
-  await page.locator("#sl-name").fill("Nowa lista testowa");
-
-  // Submit — common_save = "Zapisz"
-  await page.getByRole("button", { name: "Zapisz" }).click();
-
-  // Toast — toast_shopping_list_created = "Lista zakupów dodana"
-  await expect(page.getByText("Lista zakupów dodana")).toBeVisible();
-});
-
-test("list detail: navigating to list shows items", async ({ page }) => {
-  await page.goto("/shopping-lists");
-  await expect(page.getByText("Tygodniowe zakupy")).toBeVisible();
-
-  // Click the list card anchor element
-  await page.getByRole("link", { name: /Tygodniowe zakupy/ }).click();
-
-  // Navigated to detail
-  await expect(page).toHaveURL("/shopping-lists/list-1");
-  await expect(page.getByText("Mleko")).toBeVisible();
-  await expect(page.getByText("Chleb")).toBeVisible();
-});
-
-test("check off item: clicking the row body toggles without error", async ({ page }) => {
-  const patches: string[] = [];
-  page.on("request", (req) => {
-    if (req.method() === "PATCH" && req.url().includes("/shopping_list_items")) {
-      patches.push(req.url());
-    }
+    await expect(page.getByRole("heading", { name: "Aktywne" })).toBeVisible();
+    await expect(page.locator('a[href="/shopping-lists/list-1"]')).toBeVisible();
+    await page.locator('a[href="/shopping-lists/list-1"]').click();
+    await expect(page).toHaveURL(/\/shopping-lists\/list-1$/);
+    await expect(page.getByText("Planowanie")).toBeVisible();
   });
 
-  await page.goto("/shopping-lists/list-1");
-  await expect(page.getByText("Mleko")).toBeVisible();
+  await test.step("add items in planning without checkboxes", async () => {
+    await page.getByRole("combobox").first().fill("Mleko");
+    await page.getByRole("button", { name: "Dodaj element" }).first().click();
+    await page.getByRole("combobox").first().fill("Chleb");
+    await page.getByRole("button", { name: "Dodaj element" }).first().click();
 
-  // Click the row body (the name span), NOT the small checkbox indicator
-  await page.getByText("Mleko").click();
-  await page.waitForTimeout(300);
-
-  // Row click fires the toggle PATCH
-  expect(patches.length).toBeGreaterThan(0);
-  await expect(page.getByText(/Coś poszło nie tak/)).not.toBeVisible();
-});
-
-test("row icons: edit + delete are reachable inline", async ({ page }) => {
-  await page.goto("/shopping-lists/list-1");
-  await expect(page.getByText("Mleko")).toBeVisible();
-
-  const row = page.locator("ul li").filter({ hasText: "Mleko" });
-  await expect(row.getByRole("button", { name: /Edytuj/ })).toBeVisible();
-  await expect(row.getByRole("button", { name: /Usuń/ })).toBeVisible();
-});
-
-test("back-nav after add: shopping_lists summary refetches", async ({ page }) => {
-  let listGetCount = 0;
-  page.on("request", (req) => {
-    const url = req.url();
-    if (req.method() === "GET" && url.includes("/shopping_lists") && !url.includes("id=eq.")) {
-      listGetCount++;
-    }
+    await expect(page.getByText("Mleko").first()).toBeVisible();
+    await expect(page.getByText("Chleb").first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Zaznacz" })).toHaveCount(0);
   });
 
-  await page.goto("/shopping-lists");
-  await expect(page.getByText("Tygodniowe zakupy")).toBeVisible();
+  await test.step("start shopping shows checkboxes and hides edit/delete rows", async () => {
+    await page.getByRole("button", { name: "Zacznij zakupy" }).click();
+    await expect(page.getByText("Tryb zakupów")).toBeVisible();
+    await expect(page.getByRole("progressbar")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Zaznacz" }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Edytuj" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Usuń" })).toHaveCount(0);
+  });
 
-  await page.getByRole("link", { name: /Tygodniowe zakupy/ }).click();
-  await expect(page).toHaveURL("/shopping-lists/list-1");
-  await expect(page.getByText("Mleko")).toBeVisible();
+  await test.step("check items and add a forgotten product", async () => {
+    await page.getByText("Mleko").first().click();
+    await page.getByPlaceholder("Co jeszcze?").fill("Masło");
+    await page.getByRole("button", { name: "Dodaj element" }).first().click();
+    await expect(page.getByText("Masło").first()).toBeVisible();
+    await page.getByText("Chleb").first().click();
+    await page.getByText("Masło").first().click();
+  });
 
-  // Add an item from the detail page (inline quick-add form)
-  await page.getByRole("combobox", { name: "Nazwa elementu" }).fill("Cebula testowa");
-  await page.getByRole("button", { name: "Dodaj element" }).click();
-  await expect(page.getByText("Element dodany")).toBeVisible();
+  await test.step("complete list creates transaction and moves it to archived", async () => {
+    await dismissToasts(page);
+    await page.getByRole("button", { name: "Zakończ listę" }).click();
+    await page.locator("#comp-amount").fill("120");
+    await page.locator("#comp-cat").selectOption("cat-1");
+    await page.getByRole("button", { name: "Zakończ i utwórz transakcję" }).click();
 
-  const before = listGetCount;
+    await expect(page).toHaveURL("/shopping-lists");
+    await expect(page.getByRole("heading", { name: "Zarchiwizowane" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Duplikuj listę" })).toBeVisible();
+  });
 
-  await page.goBack();
-  await expect(page.getByText("Tygodniowe zakupy")).toBeVisible();
-  await page.waitForTimeout(500);
+  await test.step("duplicate archived list creates fresh active unchecked copy", async () => {
+    const dupeResponse = page.waitForResponse((r) =>
+      r.url().includes("/rpc/duplicate_shopping_list") && r.status() === 200
+    );
+    await page.getByRole("button", { name: "Duplikuj listę" }).click();
+    await dupeResponse;
+    await expect(page.getByText("Lista skopiowana")).toBeVisible();
+    await expect(page.getByRole("link", { name: /Zakupy na dziś \(kopia\)/ })).toBeVisible();
 
-  // Detail-page mutation must invalidate the summary cache so back-nav refetches
-  expect(listGetCount).toBeGreaterThan(before);
-});
+    await page.getByRole("link", { name: /Zakupy na dziś \(kopia\)/ }).click();
+    await expect(page.getByText("Planowanie")).toBeVisible();
+    await page.getByRole("button", { name: "Zacznij zakupy" }).click();
+    await expect(page.getByRole("button", { name: "Zaznacz", exact: true })).toHaveCount(3);
+  });
 
-test("complete list: dialog, submit, success toast", async ({ page }) => {
-  await page.goto("/shopping-lists/list-1");
-  await expect(page.getByText("Mleko")).toBeVisible();
+  await test.step("future list lands in upcoming but can still start shopping", async () => {
+    await page.goto("/shopping-lists");
+    await page.getByRole("button", { name: "Nowa lista zakupów" }).click();
+    await page.locator("#sl-name").fill("Zakupy jutro");
+    await page.locator("#sl-planned").fill(isoDate(1));
+    await page.getByRole("button", { name: "Zapisz" }).click();
 
-  // Click "Zakończ listę" button — shopping_list_complete_title = "Zakończ listę"
-  await page.getByRole("button", { name: "Zakończ listę" }).click();
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await expect(page.getByText("Nie wszystko odhaczone")).toBeVisible();
-
-  // The fixture leaves Mleko unchecked, so acknowledge the warning first.
-  await page.getByRole("button", { name: "Zakończ mimo to" }).click();
-  await expect(page.getByText("Nie wszystko odhaczone")).not.toBeVisible();
-  await expect(page.getByText("Zakończenie listy utworzy transakcję wydatku")).toBeVisible();
-
-  // Fill amount
-  await page.locator("#comp-amount").fill("120");
-
-  // Select category
-  await page.locator("#comp-cat").selectOption("cat-1");
-
-  // Submit — shopping_list_complete_submit = "Zakończ i utwórz transakcję"
-  await page.getByRole("button", { name: "Zakończ i utwórz transakcję" }).click();
-
-  // Success toast — shopping_list_completed_celebration = "🎉 Lista zrobiona!"
-  await expect(page.getByText("Lista zrobiona")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Nadchodzące" })).toBeVisible();
+    await expect(page.locator('a[href="/shopping-lists/list-3"]')).toBeVisible();
+    await page.locator('a[href="/shopping-lists/list-3"]').click();
+    await expect(page.getByText("Planowanie")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Zacznij zakupy" })).toBeVisible();
+  });
 });
