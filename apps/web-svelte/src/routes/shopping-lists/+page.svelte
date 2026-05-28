@@ -416,18 +416,6 @@
       required
     />
     <div class="space-y-1">
-      <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="sl-planned"
-        >{m.shopping_list_planned_for_input_label()}</label
-      >
-      <input
-        id="sl-planned"
-        type="date"
-        required
-        bind:value={newPlannedFor}
-        class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
-      />
-    </div>
-    <div class="space-y-1">
       <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="sl-cat"
         >{m.shopping_list_form_category()}</label
       >
@@ -506,18 +494,6 @@
       label={m.shopping_list_planned_for_input_label()}
       required
     />
-    <div class="space-y-1">
-      <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="sl-edit-planned"
-        >{m.shopping_list_planned_for_input_label()}</label
-      >
-      <input
-        id="sl-edit-planned"
-        type="date"
-        required
-        bind:value={editPlannedFor}
-        class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
-      />
-    </div>
     <div class="space-y-1">
       <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="sl-edit-cat"
         >{m.shopping_list_form_category()}</label
