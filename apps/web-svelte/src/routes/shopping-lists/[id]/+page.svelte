@@ -233,6 +233,11 @@
 
   function plannedForLabel(date: string | null | undefined): string {
     if (!date) return "";
+    const parts = date.split("-").map(Number);
+    if (parts.length === 3 && parts.every((n) => !Number.isNaN(n))) {
+      const d = new Date(parts[0], parts[1] - 1, parts[2]);
+      return formatDate(d.toISOString());
+    }
     const d = new Date(date);
     if (Number.isNaN(d.getTime())) return date ?? "";
     return formatDate(d.toISOString());
