@@ -108,6 +108,18 @@ describe("RLS: categorization_rules", () => {
     expect(after.data?.user_id).toBe(ctx.userA.userId);
   });
 
+  it("unique guard blocks duplicate rule identity after normalization", async () => {
+    const dup = await ctx.userA.client.from("categorization_rules").insert({
+      user_id: ctx.userA.userId,
+      kind: "contains",
+      match_description: "  BIEDRONKA  ",
+      category_id: categoryAId,
+      priority: 100,
+    });
+    expect(dup.error).not.toBeNull();
+    expect(dup.error?.code).toBe("23505");
+  });
+
   it("user A can DELETE own rule", async () => {
     const del = await ctx.userA.client.from("categorization_rules").delete().eq("id", ruleAId);
     expect(del.error).toBeNull();

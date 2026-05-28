@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { matchCategory, type MatchableRow } from "$lib/import/categorize";
+import {
+  findDuplicateCategorizationRule,
+  matchCategory,
+  resolveCategorizationRule,
+  suggestRuleText,
+  type MatchableRow,
+} from "$lib/import/categorize";
 import type { CategorizationRule, Category } from "$lib/types";
 
 const expenseCat: Category = {
@@ -50,6 +56,37 @@ const expenseRow: MatchableRow = {
 };
 
 describe("import/categorize matchCategory", () => {
+  it("suggests a short merchant token from noisy bank text", () => {
+    expect(
+      suggestRuleText({
+        type: "expense",
+        description: "LIDL MLYNSKA Reda POL",
+        counterparty: null,
+      })
+    ).toBe("LIDL");
+  });
+
+  it("duplicate identity ignores case and surrounding whitespace", () => {
+    const existing = [
+      rule({
+        kind: "contains",
+        match_counterparty: "  Rossmann  ",
+        category_id: expenseCat.id,
+      }),
+    ];
+
+    expect(
+      findDuplicateCategorizationRule(
+        existing,
+        rule({
+          kind: "contains",
+          match_counterparty: "rossmann",
+          category_id: expenseCat.id,
+        })
+      )?.id
+    ).toBe(existing[0].id);
+  });
+
   it("returns null when no rules match", () => {
     expect(matchCategory(expenseRow, [], categories)).toBeNull();
     expect(
@@ -71,9 +108,7 @@ describe("import/categorize matchCategory", () => {
     const substr = [rule({ kind: "exact", match_description: "biedronka" })];
     expect(matchCategory(expenseRow, substr, categories)).toBeNull();
 
-    const full = [
-      rule({ kind: "exact", match_description: "  biedronka 1234 warszawa  " }),
-    ];
+    const full = [rule({ kind: "exact", match_description: "  biedronka 1234 warszawa  " })];
     expect(matchCategory(expenseRow, full, categories)).toBe(expenseCat.id);
   });
 
@@ -96,9 +131,7 @@ describe("import/categorize matchCategory", () => {
     // Text matches but type differs → no match.
     expect(matchCategory({ ...expenseRow, type: "income" }, rules, categories)).toBeNull();
     // Type matches but text differs → no match.
-    expect(
-      matchCategory({ ...expenseRow, description: "ORLEN" }, rules, categories)
-    ).toBeNull();
+    expect(matchCategory({ ...expenseRow, description: "ORLEN" }, rules, categories)).toBeNull();
   });
 
   it("respects priority order — highest priority wins", () => {
@@ -107,6 +140,7 @@ describe("import/categorize matchCategory", () => {
       rule({ match_description: "biedronka", category_id: otherExpenseCat.id, priority: 5 }),
     ];
     expect(matchCategory(expenseRow, rules, categories)).toBe(otherExpenseCat.id);
+    expect(resolveCategorizationRule(expenseRow, rules, categories)?.id).toBe(rules[1].id);
   });
 
   it("never assigns a category whose type contradicts the row", () => {
