@@ -15,7 +15,10 @@ import { expect, test, type Page } from "@playwright/test";
 import { MOCK_SHOPPING_LIST_DETAIL, TEST_USER_ID } from "../helpers/fixtures";
 import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
 
-const SUPABASE_URL = "https://emqzcygfwcvbmhxhfkcc.supabase.co";
+const REST_URL = /.*\/rest\/v1\/.*/;
+const AUTH_URL = /.*\/auth\/v1\/.*/;
+const SHOPPING_LISTS_URL = /.*\/rest\/v1\/shopping_lists.*/;
+const SHOPPING_LIST_ITEMS_URL = /.*\/rest\/v1\/shopping_list_items.*/;
 
 // ── Fixture helpers ──────────────────────────────────────────────────────────
 
@@ -201,7 +204,7 @@ async function seedItemHistory(
   page: Page,
   items: { name: string; quantity: number | null; unit: string | null; category?: string | null }[]
 ) {
-  await page.route(`${SUPABASE_URL}/rest/v1/shopping_list_items**`, (route) => {
+  await page.route(SHOPPING_LIST_ITEMS_URL, (route) => {
     const method = route.request().method();
     if (method === "GET") return route.fulfill({ status: 200, json: items });
     return route.fulfill({ status: 200, json: {} });
@@ -238,7 +241,7 @@ test("quick-add accepts name-only items", async ({ page }) => {
 
   // POST to shopping_list_items returns the new item
   let postedBody: Record<string, unknown> = {};
-  await page.route(`${SUPABASE_URL}/rest/v1/shopping_list_items**`, (route) => {
+  await page.route(SHOPPING_LIST_ITEMS_URL, (route) => {
     const method = route.request().method();
     if (method === "POST") {
       postedBody = JSON.parse(route.request().postData() ?? "{}") as Record<string, unknown>;
@@ -296,7 +299,7 @@ test("quick-add accepts inline quantity + unit", async ({ page }) => {
   });
 
   let postedBody: Record<string, unknown> = {};
-  await page.route(`${SUPABASE_URL}/rest/v1/shopping_list_items**`, (route) => {
+  await page.route(SHOPPING_LIST_ITEMS_URL, (route) => {
     const method = route.request().method();
     if (method === "POST") {
       try {
@@ -359,7 +362,7 @@ test("suggestion dropdown hides on Escape", async ({ page }) => {
   await mockSupabaseAPI(page);
 
   const fixture = emptyListFixture();
-  await page.route(`${SUPABASE_URL}/rest/v1/shopping_lists**`, (route) => {
+  await page.route(SHOPPING_LISTS_URL, (route) => {
     const url = route.request().url();
     const method = route.request().method();
     if (url.includes("id=eq.") && method === "GET") {
@@ -395,7 +398,7 @@ test("suggestion select fills name and auto-opens details", async ({ page }) => 
   await mockSupabaseAPI(page);
 
   const fixture = emptyListFixture();
-  await page.route(`${SUPABASE_URL}/rest/v1/shopping_lists**`, (route) => {
+  await page.route(SHOPPING_LISTS_URL, (route) => {
     const url = route.request().url();
     const method = route.request().method();
     if (url.includes("id=eq.") && method === "GET") {
@@ -441,7 +444,7 @@ test("item edit sheet updates name, quantity and unit", async ({ page }) => {
   await mockSupabaseAPI(page);
 
   const fixture = singleItemListFixture();
-  await page.route(`${SUPABASE_URL}/rest/v1/shopping_lists**`, (route) => {
+  await page.route(SHOPPING_LISTS_URL, (route) => {
     const url = route.request().url();
     const method = route.request().method();
     if (url.includes("id=eq.") && method === "GET") {
@@ -452,7 +455,7 @@ test("item edit sheet updates name, quantity and unit", async ({ page }) => {
   });
 
   let patchedBody: Record<string, unknown> = {};
-  await page.route(`${SUPABASE_URL}/rest/v1/shopping_list_items**`, (route) => {
+  await page.route(SHOPPING_LIST_ITEMS_URL, (route) => {
     const method = route.request().method();
     if (method === "PATCH") {
       try {
@@ -508,7 +511,7 @@ test("item delete failure restores row without showing undo", async ({ page }) =
   await mockSupabaseAPI(page);
 
   const fixture = singleItemListFixture();
-  await page.route(`${SUPABASE_URL}/rest/v1/shopping_lists**`, (route) => {
+  await page.route(SHOPPING_LISTS_URL, (route) => {
     const url = route.request().url();
     const method = route.request().method();
     if (url.includes("id=eq.") && method === "GET") {
@@ -518,7 +521,7 @@ test("item delete failure restores row without showing undo", async ({ page }) =
     return route.fulfill({ status: 204, body: "" });
   });
 
-  await page.route(`${SUPABASE_URL}/rest/v1/shopping_list_items**`, (route) => {
+  await page.route(SHOPPING_LIST_ITEMS_URL, (route) => {
     if (route.request().method() === "DELETE") {
       return route.fulfill({ status: 500, json: { message: "delete failed" } });
     }
@@ -579,8 +582,6 @@ test("shopping item category sections show progress and sink completed groups", 
 test("attach button visible only for unlinked expense transactions", async ({ page }) => {
   await injectFakeSession(page);
 
-  const SUPABASE = SUPABASE_URL;
-
   const expenseNoList = {
     id: "tx-attach",
     date: "2026-05-20",
@@ -608,10 +609,10 @@ test("attach button visible only for unlinked expense transactions", async ({ pa
   };
 
   // Sub-check A: unlinked expense → attach button visible
-  await page.route(`${SUPABASE}/auth/v1/**`, (r) =>
+  await page.route(AUTH_URL, (r) =>
     r.fulfill({ status: 200, json: { id: TEST_USER_ID, role: "authenticated" } })
   );
-  await page.route(`${SUPABASE}/rest/v1/**`, (route) => {
+  await page.route(REST_URL, (route) => {
     const url = route.request().url();
     const method = route.request().method();
     if (url.includes("/profiles"))
@@ -659,10 +660,10 @@ test("attach button visible only for unlinked expense transactions", async ({ pa
 
   // Sub-check B: income transaction → no attach button
   await page.unrouteAll();
-  await page.route(`${SUPABASE}/auth/v1/**`, (r) =>
+  await page.route(AUTH_URL, (r) =>
     r.fulfill({ status: 200, json: { id: TEST_USER_ID, role: "authenticated" } })
   );
-  await page.route(`${SUPABASE}/rest/v1/**`, (route) => {
+  await page.route(REST_URL, (route) => {
     const url = route.request().url();
     const method = route.request().method();
     if (url.includes("/profiles"))
@@ -701,10 +702,10 @@ test("attach button visible only for unlinked expense transactions", async ({ pa
 
   // Sub-check C: expense already linked → no attach button
   await page.unrouteAll();
-  await page.route(`${SUPABASE}/auth/v1/**`, (r) =>
+  await page.route(AUTH_URL, (r) =>
     r.fulfill({ status: 200, json: { id: TEST_USER_ID, role: "authenticated" } })
   );
-  await page.route(`${SUPABASE}/rest/v1/**`, (route) => {
+  await page.route(REST_URL, (route) => {
     const url = route.request().url();
     const method = route.request().method();
     if (url.includes("/profiles"))
@@ -747,8 +748,6 @@ test("attach button visible only for unlinked expense transactions", async ({ pa
 test("attach picker invokes RPC and shows success toast", async ({ page }) => {
   await injectFakeSession(page);
 
-  const SUPABASE = SUPABASE_URL;
-
   const expenseNoList = {
     id: "tx-rpc",
     date: "2026-05-20",
@@ -785,10 +784,10 @@ test("attach picker invokes RPC and shows success toast", async ({ page }) => {
 
   let rpcCalled = false;
 
-  await page.route(`${SUPABASE}/auth/v1/**`, (r) =>
+  await page.route(AUTH_URL, (r) =>
     r.fulfill({ status: 200, json: { id: TEST_USER_ID, role: "authenticated" } })
   );
-  await page.route(`${SUPABASE}/rest/v1/**`, (route) => {
+  await page.route(REST_URL, (route) => {
     const url = route.request().url();
     const method = route.request().method();
     if (url.includes("/profiles"))
@@ -856,7 +855,7 @@ test("progress bar shows completed/total text and correct aria attributes", asyn
   await mockSupabaseAPI(page);
 
   const fixture = progressListFixture();
-  await page.route(`${SUPABASE_URL}/rest/v1/shopping_lists**`, (route) => {
+  await page.route(SHOPPING_LISTS_URL, (route) => {
     const url = route.request().url();
     const method = route.request().method();
     if (url.includes("id=eq.") && method === "GET") {
@@ -900,7 +899,7 @@ test("completed list card shows a linked transaction chip", async ({ page }) => 
     transactions: [{ id: "tx-completed" }],
   };
 
-  await page.route(`${SUPABASE_URL}/rest/v1/shopping_lists**`, (route) => {
+  await page.route(SHOPPING_LISTS_URL, (route) => {
     if (route.request().method() === "GET") {
       return route.fulfill({ status: 200, json: [completedList] });
     }
@@ -921,7 +920,7 @@ test("mobile detail keeps completion CTA above the bottom navigation", async ({ 
   await mockSupabaseAPI(page);
 
   const fixture = progressListFixture();
-  await page.route(`${SUPABASE_URL}/rest/v1/shopping_lists**`, (route) => {
+  await page.route(SHOPPING_LISTS_URL, (route) => {
     const url = route.request().url();
     const method = route.request().method();
     if (url.includes("id=eq.") && method === "GET") {
@@ -981,7 +980,7 @@ test("bulk toggle: 'mark all' patches all items to completed", async ({ page }) 
   await injectFakeSession(page);
   await mockSupabaseAPI(page);
   // list-1 needs shopping_started_at so ShoppingView renders with bulk-toggle button
-  await page.route(`${SUPABASE_URL}/rest/v1/shopping_lists**`, async (route) => {
+  await page.route(SHOPPING_LISTS_URL, async (route) => {
     if (route.request().url().includes("id=eq.") && route.request().method() === "GET") {
       return route.fulfill({
         status: 200,
@@ -991,7 +990,7 @@ test("bulk toggle: 'mark all' patches all items to completed", async ({ page }) 
     return route.continue();
   });
   let bulkPatchUrl = "";
-  await page.route(`${SUPABASE_URL}/rest/v1/shopping_list_items**`, (route) => {
+  await page.route(SHOPPING_LIST_ITEMS_URL, (route) => {
     const req = route.request();
     if (req.method() === "PATCH" && req.url().includes("shopping_list_id=eq.")) {
       bulkPatchUrl = req.url();
@@ -1012,7 +1011,7 @@ test("bulk delete: button opens confirm dialog, confirm fires DELETE", async ({ 
   await injectFakeSession(page);
   await mockSupabaseAPI(page);
   let deleted = false;
-  await page.route(`${SUPABASE_URL}/rest/v1/shopping_list_items**`, (route) => {
+  await page.route(SHOPPING_LIST_ITEMS_URL, (route) => {
     const req = route.request();
     if (req.method() === "DELETE" && req.url().includes("shopping_list_id=eq.")) {
       deleted = true;
@@ -1082,7 +1081,7 @@ test("linked-transaction chip on card navigates to /transactions?txId", async ({
       transactions: [{ id: "tx-link-1" }],
     },
   ];
-  await page.route(`${SUPABASE_URL}/rest/v1/shopping_lists**`, (route) => {
+  await page.route(SHOPPING_LISTS_URL, (route) => {
     const url = route.request().url();
     if (url.includes("id=eq.")) {
       return route.fulfill({ status: 200, json: completedListsRaw[0] });
