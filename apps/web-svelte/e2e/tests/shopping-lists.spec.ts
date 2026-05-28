@@ -231,10 +231,8 @@ async function setupShoppingListFlowMock(page: Page) {
   }
 }
 
-async function dismissToasts(page: Page) {
-  await page.locator("[data-sonner-toast]").evaluateAll((nodes) => {
-    for (const node of nodes) node.remove();
-  });
+async function waitForToastsToSettle(page: Page) {
+  await expect(page.locator("[data-sonner-toast]")).toHaveCount(0, { timeout: 7_000 });
 }
 
 test.beforeEach(async ({ page }) => {
@@ -291,7 +289,7 @@ test("shopping lists follow planning, shopping, archived, duplicate, and upcomin
   });
 
   await test.step("complete list creates transaction and moves it to archived", async () => {
-    await dismissToasts(page);
+    await waitForToastsToSettle(page);
     await page.getByRole("button", { name: "Zakończ listę" }).click();
     await page.locator("#comp-amount").fill("120");
     await page.locator("#comp-cat").selectOption("cat-1");
