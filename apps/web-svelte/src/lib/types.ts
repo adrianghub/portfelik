@@ -140,9 +140,14 @@ export interface ShoppingList {
   category_id: string | null;
   total_amount: number | null;
   completed_at: string | null;
+  planned_for: string;
+  shopping_started_at: string | null;
   created_at: string;
   updated_at: string;
 }
+
+export type ShoppingListMode = "planning" | "shopping" | "done";
+export type ShoppingListBucket = "upcoming" | "active" | "archived";
 
 export interface ShoppingListWithItems extends ShoppingList {
   shopping_list_items: ShoppingListItem[];
@@ -153,6 +158,8 @@ export interface ShoppingListSummary extends ShoppingList {
   item_total: number;
   item_completed: number;
   linked_transaction_id: string | null;
+  bucket: ShoppingListBucket;
+  mode: ShoppingListMode;
 }
 
 export type NotificationType =

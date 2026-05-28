@@ -12,7 +12,7 @@
  */
 
 import { expect, test, type Page } from "@playwright/test";
-import { TEST_USER_ID } from "../helpers/fixtures";
+import { MOCK_SHOPPING_LIST_DETAIL, TEST_USER_ID } from "../helpers/fixtures";
 import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
 
 const SUPABASE_URL = "https://emqzcygfwcvbmhxhfkcc.supabase.co";
@@ -47,6 +47,7 @@ function progressListFixture() {
     category_id: null,
     total_amount: null,
     completed_at: null,
+    shopping_started_at: "2026-05-20T10:00:00Z",
     created_at: "2026-05-20T10:00:00Z",
     updated_at: "2026-05-20T10:00:00Z",
     shopping_list_items: [
@@ -148,6 +149,7 @@ function groupedListFixture() {
     category_id: null,
     total_amount: null,
     completed_at: null,
+    shopping_started_at: "2026-05-20T10:00:00Z",
     created_at: "2026-05-20T10:00:00Z",
     updated_at: "2026-05-20T10:00:00Z",
     shopping_list_items: [
@@ -978,6 +980,16 @@ test("unit combobox: focus opens listbox, typing filters, click picks", async ({
 test("bulk toggle: 'mark all' patches all items to completed", async ({ page }) => {
   await injectFakeSession(page);
   await mockSupabaseAPI(page);
+  // list-1 needs shopping_started_at so ShoppingView renders with bulk-toggle button
+  await page.route(`${SUPABASE_URL}/rest/v1/shopping_lists**`, async (route) => {
+    if (route.request().url().includes("id=eq.") && route.request().method() === "GET") {
+      return route.fulfill({
+        status: 200,
+        json: { ...MOCK_SHOPPING_LIST_DETAIL, shopping_started_at: "2026-05-20T09:00:00Z" },
+      });
+    }
+    return route.continue();
+  });
   let bulkPatchUrl = "";
   await page.route(`${SUPABASE_URL}/rest/v1/shopping_list_items**`, (route) => {
     const req = route.request();
