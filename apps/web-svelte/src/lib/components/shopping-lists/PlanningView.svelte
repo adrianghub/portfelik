@@ -355,18 +355,20 @@
 
 <p class="text-xs text-emerald-300/80">{m.shopping_list_planning_mode_hint()}</p>
 
-<div class="rounded-2xl border border-white/5 bg-slate-900/50 p-3">
-  <ShoppingListItemQuickAdd
-    disabled={addItemMutation.isPending}
-    onsubmit={({ name, quantity, unit, category }) =>
-      addItemMutation.mutate({
-        name,
-        quantity,
-        unit,
-        category,
-      })}
-  />
-</div>
+{#if draftCategories.size === 0}
+  <div class="rounded-2xl border border-white/5 bg-slate-900/50 p-3">
+    <ShoppingListItemQuickAdd
+      disabled={addItemMutation.isPending}
+      onsubmit={({ name, quantity, unit, category }) =>
+        addItemMutation.mutate({
+          name,
+          quantity,
+          unit,
+          category,
+        })}
+    />
+  </div>
+{/if}
 
 <form
   onsubmit={addCategorySection}
