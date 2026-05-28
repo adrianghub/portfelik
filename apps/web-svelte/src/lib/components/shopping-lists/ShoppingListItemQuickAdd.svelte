@@ -5,8 +5,7 @@
     normalizeShoppingListCategory,
   } from "$lib/shopping-list-categories";
   import { DEFAULT_SHOPPING_LIST_UNIT, normalizeShoppingListUnit } from "$lib/shopping-list-units";
-  import { ChevronDown, Plus } from "lucide-svelte";
-  import { slide } from "svelte/transition";
+  import { Plus } from "lucide-svelte";
   import ShoppingListCategoryCombobox from "./ShoppingListCategoryCombobox.svelte";
   import ShoppingListSuggestions from "./ShoppingListSuggestions.svelte";
   import ShoppingListUnitCombobox from "./ShoppingListUnitCombobox.svelte";
@@ -28,14 +27,12 @@
     disabled = false,
     fixedCategory = undefined,
     placeholder = m.shopping_list_item_name(),
-    compact = false,
   }: Props = $props();
 
   let name = $state("");
   let quantity = $state<number | null>(null);
   let unit = $state(DEFAULT_SHOPPING_LIST_UNIT);
   let category = $state("");
-  let detailsOpen = $state(false);
   let inputFocused = $state(false);
   let nameInputRef = $state<HTMLInputElement | null>(null);
 
@@ -54,7 +51,6 @@
       fixedCategory !== undefined
         ? (fixedCategory ?? "")
         : (c ?? inferShoppingListCategory(n) ?? "");
-    if (q != null || u || category) detailsOpen = true;
     inputFocused = false;
   }
 
@@ -64,27 +60,18 @@
     if (!trimmed) return;
     onsubmit({
       name: trimmed,
-      quantity: detailsOpen ? quantity : null,
-      unit: detailsOpen ? normalizeShoppingListUnit(unit) : null,
+      quantity,
+      unit: normalizeShoppingListUnit(unit),
       category:
         fixedCategory !== undefined
           ? normalizeShoppingListCategory(fixedCategory)
-          : normalizeShoppingListCategory(detailsOpen ? category : inferredCategory),
+          : normalizeShoppingListCategory(category || inferredCategory),
     });
     name = "";
     quantity = null;
     unit = DEFAULT_SHOPPING_LIST_UNIT;
     category = "";
-    detailsOpen = false;
     inputFocused = false;
-  }
-
-  function toggleDetails() {
-    detailsOpen = !detailsOpen;
-    if (!detailsOpen) return;
-    if (!unit.trim()) unit = DEFAULT_SHOPPING_LIST_UNIT;
-    if (fixedCategory !== undefined) category = fixedCategory ?? "";
-    else if (!category.trim() && inferredCategory) category = inferredCategory;
   }
 </script>
 
@@ -115,18 +102,6 @@
         />
       {/if}
     </div>
-    {#if !compact}
-      <button
-        type="button"
-        onclick={toggleDetails}
-        aria-expanded={detailsOpen}
-        aria-controls="shopping-list-item-details"
-        class="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-slate-900/60 px-3 text-xs text-slate-300 transition-colors hover:bg-white/5"
-      >
-        <ChevronDown size={14} class={detailsOpen ? "rotate-180" : ""} />
-        <span class="hidden sm:inline">{m.shopping_list_item_details_toggle()}</span>
-      </button>
-    {/if}
     <button
       type="submit"
       disabled={disabled || !name.trim()}
@@ -137,23 +112,21 @@
     </button>
   </div>
 
-  {#if detailsOpen && !compact}
-    <div id="shopping-list-item-details" transition:slide={{ duration: 150 }} class="space-y-2">
-      <div class="grid grid-cols-2 gap-2">
-        <input
-          type="number"
-          bind:value={quantity}
-          step="0.01"
-          min="0"
-          inputmode="decimal"
-          placeholder={m.shopping_list_item_quantity()}
-          class="w-full min-w-0 rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-emerald-400/40 focus:outline-none"
-        />
-        <ShoppingListUnitCombobox bind:value={unit} showLabel={false} />
-      </div>
-      {#if fixedCategory === undefined}
-        <ShoppingListCategoryCombobox bind:value={category} />
-      {/if}
+  <div id="shopping-list-item-details" class="space-y-2">
+    <div class="grid grid-cols-2 gap-2">
+      <input
+        type="number"
+        bind:value={quantity}
+        step="0.01"
+        min="0"
+        inputmode="decimal"
+        placeholder={m.shopping_list_item_quantity()}
+        class="w-full min-w-0 rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-emerald-400/40 focus:outline-none"
+      />
+      <ShoppingListUnitCombobox bind:value={unit} showLabel={false} />
     </div>
-  {/if}
+    {#if fixedCategory === undefined}
+      <ShoppingListCategoryCombobox bind:value={category} />
+    {/if}
+  </div>
 </form>

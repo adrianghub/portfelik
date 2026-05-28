@@ -3,11 +3,13 @@
   import { createQuery, createMutation, useQueryClient } from "@tanstack/svelte-query";
   import {
     attachShoppingListToTransaction,
+    createShoppingList,
+    createShoppingListItem,
     fetchAttachableShoppingListsForTransaction,
   } from "$lib/services/shopping-lists";
   import type { ShoppingListSummary, TransactionWithCategory } from "$lib/types";
   import { toast } from "svelte-sonner";
-  import { ShoppingCart, X } from "lucide-svelte";
+  import { ListPlus, ShoppingCart, X } from "lucide-svelte";
 
   interface Props {
     transaction: TransactionWithCategory;
@@ -46,6 +48,39 @@
     attachMutation.mutate(list.id);
   }
 
+  const createAndAttachMutation = createMutation(() => ({
+    mutationFn: async () => {
+      const list = await createShoppingList({
+        name: transaction.description,
+        group_id: transaction.group_id,
+        category_id: transaction.category_id,
+        planned_for: transaction.date,
+      });
+      attachedListId = list.id;
+      await createShoppingListItem({
+        shopping_list_id: list.id,
+        name: transaction.description,
+        quantity: 1,
+        unit: "szt.",
+        category: null,
+        position: 1,
+      });
+      return attachShoppingListToTransaction(list.id, transaction.id);
+    },
+    onSuccess: () => {
+      toast.success(m.shopping_list_attach_success());
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: ["shopping_lists"] });
+      if (attachedListId) qc.invalidateQueries({ queryKey: ["shopping_list", attachedListId] });
+      qc.invalidateQueries({ queryKey: ["summary"] });
+      onattached();
+      onclose();
+    },
+    onError: (err: { message?: string }) => {
+      toast.error(err.message ?? "attach_failed");
+    },
+  }));
+
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === "Escape") onclose();
   }
@@ -82,8 +117,38 @@
     {#if listsQuery.isPending}
       <p class="text-sm text-slate-400">…</p>
     {:else if (listsQuery.data ?? []).length === 0}
-      <p class="text-sm text-slate-400">{m.transaction_attach_shopping_list_empty()}</p>
+      <div class="space-y-4">
+        <div class="rounded-2xl border border-white/5 bg-slate-900/45 p-4">
+          <div
+            class="mb-3 flex h-10 w-10 items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-500/10 text-emerald-300"
+          >
+            <ListPlus size={18} aria-hidden="true" />
+          </div>
+          <p class="text-sm font-medium text-slate-100">
+            {m.transaction_attach_shopping_list_empty_title()}
+          </p>
+          <p class="mt-1 text-sm text-slate-400">
+            {m.transaction_attach_shopping_list_empty()}
+          </p>
+        </div>
+        <button
+          type="button"
+          onclick={() => createAndAttachMutation.mutate()}
+          disabled={createAndAttachMutation.isPending}
+          class="bg-accent-gradient flex w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <ListPlus size={16} aria-hidden="true" />
+          {createAndAttachMutation.isPending
+            ? m.common_saving()
+            : m.transaction_attach_shopping_list_create_from_transaction()}
+        </button>
+      </div>
     {:else}
+      <div
+        class="mb-4 rounded-2xl border border-white/5 bg-slate-900/35 p-3 text-sm text-slate-400"
+      >
+        {m.transaction_attach_shopping_list_pick_hint()}
+      </div>
       <ul class="space-y-2">
         {#each listsQuery.data ?? [] as list (list.id)}
           <li>
@@ -104,6 +169,17 @@
           </li>
         {/each}
       </ul>
+      <button
+        type="button"
+        onclick={() => createAndAttachMutation.mutate()}
+        disabled={createAndAttachMutation.isPending || attachMutation.isPending}
+        class="mt-4 flex w-full items-center justify-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-4 py-2.5 text-sm font-medium text-emerald-200 transition-colors hover:bg-emerald-500/20 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <ListPlus size={16} aria-hidden="true" />
+        {createAndAttachMutation.isPending
+          ? m.common_saving()
+          : m.transaction_attach_shopping_list_create_from_transaction()}
+      </button>
     {/if}
   </div>
 </aside>
