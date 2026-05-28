@@ -1,0 +1,18 @@
+name: Setup web workspace
+description: Install pnpm, Node.js, and repository dependencies for the Svelte app.
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v5
+      with:
+        version: 10
+
+    - uses: actions/setup-node@v6
+      with:
+        node-version: "22"
+        cache: "pnpm"
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile

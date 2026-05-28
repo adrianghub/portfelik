@@ -244,7 +244,9 @@
     ruleRow = row;
     ruleField = row.counterparty ? "counterparty" : "description";
     ruleKind = "contains";
-    ruleText = row.counterparty ?? row.edited_description ?? row.description;
+    // Rules match future imports against normalized raw bank fields, not the
+    // review-only edited description.
+    ruleText = row.counterparty ?? row.description;
   }
 
   async function saveRule(): Promise<void> {
