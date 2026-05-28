@@ -3,17 +3,18 @@
   import {
     fetchCategorizationRules,
     deleteCategorizationRule,
-    updateCategorizationRule,
   } from "$lib/services/categorization-rules";
   import { fetchCategories } from "$lib/services/categories";
-  import type { CategorizationRule } from "$lib/types";
+  import { matchRule } from "$lib/import/categorize";
+  import type { CategorizationRule, Category, TransactionType } from "$lib/types";
   import { cn } from "$lib/utils";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
-  import Input from "$lib/components/ui/Input.svelte";
   import { toast } from "svelte-sonner";
   import * as m from "$lib/paraglide/messages";
   import { Wand2, Trash2 } from "lucide-svelte";
+  import { page } from "$app/stores";
+  import { untrack } from "svelte";
 
   const queryClient = useQueryClient();
 
@@ -33,17 +34,12 @@
     return (categoriesQuery.data ?? []).find((c) => c.id === id)?.name ?? null;
   }
 
-  function kindLabel(rule: CategorizationRule): string {
-    switch (rule.kind) {
-      case "exact":
-        return m.bank_review_save_rule_kind_exact();
-      case "contains":
-        return m.bank_review_save_rule_kind_contains();
-      case "type":
-        return m.rules_kind_type();
-      case "composite":
-        return m.rules_kind_composite();
-    }
+  function category(id: string): Category | null {
+    return (categoriesQuery.data ?? []).find((c) => c.id === id) ?? null;
+  }
+
+  function categoryTypeLabel(type: TransactionType): string {
+    return type === "income" ? m.common_income() : m.common_expense();
   }
 
   // Human-readable summary of what a rule matches on, e.g.
@@ -63,6 +59,35 @@
     return parts.join(" · ");
   }
 
+  function sampleRowsForRule(rule: CategorizationRule): Array<{
+    type: TransactionType;
+    description: string;
+    counterparty: string | null;
+  }> {
+    const catType = category(rule.category_id)?.type ?? "expense";
+    const type = rule.match_type ?? catType;
+    return [
+      {
+        type,
+        description: rule.match_description ?? rule.match_counterparty ?? "",
+        counterparty: rule.match_counterparty ?? rule.match_description ?? null,
+      },
+    ];
+  }
+
+  function shadowingRule(rule: CategorizationRule): CategorizationRule | null {
+    const samples = sampleRowsForRule(rule);
+    return (
+      (rulesQuery.data ?? []).find((candidate) => {
+        if (candidate.id === rule.id || candidate.category_id === rule.category_id) return false;
+        if (candidate.priority < rule.priority) return false;
+        if (candidate.priority === rule.priority && candidate.created_at >= rule.created_at)
+          return false;
+        return samples.some((row) => matchRule(candidate, row));
+      }) ?? null
+    );
+  }
+
   const deleteMutation = createMutation(() => ({
     mutationFn: () => deleteCategorizationRule(deleteTargetId!),
     onSuccess: async () => {
@@ -73,15 +98,29 @@
     onError: () => toast.error(m.toast_error()),
   }));
 
-  async function setPriority(rule: CategorizationRule, value: number): Promise<void> {
-    if (!Number.isFinite(value) || value === rule.priority) return;
-    try {
-      await updateCategorizationRule(rule.id, { priority: Math.trunc(value) });
-      await queryClient.invalidateQueries({ queryKey: ["categorization_rules"] });
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e));
-    }
-  }
+  // Deep-link from the review screen: ?highlight=<rule_id> scrolls the row
+  // into view and flashes a ring around it for a moment.
+  let ruleRefs = $state<Record<string, HTMLLIElement | null>>({});
+  let flashId = $state<string | null>(null);
+  let lastHandledHighlight = $state<string | null>(null);
+
+  const highlightId = $derived($page.url.searchParams.get("highlight"));
+
+  $effect(() => {
+    const id = highlightId;
+    const rules = rulesQuery.data;
+    if (!id || !rules || rules.length === 0) return;
+    if (untrack(() => lastHandledHighlight) === id) return;
+    const el = untrack(() => ruleRefs[id]);
+    if (!el) return;
+    lastHandledHighlight = id;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    flashId = id;
+    const timer = window.setTimeout(() => {
+      flashId = null;
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  });
 </script>
 
 <p class="mb-3 text-sm text-slate-400">{m.rules_intro()}</p>
@@ -105,30 +144,33 @@
     <ul class="space-y-1.5">
       {#each rulesQuery.data as rule (rule.id)}
         {@const cat = categoryName(rule.category_id)}
+        {@const catType = category(rule.category_id)?.type}
+        {@const loser = shadowingRule(rule)}
         <li
-          class="flex items-center gap-3 rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 backdrop-blur"
+          bind:this={ruleRefs[rule.id]}
+          class={cn(
+            "flex items-center gap-3 rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 backdrop-blur transition-shadow",
+            flashId === rule.id && "ring-2 ring-emerald-400/60"
+          )}
+          aria-label={flashId === rule.id ? m.rules_highlighted() : undefined}
         >
           <div class="min-w-0 flex-1">
             <p class="truncate text-sm text-slate-100">{matchSummary(rule)}</p>
             <p class="mt-0.5 text-xs text-slate-500">
-              <span class="text-slate-400">{kindLabel(rule)}</span>
               →
               <span class={cn(cat ? "text-emerald-300" : "text-rose-300")}>
                 {cat ?? m.rules_category_missing()}
               </span>
+              {#if catType}
+                <span> · {categoryTypeLabel(catType)}</span>
+              {/if}
             </p>
+            {#if loser}
+              <p class="mt-1 text-xs text-amber-200">
+                {m.rules_loses_to({ rule: matchSummary(loser), priority: loser.priority })}
+              </p>
+            {/if}
           </div>
-          <label class="flex shrink-0 items-center gap-1.5 text-xs text-slate-500">
-            <span>{m.rules_col_priority()}</span>
-            <span class="w-16">
-              <Input
-                type="number"
-                value={rule.priority}
-                onchange={(e) =>
-                  void setPriority(rule, Number((e.target as HTMLInputElement).value))}
-              />
-            </span>
-          </label>
           <button
             type="button"
             onclick={() => (deleteTargetId = rule.id)}
