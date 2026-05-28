@@ -66,7 +66,7 @@
         <span class={cn("truncate font-medium", isArchived ? "text-slate-300" : "text-slate-100")}
           >{isUpcoming ? plannedHeadline(list.planned_for) : list.name}</span
         >
-        {#if list.group_id}
+        {#if list.group_id && !isArchived}
           <span
             class="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-medium tracking-wide text-emerald-300 uppercase"
             title={m.group_badge_shared()}
@@ -83,21 +83,22 @@
             label={`${list.item_completed} z ${list.item_total} (${progress}%)`}
           />
         {/if}
-        <span
-          class={cn(
-            "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-            isUpcoming && "border border-sky-400/20 bg-sky-400/10 text-sky-300",
-            list.bucket === "active" &&
-              list.mode === "shopping" &&
-              "border border-emerald-400/20 bg-emerald-400/10 text-emerald-300",
-            list.bucket === "active" &&
-              list.mode === "planning" &&
-              "border border-blue-400/20 bg-blue-400/10 text-blue-200",
-            isArchived && "border border-white/10 bg-slate-800/60 text-slate-400"
-          )}
-        >
-          {modeLabel}
-        </span>
+        {#if !isArchived}
+          <span
+            class={cn(
+              "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+              isUpcoming && "border border-sky-400/20 bg-sky-400/10 text-sky-300",
+              list.bucket === "active" &&
+                list.mode === "shopping" &&
+                "border border-emerald-400/20 bg-emerald-400/10 text-emerald-300",
+              list.bucket === "active" &&
+                list.mode === "planning" &&
+                "border border-blue-400/20 bg-blue-400/10 text-blue-200"
+            )}
+          >
+            {modeLabel}
+          </span>
+        {/if}
       </div>
     </div>
     <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500">
@@ -135,15 +136,6 @@
     >
       <Pencil size={15} strokeWidth={1.8} aria-hidden="true" />
     </button>
-  {/if}
-  {#if isArchived && list.linked_transaction_id}
-    <a
-      href="/transactions?txId={list.linked_transaction_id}"
-      class="flex items-center border-l border-white/5 px-3 text-xs text-emerald-400/80 transition-colors hover:bg-white/5 hover:text-emerald-300"
-      onclick={(e) => e.stopPropagation()}
-    >
-      {m.shopping_list_linked_transaction()}
-    </a>
   {/if}
   {#if onduplicate}
     <button

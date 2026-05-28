@@ -330,11 +330,7 @@ test("quick-add accepts inline quantity + unit", async ({ page }) => {
   await expect(page.getByText("Lista bez elementów")).toBeVisible();
   await addShoppingCategorySection(page, "Pieczywo");
 
-  // Click the "Ilość / jednostka" toggle button via aria-controls attribute
-  const detailsToggle = page.locator('[aria-controls="shopping-list-item-details"]');
-  await detailsToggle.click();
-
-  // The details row should now be visible — fill qty and unit
+  await expect(page.locator('[aria-controls="shopping-list-item-details"]')).toHaveCount(0);
   await expect(page.locator("#shopping-list-item-details")).toBeVisible();
 
   // Fill qty (placeholder = "Ilość") and unit combobox (placeholder = "szt, kg, l…")
@@ -777,6 +773,8 @@ test("attach picker invokes RPC and shows success toast", async ({ page }) => {
     category_id: null,
     total_amount: null,
     completed_at: null,
+    planned_for: "2026-05-20",
+    shopping_started_at: null,
     created_at: "2026-05-20T09:00:00Z",
     updated_at: "2026-05-20T09:00:00Z",
     shopping_list_items: [{ id: "sl-i1", completed: false }],
@@ -848,6 +846,131 @@ test("attach picker invokes RPC and shows success toast", async ({ page }) => {
   expect(rpcCalled).toBe(true);
 });
 
+test("attach picker can create a completed list from the transaction", async ({ page }) => {
+  await injectFakeSession(page);
+
+  const expenseNoList = {
+    id: "tx-create-list",
+    date: "2026-05-24",
+    description: "Stół",
+    amount: 100,
+    type: "expense",
+    status: "paid",
+    category_id: "cat-1",
+    category_name: "Restauracje",
+    is_recurring: false,
+    recurring_day: null,
+    currency: "PLN",
+    user_id: TEST_USER_ID,
+    group_id: null,
+    shopping_list_id: null,
+    created_at: "2026-05-24T10:00:00Z",
+    updated_at: "2026-05-24T10:00:00Z",
+  };
+
+  let createdListBody: Record<string, unknown> = {};
+  let createdItemBody: Record<string, unknown> = {};
+  let rpcCalled = false;
+
+  await page.route(AUTH_URL, (r) =>
+    r.fulfill({ status: 200, json: { id: TEST_USER_ID, role: "authenticated" } })
+  );
+  await page.route(REST_URL, (route) => {
+    const url = route.request().url();
+    const method = route.request().method();
+    if (url.includes("/profiles"))
+      return route.fulfill({
+        status: 200,
+        json: [
+          {
+            id: TEST_USER_ID,
+            email: "test@portfelik.test",
+            name: "Test User",
+            role: "user",
+            created_at: "2024-01-01T00:00:00Z",
+            updated_at: "2024-01-01T00:00:00Z",
+          },
+        ],
+      });
+    if (url.includes("/categories"))
+      return route.fulfill({
+        status: 200,
+        json: [{ id: "cat-1", name: "Restauracje", type: "expense", user_id: null }],
+      });
+    if (url.includes("/transactions_with_category"))
+      return route.fulfill({ status: 200, json: [expenseNoList] });
+    if (url.includes("/transactions") && method !== "GET")
+      return route.fulfill({ status: 200, json: {} });
+    if (url.includes("/transactions")) return route.fulfill({ status: 200, json: [expenseNoList] });
+    if (url.includes("/shopping_list_items") && method === "POST") {
+      createdItemBody = JSON.parse(route.request().postData() ?? "{}") as Record<string, unknown>;
+      return route.fulfill({
+        status: 201,
+        json: {
+          id: "item-created-from-tx",
+          shopping_list_id: "list-created-from-tx",
+          name: "Stół",
+          quantity: 1,
+          unit: "szt.",
+          category: null,
+          completed: false,
+          position: 1,
+          created_at: "2026-05-24T10:00:00Z",
+          updated_at: "2026-05-24T10:00:00Z",
+        },
+      });
+    }
+    if (url.includes("/shopping_lists") && method === "POST") {
+      createdListBody = JSON.parse(route.request().postData() ?? "{}") as Record<string, unknown>;
+      return route.fulfill({
+        status: 201,
+        json: {
+          id: "list-created-from-tx",
+          name: "Stół",
+          status: "active",
+          user_id: TEST_USER_ID,
+          group_id: null,
+          category_id: "cat-1",
+          total_amount: null,
+          completed_at: null,
+          planned_for: "2026-05-24",
+          shopping_started_at: null,
+          created_at: "2026-05-24T10:00:00Z",
+          updated_at: "2026-05-24T10:00:00Z",
+        },
+      });
+    }
+    if (url.includes("/shopping_lists")) return route.fulfill({ status: 200, json: [] });
+    if (url.includes("/rpc/attach_shopping_list_to_transaction")) {
+      rpcCalled = true;
+      return route.fulfill({ status: 200, json: null });
+    }
+    return route.fulfill({ status: 200, json: [] });
+  });
+
+  await page.goto("/transactions");
+  await expect(page.locator("table").getByText("Stół")).toBeVisible();
+  await page.locator("tbody tr").first().click();
+  await page.getByRole("button", { name: /Połącz z listą zakupów/ }).click();
+
+  await expect(page.getByText("Nie masz gotowej listy do połączenia")).toBeVisible();
+  await page.getByRole("button", { name: /Utwórz listę z tej transakcji/ }).click();
+
+  await expect(page.getByText("Lista połączona z transakcją")).toBeVisible();
+  expect(createdListBody).toMatchObject({
+    name: "Stół",
+    category_id: "cat-1",
+    planned_for: "2026-05-24",
+  });
+  expect(createdItemBody).toMatchObject({
+    shopping_list_id: "list-created-from-tx",
+    name: "Stół",
+    quantity: 1,
+    unit: "szt.",
+  });
+  expect(rpcCalled).toBe(true);
+});
+
 // ── Case 8: Progress bar reflects completed / total ───────────────────────────
 
 test("progress bar shows completed/total text and correct aria attributes", async ({ page }) => {
@@ -909,7 +1032,7 @@ test("completed list card shows a linked transaction chip", async ({ page }) => 
   await page.goto("/shopping-lists");
   const card = page.getByRole("link", { name: /Zamknięte zakupy/ });
   await expect(card).toBeVisible();
-  await expect(page.getByRole("link", { name: "Transakcja" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Transakcja" })).toHaveCount(0);
 });
 
 // ── Case 10: Mobile detail keeps completion CTA accessible ───────────────────
@@ -1054,15 +1177,15 @@ test("list pencil: opens edit dialog with name, date, group", async ({ page }) =
 
   // Name input prefilled
   await expect(dialog.locator("input[type=text]").first()).toHaveValue("Tygodniowe zakupy");
-  // Date input prefilled from created_at = 2026-05-01
-  await expect(dialog.locator("input[type=date]")).toHaveValue("2026-05-01");
+  // Date picker prefilled from created_at/planned_for = 2026-05-01
+  await expect(dialog.locator("#list-date")).toContainText("01.05.2026");
   // Group select includes private option
   await expect(dialog.locator("select").first()).toBeVisible();
 });
 
-// ── Case 14: Linked-transaction card chip deep-links to /transactions?txId= ───
+// ── Case 14: Linked transaction is kept off archived list cards ─────────────
 
-test("linked-transaction chip on card navigates to /transactions?txId", async ({ page }) => {
+test("linked-transaction chip is hidden on archived cards", async ({ page }) => {
   await injectFakeSession(page);
   await mockSupabaseAPI(page);
   const completedListsRaw = [
@@ -1090,8 +1213,6 @@ test("linked-transaction chip on card navigates to /transactions?txId", async ({
   });
 
   await page.goto("/shopping-lists");
-  const chip = page.getByRole("link", { name: /Transakcja/i });
-  await expect(chip).toBeVisible();
-  await chip.click();
-  await expect(page).toHaveURL(/\/transactions\?txId=tx-link-1/);
+  await expect(page.getByRole("link", { name: /Zamknięte zakupy/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Transakcja/i })).toHaveCount(0);
 });

@@ -4,6 +4,7 @@
   import DoneView from "$lib/components/shopping-lists/DoneView.svelte";
   import PlanningView from "$lib/components/shopping-lists/PlanningView.svelte";
   import ShoppingView from "$lib/components/shopping-lists/ShoppingView.svelte";
+  import DayPicker from "$lib/components/ui/DayPicker.svelte";
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchCategories } from "$lib/services/categories";
@@ -462,18 +463,12 @@
       required
       class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
     />
-    <div class="space-y-1">
-      <label class="text-xs font-medium text-slate-400" for="list-date">
-        {m.shopping_list_planned_for_input_label()}
-      </label>
-      <input
-        id="list-date"
-        type="date"
-        required
-        bind:value={renameListDate}
-        class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
-      />
-    </div>
+    <DayPicker
+      id="list-date"
+      bind:value={renameListDate}
+      label={m.shopping_list_planned_for_input_label()}
+      required
+    />
     <div class="space-y-1">
       <label class="text-xs font-medium text-slate-400" for="list-share-group">
         {m.shopping_list_share_label()}
