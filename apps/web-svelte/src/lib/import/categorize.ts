@@ -25,8 +25,45 @@ export interface MatchableRow {
   counterparty?: string | null;
 }
 
-function norm(value: string | null | undefined): string {
-  return (value ?? "").trim().toLowerCase();
+export function normalizeRuleText(value: string | null | undefined): string {
+  return (value ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+const COMMON_BANK_TOKENS = new Set([
+  "zakup",
+  "zakupy",
+  "towarow",
+  "towarów",
+  "uslug",
+  "usług",
+  "przelew",
+  "wychodzący",
+  "wychodzacy",
+  "przychodzący",
+  "przychodzacy",
+  "platnosc",
+  "płatność",
+  "karta",
+  "operacja",
+]);
+
+export function suggestRuleText(
+  row: MatchableRow,
+  preferredField?: "description" | "counterparty"
+): string {
+  const raw =
+    preferredField === "description"
+      ? row.description
+      : preferredField === "counterparty"
+        ? (row.counterparty ?? row.description)
+        : (row.counterparty ?? row.description);
+  const normalized = raw.replace(/\s+/g, " ").trim();
+  if (normalized === "") return "";
+
+  for (const [token] of normalized.matchAll(/[\p{L}\p{N}]{3,}/gu)) {
+    if (!COMMON_BANK_TOKENS.has(token.toLowerCase())) return token;
+  }
+  return normalized;
 }
 
 function textMatches(
@@ -34,21 +71,21 @@ function textMatches(
   row: MatchableRow,
   mode: "exact" | "contains"
 ): boolean {
-  const desc = norm(row.description);
-  const cp = norm(row.counterparty);
+  const desc = normalizeRuleText(row.description);
+  const cp = normalizeRuleText(row.counterparty);
 
   if (rule.match_description != null) {
-    const needle = norm(rule.match_description);
+    const needle = normalizeRuleText(rule.match_description);
     if (needle !== "" && (mode === "exact" ? desc === needle : desc.includes(needle))) return true;
   }
   if (rule.match_counterparty != null) {
-    const needle = norm(rule.match_counterparty);
+    const needle = normalizeRuleText(rule.match_counterparty);
     if (needle !== "" && (mode === "exact" ? cp === needle : cp.includes(needle))) return true;
   }
   return false;
 }
 
-function ruleMatches(rule: CategorizationRule, row: MatchableRow): boolean {
+export function matchRule(rule: CategorizationRule, row: MatchableRow): boolean {
   switch (rule.kind) {
     case "exact":
       return textMatches(rule, row, "exact");
@@ -77,15 +114,61 @@ export function matchCategory(
   rules: CategorizationRule[],
   categories: Category[]
 ): string | null {
+  return resolveCategorizationRule(row, rules, categories)?.category_id ?? null;
+}
+
+export function resolveCategorizationRule(
+  row: MatchableRow,
+  rules: CategorizationRule[],
+  categories: Category[]
+): CategorizationRule | null {
   const categoryById = new Map(categories.map((c) => [c.id, c]));
-  const ordered = [...rules].sort((a, b) => b.priority - a.priority);
+  const ordered = [...rules].sort((a, b) => {
+    const byPriority = b.priority - a.priority;
+    if (byPriority !== 0) return byPriority;
+    return a.created_at.localeCompare(b.created_at);
+  });
 
   for (const rule of ordered) {
-    if (!ruleMatches(rule, row)) continue;
+    if (!matchRule(rule, row)) continue;
     const category = categoryById.get(rule.category_id);
     // Skip rules whose category is gone or whose type contradicts the row.
     if (!category || category.type !== row.type) continue;
-    return rule.category_id;
+    return rule;
   }
   return null;
+}
+
+export function isEquivalentCategorizationRule(
+  a: Pick<
+    CategorizationRule,
+    "kind" | "match_description" | "match_counterparty" | "match_type" | "category_id"
+  >,
+  b: Pick<
+    CategorizationRule,
+    "kind" | "match_description" | "match_counterparty" | "match_type" | "category_id"
+  >
+): boolean {
+  return (
+    a.kind === b.kind &&
+    normalizeRuleText(a.match_description) === normalizeRuleText(b.match_description) &&
+    normalizeRuleText(a.match_counterparty) === normalizeRuleText(b.match_counterparty) &&
+    (a.match_type ?? null) === (b.match_type ?? null) &&
+    a.category_id === b.category_id
+  );
+}
+
+export function findDuplicateCategorizationRule<
+  T extends Pick<
+    CategorizationRule,
+    "kind" | "match_description" | "match_counterparty" | "match_type" | "category_id"
+  >,
+>(
+  rules: T[],
+  candidate: Pick<
+    CategorizationRule,
+    "kind" | "match_description" | "match_counterparty" | "match_type" | "category_id"
+  >
+): T | null {
+  return rules.find((rule) => isEquivalentCategorizationRule(rule, candidate)) ?? null;
 }

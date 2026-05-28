@@ -8,6 +8,7 @@
 // user_id on insert — pass it explicitly.
 
 import { supabase } from "$lib/supabase";
+import { findDuplicateCategorizationRule } from "$lib/import/categorize";
 import type { CategorizationRule, CategorizationRuleKind, TransactionType } from "$lib/types";
 
 export interface CategorizationRuleInput {
@@ -38,6 +39,18 @@ export async function createCategorizationRule(
   } = await supabase.auth.getUser();
   if (userError || !user) throw userError ?? new Error("not_authenticated");
 
+  const existingRules = await fetchCategorizationRules();
+  const candidate = {
+    kind: input.kind,
+    match_description: input.match_description ?? null,
+    match_counterparty: input.match_counterparty ?? null,
+    match_type: input.match_type ?? null,
+    category_id: input.category_id,
+  };
+  if (findDuplicateCategorizationRule(existingRules, candidate)) {
+    throw new Error("duplicate_categorization_rule");
+  }
+
   const { data, error } = await supabase
     .from("categorization_rules")
     .insert({
@@ -51,7 +64,12 @@ export async function createCategorizationRule(
     })
     .select()
     .single();
-  if (error) throw error;
+  if (error) {
+    if ((error as { code?: string }).code === "23505") {
+      throw new Error("duplicate_categorization_rule");
+    }
+    throw error;
+  }
   return data as CategorizationRule;
 }
 
