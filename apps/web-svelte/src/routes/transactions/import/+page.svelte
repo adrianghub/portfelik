@@ -28,6 +28,7 @@
 
   let step = $state<Step>("upload");
   let activeSession = $state<ImportSession | null>(null);
+  let activeParseErrorCount = $state(0);
   // Retained across the upload⇄review back-nav so returning to "Wgraj plik"
   // shows the last file ready to re-process or remove. Cancelling the session
   // abandons the DB preview rows but keeps this in-memory file reference.
@@ -35,8 +36,9 @@
 
   const queryClient = useQueryClient();
 
-  function handleSessionReady(sess: ImportSession): void {
+  function handleSessionReady(sess: ImportSession, parseErrorCount: number): void {
     activeSession = sess;
+    activeParseErrorCount = parseErrorCount;
     step = "review";
   }
 
@@ -120,7 +122,12 @@
         onFileRetained={(f) => (retainedFile = f)}
       />
     {:else if step === "review" && activeSession}
-      <ReviewTable session={activeSession} onCommitted={handleCommitted} onCancel={handleCancel} />
+      <ReviewTable
+        session={activeSession}
+        parseErrorCount={activeParseErrorCount}
+        onCommitted={handleCommitted}
+        onCancel={handleCancel}
+      />
     {/if}
   </section>
 </div>

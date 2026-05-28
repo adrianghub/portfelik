@@ -23,7 +23,7 @@
   import { Upload, FileText, X } from "lucide-svelte";
 
   interface Props {
-    onSessionReady: (session: ImportSession) => void;
+    onSessionReady: (session: ImportSession, parseErrorCount: number) => void;
     /** Last selected file, lifted to the page so it survives a back-nav. */
     initialFile?: File | null;
     /** Report the current file up so the page can retain it across steps. */
@@ -111,7 +111,7 @@
         resolver = undefined;
       }
       await insertPreviewRows(session.id, normalized.rows, resolver);
-      onSessionReady(session);
+      onSessionReady(session, parseErrorCount);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       error = msg;

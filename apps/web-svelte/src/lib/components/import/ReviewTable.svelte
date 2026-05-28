@@ -6,13 +6,24 @@
   import Badge from "$lib/components/ui/Badge.svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import Dialog from "$lib/components/ui/Dialog.svelte";
+  import { goto } from "$app/navigation";
   import { fetchCategories } from "$lib/services/categories";
   import { fetchUserGroups } from "$lib/services/groups";
-  import { createCategorizationRule } from "$lib/services/categorization-rules";
-  import { matchCategory } from "$lib/import/categorize";
-  import type { CategorizationRule } from "$lib/types";
+  import {
+    createCategorizationRule,
+    deleteCategorizationRule,
+    fetchCategorizationRules,
+  } from "$lib/services/categorization-rules";
+  import {
+    findDuplicateCategorizationRule,
+    matchCategory,
+    resolveCategorizationRule,
+    suggestRuleText,
+  } from "$lib/import/categorize";
+  import type { CategorizationRule, Category } from "$lib/types";
   import {
     commitImportSession,
+    fetchBankAccount,
     fetchSessionRows,
     previewFingerprintWarnings,
     updateRowDecision,
@@ -28,10 +39,12 @@
 
   interface Props {
     session: ImportSession;
+    /** Count of CSV rows the adapter could not parse — surfaced as a non-blocking banner. */
+    parseErrorCount?: number;
     onCommitted: (result: CommitResult, dateRange?: ImportedDateRange) => void;
     onCancel: () => Promise<void> | void;
   }
-  let { session, onCommitted, onCancel }: Props = $props();
+  let { session, parseErrorCount = 0, onCommitted, onCancel }: Props = $props();
 
   interface ImportedDateRange {
     startYear: number;
@@ -60,12 +73,28 @@
     queryFn: fetchUserGroups,
   }));
 
+  const rulesQuery = createQuery(() => ({
+    queryKey: ["categorization_rules"],
+    queryFn: fetchCategorizationRules,
+  }));
+
   const warningsQuery = createQuery(() => ({
     queryKey: ["import_preview_warnings", session.id],
     queryFn: () => previewFingerprintWarnings(session.id),
   }));
 
   const warningsByRow = $derived(new Map((warningsQuery.data ?? []).map((w) => [w.row_id, w])));
+
+  // Destination account — surfaced in the final confirmation dialog so the
+  // user always knows which bank account the import will post to.
+  const accountQuery = createQuery(() => ({
+    queryKey: ["bank_account", session.bank_account_id],
+    queryFn: () => fetchBankAccount(session.bank_account_id),
+  }));
+
+  function bankKindLabel(kind: string): string {
+    return kind === "ing" ? m.bank_account_kind_ing() : m.bank_account_kind_mbank();
+  }
 
   const rows = $derived<ImportRow[]>(rowsQuery.data ?? []);
   const pendingCount = $derived(rows.filter((r) => r.decision === "pending").length);
@@ -175,6 +204,21 @@
     }
   }
 
+  // Checkbox = "do I want this imported?" Mapping:
+  //   checked  → decision "import" when a category is set, else "pending"
+  //              (commit gate blocks pending rows until they get a category).
+  //   unchecked→ decision "skip".
+  // Promotion of pending → import on category set is handled in patchRow.
+  async function toggleImport(row: ImportRow, checked: boolean): Promise<void> {
+    if (!checked) {
+      await patchRow(row.id, { decision: "skip" });
+      return;
+    }
+    await patchRow(row.id, {
+      decision: row.selected_category_id ? "import" : "pending",
+    });
+  }
+
   // Eligible = has a category but is not yet marked import. When zero, the
   // "import all with category" button is disabled (it would otherwise no-op
   // silently in the default, uncategorized state).
@@ -185,11 +229,6 @@
   async function bulkImportValid(): Promise<void> {
     const targets = rows.filter((r) => r.selected_category_id !== null && r.decision !== "import");
     await Promise.all(targets.map((r) => patchRow(r.id, { decision: "import" })));
-  }
-
-  async function bulkSkipAll(): Promise<void> {
-    const targets = rows.filter((r) => r.decision !== "skip");
-    await Promise.all(targets.map((r) => patchRow(r.id, { decision: "skip" })));
   }
 
   // Probable-duplicate rows are flagged by the fingerprint preview. The user
@@ -205,84 +244,213 @@
   }
 
   // "Save as rule": turn a categorized row into a reusable categorization rule
-  // so future imports pre-fill the same category. Match phrase defaults to the
-  // counterparty when present (more stable than the free-text description).
-  let ruleRow = $state<ImportRow | null>(null);
-  let ruleField = $state<"description" | "counterparty">("description");
-  let ruleKind = $state<"contains" | "exact">("contains");
-  let ruleText = $state("");
+  // so future imports pre-fill the same category. One-tap from the bookmark
+  // icon: counterparty (when present) is the default match phrase, "contains"
+  // is the default kind. Power-edits live in Settings → Reguły.
   let ruleSaving = $state(false);
 
-  // Candidate rule from the live dialog state — drives the match-count preview
-  // and the "apply to current batch" step on save.
-  function draftRule(): CategorizationRule | null {
-    const catId = ruleRow?.selected_category_id;
-    const text = ruleText.trim();
-    if (!catId || text === "") return null;
-    return {
-      id: "__draft__",
-      user_id: "__draft__",
-      kind: ruleKind,
-      match_description: ruleField === "description" ? text : null,
-      match_counterparty: ruleField === "counterparty" ? text : null,
-      match_type: null,
-      category_id: catId,
-      priority: 0,
-      created_at: "",
-    };
+  interface RuleSuggestion {
+    key: string;
+    text: string;
+    field: "description" | "counterparty";
+    categoryId: string;
+    categoryName: string;
+    count: number;
   }
 
-  const ruleMatchCount = $derived.by(() => {
-    const draft = draftRule();
-    if (!draft) return 0;
+  interface UndoSnapshot {
+    id: string;
+    selected_category_id: string | null;
+    decision: RowDecision;
+  }
+
+  function matchingUncategorizedRows(rule: CategorizationRule): ImportRow[] {
     const cats = categoriesQuery.data ?? [];
-    return rows.filter((r) => matchCategory(r, [draft], cats) !== null).length;
-  });
-
-  function openRuleDialog(row: ImportRow): void {
-    if (!row.selected_category_id) return;
-    ruleRow = row;
-    ruleField = row.counterparty ? "counterparty" : "description";
-    ruleKind = "contains";
-    // Rules match future imports against normalized raw bank fields, not the
-    // review-only edited description.
-    ruleText = row.counterparty ?? row.description;
+    return rows.filter(
+      (r) => r.selected_category_id == null && matchCategory(r, [rule], cats) !== null
+    );
   }
 
-  async function saveRule(): Promise<void> {
-    const row = ruleRow;
-    const text = ruleText.trim();
-    if (!row || !row.selected_category_id || text === "") return;
-    ruleSaving = true;
+  async function undoSavedRule(ruleId: string, changedRows: UndoSnapshot[]): Promise<void> {
     try {
-      const created = await createCategorizationRule({
-        kind: ruleKind,
-        category_id: row.selected_category_id,
-        match_description: ruleField === "description" ? text : null,
-        match_counterparty: ruleField === "counterparty" ? text : null,
-      });
-      await queryClient.invalidateQueries({ queryKey: ["categorization_rules"] });
-
-      // Apply to the current batch: fill matching rows that are still
-      // uncategorized (never overwrite a manual category pick). patchRow flips
-      // pending → import when a category lands.
-      const cats = categoriesQuery.data ?? [];
-      const targets = rows.filter(
-        (r) => r.selected_category_id == null && matchCategory(r, [created], cats) !== null
-      );
+      await deleteCategorizationRule(ruleId);
       await Promise.all(
-        targets.map((r) => patchRow(r.id, { selected_category_id: created.category_id }))
+        changedRows.map((row) =>
+          patchRow(row.id, {
+            selected_category_id: row.selected_category_id,
+            decision: row.decision,
+          })
+        )
       );
-
-      toast.success(
-        m.bank_review_save_rule_success(),
-        targets.length > 0
-          ? { description: m.bank_review_rule_applied({ count: targets.length }) }
-          : undefined
-      );
-      ruleRow = null;
+      await queryClient.invalidateQueries({ queryKey: ["categorization_rules"] });
+      toast.success(m.bank_review_rule_undone());
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function createAndApplyRule(input: {
+    kind: "contains" | "exact";
+    categoryId: string;
+    field: "description" | "counterparty";
+    text: string;
+  }): Promise<CategorizationRule> {
+    const text = input.text.trim();
+    const candidate = {
+      id: "__draft__",
+      user_id: "__draft__",
+      kind: input.kind,
+      match_description: input.field === "description" ? text : null,
+      match_counterparty: input.field === "counterparty" ? text : null,
+      match_type: null,
+      category_id: input.categoryId,
+      priority: 0,
+      created_at: "",
+    } satisfies CategorizationRule;
+
+    if (findDuplicateCategorizationRule(rulesQuery.data ?? [], candidate)) {
+      throw new Error("duplicate_categorization_rule");
+    }
+
+    const created = await createCategorizationRule({
+      kind: input.kind,
+      category_id: input.categoryId,
+      match_description: input.field === "description" ? text : null,
+      match_counterparty: input.field === "counterparty" ? text : null,
+    });
+    await queryClient.invalidateQueries({ queryKey: ["categorization_rules"] });
+
+    const targets = matchingUncategorizedRows(created);
+    const snapshots = targets.map((r) => ({
+      id: r.id,
+      selected_category_id: r.selected_category_id,
+      decision: r.decision,
+    }));
+    await Promise.all(
+      targets.map((r) => patchRow(r.id, { selected_category_id: created.category_id }))
+    );
+
+    toast.success(m.bank_review_save_rule_success({ count: targets.length }), {
+      action: {
+        label: m.common_undo(),
+        onClick: () => void undoSavedRule(created.id, snapshots),
+      },
+      duration: 8000,
+    });
+
+    return created;
+  }
+
+  async function quickSaveRule(row: ImportRow): Promise<void> {
+    if (!row.selected_category_id) return;
+    const field: "description" | "counterparty" = row.counterparty ? "counterparty" : "description";
+    const text = suggestRuleText(row, field);
+    if (text === "") return;
+    ruleSaving = true;
+    try {
+      await createAndApplyRule({
+        kind: "contains",
+        categoryId: row.selected_category_id,
+        field,
+        text,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.info(
+        msg === "duplicate_categorization_rule" ? m.bank_review_rule_already_saved() : msg
+      );
+    } finally {
+      ruleSaving = false;
+    }
+  }
+
+  function categoryById(id: string | null | undefined): Category | null {
+    if (!id) return null;
+    return (categoriesQuery.data ?? []).find((c) => c.id === id) ?? null;
+  }
+
+  function buildRuleSuggestions(): RuleSuggestion[] {
+    const groups = new Map<
+      string,
+      {
+        text: string;
+        field: "description" | "counterparty";
+        type: "income" | "expense";
+        rows: ImportRow[];
+        categoryCounts: Map<string, number>;
+      }
+    >();
+
+    for (const row of rows) {
+      const field = row.counterparty ? "counterparty" : "description";
+      const text = suggestRuleText(row, field);
+      if (text === "") continue;
+      const key = `${row.type}:${field}:${text.toLowerCase()}`;
+      const group = groups.get(key) ?? {
+        text,
+        field,
+        type: row.type,
+        rows: [],
+        categoryCounts: new Map<string, number>(),
+      };
+      group.rows.push(row);
+      if (row.selected_category_id && categoryById(row.selected_category_id)?.type === row.type) {
+        group.categoryCounts.set(
+          row.selected_category_id,
+          (group.categoryCounts.get(row.selected_category_id) ?? 0) + 1
+        );
+      }
+      groups.set(key, group);
+    }
+
+    return [...groups.entries()]
+      .flatMap(([key, group]) => {
+        if (group.rows.length < 3 || group.categoryCounts.size === 0) return [];
+        const [categoryId] = [...group.categoryCounts.entries()].sort((a, b) => b[1] - a[1])[0];
+        const category = categoryById(categoryId);
+        if (!category) return [];
+        const candidate = {
+          id: "__suggestion__",
+          user_id: "__suggestion__",
+          kind: "contains",
+          match_description: group.field === "description" ? group.text : null,
+          match_counterparty: group.field === "counterparty" ? group.text : null,
+          match_type: null,
+          category_id: categoryId,
+          priority: 0,
+          created_at: "",
+        } satisfies CategorizationRule;
+        if (findDuplicateCategorizationRule(rulesQuery.data ?? [], candidate)) return [];
+        return [
+          {
+            key,
+            text: group.text,
+            field: group.field,
+            categoryId,
+            categoryName: category.name,
+            count: group.rows.length,
+          },
+        ];
+      })
+      .slice(0, 3);
+  }
+
+  const ruleSuggestions = $derived.by(buildRuleSuggestions);
+
+  async function saveSuggestion(suggestion: RuleSuggestion): Promise<void> {
+    ruleSaving = true;
+    try {
+      await createAndApplyRule({
+        kind: "contains",
+        categoryId: suggestion.categoryId,
+        field: suggestion.field,
+        text: suggestion.text,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.info(
+        msg === "duplicate_categorization_rule" ? m.bank_review_rule_already_saved() : msg
+      );
     } finally {
       ruleSaving = false;
     }
@@ -328,6 +496,32 @@
     focusRow(visibleRows[nextIdx].id);
   }
 
+  // Inline attribution: when the currently selected category matches a
+  // saved rule's category, surface the rule text so the user knows why the
+  // row was pre-filled (and how to fix it).
+  function matchedRuleFor(row: ImportRow) {
+    if (!row.selected_category_id) return null;
+    const matched = resolveCategorizationRule(
+      row,
+      rulesQuery.data ?? [],
+      categoriesQuery.data ?? []
+    );
+    if (!matched) return null;
+    if (matched.category_id !== row.selected_category_id) return null;
+    return matched;
+  }
+
+  function ruleAttributionText(rule: {
+    match_counterparty: string | null;
+    match_description: string | null;
+  }): string {
+    return rule.match_counterparty ?? rule.match_description ?? "";
+  }
+
+  function openRuleInSettings(ruleId: string): void {
+    void goto(`/settings?tab=rules&highlight=${encodeURIComponent(ruleId)}`);
+  }
+
   const commitMut = createMutation(() => ({
     mutationFn: () => commitImportSession(session.id),
     onSuccess: (result) => {
@@ -356,6 +550,14 @@
 </script>
 
 <div class="space-y-4 pb-24">
+  {#if parseErrorCount > 0}
+    <p
+      class="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200"
+    >
+      {m.bank_review_parse_errors_banner({ count: parseErrorCount })}
+    </p>
+  {/if}
+
   <!-- Warnings + bulk actions. One-time setup at the top of the list; scrolls
        away with the page so only the table header stays pinned. -->
   <div class="space-y-2">
@@ -371,32 +573,48 @@
       <p
         class="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200"
       >
-        {m.bank_review_pending_warning({ count: pendingCount })}
+        {m.bank_review_no_category_warning({ count: pendingCount })}
       </p>
     {/if}
 
     <div class="flex flex-wrap items-center gap-2">
-      <Button
-        variant="ghost"
-        size="sm"
-        disabled={bulkImportableCount === 0}
-        onclick={bulkImportValid}
-      >
-        {m.bank_review_bulk_import_valid()}
-      </Button>
-      <Button variant="ghost" size="sm" onclick={bulkSkipAll}>
-        {m.bank_review_bulk_skip_all()}
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        disabled={warningsByRow.size === 0}
-        onclick={bulkSkipProbableDuplicates}
-      >
-        {m.bank_review_bulk_skip_duplicates()}
-      </Button>
+      {#if bulkImportableCount > 0}
+        <Button variant="primary" size="sm" onclick={bulkImportValid}>
+          {m.bank_review_ready_action({ count: bulkImportableCount })}
+        </Button>
+      {/if}
+      {#if warningsByRow.size > 0}
+        <Button variant="ghost" size="sm" onclick={bulkSkipProbableDuplicates}>
+          {m.bank_review_skip_duplicates_action({ count: warningsByRow.size })}
+        </Button>
+      {/if}
     </div>
   </div>
+
+  {#if ruleSuggestions.length > 0}
+    <div class="flex gap-2 overflow-x-auto pb-1">
+      {#each ruleSuggestions as suggestion (suggestion.key)}
+        <button
+          type="button"
+          class="min-w-72 rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-3 py-2 text-left shadow-[0_0_24px_rgba(16,185,129,0.06)] transition-colors hover:bg-emerald-500/15 disabled:opacity-60"
+          disabled={ruleSaving}
+          onclick={() => void saveSuggestion(suggestion)}
+        >
+          <span class="block text-xs text-emerald-200">
+            {m.bank_review_rule_suggestion_intro({
+              text: suggestion.text,
+              count: suggestion.count,
+            })}
+          </span>
+          <span class="mt-0.5 block truncate text-sm font-medium text-slate-100">
+            {m.bank_review_rule_suggestion_action({
+              category: suggestion.categoryName,
+            })}
+          </span>
+        </button>
+      {/each}
+    </div>
+  {/if}
 
   <!-- Filter chips (non-sticky; scroll with page). -->
   <div class="flex flex-wrap items-center gap-2">
@@ -436,7 +654,7 @@
             <th class="px-3 py-2 text-left">{m.bank_review_header_description()}</th>
             <th class="px-3 py-2 text-left">{m.bank_review_header_category()}</th>
             <th class="px-3 py-2 text-left">{m.bank_review_header_group()}</th>
-            <th class="px-3 py-2 text-left">{m.bank_review_header_decision()}</th>
+            <th class="px-3 py-2 text-left">{m.bank_review_import_header_label()}</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-white/5 bg-slate-950/40">
@@ -458,10 +676,19 @@
               </td>
               <td class="max-w-xs px-3 py-2 align-top">
                 {#if warningsByRow.has(row.id)}
-                  <div class="mb-1">
+                  <div class="mb-1 flex flex-wrap items-center gap-2">
                     <Badge variant="overdue">{m.bank_review_probable_duplicate()}</Badge>
-                    <p class="mt-1 truncate text-xs text-amber-200/80">{duplicateDetail(row.id)}</p>
+                    {#if row.decision !== "skip"}
+                      <button
+                        type="button"
+                        class="text-xs text-amber-200 underline-offset-2 hover:underline"
+                        onclick={() => void patchRow(row.id, { decision: "skip" })}
+                      >
+                        {m.bank_review_skip_inline_action()}
+                      </button>
+                    {/if}
                   </div>
+                  <p class="truncate text-xs text-amber-200/80">{duplicateDetail(row.id)}</p>
                 {/if}
                 {#if row.counterparty}
                   <p class="text-sm font-medium text-slate-100">{row.counterparty}</p>
@@ -495,13 +722,26 @@
                   <Button
                     variant="ghost"
                     size="sm"
-                    title={m.bank_review_save_rule()}
-                    disabled={!row.selected_category_id}
-                    onclick={() => openRuleDialog(row)}
+                    title={m.bank_review_save_rule_tooltip()}
+                    disabled={!row.selected_category_id || ruleSaving}
+                    onclick={() => void quickSaveRule(row)}
                   >
                     <BookmarkPlus size={16} aria-hidden="true" />
                   </Button>
                 </div>
+                {#if matchedRuleFor(row)}
+                  {@const r = matchedRuleFor(row)}
+                  {#if r}
+                    <button
+                      type="button"
+                      class="mt-1 inline-flex max-w-full items-center truncate rounded-md text-xs text-emerald-300/80 hover:text-emerald-200 hover:underline"
+                      title={m.bank_review_row_rule_attribution_title()}
+                      onclick={() => openRuleInSettings(r.id)}
+                    >
+                      {m.bank_review_row_rule_attribution({ text: ruleAttributionText(r) })}
+                    </button>
+                  {/if}
+                {/if}
               </td>
               <td class="px-3 py-2 align-top">
                 <Select
@@ -518,17 +758,20 @@
                 </Select>
               </td>
               <td class="px-3 py-2 align-top">
-                <Select
-                  value={row.decision}
-                  onchange={(e) => {
-                    const v = (e.target as HTMLSelectElement).value as RowDecision;
-                    void patchRow(row.id, { decision: v });
-                  }}
-                >
-                  <option value="pending">{m.bank_review_decision_pending()}</option>
-                  <option value="import">{m.bank_review_decision_import()}</option>
-                  <option value="skip">{m.bank_review_decision_skip()}</option>
-                </Select>
+                <label class="inline-flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    class="h-4 w-4 rounded border-white/20 bg-slate-900 text-emerald-400 focus:ring-emerald-400/40"
+                    checked={row.decision !== "skip"}
+                    onchange={(e) => void toggleImport(row, (e.target as HTMLInputElement).checked)}
+                    aria-label={m.bank_review_import_aria_label({
+                      description: row.counterparty ?? row.description,
+                    })}
+                  />
+                  {#if row.decision === "pending"}
+                    <span class="text-xs text-amber-300">{m.bank_review_no_category_cue()}</span>
+                  {/if}
+                </label>
               </td>
             </tr>
           {/each}
@@ -572,6 +815,15 @@
             {/if}
             {#if warningsByRow.has(row.id)}
               <Badge variant="overdue">{m.bank_review_probable_duplicate()}</Badge>
+              {#if row.decision !== "skip"}
+                <button
+                  type="button"
+                  class="text-xs text-amber-200 underline-offset-2 hover:underline"
+                  onclick={() => void patchRow(row.id, { decision: "skip" })}
+                >
+                  {m.bank_review_skip_inline_action()}
+                </button>
+              {/if}
             {/if}
           </div>
 
@@ -580,42 +832,62 @@
           {/if}
 
           <div class="grid grid-cols-2 gap-2">
-            <div class="flex min-w-0 items-center gap-1">
-              <Select
-                class="w-full min-w-0"
-                value={row.selected_category_id ?? ""}
-                onchange={(e) => {
-                  const v = (e.target as HTMLSelectElement).value;
-                  void patchRow(row.id, { selected_category_id: v === "" ? null : v });
-                }}
-              >
-                <option value="">{m.bank_review_header_category()}</option>
-                {#each categoriesFor(row.type) as c (c.id)}
-                  <option value={c.id}>{c.name}</option>
-                {/each}
-              </Select>
-              <Button
-                variant="ghost"
-                size="sm"
-                title={m.bank_review_save_rule()}
-                disabled={!row.selected_category_id}
-                onclick={() => openRuleDialog(row)}
-              >
-                <BookmarkPlus size={16} aria-hidden="true" />
-              </Button>
+            <div class="flex min-w-0 flex-col gap-0.5">
+              <div class="flex min-w-0 items-center gap-1">
+                <Select
+                  class="w-full min-w-0"
+                  value={row.selected_category_id ?? ""}
+                  onchange={(e) => {
+                    const v = (e.target as HTMLSelectElement).value;
+                    void patchRow(row.id, { selected_category_id: v === "" ? null : v });
+                  }}
+                >
+                  <option value="">{m.bank_review_header_category()}</option>
+                  {#each categoriesFor(row.type) as c (c.id)}
+                    <option value={c.id}>{c.name}</option>
+                  {/each}
+                </Select>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  title={m.bank_review_save_rule_tooltip()}
+                  disabled={!row.selected_category_id || ruleSaving}
+                  onclick={() => void quickSaveRule(row)}
+                >
+                  <BookmarkPlus size={16} aria-hidden="true" />
+                </Button>
+              </div>
+              {#if matchedRuleFor(row)}
+                {@const r = matchedRuleFor(row)}
+                {#if r}
+                  <button
+                    type="button"
+                    class="truncate text-left text-xs text-emerald-300/80 hover:text-emerald-200 hover:underline"
+                    title={m.bank_review_row_rule_attribution_title()}
+                    onclick={() => openRuleInSettings(r.id)}
+                  >
+                    {m.bank_review_row_rule_attribution({ text: ruleAttributionText(r) })}
+                  </button>
+                {/if}
+              {/if}
             </div>
-            <Select
-              class="w-full min-w-0"
-              value={row.decision}
-              onchange={(e) => {
-                const v = (e.target as HTMLSelectElement).value as RowDecision;
-                void patchRow(row.id, { decision: v });
-              }}
+            <label
+              class="flex cursor-pointer items-center justify-end gap-2 text-sm text-slate-200"
             >
-              <option value="pending">{m.bank_review_decision_pending()}</option>
-              <option value="import">{m.bank_review_decision_import()}</option>
-              <option value="skip">{m.bank_review_decision_skip()}</option>
-            </Select>
+              {#if row.decision === "pending"}
+                <span class="text-xs text-amber-300">{m.bank_review_no_category_cue()}</span>
+              {/if}
+              <span>{m.bank_review_import_header_label()}</span>
+              <input
+                type="checkbox"
+                class="h-4 w-4 rounded border-white/20 bg-slate-900 text-emerald-400 focus:ring-emerald-400/40"
+                checked={row.decision !== "skip"}
+                onchange={(e) => void toggleImport(row, (e.target as HTMLInputElement).checked)}
+                aria-label={m.bank_review_import_aria_label({
+                  description: row.counterparty ?? row.description,
+                })}
+              />
+            </label>
           </div>
         </li>
       {/each}
@@ -639,68 +911,18 @@
   </div>
 </div>
 
-<!-- Save-as-rule: create a reusable categorization rule from a categorized row. -->
-<Dialog
-  open={ruleRow !== null}
-  onclose={() => (ruleRow = null)}
-  title={m.bank_review_save_rule_title()}
->
-  {#if ruleRow}
-    <div class="space-y-4">
-      <label class="block space-y-1">
-        <span class="text-xs text-slate-400">{m.bank_review_save_rule_match_label()}</span>
-        <Select
-          value={ruleField}
-          onchange={(e) =>
-            (ruleField = (e.target as HTMLSelectElement).value as "description" | "counterparty")}
-        >
-          <option value="counterparty">{m.bank_review_save_rule_field_counterparty()}</option>
-          <option value="description">{m.bank_review_save_rule_field_description()}</option>
-        </Select>
-      </label>
-      <label class="block space-y-1">
-        <span class="text-xs text-slate-400">{m.bank_review_save_rule_kind_label()}</span>
-        <Select
-          value={ruleKind}
-          onchange={(e) =>
-            (ruleKind = (e.target as HTMLSelectElement).value as "contains" | "exact")}
-        >
-          <option value="contains">{m.bank_review_save_rule_kind_contains()}</option>
-          <option value="exact">{m.bank_review_save_rule_kind_exact()}</option>
-        </Select>
-      </label>
-      <label class="block space-y-1">
-        <span class="text-xs text-slate-400">{m.bank_review_save_rule_text_label()}</span>
-        <Input bind:value={ruleText} />
-      </label>
-      <p class="text-xs text-slate-500">
-        {m.bank_review_save_rule_preview({ count: ruleMatchCount, total: rows.length })}
-      </p>
-      <p class="text-xs text-slate-400">
-        {m.bank_review_save_rule_category_label()}: {categoryName(ruleRow.selected_category_id) ??
-          "—"}
-      </p>
-      <div class="flex justify-end gap-2">
-        <Button variant="ghost" onclick={() => (ruleRow = null)} disabled={ruleSaving}>
-          {m.bank_review_save_rule_cancel()}
-        </Button>
-        <Button
-          variant="primary"
-          disabled={ruleSaving || ruleText.trim() === ""}
-          loading={ruleSaving}
-          onclick={() => void saveRule()}
-        >
-          {m.bank_review_save_rule_submit()}
-        </Button>
-      </div>
-    </div>
-  {/if}
-</Dialog>
-
 <!-- Final confirmation: read-only digest of exactly what will be created,
      shown before the irreversible commit. -->
 <Dialog open={confirmOpen} onclose={() => (confirmOpen = false)} title={m.bank_confirm_title()}>
   <div class="space-y-4">
+    {#if accountQuery.data}
+      <p class="rounded-xl border border-white/5 bg-slate-950/40 px-3 py-2 text-xs text-slate-300">
+        {m.bank_review_account_destination({
+          bank: bankKindLabel(accountQuery.data.kind),
+          account: accountQuery.data.label,
+        })}
+      </p>
+    {/if}
     <p class="text-sm text-slate-300">
       {m.bank_confirm_summary({ add: importRows.length, skip: skipCount })}
     </p>

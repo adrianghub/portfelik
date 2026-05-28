@@ -134,6 +134,12 @@ export async function findOrCreateActiveAccount(input: {
   return ins.data as BankAccount;
 }
 
+export async function fetchBankAccount(id: string): Promise<BankAccount> {
+  const { data, error } = await supabase.from("bank_accounts").select("*").eq("id", id).single();
+  if (error) throw error;
+  return data as BankAccount;
+}
+
 // -------------------- sessions --------------------
 
 /**
