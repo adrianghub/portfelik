@@ -3,7 +3,7 @@
   import * as m from "$lib/paraglide/messages";
   import type { ShoppingListSummary } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
-  import { Calendar, Copy, Pencil, Trash2, Users } from "lucide-svelte";
+  import { Calendar, Copy, MoreVertical, Pencil, Trash2, Users } from "lucide-svelte";
 
   interface Props {
     list: ShoppingListSummary;
@@ -45,6 +45,22 @@
         ? m.shopping_list_mode_shopping()
         : m.shopping_list_mode_done()
   );
+
+  const showEdit = $derived(!!onedit && !isArchived);
+  const showDuplicate = $derived(!!onduplicate);
+  const showDelete = $derived(!!ondelete);
+  const hasActions = $derived(showEdit || showDuplicate || showDelete);
+
+  let menuOpen = $state(false);
+
+  function closeMenu() {
+    menuOpen = false;
+  }
+
+  function handleClickOutside(e: MouseEvent) {
+    const target = e.target as HTMLElement;
+    if (!target.closest(`[data-list-menu="${list.id}"]`)) menuOpen = false;
+  }
 </script>
 
 <div
@@ -128,31 +144,69 @@
       {/if}
     </div>
   </a>
-  {#if onedit && !isArchived}
-    <button
-      onclick={() => onedit(list)}
-      class="border-l border-white/5 px-3 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-200"
-      aria-label={m.shopping_list_edit()}
-    >
-      <Pencil size={15} strokeWidth={1.8} aria-hidden="true" />
-    </button>
-  {/if}
-  {#if onduplicate}
-    <button
-      onclick={() => onduplicate(list.id)}
-      class="border-l border-white/5 px-3 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-200"
-      aria-label={isArchived ? m.shopping_list_archived_duplicate() : m.shopping_list_duplicate()}
-    >
-      <Copy size={15} strokeWidth={1.8} aria-hidden="true" />
-    </button>
-  {/if}
-  {#if ondelete}
-    <button
-      onclick={() => ondelete(list.id)}
-      class="border-l border-white/5 px-3 text-slate-500 transition-colors hover:bg-rose-500/10 hover:text-rose-300"
-      aria-label={m.shopping_list_delete()}
-    >
-      <Trash2 size={15} strokeWidth={1.8} aria-hidden="true" />
-    </button>
+  {#if hasActions}
+    <div class="relative flex items-stretch" data-list-menu={list.id}>
+      <button
+        type="button"
+        onclick={() => (menuOpen = !menuOpen)}
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        class="flex w-11 items-center justify-center border-l border-white/5 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-200"
+        aria-label={m.shopping_list_actions()}
+      >
+        <MoreVertical size={16} strokeWidth={1.8} aria-hidden="true" />
+      </button>
+      {#if menuOpen}
+        <div
+          role="menu"
+          class="absolute top-2 right-2 z-20 min-w-40 overflow-hidden rounded-xl border border-white/10 bg-slate-900/95 py-1 shadow-[0_0_30px_rgba(0,0,0,0.5)] backdrop-blur"
+        >
+          {#if showEdit}
+            <button
+              type="button"
+              role="menuitem"
+              onclick={() => {
+                closeMenu();
+                onedit?.(list);
+              }}
+              class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-slate-200 transition-colors hover:bg-white/5"
+            >
+              <Pencil size={15} strokeWidth={1.8} aria-hidden="true" />
+              {m.shopping_list_edit()}
+            </button>
+          {/if}
+          {#if showDuplicate}
+            <button
+              type="button"
+              role="menuitem"
+              onclick={() => {
+                closeMenu();
+                onduplicate?.(list.id);
+              }}
+              class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-slate-200 transition-colors hover:bg-white/5"
+            >
+              <Copy size={15} strokeWidth={1.8} aria-hidden="true" />
+              {isArchived ? m.shopping_list_archived_duplicate() : m.shopping_list_duplicate()}
+            </button>
+          {/if}
+          {#if showDelete}
+            <button
+              type="button"
+              role="menuitem"
+              onclick={() => {
+                closeMenu();
+                ondelete?.(list.id);
+              }}
+              class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-rose-300 transition-colors hover:bg-rose-500/10"
+            >
+              <Trash2 size={15} strokeWidth={1.8} aria-hidden="true" />
+              {m.shopping_list_delete()}
+            </button>
+          {/if}
+        </div>
+      {/if}
+    </div>
   {/if}
 </div>
+
+<svelte:window onclick={handleClickOutside} />

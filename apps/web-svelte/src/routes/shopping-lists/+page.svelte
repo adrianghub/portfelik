@@ -381,6 +381,7 @@
             {list}
             variant="archived"
             onduplicate={(id) => duplicateMut.mutate(id)}
+            ondelete={(id) => (deleteTargetId = id)}
           />
         {/each}
       {/if}
