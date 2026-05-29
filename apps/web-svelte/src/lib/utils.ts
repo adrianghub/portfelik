@@ -67,3 +67,45 @@ export function monthName(month: number): string {
 export function monthYearLabel(year: number, month: number): string {
   return `${monthName(month)} ${year}`;
 }
+
+/**
+ * Polish locative month forms ("w maju", "w czerwcu"). `Intl` only yields the
+ * nominative ("maj"), which is grammatically wrong after the preposition "w",
+ * so the locative forms are hard-coded. Lowercase by convention (mid-sentence).
+ */
+const MONTH_LOCATIVE_PL = [
+  "styczniu",
+  "lutym",
+  "marcu",
+  "kwietniu",
+  "maju",
+  "czerwcu",
+  "lipcu",
+  "sierpniu",
+  "wrześniu",
+  "październiku",
+  "listopadzie",
+  "grudniu",
+] as const;
+
+export function monthNameLocative(month: number): string {
+  return MONTH_LOCATIVE_PL[month - 1] ?? monthName(month);
+}
+
+/**
+ * When an explicit day range spans exactly one whole calendar month (1st →
+ * last day, same year), return that month so callers can show "Maj 2026"
+ * instead of "1–31 maj 2026". Inputs are `YYYY-MM-DD` strings. Returns null
+ * for any partial or multi-month range.
+ */
+export function fullMonthOf(
+  startIso: string,
+  endIso: string
+): { year: number; month: number } | null {
+  const [sy, sm, sd] = startIso.split("-").map(Number);
+  const [ey, em, ed] = endIso.split("-").map(Number);
+  if (!sy || !sm || !sd || !ey || !em || !ed) return null;
+  if (sy !== ey || sm !== em || sd !== 1) return null;
+  const lastDay = new Date(sy, sm, 0).getDate();
+  return ed === lastDay ? { year: sy, month: sm } : null;
+}

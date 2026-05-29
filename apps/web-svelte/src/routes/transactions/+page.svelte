@@ -28,7 +28,14 @@
   } from "$lib/services/transactions";
   import { supabase } from "$lib/supabase";
   import type { TransactionStatus, TransactionWithCategory } from "$lib/types";
-  import { cn, formatDate, getDateRangeBounds, monthYearLabel } from "$lib/utils";
+  import {
+    cn,
+    formatDate,
+    fullMonthOf,
+    getDateRangeBounds,
+    monthNameLocative,
+    monthYearLabel,
+  } from "$lib/utils";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { onMount } from "svelte";
   import { Plus, Search, X } from "lucide-svelte";
@@ -99,6 +106,8 @@
       const [sy, sm, sd] = explicitStartDate.split("-").map(Number);
       const [ey, em] = explicitEndDate.split("-").map(Number);
       if (explicitStartDate === explicitEndDate) return compactDay(explicitStartDate, true);
+      const fm = fullMonthOf(explicitStartDate, explicitEndDate);
+      if (fm) return monthYearLabel(fm.year, fm.month);
       if (sy === ey && sm === em) return `${sd}–${compactDay(explicitEndDate, true)}`;
       if (sy === ey)
         return `${compactDay(explicitStartDate, false)} – ${compactDay(explicitEndDate, true)}`;
@@ -109,19 +118,23 @@
       : `${monthYearLabel(startYear, startMonth)} – ${monthYearLabel(endYear, endMonth)}`;
   });
 
-  const emptyLabel = $derived(
-    explicitStartDate && explicitEndDate
-      ? m.transactions_empty_range({
-          from: formatDate(explicitStartDate),
-          to: formatDate(explicitEndDate),
-        })
-      : startYear === endYear && startMonth === endMonth
-        ? m.transactions_empty_month({ period: monthYearLabel(startYear, startMonth) })
-        : m.transactions_empty_range({
-            from: monthYearLabel(startYear, startMonth),
-            to: monthYearLabel(endYear, endMonth),
-          })
-  );
+  const emptyLabel = $derived.by(() => {
+    if (explicitStartDate && explicitEndDate) {
+      const fm = fullMonthOf(explicitStartDate, explicitEndDate);
+      if (fm) return m.transactions_empty_month({ period: monthNameLocative(fm.month) });
+      return m.transactions_empty_range({
+        from: formatDate(explicitStartDate),
+        to: formatDate(explicitEndDate),
+      });
+    }
+    if (startYear === endYear && startMonth === endMonth) {
+      return m.transactions_empty_month({ period: monthNameLocative(startMonth) });
+    }
+    return m.transactions_empty_range({
+      from: monthYearLabel(startYear, startMonth),
+      to: monthYearLabel(endYear, endMonth),
+    });
+  });
 
   const txQuery = createQuery(() => ({
     queryKey: [
