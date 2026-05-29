@@ -708,6 +708,10 @@ export type Database = {
           group_id: string | null;
           id: string;
           is_recurring: boolean;
+          recurrence_frequency: Database["public"]["Enums"]["recurrence_frequency"] | null;
+          recurrence_interval: number;
+          recurrence_month: number | null;
+          recurrence_weekday: number | null;
           recurring_day: number | null;
           recurring_template_id: string | null;
           shopping_list_id: string | null;
@@ -726,6 +730,10 @@ export type Database = {
           group_id?: string | null;
           id?: string;
           is_recurring?: boolean;
+          recurrence_frequency?: Database["public"]["Enums"]["recurrence_frequency"] | null;
+          recurrence_interval?: number;
+          recurrence_month?: number | null;
+          recurrence_weekday?: number | null;
           recurring_day?: number | null;
           recurring_template_id?: string | null;
           shopping_list_id?: string | null;
@@ -744,6 +752,10 @@ export type Database = {
           group_id?: string | null;
           id?: string;
           is_recurring?: boolean;
+          recurrence_frequency?: Database["public"]["Enums"]["recurrence_frequency"] | null;
+          recurrence_interval?: number;
+          recurrence_month?: number | null;
+          recurrence_weekday?: number | null;
           recurring_day?: number | null;
           recurring_template_id?: string | null;
           shopping_list_id?: string | null;
@@ -895,6 +907,10 @@ export type Database = {
           group_id: string | null;
           id: string;
           is_recurring: boolean;
+          recurrence_frequency: Database["public"]["Enums"]["recurrence_frequency"] | null;
+          recurrence_interval: number;
+          recurrence_month: number | null;
+          recurrence_weekday: number | null;
           recurring_day: number | null;
           recurring_template_id: string | null;
           shopping_list_id: string | null;
@@ -932,6 +948,10 @@ export type Database = {
           group_id: string | null;
           id: string;
           is_recurring: boolean;
+          recurrence_frequency: Database["public"]["Enums"]["recurrence_frequency"] | null;
+          recurrence_interval: number;
+          recurrence_month: number | null;
+          recurrence_weekday: number | null;
           recurring_day: number | null;
           recurring_template_id: string | null;
           shopping_list_id: string | null;
@@ -1086,6 +1106,7 @@ export type Database = {
         | "transaction_reminder"
         | "group_invitation"
         | "system_notification";
+      recurrence_frequency: "daily" | "weekly" | "monthly" | "yearly";
       shopping_list_status: "active" | "completed";
       transaction_status: "draft" | "upcoming" | "overdue" | "paid";
       transaction_type: "income" | "expense";
@@ -1228,6 +1249,7 @@ export const Constants = {
         "group_invitation",
         "system_notification",
       ],
+      recurrence_frequency: ["daily", "weekly", "monthly", "yearly"],
       shopping_list_status: ["active", "completed"],
       transaction_status: ["draft", "upcoming", "overdue", "paid"],
       transaction_type: ["income", "expense"],
