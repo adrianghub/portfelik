@@ -69,6 +69,38 @@
   textarea {
     scroll-margin-bottom: 5rem;
   }
+
+  /* Accent-tinted scrollbars (global). Firefox via scrollbar-color; WebKit/Blink
+     via ::-webkit-scrollbar. Track sits on the canvas, thumb uses the neon accent. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-accent-from) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background-image: linear-gradient(var(--color-accent-from) 0%, var(--color-accent-to) 100%);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-image: linear-gradient(var(--color-accent-to) 0%, var(--color-accent-from) 100%);
+  }
+
+  /* Opt-out for elements that style their own scroll affordance (e.g. pill tab bars). */
+  .no-accent-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-accent-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @layer components {
