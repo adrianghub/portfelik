@@ -183,16 +183,21 @@ export async function deleteShoppingList(id: string): Promise<void> {
 
 export async function completeShoppingList(
   id: string,
-  totalAmount: number,
-  categoryId: string
-): Promise<Transaction> {
+  totalAmount: number | null,
+  categoryId: string | null,
+  createTransaction = true
+): Promise<Transaction | null> {
+  const amount = totalAmount != null && !Number.isNaN(totalAmount) ? Math.abs(totalAmount) : null;
+  // The RPC accepts NULL amount/category (used when no transaction is created),
+  // but generated types mark these params non-null since they lack SQL defaults.
   const { data, error } = await supabase.rpc("complete_shopping_list", {
     p_list_id: id,
-    p_total_amount: Math.abs(totalAmount),
-    p_category_id: categoryId,
+    p_total_amount: amount as number,
+    p_category_id: categoryId as string,
+    p_create_transaction: createTransaction,
   });
   if (error) throw error;
-  return data as unknown as Transaction;
+  return (data as unknown as Transaction | null) ?? null;
 }
 
 export async function duplicateShoppingList(id: string): Promise<ShoppingList> {

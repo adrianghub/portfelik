@@ -918,6 +918,7 @@ export type Database = {
       complete_shopping_list: {
         Args: {
           p_category_id: string;
+          p_create_transaction?: boolean;
           p_list_id: string;
           p_total_amount: number;
         };
