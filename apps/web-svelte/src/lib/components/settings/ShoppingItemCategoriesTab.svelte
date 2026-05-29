@@ -156,14 +156,24 @@
   <div class="space-y-3">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <p class="text-sm text-slate-400">{m.shopping_item_categories_hint()}</p>
-      <button
-        type="button"
-        onclick={() => resetMutation.mutate()}
-        disabled={resetMutation.isPending}
-        class="rounded-full border border-white/10 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/5 disabled:opacity-50"
-      >
-        {m.shopping_item_categories_restore_defaults()}
-      </button>
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          onclick={() => resetMutation.mutate()}
+          disabled={resetMutation.isPending}
+          class="rounded-full border border-white/10 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/5 disabled:opacity-50"
+        >
+          {m.shopping_item_categories_restore_defaults()}
+        </button>
+        <button
+          type="button"
+          onclick={openAdd}
+          class="bg-accent-gradient inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+        >
+          <Plus size={15} strokeWidth={2.2} aria-hidden="true" />
+          {m.shopping_item_category_add()}
+        </button>
+      </div>
     </div>
 
     {#if categories.length === 0}
@@ -222,15 +232,6 @@
         {/each}
       </ul>
     {/if}
-
-    <button
-      type="button"
-      onclick={openAdd}
-      class="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/10 py-3 text-sm font-medium text-slate-400 transition-colors hover:border-white/20 hover:text-slate-200"
-    >
-      <Plus size={15} />
-      {m.shopping_item_category_add()}
-    </button>
   </div>
 {/if}
 
