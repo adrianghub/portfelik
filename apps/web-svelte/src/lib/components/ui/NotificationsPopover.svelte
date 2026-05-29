@@ -1,14 +1,16 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import { Bell, X, CheckCheck } from "lucide-svelte";
+  import { Bell, X, CheckCheck, Check, RotateCcw } from "lucide-svelte";
   import { createQuery, createMutation, useQueryClient } from "@tanstack/svelte-query";
   import {
     fetchNotifications,
     markNotificationRead,
+    markNotificationUnread,
     markAllNotificationsRead,
     deleteNotification,
   } from "$lib/services/notifications";
   import { formatDate } from "$lib/utils";
+  import type { Notification } from "$lib/types";
   import * as m from "$lib/paraglide/messages";
 
   interface Props {
@@ -38,6 +40,11 @@
 
   const markReadMutation = createMutation(() => ({
     mutationFn: (id: string) => markNotificationRead(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+  }));
+
+  const markUnreadMutation = createMutation(() => ({
+    mutationFn: (id: string) => markNotificationUnread(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
   }));
 
@@ -72,12 +79,32 @@
     return formatDate(dateStr);
   }
 
-  function handleNotificationClick(notification: (typeof notifications)[number]) {
-    if (!notification.read_at) markReadMutation.mutate(notification.id);
-    if (notification.type === "group_invitation") {
-      open = false;
-      void goto("/settings?tab=groups");
+  function targetHref(notification: Notification): string | null {
+    switch (notification.type) {
+      case "group_invitation":
+        return "/settings?tab=groups";
+      case "transaction_upcoming":
+      case "transaction_overdue":
+      case "transaction_reminder":
+      case "transaction_summary":
+        return "/transactions";
+      default:
+        return null;
     }
+  }
+
+  function handleNotificationClick(notification: Notification) {
+    if (!notification.read_at) markReadMutation.mutate(notification.id);
+    const href = targetHref(notification);
+    if (href) {
+      open = false;
+      void goto(href);
+    }
+  }
+
+  function toggleRead(notification: Notification) {
+    if (notification.read_at) markUnreadMutation.mutate(notification.id);
+    else markReadMutation.mutate(notification.id);
   }
 </script>
 
@@ -103,7 +130,7 @@
 
   {#if open}
     <div
-      class="absolute {popoverPositionClass} z-50 w-80 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/95 shadow-[0_0_40px_rgba(0,0,0,0.4)] backdrop-blur"
+      class="absolute {popoverPositionClass} z-50 w-[min(20rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-white/5 bg-slate-900/95 shadow-[0_0_40px_rgba(0,0,0,0.4)] backdrop-blur"
       role="dialog"
       aria-label={m.notifications_title()}
     >
@@ -161,14 +188,32 @@
                   {formatRelativeDate(n.created_at)}
                 </span>
               </div>
-              <button
-                onclick={() => deleteMutation.mutate(n.id)}
-                disabled={deleteMutation.isPending}
-                class="absolute top-3 right-3 hidden p-0.5 text-slate-500 transition-colors group-hover:block hover:text-rose-300"
-                aria-label="Usuń"
-              >
-                <X size={12} />
-              </button>
+              <div class="flex shrink-0 items-start gap-1">
+                <button
+                  onclick={() => toggleRead(n)}
+                  disabled={markReadMutation.isPending || markUnreadMutation.isPending}
+                  class="rounded-md p-1 text-slate-500 transition-colors hover:bg-white/5 hover:text-emerald-300 disabled:opacity-40"
+                  aria-label={isUnread
+                    ? m.notifications_mark_read()
+                    : m.notifications_mark_unread()}
+                  title={isUnread ? m.notifications_mark_read() : m.notifications_mark_unread()}
+                >
+                  {#if isUnread}
+                    <Check size={13} />
+                  {:else}
+                    <RotateCcw size={13} />
+                  {/if}
+                </button>
+                <button
+                  onclick={() => deleteMutation.mutate(n.id)}
+                  disabled={deleteMutation.isPending}
+                  class="rounded-md p-1 text-slate-500 transition-colors hover:bg-rose-500/10 hover:text-rose-300 disabled:opacity-40"
+                  aria-label={m.common_delete()}
+                  title={m.common_delete()}
+                >
+                  <X size={13} />
+                </button>
+              </div>
             </li>
           {/each}
         {/if}
