@@ -2,7 +2,7 @@
   import { createMutation, useQueryClient } from "@tanstack/svelte-query";
   import { updateProfile } from "$lib/services/profiles";
   import { deleteAccount } from "$lib/services/groups";
-  import { unsubscribeFromPush } from "$lib/services/push";
+  import { requestAndSubscribePush, unsubscribeFromPush } from "$lib/services/push";
   import { supabase } from "$lib/supabase";
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
@@ -62,10 +62,29 @@
   }
 
   let notifPermission = $state<NotificationPermission>("default");
+  let notifSupported = $state(true);
 
   onMount(() => {
+    notifSupported = "Notification" in window && "serviceWorker" in navigator;
     if ("Notification" in window) notifPermission = Notification.permission;
   });
+
+  const subMutation = createMutation(() => ({
+    mutationFn: async () => {
+      if (!profile) throw new Error("no_profile");
+      const ok = await requestAndSubscribePush(profile.id);
+      if (!ok) throw new Error("permission_denied");
+    },
+    onSuccess: () => {
+      notifPermission = "granted";
+      toast.success(m.toast_push_subscribed());
+    },
+    onError: () => {
+      // Reflect the browser's decision so the UI shows the blocked state.
+      if ("Notification" in window) notifPermission = Notification.permission;
+      toast.error(m.toast_error());
+    },
+  }));
 
   const unsubMutation = createMutation(() => ({
     mutationFn: unsubscribeFromPush,
@@ -148,20 +167,41 @@
     </div>
   </div>
 
-  {#if notifPermission === "granted"}
+  {#if notifSupported}
     <div
       class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
     >
-      <div class="flex items-center justify-between gap-3 px-4 py-3">
-        <span class="text-sm font-medium text-slate-100">{m.profile_notifications_enabled()}</span>
-        <button
-          type="button"
-          onclick={() => unsubMutation.mutate()}
-          disabled={unsubMutation.isPending}
-          class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-        >
-          {unsubMutation.isPending ? m.common_saving() : m.profile_notifications_disable()}
-        </button>
+      <div
+        class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+      >
+        <span class="text-sm font-medium text-slate-100">
+          {#if notifPermission === "granted"}
+            {m.profile_notifications_enabled()}
+          {:else if notifPermission === "denied"}
+            {m.profile_notifications_blocked()}
+          {:else}
+            {m.profile_notifications_disabled()}
+          {/if}
+        </span>
+        {#if notifPermission === "granted"}
+          <button
+            type="button"
+            onclick={() => unsubMutation.mutate()}
+            disabled={unsubMutation.isPending}
+            class="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            {unsubMutation.isPending ? m.common_saving() : m.profile_notifications_disable()}
+          </button>
+        {:else if notifPermission === "default"}
+          <button
+            type="button"
+            onclick={() => subMutation.mutate()}
+            disabled={subMutation.isPending}
+            class="bg-accent-gradient shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-900 transition-transform hover:brightness-110 disabled:opacity-50"
+          >
+            {subMutation.isPending ? m.common_saving() : m.profile_notifications_enable()}
+          </button>
+        {/if}
       </div>
     </div>
   {/if}
