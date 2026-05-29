@@ -181,41 +181,6 @@ export async function deleteShoppingList(id: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function attachShoppingListToTransaction(
-  listId: string,
-  txId: string
-): Promise<Transaction> {
-  const { data, error } = await supabase.rpc("attach_shopping_list_to_transaction", {
-    p_list_id: listId,
-    p_tx_id: txId,
-  });
-  if (error) throw error;
-  return data as unknown as Transaction;
-}
-
-export async function fetchAttachableShoppingListsForTransaction(
-  txGroupId: string | null,
-  limit = 30
-): Promise<ShoppingListSummary[]> {
-  // Mirror the RPC's sharing-scope check: private tx → private lists; group tx → same-group lists.
-  // RLS already enforces visibility; this scope filter mirrors server-side rejection.
-  let q = supabase
-    .from("shopping_lists")
-    .select(`${LIST_COLUMNS}, shopping_list_items(id, completed)`)
-    .eq("status", "active")
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  q = txGroupId === null ? q.is("group_id", null) : q.eq("group_id", txGroupId);
-
-  const { data, error } = await q;
-  if (error) throw error;
-
-  const today = todayIso();
-  return ((data ?? []) as ShoppingListSummaryRow[])
-    .filter((list) => list.shopping_list_items.length > 0)
-    .map((row) => toShoppingListSummary(row, today));
-}
-
 export async function completeShoppingList(
   id: string,
   totalAmount: number,

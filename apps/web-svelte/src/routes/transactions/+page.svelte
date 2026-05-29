@@ -8,7 +8,6 @@
   import DateRangePicker from "$lib/components/transactions/DateRangePicker.svelte";
   import FiltersMenu from "$lib/components/transactions/FiltersMenu.svelte";
   import SummaryCards from "$lib/components/transactions/SummaryCards.svelte";
-  import AttachShoppingListSheet from "$lib/components/transactions/AttachShoppingListSheet.svelte";
   import TransactionDetailSheet from "$lib/components/transactions/TransactionDetailSheet.svelte";
   import TransactionDialog from "$lib/components/transactions/TransactionDialog.svelte";
   import TransactionTable from "$lib/components/transactions/TransactionTable.svelte";
@@ -224,7 +223,6 @@
     const match = requestedTxFromCurrentPage ?? requestedTxQuery.data;
     if (match && sheetTx?.id !== match.id) sheetTx = match;
   });
-  let attachTarget = $state<TransactionWithCategory | null>(null);
   let selectedIds = $state(new Set<string>());
   let bulkDeleteConfirm = $state(false);
   let searchModalOpen = $state(false);
@@ -660,16 +658,7 @@
     sheetTx = null;
     deleteTargetId = id;
   }}
-  onattach={(tx) => (attachTarget = tx)}
 />
-
-{#if attachTarget}
-  <AttachShoppingListSheet
-    transaction={attachTarget}
-    onclose={() => (attachTarget = null)}
-    onattached={() => (attachTarget = null)}
-  />
-{/if}
 
 <ConfirmDialog
   open={!!deleteTargetId}
