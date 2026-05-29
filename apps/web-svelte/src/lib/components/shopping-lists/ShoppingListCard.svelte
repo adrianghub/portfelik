@@ -44,9 +44,39 @@
   const hasActions = $derived(showEdit || showDuplicate || showDelete);
 
   let menuOpen = $state(false);
+  let buttonRef = $state<HTMLButtonElement | null>(null);
+  let menuStyle = $state("");
 
   function closeMenu() {
     menuOpen = false;
+  }
+
+  // Render the menu in a body portal so the card's `overflow-hidden` (needed for
+  // the rounded progress bar) cannot clip it, and anchor it to the kebab button.
+  function portal(node: HTMLElement) {
+    document.body.appendChild(node);
+    return {
+      destroy() {
+        node.remove();
+      },
+    };
+  }
+
+  function toggleMenu() {
+    if (menuOpen) {
+      menuOpen = false;
+      return;
+    }
+    if (!buttonRef) return;
+    const r = buttonRef.getBoundingClientRect();
+    const MENU_W = 176;
+    const estHeight = 44 * [showEdit, showDuplicate, showDelete].filter(Boolean).length + 8;
+    const left = Math.max(8, r.right - MENU_W);
+    const below = r.bottom + 4;
+    const openUp = below + estHeight > window.innerHeight && r.top - estHeight > 8;
+    const top = openUp ? r.top - estHeight - 4 : below;
+    menuStyle = `position:fixed; top:${top}px; left:${left}px; min-width:${MENU_W}px;`;
+    menuOpen = true;
   }
 
   function handleClickOutside(e: MouseEvent) {
@@ -121,10 +151,11 @@
     </div>
   </a>
   {#if hasActions}
-    <div class="relative flex items-stretch" data-list-menu={list.id}>
+    <div class="flex items-stretch" data-list-menu={list.id}>
       <button
+        bind:this={buttonRef}
         type="button"
-        onclick={() => (menuOpen = !menuOpen)}
+        onclick={toggleMenu}
         aria-haspopup="menu"
         aria-expanded={menuOpen}
         class="flex w-11 items-center justify-center border-l border-white/5 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-200"
@@ -134,8 +165,11 @@
       </button>
       {#if menuOpen}
         <div
+          use:portal
           role="menu"
-          class="absolute top-2 right-2 z-20 min-w-40 overflow-hidden rounded-xl border border-white/10 bg-slate-900/95 py-1 shadow-[0_0_30px_rgba(0,0,0,0.5)] backdrop-blur"
+          data-list-menu={list.id}
+          style={menuStyle}
+          class="z-50 overflow-hidden rounded-xl border border-white/10 bg-slate-900/95 py-1 shadow-[0_0_30px_rgba(0,0,0,0.5)] backdrop-blur"
         >
           {#if showEdit}
             <button
@@ -185,4 +219,8 @@
   {/if}
 </div>
 
-<svelte:window onclick={handleClickOutside} />
+<svelte:window
+  onclick={handleClickOutside}
+  onscroll={() => menuOpen && closeMenu()}
+  onresize={() => menuOpen && closeMenu()}
+/>

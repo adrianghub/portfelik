@@ -43,11 +43,9 @@
       <p class="mt-0.5 tabular-nums">{formatCurrency(list.total_amount, "PLN")}</p>
     </a>
   {:else}
-    <div
-      class="rounded-lg border border-emerald-400/20 bg-emerald-500/5 px-3 py-2 text-sm text-emerald-200"
-    >
-      <p class="text-xs tracking-wide text-emerald-300/80 uppercase">
-        {m.shopping_list_completed_tx_created()}
+    <div class="rounded-lg border border-white/10 bg-slate-900/50 px-3 py-2 text-sm text-slate-200">
+      <p class="text-xs tracking-wide text-slate-400 uppercase">
+        {m.shopping_list_completed_total()}
       </p>
       <p class="mt-0.5 tabular-nums">{formatCurrency(list.total_amount, "PLN")}</p>
     </div>
