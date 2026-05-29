@@ -261,7 +261,7 @@ test("shopping lists follow planning, shopping, archived, duplicate, and upcomin
     await expect(page.locator("#sl-planned")).toContainText(displayDate(isoDate()));
     await page.getByRole("button", { name: "Zapisz" }).click();
 
-    await expect(page.getByRole("heading", { name: "Aktywne" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Na dziś" })).toBeVisible();
     await expect(page.locator('a[href="/shopping-lists/list-1"]')).toBeVisible();
     await page.locator('a[href="/shopping-lists/list-1"]').click();
     await expect(page).toHaveURL(/\/shopping-lists\/list-1$/);

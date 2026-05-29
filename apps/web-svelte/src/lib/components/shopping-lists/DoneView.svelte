@@ -1,10 +1,15 @@
 <script lang="ts">
+  import Dialog from "$lib/components/ui/Dialog.svelte";
+  import TransactionCategoryCombobox from "$lib/components/transactions/TransactionCategoryCombobox.svelte";
   import * as m from "$lib/paraglide/messages";
+  import { fetchCategories } from "$lib/services/categories";
   import { fetchShoppingItemCategories } from "$lib/services/shopping-item-categories";
+  import { createTransaction } from "$lib/services/transactions";
   import type { ShoppingListWithItems } from "$lib/types";
   import { formatCurrency } from "$lib/utils";
-  import { createQuery } from "@tanstack/svelte-query";
-  import { Copy } from "lucide-svelte";
+  import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
+  import { Copy, Plus } from "lucide-svelte";
+  import { toast } from "svelte-sonner";
   import { groupShoppingListItems } from "./group-items";
 
   let {
@@ -17,17 +22,67 @@
     duplicating?: boolean;
   } = $props();
 
+  const queryClient = useQueryClient();
+
   const itemCategoriesQuery = createQuery(() => ({
     queryKey: ["shopping_item_categories"],
     queryFn: fetchShoppingItemCategories,
     staleTime: 5 * 60_000,
   }));
 
+  const categoriesQuery = createQuery(() => ({
+    queryKey: ["categories"],
+    queryFn: fetchCategories,
+  }));
+
+  const expenseCategories = $derived(
+    categoriesQuery.data?.filter((c) => c.type === "expense") ?? []
+  );
+
+  let showAddTx = $state(false);
+  let addTxCategoryId = $state("");
+
+  const addTxMutation = createMutation(() => ({
+    mutationFn: () =>
+      createTransaction({
+        amount: list.total_amount!,
+        type: "expense",
+        description: list.name,
+        date: new Date().toISOString().slice(0, 10),
+        category_id: addTxCategoryId,
+        shopping_list_id: list.id,
+        group_id: list.group_id,
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["shopping-list", list.id] });
+      await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
+      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      toast.success(m.toast_shopping_list_tx_added());
+      showAddTx = false;
+    },
+    onError: () => toast.error(m.toast_error()),
+  }));
+
+  function openAddTx() {
+    addTxCategoryId = list.category_id ?? expenseCategories[0]?.id ?? "";
+    showAddTx = true;
+  }
+
+  function submitAddTx(e: Event) {
+    e.preventDefault();
+    if (!addTxCategoryId) return;
+    addTxMutation.mutate();
+  }
+
   const grouped = $derived(
     groupShoppingListItems(list.shopping_list_items, {
       knownCategories: itemCategoriesQuery.data ?? [],
       sortItems: false,
     })
+  );
+
+  const canAddTx = $derived(
+    list.total_amount != null && list.total_amount > 0 && !list.linked_transaction_id
   );
 </script>
 
@@ -48,6 +103,16 @@
         {m.shopping_list_completed_total()}
       </p>
       <p class="mt-0.5 tabular-nums">{formatCurrency(list.total_amount, "PLN")}</p>
+      {#if canAddTx}
+        <button
+          type="button"
+          onclick={openAddTx}
+          class="mt-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-200 transition-colors hover:bg-emerald-500/20"
+        >
+          <Plus size={13} strokeWidth={2.2} aria-hidden="true" />
+          {m.shopping_list_add_tx_cta()}
+        </button>
+      {/if}
     </div>
   {/if}
 {/if}
@@ -96,3 +161,38 @@
   <Copy size={16} strokeWidth={2} aria-hidden="true" />
   <span>{m.shopping_list_archived_duplicate()}</span>
 </button>
+
+<Dialog open={showAddTx} onclose={() => (showAddTx = false)} title={m.shopping_list_add_tx_title()}>
+  <form onsubmit={submitAddTx} class="space-y-4">
+    <p class="text-sm text-slate-300">
+      {formatCurrency(list.total_amount ?? 0, "PLN")} · {list.name}
+    </p>
+    <div class="space-y-1">
+      <label class="text-eyebrow block text-slate-400" for="done-tx-cat">
+        {m.transaction_form_category()}
+      </label>
+      <TransactionCategoryCombobox
+        id="done-tx-cat"
+        bind:categoryId={addTxCategoryId}
+        categories={expenseCategories}
+        required
+      />
+    </div>
+    <div class="flex gap-2 pt-1">
+      <button
+        type="button"
+        onclick={() => (showAddTx = false)}
+        class="flex-1 rounded-full border border-white/10 bg-slate-900/60 py-2 text-sm font-medium text-slate-200"
+      >
+        {m.common_cancel()}
+      </button>
+      <button
+        type="submit"
+        disabled={addTxMutation.isPending || !addTxCategoryId}
+        class="bg-accent-gradient flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
+      >
+        {addTxMutation.isPending ? m.common_saving() : m.common_save()}
+      </button>
+    </div>
+  </form>
+</Dialog>
