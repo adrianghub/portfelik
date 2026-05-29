@@ -1,5 +1,7 @@
 <script lang="ts">
   import Dialog from "$lib/components/ui/Dialog.svelte";
+  import DayPicker from "$lib/components/ui/DayPicker.svelte";
+  import TransactionCategoryCombobox from "$lib/components/transactions/TransactionCategoryCombobox.svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchCategories } from "$lib/services/categories";
   import { fetchUserGroups } from "$lib/services/groups";
@@ -145,17 +147,23 @@
 
     <div class="space-y-1">
       <label class={labelClass} for="tx-date">{m.transaction_form_date()}</label>
-      <input id="tx-date" type="date" required bind:value={date} class={inputClass} />
+      <DayPicker
+        id="tx-date"
+        bind:value={date}
+        label={m.transaction_form_date()}
+        showLabel={false}
+        required
+      />
     </div>
 
     <div class="space-y-1">
       <label class={labelClass} for="tx-cat">{m.transaction_form_category()}</label>
-      <select id="tx-cat" required bind:value={category_id} class={inputClass}>
-        <option value="">{m.transaction_form_select_category()}</option>
-        {#each filteredCategories as cat (cat.id)}
-          <option value={cat.id}>{cat.name}</option>
-        {/each}
-      </select>
+      <TransactionCategoryCombobox
+        id="tx-cat"
+        bind:categoryId={category_id}
+        categories={filteredCategories}
+        required
+      />
     </div>
 
     <div class="space-y-1">
