@@ -1,4 +1,4 @@
-const CACHE_NAME = 'portfelik-20260430';
+const CACHE_NAME = 'portfelik-20260606';
 
 const APP_SHELL = ['/', '/transactions', '/shopping-lists', '/settings'];
 
@@ -58,7 +58,9 @@ self.addEventListener('notificationclick', (event) => {
 	event.notification.close();
 
 	const data = event.notification.data ?? {};
-	const url = data.type === 'group_invitation' ? '/settings?tab=groups' : '/';
+	let url = '/';
+	if (data.transactionId) url = `/transactions?txId=${data.transactionId}`;
+	else if (data.type === 'group_invitation') url = '/settings?tab=groups';
 
 	event.waitUntil(
 		clients
