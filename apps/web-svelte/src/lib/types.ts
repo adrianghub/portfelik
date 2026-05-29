@@ -27,6 +27,8 @@ export interface CategorizationRule {
   created_at: string;
 }
 
+export type RecurrenceFrequency = "daily" | "weekly" | "monthly" | "yearly";
+
 export interface Transaction {
   id: string;
   amount: number;
@@ -40,6 +42,10 @@ export interface Transaction {
   shopping_list_id: string | null;
   is_recurring: boolean;
   recurring_day: number | null;
+  recurrence_frequency: RecurrenceFrequency | null;
+  recurrence_interval: number;
+  recurrence_weekday: number | null;
+  recurrence_month: number | null;
   recurring_template_id: string | null;
   group_id: string | null;
   created_at: string;

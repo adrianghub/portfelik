@@ -1,10 +1,19 @@
 <script lang="ts">
   import Dialog from "$lib/components/ui/Dialog.svelte";
+  import DayPicker from "$lib/components/ui/DayPicker.svelte";
+  import TransactionCategoryCombobox from "$lib/components/transactions/TransactionCategoryCombobox.svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchCategories } from "$lib/services/categories";
   import { fetchUserGroups } from "$lib/services/groups";
   import { createTransaction, updateTransaction } from "$lib/services/transactions";
-  import type { Transaction, TransactionStatus, TransactionType } from "$lib/types";
+  import type {
+    RecurrenceFrequency,
+    Transaction,
+    TransactionStatus,
+    TransactionType,
+  } from "$lib/types";
+  import { isoWeekdayName, recurrenceSummary } from "$lib/recurrence";
+  import { monthName } from "$lib/utils";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { untrack } from "svelte";
   import { toast } from "svelte-sonner";
@@ -40,6 +49,17 @@
   let status = $state<TransactionStatus>(untrack(() => initial?.status ?? "paid"));
   let is_recurring = $state(untrack(() => initial?.is_recurring ?? false));
   let recurring_day = $state(untrack(() => initial?.recurring_day ?? new Date().getDate()));
+  let recurrence_frequency = $state<RecurrenceFrequency>(
+    untrack(() => initial?.recurrence_frequency ?? "monthly")
+  );
+  let recurrence_interval = $state(untrack(() => initial?.recurrence_interval ?? 1));
+  // ISO weekday 1=Mon..7=Sun. JS getDay() is 0=Sun..6=Sat → map to ISO.
+  let recurrence_weekday = $state(
+    untrack(() => initial?.recurrence_weekday ?? (new Date().getDay() || 7))
+  );
+  let recurrence_month = $state(
+    untrack(() => initial?.recurrence_month ?? new Date().getMonth() + 1)
+  );
   let group_id = $state<string>(untrack(() => initial?.group_id ?? ""));
 
   $effect(() => {
@@ -52,9 +72,23 @@
       status = initial?.status ?? "paid";
       is_recurring = initial?.is_recurring ?? false;
       recurring_day = initial?.recurring_day ?? new Date().getDate();
+      recurrence_frequency = initial?.recurrence_frequency ?? "monthly";
+      recurrence_interval = initial?.recurrence_interval ?? 1;
+      recurrence_weekday = initial?.recurrence_weekday ?? (new Date().getDay() || 7);
+      recurrence_month = initial?.recurrence_month ?? new Date().getMonth() + 1;
       group_id = initial?.group_id ?? "";
     }
   });
+
+  const recurrencePreview = $derived(
+    recurrenceSummary({
+      frequency: recurrence_frequency,
+      interval: recurrence_interval,
+      weekday: recurrence_weekday,
+      day: recurring_day,
+      month: recurrence_month,
+    })
+  );
 
   const filteredCategories = $derived(categoriesQuery.data?.filter((c) => c.type === type) ?? []);
 
@@ -81,6 +115,8 @@
 
   function handleSubmit(e: Event) {
     e.preventDefault();
+    const usesDay =
+      is_recurring && (recurrence_frequency === "monthly" || recurrence_frequency === "yearly");
     mutation.mutate({
       amount: parseFloat(amount),
       type,
@@ -89,7 +125,12 @@
       category_id,
       status,
       is_recurring,
-      recurring_day: is_recurring ? recurring_day : null,
+      recurrence_frequency: is_recurring ? recurrence_frequency : null,
+      recurrence_interval: is_recurring ? Math.max(recurrence_interval, 1) : 1,
+      recurring_day: usesDay ? recurring_day : null,
+      recurrence_weekday:
+        is_recurring && recurrence_frequency === "weekly" ? recurrence_weekday : null,
+      recurrence_month: is_recurring && recurrence_frequency === "yearly" ? recurrence_month : null,
       group_id: group_id || null,
     });
   }
@@ -145,17 +186,23 @@
 
     <div class="space-y-1">
       <label class={labelClass} for="tx-date">{m.transaction_form_date()}</label>
-      <input id="tx-date" type="date" required bind:value={date} class={inputClass} />
+      <DayPicker
+        id="tx-date"
+        bind:value={date}
+        label={m.transaction_form_date()}
+        showLabel={false}
+        required
+      />
     </div>
 
     <div class="space-y-1">
       <label class={labelClass} for="tx-cat">{m.transaction_form_category()}</label>
-      <select id="tx-cat" required bind:value={category_id} class={inputClass}>
-        <option value="">{m.transaction_form_select_category()}</option>
-        {#each filteredCategories as cat (cat.id)}
-          <option value={cat.id}>{cat.name}</option>
-        {/each}
-      </select>
+      <TransactionCategoryCombobox
+        id="tx-cat"
+        bind:categoryId={category_id}
+        categories={filteredCategories}
+        required
+      />
     </div>
 
     <div class="space-y-1">
@@ -198,16 +245,90 @@
     </label>
 
     {#if is_recurring}
-      <div class="space-y-1">
-        <label class={labelClass} for="tx-recday">{m.transaction_form_recurring_day()}</label>
-        <input
-          id="tx-recday"
-          type="number"
-          min="1"
-          max="31"
-          bind:value={recurring_day}
-          class={inputClass}
-        />
+      <div class="space-y-3 rounded-xl border border-white/5 bg-slate-900/40 p-3">
+        <!-- Frequency segmented control -->
+        <div class="space-y-1">
+          <span class={labelClass}>{m.transaction_form_recurrence_frequency()}</span>
+          <div
+            class="flex overflow-hidden rounded-full border border-white/10 bg-slate-900/60 p-1 text-xs"
+          >
+            {#each [["daily", m.transaction_form_recurrence_freq_daily()], ["weekly", m.transaction_form_recurrence_freq_weekly()], ["monthly", m.transaction_form_recurrence_freq_monthly()], ["yearly", m.transaction_form_recurrence_freq_yearly()]] as [value, label] (value)}
+              <button
+                type="button"
+                onclick={() => (recurrence_frequency = value as RecurrenceFrequency)}
+                class="flex-1 rounded-full py-1.5 font-medium transition-colors {recurrence_frequency ===
+                value
+                  ? 'bg-accent-gradient text-slate-900'
+                  : 'text-slate-300 hover:text-slate-100'}"
+              >
+                {label}
+              </button>
+            {/each}
+          </div>
+        </div>
+
+        <div class="flex gap-3">
+          <!-- Interval -->
+          <div class="w-24 space-y-1">
+            <label class={labelClass} for="tx-rec-interval"
+              >{m.transaction_form_recurrence_interval()}</label
+            >
+            <input
+              id="tx-rec-interval"
+              type="number"
+              min="1"
+              max="99"
+              bind:value={recurrence_interval}
+              class={inputClass}
+            />
+          </div>
+
+          <!-- Weekly: weekday -->
+          {#if recurrence_frequency === "weekly"}
+            <div class="flex-1 space-y-1">
+              <label class={labelClass} for="tx-rec-weekday"
+                >{m.transaction_form_recurrence_weekday()}</label
+              >
+              <select id="tx-rec-weekday" bind:value={recurrence_weekday} class={inputClass}>
+                {#each [1, 2, 3, 4, 5, 6, 7] as wd (wd)}
+                  <option value={wd}>{isoWeekdayName(wd)}</option>
+                {/each}
+              </select>
+            </div>
+          {/if}
+
+          <!-- Yearly: month -->
+          {#if recurrence_frequency === "yearly"}
+            <div class="flex-1 space-y-1">
+              <label class={labelClass} for="tx-rec-month"
+                >{m.transaction_form_recurrence_month()}</label
+              >
+              <select id="tx-rec-month" bind:value={recurrence_month} class={inputClass}>
+                {#each [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as mo (mo)}
+                  <option value={mo}>{monthName(mo)}</option>
+                {/each}
+              </select>
+            </div>
+          {/if}
+
+          <!-- Monthly / yearly: day of month -->
+          {#if recurrence_frequency === "monthly" || recurrence_frequency === "yearly"}
+            <div class="flex-1 space-y-1">
+              <label class={labelClass} for="tx-recday">{m.transaction_form_recurring_day()}</label>
+              <input
+                id="tx-recday"
+                type="number"
+                min="1"
+                max="31"
+                bind:value={recurring_day}
+                class={inputClass}
+              />
+            </div>
+          {/if}
+        </div>
+
+        <!-- Live, auditable preview -->
+        <p class="text-sm text-emerald-300/90">{recurrencePreview}</p>
       </div>
     {/if}
 

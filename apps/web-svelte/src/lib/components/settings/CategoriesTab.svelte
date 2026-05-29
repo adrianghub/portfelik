@@ -8,7 +8,8 @@
   import { toast } from "svelte-sonner";
   import * as m from "$lib/paraglide/messages";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
-  import { Tag } from "lucide-svelte";
+  import Fab from "$lib/components/ui/Fab.svelte";
+  import { Plus, Tag } from "lucide-svelte";
 
   const queryClient = useQueryClient();
 
@@ -28,7 +29,10 @@
       toast.success(m.toast_category_deleted());
       deleteTargetId = null;
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err: { code?: string }) => {
+      if (err?.code === "23503") toast.error(m.toast_category_in_use());
+      else toast.error(m.toast_error());
+    },
   }));
 
   function openAdd() {
@@ -41,6 +45,16 @@
     dialogOpen = true;
   }
 </script>
+
+<div class="mb-3 hidden items-center justify-end md:flex">
+  <button
+    onclick={openAdd}
+    class="bg-accent-gradient inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+  >
+    <Plus size={15} strokeWidth={2.2} aria-hidden="true" />
+    {m.category_form_title_add()}
+  </button>
+</div>
 
 {#if query.isLoading}
   <div class="space-y-2" aria-busy="true" aria-label={m.common_loading()}>
@@ -55,63 +69,60 @@
   <ul class="space-y-1.5 sm:hidden">
     {#each query.data as cat (cat.id)}
       <li
-        class="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900"
+        class="flex items-center justify-between rounded-xl border border-white/5 bg-slate-900/50 px-4 py-3"
       >
         <div class="flex min-w-0 items-center gap-2">
           <span class="truncate text-sm text-slate-100">{cat.name}</span>
-          {#if !cat.user_id}
-            <span class="shrink-0 text-xs text-slate-500">{m.categories_system()}</span>
-          {/if}
         </div>
         <div class="flex shrink-0 items-center gap-2">
           <span
             class={cn(
               "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-              cat.type === "income" ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
+              cat.type === "income"
+                ? "bg-emerald-500/10 text-emerald-300"
+                : "bg-rose-500/10 text-rose-300"
             )}
           >
             {cat.type === "income" ? m.common_income() : m.common_expense()}
           </span>
-          {#if cat.user_id}
-            <button
-              onclick={() => openEdit(cat)}
-              class="p-1 text-slate-400 transition-colors hover:text-slate-600"
-              aria-label={m.common_edit()}
+          <button
+            onclick={() => openEdit(cat)}
+            class="rounded-lg p-2 text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-200"
+            aria-label={m.common_edit()}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              ><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /></svg
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                ><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /></svg
-              >
-            </button>
-            <button
-              onclick={() => (deleteTargetId = cat.id)}
-              class="p-1 text-slate-400 transition-colors hover:text-rose-300"
-              aria-label={m.common_delete()}
+          </button>
+          <button
+            onclick={() => (deleteTargetId = cat.id)}
+            class="rounded-lg p-2 text-slate-400 transition-colors hover:bg-rose-500/10 hover:text-rose-300"
+            aria-label={m.common_delete()}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              ><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path
+                d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
+              /></svg
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                ><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path
-                  d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
-                /></svg
-              >
-            </button>
-          {/if}
+          </button>
         </div>
       </li>
     {/each}
@@ -138,9 +149,6 @@
           <tr class="border-b border-slate-50 last:border-0 dark:border-slate-800">
             <td class="px-4 py-3 text-slate-100">
               {cat.name}
-              {#if !cat.user_id}
-                <span class="ml-1.5 text-xs text-slate-500">{m.categories_system()}</span>
-              {/if}
             </td>
             <td class="px-4 py-3">
               <span
@@ -155,48 +163,46 @@
               </span>
             </td>
             <td class="px-4 py-3 text-right">
-              {#if cat.user_id}
-                <div class="flex items-center justify-end gap-1">
-                  <button
-                    onclick={() => openEdit(cat)}
-                    class="rounded p-1.5 text-slate-400 transition-colors hover:text-slate-600"
-                    aria-label={m.common_edit()}
+              <div class="flex items-center justify-end gap-1">
+                <button
+                  onclick={() => openEdit(cat)}
+                  class="rounded p-1.5 text-slate-400 transition-colors hover:text-slate-600"
+                  aria-label={m.common_edit()}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    ><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /></svg
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      ><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /></svg
-                    >
-                  </button>
-                  <button
-                    onclick={() => (deleteTargetId = cat.id)}
-                    class="rounded p-1.5 text-slate-400 transition-colors hover:text-rose-300"
-                    aria-label={m.common_delete()}
+                </button>
+                <button
+                  onclick={() => (deleteTargetId = cat.id)}
+                  class="rounded p-1.5 text-slate-400 transition-colors hover:text-rose-300"
+                  aria-label={m.common_delete()}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    ><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path
+                      d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
+                    /></svg
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      ><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path
-                        d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
-                      /></svg
-                    >
-                  </button>
-                </div>
-              {/if}
+                </button>
+              </div>
             </td>
           </tr>
         {/each}
@@ -211,13 +217,6 @@
       {/snippet}
     </EmptyState>
   {/if}
-
-  <button
-    onclick={openAdd}
-    class="mt-4 w-full rounded-xl border border-dashed border-slate-300 py-3 text-sm font-medium text-slate-500 transition-colors hover:border-slate-400 hover:text-slate-700 dark:border-slate-600 dark:text-slate-400 dark:hover:border-slate-500 dark:hover:text-slate-300"
-  >
-    + {m.category_form_title_add()}
-  </button>
 {/if}
 
 <CategoryDialog open={dialogOpen} onclose={() => (dialogOpen = false)} initial={editTarget} />
@@ -229,3 +228,5 @@
   onclose={() => (deleteTargetId = null)}
   pending={deleteMutation.isPending}
 />
+
+<Fab onclick={openAdd} aria-label={m.category_form_title_add()} />

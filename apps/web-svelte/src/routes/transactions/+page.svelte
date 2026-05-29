@@ -8,7 +8,6 @@
   import DateRangePicker from "$lib/components/transactions/DateRangePicker.svelte";
   import FiltersMenu from "$lib/components/transactions/FiltersMenu.svelte";
   import SummaryCards from "$lib/components/transactions/SummaryCards.svelte";
-  import AttachShoppingListSheet from "$lib/components/transactions/AttachShoppingListSheet.svelte";
   import TransactionDetailSheet from "$lib/components/transactions/TransactionDetailSheet.svelte";
   import TransactionDialog from "$lib/components/transactions/TransactionDialog.svelte";
   import TransactionTable from "$lib/components/transactions/TransactionTable.svelte";
@@ -28,7 +27,14 @@
   } from "$lib/services/transactions";
   import { supabase } from "$lib/supabase";
   import type { TransactionStatus, TransactionWithCategory } from "$lib/types";
-  import { cn, formatDate, getDateRangeBounds, monthYearLabel } from "$lib/utils";
+  import {
+    cn,
+    formatDate,
+    fullMonthOf,
+    getDateRangeBounds,
+    monthNameLocative,
+    monthYearLabel,
+  } from "$lib/utils";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { onMount } from "svelte";
   import { Plus, Search, X } from "lucide-svelte";
@@ -99,6 +105,8 @@
       const [sy, sm, sd] = explicitStartDate.split("-").map(Number);
       const [ey, em] = explicitEndDate.split("-").map(Number);
       if (explicitStartDate === explicitEndDate) return compactDay(explicitStartDate, true);
+      const fm = fullMonthOf(explicitStartDate, explicitEndDate);
+      if (fm) return monthYearLabel(fm.year, fm.month);
       if (sy === ey && sm === em) return `${sd}–${compactDay(explicitEndDate, true)}`;
       if (sy === ey)
         return `${compactDay(explicitStartDate, false)} – ${compactDay(explicitEndDate, true)}`;
@@ -109,19 +117,23 @@
       : `${monthYearLabel(startYear, startMonth)} – ${monthYearLabel(endYear, endMonth)}`;
   });
 
-  const emptyLabel = $derived(
-    explicitStartDate && explicitEndDate
-      ? m.transactions_empty_range({
-          from: formatDate(explicitStartDate),
-          to: formatDate(explicitEndDate),
-        })
-      : startYear === endYear && startMonth === endMonth
-        ? m.transactions_empty_month({ period: monthYearLabel(startYear, startMonth) })
-        : m.transactions_empty_range({
-            from: monthYearLabel(startYear, startMonth),
-            to: monthYearLabel(endYear, endMonth),
-          })
-  );
+  const emptyLabel = $derived.by(() => {
+    if (explicitStartDate && explicitEndDate) {
+      const fm = fullMonthOf(explicitStartDate, explicitEndDate);
+      if (fm) return m.transactions_empty_month({ period: monthNameLocative(fm.month) });
+      return m.transactions_empty_range({
+        from: formatDate(explicitStartDate),
+        to: formatDate(explicitEndDate),
+      });
+    }
+    if (startYear === endYear && startMonth === endMonth) {
+      return m.transactions_empty_month({ period: monthNameLocative(startMonth) });
+    }
+    return m.transactions_empty_range({
+      from: monthYearLabel(startYear, startMonth),
+      to: monthYearLabel(endYear, endMonth),
+    });
+  });
 
   const txQuery = createQuery(() => ({
     queryKey: [
@@ -178,6 +190,31 @@
     queryFn: fetchCategories,
   }));
 
+  const filterCategories = $derived(
+    categoriesQuery.data?.filter((c) => !typeFilter || c.type === typeFilter) ?? []
+  );
+
+  const tableEmptyLabel = $derived.by(() => {
+    const base = txQuery.data ?? [];
+    if (searchQuery && (filteredTxs?.length ?? 0) > 0 && (visibleTxs?.length ?? 0) === 0) {
+      return m.transactions_empty_search();
+    }
+    if ((filteredTxs?.length ?? 0) === 0 && base.length > 0) {
+      return m.transactions_empty_filtered();
+    }
+    return emptyLabel;
+  });
+
+  const tableEmptyHint = $derived.by(() => {
+    if (searchQuery && (filteredTxs?.length ?? 0) > 0 && (visibleTxs?.length ?? 0) === 0) {
+      return m.transactions_empty_search_hint();
+    }
+    if ((filteredTxs?.length ?? 0) === 0 && (txQuery.data?.length ?? 0) > 0) {
+      return m.transactions_empty_filtered_hint();
+    }
+    return m.transactions_empty_hint();
+  });
+
   const groupsQuery = createQuery(() => ({
     queryKey: ["user_groups"],
     queryFn: fetchUserGroups,
@@ -211,7 +248,6 @@
     const match = requestedTxFromCurrentPage ?? requestedTxQuery.data;
     if (match && sheetTx?.id !== match.id) sheetTx = match;
   });
-  let attachTarget = $state<TransactionWithCategory | null>(null);
   let selectedIds = $state(new Set<string>());
   let bulkDeleteConfirm = $state(false);
   let searchModalOpen = $state(false);
@@ -337,6 +373,16 @@
         label: statusLabels[statusFilter] ?? statusFilter,
         clear: () => onStatusChange(undefined),
       });
+    }
+    if (categoryId && categoriesQuery.data) {
+      const cat = categoriesQuery.data.find((c) => c.id === categoryId);
+      if (cat) {
+        chips.push({
+          key: "category",
+          label: cat.name,
+          clear: () => onCategoryChange(undefined),
+        });
+      }
     }
     return chips;
   });
@@ -465,7 +511,7 @@
         onchange={onApplyDateRange}
       />
       <CategoryFilterControl
-        categories={categoriesQuery.data}
+        categories={filterCategories}
         selectedId={categoryId}
         onchange={onCategoryChange}
       />
@@ -584,7 +630,8 @@
     <TransactionTable
       transactions={visibleTxs}
       {currentUserId}
-      {emptyLabel}
+      emptyLabel={tableEmptyLabel}
+      emptyHint={tableEmptyHint}
       bind:selectedIds
       stickyHeaderOffset="top-[6.75rem]"
       onrowclick={(tx) => (sheetTx = tx)}
@@ -596,7 +643,7 @@
 <button
   onclick={openAdd}
   aria-label={m.transaction_add()}
-  class="mobile-floating-action bg-accent-gradient fixed right-4 bottom-[var(--mobile-action-bottom)] z-40 flex h-14 w-14 items-center justify-center rounded-full text-slate-900 shadow-[0_0_24px_var(--color-accent-glow)] transition-all active:scale-95 md:hidden"
+  class="mobile-floating-action bg-accent-gradient fixed right-4 bottom-(--mobile-action-bottom) z-40 flex h-14 w-14 items-center justify-center rounded-full text-slate-900 shadow-[0_0_24px_var(--color-accent-glow)] transition-all active:scale-95 md:hidden"
 >
   <Plus size={24} strokeWidth={2.3} aria-hidden="true" />
 </button>
@@ -605,7 +652,7 @@
   onclick={toggleSearch}
   aria-label={searchModalOpen ? m.transactions_search_close() : m.transactions_search_open()}
   aria-pressed={searchModalOpen}
-  class="mobile-floating-action fixed bottom-[var(--mobile-action-bottom)] left-4 z-40 flex h-14 w-14 items-center justify-center rounded-full border shadow-[0_0_24px_rgba(15,23,42,0.55)] transition-all active:scale-95 md:hidden {searchModalOpen
+  class="mobile-floating-action fixed bottom-(--mobile-action-bottom) left-4 z-40 flex h-14 w-14 items-center justify-center rounded-full border shadow-[0_0_24px_rgba(15,23,42,0.55)] transition-all active:scale-95 md:hidden {searchModalOpen
     ? 'border-emerald-400/40 bg-emerald-500/20 text-emerald-200'
     : 'border-white/10 bg-slate-900/90 text-slate-100'}"
 >
@@ -624,7 +671,8 @@
   <TransactionTable
     transactions={visibleTxs ?? []}
     {currentUserId}
-    {emptyLabel}
+    emptyLabel={tableEmptyLabel}
+    emptyHint={tableEmptyHint}
     onrowclick={(tx) => {
       closeSearch();
       sheetTx = tx;
@@ -647,16 +695,7 @@
     sheetTx = null;
     deleteTargetId = id;
   }}
-  onattach={(tx) => (attachTarget = tx)}
 />
-
-{#if attachTarget}
-  <AttachShoppingListSheet
-    transaction={attachTarget}
-    onclose={() => (attachTarget = null)}
-    onattached={() => (attachTarget = null)}
-  />
-{/if}
 
 <ConfirmDialog
   open={!!deleteTargetId}

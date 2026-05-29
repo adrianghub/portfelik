@@ -11,6 +11,28 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   return view;
 }
 
+// Per-device opt-out. Push subscriptions are per-device, so disabling on this
+// device must persist across logins — otherwise autoSubscribePush() silently
+// re-subscribes whenever the browser permission is still "granted".
+const PUSH_OPT_OUT_KEY = "portfelik_push_opt_out";
+
+function isPushOptedOut(): boolean {
+  try {
+    return localStorage.getItem(PUSH_OPT_OUT_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function setPushOptOut(value: boolean): void {
+  try {
+    if (value) localStorage.setItem(PUSH_OPT_OUT_KEY, "1");
+    else localStorage.removeItem(PUSH_OPT_OUT_KEY);
+  } catch {
+    // localStorage unavailable (private mode / SSR) — opt-out is best-effort.
+  }
+}
+
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (!("serviceWorker" in navigator)) return null;
   try {
@@ -52,6 +74,7 @@ async function doSubscribe(userId: string): Promise<void> {
 export async function autoSubscribePush(userId: string): Promise<void> {
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
   if (Notification.permission !== "granted") return;
+  if (isPushOptedOut()) return; // respect a prior disable on this device
   await doSubscribe(userId);
 }
 
@@ -64,11 +87,13 @@ export async function requestAndSubscribePush(userId: string): Promise<boolean> 
   const permission = await Notification.requestPermission();
   if (permission !== "granted") return false;
 
+  setPushOptOut(false); // explicit enable clears any prior opt-out
   await doSubscribe(userId);
   return true;
 }
 
 export async function unsubscribeFromPush(): Promise<void> {
+  setPushOptOut(true); // persist the disable so login won't re-subscribe
   if (!("serviceWorker" in navigator)) return;
 
   const registration = await navigator.serviceWorker.ready;
