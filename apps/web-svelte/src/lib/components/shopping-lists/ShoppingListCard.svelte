@@ -38,14 +38,6 @@
     }).format(d);
   }
 
-  const modeLabel = $derived(
-    list.mode === "planning"
-      ? m.shopping_list_mode_planning()
-      : list.mode === "shopping"
-        ? m.shopping_list_mode_shopping()
-        : m.shopping_list_mode_done()
-  );
-
   const showEdit = $derived(!!onedit && !isArchived);
   const showDuplicate = $derived(!!onduplicate);
   const showDelete = $derived(!!ondelete);
@@ -92,30 +84,14 @@
           </span>
         {/if}
       </div>
-      <div class="flex shrink-0 items-center gap-2">
-        {#if list.item_total > 0 && isShopping}
+      {#if list.item_total > 0 && isShopping}
+        <div class="flex shrink-0 items-center gap-2">
           <ProgressRing
             value={ratio}
             label={`${list.item_completed} z ${list.item_total} (${progress}%)`}
           />
-        {/if}
-        {#if !isArchived}
-          <span
-            class={cn(
-              "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-              isUpcoming && "border border-sky-400/20 bg-sky-400/10 text-sky-300",
-              list.bucket === "active" &&
-                list.mode === "shopping" &&
-                "border border-emerald-400/20 bg-emerald-400/10 text-emerald-300",
-              list.bucket === "active" &&
-                list.mode === "planning" &&
-                "border border-blue-400/20 bg-blue-400/10 text-blue-200"
-            )}
-          >
-            {modeLabel}
-          </span>
-        {/if}
-      </div>
+        </div>
+      {/if}
     </div>
     <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500">
       {#if isUpcoming}
