@@ -2,6 +2,7 @@
   import * as m from "$lib/paraglide/messages";
   import type { TransactionWithCategory } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
+  import { recurrenceSummary } from "$lib/recurrence";
   import { Edit, ShoppingCart, Trash2, X } from "lucide-svelte";
 
   interface Props {
@@ -121,13 +122,19 @@
           </dt>
           <dd class="mt-0.5 text-slate-100">{transaction.category_name}</dd>
         </div>
-        {#if transaction.is_recurring && transaction.recurring_day}
+        {#if transaction.is_recurring && transaction.recurrence_frequency}
           <div>
             <dt class="text-eyebrow text-slate-400">
-              {m.transaction_form_recurring_day()}
+              {m.transaction_form_recurring()}
             </dt>
             <dd class="mt-0.5 text-slate-100">
-              {transaction.recurring_day}. {m.transaction_detail_recurring_day()}
+              {recurrenceSummary({
+                frequency: transaction.recurrence_frequency,
+                interval: transaction.recurrence_interval,
+                weekday: transaction.recurrence_weekday,
+                day: transaction.recurring_day,
+                month: transaction.recurrence_month,
+              })}
             </dd>
           </div>
         {/if}
