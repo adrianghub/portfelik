@@ -133,7 +133,10 @@ test("add transaction: opens dialog and shows success toast", async ({ page }) =
   // Fill form
   await page.locator("#tx-amount").fill("99.99");
   await page.locator("#tx-desc").fill("Nowa transakcja testowa");
-  await page.locator("#tx-cat").selectOption("cat-1");
+  // Category is now a searchable combobox (not a native select): focus, type, pick.
+  await page.locator("#tx-cat").click();
+  await page.locator("#tx-cat").fill("Jedzenie");
+  await page.getByRole("option", { name: "Jedzenie" }).click();
 
   // Submit
   await page.getByRole("button", { name: "Zapisz" }).click();
