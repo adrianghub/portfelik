@@ -442,6 +442,7 @@
   "transactions_category_filter_label": "Filtruj według kategorii",
   "transactions_category_filter_all": "Wszystkie kategorie",
   "transactions_category_clear": "Wyczyść kategorię",
+  "transactions_category_search": "Szukaj kategorii…",
   "transactions_filter_more": "Więcej filtrów",
   "transactions_filter_type_label": "Typ",
   "transactions_filter_all_types": "Wszystkie typy",
