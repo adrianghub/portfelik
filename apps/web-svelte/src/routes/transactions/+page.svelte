@@ -190,6 +190,31 @@
     queryFn: fetchCategories,
   }));
 
+  const filterCategories = $derived(
+    categoriesQuery.data?.filter((c) => !typeFilter || c.type === typeFilter) ?? []
+  );
+
+  const tableEmptyLabel = $derived.by(() => {
+    const base = txQuery.data ?? [];
+    if (searchQuery && (filteredTxs?.length ?? 0) > 0 && (visibleTxs?.length ?? 0) === 0) {
+      return m.transactions_empty_search();
+    }
+    if ((filteredTxs?.length ?? 0) === 0 && base.length > 0) {
+      return m.transactions_empty_filtered();
+    }
+    return emptyLabel;
+  });
+
+  const tableEmptyHint = $derived.by(() => {
+    if (searchQuery && (filteredTxs?.length ?? 0) > 0 && (visibleTxs?.length ?? 0) === 0) {
+      return m.transactions_empty_search_hint();
+    }
+    if ((filteredTxs?.length ?? 0) === 0 && (txQuery.data?.length ?? 0) > 0) {
+      return m.transactions_empty_filtered_hint();
+    }
+    return m.transactions_empty_hint();
+  });
+
   const groupsQuery = createQuery(() => ({
     queryKey: ["user_groups"],
     queryFn: fetchUserGroups,
@@ -349,6 +374,16 @@
         clear: () => onStatusChange(undefined),
       });
     }
+    if (categoryId && categoriesQuery.data) {
+      const cat = categoriesQuery.data.find((c) => c.id === categoryId);
+      if (cat) {
+        chips.push({
+          key: "category",
+          label: cat.name,
+          clear: () => onCategoryChange(undefined),
+        });
+      }
+    }
     return chips;
   });
 
@@ -476,7 +511,7 @@
         onchange={onApplyDateRange}
       />
       <CategoryFilterControl
-        categories={categoriesQuery.data}
+        categories={filterCategories}
         selectedId={categoryId}
         onchange={onCategoryChange}
       />
@@ -595,7 +630,8 @@
     <TransactionTable
       transactions={visibleTxs}
       {currentUserId}
-      {emptyLabel}
+      emptyLabel={tableEmptyLabel}
+      emptyHint={tableEmptyHint}
       bind:selectedIds
       stickyHeaderOffset="top-[6.75rem]"
       onrowclick={(tx) => (sheetTx = tx)}
@@ -607,7 +643,7 @@
 <button
   onclick={openAdd}
   aria-label={m.transaction_add()}
-  class="mobile-floating-action bg-accent-gradient fixed right-4 bottom-[var(--mobile-action-bottom)] z-40 flex h-14 w-14 items-center justify-center rounded-full text-slate-900 shadow-[0_0_24px_var(--color-accent-glow)] transition-all active:scale-95 md:hidden"
+  class="mobile-floating-action bg-accent-gradient fixed right-4 bottom-(--mobile-action-bottom) z-40 flex h-14 w-14 items-center justify-center rounded-full text-slate-900 shadow-[0_0_24px_var(--color-accent-glow)] transition-all active:scale-95 md:hidden"
 >
   <Plus size={24} strokeWidth={2.3} aria-hidden="true" />
 </button>
@@ -616,7 +652,7 @@
   onclick={toggleSearch}
   aria-label={searchModalOpen ? m.transactions_search_close() : m.transactions_search_open()}
   aria-pressed={searchModalOpen}
-  class="mobile-floating-action fixed bottom-[var(--mobile-action-bottom)] left-4 z-40 flex h-14 w-14 items-center justify-center rounded-full border shadow-[0_0_24px_rgba(15,23,42,0.55)] transition-all active:scale-95 md:hidden {searchModalOpen
+  class="mobile-floating-action fixed bottom-(--mobile-action-bottom) left-4 z-40 flex h-14 w-14 items-center justify-center rounded-full border shadow-[0_0_24px_rgba(15,23,42,0.55)] transition-all active:scale-95 md:hidden {searchModalOpen
     ? 'border-emerald-400/40 bg-emerald-500/20 text-emerald-200'
     : 'border-white/10 bg-slate-900/90 text-slate-100'}"
 >
@@ -635,7 +671,8 @@
   <TransactionTable
     transactions={visibleTxs ?? []}
     {currentUserId}
-    {emptyLabel}
+    emptyLabel={tableEmptyLabel}
+    emptyHint={tableEmptyHint}
     onrowclick={(tx) => {
       closeSearch();
       sheetTx = tx;

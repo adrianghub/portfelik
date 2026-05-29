@@ -8,6 +8,7 @@
   import { toast } from "svelte-sonner";
   import * as m from "$lib/paraglide/messages";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
+  import Fab from "$lib/components/ui/Fab.svelte";
   import { Plus, Tag } from "lucide-svelte";
 
   const queryClient = useQueryClient();
@@ -28,7 +29,10 @@
       toast.success(m.toast_category_deleted());
       deleteTargetId = null;
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err: { code?: string }) => {
+      if (err?.code === "23503") toast.error(m.toast_category_in_use());
+      else toast.error(m.toast_error());
+    },
   }));
 
   function openAdd() {
@@ -42,7 +46,7 @@
   }
 </script>
 
-<div class="mb-3 flex items-center justify-end">
+<div class="mb-3 hidden items-center justify-end md:flex">
   <button
     onclick={openAdd}
     class="bg-accent-gradient inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
@@ -65,7 +69,7 @@
   <ul class="space-y-1.5 sm:hidden">
     {#each query.data as cat (cat.id)}
       <li
-        class="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900"
+        class="flex items-center justify-between rounded-xl border border-white/5 bg-slate-900/50 px-4 py-3"
       >
         <div class="flex min-w-0 items-center gap-2">
           <span class="truncate text-sm text-slate-100">{cat.name}</span>
@@ -74,14 +78,16 @@
           <span
             class={cn(
               "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-              cat.type === "income" ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
+              cat.type === "income"
+                ? "bg-emerald-500/10 text-emerald-300"
+                : "bg-rose-500/10 text-rose-300"
             )}
           >
             {cat.type === "income" ? m.common_income() : m.common_expense()}
           </span>
           <button
             onclick={() => openEdit(cat)}
-            class="p-1 text-slate-400 transition-colors hover:text-slate-600"
+            class="rounded-lg p-2 text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-200"
             aria-label={m.common_edit()}
           >
             <svg
@@ -99,7 +105,7 @@
           </button>
           <button
             onclick={() => (deleteTargetId = cat.id)}
-            class="p-1 text-slate-400 transition-colors hover:text-rose-300"
+            class="rounded-lg p-2 text-slate-400 transition-colors hover:bg-rose-500/10 hover:text-rose-300"
             aria-label={m.common_delete()}
           >
             <svg
@@ -222,3 +228,5 @@
   onclose={() => (deleteTargetId = null)}
   pending={deleteMutation.isPending}
 />
+
+<Fab onclick={openAdd} aria-label={m.category_form_title_add()} />

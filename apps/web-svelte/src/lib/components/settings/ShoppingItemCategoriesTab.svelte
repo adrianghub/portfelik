@@ -2,6 +2,7 @@
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
+  import Fab from "$lib/components/ui/Fab.svelte";
   import * as m from "$lib/paraglide/messages";
   import {
     createShoppingItemCategory,
@@ -168,7 +169,7 @@
         <button
           type="button"
           onclick={openAdd}
-          class="bg-accent-gradient inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+          class="bg-accent-gradient hidden items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none md:inline-flex"
         >
           <Plus size={15} strokeWidth={2.2} aria-hidden="true" />
           {m.shopping_item_category_add()}
@@ -276,3 +277,5 @@
   onclose={() => (deleteTarget = null)}
   pending={deleteMutation.isPending}
 />
+
+<Fab onclick={openAdd} aria-label={m.shopping_item_category_add()} />
