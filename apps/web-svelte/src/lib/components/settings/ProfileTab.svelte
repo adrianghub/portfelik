@@ -86,13 +86,16 @@
     <div class="flex items-center justify-between gap-3 px-4 py-3">
       <span class="shrink-0 text-sm text-slate-400">{m.profile_name()}</span>
       {#if editing}
-        <form onsubmit={handleSubmit} class="flex flex-1 items-center gap-2">
+        <form
+          onsubmit={handleSubmit}
+          class="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2"
+        >
           <!-- svelte-ignore a11y_autofocus -->
           <input
             type="text"
             bind:value={nameInput}
             autofocus
-            class="flex-1 rounded-lg border border-slate-200 px-2 py-1 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:ring-white/10"
+            class="min-w-0 flex-1 basis-full rounded-lg border border-slate-200 px-2 py-1 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none sm:basis-0 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:ring-white/10"
           />
           <button
             type="submit"
