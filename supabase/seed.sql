@@ -1,45 +1,13 @@
 -- =============================================================================
 -- Portfelik — Seed Data
--- Run via: supabase db seed (local) or manually against a fresh instance.
+-- Run via: supabase db seed (local) or applied to staging by CI.
 --
--- System categories: user_id IS NULL.
--- Visible to all authenticated users; writable only by admins.
--- Names are in Polish (pl) — the primary locale of the application.
+-- Default transaction categories are NO LONGER global rows. As of migration
+-- 20260605000000_categories_per_user.sql every user owns their own copy of the
+-- default set, seeded automatically by the `seed_default_categories_after_profile_insert`
+-- trigger when their profile row is created (i.e. on signup / persona seeding).
+--
+-- There is therefore nothing for the system seed to insert here. Persona and
+-- demo data are created separately by scripts/seed-personas.mjs (local/staging)
+-- and scripts/seed-staging.mjs (synthetic staging fixtures).
 -- =============================================================================
-
-insert into categories (name, type, user_id)
-select seed.name, seed.type::transaction_type, null
-from (
-  values
-    -- Expense categories
-    ('Jedzenie i zakupy', 'expense'),
-    ('Transport', 'expense'),
-    ('Mieszkanie', 'expense'),
-    ('Rozrywka', 'expense'),
-    ('Zdrowie', 'expense'),
-    ('Ubrania', 'expense'),
-    ('Edukacja', 'expense'),
-    ('Elektronika', 'expense'),
-    ('Restauracje', 'expense'),
-    ('Sport i rekreacja', 'expense'),
-    ('Podróże', 'expense'),
-    ('Ubezpieczenia', 'expense'),
-    ('Subskrypcje', 'expense'),
-    ('Inne wydatki', 'expense'),
-
-    -- Income categories
-    ('Wynagrodzenie', 'income'),
-    ('Freelance', 'income'),
-    ('Premia', 'income'),
-    ('Zwrot', 'income'),
-    ('Prezent', 'income'),
-    ('Inwestycje', 'income'),
-    ('Inne przychody', 'income')
-) as seed(name, type)
-where not exists (
-  select 1
-  from categories c
-  where c.user_id is null
-    and c.name = seed.name
-    and c.type = seed.type::transaction_type
-);

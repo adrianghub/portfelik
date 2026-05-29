@@ -1064,6 +1064,10 @@ export type Database = {
         Returns: undefined;
       };
       revoke_admin_role: { Args: { p_user_id: string }; Returns: undefined };
+      seed_default_categories: {
+        Args: { p_user_id: string };
+        Returns: undefined;
+      };
       transfer_group_ownership: {
         Args: { p_group_id: string; p_new_owner_id: string };
         Returns: undefined;
