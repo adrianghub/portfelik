@@ -100,7 +100,7 @@
   <div class="h-32 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800"></div>
 {:else}
   <div
-    class="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white dark:divide-slate-700 dark:border-slate-700 dark:bg-slate-900"
+    class="divide-y divide-white/5 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
   >
     <div class="flex items-center justify-between gap-3 px-4 py-3">
       <span class="shrink-0 text-sm text-slate-400">{m.profile_name()}</span>
@@ -114,19 +114,19 @@
             type="text"
             bind:value={nameInput}
             autofocus
-            class="min-w-0 flex-1 basis-full rounded-lg border border-slate-200 px-2 py-1 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none sm:basis-0 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:ring-white/10"
+            class="min-w-0 flex-1 basis-full rounded-lg border border-white/10 bg-slate-950/60 px-2 py-1 text-sm text-slate-100 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none sm:basis-0"
           />
           <button
             type="submit"
             disabled={mutation.isPending}
-            class="rounded-lg bg-emerald-500 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
+            class="bg-accent-gradient rounded-lg px-3 py-1 text-xs font-semibold text-slate-900 transition-transform hover:brightness-110 disabled:opacity-50"
           >
             {mutation.isPending ? m.common_saving() : m.common_save()}
           </button>
           <button
             type="button"
             onclick={() => (editing = false)}
-            class="rounded-lg border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            class="rounded-lg border border-white/10 px-3 py-1 text-xs font-medium text-slate-300 transition-colors hover:bg-white/5"
           >
             {m.common_cancel()}
           </button>
@@ -136,7 +136,7 @@
           <span class="text-sm text-slate-100">{profile.name ?? "—"}</span>
           <button
             onclick={startEdit}
-            class="p-1 text-slate-400 transition-colors hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-400"
+            class="rounded-lg p-2 text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-200"
             aria-label={m.common_edit()}
           >
             <svg
