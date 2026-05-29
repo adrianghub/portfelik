@@ -85,7 +85,12 @@
         return "/settings?tab=groups";
       case "transaction_upcoming":
       case "transaction_overdue":
-      case "transaction_reminder":
+      case "transaction_reminder": {
+        // These carry the transaction id; deep-link to open its detail sheet.
+        const data = notification.data;
+        const txId = data && "transactionId" in data ? data.transactionId : null;
+        return txId ? `/transactions?txId=${txId}` : "/transactions";
+      }
       case "transaction_summary":
         return "/transactions";
       default:
