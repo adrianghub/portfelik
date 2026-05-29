@@ -212,25 +212,6 @@ describe("RPC: commit_import_session", () => {
     expect(error?.message).toMatch(/category_invalid/);
   });
 
-  it("accepts a system category (user_id NULL)", async () => {
-    const seed = await seedAccountAndSession();
-    // Seed schema ships at least one system category — find one.
-    const sysCat = await ctx.admin
-      .from("categories")
-      .select("id, name")
-      .is("user_id", null)
-      .eq("type", "expense")
-      .limit(1)
-      .single();
-    if (sysCat.error) throw sysCat.error;
-
-    await insertRow(seed.sessionId, { rowIndex: 0, categoryId: sysCat.data.id });
-
-    const { data, error } = await callCommit(ctx.userA.client, seed.sessionId);
-    expect(error).toBeNull();
-    expect((data as { inserted: number }).inserted).toBe(1);
-  });
-
   it("rejects non-member group", async () => {
     const seed = await seedAccountAndSession();
     // Group owned by user B; user A is not a member.

@@ -41,9 +41,10 @@ describe("RLS: categories", () => {
     expect(data?.length).toBe(1);
   });
 
-  it("user A sees system category (user_id IS NULL)", async () => {
+  it("user A cannot see a NULL-user (legacy system) category", async () => {
+    // Categories are now strictly per-user; the system read path was removed.
     const { data } = await ctx.userA.client.from("categories").select("id").eq("id", systemCatId);
-    expect(data?.length).toBe(1);
+    expect(data?.length).toBe(0);
   });
 
   it("user A cannot see user B's private category", async () => {
