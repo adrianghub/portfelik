@@ -4,6 +4,7 @@
   import Sheet from "$lib/components/ui/Sheet.svelte";
   import * as m from "$lib/paraglide/messages";
   import type { Category } from "$lib/types";
+  import { cn } from "$lib/utils";
 
   interface Props {
     categories: Category[];
@@ -70,11 +71,23 @@
         <button
           type="button"
           onclick={() => pick(cat.id)}
-          class="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-slate-200 transition-colors hover:bg-white/5"
+          class="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-slate-200 transition-colors hover:bg-white/5"
         >
-          {cat.name}
+          <span class="flex min-w-0 items-center gap-2">
+            <span class="truncate">{cat.name}</span>
+            <span
+              class={cn(
+                "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                cat.type === "income"
+                  ? "bg-emerald-500/10 text-emerald-300"
+                  : "bg-rose-500/10 text-rose-300"
+              )}
+            >
+              {cat.type === "income" ? m.common_income() : m.common_expense()}
+            </span>
+          </span>
           {#if selectedId === cat.id}
-            <Check size={15} class="text-emerald-400" aria-hidden="true" />
+            <Check size={15} class="shrink-0 text-emerald-400" aria-hidden="true" />
           {/if}
         </button>
       </li>
