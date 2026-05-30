@@ -2,7 +2,12 @@
   import { createMutation, useQueryClient } from "@tanstack/svelte-query";
   import { updateProfile } from "$lib/services/profiles";
   import { deleteAccount } from "$lib/services/groups";
-  import { requestAndSubscribePush, unsubscribeFromPush } from "$lib/services/push";
+  import {
+    getPushNotificationState,
+    requestAndSubscribePush,
+    unsubscribeFromPush,
+    type PushNotificationState,
+  } from "$lib/services/push";
   import { supabase } from "$lib/supabase";
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
@@ -61,12 +66,17 @@
     mutation.mutate();
   }
 
-  let notifPermission = $state<NotificationPermission>("default");
+  let pushState = $state<PushNotificationState>("disabled");
   let notifSupported = $state(true);
 
-  onMount(() => {
+  async function refreshPushState() {
     notifSupported = "Notification" in window && "serviceWorker" in navigator;
-    if ("Notification" in window) notifPermission = Notification.permission;
+    if (!notifSupported) return;
+    pushState = await getPushNotificationState();
+  }
+
+  onMount(() => {
+    void refreshPushState();
   });
 
   const subMutation = createMutation(() => ({
@@ -75,21 +85,20 @@
       const ok = await requestAndSubscribePush(profile.id);
       if (!ok) throw new Error("permission_denied");
     },
-    onSuccess: () => {
-      notifPermission = "granted";
+    onSuccess: async () => {
+      await refreshPushState();
       toast.success(m.toast_push_subscribed());
     },
-    onError: () => {
-      // Reflect the browser's decision so the UI shows the blocked state.
-      if ("Notification" in window) notifPermission = Notification.permission;
+    onError: async () => {
+      await refreshPushState();
       toast.error(m.toast_error());
     },
   }));
 
   const unsubMutation = createMutation(() => ({
     mutationFn: unsubscribeFromPush,
-    onSuccess: () => {
-      notifPermission = "default";
+    onSuccess: async () => {
+      await refreshPushState();
       toast.success(m.toast_push_unsubscribed());
     },
     onError: () => toast.error(m.toast_error()),
@@ -175,24 +184,24 @@
         class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
       >
         <span class="text-sm font-medium text-slate-100">
-          {#if notifPermission === "granted"}
+          {#if pushState === "active"}
             {m.profile_notifications_enabled()}
-          {:else if notifPermission === "denied"}
+          {:else if pushState === "blocked"}
             {m.profile_notifications_blocked()}
           {:else}
             {m.profile_notifications_disabled()}
           {/if}
         </span>
-        {#if notifPermission === "granted"}
+        {#if pushState === "active"}
           <button
             type="button"
             onclick={() => unsubMutation.mutate()}
             disabled={unsubMutation.isPending}
-            class="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            class="shrink-0 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:bg-white/5 disabled:opacity-50"
           >
             {unsubMutation.isPending ? m.common_saving() : m.profile_notifications_disable()}
           </button>
-        {:else if notifPermission === "default"}
+        {:else if pushState !== "blocked"}
           <button
             type="button"
             onclick={() => subMutation.mutate()}

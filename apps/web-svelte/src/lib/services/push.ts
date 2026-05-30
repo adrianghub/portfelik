@@ -16,7 +16,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
 // re-subscribes whenever the browser permission is still "granted".
 const PUSH_OPT_OUT_KEY = "portfelik_push_opt_out";
 
-function isPushOptedOut(): boolean {
+export function isPushOptedOut(): boolean {
   try {
     return localStorage.getItem(PUSH_OPT_OUT_KEY) === "1";
   } catch {
@@ -140,4 +140,26 @@ export async function deleteAdminPushSubscriptionByEndpoint(endpoint: string): P
     p_endpoint: endpoint,
   });
   if (error) throw error;
+}
+
+export type PushNotificationState = "active" | "disabled" | "blocked";
+
+export async function getPushNotificationState(): Promise<PushNotificationState> {
+  if (!("Notification" in window)) return "disabled";
+  if (Notification.permission === "denied") return "blocked";
+  if (isPushOptedOut()) return "disabled";
+
+  if (!("serviceWorker" in navigator)) {
+    return "disabled";
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    if (subscription) return "active";
+  } catch {
+    // SW not ready — treat as disabled until subscription is confirmed.
+  }
+
+  return "disabled";
 }
