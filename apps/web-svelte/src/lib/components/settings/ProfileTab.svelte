@@ -215,26 +215,28 @@
     </div>
   {/if}
 
-  <div
-    class="mt-6 rounded-xl border border-rose-200 bg-rose-50 p-4 dark:border-rose-900 dark:bg-rose-950"
-  >
-    <p class="text-sm font-medium text-rose-700 dark:text-rose-300">{m.profile_delete_account()}</p>
-    <p class="mt-1 text-xs text-rose-300 dark:text-rose-400">
-      {m.profile_delete_account_confirm()}
-    </p>
-    {#if deleteError}
-      <p class="mt-2 text-xs font-medium text-rose-700 dark:text-rose-300">{deleteError}</p>
-    {/if}
-    <button
-      type="button"
-      onclick={() => {
-        deleteError = null;
-        showDeleteConfirm = true;
-      }}
-      class="mt-3 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-medium text-rose-300 transition-colors hover:bg-rose-100 dark:border-rose-700 dark:bg-slate-900 dark:text-rose-400 dark:hover:bg-rose-900"
+  <div class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur">
+    <div
+      class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
     >
-      {m.profile_delete_account()}
-    </button>
+      <div class="min-w-0">
+        <p class="text-sm font-medium text-slate-100">{m.profile_delete_account()}</p>
+        <p class="mt-0.5 text-xs text-slate-500">{m.profile_delete_account_hint()}</p>
+        {#if deleteError}
+          <p class="mt-1.5 text-xs text-rose-300">{deleteError}</p>
+        {/if}
+      </div>
+      <button
+        type="button"
+        onclick={() => {
+          deleteError = null;
+          showDeleteConfirm = true;
+        }}
+        class="shrink-0 rounded-lg border border-rose-500/25 px-3 py-1.5 text-xs font-medium text-rose-300/90 transition-colors hover:border-rose-400/40 hover:bg-rose-500/10 hover:text-rose-200"
+      >
+        {m.profile_delete_account()}
+      </button>
+    </div>
   </div>
 {/if}
 

@@ -549,7 +549,7 @@
   ]);
 </script>
 
-<div class="space-y-4 pb-24">
+<div class="space-y-4">
   {#if parseErrorCount > 0}
     <p
       class="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200"

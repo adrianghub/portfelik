@@ -370,6 +370,7 @@
     <button
       type="submit"
       disabled={!newSectionCategory.trim()}
+      aria-label={m.shopping_list_category_section_submit()}
       class="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg border border-emerald-400/30 bg-emerald-500/15 px-3 text-sm font-medium text-emerald-200 transition-colors hover:bg-emerald-500/25 disabled:opacity-50"
     >
       <Plus size={14} aria-hidden="true" />
