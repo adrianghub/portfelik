@@ -201,10 +201,34 @@
     transition: padding-bottom var(--duration-base) var(--ease-out-expo);
   }
 
+  /* Extra scroll clearance for fixed in-page actions (shopping detail FABs). */
+  .mobile-detail-bottom {
+    padding-bottom: calc(var(--mobile-action-bottom) + 3.5rem);
+    transition: padding-bottom var(--duration-base) var(--ease-out-expo);
+  }
+
   @media (min-width: 768px) {
-    .mobile-page-bottom {
+    .mobile-page-bottom,
+    .mobile-detail-bottom {
       padding-bottom: 1.5rem;
     }
+  }
+
+  .sheet-panel {
+    transition: transform var(--duration-base) var(--ease-out-expo);
+    will-change: transform;
+  }
+
+  .sheet-panel--dragging {
+    transition: none;
+  }
+
+  .sheet-backdrop {
+    transition: opacity var(--duration-base) var(--ease-out-expo);
+  }
+
+  .sheet-backdrop--dragging {
+    transition: none;
   }
 
   html.mobile-overlay-open .mobile-floating-action {

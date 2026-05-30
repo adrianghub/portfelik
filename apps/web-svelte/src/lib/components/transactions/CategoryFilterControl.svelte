@@ -33,6 +33,7 @@
   }
 
   function clickOutside(e: MouseEvent) {
+    if (!open || !isDesktop.current) return;
     const t = e.target as HTMLElement;
     if (!t.closest("[data-category-filter]")) open = false;
   }

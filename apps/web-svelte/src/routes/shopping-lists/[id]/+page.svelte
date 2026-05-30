@@ -253,7 +253,7 @@
   }
 </script>
 
-<div class="container mx-auto max-w-2xl space-y-4 px-4 pt-6 pb-56 md:pb-6">
+<div class="mobile-detail-bottom container mx-auto max-w-2xl space-y-4 px-4 pt-6 md:pb-6">
   {#if query.isLoading}
     <div class="space-y-3">
       <div class="h-8 w-48 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800"></div>
