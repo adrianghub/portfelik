@@ -123,99 +123,103 @@
 </script>
 
 {#snippet panel()}
-  <div class="flex items-center justify-between border-b border-white/5 px-4 py-3">
-    <span class="text-eyebrow text-slate-300">{m.notifications_title()}</span>
-    {#if unreadCount > 0}
-      <button
-        type="button"
-        onclick={() => markAllMutation.mutate()}
-        disabled={markAllMutation.isPending}
-        class="flex items-center gap-1 text-xs text-emerald-300 transition-colors hover:text-emerald-200 disabled:opacity-40"
-      >
-        <CheckCheck size={12} />
-        {m.notifications_mark_all_read()}
-      </button>
-    {/if}
-  </div>
-
-  <ul
-    class="divide-y divide-white/5 overflow-y-auto {isDesktop.current
-      ? 'max-h-80'
-      : 'max-h-[min(70vh,calc(100dvh-8rem))]'}"
-  >
-    {#if query.isLoading}
-      {#each [0, 1, 2] as _, i (i)}
-        <li class="px-4 py-3">
-          <div class="h-3 w-3/4 animate-pulse rounded bg-slate-800/60"></div>
-          <div class="mt-1.5 h-2 w-1/2 animate-pulse rounded bg-slate-800/60"></div>
-        </li>
-      {/each}
-    {:else if notifications.length === 0}
-      <li class="px-4 py-8 text-center text-sm text-slate-500">
-        {m.notifications_empty()}
-      </li>
-    {:else}
-      {#each notifications as n (n.id)}
-        {@const isUnread = !n.read_at}
-        <li
-          class="group relative flex gap-3 px-4 py-3 transition-colors hover:bg-white/5 {isUnread
-            ? 'bg-emerald-400/5'
-            : ''}"
+  <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div class="flex shrink-0 items-center justify-between border-b border-white/5 px-4 py-3">
+      <h2 id="notifications-panel-title" class="text-eyebrow text-slate-300">
+        {m.notifications_title()}
+      </h2>
+      {#if unreadCount > 0}
+        <button
+          type="button"
+          onclick={() => markAllMutation.mutate()}
+          disabled={markAllMutation.isPending}
+          class="flex items-center gap-1 text-xs text-emerald-300 transition-colors hover:text-emerald-200 disabled:opacity-40"
         >
-          {#if isUnread}
-            <div
-              class="bg-accent-gradient mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full shadow-[0_0_8px_var(--color-accent-glow)]"
-            ></div>
-          {:else}
-            <div class="mt-1.5 h-1.5 w-1.5 shrink-0"></div>
-          {/if}
-          <div class="min-w-0 flex-1">
-            <button
-              type="button"
-              onclick={() => handleNotificationClick(n)}
-              class="block w-full text-left"
-            >
-              <p class="truncate text-xs font-medium text-slate-100">
-                {n.title}
-              </p>
-              <p class="mt-0.5 line-clamp-2 text-xs text-slate-400">
-                {n.body}
-              </p>
-            </button>
-            <span class="mt-1 block text-[10px] text-slate-500">
-              {formatRelativeDate(n.created_at)}
-            </span>
-          </div>
-          <div class="flex shrink-0 items-start gap-0.5">
-            <button
-              type="button"
-              onclick={() => toggleRead(n)}
-              disabled={markReadMutation.isPending || markUnreadMutation.isPending}
-              class="{actionBtnClass} hover:text-emerald-300"
-              aria-label={isUnread ? m.notifications_mark_read() : m.notifications_mark_unread()}
-              title={isUnread ? m.notifications_mark_read() : m.notifications_mark_unread()}
-            >
-              {#if isUnread}
-                <Check size={isDesktop.current ? 13 : 16} />
-              {:else}
-                <RotateCcw size={isDesktop.current ? 13 : 16} />
-              {/if}
-            </button>
-            <button
-              type="button"
-              onclick={() => deleteMutation.mutate(n.id)}
-              disabled={deleteMutation.isPending}
-              class="{actionBtnClass} hover:bg-rose-500/10 hover:text-rose-300"
-              aria-label={m.common_delete()}
-              title={m.common_delete()}
-            >
-              <X size={isDesktop.current ? 13 : 16} />
-            </button>
-          </div>
+          <CheckCheck size={12} />
+          {m.notifications_mark_all_read()}
+        </button>
+      {/if}
+    </div>
+
+    <ul
+      class="min-h-0 flex-1 divide-y divide-white/5 overflow-y-auto {isDesktop.current
+        ? 'max-h-80'
+        : ''}"
+    >
+      {#if query.isLoading}
+        {#each [0, 1, 2] as _, i (i)}
+          <li class="px-4 py-3">
+            <div class="h-3 w-3/4 animate-pulse rounded bg-slate-800/60"></div>
+            <div class="mt-1.5 h-2 w-1/2 animate-pulse rounded bg-slate-800/60"></div>
+          </li>
+        {/each}
+      {:else if notifications.length === 0}
+        <li class="px-4 py-8 text-center text-sm text-slate-500">
+          {m.notifications_empty()}
         </li>
-      {/each}
-    {/if}
-  </ul>
+      {:else}
+        {#each notifications as n (n.id)}
+          {@const isUnread = !n.read_at}
+          <li
+            class="group relative flex gap-3 px-4 py-3 transition-colors hover:bg-white/5 {isUnread
+              ? 'bg-emerald-400/5'
+              : ''}"
+          >
+            {#if isUnread}
+              <div
+                class="bg-accent-gradient mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full shadow-[0_0_8px_var(--color-accent-glow)]"
+              ></div>
+            {:else}
+              <div class="mt-1.5 h-1.5 w-1.5 shrink-0"></div>
+            {/if}
+            <div class="min-w-0 flex-1">
+              <button
+                type="button"
+                onclick={() => handleNotificationClick(n)}
+                class="block w-full text-left"
+              >
+                <p class="truncate text-xs font-medium text-slate-100">
+                  {n.title}
+                </p>
+                <p class="mt-0.5 line-clamp-2 text-xs text-slate-400">
+                  {n.body}
+                </p>
+              </button>
+              <span class="mt-1 block text-[10px] text-slate-500">
+                {formatRelativeDate(n.created_at)}
+              </span>
+            </div>
+            <div class="flex shrink-0 items-start gap-0.5">
+              <button
+                type="button"
+                onclick={() => toggleRead(n)}
+                disabled={markReadMutation.isPending || markUnreadMutation.isPending}
+                class="{actionBtnClass} hover:text-emerald-300"
+                aria-label={isUnread ? m.notifications_mark_read() : m.notifications_mark_unread()}
+                title={isUnread ? m.notifications_mark_read() : m.notifications_mark_unread()}
+              >
+                {#if isUnread}
+                  <Check size={isDesktop.current ? 13 : 16} />
+                {:else}
+                  <RotateCcw size={isDesktop.current ? 13 : 16} />
+                {/if}
+              </button>
+              <button
+                type="button"
+                onclick={() => deleteMutation.mutate(n.id)}
+                disabled={deleteMutation.isPending}
+                class="{actionBtnClass} hover:bg-rose-500/10 hover:text-rose-300"
+                aria-label={m.common_delete()}
+                title={m.common_delete()}
+              >
+                <X size={isDesktop.current ? 13 : 16} />
+              </button>
+            </div>
+          </li>
+        {/each}
+      {/if}
+    </ul>
+  </div>
 {/snippet}
 
 <svelte:window onclick={handleClickOutside} />
@@ -250,7 +254,7 @@
 </div>
 
 {#if !isDesktop.current}
-  <Sheet {open} onclose={() => (open = false)} title={m.notifications_title()}>
+  <Sheet {open} flush labelledBy="notifications-panel-title" onclose={() => (open = false)}>
     {@render panel()}
   </Sheet>
 {/if}

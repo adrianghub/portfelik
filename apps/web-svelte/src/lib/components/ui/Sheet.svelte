@@ -17,10 +17,14 @@
     open: boolean;
     onclose: () => void;
     title?: string;
+    /** id of an external element that labels the dialog when `title` is omitted. */
+    labelledBy?: string;
+    /** Skip body padding — for panels that bring their own full-bleed header/list chrome. */
+    flush?: boolean;
     children: Snippet;
   }
 
-  let { open, onclose, title, children }: Props = $props();
+  let { open, onclose, title, labelledBy, flush = false, children }: Props = $props();
 
   function onbackdrop(e: MouseEvent) {
     if (e.target === e.currentTarget) onclose();
@@ -28,6 +32,15 @@
 
   function onkeydown(e: KeyboardEvent) {
     if (e.key === "Escape") onclose();
+  }
+
+  function portal(node: HTMLElement) {
+    document.body.appendChild(node);
+    return {
+      destroy() {
+        node.remove();
+      },
+    };
   }
 
   $effect(() => {
@@ -45,20 +58,21 @@
 
 {#if open}
   <div
-    class="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/60 backdrop-blur-sm"
+    use:portal
+    class="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/60 backdrop-blur-sm"
     role="presentation"
     onclick={onbackdrop}
     onkeydown={null}
     transition:fade={{ duration: motionDuration(140) }}
   >
     <div
-      class="w-full max-w-lg overflow-hidden rounded-t-2xl border border-white/5 bg-slate-900/95 shadow-[0_-12px_40px_rgba(0,0,0,0.4)] backdrop-blur"
+      class="flex max-h-[min(90dvh,100%)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-white/5 bg-slate-900/95 shadow-[0_-12px_40px_rgba(0,0,0,0.4)] backdrop-blur"
       role="dialog"
       aria-modal="true"
-      aria-labelledby={title ? "sheet-title" : undefined}
+      aria-labelledby={title ? "sheet-title" : labelledBy}
       transition:fly={{ y: "100%", duration: motionDuration(220), opacity: 1 }}
     >
-      <div class="flex justify-center pt-3 pb-1">
+      <div class="flex shrink-0 justify-center pt-3 pb-1">
         <button
           type="button"
           onclick={onclose}
@@ -72,7 +86,7 @@
       </div>
 
       {#if title}
-        <div class="flex items-center justify-between border-b border-white/5 px-5 py-3">
+        <div class="flex shrink-0 items-center justify-between border-b border-white/5 px-5 py-3">
           <h2 id="sheet-title" class="text-base font-semibold text-slate-100">
             {title}
           </h2>
@@ -87,7 +101,11 @@
         </div>
       {/if}
 
-      <div class="px-5 py-4">
+      <div
+        class={flush
+          ? "min-h-0 flex-1 overflow-hidden"
+          : "min-h-0 flex-1 overflow-y-auto px-5 py-4"}
+      >
         {@render children()}
       </div>
     </div>

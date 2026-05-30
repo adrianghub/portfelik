@@ -270,6 +270,7 @@
   "profile_edit_title": "Edytuj profil",
   "profile_edit_name": "Imię i nazwisko",
   "profile_delete_account": "Usuń konto",
+  "profile_delete_account_hint": "Trwale usuwa konto i wszystkie powiązane dane.",
   "profile_delete_account_confirm": "Czy na pewno chcesz usunąć swoje konto? Ta operacja jest nieodwracalna.",
   "profile_delete_account_has_groups": "Musisz najpierw rozwiązać lub opuścić wszystkie grupy, których jesteś właścicielem.",
   "group_members_title": "Członkowie grupy",
