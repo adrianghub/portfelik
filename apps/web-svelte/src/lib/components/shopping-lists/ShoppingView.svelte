@@ -306,8 +306,7 @@
   disabled={itemTotal === 0}
   title={itemTotal === 0 ? m.shopping_list_requires_items() : m.shopping_list_complete_title()}
   aria-label={m.shopping_list_complete_title()}
-  class="bg-accent-gradient fixed right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] backdrop-blur transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400/40 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-30"
-  style="bottom: calc(5.75rem + env(safe-area-inset-bottom));"
+  class="mobile-floating-action bg-accent-gradient fixed right-4 bottom-(--mobile-action-bottom) z-40 flex h-12 w-12 items-center justify-center rounded-full text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] backdrop-blur transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400/40 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-30"
 >
   <Check size={16} strokeWidth={2} aria-hidden="true" />
 </button>
