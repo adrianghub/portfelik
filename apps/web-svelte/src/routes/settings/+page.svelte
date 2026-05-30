@@ -7,16 +7,24 @@
   import CategoriesTab from "$lib/components/settings/CategoriesTab.svelte";
   import GroupsTab from "$lib/components/settings/GroupsTab.svelte";
   import ProfileTab from "$lib/components/settings/ProfileTab.svelte";
+  import PersonalizationTab from "$lib/components/settings/PersonalizationTab.svelte";
   import ShoppingItemCategoriesTab from "$lib/components/settings/ShoppingItemCategoriesTab.svelte";
   import RulesTab from "$lib/components/settings/RulesTab.svelte";
   import { cn } from "$lib/utils";
   import * as m from "$lib/paraglide/messages";
 
-  type Tab = "categories" | "shopping-item-categories" | "rules" | "groups" | "profile";
+  type Tab =
+    | "personalization"
+    | "categories"
+    | "shopping-item-categories"
+    | "rules"
+    | "groups"
+    | "profile";
 
   const activeTab = $derived(($page.url.searchParams.get("tab") ?? "categories") as Tab);
 
   const tabs: { id: Tab; label: string }[] = [
+    { id: "personalization", label: m.settings_tab_personalization() },
     { id: "categories", label: m.settings_tab_categories() },
     { id: "shopping-item-categories", label: m.settings_tab_shopping_item_categories() },
     { id: "rules", label: m.settings_tab_rules() },
@@ -51,7 +59,7 @@
     <div
       role="tablist"
       aria-label={m.settings_title()}
-      class="no-accent-scrollbar flex w-full gap-1 overflow-x-auto rounded-full border border-white/5 bg-slate-900/60 p-1 backdrop-blur md:grid md:grid-cols-5 md:overflow-visible"
+      class="no-accent-scrollbar flex w-full gap-1 overflow-x-auto rounded-full border border-white/5 bg-slate-900/60 p-1 backdrop-blur md:grid md:grid-cols-6 md:overflow-visible"
     >
       {#each tabs as tab (tab.id)}
         <button
@@ -78,7 +86,9 @@
   </div>
 
   <div role="tabpanel">
-    {#if activeTab === "categories"}
+    {#if activeTab === "personalization"}
+      <PersonalizationTab {profile} />
+    {:else if activeTab === "categories"}
       <CategoriesTab />
     {:else if activeTab === "shopping-item-categories"}
       <ShoppingItemCategoriesTab />
