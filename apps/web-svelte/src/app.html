@@ -12,6 +12,20 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192x192.png" />
+    <script>
+      // Restore the user's accent color before first paint to avoid a flash.
+      // Resolved values are mirrored to localStorage by applyAccent(); DB stays
+      // the source of truth and re-applies once the profile loads.
+      try {
+        var a = JSON.parse(localStorage.getItem("portfelik_accent") || "null");
+        if (a && a.from && a.to && a.glow) {
+          var s = document.documentElement.style;
+          s.setProperty("--color-accent-from", a.from);
+          s.setProperty("--color-accent-to", a.to);
+          s.setProperty("--color-accent-glow", a.glow);
+        }
+      } catch (e) {}
+    </script>
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover">
