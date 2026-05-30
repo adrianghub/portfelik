@@ -150,7 +150,7 @@
           bind:this={ruleRefs[rule.id]}
           class={cn(
             "flex items-center gap-3 rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 backdrop-blur transition-shadow",
-            flashId === rule.id && "ring-2 ring-emerald-400/60"
+            flashId === rule.id && "ring-accent/60 ring-2"
           )}
           aria-label={flashId === rule.id ? m.rules_highlighted() : undefined}
         >

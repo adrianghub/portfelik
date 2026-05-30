@@ -108,7 +108,7 @@
         href={item.href}
         aria-current={active ? "page" : undefined}
         class={cn(
-          "relative flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none",
+          "focus-visible:ring-accent relative flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
           active
             ? "bg-accent-gradient text-slate-900 shadow-[0_0_24px_var(--color-accent-glow)]"
             : "text-slate-300 hover:bg-white/5 hover:text-slate-100"
@@ -125,7 +125,7 @@
         href="/admin"
         aria-current={active ? "page" : undefined}
         class={cn(
-          "relative flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none",
+          "focus-visible:ring-accent relative flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
           active
             ? "bg-accent-gradient text-slate-900 shadow-[0_0_24px_var(--color-accent-glow)]"
             : "text-slate-300 hover:bg-white/5 hover:text-slate-100"
@@ -146,7 +146,7 @@
       aria-haspopup="menu"
       aria-expanded={menuOpen}
       aria-label={email || "Account"}
-      class="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-slate-800 text-xs font-semibold text-slate-100 transition-colors hover:border-white/20 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+      class="focus-visible:ring-accent relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-slate-800 text-xs font-semibold text-slate-100 transition-colors hover:border-white/20 focus-visible:ring-2 focus-visible:outline-none"
     >
       {#if avatarUrl}
         <img
@@ -177,7 +177,7 @@
     aria-haspopup="menu"
     aria-expanded={menuOpen}
     aria-label={email || "Account"}
-    class="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-slate-800 text-xs font-semibold text-slate-100 transition-colors hover:border-white/20 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+    class="focus-visible:ring-accent relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-slate-800 text-xs font-semibold text-slate-100 transition-colors hover:border-white/20 focus-visible:ring-2 focus-visible:outline-none"
   >
     {#if avatarUrl}
       <img src={avatarUrl} alt="" class="h-full w-full object-cover" referrerpolicy="no-referrer" />
@@ -203,7 +203,7 @@
       onclick={() => (menuOpen = false)}
       class={cn(
         "flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition-colors hover:bg-white/5",
-        isActive("/settings") ? "text-emerald-200" : "text-slate-200"
+        isActive("/settings") ? "text-accent" : "text-slate-200"
       )}
     >
       <Settings size={15} aria-hidden="true" />

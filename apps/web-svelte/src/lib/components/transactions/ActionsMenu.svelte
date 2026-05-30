@@ -47,7 +47,7 @@
   <button
     type="button"
     onclick={() => (open = !open)}
-    class="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-slate-900/60 text-slate-300 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+    class="focus-visible:ring-accent flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-slate-900/60 text-slate-300 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
     aria-haspopup="menu"
     aria-expanded={open}
     aria-label={m.transactions_more_actions()}

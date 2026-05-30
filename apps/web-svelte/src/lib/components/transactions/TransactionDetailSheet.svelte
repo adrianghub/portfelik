@@ -148,7 +148,7 @@
           </p>
           <a
             href="/shopping-lists/{transaction.shopping_list_id}"
-            class="inline-flex items-center gap-1.5 text-sm text-slate-200 transition-colors hover:text-emerald-300"
+            class="hover:text-accent inline-flex items-center gap-1.5 text-sm text-slate-200 transition-colors"
           >
             <ShoppingCart size={14} />
             {m.transaction_detail_show_shopping_list()}

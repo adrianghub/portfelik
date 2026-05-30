@@ -13,6 +13,7 @@
   import { motionDuration } from "$lib/motion";
   import * as m from "$lib/paraglide/messages";
   import { fetchProfile } from "$lib/services/profiles";
+  import { applyAccent } from "$lib/theme/accent-presets";
   import {
     autoSubscribePush,
     registerServiceWorker,
@@ -123,7 +124,10 @@
     authStatus = "authenticated";
     fetchProfile(authUser.id)
       .then((p) => {
-        if (revision === authRevision) profile = p;
+        if (revision === authRevision) {
+          profile = p;
+          applyAccent(p.settings?.accentColor);
+        }
       })
       .catch(() => {});
     registerServiceWorker().then(() => autoSubscribePush(authUser.id).catch(() => {}));

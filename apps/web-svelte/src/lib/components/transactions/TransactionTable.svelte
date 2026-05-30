@@ -247,7 +247,7 @@
                   {/if}
                   {#if isShared(tx)}
                     <span
-                      class="ml-1 inline-flex items-center gap-0.5 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] text-emerald-300"
+                      class="border-accent/20 bg-accent/10 text-accent ml-1 inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px]"
                     >
                       <Users size={9} />
                     </span>
@@ -311,7 +311,7 @@
           <th scope="col" aria-sort={ariaSort("date")} class="px-4 py-3 text-left">
             <button
               type="button"
-              class="text-eyebrow inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+              class="text-eyebrow focus-visible:ring-accent inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
               aria-label={sortLabel("date", m.transactions_col_date())}
               onclick={() => toggleSort("date")}
             >
@@ -322,7 +322,7 @@
           <th scope="col" aria-sort={ariaSort("description")} class="px-4 py-3 text-left">
             <button
               type="button"
-              class="text-eyebrow inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+              class="text-eyebrow focus-visible:ring-accent inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
               aria-label={sortLabel("description", m.transactions_col_description())}
               onclick={() => toggleSort("description")}
             >
@@ -333,7 +333,7 @@
           <th scope="col" aria-sort={ariaSort("category")} class="px-4 py-3 text-left">
             <button
               type="button"
-              class="text-eyebrow inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+              class="text-eyebrow focus-visible:ring-accent inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
               aria-label={sortLabel("category", m.transactions_col_category())}
               onclick={() => toggleSort("category")}
             >
@@ -344,7 +344,7 @@
           <th scope="col" aria-sort={ariaSort("status")} class="px-4 py-3 text-left">
             <button
               type="button"
-              class="text-eyebrow inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+              class="text-eyebrow focus-visible:ring-accent inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
               aria-label={sortLabel("status", m.transactions_col_status())}
               onclick={() => toggleSort("status")}
             >
@@ -355,7 +355,7 @@
           <th scope="col" aria-sort={ariaSort("amount")} class="px-4 py-3 text-right">
             <button
               type="button"
-              class="text-eyebrow ml-auto inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+              class="text-eyebrow focus-visible:ring-accent ml-auto inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
               aria-label={sortLabel("amount", m.transactions_col_amount())}
               onclick={() => toggleSort("amount")}
             >
@@ -409,7 +409,7 @@
               {/if}
               {#if isShared(tx)}
                 <span
-                  class="ml-1 inline-flex items-center gap-0.5 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] text-emerald-300"
+                  class="border-accent/20 bg-accent/10 text-accent ml-1 inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px]"
                 >
                   <Users size={10} />
                 </span>

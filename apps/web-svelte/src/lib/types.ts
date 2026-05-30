@@ -1,3 +1,5 @@
+import type { Json } from "$lib/supabase.types";
+
 export type TransactionType = "income" | "expense";
 export type TransactionStatus = "paid" | "draft" | "upcoming" | "overdue";
 export type ShoppingListStatus = "active" | "completed";
@@ -73,11 +75,18 @@ export interface MonthlySummary {
   categories: CategorySummary[];
 }
 
+export interface ProfileSettings {
+  notificationsEnabled?: boolean;
+  accentColor?: string;
+  [key: string]: Json | undefined;
+}
+
 export interface Profile {
   id: string;
   email: string;
   name: string | null;
   role: UserRole;
+  settings: ProfileSettings;
   created_at: string;
   updated_at: string;
 }

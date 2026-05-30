@@ -19,6 +19,12 @@
   --color-accent-from: oklch(0.78 0.18 158); /* emerald-400 */
   --color-accent-to: oklch(0.92 0.18 122); /* lime-300 */
   --color-accent-glow: color-mix(in oklch, oklch(0.78 0.18 158) 20%, transparent);
+  /* Single-stop accent for solid utilities (ring/border/text/bg-accent + opacity
+     modifiers). Equals accent-from. `applyAccent()` overrides this at runtime so
+     every `*-accent` utility follows the user's chosen color. Semantic greens
+     (income / success / paid) intentionally keep fixed `emerald-*` and do NOT
+     track the accent. */
+  --color-accent: oklch(0.78 0.18 158);
 
   /* Typography scale */
   --text-display: 3rem; /* 48px — hero balance */

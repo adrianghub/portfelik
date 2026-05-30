@@ -90,9 +90,9 @@
   {#if list.linked_transaction_id}
     <a
       href={`/transactions?txId=${list.linked_transaction_id}`}
-      class="block rounded-lg border border-emerald-400/20 bg-emerald-500/5 px-3 py-2 text-sm text-emerald-200 transition-colors hover:bg-emerald-500/10 focus-visible:ring-2 focus-visible:ring-emerald-400/40 focus-visible:outline-none"
+      class="border-accent/20 bg-accent/5 text-accent hover:bg-accent/10 focus-visible:ring-accent/40 block rounded-lg border px-3 py-2 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
     >
-      <p class="text-xs tracking-wide text-emerald-300/80 uppercase">
+      <p class="text-accent/80 text-xs tracking-wide uppercase">
         {m.shopping_list_completed_tx_created()}
       </p>
       <p class="mt-0.5 tabular-nums">{formatCurrency(list.total_amount, "PLN")}</p>
@@ -107,7 +107,7 @@
         <button
           type="button"
           onclick={openAddTx}
-          class="mt-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-200 transition-colors hover:bg-emerald-500/20"
+          class="border-accent/25 bg-accent/10 text-accent hover:bg-accent/20 mt-2 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors"
         >
           <Plus size={13} strokeWidth={2.2} aria-hidden="true" />
           {m.shopping_list_add_tx_cta()}
@@ -155,7 +155,7 @@
   onclick={onDuplicate}
   disabled={duplicating}
   aria-label={m.shopping_list_archived_duplicate()}
-  class="mobile-floating-action fixed right-4 bottom-(--mobile-action-bottom) z-40 flex h-11 items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-4 text-sm font-medium text-emerald-200 backdrop-blur transition-colors hover:bg-emerald-500/20 hover:text-emerald-100 focus-visible:ring-2 focus-visible:ring-emerald-400/40 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-30"
+  class="mobile-floating-action border-accent/25 bg-accent/10 text-accent hover:bg-accent/20 hover:text-accent focus-visible:ring-accent/40 fixed right-4 bottom-(--mobile-action-bottom) z-40 flex h-11 items-center gap-2 rounded-full border px-4 text-sm font-medium backdrop-blur transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-30"
 >
   <Copy size={16} strokeWidth={2} aria-hidden="true" />
   <span>{m.shopping_list_archived_duplicate()}</span>

@@ -47,11 +47,11 @@
   }
 
   const selectClass =
-    "h-9 rounded-full border border-white/10 bg-slate-900/60 px-3 text-sm text-slate-200 backdrop-blur focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none disabled:opacity-50";
+    "h-9 rounded-full border border-white/10 bg-slate-900/60 px-3 text-sm text-slate-200 backdrop-blur focus:border-accent/40 focus:ring-2 focus:ring-accent/30 focus:outline-none disabled:opacity-50";
 </script>
 
 <div
-  class="surface-hi sticky top-14 z-30 flex flex-wrap items-center gap-2 rounded-2xl border border-emerald-400/20 px-4 py-2.5 backdrop-blur"
+  class="surface-hi border-accent/20 sticky top-14 z-30 flex flex-wrap items-center gap-2 rounded-2xl border px-4 py-2.5 backdrop-blur"
 >
   <span class="text-sm font-semibold text-slate-100">
     {m.transactions_bulk_selected({ count })}

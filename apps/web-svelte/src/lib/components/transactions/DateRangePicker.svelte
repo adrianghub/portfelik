@@ -142,7 +142,7 @@
         <button
           type="button"
           onclick={preset.action}
-          class="rounded-full border border-white/10 px-3 py-1 text-xs font-medium text-slate-300 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+          class="focus-visible:ring-accent rounded-full border border-white/10 px-3 py-1 text-xs font-medium text-slate-300 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
         >
           {preset.label}
         </button>
@@ -204,7 +204,7 @@
               class={cn(
                 "rounded-lg py-2 text-sm capitalize transition-colors",
                 monthSelected(i + 1)
-                  ? "bg-emerald-400 font-semibold text-slate-900"
+                  ? "bg-accent font-semibold text-slate-900"
                   : "text-slate-200 hover:bg-white/5"
               )}
             >
@@ -259,7 +259,7 @@
                       {#each weekDates as date (date.toString())}
                         <RangeCalendar.Cell {date} month={month.value} class="p-0">
                           <RangeCalendar.Day
-                            class="flex h-9 w-9 items-center justify-center rounded-md text-sm text-slate-300 transition-colors hover:bg-white/5 data-disabled:text-slate-700 data-disabled:opacity-40 data-highlighted:bg-emerald-400/10 data-outside-month:text-slate-600 data-selected:rounded-none data-selected:bg-emerald-400/10 data-selected:text-slate-100 data-selection-end:rounded-r-md data-selection-end:bg-emerald-400 data-selection-end:font-semibold data-selection-end:text-slate-900 data-selection-start:rounded-l-md data-selection-start:bg-emerald-400 data-selection-start:font-semibold data-selection-start:text-slate-900 data-unavailable:line-through"
+                            class="data-highlighted:bg-accent/10 data-selected:bg-accent/10 data-selection-end:bg-accent data-selection-start:bg-accent flex h-9 w-9 items-center justify-center rounded-md text-sm text-slate-300 transition-colors hover:bg-white/5 data-disabled:text-slate-700 data-disabled:opacity-40 data-outside-month:text-slate-600 data-selected:rounded-none data-selected:text-slate-100 data-selection-end:rounded-r-md data-selection-end:font-semibold data-selection-end:text-slate-900 data-selection-start:rounded-l-md data-selection-start:font-semibold data-selection-start:text-slate-900 data-unavailable:line-through"
                           />
                         </RangeCalendar.Cell>
                       {/each}
@@ -278,7 +278,7 @@
       type="button"
       onclick={apply}
       disabled={!draft.start || !draft.end}
-      class="bg-accent-gradient w-full rounded-full py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+      class="bg-accent-gradient focus-visible:ring-accent w-full rounded-full py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
     >
       {m.transactions_date_apply()}
     </button>
@@ -291,7 +291,7 @@
   <button
     type="button"
     onclick={() => (open = !open)}
-    class="flex h-9 items-center gap-2 rounded-full border border-white/10 bg-slate-900/60 px-3.5 text-sm text-slate-200 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+    class="focus-visible:ring-accent flex h-9 items-center gap-2 rounded-full border border-white/10 bg-slate-900/60 px-3.5 text-sm text-slate-200 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
     aria-haspopup="dialog"
     aria-expanded={open}
   >

@@ -133,7 +133,7 @@
           type="button"
           onclick={() => markAllMutation.mutate()}
           disabled={markAllMutation.isPending}
-          class="flex items-center gap-1 text-xs text-emerald-300 transition-colors hover:text-emerald-200 disabled:opacity-40"
+          class="text-accent hover:text-accent flex items-center gap-1 text-xs transition-colors disabled:opacity-40"
         >
           <CheckCheck size={12} />
           {m.notifications_mark_all_read()}
@@ -162,7 +162,7 @@
           {@const isUnread = !n.read_at}
           <li
             class="group relative flex gap-3 px-4 py-3 transition-colors hover:bg-white/5 {isUnread
-              ? 'bg-emerald-400/5'
+              ? 'bg-accent/5'
               : ''}"
           >
             {#if isUnread}
@@ -194,7 +194,7 @@
                 type="button"
                 onclick={() => toggleRead(n)}
                 disabled={markReadMutation.isPending || markUnreadMutation.isPending}
-                class="{actionBtnClass} hover:text-emerald-300"
+                class="{actionBtnClass} hover:text-accent"
                 aria-label={isUnread ? m.notifications_mark_read() : m.notifications_mark_unread()}
                 title={isUnread ? m.notifications_mark_read() : m.notifications_mark_unread()}
               >
@@ -229,7 +229,7 @@
     type="button"
     onclick={handleOpen}
     class={buttonClass ??
-      "relative flex h-9 w-9 items-center justify-center rounded-full text-slate-300 transition-colors hover:bg-white/5 hover:text-slate-100 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"}
+      "focus-visible:ring-accent relative flex h-9 w-9 items-center justify-center rounded-full text-slate-300 transition-colors hover:bg-white/5 hover:text-slate-100 focus-visible:ring-2 focus-visible:outline-none"}
     aria-label={m.notifications_title()}
   >
     <Bell size={17} aria-hidden="true" />

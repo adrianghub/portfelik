@@ -58,7 +58,7 @@
   {onblur}
   class={cn(
     "h-10 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500",
-    "focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none",
+    "focus:border-accent/40 focus:ring-accent/30 focus:ring-2 focus:outline-none",
     "disabled:cursor-not-allowed disabled:opacity-50",
     className
   )}

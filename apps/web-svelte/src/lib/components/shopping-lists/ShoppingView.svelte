@@ -156,7 +156,7 @@
   }
 </script>
 
-<p class="text-xs text-emerald-300/80">{m.shopping_list_shopping_mode_hint()}</p>
+<p class="text-accent/80 text-xs">{m.shopping_list_shopping_mode_hint()}</p>
 
 {#if itemTotal > 0}
   <div class="mt-2 space-y-1">
@@ -230,9 +230,7 @@
           <span
             class={cn(
               "shrink-0 rounded-full border px-2 py-0.5 text-xs tabular-nums",
-              done
-                ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-300"
-                : "border-white/10 text-slate-400"
+              done ? "border-accent/20 bg-accent/10 text-accent" : "border-white/10 text-slate-400"
             )}
           >
             {completed}/{items.length}
@@ -246,7 +244,7 @@
                 animate:flip={{ duration: motionDuration(240) }}
                 in:slide={{ duration: motionDuration(180) }}
                 out:slide={{ duration: motionDuration(160) }}
-                class="flex min-w-0 cursor-pointer items-center gap-3 rounded-xl border border-white/5 bg-slate-900/40 px-3 py-2 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400/30 focus-visible:outline-none"
+                class="focus-visible:ring-accent/30 flex min-w-0 cursor-pointer items-center gap-3 rounded-xl border border-white/5 bg-slate-900/40 px-3 py-2 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
                 role="button"
                 tabindex={0}
                 aria-label={item.completed
@@ -258,12 +256,12 @@
                 <div
                   class={cn(
                     "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
-                    item.completed ? "border-emerald-400/60 bg-emerald-400/20" : "border-white/15"
+                    item.completed ? "border-accent/60 bg-accent/20" : "border-white/15"
                   )}
                   aria-hidden="true"
                 >
                   {#if item.completed}
-                    <Check size={11} strokeWidth={3} class="text-emerald-300" />
+                    <Check size={11} strokeWidth={3} class="text-accent" />
                   {/if}
                 </div>
                 <span
@@ -306,7 +304,7 @@
   disabled={itemTotal === 0}
   title={itemTotal === 0 ? m.shopping_list_requires_items() : m.shopping_list_complete_title()}
   aria-label={m.shopping_list_complete_title()}
-  class="mobile-floating-action bg-accent-gradient fixed right-4 bottom-(--mobile-action-bottom) z-40 flex h-12 w-12 items-center justify-center rounded-full text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] backdrop-blur transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400/40 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-30"
+  class="mobile-floating-action bg-accent-gradient focus-visible:ring-accent/40 fixed right-4 bottom-(--mobile-action-bottom) z-40 flex h-12 w-12 items-center justify-center rounded-full text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] backdrop-blur transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-30"
 >
   <Check size={16} strokeWidth={2} aria-hidden="true" />
 </button>

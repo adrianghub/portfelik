@@ -205,7 +205,7 @@
       onblur={() => setTimeout(() => closeList(), 150)}
       onkeydown={handleKeydown}
       {placeholder}
-      class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 pr-9 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+      class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 pr-9 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
     />
     <ChevronDown
       size={14}
@@ -242,7 +242,7 @@
           >
             <span class="truncate text-slate-100">{item}</span>
             {#if item === value}
-              <Check size={14} class="shrink-0 text-emerald-300" aria-hidden="true" />
+              <Check size={14} class="text-accent shrink-0" aria-hidden="true" />
             {/if}
           </button>
         {/each}
@@ -254,8 +254,8 @@
             id={optionId(createIndex)}
             aria-selected={createIndex === activeIndex}
             class={cn(
-              "flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-emerald-200 transition-colors hover:bg-emerald-500/10",
-              createIndex === activeIndex && "bg-emerald-500/10"
+              "text-accent hover:bg-accent/10 flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors",
+              createIndex === activeIndex && "bg-accent/10"
             )}
             onclick={() => selectValue(trimmedValue)}
             onmouseenter={() => (activeIndex = createIndex)}
