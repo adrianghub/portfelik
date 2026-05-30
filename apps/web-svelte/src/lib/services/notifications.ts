@@ -25,6 +25,15 @@ export async function markNotificationRead(notificationId: string): Promise<void
   if (error) throw error;
 }
 
+export async function markNotificationUnread(notificationId: string): Promise<void> {
+  // Direct update is permitted by the `notifications_update_own` RLS policy.
+  const { error } = await supabase
+    .from("notifications")
+    .update({ read_at: null })
+    .eq("id", notificationId);
+  if (error) throw error;
+}
+
 export async function markAllNotificationsRead(): Promise<void> {
   const { error } = await supabase.rpc("mark_all_notifications_read");
   if (error) throw error;

@@ -2,6 +2,7 @@
   import * as m from "$lib/paraglide/messages";
   import type { TransactionWithCategory } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
+  import { recurrenceSummary } from "$lib/recurrence";
   import { Edit, ShoppingCart, Trash2, X } from "lucide-svelte";
 
   interface Props {
@@ -10,22 +11,14 @@
     onclose: () => void;
     onedit?: (tx: TransactionWithCategory) => void;
     ondelete?: (id: string) => void;
-    onattach?: (tx: TransactionWithCategory) => void;
   }
-  let { transaction, currentUserId, onclose, onedit, ondelete, onattach }: Props = $props();
+  let { transaction, currentUserId, onclose, onedit, ondelete }: Props = $props();
 
   // New RLS lets owner OR any group member of a shared row update/delete it.
   // Visibility implies edit rights, so the gate mirrors the row's visibility:
   // own row, or group-shared (we wouldn't see it otherwise).
   const canEdit = $derived(
     !!transaction && (transaction.user_id === currentUserId || transaction.group_id !== null)
-  );
-
-  const canAttachList = $derived(
-    !!transaction &&
-      canEdit &&
-      transaction.type === "expense" &&
-      transaction.shopping_list_id === null
   );
 
   const statusClass: Record<string, string> = {
@@ -129,13 +122,19 @@
           </dt>
           <dd class="mt-0.5 text-slate-100">{transaction.category_name}</dd>
         </div>
-        {#if transaction.is_recurring && transaction.recurring_day}
+        {#if transaction.is_recurring && transaction.recurrence_frequency}
           <div>
             <dt class="text-eyebrow text-slate-400">
-              {m.transaction_form_recurring_day()}
+              {m.transaction_form_recurring()}
             </dt>
             <dd class="mt-0.5 text-slate-100">
-              {transaction.recurring_day}. {m.transaction_detail_recurring_day()}
+              {recurrenceSummary({
+                frequency: transaction.recurrence_frequency,
+                interval: transaction.recurrence_interval,
+                weekday: transaction.recurrence_weekday,
+                day: transaction.recurring_day,
+                month: transaction.recurrence_month,
+              })}
             </dd>
           </div>
         {/if}
@@ -154,22 +153,6 @@
             <ShoppingCart size={14} />
             {m.transaction_detail_show_shopping_list()}
           </a>
-        </div>
-      {/if}
-
-      {#if canAttachList && onattach}
-        <div>
-          <button
-            type="button"
-            onclick={() => {
-              onattach(transaction!);
-              onclose();
-            }}
-            class="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1.5 text-sm font-medium text-emerald-300 transition-colors hover:bg-emerald-500/20"
-          >
-            <ShoppingCart size={14} />
-            {m.transaction_attach_shopping_list_cta()}
-          </button>
         </div>
       {/if}
     </div>

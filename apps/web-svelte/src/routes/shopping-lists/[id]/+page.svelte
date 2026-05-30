@@ -163,10 +163,12 @@
   let showUncheckedComplete = $state(false);
   let completeAmount = $state("");
   let completeCategoryId = $state("");
+  let createTx = $state(true);
 
   function openCompleteDialog() {
     completeAmount = "";
     completeCategoryId = query.data?.category_id ?? "";
+    createTx = true;
     showComplete = true;
   }
 
@@ -188,7 +190,13 @@
   }
 
   const completeMutation = createMutation(() => ({
-    mutationFn: () => completeShoppingList(id, parseFloat(completeAmount), completeCategoryId),
+    mutationFn: () =>
+      completeShoppingList(
+        id,
+        completeAmount === "" ? null : parseFloat(completeAmount),
+        completeCategoryId || null,
+        createTx
+      ),
     onSuccess: async () => {
       showComplete = false;
       await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
@@ -371,28 +379,49 @@
   title={m.shopping_list_complete_title()}
 >
   <form onsubmit={submitComplete} class="space-y-4">
-    <p class="text-sm text-slate-300">{m.shopping_list_complete_creates_tx_hint()}</p>
+    <label class="flex cursor-pointer items-center gap-3 select-none">
+      <input type="checkbox" bind:checked={createTx} class="sr-only" />
+      <div
+        class="relative h-5 w-9 rounded-full transition-colors {createTx
+          ? 'bg-accent-gradient shadow-[0_0_12px_var(--color-accent-glow)]'
+          : 'bg-slate-700'}"
+      >
+        <div
+          class="absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform {createTx
+            ? 'translate-x-4'
+            : 'translate-x-0'}"
+        ></div>
+      </div>
+      <span class="text-sm text-slate-200">{m.shopping_list_complete_create_tx_toggle()}</span>
+    </label>
+    <p class="text-sm text-slate-300">
+      {createTx
+        ? m.shopping_list_complete_creates_tx_hint()
+        : m.shopping_list_complete_no_tx_hint()}
+    </p>
     <div class="space-y-1">
       <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="comp-amount">
-        {m.shopping_list_complete_amount()}
+        {createTx ? m.shopping_list_complete_amount() : m.shopping_list_complete_amount_optional()}
       </label>
       <input
         id="comp-amount"
         type="number"
         min="0.01"
         step="0.01"
-        required
+        required={createTx}
         bind:value={completeAmount}
         class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
       />
     </div>
     <div class="space-y-1">
       <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="comp-cat">
-        {m.shopping_list_complete_category()}
+        {createTx
+          ? m.shopping_list_complete_category()
+          : m.shopping_list_complete_category_optional()}
       </label>
       <select
         id="comp-cat"
-        required
+        required={createTx}
         bind:value={completeCategoryId}
         class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
       >
@@ -418,7 +447,11 @@
         disabled={completeMutation.isPending}
         class="bg-accent-gradient flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:opacity-50"
       >
-        {completeMutation.isPending ? m.common_saving() : m.shopping_list_complete_submit()}
+        {completeMutation.isPending
+          ? m.common_saving()
+          : createTx
+            ? m.shopping_list_complete_submit()
+            : m.shopping_list_complete_submit_no_tx()}
       </button>
     </div>
   </form>

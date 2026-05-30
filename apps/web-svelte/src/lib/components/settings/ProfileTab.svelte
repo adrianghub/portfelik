@@ -2,7 +2,7 @@
   import { createMutation, useQueryClient } from "@tanstack/svelte-query";
   import { updateProfile } from "$lib/services/profiles";
   import { deleteAccount } from "$lib/services/groups";
-  import { unsubscribeFromPush } from "$lib/services/push";
+  import { requestAndSubscribePush, unsubscribeFromPush } from "$lib/services/push";
   import { supabase } from "$lib/supabase";
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
@@ -62,10 +62,29 @@
   }
 
   let notifPermission = $state<NotificationPermission>("default");
+  let notifSupported = $state(true);
 
   onMount(() => {
+    notifSupported = "Notification" in window && "serviceWorker" in navigator;
     if ("Notification" in window) notifPermission = Notification.permission;
   });
+
+  const subMutation = createMutation(() => ({
+    mutationFn: async () => {
+      if (!profile) throw new Error("no_profile");
+      const ok = await requestAndSubscribePush(profile.id);
+      if (!ok) throw new Error("permission_denied");
+    },
+    onSuccess: () => {
+      notifPermission = "granted";
+      toast.success(m.toast_push_subscribed());
+    },
+    onError: () => {
+      // Reflect the browser's decision so the UI shows the blocked state.
+      if ("Notification" in window) notifPermission = Notification.permission;
+      toast.error(m.toast_error());
+    },
+  }));
 
   const unsubMutation = createMutation(() => ({
     mutationFn: unsubscribeFromPush,
@@ -81,30 +100,33 @@
   <div class="h-32 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800"></div>
 {:else}
   <div
-    class="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white dark:divide-slate-700 dark:border-slate-700 dark:bg-slate-900"
+    class="divide-y divide-white/5 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
   >
     <div class="flex items-center justify-between gap-3 px-4 py-3">
       <span class="shrink-0 text-sm text-slate-400">{m.profile_name()}</span>
       {#if editing}
-        <form onsubmit={handleSubmit} class="flex flex-1 items-center gap-2">
+        <form
+          onsubmit={handleSubmit}
+          class="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2"
+        >
           <!-- svelte-ignore a11y_autofocus -->
           <input
             type="text"
             bind:value={nameInput}
             autofocus
-            class="flex-1 rounded-lg border border-slate-200 px-2 py-1 text-sm focus:ring-2 focus:ring-emerald-500/10 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:ring-white/10"
+            class="min-w-0 flex-1 basis-full rounded-lg border border-white/10 bg-slate-950/60 px-2 py-1 text-sm text-slate-100 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none sm:basis-0"
           />
           <button
             type="submit"
             disabled={mutation.isPending}
-            class="rounded-lg bg-emerald-500 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
+            class="bg-accent-gradient rounded-lg px-3 py-1 text-xs font-semibold text-slate-900 transition-transform hover:brightness-110 disabled:opacity-50"
           >
             {mutation.isPending ? m.common_saving() : m.common_save()}
           </button>
           <button
             type="button"
             onclick={() => (editing = false)}
-            class="rounded-lg border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            class="rounded-lg border border-white/10 px-3 py-1 text-xs font-medium text-slate-300 transition-colors hover:bg-white/5"
           >
             {m.common_cancel()}
           </button>
@@ -114,7 +136,7 @@
           <span class="text-sm text-slate-100">{profile.name ?? "—"}</span>
           <button
             onclick={startEdit}
-            class="p-1 text-slate-400 transition-colors hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-400"
+            class="rounded-lg p-2 text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-200"
             aria-label={m.common_edit()}
           >
             <svg
@@ -145,20 +167,41 @@
     </div>
   </div>
 
-  {#if notifPermission === "granted"}
+  {#if notifSupported}
     <div
       class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
     >
-      <div class="flex items-center justify-between gap-3 px-4 py-3">
-        <span class="text-sm font-medium text-slate-100">{m.profile_notifications_enabled()}</span>
-        <button
-          type="button"
-          onclick={() => unsubMutation.mutate()}
-          disabled={unsubMutation.isPending}
-          class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-        >
-          {unsubMutation.isPending ? m.common_saving() : m.profile_notifications_disable()}
-        </button>
+      <div
+        class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+      >
+        <span class="text-sm font-medium text-slate-100">
+          {#if notifPermission === "granted"}
+            {m.profile_notifications_enabled()}
+          {:else if notifPermission === "denied"}
+            {m.profile_notifications_blocked()}
+          {:else}
+            {m.profile_notifications_disabled()}
+          {/if}
+        </span>
+        {#if notifPermission === "granted"}
+          <button
+            type="button"
+            onclick={() => unsubMutation.mutate()}
+            disabled={unsubMutation.isPending}
+            class="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            {unsubMutation.isPending ? m.common_saving() : m.profile_notifications_disable()}
+          </button>
+        {:else if notifPermission === "default"}
+          <button
+            type="button"
+            onclick={() => subMutation.mutate()}
+            disabled={subMutation.isPending}
+            class="bg-accent-gradient shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-900 transition-transform hover:brightness-110 disabled:opacity-50"
+          >
+            {subMutation.isPending ? m.common_saving() : m.profile_notifications_enable()}
+          </button>
+        {/if}
       </div>
     </div>
   {/if}

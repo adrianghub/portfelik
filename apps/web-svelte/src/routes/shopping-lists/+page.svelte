@@ -134,6 +134,10 @@
   // Delete
   let deleteTargetId = $state<string | null>(null);
 
+  const deleteTargetArchived = $derived(
+    deleteTargetId ? archived.some((l) => l.id === deleteTargetId) : false
+  );
+
   const deleteMut = createMutation(() => ({
     mutationFn: (id: string) => deleteShoppingList(id),
     onMutate: async (id: string) => {
@@ -381,6 +385,7 @@
             {list}
             variant="archived"
             onduplicate={(id) => duplicateMut.mutate(id)}
+            ondelete={(id) => (deleteTargetId = id)}
           />
         {/each}
       {/if}
@@ -550,7 +555,9 @@
 
 <ConfirmDialog
   open={!!deleteTargetId}
-  message={m.common_confirm_delete_description()}
+  message={deleteTargetArchived
+    ? m.shopping_list_delete_archived_confirm()
+    : m.common_confirm_delete_description()}
   onconfirm={() => deleteTargetId && deleteMut.mutate(deleteTargetId)}
   onclose={() => (deleteTargetId = null)}
   pending={deleteMut.isPending}

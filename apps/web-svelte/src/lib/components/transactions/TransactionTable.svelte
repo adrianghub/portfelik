@@ -11,6 +11,7 @@
     ondelete?: (id: string) => void;
     onrowclick?: (tx: TransactionWithCategory) => void;
     emptyLabel?: string;
+    emptyHint?: string;
     selectedIds?: Set<string>;
     /** When set, the header row sticks at this CSS top offset (e.g. "top-[6.75rem]").
         Omitted inside the search palette so the header never floats over rows. */
@@ -21,6 +22,7 @@
     ondelete,
     onrowclick,
     emptyLabel,
+    emptyHint,
     selectedIds = $bindable(new Set<string>()),
     stickyHeaderOffset,
   }: Props = $props();
@@ -187,7 +189,10 @@
 {/snippet}
 
 {#if transactions.length === 0}
-  <EmptyState title={emptyLabel ?? m.transactions_empty()} body={m.transactions_empty_hint()}>
+  <EmptyState
+    title={emptyLabel ?? m.transactions_empty()}
+    body={emptyHint ?? m.transactions_empty_hint()}
+  >
     {#snippet icon()}
       <Wallet size={28} strokeWidth={1.4} />
     {/snippet}

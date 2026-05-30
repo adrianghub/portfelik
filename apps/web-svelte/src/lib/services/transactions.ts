@@ -1,6 +1,7 @@
 import { supabase } from "$lib/supabase";
 import type {
   MonthlySummary,
+  RecurrenceFrequency,
   Transaction,
   TransactionStatus,
   TransactionType,
@@ -95,6 +96,10 @@ export interface CreateTransactionInput {
   status?: Transaction["status"];
   is_recurring?: boolean;
   recurring_day?: number | null;
+  recurrence_frequency?: RecurrenceFrequency | null;
+  recurrence_interval?: number;
+  recurrence_weekday?: number | null;
+  recurrence_month?: number | null;
   shopping_list_id?: string | null;
   group_id?: string | null;
 }

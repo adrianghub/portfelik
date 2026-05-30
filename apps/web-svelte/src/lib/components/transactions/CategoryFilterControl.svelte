@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { Tag, X, Check } from "lucide-svelte";
+  import { Tag, X, Check, Search } from "lucide-svelte";
   import { MediaQuery } from "svelte/reactivity";
   import Sheet from "$lib/components/ui/Sheet.svelte";
   import * as m from "$lib/paraglide/messages";
   import type { Category } from "$lib/types";
+  import { cn } from "$lib/utils";
 
   interface Props {
     categories: Category[];
@@ -15,12 +16,20 @@
 
   const isDesktop = new MediaQuery("(min-width: 640px)");
   let open = $state(false);
+  let search = $state("");
 
   const selected = $derived(categories.find((c) => c.id === selectedId));
+
+  const filtered = $derived.by(() => {
+    const q = search.trim().toLocaleLowerCase("pl");
+    if (!q) return categories;
+    return categories.filter((c) => c.name.toLocaleLowerCase("pl").includes(q));
+  });
 
   function pick(id: string | undefined) {
     onchange(id);
     open = false;
+    search = "";
   }
 
   function clickOutside(e: MouseEvent) {
@@ -30,6 +39,20 @@
 </script>
 
 {#snippet list()}
+  <div class="relative mb-1.5">
+    <Search
+      size={14}
+      aria-hidden="true"
+      class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-slate-500"
+    />
+    <input
+      type="text"
+      bind:value={search}
+      placeholder={m.transactions_category_search()}
+      aria-label={m.transactions_category_search()}
+      class="w-full rounded-lg border border-white/10 bg-slate-900/60 py-2 pr-3 pl-8 text-sm text-slate-100 placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
+    />
+  </div>
   <ul class="max-h-72 space-y-0.5 overflow-y-auto">
     <li>
       <button
@@ -43,20 +66,35 @@
         {/if}
       </button>
     </li>
-    {#each categories as cat (cat.id)}
+    {#each filtered as cat (cat.id)}
       <li>
         <button
           type="button"
           onclick={() => pick(cat.id)}
-          class="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-slate-200 transition-colors hover:bg-white/5"
+          class="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-slate-200 transition-colors hover:bg-white/5"
         >
-          {cat.name}
+          <span class="flex min-w-0 items-center gap-2">
+            <span class="truncate">{cat.name}</span>
+            <span
+              class={cn(
+                "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                cat.type === "income"
+                  ? "bg-emerald-500/10 text-emerald-300"
+                  : "bg-rose-500/10 text-rose-300"
+              )}
+            >
+              {cat.type === "income" ? m.common_income() : m.common_expense()}
+            </span>
+          </span>
           {#if selectedId === cat.id}
-            <Check size={15} class="text-emerald-400" aria-hidden="true" />
+            <Check size={15} class="shrink-0 text-emerald-400" aria-hidden="true" />
           {/if}
         </button>
       </li>
     {/each}
+    {#if filtered.length === 0}
+      <li class="px-3 py-2 text-sm text-slate-500">{m.combobox_empty()}</li>
+    {/if}
   </ul>
 {/snippet}
 

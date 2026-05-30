@@ -14,6 +14,9 @@
     placeholder?: string;
     required?: boolean;
     disabled?: boolean;
+    /** Render the built-in label. Set false when an external label already
+        describes the field (e.g. a form using its own eyebrow labels). */
+    showLabel?: boolean;
   }
 
   const uid = $props.id();
@@ -24,6 +27,7 @@
     placeholder = m.day_picker_placeholder(),
     required = false,
     disabled = false,
+    showLabel = true,
   }: Props = $props();
 
   const isDesktop = new MediaQuery("(min-width: 640px)");
@@ -132,7 +136,9 @@
 <svelte:window onclick={clickOutside} />
 
 <div class="relative space-y-1" data-day-picker={id}>
-  <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for={id}>{label}</label>
+  {#if showLabel}
+    <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for={id}>{label}</label>
+  {/if}
   <button
     {id}
     type="button"
@@ -141,6 +147,7 @@
     }}
     aria-haspopup="dialog"
     aria-expanded={open}
+    aria-label={label}
     {disabled}
     class={cn(
       "flex w-full items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-left text-sm text-slate-100 backdrop-blur transition-colors focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50",
