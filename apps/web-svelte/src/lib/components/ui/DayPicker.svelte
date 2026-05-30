@@ -120,7 +120,7 @@
                   <Calendar.Cell {date} month={month.value} class="p-0">
                     <Calendar.Day
                       data-date={date.toString()}
-                      class="flex h-9 w-9 items-center justify-center rounded-md text-sm text-slate-300 transition-colors hover:bg-white/5 data-disabled:text-slate-700 data-disabled:opacity-40 data-outside-month:text-slate-600 data-selected:bg-emerald-400 data-selected:font-semibold data-selected:text-slate-900 data-unavailable:line-through"
+                      class="data-selected:bg-accent flex h-9 w-9 items-center justify-center rounded-md text-sm text-slate-300 transition-colors hover:bg-white/5 data-disabled:text-slate-700 data-disabled:opacity-40 data-outside-month:text-slate-600 data-selected:font-semibold data-selected:text-slate-900 data-unavailable:line-through"
                     />
                   </Calendar.Cell>
                 {/each}
@@ -150,7 +150,7 @@
     aria-label={label}
     {disabled}
     class={cn(
-      "flex w-full items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-left text-sm text-slate-100 backdrop-blur transition-colors focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50",
+      "focus:border-accent/40 focus:ring-accent/30 flex w-full items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-left text-sm text-slate-100 backdrop-blur transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50",
       !value && "text-slate-500"
     )}
   >

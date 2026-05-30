@@ -49,7 +49,7 @@
 <div class="mb-3 hidden items-center justify-end md:flex">
   <button
     onclick={openAdd}
-    class="bg-accent-gradient inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+    class="bg-accent-gradient focus-visible:ring-accent inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:outline-none"
   >
     <Plus size={15} strokeWidth={2.2} aria-hidden="true" />
     {m.category_form_title_add()}
@@ -78,9 +78,7 @@
           <span
             class={cn(
               "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-              cat.type === "income"
-                ? "bg-emerald-500/10 text-emerald-300"
-                : "bg-rose-500/10 text-rose-300"
+              cat.type === "income" ? "bg-accent/10 text-accent" : "bg-rose-500/10 text-rose-300"
             )}
           >
             {cat.type === "income" ? m.common_income() : m.common_expense()}

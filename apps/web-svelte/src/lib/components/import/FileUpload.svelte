@@ -198,7 +198,7 @@
   <label
     class={cn(
       "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors",
-      dragOver ? "border-emerald-400 bg-emerald-400/5" : "border-white/10"
+      dragOver ? "border-accent bg-accent/5" : "border-white/10"
     )}
     ondragover={(e) => {
       e.preventDefault();
@@ -236,9 +236,7 @@
   {/if}
 
   {#if detectedBankLabel && !error}
-    <p
-      class="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200"
-    >
+    <p class="border-accent/30 bg-accent/10 text-accent rounded-xl border px-4 py-3 text-sm">
       {m.bank_upload_detected({ bank: detectedBankLabel })}
     </p>
   {/if}

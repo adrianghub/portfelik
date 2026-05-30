@@ -123,7 +123,7 @@
             type="text"
             bind:value={nameInput}
             autofocus
-            class="min-w-0 flex-1 basis-full rounded-lg border border-white/10 bg-slate-950/60 px-2 py-1 text-sm text-slate-100 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none sm:basis-0"
+            class="focus:border-accent/40 focus:ring-accent/30 min-w-0 flex-1 basis-full rounded-lg border border-white/10 bg-slate-950/60 px-2 py-1 text-sm text-slate-100 focus:ring-2 focus:outline-none sm:basis-0"
           />
           <button
             type="submit"

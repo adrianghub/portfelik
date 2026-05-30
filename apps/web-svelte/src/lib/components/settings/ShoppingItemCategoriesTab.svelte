@@ -169,7 +169,7 @@
         <button
           type="button"
           onclick={openAdd}
-          class="bg-accent-gradient hidden items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none md:inline-flex"
+          class="bg-accent-gradient focus-visible:ring-accent hidden items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:outline-none md:inline-flex"
         >
           <Plus size={15} strokeWidth={2.2} aria-hidden="true" />
           {m.shopping_item_category_add()}
@@ -247,7 +247,7 @@
       bind:value={categoryName}
       required
       placeholder={m.shopping_item_category_name_placeholder()}
-      class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
+      class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:ring-2 focus:outline-none"
     />
     <div class="flex gap-2 pt-1">
       <button
@@ -260,7 +260,7 @@
       <button
         type="submit"
         disabled={saveMutation.isPending || !categoryName.trim()}
-        class="bg-accent-gradient flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:opacity-50"
+        class="bg-accent-gradient focus-visible:ring-accent flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
       >
         {saveMutation.isPending ? m.common_saving() : m.common_save()}
       </button>

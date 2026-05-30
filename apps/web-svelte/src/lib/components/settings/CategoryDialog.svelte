@@ -57,7 +57,7 @@
         type="text"
         required
         bind:value={name}
-        class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
+        class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:ring-2 focus:outline-none"
       />
     </div>
 
@@ -104,7 +104,7 @@
       <button
         type="submit"
         disabled={mutation.isPending}
-        class="flex-1 rounded-lg bg-emerald-500 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
+        class="bg-accent-gradient flex-1 rounded-lg py-2 text-sm font-medium text-slate-900 transition-transform hover:brightness-110 disabled:opacity-50"
       >
         {mutation.isPending ? m.common_saving() : m.common_save()}
       </button>

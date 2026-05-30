@@ -27,7 +27,7 @@
   }: Props = $props();
 
   const base =
-    "inline-flex items-center justify-center gap-1.5 font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:pointer-events-none disabled:opacity-50";
+    "inline-flex items-center justify-center gap-1.5 font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:pointer-events-none disabled:opacity-50";
 
   const gradientLike =
     "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] hover:brightness-110 active:scale-[0.98]";

@@ -90,7 +90,7 @@
         aria-controls="shopping-list-item-suggestions"
         aria-expanded={inputFocused && name.trim().length > 0}
         aria-autocomplete="list"
-        class="w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-emerald-400/40 focus:outline-none"
+        class="focus:border-accent/40 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none"
       />
       {#if inputFocused && name.trim().length > 0}
         <ShoppingListSuggestions
@@ -105,7 +105,7 @@
     <button
       type="submit"
       disabled={disabled || !name.trim()}
-      class="inline-flex items-center gap-1 rounded-lg border border-emerald-400/30 bg-emerald-500/15 px-3 py-2 text-sm font-medium text-emerald-200 transition-colors hover:bg-emerald-500/25 disabled:opacity-50"
+      class="border-accent/30 bg-accent/15 text-accent hover:bg-accent/25 inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50"
     >
       <Plus size={14} />
       {m.shopping_list_item_add()}
@@ -121,7 +121,7 @@
         min="0"
         inputmode="decimal"
         placeholder={m.shopping_list_item_quantity()}
-        class="w-full min-w-0 rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-emerald-400/40 focus:outline-none"
+        class="focus:border-accent/40 w-full min-w-0 rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none"
       />
       <ShoppingListUnitCombobox bind:value={unit} showLabel={false} />
     </div>

@@ -353,7 +353,7 @@
   }
 </script>
 
-<p class="text-xs text-emerald-300/80">{m.shopping_list_planning_mode_hint()}</p>
+<p class="text-accent/80 text-xs">{m.shopping_list_planning_mode_hint()}</p>
 
 <form
   onsubmit={addCategorySection}
@@ -371,7 +371,7 @@
       type="submit"
       disabled={!newSectionCategory.trim()}
       aria-label={m.shopping_list_category_section_submit()}
-      class="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg border border-emerald-400/30 bg-emerald-500/15 px-3 text-sm font-medium text-emerald-200 transition-colors hover:bg-emerald-500/25 disabled:opacity-50"
+      class="border-accent/30 bg-accent/15 text-accent hover:bg-accent/25 inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-colors disabled:opacity-50"
     >
       <Plus size={14} aria-hidden="true" />
       <span class="hidden sm:inline">{m.shopping_list_category_section_submit()}</span>
@@ -393,7 +393,7 @@
       type="search"
       bind:value={itemSearch}
       placeholder={m.shopping_list_items_search_placeholder()}
-      class="w-full rounded-lg border border-white/5 bg-slate-900/40 px-3 py-1.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-emerald-400/30 focus:ring-1 focus:ring-emerald-400/20 focus:outline-none"
+      class="focus:border-accent/30 focus:ring-accent/20 w-full rounded-lg border border-white/5 bg-slate-900/40 px-3 py-1.5 text-sm text-slate-100 placeholder:text-slate-500 focus:ring-1 focus:outline-none"
     />
   {/if}
 
@@ -515,7 +515,7 @@
   disabled={itemTotal === 0 || startingShopping}
   title={itemTotal === 0 ? m.shopping_list_requires_items() : m.shopping_list_start_shopping()}
   aria-label={m.shopping_list_start_shopping()}
-  class="mobile-floating-action fixed right-4 bottom-(--mobile-action-bottom) z-40 flex h-11 items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-4 text-sm font-medium text-emerald-200 backdrop-blur transition-colors hover:bg-emerald-500/20 hover:text-emerald-100 focus-visible:ring-2 focus-visible:ring-emerald-400/40 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-30"
+  class="mobile-floating-action border-accent/25 bg-accent/10 text-accent hover:bg-accent/20 hover:text-accent focus-visible:ring-accent/40 fixed right-4 bottom-(--mobile-action-bottom) z-40 flex h-11 items-center gap-2 rounded-full border px-4 text-sm font-medium backdrop-blur transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-30"
 >
   <Play size={16} strokeWidth={2} aria-hidden="true" />
   <span>{m.shopping_list_start_shopping()}</span>

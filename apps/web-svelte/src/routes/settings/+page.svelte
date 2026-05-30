@@ -24,12 +24,12 @@
   const activeTab = $derived(($page.url.searchParams.get("tab") ?? "categories") as Tab);
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: "personalization", label: m.settings_tab_personalization() },
     { id: "categories", label: m.settings_tab_categories() },
     { id: "shopping-item-categories", label: m.settings_tab_shopping_item_categories() },
     { id: "rules", label: m.settings_tab_rules() },
     { id: "groups", label: m.settings_tab_groups() },
     { id: "profile", label: m.settings_tab_profile() },
+    { id: "personalization", label: m.settings_tab_personalization() },
   ];
 
   let userId = $state<string | undefined>(undefined);
@@ -69,7 +69,7 @@
           tabindex={activeTab === tab.id ? 0 : -1}
           onclick={() => setTab(tab.id)}
           class={cn(
-            "shrink-0 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none md:min-w-0 md:shrink",
+            "focus-visible:ring-accent shrink-0 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:outline-none md:min-w-0 md:shrink",
             activeTab === tab.id
               ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
               : "text-slate-400 hover:text-slate-100"
@@ -86,9 +86,7 @@
   </div>
 
   <div role="tabpanel">
-    {#if activeTab === "personalization"}
-      <PersonalizationTab {profile} />
-    {:else if activeTab === "categories"}
+    {#if activeTab === "categories"}
       <CategoriesTab />
     {:else if activeTab === "shopping-item-categories"}
       <ShoppingItemCategoriesTab />
@@ -98,6 +96,8 @@
       <GroupsTab />
     {:else if activeTab === "profile"}
       <ProfileTab {profile} />
+    {:else if activeTab === "personalization"}
+      <PersonalizationTab {profile} />
     {/if}
   </div>
 </div>

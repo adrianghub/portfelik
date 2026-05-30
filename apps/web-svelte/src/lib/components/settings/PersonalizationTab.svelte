@@ -67,7 +67,7 @@
         onclick={() => choose(preset.id)}
         disabled={mutation.isPending}
         aria-pressed={active}
-        class="group relative flex items-center gap-3 rounded-2xl border bg-slate-900/60 px-3 py-3 text-left backdrop-blur transition-colors focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none disabled:opacity-60"
+        class="group focus-visible:ring-accent relative flex items-center gap-3 rounded-2xl border bg-slate-900/60 px-3 py-3 text-left backdrop-blur transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-60"
         style={active
           ? "border-color: rgba(255,255,255,0.4)"
           : "border-color: rgba(255,255,255,0.05)"}

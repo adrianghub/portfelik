@@ -89,8 +89,8 @@
       {@const label = s === "upload" ? m.bank_import_step_upload() : m.bank_import_step_review()}
       {@const pillClass = cn(
         "rounded-full border px-3 py-1 transition-colors",
-        active && "border-emerald-400 text-emerald-300",
-        completed && !active && "border-emerald-400/40 text-emerald-300/70",
+        active && "border-accent text-accent",
+        completed && !active && "border-accent/40 text-accent/70",
         !active && !completed && "border-white/10"
       )}
       <li>
@@ -99,7 +99,7 @@
                the in-progress review session. -->
           <button
             type="button"
-            class={cn(pillClass, "hover:border-emerald-400 hover:text-emerald-200")}
+            class={cn(pillClass, "hover:border-accent hover:text-accent")}
             onclick={() => void handleCancel()}
           >
             {label}

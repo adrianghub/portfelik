@@ -136,7 +136,7 @@
   }
 
   const inputClass =
-    "w-full scroll-mb-32 rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 placeholder:text-slate-500 backdrop-blur focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none";
+    "w-full scroll-mb-32 rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 placeholder:text-slate-500 backdrop-blur focus:border-accent/40 focus:ring-2 focus:ring-accent/30 focus:outline-none";
   const labelClass = "text-eyebrow block text-slate-400";
 </script>
 
@@ -328,7 +328,7 @@
         </div>
 
         <!-- Live, auditable preview -->
-        <p class="text-sm text-emerald-300/90">{recurrencePreview}</p>
+        <p class="text-accent/90 text-sm">{recurrencePreview}</p>
       </div>
     {/if}
 
@@ -347,7 +347,7 @@
       <button
         type="submit"
         disabled={mutation.isPending}
-        class="bg-accent-gradient flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:opacity-50"
+        class="bg-accent-gradient focus-visible:ring-accent flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
       >
         {mutation.isPending ? m.common_saving() : m.common_save()}
       </button>
