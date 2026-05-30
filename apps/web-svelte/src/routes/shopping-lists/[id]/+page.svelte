@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
+  import { accentConfettiColors } from "$lib/theme/accent-presets";
   import { page } from "$app/stores";
   import DoneView from "$lib/components/shopping-lists/DoneView.svelte";
   import PlanningView from "$lib/components/shopping-lists/PlanningView.svelte";
@@ -208,7 +209,7 @@
           particleCount: 100,
           spread: 75,
           origin: { y: 0.7 },
-          colors: ["#34d399", "#bef264", "#a7f3d0", "#86efac"],
+          colors: accentConfettiColors(),
         });
       } catch {
         // Confetti is decorative; ignore environment failures.
@@ -280,7 +281,7 @@
         <h1 class="truncate text-2xl font-semibold text-slate-900 dark:text-white">{list.name}</h1>
         {#if list.group_id}
           <span
-            class="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-medium tracking-wide text-emerald-300 uppercase"
+            class="border-accent/20 bg-accent/10 text-accent inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase"
             title={m.group_badge_shared()}
           >
             <Users size={11} strokeWidth={2} aria-hidden="true" />
@@ -338,7 +339,7 @@
           class={cn(
             "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium",
             isPlanning && "bg-blue-50 text-blue-700",
-            isShopping && "bg-emerald-500/15 text-emerald-200",
+            isShopping && "bg-accent/15 text-accent",
             isDone && "bg-slate-100 text-slate-500"
           )}
         >
@@ -410,7 +411,7 @@
         step="0.01"
         required={createTx}
         bind:value={completeAmount}
-        class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
+        class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:ring-2 focus:outline-none"
       />
     </div>
     <div class="space-y-1">
@@ -423,7 +424,7 @@
         id="comp-cat"
         required={createTx}
         bind:value={completeCategoryId}
-        class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
+        class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:ring-2 focus:outline-none"
       >
         <option value="">{m.transaction_form_select_category()}</option>
         {#each expenseCategories as cat (cat.id)}
@@ -445,7 +446,7 @@
       <button
         type="submit"
         disabled={completeMutation.isPending}
-        class="bg-accent-gradient flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:opacity-50"
+        class="bg-accent-gradient focus-visible:ring-accent flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
       >
         {completeMutation.isPending
           ? m.common_saving()
@@ -475,7 +476,7 @@
       <button
         type="button"
         onclick={continueCompleteDialog}
-        class="bg-accent-gradient flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+        class="bg-accent-gradient focus-visible:ring-accent flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:outline-none"
       >
         {m.shopping_list_unchecked_confirm_submit()}
       </button>
@@ -494,7 +495,7 @@
       bind:value={renameListName}
       placeholder={m.shopping_list_rename_placeholder()}
       required
-      class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
+      class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:ring-2 focus:outline-none"
     />
     <DayPicker
       id="list-date"
@@ -509,7 +510,7 @@
       <select
         id="list-share-group"
         bind:value={renameListGroupId}
-        class="w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
+        class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur focus:ring-2 focus:outline-none"
       >
         <option value={null}>{m.shopping_list_share_private()}</option>
         {#each groupsQuery.data ?? [] as group (group.id)}
@@ -528,7 +529,7 @@
       <button
         type="submit"
         disabled={renameListMutation.isPending || !renameListName.trim() || !renameListDate}
-        class="bg-accent-gradient flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:opacity-50"
+        class="bg-accent-gradient focus-visible:ring-accent flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
       >
         {renameListMutation.isPending ? m.common_saving() : m.common_save()}
       </button>

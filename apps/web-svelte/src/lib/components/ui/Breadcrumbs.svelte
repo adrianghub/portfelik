@@ -43,7 +43,7 @@
     {#if parent}
       <a
         href={parent.href}
-        class="inline-flex items-center gap-1 text-sm text-slate-400 transition-colors hover:text-slate-100 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none md:hidden"
+        class="focus-visible:ring-accent inline-flex items-center gap-1 text-sm text-slate-400 transition-colors hover:text-slate-100 focus-visible:ring-2 focus-visible:outline-none md:hidden"
       >
         <ChevronLeft size={16} aria-hidden="true" />
         {parent.label}
@@ -56,7 +56,7 @@
           {#if crumb.href}
             <a
               href={crumb.href}
-              class="text-slate-400 transition-colors hover:text-slate-100 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+              class="focus-visible:ring-accent text-slate-400 transition-colors hover:text-slate-100 focus-visible:ring-2 focus-visible:outline-none"
             >
               {crumb.label}
             </a>

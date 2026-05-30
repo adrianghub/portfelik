@@ -211,9 +211,9 @@
       <li role="option" id={optionId(createIndex)} aria-selected={createIndex === activeIndex}>
         <button
           type="button"
-          class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-emerald-200 transition-colors hover:bg-emerald-500/10 {createIndex ===
+          class="text-accent hover:bg-accent/10 flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors {createIndex ===
           activeIndex
-            ? 'bg-emerald-500/10'
+            ? 'bg-accent/10'
             : ''}"
           onclick={createCurrent}
           onmouseenter={() => (activeIndex = createIndex)}

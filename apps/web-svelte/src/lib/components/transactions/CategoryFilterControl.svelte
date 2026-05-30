@@ -51,7 +51,7 @@
       bind:value={search}
       placeholder={m.transactions_category_search()}
       aria-label={m.transactions_category_search()}
-      class="w-full rounded-lg border border-white/10 bg-slate-900/60 py-2 pr-3 pl-8 text-sm text-slate-100 placeholder:text-slate-500 focus:border-emerald-400/40 focus:ring-2 focus:ring-emerald-400/30 focus:outline-none"
+      class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-lg border border-white/10 bg-slate-900/60 py-2 pr-3 pl-8 text-sm text-slate-100 placeholder:text-slate-500 focus:ring-2 focus:outline-none"
     />
   </div>
   <ul class="max-h-72 space-y-0.5 overflow-y-auto">
@@ -63,7 +63,7 @@
       >
         {m.transactions_filter_all_categories()}
         {#if !selectedId}
-          <Check size={15} class="text-emerald-400" aria-hidden="true" />
+          <Check size={15} class="text-accent" aria-hidden="true" />
         {/if}
       </button>
     </li>
@@ -79,16 +79,14 @@
             <span
               class={cn(
                 "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
-                cat.type === "income"
-                  ? "bg-emerald-500/10 text-emerald-300"
-                  : "bg-rose-500/10 text-rose-300"
+                cat.type === "income" ? "bg-accent/10 text-accent" : "bg-rose-500/10 text-rose-300"
               )}
             >
               {cat.type === "income" ? m.common_income() : m.common_expense()}
             </span>
           </span>
           {#if selectedId === cat.id}
-            <Check size={15} class="shrink-0 text-emerald-400" aria-hidden="true" />
+            <Check size={15} class="text-accent shrink-0" aria-hidden="true" />
           {/if}
         </button>
       </li>
@@ -104,7 +102,7 @@
 <div class="relative shrink-0" data-category-filter>
   {#if selected}
     <div
-      class="flex h-9 items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-500/10 pr-1 pl-3 text-sm text-emerald-200"
+      class="border-accent/30 bg-accent/10 text-accent flex h-9 items-center gap-1 rounded-full border pr-1 pl-3 text-sm"
     >
       <button
         type="button"
@@ -119,7 +117,7 @@
       <button
         type="button"
         onclick={() => pick(undefined)}
-        class="rounded-full p-1 text-emerald-200/80 transition-colors hover:bg-emerald-500/20 hover:text-emerald-100"
+        class="text-accent/80 hover:bg-accent/20 hover:text-accent rounded-full p-1 transition-colors"
         aria-label={m.transactions_category_clear()}
       >
         <X size={14} strokeWidth={2} aria-hidden="true" />
@@ -129,7 +127,7 @@
     <button
       type="button"
       onclick={() => (open = !open)}
-      class="flex h-9 items-center gap-1.5 rounded-full border border-white/10 bg-slate-900/60 px-3.5 text-sm font-medium text-slate-300 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+      class="focus-visible:ring-accent flex h-9 items-center gap-1.5 rounded-full border border-white/10 bg-slate-900/60 px-3.5 text-sm font-medium text-slate-300 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
       aria-haspopup="dialog"
       aria-expanded={open}
     >

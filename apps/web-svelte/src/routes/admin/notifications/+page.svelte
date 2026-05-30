@@ -92,7 +92,7 @@
     <a
       href="/admin/notifications"
       aria-current="page"
-      class="-mb-px border-b-2 border-emerald-400 px-3 py-2 text-sm font-medium text-slate-100"
+      class="border-accent -mb-px border-b-2 px-3 py-2 text-sm font-medium text-slate-100"
     >
       {m.admin_tab_diagnostics()}
     </a>
@@ -121,7 +121,7 @@
           type="button"
           onclick={() => triggerSummaryMutation.mutate()}
           disabled={triggerSummaryMutation.isPending}
-          class="bg-accent-gradient rounded-full px-3.5 py-1.5 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none disabled:opacity-50"
+          class="bg-accent-gradient focus-visible:ring-accent rounded-full px-3.5 py-1.5 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
         >
           {triggerSummaryMutation.isPending
             ? m.admin_trigger_summary_sending()

@@ -596,11 +596,11 @@
       {#each ruleSuggestions as suggestion (suggestion.key)}
         <button
           type="button"
-          class="min-w-72 rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-3 py-2 text-left shadow-[0_0_24px_rgba(16,185,129,0.06)] transition-colors hover:bg-emerald-500/15 disabled:opacity-60"
+          class="border-accent/25 bg-accent/10 hover:bg-accent/15 min-w-72 rounded-xl border px-3 py-2 text-left shadow-[0_0_24px_rgba(16,185,129,0.06)] transition-colors disabled:opacity-60"
           disabled={ruleSaving}
           onclick={() => void saveSuggestion(suggestion)}
         >
-          <span class="block text-xs text-emerald-200">
+          <span class="text-accent block text-xs">
             {m.bank_review_rule_suggestion_intro({
               text: suggestion.text,
               count: suggestion.count,
@@ -624,7 +624,7 @@
         class={cn(
           "rounded-full border px-3 py-1 text-xs transition-colors",
           filter === f.kind
-            ? "border-emerald-400 bg-emerald-500/10 text-emerald-300"
+            ? "border-accent bg-accent/10 text-accent"
             : "border-white/10 text-slate-400 hover:bg-white/5"
         )}
         onclick={() => (filter = f.kind)}
@@ -664,7 +664,7 @@
               tabindex={focusedRowId === row.id || (focusedRowId === null && idx === 0) ? 0 : -1}
               onfocus={() => (focusedRowId = row.id)}
               onkeydown={handleTableKeydown}
-              class="focus:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50"
+              class="focus-visible:ring-accent/50 focus:bg-white/5 focus:outline-none focus-visible:ring-2"
             >
               <td class="px-3 py-2 align-top whitespace-nowrap text-slate-300">{row.posted_at}</td>
               <td
@@ -734,7 +734,7 @@
                   {#if r}
                     <button
                       type="button"
-                      class="mt-1 inline-flex max-w-full items-center truncate rounded-md text-xs text-emerald-300/80 hover:text-emerald-200 hover:underline"
+                      class="text-accent/80 hover:text-accent mt-1 inline-flex max-w-full items-center truncate rounded-md text-xs hover:underline"
                       title={m.bank_review_row_rule_attribution_title()}
                       onclick={() => openRuleInSettings(r.id)}
                     >
@@ -761,7 +761,7 @@
                 <label class="inline-flex cursor-pointer items-center gap-2">
                   <input
                     type="checkbox"
-                    class="h-4 w-4 rounded border-white/20 bg-slate-900 text-emerald-400 focus:ring-emerald-400/40"
+                    class="text-accent focus:ring-accent/40 h-4 w-4 rounded border-white/20 bg-slate-900"
                     checked={row.decision !== "skip"}
                     onchange={(e) => void toggleImport(row, (e.target as HTMLInputElement).checked)}
                     aria-label={m.bank_review_import_aria_label({
@@ -862,7 +862,7 @@
                 {#if r}
                   <button
                     type="button"
-                    class="truncate text-left text-xs text-emerald-300/80 hover:text-emerald-200 hover:underline"
+                    class="text-accent/80 hover:text-accent truncate text-left text-xs hover:underline"
                     title={m.bank_review_row_rule_attribution_title()}
                     onclick={() => openRuleInSettings(r.id)}
                   >
@@ -880,7 +880,7 @@
               <span>{m.bank_review_import_header_label()}</span>
               <input
                 type="checkbox"
-                class="h-4 w-4 rounded border-white/20 bg-slate-900 text-emerald-400 focus:ring-emerald-400/40"
+                class="text-accent focus:ring-accent/40 h-4 w-4 rounded border-white/20 bg-slate-900"
                 checked={row.decision !== "skip"}
                 onchange={(e) => void toggleImport(row, (e.target as HTMLInputElement).checked)}
                 aria-label={m.bank_review_import_aria_label({

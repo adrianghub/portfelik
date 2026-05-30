@@ -202,7 +202,7 @@
         aria-selected={period === chip.value}
         onclick={() => (period = chip.value)}
         class={cn(
-          "rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none",
+          "focus-visible:ring-accent rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
           period === chip.value
             ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
             : "border border-white/5 text-slate-300 hover:bg-white/5"
@@ -241,7 +241,7 @@
     <!-- Income -->
     <a
       href={transactionsHref({ type: "income" })}
-      class="relative block overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+      class="focus-visible:ring-accent relative block overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
     >
       <p class="text-eyebrow text-slate-400">{m.summary_income()}</p>
       {#if summary}
@@ -273,7 +273,7 @@
     <!-- Expenses -->
     <a
       href={transactionsHref({ type: "expense" })}
-      class="relative block overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+      class="focus-visible:ring-accent relative block overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
     >
       <p class="text-eyebrow text-slate-400">{m.summary_expenses()}</p>
       {#if summary}
@@ -305,7 +305,7 @@
     <!-- Savings ratio -->
     <a
       href={transactionsHref()}
-      class="relative col-span-2 block overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none sm:col-span-1"
+      class="focus-visible:ring-accent relative col-span-2 block overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none sm:col-span-1"
     >
       <p class="text-eyebrow text-slate-400">{m.summary_savings_ratio()}</p>
       {#if summary}
@@ -351,7 +351,7 @@
       {#if upcomingTxs.length > 0}
         <a
           href={transactionsHref({ status: "upcoming,overdue" })}
-          class="text-xs font-medium text-emerald-300 hover:text-emerald-200"
+          class="text-accent hover:text-accent text-xs font-medium"
         >
           {m.dashboard_upcoming_see_all()}
         </a>

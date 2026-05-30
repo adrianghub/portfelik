@@ -476,7 +476,7 @@
     <div class="flex shrink-0 items-center gap-2">
       <button
         onclick={openAdd}
-        class="bg-accent-gradient hidden h-9 items-center gap-1.5 rounded-full px-4 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none md:inline-flex"
+        class="bg-accent-gradient focus-visible:ring-accent hidden h-9 items-center gap-1.5 rounded-full px-4 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:outline-none md:inline-flex"
       >
         + {m.transaction_add()}
       </button>
@@ -492,8 +492,8 @@
       <button
         type="button"
         onclick={toggleSearch}
-        class="relative hidden h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none md:flex {searchModalOpen
-          ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-200'
+        class="focus-visible:ring-accent relative hidden h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors focus-visible:ring-2 focus-visible:outline-none md:flex {searchModalOpen
+          ? 'border-accent/40 bg-accent/15 text-accent'
           : 'border-white/10 bg-slate-900/60 text-slate-300 hover:bg-white/5'}"
         aria-label={searchModalOpen ? m.transactions_search_close() : m.transactions_search_open()}
         aria-pressed={searchModalOpen}
@@ -529,13 +529,13 @@
     <div class="flex flex-wrap gap-2">
       {#each activeFilters as f (f.key)}
         <span
-          class="flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-500/10 py-1 pr-1 pl-3 text-xs font-medium text-emerald-200"
+          class="border-accent/30 bg-accent/10 text-accent flex items-center gap-1 rounded-full border py-1 pr-1 pl-3 text-xs font-medium"
         >
           {f.label}
           <button
             type="button"
             onclick={f.clear}
-            class="rounded-full p-0.5 text-emerald-200/80 transition-colors hover:bg-emerald-500/20 hover:text-emerald-100"
+            class="text-accent/80 hover:bg-accent/20 hover:text-accent rounded-full p-0.5 transition-colors"
             aria-label={m.transactions_filter_clear()}
           >
             <X size={12} strokeWidth={2} aria-hidden="true" />
@@ -553,7 +553,7 @@
         aria-selected={groupFilter === "all"}
         onclick={() => (groupFilter = "all")}
         class={cn(
-          "rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none",
+          "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
           groupFilter === "all"
             ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
             : "border border-white/5 text-slate-300 hover:bg-white/5"
@@ -567,7 +567,7 @@
         aria-selected={groupFilter === "own"}
         onclick={() => (groupFilter = "own")}
         class={cn(
-          "rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none",
+          "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
           groupFilter === "own"
             ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
             : "border border-white/5 text-slate-300 hover:bg-white/5"
@@ -582,7 +582,7 @@
           aria-selected={groupFilter === g.id}
           onclick={() => (groupFilter = g.id)}
           class={cn(
-            "rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none",
+            "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
             groupFilter === g.id
               ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
               : "border border-white/5 text-slate-300 hover:bg-white/5"
@@ -653,7 +653,7 @@
   aria-label={searchModalOpen ? m.transactions_search_close() : m.transactions_search_open()}
   aria-pressed={searchModalOpen}
   class="mobile-floating-action fixed bottom-(--mobile-action-bottom) left-4 z-40 flex h-14 w-14 items-center justify-center rounded-full border shadow-[0_0_24px_rgba(15,23,42,0.55)] transition-all active:scale-95 md:hidden {searchModalOpen
-    ? 'border-emerald-400/40 bg-emerald-500/20 text-emerald-200'
+    ? 'border-accent/40 bg-accent/20 text-accent'
     : 'border-white/10 bg-slate-900/90 text-slate-100'}"
 >
   <Search size={23} strokeWidth={2.1} aria-hidden="true" />
