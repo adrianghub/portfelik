@@ -208,7 +208,7 @@
         </div>
       </div>
     {/if}
-    <main class="min-h-screen bg-slate-950 pt-14 pb-24 md:pb-6">
+    <main class="mobile-page-bottom min-h-screen bg-slate-950 pt-14 md:pb-6">
       <Breadcrumbs />
       {#key page.url.pathname}
         <div in:fade={{ duration: motionDuration(140) }}>

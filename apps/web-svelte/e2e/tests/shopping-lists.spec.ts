@@ -244,6 +244,16 @@ async function waitForToastsToSettle(page: Page) {
   await expect(page.locator("[data-sonner-toast]")).toHaveCount(0, { timeout: 7_000 });
 }
 
+async function addPlanningCategory(page: Page, category: string) {
+  await page.locator("#new-shopping-list-section").fill(category);
+  await page.getByRole("button", { name: "Dodaj kategorię" }).click();
+}
+
+async function addPlanningItem(page: Page, name: string) {
+  await page.getByPlaceholder("Nazwa elementu").last().fill(name);
+  await page.getByRole("button", { name: "Dodaj element" }).last().click();
+}
+
 test.beforeEach(async ({ page }) => {
   await injectFakeSession(page);
   await setupShoppingListFlowMock(page);
@@ -259,20 +269,23 @@ test("shopping lists follow planning, shopping, archived, duplicate, and upcomin
     await page.getByRole("button", { name: "Nowa lista zakupów" }).click();
     await page.locator("#sl-name").fill("Zakupy na dziś");
     await expect(page.locator("#sl-planned")).toContainText(displayDate(isoDate()));
+    const createResp = page.waitForResponse(
+      (r) => r.url().includes("/shopping_lists") && r.request().method() === "POST"
+    );
     await page.getByRole("button", { name: "Zapisz" }).click();
+    await createResp;
 
-    await expect(page.getByRole("heading", { name: "Na dziś" })).toBeVisible();
     await expect(page.locator('a[href="/shopping-lists/list-1"]')).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Na dziś" })).toBeVisible();
     await page.locator('a[href="/shopping-lists/list-1"]').click();
     await expect(page).toHaveURL(/\/shopping-lists\/list-1$/);
     await expect(page.getByText("Planowanie")).toBeVisible();
   });
 
   await test.step("add items in planning without checkboxes", async () => {
-    await page.getByRole("combobox").first().fill("Mleko");
-    await page.getByRole("button", { name: "Dodaj element" }).first().click();
-    await page.getByRole("combobox").first().fill("Chleb");
-    await page.getByRole("button", { name: "Dodaj element" }).first().click();
+    await addPlanningCategory(page, "Nabiał");
+    await addPlanningItem(page, "Mleko");
+    await addPlanningItem(page, "Chleb");
 
     await expect(page.getByText("Mleko").first()).toBeVisible();
     await expect(page.getByText("Chleb").first()).toBeVisible();
@@ -332,10 +345,14 @@ test("shopping lists follow planning, shopping, archived, duplicate, and upcomin
     await page.locator("#sl-name").fill("Zakupy jutro");
     await page.locator("#sl-planned").click();
     await page.locator(`[data-date="${isoDate(1)}"]`).click();
+    const createResp = page.waitForResponse(
+      (r) => r.url().includes("/shopping_lists") && r.request().method() === "POST"
+    );
     await page.getByRole("button", { name: "Zapisz" }).click();
+    await createResp;
 
-    await expect(page.getByRole("heading", { name: "Nadchodzące" })).toBeVisible();
     await expect(page.locator('a[href="/shopping-lists/list-3"]')).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Nadchodzące" })).toBeVisible();
     await page.locator('a[href="/shopping-lists/list-3"]').click();
     await expect(page.getByText("Planowanie")).toBeVisible();
     await expect(page.getByRole("button", { name: "Zacznij zakupy" })).toBeVisible();

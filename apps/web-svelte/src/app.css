@@ -47,15 +47,20 @@
   html {
     scroll-behavior: smooth;
     color-scheme: dark;
+    /* Distance from viewport bottom to FAB / sticky action controls. */
     --mobile-action-bottom: calc(6rem + env(safe-area-inset-bottom));
+    /* Scrollable page padding — shrinks when the pill nav hides on scroll. */
+    --mobile-page-bottom: calc(6rem + env(safe-area-inset-bottom));
   }
 
   html.mobile-nav-hidden {
     --mobile-action-bottom: calc(1rem + env(safe-area-inset-bottom));
+    --mobile-page-bottom: calc(5rem + env(safe-area-inset-bottom));
   }
 
   html.mobile-overlay-open {
     --mobile-action-bottom: calc(1rem + env(safe-area-inset-bottom));
+    --mobile-page-bottom: calc(5rem + env(safe-area-inset-bottom));
   }
 
   body {
@@ -67,7 +72,7 @@
   input,
   select,
   textarea {
-    scroll-margin-bottom: 5rem;
+    scroll-margin-bottom: var(--mobile-page-bottom);
   }
 
   /* Accent-tinted scrollbars (global). Firefox via scrollbar-color; WebKit/Blink
@@ -191,6 +196,17 @@
       color var(--duration-fast) ease-out;
   }
 
+  .mobile-page-bottom {
+    padding-bottom: var(--mobile-page-bottom);
+    transition: padding-bottom var(--duration-base) var(--ease-out-expo);
+  }
+
+  @media (min-width: 768px) {
+    .mobile-page-bottom {
+      padding-bottom: 1.5rem;
+    }
+  }
+
   html.mobile-overlay-open .mobile-floating-action {
     pointer-events: none;
     opacity: 0;
@@ -198,7 +214,7 @@
   }
 
   html.mobile-overlay-open .mobile-bottom-nav {
-    transform: translateY(100%);
+    transform: translateY(100%) !important;
   }
 }
 
