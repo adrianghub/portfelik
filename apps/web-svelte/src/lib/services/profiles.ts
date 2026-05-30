@@ -1,10 +1,12 @@
 import { supabase } from "$lib/supabase";
-import type { Profile } from "$lib/types";
+import type { Profile, ProfileSettings } from "$lib/types";
+
+const PROFILE_COLUMNS = "id, email, name, role, settings, created_at, updated_at";
 
 export async function fetchProfile(userId: string): Promise<Profile> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, email, name, role, created_at, updated_at")
+    .select(PROFILE_COLUMNS)
     .eq("id", userId)
     .single();
 
@@ -14,13 +16,13 @@ export async function fetchProfile(userId: string): Promise<Profile> {
 
 export async function updateProfile(
   userId: string,
-  updates: Partial<{ name: string }>
+  updates: Partial<{ name: string; settings: ProfileSettings }>
 ): Promise<Profile> {
   const { data, error } = await supabase
     .from("profiles")
     .update(updates)
     .eq("id", userId)
-    .select("id, email, name, role, created_at, updated_at")
+    .select(PROFILE_COLUMNS)
     .single();
 
   if (error) throw error;
