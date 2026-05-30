@@ -36,19 +36,22 @@ Living record of pre-MVP polish for Portfelik (excluding `/dashboard`). Compleme
 - Category FAB + dark mobile list; FK delete toast
 - Offline banner below header on mobile
 - SW push deep links to `/transactions?txId=…`
+- **Final polish:** own-only category reads (no group-shared duplicates), push UI reflects subscription + opt-out, settings tabs fill width on desktop, planning mode category-first entry
 
 ## Verification checklist
 
 - [x] Shopping list kebab → edit/delete on mobile
 - [x] Notifications Sheet on mobile
 - [x] Settings tabs reachable; profile edit + push toggle
-- [x] Push disable persists after re-login
+- [x] Push disable persists after re-login (UI reflects opt-out on refresh)
 - [x] Month label / locative empty state
 - [x] Recurring frequency UI + detail summary
 - [x] DoneView honest when tx skipped; add-tx recovery
 - [x] No attach-to-list UI
 - [x] Filter-aware transaction empty states
 - [x] Category in-use delete toast
+- [x] No duplicate categories in settings/filter (group members)
+- [x] Planning mode: category → products (single entry card)
 
 ## Deferred (post-MVP)
 
@@ -66,5 +69,6 @@ Migrations to promote with this bundle (if not already on staging/prod):
 - `20260604000000_complete_list_optional_tx.sql`
 - `20260605000000_categories_per_user.sql`
 - `20260606000000_recurring_frequency.sql`
+- `20260607000000_categories_own_only.sql`
 
 After deploy: run `pnpm exec paraglide-js compile`, full gates, targeted E2E on shopping-lists + transactions.

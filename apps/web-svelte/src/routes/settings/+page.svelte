@@ -51,7 +51,7 @@
     <div
       role="tablist"
       aria-label={m.settings_title()}
-      class="no-accent-scrollbar flex gap-1 overflow-x-auto rounded-full border border-white/5 bg-slate-900/60 p-1 backdrop-blur"
+      class="no-accent-scrollbar flex w-full gap-1 overflow-x-auto rounded-full border border-white/5 bg-slate-900/60 p-1 backdrop-blur md:grid md:grid-cols-5 md:overflow-visible"
     >
       {#each tabs as tab (tab.id)}
         <button
@@ -61,7 +61,7 @@
           tabindex={activeTab === tab.id ? 0 : -1}
           onclick={() => setTab(tab.id)}
           class={cn(
-            "shrink-0 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none md:flex-1",
+            "shrink-0 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none md:min-w-0 md:shrink",
             activeTab === tab.id
               ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
               : "text-slate-400 hover:text-slate-100"

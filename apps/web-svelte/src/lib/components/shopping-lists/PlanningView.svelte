@@ -355,21 +355,6 @@
 
 <p class="text-xs text-emerald-300/80">{m.shopping_list_planning_mode_hint()}</p>
 
-{#if draftCategories.size === 0}
-  <div class="rounded-2xl border border-white/5 bg-slate-900/50 p-3">
-    <ShoppingListItemQuickAdd
-      disabled={addItemMutation.isPending}
-      onsubmit={({ name, quantity, unit, category }) =>
-        addItemMutation.mutate({
-          name,
-          quantity,
-          unit,
-          category,
-        })}
-    />
-  </div>
-{/if}
-
 <form
   onsubmit={addCategorySection}
   class="space-y-2 rounded-2xl border border-white/5 bg-slate-900/50 p-3"
@@ -385,6 +370,7 @@
     <button
       type="submit"
       disabled={!newSectionCategory.trim()}
+      aria-label={m.shopping_list_category_section_submit()}
       class="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg border border-emerald-400/30 bg-emerald-500/15 px-3 text-sm font-medium text-emerald-200 transition-colors hover:bg-emerald-500/25 disabled:opacity-50"
     >
       <Plus size={14} aria-hidden="true" />
@@ -393,7 +379,7 @@
   </div>
 </form>
 
-{#if itemTotal === 0 && grouped.length === 0}
+{#if itemTotal === 0 && grouped.length === 0 && draftCategories.size === 0}
   <EmptyState title={m.shopping_list_items_empty()} body={m.shopping_list_items_empty_hint()}>
     {#snippet icon()}
       <ListPlus size={28} strokeWidth={1.4} />

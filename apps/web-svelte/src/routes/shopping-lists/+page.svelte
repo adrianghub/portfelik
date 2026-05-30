@@ -4,8 +4,7 @@
   import DayPicker from "$lib/components/ui/DayPicker.svelte";
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import Fab from "$lib/components/ui/Fab.svelte";
-  import EmptyState from "$lib/components/ui/EmptyState.svelte";
-  import { Plus, ShoppingBasket } from "lucide-svelte";
+  import { Plus } from "lucide-svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchUserGroups } from "$lib/services/groups";
   import { fetchCategories } from "$lib/services/categories";
@@ -53,6 +52,7 @@
   const upcoming = $derived(filteredLists.filter((l) => l.bucket === "upcoming"));
   const active = $derived(filteredLists.filter((l) => l.bucket === "active"));
   const archived = $derived(filteredLists.filter((l) => l.bucket === "archived"));
+  const hasAnyLists = $derived((query.data?.length ?? 0) > 0);
 
   function todayIsoLocal(): string {
     const now = new Date();
@@ -269,13 +269,13 @@
     </div>
   {:else if query.isError}
     <p class="text-sm text-rose-600">{m.common_error_title()}</p>
-  {:else if (query.data?.length ?? 0) === 0}
-    <EmptyState title={m.shopping_lists_empty()} body={m.shopping_lists_empty_hint()}>
-      {#snippet icon()}
-        <ShoppingBasket size={28} strokeWidth={1.4} />
-      {/snippet}
-    </EmptyState>
   {:else}
+    {#if !hasAnyLists}
+      <p class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-500">
+        {m.shopping_lists_empty_hint()}
+      </p>
+    {/if}
+
     {#if groupsQuery.data && groupsQuery.data.length > 0}
       <div role="tablist" aria-label="Grupa" class="flex flex-wrap gap-1">
         <button

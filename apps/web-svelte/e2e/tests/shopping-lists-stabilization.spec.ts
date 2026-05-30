@@ -210,8 +210,8 @@ async function seedItemHistory(
 }
 
 async function addShoppingCategorySection(page: Page, category = "Warzywa") {
-  await page.getByPlaceholder("Warzywa, Nabiał, Chemia...").fill(category);
-  await page.getByRole("button", { name: "Dodaj sekcję" }).click();
+  await page.locator("#new-shopping-list-section").fill(category);
+  await page.getByRole("button", { name: "Dodaj kategorię" }).click();
   await expect(
     page.getByRole("button", { name: `Pokaż lub ukryj kategorię ${category}` })
   ).toBeVisible();
