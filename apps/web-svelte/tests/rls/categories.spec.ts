@@ -69,4 +69,29 @@ describe("RLS: categories", () => {
     const result = await ctx.userA.client.from("categories").delete().eq("id", catBId).select();
     expectBlockedWrite(result);
   });
+
+  describe("group membership does not share categories", () => {
+    beforeAll(async () => {
+      const { data: groupData, error: groupErr } = await ctx.userA.client.rpc("create_group", {
+        p_name: `${SENTINEL} cat group`,
+      });
+      if (groupErr || !groupData) throw groupErr ?? new Error("no group");
+      const groupId = (groupData as { id: string }).id;
+
+      const memberInsert = await ctx.admin.from("group_members").insert({
+        group_id: groupId,
+        user_id: ctx.userB.userId,
+      });
+      if (memberInsert.error) throw memberInsert.error;
+    });
+
+    it("user A in a shared group still cannot see user B's category", async () => {
+      const { data, error } = await ctx.userA.client
+        .from("categories")
+        .select("id")
+        .eq("id", catBId);
+      expect(error).toBeNull();
+      expect(data?.length).toBe(0);
+    });
+  });
 });
