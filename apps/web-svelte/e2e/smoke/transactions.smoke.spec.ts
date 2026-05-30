@@ -9,12 +9,12 @@ import {
 } from './helpers/real-auth';
 
 let session: SmokeSession;
-let categoryId: string;
+const categoryName = `${SMOKE_SENTINEL} cat`;
 
 test.beforeAll(async () => {
   session = await signInRealUser();
   await cleanupSmokeData(session);
-  categoryId = await seedSmokeCategory(session);
+  await seedSmokeCategory(session);
 });
 
 test.afterAll(async () => {
@@ -41,13 +41,15 @@ test('login + create + read + delete transaction against real Supabase', async (
   await page.locator('#tx-amount').fill('1.23');
   await page.locator('#tx-desc').fill(description);
 
-  // Wait for the seeded category to appear in the select before picking it —
-  // categories load via TanStack Query on page mount, may not be ready yet.
-  const categorySelect = page.locator('#tx-cat');
-  await expect(categorySelect.locator(`option[value="${categoryId}"]`)).toBeAttached({
+  // Category is a searchable combobox (not a native select). Wait for the
+  // seeded category to load via TanStack Query, then pick it from the listbox.
+  const categoryInput = page.locator('#tx-cat');
+  await categoryInput.click();
+  await categoryInput.fill(categoryName);
+  await expect(page.getByRole('option', { name: categoryName })).toBeVisible({
     timeout: 10000,
   });
-  await categorySelect.selectOption(categoryId);
+  await page.getByRole('option', { name: categoryName }).click();
 
   await page.getByRole('button', { name: 'Zapisz' }).click();
 
