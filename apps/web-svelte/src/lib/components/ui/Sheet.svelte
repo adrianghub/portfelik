@@ -11,6 +11,7 @@
   import type { Snippet } from "svelte";
   import { X } from "lucide-svelte";
   import { fade, fly } from "svelte/transition";
+  import { cubicOut } from "svelte/easing";
   import { motionDuration } from "$lib/motion";
 
   interface Props {
@@ -25,6 +26,14 @@
   }
 
   let { open, onclose, title, labelledBy, flush = false, children }: Props = $props();
+
+  const DISMISS_DRAG_PX = 96;
+
+  let dragY = $state(0);
+  let dragging = $state(false);
+  let dragStartY = 0;
+
+  const backdropOpacity = $derived(Math.max(0.15, 0.6 - dragY / 420));
 
   function onbackdrop(e: MouseEvent) {
     if (e.target === e.currentTarget) onclose();
@@ -43,6 +52,43 @@
     };
   }
 
+  function onHandlePointerDown(e: PointerEvent) {
+    dragging = true;
+    dragStartY = e.clientY;
+    dragY = 0;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }
+
+  function onHandlePointerMove(e: PointerEvent) {
+    if (!dragging) return;
+    dragY = Math.max(0, e.clientY - dragStartY);
+  }
+
+  function finishDrag() {
+    if (!dragging) return;
+    dragging = false;
+    if (dragY > DISMISS_DRAG_PX) {
+      dragY = 0;
+      onclose();
+      return;
+    }
+    dragY = 0;
+  }
+
+  function onHandlePointerUp(e: PointerEvent) {
+    finishDrag();
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      /* pointer already released */
+    }
+  }
+
+  function onHandlePointerCancel() {
+    dragging = false;
+    dragY = 0;
+  }
+
   $effect(() => {
     if (!open || typeof document === "undefined") return;
     openSheetCount += 1;
@@ -52,6 +98,12 @@
       syncMobileOverlayClass();
     };
   });
+
+  $effect(() => {
+    if (open) return;
+    dragging = false;
+    dragY = 0;
+  });
 </script>
 
 <svelte:window {onkeydown} />
@@ -59,30 +111,40 @@
 {#if open}
   <div
     use:portal
-    class="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/60 backdrop-blur-sm"
+    class="sheet-backdrop fixed inset-0 z-[100] flex items-end justify-center backdrop-blur-sm"
+    class:sheet-backdrop--dragging={dragging}
+    style:background-color={`rgb(2 6 23 / ${backdropOpacity})`}
     role="presentation"
     onclick={onbackdrop}
     onkeydown={null}
-    transition:fade={{ duration: motionDuration(140) }}
+    transition:fade={{ duration: motionDuration(180), easing: cubicOut }}
   >
     <div
-      class="flex max-h-[min(90dvh,100%)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-white/5 bg-slate-900/95 shadow-[0_-12px_40px_rgba(0,0,0,0.4)] backdrop-blur"
+      class="sheet-panel flex max-h-[min(90dvh,100%)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-white/5 bg-slate-900/95 shadow-[0_-12px_40px_rgba(0,0,0,0.4)] backdrop-blur"
+      class:sheet-panel--dragging={dragging}
+      style:transform={dragY > 0 ? `translateY(${dragY}px)` : undefined}
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? "sheet-title" : labelledBy}
-      transition:fly={{ y: "100%", duration: motionDuration(220), opacity: 1 }}
+      tabindex="-1"
+      transition:fly={{ y: "100%", duration: motionDuration(320), easing: cubicOut, opacity: 1 }}
     >
-      <div class="flex shrink-0 justify-center pt-3 pb-1">
-        <button
-          type="button"
-          onclick={onclose}
-          class="group -my-2 rounded-full px-8 py-3 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
-          aria-label="Zamknij"
-        >
+      <div
+        class="flex shrink-0 touch-none justify-center pt-3 pb-1 select-none"
+        role="presentation"
+        aria-hidden="true"
+        onpointerdown={onHandlePointerDown}
+        onpointermove={onHandlePointerMove}
+        onpointerup={onHandlePointerUp}
+        onpointercancel={onHandlePointerCancel}
+      >
+        <div class="rounded-full px-8 py-3" role="presentation" aria-hidden="true">
           <span
-            class="block h-1 w-10 rounded-full bg-white/20 transition-all group-hover:w-12 group-hover:bg-white/35 group-active:translate-y-1 group-active:bg-white/45"
+            class="block h-1 rounded-full bg-white/20 transition-[width,background-color,transform] duration-150 {dragging
+              ? 'w-12 bg-white/35'
+              : 'w-10'}"
           ></span>
-        </button>
+        </div>
       </div>
 
       {#if title}

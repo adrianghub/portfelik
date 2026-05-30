@@ -155,8 +155,7 @@
   onclick={onDuplicate}
   disabled={duplicating}
   aria-label={m.shopping_list_archived_duplicate()}
-  class="fixed right-4 z-40 flex h-11 items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-4 text-sm font-medium text-emerald-200 backdrop-blur transition-colors hover:bg-emerald-500/20 hover:text-emerald-100 focus-visible:ring-2 focus-visible:ring-emerald-400/40 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-30"
-  style="bottom: calc(5.75rem + env(safe-area-inset-bottom));"
+  class="mobile-floating-action fixed right-4 bottom-(--mobile-action-bottom) z-40 flex h-11 items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-4 text-sm font-medium text-emerald-200 backdrop-blur transition-colors hover:bg-emerald-500/20 hover:text-emerald-100 focus-visible:ring-2 focus-visible:ring-emerald-400/40 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-30"
 >
   <Copy size={16} strokeWidth={2} aria-hidden="true" />
   <span>{m.shopping_list_archived_duplicate()}</span>
