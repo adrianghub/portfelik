@@ -22,9 +22,17 @@
   }
   let { profile, user }: Props = $props();
 
+  // Mobile bottom nav keeps Panel (dashboard) centered.
   const navItems = [
     { href: "/transactions", label: m.nav_transactions(), icon: Wallet },
     { href: "/dashboard", label: m.nav_dashboard(), icon: LayoutDashboard },
+    { href: "/shopping-lists", label: m.nav_shopping_lists(), icon: ShoppingBasket },
+  ];
+
+  // Desktop top bar leads with Panel (dashboard).
+  const desktopNavItems = [
+    { href: "/dashboard", label: m.nav_dashboard(), icon: LayoutDashboard },
+    { href: "/transactions", label: m.nav_transactions(), icon: Wallet },
     { href: "/shopping-lists", label: m.nav_shopping_lists(), icon: ShoppingBasket },
   ];
 
@@ -101,7 +109,7 @@
   >
 
   <nav aria-label={m.nav_main()} class="flex items-center gap-1">
-    {#each navItems as item (item.href)}
+    {#each desktopNavItems as item (item.href)}
       {@const Icon = item.icon}
       {@const active = isActive(item.href)}
       <a

@@ -109,9 +109,12 @@ if [ $DRY -eq 1 ]; then
 fi
 
 git push -q -u origin "$BRANCH"
-if gh pr view "$BRANCH" >/dev/null 2>&1; then
+# Only an OPEN PR counts as existing — `gh pr view` also matches MERGED/CLOSED PRs
+# for the branch, which would make us edit+reprint a dead PR instead of opening one.
+EXISTING_PR="$(gh pr list --head "$BRANCH" --state open --json url -q '.[0].url')"
+if [ -n "$EXISTING_PR" ]; then
   gh pr edit "$BRANCH" --body "$BODY"
-  gh pr view "$BRANCH" --json url -q .url
+  echo "$EXISTING_PR"
 else
-  gh pr create --base "$BASE" --head "$BRANCH" --title "$TITLE" --body "$BODY"
+  gh pr create --draft --base "$BASE" --head "$BRANCH" --title "$TITLE" --body "$BODY"
 fi

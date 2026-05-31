@@ -14,7 +14,7 @@
   const ACCENT_LABELS: Record<AccentPresetId, () => string> = {
     green: m.accent_green,
     blue: m.accent_blue,
-    red: m.accent_red,
+    amber: m.accent_amber,
     pink: m.accent_pink,
     purple: m.accent_purple,
     orange: m.accent_orange,

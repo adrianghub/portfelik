@@ -9,7 +9,7 @@
 // dark `text-slate-900` foreground on accent surfaces stays legible — no
 // component edits needed.
 
-export type AccentPresetId = "green" | "blue" | "red" | "pink" | "purple" | "orange";
+export type AccentPresetId = "green" | "blue" | "amber" | "pink" | "purple" | "orange";
 
 export interface AccentPreset {
   id: AccentPresetId;
@@ -27,7 +27,14 @@ export const ACCENT_PRESETS: AccentPreset[] = [
     to: "oklch(0.92 0.18 122)",
   },
   { id: "blue", labelKey: "accent_blue", from: "oklch(0.72 0.16 250)", to: "oklch(0.86 0.14 220)" },
-  { id: "red", labelKey: "accent_red", from: "oklch(0.7 0.19 25)", to: "oklch(0.84 0.16 40)" },
+  // Amber/yellow. Hue ~100-110 keeps it clearly yellow (vs orange's 60-85) and
+  // far from rose destructive actions (hue ~25), the reason red was retired.
+  {
+    id: "amber",
+    labelKey: "accent_amber",
+    from: "oklch(0.85 0.16 100)",
+    to: "oklch(0.93 0.15 110)",
+  },
   { id: "pink", labelKey: "accent_pink", from: "oklch(0.74 0.19 350)", to: "oklch(0.87 0.15 330)" },
   {
     id: "purple",
