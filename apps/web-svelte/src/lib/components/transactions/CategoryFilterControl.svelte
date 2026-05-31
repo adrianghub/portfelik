@@ -23,7 +23,7 @@
   const filtered = $derived.by(() => {
     const q = search.trim().toLocaleLowerCase("pl");
     if (!q) return categories;
-    return categories.filter((c) => c.name.toLocaleLowerCase("pl").includes(q));
+    return categories.filter((c) => c.name.toLocaleLowerCase("pl").startsWith(q));
   });
 
   function pick(id: string | undefined) {

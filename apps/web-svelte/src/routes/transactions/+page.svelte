@@ -100,20 +100,45 @@
     const [y, mo, d] = iso.split("-").map(Number);
     return `${d} ${shortMonth(mo)}${withYear ? ` ${y}` : ""}`;
   }
+  const thisMonthYear = now.getFullYear();
+  const thisMonthNum = now.getMonth() + 1;
+  // Full-month label, prefixed with the "Ten miesiąc" preset name when it is the
+  // current calendar month so the default/unfiltered view is unmistakable.
+  function labelForFullMonth(year: number, month: number): string {
+    const base = monthYearLabel(year, month);
+    return year === thisMonthYear && month === thisMonthNum
+      ? `${m.transactions_date_preset_this_month()} · ${base}`
+      : base;
+  }
+  // True when the active range covers exactly the current calendar month
+  // (including the default no-params view).
+  const isCurrentMonth = $derived.by(() => {
+    if (explicitStartDate && explicitEndDate) {
+      const fm = fullMonthOf(explicitStartDate, explicitEndDate);
+      return !!fm && fm.year === thisMonthYear && fm.month === thisMonthNum;
+    }
+    return (
+      startYear === endYear &&
+      startMonth === endMonth &&
+      startYear === thisMonthYear &&
+      startMonth === thisMonthNum
+    );
+  });
+
   const dateLabel = $derived.by(() => {
     if (explicitStartDate && explicitEndDate) {
       const [sy, sm, sd] = explicitStartDate.split("-").map(Number);
       const [ey, em] = explicitEndDate.split("-").map(Number);
       if (explicitStartDate === explicitEndDate) return compactDay(explicitStartDate, true);
       const fm = fullMonthOf(explicitStartDate, explicitEndDate);
-      if (fm) return monthYearLabel(fm.year, fm.month);
+      if (fm) return labelForFullMonth(fm.year, fm.month);
       if (sy === ey && sm === em) return `${sd}–${compactDay(explicitEndDate, true)}`;
       if (sy === ey)
         return `${compactDay(explicitStartDate, false)} – ${compactDay(explicitEndDate, true)}`;
       return `${compactDay(explicitStartDate, true)} – ${compactDay(explicitEndDate, true)}`;
     }
     return startYear === endYear && startMonth === endMonth
-      ? monthYearLabel(startYear, startMonth)
+      ? labelForFullMonth(startYear, startMonth)
       : `${monthYearLabel(startYear, startMonth)} – ${monthYearLabel(endYear, endMonth)}`;
   });
 
@@ -347,6 +372,13 @@
     const p = new URLSearchParams($page.url.searchParams);
     p.delete("type");
     p.delete("status");
+    p.delete("categoryId");
+    p.delete("startDate");
+    p.delete("endDate");
+    p.delete("startYear");
+    p.delete("startMonth");
+    p.delete("endYear");
+    p.delete("endMonth");
     goto(`/transactions?${p.toString()}`, { replaceState: false });
   }
 
@@ -521,6 +553,7 @@
         ontypechange={onTypeChange}
         onstatuschange={onStatusChange}
         onclear={onClearFilters}
+        canClear={Boolean(typeFilter || statusFilter || categoryId || !isCurrentMonth)}
       />
     </div>
   {/if}

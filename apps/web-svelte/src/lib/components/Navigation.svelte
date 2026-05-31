@@ -23,8 +23,8 @@
   let { profile, user }: Props = $props();
 
   const navItems = [
-    { href: "/dashboard", label: m.nav_dashboard(), icon: LayoutDashboard },
     { href: "/transactions", label: m.nav_transactions(), icon: Wallet },
+    { href: "/dashboard", label: m.nav_dashboard(), icon: LayoutDashboard },
     { href: "/shopping-lists", label: m.nav_shopping_lists(), icon: ShoppingBasket },
   ];
 
