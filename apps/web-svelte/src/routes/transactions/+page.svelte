@@ -110,21 +110,6 @@
       ? `${m.transactions_date_preset_this_month()} · ${base}`
       : base;
   }
-  // True when the active range covers exactly the current calendar month
-  // (including the default no-params view).
-  const isCurrentMonth = $derived.by(() => {
-    if (explicitStartDate && explicitEndDate) {
-      const fm = fullMonthOf(explicitStartDate, explicitEndDate);
-      return !!fm && fm.year === thisMonthYear && fm.month === thisMonthNum;
-    }
-    return (
-      startYear === endYear &&
-      startMonth === endMonth &&
-      startYear === thisMonthYear &&
-      startMonth === thisMonthNum
-    );
-  });
-
   const dateLabel = $derived.by(() => {
     if (explicitStartDate && explicitEndDate) {
       const [sy, sm, sd] = explicitStartDate.split("-").map(Number);
@@ -372,13 +357,6 @@
     const p = new URLSearchParams($page.url.searchParams);
     p.delete("type");
     p.delete("status");
-    p.delete("categoryId");
-    p.delete("startDate");
-    p.delete("endDate");
-    p.delete("startYear");
-    p.delete("startMonth");
-    p.delete("endYear");
-    p.delete("endMonth");
     goto(`/transactions?${p.toString()}`, { replaceState: false });
   }
 
@@ -553,7 +531,6 @@
         ontypechange={onTypeChange}
         onstatuschange={onStatusChange}
         onclear={onClearFilters}
-        canClear={Boolean(typeFilter || statusFilter || categoryId || !isCurrentMonth)}
       />
     </div>
   {/if}
