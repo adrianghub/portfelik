@@ -82,6 +82,7 @@
     weekdayFormat="short"
     weekStartsOn={1}
     fixedWeeks
+    disableDaysOutsideMonth={false}
     calendarLabel={label}
   >
     {#snippet children({ months, weekdays })}

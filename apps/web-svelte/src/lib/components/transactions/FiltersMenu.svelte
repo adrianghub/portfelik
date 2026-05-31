@@ -10,9 +10,10 @@
     ontypechange: (type: "income" | "expense" | undefined) => void;
     onstatuschange: (status: string | undefined) => void;
     onclear: () => void;
+    canClear: boolean;
   }
 
-  let { type, status, ontypechange, onstatuschange, onclear }: Props = $props();
+  let { type, status, ontypechange, onstatuschange, onclear, canClear }: Props = $props();
 
   const isDesktop = new MediaQuery("(min-width: 640px)");
   let open = $state(false);
@@ -78,7 +79,7 @@
       </div>
     </div>
 
-    {#if activeCount > 0}
+    {#if canClear}
       <button
         type="button"
         onclick={onclear}
