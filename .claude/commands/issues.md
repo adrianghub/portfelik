@@ -1,7 +1,7 @@
 ---
 description: Work through one or more GitHub issues with clarifying questions and Socratic discussion before implementing.
 argument-hint: <issue-url-or-number> [more urls/numbers...]
-allowed-tools: Bash(gh:*), Bash(git:*)
+allowed-tools: Bash, Read, Edit, Write, Glob, Grep, AskUserQuestion, Skill, Task
 ---
 
 # Work GitHub Issues
