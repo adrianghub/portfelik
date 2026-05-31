@@ -100,15 +100,8 @@
     const [y, mo, d] = iso.split("-").map(Number);
     return `${d} ${shortMonth(mo)}${withYear ? ` ${y}` : ""}`;
   }
-  const thisMonthYear = now.getFullYear();
-  const thisMonthNum = now.getMonth() + 1;
-  // Full-month label, prefixed with the "Ten miesiąc" preset name when it is the
-  // current calendar month so the default/unfiltered view is unmistakable.
   function labelForFullMonth(year: number, month: number): string {
-    const base = monthYearLabel(year, month);
-    return year === thisMonthYear && month === thisMonthNum
-      ? `${m.transactions_date_preset_this_month()} · ${base}`
-      : base;
+    return monthYearLabel(year, month);
   }
   const dateLabel = $derived.by(() => {
     if (explicitStartDate && explicitEndDate) {
@@ -496,42 +489,48 @@
 
   <!-- Sticky filter bar: date + category visible, type/status behind Filtry -->
   {#if categoriesQuery.data && selectedIds.size === 0}
-    <div
-      class="sticky top-14 z-30 -mx-4 flex items-center gap-2 overflow-x-auto border-b border-white/5 bg-slate-950 px-4 py-2 sm:overflow-x-visible"
-    >
-      <button
-        type="button"
-        onclick={toggleSearch}
-        class="focus-visible:ring-accent relative hidden h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors focus-visible:ring-2 focus-visible:outline-none md:flex {searchModalOpen
-          ? 'border-accent/40 bg-accent/15 text-accent'
-          : 'border-white/10 bg-slate-900/60 text-slate-300 hover:bg-white/5'}"
-        aria-label={searchModalOpen ? m.transactions_search_close() : m.transactions_search_open()}
-        aria-pressed={searchModalOpen}
-      >
-        <Search size={15} strokeWidth={1.8} aria-hidden="true" />
-        {#if searchQuery}
-          <span class="bg-accent-gradient absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full"
-          ></span>
-        {/if}
-      </button>
-      <DateRangePicker
-        label={dateLabel}
-        startDate={explicitStartDate}
-        endDate={explicitEndDate}
-        onchange={onApplyDateRange}
-      />
-      <CategoryFilterControl
-        categories={filterCategories}
-        selectedId={categoryId}
-        onchange={onCategoryChange}
-      />
-      <FiltersMenu
-        type={typeFilter}
-        status={statusFilter}
-        ontypechange={onTypeChange}
-        onstatuschange={onStatusChange}
-        onclear={onClearFilters}
-      />
+    <div class="sticky top-14 z-30 -mx-4 border-b border-white/5 bg-slate-950">
+      <div class="flex items-center gap-2 overflow-x-auto px-4 py-2 sm:overflow-x-visible">
+        <button
+          type="button"
+          onclick={toggleSearch}
+          class="focus-visible:ring-accent relative hidden h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors focus-visible:ring-2 focus-visible:outline-none md:flex {searchModalOpen
+            ? 'border-accent/40 bg-accent/15 text-accent'
+            : 'border-white/10 bg-slate-900/60 text-slate-300 hover:bg-white/5'}"
+          aria-label={searchModalOpen
+            ? m.transactions_search_close()
+            : m.transactions_search_open()}
+          aria-pressed={searchModalOpen}
+        >
+          <Search size={15} strokeWidth={1.8} aria-hidden="true" />
+          {#if searchQuery}
+            <span class="bg-accent-gradient absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full"
+            ></span>
+          {/if}
+        </button>
+        <DateRangePicker
+          label={dateLabel}
+          startDate={explicitStartDate}
+          endDate={explicitEndDate}
+          onchange={onApplyDateRange}
+        />
+        <CategoryFilterControl
+          categories={filterCategories}
+          selectedId={categoryId}
+          onchange={onCategoryChange}
+        />
+        <FiltersMenu
+          type={typeFilter}
+          status={statusFilter}
+          ontypechange={onTypeChange}
+          onstatuschange={onStatusChange}
+          onclear={onClearFilters}
+        />
+      </div>
+      <div
+        class="pointer-events-none absolute inset-y-0 right-0 w-12 bg-linear-to-l from-slate-950 to-transparent sm:hidden"
+        aria-hidden="true"
+      ></div>
     </div>
   {/if}
 
