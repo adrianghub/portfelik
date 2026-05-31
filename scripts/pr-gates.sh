@@ -57,8 +57,11 @@ else
 fi
 
 # --- secret scan over changed, existing files ---
-# Regex built by concatenation so this scanner does not match its own definition.
-SECRET_RE='(eyJ[a-zA-Z0-9_-]{20,}|sb''_secret_|PRI''VATE|password[[:space:]]*=)'
+# Match secret VALUES, not variable names: JWTs, Supabase secret keys, PEM
+# private-key blocks, and hardcoded quoted password literals. Sensitive tokens are
+# split (PRI''VATE, sb''_secret_) so this scanner never matches its own definition.
+Q="\"'"
+SECRET_RE='(eyJ[A-Za-z0-9_-]{30,}|sb''_secret_[A-Za-z0-9]|-----BEGIN [A-Z ]*PRI''VATE KEY-----|password[[:space:]]*=[[:space:]]*['"$Q"'][^'"$Q"'[:space:]]+)'
 : > /tmp/pr-secret.log
 secret_hit=0
 if [ -n "$CHANGED" ]; then
