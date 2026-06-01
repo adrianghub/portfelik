@@ -2,7 +2,7 @@
   import * as m from "$lib/paraglide/messages";
   import { onMount } from "svelte";
   import FileUpload from "$lib/components/import/FileUpload.svelte";
-  import ReviewTable from "$lib/components/import/ReviewTable.svelte";
+  import ImportReviewFlow from "$lib/components/import/ImportReviewFlow.svelte";
   import Button from "$lib/components/ui/Button.svelte";
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import {
@@ -16,7 +16,7 @@
   import { toast } from "svelte-sonner";
   import { cn, transactionsUrlForRange } from "$lib/utils";
 
-  // Wizard state machine — bank kind is detected from the CSV, never picked
+  // Wizard state machine - bank kind is detected from the CSV, never picked
   // by the user. State machine: upload → review. On commit we redirect straight
   // to the transactions list filtered to the imported period (no "done" step).
 
@@ -66,7 +66,7 @@
       return;
     }
     if (step !== "review" || !activeSession) return;
-    // Full page unload (tab close) can't host a custom dialog — let it pass.
+    // Full page unload (tab close) can't host a custom dialog - let it pass.
     if (!nav.to) return;
     nav.cancel();
     pendingHref = nav.to.url.href;
@@ -80,7 +80,7 @@
   }
 
   function saveDraftAndLeave(): void {
-    // Keep the session in 'preview' — nothing to persist, just navigate away.
+    // Keep the session in 'preview' - nothing to persist, just navigate away.
     leaveTo(pendingHref);
   }
 
@@ -90,7 +90,7 @@
       try {
         await cancelImportSession(activeSession.id);
       } catch {
-        // ignore — session already cancelled or gone
+        // ignore - session already cancelled or gone
       }
     }
     activeSession = null;
@@ -149,7 +149,7 @@
     try {
       await cancelImportSession(activeSession.id);
     } catch {
-      // ignore — session already cancelled or gone
+      // ignore - session already cancelled or gone
     }
     resetToUpload();
   }
@@ -231,7 +231,7 @@
         onFileRetained={(f) => (retainedFile = f)}
       />
     {:else if step === "review" && activeSession}
-      <ReviewTable
+      <ImportReviewFlow
         session={activeSession}
         parseErrorCount={activeParseErrorCount}
         onCommitted={handleCommitted}
@@ -243,7 +243,7 @@
 
 <Dialog open={leaveDialogOpen} onclose={stayOnPage} title={m.bank_import_leave_title()}>
   <div class="space-y-4">
-    <p class="text-sm text-slate-300">{m.bank_import_leave_body()}</p>
+    <p class="text-sm text-slate-300">{m.bank_import_leave_body_stepper()}</p>
     <div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
       <Button variant="ghost" onclick={stayOnPage}>{m.bank_import_leave_stay()}</Button>
       <Button variant="danger" onclick={() => void discardDraftAndLeave()}>

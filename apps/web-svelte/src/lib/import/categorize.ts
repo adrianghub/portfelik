@@ -7,13 +7,13 @@
 // Matching contract:
 //   * Rules are tried in priority order (DESC); first match wins.
 //   * A matched rule only applies if its target category's type equals the
-//     row's type — a rule must never assign an income category to an expense.
+//     row's type - a rule must never assign an income category to an expense.
 //   * Text comparison is trimmed + case-insensitive.
 //   * Rule kinds (mirrors the categorization_rules CHECK constraint):
-//       exact     — description OR counterparty equals the rule's text
-//       contains  — description OR counterparty contains the rule's text
-//       type      — row type equals match_type
-//       composite — row type equals match_type AND a text (contains) match
+//       exact     - description OR counterparty equals the rule's text
+//       contains  - description OR counterparty contains the rule's text
+//       type      - row type equals match_type
+//       composite - row type equals match_type AND a text (contains) match
 //   For exact/contains, a rule may set match_description, match_counterparty,
 //   or both; the row matches if ANY set field matches.
 
@@ -106,7 +106,7 @@ export function matchRule(rule: CategorizationRule, row: MatchableRow): boolean 
 
 /**
  * Resolve the category a set of rules would assign to `row`, or null.
- * `rules` need not be pre-sorted — this sorts by priority DESC (ties broken by
+ * `rules` need not be pre-sorted - this sorts by priority DESC (ties broken by
  * stable order) defensively.
  */
 export function matchCategory(

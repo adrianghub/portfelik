@@ -1,4 +1,4 @@
--- Phase 12 — connect existing transaction to a shopping list.
+-- Phase 12 - connect existing transaction to a shopping list.
 --
 -- Today: completing a list creates a new transaction. With the bank-CSV
 -- import feature coming, users will often already have a transaction

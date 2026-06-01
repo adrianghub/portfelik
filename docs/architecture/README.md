@@ -1,4 +1,4 @@
-# Portfelik — Architecture
+# Portfelik - Architecture
 
 Portfelik is a personal-finance PWA. This directory is the canonical reference for how the system is built **today**. It complements `MIGRATION_PLAN.md` (which is the historical record of *how we got here*) and `CLAUDE.md` (which tracks live work).
 
@@ -8,16 +8,16 @@ Last reviewed: **2026-05-09** ([audit report](./audit-2026-05-09.md)).
 
 If you are new to the project (or a new Claude session needs to cold-start), read in this order:
 
-1. **[`overview.md`](./overview.md)** — system context, containers, components, tech stack, cross-cutting patterns.
-2. **[`database.md`](./database.md)** — tables, ER diagram, RLS strategy, RPCs, triggers, migration timeline.
-3. **[`flows/`](./flows/)** — end-to-end sequence diagrams for the critical user journeys:
-   - [`auth.md`](./flows/auth.md) — Google OAuth and JWT role propagation
-   - [`transaction-crud.md`](./flows/transaction-crud.md) — create/update/delete + summary computation
-   - [`shopping-list-complete.md`](./flows/shopping-list-complete.md) — complete-list-to-transaction RPC
-   - [`notifications-push.md`](./flows/notifications-push.md) — DB trigger → Edge Function → VAPID push
-   - [`recurring-transactions.md`](./flows/recurring-transactions.md) — pg_cron monthly materialization
-4. **[`env-workflow.md`](./env-workflow.md)** — local → staging → prod plumbing: what each tier deploys, what DB each one targets, how migrations propagate.
-5. **[`adr/`](./adr/)** — architecture decision records explaining *why* the system looks the way it does.
+1. **[`overview.md`](./overview.md)** - system context, containers, components, tech stack, cross-cutting patterns.
+2. **[`database.md`](./database.md)** - tables, ER diagram, RLS strategy, RPCs, triggers, migration timeline.
+3. **[`flows/`](./flows/)** - end-to-end sequence diagrams for the critical user journeys:
+   - [`auth.md`](./flows/auth.md) - Google OAuth and JWT role propagation
+   - [`transaction-crud.md`](./flows/transaction-crud.md) - create/update/delete + summary computation
+   - [`shopping-list-complete.md`](./flows/shopping-list-complete.md) - complete-list-to-transaction RPC
+   - [`notifications-push.md`](./flows/notifications-push.md) - DB trigger → Edge Function → VAPID push
+   - [`recurring-transactions.md`](./flows/recurring-transactions.md) - pg_cron monthly materialization
+4. **[`env-workflow.md`](./env-workflow.md)** - local → staging → prod plumbing: what each tier deploys, what DB each one targets, how migrations propagate.
+5. **[`adr/`](./adr/)** - architecture decision records explaining *why* the system looks the way it does.
 
 All diagrams are written in **Mermaid** and render natively on GitHub.
 

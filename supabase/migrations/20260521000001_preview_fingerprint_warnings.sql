@@ -1,4 +1,4 @@
--- Phase 12+: bank CSV import — pre-commit probable-duplicate scan (Step 5).
+-- Phase 12+: bank CSV import - pre-commit probable-duplicate scan (Step 5).
 --
 -- Spec requires the review UI to surface "probable duplicate" warnings
 -- BEFORE commit so the user can choose "Import anyway" vs "Mark as duplicate".

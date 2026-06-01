@@ -20,7 +20,7 @@
     title?: string;
     /** id of an external element that labels the dialog when `title` is omitted. */
     labelledBy?: string;
-    /** Skip body padding — for panels that bring their own full-bleed header/list chrome. */
+    /** Skip body padding - for panels that bring their own full-bleed header/list chrome. */
     flush?: boolean;
     children: Snippet;
   }

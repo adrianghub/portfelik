@@ -56,7 +56,7 @@ The attach RPC remains in the database for a possible future advanced flow. Do n
 
 If implemented later, the RPC keeps the same domain guards: the list must contain at least one item, the transaction must be an expense without an existing `shopping_list_id`, and list/transaction sharing scopes must match.
 
-## Caveat — isolation level
+## Caveat - isolation level
 
 The RPC runs at the default Postgres isolation (READ COMMITTED). Two simultaneous completions of the same list would both succeed: the second one would mark a `completed` list `completed` again and create a second transaction. There is no explicit row lock or status check inside the RPC. Risk is negligible in practice (single user, slow UI), but it is a real edge case and is recorded in the audit.
 
@@ -64,4 +64,4 @@ See [audit](../audit-2026-05-09.md) for the open quality items.
 
 ## Related: duplicate
 
-`duplicate_shopping_list(p_list_id)` is the sibling RPC. Unlike `complete_shopping_list` it is **SECURITY INVOKER** — it relies on the caller's RLS so a user can only duplicate lists they can already see. Adds a single row to `shopping_lists` plus copies of all `shopping_list_items`, then resets `status='active'` and clears `total_amount`.
+`duplicate_shopping_list(p_list_id)` is the sibling RPC. Unlike `complete_shopping_list` it is **SECURITY INVOKER** - it relies on the caller's RLS so a user can only duplicate lists they can already see. Adds a single row to `shopping_lists` plus copies of all `shopping_list_items`, then resets `status='active'` and clears `total_amount`.

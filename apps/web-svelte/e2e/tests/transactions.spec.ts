@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 import { TEST_USER_ID } from "../helpers/fixtures";
 import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
 
-// Desktop table locator helper — use this for all desktop-table assertions.
+// Desktop table locator helper - use this for all desktop-table assertions.
 // Both mobile cards (sm:hidden) and desktop table (hidden sm:block) are in the DOM at 1280px.
 // getByText() matches both, causing strict-mode violations; scope to the desktop table instead.
 const desktopTable = (page: Page) => page.locator("table");
@@ -65,7 +65,7 @@ test("closing the palette clears the search query", async ({ page }) => {
   await palette.getByRole("button", { name: "Zamknij wyszukiwanie" }).click();
   await expect(palette).toBeHidden();
 
-  // Reopen: query is reset and the full list is back — no silent filter.
+  // Reopen: query is reset and the full list is back - no silent filter.
   await toggle.click();
   await expect(palette.getByPlaceholder("Szukaj transakcji…")).toHaveValue("");
   await expect(palette.locator("table").getByText("Zakupy spożywcze")).toBeVisible();
@@ -241,6 +241,6 @@ test("bulk delete: confirm and show success toast", async ({ page }) => {
   // Confirm
   await page.getByRole("alertdialog").getByRole("button", { name: "Usuń" }).click();
 
-  // Success toast — message: "Usunięto 2 transakcji"
+  // Success toast - message: "Usunięto 2 transakcji"
   await expect(page.getByText(/Usunięto 2 transakcji/)).toBeVisible();
 });

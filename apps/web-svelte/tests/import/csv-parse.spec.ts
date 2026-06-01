@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseCsv, tokenizeRow } from "$lib/import/csv/parse";
 
-describe("csv/parse — tokenizer", () => {
+describe("csv/parse - tokenizer", () => {
   it("splits on `;` when more semicolons than commas", () => {
     const csv = parseCsv("a;b;c\n1;2;3\n");
     expect(csv.separator).toBe(";");

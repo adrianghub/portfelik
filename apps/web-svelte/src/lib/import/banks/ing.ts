@@ -1,17 +1,17 @@
-// ING Bank Śląski CSV adapter — based on the "Historia rachunku" export.
+// ING Bank Śląski CSV adapter - based on the "Historia rachunku" export.
 //
 // Documented columns (Polish headers; layout shifts year-to-year):
-//   "Data transakcji" — operation date
-//   "Data księgowania" — booking date
-//   "Dane kontrahenta" — counterparty
-//   "Tytuł" — description
-//   "Nr rachunku" — counterparty account
-//   "Nazwa banku" — bank name
-//   "Szczegóły" — details
-//   "Nr transakcji" — bank's operation id (becomes external_id)
-//   "Kwota transakcji (waluta rachunku)" — signed amount in account currency
-//     (some exports split into "Kwota debetu" / "Kwota kredytu" — handle both)
-//   "Waluta" — currency
+//   "Data transakcji" - operation date
+//   "Data księgowania" - booking date
+//   "Dane kontrahenta" - counterparty
+//   "Tytuł" - description
+//   "Nr rachunku" - counterparty account
+//   "Nazwa banku" - bank name
+//   "Szczegóły" - details
+//   "Nr transakcji" - bank's operation id (becomes external_id)
+//   "Kwota transakcji (waluta rachunku)" - signed amount in account currency
+//     (some exports split into "Kwota debetu" / "Kwota kredytu" - handle both)
+//   "Waluta" - currency
 //
 // Sign convention: either signed Kwota column OR separate debit/credit
 //   columns. Both supported.
@@ -172,7 +172,7 @@ export const ingAdapter: BankAdapter = {
       const titleRaw = idx.title !== -1 ? (cells[idx.title] ?? "") : "";
       const detailsRaw = idx.details !== -1 ? (cells[idx.details] ?? "") : "";
       const description =
-        collapseWs([titleRaw, detailsRaw].filter(Boolean).join(" — ")) || "(brak opisu)";
+        collapseWs([titleRaw, detailsRaw].filter(Boolean).join(" - ")) || "(brak opisu)";
 
       const counterparty = idx.counterparty !== -1 ? collapseWs(cells[idx.counterparty] ?? "") : "";
       const external_id = idx.external !== -1 ? (cells[idx.external] ?? "").trim() : "";

@@ -65,7 +65,7 @@ describe("RLS: bank_accounts", () => {
     void result;
   });
 
-  it("DELETE not granted to authenticated — row survives the attempt", async () => {
+  it("DELETE not granted to authenticated - row survives the attempt", async () => {
     // PostgREST returns 204 (no error, no data) when DELETE privilege is
     // absent, so we verify via the admin client that the row still exists.
     await ctx.userA.client.from("bank_accounts").delete().eq("id", accountAId);
@@ -87,7 +87,7 @@ describe("RLS: bank_accounts", () => {
     expect(archive.error).toBeNull();
     expect(archive.data?.[0]?.archived_at).toBeTruthy();
 
-    // Insert a fresh active row of the same kind — should succeed since
+    // Insert a fresh active row of the same kind - should succeed since
     // the original is now archived.
     const result = await ctx.userA.client
       .from("bank_accounts")

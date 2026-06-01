@@ -2,7 +2,7 @@
 --
 -- The review flow now lets the user mark a row for import without picking a
 -- category. Such rows fall back to the caller's own "Inne wydatki" (expense) /
--- "Inne przychody" (income) default category — seeded per user by
+-- "Inne przychody" (income) default category - seeded per user by
 -- seed_default_categories() and editable later from the transactions screen.
 --
 -- Change vs 20260607000000:

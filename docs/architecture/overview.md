@@ -14,7 +14,7 @@ flowchart LR
         pages[Cloudflare Pages<br/>portfelik.adrianzinko.com<br/>dev.portfelik.pages.dev]
     end
 
-    subgraph sb[Supabase Cloud — EU]
+    subgraph sb[Supabase Cloud - EU]
         pg[(Postgres<br/>+ pg_cron<br/>+ pg_net<br/>+ Vault)]
         auth[GoTrue Auth]
         rest[PostgREST]
@@ -88,7 +88,7 @@ flowchart TB
 | **Edge Functions** | Three Deno workers: `send-push` (VAPID fan-out on every notification insert), `send-admin-summary` (weekly aggregate), `sync-user-role` (mirrors `profiles.role` into JWT claim). |
 | **Vault**          | Stores `internal_trigger_secret` so DB triggers can authenticate to Edge Functions (Bearer-token auth).                                                                           |
 
-## 3. SvelteKit SPA — component view
+## 3. SvelteKit SPA - component view
 
 ```mermaid
 flowchart LR
@@ -103,7 +103,7 @@ flowchart LR
         admin_n[/admin/notifications/]
     end
 
-    subgraph services[Services — src/lib/services]
+    subgraph services[Services - src/lib/services]
         s_tx[transactions.ts]
         s_cat[categories.ts]
         s_grp[groups.ts]
@@ -129,23 +129,23 @@ flowchart LR
 
 ### Routes
 
-`src/routes/` is flat — no nested layouts beyond the root. Auth gating happens in `+layout.svelte` (`onMount` → `supabase.auth.getSession()` → redirect to `/login` if no session and not on a public path). There are **no `+server.ts` files** — the adapter is static, so there is no server-side runtime.
+`src/routes/` is flat - no nested layouts beyond the root. Auth gating happens in `+layout.svelte` (`onMount` → `supabase.auth.getSession()` → redirect to `/login` if no session and not on a public path). There are **no `+server.ts` files** - the adapter is static, so there is no server-side runtime.
 
 ### Services layer
 
 Every external mutation goes through `src/lib/services/*.ts`. Patterns:
 
-- **Reads** — direct PostgREST calls (`supabase.from(...).select(...)`). Pagination implemented in `fetchTransactions` (1000-row page size, while-loop accumulator).
-- **Writes** — direct PostgREST inserts/updates/deletes for owner-managed tables. `user_id` always passed explicitly from `supabase.auth.getUser()` because RLS does not auto-fill it.
-- **Group/invitation mutations** — `supabase.rpc(...)` to a SECURITY DEFINER function. Direct table writes are blocked by `using (false)` policies.
-- **Shopping list completion** — `complete_shopping_list(p_list_id, p_total_amount, p_category_id)` RPC; atomically marks list complete _and_ creates the linked expense transaction.
-- **Shopping list attach** — `attach_shopping_list_to_transaction(p_list_id, p_tx_id)` RPC; transaction detail is the entry point for linking an already-recorded eligible expense to a non-empty visible list with matching sharing scope.
+- **Reads** - direct PostgREST calls (`supabase.from(...).select(...)`). Pagination implemented in `fetchTransactions` (1000-row page size, while-loop accumulator).
+- **Writes** - direct PostgREST inserts/updates/deletes for owner-managed tables. `user_id` always passed explicitly from `supabase.auth.getUser()` because RLS does not auto-fill it.
+- **Group/invitation mutations** - `supabase.rpc(...)` to a SECURITY DEFINER function. Direct table writes are blocked by `using (false)` policies.
+- **Shopping list completion** - `complete_shopping_list(p_list_id, p_total_amount, p_category_id)` RPC; atomically marks list complete _and_ creates the linked expense transaction.
+- **Shopping list attach** - `attach_shopping_list_to_transaction(p_list_id, p_tx_id)` RPC; transaction detail is the entry point for linking an already-recorded eligible expense to a non-empty visible list with matching sharing scope.
 
 ### State management
 
-- **Reactivity** — Svelte 5 runes only (`$state`, `$derived`, `$effect`). No Svelte stores.
-- **Server cache** — TanStack Query v6 (`createQuery`, `createMutation`). Note: `createMutation` returns a plain reactive object, **not** a store; `mutation.mutate(...)`, `mutation.isPending` direct access only — never `$mutation.xxx`.
-- **Auth session** — sourced from `supabase.auth.getSession()` plus `onAuthStateChange()` listener in root layout. No global store; state is plumbed via component props and re-fetched profile.
+- **Reactivity** - Svelte 5 runes only (`$state`, `$derived`, `$effect`). No Svelte stores.
+- **Server cache** - TanStack Query v6 (`createQuery`, `createMutation`). Note: `createMutation` returns a plain reactive object, **not** a store; `mutation.mutate(...)`, `mutation.isPending` direct access only - never `$mutation.xxx`.
+- **Auth session** - sourced from `supabase.auth.getSession()` plus `onAuthStateChange()` listener in root layout. No global store; state is plumbed via component props and re-fetched profile.
 
 ### TanStack Query conventions
 
@@ -182,13 +182,13 @@ After a mutation, the calling component invalidates only the keys it knows it ch
 | UI primitives | shadcn-svelte + bits-ui        | latest  | 1:1 port from legacy shadcn/ui               |
 | Styling       | Tailwind v4                    | 4.x     | Direct port from legacy                      |
 | i18n          | Paraglide v2                   | 2.x     | Compile-time, Polish only                    |
-| Auth client   | `@supabase/supabase-js` (base) | v2      | **Not** `@supabase/ssr` — adapter is static  |
+| Auth client   | `@supabase/supabase-js` (base) | v2      | **Not** `@supabase/ssr` - adapter is static  |
 | Push          | Web Push API (VAPID)           | native  | Replaces Firebase Messaging                  |
-| Backend       | Supabase Cloud (EU)            | —       | Postgres 17, pg_cron, pg_net, Vault          |
-| Edge runtime  | Deno (Supabase Edge Functions) | —       | `web-push`, `@supabase/supabase-js` via npm: |
-| Frontend host | Cloudflare Pages               | —       | Static deploy, prod + staging branches       |
+| Backend       | Supabase Cloud (EU)            | -       | Postgres 17, pg_cron, pg_net, Vault          |
+| Edge runtime  | Deno (Supabase Edge Functions) | -       | `web-push`, `@supabase/supabase-js` via npm: |
+| Frontend host | Cloudflare Pages               | -       | Static deploy, prod + staging branches       |
 | E2E tests     | Playwright                     | latest  | Mocked suite + real-DB smoke suite           |
-| CI/CD         | GitHub Actions                 | —       | Typecheck → lint → e2e → deploy → smoke      |
+| CI/CD         | GitHub Actions                 | -       | Typecheck → lint → e2e → deploy → smoke      |
 
 ## 5. Cross-cutting concerns
 
@@ -211,11 +211,11 @@ form $state → mutation.mutate(input) → service fn (insert/update/delete or R
    → on error: toast (svelte-sonner)
 ```
 
-Service functions throw raw Supabase/PostgREST errors. Components catch via `mutation.error` and surface a toast — no try/catch at the service layer.
+Service functions throw raw Supabase/PostgREST errors. Components catch via `mutation.error` and surface a toast - no try/catch at the service layer.
 
 ### Error → toast
 
-`svelte-sonner` is mounted once at the top of `+layout.svelte`. Error toasts are red, success toasts are green. There is no centralised error boundary — TanStack Query mutation `.error` state is the single source.
+`svelte-sonner` is mounted once at the top of `+layout.svelte`. Error toasts are red, success toasts are green. There is no centralised error boundary - TanStack Query mutation `.error` state is the single source.
 
 ### Offline behavior
 

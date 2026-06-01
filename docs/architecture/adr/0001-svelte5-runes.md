@@ -1,4 +1,4 @@
-# ADR 0001 — Adopt Svelte 5 runes (no stores)
+# ADR 0001 - Adopt Svelte 5 runes (no stores)
 
 **Status:** Accepted (2026-04, Phase 3)
 
@@ -19,7 +19,7 @@ Use **runes exclusively**. No Svelte stores in application code. Component state
 - Single mental model. State and reactivity behave the same in components, helpers, and `.svelte.ts` modules.
 - Aligns with the model the framework is steering toward; new Svelte tooling targets runes first.
 - Cleaner mental mapping from React Hooks (`useState` → `$state`, `useMemo` → `$derived`, `useEffect` → `$effect`).
-- TanStack Query's `createQuery` / `createMutation` return runes-style proxies, not stores — using runes everywhere avoids the `$store` vs `query.data` mismatch.
+- TanStack Query's `createQuery` / `createMutation` return runes-style proxies, not stores - using runes everywhere avoids the `$store` vs `query.data` mismatch.
 
 **Bad**
 
@@ -33,4 +33,4 @@ Use **runes exclusively**. No Svelte stores in application code. Component state
 ## Alternatives considered
 
 - **Stores everywhere.** Smaller cognitive jump from React's "library returns store, you `$subscribe`" pattern, but locks us out of the runes-native idioms and against the direction of the framework.
-- **Mix runes for components, stores for cross-cutting state.** Tempting for things like the auth session, but creates two reactivity models in the same codebase. We have one source of cross-cutting state (the Supabase session) and it is plumbed via component props plus an `onAuthStateChange` listener — no store needed.
+- **Mix runes for components, stores for cross-cutting state.** Tempting for things like the auth session, but creates two reactivity models in the same codebase. We have one source of cross-cutting state (the Supabase session) and it is plumbed via component props plus an `onAuthStateChange` listener - no store needed.

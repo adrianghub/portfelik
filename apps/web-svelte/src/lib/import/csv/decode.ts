@@ -1,5 +1,5 @@
 // Encoding sniff for bank CSV files. Polish banks ship UTF-8 (with or without
-// BOM) or Windows-1250 — sometimes inside the same export over the years.
+// BOM) or Windows-1250 - sometimes inside the same export over the years.
 // Returns decoded text; caller passes the same bytes to normalize() for the
 // file hash.
 

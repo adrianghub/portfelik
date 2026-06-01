@@ -9,7 +9,7 @@ const fixture = readFileSync(
   "utf-8"
 );
 
-describe("ing adapter — synthetic fixture", () => {
+describe("ing adapter - synthetic fixture", () => {
   it("detect() returns true for ING-shaped headers", () => {
     expect(detectBank(fixture)).toBe("ing");
   });

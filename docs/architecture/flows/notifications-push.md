@@ -38,11 +38,11 @@ sequenceDiagram
 
 Source:
 
-- `supabase/migrations/20260425000001_phase5_2_edge_function_hooks.sql` — initial `trigger_send_push` trigger
-- `supabase/migrations/20260524000000_environment_edge_function_urls.sql` — environment-specific Edge Function URL lookup and staging no-op behavior when hook secrets are omitted
-- `supabase/functions/send-push/index.ts` — VAPID send + dead-row pruning
-- `apps/web-svelte/src/lib/services/push.ts` — client subscription/unsubscription
-- `apps/web-svelte/static/sw.js` — service worker push handler
+- `supabase/migrations/20260425000001_phase5_2_edge_function_hooks.sql` - initial `trigger_send_push` trigger
+- `supabase/migrations/20260524000000_environment_edge_function_urls.sql` - environment-specific Edge Function URL lookup and staging no-op behavior when hook secrets are omitted
+- `supabase/functions/send-push/index.ts` - VAPID send + dead-row pruning
+- `apps/web-svelte/src/lib/services/push.ts` - client subscription/unsubscription
+- `apps/web-svelte/static/sw.js` - service worker push handler
 
 ## Sources of notification rows
 
@@ -54,7 +54,7 @@ Source:
 | `update_transaction_statuses`    | daily cron                                     | `transaction_upcoming`, `transaction_overdue` |
 | `send-admin-summary`             | weekly cron, fans across admins                | `transaction_summary`                         |
 
-Every one of these ultimately just inserts a `notifications` row. The push trigger is the **single shared dispatcher** — there is no per-source HTTP indirection.
+Every one of these ultimately just inserts a `notifications` row. The push trigger is the **single shared dispatcher** - there is no per-source HTTP indirection.
 
 ## Auth model
 
@@ -96,7 +96,7 @@ sequenceDiagram
         PM-->>SPA: existing subscription
         SPA->>DB: UPSERT (refresh row + bump last_used_at via trigger)
     else not subscribed
-        SPA->>SPA: autoSubscribePush — silent, no prompt<br/>(only if permission already granted)
+        SPA->>SPA: autoSubscribePush - silent, no prompt<br/>(only if permission already granted)
     end
 
     Note over U,SPA: Sign-out

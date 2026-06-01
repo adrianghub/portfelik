@@ -74,7 +74,7 @@ sequenceDiagram
 
 Why client-side?
 
-- The dataset is **personal-finance-sized**: tens to low-hundreds of rows per month per user. The aggregation happens on data already in memory — the round-trip cost of `get_monthly_summary` would dominate the actual work.
+- The dataset is **personal-finance-sized**: tens to low-hundreds of rows per month per user. The aggregation happens on data already in memory - the round-trip cost of `get_monthly_summary` would dominate the actual work.
 - Filters change interactively (category click-through, range tweaks). Recomputing locally is instantaneous; an RPC would add a network hop per click.
 - A SECURITY INVOKER `get_monthly_summary` RPC exists in the schema as an alternative. It is **currently unused** by the SPA but is preserved as a fallback (e.g. for a future server-rendered dashboard or a CSV export endpoint).
 
@@ -103,6 +103,6 @@ See `flows/recurring-transactions.md` for the full sequence.
 
 ## Error surfaces
 
-- **RLS denial** — PostgREST returns `42501` and the row count zero; surfaces as a generic error toast. (Should rarely happen — UI never shows transactions the user can't write to.)
-- **CHECK constraint** — `amount > 0` violation returns a Postgres error; surfaces as a toast.
-- **Network failure** — TanStack Query retries up to twice; on terminal failure, mutation `.error` triggers a toast. **No write outbox** — the change is lost. See [audit](../audit-2026-05-09.md) item G1.
+- **RLS denial** - PostgREST returns `42501` and the row count zero; surfaces as a generic error toast. (Should rarely happen - UI never shows transactions the user can't write to.)
+- **CHECK constraint** - `amount > 0` violation returns a Postgres error; surfaces as a toast.
+- **Network failure** - TanStack Query retries up to twice; on terminal failure, mutation `.error` triggers a toast. **No write outbox** - the change is lost. See [audit](../audit-2026-05-09.md) item G1.

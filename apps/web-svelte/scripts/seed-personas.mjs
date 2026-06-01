@@ -216,7 +216,7 @@ function isoDaysAgo(days) {
 // them idempotently.
 function buildDemoTransactions(userId, { groupId, groceries, salary, transport, dining }) {
   const rows = [
-    // This week — covers the "Ten tydzień" preset
+    // This week - covers the "Ten tydzień" preset
     { d: 1, amount: 42.9, cat: dining, type: "expense", status: "paid", label: "Lunch w mieście" },
     { d: 2, amount: 19.5, cat: transport, type: "expense", status: "paid", label: "Bilet MPK" },
     { d: 4, amount: 230.0, cat: groceries, type: "expense", status: "paid", label: "Zakupy tygodniowe" },
@@ -238,7 +238,7 @@ function buildDemoTransactions(userId, { groupId, groceries, salary, transport, 
     { d: 68, amount: 120.0, cat: dining, type: "expense", status: "paid", label: "Wyjście ze znajomymi" },
     { d: 74, amount: 88.0, cat: transport, type: "expense", status: "paid", label: "Taxi" },
     { d: 80, amount: 260.0, cat: groceries, type: "expense", status: "paid", label: "Zakupy miesięczne" },
-    // Future — exercises "upcoming" status / forward date filtering
+    // Future - exercises "upcoming" status / forward date filtering
     { d: -5, amount: 1200, cat: groceries, type: "expense", status: "upcoming", label: "Planowany wydatek" },
     { d: -10, amount: 99.0, cat: dining, type: "expense", status: "upcoming", label: "Zaplanowana kolacja" },
   ];

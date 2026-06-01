@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { SENTINEL, cleanupSentinels, provisionTwoUsers, type TestContext } from "./setup";
 
-// Behavior spec for preview_fingerprint_warnings — pre-commit probable-dup scan.
+// Behavior spec for preview_fingerprint_warnings - pre-commit probable-dup scan.
 // Must use the same fingerprint formula as commit_import_session and the same
 // ±3-day window. Result shape includes matched-transaction context so the UI can
 // show what the duplicate badge refers to.
@@ -330,7 +330,7 @@ describe("RPC: preview_fingerprint_warnings", () => {
     });
     if (commitB.error) throw commitB.error;
 
-    // Now user A previews a row with the same fingerprint — must see no warning.
+    // Now user A previews a row with the same fingerprint - must see no warning.
     const aAcct = await ctx.admin
       .from("bank_accounts")
       .insert({ user_id: ctx.userA.userId, kind: "ing", label: `${SENTINEL} acct-leak-A` })

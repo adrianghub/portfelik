@@ -1,5 +1,5 @@
 -- =============================================================================
--- Phase 5.1 — Notifications + Push subscriptions + pg_cron jobs
+-- Phase 5.1 - Notifications + Push subscriptions + pg_cron jobs
 --
 -- Adds the persistence layer that replaces:
 --   * Firestore "notifications" collection
@@ -8,7 +8,7 @@
 --     onGroupInvitationCreated, onUserRoleChanged
 --
 -- Web-push delivery itself lands in Phase 5.2 (Edge Functions + pg_net.http_post
--- calls). This migration intentionally writes notification rows only — they act
+-- calls). This migration intentionally writes notification rows only - they act
 -- as an outbox that 5.2 will drain.
 -- =============================================================================
 
@@ -48,7 +48,7 @@ comment on column notifications.read_at is 'NULL until the user marks it read; s
 -- -----------------------------------------------------------------------------
 -- 2.2  push_subscriptions
 -- Replaces users.fcmTokens. One row per browser/device subscription via the
--- Web Push API. Endpoint is unique per subscription — used as part of PK to
+-- Web Push API. Endpoint is unique per subscription - used as part of PK to
 -- allow multi-device subscriptions per user.
 -- -----------------------------------------------------------------------------
 create table push_subscriptions (
@@ -86,7 +86,7 @@ create index notifications_unread_idx
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
--- 4.1  notifications.updated_at — none required (no updated_at column)
+-- 4.1  notifications.updated_at - none required (no updated_at column)
 -- 4.2  push_subscriptions: bump last_used_at when a row is updated
 -- -----------------------------------------------------------------------------
 create or replace function bump_last_used_at()
@@ -110,7 +110,7 @@ create trigger push_subscriptions_bump_last_used
 -- Body uses the existing group_name denormalisation so we don't need a join.
 -- The invited user's id may be NULL at invite time (matched by email later);
 -- we look it up via auth.users to populate user_id when possible. If the
--- invitee has not signed up yet, no notification row is inserted — the
+-- invitee has not signed up yet, no notification row is inserted - the
 -- invitation will be discovered on first login.
 -- -----------------------------------------------------------------------------
 create or replace function notify_on_group_invitation()
@@ -206,7 +206,7 @@ create trigger profiles_role_change_notify
 -- -----------------------------------------------------------------------------
 -- 5.1  notifications
 -- Each user reads/updates/deletes only their own rows. INSERT is blocked from
--- clients — only SECURITY DEFINER triggers and Edge Functions (service role)
+-- clients - only SECURITY DEFINER triggers and Edge Functions (service role)
 -- create rows.
 -- -----------------------------------------------------------------------------
 alter table notifications enable row level security;
@@ -364,7 +364,7 @@ begin
       rec.user_id,
       'transaction_upcoming',
       'Nadchodząca transakcja',
-      rec.description || ' — ' || to_char(rec.amount, 'FM999G990D00') || ' ' || rec.currency,
+      rec.description || ' - ' || to_char(rec.amount, 'FM999G990D00') || ' ' || rec.currency,
       jsonb_build_object(
         'transactionId', v_inserted_id,
         'amount',        rec.amount,
@@ -408,7 +408,7 @@ begin
       rec.user_id,
       'transaction_overdue',
       'Transakcja przeterminowana',
-      rec.description || ' — ' || to_char(rec.amount, 'FM999G990D00') || ' ' || rec.currency,
+      rec.description || ' - ' || to_char(rec.amount, 'FM999G990D00') || ' ' || rec.currency,
       jsonb_build_object(
         'transactionId', rec.id,
         'amount',        rec.amount,
@@ -434,7 +434,7 @@ begin
         when rec.date::date = current_date then 'Transakcja na dziś'
         else                                    'Transakcja na jutro'
       end,
-      rec.description || ' — ' || to_char(rec.amount, 'FM999G990D00') || ' ' || rec.currency,
+      rec.description || ' - ' || to_char(rec.amount, 'FM999G990D00') || ' ' || rec.currency,
       jsonb_build_object(
         'transactionId', rec.id,
         'amount',        rec.amount,
@@ -474,5 +474,5 @@ select cron.schedule(
 grant execute on function mark_notification_read       to authenticated;
 grant execute on function mark_all_notifications_read  to authenticated;
 
--- The cron functions are intentionally NOT granted to authenticated — they
+-- The cron functions are intentionally NOT granted to authenticated - they
 -- only run via pg_cron's superuser context.

@@ -9,7 +9,7 @@ const fixture = readFileSync(
   "utf-8"
 );
 
-describe("mbank adapter — synthetic fixture", () => {
+describe("mbank adapter - synthetic fixture", () => {
   it("detect() returns true for mBank-shaped headers", () => {
     expect(detectBank(fixture)).toBe("mbank");
   });

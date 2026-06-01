@@ -1,7 +1,7 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap");
 @import "tailwindcss";
 
-/* Phase 12 / U1e — Force dark mode via class on <html>. All existing `dark:`
+/* Phase 12 / U1e - Force dark mode via class on <html>. All existing `dark:`
    Tailwind utilities now apply unconditionally. Subsequent phases drop the
    `dark:` prefix file-by-file as those files are touched. */
 @variant dark (&:where(.dark, .dark *));
@@ -9,7 +9,7 @@
 @theme {
   --font-sans: "Inter", system-ui, sans-serif;
 
-  /* Phase 12 / U1 — Dark-Neon palette tokens.
+  /* Phase 12 / U1 - Dark-Neon palette tokens.
      Existing slate-* / emerald-* / rose-* utilities still resolve via the
      Tailwind preset; these accent + canvas vars are referenced by Card / Glow
      / Button gradient and by hand-written rules in @layer components. */
@@ -27,11 +27,11 @@
   --color-accent: oklch(0.78 0.18 158);
 
   /* Typography scale */
-  --text-display: 3rem; /* 48px — hero balance */
+  --text-display: 3rem; /* 48px - hero balance */
   --text-display--line-height: 1;
-  --text-hero: 1.875rem; /* 30px — page hero / large numbers */
+  --text-hero: 1.875rem; /* 30px - page hero / large numbers */
   --text-hero--line-height: 1.1;
-  --text-eyebrow: 0.6875rem; /* 11px — uppercase labels */
+  --text-eyebrow: 0.6875rem; /* 11px - uppercase labels */
   --text-eyebrow--line-height: 1.4;
   --text-eyebrow--letter-spacing: 0.08em;
 
@@ -55,7 +55,7 @@
     color-scheme: dark;
     /* Distance from viewport bottom to FAB / sticky action controls. */
     --mobile-action-bottom: calc(6rem + env(safe-area-inset-bottom));
-    /* Scrollable page padding — shrinks when the pill nav hides on scroll. */
+    /* Scrollable page padding - shrinks when the pill nav hides on scroll. */
     --mobile-page-bottom: calc(6rem + env(safe-area-inset-bottom));
   }
 
@@ -116,7 +116,7 @@
 
 @layer components {
   /* Native <select> with a consistently centered custom chevron. Replaces the
-     browser-drawn arrow (which sits inconsistently) — pair with `pr-9`. */
+     browser-drawn arrow (which sits inconsistently) - pair with `pr-9`. */
   .select-chevron {
     appearance: none;
     -webkit-appearance: none;
@@ -126,7 +126,7 @@
     background-size: 16px 16px;
   }
 
-  /* Hero numeric size with tabular figures — used by dashboard balance, totals. */
+  /* Hero numeric size with tabular figures - used by dashboard balance, totals. */
   .text-display {
     font-size: var(--text-display);
     line-height: var(--text-display--line-height);
@@ -146,7 +146,7 @@
     font-weight: 500;
   }
 
-  /* Glass card surface — used by Card primitive + ad-hoc hero panels.
+  /* Glass card surface - used by Card primitive + ad-hoc hero panels.
      `bg-surface` falls back to slate-900/80 if backdrop-blur isn't supported. */
   .surface {
     background-color: var(--color-surface);
@@ -161,7 +161,7 @@
     -webkit-backdrop-filter: blur(16px);
   }
 
-  /* Accent gradient — for primary CTA + active nav pill. */
+  /* Accent gradient - for primary CTA + active nav pill. */
   .bg-accent-gradient {
     background-image: linear-gradient(
       135deg,
@@ -180,7 +180,7 @@
     color: transparent;
   }
 
-  /* Glow halo behind hero numbers / icons — positioned by parent. */
+  /* Glow halo behind hero numbers / icons - positioned by parent. */
   .glow-disc {
     pointer-events: none;
     position: absolute;

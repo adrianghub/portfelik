@@ -1,14 +1,14 @@
-// mBank CSV adapter — based on the standard "Historia operacji" export.
+// mBank CSV adapter - based on the standard "Historia operacji" export.
 //
 // Documented columns (Polish headers, varies slightly year-to-year):
-//   #Data księgowania  — booking date
-//   #Data operacji     — operation date (we use this as posted_at)
-//   #Opis operacji     — primary description
-//   #Tytuł             — secondary description / counterparty memo
-//   #Nadawca/Odbiorca  — counterparty
-//   #Numer konta       — counterparty account
-//   #Kwota             — signed amount (negative = expense)
-//   #Saldo po operacji — running balance (ignored)
+//   #Data księgowania  - booking date
+//   #Data operacji     - operation date (we use this as posted_at)
+//   #Opis operacji     - primary description
+//   #Tytuł             - secondary description / counterparty memo
+//   #Nadawca/Odbiorca  - counterparty
+//   #Numer konta       - counterparty account
+//   #Kwota             - signed amount (negative = expense)
+//   #Saldo po operacji - running balance (ignored)
 //
 // Sign convention: amount column carries the sign; negative → expense.
 // Encoding: typically Windows-1250 (decode.ts handles).
@@ -120,7 +120,7 @@ export const mbankAdapter: BankAdapter = {
 
       const opis = idx.opis !== -1 ? (cells[idx.opis] ?? "") : "";
       const tytul = idx.tytul !== -1 ? (cells[idx.tytul] ?? "") : "";
-      const description = collapseWs([opis, tytul].filter(Boolean).join(" — "));
+      const description = collapseWs([opis, tytul].filter(Boolean).join(" - "));
       const counterparty =
         idx.counterparty !== -1 ? collapseWs(cells[idx.counterparty] ?? "") : undefined;
 

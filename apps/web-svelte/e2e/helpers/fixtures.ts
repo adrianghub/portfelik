@@ -104,7 +104,7 @@ export const MOCK_SHOPPING_LISTS_RAW = [
   },
 ];
 
-// Single list with full items — returned by fetchShoppingListById (.single())
+// Single list with full items - returned by fetchShoppingListById (.single())
 export const MOCK_SHOPPING_LIST_DETAIL = {
   id: "list-1",
   name: "Tygodniowe zakupy",

@@ -21,7 +21,7 @@ sequenceDiagram
     U->>G: log in / consent
     G->>SB: 302 callback → /auth/v1/callback
     SB->>SPA: 302 → /auth/callback#access_token=...
-    SPA->>SB: getSession() — parse hash
+    SPA->>SB: getSession() - parse hash
     SB-->>SPA: session { user, access_token (JWT) }
 
     Note over DB: First-time login only
@@ -32,7 +32,7 @@ sequenceDiagram
 
     SPA->>DB: SELECT * FROM profiles WHERE id = uid
     DB-->>SPA: profile row
-    SPA->>SPA: registerServiceWorker() → autoSubscribePush(uid)<br/>(silent — only if Notification.permission === 'granted')
+    SPA->>SPA: registerServiceWorker() → autoSubscribePush(uid)<br/>(silent - only if Notification.permission === 'granted')
     SPA->>U: redirect to /transactions
 ```
 
