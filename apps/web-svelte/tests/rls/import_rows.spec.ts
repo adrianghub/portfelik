@@ -79,7 +79,7 @@ describe("RLS: transaction_import_rows", () => {
     expect(result.data?.[0]?.decision).toBe("skip");
   });
 
-  it("DELETE not granted to authenticated — row survives the attempt", async () => {
+  it("DELETE not granted to authenticated - row survives the attempt", async () => {
     await ctx.userA.client.from("transaction_import_rows").delete().eq("id", rowAId);
     const after = await ctx.admin
       .from("transaction_import_rows")

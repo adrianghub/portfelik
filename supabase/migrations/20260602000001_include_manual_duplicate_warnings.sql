@@ -425,8 +425,8 @@ begin
 
       -- Reflect the dup on the audit row so the session record stays truthful.
       -- Lookup order matches the two unique indexes in priority:
-      --   1. external_transaction_id (bank op id) — preferred when available
-      --   2. (source_file_hash, source_row_index) — same-file row idempotency
+      --   1. external_transaction_id (bank op id) - preferred when available
+      --   2. (source_file_hash, source_row_index) - same-file row idempotency
       v_winner := null;
       if v_row.external_id is not null then
         select l.transaction_id into v_winner

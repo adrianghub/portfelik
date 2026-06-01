@@ -6,7 +6,7 @@
 // `.bg-accent-gradient` / `.text-accent-gradient` / `.glow-disc` etc.
 //
 // All presets are deliberately LIGHT (high OKLch lightness) so the existing
-// dark `text-slate-900` foreground on accent surfaces stays legible — no
+// dark `text-slate-900` foreground on accent surfaces stays legible - no
 // component edits needed.
 
 export type AccentPresetId = "green" | "blue" | "amber" | "pink" | "purple" | "orange";
@@ -90,6 +90,6 @@ export function applyAccent(id: string | null | undefined): void {
       JSON.stringify({ id: preset.id, from: preset.from, to: preset.to, glow })
     );
   } catch {
-    // localStorage unavailable (private mode quota etc.) — DB remains source of truth.
+    // localStorage unavailable (private mode quota etc.) - DB remains source of truth.
   }
 }

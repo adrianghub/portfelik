@@ -146,7 +146,7 @@
                   {sub.device_type ?? m.admin_push_sub_device()}
                 </p>
                 <p class="truncate text-xs text-slate-500" title={sub.user_agent ?? ""}>
-                  {sub.user_agent ?? "—"}
+                  {sub.user_agent ?? "-"}
                 </p>
                 <p class="text-xs text-slate-500">
                   {m.admin_push_sub_last_used()}: {formatDate(sub.last_used_at)}

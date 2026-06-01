@@ -1,10 +1,10 @@
--- P2 — defense-in-depth: attach_shopping_list_to_transaction must reject
+-- P2 - defense-in-depth: attach_shopping_list_to_transaction must reject
 -- non-expense transactions.
 --
 -- The UI picker already filters to type='expense' (fetchAttachableTransactions
 -- in services/shopping-lists.ts), so this only matters for direct RPC callers.
 -- Without it, a direct rpc() call can attach an income tx and mark the list
--- 'completed' with total_amount = income.amount — corrupting list / expense
+-- 'completed' with total_amount = income.amount - corrupting list / expense
 -- reporting even though the row never represented a shopping purchase.
 --
 -- Body is otherwise identical to 20260517000003. Only change:
@@ -74,7 +74,7 @@ begin
   -- surface. Private list ↔ private tx, or group X list ↔ group X tx.
   -- We refuse to silently promote the tx into the list's group (that
   -- would require owner-of-tx rules and is the user's decision via
-  -- the dialog) — caller fixes the scope first.
+  -- the dialog) - caller fixes the scope first.
   if v_list.group_id is distinct from v_tx.group_id then
     raise exception 'sharing_scope_mismatch'
       using errcode = 'P0001',

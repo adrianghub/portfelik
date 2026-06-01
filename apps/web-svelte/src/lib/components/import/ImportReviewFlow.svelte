@@ -62,6 +62,8 @@
   /** Row ids with an in-flight auto-mark request (reactive for duplicate-step UI). */
   let autoDupInflightIds = $state<Set<string>>(new Set());
   const autoDupPromises = new Map<string, Promise<void>>();
+  /** Permanent guard: row was auto-marked once; restore must not re-trigger auto-mark. */
+  let autoDupHandledIds = $state<Set<string>>(new Set());
 
   const rowsQuery = createQuery(() => ({
     queryKey: rowsKey,
@@ -190,13 +192,15 @@
     await updateRowDecision(rowId, { decision: current.decision });
   }
 
-  // Auto-mark probable duplicates (decision duplicate). Serialized per row; user actions
-  // wait for in-flight marks and bump epoch so late responses cannot overwrite restores.
+  // Auto-mark probable duplicates on the duplicates step only. Serialized per row;
+  // permanent handled-id prevents re-mark after restore; epoch blocks stale RPC wins.
   $effect(() => {
+    if (reviewStep !== "duplicates") return;
     if (warningsQuery.isLoading || rowsQuery.isLoading) return;
     for (const row of rows) {
       if (!warningsByRow.has(row.id)) continue;
       if (row.decision !== "pending") continue;
+      if (autoDupHandledIds.has(row.id)) continue;
       void scheduleAutoMarkDuplicate(row);
     }
   });
@@ -204,6 +208,7 @@
   async function scheduleAutoMarkDuplicate(row: ImportRow): Promise<void> {
     if (autoDupPromises.has(row.id)) return autoDupPromises.get(row.id)!;
 
+    autoDupHandledIds = new Set(autoDupHandledIds).add(row.id);
     const epoch = dupEpoch(row.id);
     autoDupInflightIds = new Set(autoDupInflightIds).add(row.id);
 
@@ -221,7 +226,6 @@
     autoDupPromises.set(row.id, promise);
     return promise;
   }
-
   function bankKindLabel(kind: string): string {
     return kind === "ing" ? m.bank_account_kind_ing() : m.bank_account_kind_mbank();
   }
@@ -271,7 +275,6 @@
     if (patch.decision !== undefined && patch.decision !== "duplicate") {
       bumpDupMarkEpoch(rowId);
     }
-
     const previous = queryClient.getQueryData<ImportRow[]>(rowsKey);
     const effective: Partial<ImportRow> = patch;
 
@@ -715,6 +718,7 @@
 
   {#if reviewStep === "duplicates"}
     <ImportReviewDuplicatesStep
+      loading={warningsQuery.isLoading}
       {flaggedRows}
       {warningsByRow}
       {duplicateDetail}

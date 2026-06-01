@@ -10,12 +10,12 @@
 -- either covers a foreign key (dropping it would re-open an unindexed_foreign_keys
 -- warning) or backs a real query shape that will be used at scale:
 --   * idx_shopping_lists_{category_id,user_updated,group_user_updated,
---     status_updated,status_completed_at} — list-grid + completion queries
---   * idx_shopping_list_items_list_id — items-by-list lookup (hot path)
+--     status_updated,status_completed_at} - list-grid + completion queries
+--   * idx_shopping_list_items_list_id - items-by-list lookup (hot path)
 --   * idx_group_invitations_{invited_user_id,created_by} + idx_user_groups_owner_id
---     — FK covers; dropping creates new unindexed FKs
---   * idx_categories_type_name — system-category lookup by type
---   * categorization_rules_user_priority_idx — backs the not-yet-shipped rules engine
+--     - FK covers; dropping creates new unindexed FKs
+--   * idx_categories_type_name - system-category lookup by type
+--   * categorization_rules_user_priority_idx - backs the not-yet-shipped rules engine
 -- These are intentionally retained. Do not "clean them up" on a future advisor
 -- pass without first confirming real query traffic.
 --

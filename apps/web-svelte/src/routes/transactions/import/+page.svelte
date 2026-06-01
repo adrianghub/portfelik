@@ -16,7 +16,7 @@
   import { toast } from "svelte-sonner";
   import { cn, transactionsUrlForRange } from "$lib/utils";
 
-  // Wizard state machine — bank kind is detected from the CSV, never picked
+  // Wizard state machine - bank kind is detected from the CSV, never picked
   // by the user. State machine: upload → review. On commit we redirect straight
   // to the transactions list filtered to the imported period (no "done" step).
 
@@ -66,7 +66,7 @@
       return;
     }
     if (step !== "review" || !activeSession) return;
-    // Full page unload (tab close) can't host a custom dialog — let it pass.
+    // Full page unload (tab close) can't host a custom dialog - let it pass.
     if (!nav.to) return;
     nav.cancel();
     pendingHref = nav.to.url.href;
@@ -80,7 +80,7 @@
   }
 
   function saveDraftAndLeave(): void {
-    // Keep the session in 'preview' — nothing to persist, just navigate away.
+    // Keep the session in 'preview' - nothing to persist, just navigate away.
     leaveTo(pendingHref);
   }
 
@@ -90,7 +90,7 @@
       try {
         await cancelImportSession(activeSession.id);
       } catch {
-        // ignore — session already cancelled or gone
+        // ignore - session already cancelled or gone
       }
     }
     activeSession = null;
@@ -149,7 +149,7 @@
     try {
       await cancelImportSession(activeSession.id);
     } catch {
-      // ignore — session already cancelled or gone
+      // ignore - session already cancelled or gone
     }
     resetToUpload();
   }

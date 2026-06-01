@@ -79,7 +79,7 @@ Web-push requires the public key inside `pushManager.subscribe()` to match the p
 3. Update build-time public key in **two** places:
    - `apps/web-svelte/.env.production` → `PUBLIC_VAPID_KEY=<NEW_PUBLIC>` (commit if tracked, else update CI secret).
    - GitHub Actions repo secret `PUBLIC_VAPID_KEY` (used by the deploy workflow).
-4. **Invalidate old subscriptions** — they will fail with `410 Gone` on next send, but eager cleanup avoids one round of dead-letter:
+4. **Invalidate old subscriptions** - they will fail with `410 Gone` on next send, but eager cleanup avoids one round of dead-letter:
    ```sql
    delete from push_subscriptions;
    ```
@@ -111,7 +111,7 @@ supabase secrets set VAPID_SUBJECT="mailto:new@example.com" \
 ## Post-rotation
 
 - Update this runbook's "Last updated" date.
-- Note the rotation in `CLAUDE.md` if the key fingerprint is referenced anywhere (e.g. `PUBLIC_VAPID_KEY` constant in deploy command — Phase 11.3 confirmed it currently is).
+- Note the rotation in `CLAUDE.md` if the key fingerprint is referenced anywhere (e.g. `PUBLIC_VAPID_KEY` constant in deploy command - Phase 11.3 confirmed it currently is).
 - Monitor `push_subscriptions` count for 24h; expect a one-time dip after a VAPID rotation as inactive users are dropped.
 - If push delivery error rate exceeds baseline, check Edge Function logs for `WebPushError`.
 
@@ -120,14 +120,14 @@ supabase secrets set VAPID_SUBJECT="mailto:new@example.com" \
 If a rotation broke push end-to-end:
 
 1. Revert the relevant secret(s) to the previous value via the same `supabase secrets set` / `vault.encrypt_secret` calls.
-2. If VAPID was rotated and subscriptions wiped, users must re-subscribe — there is no path to restore the deleted rows. Plan rotations during low-engagement windows.
+2. If VAPID was rotated and subscriptions wiped, users must re-subscribe - there is no path to restore the deleted rows. Plan rotations during low-engagement windows.
 3. If `INTERNAL_TRIGGER_SECRET` mismatch caused weekly-summary failures, manually fire `process_recurring_transactions()` and the summary RPC after restoring.
 
 ## References
 
-- `supabase/migrations/20260425000001_phase5_2_edge_function_hooks.sql` — DB triggers using `internal_trigger_secret`.
-- `supabase/functions/send-notification-email/` — server verification of `x-internal-secret`.
-- `apps/web-svelte/src/lib/services/push.ts` — browser `pushManager.subscribe` call site.
-- `apps/web-svelte/src/routes/+layout.svelte` — `autoSubscribePush` on auth state changes.
+- `supabase/migrations/20260425000001_phase5_2_edge_function_hooks.sql` - DB triggers using `internal_trigger_secret`.
+- `supabase/functions/send-notification-email/` - server verification of `x-internal-secret`.
+- `apps/web-svelte/src/lib/services/push.ts` - browser `pushManager.subscribe` call site.
+- `apps/web-svelte/src/routes/+layout.svelte` - `autoSubscribePush` on auth state changes.
 - Supabase Vault docs: https://supabase.com/docs/guides/database/vault
 - web-push library: https://github.com/web-push-libs/web-push

@@ -4,7 +4,7 @@ import { defineConfig } from "vitest/config";
 
 // Populate process.env from `.env.test` (gitignored, per-dev) and fall
 // back to `.env.test.example` for non-secret defaults. CI continues to
-// inject vars via $GITHUB_ENV — that path takes precedence over both
+// inject vars via $GITHUB_ENV - that path takes precedence over both
 // because each loader skips keys already set.
 function loadEnvFile(path: string): void {
   if (!existsSync(path)) return;

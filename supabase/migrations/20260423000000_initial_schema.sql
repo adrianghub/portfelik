@@ -1,5 +1,5 @@
 -- =============================================================================
--- Portfelik — Initial Schema
+-- Portfelik - Initial Schema
 -- Migration: 20260423000000_initial_schema
 --
 -- Design decisions recorded:
@@ -52,7 +52,7 @@ create type invitation_status as enum ('pending', 'accepted', 'rejected', 'cance
 -- Section 5, after all tables exist. Only handle_updated_at() is safe here.
 -- =============================================================================
 
--- Generic updated_at trigger function — applied to every mutable table.
+-- Generic updated_at trigger function - applied to every mutable table.
 create or replace function handle_updated_at()
   returns trigger
   language plpgsql
@@ -300,7 +300,7 @@ create trigger on_auth_user_email_updated
 
 
 -- -----------------------------------------------------------------------------
--- 5.3  updated_at — applied to every mutable table
+-- 5.3  updated_at - applied to every mutable table
 -- -----------------------------------------------------------------------------
 create trigger set_updated_at before update on profiles
   for each row execute function handle_updated_at();
@@ -327,7 +327,7 @@ create trigger set_updated_at before update on shopping_list_items
 -- =============================================================================
 -- SECTION 5.5: HELPER FUNCTIONS (table-dependent)
 -- Placed here because LANGUAGE SQL functions validate table references at
--- creation time — profiles and group_members must already exist.
+-- creation time - profiles and group_members must already exist.
 -- =============================================================================
 
 -- Returns true if the current authenticated user has the 'admin' role.
@@ -368,9 +368,9 @@ $$;
 -- SECTION 6: ROW LEVEL SECURITY
 -- =============================================================================
 -- Conventions used throughout:
---   (select auth.uid())   — initPlan wrap; evaluated once per statement, not per row
---   (select is_admin())   — same wrap for the SECURITY DEFINER helper
---   TO authenticated      — explicitly scoped; anon role gets nothing
+--   (select auth.uid())   - initPlan wrap; evaluated once per statement, not per row
+--   (select is_admin())   - same wrap for the SECURITY DEFINER helper
+--   TO authenticated      - explicitly scoped; anon role gets nothing
 
 -- -----------------------------------------------------------------------------
 -- 6.1  profiles
@@ -440,7 +440,7 @@ create policy "user_groups: no direct writes"
 -- -----------------------------------------------------------------------------
 -- 6.3  group_members
 -- Read: any member of the group can see who else is in it.
--- Writes: blocked — all via RPCs.
+-- Writes: blocked - all via RPCs.
 -- -----------------------------------------------------------------------------
 alter table group_members enable row level security;
 
@@ -465,7 +465,7 @@ create policy "group_members: no direct writes"
 -- -----------------------------------------------------------------------------
 -- 6.4  group_invitations
 -- Read: creator, invited user (by email), or group owner.
--- Writes: blocked — all via RPCs.
+-- Writes: blocked - all via RPCs.
 -- -----------------------------------------------------------------------------
 alter table group_invitations enable row level security;
 
@@ -566,7 +566,7 @@ create policy "categories: admins delete system"
 -- -----------------------------------------------------------------------------
 -- 6.6  transactions
 -- Read: own OR group-shared (via group_members self-join).
--- Write: own only — group members can READ but NOT modify each other's transactions.
+-- Write: own only - group members can READ but NOT modify each other's transactions.
 -- (mirrors Firestore rules exactly)
 -- -----------------------------------------------------------------------------
 alter table transactions enable row level security;
@@ -609,7 +609,7 @@ create policy "transactions: users delete own"
 -- -----------------------------------------------------------------------------
 -- 6.7  shopping_lists
 -- Read: own OR explicitly shared via group_id.
--- Write: own OR any group member (unlike transactions — matches Firestore rules).
+-- Write: own OR any group member (unlike transactions - matches Firestore rules).
 -- -----------------------------------------------------------------------------
 alter table shopping_lists enable row level security;
 
@@ -726,7 +726,7 @@ create policy "shopping_list_items: delete if parent writable"
 -- (derived from Firestore compound index audit + RLS query patterns)
 -- =============================================================================
 
--- group_members — hot path for the group-sharing RLS subquery on transactions
+-- group_members - hot path for the group-sharing RLS subquery on transactions
 -- and categories. Both directions indexed.
 create index idx_group_members_user_id  on group_members(user_id);
 create index idx_group_members_group_id on group_members(group_id);
@@ -759,7 +759,7 @@ create index idx_shopping_lists_group_user_updated
 create index idx_shopping_lists_status_updated
   on shopping_lists(status, updated_at desc);
 
--- shopping_list_items — foreign key lookup
+-- shopping_list_items - foreign key lookup
 create index idx_shopping_list_items_list_id
   on shopping_list_items(shopping_list_id);
 
@@ -777,7 +777,7 @@ create index idx_categories_type_name
 create index idx_group_invitations_created_by
   on group_invitations(created_by, created_at desc);
 
--- Hot path: "show my pending invitations" — matched by email
+-- Hot path: "show my pending invitations" - matched by email
 create index idx_group_invitations_email_status
   on group_invitations(invited_user_email, status, created_at desc);
 
@@ -1373,12 +1373,12 @@ comment on view transactions_with_category is
 -- SECTION 11: GRANTS AND COLUMN-LEVEL SECURITY
 -- =============================================================================
 
--- Schema usage — required for any client connection.
+-- Schema usage - required for any client connection.
 grant usage on schema public to anon, authenticated;
 
 -- Table-level DML privileges for authenticated users.
 -- RLS policies enforce row-level access on top of these.
--- anon gets no data access — all policies are scoped to authenticated.
+-- anon gets no data access - all policies are scoped to authenticated.
 grant select, insert, update, delete
   on all tables in schema public
   to authenticated;

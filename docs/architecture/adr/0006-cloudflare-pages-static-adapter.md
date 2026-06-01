@@ -1,4 +1,4 @@
-# ADR 0006 — Cloudflare Pages with `adapter-static`
+# ADR 0006 - Cloudflare Pages with `adapter-static`
 
 **Status:** Accepted (2026-04, Phase 3)
 
@@ -6,7 +6,7 @@
 
 The legacy app was hosted on Firebase Hosting as a CRA-style SPA. Cutover required a hosting target that:
 
-- handled a static SPA (no SSR needed — auth gating is client-side, all data calls go straight to Supabase),
+- handled a static SPA (no SSR needed - auth gating is client-side, all data calls go straight to Supabase),
 - had a sane PWA story (manifest + service worker served correctly with the right cache headers),
 - supported per-branch preview deploys for staging,
 - ran on infrastructure we already paid for (Cloudflare DNS + Tunnel were already in place for the Pi homelab).
@@ -27,7 +27,7 @@ The legacy app was hosted on Firebase Hosting as a CRA-style SPA. Cutover requir
 
 - Smallest possible runtime surface. The hosting tier just serves files.
 - Edge cache via Cloudflare's network. Free tier, generous limits.
-- Per-branch preview deploys come for free — every PR lands on a preview URL.
+- Per-branch preview deploys come for free - every PR lands on a preview URL.
 - PWA shape unchanged from the legacy app: same `manifest.json`, same service worker, served from `static/`.
 - Cloudflare DNS already manages the apex; flipping `portfelik.adrianzinko.com` was a CNAME change.
 
@@ -39,7 +39,7 @@ The legacy app was hosted on Firebase Hosting as a CRA-style SPA. Cutover requir
 
 **Neutral**
 
-- Two simultaneous environments (prod and staging) live in the same Cloudflare Pages project. See ADR 0011 (which supersedes ADR 0010) for the Supabase side of the split — the Pages project stays shared, but the staging branch deploys against a dedicated `portfelik-staging` Supabase project.
+- Two simultaneous environments (prod and staging) live in the same Cloudflare Pages project. See ADR 0011 (which supersedes ADR 0010) for the Supabase side of the split - the Pages project stays shared, but the staging branch deploys against a dedicated `portfelik-staging` Supabase project.
 
 ## Alternatives considered
 

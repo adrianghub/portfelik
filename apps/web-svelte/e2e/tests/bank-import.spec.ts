@@ -347,12 +347,14 @@ async function mockBankImportAPI(page: Page, options = {}) {
     });
 }
 
-/** Step 1 (duplikaty): advance; single-row fixtures restore flagged rows first. */
-async function advanceFromDuplicatesStep(page: Page): Promise<void> {
-  const restore = page.getByRole("button", { name: /Przywróć wszystkie/ });
-  if (await restore.isVisible().catch(() => false)) {
-    await restore.click();
-  }
+/** Step 1 (duplikaty): keep auto-skipped duplicates, just advance. */
+async function keepDuplicatesAndAdvance(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Dalej", exact: true }).click();
+}
+
+/** Step 1 (duplikaty): bring flagged rows back into review, then advance. */
+async function restoreDuplicatesAndAdvance(page: Page): Promise<void> {
+  await page.getByRole("button", { name: /Przywróć wszystkie/ }).click();
   await page.getByRole("button", { name: "Dalej", exact: true }).click();
 }
 
@@ -372,7 +374,7 @@ test("import wizard: renders heading, step pill and upload dropzone", async ({ p
   // h1
   await expect(page.getByRole("heading", { name: "Import wyciągu bankowego" })).toBeVisible();
 
-  // Step pill — two steps now (commit auto-redirects to transactions; no "done" step)
+  // Step pill - two steps now (commit auto-redirects to transactions; no "done" step)
   await expect(page.getByText("Wgraj plik", { exact: true })).toBeVisible();
   await expect(page.getByText("Sprawdź pozycje", { exact: true })).toBeVisible();
   await expect(page.getByText("Duplikaty", { exact: true })).toHaveCount(0);
@@ -446,7 +448,7 @@ test("import wizard: uploads, flags probable duplicates, commits, and blocks re-
     page.getByText(/Pasuje do: 2026-05-02 .* Biedronka wpisana ręcznie/)
   ).toBeVisible();
 
-  await advanceFromDuplicatesStep(page);
+  await keepDuplicatesAndAdvance(page);
 
   await expect(page.getByRole("table").getByText("BIEDRONKA", { exact: true })).toHaveCount(0);
   await expect(
@@ -478,6 +480,11 @@ test("import wizard: uploads, flags probable duplicates, commits, and blocks re-
 test("import wizard: bookmark = one-tap save-as-rule with smart default text", async ({
   page,
 }) => {
+  await page.unrouteAll();
+  await injectFakeSession(page);
+  // No prefill rules so the row needs a manually-saved rule (the affordance
+  // under test); a default type rule would auto-categorize it instead.
+  await mockBankImportAPI(page, { defaultRules: false });
   await page.goto("/transactions/import");
 
   await page.locator('input[type="file"]').setInputFiles({
@@ -486,9 +493,9 @@ test("import wizard: bookmark = one-tap save-as-rule with smart default text", a
     buffer: mbankNoCounterpartySample,
   });
 
-  await advanceFromDuplicatesStep(page);
+  await restoreDuplicatesAndAdvance(page);
 
-  const rawDescription = "ZAKUP TOWARÓW I USŁUG — KAWIARNIA TEST";
+  const rawDescription = "ZAKUP TOWARÓW I USŁUG - KAWIARNIA TEST";
   const editedDescription = "Kawa po spotkaniu";
 
   const descriptionInput = page.getByRole("table").getByRole("textbox");
@@ -519,7 +526,7 @@ test("import wizard: explicit Importuj sends an uncategorized row to Inne", asyn
     buffer: mbankNoCounterpartySample,
   });
 
-  await advanceFromDuplicatesStep(page);
+  await restoreDuplicatesAndAdvance(page);
 
   const decision = page.getByRole("table").getByRole("group");
   const importBtn = decision.getByRole("button", { name: "Importuj", exact: true });
@@ -541,7 +548,7 @@ test("import wizard: explicit Importuj sends an uncategorized row to Inne", asyn
 test("import wizard: failed required-rule save blocks the row from importing", async ({ page }) => {
   await page.unrouteAll();
   await injectFakeSession(page);
-  // No prefill rules, and rule POST fails — required-rule capture cannot succeed.
+  // No prefill rules, and rule POST fails - required-rule capture cannot succeed.
   await mockBankImportAPI(page, { defaultRules: false, failRulePost: true });
   await page.goto("/transactions/import");
 
@@ -551,7 +558,7 @@ test("import wizard: failed required-rule save blocks the row from importing", a
     buffer: mbankNoCounterpartySample,
   });
 
-  await advanceFromDuplicatesStep(page);
+  await restoreDuplicatesAndAdvance(page);
 
   const combo = page.getByRole("table").getByRole("combobox", { name: "Kategoria" });
   await expect(combo).toBeVisible({ timeout: 10_000 });
@@ -579,7 +586,7 @@ test("import wizard: continues when rule prefill cannot load", async ({ page }) 
     buffer: mbankSample,
   });
 
-  await advanceFromDuplicatesStep(page);
+  await restoreDuplicatesAndAdvance(page);
   await expect(page.getByRole("table").getByText("BIEDRONKA", { exact: true })).toBeVisible({
     timeout: 10_000,
   });
@@ -600,7 +607,7 @@ test("import wizard: continues when categories cannot load for optional prefill"
     buffer: mbankSample,
   });
 
-  await advanceFromDuplicatesStep(page);
+  await restoreDuplicatesAndAdvance(page);
   await expect(page.getByRole("table").getByText("BIEDRONKA", { exact: true })).toBeVisible({
     timeout: 10_000,
   });

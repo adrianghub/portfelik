@@ -7,7 +7,7 @@ Living record of pre-MVP polish for Portfelik (excluding `/dashboard`). Compleme
 | Decision | Choice |
 |----------|--------|
 | List → transaction | Complete list with optional expense tx (default ON) |
-| Transaction → list linking | **Not shipped** — bank-import duplicate detection reconciles |
+| Transaction → list linking | **Not shipped** - bank-import duplicate detection reconciles |
 | Index list mode pills | Removed from cards; mode pill stays on detail only |
 | Index section label | **Na dziś** (not “Aktywne”) for active bucket |
 | Categories | Per-user, fully editable/deletable (seeded defaults) |

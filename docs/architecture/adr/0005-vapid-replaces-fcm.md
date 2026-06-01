@@ -1,4 +1,4 @@
-# ADR 0005 — VAPID web-push instead of FCM
+# ADR 0005 - VAPID web-push instead of FCM
 
 **Status:** Accepted (2026-04, Phase 5)
 
@@ -26,7 +26,7 @@ For a personal app moving to a runtime that already has `web-push` available as 
 - ~200KB removed from the client bundle.
 - One vendor fewer in the runtime path. Push works without any Firebase product enabled.
 - The send side is ~40 lines of Deno. Easy to read, easy to log, easy to swap.
-- Receiver compatibility is unchanged — the underlying push services are the same; only the wrapper SDK is gone.
+- Receiver compatibility is unchanged - the underlying push services are the same; only the wrapper SDK is gone.
 - Dead-subscription pruning is automatic and visible (one DELETE per 404/410).
 
 **Bad**
@@ -43,4 +43,4 @@ For a personal app moving to a runtime that already has `web-push` available as 
 
 - **Stay on FCM.** Would have required keeping Firebase Messaging, a Firebase Admin SDK on the send side, and per-platform token mechanics. Defeats the broader Supabase migration goal.
 - **OneSignal / Pusher Beams / similar.** Adds a third party for a problem we can solve with `web-push` + 40 lines of Deno.
-- **No push, in-app bell only.** Insufficient — the weekly admin summary needs to land when the tab is closed.
+- **No push, in-app bell only.** Insufficient - the weekly admin summary needs to land when the tab is closed.

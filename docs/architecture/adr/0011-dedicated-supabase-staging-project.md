@@ -1,4 +1,4 @@
-# ADR 0011 — Dedicated Supabase project for staging
+# ADR 0011 - Dedicated Supabase project for staging
 
 **Status:** Accepted (2026-05-22)
 

@@ -1,4 +1,4 @@
--- Phase 12 — Groups feature hardening
+-- Phase 12 - Groups feature hardening
 --
 -- Two issues with the explicit-sharing model shipped in
 -- 20260516000000_transactions_group_id.sql:
@@ -7,13 +7,13 @@
 --    matching the policy condition. A malicious group member could
 --    rewrite user_id to themselves and steal a peer's transaction.
 -- 2. Same policy allows moving a transaction into a different group
---    the caller belongs to — i.e. re-sharing someone else's row.
+--    the caller belongs to - i.e. re-sharing someone else's row.
 --
 -- Postgres RLS WITH CHECK only sees NEW row values; it cannot reference
 -- OLD. Two-pronged fix:
 --   a) Strip table-level UPDATE from authenticated, then GRANT UPDATE
 --      per editable column EXCEPT user_id. This is the same pattern as
---      profiles.role (see 20260514000001) — column-level REVOKE alone
+--      profiles.role (see 20260514000001) - column-level REVOKE alone
 --      is silently ineffective when a broader table-level grant exists.
 --   b) Trigger enforces group_id can only change when auth.uid() is the
 --      row owner. Group members may CRUD a shared row but cannot

@@ -1,9 +1,9 @@
--- Phase 12 — Groups feature hardening
+-- Phase 12 - Groups feature hardening
 --
 -- complete_shopping_list inserts the expense transaction without
 -- copying the list's group_id. After the 2026-05-16 explicit-sharing
 -- migration, this means a completed group-shared list produces an
--- expense that only the completing user can see — silently dropping
+-- expense that only the completing user can see - silently dropping
 -- visibility for the rest of the group.
 --
 -- Fix: copy v_list.group_id onto the new transaction so it inherits

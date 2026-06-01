@@ -123,7 +123,7 @@ describe("RLS: transactions", () => {
       if (memberInsert.error) throw memberInsert.error;
 
       // Assign user B's tx to the group so it becomes visible/writable to user A.
-      // Under the new (opt-in) model, group membership alone is NOT enough —
+      // Under the new (opt-in) model, group membership alone is NOT enough -
       // tx.group_id must be set explicitly.
       const assign = await ctx.admin
         .from("transactions")
@@ -154,7 +154,7 @@ describe("RLS: transactions", () => {
     });
 
     it("user A CANNOT re-own user B's tx (user_id column locked)", async () => {
-      // user_id is REVOKE UPDATE — PostgREST drops the column silently and
+      // user_id is REVOKE UPDATE - PostgREST drops the column silently and
       // the row stays owned by B. Verify by reading back.
       const update = await ctx.userA.client
         .from("transactions")

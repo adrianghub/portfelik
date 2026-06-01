@@ -11,7 +11,7 @@
 --    legitimate sign-up would be a confusing "Database error" while the cap
 --    still had room.
 --
---    Switch to `pg_advisory_xact_lock(hashtext('max_user_cap'))` — a
+--    Switch to `pg_advisory_xact_lock(hashtext('max_user_cap'))` - a
 --    transaction-scoped advisory lock with a fixed key. It does not interact
 --    with INSERT's row-level locking, serializes the count-vs-cap check
 --    across concurrent sign-ups, and releases automatically at transaction

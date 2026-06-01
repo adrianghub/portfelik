@@ -8,10 +8,11 @@
   import { cn, formatCurrency } from "$lib/utils";
 
   interface Props {
+    loading?: boolean;
     flaggedRows: ImportRow[];
     warningsByRow: Map<string, DuplicateWarning>;
     duplicateDetail: (rowId: string) => string | null;
-    /** False while warnings/rows load or any auto-mark request is in flight. */
+    /** False while rows load or any auto-mark request is in flight. */
     dupActionsReady: boolean;
     isRowAutoDupSettled: (rowId: string) => boolean;
     onImportAnyway: (row: ImportRow) => void;
@@ -20,6 +21,7 @@
   }
 
   let {
+    loading = false,
     flaggedRows,
     warningsByRow,
     duplicateDetail,
@@ -34,10 +36,15 @@
   const anyRestorable = $derived(
     flaggedRows.some((r) => r.decision === "duplicate" && warningsByRow.has(r.id))
   );
+  const canInteract = $derived(!loading && dupActionsReady);
 </script>
 
 <div class="space-y-4">
-  {#if count === 0}
+  {#if loading}
+    <p class="rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3 text-sm text-slate-400">
+      {m.bank_review_dup_checking()}
+    </p>
+  {:else if count === 0}
     <EmptyState title={m.bank_review_dup_none_title()} body={m.bank_review_dup_none_body()} />
   {:else}
     <div class="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3">
@@ -47,13 +54,13 @@
       <p class="mt-1 text-xs text-amber-200/90">{m.bank_review_dup_summary_hint()}</p>
     </div>
 
-    {#if !dupActionsReady}
+    {#if !canInteract}
       <p class="text-xs text-slate-400" aria-live="polite">{m.common_loading()}</p>
     {/if}
 
     {#if anyRestorable}
       <div class="flex flex-wrap gap-2">
-        <Button variant="ghost" size="sm" disabled={!dupActionsReady} onclick={onRestoreAll}>
+        <Button variant="ghost" size="sm" disabled={!canInteract} onclick={onRestoreAll}>
           {m.bank_review_dup_restore_all()}
         </Button>
       </div>
@@ -89,7 +96,7 @@
               <Button
                 variant="ghost"
                 size="sm"
-                disabled={!dupActionsReady || !isRowAutoDupSettled(row.id)}
+                disabled={!canInteract || !isRowAutoDupSettled(row.id)}
                 onclick={() => onImportAnyway(row)}
               >
                 {m.bank_review_dup_import_anyway()}
@@ -104,7 +111,7 @@
   {/if}
 
   <div class="flex justify-end border-t border-white/10 pt-4">
-    <Button variant="primary" disabled={!dupActionsReady} onclick={onNext}>
+    <Button variant="primary" disabled={!canInteract} onclick={onNext}>
       {m.bank_review_step_next()}
     </Button>
   </div>

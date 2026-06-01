@@ -1,4 +1,4 @@
-# ADR 0002 — Replace Firebase with Supabase
+# ADR 0002 - Replace Firebase with Supabase
 
 **Status:** Accepted (2026-03, MIGRATION_PLAN.md)
 
@@ -27,7 +27,7 @@ Migrate to **Supabase Cloud (EU region)**. Postgres replaces Firestore; PostgRES
 - `pg_cron` is in-DB scheduling with no extra runtime. SQL-only jobs (recurring materialisation, status flips) are pure SQL.
 - JWT-based auth claims replace Firebase custom claims, with the same semantics (`app_metadata.role`).
 - VAPID web-push (a separate decision; see ADR 0005) drops the Firebase Messaging SDK from the bundle.
-- Vendor portability — Postgres + PostgREST + GoTrue can be self-hosted on the existing Pi homelab if Supabase pricing or sovereignty ever forces a move.
+- Vendor portability - Postgres + PostgREST + GoTrue can be self-hosted on the existing Pi homelab if Supabase pricing or sovereignty ever forces a move.
 
 **Bad**
 

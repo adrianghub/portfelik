@@ -26,7 +26,7 @@ export default tseslint.config(
   },
   {
     rules: {
-      // goto() and <a href> in components don't need resolve() — that's hooks.server.ts territory
+      // goto() and <a href> in components don't need resolve() - that's hooks.server.ts territory
       "svelte/no-navigation-without-resolve": "off",
       // URLSearchParams used as a pure local variable (not reactive state) is fine
       "svelte/prefer-svelte-reactivity": "off",

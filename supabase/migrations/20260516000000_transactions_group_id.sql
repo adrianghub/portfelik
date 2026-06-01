@@ -1,7 +1,7 @@
--- Phase 12 — Groups feature: explicit transaction sharing
+-- Phase 12 - Groups feature: explicit transaction sharing
 --
 -- Today: any group member transparently sees any other member's transactions
---        (RLS "transactions: users read group-shared" — implicit, all-or-nothing).
+--        (RLS "transactions: users read group-shared" - implicit, all-or-nothing).
 -- After: transactions must be explicitly assigned to a group via group_id to be
 --        visible / writable to its members. Default group_id = NULL → owner-only.
 --
@@ -37,7 +37,7 @@ as
   join categories   c on c.id = t.category_id;
 
 comment on view transactions_with_category is
-  'Transactions joined with category name and type. SECURITY INVOKER — caller RLS applies.';
+  'Transactions joined with category name and type. SECURITY INVOKER - caller RLS applies.';
 
 -- Replace implicit cross-member visibility with explicit group_id check
 drop policy if exists "transactions: users read group-shared" on transactions;

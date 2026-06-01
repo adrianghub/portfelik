@@ -184,7 +184,12 @@
     </div>
   </div>
 
-  {#if visibleRows.length === 0 && totalActiveRows > 0}
+  {#if totalActiveRows === 0}
+    <EmptyState
+      title={m.bank_review_all_duplicates_skip_title()}
+      body={m.bank_review_all_duplicates_skip_body()}
+    />
+  {:else if visibleRows.length === 0 && totalActiveRows > 0}
     <EmptyState title={m.bank_review_filter_empty_title()} body={m.bank_review_filter_empty_body()}>
       {#snippet action()}
         <Button variant="ghost" size="sm" onclick={onClearFilter}
@@ -388,8 +393,10 @@
     <Select
       value={groupSheetRow.selected_group_id ?? ""}
       onchange={(e) => {
+        const row = groupSheetRow;
+        if (!row) return;
         const v = (e.target as HTMLSelectElement).value;
-        onPatchRow(groupSheetRow.id, { selected_group_id: v === "" ? null : v });
+        onPatchRow(row.id, { selected_group_id: v === "" ? null : v });
       }}
     >
       <option value="">{m.bank_review_group_own()}</option>

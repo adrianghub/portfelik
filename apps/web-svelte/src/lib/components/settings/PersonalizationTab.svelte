@@ -48,7 +48,7 @@
 
   function choose(id: AccentPresetId) {
     if (!profile || id === selected) return;
-    applyAccent(id); // optimistic — reskins instantly + mirrors to localStorage
+    applyAccent(id); // optimistic - reskins instantly + mirrors to localStorage
     mutation.mutate(id);
   }
 </script>

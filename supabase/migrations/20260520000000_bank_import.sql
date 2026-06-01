@@ -1,6 +1,6 @@
 -- Phase 12+: bank CSV import schema (V1: mBank + ING).
 --
--- Five new tables. ZERO new columns on transactions — that is the
+-- Five new tables. ZERO new columns on transactions - that is the
 -- privacy spine. Bank provenance (account, external id, fingerprint,
 -- raw-row hash, session id) lives in owner-only transaction_import_links
 -- so the shared transactions row never leaks bank metadata to group
@@ -13,7 +13,7 @@
 --     same-file row idempotency
 -- Fingerprint is recorded for UI-level probable-duplicate warnings only.
 --
--- No client DELETE on bank_accounts / sessions / rows / links — history
+-- No client DELETE on bank_accounts / sessions / rows / links - history
 -- is preserved. bank_accounts uses archived_at soft-delete instead.
 
 -- ============================================================
@@ -203,7 +203,7 @@ grant update (
 ) on table transaction_import_rows to authenticated;
 
 -- ============================================================
--- transaction_import_links — RPC-write-only, owner-only SELECT
+-- transaction_import_links - RPC-write-only, owner-only SELECT
 -- ============================================================
 
 create table transaction_import_links (

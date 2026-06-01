@@ -89,7 +89,7 @@ grant execute on function public.revoke_admin_role(uuid) to authenticated;
 grant execute on function public.transfer_group_ownership(uuid, uuid) to authenticated;
 grant execute on function public.trigger_admin_summary() to authenticated;
 grant execute on function public.get_monthly_summary(integer, integer) to authenticated;
--- RLS policy helpers — authenticated evaluates these inside USING/WITH CHECK.
+-- RLS policy helpers - authenticated evaluates these inside USING/WITH CHECK.
 grant execute on function public.is_admin() to authenticated;
 grant execute on function public.is_group_member(uuid) to authenticated;
 grant execute on function public.is_group_owner(uuid) to authenticated;

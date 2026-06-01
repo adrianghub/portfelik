@@ -63,7 +63,7 @@
       detectedBankLabel = bankLabel;
 
       // Auto-find-or-create the user's active account for this kind. The
-      // user never picks a bank — detection is enough.
+      // user never picks a bank - detection is enough.
       const account = await findOrCreateActiveAccount({
         kind: detected,
         defaultLabel: bankLabel,
@@ -85,7 +85,7 @@
       }
       // An uncommitted preview for the same file is an abandoned earlier
       // attempt. Cancel it (frees the partial unique index on file hash) and
-      // start fresh — no mid-review resume.
+      // start fresh - no mid-review resume.
       if (existing?.status === "preview") {
         await cancelImportSession(existing.id);
       }
@@ -258,7 +258,7 @@
       </p>
       <p class="text-sm text-amber-100/90">
         {m.bank_upload_already_committed_body({
-          date: committedConflict.committed_at?.slice(0, 10) ?? "—",
+          date: committedConflict.committed_at?.slice(0, 10) ?? "-",
           inserted: committedConflict.rows_committed,
           skipped: committedConflict.rows_skipped,
           duplicates: committedConflict.rows_duplicate,
