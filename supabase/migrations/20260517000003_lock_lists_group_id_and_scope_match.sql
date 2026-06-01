@@ -1,4 +1,4 @@
--- Phase 12 — Groups feature hardening (round 2): apply transaction-level
+-- Phase 12 - Groups feature hardening (round 2): apply transaction-level
 -- protections to shopping_lists, plus close attach-scope-mismatch hole,
 -- plus require ≥1 item before complete/attach.
 --
@@ -214,7 +214,7 @@ begin
   -- surface. Private list ↔ private tx, or group X list ↔ group X tx.
   -- We refuse to silently promote the tx into the list's group (that
   -- would require owner-of-tx rules and is the user's decision via
-  -- the dialog) — caller fixes the scope first.
+  -- the dialog) - caller fixes the scope first.
   if v_list.group_id is distinct from v_tx.group_id then
     raise exception 'sharing_scope_mismatch'
       using errcode = 'P0001',

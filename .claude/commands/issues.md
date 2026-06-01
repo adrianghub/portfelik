@@ -13,7 +13,7 @@ Issues requested:
 
 $ARGUMENTS
 
-## Step 1 — Fetch
+## Step 1 - Fetch
 
 For each issue, fetch its current state with the `gh` CLI. Default repo is
 `adrianghub/portfelik` when only a number is given:
@@ -26,7 +26,7 @@ gh issue view <number> --repo adrianghub/portfelik \
 Skip any issue already `CLOSED` (note it and move on). De-duplicate repeated
 numbers in the argument list.
 
-## Step 2 — Understand & question
+## Step 2 - Understand & question
 
 Before writing any code:
 
@@ -34,14 +34,14 @@ Before writing any code:
 - Identify dependencies/ordering between issues and propose a sequence.
 - **Ask clarifying questions** for anything ambiguous: acceptance criteria,
   scope boundaries, affected areas, edge cases, data/migration impact.
-- Use the **Socratic method** where it sharpens the design — surface
+- Use the **Socratic method** where it sharpens the design - surface
   assumptions and trade-offs as questions rather than declaring decisions,
   so the user steers intent before implementation.
 
 Do not start implementing until ambiguities are resolved. If an issue is
 unambiguous and low-risk, say so and proceed.
 
-## Step 3 — Plan & execute
+## Step 3 - Plan & execute
 
 - Honor the workflow rules in `CLAUDE.md` (sanity check, lint, format,
   security grep, schema/RLS, Paraglide recompile, commit list) and the
@@ -49,7 +49,7 @@ unambiguous and low-risk, say so and proceed.
 - Split work by concern; one logical change per commit.
 - For multi-step feature work, invoke the brainstorming skill first.
 
-## Step 4 — Close the loop
+## Step 4 - Close the loop
 
 For each issue completed, produce the mandatory Conventional Commit list
 (messages + exact file list per commit) and note which issue each commit

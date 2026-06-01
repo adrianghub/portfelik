@@ -176,9 +176,9 @@ export function expectBlockedWrite(result: {
   error: unknown;
   count?: number | null;
 }): void {
-  if (result.error) return; // explicit RLS denial — OK
+  if (result.error) return; // explicit RLS denial - OK
   const data = result.data;
-  if (Array.isArray(data) && data.length === 0) return; // 0 rows matched — RLS hid them
+  if (Array.isArray(data) && data.length === 0) return; // 0 rows matched - RLS hid them
   if (data === null) return;
   if (typeof result.count === "number" && result.count === 0) return;
   throw new Error(`Expected RLS to block write, got: ${JSON.stringify(result)}`);

@@ -85,7 +85,7 @@ if changed_match '^supabase/migrations/|\.sql$'; then
       gate test:rls FAIL "see /tmp/pr-rls.log"
     fi
   else
-    gate test:rls FAIL "local Supabase stack down — run: supabase start"
+    gate test:rls FAIL "local Supabase stack down - run: supabase start"
   fi
 else
   gate test:rls NA "no schema/policy changes"

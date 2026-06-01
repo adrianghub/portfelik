@@ -30,7 +30,7 @@ test('login + create + read + delete transaction against real Supabase', async (
   await page.goto('/transactions');
   await expect(page).toHaveURL(/\/transactions/, { timeout: 15000 });
 
-  // Open the create dialog (desktop button — first match avoids mobile FAB).
+  // Open the create dialog (desktop button - first match avoids mobile FAB).
   await page
     .getByRole('button', { name: /Dodaj transakcję/ })
     .first()

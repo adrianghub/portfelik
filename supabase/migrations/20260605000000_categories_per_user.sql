@@ -13,7 +13,7 @@
 --   6. installs a trigger that seeds the default set for every new user.
 --
 -- On a fresh local reset this is a structural no-op for the data steps (no
--- users/globals exist yet — seed.sql no longer creates globals); it matters on
+-- users/globals exist yet - seed.sql no longer creates globals); it matters on
 -- prod/staging where globals and users already exist.
 
 -- ── 1. Per-user copies of every global category ──────────────────────────────

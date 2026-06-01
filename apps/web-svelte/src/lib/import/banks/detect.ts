@@ -1,5 +1,5 @@
 // Adapter auto-detection from decoded CSV text.
-// Cheap header sniff — no heavy parsing.
+// Cheap header sniff - no heavy parsing.
 
 import { parseCsv } from "../csv/parse";
 import { ingAdapter } from "./ing";

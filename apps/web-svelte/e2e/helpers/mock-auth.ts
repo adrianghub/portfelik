@@ -51,7 +51,7 @@ export async function mockSupabaseAPI(page: Page): Promise<void> {
     });
   }
 
-  // Single REST handler — match by URL content to avoid ordering issues
+  // Single REST handler - match by URL content to avoid ordering issues
   for (const supabaseUrl of SUPABASE_URLS)
     await page.route(`${supabaseUrl}/rest/v1/**`, async (route) => {
       const url = route.request().url();
@@ -67,7 +67,7 @@ export async function mockSupabaseAPI(page: Page): Promise<void> {
         return route.fulfill({ status: 200, json: MOCK_CATEGORIES });
       }
 
-      // ── Transactions (view — must check before /transactions) ─────────────
+      // ── Transactions (view - must check before /transactions) ─────────────
       if (url.includes("/transactions_with_category")) {
         return route.fulfill({ status: 200, json: MOCK_TRANSACTIONS });
       }
@@ -125,7 +125,7 @@ export async function mockSupabaseAPI(page: Page): Promise<void> {
         return route.fulfill({ status: 200, json: [] });
       }
 
-      // ── Shopping lists (detail — has id=eq. in URL) ───────────────────────
+      // ── Shopping lists (detail - has id=eq. in URL) ───────────────────────
       if (url.includes("/shopping_lists") && url.includes("id=eq.")) {
         if (method === "DELETE") {
           return route.fulfill({ status: 204, body: "" });

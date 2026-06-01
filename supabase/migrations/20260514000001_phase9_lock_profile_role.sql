@@ -1,4 +1,4 @@
--- Phase 9 — RLS regression suite found a self-elevation gap on profiles.role.
+-- Phase 9 - RLS regression suite found a self-elevation gap on profiles.role.
 --
 -- Background: migration 20260423000000 ended with
 --   revoke update (role) on profiles from authenticated;
@@ -6,7 +6,7 @@
 -- UPDATE on all public tables.
 --
 -- The column-level REVOKE is silently ineffective when a broader table-level
--- GRANT exists — PostgreSQL evaluates the wider grant first. Result: any
+-- GRANT exists - PostgreSQL evaluates the wider grant first. Result: any
 -- authenticated user could self-elevate to admin via
 --   update profiles set role = 'admin' where id = auth.uid();
 --

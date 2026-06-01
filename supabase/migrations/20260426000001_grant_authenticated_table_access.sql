@@ -6,7 +6,7 @@
 -- auto-applies these on project creation, but they were lost when legacy JWT
 -- API keys were disabled (platform reset implicit grants).
 --
--- Without these grants, RLS policies cannot evaluate — every authenticated
+-- Without these grants, RLS policies cannot evaluate - every authenticated
 -- request returns 403 regardless of policy content.
 -- =============================================================================
 

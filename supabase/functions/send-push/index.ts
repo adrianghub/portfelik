@@ -8,7 +8,7 @@
 // INTERNAL_TRIGGER_SECRET is set as an Edge Function secret and stored in Vault.
 //
 // Required Edge Function secrets:
-//   INTERNAL_TRIGGER_SECRET  (random hex — also stored in Vault as 'internal_trigger_secret')
+//   INTERNAL_TRIGGER_SECRET  (random hex - also stored in Vault as 'internal_trigger_secret')
 //   VAPID_PUBLIC_KEY
 //   VAPID_PRIVATE_KEY
 //   VAPID_SUBJECT            e.g. mailto:zinko.adrian00@gmail.com

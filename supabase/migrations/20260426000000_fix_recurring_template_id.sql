@@ -3,11 +3,11 @@
 --
 -- Previous dedup checked (user_id, description, amount, category_id, month).
 -- Two recurring templates with identical content (e.g., two subscriptions at
--- the same price) would both match the same existing row — second template
+-- the same price) would both match the same existing row - second template
 -- silently skipped every run.
 --
 -- Fix: add recurring_template_id so each instance references its source
--- template. Dedup is now (user_id, recurring_template_id, month) — exact
+-- template. Dedup is now (user_id, recurring_template_id, month) - exact
 -- and collision-free regardless of content.
 -- =============================================================================
 
@@ -47,7 +47,7 @@ begin
       v_target_date := (v_target_date + interval '1 month')::date;
     end if;
 
-    -- one instance per template per month — no content-based false positives
+    -- one instance per template per month - no content-based false positives
     if exists (
       select 1 from transactions t
       where t.user_id               = rec.user_id
@@ -74,7 +74,7 @@ begin
       rec.user_id,
       'transaction_upcoming',
       'Nadchodząca transakcja',
-      rec.description || ' — ' || to_char(rec.amount, 'FM999G990D00') || ' ' || rec.currency,
+      rec.description || ' - ' || to_char(rec.amount, 'FM999G990D00') || ' ' || rec.currency,
       jsonb_build_object(
         'transactionId',        v_inserted_id,
         'recurringTemplateId',  rec.id,

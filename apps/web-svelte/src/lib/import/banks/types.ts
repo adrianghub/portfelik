@@ -13,7 +13,7 @@ export type TransactionType = "income" | "expense";
 export interface ParsedRow {
   /** ISO yyyy-mm-dd, posted/booked date depending on adapter choice. */
   posted_at: string;
-  /** Positive magnitude — sign lives in `type`. */
+  /** Positive magnitude - sign lives in `type`. */
   amount: number;
   type: TransactionType;
   /** Sanitized free-text description. Whitespace collapsed. */
@@ -24,7 +24,7 @@ export interface ParsedRow {
   external_id?: string;
   /** Uppercase 3-letter ISO 4217 (e.g. "PLN"). */
   currency: string;
-  /** Exact original CSV line — fed into normalize() for hashing. */
+  /** Exact original CSV line - fed into normalize() for hashing. */
   source_row_text: string;
   /** 0-based position in the source file (after header). */
   row_index: number;

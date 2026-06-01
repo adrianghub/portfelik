@@ -26,6 +26,6 @@ pnpm build && npx wrangler pages deploy build --project-name portfelik --commit-
 **Check deployment:** https://portfelik.adrianzinko.com
 
 **Notes:**
-- `PUBLIC_*` vars are baked at build time — must pass them inline or via `.env.production` (gitignored)
-- Supabase anon key rotates occasionally — always get fresh from dashboard before manual deploy
+- `PUBLIC_*` vars are baked at build time - must pass them inline or via `.env.production` (gitignored)
+- Supabase anon key rotates occasionally - always get fresh from dashboard before manual deploy
 - VAPID public key is stable (keypair set 2026-04-26)

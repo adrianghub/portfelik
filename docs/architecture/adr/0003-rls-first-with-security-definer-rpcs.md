@@ -1,4 +1,4 @@
-# ADR 0003 — RLS-first design with SECURITY DEFINER RPCs for membership-managed tables
+# ADR 0003 - RLS-first design with SECURITY DEFINER RPCs for membership-managed tables
 
 **Status:** Accepted (2026-04, Phase 1)
 
@@ -21,7 +21,7 @@ A second, structural problem: RLS policies that read other tables can recurse. A
 
 **RLS-first for owner-managed tables; SECURITY DEFINER RPCs for membership-managed tables.**
 
-For `transactions`, `categories`, `shopping_lists`, `notifications`, `push_subscriptions`: standard RLS — caller's `user_id` for own rows, plus a group-membership self-join for shared reads.
+For `transactions`, `categories`, `shopping_lists`, `notifications`, `push_subscriptions`: standard RLS - caller's `user_id` for own rows, plus a group-membership self-join for shared reads.
 
 For `user_groups`, `group_members`, `group_invitations`: **block direct writes** with `using (false) with check (false)`, and expose every legitimate mutation as a SECURITY DEFINER RPC that bypasses RLS and enforces invariants in plpgsql:
 

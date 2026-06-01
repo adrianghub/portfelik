@@ -1,4 +1,4 @@
-# ADR 0008 — TanStack Query v6 with Svelte 5 runes
+# ADR 0008 - TanStack Query v6 with Svelte 5 runes
 
 **Status:** Accepted (2026-04, Phase 4–5)
 
@@ -52,6 +52,6 @@ The legacy app used TanStack Query against Firestore service classes and was hap
 
 ## Alternatives considered
 
-- **SvelteKit `load()` functions.** Built-in, no external dep — but the static adapter has no server runtime to run them, and they don't help with mutations or in-flight refetch.
+- **SvelteKit `load()` functions.** Built-in, no external dep - but the static adapter has no server runtime to run them, and they don't help with mutations or in-flight refetch.
 - **Svelte `$query` from `@sveltejs/svelte-query`.** Older, store-based, doesn't expose runes proxies the same way.
 - **Roll our own with `$state` + `fetch`.** Reasonable for one or two endpoints; loses the years of polish in TanStack Query (request dedup, retry semantics, garbage collection, devtools).

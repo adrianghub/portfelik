@@ -1,5 +1,5 @@
 -- =============================================================================
--- Portfelik — Seed Data
+-- Portfelik - Seed Data
 -- Run via: supabase db seed (local) or applied to staging by CI.
 --
 -- Default transaction categories are NO LONGER global rows. As of migration

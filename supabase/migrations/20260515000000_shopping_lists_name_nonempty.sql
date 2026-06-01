@@ -1,4 +1,4 @@
--- Phase 11.2 — Data integrity hardening
+-- Phase 11.2 - Data integrity hardening
 -- Applied 2026-05-15.
 -- Trim trailing/leading whitespace in existing names; add length-check constraints.
 -- Pre-check confirmed no NULL/empty-name rows; no deletes needed.

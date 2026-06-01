@@ -1,5 +1,5 @@
 -- RPC for admins to manually trigger the weekly summary Edge Function.
--- Reads INTERNAL_TRIGGER_SECRET from Vault — never exposed to the frontend.
+-- Reads INTERNAL_TRIGGER_SECRET from Vault - never exposed to the frontend.
 create or replace function trigger_admin_summary()
 returns jsonb
 language plpgsql

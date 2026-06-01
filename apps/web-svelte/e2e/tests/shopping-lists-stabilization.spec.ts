@@ -1,5 +1,5 @@
 /**
- * Playwright regression spec — shopping-list stabilization bundle.
+ * Playwright regression spec - shopping-list stabilization bundle.
  *
  * Covers:
  *  - attach-direction flip (tx-side picker, Tasks 1+2)
@@ -195,7 +195,7 @@ function groupedListFixture() {
 }
 
 /**
- * Override the shopping_list_items GET endpoint with a static list — used to
+ * Override the shopping_list_items GET endpoint with a static list - used to
  * seed suggestion history for the combobox tests.
  */
 async function seedItemHistory(
@@ -270,7 +270,7 @@ test("quick-add accepts name-only items", async ({ page }) => {
   const nameInput = page.getByPlaceholder("Nazwa elementu");
   await nameInput.fill("Pomidory");
 
-  // Click the submit button — aria label is the submit button next to the toggle
+  // Click the submit button - aria label is the submit button next to the toggle
   await page.getByRole("button", { name: /Dodaj element/ }).click();
 
   // Toast: "Element dodany"
@@ -366,7 +366,7 @@ test("suggestion dropdown hides on Escape", async ({ page }) => {
     return route.fulfill({ status: 204, body: "" });
   });
 
-  // Seed history — one item matching "ch"
+  // Seed history - one item matching "ch"
   await seedItemHistory(page, [{ name: "Chleb", quantity: 1, unit: null }]);
 
   await page.goto("/shopping-lists/list-empty");
@@ -380,7 +380,7 @@ test("suggestion dropdown hides on Escape", async ({ page }) => {
   // Listbox should appear
   await expect(page.getByRole("listbox")).toBeVisible();
 
-  // Press Escape — listbox hides
+  // Press Escape - listbox hides
   await nameInput.press("Escape");
   await expect(page.getByRole("listbox")).not.toBeVisible();
 });
@@ -402,7 +402,7 @@ test("suggestion select fills name and auto-opens details", async ({ page }) => 
     return route.fulfill({ status: 204, body: "" });
   });
 
-  // Seed history — "Mleko" with quantity=1, unit="l"
+  // Seed history - "Mleko" with quantity=1, unit="l"
   await seedItemHistory(page, [{ name: "Mleko", quantity: 1, unit: "l" }]);
 
   await page.goto("/shopping-lists/list-empty");
@@ -491,7 +491,7 @@ test("item edit sheet updates name, quantity and unit", async ({ page }) => {
   // Save
   await editSheet.getByRole("button", { name: /Zapisz/ }).click();
 
-  // Success toast — toast_shopping_list_item_renamed = "Element zmieniony"
+  // Success toast - toast_shopping_list_item_renamed = "Element zmieniony"
   await expect(page.getByText("Element zmieniony")).toBeVisible();
 
   // PATCH body should contain the new values
@@ -591,7 +591,7 @@ test("progress bar shows completed/total text and correct aria attributes", asyn
   await page.goto("/shopping-lists/list-progress");
   await expect(page.getByText("Lista z postępem")).toBeVisible();
 
-  // Progress text — "2 / 5 ukończone"
+  // Progress text - "2 / 5 ukończone"
   await expect(page.getByText("2 / 5 ukończone")).toBeVisible();
 
   // Progressbar ARIA attributes
@@ -682,7 +682,7 @@ test("unit combobox: focus opens listbox, typing filters, click picks", async ({
   const unitInput = editSheet.locator("#shopping-list-unit");
   await unitInput.click();
 
-  // Listbox is portaled to body — find globally
+  // Listbox is portaled to body - find globally
   const listbox = page.getByRole("listbox");
   await expect(listbox).toBeVisible();
   await expect(listbox.getByRole("option", { name: "l" })).toBeVisible();
@@ -749,7 +749,7 @@ test("bulk delete: button opens confirm dialog, confirm fires DELETE", async ({ 
   await page.getByRole("button", { name: /Usuń wszystkie/ }).click();
   await expect(page.getByRole("alertdialog")).toBeVisible();
 
-  // ConfirmDialog "Potwierdź" / "Usuń" button — accept default confirm text.
+  // ConfirmDialog "Potwierdź" / "Usuń" button - accept default confirm text.
   await page
     .getByRole("alertdialog")
     .getByRole("button", { name: /Potwierdź|Usuń|Tak/i })

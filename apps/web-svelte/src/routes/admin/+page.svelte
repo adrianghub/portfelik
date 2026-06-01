@@ -150,7 +150,7 @@
           {#each filtered as p (p.id)}
             <tr class="border-b border-white/5 last:border-0">
               <td class="px-4 py-3 text-slate-100">{p.email}</td>
-              <td class="hidden px-4 py-3 text-slate-400 sm:table-cell">{p.name ?? "—"}</td>
+              <td class="hidden px-4 py-3 text-slate-400 sm:table-cell">{p.name ?? "-"}</td>
               <td class="px-4 py-3">
                 <span
                   class={p.role === "admin"

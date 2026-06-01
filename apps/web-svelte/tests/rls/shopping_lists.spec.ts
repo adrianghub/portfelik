@@ -257,7 +257,7 @@ describe("RLS: shopping_lists", () => {
     });
 
     it("ATTACH: rejects when transaction is income", async () => {
-      // Seed a private income tx and a fresh private list with one item — both
+      // Seed a private income tx and a fresh private list with one item - both
       // owned by A so the sharing-scope check passes and the type guard fires.
       const incomeTx = await ctx.admin
         .from("transactions")

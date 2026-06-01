@@ -238,9 +238,9 @@ Mirrors `auth.users` 1:1. Created by `handle_new_user` trigger on `auth.users` i
 
 ### `user_groups`
 
-A logical sharing unit. Owner has full lifecycle control via RPCs. Direct writes are blocked by `using (false)` — all mutations go through `create_group`, `disband_group`, `transfer_group_ownership`.
+A logical sharing unit. Owner has full lifecycle control via RPCs. Direct writes are blocked by `using (false)` - all mutations go through `create_group`, `disband_group`, `transfer_group_ownership`.
 
-- **PK**: `id`. **FK**: `owner_id` → `auth.users.id` (ON DELETE RESTRICT — must transfer or disband before deleting the user).
+- **PK**: `id`. **FK**: `owner_id` → `auth.users.id` (ON DELETE RESTRICT - must transfer or disband before deleting the user).
 - **RLS read**: members, owner, or pending invitees (matched by JWT email).
 - **RLS write**: blocked. Use RPCs.
 
@@ -270,7 +270,7 @@ Owner-scoped; `user_id IS NULL` denotes a **system category**, visible to every 
 
 ### `transactions`
 
-Core ledger. Amount is stored as a positive magnitude; sign is carried by `type`. Currency defaults to `PLN`. Date is `timestamptz` (not `date`, despite the name) — the legacy plan stored ISO strings; the migration kept that semantics on Supabase.
+Core ledger. Amount is stored as a positive magnitude; sign is carried by `type`. Currency defaults to `PLN`. Date is `timestamptz` (not `date`, despite the name) - the legacy plan stored ISO strings; the migration kept that semantics on Supabase.
 
 - **PK**: `id`. **FKs**: `category_id` (RESTRICT), `user_id` (CASCADE), `shopping_list_id` (SET NULL), `recurring_template_id` (SET NULL self-ref).
 - **CHECK**: `amount > 0`, `recurring_day BETWEEN 1 AND 31`.
@@ -281,7 +281,7 @@ A view `transactions_with_category` joins to `categories` for display; the Svelt
 
 ### `shopping_lists`
 
-Per-user list, optionally scoped to a group. Soft-completion is **not** used — `status` flips to `completed` (and `total_amount` is filled in) by the `complete_shopping_list` RPC, which also creates the linked expense transaction in the same DB transaction.
+Per-user list, optionally scoped to a group. Soft-completion is **not** used - `status` flips to `completed` (and `total_amount` is filled in) by the `complete_shopping_list` RPC, which also creates the linked expense transaction in the same DB transaction.
 
 - **PK**: `id`. **FKs**: `user_id` (CASCADE), `group_id` (SET NULL), `category_id` (SET NULL).
 - **RLS read**: own or group-shared.
@@ -293,17 +293,17 @@ Per-user list, optionally scoped to a group. Soft-completion is **not** used —
 Child rows of `shopping_lists`. Cascade-delete on parent. RLS uses `EXISTS` against the parent row, so all access derives from the parent's policies.
 
 - **PK**: `id`. **FK**: `shopping_list_id` (CASCADE).
-- **Columns of note**: `category` (TEXT, nullable; free-text section label, CHECK `shopping_list_items_category_nonempty` = NULL or non-blank — `20260528000000`).
+- **Columns of note**: `category` (TEXT, nullable; free-text section label, CHECK `shopping_list_items_category_nonempty` = NULL or non-blank - `20260528000000`).
 - **Indexes**: `idx_shopping_list_items_list_id`, `idx_shopping_list_items_list_position`.
 
 ### `shopping_item_categories`
 
-Owner-scoped vocabulary of reusable item-category labels (the section names users assign to `shopping_list_items.category`). Private per user — not group-shared. Added `20260528000000`.
+Owner-scoped vocabulary of reusable item-category labels (the section names users assign to `shopping_list_items.category`). Private per user - not group-shared. Added `20260528000000`.
 
 - **PK**: `id`. **FK**: `user_id` → `profiles(id)` (CASCADE).
 - **Columns**: `name` (TEXT), `position` (INTEGER, default 0, CHECK ≥ 0), `created_at`, `updated_at`.
 - **CHECK**: `shopping_item_categories_name_nonempty` (non-blank name). **UNIQUE**: `(user_id, name)`.
-- **RLS**: owner-only — 4 policies (`select`/`insert`/`update`/`delete`) all gated on `user_id = (select auth.uid())`.
+- **RLS**: owner-only - 4 policies (`select`/`insert`/`update`/`delete`) all gated on `user_id = (select auth.uid())`.
 - **Indexes**: `idx_shopping_item_categories_user_position` on `(user_id, position, name)`.
 - **Trigger**: `set_shopping_item_categories_updated_at` → `handle_updated_at()`.
 
@@ -313,7 +313,7 @@ In-app inbox plus the data row that drives every push. Phase 5.2 wired a trigger
 
 - **PK**: `id`. **FK**: `user_id` (CASCADE).
 - **RLS read/update/delete**: own. **RLS insert**: blocked from clients (only triggers and Edge Functions create rows).
-- `type` is a free-form string (not a Postgres enum) — see [audit](./audit-2026-05-09.md).
+- `type` is a free-form string (not a Postgres enum) - see [audit](./audit-2026-05-09.md).
 - **Indexes**: `notifications_user_id_created_at_idx`, `notifications_unread_idx`.
 
 ### `push_subscriptions`
@@ -326,7 +326,7 @@ VAPID web-push subscriptions, one row per `(user_id, endpoint)` pair. `p256dh` a
 
 ### `bank_accounts`
 
-Owner-only registry of bank sources for CSV import. **Soft-archive only** — no DELETE granted to clients; `archived_at` retires an account while preserving dedupe + audit chains. One active account per `(user_id, kind)` enforced by partial unique index. `user_id` is column-level immutable (excluded from UPDATE grant).
+Owner-only registry of bank sources for CSV import. **Soft-archive only** - no DELETE granted to clients; `archived_at` retires an account while preserving dedupe + audit chains. One active account per `(user_id, kind)` enforced by partial unique index. `user_id` is column-level immutable (excluded from UPDATE grant).
 
 - **PK**: `id`. **FK**: `user_id` → `auth.users.id` (CASCADE).
 - **CHECK**: `kind in ('mbank', 'ing')`; `currency` uppercase 3-letter.
@@ -357,12 +357,12 @@ Per-row preview state inside a session. Decision drives commit behaviour. Client
 
 ### `transaction_import_links`
 
-Owner-only provenance for each imported transaction. **RPC-write-only** — INSERT/UPDATE/DELETE revoked from `authenticated`; only `commit_import_session` writes here. SELECT is granted so the review UI can scan fingerprints for probable-duplicate warnings. The shared `transactions` row carries zero bank metadata — this isolation is the privacy spine.
+Owner-only provenance for each imported transaction. **RPC-write-only** - INSERT/UPDATE/DELETE revoked from `authenticated`; only `commit_import_session` writes here. SELECT is granted so the review UI can scan fingerprints for probable-duplicate warnings. The shared `transactions` row carries zero bank metadata - this isolation is the privacy spine.
 
 - **PK**: `transaction_id` (1:1 with `transactions`, CASCADE).
 - **FKs**: `user_id` (CASCADE), `bank_account_id` (RESTRICT), `session_id` (RESTRICT), `row_id` (RESTRICT).
 - **Hard dedupe (unique)**: `transaction_import_links_external_idx` on `(user_id, bank_account_id, external_transaction_id) WHERE external_transaction_id IS NOT NULL`; `transaction_import_links_file_row_idx` on `(user_id, bank_account_id, source_file_hash, source_row_index)`.
-- **Soft dedupe (non-unique)**: `transaction_import_links_fingerprint_idx` on `(user_id, fingerprint)` — fingerprint must NOT back a unique index (two legit transactions can share one).
+- **Soft dedupe (non-unique)**: `transaction_import_links_fingerprint_idx` on `(user_id, fingerprint)` - fingerprint must NOT back a unique index (two legit transactions can share one).
 - **RLS read**: own. **All writes**: revoked from `authenticated`.
 
 ### `categorization_rules`
@@ -370,7 +370,7 @@ Owner-only provenance for each imported transaction. **RPC-write-only** — INSE
 Per-user deterministic categorization rules consumed by the import review step. Four kinds (`exact`, `contains`, `type`, `composite`) with a kind-specific CHECK constraint ensuring the relevant match field is non-null. Evaluated in `priority DESC` order.
 
 - **PK**: `id`. **FKs**: `user_id` (CASCADE), `category_id` → `categories(id)` (CASCADE).
-- **CHECK**: kind-specific match-field presence — `exact`/`contains` require `match_description` or `match_counterparty`; `type` requires `match_type`; `composite` requires both a text match field AND `match_type`.
+- **CHECK**: kind-specific match-field presence - `exact`/`contains` require `match_description` or `match_counterparty`; `type` requires `match_type`; `composite` requires both a text match field AND `match_type`.
 - **Index**: `categorization_rules_user_priority_idx` on `(user_id, priority DESC)`.
 - **RLS read/insert/update/delete**: own.
 - **Column GRANTs (UPDATE)**: `kind`, `match_description`, `match_counterparty`, `match_type`, `category_id`, `priority`.
@@ -379,7 +379,7 @@ Per-user deterministic categorization rules consumed by the import review step. 
 
 Two patterns:
 
-1. **Owner + group-shared read**, **owner-only write** — used on `transactions`, `categories`, `shopping_lists`. The read predicate is the standard pair-of-`group_members` self-join:
+1. **Owner + group-shared read**, **owner-only write** - used on `transactions`, `categories`, `shopping_lists`. The read predicate is the standard pair-of-`group_members` self-join:
 
    ```sql
    user_id = (select auth.uid())
@@ -393,7 +393,7 @@ Two patterns:
 
    `auth.uid()` is always wrapped in `(select ...)` so Postgres evaluates it once per statement (initPlan optimisation), not once per row.
 
-2. **No direct writes — RPC-only** — used on `user_groups`, `group_members`, `group_invitations`. Writes are blocked by:
+2. **No direct writes - RPC-only** - used on `user_groups`, `group_members`, `group_invitations`. Writes are blocked by:
 
    ```sql
    create policy "<table>: no direct writes"
@@ -401,7 +401,7 @@ Two patterns:
      using (false) with check (false);
    ```
 
-   Mutations are exposed through SECURITY DEFINER RPCs that bypass RLS and enforce the business invariants (only the owner can disband, only the invitee can accept, etc.). Two SECURITY DEFINER helpers — `is_group_member()` and `is_group_owner()` — break the recursion that direct subqueries against `user_groups`/`group_members` produce inside RLS policies.
+   Mutations are exposed through SECURITY DEFINER RPCs that bypass RLS and enforce the business invariants (only the owner can disband, only the invitee can accept, etc.). Two SECURITY DEFINER helpers - `is_group_member()` and `is_group_owner()` - break the recursion that direct subqueries against `user_groups`/`group_members` produce inside RLS policies.
 
 ## Helper functions
 
@@ -455,9 +455,9 @@ All SECURITY DEFINER (bypass RLS) unless marked SECURITY INVOKER. Defined in `20
 | ------------------------------------------------------------------ | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `complete_shopping_list(p_list_id, p_total_amount, p_category_id)` | owner OR group member                | Sets `status='completed'` + `total_amount`, inserts a linked `transactions` row, all in one DB transaction.                                                                      |
 | `attach_shopping_list_to_transaction(p_list_id, p_tx_id)`          | visible list + visible transaction   | Links an existing unlinked expense transaction to an eligible non-empty shopping list with matching private/group sharing scope. UI entry point is the transaction detail sheet. |
-| `duplicate_shopping_list(p_list_id)`                               | SECURITY INVOKER — uses caller's RLS | Copies list + items, resets `status='active'`.                                                                                                                                   |
+| `duplicate_shopping_list(p_list_id)`                               | SECURITY INVOKER - uses caller's RLS | Copies list + items, resets `status='active'`.                                                                                                                                   |
 
-**Notifications (2 — both SECURITY INVOKER)**
+**Notifications (2 - both SECURITY INVOKER)**
 
 | RPC                                         | Behavior                |
 | ------------------------------------------- | ----------------------- |
@@ -485,11 +485,11 @@ All SECURITY DEFINER (bypass RLS) unless marked SECURITY INVOKER. Defined in `20
 | `commit_import_session(p_session_id)`        | session owner | SECURITY DEFINER. Rejects unless `status='preview'` and `rows_pending=0`. Validates ownership/account/category visibility/group membership/type-match. Per-row savepoint catches `unique_violation` from the hard-dedupe indexes and marks the row `duplicate` (with `duplicate_of`) without aborting the loop. Returns jsonb `{inserted, duplicates_preview, duplicates_commit, skipped, fingerprint_warnings:[{row_id, duplicate_of_transaction_id}]}`. Warning candidates include prior imported-link fingerprint matches and visible list-created expense transactions with exact amount/currency within ±3 days. Only writer of `transaction_import_links`. |
 | `preview_fingerprint_warnings(p_session_id)` | session owner | SECURITY DEFINER, read-only. Pre-commit scan returning probable-duplicate warnings for the review UI (shape matches `commit_import_session.fingerprint_warnings`). Path A scans the caller's existing import-link fingerprints. Path B scans visible list-created expense transactions with exact amount/currency and tx date within posted date ±3 days.                                                                                                                                                                                                                                                                                                        |
 
-**Reporting (1 — SECURITY INVOKER)**
+**Reporting (1 - SECURITY INVOKER)**
 
 | RPC                                            | Behavior                                                                                                                                                                                                                                                                |
 | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `get_monthly_summary(p_year int, p_month int)` | Aggregates the caller's visible transactions by category for the given month; returns JSON `{total_income, total_expenses, net, categories[]}`. **Currently unused by the SPA** — `computeSummary(transactions)` runs client-side instead. Kept as an alternative path. |
+| `get_monthly_summary(p_year int, p_month int)` | Aggregates the caller's visible transactions by category for the given month; returns JSON `{total_income, total_expenses, net, categories[]}`. **Currently unused by the SPA** - `computeSummary(transactions)` runs client-side instead. Kept as an alternative path. |
 
 ## Triggers (summary)
 
@@ -518,32 +518,32 @@ DST drift is acknowledged: pg_cron runs on UTC, so the local-Warsaw fire time sh
 ## Migration timeline
 
 ```text
-20260423000000_initial_schema.sql                  — baseline: 8 tables, 5 enums, helpers, 11 RPCs, 8 RLS policy groups, 12 indexes, auth triggers, monthly_summary view
-20260424000000_fix_group_members_rls_recursion    — replace direct subquery with is_group_member()
-20260424000001_fix_user_groups_rls_recursion      — replace direct subquery with is_group_owner()
-20260425000000_phase5_notifications_push          — notifications + push_subscriptions, mark_*_read, process_recurring_transactions, update_transaction_statuses, pg_cron schedules
-20260425000001_phase5_2_edge_function_hooks       — trigger_send_push, trigger_sync_user_role, weekly send-admin-summary cron, all using vault.decrypted_secret
-20260426000000_fix_recurring_template_id          — recurring_template_id FK + dedup
-20260426000001_grant_authenticated_table_access   — restore table grants after platform JWT API reset
-20260427000001_add_remove_group_member_rpc        — owner-only member removal
-20260430000000_duplicate_shopping_list_rpc        — duplicate_shopping_list (SECURITY INVOKER)
-20260504000000_admin_trigger_rpc                  — trigger_admin_summary
-20260520000000_bank_import                         — 5 bank-import tables + RLS + categorization_rule_kind enum (privacy spine: 0 cols on transactions)
-20260521000000_commit_import_session               — SECURITY DEFINER commit RPC (race-safe per-row savepoint dedupe)
-20260521000001_preview_fingerprint_warnings       — SECURITY DEFINER pre-commit dup scan
-20260523000000_warn_shopping_list_duplicates      — extend bank-import soft warnings to caller-visible list-created expense transactions
-20260524000000_environment_edge_function_urls     — move DB hook Edge Function roots behind environment-specific Vault config
-20260525000000_grant_service_role_table_access     — restore table grants for bank-import tables created after global grants
-20260526000000_enforce_max_user_cap                — Vault-gated max-user cap trigger on auth.users (BEFORE INSERT)
-20260527000000_fix_max_user_cap_locking            — switch cap lock to pg_advisory_xact_lock; explicit errors on bad Vault values
-20260528000000_shopping_list_items_category        — shopping_list_items.category column + owner-scoped shopping_item_categories table/RLS
-20260529000000_function_execute_hardening          — revoke EXECUTE from public/anon, grant only client RPCs to authenticated, pin search_path on 7 fns
-20260530000000_index_cleanup                       — drop redundant idx_transactions_user_date_desc; add 10 FK-covering indexes on import tables + categorization_rules
+20260423000000_initial_schema.sql                  - baseline: 8 tables, 5 enums, helpers, 11 RPCs, 8 RLS policy groups, 12 indexes, auth triggers, monthly_summary view
+20260424000000_fix_group_members_rls_recursion    - replace direct subquery with is_group_member()
+20260424000001_fix_user_groups_rls_recursion      - replace direct subquery with is_group_owner()
+20260425000000_phase5_notifications_push          - notifications + push_subscriptions, mark_*_read, process_recurring_transactions, update_transaction_statuses, pg_cron schedules
+20260425000001_phase5_2_edge_function_hooks       - trigger_send_push, trigger_sync_user_role, weekly send-admin-summary cron, all using vault.decrypted_secret
+20260426000000_fix_recurring_template_id          - recurring_template_id FK + dedup
+20260426000001_grant_authenticated_table_access   - restore table grants after platform JWT API reset
+20260427000001_add_remove_group_member_rpc        - owner-only member removal
+20260430000000_duplicate_shopping_list_rpc        - duplicate_shopping_list (SECURITY INVOKER)
+20260504000000_admin_trigger_rpc                  - trigger_admin_summary
+20260520000000_bank_import                         - 5 bank-import tables + RLS + categorization_rule_kind enum (privacy spine: 0 cols on transactions)
+20260521000000_commit_import_session               - SECURITY DEFINER commit RPC (race-safe per-row savepoint dedupe)
+20260521000001_preview_fingerprint_warnings       - SECURITY DEFINER pre-commit dup scan
+20260523000000_warn_shopping_list_duplicates      - extend bank-import soft warnings to caller-visible list-created expense transactions
+20260524000000_environment_edge_function_urls     - move DB hook Edge Function roots behind environment-specific Vault config
+20260525000000_grant_service_role_table_access     - restore table grants for bank-import tables created after global grants
+20260526000000_enforce_max_user_cap                - Vault-gated max-user cap trigger on auth.users (BEFORE INSERT)
+20260527000000_fix_max_user_cap_locking            - switch cap lock to pg_advisory_xact_lock; explicit errors on bad Vault values
+20260528000000_shopping_list_items_category        - shopping_list_items.category column + owner-scoped shopping_item_categories table/RLS
+20260529000000_function_execute_hardening          - revoke EXECUTE from public/anon, grant only client RPCs to authenticated, pin search_path on 7 fns
+20260530000000_index_cleanup                       - drop redundant idx_transactions_user_date_desc; add 10 FK-covering indexes on import tables + categorization_rules
 
-> **Chronology note:** `20260526000000`–`20260530000000` are dated ahead of their 2026-05-24/25 authoring date but are already applied to prod, staging, and local. They are frozen — never rename an applied migration.
+> **Chronology note:** `20260526000000`–`20260530000000` are dated ahead of their 2026-05-24/25 authoring date but are already applied to prod, staging, and local. They are frozen - never rename an applied migration.
 ```
 
-> **History note:** Production migration history was normalized on 2026-05-24 to mirror the canonical `supabase/migrations/` files. As of 2026-05-25, prod, staging, and local all report the same 35 applied migrations — no drift. Keep the SQL files canonical and use the guarded inspection/repair flow in the [Supabase operations runbook](../runbooks/supabase-operations.md). Never apply remote schema out-of-band; let branch merges be the only path that mutates remote schema.
+> **History note:** Production migration history was normalized on 2026-05-24 to mirror the canonical `supabase/migrations/` files. As of 2026-05-25, prod, staging, and local all report the same 35 applied migrations - no drift. Keep the SQL files canonical and use the guarded inspection/repair flow in the [Supabase operations runbook](../runbooks/supabase-operations.md). Never apply remote schema out-of-band; let branch merges be the only path that mutates remote schema.
 
 ## Extensions installed
 

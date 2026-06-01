@@ -1,4 +1,4 @@
-# Environment workflow — local → staging → prod
+# Environment workflow - local → staging → prod
 
 How code and data move from a dev laptop to the live site, and what each tier actually targets.
 
@@ -103,7 +103,7 @@ flowchart LR
 - Production build secrets keep the unprefixed names:
   `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_ANON_KEY`, and `PUBLIC_VAPID_KEY`.
 - `wrangler pages deploy build --branch main`. Lands at `https://portfelik.adrianzinko.com`.
-- No automatic post-deploy verification — relies on staging smoke having passed.
+- No automatic post-deploy verification - relies on staging smoke having passed.
 
 ## Migrations
 

@@ -24,7 +24,7 @@ else BASE=dev; fi
 
 # Dirty tree blocks a real PR (body is built from commits); a dry-run still previews.
 if [ $DRY -eq 0 ] && [ -n "$(git status --porcelain)" ]; then
-  echo "Working tree is dirty — commit before opening a PR (the body is built from commits)." >&2
+  echo "Working tree is dirty - commit before opening a PR (the body is built from commits)." >&2
   exit 1
 fi
 
@@ -32,7 +32,7 @@ git fetch -q origin "$BASE" 2>/dev/null || true
 
 GATES_OUT="$(bash "$SCRIPT_DIR/pr-gates.sh" "origin/$BASE")"; GATES_RC=$?
 if [ $GATES_RC -ne 0 ]; then
-  echo "PR blocked — failing gates:" >&2
+  echo "PR blocked - failing gates:" >&2
   printf '%s\n' "$GATES_OUT" | awk -F'|' '$1=="GATE" && $3=="FAIL"{printf "  x %s - %s\n",$2,$4}' >&2
   exit 1
 fi
@@ -61,13 +61,13 @@ else
 fi
 
 if [ "$(gateval test:rls)" = NA ]; then
-  RLS_LINE="- [x] RLS suite — not applicable (no schema/policy change)"
+  RLS_LINE="- [x] RLS suite - not applicable (no schema/policy change)"
 else
   RLS_LINE="- $(ck "$(gateval test:rls)") RLS suite is green"
 fi
 
 BODY="$(cat <<EOF
-<!-- Auto-filled by scripts/open-pr.sh — do not hand-edit. -->
+<!-- Auto-filled by scripts/open-pr.sh - do not hand-edit. -->
 ## Summary
 
 $SUMMARY
@@ -109,7 +109,7 @@ if [ $DRY -eq 1 ]; then
 fi
 
 git push -q -u origin "$BRANCH"
-# Only an OPEN PR counts as existing — `gh pr view` also matches MERGED/CLOSED PRs
+# Only an OPEN PR counts as existing - `gh pr view` also matches MERGED/CLOSED PRs
 # for the branch, which would make us edit+reprint a dead PR instead of opening one.
 EXISTING_PR="$(gh pr list --head "$BRANCH" --state open --json url -q '.[0].url')"
 if [ -n "$EXISTING_PR" ]; then

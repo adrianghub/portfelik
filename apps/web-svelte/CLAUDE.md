@@ -1,4 +1,4 @@
-# SvelteKit App — Claude guidance
+# SvelteKit App - Claude guidance
 
 Loaded automatically when working in `apps/web-svelte/`.
 
@@ -7,38 +7,38 @@ Loaded automatically when working in `apps/web-svelte/`.
 | Choice              | Rule                                                                                                                       |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `adapter-static`    | No SSR. Use `@supabase/supabase-js` base client. **Do NOT use `@supabase/ssr`**.                                           |
-| Svelte 5 runes      | `$state`, `$derived`, `$effect` — not stores.                                                                              |
+| Svelte 5 runes      | `$state`, `$derived`, `$effect` - not stores.                                                                              |
 | TanStack Query v6   | Options as functions (runes API). `createQuery`, `createMutation` from `@tanstack/svelte-query`.                           |
-| Paraglide v2        | Vite plugin only — no adapter. Compile-time i18n. Recompile after `messages/pl.json` edits.                                |
+| Paraglide v2        | Vite plugin only - no adapter. Compile-time i18n. Recompile after `messages/pl.json` edits.                                |
 | Supabase client     | Singleton at `src/lib/supabase.ts`. Query client provided in `+layout.svelte`.                                             |
 | Auth                | Google OAuth for real users. Email/password sign-up stays disabled; local/staging use seeded email/password personas only. |
 | Group writes        | All via SECURITY DEFINER RPCs in `services/groups.ts`. Direct table writes blocked by RLS.                                 |
-| Summary computation | `computeSummary(transactions)` in `services/transactions.ts` — derived client-side, no RPC round-trip.                     |
+| Summary computation | `computeSummary(transactions)` in `services/transactions.ts` - derived client-side, no RPC round-trip.                     |
 
 ## Key file locations
 
 **Services** (`src/lib/services/`):
 
-- `transactions.ts` — `fetchTransactions(start, end, categoryId?)`, `computeSummary(txs)`, `createTransaction`, `updateTransaction`, `deleteTransaction`
-- `categories.ts` — `fetchCategories`, `createCategory`, `updateCategory`, `deleteCategory`
-- `groups.ts` — all group SECURITY DEFINER RPCs
-- `shopping-lists.ts` — `fetchShoppingLists`, `fetchShoppingListById`, `fetchShoppingListItemHistory`, item CRUD, `completeShoppingList`, `duplicateShoppingList`
-- `profiles.ts` — `fetchProfile`, `updateProfile`, `assignAdminRole`, `revokeAdminRole`
-- `notifications.ts` — `fetchNotifications`, `markNotificationRead`, `markAllNotificationsRead`, `deleteNotification`
-- `push.ts` — `registerServiceWorker`, `autoSubscribePush`, `requestAndSubscribePush`, `unsubscribeFromPush`
+- `transactions.ts` - `fetchTransactions(start, end, categoryId?)`, `computeSummary(txs)`, `createTransaction`, `updateTransaction`, `deleteTransaction`
+- `categories.ts` - `fetchCategories`, `createCategory`, `updateCategory`, `deleteCategory`
+- `groups.ts` - all group SECURITY DEFINER RPCs
+- `shopping-lists.ts` - `fetchShoppingLists`, `fetchShoppingListById`, `fetchShoppingListItemHistory`, item CRUD, `completeShoppingList`, `duplicateShoppingList`
+- `profiles.ts` - `fetchProfile`, `updateProfile`, `assignAdminRole`, `revokeAdminRole`
+- `notifications.ts` - `fetchNotifications`, `markNotificationRead`, `markAllNotificationsRead`, `deleteNotification`
+- `push.ts` - `registerServiceWorker`, `autoSubscribePush`, `requestAndSubscribePush`, `unsubscribeFromPush`
 
 **Components** (`src/lib/components/`):
 
-- `ui/` — `Dialog`, `ConfirmDialog`, `NotificationsPopover`
-- `transactions/` — `MonthRangePicker`, `CategoryFilter`, `TransactionTable` (shared tx badge, row click), `TransactionDialog`, `TransactionDetailSheet`, `SummaryCards`, `CategoryBreakdown` (clickable)
-- `settings/` — `CategoriesTab`, `GroupsTab`, `ProfileTab`, `CategoryDialog`
-- `shopping-lists/` — `ShoppingListCard`, `ShoppingListSuggestions`
+- `ui/` - `Dialog`, `ConfirmDialog`, `NotificationsPopover`
+- `transactions/` - `MonthRangePicker`, `CategoryFilter`, `TransactionTable` (shared tx badge, row click), `TransactionDialog`, `TransactionDetailSheet`, `SummaryCards`, `CategoryBreakdown` (clickable)
+- `settings/` - `CategoriesTab`, `GroupsTab`, `ProfileTab`, `CategoryDialog`
+- `shopping-lists/` - `ShoppingListCard`, `ShoppingListSuggestions`
 
 **Utils** (`src/lib/utils.ts`): `cn`, `formatCurrency`, `formatDate`, `getMonthBounds`, `getDateRangeBounds`, `monthName`, `monthYearLabel`
 
 **Types** (`src/lib/types.ts`): `Transaction`, `TransactionWithCategory`, `TransactionStatus`, `TransactionType`, `MonthlySummary`, `CategorySummary`, `Category`, `Profile`, `UserGroup`, `GroupMember`, `GroupMemberWithProfile`, `GroupInvitation`, `ShoppingList`, `ShoppingListSummary`, `ShoppingListItem`, `ShoppingListWithItems`, `Notification`
 
-**i18n**: `messages/pl.json` — always recompile after editing.
+**i18n**: `messages/pl.json` - always recompile after editing.
 
 ## Dev commands (from `apps/web-svelte/`)
 
@@ -65,19 +65,19 @@ supabase status                  # show URLs + anon key
 supabase stop                    # shut down (preserves volumes)
 ```
 
-- Studio: `http://127.0.0.1:54323` — manage auth users, browse tables.
+- Studio: `http://127.0.0.1:54323` - manage auth users, browse tables.
 - DB direct: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 - Swap to cloud temporarily: `cp .env.cloud.local .env.local` then restart `pnpm dev`. Swap back: rewrite `.env.local` from `.env.example` values or from `supabase status`.
-- Seed a test user: Studio → Authentication → Add User (email confirmed). Google OAuth does not work against the local stack — use email/password.
+- Seed a test user: Studio → Authentication → Add User (email confirmed). Google OAuth does not work against the local stack - use email/password.
 - Seed standard local personas after `supabase db reset`: `cd apps/web-svelte && pnpm seed:local`. Defaults are `admin@portfelik.test` / same password and `user@portfelik.test` / same password; local overrides live in `.env.test`.
 
 ## Gotchas
 
 See `../../.claude/rules/svelte-gotchas.md` (auto-loaded for this directory). Critical:
 
-- `createMutation` is NOT a store — never `$mutation.xxx`
+- `createMutation` is NOT a store - never `$mutation.xxx`
 - PostgREST inserts need `user_id` explicitly
 - `$state()` reading a prop → `untrack()`
-- Clickable `<li>`/`<tr>`: use `role="button"` + `onkeydown` + conditional `tabindex` — NOT `svelte-ignore`
+- Clickable `<li>`/`<tr>`: use `role="button"` + `onkeydown` + conditional `tabindex` - NOT `svelte-ignore`
 - `void expr;` in `$effect` to track deps without lint error
 - Literal BOM (U+FEFF) in JS/TS source → ESLint `no-irregular-whitespace`. Use escape: `"﻿"` for strings, `/^﻿/` for regex. Never paste the literal character.

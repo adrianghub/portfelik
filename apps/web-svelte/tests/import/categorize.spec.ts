@@ -134,7 +134,7 @@ describe("import/categorize matchCategory", () => {
     expect(matchCategory({ ...expenseRow, description: "ORLEN" }, rules, categories)).toBeNull();
   });
 
-  it("respects priority order — highest priority wins", () => {
+  it("respects priority order - highest priority wins", () => {
     const rules = [
       rule({ match_description: "biedronka", category_id: expenseCat.id, priority: 1 }),
       rule({ match_description: "biedronka", category_id: otherExpenseCat.id, priority: 5 }),
@@ -145,7 +145,7 @@ describe("import/categorize matchCategory", () => {
 
   it("never assigns a category whose type contradicts the row", () => {
     // A 'contains' rule that points at an income category must not apply to an
-    // expense row — the next matching, type-correct rule is used instead.
+    // expense row - the next matching, type-correct rule is used instead.
     const rules = [
       rule({ match_description: "biedronka", category_id: incomeCat.id, priority: 10 }),
       rule({ match_description: "biedronka", category_id: expenseCat.id, priority: 1 }),
