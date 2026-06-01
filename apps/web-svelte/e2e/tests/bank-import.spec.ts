@@ -347,6 +347,20 @@ async function mockBankImportAPI(page: Page, options = {}) {
     });
 }
 
+/** Step 1 (duplikaty): advance; single-row fixtures restore flagged rows first. */
+async function advanceFromDuplicatesStep(page: Page): Promise<void> {
+  const restore = page.getByRole("button", { name: /Przywróć wszystkie/ });
+  if (await restore.isVisible().catch(() => false)) {
+    await restore.click();
+  }
+  await page.getByRole("button", { name: "Dalej", exact: true }).click();
+}
+
+/** Step 2 → 3 (podsumowanie). */
+async function advanceToFinalizeStep(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Dalej", exact: true }).click();
+}
+
 test.beforeEach(async ({ page }) => {
   await injectFakeSession(page);
   await mockBankImportAPI(page);
@@ -361,6 +375,7 @@ test("import wizard: renders heading, step pill and upload dropzone", async ({ p
   // Step pill — two steps now (commit auto-redirects to transactions; no "done" step)
   await expect(page.getByText("Wgraj plik", { exact: true })).toBeVisible();
   await expect(page.getByText("Sprawdź pozycje", { exact: true })).toBeVisible();
+  await expect(page.getByText("Duplikaty", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Zakończono", { exact: true })).toHaveCount(0);
 
   // Global breadcrumb trail back to transactions
@@ -423,24 +438,29 @@ test("import wizard: uploads, flags probable duplicates, commits, and blocks re-
     buffer: mbankSample,
   });
 
-  await expect(page.getByRole("table").getByText("BIEDRONKA", { exact: true })).toBeVisible({
+  await expect(page.getByText(/Wykryto 1 możliwych duplikatów/)).toBeVisible({
     timeout: 10_000,
   });
+  await expect(page.getByText("Możliwy duplikat")).toBeVisible();
+  await expect(
+    page.getByText(/Pasuje do: 2026-05-02 .* Biedronka wpisana ręcznie/)
+  ).toBeVisible();
+
+  await advanceFromDuplicatesStep(page);
+
+  await expect(page.getByRole("table").getByText("BIEDRONKA", { exact: true })).toHaveCount(0);
   await expect(
     page.getByRole("table").getByText("WSPÓLNOTA MIESZKANIOWA", { exact: true })
   ).toBeVisible();
-  await expect(page.getByRole("table").getByText("Możliwy duplikat")).toBeVisible();
-  await expect(
-    page.getByRole("table").getByText(/Pasuje do: 2026-05-02 .* Biedronka wpisana ręcznie/)
-  ).toBeVisible();
+  await expect(page.getByRole("table").getByText("Możliwy duplikat")).toHaveCount(0);
 
   await page.getByRole("button", { name: /^Importuj gotowe/ }).click();
-  await expect(page.getByText(/bez kategorii/)).toHaveCount(0);
+  await advanceToFinalizeStep(page);
 
-  await page.getByRole("button", { name: "Zatwierdź import" }).click();
   await expect(page.getByRole("heading", { name: "Potwierdź import" })).toBeVisible();
-  await expect(page.getByText("Dodaj 4 · pomiń 0")).toBeVisible();
-  await page.getByRole("button", { name: "Potwierdź (4)" }).click();
+  await expect(page.getByText("Dodaj 3 · pomiń 0")).toBeVisible();
+  await expect(page.getByText(/Pominięte jako duplikat/)).toBeVisible();
+  await page.getByRole("button", { name: "Potwierdź (3)" }).click();
 
   await expect(page).toHaveURL(/\/transactions\?startYear=2026&startMonth=5/);
 
@@ -466,19 +486,21 @@ test("import wizard: bookmark = one-tap save-as-rule with smart default text", a
     buffer: mbankNoCounterpartySample,
   });
 
+  await advanceFromDuplicatesStep(page);
+
   const rawDescription = "ZAKUP TOWARÓW I USŁUG — KAWIARNIA TEST";
   const editedDescription = "Kawa po spotkaniu";
 
-  // Even after editing the review-time description, the saved rule should
-  // default to a stable token derived from the raw bank field — not the edit.
   const descriptionInput = page.getByRole("table").getByRole("textbox");
   await expect(descriptionInput).toHaveValue(rawDescription, { timeout: 10_000 });
   await descriptionInput.fill(editedDescription);
   await descriptionInput.blur();
 
-  // One-tap: clicking the bookmark icon must save the rule directly — no
-  // dialog should open.
-  await page.locator('button[title="Zapisz jako regułę"]').first().click();
+  const combo = page.getByRole("table").getByRole("combobox", { name: "Kategoria" });
+  await combo.click();
+  await page.getByRole("option", { name: "Jedzenie", exact: true }).click();
+
+  await page.getByRole("button", { name: "Zapisz regułę" }).click();
 
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByText(/Reguła zapisana/)).toBeVisible({ timeout: 5_000 });
@@ -497,8 +519,8 @@ test("import wizard: explicit Importuj sends an uncategorized row to Inne", asyn
     buffer: mbankNoCounterpartySample,
   });
 
-  // Explicit decision controls (a role="group" segmented control) replace the
-  // old import checkbox.
+  await advanceFromDuplicatesStep(page);
+
   const decision = page.getByRole("table").getByRole("group");
   const importBtn = decision.getByRole("button", { name: "Importuj", exact: true });
   await expect(importBtn).toBeVisible({ timeout: 10_000 });
@@ -506,7 +528,7 @@ test("import wizard: explicit Importuj sends an uncategorized row to Inne", asyn
 
   await importBtn.click();
 
-  await page.getByRole("button", { name: "Zatwierdź import" }).click();
+  await advanceToFinalizeStep(page);
   await expect(page.getByRole("heading", { name: "Potwierdź import" })).toBeVisible();
   // Confirmation surfaces the uncategorized → "Inne" fallback explicitly.
   await expect(page.getByText(/trafi do „Inne”/)).toBeVisible();
@@ -529,7 +551,8 @@ test("import wizard: failed required-rule save blocks the row from importing", a
     buffer: mbankNoCounterpartySample,
   });
 
-  // Manually categorize the row → it now requires a rule before import.
+  await advanceFromDuplicatesStep(page);
+
   const combo = page.getByRole("table").getByRole("combobox", { name: "Kategoria" });
   await expect(combo).toBeVisible({ timeout: 10_000 });
   await combo.click();
@@ -541,7 +564,7 @@ test("import wizard: failed required-rule save blocks the row from importing", a
 
   // Rule save failed → the row must NOT be imported and commit stays blocked.
   await expect(importBtn).toHaveAttribute("aria-pressed", "false");
-  await expect(page.getByRole("button", { name: "Zatwierdź import" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Dalej", exact: true })).toBeDisabled();
 });
 
 test("import wizard: continues when rule prefill cannot load", async ({ page }) => {
@@ -556,6 +579,7 @@ test("import wizard: continues when rule prefill cannot load", async ({ page }) 
     buffer: mbankSample,
   });
 
+  await advanceFromDuplicatesStep(page);
   await expect(page.getByRole("table").getByText("BIEDRONKA", { exact: true })).toBeVisible({
     timeout: 10_000,
   });
@@ -576,6 +600,7 @@ test("import wizard: continues when categories cannot load for optional prefill"
     buffer: mbankSample,
   });
 
+  await advanceFromDuplicatesStep(page);
   await expect(page.getByRole("table").getByText("BIEDRONKA", { exact: true })).toBeVisible({
     timeout: 10_000,
   });
