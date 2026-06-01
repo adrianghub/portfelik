@@ -12,6 +12,9 @@
     flaggedRows: ImportRow[];
     warningsByRow: Map<string, DuplicateWarning>;
     duplicateDetail: (rowId: string) => string | null;
+    /** False while rows load or any auto-mark request is in flight. */
+    dupActionsReady: boolean;
+    isRowAutoDupSettled: (rowId: string) => boolean;
     onImportAnyway: (row: ImportRow) => void;
     onRestoreAll: () => void;
     onNext: () => void;
@@ -22,6 +25,8 @@
     flaggedRows,
     warningsByRow,
     duplicateDetail,
+    dupActionsReady,
+    isRowAutoDupSettled,
     onImportAnyway,
     onRestoreAll,
     onNext,
@@ -31,6 +36,7 @@
   const anyRestorable = $derived(
     flaggedRows.some((r) => r.decision === "duplicate" && warningsByRow.has(r.id))
   );
+  const canInteract = $derived(!loading && dupActionsReady);
 </script>
 
 <div class="space-y-4">
@@ -48,9 +54,13 @@
       <p class="mt-1 text-xs text-amber-200/90">{m.bank_review_dup_summary_hint()}</p>
     </div>
 
+    {#if !canInteract}
+      <p class="text-xs text-slate-400" aria-live="polite">{m.common_loading()}</p>
+    {/if}
+
     {#if anyRestorable}
       <div class="flex flex-wrap gap-2">
-        <Button variant="ghost" size="sm" onclick={onRestoreAll}>
+        <Button variant="ghost" size="sm" disabled={!canInteract} onclick={onRestoreAll}>
           {m.bank_review_dup_restore_all()}
         </Button>
       </div>
@@ -83,7 +93,12 @@
           </div>
           {#if row.decision === "duplicate"}
             <div class="mt-3 flex justify-end">
-              <Button variant="ghost" size="sm" onclick={() => onImportAnyway(row)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={!canInteract || !isRowAutoDupSettled(row.id)}
+                onclick={() => onImportAnyway(row)}
+              >
                 {m.bank_review_dup_import_anyway()}
               </Button>
             </div>
@@ -96,7 +111,7 @@
   {/if}
 
   <div class="flex justify-end border-t border-white/10 pt-4">
-    <Button variant="primary" disabled={loading} onclick={onNext}>
+    <Button variant="primary" disabled={!canInteract} onclick={onNext}>
       {m.bank_review_step_next()}
     </Button>
   </div>

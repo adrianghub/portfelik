@@ -349,8 +349,6 @@ async function mockBankImportAPI(page: Page, options = {}) {
 
 /** Step 1 (duplikaty): keep auto-skipped duplicates, just advance. */
 async function keepDuplicatesAndAdvance(page: Page): Promise<void> {
-  // "Dalej" stays disabled until the warnings query resolves, so this also
-  // waits for the auto-skip to be applied.
   await page.getByRole("button", { name: "Dalej", exact: true }).click();
 }
 

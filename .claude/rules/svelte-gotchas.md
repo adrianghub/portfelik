@@ -45,4 +45,9 @@ paths:
 
 15. **`fetchTransactions(start, end)` not `(year, month)`.** Signature changed 2026-04-29 - takes ISO date strings. Use `getDateRangeBounds(sy, sm, ey, em)` from `utils.ts` to produce `{start, end}`. `computeSummary(transactions)` computes summary client-side - no separate RPC call.
 
-16. **Literal BOM (U+FEFF) in JS/TS source triggers ESLint `no-irregular-whitespace`.** For CSV UTF-8 BOM prefix use `"\uFEFF"` (escape form). Same in regex: `/^\uFEFF/`. Never paste the raw character - it's invisible in editors but breaks ESLint.
+16. **Literal BOM (U+FEFF) in JS/TS source triggers ESLint `no-irregular-whitespace`.** For CSV UTF-8 BOM prefix use `"\uFEFF"` (escape form). Same in regex: `/^\uFEFF/`. Never paste the raw character — it's invisible in editors but breaks ESLint.
+
+17. **Tailwind v4: use canonical utility syntax (strict).** Prefer built-in scale + CSS-variable shorthand over arbitrary brackets when equivalent — fixes `suggestCanonicalClasses` and keeps classes consistent.
+   - `min-w-40` not `min-w-[10rem]`; `min-w-48` not `min-w-[12rem]`
+   - `pb-(--mobile-action-bottom)` not `pb-[var(--mobile-action-bottom)]` (project token from `app.css`)
+   - Keep true arbitrary values only when no canonical form exists (e.g. `md:pb-[calc(0.75rem+env(safe-area-inset-bottom))]` for safe-area bars)

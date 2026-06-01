@@ -31,8 +31,10 @@ sc_out="$(cd "$WEB" && pnpm exec svelte-check --tsconfig ./tsconfig.json 2>&1)"
 sc_line="$(printf '%s\n' "$sc_out" | grep -E 'COMPLETED' | tail -1)"
 if printf '%s' "$sc_line" | grep -qE ' 0 ERRORS 0 WARNINGS'; then
   gate svelte-check PASS "0/0"
+elif printf '%s\n' "$sc_out" | grep -qiE 'found 0 errors and 0 warnings'; then
+  gate svelte-check PASS "0/0"
 else
-  gate svelte-check FAIL "${sc_line:-no COMPLETED line found}"
+  gate svelte-check FAIL "${sc_line:-$(printf '%s\n' "$sc_out" | tail -1)}"
 fi
 
 # --- lint ---

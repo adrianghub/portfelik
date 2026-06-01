@@ -57,9 +57,13 @@
   let reviewStep = $state<ReviewStep>("duplicates");
   let filter = $state<FilterKind>("pending");
   let ruleSaving = $state(false);
-  /** Rows the duplicate auto-marker has already handled once; never removed, so
-   * restoring a row to import/pending is not reverted by the effect. */
-  let autoDupMarkedIds = $state<Set<string>>(new Set());
+  /** Bumped when the user overrides an auto-duplicate mark so stale in-flight updates abort. */
+  const dupMarkEpoch: Record<string, number> = {};
+  /** Row ids with an in-flight auto-mark request (reactive for duplicate-step UI). */
+  let autoDupInflightIds = $state<Set<string>>(new Set());
+  const autoDupPromises = new Map<string, Promise<void>>();
+  /** Permanent guard: row was auto-marked once; restore must not re-trigger auto-mark. */
+  let autoDupHandledIds = $state<Set<string>>(new Set());
 
   const rowsQuery = createQuery(() => ({
     queryKey: rowsKey,
@@ -148,21 +152,80 @@
 
   const stepIndex = $derived(reviewSteps.findIndex((s) => s.id === reviewStep));
 
-  // Auto-mark probable duplicates once per row (decision duplicate, not skip).
-  // Scoped to the duplicates step so a late-resolving warnings query can never
-  // pull a row out of the categorize step after the user has moved on.
+  const dupActionsReady = $derived(
+    !warningsQuery.isLoading && !rowsQuery.isLoading && autoDupInflightIds.size === 0
+  );
+
+  function dupEpoch(rowId: string): number {
+    return dupMarkEpoch[rowId] ?? 0;
+  }
+
+  function isDupEpochCurrent(rowId: string, epoch: number): boolean {
+    return dupEpoch(rowId) === epoch;
+  }
+
+  function bumpDupMarkEpoch(rowId: string): void {
+    dupMarkEpoch[rowId] = dupEpoch(rowId) + 1;
+  }
+
+  function isRowAutoDupSettled(rowId: string): boolean {
+    return !autoDupInflightIds.has(rowId);
+  }
+
+  async function waitForAutoDupMark(rowId?: string): Promise<void> {
+    if (rowId) {
+      await autoDupPromises.get(rowId);
+      return;
+    }
+    await Promise.all([...autoDupPromises.values()]);
+  }
+
+  function getRowSnapshot(rowId: string): ImportRow | undefined {
+    return queryClient.getQueryData<ImportRow[]>(rowsKey)?.find((r) => r.id === rowId);
+  }
+
+  /** If a stale auto-mark landed on the server, re-apply the user's current decision. */
+  async function resyncRowDecisionIfStale(rowId: string, epoch: number): Promise<void> {
+    if (isDupEpochCurrent(rowId, epoch)) return;
+    const current = getRowSnapshot(rowId);
+    if (!current) return;
+    await updateRowDecision(rowId, { decision: current.decision });
+  }
+
+  // Auto-mark probable duplicates on the duplicates step only. Serialized per row;
+  // permanent handled-id prevents re-mark after restore; epoch blocks stale RPC wins.
   $effect(() => {
     if (reviewStep !== "duplicates") return;
-    if (warningsQuery.isLoading) return;
+    if (warningsQuery.isLoading || rowsQuery.isLoading) return;
     for (const row of rows) {
       if (!warningsByRow.has(row.id)) continue;
       if (row.decision !== "pending") continue;
-      if (autoDupMarkedIds.has(row.id)) continue;
-      autoDupMarkedIds = new Set(autoDupMarkedIds).add(row.id);
-      void patchRow(row.id, { decision: "duplicate" });
+      if (autoDupHandledIds.has(row.id)) continue;
+      void scheduleAutoMarkDuplicate(row);
     }
   });
 
+  async function scheduleAutoMarkDuplicate(row: ImportRow): Promise<void> {
+    if (autoDupPromises.has(row.id)) return autoDupPromises.get(row.id)!;
+
+    autoDupHandledIds = new Set(autoDupHandledIds).add(row.id);
+    const epoch = dupEpoch(row.id);
+    autoDupInflightIds = new Set(autoDupInflightIds).add(row.id);
+
+    const promise = patchRow(row.id, { decision: "duplicate" }, { autoDupEpoch: epoch })
+      .catch(() => {
+        /* patchRow surfaces errors */
+      })
+      .finally(() => {
+        const next = new Set(autoDupInflightIds);
+        next.delete(row.id);
+        autoDupInflightIds = next;
+        autoDupPromises.delete(row.id);
+      });
+
+    autoDupPromises.set(row.id, promise);
+    return promise;
+  }
   function bankKindLabel(kind: string): string {
     return kind === "ing" ? m.bank_account_kind_ing() : m.bank_account_kind_mbank();
   }
@@ -200,7 +263,18 @@
     });
   }
 
-  async function patchRow(rowId: string, patch: Partial<ImportRow>): Promise<void> {
+  async function patchRow(
+    rowId: string,
+    patch: Partial<ImportRow>,
+    opts?: { autoDupEpoch?: number }
+  ): Promise<void> {
+    if (opts?.autoDupEpoch !== undefined && !isDupEpochCurrent(rowId, opts.autoDupEpoch)) {
+      return;
+    }
+
+    if (patch.decision !== undefined && patch.decision !== "duplicate") {
+      bumpDupMarkEpoch(rowId);
+    }
     const previous = queryClient.getQueryData<ImportRow[]>(rowsKey);
     const effective: Partial<ImportRow> = patch;
 
@@ -221,6 +295,9 @@
           effective.edited_description === undefined ? undefined : effective.edited_description,
         duplicateOf: effective.duplicate_of === undefined ? undefined : effective.duplicate_of,
       });
+      if (opts?.autoDupEpoch !== undefined) {
+        await resyncRowDecisionIfStale(rowId, opts.autoDupEpoch);
+      }
     } catch (e) {
       const original = previous?.find((r) => r.id === rowId);
       if (original) {
@@ -524,16 +601,19 @@
     void goto(`/settings?tab=rules&highlight=${encodeURIComponent(ruleId)}`);
   }
 
-  // Restore keeps the row's id in autoDupMarkedIds (a permanent "already
-  // auto-handled" guard) so the auto-mark effect does NOT immediately re-mark
-  // the row as duplicate after we move it back to import/pending.
   async function importDuplicateAnyway(row: ImportRow): Promise<void> {
+    await waitForAutoDupMark(row.id);
+    bumpDupMarkEpoch(row.id);
     await patchRow(row.id, { decision: "import" });
   }
 
   async function restoreAllDuplicates(): Promise<void> {
+    await waitForAutoDupMark();
     const flagged = rows.filter((r) => warningsByRow.has(r.id) && r.decision === "duplicate");
-    await Promise.all(flagged.map((r) => patchRow(r.id, { decision: "pending" })));
+    for (const r of flagged) {
+      bumpDupMarkEpoch(r.id);
+      await patchRow(r.id, { decision: "pending" });
+    }
   }
 
   function goToStep(step: ReviewStep): void {
@@ -642,6 +722,8 @@
       {flaggedRows}
       {warningsByRow}
       {duplicateDetail}
+      {dupActionsReady}
+      {isRowAutoDupSettled}
       onImportAnyway={(row) => void importDuplicateAnyway(row)}
       onRestoreAll={() => void restoreAllDuplicates()}
       onNext={() => goToStep("categorize")}
