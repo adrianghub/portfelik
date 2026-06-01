@@ -15,6 +15,15 @@
     allowCreate?: boolean;
     showAllOnFocus?: boolean;
     disabled?: boolean;
+    /** Fired when an existing item is chosen (the selected display value). */
+    onchange?: (value: string) => void;
+    /**
+     * Fired when the "create" affordance is committed instead of selecting an
+     * existing item. When provided, the combobox does NOT set `value` itself —
+     * the consumer owns the create + selection. When omitted, create falls back
+     * to selecting the free-typed text as the value.
+     */
+    oncreate?: (value: string) => void;
   }
 
   const uid = $props.id();
@@ -30,6 +39,8 @@
     allowCreate = false,
     showAllOnFocus = true,
     disabled = false,
+    onchange,
+    oncreate,
   }: Props = $props();
 
   let open = $state(false);
@@ -140,7 +151,17 @@
 
   function selectValue(next: string) {
     value = next;
+    onchange?.(next);
     closeList();
+  }
+
+  function createValue() {
+    if (oncreate) {
+      oncreate(trimmedValue);
+      closeList();
+    } else {
+      selectValue(trimmedValue);
+    }
   }
 
   function handleInput() {
@@ -155,7 +176,7 @@
       selectValue(filteredItems[activeIndex]);
       return;
     }
-    if (canCreate) selectValue(trimmedValue);
+    if (canCreate) createValue();
   }
 
   function handleKeydown(e: KeyboardEvent) {
@@ -257,7 +278,7 @@
               "text-accent hover:bg-accent/10 flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors",
               createIndex === activeIndex && "bg-accent/10"
             )}
-            onclick={() => selectValue(trimmedValue)}
+            onclick={() => createValue()}
             onmouseenter={() => (activeIndex = createIndex)}
           >
             <Plus size={14} class="shrink-0" aria-hidden="true" />
