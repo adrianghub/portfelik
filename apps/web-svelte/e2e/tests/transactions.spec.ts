@@ -21,6 +21,12 @@ test("renders mocked transaction list", async ({ page }) => {
   await expect(desktopTable(page).getByText("Bilet miesięczny")).toBeVisible();
 });
 
+test("shows import and export as direct desktop actions", async ({ page }) => {
+  await expect(page.getByRole("link", { name: "Import bankowy" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Eksportuj CSV" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Więcej akcji" })).toHaveCount(0);
+});
+
 test("search filters results inside the command palette", async ({ page }) => {
   await page.getByRole("button", { name: "Szukaj transakcji" }).click();
 
@@ -107,7 +113,7 @@ test("mobile date range sheet stays open while interacting with controls", async
   await page.goto("/transactions");
   await expect(page.locator("li").filter({ hasText: "Zakupy spożywcze" }).first()).toBeVisible();
 
-  await page.getByRole("button", { name: /maj 2026/i }).click();
+  await page.getByRole("button", { name: /2026/i }).click();
   const dialog = page.getByRole("dialog", { name: "Zakres dat" });
   await expect(dialog).toBeVisible();
 
@@ -116,6 +122,18 @@ test("mobile date range sheet stays open while interacting with controls", async
 
   await dialog.getByRole("button", { name: "Miesiące", exact: true }).click();
   await expect(dialog).toBeVisible();
+});
+
+test("mobile bank actions open from the toolbar", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/transactions");
+  await expect(page.locator("li").filter({ hasText: "Zakupy spożywcze" }).first()).toBeVisible();
+
+  await page.getByRole("button", { name: "Import bankowy" }).click();
+  const dialog = page.getByRole("dialog", { name: "Więcej akcji" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("link", { name: "Import bankowy" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Eksportuj CSV" })).toBeVisible();
 });
 
 test("add transaction: opens dialog and shows success toast", async ({ page }) => {

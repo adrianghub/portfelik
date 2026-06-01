@@ -1,13 +1,13 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
-  import ActionsMenu from "$lib/components/transactions/ActionsMenu.svelte";
   import BulkActionsBar from "$lib/components/transactions/BulkActionsBar.svelte";
   import CategoryBreakdown from "$lib/components/transactions/CategoryBreakdown.svelte";
   import CategoryFilterControl from "$lib/components/transactions/CategoryFilterControl.svelte";
   import DateRangePicker from "$lib/components/transactions/DateRangePicker.svelte";
   import FiltersMenu from "$lib/components/transactions/FiltersMenu.svelte";
   import SummaryCards from "$lib/components/transactions/SummaryCards.svelte";
+  import TransactionDataActions from "$lib/components/transactions/TransactionDataActions.svelte";
   import TransactionDetailSheet from "$lib/components/transactions/TransactionDetailSheet.svelte";
   import TransactionDialog from "$lib/components/transactions/TransactionDialog.svelte";
   import TransactionTable from "$lib/components/transactions/TransactionTable.svelte";
@@ -483,7 +483,11 @@
       >
         + {m.transaction_add()}
       </button>
-      <ActionsMenu exportDisabled={!filteredTxs?.length} onexport={handleExport} />
+      <TransactionDataActions
+        variant="desktop"
+        exportDisabled={!filteredTxs?.length}
+        onexport={handleExport}
+      />
     </div>
   </div>
 
@@ -491,6 +495,11 @@
   {#if categoriesQuery.data && selectedIds.size === 0}
     <div class="sticky top-14 z-30 -mx-4 border-b border-white/5 bg-slate-950">
       <div class="flex items-center gap-2 overflow-x-auto px-4 py-2 sm:overflow-x-visible">
+        <TransactionDataActions
+          variant="mobile"
+          exportDisabled={!filteredTxs?.length}
+          onexport={handleExport}
+        />
         <button
           type="button"
           onclick={toggleSearch}
