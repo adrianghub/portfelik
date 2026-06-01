@@ -227,18 +227,27 @@
     return row.selected_category_id != null && matchedRuleFor(row) == null;
   }
 
+  function ruleGroupKey(row: ImportRow): string {
+    return `${row.type}:${suggestRuleText(row).toLowerCase()}:${row.selected_category_id}`;
+  }
+
   // Capture any required rules (once per distinct merchant token + category),
-  // then mark the targets for import.
+  // then mark for import ONLY the targets whose rule requirement is satisfied.
+  // If a required rule fails to save (transient Supabase/RLS/network error), the
+  // affected rows stay un-imported so the required-rule contract can't be
+  // silently bypassed (issue #66).
   async function ensureRulesThenImport(targets: ImportRow[]): Promise<void> {
-    const captured = new Set<string>();
+    const captureOk = new Map<string, boolean>();
     for (const row of targets) {
       if (!needsRule(row)) continue;
-      const key = `${row.type}:${suggestRuleText(row).toLowerCase()}:${row.selected_category_id}`;
-      if (captured.has(key)) continue;
-      captured.add(key);
-      await quickSaveRule(row);
+      const key = ruleGroupKey(row);
+      if (captureOk.has(key)) continue;
+      captureOk.set(key, await captureRuleForRow(row));
     }
-    await Promise.all(targets.map((r) => setDecision(r, "import")));
+    const importable = targets.filter(
+      (row) => !needsRule(row) || captureOk.get(ruleGroupKey(row)) === true
+    );
+    await Promise.all(importable.map((r) => setDecision(r, "import")));
   }
 
   async function markImport(row: ImportRow): Promise<void> {
@@ -378,10 +387,18 @@
     return created;
   }
 
-  async function quickSaveRule(row: ImportRow): Promise<void> {
-    if (!row.selected_category_id) return;
+  /**
+   * Save the rule for a row's merchant/content and report whether the row's
+   * rule requirement is now satisfied:
+   *   * true  — rule created, or an equivalent rule already exists (duplicate);
+   *   * false — no category / no derivable token, or a transient save failure.
+   * Callers gate import on a `true` result so a failed save never lets a
+   * required-rule row through un-ruled.
+   */
+  async function captureRuleForRow(row: ImportRow): Promise<boolean> {
+    if (!row.selected_category_id) return false;
     const text = suggestRuleText(row);
-    if (text === "") return;
+    if (text === "") return false;
     ruleSaving = true;
     try {
       await createAndApplyRule({
@@ -389,14 +406,25 @@
         categoryId: row.selected_category_id,
         text,
       });
+      return true;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      toast.info(
-        msg === "duplicate_categorization_rule" ? m.bank_review_rule_already_saved() : msg
-      );
+      if (msg === "duplicate_categorization_rule") {
+        // Rule already exists — the requirement is met.
+        toast.info(m.bank_review_rule_already_saved());
+        return true;
+      }
+      // Transient/real failure — surface it and block import for this row.
+      toast.error(msg);
+      return false;
     } finally {
       ruleSaving = false;
     }
+  }
+
+  // Bookmark button: manual one-tap save-as-rule (result intentionally ignored).
+  async function quickSaveRule(row: ImportRow): Promise<void> {
+    await captureRuleForRow(row);
   }
 
   function categoryById(id: string | null | undefined): Category | null {
