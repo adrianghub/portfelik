@@ -192,6 +192,65 @@ no row defaults to pending, but keep the RPC guard as defense-in-depth.
   "Import" label if not reusing an existing key.
 - Recompile Paraglide after editing `pl.json`.
 
+## Deep analysis (added after review)
+
+### Backend feasibility — §3 resolved
+
+`preview_fingerprint_warnings` (migration `20260602000001`) returns the rich
+6-field warning shape via three scan paths (prior imports / shopping-list expense
+/ manual non-list ±1 day) and is **strictly read-only**. Duplicate detection needs
+the rows to exist first, so "set `decision='duplicate'` at insert" is impossible.
+Resolved path:
+
+- **New migration** — `mark_preview_duplicates(p_session_id)` SECURITY DEFINER
+  RPC: runs the same 3-path scan, flips matching rows whose `decision = 'import'`
+  to `decision = 'duplicate'` and sets `duplicate_of`, returns the warnings array.
+  Called **once** right after `insertPreviewRows` at upload time (rows are all
+  fresh `import`, no user overrides to clobber).
+- **On resume/refresh** — call the existing read-only
+  `preview_fingerprint_warnings` for banner detail only; never re-run the mutating
+  scan, so a user's "import anyway" (a `duplicate → import` override) is preserved.
+- `commit_import_session` is **untouched**. Its `rows_pending` gate is auto-
+  satisfied because no row is ever `pending` under default-import. The Inne
+  fallback already covers uncategorized `import` rows.
+
+SQL surface: one new RPC migration. No amend to the commit RPC.
+
+### State machine (default-import)
+
+`transaction_import_rows.decision` values now used:
+
+| decision | set by | transitions |
+| --- | --- | --- |
+| `import` | default at insert (non-duplicate rows) | → `skip` (toggle); → `duplicate` (mark RPC at upload) |
+| `duplicate` | mark RPC at upload; commit-time `unique_violation` | → `import` ("Importuj mimo to" / "Przywróć wszystkie") |
+| `skip` | user toggle | → `import` (toggle back) |
+| `pending` | RETIRED — never set by the client; commit gate kept as defense-in-depth |
+
+`insertPreviewRows` changes its inserted default from `'pending'` to `'import'`
+(`bank-import.ts:290`). New service fn `markPreviewDuplicates(sessionId)` wraps the
+new RPC. "Restore" actions move duplicates to `import` (not `pending`).
+
+Edge cases: 0 importable rows → disable commit + hint; all rows → Inne → confirm
+sheet warns; partial commit failure → single-transaction RPC fully rolls back,
+session stays `preview`, toast error, surface intact; resume → decisions already
+persisted, skip the mutating scan.
+
+### Regression matrix — `e2e/tests/bank-import.spec.ts` (12 tests)
+
+| test | fate |
+| --- | --- |
+| heading/pills, invalid CSV, file-retained chip | keep (pills `Wgraj plik`/`Sprawdź pozycje` unchanged) |
+| uploads → flags dup → commits → blocks re-import | rewrite (no "Importuj gotowe"; dup → banner; conditional confirm) |
+| bookmark save-as-rule | minor edit (rule offer stays; drop sub-step nav) |
+| explicit Importuj → Inne | rewrite (group → skip toggle; row imports by default) |
+| failed required-rule blocks row + disables "Dalej" | delete (gate removed) |
+| prefill / categories cannot load | minor edit (drop "Importuj gotowe" assertion) |
+| helpers `advanceDuplicates` / `restoreAll` (Dalej nav) | rewrite (banner, no sub-step) |
+
+~4 rewrite, 1 delete, ~4 minor, 3 keep. RLS/unit suites unaffected except a new
+RLS test for `mark_preview_duplicates`. `categorize.spec.ts` (engine) untouched.
+
 ## Out of scope
 
 - Multiple draft files / concurrent imports (issue point about "more imports").
