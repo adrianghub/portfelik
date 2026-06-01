@@ -180,6 +180,30 @@ export async function previewFingerprintWarnings(sessionId: string): Promise<Dup
   return data as unknown as DuplicateWarning[];
 }
 
+/**
+ * Latest still-open ("preview") session for the current user, used to offer a
+ * resume entry point after the user left mid-review (issue #66). Discarding a
+ * draft soft-cancels it (see cancelImportSession), so cancelled drafts are never
+ * returned here.
+ */
+export async function fetchActivePreviewSession(): Promise<ImportSession | null> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from("transaction_import_sessions")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("status", "preview")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return (data ?? null) as ImportSession | null;
+}
+
 export async function openImportSession(input: {
   bankAccountId: string;
   sourceFilename: string | null;

@@ -235,6 +235,38 @@ describe("RPC: commit_import_session", () => {
     expect(error?.message).toMatch(/group_forbidden/);
   });
 
+  it("uncategorized import row falls back to the caller's 'Inne wydatki' default", async () => {
+    const seed = await seedAccountAndSession();
+    await insertRow(seed.sessionId, {
+      rowIndex: 0,
+      decision: "import",
+      categoryId: null,
+      description: `${SENTINEL} INNE r0`,
+    });
+
+    const { data, error } = await callCommit(ctx.userA.client, seed.sessionId);
+    expect(error).toBeNull();
+    expect((data as { inserted: number }).inserted).toBe(1);
+
+    const inne = await ctx.admin
+      .from("categories")
+      .select("id")
+      .eq("user_id", ctx.userA.userId)
+      .eq("type", "expense")
+      .eq("name", "Inne wydatki")
+      .single();
+    expect(inne.error).toBeNull();
+
+    const tx = await ctx.admin
+      .from("transactions")
+      .select("category_id")
+      .eq("user_id", ctx.userA.userId)
+      .eq("description", `${SENTINEL} INNE r0`)
+      .single();
+    expect(tx.error).toBeNull();
+    expect(tx.data?.category_id).toBe(inne.data?.id);
+  });
+
   it("happy path: counts skipped + duplicate + inserted; tx + link created", async () => {
     const seed = await seedAccountAndSession();
     await insertRow(seed.sessionId, {

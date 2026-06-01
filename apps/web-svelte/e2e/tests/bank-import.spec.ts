@@ -81,6 +81,7 @@ type CategorizationRule = {
 type BankImportMockOptions = {
   failRulesOnce?: boolean;
   failCategoriesOnce?: boolean;
+  failRulePost?: boolean;
   defaultRules?: boolean;
 };
 
@@ -126,6 +127,7 @@ async function mockBankImportAPI(page: Page, options = {}) {
         ]
       : [];
   let failRulesOnce = opts.failRulesOnce ?? false;
+  const failRulePost = opts.failRulePost ?? false;
   let failCategoriesOnce = opts.failCategoriesOnce ?? false;
 
   const normalize = (value: string | null | undefined) => (value ?? "").trim().toLowerCase();
@@ -161,6 +163,9 @@ async function mockBankImportAPI(page: Page, options = {}) {
           return route.fulfill({ status: 500, json: { message: "temporary rules failure" } });
         }
         if (method === "POST") {
+          if (failRulePost) {
+            return route.fulfill({ status: 500, json: { message: "rule save failed" } });
+          }
           const body = request.postDataJSON() as Partial<CategorizationRule>;
           const duplicate = rules.some(
             (rule) =>
@@ -477,6 +482,66 @@ test("import wizard: bookmark = one-tap save-as-rule with smart default text", a
 
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByText(/Reguła zapisana/)).toBeVisible({ timeout: 5_000 });
+});
+
+test("import wizard: explicit Importuj sends an uncategorized row to Inne", async ({ page }) => {
+  await page.unrouteAll();
+  await injectFakeSession(page);
+  // No prefill rules → the row stays uncategorized and must fall back to "Inne".
+  await mockBankImportAPI(page, { defaultRules: false });
+  await page.goto("/transactions/import");
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "wyciag.csv",
+    mimeType: "text/csv",
+    buffer: mbankNoCounterpartySample,
+  });
+
+  // Explicit decision controls (a role="group" segmented control) replace the
+  // old import checkbox.
+  const decision = page.getByRole("table").getByRole("group");
+  const importBtn = decision.getByRole("button", { name: "Importuj", exact: true });
+  await expect(importBtn).toBeVisible({ timeout: 10_000 });
+  await expect(decision.getByRole("button", { name: "Pomiń", exact: true })).toBeVisible();
+
+  await importBtn.click();
+
+  await page.getByRole("button", { name: "Zatwierdź import" }).click();
+  await expect(page.getByRole("heading", { name: "Potwierdź import" })).toBeVisible();
+  // Confirmation surfaces the uncategorized → "Inne" fallback explicitly.
+  await expect(page.getByText(/trafi do „Inne”/)).toBeVisible();
+  await expect(page.getByText("Dodaj 1 · pomiń 0")).toBeVisible();
+
+  await page.getByRole("button", { name: "Potwierdź (1)" }).click();
+  await expect(page).toHaveURL(/\/transactions/);
+});
+
+test("import wizard: failed required-rule save blocks the row from importing", async ({ page }) => {
+  await page.unrouteAll();
+  await injectFakeSession(page);
+  // No prefill rules, and rule POST fails — required-rule capture cannot succeed.
+  await mockBankImportAPI(page, { defaultRules: false, failRulePost: true });
+  await page.goto("/transactions/import");
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "wyciag.csv",
+    mimeType: "text/csv",
+    buffer: mbankNoCounterpartySample,
+  });
+
+  // Manually categorize the row → it now requires a rule before import.
+  const combo = page.getByRole("table").getByRole("combobox", { name: "Kategoria" });
+  await expect(combo).toBeVisible({ timeout: 10_000 });
+  await combo.click();
+  await page.getByRole("option", { name: "Jedzenie", exact: true }).click();
+
+  const decision = page.getByRole("table").getByRole("group");
+  const importBtn = decision.getByRole("button", { name: "Importuj", exact: true });
+  await importBtn.click();
+
+  // Rule save failed → the row must NOT be imported and commit stays blocked.
+  await expect(importBtn).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByRole("button", { name: "Zatwierdź import" })).toBeDisabled();
 });
 
 test("import wizard: continues when rule prefill cannot load", async ({ page }) => {
