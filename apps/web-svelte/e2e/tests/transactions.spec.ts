@@ -124,7 +124,7 @@ test("mobile date range sheet stays open while interacting with controls", async
   await expect(dialog).toBeVisible();
 });
 
-test("mobile bank actions open from the toolbar", async ({ page }) => {
+test("mobile bank actions open from the header", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/transactions");
   await expect(page.locator("li").filter({ hasText: "Zakupy spożywcze" }).first()).toBeVisible();
@@ -134,6 +134,31 @@ test("mobile bank actions open from the toolbar", async ({ page }) => {
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("link", { name: "Import bankowy" })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Eksportuj CSV" })).toBeVisible();
+});
+
+test("mobile bank actions stay available when category filters are unavailable", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.route("**/rest/v1/categories**", (route) =>
+    route.fulfill({ status: 500, json: { message: "categories unavailable" } })
+  );
+  await page.goto("/transactions");
+  await expect(page.locator("li").filter({ hasText: "Zakupy spożywcze" }).first()).toBeVisible();
+
+  await expect(page.getByRole("button", { name: "Kategoria" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Import bankowy" })).toBeVisible();
+});
+
+test("mobile bank actions stay available while rows are selected", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/transactions");
+  const row = page.locator("li").filter({ hasText: "Zakupy spożywcze" }).first();
+  await expect(row).toBeVisible();
+
+  await row.getByRole("button", { name: "Zaznacz wszystkie" }).click();
+  await expect(page.getByText("Zaznaczono 1")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Import bankowy" })).toBeVisible();
 });
 
 test("add transaction: opens dialog and shows success toast", async ({ page }) => {

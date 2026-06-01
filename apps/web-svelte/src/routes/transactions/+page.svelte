@@ -488,6 +488,11 @@
         exportDisabled={!filteredTxs?.length}
         onexport={handleExport}
       />
+      <TransactionDataActions
+        variant="mobile"
+        exportDisabled={!filteredTxs?.length}
+        onexport={handleExport}
+      />
     </div>
   </div>
 
@@ -495,11 +500,6 @@
   {#if categoriesQuery.data && selectedIds.size === 0}
     <div class="sticky top-14 z-30 -mx-4 border-b border-white/5 bg-slate-950">
       <div class="flex items-center gap-2 overflow-x-auto px-4 py-2 sm:overflow-x-visible">
-        <TransactionDataActions
-          variant="mobile"
-          exportDisabled={!filteredTxs?.length}
-          onexport={handleExport}
-        />
         <button
           type="button"
           onclick={toggleSearch}
