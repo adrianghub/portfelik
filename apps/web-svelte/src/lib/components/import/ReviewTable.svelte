@@ -6,8 +6,9 @@
   import Badge from "$lib/components/ui/Badge.svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import Dialog from "$lib/components/ui/Dialog.svelte";
+  import ImportCategoryCombobox from "$lib/components/import/ImportCategoryCombobox.svelte";
   import { goto } from "$app/navigation";
-  import { fetchCategories } from "$lib/services/categories";
+  import { createCategory, fetchCategories } from "$lib/services/categories";
   import { fetchUserGroups } from "$lib/services/groups";
   import {
     createCategorizationRule,
@@ -20,7 +21,7 @@
     resolveCategorizationRule,
     suggestRuleText,
   } from "$lib/import/categorize";
-  import type { CategorizationRule, Category } from "$lib/types";
+  import type { CategorizationRule, Category, TransactionType } from "$lib/types";
   import {
     commitImportSession,
     fetchBankAccount,
@@ -100,15 +101,16 @@
   const pendingCount = $derived(rows.filter((r) => r.decision === "pending").length);
   const canCommit = $derived(rows.length > 0 && pendingCount === 0);
 
-  type FilterKind = "all" | "pending" | "uncategorized" | "income" | "expense";
-  let filter = $state<FilterKind>("all");
+  // "Do decyzji" (pending) leads the funnel; the legacy "bez kategorii" filter
+  // is dropped — uncategorized rows now fall back to "Inne" at import (issue #66).
+  type FilterKind = "pending" | "all" | "income" | "expense";
+  let filter = $state<FilterKind>("pending");
   let focusedRowId = $state<string | null>(null);
   let confirmOpen = $state(false);
 
   const filterCounts = $derived({
-    all: rows.length,
     pending: rows.filter((r) => r.decision === "pending").length,
-    uncategorized: rows.filter((r) => r.selected_category_id == null).length,
+    all: rows.length,
     income: rows.filter((r) => r.type === "income").length,
     expense: rows.filter((r) => r.type === "expense").length,
   });
@@ -117,8 +119,6 @@
     switch (filter) {
       case "pending":
         return rows.filter((r) => r.decision === "pending");
-      case "uncategorized":
-        return rows.filter((r) => r.selected_category_id == null);
       case "income":
         return rows.filter((r) => r.type === "income");
       case "expense":
@@ -130,6 +130,22 @@
 
   function categoriesFor(type: "income" | "expense") {
     return (categoriesQuery.data ?? []).filter((c) => c.type === type);
+  }
+
+  // Inline category creation from the per-row combobox: create, refresh the
+  // cache, and hand the new id back so the row can select it immediately.
+  async function createCategoryInline(name: string, type: TransactionType): Promise<string | null> {
+    const trimmed = name.trim();
+    if (trimmed === "") return null;
+    try {
+      const created = await createCategory({ name: trimmed, type });
+      await queryClient.invalidateQueries({ queryKey: ["categories"] });
+      toast.success(m.toast_category_created());
+      return created.id;
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : m.toast_error());
+      return null;
+    }
   }
 
   function categoryName(id: string | null): string | null {
@@ -150,31 +166,22 @@
   // Final-confirmation digest: only the rows that will actually become
   // transactions, plus a flag for any probable duplicates still set to import.
   const importRows = $derived(rows.filter((r) => r.decision === "import"));
-  const skipCount = $derived(rows.filter((r) => r.decision === "skip").length);
+  const skippedRows = $derived(rows.filter((r) => r.decision === "skip"));
+  const skipCount = $derived(skippedRows.length);
   const dupAmongImport = $derived(importRows.filter((r) => warningsByRow.has(r.id)).length);
+  // Import rows left uncategorized go to the per-user "Inne" fallback at commit.
+  const uncategorizedImportRows = $derived(
+    importRows.filter((r) => r.selected_category_id == null)
+  );
 
   /**
-   * Optimistic patch + automatic decision flip on category set/clear:
-   *   * setting a category on a 'pending' row → decision='import'
-   *   * clearing the category on an 'import' row → decision='pending'
-   * Lets users sweep through with category picks alone; no need to also
-   * touch the decision column.
+   * Optimistic patch of a single row. The import/ignore decision is now an
+   * explicit step (issue #66) — categorizing a row no longer auto-flips it to
+   * import, so the rule-capture requirement can't be bypassed.
    */
   async function patchRow(rowId: string, patch: Partial<ImportRow>): Promise<void> {
     const previous = queryClient.getQueryData<ImportRow[]>(rowsKey);
-    const current = previous?.find((r) => r.id === rowId);
-
-    let effective: Partial<ImportRow> = patch;
-    if (current && "selected_category_id" in patch) {
-      const becameSet = patch.selected_category_id != null && current.selected_category_id == null;
-      const becameCleared =
-        patch.selected_category_id == null && current.selected_category_id != null;
-      if (becameSet && current.decision === "pending") {
-        effective = { ...effective, decision: "import" };
-      } else if (becameCleared && current.decision === "import") {
-        effective = { ...effective, decision: "pending" };
-      }
-    }
+    const effective: Partial<ImportRow> = patch;
 
     if (previous) {
       queryClient.setQueryData<ImportRow[]>(
@@ -204,19 +211,38 @@
     }
   }
 
-  // Checkbox = "do I want this imported?" Mapping:
-  //   checked  → decision "import" when a category is set, else "pending"
-  //              (commit gate blocks pending rows until they get a category).
-  //   unchecked→ decision "skip".
-  // Promotion of pending → import on category set is handled in patchRow.
-  async function toggleImport(row: ImportRow, checked: boolean): Promise<void> {
-    if (!checked) {
-      await patchRow(row.id, { decision: "skip" });
-      return;
+  // Explicit per-row decision (issue #66): the import/ignore call is its own
+  // control instead of a checkbox. Importuj keeps an uncategorized row (it falls
+  // back to "Inne" at commit); Pomiń ignores it. Promotion of pending → import on
+  // category set is still handled in patchRow for sweep-by-category ergonomics.
+  async function setDecision(row: ImportRow, decision: "import" | "skip"): Promise<void> {
+    if (row.decision === decision) return;
+    await patchRow(row.id, { decision });
+  }
+
+  // A manually categorized row (category not produced by an existing rule) must
+  // capture a rule before it can be imported (issue #66). Uncategorized rows are
+  // exempt — they fall back to "Inne" at commit.
+  function needsRule(row: ImportRow): boolean {
+    return row.selected_category_id != null && matchedRuleFor(row) == null;
+  }
+
+  // Capture any required rules (once per distinct merchant token + category),
+  // then mark the targets for import.
+  async function ensureRulesThenImport(targets: ImportRow[]): Promise<void> {
+    const captured = new Set<string>();
+    for (const row of targets) {
+      if (!needsRule(row)) continue;
+      const key = `${row.type}:${suggestRuleText(row).toLowerCase()}:${row.selected_category_id}`;
+      if (captured.has(key)) continue;
+      captured.add(key);
+      await quickSaveRule(row);
     }
-    await patchRow(row.id, {
-      decision: row.selected_category_id ? "import" : "pending",
-    });
+    await Promise.all(targets.map((r) => setDecision(r, "import")));
+  }
+
+  async function markImport(row: ImportRow): Promise<void> {
+    await ensureRulesThenImport([row]);
   }
 
   // Eligible = has a category but is not yet marked import. When zero, the
@@ -228,7 +254,7 @@
 
   async function bulkImportValid(): Promise<void> {
     const targets = rows.filter((r) => r.selected_category_id !== null && r.decision !== "import");
-    await Promise.all(targets.map((r) => patchRow(r.id, { decision: "import" })));
+    await ensureRulesThenImport(targets);
   }
 
   // Probable-duplicate rows are flagged by the fingerprint preview. The user
@@ -237,6 +263,17 @@
   async function bulkSkipProbableDuplicates(): Promise<void> {
     const flagged = rows.filter((r) => warningsByRow.has(r.id) && r.decision !== "skip");
     await Promise.all(flagged.map((r) => patchRow(r.id, { decision: "skip" })));
+  }
+
+  // Bulk-ignore the rows currently in view (respects the active filter), so a
+  // user can clear out a whole "do decyzji" batch they don't want to import.
+  const bulkSkippableVisibleCount = $derived(
+    visibleRows.filter((r) => r.decision !== "skip").length
+  );
+
+  async function bulkSkipVisible(): Promise<void> {
+    const targets = visibleRows.filter((r) => r.decision !== "skip");
+    await Promise.all(targets.map((r) => patchRow(r.id, { decision: "skip" })));
   }
 
   function clearFilter(): void {
@@ -252,7 +289,6 @@
   interface RuleSuggestion {
     key: string;
     text: string;
-    field: "description" | "counterparty";
     categoryId: string;
     categoryName: string;
     count: number;
@@ -292,16 +328,17 @@
   async function createAndApplyRule(input: {
     kind: "contains" | "exact";
     categoryId: string;
-    field: "description" | "counterparty";
     text: string;
   }): Promise<CategorizationRule> {
+    // Auto-match both fields (issue #66): a saved rule matches whether the token
+    // shows up in the bank "Kontrahent" (counterparty) or the description/content.
     const text = input.text.trim();
     const candidate = {
       id: "__draft__",
       user_id: "__draft__",
       kind: input.kind,
-      match_description: input.field === "description" ? text : null,
-      match_counterparty: input.field === "counterparty" ? text : null,
+      match_description: text,
+      match_counterparty: text,
       match_type: null,
       category_id: input.categoryId,
       priority: 0,
@@ -315,8 +352,8 @@
     const created = await createCategorizationRule({
       kind: input.kind,
       category_id: input.categoryId,
-      match_description: input.field === "description" ? text : null,
-      match_counterparty: input.field === "counterparty" ? text : null,
+      match_description: text,
+      match_counterparty: text,
     });
     await queryClient.invalidateQueries({ queryKey: ["categorization_rules"] });
 
@@ -343,15 +380,13 @@
 
   async function quickSaveRule(row: ImportRow): Promise<void> {
     if (!row.selected_category_id) return;
-    const field: "description" | "counterparty" = row.counterparty ? "counterparty" : "description";
-    const text = suggestRuleText(row, field);
+    const text = suggestRuleText(row);
     if (text === "") return;
     ruleSaving = true;
     try {
       await createAndApplyRule({
         kind: "contains",
         categoryId: row.selected_category_id,
-        field,
         text,
       });
     } catch (e) {
@@ -374,7 +409,6 @@
       string,
       {
         text: string;
-        field: "description" | "counterparty";
         type: "income" | "expense";
         rows: ImportRow[];
         categoryCounts: Map<string, number>;
@@ -382,13 +416,11 @@
     >();
 
     for (const row of rows) {
-      const field = row.counterparty ? "counterparty" : "description";
-      const text = suggestRuleText(row, field);
+      const text = suggestRuleText(row);
       if (text === "") continue;
-      const key = `${row.type}:${field}:${text.toLowerCase()}`;
+      const key = `${row.type}:${text.toLowerCase()}`;
       const group = groups.get(key) ?? {
         text,
-        field,
         type: row.type,
         rows: [],
         categoryCounts: new Map<string, number>(),
@@ -413,8 +445,8 @@
           id: "__suggestion__",
           user_id: "__suggestion__",
           kind: "contains",
-          match_description: group.field === "description" ? group.text : null,
-          match_counterparty: group.field === "counterparty" ? group.text : null,
+          match_description: group.text,
+          match_counterparty: group.text,
           match_type: null,
           category_id: categoryId,
           priority: 0,
@@ -425,7 +457,6 @@
           {
             key,
             text: group.text,
-            field: group.field,
             categoryId,
             categoryName: category.name,
             count: group.rows.length,
@@ -443,7 +474,6 @@
       await createAndApplyRule({
         kind: "contains",
         categoryId: suggestion.categoryId,
-        field: suggestion.field,
         text: suggestion.text,
       });
     } catch (e) {
@@ -541,13 +571,42 @@
   }));
 
   const filterOptions: { kind: FilterKind; label: string }[] = $derived([
-    { kind: "all", label: m.bank_review_filter_all() },
     { kind: "pending", label: m.bank_review_filter_pending() },
-    { kind: "uncategorized", label: m.bank_review_filter_uncategorized() },
+    { kind: "all", label: m.bank_review_filter_all() },
     { kind: "income", label: m.bank_review_filter_income() },
     { kind: "expense", label: m.bank_review_filter_expense() },
   ]);
 </script>
+
+<!-- Explicit import/ignore control, shared by the desktop table + mobile cards. -->
+{#snippet decisionControl(row: ImportRow)}
+  <div class="inline-flex overflow-hidden rounded-lg border border-white/10" role="group">
+    <button
+      type="button"
+      class={cn(
+        "px-2.5 py-1 text-xs font-medium transition-colors",
+        row.decision === "import" ? "bg-accent/20 text-accent" : "text-slate-400 hover:bg-white/5"
+      )}
+      aria-pressed={row.decision === "import"}
+      onclick={() => void markImport(row)}
+    >
+      {m.bank_review_decision_import()}
+    </button>
+    <button
+      type="button"
+      class={cn(
+        "border-l border-white/10 px-2.5 py-1 text-xs font-medium transition-colors",
+        row.decision === "skip" || row.decision === "duplicate"
+          ? "bg-slate-700/70 text-slate-200"
+          : "text-slate-400 hover:bg-white/5"
+      )}
+      aria-pressed={row.decision === "skip" || row.decision === "duplicate"}
+      onclick={() => void setDecision(row, "skip")}
+    >
+      {m.bank_review_decision_skip()}
+    </button>
+  </div>
+{/snippet}
 
 <div class="space-y-4">
   {#if parseErrorCount > 0}
@@ -588,50 +647,59 @@
           {m.bank_review_skip_duplicates_action({ count: warningsByRow.size })}
         </Button>
       {/if}
+      {#if bulkSkippableVisibleCount > 0}
+        <Button variant="ghost" size="sm" onclick={bulkSkipVisible}>
+          {m.bank_review_skip_visible_action({ count: bulkSkippableVisibleCount })}
+        </Button>
+      {/if}
     </div>
   </div>
 
-  {#if ruleSuggestions.length > 0}
-    <div class="flex gap-2 overflow-x-auto pb-1">
-      {#each ruleSuggestions as suggestion (suggestion.key)}
+  <!-- Sticky decision surface: rule suggestions + category/decision filters stay
+       reachable while scrolling on desktop and mobile (issue #66). -->
+  <div class="surface-hi sticky top-14 z-30 -mx-4 space-y-2 px-4 py-2">
+    {#if ruleSuggestions.length > 0}
+      <div class="flex gap-2 overflow-x-auto pb-1">
+        {#each ruleSuggestions as suggestion (suggestion.key)}
+          <button
+            type="button"
+            class="border-accent/25 bg-accent/10 hover:bg-accent/15 min-w-72 rounded-xl border px-3 py-2 text-left shadow-[0_0_24px_rgba(16,185,129,0.06)] transition-colors disabled:opacity-60"
+            disabled={ruleSaving}
+            onclick={() => void saveSuggestion(suggestion)}
+          >
+            <span class="text-accent block text-xs">
+              {m.bank_review_rule_suggestion_intro({
+                text: suggestion.text,
+                count: suggestion.count,
+              })}
+            </span>
+            <span class="mt-0.5 block truncate text-sm font-medium text-slate-100">
+              {m.bank_review_rule_suggestion_action({
+                category: suggestion.categoryName,
+              })}
+            </span>
+          </button>
+        {/each}
+      </div>
+    {/if}
+
+    <!-- Filter chips: scroll horizontally on narrow screens. -->
+    <div class="flex flex-wrap items-center gap-2 overflow-x-auto">
+      {#each filterOptions as f (f.kind)}
         <button
           type="button"
-          class="border-accent/25 bg-accent/10 hover:bg-accent/15 min-w-72 rounded-xl border px-3 py-2 text-left shadow-[0_0_24px_rgba(16,185,129,0.06)] transition-colors disabled:opacity-60"
-          disabled={ruleSaving}
-          onclick={() => void saveSuggestion(suggestion)}
+          class={cn(
+            "rounded-full border px-3 py-1 text-xs transition-colors",
+            filter === f.kind
+              ? "border-accent bg-accent/10 text-accent"
+              : "border-white/10 text-slate-400 hover:bg-white/5"
+          )}
+          onclick={() => (filter = f.kind)}
         >
-          <span class="text-accent block text-xs">
-            {m.bank_review_rule_suggestion_intro({
-              text: suggestion.text,
-              count: suggestion.count,
-            })}
-          </span>
-          <span class="mt-0.5 block truncate text-sm font-medium text-slate-100">
-            {m.bank_review_rule_suggestion_action({
-              category: suggestion.categoryName,
-            })}
-          </span>
+          {f.label}<span class="ml-1.5 text-slate-500">{filterCounts[f.kind]}</span>
         </button>
       {/each}
     </div>
-  {/if}
-
-  <!-- Filter chips (non-sticky; scroll with page). -->
-  <div class="flex flex-wrap items-center gap-2">
-    {#each filterOptions as f (f.kind)}
-      <button
-        type="button"
-        class={cn(
-          "rounded-full border px-3 py-1 text-xs transition-colors",
-          filter === f.kind
-            ? "border-accent bg-accent/10 text-accent"
-            : "border-white/10 text-slate-400 hover:bg-white/5"
-        )}
-        onclick={() => (filter = f.kind)}
-      >
-        {f.label}<span class="ml-1.5 text-slate-500">{filterCounts[f.kind]}</span>
-      </button>
-    {/each}
   </div>
 
   {#if visibleRows.length === 0 && rows.length > 0}
@@ -643,11 +711,11 @@
       {/snippet}
     </EmptyState>
   {:else}
-    <!-- Desktop: no inner scroll — the page is the single scroll surface and
-         the <thead> stays pinned just below the fixed app nav (top-14). -->
+    <!-- Desktop: the page is the single scroll surface. The sticky filter bar
+         above is the pinned decision surface, so the header scrolls with rows. -->
     <div class="hidden rounded-2xl border border-white/10 md:block">
       <table class="min-w-full divide-y divide-white/5 text-sm">
-        <thead class="sticky top-16 z-10 bg-slate-900 text-xs text-slate-400 uppercase">
+        <thead class="bg-slate-900 text-xs text-slate-400 uppercase">
           <tr>
             <th class="px-3 py-2 text-left">{m.bank_review_header_date()}</th>
             <th class="px-3 py-2 text-right">{m.bank_review_header_amount()}</th>
@@ -707,22 +775,20 @@
               </td>
               <td class="px-3 py-2 align-top">
                 <div class="flex items-center gap-1">
-                  <Select
-                    value={row.selected_category_id ?? ""}
-                    onchange={(e) => {
-                      const v = (e.target as HTMLSelectElement).value;
-                      void patchRow(row.id, { selected_category_id: v === "" ? null : v });
-                    }}
-                  >
-                    <option value="">—</option>
-                    {#each categoriesFor(row.type) as c (c.id)}
-                      <option value={c.id}>{c.name}</option>
-                    {/each}
-                  </Select>
+                  <ImportCategoryCombobox
+                    categories={categoriesFor(row.type)}
+                    type={row.type}
+                    selectedId={row.selected_category_id}
+                    onchange={(id) => void patchRow(row.id, { selected_category_id: id })}
+                    oncreate={createCategoryInline}
+                  />
                   <Button
                     variant="ghost"
                     size="sm"
-                    title={m.bank_review_save_rule_tooltip()}
+                    class={needsRule(row) ? "text-amber-300 ring-1 ring-amber-400/40" : undefined}
+                    title={needsRule(row)
+                      ? m.bank_review_save_rule_required_tooltip()
+                      : m.bank_review_save_rule_tooltip()}
                     disabled={!row.selected_category_id || ruleSaving}
                     onclick={() => void quickSaveRule(row)}
                   >
@@ -758,20 +824,14 @@
                 </Select>
               </td>
               <td class="px-3 py-2 align-top">
-                <label class="inline-flex cursor-pointer items-center gap-2">
-                  <input
-                    type="checkbox"
-                    class="text-accent focus:ring-accent/40 h-4 w-4 rounded border-white/20 bg-slate-900"
-                    checked={row.decision !== "skip"}
-                    onchange={(e) => void toggleImport(row, (e.target as HTMLInputElement).checked)}
-                    aria-label={m.bank_review_import_aria_label({
-                      description: row.counterparty ?? row.description,
-                    })}
-                  />
+                <div class="flex flex-col items-start gap-1">
+                  {@render decisionControl(row)}
                   {#if row.decision === "pending"}
-                    <span class="text-xs text-amber-300">{m.bank_review_no_category_cue()}</span>
+                    <span class="text-xs text-amber-300"
+                      >{m.bank_review_decision_pending_cue()}</span
+                    >
                   {/if}
-                </label>
+                </div>
               </td>
             </tr>
           {/each}
@@ -834,23 +894,20 @@
           <div class="grid grid-cols-2 gap-2">
             <div class="flex min-w-0 flex-col gap-0.5">
               <div class="flex min-w-0 items-center gap-1">
-                <Select
-                  class="w-full min-w-0"
-                  value={row.selected_category_id ?? ""}
-                  onchange={(e) => {
-                    const v = (e.target as HTMLSelectElement).value;
-                    void patchRow(row.id, { selected_category_id: v === "" ? null : v });
-                  }}
-                >
-                  <option value="">{m.bank_review_header_category()}</option>
-                  {#each categoriesFor(row.type) as c (c.id)}
-                    <option value={c.id}>{c.name}</option>
-                  {/each}
-                </Select>
+                <ImportCategoryCombobox
+                  categories={categoriesFor(row.type)}
+                  type={row.type}
+                  selectedId={row.selected_category_id}
+                  onchange={(id) => void patchRow(row.id, { selected_category_id: id })}
+                  oncreate={createCategoryInline}
+                />
                 <Button
                   variant="ghost"
                   size="sm"
-                  title={m.bank_review_save_rule_tooltip()}
+                  class={needsRule(row) ? "text-amber-300 ring-1 ring-amber-400/40" : undefined}
+                  title={needsRule(row)
+                    ? m.bank_review_save_rule_required_tooltip()
+                    : m.bank_review_save_rule_tooltip()}
                   disabled={!row.selected_category_id || ruleSaving}
                   onclick={() => void quickSaveRule(row)}
                 >
@@ -871,23 +928,12 @@
                 {/if}
               {/if}
             </div>
-            <label
-              class="flex cursor-pointer items-center justify-end gap-2 text-sm text-slate-200"
-            >
+            <div class="flex items-center justify-end gap-2">
               {#if row.decision === "pending"}
-                <span class="text-xs text-amber-300">{m.bank_review_no_category_cue()}</span>
+                <span class="text-xs text-amber-300">{m.bank_review_decision_pending_cue()}</span>
               {/if}
-              <span>{m.bank_review_import_header_label()}</span>
-              <input
-                type="checkbox"
-                class="text-accent focus:ring-accent/40 h-4 w-4 rounded border-white/20 bg-slate-900"
-                checked={row.decision !== "skip"}
-                onchange={(e) => void toggleImport(row, (e.target as HTMLInputElement).checked)}
-                aria-label={m.bank_review_import_aria_label({
-                  description: row.counterparty ?? row.description,
-                })}
-              />
-            </label>
+              {@render decisionControl(row)}
+            </div>
           </div>
         </li>
       {/each}
@@ -935,6 +981,12 @@
       </p>
     {/if}
 
+    {#if uncategorizedImportRows.length > 0}
+      <p class="rounded-xl border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-xs text-sky-200">
+        {m.bank_confirm_inne_banner({ count: uncategorizedImportRows.length })}
+      </p>
+    {/if}
+
     <ul class="max-h-72 space-y-1.5 overflow-y-auto">
       {#each importRows as row (row.id)}
         {@const cat = categoryName(row.selected_category_id)}
@@ -953,11 +1005,31 @@
             </span>
           </div>
           <p class="mt-0.5 text-xs text-slate-500">
-            {cat ?? m.bank_confirm_no_category()} · {row.posted_at}
+            {cat ?? m.bank_confirm_fallback_category()} · {row.posted_at}
           </p>
         </li>
       {/each}
     </ul>
+
+    {#if skipCount > 0}
+      <details class="rounded-xl border border-white/5 bg-slate-950/40 px-3 py-2">
+        <summary class="cursor-pointer text-xs text-slate-400">
+          {m.bank_confirm_skipped_heading({ count: skipCount })}
+        </summary>
+        <ul class="mt-2 space-y-1">
+          {#each skippedRows as row (row.id)}
+            <li class="flex justify-between gap-3 text-xs text-slate-500">
+              <span class="min-w-0 truncate">
+                {row.counterparty ?? row.edited_description ?? row.description}
+              </span>
+              <span class="shrink-0 tabular-nums">
+                {formatCurrency(row.amount, row.currency)}
+              </span>
+            </li>
+          {/each}
+        </ul>
+      </details>
+    {/if}
 
     <div class="flex justify-end gap-2">
       <Button variant="ghost" onclick={() => (confirmOpen = false)} disabled={commitMut.isPending}>
