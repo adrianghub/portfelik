@@ -78,7 +78,7 @@
     try {
       localStorage.setItem(PUSH_PROMPT_STORAGE_KEY, String(Date.now()));
     } catch {
-      // localStorage unavailable (private mode etc.) — fall back to in-memory only
+      // localStorage unavailable (private mode etc.) - fall back to in-memory only
     }
     pushPromptedRecently = true;
   }
@@ -158,7 +158,7 @@
       error: userError,
     } = await supabase.auth.getUser();
 
-    // A sign-in (or sign-out) landed while getUser() was in flight — its result
+    // A sign-in (or sign-out) landed while getUser() was in flight - its result
     // is authoritative, so discard this now-stale bootstrap snapshot.
     if (bootstrapRevision !== authRevision) return;
 

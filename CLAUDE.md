@@ -6,16 +6,16 @@ Apply to every task regardless of phase.
 
 ### After every change
 
-1. **Sanity check** — `pnpm exec svelte-check --tsconfig ./tsconfig.json` (from `apps/web-svelte/`). 0 errors, 0 warnings.
-2. **Lint** — `pnpm lint` (from `apps/web-svelte/`). 0 errors.
-3. **Format** — `pnpm format:check`; if fails run `pnpm format` then re-check.
-4. **Security** — `grep -rE "(eyJ[a-zA-Z0-9_-]{20,}|sb_secret_|PRIVATE|password\s*=)" <changed files>`. Flag anything before proceeding. Real cloud creds belong in `apps/web-svelte/.env.cloud.local` (gitignored). Local RLS JWTs belong in `apps/web-svelte/.env.test` (gitignored), never in `.env.test.example`.
-5. **Schema validation** — new tables: RLS enabled? Migrations: idempotent naming?
+1. **Sanity check** - `pnpm exec svelte-check --tsconfig ./tsconfig.json` (from `apps/web-svelte/`). 0 errors, 0 warnings.
+2. **Lint** - `pnpm lint` (from `apps/web-svelte/`). 0 errors.
+3. **Format** - `pnpm format:check`; if fails run `pnpm format` then re-check.
+4. **Security** - `grep -rE "(eyJ[a-zA-Z0-9_-]{20,}|sb_secret_|PRIVATE|password\s*=)" <changed files>`. Flag anything before proceeding. Real cloud creds belong in `apps/web-svelte/.env.cloud.local` (gitignored). Local RLS JWTs belong in `apps/web-svelte/.env.test` (gitignored), never in `.env.test.example`.
+5. **Schema validation** - new tables: RLS enabled? Migrations: idempotent naming?
 
 ### Before finalising
 
 6. **Paraglide recompile** if `messages/pl.json` touched: `pnpm exec paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide` (from `apps/web-svelte/`).
-7. **Commit list** — MANDATORY after every increment. Output:
+7. **Commit list** - MANDATORY after every increment. Output:
    - (a) Ordered list of Conventional Commit messages (feat/fix/chore/refactor + scope + body explaining WHY)
    - (b) Exact file list per commit
    - User commits manually. Do not skip this step even if changes seem minor.
@@ -23,7 +23,7 @@ Apply to every task regardless of phase.
 ### After each increment
 
 8. **Update CLAUDE.md** phase table + "Immediate next step". Update `~/.claude/projects/.../memory/project_state.md`. Stale docs are worse than none.
-9. **Handoff notes** — next agent must cold-start from CLAUDE.md alone.
+9. **Handoff notes** - next agent must cold-start from CLAUDE.md alone.
 
 ### Increment discipline
 
@@ -42,7 +42,7 @@ Apply to every task regardless of phase.
 
 ## Project Status
 
-**Portfelik** — personal-finance PWA. Migrating React 19 + Firebase → SvelteKit + Supabase. Full plan: `MIGRATION_PLAN.md`.
+**Portfelik** - personal-finance PWA. Migrating React 19 + Firebase → SvelteKit + Supabase. Full plan: `MIGRATION_PLAN.md`.
 **Product doctrine:** Intent-Oriented UI lives in `docs/product/intent-oriented-ui.md`. Future workflow features should prefer deterministic engines + compact decision surfaces over CRUD-first configuration, with AI bounded to draft/explain/summarize around auditable rules.
 **Immediate next step:** **Commit issue #66 bank-import UX rework** (9 increments, see below), then promote the bank-import migration bundle (`202606040`–`20260607` + new `20260608000000_import_inne_fallback.sql`) to staging. Verified 2026-06-01 for issue #66: `supabase db reset` clean through `20260608`, `svelte-check` 0/0, lint 0 errors (5 existing generated Paraglide warnings), format clean, unit+RLS focused 24/24 (incl. new Inne-fallback commit test), bank-import Playwright 8/8, changed-file secret scan clean. Then resume production group-invite hotfix queue (migrations `20260531000000` + `20260601000000`, prod Vault `max_user_cap`, enable Google signups).
 
@@ -56,21 +56,21 @@ Phase 12 shipped through U6 + EmptyState sweep + group hardening (2026-05-17). H
 - RLS regression suite 52/52 green (added 7 group/list rules + tx user_id immutability tests).
 - Vitest auto-loads `.env.test` (gitignored local RLS keys) plus `.env.test.example` (non-secret defaults). Copy the example, then fill JWT keys from `supabase status -o env`.
 
-**Completed phase history** — moved to `docs/PHASE_HISTORY.md` (master phase table, Phase 8/9/10 sub-tables, Bank CSV import V1 steps 1–5.5, shopping-list stabilization bundle). Consult it for commit hashes / dates of shipped work.
+**Completed phase history** - moved to `docs/PHASE_HISTORY.md` (master phase table, Phase 8/9/10 sub-tables, Bank CSV import V1 steps 1–5.5, shopping-list stabilization bundle). Consult it for commit hashes / dates of shipped work.
 
-**Bank CSV import V1:** steps 1–5.5 done (see history). **Step 6** — save-as-rule + deterministic categorization rules engine shipped 2026-05-27 (branch `wip`) and rule-loop completion is local as of 2026-05-28; auto-fills `suggested_category_id`+`selected_category_id` during preview when rules/categories load, but upload falls back to manual preview rows if optional prefill fetches fail. Save-rule now defaults from a short raw merchant token, blocks duplicate/zero-match rules, applies only to uncategorized current rows, and exposes Undo that deletes the new rule plus restores changed rows. Repeated-merchant suggestions surface at 3+ rows only when a category exists to apply. Settings → Reguły shows category type and concise lower-priority shadowing hints. Duplicate warnings now cover manual/non-list transactions via Path C (`20260602000001`, exact type/amount/currency, ±1 day) and show matched transaction context. **Remaining Step 6 backlog:** masked-LLM `suggested_category` hook only (no provider wired). Dashboard AI observability ("Sygnały z okresu") parked 2026-05-24 until core product stable.
+**Bank CSV import V1:** steps 1–5.5 done (see history). **Step 6** - save-as-rule + deterministic categorization rules engine shipped 2026-05-27 (branch `wip`) and rule-loop completion is local as of 2026-05-28; auto-fills `suggested_category_id`+`selected_category_id` during preview when rules/categories load, but upload falls back to manual preview rows if optional prefill fetches fail. Save-rule now defaults from a short raw merchant token, blocks duplicate/zero-match rules, applies only to uncategorized current rows, and exposes Undo that deletes the new rule plus restores changed rows. Repeated-merchant suggestions surface at 3+ rows only when a category exists to apply. Settings → Reguły shows category type and concise lower-priority shadowing hints. Duplicate warnings now cover manual/non-list transactions via Path C (`20260602000001`, exact type/amount/currency, ±1 day) and show matched transaction context. **Remaining Step 6 backlog:** masked-LLM `suggested_category` hook only (no provider wired). Dashboard AI observability ("Sygnały z okresu") parked 2026-05-24 until core product stable.
 
-**Bank import placement issue #65:** local 2026-06-01 — transactions header no longer uses the three-dot actions menu on desktop; import/export are direct header buttons, and mobile exposes a named header `Import bankowy` control that opens the import/export sheet outside category/filter state. Transactions Playwright now covers desktop direct actions, mobile header access, category-query failure, selected-row state, and the date-range mobile test was hardened against current-month drift.
+**Bank import placement issue #65:** local 2026-06-01 - transactions header no longer uses the three-dot actions menu on desktop; import/export are direct header buttons, and mobile exposes a named header `Import bankowy` control that opens the import/export sheet outside category/filter state. Transactions Playwright now covers desktop direct actions, mobile header access, category-query failure, selected-row state, and the date-range mobile test was hardened against current-month drift.
 
-**Bank import UX rework issue #66:** local 2026-06-01 — review screen rebuilt around the intent-oriented funnel (filter → categorize → rule → group → decide). Increments: (1) `20260608000000_import_inne_fallback.sql` — `commit_import_session` assigns uncategorized import rows to the caller's own `Inne wydatki`/`Inne przychody` default (re-seeds defensively), dropping the `category_required` hard block while keeping the `rows_pending` gate; (2) save-rule now auto-matches both `match_description` + `match_counterparty` from a single derived token (no field picker); (3) per-row category `<Select>` replaced by `ImportCategoryCombobox` (search + inline create via `createCategory`), built on `SingleValueCombobox`'s new `onchange`/`oncreate` callbacks; (4) import checkbox replaced by an explicit Importuj/Pomiń `role="group"` control, `patchRow` auto-flip removed (decisions fully explicit), filter `uncategorized` dropped and `pending` ("Do decyzji") moved first; (5) required rule capture per distinct merchant/content group — manually categorized rows route Importuj through `ensureRulesThenImport`, exempting rule-matched + uncategorized rows; (6) sticky decision surface (suggestions + filter chips) on desktop+mobile, non-sticky thead; (7) `beforeNavigate` leave guard with Save/Discard (`fetchActivePreviewSession` + `cancelImportSession` soft-cancel) and a resume card on the upload step; (8) confirmation screen lists rows going to "Inne" + a skipped section; (9) "Pomiń widoczne" bulk action over the filtered view. Sessions are soft-cancelled (FK `on delete restrict` + no delete RLS), so "discard" sets status `cancelled`, never deletes.
+**Bank import UX rework issue #66:** local 2026-06-01 - review screen rebuilt around the intent-oriented funnel (filter → categorize → rule → group → decide). Increments: (1) `20260608000000_import_inne_fallback.sql` - `commit_import_session` assigns uncategorized import rows to the caller's own `Inne wydatki`/`Inne przychody` default (re-seeds defensively), dropping the `category_required` hard block while keeping the `rows_pending` gate; (2) save-rule now auto-matches both `match_description` + `match_counterparty` from a single derived token (no field picker); (3) per-row category `<Select>` replaced by `ImportCategoryCombobox` (search + inline create via `createCategory`), built on `SingleValueCombobox`'s new `onchange`/`oncreate` callbacks; (4) import checkbox replaced by an explicit Importuj/Pomiń `role="group"` control, `patchRow` auto-flip removed (decisions fully explicit), filter `uncategorized` dropped and `pending` ("Do decyzji") moved first; (5) required rule capture per distinct merchant/content group - manually categorized rows route Importuj through `ensureRulesThenImport`, exempting rule-matched + uncategorized rows; (6) sticky decision surface (suggestions + filter chips) on desktop+mobile, non-sticky thead; (7) `beforeNavigate` leave guard with Save/Discard (`fetchActivePreviewSession` + `cancelImportSession` soft-cancel) and a resume card on the upload step; (8) confirmation screen lists rows going to "Inne" + a skipped section; (9) "Pomiń widoczne" bulk action over the filtered view. Sessions are soft-cancelled (FK `on delete restrict` + no delete RLS), so "discard" sets status `cancelled`, never deletes.
 
 **Open backlog:**
 
-- Vault secret rotation runbook (`docs/runbooks/secret-rotation.md`) — Medium, ⏳.
-- Offline write queue (Dexie outbox) — parity gap vs legacy `FirestoreService`, last-write-wins decided — Medium, ⏳.
+- Vault secret rotation runbook (`docs/runbooks/secret-rotation.md`) - Medium, ⏳.
+- Offline write queue (Dexie outbox) - parity gap vs legacy `FirestoreService`, last-write-wins decided - Medium, ⏳.
 - axe-core a11y sweep (deferred U7).
-- Virtualized/infinite scroll for long lists — transactions table + bank-import review render every row; add windowing once dataset warrants (noted 2026-05-26).
-- Mortgage/debt tracking — follow-on track.
+- Virtualized/infinite scroll for long lists - transactions table + bank-import review render every row; add windowing once dataset warrants (noted 2026-05-26).
+- Mortgage/debt tracking - follow-on track.
 
 **Branch flow:** `main` → prod (`portfelik.adrianzinko.com`); `dev` → staging (`dev.portfelik.pages.dev`). Both branches use one Cloudflare Pages project. Supabase is split: `main` uses production; `dev` must use the dedicated `portfelik-staging` project.
 
@@ -81,10 +81,10 @@ Phase 12 shipped through U6 + EmptyState sweep + group hardening (2026-05-17). H
 - GH Actions Staging secrets: `STAGING_SUPABASE_ACCESS_TOKEN`, `STAGING_SUPABASE_DB_PASSWORD`, `STAGING_SUPABASE_PROJECT_REF`, `STAGING_PUBLIC_SUPABASE_URL`, `STAGING_PUBLIC_SUPABASE_ANON_KEY`, `STAGING_PUBLIC_VAPID_KEY`, `STAGING_SUPABASE_SERVICE_ROLE_KEY`, `STAGING_E2E_SMOKE_EMAIL`, `STAGING_E2E_SMOKE_PASSWORD`, `STAGING_DEMO_EMAIL`, `STAGING_DEMO_PASSWORD`.
 - Smoke test data is tagged `__e2e_smoke__` in `description`; the suite's `before/afterAll` hooks idempotently delete by that prefix.
 
-### Push secrets — ✅ set in prod Supabase (2026-04-30)
+### Push secrets - ✅ set in prod Supabase (2026-04-30)
 
-- `INTERNAL_TRIGGER_SECRET` — set in Supabase Edge Function secrets
-- `VAPID_PRIVATE_KEY`, `VAPID_PUBLIC_KEY` — set in Supabase Edge Function secrets
+- `INTERNAL_TRIGGER_SECRET` - set in Supabase Edge Function secrets
+- `VAPID_PRIVATE_KEY`, `VAPID_PUBLIC_KEY` - set in Supabase Edge Function secrets
 
 ---
 
@@ -92,7 +92,7 @@ Phase 12 shipped through U6 + EmptyState sweep + group hardening (2026-05-17). H
 
 ```
 portfelik/portfelik/
-├── apps/web-svelte/        ← SvelteKit app (active — see apps/web-svelte/CLAUDE.md)
+├── apps/web-svelte/        ← SvelteKit app (active - see apps/web-svelte/CLAUDE.md)
 ├── supabase/               ← Migrations + config (see supabase/CLAUDE.md)
 ├── docs/architecture/      ← Canonical architecture docs (overview, DB, flows, ADRs, audit)
 ├── MIGRATION_PLAN.md       ← Historical migration phase plan (now mostly complete)
@@ -106,9 +106,9 @@ portfelik/portfelik/
 Three-tier env. Full map: `docs/architecture/env-workflow.md`.
 
 - **Local dev:** `pnpm dev` from `apps/web-svelte/` reads `.env.local`, which points at the **local Supabase stack** (`127.0.0.1:54321`). Boot the stack from repo root: `supabase start`. Apply migrations: `supabase db reset`, then seed personas with `pnpm seed:local` from `apps/web-svelte/` or `./scripts/supabase-ops.sh local seed`. Cloud creds stashed in `apps/web-svelte/.env.cloud.local` (gitignored) for opt-in cloud debugging.
-- **Staging:** `https://dev.portfelik.pages.dev` — `dev` branch deploys via GH Actions after `migrate-staging` applies committed migrations, system seed, Edge Functions, and synthetic personas to `portfelik-staging`.
+- **Staging:** `https://dev.portfelik.pages.dev` - `dev` branch deploys via GH Actions after `migrate-staging` applies committed migrations, system seed, Edge Functions, and synthetic personas to `portfelik-staging`.
 - **Production:** `portfelik.adrianzinko.com` → Cloudflare Pages project `portfelik`. `main` branch deploys via GH Actions.
-- **Supabase Cloud (prod):** `https://emqzcygfwcvbmhxhfkcc.supabase.co` — publishable key from Supabase Dashboard → Settings → API.
+- **Supabase Cloud (prod):** `https://emqzcygfwcvbmhxhfkcc.supabase.co` - publishable key from Supabase Dashboard → Settings → API.
 - **Supabase Cloud (staging):** dedicated `portfelik-staging` project. Keep its project ref, anon key, service-role key, DB password, and access token in Staging secrets only.
 - **Supabase MCP:** `.mcp.json` at repo root. Use explicit servers: `supabase-prod` for production, `supabase-account` only for project/account work, and add `supabase-staging` after the staging ref exists.
 - **Manual deploy (from `apps/web-svelte/`):**

@@ -18,6 +18,7 @@
     id?: string;
     placeholder?: string;
     disabled?: boolean;
+    class?: string;
   }
 
   let {
@@ -29,6 +30,7 @@
     id,
     placeholder = m.bank_review_header_category(),
     disabled = false,
+    class: className,
   }: Props = $props();
 
   // The combobox edits a display name; this wrapper maps name <-> id and only
@@ -71,7 +73,7 @@
   }
 </script>
 
-<div class="flex w-full min-w-0 items-center gap-1">
+<div class={cn("flex w-full min-w-0 items-center gap-1", className)}>
   <div class="relative min-w-0 flex-1">
     <SingleValueCombobox
       bind:value={name}

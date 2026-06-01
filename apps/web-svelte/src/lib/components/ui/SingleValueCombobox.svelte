@@ -19,7 +19,7 @@
     onchange?: (value: string) => void;
     /**
      * Fired when the "create" affordance is committed instead of selecting an
-     * existing item. When provided, the combobox does NOT set `value` itself —
+     * existing item. When provided, the combobox does NOT set `value` itself -
      * the consumer owns the create + selection. When omitted, create falls back
      * to selecting the free-typed text as the value.
      */

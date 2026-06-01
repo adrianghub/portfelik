@@ -5,7 +5,7 @@
 // suggestions. The categorization_rules table is fully RLS-owned: read /
 // insert / update / delete are scoped to the caller; user_id is NOT in the
 // UPDATE grant, so it cannot be reassigned. PostgREST does not auto-fill
-// user_id on insert — pass it explicitly.
+// user_id on insert - pass it explicitly.
 
 import { supabase } from "$lib/supabase";
 import { findDuplicateCategorizationRule } from "$lib/import/categorize";

@@ -162,7 +162,7 @@ begin
       rec.user_id,
       'transaction_upcoming',
       'Nadchodząca transakcja',
-      rec.description || ' — ' || to_char(rec.amount, 'FM999G990D00') || ' ' || rec.currency,
+      rec.description || ' - ' || to_char(rec.amount, 'FM999G990D00') || ' ' || rec.currency,
       jsonb_build_object(
         'transactionId', v_inserted_id,
         'amount',        rec.amount,

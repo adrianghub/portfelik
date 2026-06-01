@@ -167,7 +167,7 @@
             </p>
             {#if loser}
               <p class="mt-1 text-xs text-amber-200">
-                {m.rules_loses_to({ rule: matchSummary(loser), priority: loser.priority })}
+                {m.rules_loses_to({ rule: matchSummary(loser) })}
               </p>
             {/if}
           </div>

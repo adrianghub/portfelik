@@ -7,7 +7,7 @@ const isCI = !!(
 ).process?.env?.CI;
 const port = isCI ? 4173 : 5173;
 
-// Fake anon key — real value not needed since all calls are mocked.
+// Fake anon key - real value not needed since all calls are mocked.
 const FAKE_ANON_KEY = 'test-anon-key';
 
 export default defineConfig({

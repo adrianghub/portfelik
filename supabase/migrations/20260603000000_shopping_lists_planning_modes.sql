@@ -1,4 +1,4 @@
--- Phase 13 — Shopping Lists: Intent-Oriented modes.
+-- Phase 13 - Shopping Lists: Intent-Oriented modes.
 --
 -- Adds two columns that turn the implicit "active vs completed" lifecycle
 -- into the explicit Planning / Shopping / Done flow described in
@@ -49,7 +49,7 @@ where sl.shopping_started_at is null
   );
 
 -- ============================================================
--- 3. UPDATE grants — let owners/members write the new columns
+-- 3. UPDATE grants - let owners/members write the new columns
 --    through PostgREST. user_id stays excluded (column-level grant
 --    enforces the existing immutability invariant).
 -- ============================================================
@@ -69,7 +69,7 @@ grant update (
 ) on table shopping_lists to authenticated;
 
 -- ============================================================
--- 4. Indexes — both columns are used to bucket the index page.
+-- 4. Indexes - both columns are used to bucket the index page.
 -- ============================================================
 
 create index if not exists idx_shopping_lists_planned_for
@@ -81,7 +81,7 @@ create index if not exists idx_shopping_lists_shopping_started_at
   where status = 'active' and shopping_started_at is not null;
 
 -- ============================================================
--- 5. Duplicate RPC — duplicate into today's Planning mode.
+-- 5. Duplicate RPC - duplicate into today's Planning mode.
 -- ============================================================
 
 create or replace function duplicate_shopping_list(p_list_id uuid)

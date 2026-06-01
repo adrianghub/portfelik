@@ -171,7 +171,7 @@
     });
   });
 
-  // visibleTxs adds the search filter on top — search is row-only UI sugar
+  // visibleTxs adds the search filter on top - search is row-only UI sugar
   // so it deliberately doesn't affect totals.
   let searchQuery = $state("");
   const visibleTxs = $derived(

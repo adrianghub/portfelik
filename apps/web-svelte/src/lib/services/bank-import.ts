@@ -6,7 +6,7 @@
 // module never INSERTs/UPDATEs/DELETEs that table directly.
 //
 // All RLS-owned tables (bank_accounts, transaction_import_sessions,
-// transaction_import_rows) require user_id explicitly on insert —
+// transaction_import_rows) require user_id explicitly on insert -
 // PostgREST does not auto-fill it from the JWT.
 
 import { supabase } from "$lib/supabase";
@@ -89,7 +89,7 @@ export interface DuplicateWarning {
 /**
  * Find the caller's active account for `kind`, or create one with the
  * given default label. The wizard uses this so the user never has to
- * pick a bank — detection from the CSV is enough. Idempotent: on race
+ * pick a bank - detection from the CSV is enough. Idempotent: on race
  * the unique idx (user_id, kind) WHERE archived_at IS NULL would block
  * a second insert; we catch that and re-fetch.
  */
@@ -145,7 +145,7 @@ export async function fetchBankAccount(id: string): Promise<BankAccount> {
 /**
  * Look up any existing non-cancelled session for the same (account, file_hash).
  * The partial unique index on transaction_import_sessions guarantees at most one
- * such row exists, so the caller cannot just blindly insert a new session — it
+ * such row exists, so the caller cannot just blindly insert a new session - it
  * must resume (preview) or surface "already imported" (committed).
  *
  * Returns the session row regardless of status (preview / committed) so the UI
@@ -256,13 +256,13 @@ export async function cancelImportSession(id: string): Promise<void> {
  * to match the inserted count.
  *
  * `resolveCategory` optionally pre-fills a category per row (deterministic
- * categorization rules — see import/categorize.ts). When it returns a category
+ * categorization rules - see import/categorize.ts). When it returns a category
  * id, both suggested_category_id (provenance: the suggestion) and
  * selected_category_id (the editable pick) are set so the row arrives already
- * categorized. Decision stays 'pending' — the user still confirms in review.
+ * categorized. Decision stays 'pending' - the user still confirms in review.
  *
  * Intra-batch hard duplicates (same external_id or same row_index in the
- * same session+file_hash) are NOT pre-filtered here — the unique indexes
+ * same session+file_hash) are NOT pre-filtered here - the unique indexes
  * on transaction_import_links catch them at commit time as duplicates_commit.
  */
 export async function insertPreviewRows(
@@ -348,7 +348,7 @@ export async function updateRowDecision(
  * from preview → committed.
  *
  * Throws on any validation error (foreign category, non-member group,
- * archived account, kind mismatch, rows_pending, etc.) — full rollback,
+ * archived account, kind mismatch, rows_pending, etc.) - full rollback,
  * session stays preview, caller fixes input and retries.
  */
 export async function commitImportSession(sessionId: string): Promise<CommitResult> {

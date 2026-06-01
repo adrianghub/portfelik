@@ -2,7 +2,7 @@
  * Daily rotating greeting + motivational quote for the dashboard.
  *
  * Both lists are seeded by the current day so the values stay stable
- * within a day and rotate at local midnight. No API calls — fixed
+ * within a day and rotate at local midnight. No API calls - fixed
  * arrays keep the dashboard render synchronous and offline-friendly.
  */
 
@@ -30,14 +30,14 @@ const greetings: string[] = [
 ];
 
 const quotes: string[] = [
-  "Najlepszy moment, żeby zacząć oszczędzać, był wczoraj. Drugi najlepszy — dziś.",
+  "Najlepszy moment, żeby zacząć oszczędzać, był wczoraj. Drugi najlepszy - dziś.",
   "Bogactwo to nie ile masz, ale ile mniej potrzebujesz.",
-  "Nie pracuj dla pieniędzy — niech one pracują dla ciebie.",
+  "Nie pracuj dla pieniędzy - niech one pracują dla ciebie.",
   "Każdy oszczędzony złoty to kawałek wolności.",
   "Inwestycja w wiedzę procentuje najlepiej.",
   "Pieniądze są dobrym sługą, ale złym panem.",
   "Cierpliwość jest najlepszą inwestycją.",
-  "Małe oszczędności codziennie — wielka różnica w skali roku.",
+  "Małe oszczędności codziennie - wielka różnica w skali roku.",
   "Nie sprawdzaj salda. Sprawdzaj kierunek.",
   "Budżet to plan, jak chcesz wydać swoje życie.",
   "Procent składany to ósmy cud świata.",
@@ -46,7 +46,7 @@ const quotes: string[] = [
   "Najbogatszy nie ten, kto najwięcej ma, lecz kto najmniej potrzebuje.",
   "Inwestowanie to przenoszenie pieniędzy od niecierpliwych do cierpliwych.",
   "Nie czas na rynku, lecz czas w rynku decyduje.",
-  "Ryzykiem nie jest to, że masz mało — ryzykiem jest brak planu.",
+  "Ryzykiem nie jest to, że masz mało - ryzykiem jest brak planu.",
   "Najlepsza waluta to czas. Pieniądze go kupują.",
 ];
 

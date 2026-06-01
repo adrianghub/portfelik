@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  Personal finance PWA — track income, expenses, and shopping lists with group sharing and push notifications.
+  Personal finance PWA - track income, expenses, and shopping lists with group sharing and push notifications.
 </p>
 
 <p align="center">
@@ -24,12 +24,12 @@
 
 ## Features
 
-- **Transactions** — income/expense ledger with recurring entries, status tracking (upcoming / overdue / paid), category breakdown, and CSV import/export
-- **Shopping lists** — shared lists with item suggestions, completion-to-transaction flow, and group editing
-- **Group sharing** — invite members, share transactions and lists across users
-- **Push notifications** — VAPID web-push for group invitations and weekly admin summaries
-- **Offline-first** — cached reads via TanStack Query; works on slow/intermittent connections
-- **Dark mode** — full `dark:` variant support
+- **Transactions** - income/expense ledger with recurring entries, status tracking (upcoming / overdue / paid), category breakdown, and CSV import/export
+- **Shopping lists** - shared lists with item suggestions, completion-to-transaction flow, and group editing
+- **Group sharing** - invite members, share transactions and lists across users
+- **Push notifications** - VAPID web-push for group invitations and weekly admin summaries
+- **Offline-first** - cached reads via TanStack Query; works on slow/intermittent connections
+- **Dark mode** - full `dark:` variant support
 
 ## Tech stack
 
@@ -39,7 +39,7 @@
 | Styling | Tailwind v4, shadcn-svelte, bits-ui |
 | Server cache | TanStack Query v6 |
 | i18n | Paraglide v2 (Polish) |
-| Auth | Supabase Auth — Google OAuth |
+| Auth | Supabase Auth - Google OAuth |
 | Database | Supabase (Postgres + RLS + pg_cron) |
 | Backend logic | Supabase Edge Functions (Deno) |
 | Push | VAPID web-push |
@@ -64,7 +64,7 @@ docs/architecture/ ← Overview, DB schema, flow diagrams, ADRs
 
 ## Architecture
 
-See [`docs/architecture/`](docs/architecture/README.md) — system overview, ER diagram, flow sequence diagrams, and 10 ADRs covering the key decisions.
+See [`docs/architecture/`](docs/architecture/README.md) - system overview, ER diagram, flow sequence diagrams, and 10 ADRs covering the key decisions.
 
 ## Deploy
 
@@ -74,8 +74,8 @@ Push to `main` → GitHub Actions builds and deploys to Cloudflare Pages automat
 
 <p align="center">
   <a href=".github/img/design-preview.png">
-    <img src=".github/img/design-preview.png" alt="Design preview — color tokens, components, screens" width="480" />
+    <img src=".github/img/design-preview.png" alt="Design preview - color tokens, components, screens" width="480" />
   </a>
   <br/>
-  <em>Design system — color tokens, components, dark mode, WCAG AA</em>
+  <em>Design system - color tokens, components, dark mode, WCAG AA</em>
 </p>

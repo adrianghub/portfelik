@@ -2,7 +2,7 @@
 
 Two daily/monthly SQL jobs keep the ledger consistent without any application code running.
 
-## `process_recurring_transactions` — monthly
+## `process_recurring_transactions` - monthly
 
 A row with `is_recurring = true` and a non-null `recurring_day` (1–31) is a **template**. Every month, this job creates one child ledger row per template, dated at the requested day of the month.
 
@@ -27,7 +27,7 @@ Two correctness properties:
 
 Source: `supabase/migrations/20260425000000_phase5_notifications_push.sql` (function + cron schedule), `supabase/migrations/20260426000000_fix_recurring_template_id.sql` (FK + dedup hardening).
 
-## `update_transaction_statuses` — daily
+## `update_transaction_statuses` - daily
 
 Flips `status` based on `date` vs `now()`.
 
@@ -64,6 +64,6 @@ This is acknowledged and accepted; users do not directly observe these times. Se
 
 ## Why pg_cron instead of an Edge Function?
 
-These jobs are pure SQL — no HTTP, no I/O outside the database. Wrapping them in a Deno function would add an extra hop, an extra failure mode, an extra place to read logs, and a bearer-secret indirection. `pg_cron.schedule(...)` plus an inline function is the simplest possible thing that works.
+These jobs are pure SQL - no HTTP, no I/O outside the database. Wrapping them in a Deno function would add an extra hop, an extra failure mode, an extra place to read logs, and a bearer-secret indirection. `pg_cron.schedule(...)` plus an inline function is the simplest possible thing that works.
 
-The third scheduled job — `send-admin-summary` — *is* an Edge Function call (because it sends pushes), and it is launched from `pg_cron` via `pg_net.http_post`. That hybrid model is the reason both kinds of scheduling coexist; see `adr/0007-pg-cron-plus-edge-functions.md`.
+The third scheduled job - `send-admin-summary` - *is* an Edge Function call (because it sends pushes), and it is launched from `pg_cron` via `pg_net.http_post`. That hybrid model is the reason both kinds of scheduling coexist; see `adr/0007-pg-cron-plus-edge-functions.md`.

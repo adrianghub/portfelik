@@ -1,10 +1,10 @@
-# ADR 0004 — Paraglide v2 instead of i18next
+# ADR 0004 - Paraglide v2 instead of i18next
 
 **Status:** Accepted (2026-04, Phase 3)
 
 ## Context
 
-The legacy app used `i18next` + `react-i18next` + `LanguageDetector`. Polish-only — never two languages, but the runtime overhead and dynamic key lookups still applied. The dictionary was ~200 keys in `pl.json`.
+The legacy app used `i18next` + `react-i18next` + `LanguageDetector`. Polish-only - never two languages, but the runtime overhead and dynamic key lookups still applied. The dictionary was ~200 keys in `pl.json`.
 
 Migrating to SvelteKit, we needed an i18n choice. The problem statement was short: one language, lots of keys, type-safety would be nice, runtime cost should be ~zero, must work with `adapter-static`.
 
@@ -39,7 +39,7 @@ pnpm exec paraglide-js compile --project ./project.inlang --outdir ./src/lib/par
 **Bad**
 
 - The recompile step is a real foot-gun. Several Phase 5 sessions hit "missing message" errors that vanished after recompile. Captured in `CLAUDE.md` and `feedback_paraglide_recompile.md`.
-- Adding a second language is no longer "translate the JSON" — it is "translate the JSON, regenerate, fix every untranslated key the type-checker now flags". Acceptable for our reality (PL only) but a real cost if priorities change.
+- Adding a second language is no longer "translate the JSON" - it is "translate the JSON, regenerate, fix every untranslated key the type-checker now flags". Acceptable for our reality (PL only) but a real cost if priorities change.
 
 **Neutral**
 
@@ -47,6 +47,6 @@ pnpm exec paraglide-js compile --project ./project.inlang --outdir ./src/lib/par
 
 ## Alternatives considered
 
-- **Stay on i18next.** Possible but pointless — it ships ~30KB of runtime that does nothing for a single-locale app, and gives up type-safety.
+- **Stay on i18next.** Possible but pointless - it ships ~30KB of runtime that does nothing for a single-locale app, and gives up type-safety.
 - **`svelte-i18n`.** Closer to i18next in shape, runtime-based, no compile-time codegen.
 - **Inline strings, no i18n at all.** Tempting given PL-only, but the legacy app's `pl.json` already exists and is referenced by the few Polish-language Edge Function notification bodies. Keeping a dictionary preserves a single point of editing.

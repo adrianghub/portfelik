@@ -164,7 +164,7 @@
 </script>
 
 <div class="container mx-auto max-w-4xl space-y-5 px-4 py-6">
-  <!-- Header — mobile (single line greeting + quote underneath) -->
+  <!-- Header - mobile (single line greeting + quote underneath) -->
   <div class="md:hidden">
     <p class="truncate text-base font-medium text-slate-100">
       {#if profileQuery.data}
@@ -178,7 +178,7 @@
     </p>
   </div>
 
-  <!-- Header — desktop -->
+  <!-- Header - desktop -->
   <div class="hidden items-start justify-between md:flex">
     <div>
       {#if profileQuery.data}
@@ -319,7 +319,7 @@
                 : "text-rose-300"
           )}
         >
-          {savingsRatio === null ? "—" : `${savingsRatio}%`}
+          {savingsRatio === null ? "-" : `${savingsRatio}%`}
         </p>
       {:else}
         <div class="mt-1.5 h-6 w-1/2 animate-pulse rounded bg-slate-800/60"></div>

@@ -93,7 +93,7 @@ export async function injectRealSession(
 
 /**
  * Delete every transaction + category for the current user whose name/description
- * starts with the smoke sentinel. Idempotent — safe to call before AND after a test.
+ * starts with the smoke sentinel. Idempotent - safe to call before AND after a test.
  * Transactions first (FK is ON DELETE SET NULL but explicit ordering keeps the trace clean).
  */
 export async function cleanupSmokeData(session: SmokeSession): Promise<void> {

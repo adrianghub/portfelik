@@ -1,4 +1,4 @@
--- Phase 12+: bank CSV import — commit RPC (Step 4).
+-- Phase 12+: bank CSV import - commit RPC (Step 4).
 --
 -- SECURITY DEFINER RPC. The only writer of transaction_import_links
 -- (client INSERT/UPDATE/DELETE on that table is revoked).
@@ -242,8 +242,8 @@ begin
 
       -- Reflect the dup on the audit row so the session record stays truthful.
       -- Lookup order matches the two unique indexes in priority:
-      --   1. external_transaction_id (bank op id) — preferred when available
-      --   2. (source_file_hash, source_row_index) — same-file row idempotency
+      --   1. external_transaction_id (bank op id) - preferred when available
+      --   2. (source_file_hash, source_row_index) - same-file row idempotency
       v_winner := null;
       if v_row.external_id is not null then
         select l.transaction_id into v_winner

@@ -164,7 +164,7 @@ describe("RPC: commit_import_session", () => {
 
   it("rejects archived bank account", async () => {
     const seed = await seedAccountAndSession({ archive: true });
-    // No rows needed — account check runs first.
+    // No rows needed - account check runs first.
     const { error } = await callCommit(ctx.userA.client, seed.sessionId);
     expect(error?.message).toMatch(/account_invalid/);
   });

@@ -1,5 +1,5 @@
 -- =============================================================================
--- Phase 5.2 — Edge Function wiring
+-- Phase 5.2 - Edge Function wiring
 --
 -- Connects DB events to deployed Edge Functions via pg_net.http_post:
 --   * after insert on notifications → send-push  (web-push fan-out)

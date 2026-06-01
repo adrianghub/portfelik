@@ -12,7 +12,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
 }
 
 // Per-device opt-out. Push subscriptions are per-device, so disabling on this
-// device must persist across logins — otherwise autoSubscribePush() silently
+// device must persist across logins - otherwise autoSubscribePush() silently
 // re-subscribes whenever the browser permission is still "granted".
 const PUSH_OPT_OUT_KEY = "portfelik_push_opt_out";
 
@@ -29,7 +29,7 @@ function setPushOptOut(value: boolean): void {
     if (value) localStorage.setItem(PUSH_OPT_OUT_KEY, "1");
     else localStorage.removeItem(PUSH_OPT_OUT_KEY);
   } catch {
-    // localStorage unavailable (private mode / SSR) — opt-out is best-effort.
+    // localStorage unavailable (private mode / SSR) - opt-out is best-effort.
   }
 }
 
@@ -69,7 +69,7 @@ async function doSubscribe(userId: string): Promise<void> {
   );
 }
 
-// Call on auth events — subscribes silently if permission already granted.
+// Call on auth events - subscribes silently if permission already granted.
 // Never triggers the browser permission prompt.
 export async function autoSubscribePush(userId: string): Promise<void> {
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
@@ -158,7 +158,7 @@ export async function getPushNotificationState(): Promise<PushNotificationState>
     const subscription = await registration.pushManager.getSubscription();
     if (subscription) return "active";
   } catch {
-    // SW not ready — treat as disabled until subscription is confirmed.
+    // SW not ready - treat as disabled until subscription is confirmed.
   }
 
   return "disabled";

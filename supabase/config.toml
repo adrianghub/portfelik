@@ -40,7 +40,7 @@ ip_version   = "IPv4"
 max_header_length = 4096
 
 # =============================================================================
-# STUDIO (local dashboard — http://127.0.0.1:54323)
+# STUDIO (local dashboard - http://127.0.0.1:54323)
 # =============================================================================
 [studio]
 enabled  = true
@@ -48,7 +48,7 @@ port     = 54323
 api_url  = "http://127.0.0.1"
 
 # =============================================================================
-# INBUCKET (catches outbound emails locally — http://127.0.0.1:54324)
+# INBUCKET (catches outbound emails locally - http://127.0.0.1:54324)
 # Useful for testing invitation emails without a real SMTP server.
 # =============================================================================
 [inbucket]
@@ -66,7 +66,7 @@ enabled         = true
 file_size_limit = "50MiB"
 
 [storage.image_transformation]
-enabled = false   # imgproxy not needed — saves ~200MB RAM on local stack
+enabled = false   # imgproxy not needed - saves ~200MB RAM on local stack
 
 # =============================================================================
 # AUTH (GoTrue)
@@ -97,7 +97,7 @@ enable_signup                 = true
 enable_anonymous_sign_ins     = false
 enable_manual_linking         = false
 
-# Email auth — disabled in prod (Google OAuth only). Enabled locally so
+# Email auth - disabled in prod (Google OAuth only). Enabled locally so
 # the RLS regression suite (tests/rls/) can password-grant two test users.
 # Prod auth config lives in the Supabase Dashboard; this toml only governs
 # the local `supabase start` stack.
@@ -107,7 +107,7 @@ enable_confirmations  = false
 double_confirm_changes = true
 max_frequency         = "1s"
 
-# SMS — not used.
+# SMS - not used.
 [auth.sms]
 enable_signup         = false
 enable_confirmations  = false
@@ -115,7 +115,7 @@ enable_confirmations  = false
 # =============================================================================
 # GOOGLE OAUTH
 # Credentials read from supabase/.env (never committed).
-# redirect_uri is left empty — GoTrue uses its default callback path:
+# redirect_uri is left empty - GoTrue uses its default callback path:
 #   http://127.0.0.1:54321/auth/v1/callback
 # Register this URL in Google Cloud Console → OAuth 2.0 → Authorised redirect URIs.
 # =============================================================================
@@ -126,7 +126,7 @@ secret     = "env(GOOGLE_CLIENT_SECRET)"
 redirect_uri = ""   # uses default: <api_url>/auth/v1/callback
 
 # =============================================================================
-# ANALYTICS — disabled to reduce local resource usage
+# ANALYTICS - disabled to reduce local resource usage
 # =============================================================================
 [analytics]
 enabled = false

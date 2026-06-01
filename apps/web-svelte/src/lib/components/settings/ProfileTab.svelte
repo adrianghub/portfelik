@@ -142,7 +142,7 @@
         </form>
       {:else}
         <div class="flex items-center gap-2">
-          <span class="text-sm text-slate-100">{profile.name ?? "—"}</span>
+          <span class="text-sm text-slate-100">{profile.name ?? "-"}</span>
           <button
             onclick={startEdit}
             class="rounded-lg p-2 text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-200"
