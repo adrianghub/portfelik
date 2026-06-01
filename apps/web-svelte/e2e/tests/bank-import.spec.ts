@@ -479,6 +479,38 @@ test("import wizard: bookmark = one-tap save-as-rule with smart default text", a
   await expect(page.getByText(/Reguła zapisana/)).toBeVisible({ timeout: 5_000 });
 });
 
+test("import wizard: explicit Importuj sends an uncategorized row to Inne", async ({ page }) => {
+  await page.unrouteAll();
+  await injectFakeSession(page);
+  // No prefill rules → the row stays uncategorized and must fall back to "Inne".
+  await mockBankImportAPI(page, { defaultRules: false });
+  await page.goto("/transactions/import");
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "wyciag.csv",
+    mimeType: "text/csv",
+    buffer: mbankNoCounterpartySample,
+  });
+
+  // Explicit decision controls (a role="group" segmented control) replace the
+  // old import checkbox.
+  const decision = page.getByRole("table").getByRole("group");
+  const importBtn = decision.getByRole("button", { name: "Importuj", exact: true });
+  await expect(importBtn).toBeVisible({ timeout: 10_000 });
+  await expect(decision.getByRole("button", { name: "Pomiń", exact: true })).toBeVisible();
+
+  await importBtn.click();
+
+  await page.getByRole("button", { name: "Zatwierdź import" }).click();
+  await expect(page.getByRole("heading", { name: "Potwierdź import" })).toBeVisible();
+  // Confirmation surfaces the uncategorized → "Inne" fallback explicitly.
+  await expect(page.getByText(/trafi do „Inne”/)).toBeVisible();
+  await expect(page.getByText("Dodaj 1 · pomiń 0")).toBeVisible();
+
+  await page.getByRole("button", { name: "Potwierdź (1)" }).click();
+  await expect(page).toHaveURL(/\/transactions/);
+});
+
 test("import wizard: continues when rule prefill cannot load", async ({ page }) => {
   await page.unrouteAll();
   await injectFakeSession(page);
