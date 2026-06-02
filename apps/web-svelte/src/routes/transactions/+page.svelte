@@ -484,12 +484,6 @@
         + {m.transaction_add()}
       </button>
       <TransactionDataActions
-        variant="desktop"
-        exportDisabled={!filteredTxs?.length}
-        onexport={handleExport}
-      />
-      <TransactionDataActions
-        variant="mobile"
         exportDisabled={!filteredTxs?.length}
         onexport={handleExport}
       />

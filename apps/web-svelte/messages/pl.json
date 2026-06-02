@@ -320,6 +320,7 @@
   "toast_shopping_list_item_renamed": "Element zmieniony",
   "toast_error": "Coś poszło nie tak",
   "csv_export": "Eksportuj CSV",
+  "bank_import_short": "Import",
   "bank_import_entry": "Import bankowy",
   "bank_import_title": "Import wyciągu bankowego",
   "bank_import_step_upload": "Wgraj plik",
