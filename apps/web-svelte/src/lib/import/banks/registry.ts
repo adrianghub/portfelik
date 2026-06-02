@@ -1,12 +1,17 @@
 // Single source of truth for import adapters + their labels/detection.
 import { parseCsv } from "../csv/parse";
+import { ersteAdapter } from "./erste";
 import { ingAdapter } from "./ing";
 import { mbankAdapter } from "./mbank";
 import type { DetectionResult, ImportAdapter, ImportAdapterKind, ImportSourceKind } from "./types";
 
 // Only implemented adapters are registered. The full ImportAdapterKind union is
 // accepted by the DB so follow-up adapters slot in without another migration.
-export const IMPORT_ADAPTERS: readonly ImportAdapter[] = Object.freeze([mbankAdapter, ingAdapter]);
+export const IMPORT_ADAPTERS: readonly ImportAdapter[] = Object.freeze([
+  mbankAdapter,
+  ingAdapter,
+  ersteAdapter,
+]);
 
 const RANK: Record<NonNullable<DetectionResult>["confidence"], number> = {
   high: 3,
