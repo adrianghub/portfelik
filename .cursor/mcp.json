@@ -1,0 +1,29 @@
+{
+  "mcpServers": {
+    "supabase-prod": {
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?project_ref=emqzcygfwcvbmhxhfkcc&features=storage%2Cbranching%2Cdevelopment%2Cfunctions%2Cdebugging%2Caccount%2Cdatabase%2Cdocs"
+    },
+    "supabase-staging": {
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?project_ref=nveyzxxnyccpnesebvuw&features=storage%2Cbranching%2Cdevelopment%2Cfunctions%2Cdebugging%2Caccount%2Cdatabase%2Cdocs"
+    },
+    "supabase-account": {
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?features=account%2Cdocs"
+    },
+    "svelte": {
+      "type": "http",
+      "url": "https://mcp.svelte.dev/mcp"
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["@playwright/mcp@latest"]
+    },
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/"
+    }
+  }
+}
