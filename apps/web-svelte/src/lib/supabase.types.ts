@@ -95,8 +95,8 @@ export type Database = {
           id: string;
           kind: Database["public"]["Enums"]["categorization_rule_kind"];
           match_counterparty: string | null;
-          match_description: string | null;
           match_day_of_month: number | null;
+          match_description: string | null;
           match_type: Database["public"]["Enums"]["transaction_type"] | null;
           priority: number;
           user_id: string;
@@ -107,8 +107,8 @@ export type Database = {
           id?: string;
           kind: Database["public"]["Enums"]["categorization_rule_kind"];
           match_counterparty?: string | null;
-          match_description?: string | null;
           match_day_of_month?: number | null;
+          match_description?: string | null;
           match_type?: Database["public"]["Enums"]["transaction_type"] | null;
           priority?: number;
           user_id: string;
@@ -119,8 +119,8 @@ export type Database = {
           id?: string;
           kind?: Database["public"]["Enums"]["categorization_rule_kind"];
           match_counterparty?: string | null;
-          match_description?: string | null;
           match_day_of_month?: number | null;
+          match_description?: string | null;
           match_type?: Database["public"]["Enums"]["transaction_type"] | null;
           priority?: number;
           user_id?: string;
@@ -646,6 +646,7 @@ export type Database = {
       };
       transaction_import_sessions: {
         Row: {
+          adapter_kind: string | null;
           bank_account_id: string;
           committed_at: string | null;
           created_at: string;
@@ -657,10 +658,12 @@ export type Database = {
           rows_total: number;
           source_file_hash: string;
           source_filename: string | null;
+          source_kind: string;
           status: string;
           user_id: string;
         };
         Insert: {
+          adapter_kind?: string | null;
           bank_account_id: string;
           committed_at?: string | null;
           created_at?: string;
@@ -672,10 +675,12 @@ export type Database = {
           rows_total?: number;
           source_file_hash: string;
           source_filename?: string | null;
+          source_kind?: string;
           status?: string;
           user_id: string;
         };
         Update: {
+          adapter_kind?: string | null;
           bank_account_id?: string;
           committed_at?: string | null;
           created_at?: string;
@@ -687,6 +692,7 @@ export type Database = {
           rows_total?: number;
           source_file_hash?: string;
           source_filename?: string | null;
+          source_kind?: string;
           status?: string;
           user_id?: string;
         };
@@ -1073,6 +1079,7 @@ export type Database = {
         Args: { p_notification_id: string };
         Returns: undefined;
       };
+      mark_preview_duplicates: { Args: { p_session_id: string }; Returns: Json };
       preview_fingerprint_warnings: {
         Args: { p_session_id: string };
         Returns: Json;

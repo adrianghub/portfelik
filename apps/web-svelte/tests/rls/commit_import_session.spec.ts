@@ -44,8 +44,9 @@ describe("RPC: commit_import_session", () => {
   async function seedAccountAndSession(opts?: {
     user?: "A" | "B";
     archive?: boolean;
-    detectedKind?: "ing" | "mbank";
-    accountKind?: "ing" | "mbank";
+    detectedKind?: "ing" | "mbank" | "erste" | "pko_bp" | "pekao" | "millennium" | "alior" | "bnp_paribas" | "citi_handlowy";
+    accountKind?: "ing" | "mbank" | "erste" | "pko_bp" | "pekao" | "millennium" | "alior" | "bnp_paribas" | "citi_handlowy";
+    adapterKind?: "ing" | "mbank" | "erste" | "pko_bp" | "pekao" | "millennium" | "alior" | "bnp_paribas" | "citi_handlowy";
     fileSuffix?: string;
   }): Promise<Seed> {
     const userId = (opts?.user ?? "A") === "A" ? ctx.userA.userId : ctx.userB.userId;
@@ -72,6 +73,7 @@ describe("RPC: commit_import_session", () => {
         bank_account_id: acct.data.id,
         source_file_hash: `hash-${SENTINEL}-${fileSuffix}`,
         detected_kind: detectedKind,
+        ...(opts?.adapterKind !== undefined ? { adapter_kind: opts.adapterKind } : {}),
       })
       .select("id")
       .single();
@@ -505,5 +507,39 @@ describe("RPC: commit_import_session", () => {
 
     const { error } = await callCommit(ctx.userB.client, seed.sessionId);
     expect(error?.message).toMatch(/session_not_found/);
+  });
+
+  it("accepts the erste adapter kind and still rejects adapter mismatch", async () => {
+    // Part 1: "erste" is now a valid bank_accounts.kind (previously failed the
+    // kind CHECK). Session uses adapter_kind="erste"; commit should succeed.
+    const seed = await seedAccountAndSession({
+      accountKind: "erste",
+      detectedKind: "erste",
+      adapterKind: "erste",
+      fileSuffix: "erste-ok",
+    });
+    await insertRow(seed.sessionId, {
+      rowIndex: 0,
+      categoryId: seed.categoryId,
+    });
+    const { error: okErr } = await callCommit(ctx.userA.client, seed.sessionId);
+    expect(okErr).toBeNull();
+
+    // Part 2: account kind "erste" but session adapter_kind "mbank" →
+    // commit_import_session must reject with account_kind_mismatch.
+    // Use user B so we don't collide with the unique (user_id, kind) active index.
+    const mismatchSeed = await seedAccountAndSession({
+      user: "B",
+      accountKind: "erste",
+      detectedKind: "mbank",
+      adapterKind: "mbank",
+      fileSuffix: "erste-mismatch",
+    });
+    await insertRow(mismatchSeed.sessionId, {
+      rowIndex: 0,
+      categoryId: mismatchSeed.categoryId,
+    });
+    const { error: mismatchErr } = await callCommit(ctx.userB.client, mismatchSeed.sessionId);
+    expect(mismatchErr?.message).toMatch(/account_kind_mismatch/);
   });
 });
