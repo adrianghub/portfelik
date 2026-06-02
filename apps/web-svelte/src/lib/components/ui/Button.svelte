@@ -10,6 +10,7 @@
     type?: "button" | "submit" | "reset";
     onclick?: (e: MouseEvent) => void;
     title?: string;
+    "aria-expanded"?: boolean;
     children: Snippet;
     class?: string;
   }
@@ -22,6 +23,7 @@
     type = "button",
     onclick,
     title,
+    "aria-expanded": ariaExpanded,
     children,
     class: className,
   }: Props = $props();
@@ -54,6 +56,7 @@
   {disabled}
   {onclick}
   {title}
+  aria-expanded={ariaExpanded}
   class={cn(base, variants[variant], sizes[size], className)}
 >
   {#if loading}

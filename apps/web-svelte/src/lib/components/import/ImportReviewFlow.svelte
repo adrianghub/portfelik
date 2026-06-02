@@ -1,23 +1,25 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
-  import ImportReviewDuplicatesStep from "$lib/components/import/ImportReviewDuplicatesStep.svelte";
+  import DuplicateBanner from "$lib/components/import/DuplicateBanner.svelte";
   import ImportReviewCategorizeStep from "$lib/components/import/ImportReviewCategorizeStep.svelte";
-  import ImportReviewFinalizeStep from "$lib/components/import/ImportReviewFinalizeStep.svelte";
-  import { goto } from "$app/navigation";
+  import ImportConfirmSheet from "$lib/components/import/ImportConfirmSheet.svelte";
+  import Button from "$lib/components/ui/Button.svelte";
+  import Dialog from "$lib/components/ui/Dialog.svelte";
+  import Input from "$lib/components/ui/Input.svelte";
   import { createCategory, fetchCategories } from "$lib/services/categories";
   import { fetchUserGroups } from "$lib/services/groups";
   import {
     createCategorizationRule,
     deleteCategorizationRule,
     fetchCategorizationRules,
+    updateCategorizationRule,
   } from "$lib/services/categorization-rules";
   import {
     findDuplicateCategorizationRule,
     matchCategory,
-    resolveCategorizationRule,
     suggestRuleText,
   } from "$lib/import/categorize";
-  import type { CategorizationRule, Category, TransactionType } from "$lib/types";
+  import type { CategorizationRule, TransactionType } from "$lib/types";
   import {
     commitImportSession,
     fetchBankAccount,
@@ -32,6 +34,7 @@
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { toast } from "svelte-sonner";
   import { cn, formatCurrency } from "$lib/utils";
+  import { Check, X } from "lucide-svelte";
 
   interface Props {
     session: ImportSession;
@@ -48,22 +51,34 @@
     endMonth: number;
   }
 
-  type ReviewStep = "duplicates" | "categorize" | "finalize";
-  type FilterKind = "pending" | "all" | "income" | "expense";
+  type FilterKind = "pending" | "all" | "uncategorized" | "income" | "expense";
+  const MANUAL_RULE_PRIORITY = 10;
 
   const queryClient = useQueryClient();
   const rowsKey = $derived(["import_session_rows", session.id]);
 
-  let reviewStep = $state<ReviewStep>("duplicates");
   let filter = $state<FilterKind>("pending");
-  let ruleSaving = $state(false);
-  /** Bumped when the user overrides an auto-duplicate mark so stale in-flight updates abort. */
-  const dupMarkEpoch: Record<string, number> = {};
-  /** Row ids with an in-flight auto-mark request (reactive for duplicate-step UI). */
-  let autoDupInflightIds = $state<Set<string>>(new Set());
-  const autoDupPromises = new Map<string, Promise<void>>();
-  /** Permanent guard: row was auto-marked once; restore must not re-trigger auto-mark. */
-  let autoDupHandledIds = $state<Set<string>>(new Set());
+  let confirmOpen = $state(false);
+  let editRuleOpen = $state(false);
+  let editingRule = $state<CategorizationRule | null>(null);
+  let editDescEnabled = $state(false);
+  let editDesc = $state("");
+  let editCounterpartyEnabled = $state(false);
+  let editCounterparty = $state("");
+  let editDateEnabled = $state(false);
+  let editDayOfMonth = $state("1");
+  let showAdvancedRuleOptions = $state(false);
+  let editRuleSaving = $state(false);
+  let queueInitialized = $state(false);
+  let pendingCategoryReplacement = $state<
+    Record<
+      string,
+      {
+        previousCategoryId: string | null;
+        previousRule: CategorizationRule | null;
+      }
+    >
+  >({});
 
   const rowsQuery = createQuery(() => ({
     queryKey: rowsKey,
@@ -98,20 +113,11 @@
   const warningsByRow = $derived(new Map((warningsQuery.data ?? []).map((w) => [w.row_id, w])));
   const rows = $derived<ImportRow[]>(rowsQuery.data ?? []);
 
-  /** Rows that still need categorization / import-skip decisions. */
+  // activeRows = rows the user is deciding on (not auto-skipped duplicates).
   const activeRows = $derived(rows.filter((r) => r.decision !== "duplicate"));
-
-  const flaggedRows = $derived(
-    rows.filter((r) => warningsByRow.has(r.id)).sort((a, b) => a.row_index - b.row_index)
-  );
-
-  const pendingCount = $derived(activeRows.filter((r) => r.decision === "pending").length);
-  const canProceedCategorize = $derived(activeRows.length === 0 || pendingCount === 0);
-
   const importRows = $derived(rows.filter((r) => r.decision === "import"));
   const skippedRows = $derived(rows.filter((r) => r.decision === "skip"));
   const duplicateRows = $derived(rows.filter((r) => r.decision === "duplicate"));
-
   const uncategorizedImportRows = $derived(
     importRows.filter((r) => r.selected_category_id == null)
   );
@@ -119,6 +125,7 @@
   const filterCounts = $derived({
     pending: activeRows.filter((r) => r.decision === "pending").length,
     all: activeRows.length,
+    uncategorized: activeRows.filter((r) => r.selected_category_id == null).length,
     income: activeRows.filter((r) => r.type === "income").length,
     expense: activeRows.filter((r) => r.type === "expense").length,
   });
@@ -127,105 +134,46 @@
     switch (filter) {
       case "pending":
         return activeRows.filter((r) => r.decision === "pending");
+      case "uncategorized":
+        return activeRows.filter((r) => r.selected_category_id == null);
+      case "all":
+        return activeRows;
       case "income":
         return activeRows.filter((r) => r.type === "income");
       case "expense":
         return activeRows.filter((r) => r.type === "expense");
       default:
-        return activeRows;
+        return activeRows.filter((r) => r.decision === "pending");
     }
   });
 
-  const bulkImportableCount = $derived(
-    activeRows.filter((r) => r.selected_category_id !== null && r.decision !== "import").length
+  // Bulk actions are BOTH scoped to the current filter (visibleRows).
+  const bulkImportableVisibleCount = $derived(
+    visibleRows.filter((r) => r.decision === "pending").length
+  );
+  const bulkRestorableVisibleCount = $derived(
+    visibleRows.filter((r) => r.decision === "skip").length
   );
 
-  const bulkSkippableVisibleCount = $derived(
-    visibleRows.filter((r) => r.decision !== "skip").length
+  const inneRows = $derived(uncategorizedImportRows);
+  const needsConfirm = $derived(inneRows.length > 0 || duplicateRows.length > 0);
+  const pendingRows = $derived(rows.filter((r) => r.decision === "pending"));
+
+  const filterOptions: { kind: FilterKind; label: string }[] = $derived(
+    filterCounts.pending > 0
+      ? [
+          { kind: "pending", label: m.bank_review_filter_pending() },
+          { kind: "all", label: m.bank_review_filter_all() },
+          { kind: "uncategorized", label: m.bank_review_filter_uncategorized() },
+          { kind: "income", label: m.bank_review_filter_income() },
+          { kind: "expense", label: m.bank_review_filter_expense() },
+        ]
+      : [
+          { kind: "all", label: m.bank_review_filter_all() },
+          { kind: "uncategorized", label: m.bank_review_filter_uncategorized() },
+        ]
   );
 
-  const reviewSteps: { id: ReviewStep; label: string }[] = $derived([
-    { id: "duplicates", label: m.bank_import_review_step_duplicates() },
-    { id: "categorize", label: m.bank_import_review_step_categorize() },
-    { id: "finalize", label: m.bank_import_review_step_finalize() },
-  ]);
-
-  const stepIndex = $derived(reviewSteps.findIndex((s) => s.id === reviewStep));
-
-  const dupActionsReady = $derived(
-    !warningsQuery.isLoading && !rowsQuery.isLoading && autoDupInflightIds.size === 0
-  );
-
-  function dupEpoch(rowId: string): number {
-    return dupMarkEpoch[rowId] ?? 0;
-  }
-
-  function isDupEpochCurrent(rowId: string, epoch: number): boolean {
-    return dupEpoch(rowId) === epoch;
-  }
-
-  function bumpDupMarkEpoch(rowId: string): void {
-    dupMarkEpoch[rowId] = dupEpoch(rowId) + 1;
-  }
-
-  function isRowAutoDupSettled(rowId: string): boolean {
-    return !autoDupInflightIds.has(rowId);
-  }
-
-  async function waitForAutoDupMark(rowId?: string): Promise<void> {
-    if (rowId) {
-      await autoDupPromises.get(rowId);
-      return;
-    }
-    await Promise.all([...autoDupPromises.values()]);
-  }
-
-  function getRowSnapshot(rowId: string): ImportRow | undefined {
-    return queryClient.getQueryData<ImportRow[]>(rowsKey)?.find((r) => r.id === rowId);
-  }
-
-  /** If a stale auto-mark landed on the server, re-apply the user's current decision. */
-  async function resyncRowDecisionIfStale(rowId: string, epoch: number): Promise<void> {
-    if (isDupEpochCurrent(rowId, epoch)) return;
-    const current = getRowSnapshot(rowId);
-    if (!current) return;
-    await updateRowDecision(rowId, { decision: current.decision });
-  }
-
-  // Auto-mark probable duplicates on the duplicates step only. Serialized per row;
-  // permanent handled-id prevents re-mark after restore; epoch blocks stale RPC wins.
-  $effect(() => {
-    if (reviewStep !== "duplicates") return;
-    if (warningsQuery.isLoading || rowsQuery.isLoading) return;
-    for (const row of rows) {
-      if (!warningsByRow.has(row.id)) continue;
-      if (row.decision !== "pending") continue;
-      if (autoDupHandledIds.has(row.id)) continue;
-      void scheduleAutoMarkDuplicate(row);
-    }
-  });
-
-  async function scheduleAutoMarkDuplicate(row: ImportRow): Promise<void> {
-    if (autoDupPromises.has(row.id)) return autoDupPromises.get(row.id)!;
-
-    autoDupHandledIds = new Set(autoDupHandledIds).add(row.id);
-    const epoch = dupEpoch(row.id);
-    autoDupInflightIds = new Set(autoDupInflightIds).add(row.id);
-
-    const promise = patchRow(row.id, { decision: "duplicate" }, { autoDupEpoch: epoch })
-      .catch(() => {
-        /* patchRow surfaces errors */
-      })
-      .finally(() => {
-        const next = new Set(autoDupInflightIds);
-        next.delete(row.id);
-        autoDupInflightIds = next;
-        autoDupPromises.delete(row.id);
-      });
-
-    autoDupPromises.set(row.id, promise);
-    return promise;
-  }
   function bankKindLabel(kind: string): string {
     return kind === "ing" ? m.bank_account_kind_ing() : m.bank_account_kind_mbank();
   }
@@ -248,11 +196,6 @@
     }
   }
 
-  function categoryName(id: string | null): string | null {
-    if (!id) return null;
-    return (categoriesQuery.data ?? []).find((c) => c.id === id)?.name ?? null;
-  }
-
   function duplicateDetail(rowId: string): string | null {
     const warning = warningsByRow.get(rowId);
     if (!warning) return null;
@@ -263,41 +206,29 @@
     });
   }
 
-  async function patchRow(
-    rowId: string,
-    patch: Partial<ImportRow>,
-    opts?: { autoDupEpoch?: number }
-  ): Promise<void> {
-    if (opts?.autoDupEpoch !== undefined && !isDupEpochCurrent(rowId, opts.autoDupEpoch)) {
-      return;
-    }
-
-    if (patch.decision !== undefined && patch.decision !== "duplicate") {
-      bumpDupMarkEpoch(rowId);
-    }
+  async function patchRow(rowId: string, patch: Partial<ImportRow>): Promise<void> {
+    // NOTE: the getQueryData + setQueryData pair below MUST stay synchronous
+    // (no await before it) — bulk callers fire many patchRow() via Promise.all
+    // and rely on each reading the prior call's optimistic write. An await here
+    // would reintroduce a sibling-clobber race.
     const previous = queryClient.getQueryData<ImportRow[]>(rowsKey);
-    const effective: Partial<ImportRow> = patch;
-
     if (previous) {
       queryClient.setQueryData<ImportRow[]>(
         rowsKey,
-        previous.map((r) => (r.id === rowId ? { ...r, ...effective } : r))
+        previous.map((r) => (r.id === rowId ? { ...r, ...patch } : r))
       );
     }
     try {
       await updateRowDecision(rowId, {
-        decision: effective.decision,
+        decision: patch.decision,
         selectedCategoryId:
-          effective.selected_category_id === undefined ? undefined : effective.selected_category_id,
+          patch.selected_category_id === undefined ? undefined : patch.selected_category_id,
         selectedGroupId:
-          effective.selected_group_id === undefined ? undefined : effective.selected_group_id,
+          patch.selected_group_id === undefined ? undefined : patch.selected_group_id,
         editedDescription:
-          effective.edited_description === undefined ? undefined : effective.edited_description,
-        duplicateOf: effective.duplicate_of === undefined ? undefined : effective.duplicate_of,
+          patch.edited_description === undefined ? undefined : patch.edited_description,
+        duplicateOf: patch.duplicate_of === undefined ? undefined : patch.duplicate_of,
       });
-      if (opts?.autoDupEpoch !== undefined) {
-        await resyncRowDecisionIfStale(rowId, opts.autoDupEpoch);
-      }
     } catch (e) {
       const original = previous?.find((r) => r.id === rowId);
       if (original) {
@@ -310,54 +241,17 @@
   }
 
   async function setDecision(row: ImportRow, decision: "import" | "skip"): Promise<void> {
-    if (row.decision === decision) return;
     await patchRow(row.id, { decision });
   }
 
-  function needsRule(row: ImportRow): boolean {
-    return row.selected_category_id != null && matchedRuleFor(row) == null;
+  async function bulkImportVisible(): Promise<void> {
+    const targets = visibleRows.filter((r) => r.decision === "pending");
+    await Promise.all(targets.map((r) => patchRow(r.id, { decision: "import" })));
   }
 
-  function ruleGroupKey(row: ImportRow): string {
-    return `${row.type}:${suggestRuleText(row).toLowerCase()}:${row.selected_category_id}`;
-  }
-
-  async function ensureRulesThenImport(targets: ImportRow[]): Promise<void> {
-    const captureOk = new Map<string, boolean>();
-    for (const row of targets) {
-      if (!needsRule(row)) continue;
-      const key = ruleGroupKey(row);
-      if (captureOk.has(key)) continue;
-      captureOk.set(key, await captureRuleForRow(row));
-    }
-    const importable = targets.filter(
-      (row) => !needsRule(row) || captureOk.get(ruleGroupKey(row)) === true
-    );
-    await Promise.all(importable.map((r) => setDecision(r, "import")));
-  }
-
-  async function markImport(row: ImportRow): Promise<void> {
-    await ensureRulesThenImport([row]);
-  }
-
-  async function bulkImportValid(): Promise<void> {
-    const targets = activeRows.filter(
-      (r) => r.selected_category_id !== null && r.decision !== "import"
-    );
-    await ensureRulesThenImport(targets);
-  }
-
-  async function bulkSkipVisible(): Promise<void> {
-    const targets = visibleRows.filter((r) => r.decision !== "skip");
-    await Promise.all(targets.map((r) => patchRow(r.id, { decision: "skip" })));
-  }
-
-  interface RuleSuggestion {
-    key: string;
-    text: string;
-    categoryId: string;
-    categoryName: string;
-    count: number;
+  async function bulkRestoreVisible(): Promise<void> {
+    const targets = visibleRows.filter((r) => r.decision === "skip");
+    await Promise.all(targets.map((r) => patchRow(r.id, { decision: "pending" })));
   }
 
   interface UndoSnapshot {
@@ -366,23 +260,109 @@
     decision: RowDecision;
   }
 
-  function matchingUncategorizedRows(rule: CategorizationRule): ImportRow[] {
+  function rowMatchesRule(row: ImportRow, rule: CategorizationRule): boolean {
     const cats = categoriesQuery.data ?? [];
-    return activeRows.filter(
-      (r) => r.selected_category_id == null && matchCategory(r, [rule], cats) !== null
+    return matchCategory(row, [rule], cats) !== null;
+  }
+
+  function ruleHasTextScope(rule: CategorizationRule): boolean {
+    return (
+      (rule.match_description?.trim() ?? "") !== "" ||
+      (rule.match_counterparty?.trim() ?? "") !== ""
     );
   }
 
-  async function undoSavedRule(ruleId: string, changedRows: UndoSnapshot[]): Promise<void> {
+  async function refreshRules(): Promise<CategorizationRule[]> {
+    const rules = await fetchCategorizationRules();
+    queryClient.setQueryData(["categorization_rules"], rules);
+    return rules;
+  }
+
+  async function applyRuleCategoryToRows(
+    rule: CategorizationRule,
+    previousCategoryId: string | null
+  ): Promise<UndoSnapshot[]> {
+    const targets = activeRows.filter((r) => {
+      if (!rowMatchesRule(r, rule)) return false;
+      if (r.selected_category_id === rule.category_id) return false;
+      return r.selected_category_id == null || r.selected_category_id === previousCategoryId;
+    });
+    const snapshots = targets.map((r) => ({
+      id: r.id,
+      selected_category_id: r.selected_category_id,
+      decision: r.decision,
+    }));
+    const results = await Promise.allSettled(
+      targets.map((r) => patchRow(r.id, { selected_category_id: rule.category_id }))
+    );
+    const failed = results.filter((r) => r.status === "rejected").length;
+    if (failed > 0) toast.error(m.toast_error());
+    return snapshots;
+  }
+
+  async function reconcileEditedRuleRows(
+    previousRule: CategorizationRule,
+    nextRule: CategorizationRule,
+    nextRules: CategorizationRule[]
+  ): Promise<void> {
+    const previousOwnedIds = new Set(
+      activeRows
+        .filter(
+          (r) =>
+            r.selected_category_id === previousRule.category_id && rowMatchesRule(r, previousRule)
+        )
+        .map((r) => r.id)
+    );
+    const cats = categoriesQuery.data ?? [];
+    const targets = activeRows
+      .map((row) => {
+        const matchesNextRule = rowMatchesRule(row, nextRule);
+        const wasOwnedByPreviousRule = previousOwnedIds.has(row.id);
+        if (!matchesNextRule && !wasOwnedByPreviousRule) return null;
+        if (
+          row.selected_category_id !== previousRule.category_id &&
+          row.selected_category_id != null
+        )
+          return null;
+
+        const nextCategoryId = matchesNextRule
+          ? nextRule.category_id
+          : matchCategory(row, nextRules, cats);
+        if (row.selected_category_id === nextCategoryId) return null;
+        return { row, nextCategoryId };
+      })
+      .filter((entry): entry is { row: ImportRow; nextCategoryId: string | null } => entry != null);
+
+    const results = await Promise.allSettled(
+      targets.map(({ row, nextCategoryId }) =>
+        patchRow(row.id, { selected_category_id: nextCategoryId })
+      )
+    );
+    const failed = results.filter((r) => r.status === "rejected").length;
+    if (failed > 0) toast.error(m.toast_error());
+  }
+
+  async function undoSavedRule(
+    ruleId: string,
+    changedRows: UndoSnapshot[],
+    appliedCategoryId: string
+  ): Promise<void> {
     try {
       await deleteCategorizationRule(ruleId);
+      const current = queryClient.getQueryData<ImportRow[]>(rowsKey) ?? [];
       await Promise.all(
-        changedRows.map((row) =>
-          patchRow(row.id, {
-            selected_category_id: row.selected_category_id,
-            decision: row.decision,
+        changedRows
+          .filter((snap) => {
+            const now = current.find((r) => r.id === snap.id);
+            // Skip rows the user re-categorized after the rule applied.
+            return now?.selected_category_id === appliedCategoryId;
           })
-        )
+          .map((row) =>
+            patchRow(row.id, {
+              selected_category_id: row.selected_category_id,
+              decision: row.decision,
+            })
+          )
       );
       await queryClient.invalidateQueries({ queryKey: ["categorization_rules"] });
       toast.success(m.bank_review_rule_undone());
@@ -395,6 +375,7 @@
     kind: "contains" | "exact";
     categoryId: string;
     text: string;
+    previousCategoryId?: string | null;
   }): Promise<CategorizationRule> {
     const text = input.text.trim();
     const candidate = {
@@ -404,8 +385,9 @@
       match_description: text,
       match_counterparty: text,
       match_type: null,
+      match_day_of_month: null,
       category_id: input.categoryId,
-      priority: 0,
+      priority: MANUAL_RULE_PRIORITY,
       created_at: "",
     } satisfies CategorizationRule;
 
@@ -418,27 +400,21 @@
       category_id: input.categoryId,
       match_description: text,
       match_counterparty: text,
+      match_day_of_month: null,
+      priority: MANUAL_RULE_PRIORITY,
     });
-    await queryClient.invalidateQueries({ queryKey: ["categorization_rules"] });
+    await refreshRules();
 
-    const targets = matchingUncategorizedRows(created);
-    const snapshots = targets.map((r) => ({
-      id: r.id,
-      selected_category_id: r.selected_category_id,
-      decision: r.decision,
-    }));
-    await Promise.all(
-      targets.map((r) => patchRow(r.id, { selected_category_id: created.category_id }))
-    );
+    const snapshots = await applyRuleCategoryToRows(created, input.previousCategoryId ?? null);
 
     const toastMsg =
-      targets.length > 0
-        ? m.bank_review_save_rule_success({ count: targets.length })
+      snapshots.length > 0
+        ? m.bank_review_save_rule_success({ count: snapshots.length })
         : m.bank_review_save_rule_success_solo();
     toast.success(toastMsg, {
       action: {
         label: m.common_undo(),
-        onClick: () => void undoSavedRule(created.id, snapshots),
+        onClick: () => void undoSavedRule(created.id, snapshots, created.category_id),
       },
       duration: 8000,
     });
@@ -446,120 +422,102 @@
     return created;
   }
 
-  async function captureRuleForRow(row: ImportRow): Promise<boolean> {
+  async function captureRuleForRow(
+    row: ImportRow,
+    previousCategoryId: string | null
+  ): Promise<boolean> {
     if (!row.selected_category_id) return false;
     const text = suggestRuleText(row);
     if (text === "") return false;
-    ruleSaving = true;
+    const draft = {
+      id: "__draft__",
+      user_id: "__draft__",
+      kind: "contains",
+      match_description: text,
+      match_counterparty: text,
+      match_type: null,
+      match_day_of_month: null,
+      category_id: row.selected_category_id,
+      priority: MANUAL_RULE_PRIORITY,
+      created_at: "",
+    } satisfies CategorizationRule;
+
+    const duplicate = findDuplicateCategorizationRule(rulesQuery.data ?? [], draft);
+    if (duplicate) {
+      const duplicateLabel = duplicate.match_description ?? duplicate.match_counterparty ?? text;
+      await applyRuleCategoryToRows(duplicate, previousCategoryId);
+      toast.info(m.bank_review_rule_already_saved({ rule: duplicateLabel }));
+      return true;
+    }
+
     try {
       await createAndApplyRule({
         kind: "contains",
         categoryId: row.selected_category_id,
         text,
+        previousCategoryId,
       });
       return true;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       if (msg === "duplicate_categorization_rule") {
-        toast.info(m.bank_review_rule_already_saved());
+        toast.info(m.bank_review_rule_already_saved({ rule: text }));
         return true;
       }
       toast.error(msg);
       return false;
-    } finally {
-      ruleSaving = false;
     }
   }
 
-  async function quickSaveRule(row: ImportRow): Promise<void> {
-    await captureRuleForRow(row);
-  }
-
-  function categoryById(id: string | null | undefined): Category | null {
-    if (!id) return null;
-    return (categoriesQuery.data ?? []).find((c) => c.id === id) ?? null;
-  }
-
-  function buildRuleSuggestions(): RuleSuggestion[] {
-    const groups = new Map<
-      string,
-      {
-        text: string;
-        type: "income" | "expense";
-        rows: ImportRow[];
-        categoryCounts: Map<string, number>;
-      }
-    >();
-
-    for (const row of activeRows) {
-      const text = suggestRuleText(row);
-      if (text === "") continue;
-      const key = `${row.type}:${text.toLowerCase()}`;
-      const group = groups.get(key) ?? {
-        text,
-        type: row.type,
-        rows: [],
-        categoryCounts: new Map<string, number>(),
+  async function handleRowCategoryChange(
+    row: ImportRow,
+    selectedCategoryId: string | null
+  ): Promise<void> {
+    const pendingReplacement = pendingCategoryReplacement[row.id];
+    const previousCategoryId = pendingReplacement?.previousCategoryId ?? row.selected_category_id;
+    const previousRule = pendingReplacement?.previousRule ?? matchedRuleFor(row);
+    if (!selectedCategoryId && row.selected_category_id != null) {
+      pendingCategoryReplacement = {
+        ...pendingCategoryReplacement,
+        [row.id]: {
+          previousCategoryId: row.selected_category_id,
+          previousRule,
+        },
       };
-      group.rows.push(row);
-      if (row.selected_category_id && categoryById(row.selected_category_id)?.type === row.type) {
-        group.categoryCounts.set(
-          row.selected_category_id,
-          (group.categoryCounts.get(row.selected_category_id) ?? 0) + 1
-        );
+    }
+    await patchRow(row.id, { selected_category_id: selectedCategoryId });
+    if (!selectedCategoryId) return;
+    if (pendingReplacement) {
+      const nextPending = { ...pendingCategoryReplacement };
+      delete nextPending[row.id];
+      pendingCategoryReplacement = nextPending;
+    }
+
+    const patchedRow: ImportRow = { ...row, selected_category_id: selectedCategoryId };
+    if (matchedRuleFor(patchedRow)) return;
+
+    if (
+      previousRule &&
+      previousRule.category_id !== selectedCategoryId &&
+      ruleHasTextScope(previousRule)
+    ) {
+      try {
+        const updated = await updateCategorizationRule(previousRule.id, {
+          category_id: selectedCategoryId,
+        });
+        const nextRules = await refreshRules();
+        const nextRule = nextRules.find((rule) => rule.id === updated.id) ?? updated;
+        await applyRuleCategoryToRows(nextRule, previousCategoryId);
+        toast.success(m.bank_review_rule_updated());
+        return;
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : String(e));
+        return;
       }
-      groups.set(key, group);
     }
 
-    return [...groups.entries()]
-      .flatMap(([key, group]) => {
-        if (group.rows.length < 3 || group.categoryCounts.size === 0) return [];
-        const [categoryId] = [...group.categoryCounts.entries()].sort((a, b) => b[1] - a[1])[0];
-        const category = categoryById(categoryId);
-        if (!category) return [];
-        const candidate = {
-          id: "__suggestion__",
-          user_id: "__suggestion__",
-          kind: "contains",
-          match_description: group.text,
-          match_counterparty: group.text,
-          match_type: null,
-          category_id: categoryId,
-          priority: 0,
-          created_at: "",
-        } satisfies CategorizationRule;
-        if (findDuplicateCategorizationRule(rulesQuery.data ?? [], candidate)) return [];
-        return [
-          {
-            key,
-            text: group.text,
-            categoryId,
-            categoryName: category.name,
-            count: group.rows.length,
-          },
-        ];
-      })
-      .slice(0, 3);
-  }
-
-  const ruleSuggestions = $derived.by(buildRuleSuggestions);
-
-  async function saveSuggestion(suggestion: RuleSuggestion): Promise<void> {
-    ruleSaving = true;
-    try {
-      await createAndApplyRule({
-        kind: "contains",
-        categoryId: suggestion.categoryId,
-        text: suggestion.text,
-      });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      toast.info(
-        msg === "duplicate_categorization_rule" ? m.bank_review_rule_already_saved() : msg
-      );
-    } finally {
-      ruleSaving = false;
-    }
+    // Learn silently from explicit user category picks to reduce manual rule work.
+    await captureRuleForRow(patchedRow, previousCategoryId);
   }
 
   function getImportedDateRange(): ImportedDateRange | undefined {
@@ -580,52 +538,119 @@
 
   function matchedRuleFor(row: ImportRow) {
     if (!row.selected_category_id) return null;
-    const matched = resolveCategorizationRule(
-      row,
-      rulesQuery.data ?? [],
-      categoriesQuery.data ?? []
+    const cats = categoriesQuery.data ?? [];
+    return (
+      (rulesQuery.data ?? []).find(
+        (rule) =>
+          rule.category_id === row.selected_category_id && matchCategory(row, [rule], cats) !== null
+      ) ?? null
     );
-    if (!matched) return null;
-    if (matched.category_id !== row.selected_category_id) return null;
-    return matched;
   }
 
-  function ruleAttributionText(rule: {
-    match_counterparty: string | null;
-    match_description: string | null;
-  }): string {
-    return rule.match_counterparty ?? rule.match_description ?? "";
+  function openRuleEditor(rule: CategorizationRule): void {
+    editingRule = rule;
+    editDesc = rule.match_description ?? "";
+    editCounterparty = rule.match_counterparty ?? "";
+    editDescEnabled = rule.match_description != null;
+    editCounterpartyEnabled = rule.match_counterparty != null;
+    editDateEnabled = rule.match_day_of_month != null;
+    editDayOfMonth = String(rule.match_day_of_month ?? 1);
+    showAdvancedRuleOptions = editDateEnabled;
+    editRuleOpen = true;
   }
 
-  function openRuleInSettings(ruleId: string): void {
-    void goto(`/settings?tab=rules&highlight=${encodeURIComponent(ruleId)}`);
+  function closeRuleEditor(): void {
+    editRuleOpen = false;
+    editingRule = null;
+  }
+
+  $effect(() => {
+    if (queueInitialized) return;
+    if (rows.length === 0) return;
+
+    const eligible = rows.filter((r) => r.decision !== "duplicate");
+    if (eligible.length === 0) {
+      queueInitialized = true;
+      return;
+    }
+
+    const allDefaultImport = eligible.every((r) => r.decision === "import");
+    if (!allDefaultImport) {
+      queueInitialized = true;
+      return;
+    }
+
+    queueInitialized = true;
+    void Promise.all(eligible.map((r) => patchRow(r.id, { decision: "pending" })));
+  });
+
+  $effect(() => {
+    if (filterCounts.pending > 0) return;
+    if (filter === "pending" || filter === "income" || filter === "expense") {
+      filter = "all";
+    }
+  });
+
+  async function saveRuleEditor(): Promise<void> {
+    if (!editingRule) return;
+
+    const hasTextConstraint = editDescEnabled || editCounterpartyEnabled;
+    if (!hasTextConstraint) {
+      toast.error(m.bank_review_rule_edit_require_condition());
+      return;
+    }
+
+    const nextDesc = editDescEnabled ? editDesc.trim() : null;
+    const nextCounterparty = editCounterpartyEnabled ? editCounterparty.trim() : null;
+    if (hasTextConstraint && !nextDesc && !nextCounterparty) {
+      toast.error(m.bank_review_rule_edit_require_text());
+      return;
+    }
+
+    const nextKind: "contains" | "exact" = editingRule.kind === "exact" ? "exact" : "contains";
+    const nextDayOfMonth: number | null = editDateEnabled ? Number(editDayOfMonth) : null;
+    if (
+      editDateEnabled &&
+      (nextDayOfMonth === null ||
+        !Number.isInteger(nextDayOfMonth) ||
+        nextDayOfMonth < 1 ||
+        nextDayOfMonth > 31)
+    ) {
+      toast.error(m.bank_review_rule_edit_require_date());
+      return;
+    }
+
+    editRuleSaving = true;
+    try {
+      const previousRule = editingRule;
+      await updateCategorizationRule(previousRule.id, {
+        kind: nextKind,
+        match_description: nextDesc,
+        match_counterparty: nextCounterparty,
+        match_type: null,
+        match_day_of_month: nextDayOfMonth,
+      });
+      const nextRules = await refreshRules();
+      const nextRule = nextRules.find((rule) => rule.id === previousRule.id);
+      if (nextRule) {
+        await reconcileEditedRuleRows(previousRule, nextRule, nextRules);
+      }
+      toast.success(m.bank_review_rule_updated());
+      closeRuleEditor();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      editRuleSaving = false;
+    }
   }
 
   async function importDuplicateAnyway(row: ImportRow): Promise<void> {
-    await waitForAutoDupMark(row.id);
-    bumpDupMarkEpoch(row.id);
     await patchRow(row.id, { decision: "import" });
   }
 
   async function restoreAllDuplicates(): Promise<void> {
-    await waitForAutoDupMark();
-    const flagged = rows.filter((r) => warningsByRow.has(r.id) && r.decision === "duplicate");
-    for (const r of flagged) {
-      bumpDupMarkEpoch(r.id);
-      await patchRow(r.id, { decision: "pending" });
-    }
-  }
-
-  function goToStep(step: ReviewStep): void {
-    const targetIdx = reviewSteps.findIndex((s) => s.id === step);
-    const currentIdx = stepIndex;
-    if (targetIdx > currentIdx) {
-      if (step === "categorize" && reviewStep === "duplicates") reviewStep = "categorize";
-      else if (step === "finalize" && reviewStep === "categorize" && canProceedCategorize)
-        reviewStep = "finalize";
-      return;
-    }
-    reviewStep = step;
+    const flagged = rows.filter((r) => r.decision === "duplicate");
+    await Promise.all(flagged.map((r) => patchRow(r.id, { decision: "pending" })));
   }
 
   const commitMut = createMutation(() => ({
@@ -646,135 +671,201 @@
     },
   }));
 
-  const filterOptions: { kind: FilterKind; label: string }[] = $derived([
-    { kind: "pending", label: m.bank_review_filter_pending() },
-    { kind: "all", label: m.bank_review_filter_all() },
-    { kind: "income", label: m.bank_review_filter_income() },
-    { kind: "expense", label: m.bank_review_filter_expense() },
-  ]);
+  function commitOrConfirm(): void {
+    if (needsConfirm) confirmOpen = true;
+    else commitMut.mutate();
+  }
+
+  function confirmCommit(): void {
+    confirmOpen = false;
+    commitMut.mutate();
+  }
 </script>
 
 {#snippet decisionControl(row: ImportRow)}
-  <div class="inline-flex overflow-hidden rounded-lg border border-white/10" role="group">
+  <div class="inline-flex items-center gap-1.5">
     <button
       type="button"
       class={cn(
-        "px-2.5 py-1 text-xs font-medium transition-colors",
-        row.decision === "import" ? "bg-accent/20 text-accent" : "text-slate-400 hover:bg-white/5"
+        "inline-flex h-6 w-6 items-center justify-center rounded-full border transition-colors",
+        row.decision === "import"
+          ? "border-accent/40 bg-accent/15 text-accent"
+          : "border-white/10 text-slate-400 hover:bg-white/5"
       )}
+      title={m.bank_review_decision_import()}
+      aria-label={m.bank_review_decision_import()}
       aria-pressed={row.decision === "import"}
-      onclick={() => void markImport(row)}
+      onclick={() => void setDecision(row, "import")}
     >
-      {m.bank_review_decision_import()}
+      <Check size={12} aria-hidden="true" />
     </button>
     <button
       type="button"
       class={cn(
-        "border-l border-white/10 px-2.5 py-1 text-xs font-medium transition-colors",
+        "inline-flex h-6 w-6 items-center justify-center rounded-full border transition-colors",
         row.decision === "skip"
-          ? "bg-slate-700/70 text-slate-200"
-          : "text-slate-400 hover:bg-white/5"
+          ? "border-white/20 bg-white/10 text-slate-200"
+          : "border-white/10 text-slate-400 hover:bg-white/5"
       )}
+      title={m.bank_review_decision_skip()}
+      aria-label={m.bank_review_decision_skip()}
       aria-pressed={row.decision === "skip"}
       onclick={() => void setDecision(row, "skip")}
     >
-      {m.bank_review_decision_skip()}
+      <X size={12} aria-hidden="true" />
     </button>
   </div>
 {/snippet}
 
 <div class="space-y-4">
-  <ol
-    class="flex flex-wrap items-center gap-2 text-xs text-slate-400"
-    aria-label={m.bank_import_step_review()}
-  >
-    {#each reviewSteps as s, i (s.id)}
-      {@const active = reviewStep === s.id}
-      {@const completed = stepIndex > i}
-      {@const canClick = completed || active}
-      <li>
-        <button
-          type="button"
-          disabled={!canClick}
-          class={cn(
-            "rounded-full border px-3 py-1 transition-colors",
-            active && "border-accent text-accent",
-            completed &&
-              !active &&
-              "border-accent/40 text-accent/70 hover:border-accent hover:text-accent",
-            !active && !completed && "border-white/10 text-slate-500",
-            !canClick && "cursor-default opacity-60"
-          )}
-          onclick={() => canClick && goToStep(s.id)}
-        >
-          {s.label}
-        </button>
-      </li>
-      {#if i < reviewSteps.length - 1}
-        <span class="text-slate-600" aria-hidden="true">›</span>
-      {/if}
-    {/each}
-  </ol>
-
-  {#if reviewStep === "duplicates"}
-    <ImportReviewDuplicatesStep
-      loading={warningsQuery.isLoading}
-      {flaggedRows}
-      {warningsByRow}
-      {duplicateDetail}
-      {dupActionsReady}
-      {isRowAutoDupSettled}
-      onImportAnyway={(row) => void importDuplicateAnyway(row)}
-      onRestoreAll={() => void restoreAllDuplicates()}
-      onNext={() => goToStep("categorize")}
-    />
-  {:else if reviewStep === "categorize"}
-    <ImportReviewCategorizeStep
-      {parseErrorCount}
-      largeRowCount={rows.length}
-      {pendingCount}
-      {bulkImportableCount}
-      {bulkSkippableVisibleCount}
-      {filter}
-      {filterCounts}
-      {filterOptions}
-      {visibleRows}
-      totalActiveRows={activeRows.length}
-      {ruleSuggestions}
-      {ruleSaving}
-      groups={groupsQuery.data ?? []}
-      {categoriesFor}
-      {createCategoryInline}
-      {needsRule}
-      {matchedRuleFor}
-      {ruleAttributionText}
-      onFilterChange={(k) => (filter = k)}
-      onClearFilter={() => (filter = "all")}
-      onBulkImport={() => void bulkImportValid()}
-      onBulkSkipVisible={() => void bulkSkipVisible()}
-      onSaveSuggestion={(s) => void saveSuggestion(s)}
-      onQuickSaveRule={(row) => void quickSaveRule(row)}
-      onPatchRow={(id, patch) => void patchRow(id, patch)}
-      onOpenRuleSettings={openRuleInSettings}
-      {decisionControl}
-      onBack={() => goToStep("duplicates")}
-      onNext={() => goToStep("finalize")}
-      onCancel={() => void onCancel()}
-      canProceed={canProceedCategorize}
-    />
-  {:else}
-    <ImportReviewFinalizeStep
-      account={accountQuery.data}
-      {bankKindLabel}
-      {importRows}
-      {skippedRows}
-      {duplicateRows}
-      {categoryName}
-      uncategorizedImportCount={uncategorizedImportRows.length}
-      commitPending={commitMut.isPending}
-      onBack={() => goToStep("categorize")}
-      onCommit={() => commitMut.mutate()}
-      onCancel={() => void onCancel()}
-    />
+  {#if accountQuery.data}
+    <p class="rounded-xl border border-white/5 bg-slate-950/40 px-3 py-2 text-xs text-slate-300">
+      {m.bank_review_account_destination({
+        bank: bankKindLabel(accountQuery.data.kind),
+        account: accountQuery.data.label,
+      })}
+    </p>
   {/if}
+
+  <DuplicateBanner
+    {duplicateRows}
+    {duplicateDetail}
+    onImportAnyway={(row) => void importDuplicateAnyway(row)}
+    onRestoreAll={() => void restoreAllDuplicates()}
+  />
+
+  <ImportReviewCategorizeStep
+    {parseErrorCount}
+    largeRowCount={rows.length}
+    {bulkImportableVisibleCount}
+    {bulkRestorableVisibleCount}
+    {filter}
+    {filterCounts}
+    {filterOptions}
+    {visibleRows}
+    totalActiveRows={activeRows.length}
+    groups={groupsQuery.data ?? []}
+    {categoriesFor}
+    {createCategoryInline}
+    {matchedRuleFor}
+    onFilterChange={(k) => (filter = k)}
+    onClearFilter={() => (filter = "all")}
+    onBulkImportVisible={() => void bulkImportVisible()}
+    onBulkRestoreVisible={() => void bulkRestoreVisible()}
+    onPatchRow={(id, patch) => void patchRow(id, patch)}
+    onCategoryChange={(row, id) => void handleRowCategoryChange(row, id)}
+    onEditRule={(rule) => openRuleEditor(rule)}
+    {decisionControl}
+  />
+
+  <div
+    class="sticky bottom-0 z-20 -mx-4 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 bg-slate-950/95 px-4 py-3 pb-(--mobile-action-bottom) backdrop-blur md:pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+  >
+    <div class="min-w-0 text-xs text-slate-400">
+      {#if pendingRows.length > 0}
+        <span class="text-amber-300">
+          {m.bank_review_pending_warning({ count: pendingRows.length })}
+        </span>
+      {:else if importRows.length === 0}
+        <span class="text-amber-300">{m.bank_review_commit_zero_hint()}</span>
+      {:else}
+        {m.bank_review_footer_counts({
+          imp: importRows.length,
+          skip: skippedRows.length,
+          inne: uncategorizedImportRows.length,
+        })}
+      {/if}
+    </div>
+    <div class="flex gap-2">
+      <Button variant="ghost" onclick={() => void onCancel()} disabled={commitMut.isPending}>
+        {m.bank_review_cancel()}
+      </Button>
+      <Button
+        variant="primary"
+        disabled={importRows.length === 0 || pendingRows.length > 0 || commitMut.isPending}
+        loading={commitMut.isPending}
+        onclick={commitOrConfirm}
+      >
+        {m.bank_review_commit_action({ count: importRows.length })}
+      </Button>
+    </div>
+  </div>
 </div>
+
+<ImportConfirmSheet
+  open={confirmOpen}
+  importCount={importRows.length}
+  skipCount={skippedRows.length}
+  dupCount={duplicateRows.length}
+  {inneRows}
+  commitPending={commitMut.isPending}
+  onClose={() => (confirmOpen = false)}
+  onCommit={confirmCommit}
+/>
+
+<Dialog open={editRuleOpen} onclose={closeRuleEditor} title={m.bank_review_rule_edit()}>
+  <div class="space-y-3">
+    <label class="flex items-center gap-2 text-sm text-slate-200">
+      <input type="checkbox" bind:checked={editDescEnabled} />
+      <span>{m.bank_review_rule_if_description()}</span>
+    </label>
+    <Input
+      value={editDesc}
+      disabled={!editDescEnabled}
+      placeholder={m.bank_review_save_rule_field_description()}
+      onchange={(e) => (editDesc = (e.target as HTMLInputElement).value)}
+    />
+
+    <label class="flex items-center gap-2 text-sm text-slate-200">
+      <input type="checkbox" bind:checked={editCounterpartyEnabled} />
+      <span>{m.bank_review_rule_if_counterparty()}</span>
+    </label>
+    <Input
+      value={editCounterparty}
+      disabled={!editCounterpartyEnabled}
+      placeholder={m.bank_review_save_rule_field_counterparty()}
+      onchange={(e) => (editCounterparty = (e.target as HTMLInputElement).value)}
+    />
+
+    <div class="rounded-xl border border-white/10 bg-slate-900/60 p-3">
+      <button
+        type="button"
+        class="text-xs font-medium text-slate-300 underline-offset-2 hover:text-slate-100 hover:underline"
+        onclick={() => (showAdvancedRuleOptions = !showAdvancedRuleOptions)}
+      >
+        {m.bank_review_rule_advanced_toggle()}
+      </button>
+      {#if showAdvancedRuleOptions}
+        <div class="mt-2 space-y-2">
+          <label class="flex items-center gap-2 text-sm text-slate-200">
+            <input type="checkbox" bind:checked={editDateEnabled} />
+            <span>{m.bank_review_rule_if_date()}</span>
+          </label>
+          <Input
+            type="number"
+            min="1"
+            max="31"
+            value={editDayOfMonth}
+            disabled={!editDateEnabled}
+            placeholder={m.bank_review_rule_day_placeholder()}
+            onchange={(e) => (editDayOfMonth = (e.target as HTMLInputElement).value)}
+          />
+        </div>
+      {/if}
+    </div>
+
+    <div class="flex justify-end gap-2 pt-1">
+      <Button variant="ghost" onclick={closeRuleEditor} disabled={editRuleSaving}>
+        {m.common_cancel()}
+      </Button>
+      <Button
+        variant="primary"
+        onclick={() => void saveRuleEditor()}
+        loading={editRuleSaving}
+        disabled={editRuleSaving}
+      >
+        {m.common_save()}
+      </Button>
+    </div>
+  </div>
+</Dialog>

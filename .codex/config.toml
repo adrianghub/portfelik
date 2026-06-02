@@ -1,5 +1,29 @@
 [mcp_servers.supabase]
 url = "https://mcp.supabase.com/mcp?project_ref=emqzcygfwcvbmhxhfkcc&features=storage%2Cbranching%2Cdevelopment%2Cfunctions%2Cdebugging%2Caccount%2Cdatabase%2Cdocs"
 
+[mcp_servers.supabase-prod]
+url = "https://mcp.supabase.com/mcp?project_ref=emqzcygfwcvbmhxhfkcc&features=storage%2Cbranching%2Cdevelopment%2Cfunctions%2Cdebugging%2Caccount%2Cdatabase%2Cdocs"
+
+[mcp_servers.supabase-staging]
+url = "https://mcp.supabase.com/mcp?project_ref=nveyzxxnyccpnesebvuw&features=storage%2Cbranching%2Cdevelopment%2Cfunctions%2Cdebugging%2Caccount%2Cdatabase%2Cdocs"
+
+[mcp_servers.supabase-account]
+url = "https://mcp.supabase.com/mcp?features=account%2Cdocs"
+
 [mcp_servers.svelte]
 url = "https://mcp.svelte.dev/mcp"
+
+[mcp_servers.playwright]
+command = "npx"
+args = ["@playwright/mcp@latest"]
+
+[mcp_servers.github]
+url = "https://api.githubcopilot.com/mcp/"
+
+[agents]
+max_threads = 4
+max_depth = 1
+job_max_runtime_seconds = 1800
+
+[features]
+hooks = true

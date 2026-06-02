@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Portfelik agent rules: read CLAUDE.md/AGENTS.md; use Edgar for 3+ files, files >400 lines, noisy output, and large diffs; use RTK for token-filtered shell output when available; for apps/web-svelte work, read .claude/rules/svelte-gotchas.md; use /pr and /issues skills instead of deprecated prompt commands.'",
+            "timeout": 5,
+            "statusMessage": "Loading Portfelik agent rules"
+          }
+        ]
+      }
+    ]
+  }
+}

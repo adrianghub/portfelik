@@ -23,6 +23,7 @@ export interface MatchableRow {
   type: TransactionType;
   description: string;
   counterparty?: string | null;
+  posted_at?: string | null;
 }
 
 export function normalizeRuleText(value: string | null | undefined): string {
@@ -85,7 +86,15 @@ function textMatches(
   return false;
 }
 
+function dayOfMonthMatches(rule: CategorizationRule, row: MatchableRow): boolean {
+  if (rule.match_day_of_month == null) return true;
+  if (!row.posted_at) return false;
+  const day = Number(row.posted_at.split("-")[2] ?? "");
+  return Number.isInteger(day) && day === rule.match_day_of_month;
+}
+
 export function matchRule(rule: CategorizationRule, row: MatchableRow): boolean {
+  if (!dayOfMonthMatches(rule, row)) return false;
   switch (rule.kind) {
     case "exact":
       return textMatches(rule, row, "exact");
@@ -142,11 +151,21 @@ export function resolveCategorizationRule(
 export function isEquivalentCategorizationRule(
   a: Pick<
     CategorizationRule,
-    "kind" | "match_description" | "match_counterparty" | "match_type" | "category_id"
+    | "kind"
+    | "match_description"
+    | "match_counterparty"
+    | "match_type"
+    | "match_day_of_month"
+    | "category_id"
   >,
   b: Pick<
     CategorizationRule,
-    "kind" | "match_description" | "match_counterparty" | "match_type" | "category_id"
+    | "kind"
+    | "match_description"
+    | "match_counterparty"
+    | "match_type"
+    | "match_day_of_month"
+    | "category_id"
   >
 ): boolean {
   return (
@@ -154,6 +173,7 @@ export function isEquivalentCategorizationRule(
     normalizeRuleText(a.match_description) === normalizeRuleText(b.match_description) &&
     normalizeRuleText(a.match_counterparty) === normalizeRuleText(b.match_counterparty) &&
     (a.match_type ?? null) === (b.match_type ?? null) &&
+    (a.match_day_of_month ?? null) === (b.match_day_of_month ?? null) &&
     a.category_id === b.category_id
   );
 }
@@ -161,13 +181,23 @@ export function isEquivalentCategorizationRule(
 export function findDuplicateCategorizationRule<
   T extends Pick<
     CategorizationRule,
-    "kind" | "match_description" | "match_counterparty" | "match_type" | "category_id"
+    | "kind"
+    | "match_description"
+    | "match_counterparty"
+    | "match_type"
+    | "match_day_of_month"
+    | "category_id"
   >,
 >(
   rules: T[],
   candidate: Pick<
     CategorizationRule,
-    "kind" | "match_description" | "match_counterparty" | "match_type" | "category_id"
+    | "kind"
+    | "match_description"
+    | "match_counterparty"
+    | "match_type"
+    | "match_day_of_month"
+    | "category_id"
   >
 ): T | null {
   return rules.find((rule) => isEquivalentCategorizationRule(rule, candidate)) ?? null;
