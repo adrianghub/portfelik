@@ -13,7 +13,7 @@
   import { cn, formatCurrency } from "$lib/utils";
   import { Users } from "lucide-svelte";
 
-  type FilterKind = "pending" | "all" | "income" | "expense";
+  type FilterKind = "all" | "uncategorized" | "income" | "expense";
 
   interface RuleSuggestion {
     key: string;
@@ -26,9 +26,8 @@
   interface Props {
     parseErrorCount: number;
     largeRowCount: number;
-    pendingCount: number;
-    bulkImportableCount: number;
     bulkSkippableVisibleCount: number;
+    bulkRestorableVisibleCount: number;
     filter: FilterKind;
     filterCounts: Record<FilterKind, number>;
     filterOptions: { kind: FilterKind; label: string }[];
@@ -44,25 +43,20 @@
     ruleAttributionText: (rule: CategorizationRule) => string;
     onFilterChange: (kind: FilterKind) => void;
     onClearFilter: () => void;
-    onBulkImport: () => void;
     onBulkSkipVisible: () => void;
+    onBulkRestoreVisible: () => void;
     onSaveSuggestion: (s: RuleSuggestion) => void;
     onQuickSaveRule: (row: ImportRow) => void;
     onPatchRow: (rowId: string, patch: Partial<ImportRow>) => void;
     onOpenRuleSettings: (ruleId: string) => void;
     decisionControl: Snippet<[ImportRow]>;
-    onBack: () => void;
-    onNext: () => void;
-    onCancel: () => void;
-    canProceed: boolean;
   }
 
   let {
     parseErrorCount,
     largeRowCount,
-    pendingCount,
-    bulkImportableCount,
     bulkSkippableVisibleCount,
+    bulkRestorableVisibleCount,
     filter,
     filterCounts,
     filterOptions,
@@ -78,17 +72,13 @@
     ruleAttributionText,
     onFilterChange,
     onClearFilter,
-    onBulkImport,
     onBulkSkipVisible,
+    onBulkRestoreVisible,
     onSaveSuggestion,
     onQuickSaveRule,
     onPatchRow,
     onOpenRuleSettings,
     decisionControl,
-    onBack,
-    onNext,
-    onCancel,
-    canProceed,
   }: Props = $props();
 
   let groupSheetRowId = $state<string | null>(null);
@@ -114,11 +104,6 @@
       {m.bank_review_large_warning({ count: largeRowCount })}
     </p>
   {/if}
-
-  <div class="rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3 text-sm text-slate-300">
-    <p class="font-medium text-slate-100">{m.bank_review_rules_explainer_title()}</p>
-    <p class="mt-1 text-xs text-slate-400">{m.bank_review_rules_explainer_body()}</p>
-  </div>
 
   {#if ruleSuggestions.length > 0}
     <div class="space-y-1.5">
@@ -147,24 +132,20 @@
   {/if}
 
   <div class="sticky top-14 z-30 -mx-4 space-y-2 border-b border-white/10 bg-slate-950 px-4 py-2">
-    {#if pendingCount > 0}
-      <p class="text-xs text-amber-200">
-        {m.bank_review_pending_warning({ count: pendingCount })}
-      </p>
+    {#if bulkSkippableVisibleCount > 0 || bulkRestorableVisibleCount > 0}
+      <div class="flex flex-wrap items-center gap-2">
+        {#if bulkSkippableVisibleCount > 0}
+          <Button variant="ghost" size="sm" onclick={onBulkSkipVisible}>
+            {m.bank_review_skip_visible_action({ count: bulkSkippableVisibleCount })}
+          </Button>
+        {/if}
+        {#if bulkRestorableVisibleCount > 0}
+          <Button variant="ghost" size="sm" onclick={onBulkRestoreVisible}>
+            {m.bank_review_restore_visible_action({ count: bulkRestorableVisibleCount })}
+          </Button>
+        {/if}
+      </div>
     {/if}
-
-    <div class="flex flex-wrap items-center gap-2">
-      {#if bulkImportableCount > 0}
-        <Button variant="primary" size="sm" onclick={onBulkImport}>
-          {m.bank_review_ready_action({ count: bulkImportableCount })}
-        </Button>
-      {/if}
-      {#if bulkSkippableVisibleCount > 0}
-        <Button variant="ghost" size="sm" onclick={onBulkSkipVisible}>
-          {m.bank_review_mark_visible_skipped({ count: bulkSkippableVisibleCount })}
-        </Button>
-      {/if}
-    </div>
 
     <div class="flex flex-wrap items-center gap-2 overflow-x-auto">
       {#each filterOptions as f (f.kind)}
@@ -286,11 +267,6 @@
               <td class="px-3 py-2 align-top">
                 <div class="flex flex-col items-start gap-1">
                   {@render decisionControl(row)}
-                  {#if row.decision === "pending"}
-                    <span class="text-xs text-amber-300"
-                      >{m.bank_review_decision_pending_cue()}</span
-                    >
-                  {/if}
                 </div>
               </td>
             </tr>
@@ -360,27 +336,12 @@
             </button>
           </div>
           <div class="flex items-center justify-end gap-2">
-            {#if row.decision === "pending"}
-              <span class="text-xs text-amber-300">{m.bank_review_decision_pending_cue()}</span>
-            {/if}
             {@render decisionControl(row)}
           </div>
         </li>
       {/each}
     </ul>
   {/if}
-
-  <div
-    class="sticky bottom-0 z-20 -mx-4 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 bg-slate-950/95 px-4 py-3 pb-(--mobile-action-bottom) backdrop-blur md:pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
-  >
-    <Button variant="ghost" onclick={onCancel}>{m.bank_review_cancel()}</Button>
-    <div class="flex gap-2">
-      <Button variant="ghost" onclick={onBack}>{m.bank_review_step_back()}</Button>
-      <Button variant="primary" disabled={!canProceed} onclick={onNext}>
-        {m.bank_review_step_next()}
-      </Button>
-    </div>
-  </div>
 </div>
 
 <Sheet

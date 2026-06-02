@@ -1,8 +1,9 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
-  import ImportReviewDuplicatesStep from "$lib/components/import/ImportReviewDuplicatesStep.svelte";
+  import DuplicateBanner from "$lib/components/import/DuplicateBanner.svelte";
   import ImportReviewCategorizeStep from "$lib/components/import/ImportReviewCategorizeStep.svelte";
-  import ImportReviewFinalizeStep from "$lib/components/import/ImportReviewFinalizeStep.svelte";
+  import ImportConfirmSheet from "$lib/components/import/ImportConfirmSheet.svelte";
+  import Button from "$lib/components/ui/Button.svelte";
   import { goto } from "$app/navigation";
   import { createCategory, fetchCategories } from "$lib/services/categories";
   import { fetchUserGroups } from "$lib/services/groups";
@@ -48,22 +49,14 @@
     endMonth: number;
   }
 
-  type ReviewStep = "duplicates" | "categorize" | "finalize";
-  type FilterKind = "pending" | "all" | "income" | "expense";
+  type FilterKind = "all" | "uncategorized" | "income" | "expense";
 
   const queryClient = useQueryClient();
   const rowsKey = $derived(["import_session_rows", session.id]);
 
-  let reviewStep = $state<ReviewStep>("duplicates");
-  let filter = $state<FilterKind>("pending");
+  let filter = $state<FilterKind>("all");
   let ruleSaving = $state(false);
-  /** Bumped when the user overrides an auto-duplicate mark so stale in-flight updates abort. */
-  const dupMarkEpoch: Record<string, number> = {};
-  /** Row ids with an in-flight auto-mark request (reactive for duplicate-step UI). */
-  let autoDupInflightIds = $state<Set<string>>(new Set());
-  const autoDupPromises = new Map<string, Promise<void>>();
-  /** Permanent guard: row was auto-marked once; restore must not re-trigger auto-mark. */
-  let autoDupHandledIds = $state<Set<string>>(new Set());
+  let confirmOpen = $state(false);
 
   const rowsQuery = createQuery(() => ({
     queryKey: rowsKey,
@@ -98,35 +91,26 @@
   const warningsByRow = $derived(new Map((warningsQuery.data ?? []).map((w) => [w.row_id, w])));
   const rows = $derived<ImportRow[]>(rowsQuery.data ?? []);
 
-  /** Rows that still need categorization / import-skip decisions. */
+  // activeRows = rows the user is deciding on (not auto-skipped duplicates).
   const activeRows = $derived(rows.filter((r) => r.decision !== "duplicate"));
-
-  const flaggedRows = $derived(
-    rows.filter((r) => warningsByRow.has(r.id)).sort((a, b) => a.row_index - b.row_index)
-  );
-
-  const pendingCount = $derived(activeRows.filter((r) => r.decision === "pending").length);
-  const canProceedCategorize = $derived(activeRows.length === 0 || pendingCount === 0);
-
   const importRows = $derived(rows.filter((r) => r.decision === "import"));
   const skippedRows = $derived(rows.filter((r) => r.decision === "skip"));
   const duplicateRows = $derived(rows.filter((r) => r.decision === "duplicate"));
-
   const uncategorizedImportRows = $derived(
     importRows.filter((r) => r.selected_category_id == null)
   );
 
   const filterCounts = $derived({
-    pending: activeRows.filter((r) => r.decision === "pending").length,
     all: activeRows.length,
+    uncategorized: activeRows.filter((r) => r.selected_category_id == null).length,
     income: activeRows.filter((r) => r.type === "income").length,
     expense: activeRows.filter((r) => r.type === "expense").length,
   });
 
   const visibleRows = $derived.by(() => {
     switch (filter) {
-      case "pending":
-        return activeRows.filter((r) => r.decision === "pending");
+      case "uncategorized":
+        return activeRows.filter((r) => r.selected_category_id == null);
       case "income":
         return activeRows.filter((r) => r.type === "income");
       case "expense":
@@ -136,96 +120,24 @@
     }
   });
 
-  const bulkImportableCount = $derived(
-    activeRows.filter((r) => r.selected_category_id !== null && r.decision !== "import").length
-  );
-
+  // Bulk actions are BOTH scoped to the current filter (visibleRows).
   const bulkSkippableVisibleCount = $derived(
-    visibleRows.filter((r) => r.decision !== "skip").length
+    visibleRows.filter((r) => r.decision === "import").length
+  );
+  const bulkRestorableVisibleCount = $derived(
+    visibleRows.filter((r) => r.decision === "skip").length
   );
 
-  const reviewSteps: { id: ReviewStep; label: string }[] = $derived([
-    { id: "duplicates", label: m.bank_import_review_step_duplicates() },
-    { id: "categorize", label: m.bank_import_review_step_categorize() },
-    { id: "finalize", label: m.bank_import_review_step_finalize() },
+  const inneRows = $derived(uncategorizedImportRows);
+  const needsConfirm = $derived(inneRows.length > 0 || duplicateRows.length > 0);
+
+  const filterOptions: { kind: FilterKind; label: string }[] = $derived([
+    { kind: "all", label: m.bank_review_filter_all() },
+    { kind: "uncategorized", label: m.bank_review_filter_uncategorized() },
+    { kind: "income", label: m.bank_review_filter_income() },
+    { kind: "expense", label: m.bank_review_filter_expense() },
   ]);
 
-  const stepIndex = $derived(reviewSteps.findIndex((s) => s.id === reviewStep));
-
-  const dupActionsReady = $derived(
-    !warningsQuery.isLoading && !rowsQuery.isLoading && autoDupInflightIds.size === 0
-  );
-
-  function dupEpoch(rowId: string): number {
-    return dupMarkEpoch[rowId] ?? 0;
-  }
-
-  function isDupEpochCurrent(rowId: string, epoch: number): boolean {
-    return dupEpoch(rowId) === epoch;
-  }
-
-  function bumpDupMarkEpoch(rowId: string): void {
-    dupMarkEpoch[rowId] = dupEpoch(rowId) + 1;
-  }
-
-  function isRowAutoDupSettled(rowId: string): boolean {
-    return !autoDupInflightIds.has(rowId);
-  }
-
-  async function waitForAutoDupMark(rowId?: string): Promise<void> {
-    if (rowId) {
-      await autoDupPromises.get(rowId);
-      return;
-    }
-    await Promise.all([...autoDupPromises.values()]);
-  }
-
-  function getRowSnapshot(rowId: string): ImportRow | undefined {
-    return queryClient.getQueryData<ImportRow[]>(rowsKey)?.find((r) => r.id === rowId);
-  }
-
-  /** If a stale auto-mark landed on the server, re-apply the user's current decision. */
-  async function resyncRowDecisionIfStale(rowId: string, epoch: number): Promise<void> {
-    if (isDupEpochCurrent(rowId, epoch)) return;
-    const current = getRowSnapshot(rowId);
-    if (!current) return;
-    await updateRowDecision(rowId, { decision: current.decision });
-  }
-
-  // Auto-mark probable duplicates on the duplicates step only. Serialized per row;
-  // permanent handled-id prevents re-mark after restore; epoch blocks stale RPC wins.
-  $effect(() => {
-    if (reviewStep !== "duplicates") return;
-    if (warningsQuery.isLoading || rowsQuery.isLoading) return;
-    for (const row of rows) {
-      if (!warningsByRow.has(row.id)) continue;
-      if (row.decision !== "pending") continue;
-      if (autoDupHandledIds.has(row.id)) continue;
-      void scheduleAutoMarkDuplicate(row);
-    }
-  });
-
-  async function scheduleAutoMarkDuplicate(row: ImportRow): Promise<void> {
-    if (autoDupPromises.has(row.id)) return autoDupPromises.get(row.id)!;
-
-    autoDupHandledIds = new Set(autoDupHandledIds).add(row.id);
-    const epoch = dupEpoch(row.id);
-    autoDupInflightIds = new Set(autoDupInflightIds).add(row.id);
-
-    const promise = patchRow(row.id, { decision: "duplicate" }, { autoDupEpoch: epoch })
-      .catch(() => {
-        /* patchRow surfaces errors */
-      })
-      .finally(() => {
-        const next = new Set(autoDupInflightIds);
-        next.delete(row.id);
-        autoDupInflightIds = next;
-        autoDupPromises.delete(row.id);
-      });
-
-    autoDupPromises.set(row.id, promise);
-    return promise;
-  }
   function bankKindLabel(kind: string): string {
     return kind === "ing" ? m.bank_account_kind_ing() : m.bank_account_kind_mbank();
   }
@@ -248,11 +160,6 @@
     }
   }
 
-  function categoryName(id: string | null): string | null {
-    if (!id) return null;
-    return (categoriesQuery.data ?? []).find((c) => c.id === id)?.name ?? null;
-  }
-
   function duplicateDetail(rowId: string): string | null {
     const warning = warningsByRow.get(rowId);
     if (!warning) return null;
@@ -263,41 +170,25 @@
     });
   }
 
-  async function patchRow(
-    rowId: string,
-    patch: Partial<ImportRow>,
-    opts?: { autoDupEpoch?: number }
-  ): Promise<void> {
-    if (opts?.autoDupEpoch !== undefined && !isDupEpochCurrent(rowId, opts.autoDupEpoch)) {
-      return;
-    }
-
-    if (patch.decision !== undefined && patch.decision !== "duplicate") {
-      bumpDupMarkEpoch(rowId);
-    }
+  async function patchRow(rowId: string, patch: Partial<ImportRow>): Promise<void> {
     const previous = queryClient.getQueryData<ImportRow[]>(rowsKey);
-    const effective: Partial<ImportRow> = patch;
-
     if (previous) {
       queryClient.setQueryData<ImportRow[]>(
         rowsKey,
-        previous.map((r) => (r.id === rowId ? { ...r, ...effective } : r))
+        previous.map((r) => (r.id === rowId ? { ...r, ...patch } : r))
       );
     }
     try {
       await updateRowDecision(rowId, {
-        decision: effective.decision,
+        decision: patch.decision,
         selectedCategoryId:
-          effective.selected_category_id === undefined ? undefined : effective.selected_category_id,
+          patch.selected_category_id === undefined ? undefined : patch.selected_category_id,
         selectedGroupId:
-          effective.selected_group_id === undefined ? undefined : effective.selected_group_id,
+          patch.selected_group_id === undefined ? undefined : patch.selected_group_id,
         editedDescription:
-          effective.edited_description === undefined ? undefined : effective.edited_description,
-        duplicateOf: effective.duplicate_of === undefined ? undefined : effective.duplicate_of,
+          patch.edited_description === undefined ? undefined : patch.edited_description,
+        duplicateOf: patch.duplicate_of === undefined ? undefined : patch.duplicate_of,
       });
-      if (opts?.autoDupEpoch !== undefined) {
-        await resyncRowDecisionIfStale(rowId, opts.autoDupEpoch);
-      }
     } catch (e) {
       const original = previous?.find((r) => r.id === rowId);
       if (original) {
@@ -309,47 +200,22 @@
     }
   }
 
-  async function setDecision(row: ImportRow, decision: "import" | "skip"): Promise<void> {
-    if (row.decision === decision) return;
-    await patchRow(row.id, { decision });
+  async function toggleSkip(row: ImportRow): Promise<void> {
+    await patchRow(row.id, { decision: row.decision === "skip" ? "import" : "skip" });
+  }
+
+  async function bulkSkipVisible(): Promise<void> {
+    const targets = visibleRows.filter((r) => r.decision === "import");
+    await Promise.all(targets.map((r) => patchRow(r.id, { decision: "skip" })));
+  }
+
+  async function bulkRestoreVisible(): Promise<void> {
+    const targets = visibleRows.filter((r) => r.decision === "skip");
+    await Promise.all(targets.map((r) => patchRow(r.id, { decision: "import" })));
   }
 
   function needsRule(row: ImportRow): boolean {
     return row.selected_category_id != null && matchedRuleFor(row) == null;
-  }
-
-  function ruleGroupKey(row: ImportRow): string {
-    return `${row.type}:${suggestRuleText(row).toLowerCase()}:${row.selected_category_id}`;
-  }
-
-  async function ensureRulesThenImport(targets: ImportRow[]): Promise<void> {
-    const captureOk = new Map<string, boolean>();
-    for (const row of targets) {
-      if (!needsRule(row)) continue;
-      const key = ruleGroupKey(row);
-      if (captureOk.has(key)) continue;
-      captureOk.set(key, await captureRuleForRow(row));
-    }
-    const importable = targets.filter(
-      (row) => !needsRule(row) || captureOk.get(ruleGroupKey(row)) === true
-    );
-    await Promise.all(importable.map((r) => setDecision(r, "import")));
-  }
-
-  async function markImport(row: ImportRow): Promise<void> {
-    await ensureRulesThenImport([row]);
-  }
-
-  async function bulkImportValid(): Promise<void> {
-    const targets = activeRows.filter(
-      (r) => r.selected_category_id !== null && r.decision !== "import"
-    );
-    await ensureRulesThenImport(targets);
-  }
-
-  async function bulkSkipVisible(): Promise<void> {
-    const targets = visibleRows.filter((r) => r.decision !== "skip");
-    await Promise.all(targets.map((r) => patchRow(r.id, { decision: "skip" })));
   }
 
   interface RuleSuggestion {
@@ -373,16 +239,27 @@
     );
   }
 
-  async function undoSavedRule(ruleId: string, changedRows: UndoSnapshot[]): Promise<void> {
+  async function undoSavedRule(
+    ruleId: string,
+    changedRows: UndoSnapshot[],
+    appliedCategoryId: string
+  ): Promise<void> {
     try {
       await deleteCategorizationRule(ruleId);
+      const current = queryClient.getQueryData<ImportRow[]>(rowsKey) ?? [];
       await Promise.all(
-        changedRows.map((row) =>
-          patchRow(row.id, {
-            selected_category_id: row.selected_category_id,
-            decision: row.decision,
+        changedRows
+          .filter((snap) => {
+            const now = current.find((r) => r.id === snap.id);
+            // Skip rows the user re-categorized after the rule applied.
+            return now?.selected_category_id === appliedCategoryId;
           })
-        )
+          .map((row) =>
+            patchRow(row.id, {
+              selected_category_id: row.selected_category_id,
+              decision: row.decision,
+            })
+          )
       );
       await queryClient.invalidateQueries({ queryKey: ["categorization_rules"] });
       toast.success(m.bank_review_rule_undone());
@@ -427,9 +304,11 @@
       selected_category_id: r.selected_category_id,
       decision: r.decision,
     }));
-    await Promise.all(
+    const results = await Promise.allSettled(
       targets.map((r) => patchRow(r.id, { selected_category_id: created.category_id }))
     );
+    const failed = results.filter((r) => r.status === "rejected").length;
+    if (failed > 0) toast.error(m.toast_error());
 
     const toastMsg =
       targets.length > 0
@@ -438,7 +317,7 @@
     toast.success(toastMsg, {
       action: {
         label: m.common_undo(),
-        onClick: () => void undoSavedRule(created.id, snapshots),
+        onClick: () => void undoSavedRule(created.id, snapshots, created.category_id),
       },
       duration: 8000,
     });
@@ -602,30 +481,12 @@
   }
 
   async function importDuplicateAnyway(row: ImportRow): Promise<void> {
-    await waitForAutoDupMark(row.id);
-    bumpDupMarkEpoch(row.id);
     await patchRow(row.id, { decision: "import" });
   }
 
   async function restoreAllDuplicates(): Promise<void> {
-    await waitForAutoDupMark();
-    const flagged = rows.filter((r) => warningsByRow.has(r.id) && r.decision === "duplicate");
-    for (const r of flagged) {
-      bumpDupMarkEpoch(r.id);
-      await patchRow(r.id, { decision: "pending" });
-    }
-  }
-
-  function goToStep(step: ReviewStep): void {
-    const targetIdx = reviewSteps.findIndex((s) => s.id === step);
-    const currentIdx = stepIndex;
-    if (targetIdx > currentIdx) {
-      if (step === "categorize" && reviewStep === "duplicates") reviewStep = "categorize";
-      else if (step === "finalize" && reviewStep === "categorize" && canProceedCategorize)
-        reviewStep = "finalize";
-      return;
-    }
-    reviewStep = step;
+    const flagged = rows.filter((r) => r.decision === "duplicate");
+    await Promise.all(flagged.map((r) => patchRow(r.id, { decision: "import" })));
   }
 
   const commitMut = createMutation(() => ({
@@ -646,135 +507,120 @@
     },
   }));
 
-  const filterOptions: { kind: FilterKind; label: string }[] = $derived([
-    { kind: "pending", label: m.bank_review_filter_pending() },
-    { kind: "all", label: m.bank_review_filter_all() },
-    { kind: "income", label: m.bank_review_filter_income() },
-    { kind: "expense", label: m.bank_review_filter_expense() },
-  ]);
+  function commitOrConfirm(): void {
+    if (needsConfirm) confirmOpen = true;
+    else commitMut.mutate();
+  }
+
+  function confirmCommit(): void {
+    confirmOpen = false;
+    commitMut.mutate();
+  }
 </script>
 
 {#snippet decisionControl(row: ImportRow)}
-  <div class="inline-flex overflow-hidden rounded-lg border border-white/10" role="group">
-    <button
-      type="button"
-      class={cn(
-        "px-2.5 py-1 text-xs font-medium transition-colors",
-        row.decision === "import" ? "bg-accent/20 text-accent" : "text-slate-400 hover:bg-white/5"
-      )}
-      aria-pressed={row.decision === "import"}
-      onclick={() => void markImport(row)}
-    >
-      {m.bank_review_decision_import()}
-    </button>
-    <button
-      type="button"
-      class={cn(
-        "border-l border-white/10 px-2.5 py-1 text-xs font-medium transition-colors",
-        row.decision === "skip"
-          ? "bg-slate-700/70 text-slate-200"
-          : "text-slate-400 hover:bg-white/5"
-      )}
-      aria-pressed={row.decision === "skip"}
-      onclick={() => void setDecision(row, "skip")}
-    >
-      {m.bank_review_decision_skip()}
-    </button>
-  </div>
+  <button
+    type="button"
+    class={cn(
+      "rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors",
+      row.decision === "skip"
+        ? "border-white/10 text-slate-400 hover:bg-white/5"
+        : "border-accent/40 bg-accent/15 text-accent"
+    )}
+    aria-pressed={row.decision !== "skip"}
+    aria-label={m.bank_review_import_aria_label({
+      description: row.counterparty ?? row.edited_description ?? row.description,
+    })}
+    onclick={() => void toggleSkip(row)}
+  >
+    {row.decision === "skip" ? m.bank_review_row_restore() : m.bank_review_row_skip()}
+  </button>
 {/snippet}
 
 <div class="space-y-4">
-  <ol
-    class="flex flex-wrap items-center gap-2 text-xs text-slate-400"
-    aria-label={m.bank_import_step_review()}
-  >
-    {#each reviewSteps as s, i (s.id)}
-      {@const active = reviewStep === s.id}
-      {@const completed = stepIndex > i}
-      {@const canClick = completed || active}
-      <li>
-        <button
-          type="button"
-          disabled={!canClick}
-          class={cn(
-            "rounded-full border px-3 py-1 transition-colors",
-            active && "border-accent text-accent",
-            completed &&
-              !active &&
-              "border-accent/40 text-accent/70 hover:border-accent hover:text-accent",
-            !active && !completed && "border-white/10 text-slate-500",
-            !canClick && "cursor-default opacity-60"
-          )}
-          onclick={() => canClick && goToStep(s.id)}
-        >
-          {s.label}
-        </button>
-      </li>
-      {#if i < reviewSteps.length - 1}
-        <span class="text-slate-600" aria-hidden="true">›</span>
-      {/if}
-    {/each}
-  </ol>
-
-  {#if reviewStep === "duplicates"}
-    <ImportReviewDuplicatesStep
-      loading={warningsQuery.isLoading}
-      {flaggedRows}
-      {warningsByRow}
-      {duplicateDetail}
-      {dupActionsReady}
-      {isRowAutoDupSettled}
-      onImportAnyway={(row) => void importDuplicateAnyway(row)}
-      onRestoreAll={() => void restoreAllDuplicates()}
-      onNext={() => goToStep("categorize")}
-    />
-  {:else if reviewStep === "categorize"}
-    <ImportReviewCategorizeStep
-      {parseErrorCount}
-      largeRowCount={rows.length}
-      {pendingCount}
-      {bulkImportableCount}
-      {bulkSkippableVisibleCount}
-      {filter}
-      {filterCounts}
-      {filterOptions}
-      {visibleRows}
-      totalActiveRows={activeRows.length}
-      {ruleSuggestions}
-      {ruleSaving}
-      groups={groupsQuery.data ?? []}
-      {categoriesFor}
-      {createCategoryInline}
-      {needsRule}
-      {matchedRuleFor}
-      {ruleAttributionText}
-      onFilterChange={(k) => (filter = k)}
-      onClearFilter={() => (filter = "all")}
-      onBulkImport={() => void bulkImportValid()}
-      onBulkSkipVisible={() => void bulkSkipVisible()}
-      onSaveSuggestion={(s) => void saveSuggestion(s)}
-      onQuickSaveRule={(row) => void quickSaveRule(row)}
-      onPatchRow={(id, patch) => void patchRow(id, patch)}
-      onOpenRuleSettings={openRuleInSettings}
-      {decisionControl}
-      onBack={() => goToStep("duplicates")}
-      onNext={() => goToStep("finalize")}
-      onCancel={() => void onCancel()}
-      canProceed={canProceedCategorize}
-    />
-  {:else}
-    <ImportReviewFinalizeStep
-      account={accountQuery.data}
-      {bankKindLabel}
-      {importRows}
-      {skippedRows}
-      {duplicateRows}
-      {categoryName}
-      uncategorizedImportCount={uncategorizedImportRows.length}
-      commitPending={commitMut.isPending}
-      onBack={() => goToStep("categorize")}
-      onCommit={() => commitMut.mutate()}
-      onCancel={() => void onCancel()}
-    />
+  {#if accountQuery.data}
+    <p class="rounded-xl border border-white/5 bg-slate-950/40 px-3 py-2 text-xs text-slate-300">
+      {m.bank_review_account_destination({
+        bank: bankKindLabel(accountQuery.data.kind),
+        account: accountQuery.data.label,
+      })}
+    </p>
   {/if}
+
+  <DuplicateBanner
+    {duplicateRows}
+    {duplicateDetail}
+    {warningsByRow}
+    onImportAnyway={(row) => void importDuplicateAnyway(row)}
+    onRestoreAll={() => void restoreAllDuplicates()}
+  />
+
+  <ImportReviewCategorizeStep
+    {parseErrorCount}
+    largeRowCount={rows.length}
+    {bulkSkippableVisibleCount}
+    {bulkRestorableVisibleCount}
+    {filter}
+    {filterCounts}
+    {filterOptions}
+    {visibleRows}
+    totalActiveRows={activeRows.length}
+    {ruleSuggestions}
+    {ruleSaving}
+    groups={groupsQuery.data ?? []}
+    {categoriesFor}
+    {createCategoryInline}
+    {needsRule}
+    {matchedRuleFor}
+    {ruleAttributionText}
+    onFilterChange={(k) => (filter = k)}
+    onClearFilter={() => (filter = "all")}
+    onBulkSkipVisible={() => void bulkSkipVisible()}
+    onBulkRestoreVisible={() => void bulkRestoreVisible()}
+    onSaveSuggestion={(s) => void saveSuggestion(s)}
+    onQuickSaveRule={(row) => void quickSaveRule(row)}
+    onPatchRow={(id, patch) => void patchRow(id, patch)}
+    onOpenRuleSettings={openRuleInSettings}
+    {decisionControl}
+  />
+
+  <div
+    class="sticky bottom-0 z-20 -mx-4 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 bg-slate-950/95 px-4 py-3 pb-(--mobile-action-bottom) backdrop-blur md:pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+  >
+    <div class="min-w-0 text-xs text-slate-400">
+      {#if importRows.length === 0}
+        <span class="text-amber-300">{m.bank_review_commit_zero_hint()}</span>
+      {:else}
+        {m.bank_review_footer_counts({
+          imp: importRows.length,
+          skip: skippedRows.length,
+          inne: uncategorizedImportRows.length,
+        })}
+      {/if}
+    </div>
+    <div class="flex gap-2">
+      <Button variant="ghost" onclick={() => void onCancel()} disabled={commitMut.isPending}>
+        {m.bank_review_cancel()}
+      </Button>
+      <Button
+        variant="primary"
+        disabled={importRows.length === 0 || commitMut.isPending}
+        loading={commitMut.isPending}
+        onclick={commitOrConfirm}
+      >
+        {m.bank_review_commit_action({ count: importRows.length })}
+      </Button>
+    </div>
+  </div>
 </div>
+
+<ImportConfirmSheet
+  open={confirmOpen}
+  importCount={importRows.length}
+  skipCount={skippedRows.length}
+  dupCount={duplicateRows.length}
+  {inneRows}
+  commitPending={commitMut.isPending}
+  onClose={() => (confirmOpen = false)}
+  onCommit={confirmCommit}
+/>
