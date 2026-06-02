@@ -104,6 +104,21 @@ describe("import/categorize matchCategory", () => {
     expect(matchCategory(expenseRow, rules, categories)).toBe(expenseCat.id);
   });
 
+  it("match_day_of_month: only matches rows posted on that calendar day", () => {
+    const rules = [
+      rule({
+        kind: "contains",
+        match_description: "biedronka",
+        match_day_of_month: 15,
+      }),
+    ];
+    expect(matchCategory({ ...expenseRow, posted_at: "2026-03-15" }, rules, categories)).toBe(
+      expenseCat.id
+    );
+    expect(matchCategory({ ...expenseRow, posted_at: "2026-03-16" }, rules, categories)).toBeNull();
+    expect(matchCategory(expenseRow, rules, categories)).toBeNull();
+  });
+
   it("exact: requires full trimmed equality, not a substring", () => {
     const substr = [rule({ kind: "exact", match_description: "biedronka" })];
     expect(matchCategory(expenseRow, substr, categories)).toBeNull();
