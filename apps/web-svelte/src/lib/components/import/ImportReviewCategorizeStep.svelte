@@ -5,79 +5,61 @@
   import Input from "$lib/components/ui/Input.svelte";
   import Badge from "$lib/components/ui/Badge.svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
-  import Sheet from "$lib/components/ui/Sheet.svelte";
-  import Select from "$lib/components/ui/Select.svelte";
+  import Dialog from "$lib/components/ui/Dialog.svelte";
   import ImportCategoryCombobox from "$lib/components/import/ImportCategoryCombobox.svelte";
   import type { ImportRow } from "$lib/services/bank-import";
   import type { Category, CategorizationRule, UserGroup } from "$lib/types";
   import { cn, formatCurrency } from "$lib/utils";
-  import { Users } from "lucide-svelte";
+  import { ChevronDown, Users } from "lucide-svelte";
 
-  type FilterKind = "all" | "uncategorized" | "income" | "expense";
-
-  interface RuleSuggestion {
-    key: string;
-    text: string;
-    categoryId: string;
-    categoryName: string;
-    count: number;
-  }
+  type FilterKind = "pending" | "all" | "uncategorized" | "income" | "expense";
+  type SortKind = "original" | "date_desc" | "date_asc" | "amount_desc" | "amount_asc";
 
   interface Props {
     parseErrorCount: number;
     largeRowCount: number;
-    bulkSkippableVisibleCount: number;
+    bulkImportableVisibleCount: number;
     bulkRestorableVisibleCount: number;
     filter: FilterKind;
     filterCounts: Record<FilterKind, number>;
     filterOptions: { kind: FilterKind; label: string }[];
     visibleRows: ImportRow[];
     totalActiveRows: number;
-    ruleSuggestions: RuleSuggestion[];
-    ruleSaving: boolean;
     groups: UserGroup[];
     categoriesFor: (type: "income" | "expense") => Category[];
     createCategoryInline: (name: string, type: "income" | "expense") => Promise<string | null>;
-    needsRule: (row: ImportRow) => boolean;
     matchedRuleFor: (row: ImportRow) => CategorizationRule | null;
-    ruleAttributionText: (rule: CategorizationRule) => string;
     onFilterChange: (kind: FilterKind) => void;
     onClearFilter: () => void;
-    onBulkSkipVisible: () => void;
+    onBulkImportVisible: () => void;
     onBulkRestoreVisible: () => void;
-    onSaveSuggestion: (s: RuleSuggestion) => void;
-    onQuickSaveRule: (row: ImportRow) => void;
     onPatchRow: (rowId: string, patch: Partial<ImportRow>) => void;
-    onOpenRuleSettings: (ruleId: string) => void;
+    onCategoryChange: (row: ImportRow, selectedCategoryId: string | null) => void;
+    onEditRule: (rule: CategorizationRule) => void;
     decisionControl: Snippet<[ImportRow]>;
   }
 
   let {
     parseErrorCount,
     largeRowCount,
-    bulkSkippableVisibleCount,
+    bulkImportableVisibleCount,
     bulkRestorableVisibleCount,
     filter,
     filterCounts,
     filterOptions,
     visibleRows,
     totalActiveRows,
-    ruleSuggestions,
-    ruleSaving,
     groups,
     categoriesFor,
     createCategoryInline,
-    needsRule,
     matchedRuleFor,
-    ruleAttributionText,
     onFilterChange,
     onClearFilter,
-    onBulkSkipVisible,
+    onBulkImportVisible,
     onBulkRestoreVisible,
-    onSaveSuggestion,
-    onQuickSaveRule,
     onPatchRow,
-    onOpenRuleSettings,
+    onCategoryChange,
+    onEditRule,
     decisionControl,
   }: Props = $props();
 
@@ -86,6 +68,90 @@
   const groupSheetRow = $derived(
     groupSheetRowId ? visibleRows.find((r) => r.id === groupSheetRowId) : null
   );
+  let stickyToolbarRef = $state<HTMLDivElement | null>(null);
+  let stickyToolbarHeight = $state(0);
+  let sortKind = $state<SortKind>("original");
+  const sortKinds: SortKind[] = ["original", "date_desc", "date_asc", "amount_desc", "amount_asc"];
+  const sortLabelByKind: Record<SortKind, string> = {
+    original: m.bank_review_sort_original(),
+    date_desc: m.bank_review_sort_date_desc(),
+    date_asc: m.bank_review_sort_date_asc(),
+    amount_desc: m.bank_review_sort_amount_desc(),
+    amount_asc: m.bank_review_sort_amount_asc(),
+  };
+  const sortedRows = $derived.by(() => {
+    if (sortKind === "original") return visibleRows;
+
+    const sorted = [...visibleRows];
+    const dateValue = (row: ImportRow) => new Date(row.posted_at).getTime();
+
+    switch (sortKind) {
+      case "date_desc":
+        sorted.sort((a, b) => dateValue(b) - dateValue(a));
+        break;
+      case "date_asc":
+        sorted.sort((a, b) => dateValue(a) - dateValue(b));
+        break;
+      case "amount_desc":
+        sorted.sort((a, b) => b.amount - a.amount);
+        break;
+      case "amount_asc":
+        sorted.sort((a, b) => a.amount - b.amount);
+        break;
+      default:
+        break;
+    }
+
+    return sorted;
+  });
+
+  function setSortKind(value: string): void {
+    if (sortKinds.includes(value as SortKind)) {
+      sortKind = value as SortKind;
+    }
+  }
+
+  function ruleMatchText(rule: CategorizationRule): string {
+    const description = rule.match_description?.trim() ?? "";
+    const counterparty = rule.match_counterparty?.trim() ?? "";
+    const parts: string[] = [];
+
+    if (
+      description !== "" &&
+      counterparty !== "" &&
+      description.toLocaleLowerCase("pl") === counterparty.toLocaleLowerCase("pl")
+    ) {
+      parts.push(description);
+    } else {
+      if (description !== "") {
+        parts.push(`${m.bank_review_save_rule_field_description()}: "${description}"`);
+      }
+      if (counterparty !== "") {
+        parts.push(`${m.bank_review_save_rule_field_counterparty()}: "${counterparty}"`);
+      }
+    }
+    if (rule.match_type) {
+      const typeLabel = rule.match_type === "income" ? m.common_income() : m.common_expense();
+      parts.push(`${m.rules_field_type()}: ${typeLabel}`);
+    }
+    if (rule.match_day_of_month != null) {
+      parts.push(`${m.bank_review_rule_condition_date()}: ${rule.match_day_of_month}`);
+    }
+
+    return parts.join(" · ") || m.bank_review_rule_saved();
+  }
+
+  $effect(() => {
+    const el = stickyToolbarRef;
+    if (!el) return;
+
+    const observer = new ResizeObserver(() => {
+      stickyToolbarHeight = el.offsetHeight;
+    });
+    stickyToolbarHeight = el.offsetHeight;
+    observer.observe(el);
+    return () => observer.disconnect();
+  });
 </script>
 
 <div class="space-y-4">
@@ -105,44 +171,29 @@
     </p>
   {/if}
 
-  {#if ruleSuggestions.length > 0}
-    <div class="space-y-1.5">
-      <p class="text-xs font-medium text-slate-400">{m.bank_review_rule_suggestions_heading()}</p>
-      <div class="flex gap-2 overflow-x-auto pb-1">
-        {#each ruleSuggestions as suggestion (suggestion.key)}
+  <div
+    bind:this={stickyToolbarRef}
+    class="sticky top-14 z-30 -mx-4 space-y-2 border-b border-white/10 bg-slate-950 px-4 py-2"
+  >
+    {#if bulkImportableVisibleCount > 0 || bulkRestorableVisibleCount > 0}
+      <div class="flex flex-wrap items-center gap-2">
+        {#if bulkImportableVisibleCount > 0}
           <button
             type="button"
-            class="border-accent/25 bg-accent/10 hover:bg-accent/15 min-w-64 shrink-0 rounded-xl border px-3 py-2 text-left transition-colors disabled:opacity-60"
-            disabled={ruleSaving}
-            onclick={() => onSaveSuggestion(suggestion)}
+            class="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-400 transition-colors hover:bg-white/5"
+            onclick={onBulkImportVisible}
           >
-            <span class="text-accent block text-xs">
-              {m.bank_review_rule_suggestion_intro({
-                text: suggestion.text,
-                count: suggestion.count,
-              })}
-            </span>
-            <span class="mt-0.5 block truncate text-sm font-medium text-slate-100">
-              {m.bank_review_rule_suggestion_action({ category: suggestion.categoryName })}
-            </span>
+            {m.bank_review_mark_visible_import_action({ count: bulkImportableVisibleCount })}
           </button>
-        {/each}
-      </div>
-    </div>
-  {/if}
-
-  <div class="sticky top-14 z-30 -mx-4 space-y-2 border-b border-white/10 bg-slate-950 px-4 py-2">
-    {#if bulkSkippableVisibleCount > 0 || bulkRestorableVisibleCount > 0}
-      <div class="flex flex-wrap items-center gap-2">
-        {#if bulkSkippableVisibleCount > 0}
-          <Button variant="ghost" size="sm" onclick={onBulkSkipVisible}>
-            {m.bank_review_skip_visible_action({ count: bulkSkippableVisibleCount })}
-          </Button>
         {/if}
         {#if bulkRestorableVisibleCount > 0}
-          <Button variant="ghost" size="sm" onclick={onBulkRestoreVisible}>
+          <button
+            type="button"
+            class="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-400 transition-colors hover:bg-white/5"
+            onclick={onBulkRestoreVisible}
+          >
             {m.bank_review_restore_visible_action({ count: bulkRestorableVisibleCount })}
-          </Button>
+          </button>
         {/if}
       </div>
     {/if}
@@ -162,6 +213,24 @@
           {f.label}<span class="ml-1.5 text-slate-500">{filterCounts[f.kind]}</span>
         </button>
       {/each}
+      <div class="relative inline-flex">
+        <select
+          value={sortKind}
+          aria-label={m.bank_review_sort_label()}
+          title={m.bank_review_sort_dropdown_hint()}
+          class="focus-visible:ring-accent appearance-none rounded-full border border-white/10 bg-slate-950 py-1 pr-8 pl-3 text-xs text-slate-400 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+          onchange={(event) => setSortKind((event.currentTarget as HTMLSelectElement).value)}
+        >
+          {#each sortKinds as kind (kind)}
+            <option value={kind}>{sortLabelByKind[kind]}</option>
+          {/each}
+        </select>
+        <ChevronDown
+          size={14}
+          aria-hidden="true"
+          class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-slate-500"
+        />
+      </div>
     </div>
   </div>
 
@@ -181,7 +250,10 @@
   {:else}
     <div class="hidden rounded-2xl border border-white/10 md:block">
       <table class="min-w-full divide-y divide-white/5 text-sm">
-        <thead class="bg-slate-900 text-xs text-slate-400 uppercase">
+        <thead
+          class="sticky z-40 bg-slate-900/95 text-xs text-slate-400 uppercase backdrop-blur"
+          style={`top: calc(3.5rem + ${stickyToolbarHeight}px)`}
+        >
           <tr>
             <th class="px-3 py-2 text-left">{m.bank_review_header_date()}</th>
             <th class="px-3 py-2 text-right">{m.bank_review_header_amount()}</th>
@@ -191,7 +263,7 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-white/5 bg-slate-950/40">
-          {#each visibleRows as row (row.id)}
+          {#each sortedRows as row (row.id)}
             {@const rule = matchedRuleFor(row)}
             {@const groupName = groups.find((g) => g.id === row.selected_group_id)?.name}
             <tr>
@@ -228,29 +300,25 @@
                   categories={categoriesFor(row.type)}
                   type={row.type}
                   selectedId={row.selected_category_id}
-                  onchange={(id) => onPatchRow(row.id, { selected_category_id: id })}
+                  onchange={(id) => onCategoryChange(row, id)}
                   oncreate={createCategoryInline}
                 />
                 <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
                   {#if rule}
+                    <span
+                      class="rounded-md bg-slate-800/80 px-2 py-0.5 text-xs text-slate-300"
+                      title={m.bank_review_row_rule_attribution({ text: ruleMatchText(rule) })}
+                    >
+                      {m.bank_review_rule_pill({ rule: ruleMatchText(rule) })}
+                    </span>
                     <button
                       type="button"
-                      class="rounded-md bg-slate-800/80 px-2 py-0.5 text-xs text-slate-400"
+                      class="rounded-md px-2 py-0.5 text-xs text-slate-400 underline-offset-2 hover:bg-white/5 hover:text-slate-200 hover:underline"
                       title={m.bank_review_row_rule_attribution_title()}
-                      onclick={() => onOpenRuleSettings(rule.id)}
+                      onclick={() => onEditRule(rule)}
                     >
-                      {m.bank_review_rule_from_rule({ text: ruleAttributionText(rule) })}
+                      {m.bank_review_rule_edit()}
                     </button>
-                  {:else if needsRule(row)}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      class="text-amber-300 ring-1 ring-amber-400/40"
-                      disabled={!row.selected_category_id || ruleSaving}
-                      onclick={() => onQuickSaveRule(row)}
-                    >
-                      {m.bank_review_save_rule_button()}
-                    </Button>
                   {/if}
                   <button
                     type="button"
@@ -276,7 +344,7 @@
     </div>
 
     <ul class="space-y-1.5 md:hidden">
-      {#each visibleRows as row (row.id)}
+      {#each sortedRows as row (row.id)}
         {@const rule = matchedRuleFor(row)}
         {@const groupName = groups.find((g) => g.id === row.selected_group_id)?.name}
         {@const secondary = row.counterparty ? (row.edited_description ?? row.description) : null}
@@ -308,24 +376,25 @@
             categories={categoriesFor(row.type)}
             type={row.type}
             selectedId={row.selected_category_id}
-            onchange={(id) => onPatchRow(row.id, { selected_category_id: id })}
+            onchange={(id) => onCategoryChange(row, id)}
             oncreate={createCategoryInline}
           />
           <div class="flex flex-wrap items-center gap-2">
             {#if rule}
-              <span class="text-xs text-slate-400"
-                >{m.bank_review_rule_from_rule({ text: ruleAttributionText(rule) })}</span
+              <span
+                class="rounded-md bg-slate-800/80 px-2 py-0.5 text-xs text-slate-300"
+                title={m.bank_review_row_rule_attribution({ text: ruleMatchText(rule) })}
               >
-            {:else if needsRule(row)}
-              <Button
-                variant="ghost"
-                size="sm"
-                class="text-amber-300"
-                disabled={!row.selected_category_id || ruleSaving}
-                onclick={() => onQuickSaveRule(row)}
+                {m.bank_review_rule_pill({ rule: ruleMatchText(rule) })}
+              </span>
+              <button
+                type="button"
+                class="text-xs text-slate-400 underline-offset-2 hover:text-slate-200 hover:underline"
+                title={m.bank_review_row_rule_attribution_title()}
+                onclick={() => onEditRule(rule)}
               >
-                {m.bank_review_save_rule_button()}
-              </Button>
+                {m.bank_review_rule_edit()}
+              </button>
             {/if}
             <button
               type="button"
@@ -344,14 +413,15 @@
   {/if}
 </div>
 
-<Sheet
+<Dialog
   open={groupSheetRow !== null}
   onclose={() => (groupSheetRowId = null)}
   title={m.bank_review_group_sheet_title()}
 >
   {#if groupSheetRow}
     <p class="mb-3 text-xs text-slate-400">{m.bank_review_group_sheet_hint()}</p>
-    <Select
+    <select
+      class="focus-visible:ring-accent h-9 w-full rounded-lg border border-white/10 bg-slate-900 px-3 text-sm text-slate-100 focus-visible:ring-2 focus-visible:outline-none"
       value={groupSheetRow.selected_group_id ?? ""}
       onchange={(e) => {
         const row = groupSheetRow;
@@ -364,11 +434,11 @@
       {#each groups as g (g.id)}
         <option value={g.id}>{g.name}</option>
       {/each}
-    </Select>
+    </select>
     <div class="mt-4 flex justify-end">
       <Button variant="primary" size="sm" onclick={() => (groupSheetRowId = null)}>
         {m.common_close()}
       </Button>
     </div>
   {/if}
-</Sheet>
+</Dialog>

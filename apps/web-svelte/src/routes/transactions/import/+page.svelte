@@ -242,16 +242,18 @@
 </div>
 
 <Dialog open={leaveDialogOpen} onclose={stayOnPage} title={m.bank_import_leave_title()}>
-  <div class="space-y-4">
+  <div class="space-y-3">
     <p class="text-sm text-slate-300">{m.bank_import_leave_body_stepper()}</p>
-    <div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
-      <Button variant="ghost" onclick={stayOnPage}>{m.bank_import_leave_stay()}</Button>
-      <Button variant="danger" onclick={() => void discardDraftAndLeave()}>
-        {m.bank_import_leave_discard()}
-      </Button>
-      <Button variant="primary" onclick={saveDraftAndLeave}>
-        {m.bank_import_leave_save()}
-      </Button>
+    <div class="flex items-center justify-between gap-2 pt-1">
+      <Button variant="ghost" size="sm" onclick={stayOnPage}>{m.bank_import_leave_stay()}</Button>
+      <div class="flex items-center gap-2">
+        <Button variant="ghost" size="sm" onclick={() => void discardDraftAndLeave()}>
+          {m.bank_import_leave_discard()}
+        </Button>
+        <Button variant="primary" size="sm" onclick={saveDraftAndLeave}>
+          {m.bank_import_leave_save()}
+        </Button>
+      </div>
     </div>
   </div>
 </Dialog>
