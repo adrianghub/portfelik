@@ -13,6 +13,7 @@
     findExistingSession,
     findOrCreateActiveAccount,
     insertPreviewRows,
+    markPreviewDuplicates,
     openImportSession,
     type BankKind,
     type ImportSession,
@@ -111,6 +112,14 @@
         resolver = undefined;
       }
       await insertPreviewRows(session.id, normalized.rows, resolver);
+      // Default-skip probable duplicates once (issue #73). Best-effort: a failure
+      // here must not block the import — the review surface still opens, and the
+      // commit RPC re-detects duplicates as a safety net.
+      try {
+        await markPreviewDuplicates(session.id);
+      } catch {
+        /* non-fatal: dups will still be caught at commit */
+      }
       onSessionReady(session, parseErrorCount);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
