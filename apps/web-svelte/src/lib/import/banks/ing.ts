@@ -22,7 +22,14 @@
 // against real anonymized ING exports is a step-2.5 task; provisional.
 
 import { parseCsv } from "../csv/parse";
-import type { BankAdapter, ParseError, ParsedBankFile, ParsedRow } from "./types";
+import type {
+  AdapterDetectionInput,
+  DetectionResult,
+  ImportAdapter,
+  ParseError,
+  ParsedImportFile,
+  ParsedRow,
+} from "./types";
 
 function findIndex(headers: string[], candidates: string[]): number {
   for (const cand of candidates) {
@@ -81,19 +88,28 @@ function suppressConstantExternalIds(rows: ParsedRow[]): ParsedRow[] {
   return rows;
 }
 
-export const ingAdapter: BankAdapter = {
+export const ingAdapter: ImportAdapter = {
   kind: "ing",
+  sourceKind: "bank_statement",
+  label: "ING Bank Śląski",
 
-  detect(headers: string[]): boolean {
-    const hl = headers.map((h) => h.trim().toLowerCase());
-    return (
-      hl.includes("data transakcji") ||
-      hl.some((h) => h.startsWith("kwota transakcji")) ||
-      hl.includes("nr transakcji")
+  detect({ rows }: AdapterDetectionInput): DetectionResult {
+    const hit = rows.some((row) =>
+      row.some((cell) => {
+        const c = cell.trim().toLowerCase();
+        return c === "data transakcji" || c.startsWith("kwota transakcji") || c === "nr transakcji";
+      })
     );
+    return hit
+      ? {
+          kind: "ing",
+          confidence: "high",
+          reason: "ING 'Data transakcji'/'Kwota transakcji'/'Nr transakcji' header",
+        }
+      : null;
   },
 
-  parse(text: string): ParsedBankFile {
+  parse(text: string): ParsedImportFile {
     const csv = parseCsv(text);
 
     // ING also has a metadata preamble. Find the header row by hint.
@@ -193,6 +209,10 @@ export const ingAdapter: BankAdapter = {
       });
     }
 
-    return { kind: "ing", rows: suppressConstantExternalIds(rows), errors };
+    return {
+      kind: "ing",
+      rows: suppressConstantExternalIds(rows),
+      errors,
+    } satisfies ParsedImportFile;
   },
 };

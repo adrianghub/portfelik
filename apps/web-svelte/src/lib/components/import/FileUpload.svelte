@@ -2,7 +2,13 @@
   import * as m from "$lib/paraglide/messages";
   import { goto } from "$app/navigation";
   import { decodeBankCsv } from "$lib/import/csv/decode";
-  import { detectBank, getAdapter } from "$lib/import/banks/detect";
+  import {
+    detectImportAdapter,
+    getImportAdapter,
+    importAdapterLabel,
+    listImportAdapters,
+  } from "$lib/import/banks/registry";
+  import type { ImportAdapterKind, DetectionResult } from "$lib/import/banks/types";
   import { normalize } from "$lib/import/normalize";
   import { matchCategory } from "$lib/import/categorize";
   import { fetchCategorizationRules } from "$lib/services/categorization-rules";
@@ -15,7 +21,6 @@
     insertPreviewRows,
     markPreviewDuplicates,
     openImportSession,
-    type BankKind,
     type ImportSession,
   } from "$lib/services/bank-import";
   import Button from "$lib/components/ui/Button.svelte";
@@ -36,11 +41,79 @@
   let dragOver = $state(false);
   let error = $state<string | null>(null);
   let parseErrorCount = $state(0);
-  let detectedBankLabel = $state<string | null>(null);
   let committedConflict = $state<ImportSession | null>(null);
 
-  function kindLabel(kind: BankKind): string {
-    return kind === "ing" ? m.bank_account_kind_ing() : m.bank_account_kind_mbank();
+  // Pending upload awaiting adapter confirmation.
+  let pending = $state<{ file: File; bytes: ArrayBuffer; text: string } | null>(null);
+  let detection = $state<DetectionResult>(null);
+  let selectedKind = $state<ImportAdapterKind | null>(null);
+
+  const bankAdapters = listImportAdapters({ sourceKind: "bank_statement" });
+
+  async function proceedWithAdapter(kind: ImportAdapterKind): Promise<void> {
+    if (!pending) return;
+    const { file, bytes, text } = pending;
+    const label = importAdapterLabel(kind);
+
+    const adapter = getImportAdapter(kind);
+    const parsed = adapter.parse(text);
+    parseErrorCount = parsed.errors.length;
+    if (parsed.rows.length === 0 && parsed.errors.length > 0) {
+      error = m.bank_upload_parse_failed({ bank: label });
+      return;
+    }
+
+    const normalized = await normalize(parsed, bytes);
+    parseErrorCount = normalized.errors.length;
+
+    const account = await findOrCreateActiveAccount({ kind, defaultLabel: label });
+
+    const existing = await findExistingSession({
+      bankAccountId: account.id,
+      sourceFileHash: normalized.sourceFileHash,
+    });
+    if (existing?.status === "committed") {
+      committedConflict = existing;
+      return;
+    }
+    // An uncommitted preview for the same file is an abandoned earlier
+    // attempt. Cancel it (frees the partial unique index on file hash) and
+    // start fresh - no mid-review resume.
+    if (existing?.status === "preview") {
+      await cancelImportSession(existing.id);
+    }
+
+    const session = await openImportSession({
+      bankAccountId: account.id,
+      sourceFilename: file.name,
+      sourceFileHash: normalized.sourceFileHash,
+      adapterKind: kind,
+    });
+
+    // Pre-fill categories from the user's deterministic rules when available.
+    // Rule/category loading is optional; if it fails, keep the import usable
+    // and let the user categorize rows manually in review.
+    let resolver: ((row: (typeof normalized.rows)[number]) => string | null) | undefined;
+    try {
+      const [rules, categories] = await Promise.all([
+        fetchCategorizationRules(),
+        fetchCategories(),
+      ]);
+      resolver = (r) => matchCategory(r, rules, categories);
+    } catch {
+      resolver = undefined;
+    }
+    await insertPreviewRows(session.id, normalized.rows, resolver);
+    // Default-skip probable duplicates once (issue #73). Best-effort: a failure
+    // here must not block the import — the review surface still opens, and the
+    // commit RPC re-detects duplicates as a safety net.
+    try {
+      await markPreviewDuplicates(session.id);
+    } catch {
+      /* non-fatal: dups will still be caught at commit */
+    }
+    pending = null;
+    onSessionReady(session, parseErrorCount);
   }
 
   async function handleFile(file: File): Promise<void> {
@@ -48,79 +121,38 @@
     onFileRetained?.(file);
     error = null;
     parseErrorCount = 0;
-    detectedBankLabel = null;
     committedConflict = null;
+    pending = null;
+    detection = null;
+    selectedKind = null;
     busy = true;
     try {
       const bytes = await file.arrayBuffer();
       const text = decodeBankCsv(bytes);
+      const result = detectImportAdapter(text);
+      pending = { file, bytes, text };
+      detection = result;
+      selectedKind = result?.kind ?? null;
 
-      const detected = detectBank(text);
-      if (!detected) {
-        error = m.bank_upload_kind_unknown();
-        return;
+      // High-confidence detection: proceed straight through (one-click path).
+      if (result && result.confidence === "high") {
+        await proceedWithAdapter(result.kind);
       }
-      const bankLabel = kindLabel(detected);
-      detectedBankLabel = bankLabel;
+      // medium/low/null: render the selector and wait for confirmAdapter().
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      error = msg;
+      toast.error(msg);
+    } finally {
+      busy = false;
+    }
+  }
 
-      // Auto-find-or-create the user's active account for this kind. The
-      // user never picks a bank - detection is enough.
-      const account = await findOrCreateActiveAccount({
-        kind: detected,
-        defaultLabel: bankLabel,
-      });
-
-      const adapter = getAdapter(detected);
-      const parsed = adapter.parse(text);
-      const normalized = await normalize(parsed, bytes);
-      parseErrorCount = normalized.errors.length;
-
-      const existing = await findExistingSession({
-        bankAccountId: account.id,
-        sourceFileHash: normalized.sourceFileHash,
-      });
-
-      if (existing?.status === "committed") {
-        committedConflict = existing;
-        return;
-      }
-      // An uncommitted preview for the same file is an abandoned earlier
-      // attempt. Cancel it (frees the partial unique index on file hash) and
-      // start fresh - no mid-review resume.
-      if (existing?.status === "preview") {
-        await cancelImportSession(existing.id);
-      }
-
-      const session = await openImportSession({
-        bankAccountId: account.id,
-        sourceFilename: file.name,
-        sourceFileHash: normalized.sourceFileHash,
-        detectedKind: detected,
-      });
-
-      // Pre-fill categories from the user's deterministic rules when available.
-      // Rule/category loading is optional; if it fails, keep the import usable
-      // and let the user categorize rows manually in review.
-      let resolver: ((row: (typeof normalized.rows)[number]) => string | null) | undefined;
-      try {
-        const [rules, categories] = await Promise.all([
-          fetchCategorizationRules(),
-          fetchCategories(),
-        ]);
-        resolver = (r) => matchCategory(r, rules, categories);
-      } catch {
-        resolver = undefined;
-      }
-      await insertPreviewRows(session.id, normalized.rows, resolver);
-      // Default-skip probable duplicates once (issue #73). Best-effort: a failure
-      // here must not block the import — the review surface still opens, and the
-      // commit RPC re-detects duplicates as a safety net.
-      try {
-        await markPreviewDuplicates(session.id);
-      } catch {
-        /* non-fatal: dups will still be caught at commit */
-      }
-      onSessionReady(session, parseErrorCount);
+  async function confirmAdapter(): Promise<void> {
+    if (!selectedKind) return;
+    busy = true;
+    try {
+      await proceedWithAdapter(selectedKind);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       error = msg;
@@ -135,7 +167,9 @@
     try {
       await cancelImportSession(committedConflict.id);
       committedConflict = null;
-      detectedBankLabel = null;
+      pending = null;
+      detection = null;
+      selectedKind = null;
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
     }
@@ -188,8 +222,10 @@
     onFileRetained?.(null);
     error = null;
     parseErrorCount = 0;
-    detectedBankLabel = null;
     committedConflict = null;
+    pending = null;
+    detection = null;
+    selectedKind = null;
   }
 
   function reprocess(): void {
@@ -244,10 +280,40 @@
     <p class="text-sm text-slate-400">{m.bank_upload_parsing()}</p>
   {/if}
 
-  {#if detectedBankLabel && !error}
-    <p class="border-accent/30 bg-accent/10 text-accent rounded-xl border px-4 py-3 text-sm">
-      {m.bank_upload_detected({ bank: detectedBankLabel })}
-    </p>
+  {#if pending && !committedConflict && !busy}
+    {#if detection?.confidence === "high" && !error}
+      <p class="border-accent/30 bg-accent/10 text-accent rounded-xl border px-4 py-3 text-sm">
+        {m.bank_upload_recognized({ bank: importAdapterLabel(detection.kind) })}
+      </p>
+    {:else if detection?.confidence !== "high"}
+      <div class="space-y-3 rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
+        <p class="text-sm text-slate-300">
+          {#if detection}
+            {m.bank_upload_probable({ bank: importAdapterLabel(detection.kind) })}
+          {:else}
+            {m.bank_upload_pick_adapter()}
+          {/if}
+        </p>
+        <label class="block text-xs text-slate-400" for="adapter-select">
+          {m.bank_upload_adapter_label()}
+        </label>
+        <select
+          id="adapter-select"
+          bind:value={selectedKind}
+          class="w-full rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+        >
+          {#if !selectedKind}
+            <option value={null} disabled>{m.bank_upload_adapter_placeholder()}</option>
+          {/if}
+          {#each bankAdapters as a (a.kind)}
+            <option value={a.kind}>{a.label}</option>
+          {/each}
+        </select>
+        <Button size="sm" disabled={!selectedKind || busy} onclick={confirmAdapter}>
+          {m.bank_upload_adapter_confirm()}
+        </Button>
+      </div>
+    {/if}
   {/if}
 
   {#if error}

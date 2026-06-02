@@ -20,6 +20,8 @@
     suggestRuleText,
   } from "$lib/import/categorize";
   import type { CategorizationRule, TransactionType } from "$lib/types";
+  import { importAdapterLabel } from "$lib/import/banks/registry";
+  import type { ImportAdapterKind } from "$lib/import/banks/types";
   import {
     commitImportSession,
     fetchBankAccount,
@@ -174,8 +176,8 @@
         ]
   );
 
-  function bankKindLabel(kind: string): string {
-    return kind === "ing" ? m.bank_account_kind_ing() : m.bank_account_kind_mbank();
+  function bankKindLabel(kind: ImportAdapterKind): string {
+    return importAdapterLabel(kind);
   }
 
   function categoriesFor(type: "income" | "expense") {
