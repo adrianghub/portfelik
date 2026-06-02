@@ -55,12 +55,18 @@
     const { file, bytes, text } = pending;
     const label = importAdapterLabel(kind);
 
-    const account = await findOrCreateActiveAccount({ kind, defaultLabel: label });
-
     const adapter = getImportAdapter(kind);
     const parsed = adapter.parse(text);
+    parseErrorCount = parsed.errors.length;
+    if (parsed.rows.length === 0 && parsed.errors.length > 0) {
+      error = m.bank_upload_parse_failed({ bank: label });
+      return;
+    }
+
     const normalized = await normalize(parsed, bytes);
     parseErrorCount = normalized.errors.length;
+
+    const account = await findOrCreateActiveAccount({ kind, defaultLabel: label });
 
     const existing = await findExistingSession({
       bankAccountId: account.id,
