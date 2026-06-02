@@ -24,6 +24,7 @@ export interface CategorizationRule {
   match_description: string | null;
   match_counterparty: string | null;
   match_type: TransactionType | null;
+  match_day_of_month?: number | null;
   category_id: string;
   priority: number;
   created_at: string;

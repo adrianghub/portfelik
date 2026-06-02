@@ -16,6 +16,8 @@
     /** When set, the header row sticks at this CSS top offset (e.g. "top-[6.75rem]").
         Omitted inside the search palette so the header never floats over rows. */
     stickyHeaderOffset?: string;
+    /** Optional inline CSS top value (e.g. "calc(3.5rem + 48px)") for sticky header. */
+    stickyHeaderTop?: string;
   }
   let {
     transactions,
@@ -25,6 +27,7 @@
     emptyHint,
     selectedIds = $bindable(new Set<string>()),
     stickyHeaderOffset,
+    stickyHeaderTop,
   }: Props = $props();
 
   type SortKey = "date" | "description" | "category" | "status" | "amount";
@@ -284,7 +287,13 @@
   <!-- Desktop table -->
   <div class="hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur sm:block">
     <table class="w-full text-sm">
-      <thead class={cn(stickyHeaderOffset && `sticky z-10 bg-slate-900 ${stickyHeaderOffset}`)}>
+      <thead
+        class={cn(
+          (stickyHeaderOffset || stickyHeaderTop) &&
+            `sticky z-20 bg-slate-900 ${stickyHeaderOffset ?? ""}`
+        )}
+        style={stickyHeaderTop ? `top: ${stickyHeaderTop}` : undefined}
+      >
         <tr class="border-b border-white/5 bg-white/5">
           {#if ondelete}
             <th scope="col" class="w-10 py-3 pl-4">

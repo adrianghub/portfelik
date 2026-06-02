@@ -254,6 +254,8 @@
   let selectedIds = $state(new Set<string>());
   let bulkDeleteConfirm = $state(false);
   let searchModalOpen = $state(false);
+  let stickyFiltersRef = $state<HTMLDivElement | null>(null);
+  let stickyFiltersHeight = $state(0);
 
   function closeSearch() {
     searchModalOpen = false;
@@ -264,6 +266,21 @@
     if (searchModalOpen) closeSearch();
     else searchModalOpen = true;
   }
+
+  $effect(() => {
+    const el = stickyFiltersRef;
+    if (!el) {
+      stickyFiltersHeight = 0;
+      return;
+    }
+
+    const observer = new ResizeObserver(() => {
+      stickyFiltersHeight = el.offsetHeight;
+    });
+    stickyFiltersHeight = el.offsetHeight;
+    observer.observe(el);
+    return () => observer.disconnect();
+  });
 
   function onWindowKeydown(e: KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -483,22 +500,16 @@
       >
         + {m.transaction_add()}
       </button>
-      <TransactionDataActions
-        variant="desktop"
-        exportDisabled={!filteredTxs?.length}
-        onexport={handleExport}
-      />
-      <TransactionDataActions
-        variant="mobile"
-        exportDisabled={!filteredTxs?.length}
-        onexport={handleExport}
-      />
+      <TransactionDataActions exportDisabled={!filteredTxs?.length} onexport={handleExport} />
     </div>
   </div>
 
   <!-- Sticky filter bar: date + category visible, type/status behind Filtry -->
   {#if categoriesQuery.data && selectedIds.size === 0}
-    <div class="sticky top-14 z-30 -mx-4 border-b border-white/5 bg-slate-950">
+    <div
+      bind:this={stickyFiltersRef}
+      class="sticky top-14 z-30 -mx-4 border-b border-white/5 bg-slate-950"
+    >
       <div class="flex items-center gap-2 overflow-x-auto px-4 py-2 sm:overflow-x-visible">
         <button
           type="button"
@@ -651,7 +662,7 @@
       emptyLabel={tableEmptyLabel}
       emptyHint={tableEmptyHint}
       bind:selectedIds
-      stickyHeaderOffset="top-[6.75rem]"
+      stickyHeaderTop={`calc(3.5rem + ${stickyFiltersHeight}px)`}
       onrowclick={(tx) => (sheetTx = tx)}
       ondelete={(id: string) => (deleteTargetId = id)}
     />

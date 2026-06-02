@@ -1,0 +1,45 @@
+---
+description: Portfelik SvelteKit, Supabase, Paraglide, and bank-import gotchas
+globs: apps/web-svelte/**/*,supabase/**/*,docs/product/**/*
+alwaysApply: false
+---
+
+# Portfelik Svelte + Supabase Gotchas
+
+## Svelte 5
+
+- `createMutation()` returns a runes proxy, not a Svelte store. Use `mutation.mutate(...)`, `mutation.isPending`, and `mutation.isError`; never `$mutation`.
+- `createQuery()` is store-compatible; use query data according to the local pattern.
+- For `state_referenced_locally`, initialize `$state` from props with `untrack(() => ...)` when the one-time read is intentional.
+- For dialog reopen/reset, use `$effect(() => { if (open) resetFields(); })`.
+- Do not add `svelte-ignore` preemptively. Prefer semantic fixes first.
+- Backdrops should use semantic inert handling such as `role="presentation"` rather than suppressions.
+- `<!-- svelte-ignore a11y_autofocus -->` is acceptable when autofocus is intentional.
+- Use `void expr;` in `$effect` when intentionally tracking a reactive dependency without triggering `no-unused-expressions`.
+- `bind:this` on Svelte 5 components can expose exported function handles for delegation.
+
+## Paraglide
+
+- After any `messages/pl.json` edit, recompile from `apps/web-svelte/`:
+  `pnpm exec paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide`
+- `svelte-check` and TypeScript see stale generated files until this runs.
+
+## Supabase/PostgREST
+
+- RLS authorizes; it does not fill required columns. Inserts into user-owned tables must pass `user_id` from `supabase.auth.getUser()`.
+- `createCategory` and other owned-table inserts must pass `user_id` explicitly.
+- Group writes use SECURITY DEFINER RPCs. Avoid direct writes to group membership/invitation tables unless the schema explicitly permits it.
+- Supabase MCP lacks superuser privileges. Use committed migrations and, for privileged DDL, the migration path rather than ad hoc remote SQL.
+- Use Supabase Vault for trigger secrets. Do not hardcode trigger secrets in migrations or examples.
+- Local auth may return hash-fragment sessions; production PKCE uses `?code=`. Auth callbacks must handle `?code=` first and fall back to `getSession()`.
+
+## Bank Import
+
+- Duplicate detection already covers prior imports, shopping-list expenses, and manual non-list transactions.
+- Before `CREATE OR REPLACE FUNCTION`, read the latest migration touching that function.
+- Keep the import review intent funnel: filter, categorize, rule, group, decide.
+
+## Quality Gates
+
+- After Svelte/component work: `pnpm exec svelte-check --tsconfig ./tsconfig.json` must be 0 errors and 0 warnings.
+- Run lint, format check, relevant tests, and secret scan before finalizing substantive changes.

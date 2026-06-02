@@ -1,0 +1,48 @@
+---
+description: Portfelik agent workflow, tool, and review rules shared with Claude/Codex
+globs: **/*
+alwaysApply: false
+---
+
+# Portfelik Agent Workflow
+
+Canonical project state lives in `CLAUDE.md`; read it before substantive work.
+`AGENTS.md` points Codex and other agents back to the same rules.
+
+## Tool Discipline
+
+- Use Edgar for broad context: 3+ files, files over ~400 lines, broad search, large diffs, or noisy test/lint/compiler output.
+- Prefer:
+  - `edgar --paths <paths...> --question "<specific question>"`
+  - `edgar-parse --kind <jest|vitest|ts|eslint|pytest|cargo|generic>`
+  - `edgar-diff`
+- Treat Edgar output as context, not truth. Verify important claims against source before editing.
+- Use `rtk` for token-filtered command output where available. `rtk gain`, `rtk gain --history`, and `rtk discover` are direct analytics commands.
+- Do not copy secrets from local Claude/Cursor/Codex settings. Local JWTs and cloud credentials stay in gitignored env files.
+
+## Work Discipline
+
+- Split by concern: schema, services, components, config. One migration per logical schema change.
+- Never amend applied migrations.
+- After every increment, produce Conventional Commit suggestions with exact file lists and body text explaining why.
+- For review/audit requests, inspect actual routes/components/services before synthesizing. Doc-only summaries are not enough.
+- For ambiguous multi-step work, brainstorm and clarify before implementation. For risky behavior changes, prefer TDD.
+
+## Branch Discipline
+
+- `main` is production truth; `dev` is staging/integration.
+- Feature branches start from current `dev`; sync from latest `origin/dev` before push.
+- After anything lands on `main`, sync and push `dev` before new feature work.
+- Do not let `main` and `dev` independently evolve hot files.
+
+## Product Doctrine
+
+- Intent-Oriented UI: deterministic engines decide durable behavior; AI drafts, explains, or summarizes around auditable rules.
+- Surface meaningful decisions, not database mechanics.
+- Categories are intent labels; rules are learned habits, not settings-table busywork.
+
+## PRs
+
+- Do not hand-fill `.github/pull_request_template.md`.
+- Use `/pr` or `bash scripts/open-pr.sh [base] [--dry-run]`.
+- The script runs gates and blocks PR creation on failure.

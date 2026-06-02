@@ -181,6 +181,22 @@ export async function previewFingerprintWarnings(sessionId: string): Promise<Dup
 }
 
 /**
+ * Mutating probable-duplicate pass (issue #73). Flips matching rows from
+ * decision 'import' to 'duplicate' server-side and returns the same warning
+ * shape as previewFingerprintWarnings. Call ONCE right after insertPreviewRows
+ * at upload. On resume/refresh use previewFingerprintWarnings (read-only) for
+ * banner detail instead, so a user's "import anyway" override is preserved.
+ */
+export async function markPreviewDuplicates(sessionId: string): Promise<DuplicateWarning[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any).rpc("mark_preview_duplicates", {
+    p_session_id: sessionId,
+  });
+  if (error) throw error;
+  return data as unknown as DuplicateWarning[];
+}
+
+/**
  * Latest still-open ("preview") session for the current user, used to offer a
  * resume entry point after the user left mid-review (issue #66). Discarding a
  * draft soft-cancels it (see cancelImportSession), so cancelled drafts are never
@@ -259,7 +275,9 @@ export async function cancelImportSession(id: string): Promise<void> {
  * categorization rules - see import/categorize.ts). When it returns a category
  * id, both suggested_category_id (provenance: the suggestion) and
  * selected_category_id (the editable pick) are set so the row arrives already
- * categorized. Decision stays 'pending' - the user still confirms in review.
+ * categorized. Decision defaults to 'import' (default-import model, issue #73);
+ * probable duplicates are flipped to 'duplicate' by markPreviewDuplicates right
+ * after this call.
  *
  * Intra-batch hard duplicates (same external_id or same row_index in the
  * same session+file_hash) are NOT pre-filtered here - the unique indexes
@@ -287,7 +305,7 @@ export async function insertPreviewRows(
       raw_row_hash: r.raw_row_hash,
       suggested_category_id: categoryId,
       selected_category_id: categoryId,
-      decision: "pending" as const,
+      decision: "import" as const,
     };
   });
 

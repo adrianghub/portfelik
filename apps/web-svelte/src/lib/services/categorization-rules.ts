@@ -16,6 +16,7 @@ export interface CategorizationRuleInput {
   match_description?: string | null;
   match_counterparty?: string | null;
   match_type?: TransactionType | null;
+  match_day_of_month?: number | null;
   category_id: string;
   priority?: number;
 }
@@ -45,6 +46,7 @@ export async function createCategorizationRule(
     match_description: input.match_description ?? null,
     match_counterparty: input.match_counterparty ?? null,
     match_type: input.match_type ?? null,
+    match_day_of_month: input.match_day_of_month ?? null,
     category_id: input.category_id,
   };
   if (findDuplicateCategorizationRule(existingRules, candidate)) {
@@ -77,9 +79,10 @@ export async function updateCategorizationRule(
   id: string,
   patch: Partial<CategorizationRuleInput>
 ): Promise<CategorizationRule> {
+  const { match_day_of_month: _ignoredDayOfMonth, ...dbPatch } = patch;
   const { data, error } = await supabase
     .from("categorization_rules")
-    .update(patch)
+    .update(dbPatch)
     .eq("id", id)
     .select()
     .single();
