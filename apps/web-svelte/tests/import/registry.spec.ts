@@ -44,4 +44,12 @@ describe("import adapter registry", () => {
   it("importAdapterLabel falls back to the kind string for an unregistered adapter", () => {
     expect(importAdapterLabel("pko_bp")).toBe("pko_bp");
   });
+
+  it("medium/null detection still parses when the user picks the adapter", () => {
+    // Simulates the override path: detection returned medium (or null), user
+    // selects 'erste', parsing must succeed via getImportAdapter.
+    const adapter = getImportAdapter("erste");
+    expect(adapter.kind).toBe("erste");
+    expect(adapter.sourceKind).toBe("bank_statement");
+  });
 });

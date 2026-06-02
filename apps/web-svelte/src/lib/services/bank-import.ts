@@ -11,17 +11,20 @@
 
 import { supabase } from "$lib/supabase";
 import type { NormalizedRow } from "$lib/import/banks/types";
+import type { ImportAdapterKind, ImportSourceKind } from "$lib/import/banks/types";
+export type { ImportAdapterKind, ImportSourceKind } from "$lib/import/banks/types";
 import type { Database } from "$lib/supabase.types";
 
 type RowUpdate = Database["public"]["Tables"]["transaction_import_rows"]["Update"];
 
-export type BankKind = "mbank" | "ing";
+/** @deprecated use ImportAdapterKind instead. */
+export type BankKind = ImportAdapterKind;
 export type RowDecision = "pending" | "import" | "skip" | "duplicate";
 
 export interface BankAccount {
   id: string;
   user_id: string;
-  kind: BankKind;
+  kind: ImportAdapterKind;
   label: string;
   currency: string;
   archived_at: string | null;
@@ -35,7 +38,9 @@ export interface ImportSession {
   bank_account_id: string;
   source_filename: string | null;
   source_file_hash: string;
-  detected_kind: BankKind;
+  detected_kind: ImportAdapterKind;
+  adapter_kind: ImportAdapterKind | null;
+  source_kind: ImportSourceKind;
   status: "preview" | "committed" | "cancelled";
   rows_total: number;
   rows_committed: number;
@@ -94,7 +99,7 @@ export interface DuplicateWarning {
  * a second insert; we catch that and re-fetch.
  */
 export async function findOrCreateActiveAccount(input: {
-  kind: BankKind;
+  kind: ImportAdapterKind;
   defaultLabel: string;
 }): Promise<BankAccount> {
   const existing = await supabase
@@ -224,7 +229,8 @@ export async function openImportSession(input: {
   bankAccountId: string;
   sourceFilename: string | null;
   sourceFileHash: string;
-  detectedKind: BankKind;
+  adapterKind: ImportAdapterKind;
+  sourceKind?: ImportSourceKind;
 }): Promise<ImportSession> {
   const {
     data: { user },
@@ -238,7 +244,9 @@ export async function openImportSession(input: {
       bank_account_id: input.bankAccountId,
       source_filename: input.sourceFilename,
       source_file_hash: input.sourceFileHash,
-      detected_kind: input.detectedKind,
+      adapter_kind: input.adapterKind,
+      source_kind: input.sourceKind ?? "bank_statement",
+      detected_kind: input.adapterKind,
     })
     .select("*")
     .single();
