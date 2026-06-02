@@ -1,7 +1,7 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
   import Button from "$lib/components/ui/Button.svelte";
-  import type { ImportRow, DuplicateWarning } from "$lib/services/bank-import";
+  import type { ImportRow } from "$lib/services/bank-import";
   import { cn, formatCurrency } from "$lib/utils";
 
   interface Props {
@@ -9,7 +9,6 @@
     duplicateDetail: (rowId: string) => string | null;
     onImportAnyway: (row: ImportRow) => void;
     onRestoreAll: () => void;
-    warningsByRow: Map<string, DuplicateWarning>;
   }
   let { duplicateRows, duplicateDetail, onImportAnyway, onRestoreAll }: Props = $props();
 
@@ -27,7 +26,12 @@
         <Button variant="ghost" size="sm" onclick={onRestoreAll}>
           {m.bank_review_dup_restore_all()}
         </Button>
-        <Button variant="ghost" size="sm" onclick={() => (expanded = !expanded)}>
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-expanded={expanded}
+          onclick={() => (expanded = !expanded)}
+        >
           {expanded ? m.bank_review_dup_hide() : m.bank_review_dup_show()}
         </Button>
       </div>

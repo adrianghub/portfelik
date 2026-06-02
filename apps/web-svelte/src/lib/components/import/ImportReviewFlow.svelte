@@ -171,6 +171,10 @@
   }
 
   async function patchRow(rowId: string, patch: Partial<ImportRow>): Promise<void> {
+    // NOTE: the getQueryData + setQueryData pair below MUST stay synchronous
+    // (no await before it) — bulk callers fire many patchRow() via Promise.all
+    // and rely on each reading the prior call's optimistic write. An await here
+    // would reintroduce a sibling-clobber race.
     const previous = queryClient.getQueryData<ImportRow[]>(rowsKey);
     if (previous) {
       queryClient.setQueryData<ImportRow[]>(
@@ -550,7 +554,6 @@
   <DuplicateBanner
     {duplicateRows}
     {duplicateDetail}
-    {warningsByRow}
     onImportAnyway={(row) => void importDuplicateAnyway(row)}
     onRestoreAll={() => void restoreAllDuplicates()}
   />
