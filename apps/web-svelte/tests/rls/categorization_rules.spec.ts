@@ -108,6 +108,17 @@ describe("RLS: categorization_rules", () => {
     expect(after.data?.user_id).toBe(ctx.userA.userId);
   });
 
+  it("client can update match_day_of_month", async () => {
+    const upd = await ctx.userA.client
+      .from("categorization_rules")
+      .update({ match_day_of_month: 15 })
+      .eq("id", ruleAId)
+      .select("match_day_of_month")
+      .single();
+    expect(upd.error).toBeNull();
+    expect(upd.data?.match_day_of_month).toBe(15);
+  });
+
   it("unique guard blocks duplicate rule identity after normalization", async () => {
     const dup = await ctx.userA.client.from("categorization_rules").insert({
       user_id: ctx.userA.userId,
