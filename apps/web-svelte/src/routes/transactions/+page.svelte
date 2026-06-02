@@ -483,10 +483,7 @@
       >
         + {m.transaction_add()}
       </button>
-      <TransactionDataActions
-        exportDisabled={!filteredTxs?.length}
-        onexport={handleExport}
-      />
+      <TransactionDataActions exportDisabled={!filteredTxs?.length} onexport={handleExport} />
     </div>
   </div>
 
