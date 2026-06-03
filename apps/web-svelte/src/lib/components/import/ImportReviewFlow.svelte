@@ -41,10 +41,17 @@
   interface Props {
     session: ImportSession;
     parseErrorCount?: number;
+    skippedRowCount?: number;
     onCommitted: (result: CommitResult, dateRange?: ImportedDateRange) => void;
     onCancel: () => Promise<void> | void;
   }
-  let { session, parseErrorCount = 0, onCommitted, onCancel }: Props = $props();
+  let {
+    session,
+    parseErrorCount = 0,
+    skippedRowCount = 0,
+    onCommitted,
+    onCancel,
+  }: Props = $props();
 
   interface ImportedDateRange {
     startYear: number;
@@ -738,6 +745,7 @@
 
   <ImportReviewCategorizeStep
     {parseErrorCount}
+    {skippedRowCount}
     largeRowCount={rows.length}
     {bulkImportableVisibleCount}
     {bulkRestorableVisibleCount}

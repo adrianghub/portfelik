@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { mbankAdapter } from "$lib/import/banks/mbank";
-import { detectBank } from "$lib/import/banks/detect";
+import { detectImportAdapter } from "$lib/import/banks/registry";
 
 const fixture = readFileSync(
   resolve(__dirname, "fixtures/mbank/sample.csv"),
@@ -11,7 +11,7 @@ const fixture = readFileSync(
 
 describe("mbank adapter - synthetic fixture", () => {
   it("detect() returns true for mBank-shaped headers", () => {
-    expect(detectBank(fixture)).toBe("mbank");
+    expect(detectImportAdapter(fixture)?.kind).toBe("mbank");
   });
 
   it("parses all 4 data rows and 0 errors", () => {

@@ -20,9 +20,6 @@ export type ImportAdapterKind =
   | "citi_handlowy"
   | "portfelik_csv";
 
-/** @deprecated transitional — use ImportAdapterKind. */
-export type BankKind = "mbank" | "ing";
-
 export type DetectionConfidence = "high" | "medium" | "low";
 
 export type DetectionResult = {
@@ -71,9 +68,6 @@ export interface ParsedImportFile {
   errors: ParseError[];
 }
 
-/** @deprecated transitional alias. */
-export type ParsedBankFile = ParsedImportFile;
-
 export interface ImportAdapter {
   kind: ImportAdapterKind;
   sourceKind: ImportSourceKind;
@@ -86,9 +80,6 @@ export interface ImportAdapter {
   /** Fully sync parse. Decoded text in, normalized rows out. */
   parse(text: string): ParsedImportFile;
 }
-
-/** @deprecated transitional alias. */
-export type BankAdapter = ImportAdapter;
 
 /** After normalize(): per-row hash added. sourceFileHash returned separately. */
 export interface NormalizedRow extends ParsedRow {

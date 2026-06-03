@@ -4,7 +4,7 @@
 // Uses Web Crypto (browser + Node 22+). Both available in the runtime targets
 // the app ships to (browser via Vite, vitest via Node).
 
-import type { NormalizedRow, ParseError, ParsedBankFile } from "./banks/types";
+import type { NormalizedRow, ParsedImportFile, ParseError } from "./banks/types";
 
 async function sha256Hex(input: string | ArrayBuffer): Promise<string> {
   const bytes = typeof input === "string" ? new TextEncoder().encode(input) : new Uint8Array(input);
@@ -24,14 +24,19 @@ export interface NormalizedFile {
 }
 
 export async function normalize(
-  parsed: ParsedBankFile,
+  parsed: ParsedImportFile,
   fileBytes: ArrayBuffer
 ): Promise<NormalizedFile> {
   const sourceFileHash = await sha256Hex(fileBytes);
   const rows: NormalizedRow[] = [];
+  const errors: ParseError[] = [...parsed.errors];
   for (const r of parsed.rows) {
+    if (!(r.amount > 0)) {
+      errors.push({ row_index: r.row_index, reason: "non_positive_amount" });
+      continue;
+    }
     const raw_row_hash = await sha256Hex(r.source_row_text);
     rows.push({ ...r, raw_row_hash });
   }
-  return { rows, errors: parsed.errors, sourceFileHash };
+  return { rows, errors, sourceFileHash };
 }

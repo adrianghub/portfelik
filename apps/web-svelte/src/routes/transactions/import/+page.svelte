@@ -33,6 +33,7 @@
   let step = $state<Step>("upload");
   let activeSession = $state<ImportSession | null>(null);
   let activeParseErrorCount = $state(0);
+  let activeSkippedRowCount = $state(0);
   // Retained across the upload⇄review back-nav so returning to "Wgraj plik"
   // shows the last file ready to re-process or remove. Cancelling the session
   // abandons the DB preview rows but keeps this in-memory file reference.
@@ -102,10 +103,25 @@
     pendingHref = null;
   }
 
-  function handleSessionReady(sess: ImportSession, parseErrorCount: number): void {
+  async function handleSessionReady(
+    sess: ImportSession,
+    parseErrorCount: number,
+    skippedRowCount: number
+  ): Promise<void> {
+    // A fresh upload reached review. Soft-cancel any lingering draft from an
+    // earlier, different import so stale "Niezapisany import" cards don't pile
+    // up across files (the new session is the one we're working on now).
+    if (resumeSession && resumeSession.id !== sess.id) {
+      try {
+        await cancelImportSession(resumeSession.id);
+      } catch {
+        // ignore - already cancelled or gone
+      }
+    }
     resumeSession = null;
     activeSession = sess;
     activeParseErrorCount = parseErrorCount;
+    activeSkippedRowCount = skippedRowCount;
     step = "review";
   }
 
@@ -113,6 +129,7 @@
     if (!resumeSession) return;
     activeSession = resumeSession;
     activeParseErrorCount = 0;
+    activeSkippedRowCount = 0;
     resumeSession = null;
     step = "review";
   }
@@ -203,7 +220,7 @@
 
   <section class="space-y-4">
     {#if step === "upload"}
-      {#if resumeSession}
+      {#if resumeSession && !retainedFile}
         <div
           class="surface-hi border-accent/30 flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between"
         >
@@ -234,6 +251,7 @@
       <ImportReviewFlow
         session={activeSession}
         parseErrorCount={activeParseErrorCount}
+        skippedRowCount={activeSkippedRowCount}
         onCommitted={handleCommitted}
         onCancel={handleCancel}
       />

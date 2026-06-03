@@ -577,6 +577,7 @@
   "bank_review_skip_duplicates_action": "Pomiń duplikaty ({count})",
   "bank_review_skip_visible_action": "Pomiń widoczne ({count})",
   "bank_review_parse_errors_banner": "{count} wierszy nie udało się odczytać - zostały pominięte",
+  "bank_review_skipped_zero_banner": "{count} pozycji bez kwoty pominięto",
   "bank_review_account_destination": "Konto: {bank} · {account}",
   "bank_review_dup_banner_summary": "{count} pominięto jako duplikat",
   "bank_review_dup_show": "Pokaż",
