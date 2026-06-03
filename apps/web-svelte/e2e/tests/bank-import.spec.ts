@@ -549,9 +549,10 @@ test("import wizard: selected file is retained as a chip and can be removed", as
     buffer: Buffer.from("not a real bank export\nfoo,bar,baz\n1,2,3\n", "utf8"),
   });
 
-  // The file persists on the upload panel as a chip with re-process + remove.
+  // The file persists on the upload panel as a removable chip. Re-process is
+  // only offered when returning from review, not during fresh adapter selection.
   await expect(page.getByText("wyciag.csv")).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByRole("button", { name: "Przetwórz ponownie" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Usuń plik" })).toBeVisible();
 
   // Removing clears the chip.
   await page.getByRole("button", { name: "Usuń plik" }).click();
