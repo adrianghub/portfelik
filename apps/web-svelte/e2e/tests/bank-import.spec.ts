@@ -16,6 +16,10 @@ const mbankSample = readFileSync(
   new URL("../../tests/import/fixtures/mbank/sample.csv", import.meta.url)
 );
 
+const ersteSample = readFileSync(
+  new URL("../../tests/import/fixtures/erste/historia.csv", import.meta.url)
+);
+
 const mbankNoCounterpartySample = Buffer.from(
   `"mBank S.A."
 "Historia operacji"
@@ -63,13 +67,37 @@ type ImportRow = {
   created_at: string;
 };
 
+type ImportAdapterKind =
+  | "mbank"
+  | "ing"
+  | "pko_bp"
+  | "pekao"
+  | "erste"
+  | "millennium"
+  | "alior"
+  | "bnp_paribas"
+  | "citi_handlowy";
+
+type BankAccount = {
+  id: string;
+  user_id: string;
+  kind: ImportAdapterKind;
+  label: string;
+  currency: string;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 type ImportSession = {
   id: string;
   user_id: string;
   bank_account_id: string;
   source_filename: string | null;
   source_file_hash: string;
-  detected_kind: "mbank" | "ing";
+  detected_kind: ImportAdapterKind;
+  adapter_kind: ImportAdapterKind | null;
+  source_kind: "bank_statement" | "portfelik_export";
   status: "preview" | "committed" | "cancelled";
   rows_total: number;
   rows_committed: number;
@@ -102,16 +130,18 @@ type BankImportMockOptions = {
 
 async function mockBankImportAPI(page: Page, options = {}) {
   const opts = options as BankImportMockOptions;
-  const account = {
-    id: "bank-account-1",
-    user_id: TEST_USER_ID,
-    kind: "mbank",
-    label: "mBank",
-    currency: "PLN",
-    archived_at: null,
-    created_at: "2026-05-01T00:00:00Z",
-    updated_at: "2026-05-01T00:00:00Z",
-  };
+  let accounts: BankAccount[] = [
+    {
+      id: "bank-account-1",
+      user_id: TEST_USER_ID,
+      kind: "mbank",
+      label: "mBank",
+      currency: "PLN",
+      archived_at: null,
+      created_at: "2026-05-01T00:00:00Z",
+      updated_at: "2026-05-01T00:00:00Z",
+    },
+  ];
   const sessions: ImportSession[] = [];
   let rows: ImportRow[] = [];
   let rules: CategorizationRule[] =
@@ -232,8 +262,28 @@ async function mockBankImportAPI(page: Page, options = {}) {
       }
 
       if (pathname.endsWith("/bank_accounts")) {
-        if (method === "POST") return route.fulfill({ status: 201, json: account });
-        return route.fulfill({ status: 200, json: [account] });
+        const kind = url.searchParams.get("kind")?.replace("eq.", "") as
+          | ImportAdapterKind
+          | undefined;
+        if (method === "POST") {
+          const body = request.postDataJSON() as Partial<BankAccount>;
+          const account: BankAccount = {
+            id: `bank-account-${accounts.length + 1}`,
+            user_id: TEST_USER_ID,
+            kind: body.kind ?? "mbank",
+            label: body.label ?? body.kind ?? "mBank",
+            currency: body.currency ?? "PLN",
+            archived_at: null,
+            created_at: "2026-05-01T00:00:00Z",
+            updated_at: "2026-05-01T00:00:00Z",
+          };
+          accounts = [...accounts, account];
+          return route.fulfill({ status: 201, json: account });
+        }
+        return route.fulfill({
+          status: 200,
+          json: kind ? accounts.filter((account) => account.kind === kind) : accounts,
+        });
       }
 
       if (pathname.endsWith("/transaction_import_sessions")) {
@@ -242,10 +292,12 @@ async function mockBankImportAPI(page: Page, options = {}) {
           const session: ImportSession = {
             id: `session-${sessions.length + 1}`,
             user_id: TEST_USER_ID,
-            bank_account_id: body.bank_account_id ?? account.id,
+            bank_account_id: body.bank_account_id ?? accounts[0].id,
             source_filename: body.source_filename ?? "wyciag.csv",
             source_file_hash: body.source_file_hash ?? "hash",
-            detected_kind: "mbank",
+            detected_kind: body.detected_kind ?? body.adapter_kind ?? "mbank",
+            adapter_kind: body.adapter_kind ?? body.detected_kind ?? "mbank",
+            source_kind: body.source_kind ?? "bank_statement",
             status: "preview",
             rows_total: 0,
             rows_committed: 0,
@@ -421,10 +473,70 @@ test("import wizard: invalid CSV surfaces unknown-kind error", async ({ page }) 
     buffer: Buffer.from("not a real bank export\nfoo,bar,baz\n1,2,3\n", "utf8"),
   });
 
-  // bank_upload_kind_unknown copy
   await expect(page.getByText(/Nie rozpoznano formatu/)).toBeVisible({
     timeout: 10_000,
   });
+  await expect(page.getByLabel("Typ pliku")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Kontynuuj" })).toBeDisabled();
+});
+
+test("import wizard: wrong manual adapter keeps selector available", async ({ page }) => {
+  await page.goto("/transactions/import");
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "junk.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from("not a real bank export\nfoo,bar,baz\n1,2,3\n", "utf8"),
+  });
+
+  await page.getByLabel("Typ pliku").selectOption({ label: "mBank" });
+  await page.getByRole("button", { name: "Kontynuuj" }).click();
+
+  await expect(page.getByText("Nie udało się odczytać pliku jako mBank.")).toBeVisible();
+  await expect(page.getByLabel("Typ pliku")).toBeVisible();
+  await expect(page.getByRole("table")).toHaveCount(0);
+});
+
+test("import wizard: confirms medium-confidence Erste adapter", async ({ page }) => {
+  await page.goto("/transactions/import");
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "historia.csv",
+    mimeType: "text/csv",
+    buffer: ersteSample,
+  });
+
+  await expect(page.getByText("Prawdopodobnie: Erste Bank Polska (dawniej Santander)")).toBeVisible(
+    {
+      timeout: 10_000,
+    }
+  );
+  await expect(page.getByLabel("Typ pliku")).toHaveValue("erste");
+  await page.getByRole("button", { name: "Kontynuuj" }).click();
+
+  await expect(page.getByRole("table").getByText("LIDL SP Z OO", { exact: true })).toBeVisible({
+    timeout: 10_000,
+  });
+});
+
+test("import wizard: medium-confidence detection is overrideable before parse", async ({
+  page,
+}) => {
+  await page.goto("/transactions/import");
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "historia.csv",
+    mimeType: "text/csv",
+    buffer: ersteSample,
+  });
+
+  await expect(page.getByLabel("Typ pliku")).toHaveValue("erste", { timeout: 10_000 });
+  await page.getByLabel("Typ pliku").selectOption({ label: "mBank" });
+  await page.getByRole("button", { name: "Kontynuuj" }).click();
+
+  await expect(page.getByText("Nie udało się odczytać pliku jako mBank.")).toBeVisible();
+  await expect(page.getByLabel("Typ pliku")).toHaveValue("mbank");
+  await expect(page.getByRole("table")).toHaveCount(0);
 });
 
 test("import wizard: selected file is retained as a chip and can be removed", async ({ page }) => {

@@ -1,29 +1,14 @@
-// Adapter auto-detection from decoded CSV text.
-// Cheap header sniff - no heavy parsing.
+// Back-compat shim. New code imports from ./registry.
+import { detectImportAdapter, getImportAdapter } from "./registry";
+import type { BankKind } from "./types";
 
-import { parseCsv } from "../csv/parse";
-import { ingAdapter } from "./ing";
-import { mbankAdapter } from "./mbank";
-import type { BankAdapter, BankKind } from "./types";
-
-const adapters: BankAdapter[] = [mbankAdapter, ingAdapter];
-
+/** @deprecated use detectImportAdapter (returns confidence). */
 export function detectBank(text: string): BankKind | null {
-  const csv = parseCsv(text);
-
-  // mBank + ING both put a metadata preamble before the real header.
-  // Scan ALL rows so the detect heuristics get a chance to find the
-  // header that matches each adapter.
-  for (const adapter of adapters) {
-    for (const row of csv.rows) {
-      if (adapter.detect(row)) return adapter.kind;
-    }
-  }
+  const result = detectImportAdapter(text);
+  if (result && (result.kind === "mbank" || result.kind === "ing")) return result.kind;
   return null;
 }
 
-export function getAdapter(kind: BankKind): BankAdapter {
-  if (kind === "mbank") return mbankAdapter;
-  if (kind === "ing") return ingAdapter;
-  throw new Error(`unknown_bank_kind: ${kind}`);
-}
+export { detectImportAdapter, getImportAdapter };
+/** @deprecated use getImportAdapter. */
+export const getAdapter = getImportAdapter;

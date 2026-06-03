@@ -120,6 +120,17 @@ describe("RLS: categorization_rules", () => {
     expect(dup.error?.code).toBe("23505");
   });
 
+  it("client can update match_day_of_month", async () => {
+    const upd = await ctx.userA.client
+      .from("categorization_rules")
+      .update({ match_day_of_month: 15 })
+      .eq("id", ruleAId)
+      .select("match_day_of_month")
+      .single();
+    expect(upd.error).toBeNull();
+    expect(upd.data?.match_day_of_month).toBe(15);
+  });
+
   it("user A can DELETE own rule", async () => {
     const del = await ctx.userA.client.from("categorization_rules").delete().eq("id", ruleAId);
     expect(del.error).toBeNull();

@@ -19,7 +19,14 @@
 // mBank exports is a step-2.5 task; behavior here is provisional.
 
 import { parseCsv } from "../csv/parse";
-import type { BankAdapter, ParseError, ParsedBankFile, ParsedRow } from "./types";
+import type {
+  AdapterDetectionInput,
+  DetectionResult,
+  ImportAdapter,
+  ParseError,
+  ParsedImportFile,
+  ParsedRow,
+} from "./types";
 
 const HEADER_HINT = "#Opis operacji";
 
@@ -52,14 +59,21 @@ function collapseWs(s: string): string {
   return s.replace(/\s+/g, " ").trim();
 }
 
-export const mbankAdapter: BankAdapter = {
+export const mbankAdapter: ImportAdapter = {
   kind: "mbank",
+  sourceKind: "bank_statement",
+  label: "mBank",
 
-  detect(headers: string[]): boolean {
-    return headers.some((h) => h.trim().toLowerCase().startsWith("#opis operacji"));
+  detect({ rows }: AdapterDetectionInput): DetectionResult {
+    const hit = rows.some((row) =>
+      row.some((h) => h.trim().toLowerCase().startsWith("#opis operacji"))
+    );
+    return hit
+      ? { kind: "mbank", confidence: "high", reason: "mBank '#Opis operacji' header" }
+      : null;
   },
 
-  parse(text: string): ParsedBankFile {
+  parse(text: string): ParsedImportFile {
     const csv = parseCsv(text);
 
     // mBank prefixes the table with a few metadata lines before the real header.
@@ -137,6 +151,6 @@ export const mbankAdapter: BankAdapter = {
       });
     }
 
-    return { kind: "mbank", rows, errors };
+    return { kind: "mbank", rows, errors } satisfies ParsedImportFile;
   },
 };
