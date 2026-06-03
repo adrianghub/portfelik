@@ -1,18 +1,17 @@
 <script lang="ts">
-  import * as m from "$lib/paraglide/messages";
   import { goto } from "$app/navigation";
-  import { decodeBankCsv } from "$lib/import/csv/decode";
+  import Button from "$lib/components/ui/Button.svelte";
   import {
     detectImportAdapter,
     getImportAdapter,
     importAdapterLabel,
     listImportAdapters,
   } from "$lib/import/banks/registry";
-  import type { ImportAdapterKind, DetectionResult } from "$lib/import/banks/types";
-  import { normalize } from "$lib/import/normalize";
+  import type { DetectionResult, ImportAdapterKind } from "$lib/import/banks/types";
   import { matchCategory } from "$lib/import/categorize";
-  import { fetchCategorizationRules } from "$lib/services/categorization-rules";
-  import { fetchCategories } from "$lib/services/categories";
+  import { decodeBankCsv } from "$lib/import/csv/decode";
+  import { normalize } from "$lib/import/normalize";
+  import * as m from "$lib/paraglide/messages";
   import {
     cancelImportSession,
     fetchSessionRows,
@@ -23,13 +22,18 @@
     openImportSession,
     type ImportSession,
   } from "$lib/services/bank-import";
-  import Button from "$lib/components/ui/Button.svelte";
+  import { fetchCategories } from "$lib/services/categories";
+  import { fetchCategorizationRules } from "$lib/services/categorization-rules";
   import { cn, transactionsUrlForRange } from "$lib/utils";
+  import { FileText, Upload, X } from "lucide-svelte";
   import { toast } from "svelte-sonner";
-  import { Upload, FileText, X } from "lucide-svelte";
 
   interface Props {
-    onSessionReady: (session: ImportSession, parseErrorCount: number) => void;
+    onSessionReady: (
+      session: ImportSession,
+      parseErrorCount: number,
+      skippedRowCount: number
+    ) => void;
     /** Last selected file, lifted to the page so it survives a back-nav. */
     initialFile?: File | null;
     /** Report the current file up so the page can retain it across steps. */
@@ -41,6 +45,7 @@
   let dragOver = $state(false);
   let error = $state<string | null>(null);
   let parseErrorCount = $state(0);
+  let skippedRowCount = $state(0);
   let committedConflict = $state<ImportSession | null>(null);
 
   // Pending upload awaiting adapter confirmation.
@@ -64,7 +69,11 @@
     }
 
     const normalized = await normalize(parsed, bytes);
-    parseErrorCount = normalized.errors.length;
+    // Two distinct buckets: rows the adapter couldn't read (genuine parse
+    // failures) vs rows normalize() intentionally skipped because the amount is
+    // 0 (auth holds/reversals — DB rejects amount <= 0). They get separate copy.
+    skippedRowCount = normalized.errors.filter((e) => e.reason === "non_positive_amount").length;
+    parseErrorCount = normalized.errors.length - skippedRowCount;
 
     const account = await findOrCreateActiveAccount({ kind, defaultLabel: label });
 
@@ -103,7 +112,12 @@
     } catch {
       resolver = undefined;
     }
-    await insertPreviewRows(session.id, normalized.rows, resolver);
+    try {
+      await insertPreviewRows(session.id, normalized.rows, resolver);
+    } catch (e) {
+      await cancelImportSession(session.id).catch(() => {});
+      throw e;
+    }
     // Default-skip probable duplicates once (issue #73). Best-effort: a failure
     // here must not block the import — the review surface still opens, and the
     // commit RPC re-detects duplicates as a safety net.
@@ -113,7 +127,7 @@
       /* non-fatal: dups will still be caught at commit */
     }
     pending = null;
-    onSessionReady(session, parseErrorCount);
+    onSessionReady(session, parseErrorCount, skippedRowCount);
   }
 
   async function handleFile(file: File): Promise<void> {
@@ -121,6 +135,7 @@
     onFileRetained?.(file);
     error = null;
     parseErrorCount = 0;
+    skippedRowCount = 0;
     committedConflict = null;
     pending = null;
     detection = null;
@@ -258,7 +273,10 @@
   </label>
 
   {#if initialFile && !busy}
-    <!-- Retained file from a previous step: ready to re-process or remove. -->
+    <!-- Retained file: shows filename + remove. "Przetwórz ponownie" only makes
+         sense when there's no active detection in progress (e.g. after coming
+         back from review) - during a fresh upload the adapter selector below
+         already owns the parse action, so showing reprocess too is redundant. -->
     <div
       class="flex items-center gap-3 rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3"
     >
@@ -267,9 +285,11 @@
         <p class="truncate text-sm text-slate-100">{initialFile.name}</p>
         <p class="text-xs text-slate-500">{formatSize(initialFile.size)}</p>
       </div>
-      <Button variant="ghost" size="sm" onclick={reprocess}>
-        {m.bank_upload_reprocess()}
-      </Button>
+      {#if !pending}
+        <Button variant="ghost" size="sm" onclick={reprocess}>
+          {m.bank_upload_reprocess()}
+        </Button>
+      {/if}
       <Button variant="ghost" size="sm" title={m.bank_upload_remove_file()} onclick={removeFile}>
         <X size={16} aria-hidden="true" />
       </Button>
