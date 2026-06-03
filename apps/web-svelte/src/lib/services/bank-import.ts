@@ -17,8 +17,6 @@ import type { Database } from "$lib/supabase.types";
 
 type RowUpdate = Database["public"]["Tables"]["transaction_import_rows"]["Update"];
 
-/** @deprecated use ImportAdapterKind instead. */
-export type BankKind = ImportAdapterKind;
 export type RowDecision = "pending" | "import" | "skip" | "duplicate";
 
 export interface BankAccount {

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ingAdapter } from "$lib/import/banks/ing";
-import { detectBank } from "$lib/import/banks/detect";
+import { detectImportAdapter } from "$lib/import/banks/registry";
 
 const fixture = readFileSync(
   resolve(__dirname, "fixtures/ing/sample.csv"),
@@ -11,7 +11,7 @@ const fixture = readFileSync(
 
 describe("ing adapter - synthetic fixture", () => {
   it("detect() returns true for ING-shaped headers", () => {
-    expect(detectBank(fixture)).toBe("ing");
+    expect(detectImportAdapter(fixture)?.kind).toBe("ing");
   });
 
   it("parses 4 data rows, 0 errors", () => {

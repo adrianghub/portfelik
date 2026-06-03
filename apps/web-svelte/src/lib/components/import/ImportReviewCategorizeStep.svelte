@@ -17,6 +17,7 @@
 
   interface Props {
     parseErrorCount: number;
+    skippedRowCount: number;
     largeRowCount: number;
     bulkImportableVisibleCount: number;
     bulkRestorableVisibleCount: number;
@@ -41,6 +42,7 @@
 
   let {
     parseErrorCount,
+    skippedRowCount,
     largeRowCount,
     bulkImportableVisibleCount,
     bulkRestorableVisibleCount,
@@ -163,6 +165,14 @@
     </p>
   {/if}
 
+  {#if skippedRowCount > 0}
+    <p
+      class="rounded-xl border border-slate-500/30 bg-slate-500/10 px-4 py-3 text-sm text-slate-300"
+    >
+      {m.bank_review_skipped_zero_banner({ count: skippedRowCount })}
+    </p>
+  {/if}
+
   {#if largeRowCount > 500}
     <p
       class="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200"
@@ -218,7 +228,7 @@
           value={sortKind}
           aria-label={m.bank_review_sort_label()}
           title={m.bank_review_sort_dropdown_hint()}
-          class="focus-visible:ring-accent appearance-none rounded-full border border-white/10 bg-slate-950 py-1 pr-8 pl-3 text-xs text-slate-400 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+          class="focus-visible:ring-accent appearance-none rounded-full border border-white/10 bg-slate-950 py-1 pr-8 pl-3 text-xs text-slate-400 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset"
           onchange={(event) => setSortKind((event.currentTarget as HTMLSelectElement).value)}
         >
           {#each sortKinds as kind (kind)}
