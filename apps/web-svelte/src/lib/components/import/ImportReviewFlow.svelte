@@ -66,7 +66,7 @@
   const queryClient = useQueryClient();
   const rowsKey = $derived(["import_session_rows", session.id]);
 
-  let filter = $state<FilterKind>("pending");
+  let filter = $state<FilterKind>("all");
   let confirmOpen = $state(false);
   let editRuleOpen = $state(false);
   let editingRule = $state<CategorizationRule | null>(null);
@@ -573,24 +573,18 @@
     editingRule = null;
   }
 
+  // Exception-review surface (issue #66 + #73): rows arrive already decided by the
+  // deterministic engine (import / duplicate). Do NOT flip them to "pending" — clean
+  // imports stay one-click committable, and uncategorized rows flow to the user's
+  // "Inne" default via the confirm sheet. "pending" is reserved for rows a user
+  // explicitly defers (skip / duplicate restore actions). On first load just pick a
+  // sensible filter: lead with the exception bucket only when something awaits a
+  // decision, otherwise show everything (avoids an empty "Do decyzji" first screen).
   $effect(() => {
     if (queueInitialized) return;
     if (rows.length === 0) return;
-
-    const eligible = rows.filter((r) => r.decision !== "duplicate");
-    if (eligible.length === 0) {
-      queueInitialized = true;
-      return;
-    }
-
-    const allDefaultImport = eligible.every((r) => r.decision === "import");
-    if (!allDefaultImport) {
-      queueInitialized = true;
-      return;
-    }
-
     queueInitialized = true;
-    void Promise.all(eligible.map((r) => patchRow(r.id, { decision: "pending" })));
+    filter = pendingRows.length > 0 ? "pending" : "all";
   });
 
   $effect(() => {
@@ -696,7 +690,7 @@
     <button
       type="button"
       class={cn(
-        "inline-flex h-6 w-6 items-center justify-center rounded-full border transition-colors",
+        "focus-visible:ring-accent inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full border px-2.5 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none md:h-7 md:min-h-0 md:min-w-0",
         row.decision === "import"
           ? "border-accent/40 bg-accent/15 text-accent"
           : "border-white/10 text-slate-400 hover:bg-white/5"
@@ -706,12 +700,13 @@
       aria-pressed={row.decision === "import"}
       onclick={() => void setDecision(row, "import")}
     >
-      <Check size={12} aria-hidden="true" />
+      <Check size={14} aria-hidden="true" />
+      <span class="hidden md:inline">{m.bank_review_decision_import()}</span>
     </button>
     <button
       type="button"
       class={cn(
-        "inline-flex h-6 w-6 items-center justify-center rounded-full border transition-colors",
+        "focus-visible:ring-accent inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full border px-2.5 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none md:h-7 md:min-h-0 md:min-w-0",
         row.decision === "skip"
           ? "border-white/20 bg-white/10 text-slate-200"
           : "border-white/10 text-slate-400 hover:bg-white/5"
@@ -721,7 +716,8 @@
       aria-pressed={row.decision === "skip"}
       onclick={() => void setDecision(row, "skip")}
     >
-      <X size={12} aria-hidden="true" />
+      <X size={14} aria-hidden="true" />
+      <span class="hidden md:inline">{m.bank_review_decision_skip()}</span>
     </button>
   </div>
 {/snippet}

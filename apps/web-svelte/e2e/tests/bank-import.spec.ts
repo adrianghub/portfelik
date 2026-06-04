@@ -347,7 +347,7 @@ async function mockBankImportAPI(page: Page, options = {}) {
             selected_category_id: row.selected_category_id ?? null,
             selected_group_id: null,
             edited_description: null,
-            decision: row.decision ?? "pending",
+            decision: row.decision ?? "import",
             duplicate_of: null,
             transaction_id: null,
             created_at: "2026-05-01T00:00:00Z",
@@ -581,7 +581,6 @@ test("import wizard: uploads, flags probable duplicates, commits, and blocks re-
   await expect(
     page.getByRole("table").getByText("WSPÓLNOTA MIESZKANIOWA", { exact: true })
   ).toBeVisible();
-  await page.getByRole("button", { name: /Oznacz widoczne jako import/ }).click();
   await expect(page.getByRole("button", { name: /^Zaimportuj 3 transakc/ })).toBeEnabled();
 
   await page.getByRole("button", { name: /^Zaimportuj \d+ transakc/ }).click();
@@ -604,7 +603,7 @@ test("import wizard: uploads, flags probable duplicates, commits, and blocks re-
   });
 });
 
-test("import wizard: commits directly when all importing rows are categorized", async ({
+test("import wizard: commits a fully-categorized statement in one click (no per-row decisions)", async ({
   page,
 }) => {
   await page.goto("/transactions/import");
@@ -621,7 +620,6 @@ test("import wizard: commits directly when all importing rows are categorized", 
   await expect(sortSelect).toHaveValue("amount_asc");
   await expect(page.getByText("Reguła: Typ: Wydatek").first()).toBeVisible();
 
-  await page.getByRole("button", { name: /Oznacz widoczne jako import/ }).click();
   await expect(page.getByRole("button", { name: /^Zaimportuj \d+ transakc/ })).toBeEnabled();
   await page.getByRole("button", { name: /^Zaimportuj \d+ transakc/ }).click();
   await expect(page.getByRole("heading", { name: "Potwierdź import" })).toHaveCount(0);
@@ -739,7 +737,6 @@ test("import wizard: continues when rule prefill cannot load", async ({ page }) 
   await expect(page.getByRole("table").getByText("BIEDRONKA", { exact: true })).toBeVisible({
     timeout: 10_000,
   });
-  await page.getByRole("button", { name: /Oznacz widoczne jako import/ }).click();
   await expect(page.getByRole("button", { name: /^Zaimportuj \d+ transakc/ })).toBeEnabled();
 });
 
@@ -759,6 +756,32 @@ test("import wizard: continues when categories cannot load for optional prefill"
   await expect(page.getByRole("table").getByText("BIEDRONKA", { exact: true })).toBeVisible({
     timeout: 10_000,
   });
-  await page.getByRole("button", { name: /Oznacz widoczne jako import/ }).click();
+  await expect(page.getByRole("button", { name: /^Zaimportuj \d+ transakc/ })).toBeEnabled();
+});
+
+test("import wizard: bulk-marks restored rows as import", async ({ page }) => {
+  await page.unrouteAll();
+  await injectFakeSession(page);
+  await mockBankImportAPI(page, { autoSkipFirstAsDuplicate: true });
+  await page.goto("/transactions/import");
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "wyciag.csv",
+    mimeType: "text/csv",
+    buffer: mbankSample,
+  });
+
+  // Under the default-import model rows arrive as "import"; the only way a row reaches
+  // the pending ("Do decyzji") bucket is an explicit user action. Restoring the
+  // auto-flagged duplicate sends it back to pending so we can exercise the bulk control.
+  const restoreAll = page.getByRole("button", { name: /Przywróć wszystkie do decyzji/ });
+  await expect(restoreAll).toBeVisible({ timeout: 10_000 });
+  await restoreAll.click();
+
+  // The bulk "mark visible as import" control only appears when visible rows are pending.
+  const bulkImport = page.getByRole("button", { name: /Oznacz widoczne jako import/ });
+  await expect(bulkImport).toBeVisible();
+  await bulkImport.click();
+  await expect(bulkImport).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^Zaimportuj \d+ transakc/ })).toBeEnabled();
 });
