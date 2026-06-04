@@ -224,3 +224,48 @@ describe("admin masked diagnostics: import session", () => {
     expect(data.user_token).toMatch(/^[0-9a-f]{64}$/);
   });
 });
+
+describe("admin masked diagnostics: user context", () => {
+  let ctx: TestContext;
+  let asAdmin: SupabaseClient;
+
+  beforeAll(async () => {
+    ctx = await provisionTwoUsers();
+    asAdmin = await adminClientFor(ctx);
+  });
+  afterAll(async () => {
+    await ctx.admin.from("profiles").update({ role: "user" }).eq("id", ctx.userA.userId);
+    await cleanupSeed(ctx.admin, ctx.userB.userId);
+  });
+
+  it("denies non-admin", async () => {
+    const { error } = await ctx.userB.client.rpc("admin_masked_user_context_by_id", {
+      p_user_id: ctx.userB.userId,
+    });
+    expect(String(error?.message ?? "")).toMatch(/permission_denied/);
+  });
+
+  it("returns masked email + user_token, no raw email", async () => {
+    const { data, error } = await asAdmin.rpc("admin_masked_user_context_by_id", {
+      p_user_id: ctx.userB.userId,
+    });
+    expect(error).toBeNull();
+    const json = JSON.stringify(data);
+    expect(json).not.toContain(ctx.userB.email); // raw email never present
+    expect(data.email_masked).toMatch(/^.\*\*\*@/);
+    expect(data.user_token).toMatch(/^[0-9a-f]{64}$/);
+    expect(typeof data.group_count).toBe("number");
+  });
+
+  it("same user_token across record types (stable correlation)", async () => {
+    const u = await asAdmin.rpc("admin_masked_user_context_by_id", {
+      p_user_id: ctx.userB.userId,
+    });
+    const seeded = await seedImportedTransaction(ctx.admin, ctx.userB.userId);
+    const t = await asAdmin.rpc("admin_masked_transaction_by_id", {
+      p_transaction_id: seeded.transactionId,
+    });
+    expect(u.data.user_token).toBe(t.data.user_token);
+    await cleanupSeed(ctx.admin, ctx.userB.userId);
+  });
+});

@@ -156,3 +156,39 @@ begin
 end $$;
 
 grant execute on function admin_masked_import_session_by_id(uuid) to authenticated;
+
+-- ── 5. Masked diagnostic RPC: user context ────────────────────────────────────
+create or replace function admin_masked_user_context_by_id(p_user_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, vault, extensions
+as $$
+declare
+  v_email       text;
+  v_name        text;
+  v_role        text;
+  v_created     timestamptz;
+  v_group_count int;
+begin
+  if not is_admin() then
+    raise exception 'permission_denied: admin only' using errcode = '42501';
+  end if;
+  select email, name, role, created_at
+    into v_email, v_name, v_role, v_created
+    from profiles where id = p_user_id;
+  if v_role is null then
+    return null;
+  end if;
+  select count(*) into v_group_count from group_members where user_id = p_user_id;
+  return jsonb_build_object(
+    'user_token',          privacy_hmac_token(p_user_id::text, 'user'),
+    'email_masked',        privacy_mask_email(v_email),
+    'display_name_masked', privacy_mask_text(v_name),
+    'role',                v_role,
+    'group_count',         v_group_count,
+    'created_at',          v_created
+  );
+end $$;
+
+grant execute on function admin_masked_user_context_by_id(uuid) to authenticated;
