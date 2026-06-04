@@ -785,3 +785,52 @@ test("import wizard: bulk-marks restored rows as import", async ({ page }) => {
   await expect(bulkImport).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^Zaimportuj \d+ transakc/ })).toBeEnabled();
 });
+
+function makeLargeMbankCsv(n: number): Buffer {
+  const header =
+    '"mBank S.A."\n"Historia operacji"\n"Klient";"Jan Kowalski"\n"Numer rachunku";"PL00 0000 0000 0000 0000 0000 0000"\n""\n#Data księgowania;#Data operacji;#Opis operacji;#Tytuł;#Nadawca/Odbiorca;#Numer konta;#Kwota;#Saldo po operacji\n';
+  let rows = "";
+  for (let i = 0; i < n; i++) {
+    rows += `2026-05-01;2026-05-01;"ZAKUP TOWARÓW I USŁUG";"ZAKUP ${i}";"MERCHANT ${i}";"PL00 9999 9999 9999 9999 9999 9999";-${i + 1},00;1000,00\n`;
+  }
+  return Buffer.from(header + rows, "utf8");
+}
+
+test("import wizard: large import virtualizes the review list and keeps every row", async ({
+  page,
+}) => {
+  await page.unrouteAll();
+  await injectFakeSession(page);
+  await mockBankImportAPI(page);
+  await page.goto("/transactions/import");
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "duzy-wyciag.csv",
+    mimeType: "text/csv",
+    buffer: makeLargeMbankCsv(500),
+  });
+
+  // The full set is tracked even though only a window is painted (no lost rows in data).
+  const commit = page.getByRole("button", { name: /^Zaimportuj 500 transakc/ });
+  await expect(commit).toBeEnabled({ timeout: 15_000 });
+
+  // Windowing is active: far fewer than 500 rows are in the DOM on first paint.
+  const tableRows = page.locator("table tbody tr");
+  expect(await tableRows.count()).toBeLessThan(200);
+
+  // The last row is not painted yet; scrolling appends chunks until it appears
+  // (guards against blank-window / lost-row regressions).
+  const lastRow = page.getByRole("table").getByText("MERCHANT 499", { exact: true });
+  await expect(lastRow).toHaveCount(0);
+  for (let i = 0; i < 40 && (await lastRow.count()) === 0; i++) {
+    // Scroll the sentinel (last tbody row) into view; works whether the page or an
+    // inner shell container scrolls, unlike window.scrollTo.
+    await page
+      .locator("table tbody tr")
+      .last()
+      .scrollIntoViewIfNeeded()
+      .catch(() => {});
+    await page.waitForTimeout(80);
+  }
+  await expect(lastRow).toBeVisible();
+});
