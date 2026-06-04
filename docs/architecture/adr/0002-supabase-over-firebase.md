@@ -1,6 +1,6 @@
 # ADR 0002 - Replace Firebase with Supabase
 
-**Status:** Accepted (2026-03, MIGRATION_PLAN.md)
+**Status:** Accepted (2026-03 migration)
 
 ## Context
 
@@ -41,6 +41,6 @@ Migrate to **Supabase Cloud (EU region)**. Postgres replaces Firestore; PostgRES
 
 ## Alternatives considered
 
-- **Self-host on the Pi (`bastion-homelab`).** The Pi has 8GB RAM and 14 services; a full Supabase stack would push it. Self-hosting a subset (postgres + postgrest + gotrue, ~800MB steady) was on the table as a fallback if Supabase costs or sovereignty became an issue. Kept as a documented escape hatch in `MIGRATION_PLAN.md`.
+- **Self-host on the Pi (`bastion-homelab`).** The Pi has 8GB RAM and 14 services; a full Supabase stack would push it. Self-hosting a subset (postgres + postgrest + gotrue, ~800MB steady) remains an escape hatch if Supabase costs or sovereignty ever force a move.
 - **Stay on Firebase, fix the friction.** Would have required a JOIN-shaped fan-out worker (the Go BFF), per-collection indexing strategies, and continued maintenance of the rules language. Doesn't fix the core mismatch.
 - **PlanetScale / Neon + custom Auth.** Closer to "just Postgres" but loses the bundled Auth + Edge Functions + Realtime + Storage + Studio that Supabase ships together; we'd reassemble those by hand.

@@ -8,7 +8,8 @@ Phase 8 added a staging environment for verifying changes (and running real-DB s
 
 For a single-developer, single-user-soon-to-be-low-double-digit-users personal app, that conventional model is heavy. It doubles every secret, doubles every dashboard, doubles every migration push, and creates drift opportunities (a migration applied on prod but not staging is a real failure mode).
 
-We need _some_ isolation though - staging writes must not pollute prod data, and a destructive smoke test cannot wipe real users' shopping lists.
+We need _some_ isolation though - staging writes must not pollute prod data, and
+a destructive smoke test cannot wipe real users' transactions or plans.
 
 ## Decision
 

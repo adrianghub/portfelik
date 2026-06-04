@@ -8,8 +8,8 @@ Supersedes [ADR 0010](./0010-shared-cf-pages-shared-supabase-staging.md).
 
 ADR 0010 kept `dev.portfelik.pages.dev` on the production Supabase project so
 staging could arrive quickly. That was tolerable while smoke coverage was small.
-It is no longer a good default: bank import, shopping-list duplicate detection,
-schema/RPC hardening, and upcoming mortgage/debt work all need real Auth,
+It is no longer a good default: bank import, plan/list duplicate detection,
+schema/RPC hardening, and upcoming plan settlement work all need real Auth,
 PostgREST/RLS, Edge Function, and migration verification without staging writes
 touching production data.
 
