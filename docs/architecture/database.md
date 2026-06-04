@@ -1,6 +1,11 @@
 # Database
 
-Postgres 17 (Supabase Cloud, EU). Authoritative source of all application state. Authorisation is enforced exclusively by RLS.
+Postgres 17 (Supabase Cloud, EU). Authoritative source of all application
+state. Authorisation is enforced exclusively by RLS.
+
+Product note: user-facing **Plans** currently use `shopping_lists` and
+`shopping_list_items` tables for compatibility. Keep schema references factual,
+but do not treat the internal name as product language.
 
 ## ER diagram
 
@@ -30,7 +35,7 @@ erDiagram
     categories ||--o{ categorization_rules : tags
 
     shopping_lists ||--o{ shopping_list_items : has
-    shopping_lists ||--o| transactions : "links via shopping_list_id"
+    shopping_lists ||--o| transactions : "legacy link via shopping_list_id"
 
     transactions ||--o{ transactions : "recurring_template_id (self-ref)"
     transactions ||--o| transaction_import_links : "provenance (owner-only)"
@@ -250,6 +255,9 @@ Join table between `user_groups` and `auth.users`. Compound PK; cascade-delete o
 
 - **RLS read**: members of the group can read the full roster.
 - **RLS write**: blocked. Use `create_group`, `accept_invitation`, `leave_group`, `remove_group_member`, `disband_group`.
+- **Product direction**: membership should become role-based. Add co-owner
+  semantics before expanding group-scoped transaction/plan management beyond
+  today's flat member model.
 
 ### `group_invitations`
 
@@ -270,9 +278,13 @@ Owner-scoped; `user_id IS NULL` denotes a **system category**, visible to every 
 
 ### `transactions`
 
-Core ledger. Amount is stored as a positive magnitude; sign is carried by `type`. Currency defaults to `PLN`. Date is `timestamptz` (not `date`, despite the name) - the legacy plan stored ISO strings; the migration kept that semantics on Supabase.
+Core ledger. Amount is stored as a positive magnitude; sign is carried by
+`type`. Currency defaults to `PLN`. Date is `timestamptz` (not `date`, despite
+the name).
 
-- **PK**: `id`. **FKs**: `category_id` (RESTRICT), `user_id` (CASCADE), `shopping_list_id` (SET NULL), `recurring_template_id` (SET NULL self-ref).
+- **PK**: `id`. **FKs**: `category_id` (RESTRICT), `user_id` (CASCADE),
+  `shopping_list_id` (SET NULL, compatibility), `recurring_template_id`
+  (SET NULL self-ref).
 - **CHECK**: `amount > 0`, `recurring_day BETWEEN 1 AND 31`.
 - **RLS read**: own + group-shared. **RLS write**: own only.
 - **Indexes**: `idx_transactions_user_date_asc`, `idx_transactions_category_user_date`, `idx_transactions_status_date`, `idx_transactions_recurring`, `idx_transactions_recurring_template` (redundant `idx_transactions_user_date_desc` dropped in `20260530000000`).
@@ -281,16 +293,27 @@ A view `transactions_with_category` joins to `categories` for display; the Svelt
 
 ### `shopping_lists`
 
-Per-user list, optionally scoped to a group. Soft-completion is **not** used - `status` flips to `completed` (and `total_amount` is filled in) by the `complete_shopping_list` RPC, which also creates the linked expense transaction in the same DB transaction.
+Compatibility storage for user-facing Plans. A row can represent household
+shopping, a trip, a larger purchase, or another future-spend intent. The table
+name is legacy; product copy should say **Plans**.
+
+Current code still supports completing a plan/list and optionally creating a
+linked expense transaction. Future settlement work should prefer a dedicated
+plan-to-transaction link model instead of expanding `transactions.shopping_list_id`.
 
 - **PK**: `id`. **FKs**: `user_id` (CASCADE), `group_id` (SET NULL), `category_id` (SET NULL).
 - **RLS read**: own or group-shared.
-- **RLS write**: owner OR group member can update/delete (group members are co-editors). Direct insert is allowed for the owner.
+- **RLS write**: current compatibility behavior allows the owner OR group
+  member to update/delete, so group members are broad co-editors today. Future
+  plan management should move this toward nominated co-owners for group-scoped
+  plans.
 - **Indexes**: `idx_shopping_lists_user_updated`, `idx_shopping_lists_group_user_updated`, `idx_shopping_lists_status_updated`.
 
 ### `shopping_list_items`
 
-Child rows of `shopping_lists`. Cascade-delete on parent. RLS uses `EXISTS` against the parent row, so all access derives from the parent's policies.
+Child rows of `shopping_lists` / user-facing plan items. Cascade-delete on
+parent. RLS uses `EXISTS` against the parent row, so all access derives from the
+parent's policies.
 
 - **PK**: `id`. **FK**: `shopping_list_id` (CASCADE).
 - **Columns of note**: `category` (TEXT, nullable; free-text section label, CHECK `shopping_list_items_category_nonempty` = NULL or non-blank - `20260528000000`).
@@ -365,6 +388,23 @@ Owner-only provenance for each imported transaction. **RPC-write-only** - INSERT
 - **Soft dedupe (non-unique)**: `transaction_import_links_fingerprint_idx` on `(user_id, fingerprint)` - fingerprint must NOT back a unique index (two legit transactions can share one).
 - **RLS read**: own. **All writes**: revoked from `authenticated`.
 
+### Planned: `plan_transaction_links`
+
+Not shipped yet. MVP+ plan settlement should introduce a dedicated link table
+rather than relying on `transactions.shopping_list_id`.
+
+Expected shape:
+
+- `plan_id` referencing `shopping_lists(id)`
+- `transaction_id` referencing `transactions(id)`
+- `created_by`
+- `created_at`
+- unique `(plan_id, transaction_id)`
+- one plan per transaction in MVP+ unless split allocation is designed later
+
+RLS/RPCs should authorize both sides of the link and enforce private/group scope
+compatibility.
+
 ### `categorization_rules`
 
 Per-user deterministic categorization rules consumed by the import review step. Four kinds (`exact`, `contains`, `type`, `composite`) with a kind-specific CHECK constraint ensuring the relevant match field is non-null. Evaluated in `priority DESC` order.
@@ -379,7 +419,7 @@ Per-user deterministic categorization rules consumed by the import review step. 
 
 Two patterns:
 
-1. **Owner + group-shared read**, **owner-only write** - used on `transactions`, `categories`, `shopping_lists`. The read predicate is the standard pair-of-`group_members` self-join:
+1. **Owner + group-shared read**, **owner-only write or current flat-member write** - used across `transactions`, `categories`, and `shopping_lists` depending on table maturity. The read predicate is the standard pair-of-`group_members` self-join:
 
    ```sql
    user_id = (select auth.uid())
@@ -449,12 +489,12 @@ All SECURITY DEFINER (bypass RLS) unless marked SECURITY INVOKER. Defined in `20
 | `reject_invitation(p_invitation_id)` | invitee                | Sets status `rejected`.                                    |
 | `cancel_invitation(p_invitation_id)` | creator OR group owner | Sets status `cancelled`.                                   |
 
-**Shopping list (3)**
+**Plans / compatibility list RPCs (3)**
 
 | RPC                                                                | Auth                                 | Behavior                                                                                                                                                                         |
 | ------------------------------------------------------------------ | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `complete_shopping_list(p_list_id, p_total_amount, p_category_id)` | owner OR group member                | Sets `status='completed'` + `total_amount`, inserts a linked `transactions` row, all in one DB transaction.                                                                      |
-| `attach_shopping_list_to_transaction(p_list_id, p_tx_id)`          | visible list + visible transaction   | Links an existing unlinked expense transaction to an eligible non-empty shopping list with matching private/group sharing scope. UI entry point is the transaction detail sheet. |
+| `complete_shopping_list(p_list_id, p_total_amount, p_category_id)` | owner OR group member                | Compatibility RPC. Completes the plan/list and may create a linked expense transaction depending on current signature/version. Not the future default settlement model.          |
+| `attach_shopping_list_to_transaction(p_list_id, p_tx_id)`          | visible list + visible transaction   | Compatibility RPC. Links one existing expense transaction through `transactions.shopping_list_id`. Future settlement should use a dedicated join table.                         |
 | `duplicate_shopping_list(p_list_id)`                               | SECURITY INVOKER - uses caller's RLS | Copies list + items, resets `status='active'`.                                                                                                                                   |
 
 **Notifications (2 - both SECURITY INVOKER)**
@@ -515,35 +555,14 @@ All SECURITY DEFINER (bypass RLS) unless marked SECURITY INVOKER. Defined in `20
 
 DST drift is acknowledged: pg_cron runs on UTC, so the local-Warsaw fire time shifts by one hour around DST transitions.
 
-## Migration timeline
+## Migration Source Of Truth
 
-```text
-20260423000000_initial_schema.sql                  - baseline: 8 tables, 5 enums, helpers, 11 RPCs, 8 RLS policy groups, 12 indexes, auth triggers, monthly_summary view
-20260424000000_fix_group_members_rls_recursion    - replace direct subquery with is_group_member()
-20260424000001_fix_user_groups_rls_recursion      - replace direct subquery with is_group_owner()
-20260425000000_phase5_notifications_push          - notifications + push_subscriptions, mark_*_read, process_recurring_transactions, update_transaction_statuses, pg_cron schedules
-20260425000001_phase5_2_edge_function_hooks       - trigger_send_push, trigger_sync_user_role, weekly send-admin-summary cron, all using vault.decrypted_secret
-20260426000000_fix_recurring_template_id          - recurring_template_id FK + dedup
-20260426000001_grant_authenticated_table_access   - restore table grants after platform JWT API reset
-20260427000001_add_remove_group_member_rpc        - owner-only member removal
-20260430000000_duplicate_shopping_list_rpc        - duplicate_shopping_list (SECURITY INVOKER)
-20260504000000_admin_trigger_rpc                  - trigger_admin_summary
-20260520000000_bank_import                         - 5 bank-import tables + RLS + categorization_rule_kind enum (privacy spine: 0 cols on transactions)
-20260521000000_commit_import_session               - SECURITY DEFINER commit RPC (race-safe per-row savepoint dedupe)
-20260521000001_preview_fingerprint_warnings       - SECURITY DEFINER pre-commit dup scan
-20260523000000_warn_shopping_list_duplicates      - extend bank-import soft warnings to caller-visible list-created expense transactions
-20260524000000_environment_edge_function_urls     - move DB hook Edge Function roots behind environment-specific Vault config
-20260525000000_grant_service_role_table_access     - restore table grants for bank-import tables created after global grants
-20260526000000_enforce_max_user_cap                - Vault-gated max-user cap trigger on auth.users (BEFORE INSERT)
-20260527000000_fix_max_user_cap_locking            - switch cap lock to pg_advisory_xact_lock; explicit errors on bad Vault values
-20260528000000_shopping_list_items_category        - shopping_list_items.category column + owner-scoped shopping_item_categories table/RLS
-20260529000000_function_execute_hardening          - revoke EXECUTE from public/anon, grant only client RPCs to authenticated, pin search_path on 7 fns
-20260530000000_index_cleanup                       - drop redundant idx_transactions_user_date_desc; add 10 FK-covering indexes on import tables + categorization_rules
-
-> **Chronology note:** `20260526000000`–`20260530000000` are dated ahead of their 2026-05-24/25 authoring date but are already applied to prod, staging, and local. They are frozen - never rename an applied migration.
-```
-
-> **History note:** Production migration history was normalized on 2026-05-24 to mirror the canonical `supabase/migrations/` files. As of 2026-05-25, prod, staging, and local all report the same 35 applied migrations - no drift. Keep the SQL files canonical and use the guarded inspection/repair flow in the [Supabase operations runbook](../runbooks/supabase-operations.md). Never apply remote schema out-of-band; let branch merges be the only path that mutates remote schema.
+The canonical migration history is the ordered SQL in `supabase/migrations/`.
+Do not maintain a hand-written migration timeline in docs; it drifts quickly.
+Use the guarded inspection/repair flow in the
+[Supabase operations runbook](../runbooks/supabase-operations.md). Never apply
+remote schema out-of-band; branch merges and reviewed migrations are the only
+normal path that mutates remote schema.
 
 ## Extensions installed
 

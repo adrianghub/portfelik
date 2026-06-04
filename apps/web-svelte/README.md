@@ -1,42 +1,47 @@
-# sv
+# Portfelik Web App
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+SvelteKit SPA for Portfelik. Product direction and repository-level setup live
+in the root [README](../../README.md).
 
-## Creating a project
+## Local Development
 
-If you're seeing this, you've probably already done this step. Congrats!
-
-```sh
-# create a new project
-npx sv create my-app
+```bash
+pnpm install
+pnpm dev
 ```
 
-To recreate this project with the same configuration:
+The app reads `.env.local`, which normally points at the local Supabase stack.
+From the repository root:
 
-```sh
-# recreate this project
-pnpm dlx sv@0.15.1 create --template minimal --types ts --install pnpm apps/web-svelte
+```bash
+supabase start
+supabase db reset
+cd apps/web-svelte
+pnpm seed:local
 ```
 
-## Developing
+## Checks
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
+```bash
+pnpm exec svelte-check --tsconfig ./tsconfig.json
+pnpm lint
+pnpm format:check
+pnpm test
+pnpm exec playwright test
 ```
 
-## Building
+After editing `messages/pl.json`, recompile Paraglide:
 
-To create a production version of your app:
-
-```sh
-npm run build
+```bash
+pnpm exec paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide
 ```
 
-You can preview the production build with `npm run preview`.
+## Architecture Notes
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+- Static SvelteKit build via `adapter-static`; no SSR and no `+server.ts`
+  runtime.
+- Supabase client singleton in `src/lib/supabase.ts`.
+- Svelte 5 runes and TanStack Query v6 for UI state/server cache.
+- User-facing product language is moving toward **Import**, **Transactions**,
+  and **Plans**. Some internal files still use `shopping-lists` names for
+  compatibility until the data model is renamed.

@@ -22,7 +22,7 @@ Loaded automatically when working in `apps/web-svelte/`.
 - `transactions.ts` - `fetchTransactions(start, end, categoryId?)`, `computeSummary(txs)`, `createTransaction`, `updateTransaction`, `deleteTransaction`
 - `categories.ts` - `fetchCategories`, `createCategory`, `updateCategory`, `deleteCategory`
 - `groups.ts` - all group SECURITY DEFINER RPCs
-- `shopping-lists.ts` - `fetchShoppingLists`, `fetchShoppingListById`, `fetchShoppingListItemHistory`, item CRUD, `completeShoppingList`, `duplicateShoppingList`
+- `shopping-lists.ts` - current internal service for user-facing Plans; `fetchShoppingLists`, `fetchShoppingListById`, `fetchShoppingListItemHistory`, item CRUD, `completeShoppingList`, `duplicateShoppingList`
 - `profiles.ts` - `fetchProfile`, `updateProfile`, `assignAdminRole`, `revokeAdminRole`
 - `notifications.ts` - `fetchNotifications`, `markNotificationRead`, `markAllNotificationsRead`, `deleteNotification`
 - `push.ts` - `registerServiceWorker`, `autoSubscribePush`, `requestAndSubscribePush`, `unsubscribeFromPush`
@@ -32,7 +32,7 @@ Loaded automatically when working in `apps/web-svelte/`.
 - `ui/` - `Dialog`, `ConfirmDialog`, `NotificationsPopover`
 - `transactions/` - `MonthRangePicker`, `CategoryFilter`, `TransactionTable` (shared tx badge, row click), `TransactionDialog`, `TransactionDetailSheet`, `SummaryCards`, `CategoryBreakdown` (clickable)
 - `settings/` - `CategoriesTab`, `GroupsTab`, `ProfileTab`, `CategoryDialog`
-- `shopping-lists/` - `ShoppingListCard`, `ShoppingListSuggestions`
+- `shopping-lists/` - current internal components for user-facing Plans (`ShoppingListCard`, `ShoppingListSuggestions`, detail views)
 
 **Utils** (`src/lib/utils.ts`): `cn`, `formatCurrency`, `formatDate`, `getMonthBounds`, `getDateRangeBounds`, `monthName`, `monthYearLabel`
 

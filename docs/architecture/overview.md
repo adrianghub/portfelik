@@ -1,239 +1,127 @@
-# System overview
+# System Overview
 
-A C4-lite view of Portfelik: context first, then containers, then components inside the SvelteKit SPA.
+Portfelik is a static SvelteKit PWA backed by Supabase. The product direction is
+import-first: bank files feed the transaction ledger, plans describe future
+intent, and settlement connects plans with real transactions.
 
-## 1. System context
-
-```mermaid
-flowchart LR
-    user([User<br/>browser / installed PWA])
-    google([Google OAuth])
-    push([Browser Push Service<br/>FCM / Mozilla / Apple])
-
-    subgraph cf[Cloudflare]
-        pages[Cloudflare Pages<br/>portfelik.adrianzinko.com<br/>dev.portfelik.pages.dev]
-    end
-
-    subgraph sb[Supabase Cloud - EU]
-        pg[(Postgres<br/>+ pg_cron<br/>+ pg_net<br/>+ Vault)]
-        auth[GoTrue Auth]
-        rest[PostgREST]
-        ef[Edge Functions<br/>Deno]
-    end
-
-    user -->|HTTPS| pages
-    pages -->|HTTPS REST + RPC| rest
-    pages -->|OAuth| auth
-    auth -->|OIDC| google
-    rest --> pg
-    auth --> pg
-    pg -->|HTTP via pg_net| ef
-    ef --> pg
-    ef -->|VAPID push| push
-    push --> user
-```
-
-Two browser-to-server channels:
-
-1. **PostgREST** for table reads/writes and SECURITY DEFINER RPC calls. All authorisation is enforced by Postgres RLS using the JWT supplied by GoTrue Auth.
-2. **Web-push** delivered out-of-band by the user agent's push service after a VAPID-signed envelope is sent from `send-push`.
-
-There is **no application server**. The SvelteKit build is a static bundle (no SSR, no `+server.ts` routes); every request from the browser hits Supabase directly.
-
-## 2. Container view
-
-```mermaid
-flowchart TB
-    subgraph browser[Browser / installed PWA]
-        spa[SvelteKit SPA<br/>Svelte 5 runes<br/>TanStack Query<br/>Paraglide v2]
-        sw[Service Worker<br/>VAPID push handler]
-    end
-
-    subgraph supabase[Supabase project]
-        rest[PostgREST]
-        gotrue[GoTrue]
-        pg[(Postgres 17<br/>10 tables<br/>~16 RPCs<br/>~8 triggers)]
-        cron[pg_cron jobs<br/>3 schedules]
-        ef_send_push[send-push]
-        ef_admin_summary[send-admin-summary]
-        ef_role[sync-user-role]
-        vault[Vault<br/>internal_trigger_secret]
-    end
-
-    spa <--> rest
-    spa <--> gotrue
-    sw -.->|user_id, endpoint| spa
-    rest --> pg
-    gotrue --> pg
-    cron -- HTTP --> ef_admin_summary
-    pg -- on insert notifications --> ef_send_push
-    pg -- on update profiles.role --> ef_role
-    ef_send_push --> pg
-    ef_admin_summary --> pg
-    ef_role --> gotrue
-    ef_send_push -. VAPID .-> sw
-    vault -.-> ef_send_push
-    vault -.-> ef_admin_summary
-    vault -.-> ef_role
-```
-
-| Container          | Role                                                                                                                                                                              |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **SvelteKit SPA**  | Static bundle (`adapter-static`), served by Cloudflare Pages. Handles all UI, talks to Supabase via `@supabase/supabase-js`.                                                      |
-| **Service worker** | Receives VAPID push payloads, displays browser notifications, no caching layer beyond what Cloudflare provides.                                                                   |
-| **PostgREST**      | Auto-generated REST surface over the `public` schema. RLS-enforced.                                                                                                               |
-| **GoTrue**         | Issues JWTs after Google OAuth. JWT carries `app_metadata.role` so RLS can check admin-ness without an extra round-trip.                                                          |
-| **Postgres**       | Source of truth for all data; RLS is the authorisation engine.                                                                                                                    |
-| **pg_cron**        | In-DB scheduler. Runs SQL jobs (`process_recurring_transactions`, `update_transaction_statuses`) and triggers the weekly admin-summary Edge Function.                             |
-| **Edge Functions** | Three Deno workers: `send-push` (VAPID fan-out on every notification insert), `send-admin-summary` (weekly aggregate), `sync-user-role` (mirrors `profiles.role` into JWT claim). |
-| **Vault**          | Stores `internal_trigger_secret` so DB triggers can authenticate to Edge Functions (Bearer-token auth).                                                                           |
-
-## 3. SvelteKit SPA - component view
+## System Context
 
 ```mermaid
 flowchart LR
-    subgraph routes[Routes]
-        login[/login/]
-        cb[/auth/callback/]
-        tx[/transactions/]
-        sl[/shopping-lists/]
-        sl_id["/shopping-lists/[id]/"]
-        settings[/settings/]
-        admin[/admin/]
-        admin_n[/admin/notifications/]
-    end
+  user([User browser / PWA])
 
-    subgraph services[Services - src/lib/services]
-        s_tx[transactions.ts]
-        s_cat[categories.ts]
-        s_grp[groups.ts]
-        s_sl[shopping-lists.ts]
-        s_pr[profiles.ts]
-        s_no[notifications.ts]
-        s_pu[push.ts]
-    end
+  subgraph cf[Cloudflare]
+    pages[Cloudflare Pages]
+  end
 
-    subgraph runtime[Runtime]
-        sb_client[supabase.ts<br/>singleton]
-        qc[QueryClient<br/>staleTime 5min<br/>gcTime 24h<br/>networkMode offlineFirst]
-        i18n[Paraglide<br/>messages/pl.json<br/>compile-time codegen]
-        runes[Svelte 5 runes<br/>state / derived / effect]
-    end
+  subgraph sb[Supabase]
+    auth[Auth]
+    rest[PostgREST]
+    pg[(Postgres + RLS)]
+    ef[Edge Functions]
+    cron[pg_cron]
+    vault[Vault]
+  end
 
-    routes --> services
-    services --> sb_client
-    routes --> qc
-    routes --> i18n
-    routes --> runes
+  user --> pages
+  pages --> auth
+  pages --> rest
+  rest --> pg
+  auth --> pg
+  cron --> pg
+  pg --> ef
+  ef --> pg
+  vault --> ef
 ```
 
-### Routes
+There is no application server. The SvelteKit build is static; browser code
+uses Supabase directly. Authorization is enforced in Postgres RLS and
+SECURITY DEFINER RPCs.
 
-`src/routes/` is flat - no nested layouts beyond the root. Auth gating happens in `+layout.svelte` (`onMount` → `supabase.auth.getSession()` → redirect to `/login` if no session and not on a public path). There are **no `+server.ts` files** - the adapter is static, so there is no server-side runtime.
+## Product Modules
 
-### Services layer
+```mermaid
+flowchart LR
+  Dashboard[/dashboard<br/>Pulpit]
+  Transactions[/transactions<br/>Transakcje]
+  Import[/transactions/import today<br/>/import planned]
+  Plans[/shopping-lists today<br/>/plans planned]
+  Settings[/settings<br/>Ustawienia]
 
-Every external mutation goes through `src/lib/services/*.ts`. Patterns:
-
-- **Reads** - direct PostgREST calls (`supabase.from(...).select(...)`). Pagination implemented in `fetchTransactions` (1000-row page size, while-loop accumulator).
-- **Writes** - direct PostgREST inserts/updates/deletes for owner-managed tables. `user_id` always passed explicitly from `supabase.auth.getUser()` because RLS does not auto-fill it.
-- **Group/invitation mutations** - `supabase.rpc(...)` to a SECURITY DEFINER function. Direct table writes are blocked by `using (false)` policies.
-- **Shopping list completion** - `complete_shopping_list(p_list_id, p_total_amount, p_category_id)` RPC; atomically marks list complete _and_ creates the linked expense transaction.
-- **Shopping list attach** - `attach_shopping_list_to_transaction(p_list_id, p_tx_id)` RPC; transaction detail is the entry point for linking an already-recorded eligible expense to a non-empty visible list with matching sharing scope.
-
-### State management
-
-- **Reactivity** - Svelte 5 runes only (`$state`, `$derived`, `$effect`). No Svelte stores.
-- **Server cache** - TanStack Query v6 (`createQuery`, `createMutation`). Note: `createMutation` returns a plain reactive object, **not** a store; `mutation.mutate(...)`, `mutation.isPending` direct access only - never `$mutation.xxx`.
-- **Auth session** - sourced from `supabase.auth.getSession()` plus `onAuthStateChange()` listener in root layout. No global store; state is plumbed via component props and re-fetched profile.
-
-### TanStack Query conventions
-
-```text
-defaultOptions:
-  queries:
-    staleTime: 5 min
-    gcTime: 24 h
-    retry: 2
-    networkMode: offlineFirst
-    refetchOnReconnect: true
+  Import --> Transactions
+  Transactions --> Dashboard
+  Plans --> Dashboard
+  Transactions --> Plans
 ```
 
-Key conventions:
+Current route names still include `/shopping-lists` and `/transactions/import`.
+The product direction is `/plans` and `/import`; docs should name the
+user-facing concepts **Plans** and **Import** while clearly noting current
+compatibility routes where needed.
 
-| Concern                  | Key shape                                                          |
-| ------------------------ | ------------------------------------------------------------------ |
-| Transactions in a window | `["transactions", start, end, categoryId?]`                        |
-| Categories               | `["categories"]`                                                   |
-| Shopping lists (index)   | `["shopping-lists"]`                                               |
-| Single shopping list     | `["shopping-list", id]`                                            |
-| Profile                  | `["profile", userId]`                                              |
-| User groups              | `["user-groups"]`, `["group-members", groupId]`, `["invitations"]` |
+## Frontend Structure
 
-After a mutation, the calling component invalidates only the keys it knows it changed. `complete_shopping_list` invalidates `shopping-lists`, `transactions`, and any summary keys.
+| Area | Current files |
+| --- | --- |
+| Routes | `apps/web-svelte/src/routes/` |
+| Services | `apps/web-svelte/src/lib/services/` |
+| Import parsing | `apps/web-svelte/src/lib/import/` |
+| Import review UI | `apps/web-svelte/src/lib/components/import/` |
+| Transaction UI | `apps/web-svelte/src/lib/components/transactions/` |
+| Plan/list UI | `apps/web-svelte/src/lib/components/shopping-lists/` |
+| i18n | `apps/web-svelte/messages/pl.json` |
 
-## 4. Tech stack
+Services wrap Supabase calls. Owner-managed tables use direct PostgREST writes
+with explicit `user_id`; group-sensitive and multi-row operations use RPCs.
 
-| Layer         | Choice                         | Version | Reason                                       |
-| ------------- | ------------------------------ | ------- | -------------------------------------------- |
-| App framework | SvelteKit + `adapter-static`   | 2.x     | SPA, no SSR needed                           |
-| Reactivity    | Svelte 5 runes                 | 5.x     | Native; replaces stores                      |
-| Server cache  | `@tanstack/svelte-query`       | v6      | Offline-first; mutation pattern              |
-| UI primitives | shadcn-svelte + bits-ui        | latest  | 1:1 port from legacy shadcn/ui               |
-| Styling       | Tailwind v4                    | 4.x     | Direct port from legacy                      |
-| i18n          | Paraglide v2                   | 2.x     | Compile-time, Polish only                    |
-| Auth client   | `@supabase/supabase-js` (base) | v2      | **Not** `@supabase/ssr` - adapter is static  |
-| Push          | Web Push API (VAPID)           | native  | Replaces Firebase Messaging                  |
-| Backend       | Supabase Cloud (EU)            | -       | Postgres 17, pg_cron, pg_net, Vault          |
-| Edge runtime  | Deno (Supabase Edge Functions) | -       | `web-push`, `@supabase/supabase-js` via npm: |
-| Frontend host | Cloudflare Pages               | -       | Static deploy, prod + staging branches       |
-| E2E tests     | Playwright                     | latest  | Mocked suite + real-DB smoke suite           |
-| CI/CD         | GitHub Actions                 | -       | Typecheck → lint → e2e → deploy → smoke      |
+## Data Flow
 
-## 5. Cross-cutting concerns
+### Import To Ledger
 
-### Auth propagation
+```mermaid
+sequenceDiagram
+  participant User
+  participant UI as Import UI
+  participant Parser as CSV parser / adapter
+  participant DB as Supabase
 
-1. `supabase.auth.getSession()` on mount.
-2. If absent and not on `/login` or `/auth/callback`, redirect to `/login`.
-3. After SIGNED_IN: fetch profile, register service worker, auto-subscribe push silently (only if `Notification.permission === 'granted'`).
-4. After SIGNED_OUT: unsubscribe push, clear local state, redirect to `/login`.
-5. JWT carries `app_metadata.role`. RLS reads it via `(select auth.jwt() ->> 'app_metadata' ->> 'role')` for admin gates.
-
-### Mutation → invalidation
-
-Every form submit follows the same shape:
-
-```text
-form $state → mutation.mutate(input) → service fn (insert/update/delete or RPC)
-   → on success: queryClient.invalidateQueries({ queryKey: [...] })
-   → close dialog, optionally toast
-   → on error: toast (svelte-sonner)
+  User->>UI: Upload bank CSV
+  UI->>Parser: Parse and normalize rows
+  Parser-->>UI: Normalized rows
+  UI->>DB: Create preview session + rows
+  DB-->>UI: Preview rows with category/duplicate state
+  User->>UI: Review exceptions
+  UI->>DB: commit_import_session(session_id)
+  DB-->>UI: Inserted transactions + duplicate/skipped counts
 ```
 
-Service functions throw raw Supabase/PostgREST errors. Components catch via `mutation.error` and surface a toast - no try/catch at the service layer.
+Import provenance is stored in `transaction_import_links`, not on shared
+transaction rows. This keeps bank metadata owner-only.
 
-### Error → toast
+### Plans To Settlement
 
-`svelte-sonner` is mounted once at the top of `+layout.svelte`. Error toasts are red, success toasts are green. There is no centralised error boundary - TanStack Query mutation `.error` state is the single source.
-
-### Offline behavior
-
-- **Reads**: TanStack Query's `networkMode: offlineFirst` plus `refetchOnReconnect` covers cached reads. The `OfflineIndicator` component shows a banner driven by `navigator.onLine` and the `online`/`offline` window events.
-- **Writes**: there is **no** client-side write queue. The legacy app had a Map-based outbox in `FirestoreService`; this has not been ported. Writes attempted while offline fail with a network error and are surfaced via toast. See [audit](./audit-2026-05-09.md) for the gap entry.
-
-### i18n
-
-Paraglide compiles `messages/pl.json` to TypeScript at build time. Imports resolve to plain function calls (`m.push_banner_text()`), so there is zero runtime overhead and full type-safety on message keys. **Recompile is mandatory** after every edit to `pl.json`:
-
-```sh
-pnpm exec paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide
+```mermaid
+flowchart LR
+  Plan[Plan intent] --> Link[Settlement link]
+  Transaction[Ledger transaction] --> Link
+  Link --> Progress[Plan progress]
 ```
 
-`svelte-check` will not see new keys until the recompile runs.
+Current implementation still has legacy `transactions.shopping_list_id` and
+`shopping_lists` internals. Future settlement should use a dedicated
+plan-to-transaction link model.
 
-### Build/deploy
+## Runtime Patterns
 
-- `pnpm build` produces a static bundle in `apps/web-svelte/build/`.
-- GitHub Actions deploys `main` → production (`portfelik.adrianzinko.com`) and `dev` → staging (`dev.portfelik.pages.dev`) on push.
-- Both branches share the same Cloudflare Pages project. Supabase is split: `dev` migrates/seeds a dedicated `portfelik-staging` project before staging deploy and `main` stays on production. Staging smoke data still uses a dedicated CI user plus the `__e2e_smoke__` description prefix for idempotent cleanup.
+- Svelte 5 runes for local reactivity.
+- TanStack Query v6 for server cache and invalidation.
+- Paraglide v2 for compile-time Polish i18n.
+- `@supabase/supabase-js` base client only; no `@supabase/ssr`.
+- `svelte-sonner` for toasts.
+- Cloudflare Pages deploys static builds from `dev` and `main`.
+
+## Offline Behavior
+
+Reads use TanStack Query's offline-first cache. Writes do not have a durable
+client-side outbox yet; failed offline writes surface as errors. A Dexie-backed
+write queue remains deferred.
