@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createUserClient, provisionTwoUsers, type TestContext } from "./setup";
@@ -267,5 +268,87 @@ describe("admin masked diagnostics: user context", () => {
     });
     expect(u.data.user_token).toBe(t.data.user_token);
     await cleanupSeed(ctx.admin, ctx.userB.userId);
+  });
+});
+
+const LOCAL_DB_URL =
+  process.env.SUPABASE_DB_URL ??
+  "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
+
+describe("privacy primitives: fail-closed", () => {
+  it("privacy_hmac_token raises when pepper missing (rolled back)", () => {
+    // One transaction: remove pepper, call fn (must error), always ROLLBACK.
+    // ON_ERROR_STOP aborts on the raise; the uncommitted tx is rolled back on
+    // disconnect, so the pepper delete never persists.
+    const sql =
+      "begin; delete from vault.secrets where name='privacy_pepper'; " +
+      "select privacy_hmac_token('x','user'); rollback;";
+    let threw = false;
+    try {
+      execSync(`psql "${LOCAL_DB_URL}" -v ON_ERROR_STOP=1 -c "${sql}"`, {
+        stdio: "pipe",
+      });
+    } catch (e) {
+      threw = true;
+      expect(String((e as { stderr?: Buffer }).stderr ?? e)).toMatch(/fail closed/);
+    }
+    expect(threw).toBe(true);
+  });
+
+  it("pepper still present after the rolled-back failure test", () => {
+    const out = execSync(
+      `psql "${LOCAL_DB_URL}" -t -A -c "select count(*) from vault.secrets where name='privacy_pepper'"`,
+      { encoding: "utf8" },
+    ).trim();
+    expect(out).toBe("1");
+  });
+});
+
+describe("amount bucket boundaries (via transaction RPC)", () => {
+  let ctx: TestContext;
+  let asAdmin: SupabaseClient;
+  beforeAll(async () => {
+    ctx = await provisionTwoUsers();
+    await cleanupSeed(ctx.admin, ctx.userB.userId);
+    asAdmin = await adminClientFor(ctx);
+  });
+  afterAll(async () => {
+    await ctx.admin.from("profiles").update({ role: "user" }).eq("id", ctx.userA.userId);
+    await cleanupSeed(ctx.admin, ctx.userB.userId);
+  });
+
+  const cases: Array<[number, string]> = [
+    [49.99, "< 50 PLN"],
+    [50, "50-200 PLN"],
+    [200, "200-1000 PLN"],
+    [1000, "> 1000 PLN"],
+  ];
+
+  it.each(cases)("amount %s -> %s", async (amount, bucket) => {
+    const { data: cat } = await ctx.admin
+      .from("categories")
+      .insert({ user_id: ctx.userB.userId, name: "__SECRET_BKT__" + amount, type: "expense" })
+      .select("id")
+      .single()
+      .throwOnError();
+    const { data: tx } = await ctx.admin
+      .from("transactions")
+      .insert({
+        user_id: ctx.userB.userId,
+        category_id: cat!.id,
+        amount,
+        currency: "PLN",
+        description: "__SECRET_DESC_81__",
+        date: new Date().toISOString(),
+        type: "expense",
+        status: "paid",
+      })
+      .select("id")
+      .single()
+      .throwOnError();
+    const { data } = await asAdmin.rpc("admin_masked_transaction_by_id", {
+      p_transaction_id: tx!.id,
+    });
+    expect(data.amount_bucket).toBe(bucket);
   });
 });
