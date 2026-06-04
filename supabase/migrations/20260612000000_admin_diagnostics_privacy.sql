@@ -192,3 +192,39 @@ begin
 end $$;
 
 grant execute on function admin_masked_user_context_by_id(uuid) to authenticated;
+
+-- ── 6. Lockdown: mask admin notification diagnostics ──────────────────────────
+drop function if exists fetch_admin_notifications(int);
+
+create or replace function fetch_admin_notifications(p_limit int default 50)
+returns table (
+  id         uuid,
+  user_token text,
+  type       text,
+  title      text,
+  body       text,
+  read_at    timestamptz,
+  created_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public, vault, extensions
+as $$
+begin
+  if not is_admin() then
+    raise exception 'permission_denied: admin only' using errcode = '42501';
+  end if;
+  return query
+    select n.id,
+           privacy_hmac_token(n.user_id::text, 'user'),
+           n.type::text,
+           privacy_mask_text(n.title),
+           privacy_mask_text(n.body),
+           n.read_at,
+           n.created_at
+      from notifications n
+     order by n.created_at desc
+     limit greatest(p_limit, 1);
+end $$;
+
+grant execute on function fetch_admin_notifications(int) to authenticated;
