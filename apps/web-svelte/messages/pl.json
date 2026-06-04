@@ -615,5 +615,14 @@
   "shopping_list_planned_for_label": "Planowane: {date}",
   "shopping_list_planned_for_input_label": "Data zakupów",
   "shopping_list_planned_today": "Dzisiaj",
-  "shopping_list_planned_tomorrow": "Jutro"
+  "shopping_list_planned_tomorrow": "Jutro",
+  "admin_diag_record_title": "Diagnostyka rekordu",
+  "admin_diag_record_hint": "Dane zamaskowane do wsparcia. Brak surowych danych finansowych ani osobowych.",
+  "admin_diag_record_type_tx": "Transakcja",
+  "admin_diag_record_type_session": "Sesja importu",
+  "admin_diag_record_type_user": "Użytkownik",
+  "admin_diag_record_id_label": "ID rekordu (UUID)",
+  "admin_diag_record_search": "Szukaj",
+  "admin_diag_record_not_found": "Nie znaleziono rekordu.",
+  "admin_diag_record_error": "Błąd pobierania diagnostyki."
 }
