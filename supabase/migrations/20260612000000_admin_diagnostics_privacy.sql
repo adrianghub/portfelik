@@ -75,3 +75,47 @@ revoke execute on function privacy_hmac_token(text, text)   from public, anon, a
 revoke execute on function privacy_amount_bucket(numeric)   from public, anon, authenticated, service_role;
 revoke execute on function privacy_mask_email(text)         from public, anon, authenticated, service_role;
 revoke execute on function privacy_mask_text(text)          from public, anon, authenticated, service_role;
+
+-- ── 3. Masked diagnostic RPC: transaction ─────────────────────────────────────
+create or replace function admin_masked_transaction_by_id(p_transaction_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, vault, extensions
+as $$
+declare
+  v_tx          transactions%rowtype;
+  v_merchant    text;
+  v_source_kind text;
+begin
+  if not is_admin() then
+    raise exception 'permission_denied: admin only' using errcode = '42501';
+  end if;
+  select * into v_tx from transactions where id = p_transaction_id;
+  if not found then
+    return null;
+  end if;
+  select r.counterparty, s.source_kind
+    into v_merchant, v_source_kind
+    from transaction_import_links l
+    join transaction_import_rows r     on r.id = l.row_id
+    join transaction_import_sessions s on s.id = l.session_id
+   where l.transaction_id = p_transaction_id;
+  return jsonb_build_object(
+    'transaction_id',     v_tx.id,
+    'user_token',         privacy_hmac_token(v_tx.user_id::text, 'user'),
+    'group_token',        privacy_hmac_token(v_tx.group_id::text, 'group'),
+    'category_token',     privacy_hmac_token(v_tx.category_id::text, 'category'),
+    'type',               v_tx.type,
+    'status',             v_tx.status,
+    'date_month',         to_char(v_tx.date, 'YYYY-MM'),
+    'amount_bucket',      privacy_amount_bucket(v_tx.amount),
+    'currency',           v_tx.currency,
+    'description_masked', privacy_mask_text(v_tx.description),
+    'merchant_token',     privacy_hmac_token(v_merchant, 'merchant'),
+    'source_kind',        v_source_kind,
+    'created_at',         v_tx.created_at
+  );
+end $$;
+
+grant execute on function admin_masked_transaction_by_id(uuid) to authenticated;
