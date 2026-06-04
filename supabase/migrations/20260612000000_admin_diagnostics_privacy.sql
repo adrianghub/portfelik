@@ -119,3 +119,40 @@ begin
 end $$;
 
 grant execute on function admin_masked_transaction_by_id(uuid) to authenticated;
+
+-- ── 4. Masked diagnostic RPC: import session ──────────────────────────────────
+create or replace function admin_masked_import_session_by_id(p_session_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, vault, extensions
+as $$
+declare
+  v_s     transaction_import_sessions%rowtype;
+  v_label text;
+begin
+  if not is_admin() then
+    raise exception 'permission_denied: admin only' using errcode = '42501';
+  end if;
+  select * into v_s from transaction_import_sessions where id = p_session_id;
+  if not found then
+    return null;
+  end if;
+  select label into v_label from bank_accounts where id = v_s.bank_account_id;
+  return jsonb_build_object(
+    'session_id',          v_s.id,
+    'user_token',          privacy_hmac_token(v_s.user_id::text, 'user'),
+    'adapter_kind',        coalesce(v_s.adapter_kind, v_s.detected_kind),
+    'source_kind',         v_s.source_kind,
+    'status',              v_s.status,
+    'source_label_masked', privacy_mask_text(v_label),
+    'rows_total',          v_s.rows_total,
+    'rows_committed',      v_s.rows_committed,
+    'rows_skipped',        v_s.rows_skipped,
+    'rows_duplicate',      v_s.rows_duplicate,
+    'created_at',          v_s.created_at,
+    'committed_at',        v_s.committed_at
+  );
+end $$;
+
+grant execute on function admin_masked_import_session_by_id(uuid) to authenticated;

@@ -183,3 +183,44 @@ describe("admin masked diagnostics: transaction", () => {
     expect(data.category_token).not.toBe(data.group_token);
   });
 });
+
+describe("admin masked diagnostics: import session", () => {
+  let ctx: TestContext;
+  let seeded: Seeded;
+  let asAdmin: SupabaseClient;
+
+  beforeAll(async () => {
+    ctx = await provisionTwoUsers();
+    await cleanupSeed(ctx.admin, ctx.userB.userId); // defensive: auth users persist across db reset
+    seeded = await seedImportedTransaction(ctx.admin, ctx.userB.userId);
+    asAdmin = await adminClientFor(ctx);
+  });
+  afterAll(async () => {
+    await ctx.admin.from("profiles").update({ role: "user" }).eq("id", ctx.userA.userId);
+    await cleanupSeed(ctx.admin, ctx.userB.userId);
+  });
+
+  it("denies non-admin", async () => {
+    const { error } = await ctx.userB.client.rpc("admin_masked_import_session_by_id", {
+      p_session_id: seeded.sessionId,
+    });
+    expect(String(error?.message ?? "")).toMatch(/permission_denied/);
+  });
+
+  it("returns counts + masked label, no raw provenance", async () => {
+    const { data, error } = await asAdmin.rpc("admin_masked_import_session_by_id", {
+      p_session_id: seeded.sessionId,
+    });
+    expect(error).toBeNull();
+    const json = JSON.stringify(data);
+    expect(json).not.toContain(S.filename);
+    expect(json).not.toContain("hash_" + S.filename);
+    expect(json).not.toContain(S.accountLabel);
+    expect(data.source_label_masked).toBe("[masked]");
+    expect(data.adapter_kind).toBe("mbank");
+    expect(data.source_kind).toBe("bank_statement");
+    expect(data.rows_total).toBe(1);
+    expect(data.rows_committed).toBe(1);
+    expect(data.user_token).toMatch(/^[0-9a-f]{64}$/);
+  });
+});
