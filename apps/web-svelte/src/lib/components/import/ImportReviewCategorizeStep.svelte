@@ -288,18 +288,17 @@
               <td class="max-w-xs px-3 py-2 align-top">
                 {#if row.counterparty}
                   <p class="text-sm font-medium text-slate-100">{row.counterparty}</p>
-                  <p class="text-xs text-slate-400">{row.edited_description ?? row.description}</p>
-                {:else}
-                  <Input
-                    value={row.edited_description ?? row.description}
-                    onchange={(e) => {
-                      const v = (e.target as HTMLInputElement).value.trim();
-                      onPatchRow(row.id, {
-                        edited_description: v === "" || v === row.description ? null : v,
-                      });
-                    }}
-                  />
                 {/if}
+                <Input
+                  class={row.counterparty ? "mt-1" : undefined}
+                  value={row.edited_description ?? row.description}
+                  onchange={(e) => {
+                    const v = (e.target as HTMLInputElement).value.trim();
+                    onPatchRow(row.id, {
+                      edited_description: v === "" || v === row.description ? null : v,
+                    });
+                  }}
+                />
                 {#if groupName}
                   <Badge variant="shared" class="mt-1">{groupName}</Badge>
                 {/if}
@@ -357,12 +356,15 @@
       {#each sortedRows as row (row.id)}
         {@const rule = matchedRuleFor(row)}
         {@const groupName = groups.find((g) => g.id === row.selected_group_id)?.name}
-        {@const secondary = row.counterparty ? (row.edited_description ?? row.description) : null}
         <li class="space-y-2 rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3">
           <div class="flex items-start justify-between gap-3">
-            <span class="min-w-0 flex-1 truncate text-sm font-medium text-slate-100">
-              {row.counterparty ?? row.edited_description ?? row.description}
-            </span>
+            {#if row.counterparty}
+              <span class="min-w-0 flex-1 truncate text-sm font-medium text-slate-100">
+                {row.counterparty}
+              </span>
+            {:else}
+              <span class="min-w-0 flex-1"></span>
+            {/if}
             <span
               class={cn(
                 "shrink-0 text-sm font-semibold tabular-nums",
@@ -374,13 +376,20 @@
           </div>
           <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500">
             <span>{row.posted_at}</span>
-            {#if secondary}
-              <span class="min-w-0 truncate">· {secondary}</span>
-            {/if}
             {#if groupName}
               <Badge variant="shared">{groupName}</Badge>
             {/if}
           </div>
+          <Input
+            class="w-full"
+            value={row.edited_description ?? row.description}
+            onchange={(e) => {
+              const v = (e.target as HTMLInputElement).value.trim();
+              onPatchRow(row.id, {
+                edited_description: v === "" || v === row.description ? null : v,
+              });
+            }}
+          />
           <ImportCategoryCombobox
             class="w-full min-w-0"
             categories={categoriesFor(row.type)}
