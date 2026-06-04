@@ -35,9 +35,9 @@ alwaysApply: false
 
 ## Bank Import
 
-- Duplicate detection already covers prior imports, shopping-list expenses, and manual non-list transactions.
+- Duplicate detection covers prior imports, plan/list-created expenses, and manual non-list transactions.
 - Before `CREATE OR REPLACE FUNCTION`, read the latest migration touching that function.
-- Keep the import review intent funnel: filter, categorize, rule, group, decide.
+- Import review should be an exception surface: clean rows import by default, duplicates fold, uncategorized rows go through the visible `Inne` confirmation path, and pending rows are reserved for genuine risk/deferment.
 
 ## Quality Gates
 

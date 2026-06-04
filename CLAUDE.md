@@ -54,40 +54,48 @@ Apply to every task regardless of phase.
 - After anything lands on `main`: immediately sync `dev` from `origin/main`, run the relevant gates, and push `dev`.
 - Feature branches start from current `dev`; before pushing a feature branch, merge the latest `origin/dev` and re-run relevant gates.
 - Before production promotion: sync `dev` from `origin/main`, verify, then PR/merge `dev` into `main`; after the merge, sync `dev` from `origin/main` again.
-- Do not let `main` and `dev` independently evolve hot files (`CLAUDE.md`, shopping-list pages/components, seed scripts, Supabase docs/runbooks, E2E specs). Sync first, then edit.
+- Do not let `main` and `dev` independently evolve hot files (`CLAUDE.md`, plan/list pages/components, seed scripts, Supabase docs/runbooks, E2E specs). Sync first, then edit.
 
 ---
 
 ## Project Status
 
-**Portfelik** - personal-finance PWA. Migrating React 19 + Firebase → SvelteKit + Supabase. Full plan: `MIGRATION_PLAN.md`.
-**Product doctrine:** Intent-Oriented UI lives in `docs/product/intent-oriented-ui.md`. Future workflow features should prefer deterministic engines + compact decision surfaces over CRUD-first configuration, with AI bounded to draft/explain/summarize around auditable rules.
-**Immediate next step:** **Commit issue #66 bank-import UX rework** (9 increments, see below), then promote the bank-import migration bundle (`202606040`–`20260607` + new `20260608000000_import_inne_fallback.sql`) to staging. Verified 2026-06-01 for issue #66: `supabase db reset` clean through `20260608`, `svelte-check` 0/0, lint 0 errors (5 existing generated Paraglide warnings), format clean, unit+RLS focused 24/24 (incl. new Inne-fallback commit test), bank-import Playwright 8/8, changed-file secret scan clean. Then resume production group-invite hotfix queue (migrations `20260531000000` + `20260601000000`, prod Vault `max_user_cap`, enable Google signups).
+**Portfelik** - import-first personal-finance PWA on SvelteKit + Supabase.
+Current product direction lives in `docs/product/product-direction.md`; UI
+doctrine lives in `docs/product/intent-oriented-ui.md`.
 
-**Migration state (verified 2026-05-29):** local reset applies through `20260607000000_categories_own_only.sql` (drops group-shared category reads, dedupes owned rows, unique index). Prior bundle includes `202606040`–`202606060`. RLS suite 172/172 green.
+**Product spine:** Pulpit, Transakcje, Import, Plany, Ustawienia. Import is the
+preferred source of real transaction data. Manual transactions stay as
+fallback/corrections. Plans express future intent and should be settled by
+linking to existing transactions, not by creating financial truth by default.
+Groups/invites are a core collaboration layer for couples, friends, and trusted
+small groups. Directionally, group membership should be role-based: owners
+manage lifecycle/invites, nominated co-owners can manage group-scoped
+transactions/plans, and regular members participate without broad admin rights.
+All of this must preserve private/group scope and owner-only import provenance.
 
-Phase 12 shipped through U6 + EmptyState sweep + group hardening (2026-05-17). Highlights:
+**Current implementation note:** user-facing Plans still use `shopping_lists`
+and `shopping_list_items` internally. Treat those names as compatibility storage.
+Future plan settlement should use a dedicated plan-to-transaction link model.
 
-- Dark-neon UX uplift U1–U6: pill bottom nav, avatar menu, dashboard hero + sparklines + period chips, daily greeting + money quote, drill-down navigation, type filter, ConfirmDialog scale/fade, `prefers-reduced-motion` honored, EmptyState adopted across 6 screens.
-- Group hardening (`20260516000000` → `20260517000003`): `transactions.group_id` opt-in with explicit assignment, both `transactions` and `shopping_lists` lock `user_id` immutable, `group_id` reassign owner-only via trigger, `disband_group` raises when group has items, INSERT policies enforce member-only group assignment.
-- `attach_shopping_list_to_transaction` RPC connects an existing expense tx to a list with sharing-scope match + ≥1 item guard. The user starts that flow from the transaction detail sheet; completing a list still creates its own linked expense transaction.
-- RLS regression suite 52/52 green (added 7 group/list rules + tx user_id immutability tests).
-- Vitest auto-loads `.env.test` (gitignored local RLS keys) plus `.env.test.example` (non-secret defaults). Copy the example, then fill JWT keys from `supabase status -o env`.
+**Bank import direction:** review should be an exception surface. Clean rows
+import by default, duplicates are folded, uncategorized rows go through the
+visible `Inne` confirmation path, and `pending` should be reserved for genuine
+risk or explicit deferment. No shipped forced rule-capture gate exists; rule
+capture is a convenience around category choices.
 
-**Completed phase history** - moved to `docs/PHASE_HISTORY.md` (master phase table, Phase 8/9/10 sub-tables, Bank CSV import V1 steps 1–5.5, shopping-list stabilization bundle). Consult it for commit hashes / dates of shipped work.
+**Bank import P0 exception-review remediation (issue #66 follow-up, 2026-06-04, branch `fix/import-exception-review-p0`):** the review is now a true exception-review surface. Removed the `queueInitialized` blanket flip in `ImportReviewFlow.svelte` that turned every default-import row into `pending` - it fought the issue #73 default-import model and forced a per-row decision on clean statements. Rows now stay as the deterministic engine decides them (`import`/`duplicate`); a fully auto-categorized statement is one-click committable; uncategorized rows stay `import` and flow to `Inne` via the confirm sheet; `pending` ("Do decyzji") is reserved for rows the user explicitly defers (skip / duplicate-restore). Default selected filter is now `all`, leading with `pending` only when rows await a decision (no empty first screen). E2E mock now faithfully inserts `decision:"import"` (matching `bank-import.ts:302`); +1 bulk-action test; bank-import Playwright 14/14. svelte-check 0/0, lint 0 errors (5 pre-existing Paraglide warnings), format clean, changed-file secret scan clean. P1-3 (editable description on mobile + ungated from counterparty) and P1-6 (decision controls: 44px mobile touch target, desktop text labels, focus-visible ring; `aria-label` retained for icon-only mobile) landed 2026-06-04. P1-5 verified via live EXPLAIN: Path A uses `transaction_import_links_fingerprint_idx (user_id, fingerprint)`, Path C uses the dedicated `idx_transactions_manual_duplicate_scan_user (user_id, type, amount, currency)` anti-join - dedup scans are well-indexed, no schema change; only the minor `OR is_group_member()` arm can't use the composite index (negligible at personal-finance scale - revisit only if a heavy group-shared history shows slow preview/commit). P1-4 row virtualization landed 2026-06-04 (branch `perf/import-review-virtualization`): chunked infinite render in `ImportReviewCategorizeStep.svelte` (CHUNK_SIZE=60, IntersectionObserver sentinel, window resets on filter/sort) - all rows stay mounted (no unmount-on-scroll, so focus/sticky/portal'd combobox can't regress), cheap initial paint at 500 rows; bulk actions/filter counts still run on full `visibleRows`. New Playwright large-import test (500 rows) asserts full count tracked, initial DOM windowed (<200 rows), and scroll reveals the last row (no blank-window/lost-row). bank-import Playwright 15/15, svelte-check 0/0, lint 0 errors, format + secret scan clean. P2 partial landed 2026-06-04 (branch `imp/bank-import-rows-perf` stack): +4 Playwright cases (zero-amount dropped -> skipped banner; resume unsaved draft after reload via `fetchActivePreviewSession`; leave-guard discard on navigate-away; duplicate pre-scan failure now surfaces a non-blocking toast instead of silent swallow - `FileUpload.svelte` + new `bank_upload_duplicate_scan_failed` message). Mock harness extended with an active-preview-session branch + `failMarkDuplicatesOnce`. bank-import Playwright 19/19, svelte-check 0/0, lint 0 errors, format + secret scan clean, paraglide recompiled. P2-8 component/service infra landed 2026-06-04: added `@testing-library/svelte` + `@testing-library/dom` + `jsdom` (devDeps) and a third vitest config `vitest.components.config.ts` (jsdom env, inline svelte preprocess via configFile:false so the SvelteKit `kit` adapter config is not loaded). Service tests live in `tests/services/**` (folded into `vitest.unit.config.ts`, node env, `vi.mock("$lib/supabase")` so the $env import never evaluates) - 13 cases for `bank-import.ts` (insert payload user_id/adapter-kind, excludes-cancelled, active-preview query shape, rows_total, field mapping, soft-cancel, commit RPC + error throw). Component tests in `tests/components/**` - 11 cases for `SingleValueCombobox` (open/filter/select/create/keyboard/Escape) + `ImportCategoryCombobox` (clear chip, select->id, inline create->id). New `test:components` script wired into ci + deploy workflows. NOTE: component tests need real `input.focus()` (not `fireEvent.focus`) because the combobox self-closes when `document.activeElement !== input`, which jsdom's fireEvent.focus does not set. Gates: svelte-check 0/0 (6185 files incl. specs), lint 0 errors, prettier clean, test:unit 47/47 (units+services), test:components 11/11, bank-import Playwright 19/19. `FileUpload.svelte` component test intentionally skipped (heavy decode/detect/multi-service; already e2e-covered). Use corepack pnpm (v11) for installs - the repo's node_modules is linked from the pnpm v11 store.
 
-**Bank CSV import V1:** steps 1–5.5 done (see history). **Step 6** - save-as-rule + deterministic categorization rules engine shipped 2026-05-27 (branch `wip`) and rule-loop completion is local as of 2026-05-28; auto-fills `suggested_category_id`+`selected_category_id` during preview when rules/categories load, but upload falls back to manual preview rows if optional prefill fetches fail. Save-rule now defaults from a short raw merchant token, blocks duplicate/zero-match rules, applies only to uncategorized current rows, and exposes Undo that deletes the new rule plus restores changed rows. Repeated-merchant suggestions surface at 3+ rows only when a category exists to apply. Settings → Reguły shows category type and concise lower-priority shadowing hints. Duplicate warnings now cover manual/non-list transactions via Path C (`20260602000001`, exact type/amount/currency, ±1 day) and show matched transaction context. **Remaining Step 6 backlog:** masked-LLM `suggested_category` hook only (no provider wired). Dashboard AI observability ("Sygnały z okresu") parked 2026-05-24 until core product stable.
-
-**Bank import placement issue #65:** local 2026-06-01 - transactions header no longer uses the three-dot actions menu on desktop; import/export are direct header buttons, and mobile exposes a named header `Import bankowy` control that opens the import/export sheet outside category/filter state. Transactions Playwright now covers desktop direct actions, mobile header access, category-query failure, selected-row state, and the date-range mobile test was hardened against current-month drift.
-
-**Bank import UX rework issue #66:** local 2026-06-01 - review screen rebuilt around the intent-oriented funnel (filter → categorize → rule → group → decide). Increments: (1) `20260608000000_import_inne_fallback.sql` - `commit_import_session` assigns uncategorized import rows to the caller's own `Inne wydatki`/`Inne przychody` default (re-seeds defensively), dropping the `category_required` hard block while keeping the `rows_pending` gate; (2) save-rule now auto-matches both `match_description` + `match_counterparty` from a single derived token (no field picker); (3) per-row category `<Select>` replaced by `ImportCategoryCombobox` (search + inline create via `createCategory`), built on `SingleValueCombobox`'s new `onchange`/`oncreate` callbacks; (4) import checkbox replaced by an explicit Importuj/Pomiń `role="group"` control, `patchRow` auto-flip removed (decisions fully explicit), filter `uncategorized` dropped and `pending` ("Do decyzji") moved first; (5) required rule capture per distinct merchant/content group - manually categorized rows route Importuj through `ensureRulesThenImport`, exempting rule-matched + uncategorized rows; (6) sticky decision surface (suggestions + filter chips) on desktop+mobile, non-sticky thead; (7) `beforeNavigate` leave guard with Save/Discard (`fetchActivePreviewSession` + `cancelImportSession` soft-cancel) and a resume card on the upload step; (8) confirmation screen lists rows going to "Inne" + a skipped section; (9) "Pomiń widoczne" bulk action over the filtered view. Sessions are soft-cancelled (FK `on delete restrict` + no delete RLS), so "discard" sets status `cancelled`, never deletes.
+**Immediate next step:** keep current docs and live work synchronized with the
+product direction above. For schema state, trust `supabase/migrations/` and
+`docs/architecture/database.md`, not historical phase plans.
 
 **Open backlog:**
 
 - Vault secret rotation runbook (`docs/runbooks/secret-rotation.md`) - Medium, ⏳.
 - Offline write queue (Dexie outbox) - parity gap vs legacy `FirestoreService`, last-write-wins decided - Medium, ⏳.
 - axe-core a11y sweep (deferred U7).
-- Virtualized/infinite scroll for long lists - transactions table + bank-import review render every row; add windowing once dataset warrants (noted 2026-05-26).
+- Virtualized/infinite scroll for long lists - transactions table + bank-import review render every row.
 - Mortgage/debt tracking - follow-on track.
 
 **Branch flow:** `main` → prod (`portfelik.adrianzinko.com`); `dev` → staging (`dev.portfelik.pages.dev`). Both branches use one Cloudflare Pages project. Supabase is split: `main` uses production; `dev` must use the dedicated `portfelik-staging` project.
@@ -112,8 +120,9 @@ Phase 12 shipped through U6 + EmptyState sweep + group hardening (2026-05-17). H
 portfelik/portfelik/
 ├── apps/web-svelte/        ← SvelteKit app (active - see apps/web-svelte/CLAUDE.md)
 ├── supabase/               ← Migrations + config (see supabase/CLAUDE.md)
-├── docs/architecture/      ← Canonical architecture docs (overview, DB, flows, ADRs, audit)
-├── MIGRATION_PLAN.md       ← Historical migration phase plan (now mostly complete)
+├── docs/product/           ← Product direction + intent-oriented UI doctrine
+├── docs/architecture/      ← Canonical architecture docs (overview, DB, flows, ADRs)
+├── docs/runbooks/          ← Operational runbooks
 └── .claude/rules/svelte-gotchas.md  ← Auto-loaded for apps/web-svelte/** work
 ```
 

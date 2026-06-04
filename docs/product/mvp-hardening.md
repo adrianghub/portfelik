@@ -1,74 +1,48 @@
-# MVP Hardening Backlog
+# MVP Hardening Checklist
 
-Living record of pre-MVP polish for Portfelik (excluding `/dashboard`). Complements [intent-oriented-ui.md](./intent-oriented-ui.md).
+This is the current stabilization checklist. Product doctrine lives in
+[product-direction.md](./product-direction.md) and
+[intent-oriented-ui.md](./intent-oriented-ui.md).
 
-## Product decisions (locked for MVP)
+## Locked Product Direction
 
-| Decision | Choice |
-|----------|--------|
-| List → transaction | Complete list with optional expense tx (default ON) |
-| Transaction → list linking | **Not shipped** - bank-import duplicate detection reconciles |
-| Index list mode pills | Removed from cards; mode pill stays on detail only |
-| Index section label | **Na dziś** (not “Aktywne”) for active bucket |
-| Categories | Per-user, fully editable/deletable (seeded defaults) |
-| Recurring | Frequency UI: daily / weekly / monthly / yearly + preview |
-| Push disable | Per-device localStorage opt-out survives re-login |
+| Decision | Current direction |
+| --- | --- |
+| Product spine | Pulpit, Transakcje, Import, Plany, Ustawienia |
+| Import | First-class structured intake; fast by default, exception review only |
+| Transactions | Confirmed ledger; manual entries stay as fallback/corrections |
+| Plans | User-facing evolution of current `shopping_lists` compatibility storage into future intent and goals |
+| Plan settlement | Link plans to existing transactions; do not make plan-created transactions the default |
+| Rules | Deterministic category rules before AI |
+| AI | Explain, summarize, draft, suggest; never directly mutate financial truth |
 
-## Shipped increments
+## Current MVP Priorities
 
-### Transactions
-- Whole-month date labels + locative empty states
-- Category filter search + form combobox
-- Recurring frequency engine + form UI + detail summary
-- Filter/search-aware empty states + category filter chips
-- Attach-to-list UI removed
+- Stabilize bank CSV import as the primary intake module.
+- Keep duplicate detection and `Inne` fallback explainable.
+- Make Plans copy consistent while internal `shopping_lists` names remain.
+- Keep manual transaction creation/editing available but secondary.
+- Preserve group/privacy boundaries for shared transactions, plans, and import
+  provenance.
+- Keep RLS tests and focused Playwright coverage around import, transactions,
+  and plans.
 
-### Shopping lists
-- Optional tx on complete (`p_create_transaction`)
-- Portal kebab menu (escapes card overflow)
-- DoneView honest copy when tx skipped; post-complete “Dodaj transakcję”
-- Archived delete confirm copy; section renamed “Na dziś”
+## Deferred
 
-### Settings & shell
-- Per-user categories migration
-- Profile push enable/disable/blocked UI + opt-out loop
-- Notifications mobile Sheet
-- Category FAB + dark mobile list; FK delete toast
-- Offline banner below header on mobile
-- SW push deep links to `/transactions?txId=…`
-- **Final polish:** own-only category reads (no group-shared duplicates), push UI reflects subscription + opt-out, settings tabs fill width on desktop, planning mode category-first entry
+- Full plan-to-transaction link model (`plan_transaction_links`).
+- Deterministic plan matching with score/reasons/accepted/rejected state.
+- Virtualized transaction and import review tables for very large datasets.
+- Dexie offline write outbox.
+- AI explanations, summaries, and keyword proposals.
+- Debt, savings, and credit workflows.
 
-## Verification checklist
+## Verification Baseline
 
-- [x] Shopping list kebab → edit/delete on mobile
-- [x] Notifications Sheet on mobile
-- [x] Settings tabs reachable; profile edit + push toggle
-- [x] Push disable persists after re-login (UI reflects opt-out on refresh)
-- [x] Month label / locative empty state
-- [x] Recurring frequency UI + detail summary
-- [x] DoneView honest when tx skipped; add-tx recovery
-- [x] No attach-to-list UI
-- [x] Filter-aware transaction empty states
-- [x] Category in-use delete toast
-- [x] No duplicate categories in settings/filter (group members)
-- [x] Planning mode: category → products (single entry card)
+Before promoting MVP-facing changes:
 
-## Deferred (post-MVP)
-
-- Dexie offline write outbox
-- DayPicker presets (Dziś / Wczoraj)
-- Virtualized transaction / bank-import tables
-- Dashboard hardening
-- Install prompt UX
-- Attach shopping list from transaction (RPC exists, UI deferred)
-
-## Branch promotion notes
-
-Migrations to promote with this bundle (if not already on staging/prod):
-
-- `20260604000000_complete_list_optional_tx.sql`
-- `20260605000000_categories_per_user.sql`
-- `20260606000000_recurring_frequency.sql`
-- `20260607000000_categories_own_only.sql`
-
-After deploy: run `pnpm exec paraglide-js compile`, full gates, targeted E2E on shopping-lists + transactions.
+- `pnpm exec svelte-check --tsconfig ./tsconfig.json`
+- `pnpm lint`
+- `pnpm format:check`
+- focused unit/RLS tests for touched logic
+- focused Playwright tests for touched user workflows
+- changed-file secret scan from `CLAUDE.md`

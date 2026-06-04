@@ -1,46 +1,54 @@
-<p align="center">
-  <img src=".github/img/2.png" alt="Portfelik" width="480" />
-</p>
+# Portfelik
 
-<p align="center">
-  Personal finance PWA - track income, expenses, and shopping lists with group sharing and push notifications.
-</p>
+Import-first personal finance PWA for understanding everyday money: import bank
+history, organize transactions, plan future spending, and reconcile plans with
+real transactions.
 
-<p align="center">
-  <a href="https://portfelik.adrianzinko.com">portfelik.adrianzinko.com</a>
-</p>
+Production: [portfelik.adrianzinko.com](https://portfelik.adrianzinko.com)
 
----
+## Product Loop
 
-<p align="center">
-  <img src=".github/img/1.png" alt="Portfelik on mobile" width="640" />
-</p>
+```mermaid
+flowchart LR
+  Import[Import bankowy] --> Transactions[Transakcje]
+  Manual[Dodaj ręcznie<br/>fallback / korekta] --> Transactions
+  Plans[Plany] --> Settlement[Rozlicz plan]
+  Transactions --> Settlement
+  Transactions --> Dashboard[Pulpit]
+  Settlement --> Dashboard
+```
 
-<p align="center">
-  <img src=".github/img/3.png" alt="Portfelik on desktop and mobile" width="640" />
-</p>
-
----
+Portfelik is not a manual bookkeeping app with optional imports. Bank import is
+the structured intake path; transactions are the confirmed ledger; plans express
+future intent; settlement connects plans with what actually happened.
 
 ## Features
 
-- **Transactions** - income/expense ledger with recurring entries, status tracking (upcoming / overdue / paid), category breakdown, and CSV import/export
-- **Shopping lists** - shared lists with item suggestions, completion-to-transaction flow, and group editing
-- **Group sharing** - invite members, share transactions and lists across users
-- **Push notifications** - VAPID web-push for group invitations and weekly admin summaries
-- **Offline-first** - cached reads via TanStack Query; works on slow/intermittent connections
-- **Dark mode** - full `dark:` variant support
+- **Pulpit** - month view for income, expenses, balance, categories, and financial condition.
+- **Transakcje** - confirmed ledger with categories, recurring entries, status tracking, CSV export, and manual fallback/corrections.
+- **Import** - bank CSV intake with parser/adapters, preview, deterministic categorization rules, duplicate handling, `Inne` fallback, and commit provenance.
+- **Plany** - future spending and goals. Current internals still use `shopping_lists` compatibility tables, but the product direction is Plans and plan settlement.
+- **Reguly i kategorie** - deterministic import categorization and user-owned category management.
+- **Grupy** - shared transactions/plans for couples, friends, and trusted groups, with role-based co-owner direction for managing group finance.
+- **Powiadomienia** - VAPID web-push for invitations and operational summaries.
 
-## Tech stack
+## Product Docs
+
+- [Product direction](docs/product/product-direction.md) - import-first product thesis, module roles, plan settlement direction, roadmap.
+- [Intent-oriented UI](docs/product/intent-oriented-ui.md) - deterministic engines, compact decision surfaces, explainable exceptions, AI guardrails.
+- [Architecture](docs/architecture/README.md) - current technical system, database, flows, ADRs, and environment workflow.
+- [Runbooks](docs/runbooks/) - operational procedures.
+
+## Tech Stack
 
 | Layer | Choice |
-|---|---|
+| --- | --- |
 | Frontend | SvelteKit + Svelte 5 runes, `adapter-static` |
-| Styling | Tailwind v4, shadcn-svelte, bits-ui |
+| Styling | Tailwind v4 |
 | Server cache | TanStack Query v6 |
 | i18n | Paraglide v2 (Polish) |
 | Auth | Supabase Auth - Google OAuth |
-| Database | Supabase (Postgres + RLS + pg_cron) |
+| Database | Supabase Postgres + RLS + pg_cron |
 | Backend logic | Supabase Edge Functions (Deno) |
 | Push | VAPID web-push |
 | Hosting | Cloudflare Pages |
@@ -53,29 +61,28 @@ pnpm install
 pnpm dev
 ```
 
+Local development expects the local Supabase stack from the repository root:
+
+```bash
+supabase start
+supabase db reset
+cd apps/web-svelte
+pnpm seed:local
+```
+
 ## Structure
 
+```text
+apps/web-svelte/      SvelteKit app
+supabase/             Migrations, config, Edge Functions
+docs/product/         Product direction and interaction doctrine
+docs/architecture/    Current architecture, database, flows, ADRs
+docs/runbooks/        Operational procedures
+.github/workflows/    CI/CD and deploy workflows
 ```
-apps/web-svelte/   ← SvelteKit app
-supabase/          ← Migrations + Edge Functions
-docs/architecture/ ← Overview, DB schema, flow diagrams, ADRs
-.github/workflows/ ← CI/CD (typecheck + lint + e2e + deploy)
-```
-
-## Architecture
-
-See [`docs/architecture/`](docs/architecture/README.md) - system overview, ER diagram, flow sequence diagrams, and 10 ADRs covering the key decisions.
 
 ## Deploy
 
-Push to `main` → GitHub Actions builds and deploys to Cloudflare Pages automatically.
-
----
-
-<p align="center">
-  <a href=".github/img/design-preview.png">
-    <img src=".github/img/design-preview.png" alt="Design preview - color tokens, components, screens" width="480" />
-  </a>
-  <br/>
-  <em>Design system - color tokens, components, dark mode, WCAG AA</em>
-</p>
+Pushes to `dev` deploy staging. Production deploys from `main`.
+Use the repository PR/deploy workflows rather than hand-running production
+commands unless the runbook explicitly calls for it.

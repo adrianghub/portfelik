@@ -107,6 +107,42 @@
     return sorted;
   });
 
+  // Infinite render (chunked): keep every rendered row mounted (no unmount-on-scroll,
+  // so focus / sticky bars / portal'd combobox dropdowns can't regress) while paying a
+  // cheap initial paint on large statements. The window grows as a sentinel scrolls into
+  // view and resets whenever the list identity (filter / sort) changes. Bulk actions and
+  // filter counts run on the full visibleRows in the parent, so they stay accurate.
+  const CHUNK_SIZE = 60;
+  let shown = $state(CHUNK_SIZE);
+  const renderedRows = $derived(sortedRows.slice(0, shown));
+
+  $effect(() => {
+    void filter;
+    void sortKind;
+    shown = CHUNK_SIZE;
+  });
+
+  function loadMore(): void {
+    if (shown < sortedRows.length) {
+      shown = Math.min(shown + CHUNK_SIZE, sortedRows.length);
+    }
+  }
+
+  function sentinel(node: HTMLElement) {
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) loadMore();
+      },
+      { rootMargin: "400px" }
+    );
+    io.observe(node);
+    return {
+      destroy() {
+        io.disconnect();
+      },
+    };
+  }
+
   function setSortKind(value: string): void {
     if (sortKinds.includes(value as SortKind)) {
       sortKind = value as SortKind;
@@ -273,7 +309,7 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-white/5 bg-slate-950/40">
-          {#each sortedRows as row (row.id)}
+          {#each renderedRows as row (row.id)}
             {@const rule = matchedRuleFor(row)}
             {@const groupName = groups.find((g) => g.id === row.selected_group_id)?.name}
             <tr>
@@ -288,18 +324,17 @@
               <td class="max-w-xs px-3 py-2 align-top">
                 {#if row.counterparty}
                   <p class="text-sm font-medium text-slate-100">{row.counterparty}</p>
-                  <p class="text-xs text-slate-400">{row.edited_description ?? row.description}</p>
-                {:else}
-                  <Input
-                    value={row.edited_description ?? row.description}
-                    onchange={(e) => {
-                      const v = (e.target as HTMLInputElement).value.trim();
-                      onPatchRow(row.id, {
-                        edited_description: v === "" || v === row.description ? null : v,
-                      });
-                    }}
-                  />
                 {/if}
+                <Input
+                  class={row.counterparty ? "mt-1" : undefined}
+                  value={row.edited_description ?? row.description}
+                  onchange={(e) => {
+                    const v = (e.target as HTMLInputElement).value.trim();
+                    onPatchRow(row.id, {
+                      edited_description: v === "" || v === row.description ? null : v,
+                    });
+                  }}
+                />
                 {#if groupName}
                   <Badge variant="shared" class="mt-1">{groupName}</Badge>
                 {/if}
@@ -349,20 +384,28 @@
               </td>
             </tr>
           {/each}
+          {#if shown < sortedRows.length}
+            <tr aria-hidden="true">
+              <td colspan="5" class="p-0"><div use:sentinel class="h-px"></div></td>
+            </tr>
+          {/if}
         </tbody>
       </table>
     </div>
 
     <ul class="space-y-1.5 md:hidden">
-      {#each sortedRows as row (row.id)}
+      {#each renderedRows as row (row.id)}
         {@const rule = matchedRuleFor(row)}
         {@const groupName = groups.find((g) => g.id === row.selected_group_id)?.name}
-        {@const secondary = row.counterparty ? (row.edited_description ?? row.description) : null}
         <li class="space-y-2 rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3">
           <div class="flex items-start justify-between gap-3">
-            <span class="min-w-0 flex-1 truncate text-sm font-medium text-slate-100">
-              {row.counterparty ?? row.edited_description ?? row.description}
-            </span>
+            {#if row.counterparty}
+              <span class="min-w-0 flex-1 truncate text-sm font-medium text-slate-100">
+                {row.counterparty}
+              </span>
+            {:else}
+              <span class="min-w-0 flex-1"></span>
+            {/if}
             <span
               class={cn(
                 "shrink-0 text-sm font-semibold tabular-nums",
@@ -374,13 +417,20 @@
           </div>
           <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500">
             <span>{row.posted_at}</span>
-            {#if secondary}
-              <span class="min-w-0 truncate">· {secondary}</span>
-            {/if}
             {#if groupName}
               <Badge variant="shared">{groupName}</Badge>
             {/if}
           </div>
+          <Input
+            class="w-full"
+            value={row.edited_description ?? row.description}
+            onchange={(e) => {
+              const v = (e.target as HTMLInputElement).value.trim();
+              onPatchRow(row.id, {
+                edited_description: v === "" || v === row.description ? null : v,
+              });
+            }}
+          />
           <ImportCategoryCombobox
             class="w-full min-w-0"
             categories={categoriesFor(row.type)}
@@ -419,6 +469,9 @@
           </div>
         </li>
       {/each}
+      {#if shown < sortedRows.length}
+        <li use:sentinel aria-hidden="true" class="h-px"></li>
+      {/if}
     </ul>
   {/if}
 </div>

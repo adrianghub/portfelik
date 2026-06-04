@@ -31,7 +31,7 @@ and migration targets.
 - Production promotion flows `dev` → `main`; after merge, sync `dev` from
   `origin/main` again.
 - Hot files must not evolve independently on both branches: `CLAUDE.md`,
-  shopping-list pages/components, seed scripts, Supabase docs/runbooks, and E2E
+  plan/list pages/components, seed scripts, Supabase docs/runbooks, and E2E
   specs.
 
 ## Flow diagram

@@ -13,7 +13,8 @@ Loaded automatically when working in `supabase/`.
 
 ## RLS patterns
 
-Group-shared visibility pattern (used on transactions, categories, shopping lists):
+Group-shared visibility pattern (used on transactions, categories, and
+plan/list compatibility tables):
 
 ```sql
 user_id = (select auth.uid())

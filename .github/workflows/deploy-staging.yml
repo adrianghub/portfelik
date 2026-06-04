@@ -41,6 +41,10 @@ jobs:
         working-directory: apps/web-svelte
         run: pnpm test:unit
 
+      - name: Component tests
+        working-directory: apps/web-svelte
+        run: pnpm test:components
+
       - name: Secret scan
         env:
           GITLEAKS_VERSION: 8.30.1

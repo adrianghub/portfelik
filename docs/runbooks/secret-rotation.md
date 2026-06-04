@@ -1,12 +1,13 @@
 # Secret rotation runbook
 
-Last updated: 2026-05-14
+Last updated: 2026-06-04
 
-Covers rotation of the four secrets that gate push notifications and internal Edge Function calls in Portfelik.
+Covers rotation of the four secrets that gate push notifications and internal
+Edge Function calls in Portfelik.
 
 | Secret | Where it lives | Used by | Rotation impact |
 |---|---|---|---|
-| `internal_trigger_secret` | Supabase Vault (`vault.create_secret`) + Edge Function secrets | DB triggers that POST to Edge Functions; Edge Functions verify header `x-internal-secret` | Internal triggers fail until both sides are updated. No user-visible impact if done in the same window. |
+| `internal_trigger_secret` | Supabase Vault (`vault.create_secret`) + Edge Function secrets | DB triggers/cron jobs that POST to Edge Functions; Edge Functions verify the internal secret | Internal triggers fail until both sides are updated. No user-visible impact if done in the same window. |
 | `VAPID_PRIVATE_KEY` | Edge Function secrets (`send-push`) | Signs web-push messages | Existing browser subscriptions stay valid only if the *public* key did not change. Pair with public-key rotation only when subscriptions need to be invalidated. |
 | `VAPID_PUBLIC_KEY` | Edge Function secrets + `apps/web-svelte/.env.production` (build-time `PUBLIC_VAPID_KEY`) | Browser `pushManager.subscribe({ applicationServerKey })`; passed to `urlBase64ToUint8Array` in `services/push.ts` | All existing `push_subscriptions` rows become invalid. Browsers re-subscribe on next visit; users who never return are silently dropped. |
 | `VAPID_SUBJECT` | Edge Function secrets | `web-push` library header (`mailto:` or HTTPS URL identifying the sender) | None on existing subscriptions; only future sends use the new value. Safe to rotate any time. |
@@ -32,7 +33,8 @@ Covers rotation of the four secrets that gate push notifications and internal Ed
 
 ## Rotate `internal_trigger_secret`
 
-Used by DB triggers (`trigger_send_notification_email`, weekly summary cron) to call Edge Functions over the public URL. Both sides must agree.
+Used by DB triggers and cron jobs to call Edge Functions over the public URL.
+Both sides must agree.
 
 1. Generate a new 32-byte hex value:
    ```bash
@@ -53,8 +55,12 @@ Used by DB triggers (`trigger_send_notification_email`, weekly summary cron) to 
    ```
    If the row does not exist (initial setup case), use `select vault.create_secret('<NEW_SECRET>', 'internal_trigger_secret');` instead.
 4. **Verify both sides** before discarding the old value:
-   - Trigger a manual notification (`/admin/notifications` → "Wyślij testowe powiadomienie") and confirm the Edge Function log shows `x-internal-secret` matched.
-   - Tail the function: `supabase functions logs send-notification-email --project-ref emqzcygfwcvbmhxhfkcc | grep -E 'auth|secret|401|403'`.
+   - Trigger a manual notification (`/admin/notifications`) and confirm the
+     `send-push` Edge Function logs do not show auth failures.
+   - Tail the function:
+     ```bash
+     supabase functions logs send-push --project-ref emqzcygfwcvbmhxhfkcc | grep -E 'auth|secret|401|403'
+     ```
 5. If both green, the old value is no longer needed. If the verification fails, restore the previous value via the same two-step write.
 
 ## Rotate VAPID keys (public + private together)
@@ -126,7 +132,8 @@ If a rotation broke push end-to-end:
 ## References
 
 - `supabase/migrations/20260425000001_phase5_2_edge_function_hooks.sql` - DB triggers using `internal_trigger_secret`.
-- `supabase/functions/send-notification-email/` - server verification of `x-internal-secret`.
+- `supabase/functions/send-push/` - push fan-out.
+- `supabase/functions/send-admin-summary/` - weekly admin summary.
 - `apps/web-svelte/src/lib/services/push.ts` - browser `pushManager.subscribe` call site.
 - `apps/web-svelte/src/routes/+layout.svelte` - `autoSubscribePush` on auth state changes.
 - Supabase Vault docs: https://supabase.com/docs/guides/database/vault

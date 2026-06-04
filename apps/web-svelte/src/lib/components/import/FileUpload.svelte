@@ -124,7 +124,9 @@
     try {
       await markPreviewDuplicates(session.id);
     } catch {
-      /* non-fatal: dups will still be caught at commit */
+      // Non-fatal: the commit RPC re-detects duplicates as a safety net. Still warn
+      // so the user knows the pre-scan didn't run and can check duplicates manually.
+      toast.warning(m.bank_upload_duplicate_scan_failed());
     }
     pending = null;
     onSessionReady(session, parseErrorCount, skippedRowCount);
