@@ -129,6 +129,33 @@ If a rotation broke push end-to-end:
 2. If VAPID was rotated and subscriptions wiped, users must re-subscribe - there is no path to restore the deleted rows. Plan rotations during low-engagement windows.
 3. If `INTERNAL_TRIGGER_SECRET` mismatch caused weekly-summary failures, manually fire `process_recurring_transactions()` and the summary RPC after restoring.
 
+## Rotate `privacy_pepper`
+
+Used by the admin-diagnostics masking layer (issue #81). HMAC pepper stored in
+Supabase Vault; never exposed to the client. Rotation invalidates all previously
+shown diagnostic tokens — this is acceptable because tokens are diagnostic-only
+and never stored. Correlation simply restarts under the new pepper; no data
+migration is needed.
+
+1. Update the Vault secret (via Supabase Dashboard SQL Editor or MCP `execute_sql`):
+   ```sql
+   select vault.update_secret(
+     (select id from vault.secrets where name = 'privacy_pepper'),
+     encode(extensions.gen_random_bytes(32), 'hex')
+   );
+   ```
+2. No Edge Function or client changes required — the pepper is read on-query by the SECURITY DEFINER RPCs.
+3. **Verify** by calling one of the masked RPCs from `/admin/diagnostics` and confirming the returned `user_token` differs from any previously recorded value.
+
+> **Note:** if the `privacy_pepper` secret is missing (e.g. new environment), seed it:
+> ```sql
+> select vault.create_secret(
+>   encode(extensions.gen_random_bytes(32), 'hex'),
+>   'privacy_pepper',
+>   'HMAC pepper for admin diagnostics pseudonymisation (issue #81)'
+> );
+> ```
+
 ## References
 
 - `supabase/migrations/20260425000001_phase5_2_edge_function_hooks.sql` - DB triggers using `internal_trigger_secret`.

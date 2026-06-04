@@ -512,6 +512,18 @@ All SECURITY DEFINER (bypass RLS) unless marked SECURITY INVOKER. Defined in `20
 | `revoke_admin_role(p_user_id)` | admin | Cannot revoke self.                                |
 | `trigger_admin_summary()`      | admin | Manually fires `send-admin-summary` Edge Function. |
 
+**Admin diagnostics — masked cross-user reads (issue #81)**
+
+`admin_masked_transaction_by_id` / `admin_masked_import_session_by_id` /
+`admin_masked_user_context_by_id` are the only deliberate admin cross-user
+financial reads. They return only masked/bucketed fields plus keyed-HMAC tokens
+(pepper stored in Supabase Vault, never reaches the client) — never raw
+financial or personal data. `fetch_admin_notifications` is likewise masked
+(title/body → `[masked]`, returns `user_token` not raw `user_id`). No
+`is_admin()` bypass RLS exists on `transactions` or import tables. See
+[`docs/architecture/flows/admin-diagnostics-privacy.md`](flows/admin-diagnostics-privacy.md)
+for the full model and threat scope.
+
 **Account**
 
 | RPC                | Auth | Behavior                               |
