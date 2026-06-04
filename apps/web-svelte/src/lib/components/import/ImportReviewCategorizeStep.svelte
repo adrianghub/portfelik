@@ -107,6 +107,42 @@
     return sorted;
   });
 
+  // Infinite render (chunked): keep every rendered row mounted (no unmount-on-scroll,
+  // so focus / sticky bars / portal'd combobox dropdowns can't regress) while paying a
+  // cheap initial paint on large statements. The window grows as a sentinel scrolls into
+  // view and resets whenever the list identity (filter / sort) changes. Bulk actions and
+  // filter counts run on the full visibleRows in the parent, so they stay accurate.
+  const CHUNK_SIZE = 60;
+  let shown = $state(CHUNK_SIZE);
+  const renderedRows = $derived(sortedRows.slice(0, shown));
+
+  $effect(() => {
+    void filter;
+    void sortKind;
+    shown = CHUNK_SIZE;
+  });
+
+  function loadMore(): void {
+    if (shown < sortedRows.length) {
+      shown = Math.min(shown + CHUNK_SIZE, sortedRows.length);
+    }
+  }
+
+  function sentinel(node: HTMLElement) {
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) loadMore();
+      },
+      { rootMargin: "400px" }
+    );
+    io.observe(node);
+    return {
+      destroy() {
+        io.disconnect();
+      },
+    };
+  }
+
   function setSortKind(value: string): void {
     if (sortKinds.includes(value as SortKind)) {
       sortKind = value as SortKind;
@@ -273,7 +309,7 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-white/5 bg-slate-950/40">
-          {#each sortedRows as row (row.id)}
+          {#each renderedRows as row (row.id)}
             {@const rule = matchedRuleFor(row)}
             {@const groupName = groups.find((g) => g.id === row.selected_group_id)?.name}
             <tr>
@@ -348,12 +384,17 @@
               </td>
             </tr>
           {/each}
+          {#if shown < sortedRows.length}
+            <tr aria-hidden="true">
+              <td colspan="5" class="p-0"><div use:sentinel class="h-px"></div></td>
+            </tr>
+          {/if}
         </tbody>
       </table>
     </div>
 
     <ul class="space-y-1.5 md:hidden">
-      {#each sortedRows as row (row.id)}
+      {#each renderedRows as row (row.id)}
         {@const rule = matchedRuleFor(row)}
         {@const groupName = groups.find((g) => g.id === row.selected_group_id)?.name}
         <li class="space-y-2 rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3">
@@ -428,6 +469,9 @@
           </div>
         </li>
       {/each}
+      {#if shown < sortedRows.length}
+        <li use:sentinel aria-hidden="true" class="h-px"></li>
+      {/if}
     </ul>
   {/if}
 </div>
