@@ -126,6 +126,7 @@ type BankImportMockOptions = {
   failRulePost?: boolean;
   defaultRules?: boolean;
   autoSkipFirstAsDuplicate?: boolean;
+  failMarkDuplicatesOnce?: boolean;
 };
 
 async function mockBankImportAPI(page: Page, options = {}) {
@@ -175,6 +176,7 @@ async function mockBankImportAPI(page: Page, options = {}) {
   const failRulePost = opts.failRulePost ?? false;
   let failCategoriesOnce = opts.failCategoriesOnce ?? false;
   const autoSkipFirstAsDuplicate = opts.autoSkipFirstAsDuplicate ?? false;
+  let failMarkDuplicatesOnce = opts.failMarkDuplicatesOnce ?? false;
 
   const normalize = (value: string | null | undefined) => (value ?? "").trim().toLowerCase();
 
@@ -317,6 +319,12 @@ async function mockBankImportAPI(page: Page, options = {}) {
           return route.fulfill({ status: 200, json: session ? [session] : [] });
         }
 
+        const statusParam = url.searchParams.get("status")?.replace("eq.", "");
+        if (statusParam === "preview" && !url.searchParams.get("source_file_hash")) {
+          // fetchActivePreviewSession: latest still-open preview draft (resume entry point).
+          const preview = [...sessions].reverse().find((sess) => sess.status === "preview");
+          return route.fulfill({ status: 200, json: preview ? [preview] : [] });
+        }
         const bankAccountId = url.searchParams.get("bank_account_id")?.replace("eq.", "");
         const sourceFileHash = url.searchParams.get("source_file_hash")?.replace("eq.", "");
         const existing = sessions.find(
@@ -390,6 +398,13 @@ async function mockBankImportAPI(page: Page, options = {}) {
   for (const supabaseUrl of SUPABASE_URLS)
     await page.route(`${supabaseUrl}/rest/v1/rpc/**`, async (route) => {
       const url = route.request().url();
+      if (url.includes("/rpc/mark_preview_duplicates")) {
+        if (failMarkDuplicatesOnce) {
+          failMarkDuplicatesOnce = false;
+          return route.fulfill({ status: 500, json: { message: "scan failed" } });
+        }
+        return route.fulfill({ status: 200, json: [] });
+      }
       if (url.includes("/rpc/preview_fingerprint_warnings")) {
         return route.fulfill({
           status: 200,
@@ -833,4 +848,98 @@ test("import wizard: large import virtualizes the review list and keeps every ro
     await page.waitForTimeout(80);
   }
   await expect(lastRow).toBeVisible();
+});
+
+const mbankZeroAmountSample = Buffer.from(
+  `"mBank S.A."
+"Historia operacji"
+"Klient";"Jan Kowalski"
+"Numer rachunku";"PL00 0000 0000 0000 0000 0000 0000"
+""
+#Data księgowania;#Data operacji;#Opis operacji;#Tytuł;#Nadawca/Odbiorca;#Numer konta;#Kwota;#Saldo po operacji
+2026-05-04;2026-05-04;"ZAKUP TOWARÓW I USŁUG";"BLOKADA";"AUTORYZACJA";"PL00 5555 5555 5555 5555 5555 5555";0,00;1000,00
+2026-05-05;2026-05-05;"ZAKUP TOWARÓW I USŁUG";"ZAKUPY";"BIEDRONKA";"PL00 5555 5555 5555 5555 5555 5555";-15,00;985,00
+`,
+  "utf8"
+);
+
+test("import wizard: zero-amount rows are dropped and surfaced as skipped", async ({ page }) => {
+  await page.unrouteAll();
+  await injectFakeSession(page);
+  await mockBankImportAPI(page);
+  await page.goto("/transactions/import");
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "wyciag.csv",
+    mimeType: "text/csv",
+    buffer: mbankZeroAmountSample,
+  });
+
+  // The 0,00 authorisation hold is dropped at normalize() and surfaced as skipped.
+  await expect(page.getByText(/1 pozycji bez kwoty pominięto/)).toBeVisible({ timeout: 10_000 });
+  // The real transaction still imports.
+  await expect(page.getByRole("table").getByText("BIEDRONKA", { exact: true })).toBeVisible();
+});
+
+test("import wizard: resumes an unsaved draft after reload", async ({ page }) => {
+  await page.unrouteAll();
+  await injectFakeSession(page);
+  await mockBankImportAPI(page);
+  await page.goto("/transactions/import");
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "wyciag.csv",
+    mimeType: "text/csv",
+    buffer: mbankSample,
+  });
+  await expect(page.getByRole("button", { name: /^Zaimportuj \d+ transakc/ })).toBeEnabled({
+    timeout: 10_000,
+  });
+
+  // The draft session persists server-side; after a reload the resume card offers it back.
+  await page.reload();
+  await expect(page.getByText(/Niezapisany import/)).toBeVisible({ timeout: 10_000 });
+  await page.getByRole("button", { name: /Wznów import/ }).click();
+  await expect(page.getByRole("button", { name: /^Zaimportuj \d+ transakc/ })).toBeEnabled();
+});
+
+test("import wizard: leave guard discards the draft on navigate-away", async ({ page }) => {
+  await page.unrouteAll();
+  await injectFakeSession(page);
+  await mockBankImportAPI(page);
+  await page.goto("/transactions/import");
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "wyciag.csv",
+    mimeType: "text/csv",
+    buffer: mbankSample,
+  });
+  await expect(page.getByRole("button", { name: /^Zaimportuj \d+ transakc/ })).toBeEnabled({
+    timeout: 10_000,
+  });
+
+  // Client-side navigation mid-review triggers the unsaved-changes guard.
+  await page.locator('a[href="/dashboard"]').first().click();
+  await expect(page.getByText(/Zapisać zmiany przed wyjściem/)).toBeVisible();
+  await page.getByRole("button", { name: "Odrzuć", exact: true }).click();
+  await expect(page).toHaveURL(/\/dashboard/);
+});
+
+test("import wizard: warns when the duplicate pre-scan fails", async ({ page }) => {
+  await page.unrouteAll();
+  await injectFakeSession(page);
+  await mockBankImportAPI(page, { failMarkDuplicatesOnce: true });
+  await page.goto("/transactions/import");
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "wyciag.csv",
+    mimeType: "text/csv",
+    buffer: mbankSample,
+  });
+
+  // Non-fatal: the review still opens, but a toast surfaces the failed pre-scan.
+  await expect(page.getByText(/Nie udało się sprawdzić duplikatów/)).toBeVisible({
+    timeout: 10_000,
+  });
+  await expect(page.getByRole("button", { name: /^Zaimportuj \d+ transakc/ })).toBeEnabled();
 });

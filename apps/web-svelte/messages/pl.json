@@ -348,6 +348,7 @@
   "bank_upload_detected": "Rozpoznano {bank}",
   "bank_upload_kind_unknown": "Nie rozpoznano formatu pliku.",
   "bank_upload_parse_errors": "{count} wierszy odrzuconych podczas parsowania",
+  "bank_upload_duplicate_scan_failed": "Nie udało się sprawdzić duplikatów — zweryfikuj je ręcznie przed zatwierdzeniem.",
   "bank_upload_already_committed_title": "Ten plik został już zaimportowany",
   "bank_upload_already_committed_body": "Sesja {date}: dodano {inserted}, pominięto {skipped}, oznaczono jako duplikat {duplicates}.",
   "bank_upload_cancel_previous": "Pozwól zaimportować ten plik ponownie",
