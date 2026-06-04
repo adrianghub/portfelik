@@ -10,7 +10,9 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["tests/unit/**/*.spec.ts"],
+    // Pure units + mocked-supabase service tests. Both run in node (no DB, no DOM):
+    // service specs vi.mock("$lib/supabase") so the SvelteKit $env import never loads.
+    include: ["tests/unit/**/*.spec.ts", "tests/services/**/*.spec.ts"],
     environment: "node",
   },
 });
