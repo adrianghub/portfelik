@@ -13,6 +13,7 @@
   } from "$lib/services/notifications";
   import { formatDate } from "$lib/utils";
   import type { Notification } from "$lib/types";
+  import { notificationTargetHref } from "$lib/notification-targets";
   import * as m from "$lib/paraglide/messages";
 
   interface Props {
@@ -83,27 +84,9 @@
     return formatDate(dateStr);
   }
 
-  function targetHref(notification: Notification): string | null {
-    switch (notification.type) {
-      case "group_invitation":
-        return "/settings?tab=groups";
-      case "transaction_upcoming":
-      case "transaction_overdue":
-      case "transaction_reminder": {
-        const data = notification.data;
-        const txId = data && "transactionId" in data ? data.transactionId : null;
-        return txId ? `/transactions?txId=${txId}` : "/transactions";
-      }
-      case "transaction_summary":
-        return "/transactions";
-      default:
-        return null;
-    }
-  }
-
   function handleNotificationClick(notification: Notification) {
     if (!notification.read_at) markReadMutation.mutate(notification.id);
-    const href = targetHref(notification);
+    const href = notificationTargetHref(notification);
     if (href) {
       open = false;
       void goto(href);
