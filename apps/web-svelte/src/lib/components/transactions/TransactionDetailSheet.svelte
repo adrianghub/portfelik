@@ -60,7 +60,7 @@
       <h2 class="text-base font-semibold text-slate-100">
         {transaction.description}
         {#if transaction.is_recurring}
-          <span class="ml-1 text-sm font-normal text-slate-500" title="Cykliczna">↻</span>
+          <span class="ml-1 text-sm font-normal text-slate-400" title="Cykliczna">↻</span>
         {/if}
       </h2>
       <button

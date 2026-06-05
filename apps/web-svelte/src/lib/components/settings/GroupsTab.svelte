@@ -209,7 +209,7 @@
   function statusClass(status: string) {
     if (status === "pending") return "bg-blue-50 text-blue-700";
     if (status === "accepted") return "bg-emerald-50 text-emerald-700";
-    return "bg-slate-100 text-slate-500";
+    return "bg-slate-100 text-slate-400";
   }
 
   function submitCreateGroup(e: Event) {
@@ -226,7 +226,7 @@
 <!-- Received invitations -->
 {#if invitationsQuery.data && invitationsQuery.data.length > 0}
   <section class="mb-4 space-y-2">
-    <h3 class="text-xs font-medium tracking-wide text-slate-500 uppercase">
+    <h3 class="text-xs font-medium tracking-wide text-slate-400 uppercase">
       {m.group_invitations_received()}
     </h3>
     {#each invitationsQuery.data as inv (inv.id)}
@@ -279,7 +279,7 @@
         >
           <div class="flex items-center justify-between">
             <span class="text-sm font-medium text-slate-100">{group.name}</span>
-            <span class="text-xs text-slate-500">
+            <span class="text-xs text-slate-400">
               {group.owner_id === currentUserId ? m.groups_role_owner() : m.groups_role_member()}
             </span>
           </div>
@@ -350,7 +350,7 @@
                             <button
                               onclick={() => cancelMutation.mutate(inv.id)}
                               disabled={cancelMutation.isPending}
-                              class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+                              class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-400 transition-colors hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
                             >
                               {m.group_invitation_cancel()}
                             </button>
@@ -380,7 +380,7 @@
       showCreateGroup = true;
       newGroupName = "";
     }}
-    class="mt-4 w-full rounded-xl border border-dashed border-slate-300 py-3 text-sm font-medium text-slate-500 transition-colors hover:border-slate-400 hover:text-slate-700 dark:border-slate-600 dark:text-slate-400 dark:hover:border-slate-500 dark:hover:text-slate-300"
+    class="mt-4 w-full rounded-xl border border-dashed border-slate-300 py-3 text-sm font-medium text-slate-400 transition-colors hover:border-slate-400 hover:text-slate-700 dark:border-slate-600 dark:text-slate-400 dark:hover:border-slate-500 dark:hover:text-slate-300"
   >
     + {m.group_form_title_add()}
   </button>
@@ -497,9 +497,9 @@
               {member.name ?? member.email}
             </p>
             {#if member.name}
-              <p class="truncate text-xs text-slate-500">{member.email}</p>
+              <p class="truncate text-xs text-slate-400">{member.email}</p>
             {/if}
-            <p class="text-xs text-slate-500">
+            <p class="text-xs text-slate-400">
               {effectiveRole === "owner"
                 ? m.group_role_owner()
                 : effectiveRole === "co_owner"

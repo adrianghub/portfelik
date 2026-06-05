@@ -162,10 +162,10 @@ test("mobile bank actions stay available while rows are selected", async ({ page
 });
 
 test("add transaction: opens dialog and shows success toast", async ({ page }) => {
-  // Click the desktop "+ Dodaj transakcję" button (not the mobile FAB)
-  // The page renders `+ {m.transaction_add()}` = "+ Dodaj transakcję"
+  // Click the desktop "+ Dodaj ręcznie" button (not the mobile FAB)
+  // The page renders `+ {m.transaction_manual_add()}` = "+ Dodaj ręcznie"
   await page
-    .getByRole("button", { name: /Dodaj transakcję/ })
+    .getByRole("button", { name: /Dodaj ręcznie/ })
     .first()
     .click();
 

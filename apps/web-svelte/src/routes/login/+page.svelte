@@ -75,7 +75,7 @@
 </svelte:head>
 
 <div class="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4">
-  <p class="mb-3 text-xs font-medium tracking-[0.3em] text-slate-500 uppercase">
+  <p class="mb-3 text-xs font-medium tracking-[0.3em] text-slate-400 uppercase">
     {m.app_name()}
   </p>
   <div
@@ -135,7 +135,7 @@
 
     <div class="my-5 flex items-center gap-3">
       <div class="h-px flex-1 bg-white/10"></div>
-      <span class="text-xs text-slate-500">lub</span>
+      <span class="text-xs text-slate-400">lub</span>
       <div class="h-px flex-1 bg-white/10"></div>
     </div>
 
@@ -173,7 +173,7 @@
       {m.login_sign_in_google()}
     </button>
 
-    <p class="mt-6 text-center text-xs leading-relaxed text-slate-500">
+    <p class="mt-6 text-center text-xs leading-relaxed text-slate-400">
       {m.privacy_beta_notice()}
       <a href="/privacy" class="text-slate-400 underline hover:text-slate-200"
         >{m.privacy_policy_link()}</a

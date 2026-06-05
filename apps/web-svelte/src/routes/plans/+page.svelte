@@ -271,7 +271,7 @@
     <p class="text-sm text-rose-600">{m.common_error_title()}</p>
   {:else}
     {#if !hasAnyLists}
-      <p class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-500">
+      <p class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-400">
         {m.shopping_lists_empty_hint()}
       </p>
     {/if}
@@ -326,12 +326,12 @@
     {/if}
 
     <section class="space-y-2">
-      <h2 class="text-xs font-medium tracking-wide text-slate-500 uppercase dark:text-slate-400">
+      <h2 class="text-xs font-medium tracking-wide text-slate-400 uppercase dark:text-slate-400">
         {m.shopping_lists_section_active()}
       </h2>
       {#if active.length === 0}
         <p
-          class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-500"
+          class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-400"
         >
           {m.shopping_lists_section_active_empty()}
         </p>
@@ -348,12 +348,12 @@
     </section>
 
     <section class="space-y-2">
-      <h2 class="text-xs font-medium tracking-wide text-slate-500 uppercase dark:text-slate-400">
+      <h2 class="text-xs font-medium tracking-wide text-slate-400 uppercase dark:text-slate-400">
         {m.shopping_lists_section_upcoming()}
       </h2>
       {#if upcoming.length === 0}
         <p
-          class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-500"
+          class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-400"
         >
           {m.shopping_lists_section_upcoming_empty()}
         </p>
@@ -370,12 +370,12 @@
     </section>
 
     <section class="space-y-2">
-      <h2 class="text-xs font-medium tracking-wide text-slate-500 uppercase dark:text-slate-400">
+      <h2 class="text-xs font-medium tracking-wide text-slate-400 uppercase dark:text-slate-400">
         {m.shopping_lists_section_archived()}
       </h2>
       {#if archived.length === 0}
         <p
-          class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-500"
+          class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-400"
         >
           {m.shopping_lists_section_archived_empty()}
         </p>

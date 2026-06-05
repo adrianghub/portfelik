@@ -58,7 +58,7 @@
 <div class="space-y-4">
   <div>
     <h2 class="text-sm font-semibold text-slate-100">{m.personalization_heading()}</h2>
-    <p class="mt-1 text-xs text-slate-500">{m.personalization_desc()}</p>
+    <p class="mt-1 text-xs text-slate-400">{m.personalization_desc()}</p>
   </div>
 
   <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">

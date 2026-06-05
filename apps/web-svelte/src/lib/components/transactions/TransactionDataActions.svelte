@@ -15,7 +15,7 @@
     "focus-visible:ring-accent flex h-9 items-center gap-1.5 rounded-full border border-white/10 bg-slate-900/60 px-3.5 text-sm font-medium text-slate-200 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40";
 </script>
 
-<div class="hidden shrink-0 items-center gap-2 md:flex">
+<div class="flex shrink-0 items-center gap-2">
   <a href="/import" class={importPill}>
     <Landmark size={15} strokeWidth={1.8} aria-hidden="true" />
     {m.bank_import_short()}

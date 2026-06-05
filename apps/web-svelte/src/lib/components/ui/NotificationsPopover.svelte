@@ -100,7 +100,7 @@
 
   const actionBtnClass = $derived(
     isDesktop.current
-      ? "rounded-md p-1 text-slate-500 transition-colors hover:bg-white/5 disabled:opacity-40"
+      ? "rounded-md p-1 text-slate-400 transition-colors hover:bg-white/5 disabled:opacity-40"
       : "rounded-lg p-2.5 text-slate-400 transition-colors hover:bg-white/5 disabled:opacity-40"
   );
 </script>
@@ -137,7 +137,7 @@
           </li>
         {/each}
       {:else if notifications.length === 0}
-        <li class="px-4 py-8 text-center text-sm text-slate-500">
+        <li class="px-4 py-8 text-center text-sm text-slate-400">
           {m.notifications_empty()}
         </li>
       {:else}
@@ -168,7 +168,7 @@
                   {n.body}
                 </p>
               </button>
-              <span class="mt-1 block text-[10px] text-slate-500">
+              <span class="mt-1 block text-[10px] text-slate-400">
                 {formatRelativeDate(n.created_at)}
               </span>
             </div>

@@ -556,10 +556,10 @@ test("shopping item category sections show progress and sink completed groups", 
   await expect(page.getByText("Lista z kategoriami")).toBeVisible();
 
   const dairySection = page
-    .locator("section")
+    .locator("section.rounded-2xl")
     .filter({ has: page.getByRole("button", { name: "Pokaż lub ukryj kategorię Nabiał" }) });
   const vegetableSection = page
-    .locator("section")
+    .locator("section.rounded-2xl")
     .filter({ has: page.getByRole("button", { name: "Pokaż lub ukryj kategorię Warzywa" }) });
 
   await expect(dairySection).toBeVisible();
@@ -654,7 +654,7 @@ test("mobile detail keeps completion CTA above the bottom navigation", async ({ 
   });
 
   await page.goto("/plans/list-progress");
-  const completeButton = page.getByRole("button", { name: "Zakończ listę" });
+  const completeButton = page.getByRole("button", { name: "Zakończ bez rozliczenia" });
   await expect(completeButton).toBeVisible();
   await expect(completeButton).toBeInViewport();
 });

@@ -307,7 +307,7 @@
           <button
             type="button"
             onclick={() => goto("/plans")}
-            class="shrink-0 rounded-full p-1.5 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-100"
+            class="shrink-0 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-100"
             aria-label={m.common_back()}
           >
             <ArrowLeft size={16} strokeWidth={1.8} aria-hidden="true" />
@@ -331,7 +331,7 @@
               "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium",
               isPlanning && "bg-blue-50 text-blue-700",
               isShopping && "bg-accent/15 text-accent",
-              isDone && "bg-slate-100 text-slate-500"
+              isDone && "bg-slate-100 text-slate-400"
             )}
           >
             {#if isPlanning}{m.shopping_list_mode_planning()}{/if}
@@ -345,7 +345,7 @@
           <button
             type="button"
             onclick={openRenameListDialog}
-            class="shrink-0 rounded-full p-1.5 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-100"
+            class="shrink-0 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-100"
             aria-label={m.shopping_list_rename_title()}
           >
             <Pencil size={15} strokeWidth={1.8} aria-hidden="true" />
@@ -356,7 +356,7 @@
             <button
               type="button"
               onclick={() => (menuOpen = !menuOpen)}
-              class="shrink-0 rounded-full p-1.5 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-100"
+              class="shrink-0 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-100"
               aria-label={m.common_more_actions()}
               aria-expanded={menuOpen}
             >
@@ -391,7 +391,7 @@
 
     <section class="grid gap-3 md:grid-cols-3">
       <div class="rounded-2xl border border-white/5 bg-slate-900/45 p-4">
-        <div class="flex items-center gap-2 text-xs tracking-wide text-slate-500 uppercase">
+        <div class="flex items-center gap-2 text-xs tracking-wide text-slate-400 uppercase">
           <CalendarDays size={14} strokeWidth={1.8} aria-hidden="true" />
           {m.plan_detail_date_label()}
         </div>
@@ -400,19 +400,19 @@
         </p>
       </div>
       <div class="rounded-2xl border border-white/5 bg-slate-900/45 p-4">
-        <div class="flex items-center gap-2 text-xs tracking-wide text-slate-500 uppercase">
+        <div class="flex items-center gap-2 text-xs tracking-wide text-slate-400 uppercase">
           <Link2 size={14} strokeWidth={1.8} aria-hidden="true" />
           {m.plan_detail_settlement_title()}
         </div>
         <p class="mt-2 text-lg font-semibold text-slate-100 tabular-nums">
           {formatCurrency(settlementProgress?.linkedAmount ?? 0)}
         </p>
-        <p class="mt-1 text-xs text-slate-500">
+        <p class="mt-1 text-xs text-slate-400">
           {m.plan_detail_linked_transactions({ count: settlementProgress?.linkedCount ?? 0 })}
         </p>
       </div>
       <div class="rounded-2xl border border-white/5 bg-slate-900/45 p-4">
-        <div class="flex items-center gap-2 text-xs tracking-wide text-slate-500 uppercase">
+        <div class="flex items-center gap-2 text-xs tracking-wide text-slate-400 uppercase">
           <CheckCircle2 size={14} strokeWidth={1.8} aria-hidden="true" />
           {m.plan_detail_checklist_title()}
         </div>
@@ -450,7 +450,7 @@
     <section class="space-y-3">
       <div class="flex items-center justify-between gap-3">
         <h2 class="text-base font-semibold text-slate-100">{m.plan_detail_checklist_title()}</h2>
-        <span class="shrink-0 text-xs text-slate-500 tabular-nums">
+        <span class="shrink-0 text-xs text-slate-400 tabular-nums">
           {m.plan_detail_checklist_progress({ completed: itemDone, total: itemTotal })}
         </span>
       </div>

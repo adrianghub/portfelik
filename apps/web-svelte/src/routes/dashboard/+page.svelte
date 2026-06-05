@@ -319,7 +319,7 @@
           class={cn(
             "mt-1.5 text-lg font-semibold tabular-nums",
             savingsRatio === null
-              ? "text-slate-500"
+              ? "text-slate-400"
               : savingsRatio >= 0
                 ? "text-emerald-300"
                 : "text-rose-300"
@@ -378,7 +378,7 @@
         {/each}
       </div>
     {:else if upcomingTxs.length === 0}
-      <p class="py-6 text-center text-sm text-slate-500">
+      <p class="py-6 text-center text-sm text-slate-400">
         {m.dashboard_empty_upcoming()}
       </p>
     {:else}

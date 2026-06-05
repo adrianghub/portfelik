@@ -24,7 +24,7 @@
       <p id="dashboard-plan-progress-title" class="text-eyebrow text-slate-400">
         {m.dashboard_plan_progress_title()}
       </p>
-      <ShoppingBasket size={18} class="shrink-0 text-slate-500" aria-hidden="true" />
+      <ShoppingBasket size={18} class="shrink-0 text-slate-400" aria-hidden="true" />
     </div>
     <ul class="space-y-2">
       {#each activePlans.slice(0, 4) as plan (plan.planId)}
@@ -57,7 +57,7 @@
                 ></div>
               </div>
             {:else if plan.linkedCount > 0}
-              <p class="mt-1 text-xs text-slate-500">
+              <p class="mt-1 text-xs text-slate-400">
                 {m.dashboard_plan_progress_linked_count({ count: plan.linkedCount })}
               </p>
             {/if}

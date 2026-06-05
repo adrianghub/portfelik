@@ -192,7 +192,7 @@
         {/if}
       </li>
       {#if i < steps.length - 1}
-        <span class="text-slate-600">›</span>
+        <li aria-hidden="true" class="text-slate-400">›</li>
       {/if}
     {/each}
   </ol>

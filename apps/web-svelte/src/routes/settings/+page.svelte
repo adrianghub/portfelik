@@ -52,6 +52,10 @@
   }
 </script>
 
+<svelte:head>
+  <title>{m.settings_title()} · Portfelik</title>
+</svelte:head>
+
 <div class="container mx-auto max-w-3xl space-y-4 px-4 py-6">
   <h1 class="text-hero font-semibold text-slate-100">{m.settings_title()}</h1>
 

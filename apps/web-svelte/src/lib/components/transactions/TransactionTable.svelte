@@ -246,7 +246,7 @@
                 >
                   {tx.description}
                   {#if tx.is_recurring}
-                    <span class="ml-1 text-xs text-slate-500" aria-label="cykliczna">↻</span>
+                    <span class="ml-1 text-xs text-slate-400" aria-label="cykliczna">↻</span>
                   {/if}
                   {#if isShared(tx)}
                     <span
@@ -266,7 +266,7 @@
                 </span>
               </div>
               <div class="mt-1.5 flex flex-wrap items-center gap-2">
-                <span class="text-xs text-slate-500">{tx.category_name}</span>
+                <span class="text-xs text-slate-400">{tx.category_name}</span>
                 <span
                   class={cn(
                     "ml-auto inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
@@ -414,7 +414,7 @@
             <td class="max-w-xs truncate px-4 py-3 text-slate-100">
               {tx.description}
               {#if tx.is_recurring}
-                <span class="ml-1 text-xs text-slate-500" aria-label="cykliczna">↻</span>
+                <span class="ml-1 text-xs text-slate-400" aria-label="cykliczna">↻</span>
               {/if}
               {#if isShared(tx)}
                 <span

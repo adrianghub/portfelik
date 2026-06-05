@@ -224,7 +224,7 @@
             <option value={g.id}>{g.name}</option>
           {/each}
         </select>
-        <p class="text-xs text-slate-500">{m.group_assign_help()}</p>
+        <p class="text-xs text-slate-400">{m.group_assign_help()}</p>
       </div>
     {/if}
 

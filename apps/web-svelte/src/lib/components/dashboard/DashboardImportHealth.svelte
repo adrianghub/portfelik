@@ -66,7 +66,7 @@
         <p class="mt-1 text-sm text-slate-300">{m.dashboard_import_health_never()}</p>
       {/if}
     </div>
-    <Landmark size={20} class="shrink-0 text-slate-500" aria-hidden="true" />
+    <Landmark size={20} class="shrink-0 text-slate-400" aria-hidden="true" />
   </div>
   {#if isStale}
     <a

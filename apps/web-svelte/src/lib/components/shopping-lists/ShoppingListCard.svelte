@@ -123,7 +123,7 @@
         </div>
       {/if}
     </div>
-    <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500">
+    <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-400">
       {#if isUpcoming}
         <span class="inline-flex items-center gap-1 text-sky-300/80">
           <Calendar size={11} strokeWidth={2} aria-hidden="true" />
@@ -158,7 +158,7 @@
         onclick={toggleMenu}
         aria-haspopup="menu"
         aria-expanded={menuOpen}
-        class="flex w-11 items-center justify-center border-l border-white/5 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-200"
+        class="flex w-11 items-center justify-center border-l border-white/5 text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-200"
         aria-label={m.shopping_list_actions()}
       >
         <MoreVertical size={16} strokeWidth={1.8} aria-hidden="true" />

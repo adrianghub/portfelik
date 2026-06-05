@@ -128,7 +128,7 @@
       {#if eligibleQuery.isPending}
         <div class="h-24 animate-pulse rounded-xl bg-slate-800/50"></div>
       {:else if (eligibleQuery.data ?? []).length === 0}
-        <p class="text-xs text-slate-500">{m.plan_settle_no_eligible()}</p>
+        <p class="text-xs text-slate-400">{m.plan_settle_no_eligible()}</p>
       {:else}
         <ul class="max-h-56 space-y-1 overflow-y-auto">
           {#each eligibleQuery.data ?? [] as tx (tx.id)}

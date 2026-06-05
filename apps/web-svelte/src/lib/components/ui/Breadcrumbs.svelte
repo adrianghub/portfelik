@@ -17,7 +17,7 @@
     const seg = path.split("/").filter(Boolean);
 
     if (path === "/import" || path === "/transactions/import") {
-      return null;
+      return [{ label: m.nav_transactions(), href: "/transactions" }, { label: m.nav_import() }];
     }
     if ((seg[0] === "plans" || seg[0] === "shopping-lists") && seg.length === 2) {
       return [{ label: m.nav_plans(), href: "/plans" }, { label: m.breadcrumb_list_detail() }];

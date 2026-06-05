@@ -107,7 +107,7 @@
             <Calendar.GridRow class="mb-1 flex justify-between">
               {#each weekdays as day (day)}
                 <Calendar.HeadCell
-                  class="w-9 text-center text-[0.65rem] font-medium text-slate-500 capitalize"
+                  class="w-9 text-center text-[0.65rem] font-medium text-slate-400 capitalize"
                 >
                   {day}
                 </Calendar.HeadCell>
@@ -152,7 +152,7 @@
     {disabled}
     class={cn(
       "focus:border-accent/40 focus:ring-accent/30 flex w-full items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-left text-sm text-slate-100 backdrop-blur transition-colors focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50",
-      !value && "text-slate-500"
+      !value && "text-slate-400"
     )}
   >
     <span>{value ? toDisplay(value) : placeholder}</span>

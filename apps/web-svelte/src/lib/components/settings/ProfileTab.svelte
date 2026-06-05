@@ -268,7 +268,7 @@
       <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
         <div class="min-w-0">
           <p class="text-sm font-medium text-slate-100">{m.profile_import_alert_title()}</p>
-          <p class="mt-0.5 text-xs text-slate-500">{m.profile_import_alert_hint()}</p>
+          <p class="mt-0.5 text-xs text-slate-400">{m.profile_import_alert_hint()}</p>
         </div>
         <label class="inline-flex shrink-0 items-center gap-2 text-xs text-slate-300">
           <input
@@ -297,7 +297,7 @@
         </select>
       </label>
 
-      <p class="text-xs text-slate-500">{m.profile_import_alert_push_note()}</p>
+      <p class="text-xs text-slate-400">{m.profile_import_alert_push_note()}</p>
     </div>
   </div>
 
@@ -307,7 +307,7 @@
     >
       <div class="min-w-0">
         <p class="text-sm font-medium text-slate-100">{m.settings_export_title()}</p>
-        <p class="mt-0.5 text-xs text-slate-500">{m.settings_export_body()}</p>
+        <p class="mt-0.5 text-xs text-slate-400">{m.settings_export_body()}</p>
       </div>
       <button
         type="button"
@@ -333,7 +333,7 @@
     >
       <div class="min-w-0">
         <p class="text-sm font-medium text-slate-100">{m.profile_delete_account()}</p>
-        <p class="mt-0.5 text-xs text-slate-500">{m.profile_delete_account_hint()}</p>
+        <p class="mt-0.5 text-xs text-slate-400">{m.profile_delete_account_hint()}</p>
         {#if deleteError}
           <p class="mt-1.5 text-xs text-rose-300">{deleteError}</p>
         {/if}
@@ -351,7 +351,7 @@
     </div>
   </div>
 
-  <p class="mt-4 px-1 text-xs text-slate-500">
+  <p class="mt-4 px-1 text-xs text-slate-400">
     <a href="/privacy" class="text-slate-400 underline hover:text-slate-200"
       >{m.privacy_policy_link()}</a
     >
