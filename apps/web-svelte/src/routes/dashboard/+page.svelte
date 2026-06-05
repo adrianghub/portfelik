@@ -166,6 +166,10 @@
   const activePeriodLabel = $derived(periodChips.find((c) => c.value === period)?.label ?? "");
 </script>
 
+<svelte:head>
+  <title>{m.dashboard_title()} · Portfelik</title>
+</svelte:head>
+
 <div class="container mx-auto max-w-4xl space-y-5 px-4 py-6">
   <!-- Header - mobile (single line greeting + quote underneath) -->
   <div class="md:hidden">

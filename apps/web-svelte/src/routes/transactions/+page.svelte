@@ -501,6 +501,10 @@
   }
 </script>
 
+<svelte:head>
+  <title>{m.transactions_title()} · Portfelik</title>
+</svelte:head>
+
 <svelte:window onkeydown={onWindowKeydown} />
 
 <div class="container mx-auto max-w-4xl space-y-4 px-4 py-6">
