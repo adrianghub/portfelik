@@ -36,7 +36,9 @@
       updateProfile(profile!.id, {
         settings: { ...profile!.settings, accentColor },
       }),
-    onSuccess: async () => {
+    onSuccess: async (updated) => {
+      applyAccent(updated.settings?.accentColor ?? DEFAULT_ACCENT_ID);
+      queryClient.setQueryData(["profile", updated.id], updated);
       await queryClient.invalidateQueries({ queryKey: ["profile"] });
     },
     onError: () => {
@@ -48,7 +50,7 @@
 
   function choose(id: AccentPresetId) {
     if (!profile || id === selected) return;
-    applyAccent(id); // optimistic - reskins instantly + mirrors to localStorage
+    applyAccent(id);
     mutation.mutate(id);
   }
 </script>

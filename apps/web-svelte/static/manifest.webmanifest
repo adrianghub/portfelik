@@ -30,8 +30,8 @@
       "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
     },
     {
-      "name": "Listy zakupów",
-      "url": "/shopping-lists",
+      "name": "Plany",
+      "url": "/plans",
       "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
     }
   ]

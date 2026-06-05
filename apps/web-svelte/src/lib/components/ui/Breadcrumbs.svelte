@@ -16,17 +16,11 @@
     const path = $page.url.pathname;
     const seg = path.split("/").filter(Boolean);
 
-    if (path === "/transactions/import") {
-      return [
-        { label: m.nav_transactions(), href: "/transactions" },
-        { label: m.bank_import_title() },
-      ];
+    if (path === "/import" || path === "/transactions/import") {
+      return null;
     }
-    if (seg[0] === "shopping-lists" && seg.length === 2) {
-      return [
-        { label: m.nav_shopping_lists(), href: "/shopping-lists" },
-        { label: m.breadcrumb_list_detail() },
-      ];
+    if ((seg[0] === "plans" || seg[0] === "shopping-lists") && seg.length === 2) {
+      return [{ label: m.nav_plans(), href: "/plans" }, { label: m.breadcrumb_list_detail() }];
     }
     if (path === "/admin/notifications") {
       return [{ label: m.nav_admin(), href: "/admin" }, { label: m.breadcrumb_notifications() }];

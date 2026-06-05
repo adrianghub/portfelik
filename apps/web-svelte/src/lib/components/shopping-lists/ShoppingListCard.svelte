@@ -98,7 +98,7 @@
       aria-hidden="true"
     ></span>
   {/if}
-  <a href="/shopping-lists/{list.id}" class="flex-1 p-4 transition-colors hover:bg-white/5">
+  <a href="/plans/{list.id}" class="flex-1 p-4 transition-colors hover:bg-white/5">
     <div class="flex items-center justify-between gap-3">
       <div class="flex min-w-0 items-center gap-2">
         <span class={cn("truncate font-medium", isArchived ? "text-slate-300" : "text-slate-100")}

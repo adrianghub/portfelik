@@ -16,10 +16,6 @@
   import { toast } from "svelte-sonner";
   import { cn, transactionsUrlForRange } from "$lib/utils";
 
-  // Wizard state machine - bank kind is detected from the CSV, never picked
-  // by the user. State machine: upload → review. On commit we redirect straight
-  // to the transactions list filtered to the imported period (no "done" step).
-
   type Step = "upload" | "review";
   interface ImportedDateRange {
     startYear: number;
@@ -34,20 +30,10 @@
   let activeSession = $state<ImportSession | null>(null);
   let activeParseErrorCount = $state(0);
   let activeSkippedRowCount = $state(0);
-  // Retained across the upload⇄review back-nav so returning to "Wgraj plik"
-  // shows the last file ready to re-process or remove. Cancelling the session
-  // abandons the DB preview rows but keeps this in-memory file reference.
   let retainedFile = $state<File | null>(null);
-
-  // Draft resume + leave guard (issue #66). The review rows persist server-side,
-  // so leaving mid-review keeps the session as a resumable draft unless the user
-  // explicitly discards it.
   let resumeSession = $state<ImportSession | null>(null);
   let leaveDialogOpen = $state(false);
   let pendingHref = $state<string | null>(null);
-  // Plain (non-reactive) flag: set right before an intentional navigation
-  // (commit redirect, or after the user chose save/discard) so the guard lets it
-  // through exactly once.
   let bypassGuard = false;
 
   const queryClient = useQueryClient();
@@ -67,7 +53,6 @@
       return;
     }
     if (step !== "review" || !activeSession) return;
-    // Full page unload (tab close) can't host a custom dialog - let it pass.
     if (!nav.to) return;
     nav.cancel();
     pendingHref = nav.to.url.href;
@@ -81,7 +66,6 @@
   }
 
   function saveDraftAndLeave(): void {
-    // Keep the session in 'preview' - nothing to persist, just navigate away.
     leaveTo(pendingHref);
   }
 
@@ -91,7 +75,7 @@
       try {
         await cancelImportSession(activeSession.id);
       } catch {
-        // ignore - session already cancelled or gone
+        // ignore
       }
     }
     activeSession = null;
@@ -108,14 +92,11 @@
     parseErrorCount: number,
     skippedRowCount: number
   ): Promise<void> {
-    // A fresh upload reached review. Soft-cancel any lingering draft from an
-    // earlier, different import so stale "Niezapisany import" cards don't pile
-    // up across files (the new session is the one we're working on now).
     if (resumeSession && resumeSession.id !== sess.id) {
       try {
         await cancelImportSession(resumeSession.id);
       } catch {
-        // ignore - already cancelled or gone
+        // ignore
       }
     }
     resumeSession = null;
@@ -147,13 +128,13 @@
   function handleCommitted(result: CommitResult, dateRange?: ImportedDateRange): void {
     queryClient.invalidateQueries({ queryKey: ["transactions"] });
     queryClient.invalidateQueries({ queryKey: ["summary"] });
+    queryClient.invalidateQueries({ queryKey: ["import-health"] });
     toast.success(m.bank_commit_success({ count: result.inserted }), {
       description: m.bank_commit_toast_detail({
         skipped: result.skipped,
         duplicates: result.duplicates_preview + result.duplicates_commit,
       }),
     });
-    // Committed → the session is done; let the post-commit redirect through.
     bypassGuard = true;
     void goto(transactionsUrlForRange(dateRange));
   }
@@ -166,7 +147,7 @@
     try {
       await cancelImportSession(activeSession.id);
     } catch {
-      // ignore - session already cancelled or gone
+      // ignore
     }
     resetToUpload();
   }
@@ -199,8 +180,6 @@
       )}
       <li>
         {#if completed}
-          <!-- Completed step is a back button: returns to upload and abandons
-               the in-progress review session. -->
           <button
             type="button"
             class={cn(pillClass, "hover:border-accent hover:text-accent")}

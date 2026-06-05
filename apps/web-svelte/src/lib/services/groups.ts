@@ -109,7 +109,7 @@ export async function fetchGroupMembersWithProfiles(
 ): Promise<GroupMemberWithProfile[]> {
   const { data: members, error } = await supabase
     .from("group_members")
-    .select("user_id, joined_at")
+    .select("user_id, joined_at, role")
     .eq("group_id", groupId);
   if (error) throw error;
   if (!members.length) return [];
@@ -127,7 +127,24 @@ export async function fetchGroupMembersWithProfiles(
     joined_at: m.joined_at,
     email: profileMap.get(m.user_id)?.email ?? "",
     name: profileMap.get(m.user_id)?.name ?? null,
+    role: (m as GroupMember).role,
   }));
+}
+
+export async function nominateGroupCoOwner(groupId: string, userId: string): Promise<void> {
+  const { error } = await supabase.rpc("nominate_group_co_owner", {
+    p_group_id: groupId,
+    p_user_id: userId,
+  });
+  if (error) throw error;
+}
+
+export async function revokeGroupCoOwner(groupId: string, userId: string): Promise<void> {
+  const { error } = await supabase.rpc("revoke_group_co_owner", {
+    p_group_id: groupId,
+    p_user_id: userId,
+  });
+  if (error) throw error;
 }
 
 export async function removeGroupMember(groupId: string, userId: string): Promise<void> {

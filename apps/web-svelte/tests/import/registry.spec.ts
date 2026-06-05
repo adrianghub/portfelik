@@ -41,8 +41,13 @@ describe("import adapter registry", () => {
     expect(importAdapterLabel("ing")).toBe("ING Bank Śląski");
   });
 
+  it("importAdapterLabel returns labels for expanded adapters", () => {
+    expect(importAdapterLabel("pko_bp")).toBe("PKO BP");
+    expect(importAdapterLabel("millennium")).toBe("Millennium");
+  });
+
   it("importAdapterLabel falls back to the kind string for an unregistered adapter", () => {
-    expect(importAdapterLabel("pko_bp")).toBe("pko_bp");
+    expect(importAdapterLabel("alior")).toBe("alior");
   });
 
   it("medium/null detection still parses when the user picks the adapter", () => {

@@ -264,7 +264,7 @@ test("shopping lists follow planning, shopping, archived, duplicate, and upcomin
 }) => {
   await test.step("create list defaults to today, lands in active, and opens in planning", async () => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto("/shopping-lists");
+    await page.goto("/plans");
 
     await page.getByRole("button", { name: "Nowa lista zakupów" }).click();
     await page.locator("#sl-name").fill("Zakupy na dziś");
@@ -275,10 +275,10 @@ test("shopping lists follow planning, shopping, archived, duplicate, and upcomin
     await page.getByRole("button", { name: "Zapisz" }).click();
     await createResp;
 
-    await expect(page.locator('a[href="/shopping-lists/list-1"]')).toBeVisible();
+    await expect(page.locator('a[href="/plans/list-1"]')).toBeVisible();
     await expect(page.getByRole("heading", { name: "Na dziś" })).toBeVisible();
-    await page.locator('a[href="/shopping-lists/list-1"]').click();
-    await expect(page).toHaveURL(/\/shopping-lists\/list-1$/);
+    await page.locator('a[href="/plans/list-1"]').click();
+    await expect(page).toHaveURL(/\/plans\/list-1$/);
     await expect(page.getByText("Planowanie")).toBeVisible();
   });
 
@@ -317,7 +317,7 @@ test("shopping lists follow planning, shopping, archived, duplicate, and upcomin
     await page.locator("#comp-cat").selectOption("cat-1");
     await page.getByRole("button", { name: "Zakończ i utwórz transakcję" }).click();
 
-    await expect(page).toHaveURL("/shopping-lists");
+    await expect(page).toHaveURL("/plans");
     await expect(page.getByRole("heading", { name: "Zarchiwizowane" })).toBeVisible();
     // Card actions now live behind a kebab (overflow) menu.
     await expect(page.getByRole("button", { name: "Akcje listy" }).first()).toBeVisible();
@@ -340,7 +340,7 @@ test("shopping lists follow planning, shopping, archived, duplicate, and upcomin
   });
 
   await test.step("future list lands in upcoming but can still start shopping", async () => {
-    await page.goto("/shopping-lists");
+    await page.goto("/plans");
     await page.getByRole("button", { name: "Nowa lista zakupów" }).click();
     await page.locator("#sl-name").fill("Zakupy jutro");
     await page.locator("#sl-planned").click();
@@ -351,9 +351,9 @@ test("shopping lists follow planning, shopping, archived, duplicate, and upcomin
     await page.getByRole("button", { name: "Zapisz" }).click();
     await createResp;
 
-    await expect(page.locator('a[href="/shopping-lists/list-3"]')).toBeVisible();
+    await expect(page.locator('a[href="/plans/list-3"]')).toBeVisible();
     await expect(page.getByRole("heading", { name: "Nadchodzące" })).toBeVisible();
-    await page.locator('a[href="/shopping-lists/list-3"]').click();
+    await page.locator('a[href="/plans/list-3"]').click();
     await expect(page.getByText("Planowanie")).toBeVisible();
     await expect(page.getByRole("button", { name: "Zacznij zakupy" })).toBeVisible();
   });

@@ -3,6 +3,8 @@ import { parseCsv } from "../csv/parse";
 import { ersteAdapter } from "./erste";
 import { ingAdapter } from "./ing";
 import { mbankAdapter } from "./mbank";
+import { millenniumAdapter } from "./millennium";
+import { pkoBpAdapter } from "./pko_bp";
 import type { DetectionResult, ImportAdapter, ImportAdapterKind, ImportSourceKind } from "./types";
 
 // Only implemented adapters are registered. The full ImportAdapterKind union is
@@ -11,6 +13,8 @@ export const IMPORT_ADAPTERS: readonly ImportAdapter[] = Object.freeze([
   mbankAdapter,
   ingAdapter,
   ersteAdapter,
+  pkoBpAdapter,
+  millenniumAdapter,
 ]);
 
 const RANK: Record<NonNullable<DetectionResult>["confidence"], number> = {

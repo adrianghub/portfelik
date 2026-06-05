@@ -1,6 +1,9 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import TransactionTable from "$lib/components/transactions/TransactionTable.svelte";
+  import DashboardImportHealth from "$lib/components/dashboard/DashboardImportHealth.svelte";
+  import DashboardPlanProgress from "$lib/components/dashboard/DashboardPlanProgress.svelte";
+  import CategoryBreakdown from "$lib/components/transactions/CategoryBreakdown.svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchProfile } from "$lib/services/profiles";
   import { computeSummary, fetchTransactions } from "$lib/services/transactions";
@@ -213,6 +216,9 @@
     {/each}
   </div>
 
+  <DashboardImportHealth />
+  <DashboardPlanProgress />
+
   <!-- Hero balance card -->
   <a
     href={transactionsHref()}
@@ -343,6 +349,13 @@
       </svg>
     </a>
   </div>
+
+  {#if summary && summary.categories.length > 0}
+    <CategoryBreakdown
+      categories={summary.categories}
+      oncategoryclick={(categoryId) => goto(transactionsHref({ categoryId }))}
+    />
+  {/if}
 
   <!-- Upcoming / overdue -->
   <div>

@@ -37,6 +37,14 @@ export function createUserClient(accessToken: string): SupabaseClient {
   });
 }
 
+/** Unauthenticated PostgREST client (anon key, no session). */
+export function createAnonClient(): SupabaseClient {
+  const { url, anonKey } = requireEnv();
+  return createClient(url, anonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
 export type TestUser = {
   email: string;
   userId: string;

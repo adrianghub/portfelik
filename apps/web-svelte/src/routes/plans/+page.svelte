@@ -243,7 +243,7 @@
 <div class="container mx-auto max-w-3xl space-y-5 px-4 py-6">
   <div class="flex items-center justify-between gap-3">
     <h1 class="text-2xl font-semibold text-slate-900 dark:text-white">
-      {m.shopping_lists_title()}
+      {m.nav_plans()}
     </h1>
     <button
       type="button"

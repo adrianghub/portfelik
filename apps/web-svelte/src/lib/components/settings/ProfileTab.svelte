@@ -2,6 +2,7 @@
   import { createMutation, useQueryClient } from "@tanstack/svelte-query";
   import { updateProfile } from "$lib/services/profiles";
   import { deleteAccount } from "$lib/services/groups";
+  import { buildAccountExport, downloadAccountExport } from "$lib/services/account-export";
   import {
     getPushNotificationState,
     requestAndSubscribePush,
@@ -297,6 +298,32 @@
       </label>
 
       <p class="text-xs text-slate-500">{m.profile_import_alert_push_note()}</p>
+    </div>
+  </div>
+
+  <div class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur">
+    <div
+      class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+    >
+      <div class="min-w-0">
+        <p class="text-sm font-medium text-slate-100">{m.settings_export_title()}</p>
+        <p class="mt-0.5 text-xs text-slate-500">{m.settings_export_body()}</p>
+      </div>
+      <button
+        type="button"
+        onclick={async () => {
+          try {
+            const bundle = await buildAccountExport();
+            downloadAccountExport(bundle);
+            toast.success(m.settings_export_success());
+          } catch {
+            toast.error(m.toast_error());
+          }
+        }}
+        class="shrink-0 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-white/5"
+      >
+        {m.settings_export_action()}
+      </button>
     </div>
   </div>
 

@@ -16,7 +16,7 @@ export function notificationTargetHref(
     case "transaction_summary":
       return "/transactions";
     case "bank_import_reminder":
-      return "/transactions/import";
+      return "/import";
     default:
       return null;
   }

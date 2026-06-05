@@ -1,3 +1,8 @@
+# ARCHIVED — superseded by public launch (2026-06)
+
+This note applied to the closed beta period. Public launch uses updated privacy
+copy and onboarding; keep this file for historical reference only.
+
 # Nota onboardingowa dla testerów beta
 
 Ostatnia aktualizacja: 5 czerwca 2026
