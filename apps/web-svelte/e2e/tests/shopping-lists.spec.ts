@@ -293,7 +293,7 @@ test("shopping lists follow planning, shopping, archived, duplicate, and upcomin
   });
 
   await test.step("start shopping shows checkboxes and hides edit/delete rows", async () => {
-    await page.getByRole("button", { name: "Zacznij zakupy" }).click();
+    await page.getByRole("button", { name: "Przejdź do zakupów" }).click();
     await expect(page.getByText("Tryb zakupów")).toBeVisible();
     await expect(page.getByRole("progressbar")).toBeVisible();
     await expect(page.getByRole("button", { name: "Zaznacz" }).first()).toBeVisible();
@@ -335,7 +335,7 @@ test("shopping lists follow planning, shopping, archived, duplicate, and upcomin
 
     await page.getByRole("link", { name: /Zakupy na dziś \(kopia\)/ }).click();
     await expect(page.getByText("Planowanie")).toBeVisible();
-    await page.getByRole("button", { name: "Zacznij zakupy" }).click();
+    await page.getByRole("button", { name: "Przejdź do zakupów" }).click();
     await expect(page.getByRole("button", { name: "Zaznacz", exact: true })).toHaveCount(3);
   });
 
@@ -355,6 +355,6 @@ test("shopping lists follow planning, shopping, archived, duplicate, and upcomin
     await expect(page.getByRole("heading", { name: "Nadchodzące" })).toBeVisible();
     await page.locator('a[href="/plans/list-3"]').click();
     await expect(page.getByText("Planowanie")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Zacznij zakupy" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Przejdź do zakupów" })).toBeVisible();
   });
 });
