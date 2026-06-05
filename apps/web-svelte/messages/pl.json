@@ -632,5 +632,7 @@
   "admin_diag_record_id_label": "ID rekordu (UUID)",
   "admin_diag_record_search": "Szukaj",
   "admin_diag_record_not_found": "Nie znaleziono rekordu.",
-  "admin_diag_record_error": "Błąd pobierania diagnostyki."
+  "admin_diag_record_error": "Błąd pobierania diagnostyki.",
+  "privacy_policy_link": "Polityka prywatności",
+  "privacy_beta_notice": "Portfelik jest w wersji beta i nie jest szyfrowany end-to-end. Wgrywaj tylko potrzebną historię."
 }
