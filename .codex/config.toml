@@ -1,14 +1,10 @@
-[mcp_servers.supabase]
-url = "https://mcp.supabase.com/mcp?project_ref=emqzcygfwcvbmhxhfkcc&features=storage%2Cbranching%2Cdevelopment%2Cfunctions%2Cdebugging%2Caccount%2Cdatabase%2Cdocs"
-
 [mcp_servers.supabase-prod]
-url = "https://mcp.supabase.com/mcp?project_ref=emqzcygfwcvbmhxhfkcc&features=storage%2Cbranching%2Cdevelopment%2Cfunctions%2Cdebugging%2Caccount%2Cdatabase%2Cdocs"
+command = "npx"
+args = ["-y", "@supabase/mcp-server-supabase@latest", "--read-only", "--project-ref=emqzcygfwcvbmhxhfkcc", "--features=storage,branching,development,functions,debugging,account,database,docs"]
 
 [mcp_servers.supabase-staging]
-url = "https://mcp.supabase.com/mcp?project_ref=nveyzxxnyccpnesebvuw&features=storage%2Cbranching%2Cdevelopment%2Cfunctions%2Cdebugging%2Caccount%2Cdatabase%2Cdocs"
-
-[mcp_servers.supabase-account]
-url = "https://mcp.supabase.com/mcp?features=account%2Cdocs"
+command = "npx"
+args = ["-y", "@supabase/mcp-server-supabase@latest", "--project-ref=nveyzxxnyccpnesebvuw", "--features=storage,development,functions,debugging,database,docs"]
 
 [mcp_servers.svelte]
 url = "https://mcp.svelte.dev/mcp"
@@ -17,8 +13,9 @@ url = "https://mcp.svelte.dev/mcp"
 command = "npx"
 args = ["@playwright/mcp@latest"]
 
-[mcp_servers.github]
-url = "https://api.githubcopilot.com/mcp/"
+[mcp_servers.obscura]
+command = "npx"
+args = ["-y", "@obscuraai/mcp-server"]
 
 [agents]
 max_threads = 4
