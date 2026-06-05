@@ -91,13 +91,37 @@ the in-app notification row with push as an optional channel.
 
 **Bank import P0 exception-review remediation (issue #66 follow-up, 2026-06-04, branch `fix/import-exception-review-p0`):** the review is now a true exception-review surface. Removed the `queueInitialized` blanket flip in `ImportReviewFlow.svelte` that turned every default-import row into `pending` - it fought the issue #73 default-import model and forced a per-row decision on clean statements. Rows now stay as the deterministic engine decides them (`import`/`duplicate`); a fully auto-categorized statement is one-click committable; uncategorized rows stay `import` and flow to `Inne` via the confirm sheet; `pending` ("Do decyzji") is reserved for rows the user explicitly defers (skip / duplicate-restore). Default selected filter is now `all`, leading with `pending` only when rows await a decision (no empty first screen). E2E mock now faithfully inserts `decision:"import"` (matching `bank-import.ts:302`); +1 bulk-action test; bank-import Playwright 14/14. svelte-check 0/0, lint 0 errors (5 pre-existing Paraglide warnings), format clean, changed-file secret scan clean. P1-3 (editable description on mobile + ungated from counterparty) and P1-6 (decision controls: 44px mobile touch target, desktop text labels, focus-visible ring; `aria-label` retained for icon-only mobile) landed 2026-06-04. P1-5 verified via live EXPLAIN: Path A uses `transaction_import_links_fingerprint_idx (user_id, fingerprint)`, Path C uses the dedicated `idx_transactions_manual_duplicate_scan_user (user_id, type, amount, currency)` anti-join - dedup scans are well-indexed, no schema change; only the minor `OR is_group_member()` arm can't use the composite index (negligible at personal-finance scale - revisit only if a heavy group-shared history shows slow preview/commit). P1-4 row virtualization landed 2026-06-04 (branch `perf/import-review-virtualization`): chunked infinite render in `ImportReviewCategorizeStep.svelte` (CHUNK_SIZE=60, IntersectionObserver sentinel, window resets on filter/sort) - all rows stay mounted (no unmount-on-scroll, so focus/sticky/portal'd combobox can't regress), cheap initial paint at 500 rows; bulk actions/filter counts still run on full `visibleRows`. New Playwright large-import test (500 rows) asserts full count tracked, initial DOM windowed (<200 rows), and scroll reveals the last row (no blank-window/lost-row). bank-import Playwright 15/15, svelte-check 0/0, lint 0 errors, format + secret scan clean. P2 partial landed 2026-06-04 (branch `imp/bank-import-rows-perf` stack): +4 Playwright cases (zero-amount dropped -> skipped banner; resume unsaved draft after reload via `fetchActivePreviewSession`; leave-guard discard on navigate-away; duplicate pre-scan failure now surfaces a non-blocking toast instead of silent swallow - `FileUpload.svelte` + new `bank_upload_duplicate_scan_failed` message). Mock harness extended with an active-preview-session branch + `failMarkDuplicatesOnce`. bank-import Playwright 19/19, svelte-check 0/0, lint 0 errors, format + secret scan clean, paraglide recompiled. P2-8 component/service infra landed 2026-06-04: added `@testing-library/svelte` + `@testing-library/dom` + `jsdom` (devDeps) and a third vitest config `vitest.components.config.ts` (jsdom env, inline svelte preprocess via configFile:false so the SvelteKit `kit` adapter config is not loaded). Service tests live in `tests/services/**` (folded into `vitest.unit.config.ts`, node env, `vi.mock("$lib/supabase")` so the $env import never evaluates) - 13 cases for `bank-import.ts` (insert payload user_id/adapter-kind, excludes-cancelled, active-preview query shape, rows_total, field mapping, soft-cancel, commit RPC + error throw). Component tests in `tests/components/**` - 11 cases for `SingleValueCombobox` (open/filter/select/create/keyboard/Escape) + `ImportCategoryCombobox` (clear chip, select->id, inline create->id). New `test:components` script wired into ci + deploy workflows. NOTE: component tests need real `input.focus()` (not `fireEvent.focus`) because the combobox self-closes when `document.activeElement !== input`, which jsdom's fireEvent.focus does not set. Gates: svelte-check 0/0 (6185 files incl. specs), lint 0 errors, prettier clean, test:unit 47/47 (units+services), test:components 11/11, bank-import Playwright 19/19. `FileUpload.svelte` component test intentionally skipped (heavy decode/detect/multi-service; already e2e-covered). Use corepack pnpm (v11) for installs - the repo's node_modules is linked from the pnpm v11 store.
 
-**Immediate next step:** keep current docs and live work synchronized with the
-product direction above. For schema state, trust `supabase/migrations/` and
-`docs/architecture/database.md`, not historical phase plans.
+**Pre-beta readiness pass (2026-06-05, branch `dev`):** #81 made the privacy
+posture credible; this pass closes the cheap gating items so trusted testers can
+be onboarded before building Plan settlement. (1) Service-role/client exposure
+audit — **clean** (no `service_role` in client `src`, no `PUBLIC_`-prefixed
+secret, example envs placeholder-only, CI keys via `${{ secrets.* }}`, no secret
+echoed to logs); repeatable procedure in the new Layer-2 runbook §3. (2) Layer-2
+ops-lockdown runbook authored: `docs/runbooks/ops-access-lockdown.md` (access
+roster, infra-credential inventory, revocation, access-review schedule) — operator
+must still verify Supabase dashboard members match the roster. (3) Privacy policy:
+`docs/legal/privacy-policy.md` + in-app `/privacy` route (Polish, plain-language;
+not-E2E, who can access, masked admin, deletion now / export partial); linked from
+login page + Settings → Profile; `/privacy` added to `PUBLIC_PATHS`. (4) Beta
+onboarding note: `docs/product/beta-onboarding-note.md` (beta status, upload only
+needed history, not-E2E, deletion, partial export). (5) Full account export
+**documented as a beta limitation**, not built (CSV tx export stays; full export
+planned pre-public). Readiness checklist in
+`docs/architecture/flows/admin-diagnostics-privacy.md` updated. Gates: svelte-check
+0/0, lint 0 errors (5 pre-existing Paraglide warnings), prettier clean (src+docs),
+changed-file secret scan clean (only false positives: documented regex + pre-existing
+`password` var), Paraglide recompiled, Svelte autofixer clean on the new page.
+
+**Immediate next step:** operator-side: verify production Supabase dashboard
+members match the Layer-2 roster, then onboard the first trusted testers using the
+beta note. Product-side: Plan settlement is the MVP+ centerpiece — brainstorm →
+spec → `plan_transaction_links` model + RPCs per
+`docs/architecture/flows/plan-settlement.md` (deterministic-first; do not expand
+`transactions.shopping_list_id`).
 
 **Open backlog:**
 
-- Vault secret rotation runbook (`docs/runbooks/secret-rotation.md`) - Medium, ⏳.
+- Vault secret rotation runbook (`docs/runbooks/secret-rotation.md`) - authored ✅; ops-lockdown runbook (`docs/runbooks/ops-access-lockdown.md`) - authored ✅.
 - Offline write queue (Dexie outbox) - parity gap vs legacy `FirestoreService`, last-write-wins decided - Medium, ⏳.
 - axe-core a11y sweep (deferred U7).
 - Virtualized/infinite scroll for long transaction lists.

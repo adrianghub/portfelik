@@ -323,6 +323,12 @@
       </button>
     </div>
   </div>
+
+  <p class="mt-4 px-1 text-xs text-slate-500">
+    <a href="/privacy" class="text-slate-400 underline hover:text-slate-200"
+      >{m.privacy_policy_link()}</a
+    >
+  </p>
 {/if}
 
 <ConfirmDialog
