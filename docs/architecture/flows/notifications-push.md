@@ -50,11 +50,21 @@ Source:
 | -------------------------------- | ---------------------------------------------- | --------------------------------------------- |
 | `group_invitations` insert       | `notify_on_group_invitation` (after insert)    | `group_invitation`                            |
 | `profiles.role` update           | `notify_on_role_change` (after update of role) | `system_notification`                         |
-| `process_recurring_transactions` | weekly cron                                    | `transaction_reminder`                        |
+| `process_recurring_transactions` | daily cron                                     | `transaction_reminder`                        |
 | `update_transaction_statuses`    | daily cron                                     | `transaction_upcoming`, `transaction_overdue` |
+| `process_bank_import_reminders`  | daily cron                                     | `bank_import_reminder`                        |
 | `send-admin-summary`             | weekly cron, fans across admins                | `transaction_summary`                         |
 
 Every one of these ultimately just inserts a `notifications` row. The push trigger is the **single shared dispatcher** - there is no per-source HTTP indirection.
+
+## Alerts vs. push
+
+An alert is a product rule that decides when a notification row should exist.
+Push is only one delivery channel for that row. For example, the bank-import
+reminder is computed from the user's profile setting plus their latest committed
+`transaction_import_sessions` row. If the browser has no push permission, the
+same `bank_import_reminder` still appears in the in-app bell and links to
+`/transactions/import`.
 
 ## Auth model
 

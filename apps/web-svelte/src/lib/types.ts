@@ -79,6 +79,12 @@ export interface MonthlySummary {
 export interface ProfileSettings {
   notificationsEnabled?: boolean;
   accentColor?: string;
+  alerts?: {
+    bankImportReminder?: {
+      enabled: boolean;
+      cadenceDays: 7 | 14 | 30;
+    };
+  };
   [key: string]: Json | undefined;
 }
 
@@ -183,6 +189,7 @@ export type NotificationType =
   | "transaction_upcoming"
   | "transaction_overdue"
   | "transaction_reminder"
+  | "bank_import_reminder"
   | "group_invitation"
   | "system_notification";
 
@@ -193,6 +200,14 @@ export type NotificationData =
       type: "transaction_upcoming" | "transaction_overdue" | "transaction_reminder";
       transactionId: string;
       amount: number;
+    }
+  | {
+      type: "bank_import_reminder";
+      cadenceDays: 7 | 14 | 30;
+      latestImportSessionId: string | null;
+      latestImportSessionKey?: string;
+      latestImportCommittedAt: string | null;
+      reminderWindowKey?: string;
     }
   | { type: "system_notification"; message: string };
 

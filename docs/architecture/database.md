@@ -336,8 +336,8 @@ In-app inbox plus the data row that drives every push. Phase 5.2 wired a trigger
 
 - **PK**: `id`. **FK**: `user_id` (CASCADE).
 - **RLS read/update/delete**: own. **RLS insert**: blocked from clients (only triggers and Edge Functions create rows).
-- `type` is a free-form string (not a Postgres enum) - see [audit](./audit-2026-05-09.md).
-- **Indexes**: `notifications_user_id_created_at_idx`, `notifications_unread_idx`.
+- `type` is the `notification_type` enum. Current product types include group invitations, transaction reminders/status changes, admin summaries, system notifications, and `bank_import_reminder`.
+- **Indexes**: `notifications_user_id_created_at_idx`, `notifications_unread_idx`, plus `notifications_bank_import_reminder_window_key` to dedupe one import reminder per configured cadence window.
 
 ### `push_subscriptions`
 
@@ -491,11 +491,11 @@ All SECURITY DEFINER (bypass RLS) unless marked SECURITY INVOKER. Defined in `20
 
 **Plans / compatibility list RPCs (3)**
 
-| RPC                                                                | Auth                                 | Behavior                                                                                                                                                                         |
-| ------------------------------------------------------------------ | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `complete_shopping_list(p_list_id, p_total_amount, p_category_id)` | owner OR group member                | Compatibility RPC. Completes the plan/list and may create a linked expense transaction depending on current signature/version. Not the future default settlement model.          |
-| `attach_shopping_list_to_transaction(p_list_id, p_tx_id)`          | visible list + visible transaction   | Compatibility RPC. Links one existing expense transaction through `transactions.shopping_list_id`. Future settlement should use a dedicated join table.                         |
-| `duplicate_shopping_list(p_list_id)`                               | SECURITY INVOKER - uses caller's RLS | Copies list + items, resets `status='active'`.                                                                                                                                   |
+| RPC                                                                | Auth                                 | Behavior                                                                                                                                                                |
+| ------------------------------------------------------------------ | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `complete_shopping_list(p_list_id, p_total_amount, p_category_id)` | owner OR group member                | Compatibility RPC. Completes the plan/list and may create a linked expense transaction depending on current signature/version. Not the future default settlement model. |
+| `attach_shopping_list_to_transaction(p_list_id, p_tx_id)`          | visible list + visible transaction   | Compatibility RPC. Links one existing expense transaction through `transactions.shopping_list_id`. Future settlement should use a dedicated join table.                 |
+| `duplicate_shopping_list(p_list_id)`                               | SECURITY INVOKER - uses caller's RLS | Copies list + items, resets `status='active'`.                                                                                                                          |
 
 **Notifications (2 - both SECURITY INVOKER)**
 
@@ -503,6 +503,12 @@ All SECURITY DEFINER (bypass RLS) unless marked SECURITY INVOKER. Defined in `20
 | ------------------------------------------- | ----------------------- |
 | `mark_notification_read(p_notification_id)` | Sets `read_at`.         |
 | `mark_all_notifications_read()`             | Bulk update for caller. |
+
+**Alerts (1)**
+
+| RPC                               | Auth         | Behavior                                                                                                                                      |
+| --------------------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `process_bank_import_reminders()` | service role | SECURITY DEFINER scheduled producer. Inserts `bank_import_reminder` rows for users who enabled the alert and have no recent committed import. |
 
 **Admin (3)**
 
@@ -559,11 +565,12 @@ for the full model and threat scope.
 
 ## Scheduled jobs (`pg_cron`)
 
-| Job                              | Cron (UTC)                                          | Action                                                                                                              |
-| -------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `process_recurring_transactions` | `0 23 1 * *` (1st of month, 23:00 UTC)              | Materialises new rows for all `is_recurring=true` templates due this month. Dedup keyed on `recurring_template_id`. |
-| `update_transaction_statuses`    | `0 5 * * *` (daily 05:00 UTC)                       | Flips `status` based on `date` vs `now()`.                                                                          |
-| `send-admin-summary` dispatch    | `0 7 * * 1` (Monday 07:00 UTC ≈ 08:00/09:00 Warsaw) | `pg_net.http_post` → `send-admin-summary` Edge Function with Vault Bearer.                                          |
+| Job                              | Cron (UTC)                                          | Action                                                                                                            |
+| -------------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `process-recurring-transactions` | `0 23 * * *` (daily 23:00 UTC)                      | Materialises due rows for recurring templates. Dedup keyed on `recurring_template_id` and target date.            |
+| `update_transaction_statuses`    | `0 5 * * *` (daily 05:00 UTC)                       | Flips `status` based on `date` vs `now()`.                                                                        |
+| `process-bank-import-reminders`  | `0 8 * * *` (daily 08:00 UTC)                       | Creates user-enabled reminders to upload a fresh bank CSV when the latest committed import is older than cadence. |
+| `send-admin-summary` dispatch    | `0 7 * * 1` (Monday 07:00 UTC ≈ 08:00/09:00 Warsaw) | `pg_net.http_post` → `send-admin-summary` Edge Function with Vault Bearer.                                        |
 
 DST drift is acknowledged: pg_cron runs on UTC, so the local-Warsaw fire time shifts by one hour around DST transitions.
 
@@ -586,4 +593,4 @@ See the **[audit report](./audit-2026-05-09.md)** for the prioritised list (func
 
 ---
 
-*Last reviewed: 2026-05-25 (see [`PRODUCT_REVIEW_2026-05-25.md`](../PRODUCT_REVIEW_2026-05-25.md)).*
+_Last reviewed: 2026-05-25 (see [`PRODUCT_REVIEW_2026-05-25.md`](../PRODUCT_REVIEW_2026-05-25.md))._

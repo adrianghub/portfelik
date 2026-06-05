@@ -12,6 +12,7 @@ Production: [portfelik.adrianzinko.com](https://portfelik.adrianzinko.com)
 flowchart LR
   Import[Import bankowy] --> Transactions[Transakcje]
   Manual[Dodaj ręcznie<br/>fallback / korekta] --> Transactions
+  Alerts[Alert importu] --> Import
   Plans[Plany] --> Settlement[Rozlicz plan]
   Transactions --> Settlement
   Transactions --> Dashboard[Pulpit]
@@ -19,8 +20,9 @@ flowchart LR
 ```
 
 Portfelik is not a manual bookkeeping app with optional imports. Bank import is
-the structured intake path; transactions are the confirmed ledger; plans express
-future intent; settlement connects plans with what actually happened.
+the structured intake path; reminders help keep that ledger fresh; transactions
+are the confirmed ledger; plans express future intent; settlement connects plans
+with what actually happened.
 
 ## Features
 
@@ -30,7 +32,7 @@ future intent; settlement connects plans with what actually happened.
 - **Plany** - future spending and goals. Current internals still use `shopping_lists` compatibility tables, but the product direction is Plans and plan settlement.
 - **Reguly i kategorie** - deterministic import categorization and user-owned category management.
 - **Grupy** - shared transactions/plans for couples, friends, and trusted groups, with role-based co-owner direction for managing group finance.
-- **Powiadomienia** - VAPID web-push for invitations and operational summaries.
+- **Powiadomienia i alerty** - VAPID web-push for invitations, operational summaries, and user-controlled reminders to refresh bank imports.
 
 ## Product Docs
 
@@ -41,17 +43,17 @@ future intent; settlement connects plans with what actually happened.
 
 ## Tech Stack
 
-| Layer | Choice |
-| --- | --- |
-| Frontend | SvelteKit + Svelte 5 runes, `adapter-static` |
-| Styling | Tailwind v4 |
-| Server cache | TanStack Query v6 |
-| i18n | Paraglide v2 (Polish) |
-| Auth | Supabase Auth - Google OAuth |
-| Database | Supabase Postgres + RLS + pg_cron |
-| Backend logic | Supabase Edge Functions (Deno) |
-| Push | VAPID web-push |
-| Hosting | Cloudflare Pages |
+| Layer         | Choice                                       |
+| ------------- | -------------------------------------------- |
+| Frontend      | SvelteKit + Svelte 5 runes, `adapter-static` |
+| Styling       | Tailwind v4                                  |
+| Server cache  | TanStack Query v6                            |
+| i18n          | Paraglide v2 (Polish)                        |
+| Auth          | Supabase Auth - Google OAuth                 |
+| Database      | Supabase Postgres + RLS + pg_cron            |
+| Backend logic | Supabase Edge Functions (Deno)               |
+| Push          | VAPID web-push                               |
+| Hosting       | Cloudflare Pages                             |
 
 ## Development
 

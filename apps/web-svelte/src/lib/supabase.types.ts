@@ -1102,6 +1102,7 @@ export type Database = {
       };
       privacy_mask_email: { Args: { p_email: string }; Returns: string };
       privacy_mask_text: { Args: { p_label: string }; Returns: string };
+      process_bank_import_reminders: { Args: never; Returns: undefined };
       process_recurring_transactions: { Args: never; Returns: undefined };
       reject_invitation: {
         Args: { p_invitation_id: string };
@@ -1133,7 +1134,8 @@ export type Database = {
         | "transaction_overdue"
         | "transaction_reminder"
         | "group_invitation"
-        | "system_notification";
+        | "system_notification"
+        | "bank_import_reminder";
       recurrence_frequency: "daily" | "weekly" | "monthly" | "yearly";
       shopping_list_status: "active" | "completed";
       transaction_status: "draft" | "upcoming" | "overdue" | "paid";
@@ -1276,6 +1278,7 @@ export const Constants = {
         "transaction_reminder",
         "group_invitation",
         "system_notification",
+        "bank_import_reminder",
       ],
       recurrence_frequency: ["daily", "weekly", "monthly", "yearly"],
       shopping_list_status: ["active", "completed"],

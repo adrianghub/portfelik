@@ -15,7 +15,7 @@ Neither shape works for this app. Push fan-out needs `web-push` (Deno code, requ
 
 **Hybrid scheduling.**
 
-- **`pg_cron` for SQL-only jobs.** `process_recurring_transactions` (monthly, 1st 23:00 UTC) and `update_transaction_statuses` (daily 05:00 UTC) are scheduled inline. Their bodies are plain plpgsql functions; no HTTP, no external dependencies.
+- **`pg_cron` for SQL-only jobs.** `process_recurring_transactions` (daily 23:00 UTC after the recurrence-frequency upgrade), `update_transaction_statuses` (daily 05:00 UTC), and `process_bank_import_reminders` (daily 08:00 UTC) are scheduled inline. Their bodies are plain plpgsql functions; no HTTP, no external dependencies.
 - **Edge Functions for HTTP-needing work.** Three Deno functions:
   - `send-push` - generic VAPID fan-out, triggered by `AFTER INSERT ON notifications`.
   - `send-admin-summary` - weekly aggregation, scheduled via `pg_cron` calling `pg_net.http_post`.

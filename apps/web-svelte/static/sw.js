@@ -61,6 +61,7 @@ self.addEventListener('notificationclick', (event) => {
 	let url = '/';
 	if (data.transactionId) url = `/transactions?txId=${data.transactionId}`;
 	else if (data.type === 'group_invitation') url = '/settings?tab=groups';
+	else if (data.type === 'bank_import_reminder') url = '/transactions/import';
 
 	event.waitUntil(
 		clients
