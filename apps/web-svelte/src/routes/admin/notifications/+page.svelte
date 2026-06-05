@@ -195,6 +195,14 @@
               <p class="text-xs text-slate-500">
                 {n.type}{n.read_at ? "" : " · unread"}
               </p>
+              <button
+                type="button"
+                title={n.user_token}
+                onclick={() => navigator.clipboard?.writeText(n.user_token)}
+                class="font-mono text-xs text-slate-600 hover:text-slate-400"
+              >
+                user: {n.user_token.slice(0, 12)}…
+              </button>
             </li>
           {/each}
         </ul>

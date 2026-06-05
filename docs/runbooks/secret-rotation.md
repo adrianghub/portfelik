@@ -5,12 +5,12 @@ Last updated: 2026-06-04
 Covers rotation of the four secrets that gate push notifications and internal
 Edge Function calls in Portfelik.
 
-| Secret | Where it lives | Used by | Rotation impact |
-|---|---|---|---|
-| `internal_trigger_secret` | Supabase Vault (`vault.create_secret`) + Edge Function secrets | DB triggers/cron jobs that POST to Edge Functions; Edge Functions verify the internal secret | Internal triggers fail until both sides are updated. No user-visible impact if done in the same window. |
-| `VAPID_PRIVATE_KEY` | Edge Function secrets (`send-push`) | Signs web-push messages | Existing browser subscriptions stay valid only if the *public* key did not change. Pair with public-key rotation only when subscriptions need to be invalidated. |
-| `VAPID_PUBLIC_KEY` | Edge Function secrets + `apps/web-svelte/.env.production` (build-time `PUBLIC_VAPID_KEY`) | Browser `pushManager.subscribe({ applicationServerKey })`; passed to `urlBase64ToUint8Array` in `services/push.ts` | All existing `push_subscriptions` rows become invalid. Browsers re-subscribe on next visit; users who never return are silently dropped. |
-| `VAPID_SUBJECT` | Edge Function secrets | `web-push` library header (`mailto:` or HTTPS URL identifying the sender) | None on existing subscriptions; only future sends use the new value. Safe to rotate any time. |
+| Secret                    | Where it lives                                                                            | Used by                                                                                                            | Rotation impact                                                                                                                                                  |
+| ------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `internal_trigger_secret` | Supabase Vault (`vault.create_secret`) + Edge Function secrets                            | DB triggers/cron jobs that POST to Edge Functions; Edge Functions verify the internal secret                       | Internal triggers fail until both sides are updated. No user-visible impact if done in the same window.                                                          |
+| `VAPID_PRIVATE_KEY`       | Edge Function secrets (`send-push`)                                                       | Signs web-push messages                                                                                            | Existing browser subscriptions stay valid only if the _public_ key did not change. Pair with public-key rotation only when subscriptions need to be invalidated. |
+| `VAPID_PUBLIC_KEY`        | Edge Function secrets + `apps/web-svelte/.env.production` (build-time `PUBLIC_VAPID_KEY`) | Browser `pushManager.subscribe({ applicationServerKey })`; passed to `urlBase64ToUint8Array` in `services/push.ts` | All existing `push_subscriptions` rows become invalid. Browsers re-subscribe on next visit; users who never return are silently dropped.                         |
+| `VAPID_SUBJECT`           | Edge Function secrets                                                                     | `web-push` library header (`mailto:` or HTTPS URL identifying the sender)                                          | None on existing subscriptions; only future sends use the new value. Safe to rotate any time.                                                                    |
 
 ## When to rotate
 
@@ -145,9 +145,10 @@ migration is needed.
    );
    ```
 2. No Edge Function or client changes required — the pepper is read on-query by the SECURITY DEFINER RPCs.
-3. **Verify** by calling one of the masked RPCs from `/admin/diagnostics` and confirming the returned `user_token` differs from any previously recorded value.
+3. **Verify** by calling one of the masked RPCs from the record-diagnostics panel on `/admin` and confirming the returned `user_token` differs from any previously recorded value.
 
 > **Note:** if the `privacy_pepper` secret is missing (e.g. new environment), seed it:
+>
 > ```sql
 > select vault.create_secret(
 >   encode(extensions.gen_random_bytes(32), 'hex'),
