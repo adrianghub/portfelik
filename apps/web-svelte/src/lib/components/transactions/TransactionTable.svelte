@@ -214,7 +214,7 @@
               class:cursor-pointer={!!onrowclick}
               class:ring-2={selectedIds.has(tx.id)}
               class:ring-slate-400={selectedIds.has(tx.id)}
-              role={onrowclick ? "button" : undefined}
+              role={onrowclick && !ondelete ? "button" : undefined}
               tabindex={onrowclick ? 0 : undefined}
               onclick={() => onrowclick?.(tx)}
               onkeydown={(e) => {
@@ -382,7 +382,7 @@
               !!onrowclick && "cursor-pointer",
               selectedIds.has(tx.id) && "bg-white/5"
             )}
-            role={onrowclick ? "button" : undefined}
+            role={onrowclick && !ondelete ? "button" : undefined}
             tabindex={onrowclick ? 0 : undefined}
             onclick={() => onrowclick?.(tx)}
             onkeydown={(e) => {
