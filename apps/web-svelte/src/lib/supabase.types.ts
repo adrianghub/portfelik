@@ -903,6 +903,18 @@ export type Database = {
         Args: { p_invitation_id: string };
         Returns: undefined;
       };
+      admin_masked_import_session_by_id: {
+        Args: { p_session_id: string };
+        Returns: Json;
+      };
+      admin_masked_transaction_by_id: {
+        Args: { p_transaction_id: string };
+        Returns: Json;
+      };
+      admin_masked_user_context_by_id: {
+        Args: { p_user_id: string };
+        Returns: Json;
+      };
       assign_admin_role: { Args: { p_user_id: string }; Returns: undefined };
       attach_shopping_list_to_transaction: {
         Args: { p_list_id: string; p_tx_id: string };
@@ -1027,12 +1039,11 @@ export type Database = {
         Returns: {
           body: string;
           created_at: string;
-          data: Json;
           id: string;
           read_at: string;
           title: string;
-          type: Database["public"]["Enums"]["notification_type"];
-          user_id: string;
+          type: string;
+          user_token: string;
         }[];
       };
       fetch_admin_push_subscriptions: {
@@ -1084,6 +1095,13 @@ export type Database = {
         Args: { p_session_id: string };
         Returns: Json;
       };
+      privacy_amount_bucket: { Args: { p_amount: number }; Returns: string };
+      privacy_hmac_token: {
+        Args: { p_context: string; p_value: string };
+        Returns: string;
+      };
+      privacy_mask_email: { Args: { p_email: string }; Returns: string };
+      privacy_mask_text: { Args: { p_label: string }; Returns: string };
       process_recurring_transactions: { Args: never; Returns: undefined };
       reject_invitation: {
         Args: { p_invitation_id: string };

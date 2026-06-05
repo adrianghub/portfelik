@@ -10,6 +10,7 @@
   import * as m from "$lib/paraglide/messages";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import { Users } from "lucide-svelte";
+  import RecordDiagnosticsPanel from "$lib/components/admin/RecordDiagnosticsPanel.svelte";
 
   const queryClient = useQueryClient();
 
@@ -178,4 +179,8 @@
       </table>
     </div>
   {/if}
+
+  <div class="mt-8 border-t border-white/5 pt-6">
+    <RecordDiagnosticsPanel />
+  </div>
 </div>
