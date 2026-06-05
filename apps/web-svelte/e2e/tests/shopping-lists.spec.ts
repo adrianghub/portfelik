@@ -266,7 +266,7 @@ test("shopping lists follow planning, shopping, archived, duplicate, and upcomin
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/plans");
 
-    await page.getByRole("button", { name: "Nowa lista zakupów" }).click();
+    await page.getByRole("button", { name: "Nowy plan" }).click();
     await page.locator("#sl-name").fill("Zakupy na dziś");
     await expect(page.locator("#sl-planned")).toContainText(displayDate(isoDate()));
     const createResp = page.waitForResponse(
@@ -341,7 +341,7 @@ test("shopping lists follow planning, shopping, archived, duplicate, and upcomin
 
   await test.step("future list lands in upcoming but can still start shopping", async () => {
     await page.goto("/plans");
-    await page.getByRole("button", { name: "Nowa lista zakupów" }).click();
+    await page.getByRole("button", { name: "Nowy plan" }).click();
     await page.locator("#sl-name").fill("Zakupy jutro");
     await page.locator("#sl-planned").click();
     await page.locator(`[data-date="${isoDate(1)}"]`).click();

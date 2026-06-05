@@ -22,7 +22,7 @@ test("renders mocked transaction list", async ({ page }) => {
 });
 
 test("shows import and export as direct desktop actions", async ({ page }) => {
-  await expect(page.getByRole("link", { name: "Import" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Import" }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Eksportuj CSV" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Więcej akcji" })).toHaveCount(0);
 });
@@ -129,7 +129,7 @@ test("mobile import and export stay as direct header actions", async ({ page }) 
   await page.goto("/transactions");
   await expect(page.locator("li").filter({ hasText: "Zakupy spożywcze" }).first()).toBeVisible();
 
-  await expect(page.getByRole("link", { name: "Import" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Import" }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Eksportuj CSV" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Więcej akcji" })).toHaveCount(0);
 });
@@ -145,7 +145,7 @@ test("mobile bank actions stay available when category filters are unavailable",
   await expect(page.locator("li").filter({ hasText: "Zakupy spożywcze" }).first()).toBeVisible();
 
   await expect(page.getByRole("button", { name: "Kategoria" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Import" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Import" }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Eksportuj CSV" })).toBeVisible();
 });
 
@@ -157,7 +157,7 @@ test("mobile bank actions stay available while rows are selected", async ({ page
 
   await row.getByRole("button", { name: "Zaznacz wszystkie" }).click();
   await expect(page.getByText("Zaznaczono 1")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Import" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Import" }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Eksportuj CSV" })).toBeVisible();
 });
 

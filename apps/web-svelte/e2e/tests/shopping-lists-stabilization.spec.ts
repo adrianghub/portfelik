@@ -768,7 +768,7 @@ test("list pencil: opens edit dialog with name, date, group", async ({ page }) =
   await expect(page.getByText("Tygodniowe zakupy")).toBeVisible();
 
   await page
-    .getByRole("button", { name: /Edytuj listę/ })
+    .getByRole("button", { name: /Edytuj plan/ })
     .first()
     .click();
 
