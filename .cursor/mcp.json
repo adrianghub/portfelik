@@ -1,16 +1,31 @@
 {
   "mcpServers": {
     "supabase-prod": {
-      "type": "http",
-      "url": "https://mcp.supabase.com/mcp?project_ref=emqzcygfwcvbmhxhfkcc&features=storage%2Cbranching%2Cdevelopment%2Cfunctions%2Cdebugging%2Caccount%2Cdatabase%2Cdocs"
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--read-only",
+        "--project-ref=emqzcygfwcvbmhxhfkcc",
+        "--features=storage,branching,development,functions,debugging,account,database,docs"
+      ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "${SUPABASE_ACCESS_TOKEN}"
+      }
     },
     "supabase-staging": {
-      "type": "http",
-      "url": "https://mcp.supabase.com/mcp?project_ref=nveyzxxnyccpnesebvuw&features=storage%2Cbranching%2Cdevelopment%2Cfunctions%2Cdebugging%2Caccount%2Cdatabase%2Cdocs"
-    },
-    "supabase-account": {
-      "type": "http",
-      "url": "https://mcp.supabase.com/mcp?features=account%2Cdocs"
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--project-ref=nveyzxxnyccpnesebvuw",
+        "--features=storage,development,functions,debugging,database,docs"
+      ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "${SUPABASE_ACCESS_TOKEN}"
+      }
     },
     "svelte": {
       "type": "http",
@@ -21,9 +36,10 @@
       "command": "npx",
       "args": ["@playwright/mcp@latest"]
     },
-    "github": {
-      "type": "http",
-      "url": "https://api.githubcopilot.com/mcp/"
+    "obscura": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@obscuraai/mcp-server"]
     }
   }
 }

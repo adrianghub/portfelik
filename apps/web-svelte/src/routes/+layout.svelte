@@ -43,7 +43,7 @@
 
   let { children } = $props();
 
-  const PUBLIC_PATHS = ["/login", "/auth/callback"];
+  const PUBLIC_PATHS = ["/login", "/auth/callback", "/privacy"];
   const PUSH_PROMPT_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
   const PUSH_PROMPT_STORAGE_KEY = "push_prompted_at";
 

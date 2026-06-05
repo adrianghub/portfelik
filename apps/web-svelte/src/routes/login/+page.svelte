@@ -172,5 +172,12 @@
       </svg>
       {m.login_sign_in_google()}
     </button>
+
+    <p class="mt-6 text-center text-xs leading-relaxed text-slate-500">
+      {m.privacy_beta_notice()}
+      <a href="/privacy" class="text-slate-400 underline hover:text-slate-200"
+        >{m.privacy_policy_link()}</a
+      >
+    </p>
   </div>
 </div>
