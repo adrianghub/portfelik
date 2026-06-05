@@ -120,9 +120,9 @@ User-facing wording to use (do not overpromise "no one can ever see your data"):
 - [x] RLS suite green (account-level isolation).
 - [x] Admin UI shows no raw financial details (Layer 1, this work).
 - [x] Users can delete their account/data (`delete_account()` RPC + Settings → Profile).
-- [ ] Production Supabase access limited to owner / essential operators (Layer 2, operational).
-- [ ] Service-role keys not exposed anywhere client-side (verify; never ship in client bundle).
-- [ ] Privacy policy states what is stored and who can access it.
-- [ ] Full account-data export (CSV transaction export exists; full export is a gap).
-- [ ] Onboarding asks testers to upload only the history they need.
-- [ ] Beta + "not end-to-end encrypted" communicated to testers.
+- [~] Production Supabase access limited to owner / essential operators (Layer 2). Runbook authored (`docs/runbooks/ops-access-lockdown.md`); operator must verify dashboard members match the roster.
+- [x] Service-role keys not exposed anywhere client-side. Audited 2026-06-05 — clean (no `service_role` in client `src`, no `PUBLIC_`-prefixed secret, example envs placeholder-only, CI passes keys via `${{ secrets.* }}`, no secret echoed to logs). Re-run procedure in the Layer-2 runbook §3.
+- [x] Privacy policy states what is stored and who can access it (`docs/legal/privacy-policy.md` + in-app `/privacy` route).
+- [~] Full account-data export — **documented as a beta limitation**, not built. CSV transaction export exists; full export (categories, plans, groups, rules, import metadata) is planned before wider public release. Stated plainly in privacy policy + beta note.
+- [x] Onboarding asks testers to upload only the history they need (`docs/product/beta-onboarding-note.md`).
+- [x] Beta + "not end-to-end encrypted" communicated to testers (beta note + `/privacy` route + login-page notice).
