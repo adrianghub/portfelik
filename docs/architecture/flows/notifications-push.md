@@ -66,6 +66,17 @@ reminder is computed from the user's profile setting plus their latest committed
 same `bank_import_reminder` still appears in the in-app bell and links to
 `/transactions/import`.
 
+**First-import behavior (intentional).** The bank-import reminder is opt-in. A
+user who enables it but has no committed import session is anchored on
+`profiles.created_at`, so the next daily producer run may create a first-import
+reminder (`"Dodaj pierwszy wyciąg CSV…"`) without waiting a full cadence window.
+This is deliberate: the user explicitly asked to be reminded to import, and a
+silent grace period (nothing happening for 7/14/30 days after opting in) would be
+more confusing than a prompt nudge. Window-key dedup still caps it at one
+reminder per cadence window. Revisit only if this alert is ever turned on by
+default during onboarding - default-on would warrant first-import grace because
+the user did not actively request it.
+
 ## Auth model
 
 Edge Functions are deployed with `verify_jwt = false`. Authentication is a shared secret:
