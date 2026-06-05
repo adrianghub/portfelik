@@ -228,3 +228,13 @@ begin
 end $$;
 
 grant execute on function fetch_admin_notifications(int) to authenticated;
+
+-- ── 7. Lockdown: admin RPCs are authenticated-only ────────────────────────────
+-- These RPCs are created after 20260529000000_function_execute_hardening.sql, so
+-- the global hardening pass does not cover them. They keep Supabase's default
+-- public/anon EXECUTE grant. The is_admin() guard already blocks data leakage,
+-- but anon/public should not be able to invoke them at all (lockdown convention).
+revoke execute on function admin_masked_transaction_by_id(uuid)    from public, anon;
+revoke execute on function admin_masked_import_session_by_id(uuid) from public, anon;
+revoke execute on function admin_masked_user_context_by_id(uuid)   from public, anon;
+revoke execute on function fetch_admin_notifications(int)          from public, anon;
