@@ -18,6 +18,7 @@ The core loop:
 flowchart LR
   Import[Import bankowy] --> Transactions[Transakcje]
   Manual[Dodaj ręcznie<br/>fallback / korekta] --> Transactions
+  Alerts[Alert importu] --> Import
   Transactions --> Settlement[Rozlicz plan]
   Plans[Plany] --> Settlement
   Transactions --> Dashboard[Pulpit]
@@ -28,13 +29,13 @@ flowchart LR
 
 The product has five first-class modules:
 
-| Module | Role |
-| --- | --- |
-| **Pulpit** | Shows the health of the current month: income, expenses, balance, largest categories, and plan progress. |
-| **Transakcje** | The confirmed ledger of financial history. Imported and manual rows live here after they are accepted. |
-| **Import** | Structured intake from bank files: parse, preview, categorize, handle duplicates, confirm, and commit. |
-| **Plany** | Future intent: planned spending, goals, trips, home projects, household shopping, or things to settle later. |
-| **Ustawienia** | Categories, categorization rules, profile, groups, invitations, personalization, and account controls. |
+| Module         | Role                                                                                                         |
+| -------------- | ------------------------------------------------------------------------------------------------------------ |
+| **Pulpit**     | Shows the health of the current month: income, expenses, balance, largest categories, and plan progress.     |
+| **Transakcje** | The confirmed ledger of financial history. Imported and manual rows live here after they are accepted.       |
+| **Import**     | Structured intake from bank files: parse, preview, categorize, handle duplicates, confirm, and commit.       |
+| **Plany**      | Future intent: planned spending, goals, trips, home projects, household shopping, or things to settle later. |
+| **Ustawienia** | Categories, categorization rules, profile, groups, invitations, personalization, and account controls.       |
 
 This is the product contract:
 
@@ -62,16 +63,34 @@ flowchart TB
 
 Row-state taxonomy:
 
-| Row state | Meaning | User work |
-| --- | --- | --- |
-| Clean categorized row | Parsed, categorized, not a duplicate. | Imports by default. |
-| Duplicate | Probable duplicate of an existing transaction. | Folded/skipped unless the user imports anyway. |
-| Uncategorized | Safe enough to import, but no category matched. | Imports through the visible `Inne` fallback confirmation. |
-| Pending | Real ambiguity or risk. | Requires a user decision. Today this is not broadly auto-produced; future risk signals may add it. |
-| User correction | The user changes category, group, description, or decision. | Keep reversible and offer rule learning where useful. |
+| Row state             | Meaning                                                     | User work                                                                                          |
+| --------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Clean categorized row | Parsed, categorized, not a duplicate.                       | Imports by default.                                                                                |
+| Duplicate             | Probable duplicate of an existing transaction.              | Folded/skipped unless the user imports anyway.                                                     |
+| Uncategorized         | Safe enough to import, but no category matched.             | Imports through the visible `Inne` fallback confirmation.                                          |
+| Pending               | Real ambiguity or risk.                                     | Requires a user decision. Today this is not broadly auto-produced; future risk signals may add it. |
+| User correction       | The user changes category, group, description, or decision. | Keep reversible and offer rule learning where useful.                                              |
 
 Manual transactions remain supported, but their product role is fallback:
 cash spend, missing bank rows, corrections, or exceptional records.
+
+## Alerts
+
+Alerts should reinforce the product loop instead of becoming a generic task
+system. The first alert is an import reminder: the user can ask Portfelik to
+remind them after 7, 14, or 30 days without a committed bank import.
+
+This matches the import-first posture:
+
+- The reminder points to **Import**, not manual entry.
+- It is user-controlled in profile settings and can be disabled.
+- It uses the existing notification inbox and push dispatcher; push permission
+  remains a delivery choice, not the alert source of truth.
+- The alert is based on confirmed import sessions, not parsed drafts.
+
+Future alerts should follow the same rule: they must help the user keep
+transactions, plans, groups, or settlement current, and they must be explainable
+from deterministic product state.
 
 ## Plans And Settlement
 
@@ -154,12 +173,12 @@ exceptions.
 
 ## Roadmap
 
-| Stage | Product scope |
-| --- | --- |
-| **MVP** | Pulpit, Transakcje, Import CSV, Plany on current compatibility storage, Ustawienia, groups/invites, categories, rules, privacy/regulatory basics. |
-| **MVP+** | Manual plan-to-transaction linking, plan progress, import as first-class module, manual transactions clearly secondary, shared plan settlement scope rules, group co-owner role direction. |
-| **V1** | Deterministic plan matching: suggestions, score, reasons, accepted/rejected memory. |
-| **Later** | AI explanation/summaries, AI keyword proposals, suggested plans, debt/savings tracks, deeper observability. |
+| Stage     | Product scope                                                                                                                                                                              |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **MVP**   | Pulpit, Transakcje, Import CSV, Plany on current compatibility storage, Ustawienia, groups/invites, categories, rules, privacy/regulatory basics.                                          |
+| **MVP+**  | Manual plan-to-transaction linking, plan progress, import as first-class module, manual transactions clearly secondary, shared plan settlement scope rules, group co-owner role direction. |
+| **V1**    | Deterministic plan matching: suggestions, score, reasons, accepted/rejected memory.                                                                                                        |
+| **Later** | AI explanation/summaries, AI keyword proposals, suggested plans, debt/savings tracks, deeper observability.                                                                                |
 
 ## Design Bar
 

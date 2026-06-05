@@ -9,14 +9,23 @@
     deleteAdminPushSubscriptionByEndpoint,
     type AdminPushSubscriptionRow,
   } from "$lib/services/push";
-  import type { Notification } from "$lib/types";
   import { formatDate } from "$lib/utils";
+
+  type AdminNotificationRow = {
+    id: string;
+    user_token: string;
+    type: string;
+    title: string | null;
+    body: string | null;
+    read_at: string | null;
+    created_at: string;
+  };
   import { createMutation } from "@tanstack/svelte-query";
   import { toast } from "svelte-sonner";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import * as m from "$lib/paraglide/messages";
 
-  let notifications = $state<Notification[]>([]);
+  let notifications = $state<AdminNotificationRow[]>([]);
   let pushSubs = $state<AdminPushSubscriptionRow[]>([]);
   let loading = $state(true);
   let error = $state<string | null>(null);
@@ -45,7 +54,7 @@
         fetchAdminNotifications(),
         fetchAdminPushSubscriptions(),
       ]);
-      notifications = notifs;
+      notifications = notifs as unknown as AdminNotificationRow[];
       pushSubs = subs;
     } catch (err) {
       error = err instanceof Error ? err.message : String(err);
@@ -186,6 +195,14 @@
               <p class="text-xs text-slate-500">
                 {n.type}{n.read_at ? "" : " · unread"}
               </p>
+              <button
+                type="button"
+                title={n.user_token}
+                onclick={() => navigator.clipboard?.writeText(n.user_token)}
+                class="font-mono text-xs text-slate-600 hover:text-slate-400"
+              >
+                user: {n.user_token.slice(0, 12)}…
+              </button>
             </li>
           {/each}
         </ul>

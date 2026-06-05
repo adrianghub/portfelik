@@ -11,7 +11,7 @@
   import { supabase } from "$lib/supabase";
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
-  import type { Profile } from "$lib/types";
+  import type { Profile, ProfileSettings } from "$lib/types";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import { toast } from "svelte-sonner";
   import * as m from "$lib/paraglide/messages";
@@ -25,6 +25,11 @@
 
   let editing = $state(false);
   let nameInput = $state("");
+  const reminderCadenceOptions = [7, 14, 30] as const;
+
+  const bankImportReminder = $derived(
+    profile?.settings.alerts?.bankImportReminder ?? { enabled: false, cadenceDays: 7 as const }
+  );
 
   function startEdit() {
     nameInput = profile?.name ?? "";
@@ -103,6 +108,48 @@
     },
     onError: () => toast.error(m.toast_error()),
   }));
+
+  function nextSettingsForReminder(input: {
+    enabled: boolean;
+    cadenceDays: 7 | 14 | 30;
+  }): ProfileSettings {
+    const current = profile?.settings ?? {};
+    return {
+      ...current,
+      alerts: {
+        ...(current.alerts ?? {}),
+        bankImportReminder: input,
+      },
+    };
+  }
+
+  const reminderMutation = createMutation(() => ({
+    mutationFn: (input: { enabled: boolean; cadenceDays: 7 | 14 | 30 }) => {
+      if (!profile) throw new Error("no_profile");
+      return updateProfile(profile.id, { settings: nextSettingsForReminder(input) });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["profile"] });
+      toast.success(m.toast_profile_updated());
+    },
+    onError: () => toast.error(m.toast_error()),
+  }));
+
+  function setReminderEnabled(enabled: boolean): void {
+    reminderMutation.mutate({
+      enabled,
+      cadenceDays: bankImportReminder.cadenceDays,
+    });
+  }
+
+  function setReminderCadence(value: string): void {
+    const cadenceDays = Number(value);
+    if (!reminderCadenceOptions.includes(cadenceDays as 7 | 14 | 30)) return;
+    reminderMutation.mutate({
+      enabled: bankImportReminder.enabled,
+      cadenceDays: cadenceDays as 7 | 14 | 30,
+    });
+  }
 </script>
 
 {#if !profile}
@@ -214,6 +261,44 @@
       </div>
     </div>
   {/if}
+
+  <div class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur">
+    <div class="space-y-3 px-4 py-3">
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+        <div class="min-w-0">
+          <p class="text-sm font-medium text-slate-100">{m.profile_import_alert_title()}</p>
+          <p class="mt-0.5 text-xs text-slate-500">{m.profile_import_alert_hint()}</p>
+        </div>
+        <label class="inline-flex shrink-0 items-center gap-2 text-xs text-slate-300">
+          <input
+            type="checkbox"
+            checked={bankImportReminder.enabled}
+            disabled={reminderMutation.isPending}
+            onchange={(event) =>
+              setReminderEnabled((event.currentTarget as HTMLInputElement).checked)}
+            class="h-4 w-4 rounded border-white/10 bg-slate-950"
+          />
+          {m.profile_import_alert_enabled()}
+        </label>
+      </div>
+
+      <label class="block max-w-xs text-xs text-slate-400">
+        {m.profile_import_alert_cadence()}
+        <select
+          class="focus-visible:ring-accent mt-1 h-9 w-full rounded-lg border border-white/10 bg-slate-950 px-3 text-sm text-slate-100 focus-visible:ring-2 focus-visible:outline-none"
+          value={bankImportReminder.cadenceDays}
+          disabled={reminderMutation.isPending}
+          onchange={(event) => setReminderCadence((event.currentTarget as HTMLSelectElement).value)}
+        >
+          <option value="7">{m.profile_import_alert_cadence_weekly()}</option>
+          <option value="14">{m.profile_import_alert_cadence_biweekly()}</option>
+          <option value="30">{m.profile_import_alert_cadence_monthly()}</option>
+        </select>
+      </label>
+
+      <p class="text-xs text-slate-500">{m.profile_import_alert_push_note()}</p>
+    </div>
+  </div>
 
   <div class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur">
     <div
