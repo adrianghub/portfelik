@@ -312,7 +312,7 @@ test("shopping lists follow planning, shopping, archived, duplicate, and upcomin
 
   await test.step("complete list creates transaction and moves it to archived", async () => {
     await waitForToastsToSettle(page);
-    await page.getByRole("button", { name: "Zakończ listę" }).click();
+    await page.getByRole("button", { name: "Zakończ plan" }).click();
     await page.locator("#comp-amount").fill("120");
     await page.locator("#comp-cat").selectOption("cat-1");
     await page.getByRole("button", { name: "Zakończ i utwórz transakcję" }).click();
@@ -320,17 +320,17 @@ test("shopping lists follow planning, shopping, archived, duplicate, and upcomin
     await expect(page).toHaveURL("/plans");
     await expect(page.getByRole("heading", { name: "Zarchiwizowane" })).toBeVisible();
     // Card actions now live behind a kebab (overflow) menu.
-    await expect(page.getByRole("button", { name: "Akcje listy" }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Akcje planu" }).first()).toBeVisible();
   });
 
   await test.step("duplicate archived list creates fresh active unchecked copy", async () => {
     const dupeResponse = page.waitForResponse(
       (r) => r.url().includes("/rpc/duplicate_shopping_list") && r.status() === 200
     );
-    await page.getByRole("button", { name: "Akcje listy" }).first().click();
-    await page.getByRole("menuitem", { name: "Duplikuj listę" }).click();
+    await page.getByRole("button", { name: "Akcje planu" }).first().click();
+    await page.getByRole("menuitem", { name: "Duplikuj plan" }).click();
     await dupeResponse;
-    await expect(page.getByText("Lista skopiowana")).toBeVisible();
+    await expect(page.getByText("Plan skopiowany")).toBeVisible();
     await expect(page.getByRole("link", { name: /Zakupy na dziś \(kopia\)/ })).toBeVisible();
 
     await page.getByRole("link", { name: /Zakupy na dziś \(kopia\)/ }).click();
