@@ -1,13 +1,14 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
-  import { fetchActivePlanProgress } from "$lib/services/plan-settlement";
+  import { fetchDashboardPlanProgress } from "$lib/services/plan-settlement";
+  import { getPlanEmoji } from "$lib/utils/plan-emoji";
   import { formatCurrency } from "$lib/utils";
   import { createQuery } from "@tanstack/svelte-query";
-  import { ShoppingBasket } from "lucide-svelte";
+  import { ShoppingBasket, Sparkles } from "lucide-svelte";
 
   const progressQuery = createQuery(() => ({
     queryKey: ["plan-progress"],
-    queryFn: fetchActivePlanProgress,
+    queryFn: () => fetchDashboardPlanProgress(),
   }));
 
   const activePlans = $derived((progressQuery.data ?? []).filter((p) => p.linkedCount > 0 || true));
@@ -33,8 +34,31 @@
             href="/plans/{plan.planId}"
             class="block rounded-xl border border-white/5 px-3 py-2 transition-colors hover:bg-white/5"
           >
-            <div class="flex items-baseline justify-between gap-2">
-              <span class="truncate text-sm font-medium text-slate-200">{plan.planName}</span>
+            <div class="flex items-center gap-2">
+              <!-- Emoji avatar -->
+              <div
+                class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-800 text-sm"
+                aria-hidden="true"
+              >
+                {#if getPlanEmoji(undefined, plan.planName)}
+                  {getPlanEmoji(undefined, plan.planName)}
+                {:else}
+                  <span class="text-xs font-semibold text-slate-400">
+                    {plan.planName.charAt(0).toUpperCase()}
+                  </span>
+                {/if}
+              </div>
+              <span class="min-w-0 flex-1 truncate text-sm font-medium text-slate-200">
+                {plan.planName}
+              </span>
+              {#if plan.eligibleCount > 0}
+                <span
+                  class="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400"
+                >
+                  <Sparkles size={8} strokeWidth={2} aria-hidden="true" />
+                  {plan.eligibleCount}
+                </span>
+              {/if}
               <span class="shrink-0 text-xs text-slate-400 tabular-nums">
                 {formatCurrency(plan.linkedAmount)}
                 {#if plan.plannedAmount != null && plan.plannedAmount > 0}
