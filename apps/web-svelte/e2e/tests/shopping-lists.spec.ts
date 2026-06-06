@@ -294,7 +294,7 @@ test("shopping lists follow planning, shopping, archived, duplicate, and upcomin
 
   await test.step("start shopping shows checkboxes and hides edit/delete rows", async () => {
     await page.getByRole("button", { name: "Przejdź do zakupów" }).click();
-    await expect(page.getByText("Zakupy")).toBeVisible();
+    await expect(page.getByText("Zakupy", { exact: true })).toBeVisible();
     await expect(page.getByRole("progressbar")).toBeVisible();
     await expect(page.getByRole("button", { name: "Zaznacz" }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Edytuj" })).toHaveCount(0);
