@@ -15,6 +15,10 @@ as $$
 declare
   v_caller_id uuid := auth.uid();
 begin
+  if v_caller_id is null then
+    raise exception 'not_authenticated' using errcode = 'P0001';
+  end if;
+
   if not exists (
     select 1 from user_groups
     where id       = p_group_id

@@ -64,6 +64,9 @@
   const active = $derived(filteredLists.filter((l) => l.bucket === "active"));
   const archived = $derived(filteredLists.filter((l) => l.bucket === "archived"));
   const hasAnyLists = $derived((query.data?.length ?? 0) > 0);
+  const firstSettlePlanId = $derived(
+    active.find((l) => (progressQuery.data?.[l.id]?.eligibleCount ?? 0) > 0)?.id ?? null
+  );
 
   function todayIsoLocal(): string {
     const now = new Date();
@@ -274,7 +277,13 @@
 
   <p class="text-sm text-slate-400">
     {m.plans_tagline_prefix()}
-    <a href="/plans" class="text-accent font-medium">{m.plans_tagline_cta()}</a>
+    {#if firstSettlePlanId}
+      <a href="/plans/{firstSettlePlanId}/settle" class="text-accent font-medium"
+        >{m.plans_tagline_cta()}</a
+      >
+    {:else}
+      <span class="text-accent font-medium">{m.plans_tagline_cta()}</span>
+    {/if}
     {m.plans_tagline_suffix()}
   </p>
 

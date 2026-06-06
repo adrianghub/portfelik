@@ -275,10 +275,7 @@ export async function fetchDashboardPlanProgress(limit = 8): Promise<PlanSettlem
       .from("plan_transaction_links")
       .select("plan_id, transaction_id")
       .in("plan_id", planIds),
-    _batchEligibleCounts(
-      plans.map((p) => ({ id: p.id, planned_for: p.planned_for })),
-      planIds
-    ),
+    _batchEligibleCounts(planIds),
   ]);
 
   if (linksRes.error) throw linksRes.error;
@@ -345,10 +342,7 @@ export async function fetchPlanProgressForPlans(
     }
   }
 
-  const eligibleCounts = await _batchEligibleCounts(
-    plans.map((p) => ({ id: p.id, planned_for: p.planned_for })),
-    planIds
-  );
+  const eligibleCounts = await _batchEligibleCounts(planIds);
 
   const result: Record<string, PlanSettlementProgress> = {};
   for (const plan of plans) {
@@ -369,61 +363,21 @@ export async function fetchPlanProgressForPlans(
 
 /**
  * Batch-count eligible transactions per plan.
- * Uses the same date-window rules as fetchEligibleSettlementTransactions.
- * Returns Record<planId, count>.
+ * Delegates to fetchEligibleSettlementTransactions so scope/date/link rules stay identical.
  */
-async function _batchEligibleCounts(
-  plans: { id: string; planned_for: string }[],
-  allPlanIds: string[]
+export async function countEligibleTransactionsByPlanIds(
+  planIds: string[]
 ): Promise<Record<string, number>> {
-  if (plans.length === 0) return {};
+  if (planIds.length === 0) return {};
 
-  // Build combined date range across all plans
-  const windows = plans.map((p) => {
-    const base = new Date(p.planned_for);
-    const start = new Date(base);
-    start.setDate(start.getDate() - 30);
-    const end = new Date(base);
-    end.setDate(end.getDate() + 60);
-    return {
-      id: p.id,
-      start: start.toISOString().slice(0, 10),
-      end: end.toISOString().slice(0, 10),
-      planned_for: p.planned_for,
-    };
-  });
-
-  const overallStart = windows.reduce(
-    (min, w) => (w.start < min ? w.start : min),
-    windows[0].start
+  const pairs = await Promise.all(
+    planIds.map(async (planId) => {
+      const txs = await fetchEligibleSettlementTransactions(planId);
+      return [planId, txs.length] as const;
+    })
   );
-  const overallEnd = windows.reduce((max, w) => (w.end > max ? w.end : max), windows[0].end);
-
-  const [txsRes, linkedElsewhere] = await Promise.all([
-    supabase
-      .from("transactions_with_category")
-      .select("id, date")
-      .eq("type", "expense")
-      .gte("date", overallStart)
-      .lte("date", overallEnd)
-      .limit(2000),
-    supabase
-      .from("plan_transaction_links")
-      .select("transaction_id, plan_id")
-      .not("plan_id", "in", `(${allPlanIds.join(",")})`),
-  ]);
-
-  if (txsRes.error || linkedElsewhere.error) return {};
-
-  const blockedIds = new Set((linkedElsewhere.data ?? []).map((r) => r.transaction_id));
-  const txs = (txsRes.data ?? []).filter((t) => t.id && !blockedIds.has(t.id));
-
-  const counts: Record<string, number> = {};
-  for (const w of windows) {
-    counts[w.id] = txs.filter((t) => {
-      const d = t.date ?? "";
-      return d >= w.start && d <= w.end;
-    }).length;
-  }
-  return counts;
+  return Object.fromEntries(pairs);
 }
+
+/** @internal Alias for callers inside this module. */
+const _batchEligibleCounts = countEligibleTransactionsByPlanIds;

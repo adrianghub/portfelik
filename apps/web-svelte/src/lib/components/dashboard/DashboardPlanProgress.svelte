@@ -11,7 +11,9 @@
     queryFn: () => fetchDashboardPlanProgress(),
   }));
 
-  const activePlans = $derived((progressQuery.data ?? []).filter((p) => p.linkedCount > 0 || true));
+  const activePlans = $derived(
+    (progressQuery.data ?? []).filter((p) => p.eligibleCount > 0 || p.linkedCount > 0)
+  );
 </script>
 
 {#if progressQuery.isPending}
@@ -31,7 +33,7 @@
       {#each activePlans.slice(0, 4) as plan (plan.planId)}
         <li>
           <a
-            href="/plans/{plan.planId}"
+            href={plan.eligibleCount > 0 ? `/plans/${plan.planId}/settle` : `/plans/${plan.planId}`}
             class="block rounded-xl border border-white/5 px-3 py-2 transition-colors hover:bg-white/5"
           >
             <div class="flex items-center gap-2">

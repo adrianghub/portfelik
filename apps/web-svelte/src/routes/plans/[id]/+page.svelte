@@ -209,7 +209,6 @@
   }));
 
   let showComplete = $state(false);
-  let showSettle = $state(false);
   let showBroadSheet = $state(false);
   let unlinkPendingId = $state<string | null>(null);
   let showUncheckedComplete = $state(false);
@@ -224,8 +223,8 @@
     showComplete = true;
   }
 
-  function openSettleSheet() {
-    showSettle = true;
+  function goToSettlePage() {
+    void goto(`/plans/${id}/settle`);
   }
 
   function requestComplete() {
@@ -491,13 +490,12 @@
       </a>
     {:else if !isDone}
       <div class="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onclick={openSettleSheet}
+        <a
+          href="/plans/{id}/settle"
           class="focus-visible:ring-accent inline-flex h-9 items-center rounded-full border border-white/10 px-4 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
         >
           {m.plan_settle_action()}
-        </button>
+        </a>
         {#if isShopping}
           <button
             type="button"
@@ -577,8 +575,7 @@
               {m.plan_detail_checklist_title()} · {itemDone}/{itemTotal}
             {:else}
               <ListPlus size={14} strokeWidth={1.8} aria-hidden="true" />
-              {m.common_add()}
-              {m.plan_detail_checklist_title()}
+              {m.plan_detail_checklist_add()}
             {/if}
           </button>
         {/if}
@@ -617,7 +614,7 @@
             onStartShopping={() => startMutation.mutate()}
           />
         {:else if isShopping}
-          <ShoppingView {list} onComplete={openSettleSheet} />
+          <ShoppingView {list} onComplete={goToSettlePage} />
         {:else}
           <DoneView
             {list}
@@ -792,14 +789,6 @@
     </div>
   </form>
 </Dialog>
-
-<PlanSettleSheet
-  open={showSettle}
-  planId={id}
-  planName={query.data?.name ?? ""}
-  plannedAmount={query.data?.total_amount ?? null}
-  onclose={() => (showSettle = false)}
-/>
 
 <PlanSettleSheet
   open={showBroadSheet}
