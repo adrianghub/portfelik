@@ -11,7 +11,12 @@
   import * as m from "$lib/paraglide/messages";
   import { fetchCategories } from "$lib/services/categories";
   import { fetchUserGroups } from "$lib/services/groups";
-  import { computePlanProgress, fetchLinkedTransactions } from "$lib/services/plan-settlement";
+  import {
+    computePlanProgress,
+    fetchLinkedTransactions,
+    fetchEligibleSettlementTransactions,
+    unlinkPlanTransaction,
+  } from "$lib/services/plan-settlement";
   import {
     completeShoppingList,
     deriveShoppingListMode,
@@ -27,10 +32,11 @@
   import {
     ArrowLeft,
     CalendarDays,
-    CheckCircle2,
     Link2,
+    Link2Off,
     MoreVertical,
     Pencil,
+    Sparkles,
     Users,
   } from "lucide-svelte";
   import { toast } from "svelte-sonner";
@@ -69,6 +75,12 @@
   const isPlanning = $derived(mode === "planning");
   const isShopping = $derived(mode === "shopping");
   const isDone = $derived(mode === "done");
+  const eligibleQuery = createQuery(() => ({
+    queryKey: ["plan-eligible", id],
+    queryFn: () => fetchEligibleSettlementTransactions(id),
+    enabled: !!id,
+  }));
+
   const settlementProgress = $derived(
     query.data
       ? computePlanProgress({
@@ -76,6 +88,7 @@
           planName: query.data.name,
           plannedAmount: query.data.total_amount,
           linkedTransactions: linkedTransactionsQuery.data ?? [],
+          eligibleCount: eligibleQuery.data?.length ?? 0,
         })
       : null
   );
@@ -188,6 +201,8 @@
 
   let showComplete = $state(false);
   let showSettle = $state(false);
+  let showBroadSheet = $state(false);
+  let unlinkPendingId = $state<string | null>(null);
   let showUncheckedComplete = $state(false);
   let completeAmount = $state("");
   let completeCategoryId = $state("");
@@ -268,6 +283,18 @@
       await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
       toast.success(m.toast_shopping_list_duplicated());
       await goto(`/plans/${newList.id}`);
+    },
+    onError: () => toast.error(m.toast_error()),
+  }));
+
+  const unlinkMutation = createMutation(() => ({
+    mutationFn: (txId: string) => unlinkPlanTransaction(id, txId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["plan-links", id] });
+      await queryClient.invalidateQueries({ queryKey: ["plan-eligible", id] });
+      await queryClient.invalidateQueries({ queryKey: ["plan-progress"] });
+      await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
+      toast.success(m.plan_settle_unlinked());
     },
     onError: () => toast.error(m.toast_error()),
   }));
@@ -389,63 +416,149 @@
       </div>
     </div>
 
-    <section class="grid gap-3 md:grid-cols-3">
-      <div class="rounded-2xl border border-white/5 bg-slate-900/45 p-4">
-        <div class="flex items-center gap-2 text-xs tracking-wide text-slate-400 uppercase">
-          <CalendarDays size={14} strokeWidth={1.8} aria-hidden="true" />
-          {m.plan_detail_date_label()}
+    {#if settlementProgress?.plannedAmount != null && settlementProgress.plannedAmount > 0}
+      {@const ratio = Math.min(
+        1,
+        settlementProgress.linkedAmount / settlementProgress.plannedAmount
+      )}
+      {@const pct = Math.round(ratio * 100)}
+      <section
+        class="rounded-2xl border border-white/5 bg-slate-900/60 p-5"
+        aria-label={m.plan_detail_progress_title()}
+      >
+        <p class="text-eyebrow mb-3 text-slate-400">{m.plan_detail_progress_title()}</p>
+        <div class="flex items-baseline gap-2">
+          <span class="text-accent text-3xl font-bold tabular-nums">
+            {formatCurrency(settlementProgress.linkedAmount)}
+          </span>
+          <span class="text-sm text-slate-400">
+            z {formatCurrency(settlementProgress.plannedAmount)}
+          </span>
         </div>
-        <p class="mt-2 text-lg font-semibold text-slate-100">
-          {list.planned_for ? plannedForLabel(list.planned_for) : m.plan_detail_no_date()}
-        </p>
-      </div>
-      <div class="rounded-2xl border border-white/5 bg-slate-900/45 p-4">
-        <div class="flex items-center gap-2 text-xs tracking-wide text-slate-400 uppercase">
-          <Link2 size={14} strokeWidth={1.8} aria-hidden="true" />
-          {m.plan_detail_settlement_title()}
-        </div>
-        <p class="mt-2 text-lg font-semibold text-slate-100 tabular-nums">
-          {formatCurrency(settlementProgress?.linkedAmount ?? 0)}
-        </p>
-        <p class="mt-1 text-xs text-slate-400">
-          {m.plan_detail_linked_transactions({ count: settlementProgress?.linkedCount ?? 0 })}
-        </p>
-      </div>
-      <div class="rounded-2xl border border-white/5 bg-slate-900/45 p-4">
-        <div class="flex items-center gap-2 text-xs tracking-wide text-slate-400 uppercase">
-          <CheckCircle2 size={14} strokeWidth={1.8} aria-hidden="true" />
-          {m.plan_detail_checklist_title()}
-        </div>
-        <p class="mt-2 text-lg font-semibold text-slate-100 tabular-nums">
-          {m.plan_detail_checklist_progress({ completed: itemDone, total: itemTotal })}
-        </p>
-        <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-800">
+        <div
+          class="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-800"
+          role="progressbar"
+          aria-valuenow={pct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+        >
           <div
-            class="bg-accent-gradient h-full rounded-full transition-all duration-300"
-            style="width: {itemTotal > 0 ? Math.round((itemDone / itemTotal) * 100) : 0}%"
+            class="bg-accent-gradient h-full rounded-full transition-all duration-500"
+            style="width: {pct}%"
           ></div>
         </div>
+        <div class="mt-2 flex items-center justify-between gap-2 text-xs">
+          <span class="text-slate-400">
+            {m.plan_detail_remaining({ amount: formatCurrency(settlementProgress.remaining ?? 0) })}
+          </span>
+          <span
+            class={cn("font-semibold tabular-nums", pct >= 90 ? "text-amber-400" : "text-accent")}
+          >
+            {pct}%
+          </span>
+        </div>
+      </section>
+    {:else}
+      <div class="flex items-center gap-2 text-sm text-slate-400">
+        <CalendarDays size={14} strokeWidth={1.8} aria-hidden="true" />
+        {list.planned_for ? plannedForLabel(list.planned_for) : m.plan_detail_no_date()}
       </div>
-    </section>
+    {/if}
 
-    <div class="flex flex-wrap gap-2">
-      <button
-        type="button"
-        onclick={openSettleSheet}
-        class="bg-accent-gradient focus-visible:ring-accent inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-colors hover:brightness-110 focus-visible:ring-2 focus-visible:outline-none"
+    {#if (settlementProgress?.eligibleCount ?? 0) > 0 && !isDone}
+      <a
+        href="/plans/{id}/settle"
+        class="bg-accent-gradient focus-visible:ring-accent flex w-full items-center justify-between rounded-2xl p-4 shadow-[0_0_24px_var(--color-accent-glow)] transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none"
+        aria-label={m.plan_settle_action()}
       >
-        {m.plan_settle_action()}
-      </button>
-      {#if isShopping}
+        <div class="flex items-center gap-3">
+          <Sparkles size={20} class="text-slate-900" aria-hidden="true" />
+          <div>
+            <p class="text-sm font-semibold text-slate-900">{m.plan_settle_action()}</p>
+            <p class="text-xs text-slate-800">
+              {m.plan_detail_settle_cta_subtitle({ count: settlementProgress?.eligibleCount ?? 0 })}
+            </p>
+          </div>
+        </div>
+        <span aria-hidden="true" class="text-lg font-bold text-slate-900">→</span>
+      </a>
+    {:else if !isDone}
+      <div class="flex flex-wrap gap-2">
         <button
           type="button"
-          onclick={requestComplete}
+          onclick={openSettleSheet}
           class="focus-visible:ring-accent inline-flex h-9 items-center rounded-full border border-white/10 px-4 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
         >
-          {m.shopping_list_complete_fallback()}
+          {m.plan_settle_action()}
         </button>
-      {/if}
-    </div>
+        {#if isShopping}
+          <button
+            type="button"
+            onclick={requestComplete}
+            class="focus-visible:ring-accent inline-flex h-9 items-center rounded-full border border-white/10 px-4 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+          >
+            {m.shopping_list_complete_fallback()}
+          </button>
+        {/if}
+      </div>
+    {/if}
+
+    {#if (linkedTransactionsQuery.data ?? []).length > 0}
+      <section class="space-y-2">
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="text-eyebrow text-slate-400">{m.plan_detail_linked_header()}</h2>
+          <span class="text-xs text-slate-400 tabular-nums">
+            {linkedTransactionsQuery.data?.length ?? 0} ·
+            {formatCurrency(settlementProgress?.linkedAmount ?? 0)}
+          </span>
+        </div>
+        <ul class="space-y-1">
+          {#each linkedTransactionsQuery.data ?? [] as tx (tx.id)}
+            <li
+              class="flex items-center justify-between gap-2 rounded-xl border border-white/5 bg-slate-900/40 px-3 py-2 text-xs"
+            >
+              <div class="min-w-0 flex-1">
+                <p class="truncate font-medium text-slate-200">{tx.description}</p>
+                <p class="mt-0.5 text-slate-400">
+                  {formatDate(tx.date)}{tx.category_name ? ` · ${tx.category_name}` : ""}
+                </p>
+              </div>
+              <div class="flex shrink-0 items-center gap-2">
+                <span
+                  class="border-accent/20 bg-accent/10 text-accent rounded-full border px-2 py-0.5 text-[10px] font-medium"
+                >
+                  {m.plan_linked_badge()}
+                </span>
+                <span class="font-semibold text-rose-300 tabular-nums">
+                  −{formatCurrency(tx.amount)}
+                </span>
+                <button
+                  type="button"
+                  onclick={() => unlinkMutation.mutate(tx.id)}
+                  disabled={unlinkMutation.isPending && unlinkPendingId === tx.id}
+                  aria-label={m.plan_settle_unlink()}
+                  class="rounded-full p-1 text-slate-500 transition-colors hover:bg-white/5 hover:text-rose-400 disabled:opacity-40"
+                  onmousedown={() => (unlinkPendingId = tx.id)}
+                >
+                  <Link2Off size={13} strokeWidth={1.8} aria-hidden="true" />
+                </button>
+              </div>
+            </li>
+          {/each}
+        </ul>
+      </section>
+    {/if}
+
+    {#if !isDone}
+      <button
+        type="button"
+        onclick={() => (showBroadSheet = true)}
+        class="focus-visible:ring-accent inline-flex h-9 items-center gap-2 rounded-full border border-white/10 px-4 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+      >
+        <Link2 size={14} strokeWidth={1.8} aria-hidden="true" />
+        {m.plan_detail_history_link()}
+      </button>
+    {/if}
 
     <section class="space-y-3">
       <div class="flex items-center justify-between gap-3">
@@ -643,4 +756,13 @@
   planName={query.data?.name ?? ""}
   plannedAmount={query.data?.total_amount ?? null}
   onclose={() => (showSettle = false)}
+/>
+
+<PlanSettleSheet
+  open={showBroadSheet}
+  planId={id}
+  planName={query.data?.name ?? ""}
+  plannedAmount={query.data?.total_amount ?? null}
+  mode="broad"
+  onclose={() => (showBroadSheet = false)}
 />

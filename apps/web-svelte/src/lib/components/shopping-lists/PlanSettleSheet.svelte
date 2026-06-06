@@ -19,10 +19,11 @@
     planId: string;
     planName: string;
     plannedAmount: number | null;
+    mode?: "default" | "broad";
     onclose: () => void;
   }
 
-  let { open, planId, planName, plannedAmount, onclose }: Props = $props();
+  let { open, planId, planName, plannedAmount, mode = "default", onclose }: Props = $props();
   const queryClient = useQueryClient();
 
   const linkedQuery = createQuery(() => ({
@@ -32,8 +33,11 @@
   }));
 
   const eligibleQuery = createQuery(() => ({
-    queryKey: ["plan-eligible", planId],
-    queryFn: () => fetchEligibleSettlementTransactions(planId),
+    queryKey: ["plan-eligible", planId, mode],
+    queryFn: () =>
+      fetchEligibleSettlementTransactions(planId, {
+        dateWindow: mode === "broad" ? "all" : "default",
+      }),
     enabled: open && !!planId,
   }));
 
