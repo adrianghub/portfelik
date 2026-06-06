@@ -8,6 +8,7 @@
   import * as m from "$lib/paraglide/messages";
   import { fetchUserGroups } from "$lib/services/groups";
   import { fetchCategories } from "$lib/services/categories";
+  import { fetchPlanProgressForPlans } from "$lib/services/plan-settlement";
   import {
     createShoppingList,
     deleteShoppingList,
@@ -40,6 +41,16 @@
   const expenseCategories = $derived(
     categoriesQuery.data?.filter((c) => c.type === "expense") ?? []
   );
+
+  const categoryMap = $derived(new Map((categoriesQuery.data ?? []).map((c) => [c.id, c.name])));
+  const groupMap = $derived(new Map((groupsQuery.data ?? []).map((g) => [g.id, g.name])));
+
+  const allPlanIds = $derived((query.data ?? []).map((l) => l.id));
+  const progressQuery = createQuery(() => ({
+    queryKey: ["plan-progress-list", allPlanIds],
+    queryFn: () => fetchPlanProgressForPlans(allPlanIds),
+    enabled: allPlanIds.length > 0,
+  }));
 
   let groupFilter = $state<"all" | "own" | string>("all");
   const filteredLists = $derived(
@@ -91,6 +102,8 @@
         item_total: 0,
         item_completed: 0,
         linked_transaction_id: null,
+        linkedAmount: 0,
+        linkedCount: 0,
         planned_for: newPlannedFor,
         shopping_started_at: null,
         bucket: newPlannedFor > todayIsoLocal() ? "upcoming" : "active",
@@ -259,6 +272,12 @@
     </button>
   </div>
 
+  <p class="text-sm text-slate-400">
+    {m.plans_tagline_prefix()}
+    <a href="/plans" class="text-accent font-medium">{m.plans_tagline_cta()}</a>
+    {m.plans_tagline_suffix()}
+  </p>
+
   {#if query.isLoading}
     <div class="grid gap-3 sm:grid-cols-2">
       {#each Array(4) as _, i (i)}
@@ -280,54 +299,52 @@
       </p>
     {/if}
 
-    {#if groupsQuery.data && groupsQuery.data.length > 0}
-      <div role="tablist" aria-label="Grupa" class="flex flex-wrap gap-1">
+    <div role="tablist" aria-label="Grupa" class="flex flex-wrap gap-1">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={groupFilter === "all"}
+        onclick={() => (groupFilter = "all")}
+        class={cn(
+          "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
+          groupFilter === "all"
+            ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
+            : "border border-white/5 text-slate-300 hover:bg-white/5"
+        )}
+      >
+        {m.group_filter_all()}
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={groupFilter === "own"}
+        onclick={() => (groupFilter = "own")}
+        class={cn(
+          "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
+          groupFilter === "own"
+            ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
+            : "border border-white/5 text-slate-300 hover:bg-white/5"
+        )}
+      >
+        {m.group_filter_own()}
+      </button>
+      {#each groupsQuery.data as g (g.id)}
         <button
           type="button"
           role="tab"
-          aria-selected={groupFilter === "all"}
-          onclick={() => (groupFilter = "all")}
+          aria-selected={groupFilter === g.id}
+          onclick={() => (groupFilter = g.id)}
           class={cn(
             "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
-            groupFilter === "all"
+            groupFilter === g.id
               ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
               : "border border-white/5 text-slate-300 hover:bg-white/5"
           )}
         >
-          {m.group_filter_all()}
+          {g.name}
         </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={groupFilter === "own"}
-          onclick={() => (groupFilter = "own")}
-          class={cn(
-            "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
-            groupFilter === "own"
-              ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
-              : "border border-white/5 text-slate-300 hover:bg-white/5"
-          )}
-        >
-          {m.group_filter_own()}
-        </button>
-        {#each groupsQuery.data as g (g.id)}
-          <button
-            type="button"
-            role="tab"
-            aria-selected={groupFilter === g.id}
-            onclick={() => (groupFilter = g.id)}
-            class={cn(
-              "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
-              groupFilter === g.id
-                ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
-                : "border border-white/5 text-slate-300 hover:bg-white/5"
-            )}
-          >
-            {g.name}
-          </button>
-        {/each}
-      </div>
-    {/if}
+      {/each}
+    </div>
 
     <section class="space-y-2">
       <h2 class="text-xs font-medium tracking-wide text-slate-400 uppercase dark:text-slate-400">
@@ -344,6 +361,9 @@
           <ShoppingListCard
             {list}
             variant="active"
+            categoryName={categoryMap.get(list.category_id ?? "") ?? undefined}
+            groupName={groupMap.get(list.group_id ?? "") ?? undefined}
+            eligibleCount={progressQuery.data?.[list.id]?.eligibleCount ?? 0}
             onedit={openEdit}
             ondelete={(id) => (deleteTargetId = id)}
           />
@@ -366,6 +386,8 @@
           <ShoppingListCard
             {list}
             variant="upcoming"
+            categoryName={categoryMap.get(list.category_id ?? "") ?? undefined}
+            groupName={groupMap.get(list.group_id ?? "") ?? undefined}
             onedit={openEdit}
             ondelete={(id) => (deleteTargetId = id)}
           />
@@ -388,6 +410,8 @@
           <ShoppingListCard
             {list}
             variant="archived"
+            categoryName={categoryMap.get(list.category_id ?? "") ?? undefined}
+            groupName={groupMap.get(list.group_id ?? "") ?? undefined}
             onduplicate={(id) => duplicateMut.mutate(id)}
             ondelete={(id) => (deleteTargetId = id)}
           />
