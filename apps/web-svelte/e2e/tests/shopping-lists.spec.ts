@@ -312,7 +312,8 @@ test("shopping lists follow planning, shopping, archived, duplicate, and upcomin
 
   await test.step("complete list creates transaction and moves it to archived", async () => {
     await waitForToastsToSettle(page);
-    await page.getByRole("button", { name: "Zakończ plan" }).click();
+    await page.getByRole("button", { name: "Zakończ bez rozliczenia" }).click();
+    await page.getByText("Utwórz transakcję wydatku").click();
     await page.locator("#comp-amount").fill("120");
     await page.locator("#comp-cat").selectOption("cat-1");
     await page.getByRole("button", { name: "Zakończ i utwórz transakcję" }).click();
