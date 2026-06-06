@@ -34,9 +34,12 @@
     CalendarDays,
     Link2,
     Link2Off,
+    List,
+    ListPlus,
     MoreVertical,
     Pencil,
     Sparkles,
+    X,
     Users,
   } from "lucide-svelte";
   import { toast } from "svelte-sonner";
@@ -75,6 +78,12 @@
   const isPlanning = $derived(mode === "planning");
   const isShopping = $derived(mode === "shopping");
   const isDone = $derived(mode === "done");
+  let showChecklist = $state(false);
+  const hasChecklistState = $derived(!!query.data && mode !== "planning");
+  const showChecklistSection = $derived(hasChecklistState || showChecklist);
+  const itemTotal = $derived(query.data?.shopping_list_items.length ?? 0);
+  const itemDone = $derived(query.data?.shopping_list_items.filter((i) => i.completed).length ?? 0);
+  const hasItems = $derived(itemTotal > 0);
   const eligibleQuery = createQuery(() => ({
     queryKey: ["plan-eligible", id],
     queryFn: () => fetchEligibleSettlementTransactions(id),
@@ -326,8 +335,6 @@
     <p class="text-sm text-rose-600">{m.common_error_title()}</p>
   {:else if query.data}
     {@const list = query.data}
-    {@const itemTotal = list.shopping_list_items.length}
-    {@const itemDone = list.shopping_list_items.filter((i) => i.completed).length}
     <div class="flex items-start justify-between gap-3">
       <div class="min-w-0 space-y-3">
         <div class="flex min-w-0 items-center gap-2">
@@ -550,40 +557,76 @@
     {/if}
 
     {#if !isDone}
-      <button
-        type="button"
-        onclick={() => (showBroadSheet = true)}
-        class="focus-visible:ring-accent inline-flex h-9 items-center gap-2 rounded-full border border-white/10 px-4 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
-      >
-        <Link2 size={14} strokeWidth={1.8} aria-hidden="true" />
-        {m.plan_detail_history_link()}
-      </button>
+      <div class="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onclick={() => (showBroadSheet = true)}
+          class="focus-visible:ring-accent inline-flex h-9 items-center gap-2 rounded-full border border-white/10 px-4 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+        >
+          <Link2 size={14} strokeWidth={1.8} aria-hidden="true" />
+          {m.plan_detail_history_link()}
+        </button>
+        {#if !showChecklistSection}
+          <button
+            type="button"
+            onclick={() => (showChecklist = true)}
+            class="focus-visible:ring-accent inline-flex h-9 items-center gap-2 rounded-full border border-white/10 px-4 text-sm font-medium text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-300 focus-visible:ring-2 focus-visible:outline-none"
+          >
+            {#if hasItems}
+              <List size={14} strokeWidth={1.8} aria-hidden="true" />
+              {m.plan_detail_checklist_title()} · {itemDone}/{itemTotal}
+            {:else}
+              <ListPlus size={14} strokeWidth={1.8} aria-hidden="true" />
+              {m.common_add()}
+              {m.plan_detail_checklist_title()}
+            {/if}
+          </button>
+        {/if}
+      </div>
     {/if}
 
-    <section class="space-y-3">
-      <div class="flex items-center justify-between gap-3">
-        <h2 class="text-base font-semibold text-slate-100">{m.plan_detail_checklist_title()}</h2>
-        <span class="shrink-0 text-xs text-slate-400 tabular-nums">
-          {m.plan_detail_checklist_progress({ completed: itemDone, total: itemTotal })}
-        </span>
-      </div>
+    {#if showChecklistSection}
+      <section class="space-y-3 border-t border-white/5 pt-4">
+        <div class="flex items-center justify-between gap-3">
+          <h2 class="text-base font-semibold text-slate-100">
+            {m.plan_detail_checklist_title()}
+          </h2>
+          <div class="flex items-center gap-2">
+            {#if itemTotal > 0}
+              <span class="shrink-0 text-xs text-slate-400 tabular-nums">
+                {m.plan_detail_checklist_progress({ completed: itemDone, total: itemTotal })}
+              </span>
+            {/if}
+            {#if isPlanning}
+              <button
+                type="button"
+                onclick={() => (showChecklist = false)}
+                aria-label={m.common_close()}
+                class="rounded-full p-1 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-300"
+              >
+                <X size={14} strokeWidth={1.8} aria-hidden="true" />
+              </button>
+            {/if}
+          </div>
+        </div>
 
-      {#if isPlanning}
-        <PlanningView
-          {list}
-          startingShopping={startMutation.isPending}
-          onStartShopping={() => startMutation.mutate()}
-        />
-      {:else if isShopping}
-        <ShoppingView {list} onComplete={openSettleSheet} />
-      {:else}
-        <DoneView
-          {list}
-          duplicating={duplicateMutation.isPending}
-          onDuplicate={() => duplicateMutation.mutate()}
-        />
-      {/if}
-    </section>
+        {#if isPlanning}
+          <PlanningView
+            {list}
+            startingShopping={startMutation.isPending}
+            onStartShopping={() => startMutation.mutate()}
+          />
+        {:else if isShopping}
+          <ShoppingView {list} onComplete={openSettleSheet} />
+        {:else}
+          <DoneView
+            {list}
+            duplicating={duplicateMutation.isPending}
+            onDuplicate={() => duplicateMutation.mutate()}
+          />
+        {/if}
+      </section>
+    {/if}
   {/if}
 </div>
 
