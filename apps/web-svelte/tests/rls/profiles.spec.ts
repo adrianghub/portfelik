@@ -60,4 +60,16 @@ describe("RLS: profiles", () => {
       .select();
     expectBlockedWrite(result);
   });
+
+  it("user A can persist own accent personalization in profile settings", async () => {
+    const { data, error } = await ctx.userA.client
+      .from("profiles")
+      .update({ settings: { notificationsEnabled: false, accentColor: "purple" } })
+      .eq("id", ctx.userA.userId)
+      .select("settings")
+      .single();
+
+    expect(error).toBeNull();
+    expect((data?.settings as { accentColor?: string } | null)?.accentColor).toBe("purple");
+  });
 });

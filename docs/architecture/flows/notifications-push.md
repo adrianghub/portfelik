@@ -64,7 +64,7 @@ Push is only one delivery channel for that row. For example, the bank-import
 reminder is computed from the user's profile setting plus their latest committed
 `transaction_import_sessions` row. If the browser has no push permission, the
 same `bank_import_reminder` still appears in the in-app bell and links to
-`/transactions/import`.
+`/import` (legacy `/transactions/import` redirects).
 
 **First-import behavior (intentional).** The bank-import reminder is opt-in. A
 user who enables it but has no committed import session is anchored on

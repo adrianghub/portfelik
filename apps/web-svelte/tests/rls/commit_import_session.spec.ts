@@ -225,7 +225,7 @@ describe("RPC: commit_import_session", () => {
     if (grp.error) throw grp.error;
     await ctx.admin
       .from("group_members")
-      .insert({ group_id: grp.data.id, user_id: ctx.userB.userId, role: "owner" });
+      .insert({ group_id: grp.data.id, user_id: ctx.userB.userId });
 
     await insertRow(seed.sessionId, {
       rowIndex: 0,
@@ -406,7 +406,7 @@ describe("RPC: commit_import_session", () => {
     if (foreignGrp.error) throw foreignGrp.error;
     await ctx.admin
       .from("group_members")
-      .insert({ group_id: foreignGrp.data.id, user_id: ctx.userB.userId, role: "owner" });
+      .insert({ group_id: foreignGrp.data.id, user_id: ctx.userB.userId });
 
     await insertRow(seed.sessionId, {
       rowIndex: 0,

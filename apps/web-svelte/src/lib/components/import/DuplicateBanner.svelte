@@ -46,7 +46,7 @@
                 <p class="truncate text-sm font-medium text-slate-100">
                   {row.counterparty ?? row.edited_description ?? row.description}
                 </p>
-                <p class="mt-0.5 text-xs text-slate-500">{row.posted_at}</p>
+                <p class="mt-0.5 text-xs text-slate-400">{row.posted_at}</p>
                 {#if duplicateDetail(row.id)}
                   <p class="mt-1 text-xs text-amber-200/80">{duplicateDetail(row.id)}</p>
                 {/if}

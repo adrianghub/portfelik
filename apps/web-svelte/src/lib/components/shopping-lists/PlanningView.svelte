@@ -398,7 +398,7 @@
   {/if}
 
   {#if itemTotal > 1}
-    <div class="flex items-center justify-end gap-1 text-slate-500">
+    <div class="flex items-center justify-end gap-1 text-slate-400">
       <button
         type="button"
         onclick={() => (bulkDeleteConfirm = true)}
@@ -411,7 +411,7 @@
   {/if}
 
   {#if grouped.length === 0}
-    <p class="rounded-xl border border-white/5 bg-slate-900/40 px-3 py-4 text-sm text-slate-500">
+    <p class="rounded-xl border border-white/5 bg-slate-900/40 px-3 py-4 text-sm text-slate-400">
       {m.shopping_list_items_search_empty()}
     </p>
   {:else}
@@ -445,7 +445,7 @@
                 type="button"
                 onclick={() => requestRemoveCategory(category)}
                 disabled={removeCategoryMutation.isPending}
-                class="shrink-0 rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-rose-500/10 hover:text-rose-300 disabled:opacity-40"
+                class="shrink-0 rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-rose-500/10 hover:text-rose-300 disabled:opacity-40"
                 aria-label={m.shopping_list_category_remove({ category })}
                 title={m.shopping_list_category_remove({ category })}
               >
@@ -464,14 +464,14 @@
                 >
                   <span class="min-w-0 flex-1 truncate text-sm text-slate-100">{item.name}</span>
                   {#if item.quantity != null}
-                    <span class="shrink-0 text-xs text-slate-500"
+                    <span class="shrink-0 text-xs text-slate-400"
                       >{item.quantity}{item.unit ? ` ${item.unit}` : ""}</span
                     >
                   {/if}
                   <button
                     type="button"
                     onclick={() => (editTarget = item)}
-                    class="shrink-0 rounded-md p-1 text-slate-500 opacity-60 transition hover:bg-white/5 hover:text-slate-200 hover:opacity-100"
+                    class="shrink-0 rounded-md p-1 text-slate-400 opacity-60 transition hover:bg-white/5 hover:text-slate-200 hover:opacity-100"
                     aria-label={m.shopping_list_item_edit()}
                   >
                     <Pencil size={14} strokeWidth={1.8} aria-hidden="true" />
@@ -479,7 +479,7 @@
                   <button
                     type="button"
                     onclick={() => deleteItemMutation.mutate(item)}
-                    class="shrink-0 rounded-md p-1 text-slate-500 opacity-60 transition hover:bg-rose-500/10 hover:text-rose-300 hover:opacity-100"
+                    class="shrink-0 rounded-md p-1 text-slate-400 opacity-60 transition hover:bg-rose-500/10 hover:text-rose-300 hover:opacity-100"
                     aria-label={m.common_delete()}
                   >
                     <Trash2 size={14} strokeWidth={1.8} aria-hidden="true" />

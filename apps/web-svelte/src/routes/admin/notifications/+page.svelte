@@ -145,7 +145,7 @@
         {m.admin_push_subs_title()}
       </h3>
       {#if pushSubs.length === 0}
-        <p class="mt-3 text-sm text-slate-500">{m.admin_push_subs_empty()}</p>
+        <p class="mt-3 text-sm text-slate-400">{m.admin_push_subs_empty()}</p>
       {:else}
         <ul class="mt-3 divide-y divide-white/5">
           {#each pushSubs as sub (sub.endpoint)}
@@ -154,10 +154,10 @@
                 <p class="text-slate-100">
                   {sub.device_type ?? m.admin_push_sub_device()}
                 </p>
-                <p class="truncate text-xs text-slate-500" title={sub.user_agent ?? ""}>
+                <p class="truncate text-xs text-slate-400" title={sub.user_agent ?? ""}>
                   {sub.user_agent ?? "-"}
                 </p>
-                <p class="text-xs text-slate-500">
+                <p class="text-xs text-slate-400">
                   {m.admin_push_sub_last_used()}: {formatDate(sub.last_used_at)}
                 </p>
               </div>
@@ -180,19 +180,19 @@
         {m.admin_notifications_recent()}
       </h3>
       {#if notifications.length === 0}
-        <p class="mt-3 text-sm text-slate-500">{m.admin_notifications_empty()}</p>
+        <p class="mt-3 text-sm text-slate-400">{m.admin_notifications_empty()}</p>
       {:else}
         <ul class="mt-3 divide-y divide-white/5">
           {#each notifications as n (n.id)}
             <li class="space-y-0.5 py-3 text-sm">
               <div class="flex items-center justify-between gap-2">
                 <span class="font-medium text-slate-100">{n.title ?? n.type}</span>
-                <span class="text-xs text-slate-500">{formatDate(n.created_at)}</span>
+                <span class="text-xs text-slate-400">{formatDate(n.created_at)}</span>
               </div>
               {#if n.body}
                 <p class="text-zinc-500 dark:text-zinc-400">{n.body}</p>
               {/if}
-              <p class="text-xs text-slate-500">
+              <p class="text-xs text-slate-400">
                 {n.type}{n.read_at ? "" : " · unread"}
               </p>
               <button

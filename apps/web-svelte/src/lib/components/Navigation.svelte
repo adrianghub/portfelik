@@ -13,6 +13,7 @@
     Settings,
     ShieldCheck,
     LogOut,
+    Landmark,
   } from "lucide-svelte";
   import NotificationsPopover from "$lib/components/ui/NotificationsPopover.svelte";
 
@@ -25,15 +26,16 @@
   // Mobile bottom nav keeps Panel (dashboard) centered.
   const navItems = [
     { href: "/transactions", label: m.nav_transactions(), icon: Wallet },
+    { href: "/import", label: m.nav_import(), icon: Landmark },
     { href: "/dashboard", label: m.nav_dashboard(), icon: LayoutDashboard },
-    { href: "/shopping-lists", label: m.nav_shopping_lists(), icon: ShoppingBasket },
+    { href: "/plans", label: m.nav_plans(), icon: ShoppingBasket },
   ];
 
-  // Desktop top bar leads with Panel (dashboard).
   const desktopNavItems = [
     { href: "/dashboard", label: m.nav_dashboard(), icon: LayoutDashboard },
     { href: "/transactions", label: m.nav_transactions(), icon: Wallet },
-    { href: "/shopping-lists", label: m.nav_shopping_lists(), icon: ShoppingBasket },
+    { href: "/import", label: m.nav_import(), icon: Landmark },
+    { href: "/plans", label: m.nav_plans(), icon: ShoppingBasket },
   ];
 
   const isActive = (href: string) => $page.url.pathname.startsWith(href);

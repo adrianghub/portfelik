@@ -36,7 +36,9 @@
       updateProfile(profile!.id, {
         settings: { ...profile!.settings, accentColor },
       }),
-    onSuccess: async () => {
+    onSuccess: async (updated) => {
+      applyAccent(updated.settings?.accentColor ?? DEFAULT_ACCENT_ID);
+      queryClient.setQueryData(["profile", updated.id], updated);
       await queryClient.invalidateQueries({ queryKey: ["profile"] });
     },
     onError: () => {
@@ -48,7 +50,7 @@
 
   function choose(id: AccentPresetId) {
     if (!profile || id === selected) return;
-    applyAccent(id); // optimistic - reskins instantly + mirrors to localStorage
+    applyAccent(id);
     mutation.mutate(id);
   }
 </script>
@@ -56,7 +58,7 @@
 <div class="space-y-4">
   <div>
     <h2 class="text-sm font-semibold text-slate-100">{m.personalization_heading()}</h2>
-    <p class="mt-1 text-xs text-slate-500">{m.personalization_desc()}</p>
+    <p class="mt-1 text-xs text-slate-400">{m.personalization_desc()}</p>
   </div>
 
   <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">

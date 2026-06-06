@@ -14,6 +14,8 @@
     rejectInvitation,
     cancelInvitation,
     removeGroupMember,
+    nominateGroupCoOwner,
+    revokeGroupCoOwner,
   } from "$lib/services/groups";
   import { supabase } from "$lib/supabase";
   import Dialog from "$lib/components/ui/Dialog.svelte";
@@ -22,6 +24,7 @@
   import * as m from "$lib/paraglide/messages";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import { Users } from "lucide-svelte";
+  import type { GroupMemberRole } from "$lib/types";
 
   const queryClient = useQueryClient();
 
@@ -149,6 +152,8 @@
 
   // ── Members ───────────────────────────────────────────────────────────────
   let membersGroupId = $state<string | null>(null);
+  const membersGroup = $derived(groupsQuery.data?.find((g) => g.id === membersGroupId) ?? null);
+  const canManageMemberRoles = $derived(!!membersGroup && membersGroup.owner_id === currentUserId);
 
   const membersQuery = createQuery(() => ({
     queryKey: ["group_members_profiles", membersGroupId],
@@ -157,6 +162,29 @@
   }));
 
   let removeTargetUserId = $state<string | null>(null);
+
+  function effectiveMemberRole(memberUserId: string, role?: GroupMemberRole): GroupMemberRole {
+    if (membersGroup?.owner_id === memberUserId) return "owner";
+    return role ?? "member";
+  }
+
+  const coOwnerMutation = createMutation(() => ({
+    mutationFn: (vars: { userId: string; action: "nominate" | "revoke" }) =>
+      vars.action === "nominate"
+        ? nominateGroupCoOwner(membersGroupId!, vars.userId)
+        : revokeGroupCoOwner(membersGroupId!, vars.userId),
+    onSuccess: async (_data, vars) => {
+      await queryClient.invalidateQueries({
+        queryKey: ["group_members_profiles", membersGroupId],
+      });
+      toast.success(
+        vars.action === "nominate"
+          ? m.toast_group_co_owner_nominated()
+          : m.toast_group_co_owner_revoked()
+      );
+    },
+    onError: () => toast.error(m.toast_error()),
+  }));
 
   const removeMemberMutation = createMutation(() => ({
     mutationFn: () => removeGroupMember(membersGroupId!, removeTargetUserId!),
@@ -181,7 +209,7 @@
   function statusClass(status: string) {
     if (status === "pending") return "bg-blue-50 text-blue-700";
     if (status === "accepted") return "bg-emerald-50 text-emerald-700";
-    return "bg-slate-100 text-slate-500";
+    return "bg-slate-100 text-slate-400";
   }
 
   function submitCreateGroup(e: Event) {
@@ -198,7 +226,7 @@
 <!-- Received invitations -->
 {#if invitationsQuery.data && invitationsQuery.data.length > 0}
   <section class="mb-4 space-y-2">
-    <h3 class="text-xs font-medium tracking-wide text-slate-500 uppercase">
+    <h3 class="text-xs font-medium tracking-wide text-slate-400 uppercase">
       {m.group_invitations_received()}
     </h3>
     {#each invitationsQuery.data as inv (inv.id)}
@@ -251,7 +279,7 @@
         >
           <div class="flex items-center justify-between">
             <span class="text-sm font-medium text-slate-100">{group.name}</span>
-            <span class="text-xs text-slate-500">
+            <span class="text-xs text-slate-400">
               {group.owner_id === currentUserId ? m.groups_role_owner() : m.groups_role_member()}
             </span>
           </div>
@@ -322,7 +350,7 @@
                             <button
                               onclick={() => cancelMutation.mutate(inv.id)}
                               disabled={cancelMutation.isPending}
-                              class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+                              class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-400 transition-colors hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
                             >
                               {m.group_invitation_cancel()}
                             </button>
@@ -352,7 +380,7 @@
       showCreateGroup = true;
       newGroupName = "";
     }}
-    class="mt-4 w-full rounded-xl border border-dashed border-slate-300 py-3 text-sm font-medium text-slate-500 transition-colors hover:border-slate-400 hover:text-slate-700 dark:border-slate-600 dark:text-slate-400 dark:hover:border-slate-500 dark:hover:text-slate-300"
+    class="mt-4 w-full rounded-xl border border-dashed border-slate-300 py-3 text-sm font-medium text-slate-400 transition-colors hover:border-slate-400 hover:text-slate-700 dark:border-slate-600 dark:text-slate-400 dark:hover:border-slate-500 dark:hover:text-slate-300"
   >
     + {m.group_form_title_add()}
   </button>
@@ -460,23 +488,52 @@
   {:else if membersQuery.data}
     <ul class="divide-y divide-slate-100 dark:divide-slate-700">
       {#each membersQuery.data as member (member.user_id)}
+        {@const effectiveRole = effectiveMemberRole(member.user_id, member.role)}
+        {@const canChangeRole =
+          canManageMemberRoles && member.user_id !== currentUserId && effectiveRole !== "owner"}
         <li class="flex items-center justify-between gap-3 py-3">
           <div class="min-w-0">
             <p class="truncate text-sm font-medium text-slate-100">
               {member.name ?? member.email}
             </p>
             {#if member.name}
-              <p class="truncate text-xs text-slate-500">{member.email}</p>
+              <p class="truncate text-xs text-slate-400">{member.email}</p>
+            {/if}
+            <p class="text-xs text-slate-400">
+              {effectiveRole === "owner"
+                ? m.group_role_owner()
+                : effectiveRole === "co_owner"
+                  ? m.group_role_co_owner()
+                  : m.group_role_member()}
+            </p>
+          </div>
+          <div class="flex shrink-0 flex-col items-end gap-1">
+            {#if canChangeRole && effectiveRole === "member"}
+              <button
+                onclick={() =>
+                  coOwnerMutation.mutate({ userId: member.user_id, action: "nominate" })}
+                class="rounded-lg border border-white/10 px-2 py-1 text-xs text-slate-300 hover:bg-white/5"
+              >
+                {m.group_nominate_co_owner()}
+              </button>
+            {/if}
+            {#if canChangeRole && effectiveRole === "co_owner"}
+              <button
+                onclick={() => coOwnerMutation.mutate({ userId: member.user_id, action: "revoke" })}
+                class="rounded-lg border border-white/10 px-2 py-1 text-xs text-slate-300 hover:bg-white/5"
+              >
+                {m.group_revoke_co_owner()}
+              </button>
+            {/if}
+            {#if member.user_id !== currentUserId}
+              <button
+                onclick={() => (removeTargetUserId = member.user_id)}
+                class="rounded-lg border border-rose-200 px-2 py-1 text-xs font-medium text-rose-300 transition-colors hover:bg-rose-50 dark:border-rose-900 dark:text-rose-400 dark:hover:bg-rose-950"
+              >
+                {m.group_member_remove()}
+              </button>
             {/if}
           </div>
-          {#if member.user_id !== currentUserId}
-            <button
-              onclick={() => (removeTargetUserId = member.user_id)}
-              class="shrink-0 rounded-lg border border-rose-200 px-2 py-1 text-xs font-medium text-rose-300 transition-colors hover:bg-rose-50 dark:border-rose-900 dark:text-rose-400 dark:hover:bg-rose-950"
-            >
-              {m.group_member_remove()}
-            </button>
-          {/if}
         </li>
       {/each}
     </ul>

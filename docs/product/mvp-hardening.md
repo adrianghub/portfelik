@@ -1,6 +1,6 @@
 # MVP Hardening Checklist
 
-This is the current stabilization checklist. Product doctrine lives in
+Public launch program (2026-06). Product doctrine lives in
 [product-direction.md](./product-direction.md) and
 [intent-oriented-ui.md](./intent-oriented-ui.md).
 
@@ -11,38 +11,44 @@ This is the current stabilization checklist. Product doctrine lives in
 | Product spine | Pulpit, Transakcje, Import, Plany, Ustawienia |
 | Import | First-class structured intake; fast by default, exception review only |
 | Transactions | Confirmed ledger; manual entries stay as fallback/corrections |
-| Plans | User-facing evolution of current `shopping_lists` compatibility storage into future intent and goals |
+| Plans | User-facing **Plany**; internal `shopping_lists` compatibility storage |
 | Plan settlement | Link plans to existing transactions; do not make plan-created transactions the default |
 | Rules | Deterministic category rules before AI |
 | AI | Explain, summarize, draft, suggest; never directly mutate financial truth |
+| Groups | Owner, co-owner, and member roles for group-scoped management |
 
-## Current MVP Priorities
+## Recently completed (foundation on `dev`)
 
-- Stabilize bank CSV import as the primary intake module.
-- Keep duplicate detection and `Inne` fallback explainable.
-- Make Plans copy consistent while internal `shopping_lists` names remain.
-- Keep manual transaction creation/editing available but secondary.
-- Preserve group/privacy boundaries for shared transactions, plans, and import
-  provenance.
-- Keep RLS tests and focused Playwright coverage around import, transactions,
-  and plans.
+- Bank import exception-review surface (clean rows one-click commit, `pending` on explicit defer).
+- Import review row virtualization (CHUNK_SIZE=60).
+- Import adapter registry + user-selectable bank adapter.
+- Import reminder alerts (7/14/30-day opt-in).
+- Privacy Layer 1 masked admin diagnostics.
+- Import combobox + `bank-import.ts` service/component tests; bank-import Playwright 19/19.
 
-## Deferred
+## Public launch gate (Phase 5 — ready after commit + PR)
 
-- Full plan-to-transaction link model (`plan_transaction_links`).
+All MVP+ rows above are implemented in the local `dev` working tree (2026-06-05). Before `dev`→`main`:
+
+- Commit the 8-commit split (see `CLAUDE.md` handoff).
+- `supabase db reset` locally; RLS suite includes `plan_settlement.spec.ts`.
+- `./scripts/open-pr.sh` (not dry-run) when CI green on the PR branch.
+
+## Deferred (post-launch / V1+)
+
 - Deterministic plan matching with score/reasons/accepted/rejected state.
-- Virtualized transaction and import review tables for very large datasets.
 - Dexie offline write outbox.
 - AI explanations, summaries, and keyword proposals.
 - Debt, savings, and credit workflows.
+- Privacy Layer 3 selective column encryption.
 
 ## Verification Baseline
 
-Before promoting MVP-facing changes:
+Before promoting to production (`dev` → `main`):
 
 - `pnpm exec svelte-check --tsconfig ./tsconfig.json`
 - `pnpm lint`
 - `pnpm format:check`
-- focused unit/RLS tests for touched logic
-- focused Playwright tests for touched user workflows
+- RLS suite + staging smoke + focused Playwright on touched flows
 - changed-file secret scan from `CLAUDE.md`
+- Public launch gate in `docs/architecture/flows/admin-diagnostics-privacy.md`

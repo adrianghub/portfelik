@@ -156,12 +156,12 @@
                 <span
                   class={p.role === "admin"
                     ? "inline-flex items-center rounded-full bg-emerald-500 px-2 py-0.5 text-xs font-medium text-white"
-                    : "inline-flex items-center rounded-full border border-slate-200 px-2 py-0.5 text-xs font-medium text-slate-500 dark:border-slate-600 dark:text-slate-400"}
+                    : "inline-flex items-center rounded-full border border-slate-200 px-2 py-0.5 text-xs font-medium text-slate-400 dark:border-slate-600 dark:text-slate-400"}
                 >
                   {p.role}
                 </span>
               </td>
-              <td class="hidden px-4 py-3 text-slate-500 md:table-cell"
+              <td class="hidden px-4 py-3 text-slate-400 md:table-cell"
                 >{formatDate(p.created_at)}</td
               >
               <td class="px-4 py-3 text-right">

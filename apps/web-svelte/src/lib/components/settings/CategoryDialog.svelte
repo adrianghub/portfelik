@@ -73,7 +73,7 @@
           onclick={() => (type = "expense")}
           class="flex-1 py-2 font-medium transition-colors {type === 'expense'
             ? 'bg-rose-600 text-white'
-            : 'bg-white text-slate-500 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800'}"
+            : 'bg-white text-slate-400 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800'}"
         >
           {m.common_expense()}
         </button>
@@ -82,7 +82,7 @@
           onclick={() => (type = "income")}
           class="flex-1 py-2 font-medium transition-colors {type === 'income'
             ? 'bg-emerald-600 text-white'
-            : 'bg-white text-slate-500 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800'}"
+            : 'bg-white text-slate-400 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800'}"
         >
           {m.common_income()}
         </button>

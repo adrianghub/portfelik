@@ -106,10 +106,13 @@ export interface UserGroup {
   updated_at: string;
 }
 
+export type GroupMemberRole = "owner" | "co_owner" | "member";
+
 export interface GroupMember {
   group_id: string;
   user_id: string;
   joined_at: string;
+  role?: GroupMemberRole;
 }
 
 export interface GroupMemberWithProfile {
@@ -117,6 +120,7 @@ export interface GroupMemberWithProfile {
   joined_at: string;
   email: string;
   name: string | null;
+  role?: GroupMemberRole;
 }
 
 export interface GroupInvitation {

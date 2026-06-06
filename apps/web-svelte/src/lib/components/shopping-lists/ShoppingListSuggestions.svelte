@@ -177,7 +177,7 @@
     onpointerdown={(e) => e.preventDefault()}
   >
     {#if suggestions.length === 0}
-      <li class="px-3 py-2 text-sm text-slate-500">{m.combobox_empty()}</li>
+      <li class="px-3 py-2 text-sm text-slate-400">{m.combobox_empty()}</li>
     {/if}
     {#each suggestions as s, i (s.name)}
       <li role="option" id={optionId(i)} aria-selected={i === activeIndex}>
@@ -191,7 +191,7 @@
           onmouseenter={() => (activeIndex = i)}
         >
           <span class="min-w-0 truncate text-slate-100">{s.name}</span>
-          <span class="ml-2 flex shrink-0 items-center gap-1 text-xs text-slate-500">
+          <span class="ml-2 flex shrink-0 items-center gap-1 text-xs text-slate-400">
             {#if s.category}
               <span
                 class="rounded-full border border-white/10 px-1.5 py-0.5 text-[10px] text-slate-400"

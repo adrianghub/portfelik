@@ -191,7 +191,7 @@
 {/if}
 
 {#if grouped.length === 0}
-  <p class="rounded-xl border border-white/5 bg-slate-900/40 px-3 py-4 text-sm text-slate-500">
+  <p class="rounded-xl border border-white/5 bg-slate-900/40 px-3 py-4 text-sm text-slate-400">
     {m.shopping_list_items_search_empty()}
   </p>
 {:else}
@@ -221,7 +221,7 @@
             <span
               class={cn(
                 "min-w-0 flex-1 truncate font-medium",
-                done && "text-slate-500 line-through"
+                done && "text-slate-400 line-through"
               )}
             >
               {category}
@@ -267,13 +267,13 @@
                 <span
                   class={cn(
                     "min-w-0 flex-1 truncate text-sm",
-                    item.completed ? "text-slate-500 line-through" : "text-slate-100"
+                    item.completed ? "text-slate-400 line-through" : "text-slate-100"
                   )}
                 >
                   {item.name}
                 </span>
                 {#if item.quantity != null}
-                  <span class="shrink-0 text-xs text-slate-500"
+                  <span class="shrink-0 text-xs text-slate-400"
                     >{item.quantity}{item.unit ? ` ${item.unit}` : ""}</span
                   >
                 {/if}

@@ -134,11 +134,11 @@
             <li
               class="flex min-w-0 items-center gap-3 rounded-xl border border-white/5 bg-slate-900/40 px-3 py-2"
             >
-              <span class="min-w-0 flex-1 truncate text-sm text-slate-500 line-through">
+              <span class="min-w-0 flex-1 truncate text-sm text-slate-400 line-through">
                 {item.name}
               </span>
               {#if item.quantity != null}
-                <span class="shrink-0 text-xs text-slate-500"
+                <span class="shrink-0 text-xs text-slate-400"
                   >{item.quantity}{item.unit ? ` ${item.unit}` : ""}</span
                 >
               {/if}

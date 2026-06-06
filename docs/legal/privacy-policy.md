@@ -1,9 +1,9 @@
-# Polityka prywatności (beta)
+# Polityka prywatności
 
 Ostatnia aktualizacja: 5 czerwca 2026
 
-Portfelik jest aplikacją do zarządzania finansami osobistymi, obecnie w wersji
-**beta**. Ten dokument opisuje prostym językiem, jakie dane przechowujemy,
+Portfelik jest aplikacją do zarządzania finansami osobistymi. Ten dokument opisuje
+prostym językiem, jakie dane przechowujemy,
 dlaczego, kto technicznie ma do nich dostęp oraz jakie masz prawa. Treść tej
 strony jest źródłem dla widoku `/privacy` w aplikacji — zmiany utrzymuj w obu
 miejscach spójnie.
@@ -57,19 +57,9 @@ elementem standardu Web Push i nie identyfikuje Ciebie.
 
 ## Usuwanie i eksport danych
 
-> Możesz usunąć konto i dane z poziomu aplikacji. Eksport danych w tej wersji
-> beta obejmuje transakcje; pełny eksport konta jest w przygotowaniu.
+Możesz usunąć konto i dane z poziomu aplikacji. W **Ustawienia → Profil**
+dostępny jest pełny eksport konta (JSON): transakcje, kategorie, reguły,
+plany, grupy, konta bankowe i metadane sesji importu. Eksport transakcji do CSV
+pozostaje dostępny na ekranie Transakcje.
 
-> W beta dostępny jest eksport transakcji do CSV. Pełny eksport konta,
-> obejmujący m.in. kategorie, plany, grupy, reguły i metadane importów, jest
-> zaplanowany przed szerszym publicznym udostępnieniem produktu.
-
-Usunięcie konta realizuje funkcja `delete_account()` dostępna w
-**Ustawienia → Profil** i trwale usuwa Twoje dane.
-
-## Status beta
-
-Portfelik jest w wersji beta. Prosimy, abyś wgrywał(a) tylko tę historię
-transakcji, której naprawdę potrzebujesz do testów. Zakres przechowywanych
-danych, eksportu i zabezpieczeń może się zmieniać przed publicznym
-udostępnieniem.
+Usunięcie konta realizuje funkcja `delete_account()` i trwale usuwa Twoje dane.
