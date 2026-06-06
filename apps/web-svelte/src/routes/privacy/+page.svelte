@@ -13,14 +13,14 @@
   <a href="/" class="text-accent text-sm hover:underline">← Portfelik</a>
 
   <h1 class="mt-4 text-2xl font-semibold tracking-tight text-slate-100">
-    {m.privacy_policy_link()} (beta)
+    {m.privacy_policy_link()}
   </h1>
-  <p class="mt-1 text-xs text-slate-500">Ostatnia aktualizacja: 5 czerwca 2026</p>
+  <p class="mt-1 text-xs text-slate-400">Ostatnia aktualizacja: 5 czerwca 2026</p>
 
   <p class="mt-6 text-sm leading-relaxed text-slate-300">
-    Portfelik jest aplikacją do zarządzania finansami osobistymi, obecnie w wersji
-    <strong>beta</strong>. Poniżej prostym językiem opisujemy, jakie dane przechowujemy, dlaczego,
-    kto technicznie ma do nich dostęp oraz jakie masz prawa.
+    Portfelik jest aplikacją do zarządzania finansami osobistymi. Poniżej prostym językiem
+    opisujemy, jakie dane przechowujemy, dlaczego, kto technicznie ma do nich dostęp oraz jakie masz
+    prawa.
   </p>
 
   <section class="mt-8 space-y-2">
@@ -96,19 +96,9 @@
   <section class="mt-8 space-y-2">
     <h2 class="text-base font-semibold text-slate-100">Usuwanie i eksport danych</h2>
     <p class="text-sm leading-relaxed text-slate-300">
-      Możesz usunąć konto i dane z poziomu aplikacji (<strong>Ustawienia → Profil</strong>). Eksport
-      danych w tej wersji beta obejmuje transakcje (CSV); pełny eksport konta — obejmujący m.in.
-      kategorie, plany, grupy, reguły i metadane importów — jest zaplanowany przed szerszym
-      publicznym udostępnieniem produktu.
-    </p>
-  </section>
-
-  <section class="mt-8 space-y-2">
-    <h2 class="text-base font-semibold text-slate-100">Status beta</h2>
-    <p class="text-sm leading-relaxed text-slate-300">
-      Portfelik jest w wersji beta. Prosimy, abyś wgrywał(a) tylko tę historię transakcji, której
-      naprawdę potrzebujesz do testów. Zakres przechowywanych danych, eksportu i zabezpieczeń może
-      się zmieniać przed publicznym udostępnieniem.
+      Możesz usunąć konto i dane z poziomu aplikacji (<strong>Ustawienia → Profil</strong>). Pełny
+      eksport konta (JSON) obejmuje transakcje, kategorie, reguły, plany, grupy, konta bankowe i
+      metadane sesji importu. Eksport transakcji do CSV pozostaje dostępny na ekranie Transakcje.
     </p>
   </section>
 </main>

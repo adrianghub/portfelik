@@ -3,6 +3,7 @@
   import { accentConfettiColors } from "$lib/theme/accent-presets";
   import { page } from "$app/stores";
   import DoneView from "$lib/components/shopping-lists/DoneView.svelte";
+  import PlanSettleSheet from "$lib/components/shopping-lists/PlanSettleSheet.svelte";
   import PlanningView from "$lib/components/shopping-lists/PlanningView.svelte";
   import ShoppingView from "$lib/components/shopping-lists/ShoppingView.svelte";
   import DayPicker from "$lib/components/ui/DayPicker.svelte";
@@ -10,6 +11,7 @@
   import * as m from "$lib/paraglide/messages";
   import { fetchCategories } from "$lib/services/categories";
   import { fetchUserGroups } from "$lib/services/groups";
+  import { computePlanProgress, fetchLinkedTransactions } from "$lib/services/plan-settlement";
   import {
     completeShoppingList,
     deriveShoppingListMode,
@@ -20,9 +22,17 @@
     updateShoppingList,
   } from "$lib/services/shopping-lists";
   import type { ShoppingListWithItems } from "$lib/types";
-  import { cn, formatDate } from "$lib/utils";
+  import { cn, formatCurrency, formatDate } from "$lib/utils";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
-  import { ArrowLeft, MoreVertical, Pencil, Users } from "lucide-svelte";
+  import {
+    ArrowLeft,
+    CalendarDays,
+    CheckCircle2,
+    Link2,
+    MoreVertical,
+    Pencil,
+    Users,
+  } from "lucide-svelte";
   import { toast } from "svelte-sonner";
 
   const queryClient = useQueryClient();
@@ -44,6 +54,12 @@
     queryFn: fetchUserGroups,
   }));
 
+  const linkedTransactionsQuery = createQuery(() => ({
+    queryKey: ["plan-links", id],
+    queryFn: () => fetchLinkedTransactions(id),
+    enabled: !!id,
+  }));
+
   const expenseCategories = $derived(
     categoriesQuery.data?.filter((c) => c.type === "expense") ?? []
   );
@@ -53,6 +69,16 @@
   const isPlanning = $derived(mode === "planning");
   const isShopping = $derived(mode === "shopping");
   const isDone = $derived(mode === "done");
+  const settlementProgress = $derived(
+    query.data
+      ? computePlanProgress({
+          planId: id,
+          planName: query.data.name,
+          plannedAmount: query.data.total_amount,
+          linkedTransactions: linkedTransactionsQuery.data ?? [],
+        })
+      : null
+  );
 
   let showRenameList = $state(false);
   let renameListName = $state("");
@@ -161,16 +187,21 @@
   }));
 
   let showComplete = $state(false);
+  let showSettle = $state(false);
   let showUncheckedComplete = $state(false);
   let completeAmount = $state("");
   let completeCategoryId = $state("");
-  let createTx = $state(true);
+  let createTx = $state(false);
 
   function openCompleteDialog() {
     completeAmount = "";
     completeCategoryId = query.data?.category_id ?? "";
-    createTx = true;
+    createTx = false;
     showComplete = true;
+  }
+
+  function openSettleSheet() {
+    showSettle = true;
   }
 
   function requestComplete() {
@@ -214,7 +245,7 @@
       } catch {
         // Confetti is decorative; ignore environment failures.
       }
-      await goto("/shopping-lists");
+      await goto("/plans");
     },
     onError: (err: unknown) => {
       const msg = (err as { message?: string })?.message ?? "";
@@ -236,7 +267,7 @@
     onSuccess: async (newList) => {
       await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
       toast.success(m.toast_shopping_list_duplicated());
-      await goto(`/shopping-lists/${newList.id}`);
+      await goto(`/plans/${newList.id}`);
     },
     onError: () => toast.error(m.toast_error()),
   }));
@@ -254,7 +285,7 @@
   }
 </script>
 
-<div class="mobile-detail-bottom container mx-auto max-w-2xl space-y-4 px-4 pt-6 md:pb-6">
+<div class="mobile-detail-bottom container mx-auto max-w-5xl space-y-6 px-4 pt-6 md:pb-8">
   {#if query.isLoading}
     <div class="space-y-3">
       <div class="h-8 w-48 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800"></div>
@@ -268,33 +299,53 @@
     <p class="text-sm text-rose-600">{m.common_error_title()}</p>
   {:else if query.data}
     {@const list = query.data}
-    <div class="flex items-start justify-between gap-2">
-      <div class="flex min-w-0 items-center gap-2">
-        <button
-          type="button"
-          onclick={() => goto("/shopping-lists")}
-          class="shrink-0 rounded-full p-1.5 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-100"
-          aria-label={m.common_back()}
-        >
-          <ArrowLeft size={16} strokeWidth={1.8} aria-hidden="true" />
-        </button>
-        <h1 class="truncate text-2xl font-semibold text-slate-900 dark:text-white">{list.name}</h1>
-        {#if list.group_id}
-          <span
-            class="border-accent/20 bg-accent/10 text-accent inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase"
-            title={m.group_badge_shared()}
+    {@const itemTotal = list.shopping_list_items.length}
+    {@const itemDone = list.shopping_list_items.filter((i) => i.completed).length}
+    <div class="flex items-start justify-between gap-3">
+      <div class="min-w-0 space-y-3">
+        <div class="flex min-w-0 items-center gap-2">
+          <button
+            type="button"
+            onclick={() => goto("/plans")}
+            class="shrink-0 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-100"
+            aria-label={m.common_back()}
           >
-            <Users size={11} strokeWidth={2} aria-hidden="true" />
-            {m.group_badge_shared()}
+            <ArrowLeft size={16} strokeWidth={1.8} aria-hidden="true" />
+          </button>
+          <h1 class="truncate text-2xl font-semibold text-slate-900 md:text-3xl dark:text-white">
+            {list.name}
+          </h1>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 pl-8">
+          {#if list.group_id}
+            <span
+              class="border-accent/20 bg-accent/10 text-accent inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase"
+              title={m.group_badge_shared()}
+            >
+              <Users size={11} strokeWidth={2} aria-hidden="true" />
+              {m.group_badge_shared()}
+            </span>
+          {/if}
+          <span
+            class={cn(
+              "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium",
+              isPlanning && "bg-blue-50 text-blue-700",
+              isShopping && "bg-accent/15 text-accent",
+              isDone && "bg-slate-100 text-slate-400"
+            )}
+          >
+            {#if isPlanning}{m.shopping_list_mode_planning()}{/if}
+            {#if isShopping}{m.shopping_list_mode_shopping()}{/if}
+            {#if isDone}{m.shopping_list_mode_done()}{/if}
           </span>
-        {/if}
+        </div>
       </div>
       <div class="flex items-center gap-1">
         {#if isPlanning}
           <button
             type="button"
             onclick={openRenameListDialog}
-            class="shrink-0 rounded-full p-1.5 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-100"
+            class="shrink-0 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-100"
             aria-label={m.shopping_list_rename_title()}
           >
             <Pencil size={15} strokeWidth={1.8} aria-hidden="true" />
@@ -305,7 +356,7 @@
             <button
               type="button"
               onclick={() => (menuOpen = !menuOpen)}
-              class="shrink-0 rounded-full p-1.5 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-100"
+              class="shrink-0 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-100"
               aria-label={m.common_more_actions()}
               aria-expanded={menuOpen}
             >
@@ -335,42 +386,91 @@
             {/if}
           </div>
         {/if}
-        <span
-          class={cn(
-            "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium",
-            isPlanning && "bg-blue-50 text-blue-700",
-            isShopping && "bg-accent/15 text-accent",
-            isDone && "bg-slate-100 text-slate-500"
-          )}
-        >
-          {#if isPlanning}{m.shopping_list_mode_planning()}{/if}
-          {#if isShopping}{m.shopping_list_mode_shopping()}{/if}
-          {#if isDone}{m.shopping_list_mode_done()}{/if}
-        </span>
       </div>
     </div>
 
-    {#if list.planned_for}
-      <div class="text-xs text-slate-400 dark:text-slate-500">
-        {m.shopping_list_planned_for_label({ date: plannedForLabel(list.planned_for) })}
+    <section class="grid gap-3 md:grid-cols-3">
+      <div class="rounded-2xl border border-white/5 bg-slate-900/45 p-4">
+        <div class="flex items-center gap-2 text-xs tracking-wide text-slate-400 uppercase">
+          <CalendarDays size={14} strokeWidth={1.8} aria-hidden="true" />
+          {m.plan_detail_date_label()}
+        </div>
+        <p class="mt-2 text-lg font-semibold text-slate-100">
+          {list.planned_for ? plannedForLabel(list.planned_for) : m.plan_detail_no_date()}
+        </p>
       </div>
-    {/if}
+      <div class="rounded-2xl border border-white/5 bg-slate-900/45 p-4">
+        <div class="flex items-center gap-2 text-xs tracking-wide text-slate-400 uppercase">
+          <Link2 size={14} strokeWidth={1.8} aria-hidden="true" />
+          {m.plan_detail_settlement_title()}
+        </div>
+        <p class="mt-2 text-lg font-semibold text-slate-100 tabular-nums">
+          {formatCurrency(settlementProgress?.linkedAmount ?? 0)}
+        </p>
+        <p class="mt-1 text-xs text-slate-400">
+          {m.plan_detail_linked_transactions({ count: settlementProgress?.linkedCount ?? 0 })}
+        </p>
+      </div>
+      <div class="rounded-2xl border border-white/5 bg-slate-900/45 p-4">
+        <div class="flex items-center gap-2 text-xs tracking-wide text-slate-400 uppercase">
+          <CheckCircle2 size={14} strokeWidth={1.8} aria-hidden="true" />
+          {m.plan_detail_checklist_title()}
+        </div>
+        <p class="mt-2 text-lg font-semibold text-slate-100 tabular-nums">
+          {m.plan_detail_checklist_progress({ completed: itemDone, total: itemTotal })}
+        </p>
+        <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-800">
+          <div
+            class="bg-accent-gradient h-full rounded-full transition-all duration-300"
+            style="width: {itemTotal > 0 ? Math.round((itemDone / itemTotal) * 100) : 0}%"
+          ></div>
+        </div>
+      </div>
+    </section>
 
-    {#if isPlanning}
-      <PlanningView
-        {list}
-        startingShopping={startMutation.isPending}
-        onStartShopping={() => startMutation.mutate()}
-      />
-    {:else if isShopping}
-      <ShoppingView {list} onComplete={requestComplete} />
-    {:else}
-      <DoneView
-        {list}
-        duplicating={duplicateMutation.isPending}
-        onDuplicate={() => duplicateMutation.mutate()}
-      />
-    {/if}
+    <div class="flex flex-wrap gap-2">
+      <button
+        type="button"
+        onclick={openSettleSheet}
+        class="bg-accent-gradient focus-visible:ring-accent inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-colors hover:brightness-110 focus-visible:ring-2 focus-visible:outline-none"
+      >
+        {m.plan_settle_action()}
+      </button>
+      {#if isShopping}
+        <button
+          type="button"
+          onclick={requestComplete}
+          class="focus-visible:ring-accent inline-flex h-9 items-center rounded-full border border-white/10 px-4 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+        >
+          {m.shopping_list_complete_fallback()}
+        </button>
+      {/if}
+    </div>
+
+    <section class="space-y-3">
+      <div class="flex items-center justify-between gap-3">
+        <h2 class="text-base font-semibold text-slate-100">{m.plan_detail_checklist_title()}</h2>
+        <span class="shrink-0 text-xs text-slate-400 tabular-nums">
+          {m.plan_detail_checklist_progress({ completed: itemDone, total: itemTotal })}
+        </span>
+      </div>
+
+      {#if isPlanning}
+        <PlanningView
+          {list}
+          startingShopping={startMutation.isPending}
+          onStartShopping={() => startMutation.mutate()}
+        />
+      {:else if isShopping}
+        <ShoppingView {list} onComplete={openSettleSheet} />
+      {:else}
+        <DoneView
+          {list}
+          duplicating={duplicateMutation.isPending}
+          onDuplicate={() => duplicateMutation.mutate()}
+        />
+      {/if}
+    </section>
   {/if}
 </div>
 
@@ -536,3 +636,11 @@
     </div>
   </form>
 </Dialog>
+
+<PlanSettleSheet
+  open={showSettle}
+  planId={id}
+  planName={query.data?.name ?? ""}
+  plannedAmount={query.data?.total_amount ?? null}
+  onclose={() => (showSettle = false)}
+/>

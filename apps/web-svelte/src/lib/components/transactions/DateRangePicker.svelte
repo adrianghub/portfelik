@@ -246,7 +246,7 @@
                   <RangeCalendar.GridRow class="mb-1 flex justify-between">
                     {#each weekdays as day (day)}
                       <RangeCalendar.HeadCell
-                        class="w-9 text-center text-[0.65rem] font-medium text-slate-500 capitalize"
+                        class="w-9 text-center text-[0.65rem] font-medium text-slate-400 capitalize"
                       >
                         {day}
                       </RangeCalendar.HeadCell>

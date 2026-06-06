@@ -198,7 +198,7 @@
                 type="button"
                 onclick={() => move(index, -1)}
                 disabled={index === 0 || moveMutation.isPending}
-                class="rounded p-1.5 text-slate-500 hover:bg-white/5 hover:text-slate-200 disabled:opacity-30"
+                class="rounded p-1.5 text-slate-400 hover:bg-white/5 hover:text-slate-200 disabled:opacity-30"
                 aria-label={m.common_move_up()}
               >
                 <ArrowUp size={14} />
@@ -207,7 +207,7 @@
                 type="button"
                 onclick={() => move(index, 1)}
                 disabled={index === categories.length - 1 || moveMutation.isPending}
-                class="rounded p-1.5 text-slate-500 hover:bg-white/5 hover:text-slate-200 disabled:opacity-30"
+                class="rounded p-1.5 text-slate-400 hover:bg-white/5 hover:text-slate-200 disabled:opacity-30"
                 aria-label={m.common_move_down()}
               >
                 <ArrowDown size={14} />
@@ -215,7 +215,7 @@
               <button
                 type="button"
                 onclick={() => openEdit(category)}
-                class="rounded p-1.5 text-slate-500 hover:bg-white/5 hover:text-slate-200"
+                class="rounded p-1.5 text-slate-400 hover:bg-white/5 hover:text-slate-200"
                 aria-label={m.common_edit()}
               >
                 <Pencil size={14} />
@@ -223,7 +223,7 @@
               <button
                 type="button"
                 onclick={() => (deleteTarget = category)}
-                class="rounded p-1.5 text-slate-500 hover:bg-rose-500/10 hover:text-rose-300"
+                class="rounded p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-300"
                 aria-label={m.common_delete()}
               >
                 <Trash2 size={14} />

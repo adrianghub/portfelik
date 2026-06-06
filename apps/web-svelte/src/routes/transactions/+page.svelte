@@ -180,6 +180,28 @@
     )
   );
 
+  const TX_CHUNK_SIZE = 80;
+  let renderedTxCount = $state(TX_CHUNK_SIZE);
+  const renderedTxs = $derived((visibleTxs ?? []).slice(0, renderedTxCount));
+
+  $effect(() => {
+    void visibleTxs;
+    renderedTxCount = TX_CHUNK_SIZE;
+  });
+
+  function txSentinel(node: HTMLElement) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          renderedTxCount = Math.min(renderedTxCount + TX_CHUNK_SIZE, visibleTxs?.length ?? 0);
+        }
+      },
+      { rootMargin: "200px" }
+    );
+    observer.observe(node);
+    return { destroy: () => observer.disconnect() };
+  }
+
   const summary = $derived(filteredTxs ? computeSummary(filteredTxs) : null);
 
   let currentUserId = $state<string | null>(null);
@@ -479,6 +501,10 @@
   }
 </script>
 
+<svelte:head>
+  <title>{m.transactions_title()} · Portfelik</title>
+</svelte:head>
+
 <svelte:window onkeydown={onWindowKeydown} />
 
 <div class="container mx-auto max-w-4xl space-y-4 px-4 py-6">
@@ -496,9 +522,10 @@
     <div class="flex shrink-0 items-center gap-2">
       <button
         onclick={openAdd}
-        class="bg-accent-gradient focus-visible:ring-accent hidden h-9 items-center gap-1.5 rounded-full px-4 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:outline-none md:inline-flex"
+        class="focus-visible:ring-accent hidden h-9 items-center gap-1.5 rounded-full border border-white/10 px-3.5 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none md:inline-flex"
+        title={m.transaction_manual_add_hint()}
       >
-        + {m.transaction_add()}
+        + {m.transaction_manual_add()}
       </button>
       <TransactionDataActions exportDisabled={!filteredTxs?.length} onexport={handleExport} />
     </div>
@@ -657,7 +684,7 @@
     <p class="text-sm text-rose-300">{m.common_error_title()}</p>
   {:else if visibleTxs}
     <TransactionTable
-      transactions={visibleTxs}
+      transactions={renderedTxs}
       {currentUserId}
       emptyLabel={tableEmptyLabel}
       emptyHint={tableEmptyHint}
@@ -666,12 +693,16 @@
       onrowclick={(tx) => (sheetTx = tx)}
       ondelete={(id: string) => (deleteTargetId = id)}
     />
+    {#if renderedTxCount < visibleTxs.length}
+      <div use:txSentinel class="h-px" aria-hidden="true"></div>
+    {/if}
   {/if}
 </div>
 
 <button
   onclick={openAdd}
-  aria-label={m.transaction_add()}
+  aria-label={m.transaction_manual_add()}
+  title={m.transaction_manual_add_hint()}
   class="mobile-floating-action bg-accent-gradient fixed right-4 bottom-(--mobile-action-bottom) z-40 flex h-14 w-14 items-center justify-center rounded-full text-slate-900 shadow-[0_0_24px_var(--color-accent-glow)] transition-all active:scale-95 md:hidden"
 >
   <Plus size={24} strokeWidth={2.3} aria-hidden="true" />

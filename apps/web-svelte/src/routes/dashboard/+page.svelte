@@ -1,6 +1,9 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import TransactionTable from "$lib/components/transactions/TransactionTable.svelte";
+  import DashboardImportHealth from "$lib/components/dashboard/DashboardImportHealth.svelte";
+  import DashboardPlanProgress from "$lib/components/dashboard/DashboardPlanProgress.svelte";
+  import CategoryBreakdown from "$lib/components/transactions/CategoryBreakdown.svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchProfile } from "$lib/services/profiles";
   import { computeSummary, fetchTransactions } from "$lib/services/transactions";
@@ -163,6 +166,10 @@
   const activePeriodLabel = $derived(periodChips.find((c) => c.value === period)?.label ?? "");
 </script>
 
+<svelte:head>
+  <title>{m.dashboard_title()} · Portfelik</title>
+</svelte:head>
+
 <div class="container mx-auto max-w-4xl space-y-5 px-4 py-6">
   <!-- Header - mobile (single line greeting + quote underneath) -->
   <div class="md:hidden">
@@ -212,6 +219,9 @@
       </button>
     {/each}
   </div>
+
+  <DashboardImportHealth />
+  <DashboardPlanProgress />
 
   <!-- Hero balance card -->
   <a
@@ -313,7 +323,7 @@
           class={cn(
             "mt-1.5 text-lg font-semibold tabular-nums",
             savingsRatio === null
-              ? "text-slate-500"
+              ? "text-slate-400"
               : savingsRatio >= 0
                 ? "text-emerald-300"
                 : "text-rose-300"
@@ -344,6 +354,13 @@
     </a>
   </div>
 
+  {#if summary && summary.categories.length > 0}
+    <CategoryBreakdown
+      categories={summary.categories}
+      oncategoryclick={(categoryId) => goto(transactionsHref({ categoryId }))}
+    />
+  {/if}
+
   <!-- Upcoming / overdue -->
   <div>
     <div class="mb-2 flex items-center justify-between">
@@ -365,7 +382,7 @@
         {/each}
       </div>
     {:else if upcomingTxs.length === 0}
-      <p class="py-6 text-center text-sm text-slate-500">
+      <p class="py-6 text-center text-sm text-slate-400">
         {m.dashboard_empty_upcoming()}
       </p>
     {:else}

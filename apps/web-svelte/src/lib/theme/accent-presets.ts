@@ -52,8 +52,6 @@ export const ACCENT_PRESETS: AccentPreset[] = [
 
 export const DEFAULT_ACCENT_ID: AccentPresetId = "green";
 
-const STORAGE_KEY = "portfelik_accent";
-
 export function getAccentPreset(id: string | null | undefined): AccentPreset {
   return ACCENT_PRESETS.find((p) => p.id === id) ?? ACCENT_PRESETS[0];
 }
@@ -69,11 +67,7 @@ export function accentConfettiColors(): string[] {
   return from && to ? [from, to] : CONFETTI_FALLBACK;
 }
 
-/**
- * Apply an accent preset to the document root and mirror the resolved values to
- * localStorage so the pre-paint script in `app.html` can restore them on the
- * next boot without a flash.
- */
+/** Apply an accent preset to the document root. Persistence lives in profiles.settings. */
 export function applyAccent(id: string | null | undefined): void {
   if (typeof document === "undefined") return;
   const preset = getAccentPreset(id);
@@ -83,13 +77,4 @@ export function applyAccent(id: string | null | undefined): void {
   root.style.setProperty("--color-accent-to", preset.to);
   root.style.setProperty("--color-accent-glow", glow);
   root.style.setProperty("--color-accent", preset.from);
-
-  try {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ id: preset.id, from: preset.from, to: preset.to, glow })
-    );
-  } catch {
-    // localStorage unavailable (private mode quota etc.) - DB remains source of truth.
-  }
 }

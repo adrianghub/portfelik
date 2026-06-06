@@ -223,6 +223,25 @@ export async function fetchActivePreviewSession(): Promise<ImportSession | null>
   return (data ?? null) as ImportSession | null;
 }
 
+/** Latest committed import session for dashboard import-health. */
+export async function fetchLastCommittedImportSession(): Promise<ImportSession | null> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from("transaction_import_sessions")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("status", "committed")
+    .order("committed_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return (data ?? null) as ImportSession | null;
+}
+
 export async function openImportSession(input: {
   bankAccountId: string;
   sourceFilename: string | null;

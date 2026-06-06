@@ -453,7 +453,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("import wizard: renders heading, step pill and upload dropzone", async ({ page }) => {
-  await page.goto("/transactions/import");
+  await page.goto("/import");
 
   // h1
   await expect(page.getByRole("heading", { name: "Import wyciągu bankowego" })).toBeVisible();
@@ -476,7 +476,7 @@ test("import wizard: renders heading, step pill and upload dropzone", async ({ p
 });
 
 test("import wizard: invalid CSV surfaces unknown-kind error", async ({ page }) => {
-  await page.goto("/transactions/import");
+  await page.goto("/import");
 
   const fileInput = page.locator('input[type="file"]');
   await expect(fileInput).toBeAttached();
@@ -496,7 +496,7 @@ test("import wizard: invalid CSV surfaces unknown-kind error", async ({ page }) 
 });
 
 test("import wizard: wrong manual adapter keeps selector available", async ({ page }) => {
-  await page.goto("/transactions/import");
+  await page.goto("/import");
 
   await page.locator('input[type="file"]').setInputFiles({
     name: "junk.csv",
@@ -513,7 +513,7 @@ test("import wizard: wrong manual adapter keeps selector available", async ({ pa
 });
 
 test("import wizard: confirms medium-confidence Erste adapter", async ({ page }) => {
-  await page.goto("/transactions/import");
+  await page.goto("/import");
 
   await page.locator('input[type="file"]').setInputFiles({
     name: "historia.csv",
@@ -537,7 +537,7 @@ test("import wizard: confirms medium-confidence Erste adapter", async ({ page })
 test("import wizard: medium-confidence detection is overrideable before parse", async ({
   page,
 }) => {
-  await page.goto("/transactions/import");
+  await page.goto("/import");
 
   await page.locator('input[type="file"]').setInputFiles({
     name: "historia.csv",
@@ -555,7 +555,7 @@ test("import wizard: medium-confidence detection is overrideable before parse", 
 });
 
 test("import wizard: selected file is retained as a chip and can be removed", async ({ page }) => {
-  await page.goto("/transactions/import");
+  await page.goto("/import");
 
   const fileInput = page.locator('input[type="file"]');
   await fileInput.setInputFiles({
@@ -580,7 +580,7 @@ test("import wizard: uploads, flags probable duplicates, commits, and blocks re-
   await page.unrouteAll();
   await injectFakeSession(page);
   await mockBankImportAPI(page, { autoSkipFirstAsDuplicate: true });
-  await page.goto("/transactions/import");
+  await page.goto("/import");
 
   await page.locator('input[type="file"]').setInputFiles({
     name: "wyciag.csv",
@@ -607,7 +607,7 @@ test("import wizard: uploads, flags probable duplicates, commits, and blocks re-
 
   await expect(page).toHaveURL(/\/transactions\?startYear=2026&startMonth=5/);
 
-  await page.goto("/transactions/import");
+  await page.goto("/import");
   await page.locator('input[type="file"]').setInputFiles({
     name: "wyciag.csv",
     mimeType: "text/csv",
@@ -621,7 +621,7 @@ test("import wizard: uploads, flags probable duplicates, commits, and blocks re-
 test("import wizard: commits a fully-categorized statement in one click (no per-row decisions)", async ({
   page,
 }) => {
-  await page.goto("/transactions/import");
+  await page.goto("/import");
 
   await page.locator('input[type="file"]').setInputFiles({
     name: "wyciag.csv",
@@ -646,7 +646,7 @@ test("import wizard: auto-learns a rule after manual category choice", async ({ 
   await injectFakeSession(page);
   // No prefill rules so a manual pick triggers automatic rule learning.
   await mockBankImportAPI(page, { defaultRules: false });
-  await page.goto("/transactions/import");
+  await page.goto("/import");
 
   await page.locator('input[type="file"]').setInputFiles({
     name: "wyciag.csv",
@@ -674,7 +674,7 @@ test("import wizard: changing a rule-backed category updates matching rows", asy
   await page.unrouteAll();
   await injectFakeSession(page);
   await mockBankImportAPI(page, { defaultRules: false });
-  await page.goto("/transactions/import");
+  await page.goto("/import");
 
   await page.locator('input[type="file"]').setInputFiles({
     name: "wyciag.csv",
@@ -710,7 +710,7 @@ test("import wizard: uncategorized importing row goes to Inne", async ({ page })
   await injectFakeSession(page);
   // No prefill rules → the row stays uncategorized and must fall back to "Inne".
   await mockBankImportAPI(page, { defaultRules: false });
-  await page.goto("/transactions/import");
+  await page.goto("/import");
 
   await page.locator('input[type="file"]').setInputFiles({
     name: "wyciag.csv",
@@ -742,7 +742,7 @@ test("import wizard: continues when rule prefill cannot load", async ({ page }) 
   await page.unrouteAll();
   await injectFakeSession(page);
   await mockBankImportAPI(page, { failRulesOnce: true });
-  await page.goto("/transactions/import");
+  await page.goto("/import");
 
   await page.locator('input[type="file"]').setInputFiles({
     name: "wyciag.csv",
@@ -761,7 +761,7 @@ test("import wizard: continues when categories cannot load for optional prefill"
   await page.unrouteAll();
   await injectFakeSession(page);
   await mockBankImportAPI(page, { failCategoriesOnce: true });
-  await page.goto("/transactions/import");
+  await page.goto("/import");
 
   await page.locator('input[type="file"]').setInputFiles({
     name: "wyciag.csv",
@@ -778,7 +778,7 @@ test("import wizard: bulk-marks restored rows as import", async ({ page }) => {
   await page.unrouteAll();
   await injectFakeSession(page);
   await mockBankImportAPI(page, { autoSkipFirstAsDuplicate: true });
-  await page.goto("/transactions/import");
+  await page.goto("/import");
 
   await page.locator('input[type="file"]').setInputFiles({
     name: "wyciag.csv",
@@ -817,7 +817,7 @@ test("import wizard: large import virtualizes the review list and keeps every ro
   await page.unrouteAll();
   await injectFakeSession(page);
   await mockBankImportAPI(page);
-  await page.goto("/transactions/import");
+  await page.goto("/import");
 
   await page.locator('input[type="file"]').setInputFiles({
     name: "duzy-wyciag.csv",
@@ -867,7 +867,7 @@ test("import wizard: zero-amount rows are dropped and surfaced as skipped", asyn
   await page.unrouteAll();
   await injectFakeSession(page);
   await mockBankImportAPI(page);
-  await page.goto("/transactions/import");
+  await page.goto("/import");
 
   await page.locator('input[type="file"]').setInputFiles({
     name: "wyciag.csv",
@@ -885,7 +885,7 @@ test("import wizard: resumes an unsaved draft after reload", async ({ page }) =>
   await page.unrouteAll();
   await injectFakeSession(page);
   await mockBankImportAPI(page);
-  await page.goto("/transactions/import");
+  await page.goto("/import");
 
   await page.locator('input[type="file"]').setInputFiles({
     name: "wyciag.csv",
@@ -907,7 +907,7 @@ test("import wizard: leave guard discards the draft on navigate-away", async ({ 
   await page.unrouteAll();
   await injectFakeSession(page);
   await mockBankImportAPI(page);
-  await page.goto("/transactions/import");
+  await page.goto("/import");
 
   await page.locator('input[type="file"]').setInputFiles({
     name: "wyciag.csv",
@@ -929,7 +929,7 @@ test("import wizard: warns when the duplicate pre-scan fails", async ({ page }) 
   await page.unrouteAll();
   await injectFakeSession(page);
   await mockBankImportAPI(page, { failMarkDuplicatesOnce: true });
-  await page.goto("/transactions/import");
+  await page.goto("/import");
 
   await page.locator('input[type="file"]').setInputFiles({
     name: "wyciag.csv",

@@ -183,16 +183,19 @@ export type Database = {
         Row: {
           group_id: string;
           joined_at: string;
+          role: Database["public"]["Enums"]["group_member_role"];
           user_id: string;
         };
         Insert: {
           group_id: string;
           joined_at?: string;
+          role?: Database["public"]["Enums"]["group_member_role"];
           user_id: string;
         };
         Update: {
           group_id?: string;
           joined_at?: string;
+          role?: Database["public"]["Enums"]["group_member_role"];
           user_id?: string;
         };
         Relationships: [
@@ -270,6 +273,45 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [];
+      };
+      plan_transaction_links: {
+        Row: {
+          created_at: string;
+          created_by: string;
+          id: string;
+          plan_id: string;
+          transaction_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string;
+          id?: string;
+          plan_id: string;
+          transaction_id: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string;
+          id?: string;
+          plan_id?: string;
+          transaction_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "plan_transaction_links_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "shopping_lists";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "plan_transaction_links_transaction_id_fkey";
+            columns: ["transaction_id"];
+            isOneToOne: true;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       push_subscriptions: {
         Row: {
@@ -1082,9 +1124,38 @@ export type Database = {
         };
       };
       is_admin: { Args: never; Returns: boolean };
+      is_group_co_owner: { Args: { p_group_id: string }; Returns: boolean };
       is_group_member: { Args: { p_group_id: string }; Returns: boolean };
       is_group_owner: { Args: { p_group_id: string }; Returns: boolean };
       leave_group: { Args: { p_group_id: string }; Returns: undefined };
+      link_plan_transaction: {
+        Args: { p_plan_id: string; p_transaction_id: string };
+        Returns: {
+          created_at: string;
+          created_by: string;
+          id: string;
+          plan_id: string;
+          transaction_id: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "plan_transaction_links";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
+      nominate_group_co_owner: {
+        Args: { p_group_id: string; p_user_id: string };
+        Returns: undefined;
+      };
+      revoke_group_co_owner: {
+        Args: { p_group_id: string; p_user_id: string };
+        Returns: undefined;
+      };
+      unlink_plan_transaction: {
+        Args: { p_plan_id: string; p_transaction_id: string };
+        Returns: undefined;
+      };
       mark_all_notifications_read: { Args: never; Returns: undefined };
       mark_notification_read: {
         Args: { p_notification_id: string };
@@ -1127,6 +1198,7 @@ export type Database = {
     };
     Enums: {
       categorization_rule_kind: "exact" | "contains" | "type" | "composite";
+      group_member_role: "owner" | "co_owner" | "member";
       invitation_status: "pending" | "accepted" | "rejected" | "cancelled";
       notification_type:
         | "transaction_summary"
@@ -1270,6 +1342,7 @@ export const Constants = {
   public: {
     Enums: {
       categorization_rule_kind: ["exact", "contains", "type", "composite"],
+      group_member_role: ["owner", "co_owner", "member"],
       invitation_status: ["pending", "accepted", "rejected", "cancelled"],
       notification_type: [
         "transaction_summary",

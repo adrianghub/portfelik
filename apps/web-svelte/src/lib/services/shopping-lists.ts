@@ -79,6 +79,21 @@ export async function fetchShoppingLists(): Promise<ShoppingListSummary[]> {
   return ((data ?? []) as ShoppingListSummaryRow[]).map((row) => toShoppingListSummary(row, today));
 }
 
+const EXPORT_ITEM_COLUMNS =
+  "id, name, completed, quantity, unit, category, position, created_at, updated_at, shopping_list_id";
+
+/** Export path: full plan rows with item detail and settlement links. */
+export async function fetchPlansForExport(): Promise<unknown[]> {
+  const { data, error } = await supabase
+    .from("shopping_lists")
+    .select(
+      `${LIST_COLUMNS}, shopping_list_items(${EXPORT_ITEM_COLUMNS}), plan_transaction_links(id, transaction_id, created_by, created_at)`
+    )
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
 export async function fetchShoppingListById(id: string): Promise<ShoppingListWithItems> {
   const { data, error } = await supabase
     .from("shopping_lists")

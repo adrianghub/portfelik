@@ -262,7 +262,7 @@ test("quick-add accepts name-only items", async ({ page }) => {
     return route.fulfill({ status: 200, json: [] });
   });
 
-  await page.goto("/shopping-lists/list-empty");
+  await page.goto("/plans/list-empty");
   await expect(page.getByText("Lista bez elementów")).toBeVisible();
   await addShoppingCategorySection(page, "Warzywa");
 
@@ -324,7 +324,7 @@ test("quick-add accepts inline quantity + unit", async ({ page }) => {
     return route.fulfill({ status: 200, json: [] });
   });
 
-  await page.goto("/shopping-lists/list-empty");
+  await page.goto("/plans/list-empty");
   await expect(page.getByText("Lista bez elementów")).toBeVisible();
   await addShoppingCategorySection(page, "Pieczywo");
 
@@ -369,7 +369,7 @@ test("suggestion dropdown hides on Escape", async ({ page }) => {
   // Seed history - one item matching "ch"
   await seedItemHistory(page, [{ name: "Chleb", quantity: 1, unit: null }]);
 
-  await page.goto("/shopping-lists/list-empty");
+  await page.goto("/plans/list-empty");
   await expect(page.getByText("Lista bez elementów")).toBeVisible();
   await addShoppingCategorySection(page, "Pieczywo");
 
@@ -405,7 +405,7 @@ test("suggestion select fills name and auto-opens details", async ({ page }) => 
   // Seed history - "Mleko" with quantity=1, unit="l"
   await seedItemHistory(page, [{ name: "Mleko", quantity: 1, unit: "l" }]);
 
-  await page.goto("/shopping-lists/list-empty");
+  await page.goto("/plans/list-empty");
   await expect(page.getByText("Lista bez elementów")).toBeVisible();
   await addShoppingCategorySection(page, "Nabiał");
 
@@ -462,7 +462,7 @@ test("item edit sheet updates name, quantity and unit", async ({ page }) => {
     return route.fulfill({ status: 200, json: [] });
   });
 
-  await page.goto("/shopping-lists/list-edit");
+  await page.goto("/plans/list-edit");
   await expect(page.getByText("Lista do edycji")).toBeVisible();
   await expect(page.getByText("Chleb")).toBeVisible();
 
@@ -522,7 +522,7 @@ test("item delete failure restores row without showing undo", async ({ page }) =
     return route.fulfill({ status: 200, json: [] });
   });
 
-  await page.goto("/shopping-lists/list-edit");
+  await page.goto("/plans/list-edit");
 
   const itemRow = page.locator("li").filter({ hasText: "Chleb" });
   await expect(itemRow).toBeVisible();
@@ -552,14 +552,14 @@ test("shopping item category sections show progress and sink completed groups", 
     return route.fulfill({ status: 204, body: "" });
   });
 
-  await page.goto("/shopping-lists/list-grouped");
+  await page.goto("/plans/list-grouped");
   await expect(page.getByText("Lista z kategoriami")).toBeVisible();
 
   const dairySection = page
-    .locator("section")
+    .locator("section.rounded-2xl")
     .filter({ has: page.getByRole("button", { name: "Pokaż lub ukryj kategorię Nabiał" }) });
   const vegetableSection = page
-    .locator("section")
+    .locator("section.rounded-2xl")
     .filter({ has: page.getByRole("button", { name: "Pokaż lub ukryj kategorię Warzywa" }) });
 
   await expect(dairySection).toBeVisible();
@@ -588,7 +588,7 @@ test("progress bar shows completed/total text and correct aria attributes", asyn
     return route.fulfill({ status: 204, body: "" });
   });
 
-  await page.goto("/shopping-lists/list-progress");
+  await page.goto("/plans/list-progress");
   await expect(page.getByText("Lista z postępem")).toBeVisible();
 
   // Progress text - "2 / 5 ukończone"
@@ -629,7 +629,7 @@ test("completed list card shows a linked transaction chip", async ({ page }) => 
     return route.fulfill({ status: 204, body: "" });
   });
 
-  await page.goto("/shopping-lists");
+  await page.goto("/plans");
   const card = page.getByRole("link", { name: /Zamknięte zakupy/ });
   await expect(card).toBeVisible();
   await expect(page.getByRole("link", { name: "Transakcja" })).toHaveCount(0);
@@ -653,8 +653,8 @@ test("mobile detail keeps completion CTA above the bottom navigation", async ({ 
     return route.fulfill({ status: 204, body: "" });
   });
 
-  await page.goto("/shopping-lists/list-progress");
-  const completeButton = page.getByRole("button", { name: "Zakończ listę" });
+  await page.goto("/plans/list-progress");
+  const completeButton = page.getByRole("button", { name: "Zakończ bez rozliczenia" });
   await expect(completeButton).toBeVisible();
   await expect(completeButton).toBeInViewport();
 });
@@ -664,7 +664,7 @@ test("mobile detail keeps completion CTA above the bottom navigation", async ({ 
 test("unit combobox: focus opens listbox, typing filters, click picks", async ({ page }) => {
   await injectFakeSession(page);
   await mockSupabaseAPI(page);
-  await page.goto("/shopping-lists/list-1");
+  await page.goto("/plans/list-1");
   await expect(page.getByText("Mleko")).toBeVisible();
 
   // Open item edit sheet via inline pencil
@@ -722,7 +722,7 @@ test("bulk toggle: 'mark all' patches all items to completed", async ({ page }) 
     return route.fulfill({ status: 200, json: [] });
   });
 
-  await page.goto("/shopping-lists/list-1");
+  await page.goto("/plans/list-1");
   await expect(page.getByText("Mleko")).toBeVisible();
 
   await page.getByRole("button", { name: /Zaznacz wszystkie/ }).click();
@@ -743,7 +743,7 @@ test("bulk delete: button opens confirm dialog, confirm fires DELETE", async ({ 
     return route.fulfill({ status: 200, json: [] });
   });
 
-  await page.goto("/shopping-lists/list-1");
+  await page.goto("/plans/list-1");
   await expect(page.getByText("Mleko")).toBeVisible();
 
   await page.getByRole("button", { name: /Usuń wszystkie/ }).click();
@@ -764,11 +764,11 @@ test("bulk delete: button opens confirm dialog, confirm fires DELETE", async ({ 
 test("list pencil: opens edit dialog with name, date, group", async ({ page }) => {
   await injectFakeSession(page);
   await mockSupabaseAPI(page);
-  await page.goto("/shopping-lists/list-1");
+  await page.goto("/plans/list-1");
   await expect(page.getByText("Tygodniowe zakupy")).toBeVisible();
 
   await page
-    .getByRole("button", { name: /Edytuj listę/ })
+    .getByRole("button", { name: /Edytuj plan/ })
     .first()
     .click();
 
@@ -812,7 +812,69 @@ test("linked-transaction chip is hidden on archived cards", async ({ page }) => 
     return route.fulfill({ status: 200, json: completedListsRaw });
   });
 
-  await page.goto("/shopping-lists");
+  await page.goto("/plans");
   await expect(page.getByRole("link", { name: /Zamknięte zakupy/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /Transakcja/i })).toHaveCount(0);
+});
+
+// ── Case 12: Plan settlement sheet (MVP+ Rozlicz plan) ─────────────────────
+
+const PLAN_LINKS_URL = /.*\/rest\/v1\/plan_transaction_links.*/;
+const TX_VIEW_URL = /.*\/rest\/v1\/transactions_with_category.*/;
+
+test("plan settlement sheet opens and lists eligible transactions", async ({ page }) => {
+  await injectFakeSession(page);
+  await mockSupabaseAPI(page);
+
+  const fixture = {
+    ...progressListFixture(),
+    planned_for: "2026-06-01",
+    total_amount: 200,
+  };
+
+  await page.route(SHOPPING_LISTS_URL, (route) => {
+    const url = route.request().url();
+    const method = route.request().method();
+    if (url.includes("id=eq.") && method === "GET") {
+      return route.fulfill({ status: 200, json: fixture });
+    }
+    if (method === "GET") return route.fulfill({ status: 200, json: [fixture] });
+    return route.fulfill({ status: 204, body: "" });
+  });
+
+  await page.route(PLAN_LINKS_URL, (route) => {
+    if (route.request().method() === "GET") {
+      return route.fulfill({ status: 200, json: [] });
+    }
+    return route.fulfill({ status: 204, body: "" });
+  });
+
+  await page.route(TX_VIEW_URL, (route) => {
+    if (route.request().method() === "GET") {
+      return route.fulfill({
+        status: 200,
+        json: [
+          {
+            id: "tx-eligible-1",
+            amount: 42,
+            currency: "PLN",
+            description: "Sklep spożywczy",
+            date: "2026-06-02T12:00:00Z",
+            type: "expense",
+            status: "completed",
+            user_id: TEST_USER_ID,
+            group_id: null,
+            category_id: "cat-1",
+            category_name: "Jedzenie",
+          },
+        ],
+      });
+    }
+    return route.fulfill({ status: 204, body: "" });
+  });
+
+  await page.goto("/plans/list-progress");
+  await page.getByRole("button", { name: "Rozlicz plan" }).click();
+  await expect(page.getByRole("heading", { name: "Rozlicz plan" })).toBeVisible();
+  await expect(page.getByText("Sklep spożywczy")).toBeVisible();
 });

@@ -38,6 +38,7 @@
         <p class="text-xs font-medium text-sky-200">
           {m.bank_confirm_inne_heading({ count: inneRows.length })}
         </p>
+        <p class="mt-1 text-xs text-sky-100/80">{m.bank_confirm_inne_why()}</p>
         <ul class="mt-2 max-h-48 space-y-1 overflow-y-auto">
           {#each inneRows as row (row.id)}
             <li class="flex justify-between gap-3 text-xs text-sky-100/90">

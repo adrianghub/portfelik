@@ -60,7 +60,7 @@
       <h2 class="text-base font-semibold text-slate-100">
         {transaction.description}
         {#if transaction.is_recurring}
-          <span class="ml-1 text-sm font-normal text-slate-500" title="Cykliczna">↻</span>
+          <span class="ml-1 text-sm font-normal text-slate-400" title="Cykliczna">↻</span>
         {/if}
       </h2>
       <button
@@ -140,14 +140,14 @@
         {/if}
       </dl>
 
-      <!-- Linked shopping list -->
+      <!-- Linked plan -->
       {#if transaction.shopping_list_id}
         <div>
           <p class="text-eyebrow mb-1 text-slate-400">
-            {m.nav_shopping_lists()}
+            {m.nav_plans()}
           </p>
           <a
-            href="/shopping-lists/{transaction.shopping_list_id}"
+            href="/plans/{transaction.shopping_list_id}"
             class="hover:text-accent inline-flex items-center gap-1.5 text-sm text-slate-200 transition-colors"
           >
             <ShoppingCart size={14} />
