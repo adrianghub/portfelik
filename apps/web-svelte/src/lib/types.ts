@@ -184,6 +184,8 @@ export interface ShoppingListSummary extends ShoppingList {
   item_total: number;
   item_completed: number;
   linked_transaction_id: string | null;
+  linkedAmount: number;
+  linkedCount: number;
   bucket: ShoppingListBucket;
   mode: ShoppingListMode;
 }

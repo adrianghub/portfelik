@@ -16,6 +16,7 @@ const LIST_COLUMNS =
 type ShoppingListSummaryRow = ShoppingList & {
   shopping_list_items: { id: string; completed: boolean }[];
   transactions?: { id: string }[];
+  plan_transaction_links?: { transaction_id: string; transactions: { amount: number } | null }[];
 };
 
 function todayIso(): string {
@@ -45,11 +46,14 @@ export function deriveShoppingListBucket(
 }
 
 function toShoppingListSummary(list: ShoppingListSummaryRow, today: string): ShoppingListSummary {
+  const links = list.plan_transaction_links ?? [];
   return {
     ...list,
     item_total: list.shopping_list_items.length,
     item_completed: list.shopping_list_items.filter((i) => i.completed).length,
     linked_transaction_id: list.transactions?.[0]?.id ?? null,
+    linkedAmount: links.reduce((s, l) => s + (l.transactions?.amount ?? 0), 0),
+    linkedCount: links.length,
     mode: deriveShoppingListMode(list),
     bucket: deriveShoppingListBucket(list, today),
   };
@@ -70,7 +74,9 @@ export async function fetchShoppingListItemHistory(): Promise<
 export async function fetchShoppingLists(): Promise<ShoppingListSummary[]> {
   const { data, error } = await supabase
     .from("shopping_lists")
-    .select(`${LIST_COLUMNS}, shopping_list_items(id, completed), transactions(id)`)
+    .select(
+      `${LIST_COLUMNS}, shopping_list_items(id, completed), transactions(id), plan_transaction_links(transaction_id, transactions(amount))`
+    )
     .order("created_at", { ascending: false });
 
   if (error) throw error;
