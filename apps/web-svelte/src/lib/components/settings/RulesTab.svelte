@@ -9,10 +9,11 @@
   import type { CategorizationRule, Category, TransactionType } from "$lib/types";
   import { cn } from "$lib/utils";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
+  import RuleEditDialog from "$lib/components/settings/RuleEditDialog.svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import { toast } from "svelte-sonner";
   import * as m from "$lib/paraglide/messages";
-  import { Wand2, Trash2 } from "lucide-svelte";
+  import { Wand2, Trash2, Pencil } from "lucide-svelte";
   import { page } from "$app/stores";
   import { untrack } from "svelte";
 
@@ -29,6 +30,7 @@
   }));
 
   let deleteTargetId = $state<string | null>(null);
+  let editTarget = $state<CategorizationRule | null>(null);
 
   function categoryName(id: string): string | null {
     return (categoriesQuery.data ?? []).find((c) => c.id === id)?.name ?? null;
@@ -171,19 +173,36 @@
               </p>
             {/if}
           </div>
-          <button
-            type="button"
-            onclick={() => (deleteTargetId = rule.id)}
-            class="shrink-0 rounded p-1.5 text-slate-400 transition-colors hover:text-rose-300"
-            aria-label={m.common_delete()}
-          >
-            <Trash2 size={16} aria-hidden="true" />
-          </button>
+          <div class="flex shrink-0 items-center gap-0.5">
+            <button
+              type="button"
+              onclick={() => (editTarget = rule)}
+              class="rounded p-1.5 text-slate-400 transition-colors hover:text-slate-100"
+              aria-label={m.common_edit()}
+            >
+              <Pencil size={16} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onclick={() => (deleteTargetId = rule.id)}
+              class="rounded p-1.5 text-slate-400 transition-colors hover:text-rose-300"
+              aria-label={m.common_delete()}
+            >
+              <Trash2 size={16} aria-hidden="true" />
+            </button>
+          </div>
         </li>
       {/each}
     </ul>
   {/if}
 {/if}
+
+<RuleEditDialog
+  open={!!editTarget}
+  rule={editTarget}
+  categories={categoriesQuery.data ?? []}
+  onclose={() => (editTarget = null)}
+/>
 
 <ConfirmDialog
   open={!!deleteTargetId}

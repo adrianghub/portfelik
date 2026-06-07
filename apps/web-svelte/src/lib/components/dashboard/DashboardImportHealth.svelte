@@ -2,6 +2,7 @@
   import * as m from "$lib/paraglide/messages";
   import { fetchLastCommittedImportSession } from "$lib/services/bank-import";
   import { fetchProfile } from "$lib/services/profiles";
+  import { getBankImportReminder } from "$lib/profile-settings";
   import { supabase } from "$lib/supabase";
   import { formatDate } from "$lib/utils";
   import { createQuery } from "@tanstack/svelte-query";
@@ -23,9 +24,7 @@
     queryFn: fetchLastCommittedImportSession,
   }));
 
-  const cadenceDays = $derived(
-    profileQuery.data?.settings.alerts?.bankImportReminder?.cadenceDays ?? 30
-  );
+  const cadenceDays = $derived(getBankImportReminder(profileQuery.data?.settings).cadenceDays);
 
   const daysSinceImport = $derived.by(() => {
     const session = importHealthQuery.data;
