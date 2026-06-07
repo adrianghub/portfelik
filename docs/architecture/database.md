@@ -475,7 +475,7 @@ Two patterns:
 
 All `LANGUAGE plpgsql STABLE`, all SECURITY DEFINER except where noted.
 
-> **Execute hardening (`20260529000000`):** `EXECUTE` is revoked from `public`/`anon` on every `public` function, and internal trigger/cron functions are also revoked from `authenticated` (so they cannot be reached over PostgREST `/rpc/`). Only the client-callable RPC set + RLS helpers (`is_admin`, `is_group_member`, `is_group_owner`) are granted to `authenticated`. Seven previously-mutable functions now pin `search_path=public`; a clean `SELECT proname FROM pg_proc WHERE prosecdef AND proconfig IS NULL AND pronamespace='public'::regnamespace` (verified `[]` on prod 2026-05-25) is the audit check.
+> **Execute hardening (`20260529000000`, `20260623000000`):** `EXECUTE` is revoked from `public`/`anon` on every `public` function, and internal trigger/cron functions are also revoked from `authenticated` (so they cannot be reached over PostgREST `/rpc/`). Only the client-callable RPC set + RLS helpers (`is_admin`, `is_group_member`, `is_group_owner`) are granted to `authenticated`. SECDEF functions pin `search_path`; `20260623000000` also pins the three `privacy_*` masking helpers and revokes client access to `seed_default_categories*`. Audit: `SELECT proname FROM pg_proc WHERE prosecdef AND proconfig IS NULL AND pronamespace='public'::regnamespace` (verified `[]` on prod 2026-05-25) plus invoker helpers without `search_path` pin.
 
 | Function                       | Used by                                  | Notes                                                                       |
 | ------------------------------ | ---------------------------------------- | --------------------------------------------------------------------------- |
