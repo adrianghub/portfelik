@@ -44,7 +44,7 @@
     <Search
       size={14}
       aria-hidden="true"
-      class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-slate-500"
+      class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-slate-400"
     />
     <input
       type="text"
@@ -92,7 +92,7 @@
       </li>
     {/each}
     {#if filtered.length === 0}
-      <li class="px-3 py-2 text-sm text-slate-500">{m.combobox_empty()}</li>
+      <li class="px-3 py-2 text-sm text-slate-400">{m.combobox_empty()}</li>
     {/if}
   </ul>
 {/snippet}

@@ -256,7 +256,7 @@
           )}
           onclick={() => onFilterChange(f.kind)}
         >
-          {f.label}<span class="ml-1.5 text-slate-500">{filterCounts[f.kind]}</span>
+          {f.label}<span class="ml-1.5 text-slate-400">{filterCounts[f.kind]}</span>
         </button>
       {/each}
       <div class="relative inline-flex">
@@ -274,7 +274,7 @@
         <ChevronDown
           size={14}
           aria-hidden="true"
-          class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-slate-500"
+          class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-slate-400"
         />
       </div>
     </div>
@@ -367,7 +367,7 @@
                   {/if}
                   <button
                     type="button"
-                    class="inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-xs text-slate-500 hover:bg-white/5 hover:text-slate-300"
+                    class="inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-xs text-slate-400 hover:bg-white/5 hover:text-slate-300"
                     onclick={() => (groupSheetRowId = row.id)}
                   >
                     <Users size={12} aria-hidden="true" />
@@ -415,7 +415,7 @@
               {row.type === "income" ? "+" : "−"}{formatCurrency(row.amount, row.currency)}
             </span>
           </div>
-          <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+          <div class="flex flex-wrap items-center gap-2 text-xs text-slate-400">
             <span>{row.posted_at}</span>
             {#if groupName}
               <Badge variant="shared">{groupName}</Badge>
@@ -458,7 +458,7 @@
             {/if}
             <button
               type="button"
-              class="text-xs text-slate-500 underline-offset-2 hover:underline"
+              class="text-xs text-slate-400 underline-offset-2 hover:underline"
               onclick={() => (groupSheetRowId = row.id)}
             >
               {row.selected_group_id ? m.bank_review_group_change() : m.bank_review_group_add()}

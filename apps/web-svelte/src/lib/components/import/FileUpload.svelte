@@ -285,7 +285,7 @@
       <FileText class="shrink-0 text-slate-400" size={20} aria-hidden="true" />
       <div class="min-w-0 flex-1">
         <p class="truncate text-sm text-slate-100">{initialFile.name}</p>
-        <p class="text-xs text-slate-500">{formatSize(initialFile.size)}</p>
+        <p class="text-xs text-slate-400">{formatSize(initialFile.size)}</p>
       </div>
       {#if !pending}
         <Button variant="ghost" size="sm" onclick={reprocess}>

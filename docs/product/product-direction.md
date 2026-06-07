@@ -19,7 +19,7 @@ flowchart LR
   Import[Import bankowy] --> Transactions[Transakcje]
   Manual[Dodaj ręcznie<br/>fallback / korekta] --> Transactions
   Alerts[Alert importu] --> Import
-  Transactions --> Settlement[Rozlicz plan]
+  Transactions --> Settlement[Zrealizuj plan]
   Plans[Plany] --> Settlement
   Transactions --> Dashboard[Pulpit]
   Settlement --> Dashboard
@@ -34,7 +34,7 @@ The product has five first-class modules:
 | **Pulpit**     | Shows the health of the current month: income, expenses, balance, largest categories, and plan progress.     |
 | **Transakcje** | The confirmed ledger of financial history. Imported and manual rows live here after they are accepted.       |
 | **Import**     | Structured intake from bank files: parse, preview, categorize, handle duplicates, confirm, and commit.       |
-| **Plany**      | Future intent: planned spending, goals, trips, home projects, household shopping, or things to settle later. |
+| **Plany**      | Future intent on one module: `spend` budgets, `save` goals, `debt` loans; manual net-worth hero; settle by linking history transactions. |
 | **Ustawienia** | Categories, categorization rules, profile, groups, invitations, personalization, and account controls.       |
 
 This is the product contract:
@@ -94,29 +94,27 @@ from deterministic product state.
 
 ## Plans And Settlement
 
-User-facing list workflows are evolving into **Plans**. Internal table names may
-still use `shopping_lists` for compatibility until the product surface is
-stable; user-facing docs and UI should say **Plans**.
-
-A plan describes future intent. It should not create financial truth by default.
-The primary settlement flow is:
+User-facing list workflows have been replaced by first-class **Plans**. A plan
+describes future intent with a required period (`start_date` / `end_date`) and
+an optional budget. It should not create financial truth by default. The primary
+settlement flow is:
 
 ```mermaid
 flowchart LR
-  Plan[Plan<br/>Wakacje 3000 zl] --> Link[Rozlicz plan]
-  Tx1[Imported transaction<br/>Booking] --> Link
-  Tx2[Imported transaction<br/>Flights] --> Link
-  Link --> Progress[Progress<br/>spent / planned / remaining]
+  Plan[Plan<br/>Wakacje 3000 zl<br/>1-14 lip] --> Link[Zrealizuj plan]
+  Tx1[Imported expense<br/>Booking] --> Link
+  Tx2[Imported income<br/>Premia] --> Link
+  Link --> Progress[Progress<br/>wydano / wplywy / pozostalo / bilans]
 ```
 
 MVP+ settlement direction:
 
-- A plan can link to many transactions.
+- A plan can link to many expense and income transactions.
 - A transaction belongs to at most one plan until split allocation is explicitly
   designed.
-- Use a dedicated `plan_transaction_links` model for new settlement work.
-- Treat `transactions.shopping_list_id` and list-completion-created
-  transactions as legacy/current compatibility, not the future product model.
+- Use the dedicated `plans` + `plan_transaction_links` model for settlement.
+- Legacy shopping-list tables, checklist items, `transactions.shopping_list_id`,
+  and list-completion RPCs are retired from the app surface.
 - Manual transaction creation from a plan is allowed only as fallback; it should
   create a normal transaction and then link it to the plan.
 
@@ -176,9 +174,9 @@ exceptions.
 | Stage     | Product scope                                                                                                                                                                              |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **MVP**   | Pulpit, Transakcje, Import CSV, Plany on current compatibility storage, Ustawienia, groups/invites, categories, rules, privacy/regulatory basics.                                          |
-| **MVP+**  | Manual plan-to-transaction linking, plan progress, import as first-class module, manual transactions clearly secondary, shared plan settlement scope rules, group co-owner role direction. |
+| **MVP+**  | Manual plan-to-transaction linking, plan progress, import as first-class module, manual transactions clearly secondary, shared plan settlement scope rules, group co-owner role direction, **save/debt plan kinds inside Plany** (see `debt-and-savings-goals.md`). |
 | **V1**    | Deterministic plan matching: suggestions, score, reasons, accepted/rejected memory.                                                                                                        |
-| **Later** | AI explanation/summaries, AI keyword proposals, suggested plans, debt/savings tracks, deeper observability.                                                                                |
+| **Later** | AI explanation/summaries, AI keyword proposals, suggested plans, net-worth snapshot hub, Belka in invest compare, deeper observability.                                                                                |
 
 ## Design Bar
 

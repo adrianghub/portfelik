@@ -135,6 +135,36 @@ export type Database = {
           },
         ];
       };
+      financial_snapshots: {
+        Row: {
+          as_of_date: string;
+          cash_amount: number;
+          created_at: string;
+          investments_amount: number;
+          real_estate_amount: number;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          as_of_date?: string;
+          cash_amount?: number;
+          created_at?: string;
+          investments_amount?: number;
+          real_estate_amount?: number;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          as_of_date?: string;
+          cash_amount?: number;
+          created_at?: string;
+          investments_amount?: number;
+          real_estate_amount?: number;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       group_invitations: {
         Row: {
           created_at: string;
@@ -183,16 +213,19 @@ export type Database = {
         Row: {
           group_id: string;
           joined_at: string;
+          role: Database["public"]["Enums"]["group_member_role"];
           user_id: string;
         };
         Insert: {
           group_id: string;
           joined_at?: string;
+          role?: Database["public"]["Enums"]["group_member_role"];
           user_id: string;
         };
         Update: {
           group_id?: string;
           joined_at?: string;
+          role?: Database["public"]["Enums"]["group_member_role"];
           user_id?: string;
         };
         Relationships: [
@@ -237,6 +270,170 @@ export type Database = {
           user_id?: string;
         };
         Relationships: [];
+      };
+      plan_debt_terms: {
+        Row: {
+          anchor_transaction_id: string | null;
+          annual_rate: number;
+          created_at: string;
+          current_balance: number;
+          monthly_payment: number;
+          original_amount: number;
+          payment_day: number | null;
+          plan_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          anchor_transaction_id?: string | null;
+          annual_rate: number;
+          created_at?: string;
+          current_balance: number;
+          monthly_payment: number;
+          original_amount: number;
+          payment_day?: number | null;
+          plan_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          anchor_transaction_id?: string | null;
+          annual_rate?: number;
+          created_at?: string;
+          current_balance?: number;
+          monthly_payment?: number;
+          original_amount?: number;
+          payment_day?: number | null;
+          plan_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "plan_debt_terms_anchor_transaction_id_fkey";
+            columns: ["anchor_transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "plan_debt_terms_anchor_transaction_id_fkey";
+            columns: ["anchor_transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions_with_category";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "plan_debt_terms_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: true;
+            referencedRelation: "plans";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      plan_transaction_links: {
+        Row: {
+          created_at: string;
+          created_by: string;
+          id: string;
+          plan_id: string;
+          transaction_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string;
+          id?: string;
+          plan_id: string;
+          transaction_id: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string;
+          id?: string;
+          plan_id?: string;
+          transaction_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "plan_transaction_links_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "plans";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "plan_transaction_links_transaction_id_fkey";
+            columns: ["transaction_id"];
+            isOneToOne: true;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "plan_transaction_links_transaction_id_fkey";
+            columns: ["transaction_id"];
+            isOneToOne: true;
+            referencedRelation: "transactions_with_category";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      plans: {
+        Row: {
+          budget_amount: number | null;
+          category_id: string | null;
+          created_at: string;
+          end_date: string;
+          group_id: string | null;
+          id: string;
+          kind: string;
+          name: string;
+          start_date: string;
+          target_amount: number | null;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          budget_amount?: number | null;
+          category_id?: string | null;
+          created_at?: string;
+          end_date: string;
+          group_id?: string | null;
+          id?: string;
+          kind?: string;
+          name: string;
+          start_date: string;
+          target_amount?: number | null;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          budget_amount?: number | null;
+          category_id?: string | null;
+          created_at?: string;
+          end_date?: string;
+          group_id?: string | null;
+          id?: string;
+          kind?: string;
+          name?: string;
+          start_date?: string;
+          target_amount?: number | null;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "plans_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "plans_group_id_fkey";
+            columns: ["group_id"];
+            isOneToOne: false;
+            referencedRelation: "user_groups";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       profiles: {
         Row: {
@@ -303,148 +500,6 @@ export type Database = {
           user_id?: string;
         };
         Relationships: [];
-      };
-      shopping_item_categories: {
-        Row: {
-          created_at: string;
-          id: string;
-          name: string;
-          position: number;
-          updated_at: string;
-          user_id: string;
-        };
-        Insert: {
-          created_at?: string;
-          id?: string;
-          name: string;
-          position?: number;
-          updated_at?: string;
-          user_id: string;
-        };
-        Update: {
-          created_at?: string;
-          id?: string;
-          name?: string;
-          position?: number;
-          updated_at?: string;
-          user_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "shopping_item_categories_user_id_fkey";
-            columns: ["user_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      shopping_list_items: {
-        Row: {
-          category: string | null;
-          completed: boolean;
-          created_at: string;
-          id: string;
-          name: string;
-          position: number;
-          quantity: number | null;
-          shopping_list_id: string;
-          unit: string | null;
-          updated_at: string;
-        };
-        Insert: {
-          category?: string | null;
-          completed?: boolean;
-          created_at?: string;
-          id?: string;
-          name: string;
-          position?: number;
-          quantity?: number | null;
-          shopping_list_id: string;
-          unit?: string | null;
-          updated_at?: string;
-        };
-        Update: {
-          category?: string | null;
-          completed?: boolean;
-          created_at?: string;
-          id?: string;
-          name?: string;
-          position?: number;
-          quantity?: number | null;
-          shopping_list_id?: string;
-          unit?: string | null;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "shopping_list_items_shopping_list_id_fkey";
-            columns: ["shopping_list_id"];
-            isOneToOne: false;
-            referencedRelation: "shopping_lists";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      shopping_lists: {
-        Row: {
-          category_id: string | null;
-          completed_at: string | null;
-          created_at: string;
-          group_id: string | null;
-          id: string;
-          name: string;
-          planned_for: string;
-          shopping_started_at: string | null;
-          status: Database["public"]["Enums"]["shopping_list_status"];
-          total_amount: number | null;
-          updated_at: string;
-          user_id: string;
-        };
-        Insert: {
-          category_id?: string | null;
-          completed_at?: string | null;
-          created_at?: string;
-          group_id?: string | null;
-          id?: string;
-          name: string;
-          planned_for?: string;
-          shopping_started_at?: string | null;
-          status?: Database["public"]["Enums"]["shopping_list_status"];
-          total_amount?: number | null;
-          updated_at?: string;
-          user_id: string;
-        };
-        Update: {
-          category_id?: string | null;
-          completed_at?: string | null;
-          created_at?: string;
-          group_id?: string | null;
-          id?: string;
-          name?: string;
-          planned_for?: string;
-          shopping_started_at?: string | null;
-          status?: Database["public"]["Enums"]["shopping_list_status"];
-          total_amount?: number | null;
-          updated_at?: string;
-          user_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "shopping_lists_category_id_fkey";
-            columns: ["category_id"];
-            isOneToOne: false;
-            referencedRelation: "categories";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "shopping_lists_group_id_fkey";
-            columns: ["group_id"];
-            isOneToOne: false;
-            referencedRelation: "user_groups";
-            referencedColumns: ["id"];
-          },
-        ];
       };
       transaction_import_links: {
         Row: {
@@ -723,7 +778,6 @@ export type Database = {
           recurrence_weekday: number | null;
           recurring_day: number | null;
           recurring_template_id: string | null;
-          shopping_list_id: string | null;
           status: Database["public"]["Enums"]["transaction_status"];
           type: Database["public"]["Enums"]["transaction_type"];
           updated_at: string;
@@ -745,7 +799,6 @@ export type Database = {
           recurrence_weekday?: number | null;
           recurring_day?: number | null;
           recurring_template_id?: string | null;
-          shopping_list_id?: string | null;
           status?: Database["public"]["Enums"]["transaction_status"];
           type: Database["public"]["Enums"]["transaction_type"];
           updated_at?: string;
@@ -767,7 +820,6 @@ export type Database = {
           recurrence_weekday?: number | null;
           recurring_day?: number | null;
           recurring_template_id?: string | null;
-          shopping_list_id?: string | null;
           status?: Database["public"]["Enums"]["transaction_status"];
           type?: Database["public"]["Enums"]["transaction_type"];
           updated_at?: string;
@@ -800,13 +852,6 @@ export type Database = {
             columns: ["recurring_template_id"];
             isOneToOne: false;
             referencedRelation: "transactions_with_category";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "transactions_shopping_list_id_fkey";
-            columns: ["shopping_list_id"];
-            isOneToOne: false;
-            referencedRelation: "shopping_lists";
             referencedColumns: ["id"];
           },
         ];
@@ -850,9 +895,12 @@ export type Database = {
           group_id: string | null;
           id: string | null;
           is_recurring: boolean | null;
+          recurrence_frequency: Database["public"]["Enums"]["recurrence_frequency"] | null;
+          recurrence_interval: number | null;
+          recurrence_month: number | null;
+          recurrence_weekday: number | null;
           recurring_day: number | null;
           recurring_template_id: string | null;
-          shopping_list_id: string | null;
           status: Database["public"]["Enums"]["transaction_status"] | null;
           type: Database["public"]["Enums"]["transaction_type"] | null;
           updated_at: string | null;
@@ -887,13 +935,6 @@ export type Database = {
             referencedRelation: "transactions_with_category";
             referencedColumns: ["id"];
           },
-          {
-            foreignKeyName: "transactions_shopping_list_id_fkey";
-            columns: ["shopping_list_id"];
-            isOneToOne: false;
-            referencedRelation: "shopping_lists";
-            referencedColumns: ["id"];
-          },
         ];
       };
     };
@@ -916,78 +957,11 @@ export type Database = {
         Returns: Json;
       };
       assign_admin_role: { Args: { p_user_id: string }; Returns: undefined };
-      attach_shopping_list_to_transaction: {
-        Args: { p_list_id: string; p_tx_id: string };
-        Returns: {
-          amount: number;
-          category_id: string;
-          created_at: string;
-          currency: string;
-          date: string;
-          description: string;
-          group_id: string | null;
-          id: string;
-          is_recurring: boolean;
-          recurrence_frequency: Database["public"]["Enums"]["recurrence_frequency"] | null;
-          recurrence_interval: number;
-          recurrence_month: number | null;
-          recurrence_weekday: number | null;
-          recurring_day: number | null;
-          recurring_template_id: string | null;
-          shopping_list_id: string | null;
-          status: Database["public"]["Enums"]["transaction_status"];
-          type: Database["public"]["Enums"]["transaction_type"];
-          updated_at: string;
-          user_id: string;
-        };
-        SetofOptions: {
-          from: "*";
-          to: "transactions";
-          isOneToOne: true;
-          isSetofReturn: false;
-        };
-      };
       cancel_invitation: {
         Args: { p_invitation_id: string };
         Returns: undefined;
       };
       commit_import_session: { Args: { p_session_id: string }; Returns: Json };
-      complete_shopping_list: {
-        Args: {
-          p_category_id: string;
-          p_create_transaction?: boolean;
-          p_list_id: string;
-          p_total_amount: number;
-        };
-        Returns: {
-          amount: number;
-          category_id: string;
-          created_at: string;
-          currency: string;
-          date: string;
-          description: string;
-          group_id: string | null;
-          id: string;
-          is_recurring: boolean;
-          recurrence_frequency: Database["public"]["Enums"]["recurrence_frequency"] | null;
-          recurrence_interval: number;
-          recurrence_month: number | null;
-          recurrence_weekday: number | null;
-          recurring_day: number | null;
-          recurring_template_id: string | null;
-          shopping_list_id: string | null;
-          status: Database["public"]["Enums"]["transaction_status"];
-          type: Database["public"]["Enums"]["transaction_type"];
-          updated_at: string;
-          user_id: string;
-        };
-        SetofOptions: {
-          from: "*";
-          to: "transactions";
-          isOneToOne: true;
-          isSetofReturn: false;
-        };
-      };
       create_group: {
         Args: { p_name: string };
         Returns: {
@@ -1010,29 +984,6 @@ export type Database = {
         Returns: undefined;
       };
       disband_group: { Args: { p_group_id: string }; Returns: undefined };
-      duplicate_shopping_list: {
-        Args: { p_list_id: string };
-        Returns: {
-          category_id: string | null;
-          completed_at: string | null;
-          created_at: string;
-          group_id: string | null;
-          id: string;
-          name: string;
-          planned_for: string;
-          shopping_started_at: string | null;
-          status: Database["public"]["Enums"]["shopping_list_status"];
-          total_amount: number | null;
-          updated_at: string;
-          user_id: string;
-        };
-        SetofOptions: {
-          from: "*";
-          to: "shopping_lists";
-          isOneToOne: true;
-          isSetofReturn: false;
-        };
-      };
       edge_functions_base_url: { Args: never; Returns: string };
       fetch_admin_notifications: {
         Args: { p_limit?: number };
@@ -1055,6 +1006,21 @@ export type Database = {
           last_used_at: string;
           user_agent: string;
           user_id: string;
+        }[];
+      };
+      find_import_duplicate_warning: {
+        Args: {
+          p_exclude_tx_id?: string;
+          p_fingerprint: string;
+          p_row: Database["public"]["Tables"]["transaction_import_rows"]["Row"];
+          p_uid: string;
+        };
+        Returns: {
+          duplicate_of_amount: number;
+          duplicate_of_currency: string;
+          duplicate_of_date: string;
+          duplicate_of_description: string;
+          duplicate_of_transaction_id: string;
         }[];
       };
       get_monthly_summary: {
@@ -1082,15 +1048,36 @@ export type Database = {
         };
       };
       is_admin: { Args: never; Returns: boolean };
+      is_group_co_owner: { Args: { p_group_id: string }; Returns: boolean };
       is_group_member: { Args: { p_group_id: string }; Returns: boolean };
       is_group_owner: { Args: { p_group_id: string }; Returns: boolean };
       leave_group: { Args: { p_group_id: string }; Returns: undefined };
+      link_plan_transaction: {
+        Args: { p_plan_id: string; p_transaction_id: string };
+        Returns: {
+          created_at: string;
+          created_by: string;
+          id: string;
+          plan_id: string;
+          transaction_id: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "plan_transaction_links";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       mark_all_notifications_read: { Args: never; Returns: undefined };
       mark_notification_read: {
         Args: { p_notification_id: string };
         Returns: undefined;
       };
       mark_preview_duplicates: { Args: { p_session_id: string }; Returns: Json };
+      nominate_group_co_owner: {
+        Args: { p_group_id: string; p_user_id: string };
+        Returns: undefined;
+      };
       preview_fingerprint_warnings: {
         Args: { p_session_id: string };
         Returns: Json;
@@ -1113,6 +1100,10 @@ export type Database = {
         Returns: undefined;
       };
       revoke_admin_role: { Args: { p_user_id: string }; Returns: undefined };
+      revoke_group_co_owner: {
+        Args: { p_group_id: string; p_user_id: string };
+        Returns: undefined;
+      };
       seed_default_categories: {
         Args: { p_user_id: string };
         Returns: undefined;
@@ -1123,10 +1114,15 @@ export type Database = {
       };
       trigger_admin_summary: { Args: never; Returns: Json };
       trigger_send_admin_summary: { Args: never; Returns: undefined };
+      unlink_plan_transaction: {
+        Args: { p_plan_id: string; p_transaction_id: string };
+        Returns: undefined;
+      };
       update_transaction_statuses: { Args: never; Returns: undefined };
     };
     Enums: {
       categorization_rule_kind: "exact" | "contains" | "type" | "composite";
+      group_member_role: "owner" | "co_owner" | "member";
       invitation_status: "pending" | "accepted" | "rejected" | "cancelled";
       notification_type:
         | "transaction_summary"
@@ -1137,7 +1133,6 @@ export type Database = {
         | "system_notification"
         | "bank_import_reminder";
       recurrence_frequency: "daily" | "weekly" | "monthly" | "yearly";
-      shopping_list_status: "active" | "completed";
       transaction_status: "draft" | "upcoming" | "overdue" | "paid";
       transaction_type: "income" | "expense";
       user_role: "user" | "admin";
@@ -1270,6 +1265,7 @@ export const Constants = {
   public: {
     Enums: {
       categorization_rule_kind: ["exact", "contains", "type", "composite"],
+      group_member_role: ["owner", "co_owner", "member"],
       invitation_status: ["pending", "accepted", "rejected", "cancelled"],
       notification_type: [
         "transaction_summary",
@@ -1281,7 +1277,6 @@ export const Constants = {
         "bank_import_reminder",
       ],
       recurrence_frequency: ["daily", "weekly", "monthly", "yearly"],
-      shopping_list_status: ["active", "completed"],
       transaction_status: ["draft", "upcoming", "overdue", "paid"],
       transaction_type: ["income", "expense"],
       user_role: ["user", "admin"],

@@ -37,6 +37,14 @@ export function createUserClient(accessToken: string): SupabaseClient {
   });
 }
 
+/** Unauthenticated PostgREST client (anon key, no session). */
+export function createAnonClient(): SupabaseClient {
+  const { url, anonKey } = requireEnv();
+  return createClient(url, anonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
 export type TestUser = {
   email: string;
   userId: string;
@@ -131,9 +139,9 @@ export async function provisionTwoUsers(): Promise<TestContext> {
 export async function cleanupSentinels(admin: SupabaseClient): Promise<void> {
   const pattern = `${SENTINEL}%`;
   // transactions cascade to transaction_import_links (FK transaction_id ON DELETE CASCADE).
+  await admin.from("plan_transaction_links").delete().not("id", "is", null);
   await admin.from("transactions").delete().like("description", pattern);
-  await admin.from("shopping_list_items").delete().like("name", pattern);
-  await admin.from("shopping_lists").delete().like("name", pattern);
+  await admin.from("plans").delete().like("name", pattern);
   await admin.from("notifications").delete().like("title", pattern);
   // Import chain: rows → sessions → bank_accounts (all RESTRICT, so order matters).
   // rows by raw_row_hash sentinel
@@ -147,7 +155,6 @@ export async function cleanupSentinels(admin: SupabaseClient): Promise<void> {
   await admin.from("bank_accounts").delete().like("label", pattern);
   // categories cascade to categorization_rules (FK category_id ON DELETE CASCADE).
   await admin.from("categories").delete().like("name", pattern);
-  await admin.from("shopping_item_categories").delete().like("name", pattern);
   // group_invitations: clean by sentinel email domain
   await admin.from("group_invitations").delete().like("invited_user_email", "%@rls.test");
   // user_groups: cascades to group_members + group_invitations

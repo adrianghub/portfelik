@@ -72,12 +72,12 @@
                 </div>
               </div>
             {/if}
-            <span class="w-10 shrink-0 text-right text-xs text-slate-500">{cat.percentage}%</span>
+            <span class="w-10 shrink-0 text-right text-xs text-slate-400">{cat.percentage}%</span>
           </li>
         {/each}
       </ul>
     {/if}
   </div>
 {:else}
-  <p class="py-4 text-center text-sm text-slate-500">{m.summary_no_expenses()}</p>
+  <p class="py-4 text-center text-sm text-slate-400">{m.summary_no_expenses()}</p>
 {/if}

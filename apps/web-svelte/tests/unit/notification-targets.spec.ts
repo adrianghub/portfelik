@@ -13,7 +13,7 @@ describe("notificationTargetHref", () => {
           latestImportCommittedAt: null,
         },
       })
-    ).toBe("/transactions/import");
+    ).toBe("/import");
   });
 
   it("keeps transaction reminders linked to their transaction when available", () => {

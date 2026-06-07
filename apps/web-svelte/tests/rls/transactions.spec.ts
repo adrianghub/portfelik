@@ -143,7 +143,7 @@ describe("RLS: transactions", () => {
       expect(descs).toContain(`${SENTINEL} B tx`);
     });
 
-    it("user A CAN update user B's tx through group share (flat membership)", async () => {
+    it("group owner (co-owner) can update user B's shared tx", async () => {
       const result = await ctx.userA.client
         .from("transactions")
         .update({ amount: 555 })
@@ -151,6 +151,43 @@ describe("RLS: transactions", () => {
         .select();
       expect(result.error).toBeNull();
       expect(result.data?.[0]?.amount).toBe(555);
+    });
+
+    it("plain group member cannot update peer shared tx", async () => {
+      const assignA = await ctx.admin
+        .from("transactions")
+        .update({ group_id: groupId })
+        .eq("description", `${SENTINEL} A tx`);
+      if (assignA.error) throw assignA.error;
+
+      const result = await ctx.userB.client
+        .from("transactions")
+        .update({ amount: 444 })
+        .eq("description", `${SENTINEL} A tx`)
+        .select();
+      expectBlockedWrite(result);
+    });
+
+    it("nominated co-owner can update peer shared tx", async () => {
+      const nominate = await ctx.userA.client.rpc("nominate_group_co_owner", {
+        p_group_id: groupId,
+        p_user_id: ctx.userB.userId,
+      });
+      expect(nominate.error).toBeNull();
+
+      const assignA = await ctx.admin
+        .from("transactions")
+        .update({ group_id: groupId })
+        .eq("description", `${SENTINEL} A tx`);
+      if (assignA.error) throw assignA.error;
+
+      const result = await ctx.userB.client
+        .from("transactions")
+        .update({ amount: 333 })
+        .eq("description", `${SENTINEL} A tx`)
+        .select();
+      expect(result.error).toBeNull();
+      expect(result.data?.[0]?.amount).toBe(333);
     });
 
     it("user A CANNOT re-own user B's tx (user_id column locked)", async () => {

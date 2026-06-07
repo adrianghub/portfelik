@@ -231,7 +231,7 @@
     <ChevronDown
       size={14}
       aria-hidden="true"
-      class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-slate-500"
+      class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-slate-400"
     />
     {#if open}
       <div
@@ -246,7 +246,7 @@
         onpointerdown={(e) => e.preventDefault()}
       >
         {#if filteredItems.length === 0}
-          <div class="px-3 py-2 text-sm text-slate-500">{emptyLabel}</div>
+          <div class="px-3 py-2 text-sm text-slate-400">{emptyLabel}</div>
         {/if}
         {#each filteredItems as item, index (item)}
           <button

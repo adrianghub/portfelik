@@ -1,9 +1,11 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
+  import { supabase } from "$lib/supabase";
   import type { TransactionWithCategory } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
   import { recurrenceSummary } from "$lib/recurrence";
-  import { Edit, ShoppingCart, Trash2, X } from "lucide-svelte";
+  import { createQuery } from "@tanstack/svelte-query";
+  import { ClipboardList, Edit, Trash2, X } from "lucide-svelte";
 
   interface Props {
     transaction: TransactionWithCategory | null;
@@ -35,6 +37,21 @@
     overdue: m.transactions_status_overdue(),
   };
 
+  const planLinkQuery = createQuery(() => ({
+    queryKey: ["transaction-plan-link", transaction?.id],
+    queryFn: async () => {
+      if (!transaction) return null;
+      const { data, error } = await supabase
+        .from("plan_transaction_links")
+        .select("plan_id, plans(name)")
+        .eq("transaction_id", transaction.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data as { plan_id: string; plans: { name: string } | null } | null;
+    },
+    enabled: !!transaction,
+  }));
+
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === "Escape") onclose();
   }
@@ -60,7 +77,7 @@
       <h2 class="text-base font-semibold text-slate-100">
         {transaction.description}
         {#if transaction.is_recurring}
-          <span class="ml-1 text-sm font-normal text-slate-500" title="Cykliczna">↻</span>
+          <span class="ml-1 text-sm font-normal text-slate-400" title="Cykliczna">↻</span>
         {/if}
       </h2>
       <button
@@ -140,18 +157,18 @@
         {/if}
       </dl>
 
-      <!-- Linked shopping list -->
-      {#if transaction.shopping_list_id}
+      <!-- Linked plan -->
+      {#if planLinkQuery.data}
         <div>
           <p class="text-eyebrow mb-1 text-slate-400">
-            {m.nav_shopping_lists()}
+            {m.nav_plans()}
           </p>
           <a
-            href="/shopping-lists/{transaction.shopping_list_id}"
+            href="/plans/{planLinkQuery.data.plan_id}"
             class="hover:text-accent inline-flex items-center gap-1.5 text-sm text-slate-200 transition-colors"
           >
-            <ShoppingCart size={14} />
-            {m.transaction_detail_show_shopping_list()}
+            <ClipboardList size={14} />
+            {planLinkQuery.data.plans?.name ?? m.transaction_detail_show_plan()}
           </a>
         </div>
       {/if}

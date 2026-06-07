@@ -1,6 +1,6 @@
 const CACHE_NAME = 'portfelik-20260606';
 
-const APP_SHELL = ['/', '/transactions', '/shopping-lists', '/settings'];
+const APP_SHELL = ['/', '/transactions', '/import', '/plans', '/settings'];
 
 const DEFAULT_ICON = '/icon-192x192.png';
 
@@ -61,7 +61,7 @@ self.addEventListener('notificationclick', (event) => {
 	let url = '/';
 	if (data.transactionId) url = `/transactions?txId=${data.transactionId}`;
 	else if (data.type === 'group_invitation') url = '/settings?tab=groups';
-	else if (data.type === 'bank_import_reminder') url = '/transactions/import';
+	else if (data.type === 'bank_import_reminder') url = '/import';
 
 	event.waitUntil(
 		clients

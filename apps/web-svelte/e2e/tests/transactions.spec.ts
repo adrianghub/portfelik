@@ -22,7 +22,7 @@ test("renders mocked transaction list", async ({ page }) => {
 });
 
 test("shows import and export as direct desktop actions", async ({ page }) => {
-  await expect(page.getByRole("link", { name: "Import" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Import" }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Eksportuj CSV" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Więcej akcji" })).toHaveCount(0);
 });
@@ -75,7 +75,7 @@ test("txId deep link opens transaction outside the current date range", async ({
   const oldLinkedTransaction = {
     id: "tx-old-linked",
     date: "2026-01-15",
-    description: "Stara transakcja z listy",
+    description: "Stara transakcja z planu",
     amount: 42,
     type: "expense",
     status: "paid",
@@ -87,7 +87,6 @@ test("txId deep link opens transaction outside the current date range", async ({
     recurring_template_id: null,
     currency: "PLN",
     user_id: TEST_USER_ID,
-    shopping_list_id: "list-old",
     group_id: null,
     created_at: "2026-01-15T10:00:00Z",
     updated_at: "2026-01-15T10:00:00Z",
@@ -105,7 +104,7 @@ test("txId deep link opens transaction outside the current date range", async ({
 
   const sheet = page.locator("aside");
   await expect(sheet).toBeVisible();
-  await expect(sheet.getByText("Stara transakcja z listy")).toBeVisible();
+  await expect(sheet.getByText("Stara transakcja z planu")).toBeVisible();
 });
 
 test("mobile date range sheet stays open while interacting with controls", async ({ page }) => {
@@ -129,7 +128,7 @@ test("mobile import and export stay as direct header actions", async ({ page }) 
   await page.goto("/transactions");
   await expect(page.locator("li").filter({ hasText: "Zakupy spożywcze" }).first()).toBeVisible();
 
-  await expect(page.getByRole("link", { name: "Import" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Import" }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Eksportuj CSV" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Więcej akcji" })).toHaveCount(0);
 });
@@ -145,7 +144,7 @@ test("mobile bank actions stay available when category filters are unavailable",
   await expect(page.locator("li").filter({ hasText: "Zakupy spożywcze" }).first()).toBeVisible();
 
   await expect(page.getByRole("button", { name: "Kategoria" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Import" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Import" }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Eksportuj CSV" })).toBeVisible();
 });
 
@@ -157,15 +156,15 @@ test("mobile bank actions stay available while rows are selected", async ({ page
 
   await row.getByRole("button", { name: "Zaznacz wszystkie" }).click();
   await expect(page.getByText("Zaznaczono 1")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Import" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Import" }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Eksportuj CSV" })).toBeVisible();
 });
 
 test("add transaction: opens dialog and shows success toast", async ({ page }) => {
-  // Click the desktop "+ Dodaj transakcję" button (not the mobile FAB)
-  // The page renders `+ {m.transaction_add()}` = "+ Dodaj transakcję"
+  // Click the desktop "+ Dodaj ręcznie" button (not the mobile FAB)
+  // The page renders `+ {m.transaction_manual_add()}` = "+ Dodaj ręcznie"
   await page
-    .getByRole("button", { name: /Dodaj transakcję/ })
+    .getByRole("button", { name: /Dodaj ręcznie/ })
     .first()
     .click();
 

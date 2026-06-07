@@ -1,3 +1,8 @@
+# ARCHIVED — superseded by public launch (2026-06)
+
+This note applied to the closed beta period. Public launch uses updated privacy
+copy and onboarding; keep this file for historical reference only.
+
 # Nota onboardingowa dla testerów beta
 
 Ostatnia aktualizacja: 5 czerwca 2026
@@ -23,9 +28,9 @@ wprost:
   odczytać.
 - **Możesz usunąć dane w każdej chwili.** Usunięcie konta i danych jest dostępne
   w **Ustawienia → Profil**.
-- **Eksport jest częściowy.** W becie wyeksportujesz transakcje do CSV; pełny
-  eksport konta (kategorie, plany, grupy, reguły, metadane importów) jest w
-  przygotowaniu.
+- **Eksport konta.** W Ustawienia → Profil możesz pobrać pełny eksport JSON (transakcje,
+  kategorie, reguły, plany, grupy, importy, majątek netto). CSV transakcji jest też
+  na liście Transakcje.
 
 Pełne informacje: polityka prywatności w aplikacji (`/privacy`).
 
