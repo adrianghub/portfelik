@@ -34,7 +34,15 @@
   const locale = "pl";
   const tz = getLocalTimeZone();
   let open = $state(false);
-  let placement = $state<"bottom" | "top">("bottom");
+  let triggerRef = $state<HTMLButtonElement | null>(null);
+  let dropAnchorY = $state(0);
+  let dropLeft = $state(0);
+  let dropWidth = $state(288);
+  let dropAbove = $state(false);
+
+  const POPOVER_HEIGHT_PX = 340;
+  const VIEWPORT_PADDING_PX = 8;
+
   const selected = $derived(toValue(value));
 
   function toValue(iso: string | null | undefined): DateValue | undefined {
@@ -65,24 +73,70 @@
     open = false;
   }
 
+  function updatePopoverPosition() {
+    if (!triggerRef || typeof window === "undefined") return;
+    const rect = triggerRef.getBoundingClientRect();
+    const vv = window.visualViewport;
+    const viewTop = vv?.offsetTop ?? 0;
+    const viewLeft = vv?.offsetLeft ?? 0;
+    const viewHeight = vv?.height ?? window.innerHeight;
+    const viewBottom = viewTop + viewHeight;
+    const spaceBelow = viewBottom - rect.bottom - VIEWPORT_PADDING_PX;
+    const spaceAbove = rect.top - viewTop - VIEWPORT_PADDING_PX;
+    dropAbove = spaceBelow < POPOVER_HEIGHT_PX && spaceAbove > spaceBelow;
+    dropLeft = rect.left - viewLeft;
+    dropWidth = Math.max(rect.width, 288);
+    dropAnchorY = dropAbove ? rect.top - 4 : rect.bottom + 4;
+  }
+
+  function portal(node: HTMLElement) {
+    document.body.appendChild(node);
+    return {
+      destroy() {
+        node.remove();
+      },
+    };
+  }
+
   function toggleOpen() {
     if (disabled) return;
-    if (!open && isDesktop.current) {
-      const el = document.getElementById(id);
-      if (el) {
-        const rect = el.getBoundingClientRect();
-        const popoverHeight = 340;
-        placement = rect.bottom + popoverHeight > window.innerHeight ? "top" : "bottom";
-      }
-    }
+    if (!open && isDesktop.current) updatePopoverPosition();
     open = !open;
   }
 
   function clickOutside(e: MouseEvent) {
-    if (!isDesktop.current) return;
+    if (!isDesktop.current || !open) return;
     const target = e.target as HTMLElement;
-    if (!target.closest(`[data-day-picker="${id}"]`)) open = false;
+    if (
+      target.closest(`[data-day-picker="${id}"]`) ||
+      target.closest(`[data-day-picker-popover="${id}"]`)
+    ) {
+      return;
+    }
+    open = false;
   }
+
+  $effect(() => {
+    if (typeof window === "undefined") return;
+    const vv = window.visualViewport;
+    const handler = () => {
+      if (open && isDesktop.current) updatePopoverPosition();
+    };
+    window.addEventListener("scroll", handler, true);
+    window.addEventListener("resize", handler);
+    vv?.addEventListener("resize", handler);
+    vv?.addEventListener("scroll", handler);
+    return () => {
+      window.removeEventListener("scroll", handler, true);
+      window.removeEventListener("resize", handler);
+      vv?.removeEventListener("resize", handler);
+      vv?.removeEventListener("scroll", handler);
+    };
+  });
+
+  $effect(() => {
+    if (open && isDesktop.current) updatePopoverPosition();
+  });
 </script>
 
 {#snippet calendarPanel()}
@@ -155,6 +209,7 @@
     <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for={id}>{label}</label>
   {/if}
   <button
+    bind:this={triggerRef}
     {id}
     type="button"
     onclick={toggleOpen}
@@ -176,10 +231,12 @@
 
   {#if open && isDesktop.current}
     <div
-      class={cn(
-        "absolute left-0 z-[100] min-w-72 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/95 p-4 shadow-[0_0_40px_rgba(0,0,0,0.4)] backdrop-blur",
-        placement === "top" ? "bottom-[calc(100%+0.5rem)]" : "top-[calc(100%+0.5rem)]"
-      )}
+      use:portal
+      data-day-picker-popover={id}
+      class="fixed z-[100] overflow-hidden rounded-2xl border border-white/5 bg-slate-900/95 p-4 shadow-[0_0_40px_rgba(0,0,0,0.4)] backdrop-blur"
+      style="top: {dropAnchorY}px; left: {dropLeft}px; width: {dropWidth}px; transform: translateY({dropAbove
+        ? '-100%'
+        : '0'});"
       role="dialog"
       aria-label={label}
     >
