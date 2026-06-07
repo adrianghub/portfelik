@@ -24,9 +24,7 @@
     queryFn: fetchLastCommittedImportSession,
   }));
 
-  const cadenceDays = $derived(
-    getBankImportReminder(profileQuery.data?.settings).cadenceDays
-  );
+  const cadenceDays = $derived(getBankImportReminder(profileQuery.data?.settings).cadenceDays);
 
   const daysSinceImport = $derived.by(() => {
     const session = importHealthQuery.data;

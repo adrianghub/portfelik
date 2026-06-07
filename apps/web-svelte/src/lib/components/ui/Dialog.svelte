@@ -35,7 +35,9 @@
       aria-modal="true"
       aria-labelledby="dialog-title"
     >
-      <div class="flex shrink-0 items-center justify-between border-b border-white/5 px-5 pt-5 pb-3">
+      <div
+        class="flex shrink-0 items-center justify-between border-b border-white/5 px-5 pt-5 pb-3"
+      >
         <h2 id="dialog-title" class="text-base font-semibold text-slate-100">
           {title}
         </h2>
