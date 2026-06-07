@@ -100,7 +100,7 @@ the in-app notification row with push as an optional channel.
 
 **Group plans G2 (2026-06-07):** co-owner-only plan/debt-term writes; member read + settle unchanged.
 
-**Immediate next step:** commit gap-closure stack; push `imp/mvp-hardening-plans`; `./scripts/open-pr.sh`.
+**Immediate next step:** commit ship-readiness fixes (P1 group_id RLS, P2 debt edit, smoke label, export); push `dev`; confirm staging deploy + smoke green; then `dev`→`main` promotion.
 
 **Open backlog:**
 

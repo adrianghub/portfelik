@@ -219,5 +219,32 @@ describe("RLS: plans", () => {
       expect(result.error).toBeNull();
       expect(result.data?.[0]?.name).toBe(`${SENTINEL} renamed-by-co-owner`);
     });
+
+    it("owner cannot attach private plan to a group they do not belong to", async () => {
+      const { data: foreignGroup, error: groupErr } = await ctx.userB.client.rpc("create_group", {
+        p_name: `${SENTINEL} foreign-group`,
+      });
+      if (groupErr || !foreignGroup) throw groupErr ?? new Error("no foreign group");
+      const foreignGroupId = (foreignGroup as { id: string }).id;
+
+      const { data: privatePlan, error: insertErr } = await ctx.userA.client
+        .from("plans")
+        .insert({
+          user_id: ctx.userA.userId,
+          name: `${SENTINEL} private-for-hijack`,
+          start_date: "2026-06-01",
+          end_date: "2026-06-30",
+        })
+        .select("id")
+        .single();
+      if (insertErr || !privatePlan) throw insertErr ?? new Error("no plan");
+
+      const result = await ctx.userA.client
+        .from("plans")
+        .update({ group_id: foreignGroupId })
+        .eq("id", privatePlan.id)
+        .select();
+      expectBlockedWrite(result);
+    });
   });
 });

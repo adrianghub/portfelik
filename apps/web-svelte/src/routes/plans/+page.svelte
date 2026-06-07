@@ -227,6 +227,15 @@
     debtBalance = "";
     debtRate = "7.18";
     debtPayment = "";
+    if (plan?.kind === "debt") {
+      const terms = debtTermsQuery.data?.[plan.id];
+      if (terms) {
+        debtOriginal = String(terms.original_amount);
+        debtBalance = String(terms.current_balance);
+        debtRate = String(terms.annual_rate);
+        debtPayment = String(terms.monthly_payment);
+      }
+    }
     categoryId = plan?.category_id ?? "";
     groupId = plan?.group_id ?? "";
     showForm = true;
@@ -276,14 +285,25 @@
   }));
 
   const updateMutation = createSvelteMutation(() => ({
-    mutationFn: () => updatePlan(editing!.id, formPayload()),
+    mutationFn: async () => {
+      const id = editing!.id;
+      const plan = await updatePlan(id, formPayload());
+      if (planKind === "debt" && debtOriginal !== "") {
+        await upsertPlanDebtTerms(id, debtTermsPayload());
+      }
+      return plan;
+    },
     onSuccess: async () => {
       const id = editing?.id;
       showForm = false;
       editing = null;
       toast.success(m.plan_toast_updated());
       await queryClient.invalidateQueries({ queryKey: ["plans"] });
-      if (id) await queryClient.invalidateQueries({ queryKey: ["plan", id] });
+      await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms-list"] });
+      if (id) {
+        await queryClient.invalidateQueries({ queryKey: ["plan", id] });
+        await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms", id] });
+      }
     },
     onError: () => toast.error(m.toast_error()),
   }));

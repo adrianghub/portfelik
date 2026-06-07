@@ -10,10 +10,12 @@ export interface AccountExportBundle {
   categories: unknown[];
   categorization_rules: unknown[];
   plans: unknown[];
+  plan_debt_terms: unknown[];
   groups: unknown[];
   group_members: unknown[];
   bank_accounts: unknown[];
   import_sessions: unknown[];
+  financial_snapshot: unknown | null;
   profile: unknown | null;
 }
 
@@ -69,16 +71,36 @@ export async function buildAccountExport(): Promise<AccountExportBundle> {
     .maybeSingle();
   if (profileError) throw profileError;
 
+  const { data: snapshot, error: snapshotError } = await supabase
+    .from("financial_snapshots")
+    .select("*")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (snapshotError) throw snapshotError;
+
+  const planIds = (plans as { id: string }[]).map((p) => p.id);
+  let planDebtTerms: unknown[] = [];
+  if (planIds.length > 0) {
+    const { data, error } = await supabase
+      .from("plan_debt_terms")
+      .select("*")
+      .in("plan_id", planIds);
+    if (error) throw error;
+    planDebtTerms = data ?? [];
+  }
+
   return {
     exported_at: now.toISOString(),
     transactions,
     categories,
     categorization_rules: rules ?? [],
     plans,
+    plan_debt_terms: planDebtTerms,
     groups,
     group_members: groupMembers,
     bank_accounts: accounts ?? [],
     import_sessions: sessions ?? [],
+    financial_snapshot: snapshot ?? null,
     profile: profile ?? null,
   };
 }

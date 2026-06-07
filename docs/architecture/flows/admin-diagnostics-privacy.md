@@ -123,6 +123,6 @@ User-facing wording to use (do not overpromise "no one can ever see your data"):
 - [~] Production Supabase access limited to owner / essential operators (Layer 2). Runbook authored (`docs/runbooks/ops-access-lockdown.md`); **verify before public launch** — roster §1.
 - [x] Service-role keys not exposed anywhere client-side. Audited 2026-06-05 — clean (no `service_role` in client `src`, no `PUBLIC_`-prefixed secret, example envs placeholder-only, CI passes keys via `${{ secrets.* }}`, no secret echoed to logs). Re-run procedure in the Layer-2 runbook §3.
 - [x] Privacy policy states what is stored and who can access it (`docs/legal/privacy-policy.md` + in-app `/privacy` route).
-- [ ] Full account-data export — **public launch blocker**. CSV transaction export exists; full export (categories, plans, groups, rules, import metadata) required before public launch.
+- [x] Full account-data export — JSON bundle in Settings → Profil (transactions, categories, rules, plans+links, debt terms, groups, import sessions, financial snapshot, profile).
 - [x] Onboarding asks testers to upload only the history they need (`docs/product/beta-onboarding-note.md`).
 - [x] Beta + "not end-to-end encrypted" communicated to testers (beta note + `/privacy` route + login-page notice).
