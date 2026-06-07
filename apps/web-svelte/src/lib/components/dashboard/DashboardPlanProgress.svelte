@@ -91,6 +91,10 @@
                 aria-valuenow={Math.round(ratio * 100)}
                 aria-valuemin={0}
                 aria-valuemax={100}
+                aria-label={m.dashboard_plan_progress_bar({
+                  name: plan.planName,
+                  pct: Math.round(ratio * 100),
+                })}
               >
                 <div
                   class="bg-accent-gradient h-full rounded-full transition-all"
