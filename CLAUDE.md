@@ -96,9 +96,11 @@ the in-app notification row with push as an optional channel.
 
 **Goals & Debt v1.5 polish (2026-06-07):** debt timeline, Belka scenarios, save sliders, balance sync from raty.
 
-**Net worth D1 (2026-06-07):** `financial_snapshots` manual holdings + majątek netto hero on `/plans` (assets − debt plans). Deferred D2: surplus card, dashboard strip.
+**Net worth D2 (2026-06-07):** surplus card on `/plans`, Pulpit net-worth strip; nadwyżka formula in `debt-and-savings-goals.md`.
 
-**Immediate next step:** commit D1 + v1.5 polish + a11y fix (dashboard progressbar label); push `imp/mvp-hardening-plans`; `./scripts/open-pr.sh`.
+**Group plans G2 (2026-06-07):** co-owner-only plan/debt-term writes; member read + settle unchanged.
+
+**Immediate next step:** commit gap-closure stack; push `imp/mvp-hardening-plans`; `./scripts/open-pr.sh`.
 
 **Open backlog:**
 

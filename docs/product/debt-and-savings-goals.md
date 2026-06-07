@@ -45,12 +45,33 @@ raty** / **Spłać / nadpłać** (debt).
   `real_estate_amount`, `as_of_date` (all manual entry).
 - **Majątek netto** on `/plans` = sum(assets) − sum(`plan_debt_terms.current_balance`).
 - Copy states values are user-entered; Portfelik does not derive bank balances from import.
+- **Pulpit strip (D2):** compact net-worth summary linking to `/plans`; same manual snapshot.
 
-## Deferred (D2+)
+## Monthly surplus (D2)
 
-- Surplus „Masz nadwyżkę …” card (needs surplus definition)
+**Nadwyżka v1** (current calendar month):
+
+```
+nadwyżka = (wpływy − wydatki) − suma rat kredytowych − suma monthlyNeeded celów save
+```
+
+- Shown on `/plans` as **Nadwyżka** card below majątek netto.
+- Uses committed transactions for income/expense; debt from `plan_debt_terms.monthly_payment`;
+  save pace from `computePlanProgress().monthlyNeeded` on active save plans.
+- Negative surplus = obligations exceed month cashflow (amber copy).
+
+## Group collaboration (G1 + G2)
+
+- **G1 read + settle:** any group member sees shared plans and may link/unlink eligible
+  group-scoped transactions via `link_plan_transaction` (scope must match).
+- **G2 writes:** only plan creator or group owner/co-owner may edit/delete plans and debt
+  terms (`is_group_co_owner` RLS). Plain members get read-only detail + settle CTAs.
+- Net worth snapshots stay **per-user** (not group-shared).
+
+## Deferred (D3+)
+
 - Safety-cushion copy on scenarios (needs avg expenses baseline)
-- Dashboard net-worth strip (duplicate of Plany hero)
+- Auto net worth from import balances (needs explicit user-confirmed mapping)
 
 ## Lifecycle example
 

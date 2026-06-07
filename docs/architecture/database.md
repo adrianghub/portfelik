@@ -319,8 +319,10 @@ history rows through `plan_transaction_links`.
   CHECK `target_amount > 0` when set.
 - **`start_date`**, **`end_date`**, CHECK `end_date >= start_date`.
 - **RLS read**: own or group-shared.
-- **RLS write**: owner OR current group member for group-scoped plans. This
-  matches the current flat member model; co-owner-only management is a follow-up.
+- **RLS write**: plan creator OR group owner/co-owner (`is_group_co_owner`) for
+  group-scoped updates/deletes; any group member may still insert their own group plan.
+  Settlement RPCs allow any group member to link/unlink when scopes match.
+  Migration: `20260620000000_plan_co_owner_writes.sql`.
 - **Indexes**: `idx_plans_user_updated`, `idx_plans_group_user_updated`,
   `idx_plans_start_end`, `idx_plans_user_kind`.
 
@@ -333,10 +335,11 @@ history rows through `plan_transaction_links`.
   `monthly_payment`, optional `payment_day`, optional `anchor_transaction_id`
   (confirmed recurring rata from import).
 - **CHECK**: `current_balance <= original_amount`; positive amounts/rate constraints.
-- **RLS**: read/write via parent plan access (owner or group member read;
-  insert owner-only; update owner or group member).
+- **RLS**: read via parent plan (owner or group member); insert/update/delete
+  by plan creator or group owner/co-owner only. Migration:
+  `20260620000000_plan_co_owner_writes.sql`.
 - **Client simulation**: amortization and overpay vs invest compare run in
-  `debt-amortization.ts` (monthly compounding v1, no Belka tax in compare).
+  `debt-amortization.ts` (monthly compounding v1; Belka 19% in scenario compare).
 
 ### `financial_snapshots`
 
@@ -346,6 +349,7 @@ Owner-entered asset snapshot for net-worth hero on Plany (one row per user).
 - **Columns**: `as_of_date`, `cash_amount`, `investments_amount`, `real_estate_amount` (all ≥ 0).
 - **RLS**: owner read/insert/update/delete only.
 - **Net worth**: client computes `sum(assets) − sum(debt plan balances)`; not stored.
+- **Dashboard strip**: same snapshot read; compact link to `/plans` for edit.
 
 ### `notifications`
 
