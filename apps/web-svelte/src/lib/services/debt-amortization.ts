@@ -29,11 +29,26 @@ export interface DebtOverpayComparison {
   monthsSaved: number;
 }
 
+export const BELKA_RATE = 0.19;
+
 export interface DebtInvestComparison {
   overpayInterestSaved: number;
   investNominalGain: number;
+  investNetGain: number;
+  effectiveInvestReturnPct: number;
   recommendation: "overpay" | "invest" | "tie";
+  /** Gross market return needed to beat the loan after Belka (19%). */
   breakEvenGrossReturn: number;
+}
+
+/** Effective annual return after 19% Belka on nominal gains. */
+export function effectiveReturnAfterBelka(grossReturnPct: number): number {
+  return grossReturnPct * (1 - BELKA_RATE);
+}
+
+/** Gross return % an investment must earn to match a tax-free loan rate. */
+export function breakEvenGrossBeatsLoan(loanRatePct: number): number {
+  return loanRatePct / (1 - BELKA_RATE);
 }
 
 const DEFAULT_MAX_MONTHS = 600;
@@ -119,19 +134,19 @@ export function compareOverpayVsInvest(
   }
 
   const overpayInterestSaved = overpay.interestSaved;
-  let recommendation: DebtInvestComparison["recommendation"] = "tie";
-  // v1: compare gross annual rates (no Belka); loan rate is the guaranteed overpay return.
-  if (assumedInvestReturnPct < input.annualRate - 0.25) recommendation = "overpay";
-  else if (assumedInvestReturnPct > input.annualRate + 0.25) recommendation = "invest";
+  const effectiveInvestReturnPct = effectiveReturnAfterBelka(assumedInvestReturnPct);
+  const investNetGain = investGain * (1 - BELKA_RATE);
+  const breakEvenGrossReturn = breakEvenGrossBeatsLoan(input.annualRate);
 
-  const breakEvenGrossReturn =
-    input.currentBalance > 0 && months > 0
-      ? (overpayInterestSaved / (extraMonthlyPayment * months)) * 12 * 100
-      : assumedInvestReturnPct;
+  let recommendation: DebtInvestComparison["recommendation"] = "tie";
+  if (effectiveInvestReturnPct < input.annualRate - 0.25) recommendation = "overpay";
+  else if (effectiveInvestReturnPct > input.annualRate + 0.25) recommendation = "invest";
 
   return {
     overpayInterestSaved,
     investNominalGain: investGain,
+    investNetGain,
+    effectiveInvestReturnPct,
     recommendation,
     breakEvenGrossReturn,
   };

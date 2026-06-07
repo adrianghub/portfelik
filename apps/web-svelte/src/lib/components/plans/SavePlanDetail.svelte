@@ -1,6 +1,7 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
   import type { PlanSettlementProgress } from "$lib/services/plan-settlement";
+  import { monthsRemaining } from "$lib/services/plans";
   import type { Plan } from "$lib/types";
   import { formatCurrency } from "$lib/utils";
   import { ChevronRight } from "lucide-svelte";
@@ -8,9 +9,11 @@
   interface Props {
     plan: Plan;
     progress: PlanSettlementProgress;
+    onAdjust?: (patch: { target_amount: number; end_date: string }) => void | Promise<void>;
+    adjusting?: boolean;
   }
 
-  let { plan, progress }: Props = $props();
+  let { plan, progress, onAdjust, adjusting = false }: Props = $props();
 
   const target = $derived(plan.target_amount ?? 0);
   const saved = $derived(progress.savedAmount);
@@ -21,6 +24,27 @@
       : null
   );
   const onTrack = $derived(gap == null || gap <= 0);
+
+  let sliderTarget = $state(60000);
+  let sliderMonths = $state(12);
+
+  $effect(() => {
+    sliderTarget = plan.target_amount ?? 60000;
+    sliderMonths = monthsRemaining(plan.end_date);
+  });
+
+  function endDateFromMonths(months: number): string {
+    const d = new Date();
+    d.setMonth(d.getMonth() + months);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function emitAdjust() {
+    onAdjust?.({
+      target_amount: sliderTarget,
+      end_date: endDateFromMonths(sliderMonths),
+    });
+  }
 </script>
 
 <section
@@ -43,7 +67,16 @@
       </span>
     </div>
     <div class="min-w-0 flex-1">
-      <p class="text-eyebrow text-slate-400">{m.plan_kind_save()}</p>
+      <div class="flex flex-wrap items-center gap-2">
+        <p class="text-eyebrow text-slate-400">{m.plan_kind_save()}</p>
+        {#if onTrack && saved > 0}
+          <span
+            class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 uppercase"
+          >
+            {m.plan_save_on_track_badge()}
+          </span>
+        {/if}
+      </div>
       <p class="text-accent text-2xl font-semibold tabular-nums">
         {formatCurrency(saved)}
       </p>
@@ -52,6 +85,43 @@
       </p>
     </div>
   </div>
+
+  {#if onAdjust}
+    <div class="mt-5 space-y-4 rounded-xl border border-white/5 bg-slate-900/40 p-3">
+      <div>
+        <div class="flex items-center justify-between text-xs text-slate-400">
+          <span>{m.plan_save_slider_target()}</span>
+          <span class="text-slate-200 tabular-nums">{formatCurrency(sliderTarget)}</span>
+        </div>
+        <input
+          type="range"
+          min="5000"
+          max="200000"
+          step="1000"
+          bind:value={sliderTarget}
+          onchange={emitAdjust}
+          disabled={adjusting}
+          class="accent-accent mt-2 w-full"
+        />
+      </div>
+      <div>
+        <div class="flex items-center justify-between text-xs text-slate-400">
+          <span>{m.plan_save_slider_deadline()}</span>
+          <span class="text-slate-200">{m.plan_save_slider_months({ count: sliderMonths })}</span>
+        </div>
+        <input
+          type="range"
+          min="3"
+          max="60"
+          step="1"
+          bind:value={sliderMonths}
+          onchange={emitAdjust}
+          disabled={adjusting}
+          class="accent-accent mt-2 w-full"
+        />
+      </div>
+    </div>
+  {/if}
 
   <div class="mt-5 grid gap-2 sm:grid-cols-2">
     {#if progress.monthlyNeeded != null}

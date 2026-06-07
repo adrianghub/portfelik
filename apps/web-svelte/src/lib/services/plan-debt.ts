@@ -61,6 +61,15 @@ export async function setDebtAnchorTransaction(
   if (error) throw error;
 }
 
+/** Approximate remaining balance from linked payment expenses (full amount as principal). */
+export function deriveDebtBalanceFromLinks(
+  originalAmount: number,
+  linkedExpenses: { amount: number }[]
+): number {
+  const paid = linkedExpenses.reduce((sum, tx) => sum + tx.amount, 0);
+  return Math.max(0, originalAmount - paid);
+}
+
 export async function fetchPlanDebtTermsByPlanIds(
   planIds: string[]
 ): Promise<Record<string, PlanDebtTerms>> {

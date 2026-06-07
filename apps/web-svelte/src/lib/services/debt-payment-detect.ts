@@ -58,13 +58,18 @@ export async function detectRecurringDebtPayments(input: {
     const sorted = [...txs].sort((a, b) => a.date.localeCompare(b.date));
     const daySpread = sorted.map((t) => new Date(t.date).getDate());
     const avgDay = daySpread.reduce((s, d) => s + d, 0) / daySpread.length;
+    const desc = sorted[0].description.toLowerCase();
+    const keywordHit = ["hipotek", "kredyt", "rata", "spłat", "splata", "loan"].some((k) =>
+      desc.includes(k)
+    );
     const reasons = [
       `${txs.length}× kwota ~${input.monthlyPayment} zł`,
       `ok. ${Math.round(avgDay)}. dnia miesiąca`,
     ];
+    if (keywordHit) reasons.push("pasuje opis (kredyt/rata)");
     results.push({
       tx: sorted[0],
-      score: 50 + txs.length * 10,
+      score: 50 + txs.length * 10 + (keywordHit ? 15 : 0),
       reasons,
     });
   }

@@ -11,8 +11,14 @@
   import DebtPlanDetail from "$lib/components/plans/DebtPlanDetail.svelte";
   import SavePlanDetail from "$lib/components/plans/SavePlanDetail.svelte";
   import { detectRecurringDebtPayments } from "$lib/services/debt-payment-detect";
-  import { fetchPlanDebtTerms, setDebtAnchorTransaction } from "$lib/services/plan-debt";
-  import { fetchPlanById } from "$lib/services/plans";
+  import {
+    deriveDebtBalanceFromLinks,
+    fetchPlanDebtTerms,
+    setDebtAnchorTransaction,
+    upsertPlanDebtTerms,
+    updatePlanDebtBalance,
+  } from "$lib/services/plan-debt";
+  import { fetchPlanById, updatePlan } from "$lib/services/plans";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
   import { polishPluralForm } from "$lib/utils/polish-plural";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
@@ -78,6 +84,12 @@
   const expenses = $derived((linkedQuery.data ?? []).filter((tx) => tx.type === "expense"));
   const incomes = $derived((linkedQuery.data ?? []).filter((tx) => tx.type === "income"));
 
+  const derivedDebtBalance = $derived(
+    planQuery.data?.kind === "debt" && debtTermsQuery.data
+      ? deriveDebtBalanceFromLinks(Number(debtTermsQuery.data.original_amount), expenses)
+      : null
+  );
+
   function settleCtaSubtitle(count: number): string {
     const form = polishPluralForm(count);
     if (form === "one") return m.plan_detail_settle_cta_subtitle_one({ count });
@@ -104,6 +116,49 @@
       toast.success(m.plan_settle_linked());
       await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms", id] });
       await queryClient.invalidateQueries({ queryKey: ["plan-debt-detect", id] });
+    },
+    onError: () => toast.error(m.toast_error()),
+  }));
+
+  const saveAdjustMutation = createMutation(() => ({
+    mutationFn: (patch: { target_amount: number; end_date: string }) => {
+      const plan = planQuery.data!;
+      return updatePlan(id, {
+        name: plan.name,
+        kind: "save",
+        start_date: plan.start_date,
+        end_date: patch.end_date,
+        target_amount: patch.target_amount,
+        category_id: plan.category_id,
+        group_id: plan.group_id,
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["plan", id] });
+      await queryClient.invalidateQueries({ queryKey: ["plans"] });
+      await queryClient.invalidateQueries({ queryKey: ["plan-progress-list"] });
+    },
+    onError: () => toast.error(m.toast_error()),
+  }));
+
+  const debtTermsMutation = createMutation(() => ({
+    mutationFn: (input: Parameters<typeof upsertPlanDebtTerms>[1]) =>
+      upsertPlanDebtTerms(id, input),
+    onSuccess: async () => {
+      toast.success(m.plan_toast_updated());
+      await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms", id] });
+    },
+    onError: () => toast.error(m.toast_error()),
+  }));
+
+  const syncBalanceMutation = createMutation(() => ({
+    mutationFn: async () => {
+      if (derivedDebtBalance == null) return;
+      await updatePlanDebtBalance(id, derivedDebtBalance);
+    },
+    onSuccess: async () => {
+      toast.success(m.plan_debt_sync_done());
+      await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms", id] });
     },
     onError: () => toast.error(m.toast_error()),
   }));
@@ -158,7 +213,12 @@
     </div>
 
     {#if plan.kind === "save" && progress}
-      <SavePlanDetail {plan} {progress} />
+      <SavePlanDetail
+        {plan}
+        {progress}
+        onAdjust={(patch) => saveAdjustMutation.mutate(patch)}
+        adjusting={saveAdjustMutation.isPending}
+      />
     {:else if plan.kind === "debt" && debtTermsQuery.data}
       {#if paymentDetectQuery.data?.[0] && !debtTermsQuery.data.anchor_transaction_id}
         <div
@@ -178,7 +238,15 @@
           </button>
         </div>
       {/if}
-      <DebtPlanDetail planId={id} terms={debtTermsQuery.data} />
+      <DebtPlanDetail
+        planId={id}
+        terms={debtTermsQuery.data}
+        derivedBalance={derivedDebtBalance}
+        onSyncBalance={() => syncBalanceMutation.mutate()}
+        onTermsSave={(input) => debtTermsMutation.mutate(input)}
+        syncing={syncBalanceMutation.isPending}
+        termsSaving={debtTermsMutation.isPending}
+      />
       <a
         href="/plans/{id}/settle"
         class="focus-visible:ring-accent inline-flex items-center gap-1 text-sm font-semibold text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:outline-none"

@@ -41,6 +41,12 @@
   );
   const spentPct = $derived(Math.round(spentRatio * 100));
   const periodLabel = $derived(`${formatDate(plan.start_date)} - ${formatDate(plan.end_date)}`);
+  const saveOnTrack = $derived(
+    kind === "save" &&
+      plan.monthlyNeeded != null &&
+      plan.monthlyActual != null &&
+      plan.monthlyActual >= plan.monthlyNeeded - 0.01
+  );
   const hasActions = $derived(!!onedit || !!ondelete);
 
   function suggestionLabel(count: number): string {
@@ -111,6 +117,13 @@
         >
           <div class="flex items-center gap-2">
             <span class="truncate leading-tight font-semibold text-slate-100">{plan.name}</span>
+            {#if saveOnTrack}
+              <span
+                class="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 uppercase"
+              >
+                {m.plan_save_on_track_badge()}
+              </span>
+            {/if}
             {#if plan.group_id && groupName}
               <span
                 class="border-accent/20 bg-accent/10 text-accent inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase"

@@ -43,4 +43,11 @@ describe("simulateAmortization", () => {
     const cmp = compareOverpayVsInvest(MORTGAGE, 500, 10);
     expect(cmp.recommendation).toBe("invest");
   });
+
+  it("computes break-even gross return after Belka", () => {
+    const cmp = compareOverpayVsInvest(MORTGAGE, 500, 7);
+    expect(cmp.breakEvenGrossReturn).toBeGreaterThan(8.8);
+    expect(cmp.breakEvenGrossReturn).toBeLessThan(9);
+    expect(cmp.effectiveInvestReturnPct).toBeCloseTo(5.67, 1);
+  });
 });
