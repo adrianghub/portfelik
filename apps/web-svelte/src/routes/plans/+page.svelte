@@ -10,7 +10,11 @@
   import { fetchCategories } from "$lib/services/categories";
   import { fetchUserGroups, fetchMyGroupRoles } from "$lib/services/groups";
   import { fetchPlanProgressForPlans } from "$lib/services/plan-settlement";
-  import { upsertPlanDebtTerms, fetchPlanDebtTermsByPlanIds } from "$lib/services/plan-debt";
+  import {
+    upsertPlanDebtTerms,
+    fetchPlanDebtTermsByPlanIds,
+    normalizeDebtTermsInput,
+  } from "$lib/services/plan-debt";
   import {
     computeNetWorth,
     fetchFinancialSnapshot,
@@ -269,17 +273,60 @@
   function debtTermsPayload() {
     return {
       original_amount: Number(debtOriginal),
-      current_balance: Number(debtBalance || debtOriginal),
+      current_balance: debtBalance !== "" ? Number(debtBalance) : Number(debtOriginal),
       annual_rate: Number(debtRate),
       monthly_payment: Number(debtPayment),
     };
   }
 
+  function toastPlanError(err: unknown) {
+    const code = err instanceof Error ? err.message : "";
+    switch (code) {
+      case "debt_original_required":
+        toast.error(m.plan_debt_original_required());
+        return;
+      case "debt_payment_required":
+        toast.error(m.plan_debt_payment_required());
+        return;
+      case "debt_rate_invalid":
+        toast.error(m.plan_debt_rate_invalid());
+        return;
+      case "debt_balance_exceeds_original":
+        toast.error(m.plan_debt_balance_exceeds_original());
+        return;
+      case "name_required":
+        toast.error(m.plan_form_name_required());
+        return;
+      case "date_required":
+      case "date_order":
+        toast.error(m.plan_form_dates_invalid());
+        return;
+      case "target_required":
+        toast.error(m.plan_form_target_required());
+        return;
+      case "budget_invalid":
+        toast.error(m.plan_form_budget_invalid());
+        return;
+      default:
+        toast.error(m.toast_error());
+    }
+  }
+
+  function validatedDebtTerms() {
+    return normalizeDebtTermsInput(debtTermsPayload());
+  }
+
   const createMutation = createSvelteMutation(() => ({
     mutationFn: async () => {
+      const debtTerms = planKind === "debt" ? validatedDebtTerms() : null;
       const plan = await createPlan(formPayload());
-      if (planKind === "debt") {
-        await upsertPlanDebtTerms(plan.id, debtTermsPayload());
+      if (planKind === "debt" && debtTerms) {
+        try {
+          await upsertPlanDebtTerms(plan.id, debtTerms);
+        } catch (err) {
+          await deletePlan(plan.id);
+          throw err;
+        }
       }
       return plan;
     },
@@ -287,16 +334,17 @@
       showForm = false;
       toast.success(m.plan_toast_created());
       await queryClient.invalidateQueries({ queryKey: ["plans"] });
+      await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms-list"] });
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastPlanError(err),
   }));
 
   const updateMutation = createSvelteMutation(() => ({
     mutationFn: async () => {
       const id = editing!.id;
       const plan = await updatePlan(id, formPayload());
-      if (planKind === "debt" && debtOriginal !== "") {
-        await upsertPlanDebtTerms(id, debtTermsPayload());
+      if (planKind === "debt") {
+        await upsertPlanDebtTerms(id, validatedDebtTerms());
       }
       return plan;
     },
@@ -312,11 +360,19 @@
         await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms", id] });
       }
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastPlanError(err),
   }));
 
   function submitForm(e: SubmitEvent) {
     e.preventDefault();
+    if (planKind === "debt") {
+      try {
+        validatedDebtTerms();
+      } catch (err) {
+        toastPlanError(err);
+        return;
+      }
+    }
     if (editing) updateMutation.mutate();
     else createMutation.mutate();
   }
@@ -597,6 +653,7 @@
             id="debt-original"
             type="number"
             min="0.01"
+            step="0.01"
             required
             bind:value={debtOriginal}
             class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
@@ -610,6 +667,7 @@
             id="debt-balance"
             type="number"
             min="0"
+            step="0.01"
             bind:value={debtBalance}
             class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
           />
@@ -636,6 +694,7 @@
             id="debt-payment"
             type="number"
             min="0.01"
+            step="0.01"
             required
             bind:value={debtPayment}
             class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"

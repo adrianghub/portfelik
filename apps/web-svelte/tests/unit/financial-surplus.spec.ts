@@ -8,7 +8,7 @@ import {
 import type { PlanDebtTerms } from "$lib/types";
 
 describe("computeMonthlySurplus", () => {
-  it("subtracts debt payments and save pace from month cashflow", () => {
+  it("uses month cashflow as the headline surplus", () => {
     const result = computeMonthlySurplus({
       totalIncome: 12000,
       totalExpenses: 8500,
@@ -16,18 +16,21 @@ describe("computeMonthlySurplus", () => {
       saveMonthlyNeeded: 800,
     });
     expect(result.cashflowNet).toBe(3500);
-    expect(result.surplus).toBe(330);
-    expect(result.hasObligations).toBe(true);
+    expect(result.surplus).toBe(3500);
+    expect(result.afterSaveGoals).toBe(2700);
+    expect(result.hasSaveGoals).toBe(true);
+    expect(result.hasDebtPlans).toBe(true);
   });
 
-  it("allows negative surplus when obligations exceed cashflow", () => {
+  it("does not subtract debt payments again from cashflow", () => {
     const result = computeMonthlySurplus({
       totalIncome: 5000,
       totalExpenses: 4800,
       debtMonthlyPayments: 2370,
       saveMonthlyNeeded: 500,
     });
-    expect(result.surplus).toBe(-2670);
+    expect(result.surplus).toBe(200);
+    expect(result.afterSaveGoals).toBe(-300);
   });
 });
 
@@ -62,11 +65,12 @@ describe("sumDebtMonthlyPayments", () => {
 });
 
 describe("sumSaveMonthlyNeeded", () => {
-  it("counts only active save plans", () => {
+  it("counts only active save plans within date range", () => {
     const total = sumSaveMonthlyNeeded(
       [
-        { kind: "save", end_date: "2026-12-01", monthlyNeeded: 800 },
-        { kind: "save", end_date: "2025-01-01", monthlyNeeded: 500 },
+        { kind: "save", start_date: "2026-01-01", end_date: "2026-12-01", monthlyNeeded: 800 },
+        { kind: "save", start_date: "2026-01-01", end_date: "2025-01-01", monthlyNeeded: 500 },
+        { kind: "save", start_date: "2026-12-01", end_date: "2027-12-01", monthlyNeeded: 400 },
         { kind: "spend", end_date: "2026-12-01", monthlyNeeded: 200 },
       ],
       "2026-06-07"

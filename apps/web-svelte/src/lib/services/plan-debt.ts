@@ -10,6 +10,28 @@ export type PlanDebtTermsInput = {
   anchor_transaction_id?: string | null;
 };
 
+export function normalizeDebtTermsInput(input: PlanDebtTermsInput): PlanDebtTermsInput {
+  const original = Math.abs(Number(input.original_amount));
+  const balanceProvided =
+    input.current_balance != null && !Number.isNaN(Number(input.current_balance));
+  const balance = balanceProvided ? Math.abs(Number(input.current_balance)) : original;
+  const rate = Number(input.annual_rate);
+  const payment = Math.abs(Number(input.monthly_payment));
+
+  if (!original || Number.isNaN(original)) throw new Error("debt_original_required");
+  if (!payment || Number.isNaN(payment)) throw new Error("debt_payment_required");
+  if (Number.isNaN(rate) || rate < 0) throw new Error("debt_rate_invalid");
+  if (balance > original) throw new Error("debt_balance_exceeds_original");
+
+  return {
+    ...input,
+    original_amount: original,
+    current_balance: balance,
+    annual_rate: rate,
+    monthly_payment: payment,
+  };
+}
+
 export async function fetchPlanDebtTerms(planId: string): Promise<PlanDebtTerms | null> {
   const { data, error } = await supabase
     .from("plan_debt_terms")
@@ -24,12 +46,13 @@ export async function upsertPlanDebtTerms(
   planId: string,
   input: PlanDebtTermsInput
 ): Promise<PlanDebtTerms> {
+  const normalized = normalizeDebtTermsInput(input);
   const payload = {
     plan_id: planId,
-    original_amount: input.original_amount,
-    current_balance: input.current_balance,
-    annual_rate: input.annual_rate,
-    monthly_payment: input.monthly_payment,
+    original_amount: normalized.original_amount,
+    current_balance: normalized.current_balance,
+    annual_rate: normalized.annual_rate,
+    monthly_payment: normalized.monthly_payment,
     payment_day: input.payment_day ?? null,
     anchor_transaction_id: input.anchor_transaction_id ?? null,
   };
