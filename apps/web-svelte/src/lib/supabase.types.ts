@@ -135,6 +135,36 @@ export type Database = {
           },
         ];
       };
+      financial_snapshots: {
+        Row: {
+          as_of_date: string;
+          cash_amount: number;
+          created_at: string;
+          investments_amount: number;
+          real_estate_amount: number;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          as_of_date?: string;
+          cash_amount?: number;
+          created_at?: string;
+          investments_amount?: number;
+          real_estate_amount?: number;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          as_of_date?: string;
+          cash_amount?: number;
+          created_at?: string;
+          investments_amount?: number;
+          real_estate_amount?: number;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       group_invitations: {
         Row: {
           created_at: string;
