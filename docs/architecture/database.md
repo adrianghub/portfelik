@@ -298,7 +298,9 @@ the name).
 - **PK**: `id`. **FKs**: `category_id` (RESTRICT), `user_id` (CASCADE),
   `recurring_template_id` (SET NULL self-ref).
 - **CHECK**: `amount > 0`, `recurring_day BETWEEN 1 AND 31`.
-- **RLS read**: own + group-shared. **RLS write**: own only.
+- **RLS read**: own + group-shared. **RLS write**: creator for own rows; group
+  owner/co-owner (`is_group_co_owner`) for group-scoped peer rows. Migration:
+  `20260622000000_transaction_co_owner_writes.sql`.
 - **Indexes**: `idx_transactions_user_date_asc`, `idx_transactions_category_user_date`, `idx_transactions_status_date`, `idx_transactions_recurring`, `idx_transactions_recurring_template` (redundant `idx_transactions_user_date_desc` dropped in `20260530000000`).
 
 A view `transactions_with_category` joins to `categories` for display; the SvelteKit app reads this view in `fetchTransactions`.
@@ -441,7 +443,11 @@ Per-user deterministic categorization rules consumed by the import review step. 
 
 Two patterns:
 
-1. **Owner + group-shared read**, **owner-only write or current flat-member write** - used across `transactions`, `categories`, and `plans` depending on table maturity. The read predicate is the standard pair-of-`group_members` self-join:
+1. **Owner + group-shared read**, **owner or co-owner write for group-scoped rows** -
+   used across `transactions`, `categories`, and `plans` depending on table maturity.
+   Plain group members read shared rows and settle plans but do not edit peers'
+   transactions or plans unless nominated co-owner. The read predicate is the
+   standard pair-of-`group_members` self-join:
 
    ```sql
    user_id = (select auth.uid())
