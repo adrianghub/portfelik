@@ -30,11 +30,19 @@
     {m.plans_surplus_breakdown({
       income: formatCurrency(summary.totalIncome),
       expenses: formatCurrency(summary.totalExpenses),
-      debt: formatCurrency(summary.debtMonthlyPayments),
-      save: formatCurrency(summary.saveMonthlyNeeded),
     })}
   </p>
-  {#if !summary.hasObligations}
-    <p class="mt-2 text-xs text-slate-500">{m.plans_surplus_no_obligations()}</p>
+  {#if summary.hasSaveGoals}
+    <p class="mt-2 text-xs leading-relaxed text-slate-500">
+      {m.plans_surplus_after_save({
+        save: formatCurrency(summary.saveMonthlyNeeded),
+        amount: formatCurrency(summary.afterSaveGoals),
+      })}
+    </p>
+  {/if}
+  {#if summary.hasDebtPlans}
+    <p class="mt-2 text-xs text-slate-500">
+      {m.plans_surplus_debt_note({ debt: formatCurrency(summary.debtMonthlyPayments) })}
+    </p>
   {/if}
 </section>

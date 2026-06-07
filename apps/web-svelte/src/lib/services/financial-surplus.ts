@@ -13,18 +13,24 @@ export interface MonthlySurplusSummary {
   cashflowNet: number;
   debtMonthlyPayments: number;
   saveMonthlyNeeded: number;
+  /** Month cashflow (income − expenses). Raty kredytów nie odejmujemy ponownie — są już w wydatkach. */
   surplus: number;
-  hasObligations: boolean;
+  /** Cashflow minus save-goal pace (when user tracks accumulation targets). */
+  afterSaveGoals: number;
+  hasSaveGoals: boolean;
+  hasDebtPlans: boolean;
 }
 
 export function computeMonthlySurplus(input: MonthlySurplusInput): MonthlySurplusSummary {
   const cashflowNet = input.totalIncome - input.totalExpenses;
-  const surplus = cashflowNet - input.debtMonthlyPayments - input.saveMonthlyNeeded;
+  const afterSaveGoals = cashflowNet - input.saveMonthlyNeeded;
   return {
     ...input,
     cashflowNet,
-    surplus,
-    hasObligations: input.debtMonthlyPayments > 0 || input.saveMonthlyNeeded > 0,
+    surplus: cashflowNet,
+    afterSaveGoals,
+    hasSaveGoals: input.saveMonthlyNeeded > 0,
+    hasDebtPlans: input.debtMonthlyPayments > 0,
   };
 }
 
@@ -33,11 +39,21 @@ export function sumDebtMonthlyPayments(terms: Record<string, PlanDebtTerms>): nu
 }
 
 export function sumSaveMonthlyNeeded(
-  plans: { kind?: PlanKind; end_date: string; monthlyNeeded?: number | null }[],
+  plans: {
+    kind?: PlanKind;
+    start_date?: string;
+    end_date: string;
+    monthlyNeeded?: number | null;
+  }[],
   today = new Date().toISOString().slice(0, 10)
 ): number {
   return plans
-    .filter((plan) => (plan.kind ?? "spend") === "save" && plan.end_date >= today)
+    .filter(
+      (plan) =>
+        (plan.kind ?? "spend") === "save" &&
+        (plan.start_date ?? today) <= today &&
+        plan.end_date >= today
+    )
     .reduce((sum, plan) => sum + (plan.monthlyNeeded ?? 0), 0);
 }
 

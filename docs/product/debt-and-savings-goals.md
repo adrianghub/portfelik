@@ -49,16 +49,18 @@ raty** / **Spłać / nadpłać** (debt).
 
 ## Monthly surplus (D2)
 
-**Nadwyżka v1** (current calendar month):
+**Bilans miesiąca** on `/plans` (below majątek netto):
 
 ```
-nadwyżka = (wpływy − wydatki) − suma rat kredytowych − suma monthlyNeeded celów save
+bilans = wpływy − wydatki   (ten miesiąc, z importu / wpisów)
+po celach = bilans − suma monthlyNeeded aktywnych celów save
 ```
 
-- Shown on `/plans` as **Nadwyżka** card below majątek netto.
-- Uses committed transactions for income/expense; debt from `plan_debt_terms.monthly_payment`;
-  save pace from `computePlanProgress().monthlyNeeded` on active save plans.
-- Negative surplus = obligations exceed month cashflow (amber copy).
+- Raty kredytów **nie** odejmujemy ponownie — przy import-first wydatków rata jest
+  już w wydatkach; karta pokazuje raty z planów tylko jako informację.
+- Save pace from `computePlanProgress().monthlyNeeded` on active save plans
+  (`start_date ≤ today ≤ end_date`).
+- Secondary line **Po odłożeniu na cele** when user tracks save goals.
 
 ## Group collaboration (G1 + G2)
 

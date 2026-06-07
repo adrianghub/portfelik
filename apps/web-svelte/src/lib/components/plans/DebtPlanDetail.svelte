@@ -1,14 +1,15 @@
 <script lang="ts">
-  import * as m from "$lib/paraglide/messages";
   import {
     approximateDailyInterest,
     compareOverpay,
     formatDuration,
   } from "$lib/services/debt-amortization";
-  import type { PlanDebtTermsInput } from "$lib/services/plan-debt";
+  import { normalizeDebtTermsInput, type PlanDebtTermsInput } from "$lib/services/plan-debt";
   import type { PlanDebtTerms } from "$lib/types";
   import { cn, formatCurrency } from "$lib/utils";
   import { ChevronRight } from "lucide-svelte";
+  import { toast } from "svelte-sonner";
+  import * as m from "$lib/paraglide/messages";
 
   interface Props {
     planId: string;
@@ -72,15 +73,36 @@
   const newInstallment = $derived(Number(terms.monthly_payment) + extraPayment);
 
   async function saveTermsEdit() {
-    await onTermsSave?.({
-      original_amount: Number(editOriginal),
-      current_balance: Number(editBalance),
-      annual_rate: Number(editRate),
-      monthly_payment: Number(editPayment),
-      payment_day: terms.payment_day,
-      anchor_transaction_id: terms.anchor_transaction_id,
-    });
-    showTermsEdit = false;
+    try {
+      const input = normalizeDebtTermsInput({
+        original_amount: Number(editOriginal),
+        current_balance: Number(editBalance),
+        annual_rate: Number(editRate),
+        monthly_payment: Number(editPayment),
+        payment_day: terms.payment_day,
+        anchor_transaction_id: terms.anchor_transaction_id,
+      });
+      await onTermsSave?.(input);
+      showTermsEdit = false;
+    } catch (err) {
+      const code = err instanceof Error ? err.message : "";
+      switch (code) {
+        case "debt_original_required":
+          toast.error(m.plan_debt_original_required());
+          break;
+        case "debt_payment_required":
+          toast.error(m.plan_debt_payment_required());
+          break;
+        case "debt_rate_invalid":
+          toast.error(m.plan_debt_rate_invalid());
+          break;
+        case "debt_balance_exceeds_original":
+          toast.error(m.plan_debt_balance_exceeds_original());
+          break;
+        default:
+          toast.error(m.toast_error());
+      }
+    }
   }
 </script>
 
@@ -245,6 +267,9 @@
             {m.plan_debt_original()}
             <input
               type="number"
+              min="0.01"
+              step="0.01"
+              required
               bind:value={editOriginal}
               class="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
             />
@@ -253,6 +278,8 @@
             {m.plan_debt_balance()}
             <input
               type="number"
+              min="0"
+              step="0.01"
               bind:value={editBalance}
               class="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
             />
@@ -261,7 +288,9 @@
             {m.plan_debt_rate()}
             <input
               type="number"
+              min="0"
               step="0.01"
+              required
               bind:value={editRate}
               class="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
             />
@@ -270,6 +299,9 @@
             {m.plan_debt_payment()}
             <input
               type="number"
+              min="0.01"
+              step="0.01"
+              required
               bind:value={editPayment}
               class="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
             />
