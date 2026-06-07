@@ -4,7 +4,7 @@
   import { getPlanEmoji } from "$lib/utils/plan-emoji";
   import { formatCurrency } from "$lib/utils";
   import { createQuery } from "@tanstack/svelte-query";
-  import { ShoppingBasket, Sparkles } from "lucide-svelte";
+  import { Sparkles } from "lucide-svelte";
 
   const progressQuery = createQuery(() => ({
     queryKey: ["plan-progress"],
@@ -12,12 +12,17 @@
   }));
 
   const activePlans = $derived(
-    (progressQuery.data ?? []).filter((p) => p.eligibleCount > 0 || p.linkedCount > 0)
+    (progressQuery.data ?? []).filter(
+      (p) =>
+        p.eligibleCount > 0 || p.linkedCount > 0 || (p.budgetAmount != null && p.budgetAmount > 0)
+    )
   );
 </script>
 
 {#if progressQuery.isPending}
   <div class="h-28 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
+{:else if progressQuery.isError}
+  <p class="text-sm text-rose-400">{m.dashboard_plan_progress_error()}</p>
 {:else if activePlans.length > 0}
   <section
     class="rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur"
@@ -27,10 +32,17 @@
       <p id="dashboard-plan-progress-title" class="text-eyebrow text-slate-400">
         {m.dashboard_plan_progress_title()}
       </p>
-      <ShoppingBasket size={18} class="shrink-0 text-slate-400" aria-hidden="true" />
+      <a href="/plans" class="text-accent shrink-0 text-xs font-semibold hover:underline">
+        {m.dashboard_plan_progress_all()}
+      </a>
     </div>
     <ul class="space-y-2">
       {#each activePlans.slice(0, 4) as plan (plan.planId)}
+        {@const emoji = getPlanEmoji(undefined, plan.planName)}
+        {@const spentPct =
+          plan.budgetAmount != null && plan.budgetAmount > 0
+            ? Math.round(Math.min(1, plan.spentAmount / plan.budgetAmount) * 100)
+            : null}
         <li>
           <a
             href={plan.eligibleCount > 0 ? `/plans/${plan.planId}/settle` : `/plans/${plan.planId}`}
@@ -42,8 +54,8 @@
                 class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-800 text-sm"
                 aria-hidden="true"
               >
-                {#if getPlanEmoji(undefined, plan.planName)}
-                  {getPlanEmoji(undefined, plan.planName)}
+                {#if emoji}
+                  {emoji}
                 {:else}
                   <span class="text-xs font-semibold text-slate-400">
                     {plan.planName.charAt(0).toUpperCase()}
@@ -62,14 +74,17 @@
                 </span>
               {/if}
               <span class="shrink-0 text-xs text-slate-400 tabular-nums">
-                {formatCurrency(plan.linkedAmount)}
-                {#if plan.plannedAmount != null && plan.plannedAmount > 0}
-                  / {formatCurrency(plan.plannedAmount)}
+                {formatCurrency(plan.spentAmount)}
+                {#if plan.budgetAmount != null && plan.budgetAmount > 0}
+                  / {formatCurrency(plan.budgetAmount)}
+                  {#if spentPct != null}
+                    · {spentPct}%
+                  {/if}
                 {/if}
               </span>
             </div>
-            {#if plan.plannedAmount != null && plan.plannedAmount > 0}
-              {@const ratio = Math.min(1, plan.linkedAmount / plan.plannedAmount)}
+            {#if plan.budgetAmount != null && plan.budgetAmount > 0}
+              {@const ratio = Math.min(1, plan.spentAmount / plan.budgetAmount)}
               <div
                 class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-800"
                 role="progressbar"
@@ -91,8 +106,5 @@
         </li>
       {/each}
     </ul>
-    <a href="/plans" class="text-accent mt-3 inline-block text-xs hover:underline">
-      {m.dashboard_plan_progress_cta()}
-    </a>
   </section>
 {/if}

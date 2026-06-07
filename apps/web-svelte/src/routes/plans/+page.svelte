@@ -1,31 +1,36 @@
 <script lang="ts">
-  import ShoppingListCard from "$lib/components/shopping-lists/ShoppingListCard.svelte";
+  import PlanCard from "$lib/components/plans/PlanCard.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import DayPicker from "$lib/components/ui/DayPicker.svelte";
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import Fab from "$lib/components/ui/Fab.svelte";
-  import { Plus } from "lucide-svelte";
   import * as m from "$lib/paraglide/messages";
-  import { fetchUserGroups } from "$lib/services/groups";
   import { fetchCategories } from "$lib/services/categories";
+  import { fetchUserGroups } from "$lib/services/groups";
   import { fetchPlanProgressForPlans } from "$lib/services/plan-settlement";
+  import { upsertPlanDebtTerms, fetchPlanDebtTermsByPlanIds } from "$lib/services/plan-debt";
   import {
-    createShoppingList,
-    deleteShoppingList,
-    duplicateShoppingList,
-    fetchShoppingLists,
-    updateShoppingList,
-  } from "$lib/services/shopping-lists";
-  import type { ShoppingListSummary } from "$lib/types";
+    createPlan,
+    deletePlan,
+    derivePlanBucket,
+    fetchPlans,
+    updatePlan,
+  } from "$lib/services/plans";
+  import type { Plan, PlanKind, PlanSummary } from "$lib/types";
   import { cn } from "$lib/utils";
-  import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
+  import {
+    createMutation as createSvelteMutation,
+    createQuery,
+    useQueryClient,
+  } from "@tanstack/svelte-query";
+  import { Plus } from "lucide-svelte";
   import { toast } from "svelte-sonner";
 
   const queryClient = useQueryClient();
 
-  const query = createQuery(() => ({
-    queryKey: ["shopping_lists"],
-    queryFn: fetchShoppingLists,
+  const plansQuery = createQuery(() => ({
+    queryKey: ["plans"],
+    queryFn: fetchPlans,
   }));
 
   const groupsQuery = createQuery(() => ({
@@ -38,222 +43,174 @@
     queryFn: fetchCategories,
   }));
 
-  const expenseCategories = $derived(
-    categoriesQuery.data?.filter((c) => c.type === "expense") ?? []
-  );
-
   const categoryMap = $derived(new Map((categoriesQuery.data ?? []).map((c) => [c.id, c.name])));
   const groupMap = $derived(new Map((groupsQuery.data ?? []).map((g) => [g.id, g.name])));
+  const planIds = $derived((plansQuery.data ?? []).map((p) => p.id));
 
-  const allPlanIds = $derived((query.data ?? []).map((l) => l.id));
   const progressQuery = createQuery(() => ({
-    queryKey: ["plan-progress-list", allPlanIds],
-    queryFn: () => fetchPlanProgressForPlans(allPlanIds),
-    enabled: allPlanIds.length > 0,
+    queryKey: ["plan-progress-list", planIds],
+    queryFn: () => fetchPlanProgressForPlans(planIds),
+    enabled: planIds.length > 0,
   }));
 
   let groupFilter = $state<"all" | "own" | string>("all");
-  const filteredLists = $derived(
-    (query.data ?? []).filter((l) => {
-      if (groupFilter === "all") return true;
-      if (groupFilter === "own") return l.group_id === null;
-      return l.group_id === groupFilter;
+
+  const debtPlanIds = $derived(
+    (plansQuery.data ?? []).filter((p) => p.kind === "debt").map((p) => p.id)
+  );
+
+  const debtTermsQuery = createQuery(() => ({
+    queryKey: ["plan-debt-terms-list", debtPlanIds],
+    queryFn: () => fetchPlanDebtTermsByPlanIds(debtPlanIds),
+    enabled: debtPlanIds.length > 0,
+  }));
+
+  const summaries = $derived(
+    (plansQuery.data ?? []).map((plan): PlanSummary => {
+      const progress = progressQuery.data?.[plan.id];
+      return {
+        ...plan,
+        kind: plan.kind ?? "spend",
+        spentAmount: progress?.spentAmount ?? 0,
+        incomeAmount: progress?.incomeAmount ?? 0,
+        savedAmount: progress?.savedAmount ?? 0,
+        linkedCount: progress?.linkedCount ?? 0,
+        eligibleCount: progress?.eligibleCount ?? 0,
+        monthlyNeeded: progress?.monthlyNeeded ?? null,
+        monthlyActual: progress?.monthlyActual ?? null,
+        bucket: derivePlanBucket(plan),
+      };
     })
   );
-  const upcoming = $derived(filteredLists.filter((l) => l.bucket === "upcoming"));
-  const active = $derived(filteredLists.filter((l) => l.bucket === "active"));
-  const archived = $derived(filteredLists.filter((l) => l.bucket === "archived"));
-  const hasAnyLists = $derived((query.data?.length ?? 0) > 0);
-  const firstSettlePlanId = $derived(
-    active.find((l) => (progressQuery.data?.[l.id]?.eligibleCount ?? 0) > 0)?.id ?? null
+
+  const filteredPlans = $derived(
+    summaries.filter((p) => {
+      if (groupFilter === "all") return true;
+      if (groupFilter === "own") return p.group_id === null;
+      return p.group_id === groupFilter;
+    })
   );
+  const activePlans = $derived(
+    filteredPlans.filter((p) => p.kind === "spend" && p.bucket === "active")
+  );
+  const upcomingPlans = $derived(
+    filteredPlans.filter((p) => p.kind === "spend" && p.bucket === "upcoming")
+  );
+  const finishedPlans = $derived(
+    filteredPlans.filter((p) => p.kind === "spend" && p.bucket === "finished")
+  );
+  const savePlans = $derived(filteredPlans.filter((p) => p.kind === "save"));
+  const debtPlans = $derived(filteredPlans.filter((p) => p.kind === "debt"));
 
   function todayIsoLocal(): string {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   }
 
-  // Create dialog
-  let showCreate = $state(false);
-  let newName = $state("");
-  let newGroupId = $state("");
-  let newCategoryId = $state("");
-  let newPlannedFor = $state(todayIsoLocal());
+  let showForm = $state(false);
+  let editing = $state<PlanSummary | null>(null);
+  let planKind = $state<PlanKind>("spend");
+  let name = $state("");
+  let startDate = $state(todayIsoLocal());
+  let endDate = $state(todayIsoLocal());
+  let budgetAmount = $state("");
+  let targetAmount = $state("");
+  let debtOriginal = $state("");
+  let debtBalance = $state("");
+  let debtRate = $state("7.18");
+  let debtPayment = $state("");
+  let categoryId = $state("");
+  let groupId = $state("");
 
-  const createMut = createMutation(() => ({
-    mutationFn: () =>
-      createShoppingList({
-        name: newName,
-        group_id: newGroupId || null,
-        category_id: newCategoryId || null,
-        planned_for: newPlannedFor || null,
-      }),
-    onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: ["shopping_lists"] });
-      const previous = queryClient.getQueryData<ShoppingListSummary[]>(["shopping_lists"]);
-      const optimistic: ShoppingListSummary = {
-        id: "__optimistic_" + crypto.randomUUID(),
-        name: newName,
-        status: "active",
-        user_id: "",
-        group_id: newGroupId || null,
-        category_id: newCategoryId || null,
-        total_amount: null,
-        completed_at: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        item_total: 0,
-        item_completed: 0,
-        linked_transaction_id: null,
-        linkedAmount: 0,
-        linkedCount: 0,
-        planned_for: newPlannedFor,
-        shopping_started_at: null,
-        bucket: newPlannedFor > todayIsoLocal() ? "upcoming" : "active",
-        mode: "planning",
-      };
-      queryClient.setQueryData<ShoppingListSummary[]>(
-        ["shopping_lists"],
-        [optimistic, ...(previous ?? [])]
-      );
-      showCreate = false;
-      return { previous };
-    },
-    onSuccess: () => {
-      newName = "";
-      newGroupId = "";
-      newCategoryId = "";
-      newPlannedFor = todayIsoLocal();
-      toast.success(m.toast_shopping_list_created());
-    },
-    onError: (_err, _vars, ctx) => {
-      if (ctx?.previous) queryClient.setQueryData(["shopping_lists"], ctx.previous);
-      showCreate = true;
-      toast.error(m.toast_error());
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ["shopping_lists"] }),
-  }));
-
-  function submitCreate(e: Event) {
-    e.preventDefault();
-    createMut.mutate();
+  function resetForm(plan?: Plan) {
+    editing = plan as PlanSummary | null;
+    planKind = plan?.kind ?? "spend";
+    name = plan?.name ?? "";
+    startDate = plan?.start_date ?? todayIsoLocal();
+    endDate = plan?.end_date ?? plan?.start_date ?? todayIsoLocal();
+    budgetAmount = plan?.budget_amount != null ? String(plan.budget_amount) : "";
+    targetAmount = plan?.target_amount != null ? String(plan.target_amount) : "";
+    debtOriginal = "";
+    debtBalance = "";
+    debtRate = "7.18";
+    debtPayment = "";
+    categoryId = plan?.category_id ?? "";
+    groupId = plan?.group_id ?? "";
+    showForm = true;
   }
 
-  function openCreateDialog() {
-    showCreate = true;
-    newName = "";
-    newGroupId = "";
-    newCategoryId = "";
-    newPlannedFor = todayIsoLocal();
+  function formPayload() {
+    return {
+      name,
+      kind: planKind,
+      start_date: startDate,
+      end_date: endDate,
+      budget_amount: planKind === "spend" && budgetAmount !== "" ? Number(budgetAmount) : null,
+      target_amount:
+        planKind === "save" && targetAmount !== ""
+          ? Number(targetAmount)
+          : planKind === "debt" && debtOriginal !== ""
+            ? Number(debtOriginal)
+            : null,
+      category_id: categoryId || null,
+      group_id: groupId || null,
+    };
   }
 
-  // Delete
-  let deleteTargetId = $state<string | null>(null);
+  function debtTermsPayload() {
+    return {
+      original_amount: Number(debtOriginal),
+      current_balance: Number(debtBalance || debtOriginal),
+      annual_rate: Number(debtRate),
+      monthly_payment: Number(debtPayment),
+    };
+  }
 
-  const deleteTargetArchived = $derived(
-    deleteTargetId ? archived.some((l) => l.id === deleteTargetId) : false
-  );
-
-  const deleteMut = createMutation(() => ({
-    mutationFn: (id: string) => deleteShoppingList(id),
-    onMutate: async (id: string) => {
-      await queryClient.cancelQueries({ queryKey: ["shopping_lists"] });
-      const previous = queryClient.getQueryData<ShoppingListSummary[]>(["shopping_lists"]);
-      queryClient.setQueryData<ShoppingListSummary[]>(
-        ["shopping_lists"],
-        (previous ?? []).filter((l) => l.id !== id)
-      );
-      return { previous };
+  const createMutation = createSvelteMutation(() => ({
+    mutationFn: async () => {
+      const plan = await createPlan(formPayload());
+      if (planKind === "debt") {
+        await upsertPlanDebtTerms(plan.id, debtTermsPayload());
+      }
+      return plan;
     },
-    onSuccess: () => toast.success(m.toast_shopping_list_deleted()),
-    onError: (_err, _vars, ctx) => {
-      if (ctx?.previous) queryClient.setQueryData(["shopping_lists"], ctx.previous);
-      toast.error(m.toast_error());
-    },
-    onSettled: () => {
-      deleteTargetId = null;
-      queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
-    },
-  }));
-
-  // Duplicate
-  const duplicateMut = createMutation(() => ({
-    mutationFn: (id: string) => duplicateShoppingList(id),
     onSuccess: async () => {
-      toast.success(m.toast_shopping_list_duplicated());
-      await queryClient.invalidateQueries({ queryKey: ["shopping_lists"] });
+      showForm = false;
+      toast.success(m.plan_toast_created());
+      await queryClient.invalidateQueries({ queryKey: ["plans"] });
     },
     onError: () => toast.error(m.toast_error()),
   }));
 
-  // Edit
-  let editTarget = $state<ShoppingListSummary | null>(null);
-  let editName = $state("");
-  let editGroupId = $state("");
-  let editCategoryId = $state("");
-  let editPlannedFor = $state("");
-
-  function openEdit(list: ShoppingListSummary) {
-    editTarget = list;
-    editName = list.name;
-    editGroupId = list.group_id ?? "";
-    editCategoryId = list.category_id ?? "";
-    editPlannedFor = list.planned_for;
-  }
-
-  const updateMut = createMutation(() => ({
-    mutationFn: () =>
-      updateShoppingList(editTarget!.id, {
-        name: editName,
-        group_id: editGroupId || null,
-        category_id: editCategoryId || null,
-        planned_for: editPlannedFor,
-      }),
-    onMutate: async () => {
-      const target = editTarget;
-      if (!target) return { previous: undefined };
-      await queryClient.cancelQueries({ queryKey: ["shopping_lists"] });
-      const previous = queryClient.getQueryData<ShoppingListSummary[]>(["shopping_lists"]);
-      const today = todayIsoLocal();
-      const patch = {
-        name: editName,
-        group_id: editGroupId || null,
-        category_id: editCategoryId || null,
-        planned_for: editPlannedFor,
-      };
-      queryClient.setQueryData<ShoppingListSummary[]>(
-        ["shopping_lists"],
-        (previous ?? []).map((l) =>
-          l.id === target.id
-            ? {
-                ...l,
-                ...patch,
-                bucket: l.completed_at
-                  ? "archived"
-                  : l.shopping_started_at || editPlannedFor <= today
-                    ? "active"
-                    : "upcoming",
-              }
-            : l
-        )
-      );
-      return { previous };
+  const updateMutation = createSvelteMutation(() => ({
+    mutationFn: () => updatePlan(editing!.id, formPayload()),
+    onSuccess: async () => {
+      const id = editing?.id;
+      showForm = false;
+      editing = null;
+      toast.success(m.plan_toast_updated());
+      await queryClient.invalidateQueries({ queryKey: ["plans"] });
+      if (id) await queryClient.invalidateQueries({ queryKey: ["plan", id] });
     },
-    onSuccess: () => {
-      editTarget = null;
-      toast.success(m.toast_shopping_list_updated());
-    },
-    onError: (_err, _vars, ctx) => {
-      if (ctx?.previous) queryClient.setQueryData(["shopping_lists"], ctx.previous);
-      toast.error(m.toast_error());
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ["shopping_lists"] }),
+    onError: () => toast.error(m.toast_error()),
   }));
 
-  function submitEdit(e: Event) {
+  function submitForm(e: SubmitEvent) {
     e.preventDefault();
-    updateMut.mutate();
+    if (editing) updateMutation.mutate();
+    else createMutation.mutate();
   }
+
+  let deleteTargetId = $state<string | null>(null);
+  const deleteMutation = createSvelteMutation(() => ({
+    mutationFn: (id: string) => deletePlan(id),
+    onSuccess: async () => {
+      toast.success(m.plan_toast_deleted());
+      await queryClient.invalidateQueries({ queryKey: ["plans"] });
+    },
+    onError: () => toast.error(m.toast_error()),
+    onSettled: () => (deleteTargetId = null),
+  }));
 </script>
 
 <svelte:head>
@@ -262,118 +219,113 @@
 
 <div class="container mx-auto max-w-3xl space-y-5 px-4 py-6">
   <div class="flex items-center justify-between gap-3">
-    <h1 class="text-2xl font-semibold text-slate-900 dark:text-white">
-      {m.nav_plans()}
-    </h1>
+    <h1 class="text-2xl font-semibold text-slate-900 dark:text-white">{m.nav_plans()}</h1>
     <button
       type="button"
-      onclick={openCreateDialog}
+      onclick={() => resetForm()}
       class="bg-accent-gradient focus-visible:ring-accent hidden items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:outline-none md:inline-flex"
     >
       <Plus size={16} aria-hidden="true" />
-      {m.shopping_list_form_title_add()}
+      {m.plan_form_title_add()}
     </button>
   </div>
 
-  <p class="text-sm text-slate-400">
-    {m.plans_tagline_prefix()}
-    {#if firstSettlePlanId}
-      <a href="/plans/{firstSettlePlanId}/settle" class="text-accent font-medium"
-        >{m.plans_tagline_cta()}</a
-      >
-    {:else}
-      <span class="text-accent font-medium">{m.plans_tagline_cta()}</span>
-    {/if}
-    {m.plans_tagline_suffix()}
-  </p>
+  <p class="text-sm text-slate-400">{m.plans_tagline()}</p>
 
-  {#if query.isLoading}
+  {#if plansQuery.isLoading}
     <div class="grid gap-3 sm:grid-cols-2">
       {#each Array(4) as _, i (i)}
-        <div class="rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur">
-          <div class="mb-3 h-4 w-2/3 animate-pulse rounded bg-slate-800/60"></div>
-          <div class="space-y-2">
-            <div class="h-3 w-full animate-pulse rounded bg-slate-800/60"></div>
-            <div class="h-3 w-4/5 animate-pulse rounded bg-slate-800/60"></div>
-          </div>
-        </div>
+        <div class="h-32 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
       {/each}
     </div>
-  {:else if query.isError}
+  {:else if plansQuery.isError}
     <p class="text-sm text-rose-600">{m.common_error_title()}</p>
   {:else}
-    {#if !hasAnyLists}
+    {#if (plansQuery.data?.length ?? 0) === 0}
       <p class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-400">
-        {m.shopping_lists_empty_hint()}
+        {m.plans_empty_hint()}
       </p>
     {/if}
 
-    <div role="tablist" aria-label="Grupa" class="flex flex-wrap gap-1">
-      <button
-        type="button"
-        role="tab"
-        aria-selected={groupFilter === "all"}
-        onclick={() => (groupFilter = "all")}
-        class={cn(
-          "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
-          groupFilter === "all"
-            ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
-            : "border border-white/5 text-slate-300 hover:bg-white/5"
-        )}
-      >
-        {m.group_filter_all()}
-      </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={groupFilter === "own"}
-        onclick={() => (groupFilter = "own")}
-        class={cn(
-          "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
-          groupFilter === "own"
-            ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
-            : "border border-white/5 text-slate-300 hover:bg-white/5"
-        )}
-      >
-        {m.group_filter_own()}
-      </button>
-      {#each groupsQuery.data as g (g.id)}
+    <div role="tablist" aria-label={m.group_filter_label()} class="flex flex-wrap gap-1">
+      {#each [{ id: "all", label: m.group_filter_all() }, { id: "own", label: m.group_filter_own() }] as filter (filter.id)}
         <button
           type="button"
           role="tab"
-          aria-selected={groupFilter === g.id}
-          onclick={() => (groupFilter = g.id)}
+          aria-selected={groupFilter === filter.id}
+          onclick={() => (groupFilter = filter.id as "all" | "own")}
           class={cn(
             "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
-            groupFilter === g.id
+            groupFilter === filter.id
               ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
               : "border border-white/5 text-slate-300 hover:bg-white/5"
           )}
         >
-          {g.name}
+          {filter.label}
+        </button>
+      {/each}
+      {#each groupsQuery.data ?? [] as group (group.id)}
+        <button
+          type="button"
+          role="tab"
+          aria-selected={groupFilter === group.id}
+          onclick={() => (groupFilter = group.id)}
+          class={cn(
+            "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
+            groupFilter === group.id
+              ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
+              : "border border-white/5 text-slate-300 hover:bg-white/5"
+          )}
+        >
+          {group.name}
         </button>
       {/each}
     </div>
 
+    {#each [{ title: m.plans_section_active(), plans: activePlans, empty: m.plans_section_active_empty() }, { title: m.plans_section_upcoming(), plans: upcomingPlans, empty: m.plans_section_upcoming_empty() }, { title: m.plans_section_finished(), plans: finishedPlans, empty: m.plans_section_finished_empty() }] as section (section.title)}
+      {#if section.plans.length > 0 || section.title === m.plans_section_active()}
+        <section class="space-y-2">
+          <h2 class="text-xs font-medium tracking-wide text-slate-400 uppercase">
+            {m.plans_section_spend()} · {section.title}
+          </h2>
+          {#if section.plans.length === 0}
+            <p
+              class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-400"
+            >
+              {section.empty}
+            </p>
+          {:else}
+            {#each section.plans as plan (plan.id)}
+              <PlanCard
+                {plan}
+                categoryName={categoryMap.get(plan.category_id ?? "")}
+                groupName={groupMap.get(plan.group_id ?? "")}
+                onedit={resetForm}
+                ondelete={(id) => (deleteTargetId = id)}
+              />
+            {/each}
+          {/if}
+        </section>
+      {/if}
+    {/each}
+
     <section class="space-y-2">
-      <h2 class="text-xs font-medium tracking-wide text-slate-400 uppercase dark:text-slate-400">
-        {m.shopping_lists_section_active()}
+      <h2 class="text-xs font-medium tracking-wide text-slate-400 uppercase">
+        {m.plans_section_save()}
       </h2>
-      {#if active.length === 0}
+      {#if savePlans.length === 0}
         <p
           class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-400"
         >
-          {m.shopping_lists_section_active_empty()}
+          {m.plans_section_save_empty()}
         </p>
       {:else}
-        {#each active as list (list.id)}
-          <ShoppingListCard
-            {list}
-            variant="active"
-            categoryName={categoryMap.get(list.category_id ?? "") ?? undefined}
-            groupName={groupMap.get(list.group_id ?? "") ?? undefined}
-            eligibleCount={progressQuery.data?.[list.id]?.eligibleCount ?? 0}
-            onedit={openEdit}
+        {#each savePlans as plan (plan.id)}
+          <PlanCard
+            {plan}
+            categoryName={categoryMap.get(plan.category_id ?? "")}
+            groupName={groupMap.get(plan.group_id ?? "")}
+            onedit={resetForm}
             ondelete={(id) => (deleteTargetId = id)}
           />
         {/each}
@@ -381,47 +333,23 @@
     </section>
 
     <section class="space-y-2">
-      <h2 class="text-xs font-medium tracking-wide text-slate-400 uppercase dark:text-slate-400">
-        {m.shopping_lists_section_upcoming()}
+      <h2 class="text-xs font-medium tracking-wide text-slate-400 uppercase">
+        {m.plans_section_debt()}
       </h2>
-      {#if upcoming.length === 0}
+      {#if debtPlans.length === 0}
         <p
           class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-400"
         >
-          {m.shopping_lists_section_upcoming_empty()}
+          {m.plans_section_debt_empty()}
         </p>
       {:else}
-        {#each upcoming as list (list.id)}
-          <ShoppingListCard
-            {list}
-            variant="upcoming"
-            categoryName={categoryMap.get(list.category_id ?? "") ?? undefined}
-            groupName={groupMap.get(list.group_id ?? "") ?? undefined}
-            onedit={openEdit}
-            ondelete={(id) => (deleteTargetId = id)}
-          />
-        {/each}
-      {/if}
-    </section>
-
-    <section class="space-y-2">
-      <h2 class="text-xs font-medium tracking-wide text-slate-400 uppercase dark:text-slate-400">
-        {m.shopping_lists_section_archived()}
-      </h2>
-      {#if archived.length === 0}
-        <p
-          class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-400"
-        >
-          {m.shopping_lists_section_archived_empty()}
-        </p>
-      {:else}
-        {#each archived as list (list.id)}
-          <ShoppingListCard
-            {list}
-            variant="archived"
-            categoryName={categoryMap.get(list.category_id ?? "") ?? undefined}
-            groupName={groupMap.get(list.group_id ?? "") ?? undefined}
-            onduplicate={(id) => duplicateMut.mutate(id)}
+        {#each debtPlans as plan (plan.id)}
+          <PlanCard
+            {plan}
+            debtTerms={debtTermsQuery.data?.[plan.id]}
+            categoryName={categoryMap.get(plan.category_id ?? "")}
+            groupName={groupMap.get(plan.group_id ?? "")}
+            onedit={resetForm}
             ondelete={(id) => (deleteTargetId = id)}
           />
         {/each}
@@ -430,161 +358,195 @@
   {/if}
 </div>
 
-<Fab onclick={openCreateDialog} aria-label={m.shopping_list_form_title_add()} />
+<Fab onclick={() => resetForm()} aria-label={m.plan_form_title_add()} />
 
-<!-- Create dialog -->
 <Dialog
-  open={showCreate}
-  onclose={() => (showCreate = false)}
-  title={m.shopping_list_form_title_add()}
+  open={showForm}
+  onclose={() => {
+    showForm = false;
+    editing = null;
+  }}
+  title={editing ? m.plan_form_title_edit() : m.plan_form_title_add()}
 >
-  <form onsubmit={submitCreate} class="space-y-4">
+  <form onsubmit={submitForm} class="space-y-4">
     <div class="space-y-1">
-      <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="sl-name"
-        >{m.shopping_list_form_name()}</label
-      >
+      <p class="text-xs font-medium text-slate-300">{m.plan_form_kind()}</p>
+      <div class="grid grid-cols-3 gap-2">
+        {#each [{ kind: "spend" as PlanKind, label: m.plan_kind_spend() }, { kind: "save" as PlanKind, label: m.plan_kind_save() }, { kind: "debt" as PlanKind, label: m.plan_kind_debt() }] as tile (tile.kind)}
+          <button
+            type="button"
+            disabled={!!editing}
+            onclick={() => (planKind = tile.kind)}
+            class={cn(
+              "rounded-xl border px-2 py-2 text-xs font-semibold transition-colors",
+              planKind === tile.kind
+                ? "border-accent/40 bg-accent/15 text-accent"
+                : "border-white/10 text-slate-400 hover:bg-white/5"
+            )}
+          >
+            {tile.label}
+          </button>
+        {/each}
+      </div>
+    </div>
+
+    <div class="space-y-1">
+      <label class="text-xs font-medium text-slate-300" for="plan-name">
+        {m.plan_form_name()}
+      </label>
       <input
-        id="sl-name"
+        id="plan-name"
         type="text"
         required
-        bind:value={newName}
+        bind:value={name}
         class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:ring-2 focus:outline-none"
       />
     </div>
-    <DayPicker
-      id="sl-planned"
-      bind:value={newPlannedFor}
-      label={m.shopping_list_planned_for_input_label()}
-      required
-    />
+
+    <div class="grid gap-3 sm:grid-cols-2">
+      <DayPicker id="plan-start" bind:value={startDate} label={m.plan_form_start_date()} required />
+      <DayPicker id="plan-end" bind:value={endDate} label={m.plan_form_end_date()} required />
+    </div>
+
+    {#if planKind === "spend"}
+      <div class="space-y-1">
+        <label class="text-xs font-medium text-slate-300" for="plan-budget">
+          {m.plan_form_budget()}
+        </label>
+        <input
+          id="plan-budget"
+          type="number"
+          min="0.01"
+          step="0.01"
+          bind:value={budgetAmount}
+          placeholder={m.plan_form_budget_placeholder()}
+          class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:ring-2 focus:outline-none"
+        />
+      </div>
+    {:else if planKind === "save"}
+      <div class="space-y-1">
+        <label class="text-xs font-medium text-slate-300" for="plan-target">
+          {m.plan_form_target()}
+        </label>
+        <input
+          id="plan-target"
+          type="number"
+          min="0.01"
+          step="0.01"
+          required
+          bind:value={targetAmount}
+          placeholder={m.plan_form_target_placeholder()}
+          class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:ring-2 focus:outline-none"
+        />
+      </div>
+    {:else}
+      <div class="grid gap-3 sm:grid-cols-2">
+        <div class="space-y-1">
+          <label class="text-xs font-medium text-slate-300" for="debt-original"
+            >{m.plan_debt_original()}</label
+          >
+          <input
+            id="debt-original"
+            type="number"
+            min="0.01"
+            required
+            bind:value={debtOriginal}
+            class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
+          />
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs font-medium text-slate-300" for="debt-balance"
+            >{m.plan_debt_balance()}</label
+          >
+          <input
+            id="debt-balance"
+            type="number"
+            min="0"
+            bind:value={debtBalance}
+            class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
+          />
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs font-medium text-slate-300" for="debt-rate"
+            >{m.plan_debt_rate()}</label
+          >
+          <input
+            id="debt-rate"
+            type="number"
+            min="0"
+            step="0.01"
+            required
+            bind:value={debtRate}
+            class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
+          />
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs font-medium text-slate-300" for="debt-payment"
+            >{m.plan_debt_payment()}</label
+          >
+          <input
+            id="debt-payment"
+            type="number"
+            min="0.01"
+            required
+            bind:value={debtPayment}
+            class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
+          />
+        </div>
+      </div>
+    {/if}
+
     <div class="space-y-1">
-      <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="sl-cat"
-        >{m.shopping_list_form_category()}</label
-      >
+      <label class="text-xs font-medium text-slate-300" for="plan-category">
+        {m.plan_form_category()}
+      </label>
       <select
-        id="sl-cat"
-        bind:value={newCategoryId}
-        class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:ring-2 focus:outline-none"
+        id="plan-category"
+        bind:value={categoryId}
+        class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur focus:ring-2 focus:outline-none"
       >
-        <option value="">{m.shopping_list_form_no_category()}</option>
-        {#each expenseCategories as cat (cat.id)}
-          <option value={cat.id}>{cat.name}</option>
+        <option value="">{m.plan_form_no_category()}</option>
+        {#each categoriesQuery.data ?? [] as category (category.id)}
+          <option value={category.id}>{category.name}</option>
         {/each}
       </select>
     </div>
-    {#if groupsQuery.data && groupsQuery.data.length > 0}
+
+    {#if (groupsQuery.data?.length ?? 0) > 0}
       <div class="space-y-1">
-        <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="sl-group"
-          >{m.shopping_list_form_group()}</label
-        >
+        <label class="text-xs font-medium text-slate-300" for="plan-group">
+          {m.plan_form_group()}
+        </label>
         <select
-          id="sl-group"
-          bind:value={newGroupId}
-          class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:ring-2 focus:outline-none"
+          id="plan-group"
+          bind:value={groupId}
+          class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur focus:ring-2 focus:outline-none"
         >
-          <option value="">{m.shopping_list_form_no_group()}</option>
-          {#each groupsQuery.data as group (group.id)}
+          <option value="">{m.plan_form_no_group()}</option>
+          {#each groupsQuery.data ?? [] as group (group.id)}
             <option value={group.id}>{group.name}</option>
           {/each}
         </select>
       </div>
     {/if}
-    {#if createMut.isError}
-      <p class="text-sm text-rose-600">{m.common_error_title()}</p>
-    {/if}
+
     <div class="flex gap-2 pt-1">
       <button
         type="button"
-        onclick={() => (showCreate = false)}
+        onclick={() => {
+          showForm = false;
+          editing = null;
+        }}
         class="flex-1 rounded-full border border-white/10 bg-slate-900/60 py-2 text-sm font-medium text-slate-200 backdrop-blur transition-colors hover:bg-white/5"
       >
         {m.common_cancel()}
       </button>
       <button
         type="submit"
-        disabled={createMut.isPending}
+        disabled={createMutation.isPending || updateMutation.isPending}
         class="bg-accent-gradient focus-visible:ring-accent flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
       >
-        {createMut.isPending ? m.common_saving() : m.common_save()}
-      </button>
-    </div>
-  </form>
-</Dialog>
-
-<!-- Edit dialog -->
-<Dialog
-  open={!!editTarget}
-  onclose={() => (editTarget = null)}
-  title={m.shopping_list_form_title_edit()}
->
-  <form onsubmit={submitEdit} class="space-y-4">
-    <div class="space-y-1">
-      <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="sl-edit-name"
-        >{m.shopping_list_form_name()}</label
-      >
-      <input
-        id="sl-edit-name"
-        type="text"
-        required
-        bind:value={editName}
-        class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:ring-2 focus:outline-none"
-      />
-    </div>
-    <DayPicker
-      id="sl-edit-planned"
-      bind:value={editPlannedFor}
-      label={m.shopping_list_planned_for_input_label()}
-      required
-    />
-    <div class="space-y-1">
-      <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="sl-edit-cat"
-        >{m.shopping_list_form_category()}</label
-      >
-      <select
-        id="sl-edit-cat"
-        bind:value={editCategoryId}
-        class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:ring-2 focus:outline-none"
-      >
-        <option value="">{m.shopping_list_form_no_category()}</option>
-        {#each expenseCategories as cat (cat.id)}
-          <option value={cat.id}>{cat.name}</option>
-        {/each}
-      </select>
-    </div>
-    {#if groupsQuery.data && groupsQuery.data.length > 0}
-      <div class="space-y-1">
-        <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="sl-edit-group"
-          >{m.shopping_list_form_group()}</label
-        >
-        <select
-          id="sl-edit-group"
-          bind:value={editGroupId}
-          class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:ring-2 focus:outline-none"
-        >
-          <option value="">{m.shopping_list_form_no_group()}</option>
-          {#each groupsQuery.data as group (group.id)}
-            <option value={group.id}>{group.name}</option>
-          {/each}
-        </select>
-      </div>
-    {/if}
-    {#if updateMut.isError}
-      <p class="text-sm text-rose-600">{m.common_error_title()}</p>
-    {/if}
-    <div class="flex gap-2 pt-1">
-      <button
-        type="button"
-        onclick={() => (editTarget = null)}
-        class="flex-1 rounded-full border border-white/10 bg-slate-900/60 py-2 text-sm font-medium text-slate-200 backdrop-blur transition-colors hover:bg-white/5"
-      >
-        {m.common_cancel()}
-      </button>
-      <button
-        type="submit"
-        disabled={updateMut.isPending}
-        class="bg-accent-gradient focus-visible:ring-accent flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-      >
-        {updateMut.isPending ? m.common_saving() : m.common_save()}
+        {createMutation.isPending || updateMutation.isPending ? m.common_saving() : m.common_save()}
       </button>
     </div>
   </form>
@@ -592,10 +554,8 @@
 
 <ConfirmDialog
   open={!!deleteTargetId}
-  message={deleteTargetArchived
-    ? m.shopping_list_delete_archived_confirm()
-    : m.common_confirm_delete_description()}
-  onconfirm={() => deleteTargetId && deleteMut.mutate(deleteTargetId)}
+  message={m.plan_delete_confirm()}
+  pending={deleteMutation.isPending}
   onclose={() => (deleteTargetId = null)}
-  pending={deleteMut.isPending}
+  onconfirm={() => deleteTargetId && deleteMutation.mutate(deleteTargetId)}
 />
