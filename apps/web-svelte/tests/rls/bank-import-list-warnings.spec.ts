@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { SENTINEL, cleanupSentinels, provisionTwoUsers, type TestContext } from "./setup";
 
 // Path B/C coverage for preview_fingerprint_warnings + commit_import_session.
-// Shopping-list-created expenses and manual/non-list transactions must surface
+// Plan-linked expenses and manual/non-plan transactions must surface
 // as warnings when an import row matches by type/amount/currency/date window
 // and the caller can see the transaction.
 
@@ -29,18 +29,18 @@ describe("Path B/C: cross-source duplicate warnings (preview + commit)", () => {
     await cleanupSentinels(ctx.admin);
   });
 
-  async function makeListAndExpenseTx(opts: {
+  async function makePlanLinkedExpenseTx(opts: {
     suffix: string;
     txUserId: string;
     amount: number;
     currency?: string;
     txDate: string; // ISO date or timestamp
     txType?: "expense" | "income";
-    hasShoppingList?: boolean;
+    hasPlan?: boolean;
     txGroupId?: string | null;
-  }): Promise<{ listId: string | null; txId: string; categoryId: string }> {
+  }): Promise<{ planId: string | null; txId: string; categoryId: string }> {
     const currency = opts.currency ?? "PLN";
-    const hasShoppingList = opts.hasShoppingList ?? true;
+    const hasPlan = opts.hasPlan ?? true;
     const txType = opts.txType ?? "expense";
 
     const cat = await ctx.admin
@@ -54,22 +54,23 @@ describe("Path B/C: cross-source duplicate warnings (preview + commit)", () => {
       .single();
     if (cat.error) throw cat.error;
 
-    let listId: string | null = null;
-    if (hasShoppingList) {
-      const list = await ctx.admin
-        .from("shopping_lists")
+    let planId: string | null = null;
+    if (hasPlan) {
+      const plan = await ctx.admin
+        .from("plans")
         .insert({
           user_id: opts.txUserId,
-          name: `${SENTINEL} list-${opts.suffix}`,
-          status: "completed",
+          name: `${SENTINEL} plan-${opts.suffix}`,
           category_id: cat.data.id,
-          total_amount: opts.amount,
+          budget_amount: opts.amount,
+          start_date: "2026-03-01",
+          end_date: "2026-03-31",
           group_id: opts.txGroupId ?? null,
         })
         .select("id")
         .single();
-      if (list.error) throw list.error;
-      listId = list.data.id;
+      if (plan.error) throw plan.error;
+      planId = plan.data.id;
     }
 
     const tx = await ctx.admin
@@ -83,14 +84,22 @@ describe("Path B/C: cross-source duplicate warnings (preview + commit)", () => {
         type: txType,
         status: "paid",
         category_id: cat.data.id,
-        shopping_list_id: listId,
         group_id: opts.txGroupId ?? null,
       })
       .select("id")
       .single();
     if (tx.error) throw tx.error;
 
-    return { listId, txId: tx.data.id, categoryId: cat.data.id };
+    if (planId) {
+      const link = await ctx.admin.from("plan_transaction_links").insert({
+        plan_id: planId,
+        transaction_id: tx.data.id,
+        created_by: opts.txUserId,
+      });
+      if (link.error) throw link.error;
+    }
+
+    return { planId, txId: tx.data.id, categoryId: cat.data.id };
   }
 
   async function makeImportSessionAndRow(opts: {
@@ -149,8 +158,8 @@ describe("Path B/C: cross-source duplicate warnings (preview + commit)", () => {
     return { sessionId: sess.data.id, rowId: row.data.id, accountId: acct.data.id };
   }
 
-  it("warns when a matching list-created expense exists (within ±3 days)", async () => {
-    const fixture = await makeListAndExpenseTx({
+  it("warns when a matching plan-linked expense exists (within ±3 days)", async () => {
+    const fixture = await makePlanLinkedExpenseTx({
       suffix: "match-A",
       txUserId: ctx.userA.userId,
       amount: 42.5,
@@ -182,13 +191,13 @@ describe("Path B/C: cross-source duplicate warnings (preview + commit)", () => {
     });
   });
 
-  it("warns for a matching manual/non-list expense within ±1 day", async () => {
-    const fixture = await makeListAndExpenseTx({
+  it("warns for a matching manual/non-plan expense within ±1 day", async () => {
+    const fixture = await makePlanLinkedExpenseTx({
       suffix: "nolist-A",
       txUserId: ctx.userA.userId,
       amount: 42.5,
       txDate: "2026-03-10T12:00:00Z",
-      hasShoppingList: false,
+      hasPlan: false,
     });
 
     const preview = await makeImportSessionAndRow({
@@ -214,13 +223,13 @@ describe("Path B/C: cross-source duplicate warnings (preview + commit)", () => {
     });
   });
 
-  it("ignores manual/non-list candidates outside the tighter ±1-day window", async () => {
-    await makeListAndExpenseTx({
+  it("ignores manual/non-plan candidates outside the tighter ±1-day window", async () => {
+    await makePlanLinkedExpenseTx({
       suffix: "nolist-window-A",
       txUserId: ctx.userA.userId,
       amount: 42.5,
       txDate: "2026-03-10T12:00:00Z",
-      hasShoppingList: false,
+      hasPlan: false,
     });
 
     const preview = await makeImportSessionAndRow({
@@ -238,7 +247,7 @@ describe("Path B/C: cross-source duplicate warnings (preview + commit)", () => {
   });
 
   it("ignores amount mismatch", async () => {
-    await makeListAndExpenseTx({
+    await makePlanLinkedExpenseTx({
       suffix: "amt-A",
       txUserId: ctx.userA.userId,
       amount: 42.5,
@@ -260,7 +269,7 @@ describe("Path B/C: cross-source duplicate warnings (preview + commit)", () => {
   });
 
   it("ignores currency mismatch", async () => {
-    await makeListAndExpenseTx({
+    await makePlanLinkedExpenseTx({
       suffix: "ccy-A",
       txUserId: ctx.userA.userId,
       amount: 42.5,
@@ -284,7 +293,7 @@ describe("Path B/C: cross-source duplicate warnings (preview + commit)", () => {
   });
 
   it("ignores tx whose date is outside the ±3-day window", async () => {
-    await makeListAndExpenseTx({
+    await makePlanLinkedExpenseTx({
       suffix: "date-A",
       txUserId: ctx.userA.userId,
       amount: 42.5,
@@ -305,8 +314,8 @@ describe("Path B/C: cross-source duplicate warnings (preview + commit)", () => {
     expect(data as unknown[]).toHaveLength(0);
   });
 
-  it("ignores income transaction even with shopping_list_id set", async () => {
-    await makeListAndExpenseTx({
+  it("ignores income transaction even when linked to a plan", async () => {
+    await makePlanLinkedExpenseTx({
       suffix: "inc-A",
       txUserId: ctx.userA.userId,
       amount: 42.5,
@@ -329,9 +338,9 @@ describe("Path B/C: cross-source duplicate warnings (preview + commit)", () => {
     expect(data as unknown[]).toHaveLength(0);
   });
 
-  it("does not leak another user's private list-created transaction", async () => {
-    // userB owns a private list+expense matching userA's fingerprint.
-    await makeListAndExpenseTx({
+  it("does not leak another user's private plan-linked transaction", async () => {
+    // userB owns a private plan+expense matching userA's fingerprint.
+    await makePlanLinkedExpenseTx({
       suffix: "leak-B",
       txUserId: ctx.userB.userId,
       amount: 42.5,
@@ -353,13 +362,13 @@ describe("Path B/C: cross-source duplicate warnings (preview + commit)", () => {
     expect(data as unknown[]).toHaveLength(0);
   });
 
-  it("does not leak another user's foreign-group list-created transaction", async () => {
+  it("does not leak another user's foreign-group plan-linked transaction", async () => {
     const { data: group, error: groupError } = await ctx.userB.client.rpc("create_group", {
       p_name: `${SENTINEL} hidden-dup-group-B`,
     });
     if (groupError || !group) throw groupError ?? new Error("no hidden group");
 
-    await makeListAndExpenseTx({
+    await makePlanLinkedExpenseTx({
       suffix: "leak-group-B",
       txUserId: ctx.userB.userId,
       amount: 42.5,
@@ -381,7 +390,7 @@ describe("Path B/C: cross-source duplicate warnings (preview + commit)", () => {
     expect(data as unknown[]).toHaveLength(0);
   });
 
-  it("warns for a shared-group list-created transaction visible to the caller", async () => {
+  it("warns for a shared-group plan-linked transaction visible to the caller", async () => {
     const { data: group, error: groupError } = await ctx.userB.client.rpc("create_group", {
       p_name: `${SENTINEL} shared-dup-group-B`,
     });
@@ -394,7 +403,7 @@ describe("Path B/C: cross-source duplicate warnings (preview + commit)", () => {
     });
     if (member.error) throw member.error;
 
-    const fixture = await makeListAndExpenseTx({
+    const fixture = await makePlanLinkedExpenseTx({
       suffix: "shared-group-B",
       txUserId: ctx.userB.userId,
       amount: 42.5,
@@ -422,14 +431,14 @@ describe("Path B/C: cross-source duplicate warnings (preview + commit)", () => {
   });
 
   it("commit_import_session emits the same warning shape as preview", async () => {
-    const fixture = await makeListAndExpenseTx({
+    const fixture = await makePlanLinkedExpenseTx({
       suffix: "commit-A",
       txUserId: ctx.userA.userId,
       amount: 42.5,
       txDate: "2026-03-10T12:00:00Z",
     });
 
-    // Use a fresh category for the row to avoid coupling to the list's category.
+    // Use a fresh category for the row to avoid coupling to the plan's category.
     const rowCat = await ctx.admin
       .from("categories")
       .insert({
@@ -463,9 +472,9 @@ describe("Path B/C: cross-source duplicate warnings (preview + commit)", () => {
     const w = result.fingerprint_warnings[0];
     expect(Object.keys(w).sort()).toEqual(warningKeys);
     expect(w.row_id).toBe(preview.rowId);
-    // The list-created tx is the original; the freshly inserted import tx
+    // The plan-linked tx is the original; the freshly inserted import tx
     // is excluded by the `t.id <> v_new_tx_id` guard, so the warning points
-    // back to the list-created transaction.
+    // back to the plan-linked transaction.
     expect(w.duplicate_of_transaction_id).toBe(fixture.txId);
     expect(w).toMatchObject({
       duplicate_of_date: "2026-03-10",

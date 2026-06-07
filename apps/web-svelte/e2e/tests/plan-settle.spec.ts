@@ -3,7 +3,7 @@
  *
  * Covers:
  *  - /plans/[id]/settle renders ranked suggestions with rank badge + reason chips
- *  - Odrzuć dismisses suggestion client-side without making an API call
+ *  - Pomiń dismisses suggestion client-side without making an API call
  *  - Powiąż calls link RPC, shows toast, removes tx from suggestions
  *  - After linking, navigating back to detail reflects updated linked amount
  *
@@ -16,21 +16,21 @@ import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
 
 // ── Fixture data ─────────────────────────────────────────────────────────────
 
-const PLAN_ID = "list-1";
+const PLAN_ID = "plan-1";
 
 const SETTLE_PLAN = {
   id: PLAN_ID,
   name: "Wakacje",
-  total_amount: 1000,
-  planned_for: "2026-07-15",
+  kind: "spend",
+  budget_amount: 1000,
+  target_amount: null,
+  start_date: "2026-07-01",
+  end_date: "2026-07-31",
   category_id: "cat-1",
   user_id: TEST_USER_ID,
   group_id: null,
-  completed_at: null,
-  shopping_started_at: "2026-06-01T00:00:00Z",
   created_at: "2026-06-01T00:00:00Z",
   updated_at: "2026-06-01T00:00:00Z",
-  shopping_list_items: [],
 };
 
 // category_id matches plan → category signal fires (30pts) + keyword "wakacje" (25pts)
@@ -54,7 +54,6 @@ const TX1 = {
   recurrence_weekday: null,
   recurrence_month: null,
   recurring_template_id: null,
-  shopping_list_id: null,
   currency: "PLN",
   created_at: "2026-07-10T10:00:00Z",
   updated_at: "2026-07-10T10:00:00Z",
@@ -80,10 +79,21 @@ const TX2 = {
   recurrence_weekday: null,
   recurrence_month: null,
   recurring_template_id: null,
-  shopping_list_id: null,
   currency: "PLN",
   created_at: "2026-07-08T10:00:00Z",
   updated_at: "2026-07-08T10:00:00Z",
+};
+
+const TX_INCOME = {
+  ...TX1,
+  id: "tx-income",
+  description: "Premia wakacyjna",
+  amount: 500,
+  date: "2026-07-05",
+  type: "income",
+  category_id: "cat-3",
+  category_name: "Wynagrodzenie",
+  category_type: "income",
 };
 
 const MOCK_LINK = {
@@ -102,13 +112,14 @@ async function setupSettleMocks(page: Page): Promise<void> {
   await mockSupabaseAPI(page);
 
   // Return our plan (with budget + category_id) for any single-plan lookup
-  await page.route(/.*\/rest\/v1\/shopping_lists.*id=eq\.list-1.*/, (route) => {
+  await page.route(/.*\/rest\/v1\/plans.*id=eq\.plan-1.*/, (route) => {
     route.fulfill({ status: 200, json: SETTLE_PLAN });
   });
 
   // Return our eligible transactions (overrides MOCK_TRANSACTIONS from base mock)
   await page.route(/.*\/rest\/v1\/transactions_with_category.*/, (route) => {
-    route.fulfill({ status: 200, json: [TX1, TX2] });
+    const url = route.request().url();
+    route.fulfill({ status: 200, json: url.includes("type=eq.income") ? [TX_INCOME] : [TX1, TX2] });
   });
 
   // Plan links: empty by default (no linked, no blocked)
@@ -129,15 +140,25 @@ test.describe("plan settle page", () => {
     await expect(page.getByText("Transport na lotnisko")).toBeVisible();
 
     // TX1 → high rank badge
-    await expect(page.getByText(/Wysokie dopasowanie/)).toBeVisible();
+    await expect(page.getByText(/Pasuje świetnie/)).toBeVisible();
     // TX2 → medium rank badge
-    await expect(page.getByText(/Średnie dopasowanie/)).toBeVisible();
+    await expect(page.getByText(/Może pasować/)).toBeVisible();
 
     // At least one reason chip visible (category, keyword, or amount)
-    await expect(page.getByText(/kategoria:|słowo kluczowe|kwota mieści/)).toBeVisible();
+    await expect(page.getByText("✓ kategoria: Jedzenie")).toBeVisible();
   });
 
-  test("Odrzuć removes suggestion client-side without API call", async ({ page }) => {
+  test("renders income suggestions on the Wpływy tab", async ({ page }) => {
+    await setupSettleMocks(page);
+    await page.goto(`/plans/${PLAN_ID}/settle`);
+
+    await page.getByRole("button", { name: "Wpływy" }).click();
+
+    await expect(page.getByText("Premia wakacyjna")).toBeVisible();
+    await expect(page.getByText(/Słabe trafienie|Może pasować|Pasuje świetnie/)).toBeVisible();
+  });
+
+  test("Pomiń removes suggestion client-side without API call", async ({ page }) => {
     await setupSettleMocks(page);
 
     let apiCallMade = false;
@@ -154,7 +175,7 @@ test.describe("plan settle page", () => {
     const tx1Card = page
       .locator("div.rounded-2xl")
       .filter({ hasText: "Zakupy spożywcze na wakacje" });
-    await tx1Card.getByRole("button", { name: /Odrzuć/ }).click();
+    await tx1Card.getByRole("button", { name: /Pomiń/ }).click();
 
     // TX1 gone, TX2 still visible
     await expect(page.getByText("Zakupy spożywcze na wakacje")).not.toBeVisible();
@@ -170,7 +191,7 @@ test.describe("plan settle page", () => {
     await injectFakeSession(page);
     await mockSupabaseAPI(page);
 
-    await page.route(/.*\/rest\/v1\/shopping_lists.*id=eq\.list-1.*/, (route) => {
+    await page.route(/.*\/rest\/v1\/plans.*id=eq\.plan-1.*/, (route) => {
       route.fulfill({ status: 200, json: SETTLE_PLAN });
     });
 
@@ -182,7 +203,7 @@ test.describe("plan settle page", () => {
         return route.fulfill({ status: 200, json: [TX1] });
       }
       // eligible query — return tx-s2 only after link, both before
-      route.fulfill({ status: 200, json: linked ? [TX2] : [TX1, TX2] });
+      route.fulfill({ status: 200, json: url.includes("type=eq.income") ? [TX_INCOME] : linked ? [TX2] : [TX1, TX2] });
     });
 
     await page.route(/.*\/rest\/v1\/plan_transaction_links.*/, (route) => {
@@ -209,11 +230,14 @@ test.describe("plan settle page", () => {
     await tx1Card.getByRole("button", { name: /Powiąż/ }).click();
 
     // Toast confirms success
-    await expect(page.getByText("Transakcja powiązana z planem.")).toBeVisible();
+    await expect(page.getByText("Transakcja dodana do planu.")).toBeVisible();
 
-    // TX1 removed from suggestions; TX2 remains
-    await expect(page.getByText("Zakupy spożywcze na wakacje")).not.toBeVisible();
-    await expect(page.getByText("Transport na lotnisko")).toBeVisible();
+    // TX1 removed from suggestions; it may still be visible in the linked section.
+    const suggestionsSection = page
+      .locator("section")
+      .filter({ has: page.getByRole("heading", { name: "Pasujące transakcje" }) });
+    await expect(suggestionsSection.getByText("Zakupy spożywcze na wakacje")).not.toBeVisible();
+    await expect(suggestionsSection.getByText("Transport na lotnisko")).toBeVisible();
   });
 
   test("after linking, navigating back to detail shows updated progress", async ({ page }) => {
@@ -222,7 +246,7 @@ test.describe("plan settle page", () => {
     await injectFakeSession(page);
     await mockSupabaseAPI(page);
 
-    await page.route(/.*\/rest\/v1\/shopping_lists.*id=eq\.list-1.*/, (route) => {
+    await page.route(/.*\/rest\/v1\/plans.*id=eq\.plan-1.*/, (route) => {
       route.fulfill({ status: 200, json: SETTLE_PLAN });
     });
 
@@ -231,7 +255,7 @@ test.describe("plan settle page", () => {
       if (linked && url.includes("id=in.")) {
         return route.fulfill({ status: 200, json: [TX1] });
       }
-      route.fulfill({ status: 200, json: linked ? [TX2] : [TX1, TX2] });
+      route.fulfill({ status: 200, json: url.includes("type=eq.income") ? [TX_INCOME] : linked ? [TX2] : [TX1, TX2] });
     });
 
     await page.route(/.*\/rest\/v1\/plan_transaction_links.*/, (route) => {
@@ -255,7 +279,7 @@ test.describe("plan settle page", () => {
       .locator("div.rounded-2xl")
       .filter({ hasText: "Zakupy spożywcze na wakacje" });
     await tx1Card.getByRole("button", { name: /Powiąż/ }).click();
-    await expect(page.getByText("Transakcja powiązana z planem.")).toBeVisible();
+    await expect(page.getByText("Transakcja dodana do planu.")).toBeVisible();
 
     // Navigate back to detail
     await page.getByRole("button", { name: /Wróć|Back|←/ }).click();
@@ -265,6 +289,6 @@ test.describe("plan settle page", () => {
     await expect(page.getByRole("heading", { name: "Wakacje" })).toBeVisible();
 
     // POSTĘP PLANU hero shows linked amount (TX1.amount = 300)
-    await expect(page.getByText("300")).toBeVisible();
+    await expect(page.getByLabel("Postęp planu").getByText(/300,00/).first()).toBeVisible();
   });
 });

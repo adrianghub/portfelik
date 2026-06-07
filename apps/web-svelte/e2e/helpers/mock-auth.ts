@@ -1,14 +1,33 @@
 import type { Page } from "@playwright/test";
 import {
   MOCK_CATEGORIES,
-  MOCK_NEW_LIST,
+  MOCK_DEBT_TERMS,
   MOCK_NEW_TRANSACTION,
+  MOCK_PLANS,
   MOCK_PROFILE,
-  MOCK_SHOPPING_LIST_DETAIL,
-  MOCK_SHOPPING_LISTS_RAW,
   MOCK_TRANSACTIONS,
   MOCK_USER,
 } from "./fixtures";
+
+function findMockPlan(url: string) {
+  const match = url.match(/id=eq\.([^&]+)/);
+  if (!match) return MOCK_PLANS[0];
+  return MOCK_PLANS.find((p) => p.id === match[1]) ?? MOCK_PLANS[0];
+}
+
+function filterMockDebtTerms(url: string) {
+  const inMatch = url.match(/plan_id=in\.\(([^)]+)\)/);
+  if (inMatch) {
+    const ids = inMatch[1].split(",").map((id) => id.trim());
+    return MOCK_DEBT_TERMS.filter((t) => ids.includes(t.plan_id));
+  }
+  const eqMatch = url.match(/plan_id=eq\.([^&]+)/);
+  if (eqMatch) {
+    const term = MOCK_DEBT_TERMS.find((t) => t.plan_id === eqMatch[1]);
+    return term ? [term] : [];
+  }
+  return MOCK_DEBT_TERMS;
+}
 
 const SUPABASE_URL = "https://emqzcygfwcvbmhxhfkcc.supabase.co";
 const SUPABASE_URLS = [SUPABASE_URL, "http://127.0.0.1:54321", "http://localhost:54321"] as const;
@@ -83,71 +102,46 @@ export async function mockSupabaseAPI(page: Page): Promise<void> {
         return route.fulfill({ status: 200, json: MOCK_TRANSACTIONS });
       }
 
-      // ── Shopping item categories ─────────────────────────────────────────
-      if (url.includes("/shopping_item_categories")) {
-        if (method === "POST") {
-          return route.fulfill({
-            status: 201,
-            json: {
-              id: "shopping-item-category-new",
-              user_id: MOCK_USER.id,
-              name: "Warzywa",
-              position: 0,
-              created_at: "2026-05-20T10:00:00Z",
-              updated_at: "2026-05-20T10:00:00Z",
-            },
-          });
-        }
+      // ── Plan transaction links ───────────────────────────────────────────
+      if (url.includes("/plan_transaction_links")) {
         return route.fulfill({ status: 200, json: [] });
       }
 
-      // ── Shopping list items ───────────────────────────────────────────────
-      if (url.includes("/shopping_list_items")) {
+      // ── Debt plan terms ──────────────────────────────────────────────────
+      if (url.includes("/plan_debt_terms")) {
+        return route.fulfill({ status: 200, json: filterMockDebtTerms(url) });
+      }
+
+      // ── Plans ────────────────────────────────────────────────────────────
+      if (url.includes("/plans")) {
         if (method === "POST") {
           return route.fulfill({
             status: 201,
             json: {
-              id: "item-new",
-              name: "Nowy element",
-              quantity: null,
-              unit: null,
-              completed: false,
-              position: 10,
-              shopping_list_id: "list-1",
+              ...MOCK_PLANS[0],
+              id: "plan-new",
+              name: "Nowy plan",
               created_at: "2026-05-07T10:00:00Z",
               updated_at: "2026-05-07T10:00:00Z",
             },
           });
         }
-        if (method === "PATCH") {
-          return route.fulfill({ status: 200, json: {} });
-        }
-        return route.fulfill({ status: 200, json: [] });
-      }
-
-      // ── Shopping lists (detail - has id=eq. in URL) ───────────────────────
-      if (url.includes("/shopping_lists") && url.includes("id=eq.")) {
         if (method === "DELETE") {
           return route.fulfill({ status: 204, body: "" });
         }
-        // fetchShoppingListById uses .single() → returns object not array
-        return route.fulfill({ status: 200, json: MOCK_SHOPPING_LIST_DETAIL });
-      }
-
-      // ── Shopping lists (list) ─────────────────────────────────────────────
-      if (url.includes("/shopping_lists")) {
-        if (method === "POST") {
-          return route.fulfill({ status: 201, json: MOCK_NEW_LIST });
+        if (url.includes("id=eq.")) {
+          return route.fulfill({ status: 200, json: findMockPlan(url) });
         }
-        return route.fulfill({ status: 200, json: MOCK_SHOPPING_LISTS_RAW });
-      }
-
-      // ── RPCs ──────────────────────────────────────────────────────────────
-      if (url.includes("/rpc/complete_shopping_list")) {
-        return route.fulfill({
-          status: 200,
-          json: { id: "tx-from-list", amount: 100, category_id: "cat-1" },
-        });
+        if (url.includes("id=in.")) {
+          const ids = (url.match(/id=in\.\(([^)]+)\)/)?.[1] ?? "")
+            .split(",")
+            .map((id) => id.trim());
+          return route.fulfill({
+            status: 200,
+            json: MOCK_PLANS.filter((p) => ids.includes(p.id)),
+          });
+        }
+        return route.fulfill({ status: 200, json: MOCK_PLANS });
       }
 
       // ── Groups / invitations / notifications / other ──────────────────────

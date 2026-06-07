@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("$lib/supabase", () => ({ supabase: {} }));
 
-import { rankPlanTransaction } from "$lib/services/plan-settlement";
+import { computePlanProgress, rankPlanTransaction } from "$lib/services/plan-settlement";
 import type { TransactionWithCategory } from "$lib/types";
 
 function tx(overrides: Partial<TransactionWithCategory> = {}): TransactionWithCategory {
@@ -18,7 +18,6 @@ function tx(overrides: Partial<TransactionWithCategory> = {}): TransactionWithCa
     category_name: "Inne",
     category_type: "expense",
     user_id: "u1",
-    shopping_list_id: null,
     is_recurring: false,
     recurring_day: null,
     recurrence_frequency: null,
@@ -35,8 +34,7 @@ function tx(overrides: Partial<TransactionWithCategory> = {}): TransactionWithCa
 
 const basePlan = {
   category_id: "cat-travel",
-  planned_for: "2026-07-14",
-  total_amount: 3000,
+  budget_amount: 3000,
   name: "Wakacje Chorwacja",
 };
 
@@ -48,6 +46,8 @@ describe("rankPlanTransaction", () => {
       0
     );
     expect(result.rankLabel).toBe("high");
+    expect(result.reasons.some((r) => r.key === "date_in_range")).toBe(true);
+    expect(result.reasons.some((r) => r.key === "not_linked")).toBe(true);
     expect(result.reasons.some((r) => r.key === "category" && r.signal === "match")).toBe(true);
     expect(result.reasons.some((r) => r.key === "keyword" && r.signal === "match")).toBe(true);
   });
@@ -85,5 +85,50 @@ describe("rankPlanTransaction", () => {
     // When amount fits: remaining = 3000 - 0 = 3000, tx.amount=200 ≤ 3000 → bonus
     const fits = rankPlanTransaction(basePlan, tx({ amount: 200 }), 0);
     expect(fits.reasons.some((r) => r.key === "amount")).toBe(true);
+  });
+});
+
+describe("computePlanProgress", () => {
+  it("computes save goal monthly needed and actual from linked income", () => {
+    const end = new Date();
+    end.setMonth(end.getMonth() + 6);
+    const endDate = end.toISOString().slice(0, 10);
+
+    const progress = computePlanProgress({
+      planId: "save-1",
+      planName: "Nowy samochód",
+      kind: "save",
+      budgetAmount: null,
+      targetAmount: 60000,
+      endDate,
+      linkedTransactions: [
+        tx({ type: "income", amount: 6000, description: "Wpłata na cel" }),
+        tx({ type: "income", amount: 6000, description: "Druga wpłata" }),
+      ],
+    });
+
+    expect(progress.savedAmount).toBe(12000);
+    expect(progress.remaining).toBe(48000);
+    expect(progress.monthlyNeeded).toBeGreaterThan(6000);
+    expect(progress.monthlyActual).toBeGreaterThan(0);
+    expect(progress.monthlyActual).toBeLessThan(progress.monthlyNeeded ?? 0);
+  });
+
+  it("flags save gap when actual monthly savings lag behind needed pace", () => {
+    const end = new Date();
+    end.setMonth(end.getMonth() + 3);
+    const endDate = end.toISOString().slice(0, 10);
+
+    const progress = computePlanProgress({
+      planId: "save-2",
+      planName: "Cel",
+      kind: "save",
+      budgetAmount: null,
+      targetAmount: 12000,
+      endDate,
+      linkedTransactions: [tx({ type: "income", amount: 1000 })],
+    });
+
+    expect(progress.monthlyNeeded).toBeGreaterThan(progress.monthlyActual ?? 0);
   });
 });
