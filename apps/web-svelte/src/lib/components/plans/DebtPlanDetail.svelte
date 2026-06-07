@@ -32,10 +32,10 @@
 
   let extraPayment = $state(500);
   let showTermsEdit = $state(false);
-  let editOriginal = $state(String(terms.original_amount));
-  let editBalance = $state(String(terms.current_balance));
-  let editRate = $state(String(terms.annual_rate));
-  let editPayment = $state(String(terms.monthly_payment));
+  let editOriginal = $state("");
+  let editBalance = $state("");
+  let editRate = $state("");
+  let editPayment = $state("");
 
   $effect(() => {
     editOriginal = String(terms.original_amount);

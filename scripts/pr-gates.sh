@@ -45,6 +45,12 @@ else
 fi
 
 # --- format ---
+# Paraglide output must exist and be Prettier-clean before format:check (compile
+# runs again at the end for the in-sync flag when pl.json changed).
+if changed_match '(^|/)messages/pl\.json$'; then
+  (cd "$WEB" && pnpm exec paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide >/dev/null 2>&1)
+  (cd "$WEB" && pnpm format >/dev/null 2>&1)
+fi
 if (cd "$WEB" && pnpm format:check >/tmp/pr-fmt.log 2>&1); then
   gate format PASS "clean"
 else

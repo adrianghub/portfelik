@@ -100,14 +100,15 @@ the in-app notification row with push as an optional channel.
 
 **Group plans G2 (2026-06-07):** co-owner-only plan/debt-term writes; member read + settle unchanged.
 
-**Immediate next step:** commit production-readiness stack (privacy sync, tx co-owner RLS, tests, Plany onboarding); push `dev`; staging smoke green; Layer 2 ops verify; `dev`→`main` + prod migrate.
+**Immediate next step:** ship security-hardening migration (pin `privacy_*` search_path; revoke `anon` EXECUTE on `seed_default_categories*`; confirm `complete_shopping_list` dropped); push `dev`; gates green (`open-pr.sh main`); staging smoke green; Layer 2 ops verify; `dev`→`main` + prod migrate.
 
 **Open backlog:**
 
 - Vault secret rotation runbook (`docs/runbooks/secret-rotation.md`) - authored ✅; ops-lockdown runbook (`docs/runbooks/ops-access-lockdown.md`) - authored ✅.
 - Offline write queue (Dexie outbox) - parity gap vs legacy `FirestoreService`, last-write-wins decided - Medium, ⏳.
 - axe-core spine sweep shipped (`e2e/tests/a11y-spine.spec.ts`); broader U7 sweep still optional.
-- Mortgage/debt tracking - **save/debt plan kinds shipped**; net-worth snapshot still deferred.
+- Mortgage/debt tracking - **save/debt plan kinds + manual net-worth snapshot shipped**; auto net worth from import still deferred.
+- Prod Supabase advisors: enable Auth leaked-password protection, move `pg_net` out of `public`, add `get_advisors` CI gate — all WARN, ⏳.
 
 **Branch flow:** `main` → prod (`portfelik.adrianzinko.com`); `dev` → staging (`dev.portfelik.pages.dev`). Both branches use one Cloudflare Pages project. Supabase is split: `main` uses production; `dev` must use the dedicated `portfelik-staging` project.
 
