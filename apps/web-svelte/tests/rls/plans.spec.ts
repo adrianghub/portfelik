@@ -192,17 +192,32 @@ describe("RLS: plans", () => {
         .update({ group_id: groupBId })
         .eq("id", sharedPlanId)
         .select();
-      expect(result.error).not.toBeNull();
+      expectBlockedWrite(result);
     });
 
-    it("group member can edit ordinary shared plan fields", async () => {
+    it("plain group member cannot edit another member shared plan", async () => {
       const result = await ctx.userB.client
         .from("plans")
         .update({ name: `${SENTINEL} renamed-by-member` })
         .eq("id", sharedPlanId)
         .select("name");
+      expectBlockedWrite(result);
+    });
+
+    it("nominated co-owner can edit shared plan", async () => {
+      const nominate = await ctx.userA.client.rpc("nominate_group_co_owner", {
+        p_group_id: groupAId,
+        p_user_id: ctx.userB.userId,
+      });
+      expect(nominate.error).toBeNull();
+
+      const result = await ctx.userB.client
+        .from("plans")
+        .update({ name: `${SENTINEL} renamed-by-co-owner` })
+        .eq("id", sharedPlanId)
+        .select("name");
       expect(result.error).toBeNull();
-      expect(result.data?.[0]?.name).toBe(`${SENTINEL} renamed-by-member`);
+      expect(result.data?.[0]?.name).toBe(`${SENTINEL} renamed-by-co-owner`);
     });
   });
 });

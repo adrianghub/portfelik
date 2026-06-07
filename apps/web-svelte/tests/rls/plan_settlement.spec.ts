@@ -180,6 +180,42 @@ describe("RPC: plan settlement", () => {
     expect(error).not.toBeNull();
   });
 
+  it("allows group member to link group transaction to shared plan", async () => {
+    const { data: group, error: groupError } = await ctx.userA.client.rpc("create_group", {
+      p_name: `${SENTINEL} settlement-group`,
+    });
+    if (groupError || !group) throw groupError ?? new Error("no group");
+    const groupId = (group as { id: string }).id;
+
+    const member = await ctx.admin.from("group_members").insert({
+      group_id: groupId,
+      user_id: ctx.userB.userId,
+    });
+    if (member.error) throw member.error;
+
+    const planId = await createPlan(ctx.userA.userId, "shared settle", groupId);
+    const txId = await createTx({
+      userId: ctx.userA.userId,
+      description: "shared expense",
+      type: "expense",
+      categoryId: expenseCategoryAId,
+      groupId,
+    });
+
+    const { data: link, error: linkError } = await ctx.userB.client.rpc("link_plan_transaction", {
+      p_plan_id: planId,
+      p_transaction_id: txId,
+    });
+    expect(linkError).toBeNull();
+    expect(link?.plan_id).toBe(planId);
+
+    const { error: unlinkError } = await ctx.userB.client.rpc("unlink_plan_transaction", {
+      p_plan_id: planId,
+      p_transaction_id: txId,
+    });
+    expect(unlinkError).toBeNull();
+  });
+
   it("rejects private plan to group transaction scope mismatch", async () => {
     const { data: group, error: groupError } = await ctx.userA.client.rpc("create_group", {
       p_name: `${SENTINEL} settlement-scope`,
