@@ -1,5 +1,6 @@
+import { monthsRemaining as planMonthsRemaining } from "$lib/services/plans";
 import { supabase } from "$lib/supabase";
-import type { TransactionWithCategory } from "$lib/types";
+import type { Plan, TransactionType, TransactionWithCategory } from "$lib/types";
 
 export interface PlanTransactionLink {
   id: string;
@@ -12,11 +13,20 @@ export interface PlanTransactionLink {
 export interface PlanSettlementProgress {
   planId: string;
   planName: string;
-  plannedAmount: number | null;
-  linkedAmount: number;
+  budgetAmount: number | null;
+  targetAmount: number | null;
+  spentAmount: number;
+  incomeAmount: number;
+  savedAmount: number;
+  expenseCount: number;
+  incomeCount: number;
   linkedCount: number;
   remaining: number | null;
+  balance: number;
   eligibleCount: number;
+  monthlyNeeded: number | null;
+  monthlyActual: number | null;
+  monthsRemaining: number | null;
 }
 
 export interface RankedTransactionReason {
@@ -76,65 +86,78 @@ export async function fetchLinkedTransactions(planId: string): Promise<Transacti
   return (data ?? []) as TransactionWithCategory[];
 }
 
+async function fetchPlanForSettlement(planId: string): Promise<Plan> {
+  const { data, error } = await supabase.from("plans").select("*").eq("id", planId).single();
+  if (error) throw error;
+  return data as Plan;
+}
+
+function planScopeKey(plan: Pick<Plan, "user_id" | "group_id">): string {
+  return plan.group_id ? `g:${plan.group_id}` : `u:${plan.user_id}`;
+}
+
+async function fetchLinkedTransactionIds(): Promise<Set<string>> {
+  const { data, error } = await supabase.from("plan_transaction_links").select("transaction_id");
+  if (error) throw error;
+  return new Set((data ?? []).map((r) => r.transaction_id));
+}
+
+async function fetchBlockedTransactionIds(): Promise<Set<string>> {
+  return fetchLinkedTransactionIds();
+}
+
+function filterEligibleTransactions(
+  txs: TransactionWithCategory[],
+  plan: Plan,
+  blockedIds: Set<string>,
+  opts?: { type?: TransactionType | "all" }
+): TransactionWithCategory[] {
+  return txs.filter((tx) => {
+    if (blockedIds.has(tx.id)) return false;
+    if (tx.date < plan.start_date || tx.date > plan.end_date) return false;
+    if (opts?.type && opts.type !== "all" && tx.type !== opts.type) return false;
+    if (!opts?.type || opts.type === "all") {
+      if (tx.type !== "expense" && tx.type !== "income") return false;
+    }
+    return true;
+  });
+}
+
 export async function fetchEligibleSettlementTransactions(
   planId: string,
-  opts?: { dateWindow?: "default" | "all"; start?: string; end?: string }
+  opts?: { type?: TransactionType | "all" },
+  prefetched?: { plan?: Plan; blockedIds?: Set<string> }
 ): Promise<TransactionWithCategory[]> {
-  const { data: plan, error: planError } = await supabase
-    .from("shopping_lists")
-    .select("id, user_id, group_id, planned_for, category_id, total_amount")
-    .eq("id", planId)
-    .single();
-  if (planError) throw planError;
-
-  const dateWindow = opts?.dateWindow ?? "default";
-
+  const plan = prefetched?.plan ?? (await fetchPlanForSettlement(planId));
   let query = supabase
     .from("transactions_with_category")
     .select("*")
-    .eq("type", "expense")
+    .gte("date", plan.start_date)
+    .lte("date", plan.end_date)
     .order("date", { ascending: false })
     .limit(200);
 
-  if (dateWindow === "default") {
-    const start =
-      opts?.start ??
-      (() => {
-        const d = new Date(plan.planned_for);
-        d.setDate(d.getDate() - 30);
-        return d.toISOString().slice(0, 10);
-      })();
-    const end =
-      opts?.end ??
-      (() => {
-        const d = new Date(plan.planned_for);
-        d.setDate(d.getDate() + 60);
-        return d.toISOString().slice(0, 10);
-      })();
-    query = query.gte("date", start).lte("date", end);
+  if (opts?.type && opts.type !== "all") {
+    query = query.eq("type", opts.type);
+  } else {
+    query = query.in("type", ["expense", "income"]);
   }
 
   if (plan.group_id) {
     query = query.eq("group_id", plan.group_id);
   } else {
-    query = query.eq("user_id", plan.user_id);
+    query = query.eq("user_id", plan.user_id).is("group_id", null);
   }
 
   const { data, error } = await query;
   if (error) throw error;
 
-  const { data: linked, error: linkError } = await supabase
-    .from("plan_transaction_links")
-    .select("transaction_id")
-    .neq("plan_id", planId);
-  if (linkError) throw linkError;
-  const blocked = new Set((linked ?? []).map((r) => r.transaction_id));
-
-  return ((data ?? []) as TransactionWithCategory[]).filter((tx) => !blocked.has(tx.id));
+  const blocked = prefetched?.blockedIds ?? (await fetchBlockedTransactionIds());
+  return filterEligibleTransactions((data ?? []) as TransactionWithCategory[], plan, blocked, opts);
 }
 
 function extractKeywords(name: string): string[] {
-  const STOP_WORDS = new Set([
+  const stopWords = new Set([
     "i",
     "w",
     "z",
@@ -159,26 +182,20 @@ function extractKeywords(name: string): string[] {
   return name
     .toLowerCase()
     .split(/[\s\-–—,./()]+/)
-    .filter((w) => w.length >= 3 && !STOP_WORDS.has(w));
+    .filter((w) => w.length >= 3 && !stopWords.has(w));
 }
 
 export function rankPlanTransaction(
-  plan: {
-    category_id: string | null;
-    planned_for: string;
-    total_amount: number | null;
-    name: string;
-  },
+  plan: Pick<Plan, "category_id" | "name" | "budget_amount">,
   tx: TransactionWithCategory,
-  linkedAmount: number
+  spentAmount: number
 ): RankedTransaction {
-  const reasons: RankedTransactionReason[] = [];
-  let score = 0;
+  const reasons: RankedTransactionReason[] = [
+    { key: "date_in_range", label: "", signal: "match" },
+    { key: "not_linked", label: "", signal: "match" },
+  ];
+  let score = 25;
 
-  // Baseline: date in window (±30/+60 d) and not linked elsewhere — always true in eligible set
-  score += 15 + 10;
-
-  // Category match
   if (plan.category_id && tx.category_id === plan.category_id) {
     score += 30;
     reasons.push({ key: "category", label: tx.category_name, signal: "match" });
@@ -186,26 +203,24 @@ export function rankPlanTransaction(
     reasons.push({ key: "other_category", label: tx.category_name, signal: "warn" });
   }
 
-  // Keyword match: first matching keyword wins (capped at 25)
-  const keywords = extractKeywords(plan.name);
-  const desc = tx.description.toLowerCase();
-  const matchedKeyword = keywords.find((kw) => desc.includes(kw));
+  const matchedKeyword = extractKeywords(plan.name).find((kw) =>
+    tx.description.toLowerCase().includes(kw)
+  );
   if (matchedKeyword) {
     score += 25;
     reasons.push({ key: "keyword", label: matchedKeyword, signal: "match" });
   }
 
-  // Amount fits remaining budget
   const remaining =
-    plan.total_amount != null && plan.total_amount > 0
-      ? Math.max(0, plan.total_amount - linkedAmount)
+    plan.budget_amount != null && plan.budget_amount > 0
+      ? Math.max(0, plan.budget_amount - spentAmount)
       : null;
-  if (remaining !== null && tx.amount <= remaining) {
+  if (tx.type === "expense" && remaining !== null && tx.amount <= remaining) {
     score += 20;
     reasons.push({ key: "amount", label: "", signal: "match" });
   }
 
-  const rankPct = Math.round(score);
+  const rankPct = Math.min(100, Math.round(score));
   const rankLabel: "high" | "medium" | "low" =
     rankPct >= 75 ? "high" : rankPct >= 45 ? "medium" : "low";
 
@@ -213,88 +228,114 @@ export function rankPlanTransaction(
 }
 
 export async function fetchRankedEligibleTransactions(
-  planId: string
+  planId: string,
+  opts?: { type?: TransactionType | "all" }
 ): Promise<RankedTransaction[]> {
-  const [eligible, linked, planRaw] = await Promise.all([
-    fetchEligibleSettlementTransactions(planId),
+  const plan = await fetchPlanForSettlement(planId);
+  const blockedIds = await fetchBlockedTransactionIds();
+  const [eligible, linked] = await Promise.all([
+    fetchEligibleSettlementTransactions(planId, opts, { plan, blockedIds }),
     fetchLinkedTransactions(planId),
-    supabase
-      .from("shopping_lists")
-      .select("id, name, category_id, planned_for, total_amount")
-      .eq("id", planId)
-      .single(),
   ]);
-
-  if (planRaw.error) throw planRaw.error;
-  const plan = planRaw.data;
-  const linkedAmount = linked.reduce((s, t) => s + t.amount, 0);
+  const spentAmount = linked.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
 
   return eligible
-    .map((tx) => rankPlanTransaction(plan, tx, linkedAmount))
+    .map((tx) => rankPlanTransaction(plan, tx, spentAmount))
     .sort((a, b) => b.score - a.score);
 }
 
 export function computePlanProgress(input: {
   planId: string;
   planName: string;
-  plannedAmount: number | null;
+  kind?: import("$lib/types").PlanKind;
+  budgetAmount: number | null;
+  targetAmount?: number | null;
+  endDate?: string;
   linkedTransactions: TransactionWithCategory[];
   eligibleCount?: number;
 }): PlanSettlementProgress {
-  const linkedAmount = input.linkedTransactions.reduce((s, t) => s + t.amount, 0);
+  const expenses = input.linkedTransactions.filter((t) => t.type === "expense");
+  const incomes = input.linkedTransactions.filter((t) => t.type === "income");
+  const spentAmount = expenses.reduce((s, t) => s + t.amount, 0);
+  const incomeAmount = incomes.reduce((s, t) => s + t.amount, 0);
+  const savedAmount = incomeAmount;
+  const targetAmount = input.targetAmount ?? null;
   const remaining =
-    input.plannedAmount != null && input.plannedAmount > 0
-      ? Math.max(0, input.plannedAmount - linkedAmount)
+    input.budgetAmount != null && input.budgetAmount > 0
+      ? Math.max(0, input.budgetAmount - spentAmount)
+      : targetAmount != null && targetAmount > 0
+        ? Math.max(0, targetAmount - savedAmount)
+        : null;
+  const monthsRem = input.endDate ? planMonthsRemaining(input.endDate) : null;
+  const monthlyNeeded =
+    targetAmount != null && targetAmount > 0 && monthsRem != null && monthsRem > 0
+      ? Math.max(0, (targetAmount - savedAmount) / monthsRem)
+      : null;
+  const monthlyActual =
+    input.kind === "save" && monthsRem != null && monthsRem > 0
+      ? savedAmount / Math.max(1, monthsRem)
       : null;
   return {
     planId: input.planId,
     planName: input.planName,
-    plannedAmount: input.plannedAmount,
-    linkedAmount,
+    budgetAmount: input.budgetAmount,
+    targetAmount,
+    spentAmount,
+    incomeAmount,
+    savedAmount,
+    expenseCount: expenses.length,
+    incomeCount: incomes.length,
     linkedCount: input.linkedTransactions.length,
     remaining,
+    balance: incomeAmount - spentAmount,
     eligibleCount: input.eligibleCount ?? 0,
+    monthlyNeeded,
+    monthlyActual,
+    monthsRemaining: monthsRem,
   };
 }
 
-/** Dashboard widget: top N active plans with linked amounts + eligible counts. */
+async function fetchTransactionsByLinkedIds(
+  links: { transaction_id: string }[]
+): Promise<Map<string, TransactionWithCategory>> {
+  const ids = [...new Set(links.map((l) => l.transaction_id))];
+  const txById = new Map<string, TransactionWithCategory>();
+  if (ids.length === 0) return txById;
+  const { data, error } = await supabase
+    .from("transactions_with_category")
+    .select("*")
+    .in("id", ids);
+  if (error) throw error;
+  for (const tx of data ?? []) {
+    if (tx.id) txById.set(tx.id, tx as TransactionWithCategory);
+  }
+  return txById;
+}
+
 export async function fetchDashboardPlanProgress(limit = 8): Promise<PlanSettlementProgress[]> {
   const { data: plans, error } = await supabase
-    .from("shopping_lists")
-    .select("id, name, total_amount, completed_at, planned_for")
-    .is("completed_at", null)
-    .order("planned_for", { ascending: true })
+    .from("plans")
+    .select("*")
+    .gte("end_date", new Date().toISOString().slice(0, 10))
+    .order("start_date", { ascending: true })
     .limit(limit);
   if (error) throw error;
   if (!plans?.length) return [];
 
   const planIds = plans.map((p) => p.id);
-
-  const [linksRes, eligibleCountsRes] = await Promise.all([
+  const [linksRes, eligibleCounts] = await Promise.all([
     supabase
       .from("plan_transaction_links")
       .select("plan_id, transaction_id")
       .in("plan_id", planIds),
-    _batchEligibleCounts(planIds),
+    countEligibleForPlans(plans as Plan[]),
   ]);
-
   if (linksRes.error) throw linksRes.error;
+
   const links = linksRes.data ?? [];
+  const txById = await fetchTransactionsByLinkedIds(links);
 
-  const txIds = [...new Set(links.map((l) => l.transaction_id))];
-  const txById = new Map<string, TransactionWithCategory>();
-  if (txIds.length > 0) {
-    const { data: txs, error: txError } = await supabase
-      .from("transactions_with_category")
-      .select("*")
-      .in("id", txIds);
-    if (txError) throw txError;
-    for (const t of txs ?? []) {
-      if (t.id) txById.set(t.id, t as TransactionWithCategory);
-    }
-  }
-
-  return plans.map((plan) => {
+  return (plans as Plan[]).map((plan) => {
     const linkedTxs = links
       .filter((l) => l.plan_id === plan.id)
       .map((l) => txById.get(l.transaction_id))
@@ -302,21 +343,23 @@ export async function fetchDashboardPlanProgress(limit = 8): Promise<PlanSettlem
     return computePlanProgress({
       planId: plan.id,
       planName: plan.name,
-      plannedAmount: plan.total_amount,
+      kind: plan.kind,
+      budgetAmount: plan.budget_amount,
+      targetAmount: plan.target_amount,
+      endDate: plan.end_date,
       linkedTransactions: linkedTxs,
-      eligibleCount: eligibleCountsRes[plan.id] ?? 0,
+      eligibleCount: eligibleCounts[plan.id] ?? 0,
     });
   });
 }
 
-/** List page: fetch linked amounts + eligible counts for an explicit set of planIds. */
 export async function fetchPlanProgressForPlans(
   planIds: string[]
 ): Promise<Record<string, PlanSettlementProgress>> {
   if (planIds.length === 0) return {};
 
   const [plansRes, linksRes] = await Promise.all([
-    supabase.from("shopping_lists").select("id, name, total_amount, planned_for").in("id", planIds),
+    supabase.from("plans").select("*").in("id", planIds),
     supabase
       .from("plan_transaction_links")
       .select("plan_id, transaction_id")
@@ -326,25 +369,13 @@ export async function fetchPlanProgressForPlans(
   if (plansRes.error) throw plansRes.error;
   if (linksRes.error) throw linksRes.error;
 
-  const plans = plansRes.data ?? [];
+  const plans = (plansRes.data ?? []) as Plan[];
+  const eligibleCounts = await countEligibleForPlans(plans);
+
   const links = linksRes.data ?? [];
-
-  const txIds = [...new Set(links.map((l) => l.transaction_id))];
-  const txById = new Map<string, TransactionWithCategory>();
-  if (txIds.length > 0) {
-    const { data: txs, error: txError } = await supabase
-      .from("transactions_with_category")
-      .select("*")
-      .in("id", txIds);
-    if (txError) throw txError;
-    for (const t of txs ?? []) {
-      if (t.id) txById.set(t.id, t as TransactionWithCategory);
-    }
-  }
-
-  const eligibleCounts = await _batchEligibleCounts(planIds);
-
+  const txById = await fetchTransactionsByLinkedIds(links);
   const result: Record<string, PlanSettlementProgress> = {};
+
   for (const plan of plans) {
     const linkedTxs = links
       .filter((l) => l.plan_id === plan.id)
@@ -353,7 +384,10 @@ export async function fetchPlanProgressForPlans(
     result[plan.id] = computePlanProgress({
       planId: plan.id,
       planName: plan.name,
-      plannedAmount: plan.total_amount,
+      kind: plan.kind,
+      budgetAmount: plan.budget_amount,
+      targetAmount: plan.target_amount,
+      endDate: plan.end_date,
       linkedTransactions: linkedTxs,
       eligibleCount: eligibleCounts[plan.id] ?? 0,
     });
@@ -361,23 +395,71 @@ export async function fetchPlanProgressForPlans(
   return result;
 }
 
-/**
- * Batch-count eligible transactions per plan.
- * Delegates to fetchEligibleSettlementTransactions so scope/date/link rules stay identical.
- */
+async function countEligibleForPlans(plans: Plan[]): Promise<Record<string, number>> {
+  if (plans.length === 0) return {};
+
+  const planIds = plans.map((p) => p.id);
+  const linkedIds = await fetchLinkedTransactionIds();
+  const counts: Record<string, number> = Object.fromEntries(planIds.map((id) => [id, 0]));
+
+  const byScope = new Map<string, Plan[]>();
+  for (const plan of plans) {
+    const key = planScopeKey(plan);
+    const group = byScope.get(key) ?? [];
+    group.push(plan);
+    byScope.set(key, group);
+  }
+
+  await Promise.all(
+    [...byScope.entries()].map(async ([, scopePlans]) => {
+      const sample = scopePlans[0];
+      const minStart = scopePlans.reduce(
+        (min, p) => (p.start_date < min ? p.start_date : min),
+        scopePlans[0].start_date
+      );
+      const maxEnd = scopePlans.reduce(
+        (max, p) => (p.end_date > max ? p.end_date : max),
+        scopePlans[0].end_date
+      );
+
+      let query = supabase
+        .from("transactions_with_category")
+        .select("id, date, type")
+        .gte("date", minStart)
+        .lte("date", maxEnd)
+        .in("type", ["expense", "income"])
+        .limit(500);
+
+      if (sample.group_id) {
+        query = query.eq("group_id", sample.group_id);
+      } else {
+        query = query.eq("user_id", sample.user_id).is("group_id", null);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      const txs = (data ?? []) as Pick<TransactionWithCategory, "id" | "date" | "type">[];
+
+      for (const plan of scopePlans) {
+        counts[plan.id] = txs.filter(
+          (tx) =>
+            tx.date >= plan.start_date &&
+            tx.date <= plan.end_date &&
+            !linkedIds.has(tx.id) &&
+            (tx.type === "expense" || tx.type === "income")
+        ).length;
+      }
+    })
+  );
+
+  return counts;
+}
+
 export async function countEligibleTransactionsByPlanIds(
   planIds: string[]
 ): Promise<Record<string, number>> {
   if (planIds.length === 0) return {};
-
-  const pairs = await Promise.all(
-    planIds.map(async (planId) => {
-      const txs = await fetchEligibleSettlementTransactions(planId);
-      return [planId, txs.length] as const;
-    })
-  );
-  return Object.fromEntries(pairs);
+  const { data, error } = await supabase.from("plans").select("*").in("id", planIds);
+  if (error) throw error;
+  return countEligibleForPlans((data ?? []) as Plan[]);
 }
-
-/** @internal Alias for callers inside this module. */
-const _batchEligibleCounts = countEligibleTransactionsByPlanIds;

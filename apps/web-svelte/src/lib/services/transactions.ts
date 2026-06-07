@@ -118,7 +118,6 @@ export interface CreateTransactionInput {
   recurrence_interval?: number;
   recurrence_weekday?: number | null;
   recurrence_month?: number | null;
-  shopping_list_id?: string | null;
   group_id?: string | null;
 }
 

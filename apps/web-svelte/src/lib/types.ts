@@ -2,7 +2,6 @@ import type { Json } from "$lib/supabase.types";
 
 export type TransactionType = "income" | "expense";
 export type TransactionStatus = "paid" | "draft" | "upcoming" | "overdue";
-export type ShoppingListStatus = "active" | "completed";
 export type InvitationStatus = "pending" | "accepted" | "rejected" | "cancelled";
 export type UserRole = "user" | "admin";
 
@@ -42,7 +41,6 @@ export interface Transaction {
   status: TransactionStatus;
   category_id: string;
   user_id: string;
-  shopping_list_id: string | null;
   is_recurring: boolean;
   recurring_day: number | null;
   recurrence_frequency: RecurrenceFrequency | null;
@@ -135,59 +133,46 @@ export interface GroupInvitation {
   updated_at: string;
 }
 
-export interface ShoppingListItem {
-  id: string;
-  shopping_list_id: string;
-  name: string;
-  completed: boolean;
-  quantity: number | null;
-  unit: string | null;
-  category: string | null;
-  position: number;
-  created_at: string;
-  updated_at: string;
-}
+export type PlanKind = "spend" | "save" | "debt";
 
-export interface ShoppingItemCategory {
-  id: string;
-  user_id: string;
-  name: string;
-  position: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface ShoppingList {
+export interface Plan {
   id: string;
   name: string;
-  status: ShoppingListStatus;
   user_id: string;
   group_id: string | null;
   category_id: string | null;
-  total_amount: number | null;
-  completed_at: string | null;
-  planned_for: string;
-  shopping_started_at: string | null;
+  kind: PlanKind;
+  budget_amount: number | null;
+  target_amount: number | null;
+  start_date: string;
+  end_date: string;
   created_at: string;
   updated_at: string;
 }
 
-export type ShoppingListMode = "planning" | "shopping" | "done";
-export type ShoppingListBucket = "upcoming" | "active" | "archived";
-
-export interface ShoppingListWithItems extends ShoppingList {
-  shopping_list_items: ShoppingListItem[];
-  linked_transaction_id?: string | null;
+export interface PlanDebtTerms {
+  plan_id: string;
+  original_amount: number;
+  current_balance: number;
+  annual_rate: number;
+  monthly_payment: number;
+  payment_day: number | null;
+  anchor_transaction_id: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
-export interface ShoppingListSummary extends ShoppingList {
-  item_total: number;
-  item_completed: number;
-  linked_transaction_id: string | null;
-  linkedAmount: number;
+export type PlanBucket = "upcoming" | "active" | "finished";
+
+export interface PlanSummary extends Plan {
+  spentAmount: number;
+  incomeAmount: number;
+  savedAmount: number;
   linkedCount: number;
-  bucket: ShoppingListBucket;
-  mode: ShoppingListMode;
+  eligibleCount: number;
+  monthlyNeeded: number | null;
+  monthlyActual: number | null;
+  bucket: PlanBucket;
 }
 
 export type NotificationType =
