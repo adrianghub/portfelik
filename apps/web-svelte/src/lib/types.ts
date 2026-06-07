@@ -175,6 +175,27 @@ export interface PlanSummary extends Plan {
   bucket: PlanBucket;
 }
 
+export interface FinancialSnapshot {
+  user_id: string;
+  as_of_date: string;
+  cash_amount: number;
+  investments_amount: number;
+  real_estate_amount: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NetWorthSummary {
+  hasSnapshot: boolean;
+  asOfDate: string | null;
+  cash: number;
+  investments: number;
+  realEstate: number;
+  totalAssets: number;
+  totalDebt: number;
+  netWorth: number;
+}
+
 export type NotificationType =
   | "transaction_summary"
   | "transaction_upcoming"

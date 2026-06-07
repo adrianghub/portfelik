@@ -1,5 +1,6 @@
 <script lang="ts">
   import PlanCard from "$lib/components/plans/PlanCard.svelte";
+  import NetWorthHero from "$lib/components/plans/NetWorthHero.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import DayPicker from "$lib/components/ui/DayPicker.svelte";
   import Dialog from "$lib/components/ui/Dialog.svelte";
@@ -9,6 +10,11 @@
   import { fetchUserGroups } from "$lib/services/groups";
   import { fetchPlanProgressForPlans } from "$lib/services/plan-settlement";
   import { upsertPlanDebtTerms, fetchPlanDebtTermsByPlanIds } from "$lib/services/plan-debt";
+  import {
+    computeNetWorth,
+    fetchFinancialSnapshot,
+    upsertFinancialSnapshot,
+  } from "$lib/services/financial-snapshots";
   import {
     createPlan,
     deletePlan,
@@ -64,6 +70,17 @@
     queryFn: () => fetchPlanDebtTermsByPlanIds(debtPlanIds),
     enabled: debtPlanIds.length > 0,
   }));
+
+  const snapshotQuery = createQuery(() => ({
+    queryKey: ["financial-snapshot"],
+    queryFn: fetchFinancialSnapshot,
+  }));
+
+  const debtBalances = $derived(
+    Object.values(debtTermsQuery.data ?? {}).map((t) => Number(t.current_balance))
+  );
+
+  const netWorth = $derived(computeNetWorth(snapshotQuery.data ?? null, debtBalances));
 
   const summaries = $derived(
     (plansQuery.data ?? []).map((plan): PlanSummary => {
@@ -121,6 +138,37 @@
   let debtPayment = $state("");
   let categoryId = $state("");
   let groupId = $state("");
+
+  let showNetWorthForm = $state(false);
+  let snapshotDate = $state("");
+  let snapshotCash = $state("");
+  let snapshotInvest = $state("");
+  let snapshotEstate = $state("");
+
+  function openNetWorthForm() {
+    const snap = snapshotQuery.data;
+    snapshotDate = snap?.as_of_date ?? todayIsoLocal();
+    snapshotCash = snap ? String(snap.cash_amount) : "";
+    snapshotInvest = snap ? String(snap.investments_amount) : "";
+    snapshotEstate = snap ? String(snap.real_estate_amount) : "";
+    showNetWorthForm = true;
+  }
+
+  const snapshotMutation = createSvelteMutation(() => ({
+    mutationFn: () =>
+      upsertFinancialSnapshot({
+        as_of_date: snapshotDate,
+        cash_amount: snapshotCash === "" ? 0 : Number(snapshotCash),
+        investments_amount: snapshotInvest === "" ? 0 : Number(snapshotInvest),
+        real_estate_amount: snapshotEstate === "" ? 0 : Number(snapshotEstate),
+      }),
+    onSuccess: async () => {
+      showNetWorthForm = false;
+      toast.success(m.plans_net_worth_toast_saved());
+      await queryClient.invalidateQueries({ queryKey: ["financial-snapshot"] });
+    },
+    onError: () => toast.error(m.toast_error()),
+  }));
 
   function resetForm(plan?: Plan) {
     editing = plan as PlanSummary | null;
@@ -231,6 +279,12 @@
   </div>
 
   <p class="text-sm text-slate-400">{m.plans_tagline()}</p>
+
+  {#if snapshotQuery.isLoading}
+    <div class="h-36 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
+  {:else}
+    <NetWorthHero summary={netWorth} onedit={openNetWorthForm} />
+  {/if}
 
   {#if plansQuery.isLoading}
     <div class="grid gap-3 sm:grid-cols-2">
@@ -547,6 +601,91 @@
         class="bg-accent-gradient focus-visible:ring-accent flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
       >
         {createMutation.isPending || updateMutation.isPending ? m.common_saving() : m.common_save()}
+      </button>
+    </div>
+  </form>
+</Dialog>
+
+<Dialog
+  open={showNetWorthForm}
+  onclose={() => (showNetWorthForm = false)}
+  title={m.plans_net_worth_edit_title()}
+>
+  <form
+    class="space-y-4"
+    onsubmit={(e) => {
+      e.preventDefault();
+      snapshotMutation.mutate();
+    }}
+  >
+    <p class="text-xs text-slate-400">{m.plans_net_worth_manual_note()}</p>
+    <div class="space-y-1">
+      <label class="text-xs font-medium text-slate-300" for="snapshot-date">
+        {m.plans_net_worth_as_of_label()}
+      </label>
+      <DayPicker
+        id="snapshot-date"
+        bind:value={snapshotDate}
+        label={m.plans_net_worth_as_of_label()}
+        showLabel={false}
+      />
+    </div>
+    <div class="space-y-1">
+      <label class="text-xs font-medium text-slate-300" for="snapshot-cash">
+        {m.plans_net_worth_cash()}
+      </label>
+      <input
+        id="snapshot-cash"
+        type="number"
+        min="0"
+        step="0.01"
+        bind:value={snapshotCash}
+        placeholder="0"
+        class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
+      />
+    </div>
+    <div class="space-y-1">
+      <label class="text-xs font-medium text-slate-300" for="snapshot-invest">
+        {m.plans_net_worth_investments()}
+      </label>
+      <input
+        id="snapshot-invest"
+        type="number"
+        min="0"
+        step="0.01"
+        bind:value={snapshotInvest}
+        placeholder="0"
+        class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
+      />
+    </div>
+    <div class="space-y-1">
+      <label class="text-xs font-medium text-slate-300" for="snapshot-estate">
+        {m.plans_net_worth_real_estate()}
+      </label>
+      <input
+        id="snapshot-estate"
+        type="number"
+        min="0"
+        step="0.01"
+        bind:value={snapshotEstate}
+        placeholder="0"
+        class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
+      />
+    </div>
+    <div class="flex gap-2 pt-1">
+      <button
+        type="button"
+        onclick={() => (showNetWorthForm = false)}
+        class="flex-1 rounded-full border border-white/10 bg-slate-900/60 py-2 text-sm font-medium text-slate-200"
+      >
+        {m.common_cancel()}
+      </button>
+      <button
+        type="submit"
+        disabled={snapshotMutation.isPending}
+        class="bg-accent-gradient flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
+      >
+        {snapshotMutation.isPending ? m.common_saving() : m.common_save()}
       </button>
     </div>
   </form>
