@@ -1,5 +1,5 @@
 import { supabase } from "$lib/supabase";
-import type { Plan, PlanBucket, PlanKind } from "$lib/types";
+import type { GroupMemberRole, Plan, PlanBucket, PlanKind } from "$lib/types";
 
 function todayIso(): string {
   const now = new Date();
@@ -130,4 +130,15 @@ export function monthsRemaining(endDate: string, today = todayIso()): number {
     1,
     (end.getFullYear() - now.getFullYear()) * 12 + (end.getMonth() - now.getMonth()) + 1
   );
+}
+
+export function canManagePlan(
+  plan: Pick<Plan, "user_id" | "group_id">,
+  currentUserId: string,
+  groupRoles: Map<string, GroupMemberRole>
+): boolean {
+  if (plan.user_id === currentUserId) return true;
+  if (!plan.group_id) return false;
+  const role = groupRoles.get(plan.group_id);
+  return role === "owner" || role === "co_owner";
 }

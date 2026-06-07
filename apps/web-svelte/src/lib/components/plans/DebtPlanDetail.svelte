@@ -85,7 +85,7 @@
 </script>
 
 <section class="space-y-5">
-  {#if balanceDrift && derivedBalance != null}
+  {#if balanceDrift && derivedBalance != null && onSyncBalance}
     <div
       class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5"
     >

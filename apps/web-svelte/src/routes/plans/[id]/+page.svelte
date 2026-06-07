@@ -18,15 +18,29 @@
     upsertPlanDebtTerms,
     updatePlanDebtBalance,
   } from "$lib/services/plan-debt";
-  import { fetchPlanById, updatePlan } from "$lib/services/plans";
+  import { fetchPlanById, updatePlan, canManagePlan } from "$lib/services/plans";
+  import { fetchMyGroupRoles } from "$lib/services/groups";
+  import { supabase } from "$lib/supabase";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
   import { polishPluralForm } from "$lib/utils/polish-plural";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { ArrowLeft, CalendarDays, ChevronRight, Link2Off, Sparkles, Users } from "lucide-svelte";
+  import { onMount } from "svelte";
   import { toast } from "svelte-sonner";
 
   const queryClient = useQueryClient();
   const id = $derived($page.params.id ?? "");
+
+  let currentUserId = $state<string | null>(null);
+  onMount(async () => {
+    const { data } = await supabase.auth.getSession();
+    currentUserId = data.session?.user.id ?? null;
+  });
+
+  const groupRolesQuery = createQuery(() => ({
+    queryKey: ["my-group-roles"],
+    queryFn: fetchMyGroupRoles,
+  }));
 
   const planQuery = createQuery(() => ({
     queryKey: ["plan", id],
@@ -89,6 +103,12 @@
       ? deriveDebtBalanceFromLinks(Number(debtTermsQuery.data.original_amount), expenses)
       : null
   );
+
+  const canManage = $derived.by(() => {
+    const plan = planQuery.data;
+    if (!plan || !currentUserId) return false;
+    return canManagePlan(plan, currentUserId, groupRolesQuery.data ?? new Map());
+  });
 
   function settleCtaSubtitle(count: number): string {
     const form = polishPluralForm(count);
@@ -213,14 +233,28 @@
     </div>
 
     {#if plan.kind === "save" && progress}
+      {#if plan.group_id && !canManage}
+        <p
+          class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-2 text-sm text-slate-400"
+        >
+          {m.plan_shared_readonly_hint()}
+        </p>
+      {/if}
       <SavePlanDetail
         {plan}
         {progress}
-        onAdjust={(patch) => saveAdjustMutation.mutate(patch)}
+        onAdjust={canManage ? (patch) => saveAdjustMutation.mutate(patch) : undefined}
         adjusting={saveAdjustMutation.isPending}
       />
     {:else if plan.kind === "debt" && debtTermsQuery.data}
-      {#if paymentDetectQuery.data?.[0] && !debtTermsQuery.data.anchor_transaction_id}
+      {#if plan.group_id && !canManage}
+        <p
+          class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-2 text-sm text-slate-400"
+        >
+          {m.plan_shared_readonly_hint()}
+        </p>
+      {/if}
+      {#if paymentDetectQuery.data?.[0] && !debtTermsQuery.data.anchor_transaction_id && canManage}
         <div
           class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5"
         >
@@ -242,8 +276,8 @@
         planId={id}
         terms={debtTermsQuery.data}
         derivedBalance={derivedDebtBalance}
-        onSyncBalance={() => syncBalanceMutation.mutate()}
-        onTermsSave={(input) => debtTermsMutation.mutate(input)}
+        onSyncBalance={canManage ? () => syncBalanceMutation.mutate() : undefined}
+        onTermsSave={canManage ? (input) => debtTermsMutation.mutate(input) : undefined}
         syncing={syncBalanceMutation.isPending}
         termsSaving={debtTermsMutation.isPending}
       />
