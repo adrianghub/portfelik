@@ -13,7 +13,7 @@ flowchart LR
   Import[Import bankowy] --> Transactions[Transakcje]
   Manual[Dodaj ręcznie<br/>fallback / korekta] --> Transactions
   Alerts[Alert importu] --> Import
-  Plans[Plany] --> Settlement[Rozlicz plan]
+  Plans[Plany] --> Settlement[Zrealizuj plan]
   Transactions --> Settlement
   Transactions --> Dashboard[Pulpit]
   Settlement --> Dashboard
@@ -29,7 +29,7 @@ with what actually happened.
 - **Pulpit** - month view for income, expenses, balance, categories, and financial condition.
 - **Transakcje** - confirmed ledger with categories, recurring entries, status tracking, CSV export, and manual fallback/corrections.
 - **Import** - bank CSV intake with parser/adapters, preview, deterministic categorization rules, duplicate handling, `Inne` fallback, and commit provenance.
-- **Plany** - future spending and goals. Current internals still use `shopping_lists` compatibility tables, but the product direction is Plans and plan settlement.
+- **Plany** - future spending and goals with a date period, optional budget, and settlement by linking real expense/income transactions from history.
 - **Reguly i kategorie** - deterministic import categorization and user-owned category management.
 - **Grupy** - shared transactions/plans for couples, friends, and trusted groups, with role-based co-owner direction for managing group finance.
 - **Powiadomienia i alerty** - VAPID web-push for invitations, operational summaries, and user-controlled reminders to refresh bank imports.

@@ -107,9 +107,9 @@ flowchart LR
   Link --> Progress[Plan progress]
 ```
 
-Current implementation still has legacy `transactions.shopping_list_id` and
-`shopping_lists` internals. Future settlement should use a dedicated
-plan-to-transaction link model.
+Current implementation stores plans in `plans` and settlement links in
+`plan_transaction_links`. Progress is derived from linked income/expense
+transactions, not from checklist state or plan-created ledger rows.
 
 ## Runtime Patterns
 
