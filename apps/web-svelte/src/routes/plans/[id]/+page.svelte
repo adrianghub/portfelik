@@ -229,6 +229,14 @@
             </span>
           {/if}
         </div>
+        {#if plan.group_id}
+          <a
+            href="/settings"
+            class="focus-visible:ring-accent pl-8 text-xs font-medium text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+          >
+            {m.plan_group_roles_link()}
+          </a>
+        {/if}
       </div>
     </div>
 

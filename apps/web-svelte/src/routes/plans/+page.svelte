@@ -46,10 +46,17 @@
   const queryClient = useQueryClient();
 
   let currentUserId = $state<string | null>(null);
+  let hubOnboardingDismissed = $state(false);
   onMount(async () => {
+    hubOnboardingDismissed = localStorage.getItem("plans-hub-onboarding") === "1";
     const { data } = await supabase.auth.getSession();
     currentUserId = data.session?.user.id ?? null;
   });
+
+  function dismissHubOnboarding() {
+    hubOnboardingDismissed = true;
+    localStorage.setItem("plans-hub-onboarding", "1");
+  }
 
   const plansQuery = createQuery(() => ({
     queryKey: ["plans"],
@@ -344,6 +351,22 @@
   </div>
 
   <p class="text-sm text-slate-400">{m.plans_tagline()}</p>
+
+  {#if !hubOnboardingDismissed}
+    <div
+      class="flex items-start justify-between gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3"
+      role="status"
+    >
+      <p class="text-sm text-slate-300">{m.plans_hub_onboarding()}</p>
+      <button
+        type="button"
+        onclick={dismissHubOnboarding}
+        class="focus-visible:ring-accent shrink-0 rounded-full border border-white/10 px-3 py-1 text-xs font-medium text-slate-200 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+      >
+        {m.plans_hub_onboarding_dismiss()}
+      </button>
+    </div>
+  {/if}
 
   {#if snapshotQuery.isLoading}
     <div class="h-36 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
