@@ -1,13 +1,14 @@
 <script lang="ts">
   import PlanCard from "$lib/components/plans/PlanCard.svelte";
   import NetWorthHero from "$lib/components/plans/NetWorthHero.svelte";
+  import SurplusCard from "$lib/components/plans/SurplusCard.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import DayPicker from "$lib/components/ui/DayPicker.svelte";
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import Fab from "$lib/components/ui/Fab.svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchCategories } from "$lib/services/categories";
-  import { fetchUserGroups } from "$lib/services/groups";
+  import { fetchUserGroups, fetchMyGroupRoles } from "$lib/services/groups";
   import { fetchPlanProgressForPlans } from "$lib/services/plan-settlement";
   import { upsertPlanDebtTerms, fetchPlanDebtTermsByPlanIds } from "$lib/services/plan-debt";
   import {
@@ -16,12 +17,20 @@
     upsertFinancialSnapshot,
   } from "$lib/services/financial-snapshots";
   import {
+    computeMonthlySurplus,
+    currentCalendarMonthBounds,
+    sumDebtMonthlyPayments,
+    sumSaveMonthlyNeeded,
+  } from "$lib/services/financial-surplus";
+  import {
     createPlan,
+    canManagePlan,
     deletePlan,
     derivePlanBucket,
     fetchPlans,
     updatePlan,
   } from "$lib/services/plans";
+  import { supabase } from "$lib/supabase";
   import type { Plan, PlanKind, PlanSummary } from "$lib/types";
   import { cn } from "$lib/utils";
   import {
@@ -30,9 +39,17 @@
     useQueryClient,
   } from "@tanstack/svelte-query";
   import { Plus } from "lucide-svelte";
+  import { onMount } from "svelte";
   import { toast } from "svelte-sonner";
+  import { computeSummary, fetchTransactions } from "$lib/services/transactions";
 
   const queryClient = useQueryClient();
+
+  let currentUserId = $state<string | null>(null);
+  onMount(async () => {
+    const { data } = await supabase.auth.getSession();
+    currentUserId = data.session?.user.id ?? null;
+  });
 
   const plansQuery = createQuery(() => ({
     queryKey: ["plans"],
@@ -42,6 +59,18 @@
   const groupsQuery = createQuery(() => ({
     queryKey: ["user_groups"],
     queryFn: fetchUserGroups,
+  }));
+
+  const groupRolesQuery = createQuery(() => ({
+    queryKey: ["my-group-roles"],
+    queryFn: fetchMyGroupRoles,
+  }));
+
+  const monthBounds = $derived(currentCalendarMonthBounds());
+
+  const monthTxQuery = createQuery(() => ({
+    queryKey: ["transactions", "plans-surplus", monthBounds.start, monthBounds.end],
+    queryFn: () => fetchTransactions(monthBounds.start, monthBounds.end),
   }));
 
   const categoriesQuery = createQuery(() => ({
@@ -82,6 +111,11 @@
 
   const netWorth = $derived(computeNetWorth(snapshotQuery.data ?? null, debtBalances));
 
+  function planCanManage(plan: PlanSummary): boolean {
+    if (!currentUserId) return false;
+    return canManagePlan(plan, currentUserId, groupRolesQuery.data ?? new Map());
+  }
+
   const summaries = $derived(
     (plansQuery.data ?? []).map((plan): PlanSummary => {
       const progress = progressQuery.data?.[plan.id];
@@ -99,6 +133,17 @@
       };
     })
   );
+
+  const monthlySurplus = $derived.by(() => {
+    const monthSummary = monthTxQuery.data ? computeSummary(monthTxQuery.data) : null;
+    if (!monthSummary) return null;
+    return computeMonthlySurplus({
+      totalIncome: monthSummary.total_income,
+      totalExpenses: monthSummary.total_expenses,
+      debtMonthlyPayments: sumDebtMonthlyPayments(debtTermsQuery.data ?? {}),
+      saveMonthlyNeeded: sumSaveMonthlyNeeded(summaries),
+    });
+  });
 
   const filteredPlans = $derived(
     summaries.filter((p) => {
@@ -286,6 +331,12 @@
     <NetWorthHero summary={netWorth} onedit={openNetWorthForm} />
   {/if}
 
+  {#if monthTxQuery.isLoading}
+    <div class="h-28 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
+  {:else if monthlySurplus}
+    <SurplusCard summary={monthlySurplus} />
+  {/if}
+
   {#if plansQuery.isLoading}
     <div class="grid gap-3 sm:grid-cols-2">
       {#each Array(4) as _, i (i)}
@@ -354,8 +405,8 @@
                 {plan}
                 categoryName={categoryMap.get(plan.category_id ?? "")}
                 groupName={groupMap.get(plan.group_id ?? "")}
-                onedit={resetForm}
-                ondelete={(id) => (deleteTargetId = id)}
+                onedit={planCanManage(plan) ? resetForm : undefined}
+                ondelete={planCanManage(plan) ? (id) => (deleteTargetId = id) : undefined}
               />
             {/each}
           {/if}
@@ -379,8 +430,8 @@
             {plan}
             categoryName={categoryMap.get(plan.category_id ?? "")}
             groupName={groupMap.get(plan.group_id ?? "")}
-            onedit={resetForm}
-            ondelete={(id) => (deleteTargetId = id)}
+            onedit={planCanManage(plan) ? resetForm : undefined}
+            ondelete={planCanManage(plan) ? (id) => (deleteTargetId = id) : undefined}
           />
         {/each}
       {/if}
@@ -403,8 +454,8 @@
             debtTerms={debtTermsQuery.data?.[plan.id]}
             categoryName={categoryMap.get(plan.category_id ?? "")}
             groupName={groupMap.get(plan.group_id ?? "")}
-            onedit={resetForm}
-            ondelete={(id) => (deleteTargetId = id)}
+            onedit={planCanManage(plan) ? resetForm : undefined}
+            ondelete={planCanManage(plan) ? (id) => (deleteTargetId = id) : undefined}
           />
         {/each}
       {/if}

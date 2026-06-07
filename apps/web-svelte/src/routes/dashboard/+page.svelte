@@ -2,6 +2,7 @@
   import { goto } from "$app/navigation";
   import TransactionTable from "$lib/components/transactions/TransactionTable.svelte";
   import DashboardImportHealth from "$lib/components/dashboard/DashboardImportHealth.svelte";
+  import DashboardNetWorthStrip from "$lib/components/dashboard/DashboardNetWorthStrip.svelte";
   import DashboardPlanProgress from "$lib/components/dashboard/DashboardPlanProgress.svelte";
   import CategoryBreakdown from "$lib/components/transactions/CategoryBreakdown.svelte";
   import * as m from "$lib/paraglide/messages";
@@ -221,6 +222,7 @@
   </div>
 
   <DashboardImportHealth />
+  <DashboardNetWorthStrip />
   <DashboardPlanProgress />
 
   <!-- Hero balance card -->
