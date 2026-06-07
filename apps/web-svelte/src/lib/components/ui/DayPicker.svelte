@@ -34,6 +34,7 @@
   const locale = "pl";
   const tz = getLocalTimeZone();
   let open = $state(false);
+  let placement = $state<"bottom" | "top">("bottom");
   const selected = $derived(toValue(value));
 
   function toValue(iso: string | null | undefined): DateValue | undefined {
@@ -62,6 +63,19 @@
     }
     value = next.toString();
     open = false;
+  }
+
+  function toggleOpen() {
+    if (disabled) return;
+    if (!open && isDesktop.current) {
+      const el = document.getElementById(id);
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        const popoverHeight = 340;
+        placement = rect.bottom + popoverHeight > window.innerHeight ? "top" : "bottom";
+      }
+    }
+    open = !open;
   }
 
   function clickOutside(e: MouseEvent) {
@@ -143,9 +157,7 @@
   <button
     {id}
     type="button"
-    onclick={() => {
-      if (!disabled) open = !open;
-    }}
+    onclick={toggleOpen}
     aria-haspopup="dialog"
     aria-expanded={open}
     aria-label={label}
@@ -164,7 +176,10 @@
 
   {#if open && isDesktop.current}
     <div
-      class="absolute top-[calc(100%+0.5rem)] left-0 z-[100] min-w-72 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/95 p-4 shadow-[0_0_40px_rgba(0,0,0,0.4)] backdrop-blur"
+      class={cn(
+        "absolute left-0 z-[100] min-w-72 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/95 p-4 shadow-[0_0_40px_rgba(0,0,0,0.4)] backdrop-blur",
+        placement === "top" ? "bottom-[calc(100%+0.5rem)]" : "top-[calc(100%+0.5rem)]"
+      )}
       role="dialog"
       aria-label={label}
     >

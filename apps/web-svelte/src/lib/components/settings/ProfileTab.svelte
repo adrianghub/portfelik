@@ -13,6 +13,7 @@
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import type { Profile, ProfileSettings } from "$lib/types";
+  import { getBankImportReminder, type ImportReminderCadence } from "$lib/profile-settings";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import { toast } from "svelte-sonner";
   import * as m from "$lib/paraglide/messages";
@@ -28,9 +29,7 @@
   let nameInput = $state("");
   const reminderCadenceOptions = [7, 14, 30] as const;
 
-  const bankImportReminder = $derived(
-    profile?.settings.alerts?.bankImportReminder ?? { enabled: false, cadenceDays: 7 as const }
-  );
+  const bankImportReminder = $derived(getBankImportReminder(profile?.settings));
 
   function startEdit() {
     nameInput = profile?.name ?? "";
@@ -112,7 +111,7 @@
 
   function nextSettingsForReminder(input: {
     enabled: boolean;
-    cadenceDays: 7 | 14 | 30;
+    cadenceDays: ImportReminderCadence;
   }): ProfileSettings {
     const current = profile?.settings ?? {};
     return {
@@ -125,7 +124,7 @@
   }
 
   const reminderMutation = createMutation(() => ({
-    mutationFn: (input: { enabled: boolean; cadenceDays: 7 | 14 | 30 }) => {
+    mutationFn: (input: { enabled: boolean; cadenceDays: ImportReminderCadence }) => {
       if (!profile) throw new Error("no_profile");
       return updateProfile(profile.id, { settings: nextSettingsForReminder(input) });
     },
@@ -286,9 +285,9 @@
       <label class="block max-w-xs text-xs text-slate-400">
         {m.profile_import_alert_cadence()}
         <select
-          class="focus-visible:ring-accent mt-1 h-9 w-full rounded-lg border border-white/10 bg-slate-950 px-3 text-sm text-slate-100 focus-visible:ring-2 focus-visible:outline-none"
-          value={bankImportReminder.cadenceDays}
-          disabled={reminderMutation.isPending}
+          class="focus-visible:ring-accent mt-1 h-9 w-full rounded-lg border border-white/10 bg-slate-950 px-3 text-sm text-slate-100 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+          value={String(bankImportReminder.cadenceDays)}
+          disabled={!bankImportReminder.enabled || reminderMutation.isPending}
           onchange={(event) => setReminderCadence((event.currentTarget as HTMLSelectElement).value)}
         >
           <option value="7">{m.profile_import_alert_cadence_weekly()}</option>

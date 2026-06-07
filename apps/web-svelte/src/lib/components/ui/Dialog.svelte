@@ -30,12 +30,12 @@
     onkeydown={null}
   >
     <div
-      class="w-full max-w-md overflow-hidden rounded-2xl border border-white/5 bg-slate-900/95 shadow-[0_0_60px_rgba(16,185,129,0.08)] backdrop-blur"
+      class="flex max-h-[min(85vh,640px)] w-full max-w-md flex-col overflow-visible rounded-2xl border border-white/5 bg-slate-900/95 shadow-[0_0_60px_rgba(16,185,129,0.08)] backdrop-blur"
       role="dialog"
       aria-modal="true"
       aria-labelledby="dialog-title"
     >
-      <div class="flex items-center justify-between border-b border-white/5 px-5 pt-5 pb-3">
+      <div class="flex shrink-0 items-center justify-between border-b border-white/5 px-5 pt-5 pb-3">
         <h2 id="dialog-title" class="text-base font-semibold text-slate-100">
           {title}
         </h2>
@@ -47,7 +47,7 @@
           <X size={16} strokeWidth={1.8} aria-hidden="true" />
         </button>
       </div>
-      <div class="px-5 py-4">
+      <div class="overflow-x-visible overflow-y-auto px-5 py-4">
         {@render children()}
       </div>
     </div>
