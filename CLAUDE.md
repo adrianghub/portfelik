@@ -92,7 +92,7 @@ the in-app notification row with push as an optional channel.
 
 **Bank import (shipped 2026-06):** exception-review surface, adapter registry, review virtualization, 19 Playwright cases, service/component tests. Clean rows commit by default; `pending` only on explicit defer; `Inne` for uncategorized.
 
-**Public launch program (2026-06, in progress on `dev`):** MVP+ before `dev`→`main`. Phases: (0) docs/ops, (1) import spine, (2) plan settlement, (3) Plany surface + co-owners + banks, (4) full export + public privacy + a11y, (5) launch gate. See `docs/product/mvp-hardening.md`.
+**Public launch program (2026-06):** MVP+ **landed on `main`** (2026-06-07, #104 + readiness stack through `41717c7`). Shopping lists → Plany migration closed ([#103](https://github.com/adrianghub/portfelik/issues/103)). Phases 0–5 complete per `docs/product/mvp-hardening.md`.
 
 **Goals & Debt v1.5 polish (2026-06-07):** debt timeline, Belka scenarios, save sliders, balance sync from raty.
 
@@ -100,7 +100,7 @@ the in-app notification row with push as an optional channel.
 
 **Group plans G2 (2026-06-07):** co-owner-only plan/debt-term writes; member read + settle unchanged.
 
-**Immediate next step:** ship security-hardening migration (pin `privacy_*` search_path; revoke `anon` EXECUTE on `seed_default_categories*`; confirm `complete_shopping_list` dropped); push `dev`; gates green (`open-pr.sh main`); staging smoke green; Layer 2 ops verify; `dev`→`main` + prod migrate.
+**Immediate next step:** prod Supabase migrate (`20260614`→`20260623` if not applied); confirm GH Actions prod deploy green; post-deploy smoke on `portfelik.adrianzinko.com`; **Layer 2 ops verify** (`docs/runbooks/ops-access-lockdown.md` §1); sync `dev` from `origin/main` and push.
 
 **Open backlog:**
 

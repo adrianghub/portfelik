@@ -26,24 +26,25 @@ Public launch program (2026-06). Product doctrine lives in
 - Privacy Layer 1 masked admin diagnostics.
 - Import combobox + `bank-import.ts` service/component tests; bank-import Playwright 19/19.
 
-## Public launch gate (Phase 5 — production promotion)
+## Public launch gate (Phase 5 — **merged to `main` 2026-06-07**)
 
-Shipped on `dev` (2026-06-07):
+Shipped on `main` (`41717c7`):
 
 - Plany hub: net worth (D1), monthly surplus (D2), save/debt/spend kinds, settlement, Belka scenarios.
 - Couples G1/G2: co-owner RLS for plans, debt terms, and transactions; UI `canManagePlan()` gating.
 - Privacy policy synced with product (groups, snapshots, export bundle, push).
 - Account export includes `plan_debt_terms` + `financial_snapshot`.
 - P1 plan `group_id` hijack hardening; P2 debt terms on plan edit.
+- Security hardening migration `20260623000000` (privacy `search_path`, seed RPC revoke).
+- Shopping lists retired → Plany ([#103](https://github.com/adrianghub/portfelik/issues/103) closed).
 
-Before `dev`→`main`:
+**Post-merge ops (before calling launch done):**
 
-1. Commit production-readiness stack (privacy, tx co-owner migration, tests, UX hints).
-2. `supabase db reset` locally; RLS suite green (235+ cases).
-3. `./scripts/open-pr.sh` when CI green; merge to `dev`, verify staging smoke.
-4. Sync `dev` from `origin/main`, promote `dev`→`main`, apply migrations on prod Supabase.
-5. **Layer 2 ops verify** (human): `docs/runbooks/ops-access-lockdown.md` §1 roster on prod project.
-6. Post-deploy smoke on `portfelik.adrianzinko.com`.
+1. Apply pending migrations on **prod** Supabase (through `20260623000000`).
+2. Confirm production Pages deploy + smoke on `portfelik.adrianzinko.com`.
+3. **Layer 2 ops verify** (human): `docs/runbooks/ops-access-lockdown.md` §1 on prod project.
+4. Sync `dev` from `origin/main`, run staging gates, push `dev`.
+5. Re-run `get_advisors(security)` on prod; optional dashboard fixes (leaked-password, `pg_net`).
 
 ## Deferred (post-launch / V1+)
 
