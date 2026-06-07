@@ -10,6 +10,7 @@ test("renders sectioned hub with spend, save and debt plans", async ({ page }) =
   await page.goto("/plans");
 
   await expect(page.getByRole("heading", { name: "Plany" })).toBeVisible();
+  await expect(page.getByText("Dodaj gotówkę i inwestycje, by zobaczyć majątek netto.")).toBeVisible();
   await expect(
     page.getByText("Plan to przyszły zamiar. Zrealizuj go transakcjami z historii.")
   ).toBeVisible();

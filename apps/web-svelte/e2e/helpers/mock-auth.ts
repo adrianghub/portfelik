@@ -112,6 +112,25 @@ export async function mockSupabaseAPI(page: Page): Promise<void> {
         return route.fulfill({ status: 200, json: filterMockDebtTerms(url) });
       }
 
+      // ── Financial snapshots ──────────────────────────────────────────────
+      if (url.includes("/financial_snapshots")) {
+        if (method === "POST" || method === "PATCH") {
+          return route.fulfill({
+            status: 201,
+            json: {
+              user_id: "00000000-0000-0000-0000-000000000001",
+              as_of_date: "2026-06-01",
+              cash_amount: 42000,
+              investments_amount: 51000,
+              real_estate_amount: 420000,
+              created_at: "2026-06-01T10:00:00Z",
+              updated_at: "2026-06-01T10:00:00Z",
+            },
+          });
+        }
+        return route.fulfill({ status: 200, json: [] });
+      }
+
       // ── Plans ────────────────────────────────────────────────────────────
       if (url.includes("/plans")) {
         if (method === "POST") {
