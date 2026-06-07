@@ -100,7 +100,7 @@ the in-app notification row with push as an optional channel.
 
 **Group plans G2 (2026-06-07):** co-owner-only plan/debt-term writes; member read + settle unchanged.
 
-**Immediate next step:** commit ship-readiness fixes (P1 group_id RLS, P2 debt edit, smoke label, export); push `dev`; confirm staging deploy + smoke green; then `dev`→`main` promotion.
+**Immediate next step:** commit production-readiness stack (privacy sync, tx co-owner RLS, tests, Plany onboarding); push `dev`; staging smoke green; Layer 2 ops verify; `dev`→`main` + prod migrate.
 
 **Open backlog:**
 

@@ -26,13 +26,24 @@ Public launch program (2026-06). Product doctrine lives in
 - Privacy Layer 1 masked admin diagnostics.
 - Import combobox + `bank-import.ts` service/component tests; bank-import Playwright 19/19.
 
-## Public launch gate (Phase 5 — ready after commit + PR)
+## Public launch gate (Phase 5 — production promotion)
 
-All MVP+ rows above are implemented in the local `dev` working tree (2026-06-05). Before `dev`→`main`:
+Shipped on `dev` (2026-06-07):
 
-- Commit the 8-commit split (see `CLAUDE.md` handoff).
-- `supabase db reset` locally; RLS suite includes `plan_settlement.spec.ts`.
-- `./scripts/open-pr.sh` (not dry-run) when CI green on the PR branch.
+- Plany hub: net worth (D1), monthly surplus (D2), save/debt/spend kinds, settlement, Belka scenarios.
+- Couples G1/G2: co-owner RLS for plans, debt terms, and transactions; UI `canManagePlan()` gating.
+- Privacy policy synced with product (groups, snapshots, export bundle, push).
+- Account export includes `plan_debt_terms` + `financial_snapshot`.
+- P1 plan `group_id` hijack hardening; P2 debt terms on plan edit.
+
+Before `dev`→`main`:
+
+1. Commit production-readiness stack (privacy, tx co-owner migration, tests, UX hints).
+2. `supabase db reset` locally; RLS suite green (235+ cases).
+3. `./scripts/open-pr.sh` when CI green; merge to `dev`, verify staging smoke.
+4. Sync `dev` from `origin/main`, promote `dev`→`main`, apply migrations on prod Supabase.
+5. **Layer 2 ops verify** (human): `docs/runbooks/ops-access-lockdown.md` §1 roster on prod project.
+6. Post-deploy smoke on `portfelik.adrianzinko.com`.
 
 ## Deferred (post-launch / V1+)
 
