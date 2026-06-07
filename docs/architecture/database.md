@@ -3,9 +3,9 @@
 Postgres 17 (Supabase Cloud, EU). Authoritative source of all application
 state. Authorisation is enforced exclusively by RLS.
 
-Product note: user-facing **Plans** currently use `shopping_lists` and
-`shopping_list_items` tables for compatibility. Keep schema references factual,
-but do not treat the internal name as product language.
+Product note: user-facing **Plans** use the first-class `plans` table plus
+`plan_transaction_links`. Legacy shopping-list tables and `transactions.shopping_list_id`
+are retired by `20260617000000_first_class_plans.sql`.
 
 ## ER diagram
 
@@ -17,25 +17,26 @@ erDiagram
     auth_users ||--o{ group_invitations : "creates / receives"
     auth_users ||--o{ categories : "owns (NULL = system)"
     auth_users ||--o{ transactions : owns
-    auth_users ||--o{ shopping_lists : owns
+    auth_users ||--o{ plans : owns
     auth_users ||--o{ notifications : receives
     auth_users ||--o{ push_subscriptions : has
     auth_users ||--o{ bank_accounts : owns
     auth_users ||--o{ categorization_rules : owns
-    auth_users ||--o{ shopping_item_categories : owns
 
     user_groups ||--o{ group_members : has
     user_groups ||--o{ group_invitations : has
-    user_groups ||--o{ shopping_lists : "scopes (nullable)"
+    user_groups ||--o{ plans : "scopes (nullable)"
     user_groups ||--o{ transaction_import_rows : "scopes review (nullable)"
 
     categories ||--o{ transactions : tags
-    categories ||--o{ shopping_lists : "tags (nullable)"
+    categories ||--o{ plans : "tags (nullable)"
     categories ||--o{ transaction_import_rows : "suggests/selects (nullable)"
     categories ||--o{ categorization_rules : tags
 
-    shopping_lists ||--o{ shopping_list_items : has
-    shopping_lists ||--o| transactions : "legacy link via shopping_list_id"
+    plans ||--o{ plan_transaction_links : settles
+    plans ||--o| plan_debt_terms : "debt terms (1:1)"
+    auth_users ||--o| financial_snapshots : "manual holdings"
+    plan_transaction_links }o--|| transactions : links
 
     transactions ||--o{ transactions : "recurring_template_id (self-ref)"
     transactions ||--o| transaction_import_links : "provenance (owner-only)"
@@ -101,34 +102,47 @@ erDiagram
         transaction_status status
         uuid category_id FK
         uuid user_id FK
-        uuid shopping_list_id FK_nullable
         bool is_recurring
         smallint recurring_day
         uuid recurring_template_id FK_nullable
         timestamptz created_at
         timestamptz updated_at
     }
-    shopping_lists {
+    plans {
         uuid id PK
         text name
-        shopping_list_status status
+        text kind
         uuid user_id FK
         uuid group_id FK_nullable
         uuid category_id FK_nullable
-        numeric total_amount
+        numeric budget_amount
+        numeric target_amount
+        date start_date
+        date end_date
         timestamptz created_at
         timestamptz updated_at
     }
-    shopping_list_items {
-        uuid id PK
-        uuid shopping_list_id FK
-        text name
-        bool completed
-        numeric quantity
-        text unit
-        smallint position
+    plan_debt_terms {
+        uuid plan_id PK_FK
+        numeric original_amount
+        numeric current_balance
+        numeric annual_rate
+        numeric monthly_payment
+        smallint payment_day
+        uuid anchor_transaction_id FK_nullable
+    }
+    financial_snapshots {
+        uuid user_id PK_FK
+        date as_of_date
+        numeric cash_amount
+        numeric investments_amount
+        numeric real_estate_amount
+    }
+    plan_transaction_links {
+        uuid plan_id PK_FK
+        uuid transaction_id PK_FK
+        uuid created_by FK
         timestamptz created_at
-        timestamptz updated_at
     }
     notifications {
         uuid id PK
@@ -228,7 +242,6 @@ erDiagram
 | `user_role`                | `user`, `admin`                                |
 | `transaction_type`         | `income`, `expense`                            |
 | `transaction_status`       | `draft`, `upcoming`, `overdue`, `paid`         |
-| `shopping_list_status`     | `active`, `completed`                          |
 | `invitation_status`        | `pending`, `accepted`, `rejected`, `cancelled` |
 | `categorization_rule_kind` | `exact`, `contains`, `type`, `composite`       |
 
@@ -283,52 +296,60 @@ Core ledger. Amount is stored as a positive magnitude; sign is carried by
 the name).
 
 - **PK**: `id`. **FKs**: `category_id` (RESTRICT), `user_id` (CASCADE),
-  `shopping_list_id` (SET NULL, compatibility), `recurring_template_id`
-  (SET NULL self-ref).
+  `recurring_template_id` (SET NULL self-ref).
 - **CHECK**: `amount > 0`, `recurring_day BETWEEN 1 AND 31`.
 - **RLS read**: own + group-shared. **RLS write**: own only.
 - **Indexes**: `idx_transactions_user_date_asc`, `idx_transactions_category_user_date`, `idx_transactions_status_date`, `idx_transactions_recurring`, `idx_transactions_recurring_template` (redundant `idx_transactions_user_date_desc` dropped in `20260530000000`).
 
 A view `transactions_with_category` joins to `categories` for display; the SvelteKit app reads this view in `fetchTransactions`.
 
-### `shopping_lists`
+### `plans`
 
-Compatibility storage for user-facing Plans. A row can represent household
-shopping, a trip, a larger purchase, or another future-spend intent. The table
-name is legacy; product copy should say **Plans**.
+First-class storage for user-facing **Plans**. A plan represents a future
+financial intention over a required date period. Actual money comes from linked
+history rows through `plan_transaction_links`.
 
-Current code still supports completing a plan/list and optionally creating a
-linked expense transaction. Future settlement work should prefer a dedicated
-plan-to-transaction link model instead of expanding `transactions.shopping_list_id`.
-
-- **PK**: `id`. **FKs**: `user_id` (CASCADE), `group_id` (SET NULL), `category_id` (SET NULL).
+- **PK**: `id`. **FKs**: `user_id` (CASCADE), `group_id` (SET NULL),
+  `category_id` (SET NULL).
+- **`kind`**: `spend` (budget/outflow plans), `save` (accumulation goals), or
+  `debt` (loan repayment). Default `spend`. Migration:
+  `20260618000000_plan_kinds_debt.sql`.
+- **`budget_amount`**: optional for `spend`; nullable `numeric(12,2)`.
+- **`target_amount`**: required for `save`; optional payoff framing for `debt`.
+  CHECK `target_amount > 0` when set.
+- **`start_date`**, **`end_date`**, CHECK `end_date >= start_date`.
 - **RLS read**: own or group-shared.
-- **RLS write**: current compatibility behavior allows the owner OR group
-  member to update/delete, so group members are broad co-editors today. Future
-  plan management should move this toward nominated co-owners for group-scoped
-  plans.
-- **Indexes**: `idx_shopping_lists_user_updated`, `idx_shopping_lists_group_user_updated`, `idx_shopping_lists_status_updated`.
+- **RLS write**: plan creator OR group owner/co-owner (`is_group_co_owner`) for
+  group-scoped updates/deletes; any group member may still insert their own group plan.
+  Settlement RPCs allow any group member to link/unlink when scopes match.
+  Migration: `20260620000000_plan_co_owner_writes.sql`.
+- **Indexes**: `idx_plans_user_updated`, `idx_plans_group_user_updated`,
+  `idx_plans_start_end`, `idx_plans_user_kind`.
 
-### `shopping_list_items`
+### `plan_debt_terms`
 
-Child rows of `shopping_lists` / user-facing plan items. Cascade-delete on
-parent. RLS uses `EXISTS` against the parent row, so all access derives from the
-parent's policies.
+1:1 loan terms for `kind=debt` plans (hipoteka, auto, consumer credit).
 
-- **PK**: `id`. **FK**: `shopping_list_id` (CASCADE).
-- **Columns of note**: `category` (TEXT, nullable; free-text section label, CHECK `shopping_list_items_category_nonempty` = NULL or non-blank - `20260528000000`).
-- **Indexes**: `idx_shopping_list_items_list_id`, `idx_shopping_list_items_list_position`.
+- **PK/FK**: `plan_id` → `plans(id)` (CASCADE). Plan must have `kind=debt`.
+- **Columns**: `original_amount`, `current_balance`, `annual_rate`,
+  `monthly_payment`, optional `payment_day`, optional `anchor_transaction_id`
+  (confirmed recurring rata from import).
+- **CHECK**: `current_balance <= original_amount`; positive amounts/rate constraints.
+- **RLS**: read via parent plan (owner or group member); insert/update/delete
+  by plan creator or group owner/co-owner only. Migration:
+  `20260620000000_plan_co_owner_writes.sql`.
+- **Client simulation**: amortization and overpay vs invest compare run in
+  `debt-amortization.ts` (monthly compounding v1; Belka 19% in scenario compare).
 
-### `shopping_item_categories`
+### `financial_snapshots`
 
-Owner-scoped vocabulary of reusable item-category labels (the section names users assign to `shopping_list_items.category`). Private per user - not group-shared. Added `20260528000000`.
+Owner-entered asset snapshot for net-worth hero on Plany (one row per user).
 
-- **PK**: `id`. **FK**: `user_id` → `profiles(id)` (CASCADE).
-- **Columns**: `name` (TEXT), `position` (INTEGER, default 0, CHECK ≥ 0), `created_at`, `updated_at`.
-- **CHECK**: `shopping_item_categories_name_nonempty` (non-blank name). **UNIQUE**: `(user_id, name)`.
-- **RLS**: owner-only - 4 policies (`select`/`insert`/`update`/`delete`) all gated on `user_id = (select auth.uid())`.
-- **Indexes**: `idx_shopping_item_categories_user_position` on `(user_id, position, name)`.
-- **Trigger**: `set_shopping_item_categories_updated_at` → `handle_updated_at()`.
+- **PK/FK**: `user_id` → `auth.users(id)` (CASCADE).
+- **Columns**: `as_of_date`, `cash_amount`, `investments_amount`, `real_estate_amount` (all ≥ 0).
+- **RLS**: owner read/insert/update/delete only.
+- **Net worth**: client computes `sum(assets) − sum(debt plan balances)`; not stored.
+- **Dashboard strip**: same snapshot read; compact link to `/plans` for edit.
 
 ### `notifications`
 
@@ -388,22 +409,23 @@ Owner-only provenance for each imported transaction. **RPC-write-only** - INSERT
 - **Soft dedupe (non-unique)**: `transaction_import_links_fingerprint_idx` on `(user_id, fingerprint)` - fingerprint must NOT back a unique index (two legit transactions can share one).
 - **RLS read**: own. **All writes**: revoked from `authenticated`.
 
-### Planned: `plan_transaction_links`
+### `plan_transaction_links`
 
-Not shipped yet. MVP+ plan settlement should introduce a dedicated link table
-rather than relying on `transactions.shopping_list_id`.
+Dedicated settlement links between first-class plans and imported/manual
+history rows. This is the only current plan-to-transaction relation.
 
-Expected shape:
-
-- `plan_id` referencing `shopping_lists(id)`
+- `plan_id` referencing `plans(id)` (CASCADE)
 - `transaction_id` referencing `transactions(id)`
 - `created_by`
 - `created_at`
 - unique `(plan_id, transaction_id)`
-- one plan per transaction in MVP+ unless split allocation is designed later
+- unique `transaction_id` so one transaction can settle at most one plan in this
+  iteration
 
-RLS/RPCs should authorize both sides of the link and enforce private/group scope
-compatibility.
+Clients call `link_plan_transaction` / `unlink_plan_transaction`; direct writes
+are revoked. The RPCs authorize both sides, reject non-expense/income rows,
+enforce private/group scope compatibility, and require the transaction date to
+fall inside the plan period.
 
 ### `categorization_rules`
 
@@ -419,7 +441,7 @@ Per-user deterministic categorization rules consumed by the import review step. 
 
 Two patterns:
 
-1. **Owner + group-shared read**, **owner-only write or current flat-member write** - used across `transactions`, `categories`, and `shopping_lists` depending on table maturity. The read predicate is the standard pair-of-`group_members` self-join:
+1. **Owner + group-shared read**, **owner-only write or current flat-member write** - used across `transactions`, `categories`, and `plans` depending on table maturity. The read predicate is the standard pair-of-`group_members` self-join:
 
    ```sql
    user_id = (select auth.uid())
@@ -452,7 +474,7 @@ All `LANGUAGE plpgsql STABLE`, all SECURITY DEFINER except where noted.
 | Function                       | Used by                                  | Notes                                                                       |
 | ------------------------------ | ---------------------------------------- | --------------------------------------------------------------------------- |
 | `is_admin()`                   | RLS, RPCs                                | Reads `profiles.role` for caller.                                           |
-| `is_group_member(group_id)`    | `shopping_lists` RLS                     | Breaks recursion.                                                           |
+| `is_group_member(group_id)`    | `plans` RLS                              | Breaks recursion.                                                           |
 | `is_group_owner(group_id)`     | `group_invitations` RLS                  | Breaks recursion.                                                           |
 | `handle_updated_at()`          | `BEFORE UPDATE` triggers on 7 tables     | Generic timestamp bump.                                                     |
 | `handle_new_user()`            | `auth.users` insert trigger              | Creates `profiles` row.                                                     |
@@ -489,13 +511,12 @@ All SECURITY DEFINER (bypass RLS) unless marked SECURITY INVOKER. Defined in `20
 | `reject_invitation(p_invitation_id)` | invitee                | Sets status `rejected`.                                    |
 | `cancel_invitation(p_invitation_id)` | creator OR group owner | Sets status `cancelled`.                                   |
 
-**Plans / compatibility list RPCs (3)**
+**Plans (2)**
 
-| RPC                                                                | Auth                                 | Behavior                                                                                                                                                                |
-| ------------------------------------------------------------------ | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `complete_shopping_list(p_list_id, p_total_amount, p_category_id)` | owner OR group member                | Compatibility RPC. Completes the plan/list and may create a linked expense transaction depending on current signature/version. Not the future default settlement model. |
-| `attach_shopping_list_to_transaction(p_list_id, p_tx_id)`          | visible list + visible transaction   | Compatibility RPC. Links one existing expense transaction through `transactions.shopping_list_id`. Future settlement should use a dedicated join table.                 |
-| `duplicate_shopping_list(p_list_id)`                               | SECURITY INVOKER - uses caller's RLS | Copies list + items, resets `status='active'`.                                                                                                                          |
+| RPC                                             | Auth                              | Behavior                                                                                                                                          |
+| ----------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `link_plan_transaction(p_plan_id, p_tx_id)`     | visible plan + visible tx         | Links one expense or income transaction to one plan. Enforces private/group scope, one-plan-per-transaction, and the plan date period.             |
+| `unlink_plan_transaction(p_plan_id, p_tx_id)`   | visible plan + visible linked tx  | Removes a settlement link after the same visibility/scope checks.                                                                                 |
 
 **Notifications (2 - both SECURITY INVOKER)**
 
@@ -540,8 +561,8 @@ for the full model and threat scope.
 
 | RPC                                          | Auth          | Behavior                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | -------------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `commit_import_session(p_session_id)`        | session owner | SECURITY DEFINER. Rejects unless `status='preview'` and `rows_pending=0`. Validates ownership/account/category visibility/group membership/type-match. Per-row savepoint catches `unique_violation` from the hard-dedupe indexes and marks the row `duplicate` (with `duplicate_of`) without aborting the loop. Returns jsonb `{inserted, duplicates_preview, duplicates_commit, skipped, fingerprint_warnings:[{row_id, duplicate_of_transaction_id}]}`. Warning candidates include prior imported-link fingerprint matches and visible list-created expense transactions with exact amount/currency within ±3 days. Only writer of `transaction_import_links`. |
-| `preview_fingerprint_warnings(p_session_id)` | session owner | SECURITY DEFINER, read-only. Pre-commit scan returning probable-duplicate warnings for the review UI (shape matches `commit_import_session.fingerprint_warnings`). Path A scans the caller's existing import-link fingerprints. Path B scans visible list-created expense transactions with exact amount/currency and tx date within posted date ±3 days.                                                                                                                                                                                                                                                                                                        |
+| `commit_import_session(p_session_id)`        | session owner | SECURITY DEFINER. Rejects unless `status='preview'` and `rows_pending=0`. Validates ownership/account/category visibility/group membership/type-match. Per-row savepoint catches `unique_violation` from the hard-dedupe indexes and marks the row `duplicate` (with `duplicate_of`) without aborting the loop. Returns jsonb `{inserted, duplicates_preview, duplicates_commit, skipped, fingerprint_warnings:[{row_id, duplicate_of_transaction_id}]}`. Warning candidates include prior imported-link fingerprint matches and visible plan-linked transactions with exact amount/currency within ±3 days. Only writer of `transaction_import_links`. |
+| `preview_fingerprint_warnings(p_session_id)` | session owner | SECURITY DEFINER, read-only. Pre-commit scan returning probable-duplicate warnings for the review UI (shape matches `commit_import_session.fingerprint_warnings`). Path A scans the caller's existing import-link fingerprints. Path B scans visible plan-linked transactions with exact amount/currency and tx date within posted date ±3 days.                                                                                                                                                                                                                                                                                                              |
 
 **Reporting (1 - SECURITY INVOKER)**
 
@@ -556,7 +577,7 @@ for the full model and threat scope.
 | `enforce_max_user_cap_trigger`      | `auth.users`                                                                                            | BEFORE INSERT         | `enforce_max_user_cap()`                              |
 | `on_auth_user_created`              | `auth.users`                                                                                            | AFTER INSERT          | `handle_new_user()`                                   |
 | `on_auth_user_email_updated`        | `auth.users`                                                                                            | AFTER UPDATE OF email | `handle_user_email_update()`                          |
-| `set_updated_at` (×7)               | profiles, user_groups, group_invitations, categories, shopping_lists, transactions, shopping_list_items | BEFORE UPDATE         | `handle_updated_at()`                                 |
+| `set_updated_at`                    | profiles, user_groups, group_invitations, categories, plans, transactions                              | BEFORE UPDATE         | `handle_updated_at()`                                 |
 | `group_invitations_notify`          | group_invitations                                                                                       | AFTER INSERT          | `notify_on_group_invitation()`                        |
 | `profiles_role_change_notify`       | profiles                                                                                                | AFTER UPDATE OF role  | `notify_on_role_change()`                             |
 | `push_subscriptions_bump_last_used` | push_subscriptions                                                                                      | BEFORE UPDATE         | `bump_last_used_at()`                                 |

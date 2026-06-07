@@ -43,5 +43,5 @@ Portfelik is a static SvelteKit SPA hosted on Cloudflare Pages. It talks
 directly to Supabase Auth, PostgREST, and SECURITY DEFINER RPCs. Postgres is the
 source of truth; Row-Level Security owns authorization. Bank import stores
 owner-only provenance separately from shared transaction rows. User-facing Plans
-currently sit on `shopping_lists` compatibility storage, with the product
-direction moving toward plan-to-transaction settlement links.
+now use first-class `plans` storage, and settlement progress is derived from
+`plan_transaction_links` to imported/manual income and expense rows.

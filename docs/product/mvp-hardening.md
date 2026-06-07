@@ -11,8 +11,8 @@ Public launch program (2026-06). Product doctrine lives in
 | Product spine | Pulpit, Transakcje, Import, Plany, Ustawienia |
 | Import | First-class structured intake; fast by default, exception review only |
 | Transactions | Confirmed ledger; manual entries stay as fallback/corrections |
-| Plans | User-facing **Plany**; internal `shopping_lists` compatibility storage |
-| Plan settlement | Link plans to existing transactions; do not make plan-created transactions the default |
+| Plans | User-facing **Plany** on first-class `plans` storage with required date periods |
+| Plan settlement | Link plans to existing income/expense transactions; do not make plan-created transactions the default |
 | Rules | Deterministic category rules before AI |
 | AI | Explain, summarize, draft, suggest; never directly mutate financial truth |
 | Groups | Owner, co-owner, and member roles for group-scoped management |
@@ -36,7 +36,7 @@ All MVP+ rows above are implemented in the local `dev` working tree (2026-06-05)
 
 ## Deferred (post-launch / V1+)
 
-- Deterministic plan matching with score/reasons/accepted/rejected state.
+- Manual emergency transaction fallback from a plan detail screen.
 - Dexie offline write outbox.
 - AI explanations, summaries, and keyword proposals.
 - Debt, savings, and credit workflows.

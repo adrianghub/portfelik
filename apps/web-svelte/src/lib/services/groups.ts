@@ -1,5 +1,26 @@
 import { supabase } from "$lib/supabase";
-import type { GroupInvitation, GroupMember, GroupMemberWithProfile, UserGroup } from "$lib/types";
+import type {
+  GroupInvitation,
+  GroupMember,
+  GroupMemberRole,
+  GroupMemberWithProfile,
+  UserGroup,
+} from "$lib/types";
+
+export async function fetchMyGroupRoles(): Promise<Map<string, GroupMemberRole>> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("not_authenticated");
+
+  const { data, error } = await supabase
+    .from("group_members")
+    .select("group_id, role")
+    .eq("user_id", user.id);
+  if (error) throw error;
+
+  return new Map((data ?? []).map((row) => [row.group_id, row.role as GroupMemberRole]));
+}
 
 export async function fetchUserGroups(): Promise<UserGroup[]> {
   const { data, error } = await supabase

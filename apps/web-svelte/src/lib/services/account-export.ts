@@ -1,7 +1,7 @@
 import { supabase } from "$lib/supabase";
 import { fetchCategories } from "$lib/services/categories";
 import { fetchUserGroups } from "$lib/services/groups";
-import { fetchPlansForExport } from "$lib/services/shopping-lists";
+import { fetchPlansForExport } from "$lib/services/plans";
 import { fetchAllTransactionsForExport } from "$lib/services/transactions";
 
 export interface AccountExportBundle {

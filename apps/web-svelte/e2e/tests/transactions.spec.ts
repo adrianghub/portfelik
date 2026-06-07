@@ -75,7 +75,7 @@ test("txId deep link opens transaction outside the current date range", async ({
   const oldLinkedTransaction = {
     id: "tx-old-linked",
     date: "2026-01-15",
-    description: "Stara transakcja z listy",
+    description: "Stara transakcja z planu",
     amount: 42,
     type: "expense",
     status: "paid",
@@ -87,7 +87,6 @@ test("txId deep link opens transaction outside the current date range", async ({
     recurring_template_id: null,
     currency: "PLN",
     user_id: TEST_USER_ID,
-    shopping_list_id: "list-old",
     group_id: null,
     created_at: "2026-01-15T10:00:00Z",
     updated_at: "2026-01-15T10:00:00Z",
@@ -105,7 +104,7 @@ test("txId deep link opens transaction outside the current date range", async ({
 
   const sheet = page.locator("aside");
   await expect(sheet).toBeVisible();
-  await expect(sheet.getByText("Stara transakcja z listy")).toBeVisible();
+  await expect(sheet.getByText("Stara transakcja z planu")).toBeVisible();
 });
 
 test("mobile date range sheet stays open while interacting with controls", async ({ page }) => {

@@ -33,26 +33,6 @@ loadEnvFile(new URL(".env.test", appDir));
 loadEnvFile(new URL(".env.local", appDir));
 loadEnvFile(new URL("supabase/.env", repoDir));
 
-const DEFAULT_SHOPPING_ITEM_CATEGORIES = [
-  "Warzywa",
-  "Owoce",
-  "Pieczywo",
-  "Nabiał",
-  "Mięso",
-  "Mrożonki",
-  "Napoje",
-  "Przyprawy",
-  "Sosy",
-  "Przekąski",
-  "Słodycze",
-  "Przybory kuchenne",
-  "Przybory toaletowe",
-  "Kosmetyki",
-  "Chemia do domu",
-  "Przybory do sprzątania",
-  "Przybory biurowe",
-].filter((name, index, all) => all.indexOf(name) === index);
-
 const DEMO_PREFIX = "Demo:";
 const DEFAULT_ADMIN_LOGIN = "admin@portfelik.test";
 const DEFAULT_USER_LOGIN = "user@portfelik.test";
@@ -158,22 +138,7 @@ async function ensureUser({ email, password, label, role }) {
     )
   );
 
-  await seedShoppingItemCategories(user.id);
   return user;
-}
-
-async function seedShoppingItemCategories(userId) {
-  await must(
-    "seed shopping item categories",
-    supabase.from("shopping_item_categories").upsert(
-      DEFAULT_SHOPPING_ITEM_CATEGORIES.map((name, position) => ({
-        user_id: userId,
-        name,
-        position,
-      })),
-      { onConflict: "user_id,name", ignoreDuplicates: true }
-    )
-  );
 }
 
 async function deleteRows(label, query) {
@@ -190,8 +155,8 @@ async function cleanupDemoRows(userId) {
       .like("description", `${DEMO_PREFIX}%`)
   );
   await deleteRows(
-    "demo lists",
-    supabase.from("shopping_lists").delete().eq("user_id", userId).like("name", `${DEMO_PREFIX}%`)
+    "demo plans",
+    supabase.from("plans").delete().eq("user_id", userId).like("name", `${DEMO_PREFIX}%`)
   );
   await deleteRows(
     "demo categories",
@@ -292,62 +257,6 @@ async function seedDemoRows(userId) {
     })
   );
 
-  const [activeList, completedList] = await must(
-    "create demo shopping lists",
-    supabase
-      .from("shopping_lists")
-      .insert([
-        {
-          user_id: userId,
-          group_id: group.id,
-          name: `${DEMO_PREFIX} Zakupy na weekend`,
-          status: "active",
-          category_id: groceries.id,
-        },
-        {
-          user_id: userId,
-          name: `${DEMO_PREFIX} Lista z paragonem`,
-          status: "completed",
-          total_amount: 84.2,
-          category_id: groceries.id,
-        },
-      ])
-      .select("id, status")
-  );
-
-  await must(
-    "create demo shopping list items",
-    supabase.from("shopping_list_items").insert([
-      {
-        shopping_list_id: activeList.id,
-        name: "Pomidory",
-        quantity: 4,
-        unit: "szt.",
-        category: "Warzywa",
-        position: 1,
-        completed: false,
-      },
-      {
-        shopping_list_id: activeList.id,
-        name: "Makaron",
-        quantity: 2,
-        unit: "opak.",
-        category: "Pieczywo",
-        position: 2,
-        completed: false,
-      },
-      {
-        shopping_list_id: completedList.id,
-        name: "Kawa",
-        quantity: 1,
-        unit: "opak.",
-        category: "Napoje",
-        completed: true,
-        position: 1,
-      },
-    ])
-  );
-
   const demoTransactions = buildDemoTransactions(userId, {
     groupId: group.id,
     groceries: groceries.id,
@@ -356,20 +265,69 @@ async function seedDemoRows(userId) {
     dining,
   });
 
-  // Plus the expense transaction linked to the completed shopping list.
-  demoTransactions.push({
-    user_id: userId,
-    amount: 84.2,
-    currency: "PLN",
-    description: `${DEMO_PREFIX} Lista z paragonem`,
-    date: isoDaysAgo(6),
-    type: "expense",
-    status: "paid",
-    category_id: groceries.id,
-    shopping_list_id: completedList.id,
-  });
+  const createdTransactions = await must(
+    "create demo transactions",
+    supabase.from("transactions").insert(demoTransactions).select("id, description, type")
+  );
 
-  await must("create demo transactions", supabase.from("transactions").insert(demoTransactions));
+  const txByLabel = new Map(
+    createdTransactions.map((tx) => [tx.description.replace(`${DEMO_PREFIX} `, ""), tx.id])
+  );
+
+  const plans = await must(
+    "create demo plans",
+    supabase
+      .from("plans")
+      .insert([
+        {
+          user_id: userId,
+          group_id: group.id,
+          name: `${DEMO_PREFIX} Remont łazienki`,
+          category_id: groceries.id,
+          budget_amount: 5000,
+          start_date: isoDaysAgo(70),
+          end_date: isoDaysAgo(-30),
+        },
+        {
+          user_id: userId,
+          name: `${DEMO_PREFIX} Tygodniowe zakupy`,
+          category_id: groceries.id,
+          budget_amount: 600,
+          start_date: isoDaysAgo(8),
+          end_date: isoDaysAgo(-1),
+        },
+        {
+          user_id: userId,
+          name: `${DEMO_PREFIX} Wakacje — Chorwacja`,
+          category_id: dining,
+          budget_amount: 3000,
+          start_date: isoDaysAgo(20),
+          end_date: isoDaysAgo(-45),
+        },
+      ])
+      .select("id, name")
+  );
+
+  const planByName = new Map(plans.map((plan) => [plan.name.replace(`${DEMO_PREFIX} `, ""), plan.id]));
+  const linkRows = [
+    ["Remont łazienki", "Wielkie zakupy"],
+    ["Remont łazienki", "Duże zakupy domowe"],
+    ["Tygodniowe zakupy", "Zakupy tygodniowe"],
+    ["Wakacje — Chorwacja", "Lunch w mieście"],
+    ["Wakacje — Chorwacja", "Kolacja"],
+    ["Wakacje — Chorwacja", "Pensja"],
+  ]
+    .map(([planName, txLabel]) => ({
+      plan_id: planByName.get(planName),
+      transaction_id: txByLabel.get(txLabel),
+      created_by: userId,
+    }))
+    .filter((row) => row.plan_id && row.transaction_id);
+
+  await must(
+    "create demo plan links",
+    supabase.from("plan_transaction_links").insert(linkRows)
+  );
 }
 
 function manualPersonas() {

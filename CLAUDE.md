@@ -74,10 +74,10 @@ manage lifecycle/invites, nominated co-owners can manage group-scoped
 transactions/plans, and regular members participate without broad admin rights.
 All of this must preserve private/group scope and owner-only import provenance.
 
-**Current implementation note:** user-facing Plans still use `shopping_lists`
-and `shopping_list_items` internally. Treat those names as compatibility storage.
-Plan settlement uses `plan_transaction_links` + `link_plan_transaction` /
-`unlink_plan_transaction` RPCs; list completion with optional create-tx is fallback only.
+**Current implementation note:** Plans now use first-class `plans` storage with
+required `start_date` / `end_date`, optional `budget_amount`, and
+`plan_transaction_links` settlement. Legacy shopping-list storage, checklist
+items, and list-completion RPCs are retired in the first-class Plans cut.
 
 **Bank import direction:** review should be an exception surface. Clean rows
 import by default, duplicates are folded, uncategorized rows go through the
@@ -94,14 +94,20 @@ the in-app notification row with push as an optional channel.
 
 **Public launch program (2026-06, in progress on `dev`):** MVP+ before `dev`→`main`. Phases: (0) docs/ops, (1) import spine, (2) plan settlement, (3) Plany surface + co-owners + banks, (4) full export + public privacy + a11y, (5) launch gate. See `docs/product/mvp-hardening.md`.
 
-**Immediate next step:** Public launch Phases 0–4 implemented on `dev` (uncommitted WIP 2026-06-05). Run `./scripts/open-pr.sh` after user commits the 8-commit split; RLS suite includes `plan_settlement.spec.ts` (passes after `supabase db reset`). Phase 5 gate: merge `dev`→`main` when CI green.
+**Goals & Debt v1.5 polish (2026-06-07):** debt timeline, Belka scenarios, save sliders, balance sync from raty.
+
+**Net worth D2 (2026-06-07):** surplus card on `/plans`, Pulpit net-worth strip; nadwyżka formula in `debt-and-savings-goals.md`.
+
+**Group plans G2 (2026-06-07):** co-owner-only plan/debt-term writes; member read + settle unchanged.
+
+**Immediate next step:** commit gap-closure stack; push `imp/mvp-hardening-plans`; `./scripts/open-pr.sh`.
 
 **Open backlog:**
 
 - Vault secret rotation runbook (`docs/runbooks/secret-rotation.md`) - authored ✅; ops-lockdown runbook (`docs/runbooks/ops-access-lockdown.md`) - authored ✅.
 - Offline write queue (Dexie outbox) - parity gap vs legacy `FirestoreService`, last-write-wins decided - Medium, ⏳.
 - axe-core spine sweep shipped (`e2e/tests/a11y-spine.spec.ts`); broader U7 sweep still optional.
-- Mortgage/debt tracking - follow-on track.
+- Mortgage/debt tracking - **save/debt plan kinds shipped**; net-worth snapshot still deferred.
 
 **Branch flow:** `main` → prod (`portfelik.adrianzinko.com`); `dev` → staging (`dev.portfelik.pages.dev`). Both branches use one Cloudflare Pages project. Supabase is split: `main` uses production; `dev` must use the dedicated `portfelik-staging` project.
 
