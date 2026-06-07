@@ -94,9 +94,11 @@ the in-app notification row with push as an optional channel.
 
 **Public launch program (2026-06, in progress on `dev`):** MVP+ before `dev`→`main`. Phases: (0) docs/ops, (1) import spine, (2) plan settlement, (3) Plany surface + co-owners + banks, (4) full export + public privacy + a11y, (5) launch gate. See `docs/product/mvp-hardening.md`.
 
-**Goals & Debt extension (Plany, 2026-06-07, branch `dev`):** `plans.kind` (`spend|save|debt`), `target_amount`, `plan_debt_terms` + RLS (`20260618000000_plan_kinds_debt.sql`). Sectioned `/plans` hub (Wydatki · Aktywne/Nadchodzące/Zakończone, Cele oszczędnościowe, Kredyty). Save detail: odłożono/target, potrzebujesz vs odkładasz, gap banner. Debt detail: balance hero, nadpłata slider, `/plans/[id]/scenarios` overpay vs invest (rate-based recommendation v1, no Belka). Semi-auto rata detect + confirm anchor. Client engines: `debt-amortization.ts`, `debt-payment-detect.ts`, `plan-debt.ts`; save progress in `plan-settlement.ts`. Docs: `docs/product/debt-and-savings-goals.md`, `database.md` updated. Deferred v1: net-worth hub, `financial_snapshots`. Gates: svelte-check 0/0, lint 0 errors, unit 64/64, RLS 225/225, plans+settle Playwright 9/9, format + secret scan clean.
+**Goals & Debt v1.5 polish (2026-06-07):** debt timeline, Belka scenarios, save sliders, balance sync from raty.
 
-**Immediate next step:** manual commit split on `dev` (schema → services → UI → tests/docs). Then `./scripts/open-pr.sh` toward staging.
+**Net worth D1 (2026-06-07):** `financial_snapshots` manual holdings + majątek netto hero on `/plans` (assets − debt plans). Deferred D2: surplus card, dashboard strip.
+
+**Immediate next step:** commit D1 + v1.5 polish + a11y fix (dashboard progressbar label); push `imp/mvp-hardening-plans`; `./scripts/open-pr.sh`.
 
 **Open backlog:**
 

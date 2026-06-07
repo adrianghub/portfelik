@@ -45,7 +45,7 @@ flowchart LR
   Dashboard[/dashboard<br/>Pulpit]
   Transactions[/transactions<br/>Transakcje]
   Import[/transactions/import today<br/>/import planned]
-  Plans[/shopping-lists today<br/>/plans planned]
+  Plans[/plans<br/>Plany]
   Settings[/settings<br/>Ustawienia]
 
   Import --> Transactions
@@ -54,10 +54,10 @@ flowchart LR
   Transactions --> Plans
 ```
 
-Current route names still include `/shopping-lists` and `/transactions/import`.
-The product direction is `/plans` and `/import`; docs should name the
-user-facing concepts **Plans** and **Import** while clearly noting current
-compatibility routes where needed.
+User-facing **Plany** live at `/plans` with `spend`, `save`, and `debt` plan kinds,
+manual net-worth snapshots (`financial_snapshots`), and settlement via
+`plan_transaction_links`. Bank import remains at `/transactions/import` today;
+product direction treats it as **Import**.
 
 ## Frontend Structure
 
@@ -68,7 +68,7 @@ compatibility routes where needed.
 | Import parsing | `apps/web-svelte/src/lib/import/` |
 | Import review UI | `apps/web-svelte/src/lib/components/import/` |
 | Transaction UI | `apps/web-svelte/src/lib/components/transactions/` |
-| Plan/list UI | `apps/web-svelte/src/lib/components/shopping-lists/` |
+| Plans UI | `apps/web-svelte/src/lib/components/plans/` |
 | i18n | `apps/web-svelte/messages/pl.json` |
 
 Services wrap Supabase calls. Owner-managed tables use direct PostgREST writes

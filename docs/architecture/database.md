@@ -35,6 +35,7 @@ erDiagram
 
     plans ||--o{ plan_transaction_links : settles
     plans ||--o| plan_debt_terms : "debt terms (1:1)"
+    auth_users ||--o| financial_snapshots : "manual holdings"
     plan_transaction_links }o--|| transactions : links
 
     transactions ||--o{ transactions : "recurring_template_id (self-ref)"
@@ -129,6 +130,13 @@ erDiagram
         numeric monthly_payment
         smallint payment_day
         uuid anchor_transaction_id FK_nullable
+    }
+    financial_snapshots {
+        uuid user_id PK_FK
+        date as_of_date
+        numeric cash_amount
+        numeric investments_amount
+        numeric real_estate_amount
     }
     plan_transaction_links {
         uuid plan_id PK_FK
@@ -329,6 +337,15 @@ history rows through `plan_transaction_links`.
   insert owner-only; update owner or group member).
 - **Client simulation**: amortization and overpay vs invest compare run in
   `debt-amortization.ts` (monthly compounding v1, no Belka tax in compare).
+
+### `financial_snapshots`
+
+Owner-entered asset snapshot for net-worth hero on Plany (one row per user).
+
+- **PK/FK**: `user_id` → `auth.users(id)` (CASCADE).
+- **Columns**: `as_of_date`, `cash_amount`, `investments_amount`, `real_estate_amount` (all ≥ 0).
+- **RLS**: owner read/insert/update/delete only.
+- **Net worth**: client computes `sum(assets) − sum(debt plan balances)`; not stored.
 
 ### `notifications`
 

@@ -34,7 +34,7 @@ The product has five first-class modules:
 | **Pulpit**     | Shows the health of the current month: income, expenses, balance, largest categories, and plan progress.     |
 | **Transakcje** | The confirmed ledger of financial history. Imported and manual rows live here after they are accepted.       |
 | **Import**     | Structured intake from bank files: parse, preview, categorize, handle duplicates, confirm, and commit.       |
-| **Plany**      | Future intent: planned spending, goals, trips, home projects, household shopping, or things to settle later. |
+| **Plany**      | Future intent on one module: `spend` budgets, `save` goals, `debt` loans; manual net-worth hero; settle by linking history transactions. |
 | **Ustawienia** | Categories, categorization rules, profile, groups, invitations, personalization, and account controls.       |
 
 This is the product contract:
