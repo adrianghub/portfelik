@@ -41,7 +41,7 @@
 		"canvas-confetti": "^1.9.4",
 		"eslint": "^9.39.4",
 		"eslint-plugin-svelte": "^3.17.1",
-		"globals": "^15.15.0",
+		"globals": "^17.6.0",
 		"jsdom": "^29.1.1",
 		"prettier": "^3.8.3",
 		"prettier-plugin-svelte": "^3.5.1",
