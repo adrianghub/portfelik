@@ -2,3 +2,6 @@ packages:
   - 'apps/*'
 onlyBuiltDependencies:
   - esbuild
+overrides:
+  devalue: ^5.8.1
+  cookie: ^0.7.0
