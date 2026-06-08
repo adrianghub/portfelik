@@ -19,6 +19,7 @@
     normalizeDebtTermsInput,
   } from "$lib/services/plan-debt";
   import {
+    collectNetWorthDebtBalances,
     computeNetWorth,
     fetchFinancialSnapshot,
     upsertFinancialSnapshot,
@@ -146,8 +147,10 @@
     queryFn: fetchFinancialSnapshot,
   }));
 
+  const netWorthAsOf = $derived(snapshotQuery.data?.as_of_date ?? todayIsoLocal());
+
   const debtBalances = $derived(
-    Object.values(debtTermsQuery.data ?? {}).map((t) => Number(t.current_balance))
+    collectNetWorthDebtBalances(plansQuery.data ?? [], debtTermsQuery.data ?? {}, netWorthAsOf)
   );
 
   const netWorth = $derived(computeNetWorth(snapshotQuery.data ?? null, debtBalances));

@@ -1,6 +1,10 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
-  import { computeNetWorth, fetchFinancialSnapshot } from "$lib/services/financial-snapshots";
+  import {
+    collectNetWorthDebtBalances,
+    computeNetWorth,
+    fetchFinancialSnapshot,
+  } from "$lib/services/financial-snapshots";
   import { fetchPlanDebtTermsByPlanIds } from "$lib/services/plan-debt";
   import { fetchPlans } from "$lib/services/plans";
   import { createQuery } from "@tanstack/svelte-query";
@@ -27,10 +31,16 @@
     queryFn: fetchFinancialSnapshot,
   }));
 
+  const netWorthAsOf = $derived(snapshotQuery.data?.as_of_date ?? new Date().toISOString().slice(0, 10));
+
   const netWorth = $derived(
     computeNetWorth(
       snapshotQuery.data ?? null,
-      Object.values(debtTermsQuery.data ?? {}).map((term) => Number(term.current_balance))
+      collectNetWorthDebtBalances(
+        plansQuery.data ?? [],
+        debtTermsQuery.data ?? {},
+        netWorthAsOf
+      )
     )
   );
 
