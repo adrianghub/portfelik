@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  accrueBalanceWithDailyInterest,
   approximateDailyInterest,
   compareLumpSumOverpay,
   compareLumpSumVsInvest,
   compareOverpay,
   compareOverpayVsInvest,
+  daysBetween,
   isPaymentBelowMonthlyInterest,
   monthlyInterestAmount,
   simulateAmortization,
@@ -119,5 +121,17 @@ describe("simulateAmortization", () => {
         MORTGAGE.monthlyPayment
       )
     ).toBe(false);
+  });
+
+  it("counts whole days between ISO dates", () => {
+    expect(daysBetween("2026-06-01", "2026-06-01")).toBe(0);
+    expect(daysBetween("2026-06-01", "2026-06-08")).toBe(7);
+  });
+
+  it("accrues daily compound interest from anchor date", () => {
+    const base = 200_000;
+    const afterWeek = accrueBalanceWithDailyInterest(base, 7.18, "2026-06-01", "2026-06-08");
+    expect(afterWeek).toBeGreaterThan(base);
+    expect(afterWeek).toBeLessThan(base + approximateDailyInterest(base, 7.18) * 8);
   });
 });

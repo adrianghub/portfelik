@@ -6,6 +6,7 @@ import {
   SETTLEMENT_STATUSES,
 } from "$lib/services/plan-settlement-policy";
 import {
+  derivePlanBucket,
   monthsBetween,
   monthsRemaining as planMonthsRemaining,
   todayIso,
@@ -268,12 +269,20 @@ function sumLinkedIncomeInMonth(
 export function computeSaveMonthlyActual(input: {
   kind?: import("$lib/types").PlanKind;
   startDate?: string;
+  endDate?: string;
   savedAmount: number;
   linkedIncomes: TransactionWithCategory[];
   today?: string;
 }): number | null {
   if (input.kind !== "save") return null;
   const today = input.today ?? todayIso();
+  if (
+    input.startDate &&
+    input.endDate &&
+    derivePlanBucket({ start_date: input.startDate, end_date: input.endDate }, today) !== "active"
+  ) {
+    return 0;
+  }
   const bounds = currentCalendarMonthBounds(new Date(today));
   const currentMonthDeposits = sumLinkedIncomeInMonth(
     input.linkedIncomes,
@@ -298,6 +307,7 @@ export function computePlanProgress(input: {
   eligibleCount?: number;
   today?: string;
 }): PlanSettlementProgress {
+  const today = input.today ?? todayIso();
   const paidLinked = input.linkedTransactions.filter((t) => isSettlementStatus(t.status));
   const expenses = paidLinked.filter((t) => t.type === "expense");
   const incomes = paidLinked.filter((t) => t.type === "income");
@@ -312,16 +322,22 @@ export function computePlanProgress(input: {
         ? Math.max(0, targetAmount - savedAmount)
         : null;
   const monthsRem = input.endDate ? planMonthsRemaining(input.endDate) : null;
+  const isActive =
+    input.startDate && input.endDate
+      ? derivePlanBucket({ start_date: input.startDate, end_date: input.endDate }, today) ===
+        "active"
+      : true;
   const monthlyNeeded =
-    targetAmount != null && targetAmount > 0 && monthsRem != null && monthsRem > 0
+    isActive && targetAmount != null && targetAmount > 0 && monthsRem != null && monthsRem > 0
       ? Math.max(0, (targetAmount - savedAmount) / monthsRem)
       : null;
   const monthlyActual = computeSaveMonthlyActual({
     kind: input.kind,
     startDate: input.startDate,
+    endDate: input.endDate,
     savedAmount,
     linkedIncomes: incomes,
-    today: input.today,
+    today,
   });
   return {
     planId: input.planId,

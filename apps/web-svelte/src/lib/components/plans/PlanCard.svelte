@@ -50,7 +50,9 @@
   );
   const saveOnTrack = $derived(
     kind === "save" &&
+      plan.bucket === "active" &&
       plan.monthlyNeeded != null &&
+      plan.monthlyNeeded > 0 &&
       plan.monthlyActual != null &&
       plan.monthlyActual >= plan.monthlyNeeded - 0.01
   );

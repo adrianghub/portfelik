@@ -62,6 +62,16 @@
     return Array.from({ length: to - from + 1 }, (_, i) => from + i);
   });
 
+  const yearMin = $derived(yearOptions[0] ?? today(tz).year);
+  const yearMax = $derived(yearOptions[yearOptions.length - 1] ?? today(tz).year);
+
+  function setCalendarYear(raw: string) {
+    const y = parseInt(raw, 10);
+    if (!Number.isFinite(y)) return;
+    const clamped = Math.min(yearMax, Math.max(yearMin, y));
+    calendarPlaceholder = calendarPlaceholder.set({ year: clamped });
+  }
+
   function toValue(iso: string | null | undefined): DateValue | undefined {
     if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return undefined;
     try {
@@ -197,11 +207,16 @@
             monthFormat="long"
             aria-label={m.day_picker_select_month()}
           />
-          <Calendar.YearSelect
-            class={selectClass}
-            years={yearOptions}
-            yearFormat="numeric"
+          <input
+            type="number"
+            class={cn(selectClass, "w-[4.75rem] shrink-0 tabular-nums")}
+            min={yearMin}
+            max={yearMax}
+            step="1"
+            inputmode="numeric"
             aria-label={m.day_picker_select_year()}
+            value={calendarPlaceholder.year}
+            oninput={(e) => setCalendarYear(e.currentTarget.value)}
           />
         </div>
         <Calendar.NextButton

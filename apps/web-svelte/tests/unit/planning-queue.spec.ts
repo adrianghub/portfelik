@@ -67,6 +67,87 @@ describe("buildPlanningQueueActions", () => {
     expect(actions.some((a) => a.id === "save-save-1")).toBe(true);
   });
 
+  it("ignores upcoming save goals for off-track chip", () => {
+    const actions = buildPlanningQueueActions({
+      summaries: [
+        summary({
+          id: "save-upcoming",
+          name: "Przyszły cel",
+          kind: "save",
+          bucket: "upcoming",
+          start_date: "2026-12-01",
+          end_date: "2027-12-01",
+          monthlyNeeded: 50_000,
+          monthlyActual: 0,
+        }),
+      ],
+      monthlySurplus: computeMonthlySurplus({
+        totalIncome: 8000,
+        totalExpenses: 3000,
+        debtMonthlyPayments: 0,
+        saveMonthlyNeeded: 0,
+      }),
+      debtTerms: {},
+    });
+    expect(actions.some((a) => a.id === "save-save-upcoming")).toBe(false);
+  });
+
+  it("debt chip uses active loans only", () => {
+    const debtTerms: Record<string, PlanDebtTerms> = {
+      "debt-active": {
+        plan_id: "debt-active",
+        original_amount: 100_000,
+        current_balance: 90_000,
+        annual_rate: 5,
+        monthly_payment: 1200,
+        payment_day: null,
+        anchor_transaction_id: null,
+        created_at: "",
+        updated_at: "",
+      },
+      "debt-future": {
+        plan_id: "debt-future",
+        original_amount: 200_000,
+        current_balance: 200_000,
+        annual_rate: 5,
+        monthly_payment: 2242,
+        payment_day: null,
+        anchor_transaction_id: null,
+        created_at: "",
+        updated_at: "",
+      },
+    };
+    const actions = buildPlanningQueueActions({
+      summaries: [
+        summary({
+          id: "debt-active",
+          kind: "debt",
+          bucket: "active",
+          start_date: "2025-01-01",
+          end_date: "2030-01-01",
+        }),
+        summary({
+          id: "debt-future",
+          kind: "debt",
+          bucket: "upcoming",
+          start_date: "2026-09-01",
+          end_date: "2046-09-01",
+        }),
+      ],
+      monthlySurplus: computeMonthlySurplus({
+        totalIncome: 5000,
+        totalExpenses: 4000,
+        debtMonthlyPayments: 1200,
+        saveMonthlyNeeded: 0,
+      }),
+      debtTerms,
+    });
+    const debtAction = actions.find((a) => a.id.startsWith("debt-"));
+    expect(debtAction).toBeDefined();
+    expect(debtAction?.label).not.toContain("2242");
+    expect(debtAction?.label).not.toContain("3 442");
+  });
+
   it("caps at three actions", () => {
     const debtTerms: Record<string, PlanDebtTerms> = {
       "debt-1": {

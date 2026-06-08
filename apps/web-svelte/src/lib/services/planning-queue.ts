@@ -29,7 +29,7 @@ export function buildPlanningQueueActions(input: {
   }
 
   const settleCandidates = summaries
-    .filter((p) => p.kind === "spend" && (p.eligibleCount ?? 0) > 0)
+    .filter((p) => p.kind === "spend" && p.bucket === "active" && (p.eligibleCount ?? 0) > 0)
     .sort((a, b) => (b.eligibleCount ?? 0) - (a.eligibleCount ?? 0));
   const totalEligible = settleCandidates.reduce((sum, p) => sum + (p.eligibleCount ?? 0), 0);
   if (totalEligible > 0 && settleCandidates[0]) {
@@ -53,6 +53,7 @@ export function buildPlanningQueueActions(input: {
     .filter(
       (p) =>
         p.kind === "save" &&
+        p.bucket === "active" &&
         p.monthlyNeeded != null &&
         p.monthlyNeeded > 0 &&
         (p.monthlyActual ?? 0) < p.monthlyNeeded - 0.01
@@ -71,14 +72,14 @@ export function buildPlanningQueueActions(input: {
     });
   }
 
-  const debtPlans = summaries.filter((p) => p.kind === "debt");
-  if (debtPlans.length > 0) {
-    const totalDebtPayment = debtPlans.reduce((sum, p) => {
+  const activeDebtPlans = summaries.filter((p) => p.kind === "debt" && p.bucket === "active");
+  if (activeDebtPlans.length > 0) {
+    const totalDebtPayment = activeDebtPlans.reduce((sum, p) => {
       const terms = debtTerms[p.id];
       return sum + (terms ? Number(terms.monthly_payment) : 0);
     }, 0);
     if (totalDebtPayment > 0) {
-      const first = debtPlans[0];
+      const first = activeDebtPlans[0];
       actions.push({
         id: `debt-${first.id}`,
         href: `/plans/${first.id}`,

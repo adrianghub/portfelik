@@ -5,7 +5,26 @@ import {
   sumDebtMonthlyPayments,
   sumSaveMonthlyNeeded,
 } from "$lib/services/financial-surplus";
-import type { PlanDebtTerms } from "$lib/types";
+import type { Plan, PlanDebtTerms } from "$lib/types";
+
+const debtTerms = (planId: string, payment: number): PlanDebtTerms => ({
+  plan_id: planId,
+  original_amount: 200_000,
+  current_balance: 200_000,
+  annual_rate: 7,
+  monthly_payment: payment,
+  payment_day: null,
+  anchor_transaction_id: null,
+  created_at: "",
+  updated_at: "",
+});
+
+const debtPlan = (id: string, start: string, end: string): Pick<Plan, "id" | "kind" | "start_date" | "end_date"> => ({
+  id,
+  kind: "debt",
+  start_date: start,
+  end_date: end,
+});
 
 describe("computeMonthlySurplus", () => {
   it("uses month cashflow as the headline surplus", () => {
@@ -35,32 +54,18 @@ describe("computeMonthlySurplus", () => {
 });
 
 describe("sumDebtMonthlyPayments", () => {
-  it("sums monthly_payment across debt terms", () => {
-    const terms: Record<string, PlanDebtTerms> = {
-      a: {
-        plan_id: "a",
-        original_amount: 330000,
-        current_balance: 206000,
-        annual_rate: 7.18,
-        monthly_payment: 2370,
-        payment_day: null,
-        anchor_transaction_id: null,
-        created_at: "",
-        updated_at: "",
-      },
-      b: {
-        plan_id: "b",
-        original_amount: 50000,
-        current_balance: 40000,
-        annual_rate: 5,
-        monthly_payment: 900,
-        payment_day: null,
-        anchor_transaction_id: null,
-        created_at: "",
-        updated_at: "",
-      },
+  it("sums monthly_payment for active debt plans only", () => {
+    const plans = [
+      debtPlan("active", "2025-01-01", "2030-01-01"),
+      debtPlan("upcoming", "2026-09-01", "2046-09-01"),
+      debtPlan("finished", "2020-01-01", "2025-12-31"),
+    ];
+    const terms = {
+      active: debtTerms("active", 2370),
+      upcoming: debtTerms("upcoming", 2242),
+      finished: debtTerms("finished", 900),
     };
-    expect(sumDebtMonthlyPayments(terms)).toBe(3270);
+    expect(sumDebtMonthlyPayments(plans, terms, "2026-06-08")).toBe(2370);
   });
 });
 

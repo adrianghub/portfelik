@@ -46,7 +46,10 @@ raty** / **Spłać / nadpłać** (debt).
 
 - `financial_snapshots`: one row per user - `cash_amount`, `investments_amount`,
   `real_estate_amount`, `as_of_date` (all manual entry).
-- **Majątek netto** on `/plans` = sum(assets) − sum(`plan_debt_terms.current_balance`).
+- **Majątek netto** on `/plans` = sum(assets) − sum(debt liabilities). Active loans use
+  accrued balance to the snapshot date; **upcoming (future) loans** count full
+  `original_amount`; finished loans drop out when balance is zero. If terms are not
+  saved yet, `plans.target_amount` is used as fallback.
 - Copy states values are user-entered; Portfelik does not derive bank balances from import.
 - **Pulpit strip (D2):** compact net-worth summary linking to `/plans`; same manual snapshot.
 
@@ -65,7 +68,7 @@ po celach = bilans − suma monthlyNeeded aktywnych celów save
   goals; green/red card with tempo context.
 - Without save goals: informational copy that free surplus equals month cashflow.
 - Raty kredytów **nie** odejmujemy ponownie - przy import-first wydatków rata jest
-  już w wydatkach; karta pokazuje raty z planów tylko jako informację.
+  już w wydatkach; karta pokazuje raty **aktywnych** planów kredytowych tylko jako informację.
 - Save pace from `computePlanProgress().monthlyNeeded` on active save plans
   (`start_date ≤ today ≤ end_date`).
 - Subtle link to `/transactions` for drill-down.

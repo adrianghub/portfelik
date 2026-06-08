@@ -118,6 +118,18 @@ describe("computeSaveMonthlyActual", () => {
     });
     expect(actual).toBe(2000);
   });
+
+  it("returns zero for upcoming save goals", () => {
+    const actual = computeSaveMonthlyActual({
+      kind: "save",
+      startDate: "2026-12-01",
+      endDate: "2027-12-01",
+      savedAmount: 0,
+      linkedIncomes: [],
+      today: "2026-06-08",
+    });
+    expect(actual).toBe(0);
+  });
 });
 
 describe("computePlanProgress", () => {

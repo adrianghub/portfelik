@@ -1,5 +1,7 @@
+import { accrueBalanceWithDailyInterest } from "$lib/services/debt-amortization";
+import { derivePlanBucket, todayIso } from "$lib/services/plans";
+import type { FinancialSnapshot, NetWorthSummary, Plan, PlanDebtTerms } from "$lib/types";
 import { supabase } from "$lib/supabase";
-import type { FinancialSnapshot, NetWorthSummary } from "$lib/types";
 
 export interface FinancialSnapshotInput {
   as_of_date: string;
@@ -28,6 +30,50 @@ export function computeNetWorth(
     totalDebt,
     netWorth: totalAssets - totalDebt,
   };
+}
+
+/** Balance for one debt plan in net-worth (active + upcoming; finished only if balance remains). */
+export function debtBalanceForNetWorth(
+  plan: Pick<Plan, "start_date" | "end_date" | "target_amount">,
+  terms: PlanDebtTerms | undefined,
+  asOfDate = todayIso()
+): number {
+  const bucket = derivePlanBucket(plan, asOfDate);
+
+  if (bucket === "finished") {
+    if (!terms) return 0;
+    const remaining = Number(terms.current_balance);
+    return remaining > 0.01 ? remaining : 0;
+  }
+
+  if (terms) {
+    if (bucket === "upcoming") {
+      // Future loan: full principal obligation counts toward net worth today.
+      return Math.max(Number(terms.current_balance), Number(terms.original_amount));
+    }
+    const anchor = terms.updated_at.slice(0, 10);
+    return accrueBalanceWithDailyInterest(
+      Number(terms.current_balance),
+      Number(terms.annual_rate),
+      anchor,
+      asOfDate
+    );
+  }
+
+  // Plan exists but terms not saved yet — use target_amount from create form.
+  const fallback = plan.target_amount != null ? Number(plan.target_amount) : 0;
+  return fallback > 0.01 ? fallback : 0;
+}
+
+export function collectNetWorthDebtBalances(
+  plans: Plan[],
+  termsByPlanId: Record<string, PlanDebtTerms>,
+  asOfDate = todayIso()
+): number[] {
+  return plans
+    .filter((plan) => plan.kind === "debt")
+    .map((plan) => debtBalanceForNetWorth(plan, termsByPlanId[plan.id], asOfDate))
+    .filter((balance) => balance > 0.01);
 }
 
 export async function fetchFinancialSnapshot(): Promise<FinancialSnapshot | null> {

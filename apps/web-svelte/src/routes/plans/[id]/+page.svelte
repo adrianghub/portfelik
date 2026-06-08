@@ -264,6 +264,27 @@
     onError: () => toast.error(m.toast_error()),
   }));
 
+  const debtPlanDatesMutation = createMutation(() => ({
+    mutationFn: (dates: { start_date: string; end_date: string }) => {
+      const plan = planQuery.data!;
+      return updatePlan(id, {
+        name: plan.name,
+        kind: "debt",
+        start_date: dates.start_date,
+        end_date: dates.end_date,
+        target_amount: plan.target_amount,
+        category_id: plan.category_id,
+        group_id: plan.group_id,
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["plan", id] });
+      await queryClient.invalidateQueries({ queryKey: ["plans"] });
+      await queryClient.invalidateQueries({ queryKey: ["plan-progress-list"] });
+    },
+    onError: () => toast.error(m.toast_error()),
+  }));
+
   const syncBalanceMutation = createMutation(() => ({
     mutationFn: async () => {
       if (derivedDebtBalance == null) return;
@@ -389,12 +410,15 @@
       <DebtPlanDetail
         planId={id}
         terms={debtTermsQuery.data}
+        planStartDate={plan.start_date}
+        planEndDate={plan.end_date}
         derivedBalance={derivedDebtBalance}
         {linkedExpenseTotal}
         onSyncBalance={canManage ? () => syncBalanceMutation.mutate() : undefined}
         onTermsSave={canManage ? (input) => debtTermsMutation.mutate(input) : undefined}
+        onPlanDatesSave={canManage ? (dates) => debtPlanDatesMutation.mutate(dates) : undefined}
         syncing={syncBalanceMutation.isPending}
-        termsSaving={debtTermsMutation.isPending}
+        termsSaving={debtTermsMutation.isPending || debtPlanDatesMutation.isPending}
       />
       <PlanForwardNav href={settleHref} title={m.plan_debt_link_payments()} variant="action" />
     {:else if progress}

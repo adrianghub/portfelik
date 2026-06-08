@@ -19,6 +19,7 @@
     normalizeDebtTermsInput,
   } from "$lib/services/plan-debt";
   import {
+    collectNetWorthDebtBalances,
     computeNetWorth,
     fetchFinancialSnapshot,
     upsertFinancialSnapshot,
@@ -146,8 +147,10 @@
     queryFn: fetchFinancialSnapshot,
   }));
 
+  const netWorthAsOf = $derived(snapshotQuery.data?.as_of_date ?? todayIsoLocal());
+
   const debtBalances = $derived(
-    Object.values(debtTermsQuery.data ?? {}).map((t) => Number(t.current_balance))
+    collectNetWorthDebtBalances(plansQuery.data ?? [], debtTermsQuery.data ?? {}, netWorthAsOf)
   );
 
   const netWorth = $derived(computeNetWorth(snapshotQuery.data ?? null, debtBalances));
@@ -212,7 +215,7 @@
     return computeMonthlySurplus({
       totalIncome: monthSummary.total_income,
       totalExpenses: monthSummary.total_expenses,
-      debtMonthlyPayments: sumDebtMonthlyPayments(scopedDebtTerms),
+      debtMonthlyPayments: sumDebtMonthlyPayments(scopedSummaries, scopedDebtTerms),
       saveMonthlyNeeded: sumSaveMonthlyNeeded(scopedSummaries),
     });
   });
@@ -220,9 +223,9 @@
   const planningActions = $derived.by(() => {
     if (!monthlySurplus) return [];
     return buildPlanningQueueActions({
-      summaries,
+      summaries: scopedSummaries,
       monthlySurplus,
-      debtTerms: debtTermsQuery.data ?? {},
+      debtTerms: scopedDebtTerms,
     });
   });
 
@@ -733,12 +736,20 @@
     </div>
 
     <div class="grid gap-3 sm:grid-cols-2">
-      <DayPicker id="plan-start" bind:value={startDate} label={m.plan_form_start_date()} required />
+      <DayPicker
+        id="plan-start"
+        bind:value={startDate}
+        label={m.plan_form_start_date()}
+        yearsPast={planKind === "debt" ? 50 : 100}
+        yearsAhead={planKind === "debt" ? 1 : 15}
+        required
+      />
       <DayPicker
         id="plan-end"
         bind:value={endDate}
         label={planKind === "debt" ? m.plan_form_end_date_debt() : m.plan_form_end_date()}
-        yearsAhead={planKind === "debt" ? 5 : 15}
+        yearsPast={planKind === "debt" ? 0 : 100}
+        yearsAhead={planKind === "debt" ? 100 : 15}
         required
       />
     </div>

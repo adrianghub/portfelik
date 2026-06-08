@@ -3,13 +3,16 @@
   import { page } from "$app/stores";
   import {
     approximateDailyInterest,
+    accrueBalanceWithDailyInterest,
     compareLumpSumOverpay,
     compareOverpay,
+    daysBetween,
     formatDuration,
     isPaymentBelowMonthlyInterest,
     monthlyInterestAmount,
   } from "$lib/services/debt-amortization";
   import { normalizeDebtTermsInput, type PlanDebtTermsInput } from "$lib/services/plan-debt";
+  import { todayIso } from "$lib/services/plans";
   import type { PlanDebtTerms } from "$lib/types";
   import { cn, formatCurrency } from "$lib/utils";
   import {
@@ -21,6 +24,7 @@
   import { planSettleHref } from "$lib/utils/plan-routes";
   import PlanForwardNav from "$lib/components/plans/PlanForwardNav.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
+  import DayPicker from "$lib/components/ui/DayPicker.svelte";
   import { ChevronRight } from "lucide-svelte";
   import { onMount } from "svelte";
   import { toast } from "svelte-sonner";
@@ -29,10 +33,13 @@
   interface Props {
     planId: string;
     terms: PlanDebtTerms;
+    planStartDate: string;
+    planEndDate: string;
     derivedBalance?: number | null;
     linkedExpenseTotal?: number;
     onSyncBalance?: () => void | Promise<void>;
     onTermsSave?: (input: PlanDebtTermsInput) => void | Promise<void>;
+    onPlanDatesSave?: (dates: { start_date: string; end_date: string }) => void | Promise<void>;
     syncing?: boolean;
     termsSaving?: boolean;
   }
@@ -40,10 +47,13 @@
   let {
     planId,
     terms,
+    planStartDate,
+    planEndDate,
     derivedBalance = null,
     linkedExpenseTotal = 0,
     onSyncBalance,
     onTermsSave,
+    onPlanDatesSave,
     syncing = false,
     termsSaving = false,
   }: Props = $props();
@@ -54,43 +64,62 @@
   let editBalance = $state("");
   let editRate = $state("");
   let editPayment = $state("");
+  let editStartDate = $state("");
+  let editEndDate = $state("");
 
   $effect(() => {
     editOriginal = String(terms.original_amount);
     editBalance = String(terms.current_balance);
     editRate = String(terms.annual_rate);
     editPayment = String(terms.monthly_payment);
+    editStartDate = planStartDate;
+    editEndDate = planEndDate;
   });
 
-  const paid = $derived(Math.max(0, terms.original_amount - terms.current_balance));
+  const hasLinkedPayments = $derived(linkedExpenseTotal > 0.01);
+  const accrualAnchor = $derived(terms.updated_at.slice(0, 10));
+  const accrualDays = $derived(daysBetween(accrualAnchor, todayIso()));
+  const storedBalance = $derived(Number(terms.current_balance));
+  const displayBalance = $derived(
+    hasLinkedPayments
+      ? storedBalance
+      : accrueBalanceWithDailyInterest(
+          storedBalance,
+          Number(terms.annual_rate),
+          accrualAnchor,
+          todayIso()
+        )
+  );
+  const accruedInterestAmount = $derived(Math.max(0, displayBalance - storedBalance));
+  const paid = $derived(Math.max(0, Number(terms.original_amount) - displayBalance));
   const paidPct = $derived(
     terms.original_amount > 0 ? Math.round((paid / terms.original_amount) * 100) : 0
   );
   const dailyInterest = $derived(
-    approximateDailyInterest(Number(terms.current_balance), Number(terms.annual_rate))
+    approximateDailyInterest(displayBalance, Number(terms.annual_rate))
   );
   const monthlyInterest = $derived(
-    monthlyInterestAmount(Number(terms.current_balance), Number(terms.annual_rate))
+    monthlyInterestAmount(displayBalance, Number(terms.annual_rate))
   );
   const paymentBelowInterest = $derived(
     isPaymentBelowMonthlyInterest(
-      Number(terms.current_balance),
+      displayBalance,
       Number(terms.annual_rate),
       Number(terms.monthly_payment)
     )
   );
   const amortInput = $derived({
-    currentBalance: Number(terms.current_balance),
+    currentBalance: displayBalance,
     annualRate: Number(terms.annual_rate),
     monthlyPayment: Number(terms.monthly_payment),
   });
   const maxOverpay = $derived(
     Math.min(
-      Math.max(0, Number(terms.current_balance)),
+      Math.max(0, displayBalance),
       Math.max(10_000, Math.ceil(Number(terms.monthly_payment) * 5))
     )
   );
-  const maxLumpSum = $derived(Math.max(0, Math.floor(Number(terms.current_balance))));
+  const maxLumpSum = $derived(Math.max(0, Math.floor(displayBalance)));
   const simState = $derived(parseDebtSimUrl($page.url.searchParams));
   const overpayMode = $derived(simState.mode);
   const extraPayment = $derived(Math.min(maxOverpay, simState.extra));
@@ -102,7 +131,6 @@
       ? Math.round((comparison.withExtra.payoffMonths / comparison.baseline.payoffMonths) * 100)
       : 100
   );
-  const hasLinkedPayments = $derived(linkedExpenseTotal > 0.01);
   const balanceDrift = $derived(
     hasLinkedPayments &&
       derivedBalance != null &&
@@ -190,6 +218,10 @@
   }
 
   async function saveTermsEdit() {
+    if (editEndDate < editStartDate) {
+      toast.error(m.plan_form_dates_invalid());
+      return;
+    }
     try {
       const input = normalizeDebtTermsInput({
         original_amount: Number(editOriginal),
@@ -200,6 +232,9 @@
         anchor_transaction_id: terms.anchor_transaction_id,
       });
       await onTermsSave?.(input);
+      if (onPlanDatesSave && (editStartDate !== planStartDate || editEndDate !== planEndDate)) {
+        await onPlanDatesSave({ start_date: editStartDate, end_date: editEndDate });
+      }
       showTermsEdit = false;
     } catch (err) {
       const code = err instanceof Error ? err.message : "";
@@ -262,8 +297,17 @@
   >
     <p class="text-eyebrow text-slate-400">{m.plan_debt_remaining_hero()}</p>
     <p class="text-accent mt-2 text-4xl font-semibold tabular-nums">
-      {formatCurrency(Number(terms.current_balance))}
+      {formatCurrency(displayBalance)}
     </p>
+    {#if accruedInterestAmount > 0.01 && !hasLinkedPayments}
+      <p class="mt-1 text-xs text-amber-200/90">
+        {m.plan_debt_balance_accrued_note({
+          date: accrualAnchor,
+          amount: formatCurrency(accruedInterestAmount),
+          days: accrualDays,
+        })}
+      </p>
+    {/if}
     <p class="mt-1 text-sm text-slate-400">
       z {formatCurrency(Number(terms.original_amount))}
     </p>
@@ -557,6 +601,24 @@
               class="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
             />
           </label>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <DayPicker
+              id="debt-edit-start-{planId}"
+              bind:value={editStartDate}
+              label={m.plan_form_start_date()}
+              yearsPast={50}
+              yearsAhead={1}
+              showLabel={true}
+            />
+            <DayPicker
+              id="debt-edit-end-{planId}"
+              bind:value={editEndDate}
+              label={m.plan_form_end_date_debt()}
+              yearsPast={0}
+              yearsAhead={100}
+              showLabel={true}
+            />
+          </div>
           <button
             type="button"
             disabled={termsSaving}

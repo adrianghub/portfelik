@@ -183,6 +183,29 @@ export function approximateDailyInterest(currentBalance: number, annualRate: num
   return (currentBalance * (annualRate / 100)) / 365;
 }
 
+/** Whole calendar days from `fromIso` (exclusive anchor) to `toIso` (inclusive end). */
+export function daysBetween(fromIso: string, toIso: string): number {
+  const [fy, fm, fd] = fromIso.split("-").map(Number);
+  const [ty, tm, td] = toIso.split("-").map(Number);
+  const from = Date.UTC(fy, fm - 1, fd);
+  const to = Date.UTC(ty, tm - 1, td);
+  return Math.floor((to - from) / 86_400_000);
+}
+
+/** Compound daily interest on outstanding balance since the anchor date. */
+export function accrueBalanceWithDailyInterest(
+  balance: number,
+  annualRatePct: number,
+  anchorDateIso: string,
+  asOfDateIso: string
+): number {
+  if (balance <= 0.01 || annualRatePct <= 0) return balance;
+  const days = daysBetween(anchorDateIso, asOfDateIso);
+  if (days <= 0) return balance;
+  const dailyRate = annualRatePct / 100 / 365;
+  return balance * Math.pow(1 + dailyRate, days);
+}
+
 /** Monthly interest on the current balance at the plan rate. */
 export function monthlyInterestAmount(currentBalance: number, annualRate: number): number {
   return currentBalance * (annualRate / 100 / 12);
