@@ -43,7 +43,7 @@
   let triggerRef = $state<HTMLButtonElement | null>(null);
   let dropAnchorY = $state(0);
   let dropLeft = $state(0);
-  let dropWidth = $state(288);
+  let dropWidth = $state(320);
   let dropAbove = $state(false);
   let calendarPlaceholder = $state<DateValue>(today(tz));
 
@@ -101,12 +101,14 @@
     const viewTop = vv?.offsetTop ?? 0;
     const viewLeft = vv?.offsetLeft ?? 0;
     const viewHeight = vv?.height ?? window.innerHeight;
+    const viewWidth = vv?.width ?? window.innerWidth;
     const viewBottom = viewTop + viewHeight;
     const spaceBelow = viewBottom - rect.bottom - VIEWPORT_PADDING_PX;
     const spaceAbove = rect.top - viewTop - VIEWPORT_PADDING_PX;
     dropAbove = spaceBelow < POPOVER_HEIGHT_PX && spaceAbove > spaceBelow;
-    dropLeft = rect.left - viewLeft;
-    dropWidth = Math.max(rect.width, 288);
+    dropWidth = Math.max(rect.width, 320);
+    const maxLeft = viewWidth - dropWidth - VIEWPORT_PADDING_PX;
+    dropLeft = Math.max(VIEWPORT_PADDING_PX, Math.min(rect.left - viewLeft, maxLeft));
     dropAnchorY = dropAbove ? rect.top - 4 : rect.bottom + 4;
   }
 

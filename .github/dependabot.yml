@@ -1,9 +1,16 @@
 version: 2
 updates:
   - package-ecosystem: npm
-    directory: /apps/web-svelte
+    # Point at the repo root: the single pnpm-lock.yaml and pnpm-workspace.yaml
+    # live here, so dependabot updates BOTH the workspace package.json and the
+    # root lockfile. Targeting /apps/web-svelte left the root lockfile stale and
+    # broke `pnpm install --frozen-lockfile` (ERR_PNPM_OUTDATED_LOCKFILE).
+    directory: /
+    # Open PRs against the integration branch, not the production default branch.
+    target-branch: dev
     schedule:
       interval: weekly
+    open-pull-requests-limit: 5
     groups:
       svelte-ecosystem:
         patterns:
@@ -12,3 +19,9 @@ updates:
           - "@sveltejs/*"
           - devalue
           - cookie
+      # Fold the remaining minor/patch bumps into one PR to cut CI churn; only
+      # major bumps still get their own PR for individual review.
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch

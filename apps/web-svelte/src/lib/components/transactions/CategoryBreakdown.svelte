@@ -4,6 +4,7 @@
   import * as m from "$lib/paraglide/messages";
   import { ChevronDown } from "lucide-svelte";
   import { MediaQuery } from "svelte/reactivity";
+  import { untrack } from "svelte";
 
   interface Props {
     categories: CategorySummary[];
@@ -12,8 +13,9 @@
   let { categories, oncategoryclick }: Props = $props();
 
   const isDesktop = new MediaQuery("(min-width: 640px)");
-  let expanded = $state(false);
-  const showList = $derived(isDesktop.current || expanded);
+  // Accordion on both breakpoints: open by default on desktop, collapsed on mobile.
+  let expanded = $state(untrack(() => isDesktop.current));
+  const showList = $derived(expanded);
   const expenses = $derived(categories.filter((c) => c.type === "expense"));
 </script>
 
@@ -21,7 +23,7 @@
   <div class="rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur">
     <button
       type="button"
-      class="flex w-full items-center justify-between gap-3 sm:hidden"
+      class="flex w-full items-center justify-between gap-3"
       aria-expanded={expanded}
       onclick={() => (expanded = !expanded)}
     >
@@ -33,9 +35,8 @@
         aria-hidden="true"
       />
     </button>
-    <p class="text-eyebrow mb-3 hidden text-slate-300 sm:block">{m.summary_by_category()}</p>
     {#if showList}
-      <ul class="mt-3 space-y-2 sm:mt-0">
+      <ul class="mt-3 space-y-2">
         {#each expenses as cat (cat.category_id)}
           <li class="flex items-center gap-2">
             {#if oncategoryclick}
