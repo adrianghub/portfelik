@@ -40,7 +40,12 @@
       : 0
   );
   const spentPct = $derived(Math.round(spentRatio * 100));
-  const periodLabel = $derived(`${formatDate(plan.start_date)} - ${formatDate(plan.end_date)}`);
+  const isUpcoming = $derived(plan.bucket === "upcoming");
+  const periodLabel = $derived(
+    isUpcoming
+      ? `${m.plan_card_planned_from({ date: formatDate(plan.start_date) })} · ${m.plan_card_planned_until({ date: formatDate(plan.end_date) })}`
+      : `${formatDate(plan.start_date)} - ${formatDate(plan.end_date)}`
+  );
   const saveOnTrack = $derived(
     kind === "save" &&
       plan.monthlyNeeded != null &&
@@ -117,6 +122,13 @@
         >
           <div class="flex items-center gap-2">
             <span class="truncate leading-tight font-semibold text-slate-100">{plan.name}</span>
+            {#if isUpcoming}
+              <span
+                class="shrink-0 rounded-full border border-sky-400/30 bg-sky-400/10 px-2 py-0.5 text-[10px] font-semibold text-sky-300 uppercase"
+              >
+                {m.plan_card_upcoming_badge()}
+              </span>
+            {/if}
             {#if saveOnTrack}
               <span
                 class="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 uppercase"

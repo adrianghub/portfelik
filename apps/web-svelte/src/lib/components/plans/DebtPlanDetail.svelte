@@ -16,6 +16,7 @@
     planId: string;
     terms: PlanDebtTerms;
     derivedBalance?: number | null;
+    linkedExpenseTotal?: number;
     onSyncBalance?: () => void | Promise<void>;
     onTermsSave?: (input: PlanDebtTermsInput) => void | Promise<void>;
     syncing?: boolean;
@@ -26,6 +27,7 @@
     planId,
     terms,
     derivedBalance = null,
+    linkedExpenseTotal = 0,
     onSyncBalance,
     onTermsSave,
     syncing = false,
@@ -75,7 +77,29 @@
   const syncIncreasesBalance = $derived(
     derivedBalance != null && derivedBalance > Number(terms.current_balance) + 1
   );
+  const missingLinkedPayments = $derived(syncIncreasesBalance && linkedExpenseTotal < 0.01);
+  const maxOverpay = $derived(
+    Math.min(
+      Math.max(0, Number(terms.current_balance)),
+      Math.max(10_000, Math.ceil(Number(terms.monthly_payment) * 5))
+    )
+  );
+  const overpayChips = $derived([0, 500, 1000, 2000, 5000].filter((chip) => chip <= maxOverpay));
   const newInstallment = $derived(Number(terms.monthly_payment) + extraPayment);
+
+  $effect(() => {
+    if (extraPayment > maxOverpay) extraPayment = maxOverpay;
+  });
+
+  function clampOverpay(value: number): number {
+    if (!Number.isFinite(value)) return 0;
+    return Math.min(maxOverpay, Math.max(0, Math.round(value)));
+  }
+
+  function onOverpayInput(event: Event) {
+    const raw = (event.currentTarget as HTMLInputElement).value;
+    extraPayment = clampOverpay(Number(raw));
+  }
 
   function requestSyncBalance() {
     if (syncIncreasesBalance) {
@@ -129,26 +153,49 @@
     <div class="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <p class="text-sm text-amber-100">
-          {m.plan_debt_sync_banner({
-            derived: formatCurrency(derivedBalance),
-            stored: formatCurrency(Number(terms.current_balance)),
-          })}
+          {#if missingLinkedPayments}
+            {m.plan_debt_sync_no_links_banner({
+              derived: formatCurrency(derivedBalance),
+              stored: formatCurrency(Number(terms.current_balance)),
+            })}
+          {:else}
+            {m.plan_debt_sync_banner({
+              derived: formatCurrency(derivedBalance),
+              stored: formatCurrency(Number(terms.current_balance)),
+            })}
+          {/if}
         </p>
-        <button
-          type="button"
-          disabled={syncing}
-          onclick={requestSyncBalance}
-          class={cn(
-            "rounded-full px-3 py-1 text-xs font-semibold disabled:opacity-50",
-            syncIncreasesBalance
-              ? "border border-amber-400/40 bg-transparent text-amber-200"
-              : "bg-amber-500/20 text-amber-200"
-          )}
-        >
-          {m.plan_debt_sync_apply()}
-        </button>
+        <div class="flex flex-wrap items-center gap-2">
+          {#if missingLinkedPayments}
+            <a
+              href="/plans/{planId}/settle"
+              class="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-semibold text-amber-200"
+            >
+              {m.plan_debt_sync_link_payments()}
+            </a>
+          {/if}
+          <button
+            type="button"
+            disabled={syncing}
+            onclick={requestSyncBalance}
+            class={cn(
+              "rounded-full px-3 py-1 text-xs font-semibold disabled:opacity-50",
+              syncIncreasesBalance
+                ? "border border-amber-400/40 bg-transparent text-amber-200"
+                : "bg-amber-500/20 text-amber-200"
+            )}
+          >
+            {m.plan_debt_sync_apply()}
+          </button>
+        </div>
       </div>
-      <p class="mt-2 text-xs text-amber-200/80">{m.plan_debt_sync_explain()}</p>
+      <p class="mt-2 text-xs text-amber-200/80">
+        {#if missingLinkedPayments}
+          {m.plan_debt_sync_no_links_hint()}
+        {:else}
+          {m.plan_debt_sync_explain()}
+        {/if}
+      </p>
     </div>
   {/if}
 
@@ -207,17 +254,29 @@
     <p class="mt-0.5 text-xs text-slate-500">
       {m.plan_debt_new_installment({ amount: formatCurrency(newInstallment) })}
     </p>
-    <input
-      type="range"
-      min="0"
-      max="2000"
-      step="100"
-      bind:value={extraPayment}
-      class="accent-accent mt-4 w-full"
-      aria-valuetext="{extraPayment} zł"
-    />
+    <div class="mt-4 flex items-center gap-3">
+      <input
+        type="range"
+        min="0"
+        max={maxOverpay}
+        step="50"
+        bind:value={extraPayment}
+        class="accent-accent min-w-0 flex-1"
+        aria-valuetext="{extraPayment} zł"
+      />
+      <input
+        type="number"
+        min="0"
+        max={maxOverpay}
+        step="50"
+        value={extraPayment}
+        oninput={onOverpayInput}
+        aria-label={m.plan_debt_overpay_input_aria()}
+        class="w-24 rounded-lg border border-white/10 bg-slate-900/60 px-2 py-1.5 text-right text-sm text-slate-100 tabular-nums"
+      />
+    </div>
     <div class="mt-2 flex flex-wrap gap-2">
-      {#each [0, 300, 500, 1000] as chip (chip)}
+      {#each overpayChips as chip (chip)}
         <button
           type="button"
           onclick={() => (extraPayment = chip)}

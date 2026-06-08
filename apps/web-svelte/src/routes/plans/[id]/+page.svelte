@@ -21,7 +21,7 @@
     upsertPlanDebtTerms,
     updatePlanDebtBalance,
   } from "$lib/services/plan-debt";
-  import { fetchPlanById, updatePlan, canManagePlan } from "$lib/services/plans";
+  import { derivePlanBucket, fetchPlanById, updatePlan, canManagePlan } from "$lib/services/plans";
   import { fetchMyGroupRoles } from "$lib/services/groups";
   import { supabase } from "$lib/supabase";
   import type { GroupMemberRole, PlanKind, TransactionType } from "$lib/types";
@@ -103,10 +103,16 @@
   const expenses = $derived((linkedQuery.data ?? []).filter((tx) => tx.type === "expense"));
   const incomes = $derived((linkedQuery.data ?? []).filter((tx) => tx.type === "income"));
 
+  const linkedExpenseTotal = $derived(expenses.reduce((sum, tx) => sum + tx.amount, 0));
+
   const derivedDebtBalance = $derived(
     planQuery.data?.kind === "debt" && debtTermsQuery.data
       ? deriveDebtBalanceFromLinks(Number(debtTermsQuery.data.original_amount), expenses)
       : null
+  );
+
+  const planIsUpcoming = $derived(
+    planQuery.data ? derivePlanBucket(planQuery.data) === "upcoming" : false
   );
 
   const canManage = $derived.by(() => {
@@ -258,8 +264,21 @@
         <div class="flex flex-wrap items-center gap-2 pl-8 text-sm text-slate-400">
           <span class="inline-flex items-center gap-1">
             <CalendarDays size={14} strokeWidth={1.8} aria-hidden="true" />
-            {formatDate(plan.start_date)} - {formatDate(plan.end_date)}
+            {#if planIsUpcoming}
+              {m.plan_card_planned_from({ date: formatDate(plan.start_date) })} · {m.plan_card_planned_until(
+                { date: formatDate(plan.end_date) }
+              )}
+            {:else}
+              {formatDate(plan.start_date)} - {formatDate(plan.end_date)}
+            {/if}
           </span>
+          {#if planIsUpcoming}
+            <span
+              class="shrink-0 rounded-full border border-sky-400/30 bg-sky-400/10 px-2 py-0.5 text-[10px] font-semibold text-sky-300 uppercase"
+            >
+              {m.plan_card_upcoming_badge()}
+            </span>
+          {/if}
           {#if plan.group_id}
             <span
               class="border-accent/20 bg-accent/10 text-accent inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase"
@@ -324,6 +343,7 @@
         planId={id}
         terms={debtTermsQuery.data}
         derivedBalance={derivedDebtBalance}
+        {linkedExpenseTotal}
         onSyncBalance={canManage ? () => syncBalanceMutation.mutate() : undefined}
         onTermsSave={canManage ? (input) => debtTermsMutation.mutate(input) : undefined}
         syncing={syncBalanceMutation.isPending}
