@@ -15,18 +15,24 @@ function findMockPlan(url: string) {
   return MOCK_PLANS.find((p) => p.id === match[1]) ?? MOCK_PLANS[0];
 }
 
+/** Debt detail accrues daily interest from terms.updated_at; keep anchor at today in mocks. */
+function withDebtTermsAccrualToday<T extends { updated_at: string }>(terms: T[]): T[] {
+  const anchor = `${new Date().toISOString().slice(0, 10)}T10:00:00Z`;
+  return terms.map((term) => ({ ...term, updated_at: anchor }));
+}
+
 function filterMockDebtTerms(url: string) {
   const inMatch = url.match(/plan_id=in\.\(([^)]+)\)/);
   if (inMatch) {
     const ids = inMatch[1].split(",").map((id) => id.trim());
-    return MOCK_DEBT_TERMS.filter((t) => ids.includes(t.plan_id));
+    return withDebtTermsAccrualToday(MOCK_DEBT_TERMS.filter((t) => ids.includes(t.plan_id)));
   }
   const eqMatch = url.match(/plan_id=eq\.([^&]+)/);
   if (eqMatch) {
     const term = MOCK_DEBT_TERMS.find((t) => t.plan_id === eqMatch[1]);
-    return term ? [term] : [];
+    return term ? withDebtTermsAccrualToday([term]) : [];
   }
-  return MOCK_DEBT_TERMS;
+  return withDebtTermsAccrualToday(MOCK_DEBT_TERMS);
 }
 
 const SUPABASE_URL = "https://emqzcygfwcvbmhxhfkcc.supabase.co";
