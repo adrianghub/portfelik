@@ -220,6 +220,45 @@ describe("RLS: plans", () => {
       expect(result.data?.[0]?.name).toBe(`${SENTINEL} renamed-by-co-owner`);
     });
 
+    it("plain group member cannot delete shared plan", async () => {
+      await ctx.userA.client.rpc("revoke_group_co_owner", {
+        p_group_id: groupAId,
+        p_user_id: ctx.userB.userId,
+      });
+
+      const result = await ctx.userB.client.from("plans").delete().eq("id", sharedPlanId).select();
+      expectBlockedWrite(result);
+    });
+
+    it("nominated co-owner can delete shared plan", async () => {
+      const nominate = await ctx.userA.client.rpc("nominate_group_co_owner", {
+        p_group_id: groupAId,
+        p_user_id: ctx.userB.userId,
+      });
+      expect(nominate.error).toBeNull();
+
+      const { data: replacement, error: insertErr } = await ctx.admin
+        .from("plans")
+        .insert({
+          user_id: ctx.userA.userId,
+          name: `${SENTINEL} shared-plan-delete`,
+          group_id: groupAId,
+          start_date: "2026-06-01",
+          end_date: "2026-06-30",
+        })
+        .select("id")
+        .single();
+      if (insertErr) throw insertErr;
+
+      const result = await ctx.userB.client
+        .from("plans")
+        .delete()
+        .eq("id", replacement.id)
+        .select("id");
+      expect(result.error).toBeNull();
+      expect(result.data?.length).toBe(1);
+    });
+
     it("owner cannot attach private plan to a group they do not belong to", async () => {
       const { data: foreignGroup, error: groupErr } = await ctx.userB.client.rpc("create_group", {
         p_name: `${SENTINEL} foreign-group`,

@@ -207,6 +207,49 @@ describe("RLS: transactions", () => {
       expect(result.data?.[0]?.amount).toBe(333);
     });
 
+    it("plain group member cannot delete peer shared tx", async () => {
+      const revoke = await ctx.userA.client.rpc("revoke_group_co_owner", {
+        p_group_id: groupId,
+        p_user_id: ctx.userB.userId,
+      });
+      void revoke;
+
+      const assignA = await ctx.admin
+        .from("transactions")
+        .update({ group_id: groupId })
+        .eq("description", `${SENTINEL} A tx`);
+      if (assignA.error) throw assignA.error;
+
+      const result = await ctx.userB.client
+        .from("transactions")
+        .delete()
+        .eq("description", `${SENTINEL} A tx`)
+        .select();
+      expectBlockedWrite(result);
+    });
+
+    it("nominated co-owner can delete peer shared tx", async () => {
+      const nominate = await ctx.userA.client.rpc("nominate_group_co_owner", {
+        p_group_id: groupId,
+        p_user_id: ctx.userB.userId,
+      });
+      expect(nominate.error).toBeNull();
+
+      const assignA = await ctx.admin
+        .from("transactions")
+        .update({ group_id: groupId })
+        .eq("description", `${SENTINEL} A tx`);
+      if (assignA.error) throw assignA.error;
+
+      const result = await ctx.userB.client
+        .from("transactions")
+        .delete()
+        .eq("description", `${SENTINEL} A tx`)
+        .select("id");
+      expect(result.error).toBeNull();
+      expect(result.data?.length).toBe(1);
+    });
+
     it("user A CANNOT re-own user B's tx (user_id column locked)", async () => {
       // user_id is REVOKE UPDATE - PostgREST drops the column silently and
       // the row stays owned by B. Verify by reading back.
