@@ -48,9 +48,15 @@ Shipped on `main` (`41717c7`):
 
 ## Deferred (post-launch / V1+)
 
+These are intentionally not pre-production blockers. See
+[future product paths](./future-paths.md) for sequencing and prerequisites.
+
 - Manual emergency transaction fallback from a plan detail screen.
-- Dexie offline write outbox.
-- AI explanations, summaries, and keyword proposals.
+- Dexie offline write outbox / durable offline writes.
+- Split allocations across plans/categories.
+- Deeper automation around recurring rows, rules, and settlement.
+- Quiet gamification around imports, settlement, savings, and debt payoff.
+- AI explanations, summaries, keyword proposals, and suggested plans.
 - Debt, savings, and credit workflows.
 - Privacy Layer 3 selective column encryption.
 
