@@ -7,13 +7,13 @@
 #   20260425000000_phase5_*.sql        → pg_net
 #
 # On `supabase start` (CI), pgcrypto/pg_net land in `extensions` and pg_cron in
-# `pg_catalog` — not `public`. We only fail when pgcrypto regresses into public
+# `pg_catalog` - not `public`. We only fail when pgcrypto regresses into public
 # (actionable via WITH SCHEMA / SET SCHEMA).
 #
 # Intentionally NOT gated here:
-#   pg_net  — hosted Supabase rejects ALTER EXTENSION ... SET SCHEMA (0A000);
+#   pg_net  - hosted Supabase rejects ALTER EXTENSION ... SET SCHEMA (0A000);
 #             re-enable via Dashboard → Database → Extensions if advisor persists.
-#   pg_cron — managed stacks install it into pg_catalog, not public.
+#   pg_cron - managed stacks install it into pg_catalog, not public.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

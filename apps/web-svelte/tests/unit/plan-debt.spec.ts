@@ -2,7 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("$lib/supabase", () => ({ supabase: {} }));
 
-import { deriveDebtBalanceFromLinks, normalizeDebtTermsInput } from "$lib/services/plan-debt";
+import {
+  applyDebtPaymentPeriod,
+  consolidateDebtLinkedPayments,
+  deriveDebtBalanceFromLinks,
+  normalizeDebtTermsInput,
+} from "$lib/services/plan-debt";
 import { canManagePlan } from "$lib/services/plans";
 import type { GroupMemberRole } from "$lib/types";
 
@@ -46,15 +51,48 @@ describe("normalizeDebtTermsInput", () => {
   });
 });
 
-describe("deriveDebtBalanceFromLinks", () => {
-  it("subtracts linked payment totals from original amount", () => {
-    expect(
-      deriveDebtBalanceFromLinks(206_000, [{ amount: 2370 }, { amount: 2370 }, { amount: 500 }])
-    ).toBe(200_760);
+describe("applyDebtPaymentPeriod", () => {
+  it("applies payment to interest before principal", () => {
+    const after = applyDebtPaymentPeriod(206_000, 7.18, 2370);
+    expect(after).toBeCloseTo(204_862.57, 0);
   });
 
-  it("never goes below zero", () => {
-    expect(deriveDebtBalanceFromLinks(10_000, [{ amount: 15_000 }])).toBe(0);
+  it("leaves balance unchanged when payment covers only part of interest", () => {
+    const before = 203_718.32;
+    const after = applyDebtPaymentPeriod(before, 7.18, 500);
+    expect(after).toBeCloseTo(before, 0);
+  });
+});
+
+describe("consolidateDebtLinkedPayments", () => {
+  it("sums payments in the same calendar month", () => {
+    expect(
+      consolidateDebtLinkedPayments([
+        { amount: 1000, date: "2026-01-05" },
+        { amount: 1370, date: "2026-01-20" },
+        { amount: 2370, date: "2026-02-10" },
+      ])
+    ).toEqual([2370, 2370]);
+  });
+});
+
+describe("deriveDebtBalanceFromLinks", () => {
+  it("allocates each payment to interest then principal", () => {
+    expect(
+      deriveDebtBalanceFromLinks(206_000, 7.18, [
+        { amount: 2370 },
+        { amount: 2370 },
+        { amount: 500 },
+      ])
+    ).toBeCloseTo(203_718.32, 0);
+  });
+
+  it("never goes below zero when payment exceeds balance", () => {
+    expect(deriveDebtBalanceFromLinks(10_000, 5, [{ amount: 15_000 }])).toBe(0);
+  });
+
+  it("returns original when no linked expenses", () => {
+    expect(deriveDebtBalanceFromLinks(206_000, 7.18, [])).toBe(206_000);
   });
 });
 

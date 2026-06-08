@@ -10,6 +10,8 @@ export type PlanDebtTermsInput = {
   anchor_transaction_id?: string | null;
 };
 
+export type DebtLinkedPayment = { amount: number; date?: string };
+
 export function normalizeDebtTermsInput(input: PlanDebtTermsInput): PlanDebtTermsInput {
   const original = Math.abs(Number(input.original_amount));
   const balanceProvided =
@@ -30,6 +32,56 @@ export function normalizeDebtTermsInput(input: PlanDebtTermsInput): PlanDebtTerm
     annual_rate: rate,
     monthly_payment: payment,
   };
+}
+
+/** One amortization period: accrue interest, then apply payment toward principal. */
+export function applyDebtPaymentPeriod(
+  balance: number,
+  annualRate: number,
+  payment: number
+): number {
+  if (balance <= 0.01) return 0;
+  const monthlyRate = annualRate / 100 / 12;
+  const interest = balance * monthlyRate;
+  const actualPayment = Math.min(Math.abs(payment), balance + interest);
+  const principal = Math.max(0, actualPayment - interest);
+  return Math.max(0, balance - principal);
+}
+
+/** Collapse linked expenses into ordered payment amounts (one period per calendar month when dated). */
+export function consolidateDebtLinkedPayments(linkedExpenses: DebtLinkedPayment[]): number[] {
+  if (linkedExpenses.length === 0) return [];
+  const dated = linkedExpenses.filter((e) => e.date?.slice(0, 7));
+  if (dated.length === linkedExpenses.length) {
+    const byMonth = new Map<string, number>();
+    for (const exp of linkedExpenses) {
+      const key = exp.date!.slice(0, 7);
+      byMonth.set(key, (byMonth.get(key) ?? 0) + Math.abs(exp.amount));
+    }
+    return [...byMonth.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, sum]) => sum);
+  }
+  const sorted = [...linkedExpenses].sort((a, b) =>
+    (a.date?.slice(0, 10) ?? "").localeCompare(b.date?.slice(0, 10) ?? "")
+  );
+  return sorted.map((e) => Math.abs(e.amount));
+}
+
+/**
+ * Remaining balance after linked raty: each payment covers interest first, then principal.
+ * Uses plan annual rate; groups multiple links in the same calendar month into one period.
+ */
+export function deriveDebtBalanceFromLinks(
+  originalAmount: number,
+  annualRate: number,
+  linkedExpenses: DebtLinkedPayment[]
+): number {
+  if (linkedExpenses.length === 0) return Math.max(0, originalAmount);
+  let balance = Math.max(0, originalAmount);
+  for (const payment of consolidateDebtLinkedPayments(linkedExpenses)) {
+    balance = applyDebtPaymentPeriod(balance, annualRate, payment);
+    if (balance <= 0.01) return 0;
+  }
+  return Math.round(balance * 100) / 100;
 }
 
 export async function fetchPlanDebtTerms(planId: string): Promise<PlanDebtTerms | null> {
@@ -84,13 +136,16 @@ export async function setDebtAnchorTransaction(
   if (error) throw error;
 }
 
-/** Approximate remaining balance from linked payment expenses (full amount as principal). */
-export function deriveDebtBalanceFromLinks(
+/** Persist derived balance when at least one payment expense is linked. */
+export async function applyDebtBalanceFromLinks(
+  planId: string,
   originalAmount: number,
-  linkedExpenses: { amount: number }[]
-): number {
-  const paid = linkedExpenses.reduce((sum, tx) => sum + tx.amount, 0);
-  return Math.max(0, originalAmount - paid);
+  annualRate: number,
+  linkedExpenses: DebtLinkedPayment[]
+): Promise<void> {
+  if (linkedExpenses.length === 0) return;
+  const derived = deriveDebtBalanceFromLinks(originalAmount, annualRate, linkedExpenses);
+  await updatePlanDebtBalance(planId, derived);
 }
 
 export async function fetchPlanDebtTermsByPlanIds(

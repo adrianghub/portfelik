@@ -469,16 +469,6 @@
         clear: () => onStatusChange(undefined),
       });
     }
-    if (categoryId && categoriesQuery.data) {
-      const cat = categoriesQuery.data.find((c) => c.id === categoryId);
-      if (cat) {
-        chips.push({
-          key: "category",
-          label: cat.name,
-          clear: () => onCategoryChange(undefined),
-        });
-      }
-    }
     return chips;
   });
 
@@ -584,7 +574,7 @@
     </div>
   </div>
 
-  <!-- Sticky filter bar: date + category visible, type/status behind Filtry -->
+  <!-- Sticky filter bar: date + category visible, type/status behind Inne filtry -->
   {#if categoriesQuery.data && selectedIds.size === 0}
     <div
       bind:this={stickyFiltersRef}
@@ -706,7 +696,12 @@
   {/if}
 
   {#if summary}
-    <SummaryCards {summary} mode={summaryMode} />
+    <SummaryCards
+      {summary}
+      mode={summaryMode}
+      activeType={typeFilter}
+      ontypeclick={(type) => onTypeChange(typeFilter === type ? undefined : type)}
+    />
   {:else if txQuery.isLoading}
     <div class="grid grid-cols-3 gap-3">
       {#each [0, 1, 2] as _, i (i)}
@@ -785,6 +780,7 @@
   onsearchchange={(q) => (searchQuery = q)}
 >
   <TransactionTable
+    layout="cards"
     transactions={visibleTxs ?? []}
     {currentUserId}
     emptyLabel={tableEmptyLabel}

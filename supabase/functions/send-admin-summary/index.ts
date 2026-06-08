@@ -105,7 +105,7 @@ function activeUsersPhrase(count: number): string {
 
 function buildSummaryBody(income: number, expense: number, userCount: number): string {
   const users = activeUsersPhrase(userCount);
-  return `Ostatnie 7 dni: wpływy ${fmtPLN(income)}, wydatki ${fmtPLN(expense)} — ${users}.`;
+  return `Ostatnie 7 dni: wpływy ${fmtPLN(income)}, wydatki ${fmtPLN(expense)} - ${users}.`;
 }
 
 function isImportReminderEnabled(settings: Record<string, unknown> | null): boolean {

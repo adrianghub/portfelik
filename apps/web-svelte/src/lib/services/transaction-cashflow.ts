@@ -1,7 +1,7 @@
 import { computeSummary } from "$lib/services/transaction-summary";
 import type { MonthlySummary, TransactionStatus, TransactionWithCategory } from "$lib/types";
 
-/** Committed ledger truth — realized cashflow only. */
+/** Committed ledger truth - realized cashflow only. */
 export const LEDGER_STATUSES = ["paid"] as const satisfies readonly TransactionStatus[];
 
 /** Scheduled / past-due rows layered on top of ledger for projection. */
@@ -43,7 +43,7 @@ export function computeForecastSummary(transactions: TransactionWithCategory[]):
   return computeSummary(forecastTransactions(transactions));
 }
 
-/** Default summary for dashboards and planning — paid only. */
+/** Default summary for dashboards and planning - paid only. */
 export function computeCashflowSummary(
   transactions: TransactionWithCategory[],
   mode: CashflowSummaryMode = "ledger"

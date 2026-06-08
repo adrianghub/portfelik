@@ -8,6 +8,9 @@ import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
 // getByText() matches both, causing strict-mode violations; scope to the desktop table instead.
 const desktopTable = (page: Page) => page.locator("table");
 
+// Search palette renders card list (not table) at all breakpoints.
+const palette = (page: Page) => page.getByRole("search");
+
 test.beforeEach(async ({ page }) => {
   await injectFakeSession(page);
   await mockSupabaseAPI(page);
@@ -30,18 +33,16 @@ test("shows import and export as direct desktop actions", async ({ page }) => {
 test("search filters results inside the command palette", async ({ page }) => {
   await page.getByRole("button", { name: "Szukaj transakcji" }).click();
 
-  // The palette is a role="search" region that renders its own results table.
-  const palette = page.getByRole("search");
-  await expect(palette).toBeVisible();
+  const search = palette(page);
+  await expect(search).toBeVisible();
 
-  await palette.getByPlaceholder("Szukaj transakcji…").fill("bilet");
-  const paletteTable = palette.locator("table");
-  await expect(paletteTable.getByText("Bilet miesięczny")).toBeVisible();
-  await expect(paletteTable.getByText("Zakupy spożywcze")).toBeHidden();
+  await search.getByPlaceholder("Szukaj transakcji…").fill("bilet");
+  await expect(search.getByText("Bilet miesięczny")).toBeVisible();
+  await expect(search.getByText("Zakupy spożywcze")).toBeHidden();
 
-  // Clicking a result row closes the palette and opens the detail sheet.
-  await paletteTable.getByText("Bilet miesięczny").click();
-  await expect(palette).toBeHidden();
+  // Clicking a result card closes the palette and opens the detail sheet.
+  await search.getByText("Bilet miesięczny").click();
+  await expect(search).toBeHidden();
   await expect(page.locator("aside").getByText("Bilet miesięczny")).toBeVisible();
 });
 
@@ -57,18 +58,18 @@ test("closing the palette clears the search query", async ({ page }) => {
   const toggle = page.getByRole("button", { name: "Szukaj transakcji" });
   await toggle.click();
 
-  const palette = page.getByRole("search");
-  await palette.getByPlaceholder("Szukaj transakcji…").fill("bilet");
-  await expect(palette.locator("table").getByText("Zakupy spożywcze")).toBeHidden();
+  const search = palette(page);
+  await search.getByPlaceholder("Szukaj transakcji…").fill("bilet");
+  await expect(search.getByText("Zakupy spożywcze")).toBeHidden();
 
   // Close via the palette's ESC chip (the toggle is covered by the backdrop while open).
-  await palette.getByRole("button", { name: "Zamknij wyszukiwanie" }).click();
-  await expect(palette).toBeHidden();
+  await search.getByRole("button", { name: "Zamknij wyszukiwanie" }).click();
+  await expect(search).toBeHidden();
 
   // Reopen: query is reset and the full list is back - no silent filter.
   await toggle.click();
-  await expect(palette.getByPlaceholder("Szukaj transakcji…")).toHaveValue("");
-  await expect(palette.locator("table").getByText("Zakupy spożywcze")).toBeVisible();
+  await expect(search.getByPlaceholder("Szukaj transakcji…")).toHaveValue("");
+  await expect(search.getByText("Zakupy spożywcze")).toBeVisible();
 });
 
 test("txId deep link opens transaction outside the current date range", async ({ page }) => {

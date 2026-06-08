@@ -4,7 +4,9 @@
   import { addCalendarMonths, calendarMonthsUntil, todayIso } from "$lib/services/plans";
   import type { Plan } from "$lib/types";
   import { formatCurrency } from "$lib/utils";
-  import { ChevronRight } from "lucide-svelte";
+  import { page } from "$app/stores";
+  import PlanForwardNav from "$lib/components/plans/PlanForwardNav.svelte";
+  import { planSettleHref } from "$lib/utils/plan-routes";
 
   interface Props {
     plan: Plan;
@@ -26,6 +28,7 @@
       : null
   );
   const onTrack = $derived(gap == null || gap <= 0);
+  const settleHref = $derived(planSettleHref(plan.id, $page.url.searchParams));
 
   let sliderTarget = $state(60000);
   let sliderMonths = $state(12);
@@ -155,11 +158,7 @@
     <p class="text-accent mt-4 text-sm font-medium">{m.plan_save_on_track()}</p>
   {/if}
 
-  <a
-    href="/plans/{plan.id}/settle"
-    class="bg-accent-gradient focus-visible:ring-accent mt-5 flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] focus-visible:ring-2 focus-visible:outline-none"
-  >
-    {m.plan_save_link_cta()}
-    <ChevronRight size={18} aria-hidden="true" />
-  </a>
+  <div class="mt-5">
+    <PlanForwardNav href={settleHref} title={m.plan_save_link_cta()} variant="action" />
+  </div>
 </section>

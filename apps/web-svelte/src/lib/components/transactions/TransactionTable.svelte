@@ -19,6 +19,8 @@
     stickyHeaderOffset?: string;
     /** Optional inline CSS top value (e.g. "calc(3.5rem + 48px)") for sticky header. */
     stickyHeaderTop?: string;
+    /** responsive: cards on mobile, table on sm+; cards: card list at all breakpoints (e.g. search). */
+    layout?: "responsive" | "cards";
   }
   let {
     transactions,
@@ -30,6 +32,7 @@
     canManage = () => true,
     stickyHeaderOffset,
     stickyHeaderTop,
+    layout = "responsive",
   }: Props = $props();
 
   type SortKey = "date" | "description" | "category" | "status" | "amount";
@@ -206,8 +209,11 @@
     {/snippet}
   </EmptyState>
 {:else}
-  <!-- Mobile card list -->
-  <div class="space-y-3 sm:hidden" aria-label={m.transactions_title()}>
+  <!-- Card list (mobile main list, or search palette on all breakpoints) -->
+  <div
+    class={cn("space-y-3", layout === "responsive" && "sm:hidden")}
+    aria-label={m.transactions_title()}
+  >
     {#each dayGroups as group (group.key)}
       <section class="space-y-1.5">
         <h3 class="text-eyebrow px-1 py-1 text-slate-400">{group.label}</h3>
@@ -215,10 +221,11 @@
           {#each group.items as tx (tx.id)}
             <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
             <li
-              class="rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3 backdrop-blur transition-colors hover:bg-white/5"
-              class:cursor-pointer={!!onrowclick}
-              class:ring-2={selectedIds.has(tx.id)}
-              class:ring-slate-400={selectedIds.has(tx.id)}
+              class={cn(
+                "rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3 backdrop-blur transition-colors",
+                onrowclick && "cursor-pointer hover:bg-white/5 active:scale-[0.99]",
+                selectedIds.has(tx.id) && "ring-2 ring-slate-400"
+              )}
               role={onrowclick && !ondelete ? "button" : undefined}
               tabindex={onrowclick ? 0 : undefined}
               onclick={() => onrowclick?.(tx)}
@@ -247,13 +254,21 @@
                   </button>
                 {/if}
                 <span
-                  class="min-w-0 flex-1 truncate text-sm leading-snug font-medium text-slate-100"
+                  class={cn(
+                    "min-w-0 flex-1 text-sm leading-snug font-medium text-slate-100",
+                    layout === "cards" ? "line-clamp-3 wrap-break-word" : "truncate"
+                  )}
                 >
                   {#if tx.counterparty?.trim()}
-                    <span class="block truncate">{tx.counterparty}</span>
+                    <span class={cn("block", layout === "cards" ? "wrap-break-word" : "truncate")}
+                      >{tx.counterparty}</span
+                    >
                     {#if tx.description}
-                      <span class="block truncate text-xs font-normal text-slate-400"
-                        >{tx.description}</span
+                      <span
+                        class={cn(
+                          "block text-xs font-normal text-slate-400",
+                          layout === "cards" ? "line-clamp-2 wrap-break-word" : "truncate"
+                        )}>{tx.description}</span
                       >
                     {/if}
                   {:else}
@@ -298,179 +313,182 @@
     {/each}
   </div>
 
-  <!-- Desktop table -->
-  <div class="hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur sm:block">
-    <table class="w-full table-fixed text-sm">
-      <thead
-        class={cn(
-          (stickyHeaderOffset || stickyHeaderTop) &&
-            `sticky z-20 bg-slate-900 ${stickyHeaderOffset ?? ""}`
-        )}
-        style={stickyHeaderTop ? `top: ${stickyHeaderTop}` : undefined}
-      >
-        <tr class="border-b border-white/5 bg-white/5">
-          {#if ondelete && selectableTransactions.length > 0}
-            <th scope="col" class="w-10 py-3 pl-4">
-              <button
-                type="button"
-                onclick={toggleAll}
-                class="flex h-4 w-4 items-center justify-center rounded border border-white/15 transition-colors {allSelected
-                  ? 'bg-accent-gradient border-transparent'
-                  : someSelected
-                    ? 'border-slate-900 bg-slate-400 dark:border-slate-400 dark:bg-slate-500'
-                    : 'border-white/15 hover:border-white/30'}"
-                aria-label={allSelected
-                  ? m.transactions_deselect_all()
-                  : m.transactions_select_all()}
-              >
-                {#if allSelected}
-                  <Check size={11} strokeWidth={2.5} class="text-slate-900" />
-                {:else if someSelected}
-                  <Check size={11} strokeWidth={2.5} class="text-slate-900" />
-                {/if}
-              </button>
-            </th>
-          {/if}
-          <th scope="col" aria-sort={ariaSort("date")} class="w-28 px-4 py-3 text-left">
-            <button
-              type="button"
-              class="text-eyebrow focus-visible:ring-accent inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
-              aria-label={sortLabel("date", m.transactions_col_date())}
-              onclick={() => toggleSort("date")}
-            >
-              {m.transactions_col_date()}
-              {@render sortIndicator("date")}
-            </button>
-          </th>
-          <th scope="col" aria-sort={ariaSort("description")} class="px-4 py-3 text-left">
-            <button
-              type="button"
-              class="text-eyebrow focus-visible:ring-accent inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
-              aria-label={sortLabel("description", m.transactions_col_description())}
-              onclick={() => toggleSort("description")}
-            >
-              {m.transactions_col_description()}
-              {@render sortIndicator("description")}
-            </button>
-          </th>
-          <th scope="col" aria-sort={ariaSort("category")} class="w-44 px-4 py-3 text-left">
-            <button
-              type="button"
-              class="text-eyebrow focus-visible:ring-accent inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
-              aria-label={sortLabel("category", m.transactions_col_category())}
-              onclick={() => toggleSort("category")}
-            >
-              {m.transactions_col_category()}
-              {@render sortIndicator("category")}
-            </button>
-          </th>
-          <th scope="col" aria-sort={ariaSort("status")} class="w-36 px-4 py-3 text-left">
-            <button
-              type="button"
-              class="text-eyebrow focus-visible:ring-accent inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
-              aria-label={sortLabel("status", m.transactions_col_status())}
-              onclick={() => toggleSort("status")}
-            >
-              {m.transactions_col_status()}
-              {@render sortIndicator("status")}
-            </button>
-          </th>
-          <th scope="col" aria-sort={ariaSort("amount")} class="w-36 px-4 py-3 text-right">
-            <button
-              type="button"
-              class="text-eyebrow focus-visible:ring-accent ml-auto inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
-              aria-label={sortLabel("amount", m.transactions_col_amount())}
-              onclick={() => toggleSort("amount")}
-            >
-              {m.transactions_col_amount()}
-              {@render sortIndicator("amount")}
-            </button>
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each sortedTransactions as tx (tx.id)}
-          <tr
-            class={cn(
-              "border-b border-white/5 transition-colors last:border-0 hover:bg-white/5",
-              !!onrowclick && "cursor-pointer",
-              selectedIds.has(tx.id) && "bg-white/5"
-            )}
-            role={onrowclick && !ondelete ? "button" : undefined}
-            tabindex={onrowclick ? 0 : undefined}
-            onclick={() => onrowclick?.(tx)}
-            onkeydown={(e) => {
-              if (e.key === "Enter" || e.key === " ") onrowclick?.(tx);
-            }}
-          >
-            {#if ondelete && canManage(tx)}
-              <td class="w-10 py-3 pl-4">
+  {#if layout === "responsive"}
+    <!-- Desktop table -->
+    <div class="hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur sm:block">
+      <table class="w-full table-fixed text-sm">
+        <thead
+          class={cn(
+            (stickyHeaderOffset || stickyHeaderTop) &&
+              `sticky z-20 bg-slate-900 ${stickyHeaderOffset ?? ""}`
+          )}
+          style={stickyHeaderTop ? `top: ${stickyHeaderTop}` : undefined}
+        >
+          <tr class="border-b border-white/5 bg-white/5">
+            {#if ondelete && selectableTransactions.length > 0}
+              <th scope="col" class="w-10 py-3 pl-4">
                 <button
                   type="button"
-                  onclick={(e) => {
-                    e.stopPropagation();
-                    toggleOne(tx.id);
-                  }}
-                  class="flex h-4 w-4 items-center justify-center rounded border transition-colors {selectedIds.has(
-                    tx.id
-                  )
+                  onclick={toggleAll}
+                  class="flex h-4 w-4 items-center justify-center rounded border border-white/15 transition-colors {allSelected
                     ? 'bg-accent-gradient border-transparent'
-                    : 'border-white/15 hover:border-white/30'}"
-                  aria-label={m.transactions_select_all()}
+                    : someSelected
+                      ? 'border-slate-900 bg-slate-400 dark:border-slate-400 dark:bg-slate-500'
+                      : 'border-white/15 hover:border-white/30'}"
+                  aria-label={allSelected
+                    ? m.transactions_deselect_all()
+                    : m.transactions_select_all()}
                 >
-                  {#if selectedIds.has(tx.id)}
+                  {#if allSelected}
+                    <Check size={11} strokeWidth={2.5} class="text-slate-900" />
+                  {:else if someSelected}
                     <Check size={11} strokeWidth={2.5} class="text-slate-900" />
                   {/if}
                 </button>
-              </td>
-            {:else if ondelete}
-              <td class="w-10 py-3 pl-4" aria-hidden="true"></td>
+              </th>
             {/if}
-            <td class="px-4 py-3 whitespace-nowrap text-slate-400">{formatDate(tx.date)}</td>
-            <td class="px-4 py-3 text-slate-100">
-              {#if tx.counterparty?.trim()}
-                <div class="truncate font-medium">{tx.counterparty}</div>
-                {#if tx.description}
-                  <div class="truncate text-xs text-slate-400">{tx.description}</div>
+            <th scope="col" aria-sort={ariaSort("date")} class="w-28 px-4 py-3 text-left">
+              <button
+                type="button"
+                class="text-eyebrow focus-visible:ring-accent inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
+                aria-label={sortLabel("date", m.transactions_col_date())}
+                onclick={() => toggleSort("date")}
+              >
+                {m.transactions_col_date()}
+                {@render sortIndicator("date")}
+              </button>
+            </th>
+            <th scope="col" aria-sort={ariaSort("description")} class="px-4 py-3 text-left">
+              <button
+                type="button"
+                class="text-eyebrow focus-visible:ring-accent inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
+                aria-label={sortLabel("description", m.transactions_col_description())}
+                onclick={() => toggleSort("description")}
+              >
+                {m.transactions_col_description()}
+                {@render sortIndicator("description")}
+              </button>
+            </th>
+            <th scope="col" aria-sort={ariaSort("category")} class="w-44 px-4 py-3 text-left">
+              <button
+                type="button"
+                class="text-eyebrow focus-visible:ring-accent inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
+                aria-label={sortLabel("category", m.transactions_col_category())}
+                onclick={() => toggleSort("category")}
+              >
+                {m.transactions_col_category()}
+                {@render sortIndicator("category")}
+              </button>
+            </th>
+            <th scope="col" aria-sort={ariaSort("status")} class="w-36 px-4 py-3 text-left">
+              <button
+                type="button"
+                class="text-eyebrow focus-visible:ring-accent inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
+                aria-label={sortLabel("status", m.transactions_col_status())}
+                onclick={() => toggleSort("status")}
+              >
+                {m.transactions_col_status()}
+                {@render sortIndicator("status")}
+              </button>
+            </th>
+            <th scope="col" aria-sort={ariaSort("amount")} class="w-36 px-4 py-3 text-right">
+              <button
+                type="button"
+                class="text-eyebrow focus-visible:ring-accent ml-auto inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
+                aria-label={sortLabel("amount", m.transactions_col_amount())}
+                onclick={() => toggleSort("amount")}
+              >
+                {m.transactions_col_amount()}
+                {@render sortIndicator("amount")}
+              </button>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each sortedTransactions as tx (tx.id)}
+            <tr
+              class={cn(
+                "border-b border-white/5 transition-colors last:border-0 hover:bg-white/5",
+                !!onrowclick && "cursor-pointer",
+                selectedIds.has(tx.id) && "bg-white/5"
+              )}
+              role={onrowclick && !ondelete ? "button" : undefined}
+              tabindex={onrowclick ? 0 : undefined}
+              onclick={() => onrowclick?.(tx)}
+              onkeydown={(e) => {
+                if (e.key === "Enter" || e.key === " ") onrowclick?.(tx);
+              }}
+            >
+              {#if ondelete && canManage(tx)}
+                <td class="w-10 py-3 pl-4">
+                  <button
+                    type="button"
+                    onclick={(e) => {
+                      e.stopPropagation();
+                      toggleOne(tx.id);
+                    }}
+                    class="flex h-4 w-4 items-center justify-center rounded border transition-colors {selectedIds.has(
+                      tx.id
+                    )
+                      ? 'bg-accent-gradient border-transparent'
+                      : 'border-white/15 hover:border-white/30'}"
+                    aria-label={m.transactions_select_all()}
+                  >
+                    {#if selectedIds.has(tx.id)}
+                      <Check size={11} strokeWidth={2.5} class="text-slate-900" />
+                    {/if}
+                  </button>
+                </td>
+              {:else if ondelete}
+                <td class="w-10 py-3 pl-4" aria-hidden="true"></td>
+              {/if}
+              <td class="px-4 py-3 whitespace-nowrap text-slate-400">{formatDate(tx.date)}</td>
+              <td class="px-4 py-3 text-slate-100">
+                {#if tx.counterparty?.trim()}
+                  <div class="truncate font-medium">{tx.counterparty}</div>
+                  {#if tx.description}
+                    <div class="truncate text-xs text-slate-400">{tx.description}</div>
+                  {/if}
+                {:else}
+                  <span class="block truncate">{tx.description}</span>
                 {/if}
-              {:else}
-                <span class="block truncate">{tx.description}</span>
-              {/if}
-              {#if tx.is_recurring}
-                <span class="ml-1 text-xs text-slate-400" aria-label="cykliczna">↻</span>
-              {/if}
-              {#if isShared(tx)}
+                {#if tx.is_recurring}
+                  <span class="ml-1 text-xs text-slate-400" aria-label="cykliczna">↻</span>
+                {/if}
+                {#if isShared(tx)}
+                  <span
+                    class="border-accent/20 bg-accent/10 text-accent ml-1 inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px]"
+                  >
+                    <Users size={10} />
+                  </span>
+                {/if}
+              </td>
+              <td class="px-4 py-3 text-slate-400">
+                <span class="block truncate">{tx.category_name}</span>
+              </td>
+              <td class="px-4 py-3">
                 <span
-                  class="border-accent/20 bg-accent/10 text-accent ml-1 inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px]"
+                  class={cn(
+                    "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                    statusClass[tx.status] ??
+                      "border border-white/10 bg-slate-800/60 text-slate-400"
+                  )}
                 >
-                  <Users size={10} />
+                  {statusLabel[tx.status] ?? tx.status}
                 </span>
-              {/if}
-            </td>
-            <td class="px-4 py-3 text-slate-400">
-              <span class="block truncate">{tx.category_name}</span>
-            </td>
-            <td class="px-4 py-3">
-              <span
+              </td>
+              <td
                 class={cn(
-                  "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                  statusClass[tx.status] ?? "border border-white/10 bg-slate-800/60 text-slate-400"
+                  "px-4 py-3 text-right font-semibold whitespace-nowrap tabular-nums",
+                  tx.type === "income" ? "text-emerald-300" : "text-rose-300"
                 )}
               >
-                {statusLabel[tx.status] ?? tx.status}
-              </span>
-            </td>
-            <td
-              class={cn(
-                "px-4 py-3 text-right font-semibold whitespace-nowrap tabular-nums",
-                tx.type === "income" ? "text-emerald-300" : "text-rose-300"
-              )}
-            >
-              {tx.type === "income" ? "+" : "−"}{formatCurrency(tx.amount, tx.currency)}
-            </td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
-  </div>
+                {tx.type === "income" ? "+" : "−"}{formatCurrency(tx.amount, tx.currency)}
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  {/if}
 {/if}

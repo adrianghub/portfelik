@@ -33,7 +33,9 @@
       : 0
   );
 
-  const emoji = $derived(getPlanEmoji(categoryName, plan.name));
+  const emoji = $derived(
+    getPlanEmoji(categoryName, plan.name) || (kind === "debt" ? "🏦" : kind === "save" ? "🎯" : "")
+  );
   const spentRatio = $derived(
     plan.budget_amount != null && plan.budget_amount > 0
       ? Math.min(1, plan.spentAmount / plan.budget_amount)
@@ -95,13 +97,26 @@
     menuStyle = `position:fixed; top:${top}px; left:${left}px; min-width:${menuWidth}px;`;
     menuOpen = true;
   }
+
+  $effect(() => {
+    if (!menuOpen) return;
+    function onPointerDown(event: PointerEvent) {
+      const target = event.target as Node;
+      if (buttonRef?.contains(target)) return;
+      const menuEl = document.querySelector(`[data-plan-menu="${plan.id}"][role="menu"]`);
+      if (menuEl?.contains(target)) return;
+      menuOpen = false;
+    }
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => window.removeEventListener("pointerdown", onPointerDown);
+  });
 </script>
 
 <div
   class="relative overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
 >
   <div class="flex items-stretch">
-    <div class="flex-1 p-4">
+    <div class="min-w-0 flex-1 p-4">
       <div class="flex items-start gap-3">
         <div
           class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-800 text-xl"
@@ -120,31 +135,33 @@
           href="/plans/{plan.id}"
           class="hover:text-accent min-w-0 flex-1 rounded-lg transition-colors"
         >
-          <div class="flex items-center gap-2">
-            <span class="truncate leading-tight font-semibold text-slate-100">{plan.name}</span>
-            {#if isUpcoming}
-              <span
-                class="shrink-0 rounded-full border border-sky-400/30 bg-sky-400/10 px-2 py-0.5 text-[10px] font-semibold text-sky-300 uppercase"
-              >
-                {m.plan_card_upcoming_badge()}
-              </span>
-            {/if}
-            {#if saveOnTrack}
-              <span
-                class="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 uppercase"
-              >
-                {m.plan_save_on_track_badge()}
-              </span>
-            {/if}
-            {#if plan.group_id && groupName}
-              <span
-                class="border-accent/20 bg-accent/10 text-accent inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase"
-              >
-                <Users size={10} strokeWidth={2} aria-hidden="true" />
-                {groupName}
-              </span>
-            {/if}
-          </div>
+          <span class="block truncate leading-tight font-semibold text-slate-100">{plan.name}</span>
+          {#if isUpcoming || saveOnTrack || (plan.group_id && groupName)}
+            <div class="mt-1 flex flex-wrap items-center gap-1.5">
+              {#if isUpcoming}
+                <span
+                  class="shrink-0 rounded-full border border-sky-400/30 bg-sky-400/10 px-2 py-0.5 text-[10px] font-semibold text-sky-300 uppercase"
+                >
+                  {m.plan_card_upcoming_badge()}
+                </span>
+              {/if}
+              {#if saveOnTrack}
+                <span
+                  class="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 uppercase"
+                >
+                  {m.plan_save_on_track_badge()}
+                </span>
+              {/if}
+              {#if plan.group_id && groupName}
+                <span
+                  class="border-accent/20 bg-accent/10 text-accent inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase"
+                >
+                  <Users size={10} strokeWidth={2} aria-hidden="true" />
+                  {groupName}
+                </span>
+              {/if}
+            </div>
+          {/if}
           <p class="mt-0.5 flex items-center gap-1 truncate text-xs text-slate-400">
             <CalendarDays size={11} strokeWidth={1.8} aria-hidden="true" />
             {#if categoryName}{categoryName} ·
@@ -244,7 +261,7 @@
     </div>
 
     {#if hasActions}
-      <div class="flex items-stretch" data-plan-menu={plan.id}>
+      <div class="flex shrink-0 items-stretch" data-plan-menu={plan.id}>
         <button
           bind:this={buttonRef}
           type="button"

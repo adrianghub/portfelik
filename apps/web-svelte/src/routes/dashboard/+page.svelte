@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
+  import { page } from "$app/stores";
   import TransactionTable from "$lib/components/transactions/TransactionTable.svelte";
   import DashboardImportHealth from "$lib/components/dashboard/DashboardImportHealth.svelte";
   import DashboardNetWorthStrip from "$lib/components/dashboard/DashboardNetWorthStrip.svelte";
@@ -17,6 +18,13 @@
   import { supabase } from "$lib/supabase";
   import type { TransactionWithCategory } from "$lib/types";
   import { cn, formatCurrency, getDateRangeBounds } from "$lib/utils";
+  import { syncListViewUrl } from "$lib/utils/navigation";
+  import {
+    parseDashboardPeriod,
+    parseScopeFilter,
+    type DashboardPeriod,
+    type ScopeFilter,
+  } from "$lib/utils/list-view-url";
   import { createQuery } from "@tanstack/svelte-query";
   import { onMount } from "svelte";
   import { dailyGreeting, dailyQuote } from "$lib/dashboard-daily";
@@ -24,8 +32,17 @@
   const greeting = dailyGreeting();
   const quote = dailyQuote();
 
-  type Period = "week" | "month" | "year";
-  let period = $state<Period>("month");
+  type Period = DashboardPeriod;
+  const period = $derived(parseDashboardPeriod($page.url.searchParams));
+  const groupFilter = $derived(parseScopeFilter($page.url.searchParams));
+
+  function setPeriod(next: Period) {
+    syncListViewUrl("/dashboard", $page.url.searchParams, { period: next });
+  }
+
+  function setGroupFilter(scope: ScopeFilter) {
+    syncListViewUrl("/dashboard", $page.url.searchParams, { group: scope });
+  }
 
   function toIsoDate(date: Date): string {
     const year = date.getFullYear();
@@ -100,8 +117,6 @@
     const daysInMonth = new Date(y, monthIdx, 0).getDate();
     return { start: b.start, end: b.end, buckets: daysInMonth };
   });
-
-  let groupFilter = $state<"all" | "own" | string>("all");
 
   const groupsQuery = createQuery(() => ({
     queryKey: ["user_groups"],
@@ -244,7 +259,7 @@
         type="button"
         role="tab"
         aria-selected={period === chip.value}
-        onclick={() => (period = chip.value)}
+        onclick={() => setPeriod(chip.value)}
         class={cn(
           "focus-visible:ring-accent rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
           period === chip.value
@@ -267,7 +282,7 @@
         type="button"
         role="tab"
         aria-selected={groupFilter === "all"}
-        onclick={() => (groupFilter = "all")}
+        onclick={() => setGroupFilter("all")}
         class={cn(
           "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
           groupFilter === "all" ? "bg-white/10 text-slate-100" : "text-slate-400 hover:bg-white/5"
@@ -279,7 +294,7 @@
         type="button"
         role="tab"
         aria-selected={groupFilter === "own"}
-        onclick={() => (groupFilter = "own")}
+        onclick={() => setGroupFilter("own")}
         class={cn(
           "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
           groupFilter === "own" ? "bg-white/10 text-slate-100" : "text-slate-400 hover:bg-white/5"
@@ -292,7 +307,7 @@
           type="button"
           role="tab"
           aria-selected={groupFilter === g.id}
-          onclick={() => (groupFilter = g.id)}
+          onclick={() => setGroupFilter(g.id)}
           class={cn(
             "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
             groupFilter === g.id ? "bg-white/10 text-slate-100" : "text-slate-400 hover:bg-white/5"
