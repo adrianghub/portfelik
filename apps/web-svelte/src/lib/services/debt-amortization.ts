@@ -42,10 +42,47 @@ export interface DebtLumpSumComparison {
 
 export const BELKA_RATE = 0.19;
 
-export interface DebtInvestComparison {
-  overpayInterestSaved: number;
+export interface AnnuityInvestResult {
+  months: number;
+  totalContributed: number;
+  futureValue: number;
+  nominalGain: number;
+  netGain: number;
+}
+
+export interface DebtLumpInvestComparison {
+  lumpSumPayment: number;
+  interestSaved: number;
+  monthsSaved: number;
+  baselineLoanMonths: number;
+  overpayPayoffMonths: number;
+  postPayoffInvestMonths: number;
+  freedPaymentInvestNetGain: number;
+  investFutureValue: number;
   investNominalGain: number;
   investNetGain: number;
+  overpayTotalBenefit: number;
+  investTotalBenefit: number;
+  effectiveInvestReturnPct: number;
+  recommendation: "overpay" | "invest" | "tie";
+  breakEvenGrossReturn: number;
+}
+
+export interface DebtInvestComparison {
+  overpayInterestSaved: number;
+  overpayActiveMonths: number;
+  baselineLoanMonths: number;
+  postPayoffInvestMonths: number;
+  postPayoffInvestNetGain: number;
+  /** Net gain from investing the freed minimum payment after early payoff. */
+  freedPaymentInvestNetGain: number;
+  investHorizonMonths: number;
+  investTotalContributed: number;
+  investFutureValue: number;
+  investNominalGain: number;
+  investNetGain: number;
+  overpayTotalBenefit: number;
+  investTotalBenefit: number;
   effectiveInvestReturnPct: number;
   recommendation: "overpay" | "invest" | "tie";
   /** Gross market return needed to beat the loan after Belka (19%). */
@@ -146,35 +183,163 @@ export function approximateDailyInterest(currentBalance: number, annualRate: num
   return (currentBalance * (annualRate / 100)) / 365;
 }
 
+/** Monthly interest on the current balance at the plan rate. */
+export function monthlyInterestAmount(currentBalance: number, annualRate: number): number {
+  return currentBalance * (annualRate / 100 / 12);
+}
+
+/** True when the scheduled payment does not cover monthly interest (negative amortization risk). */
+export function isPaymentBelowMonthlyInterest(
+  currentBalance: number,
+  annualRate: number,
+  monthlyPayment: number
+): boolean {
+  if (currentBalance <= 0.01) return false;
+  return monthlyPayment < monthlyInterestAmount(currentBalance, annualRate) - 0.01;
+}
+
+/** Future value of a single lump-sum contribution compounded monthly. */
+export function lumpSumInvestGain(
+  amount: number,
+  months: number,
+  grossAnnualReturnPct: number
+): Pick<AnnuityInvestResult, "futureValue" | "nominalGain" | "netGain"> {
+  if (amount <= 0 || months <= 0) {
+    return { futureValue: amount, nominalGain: 0, netGain: 0 };
+  }
+  const monthlyRate = grossAnnualReturnPct / 100 / 12;
+  const futureValue = monthlyRate > 0 ? amount * Math.pow(1 + monthlyRate, months) : amount;
+  const nominalGain = Math.max(0, futureValue - amount);
+  const netGain = nominalGain * (1 - BELKA_RATE);
+  return { futureValue, nominalGain, netGain };
+}
+
+/** Future value and net gain from monthly contributions at a gross annual return. */
+export function annuityInvestGain(
+  monthlyPayment: number,
+  months: number,
+  grossAnnualReturnPct: number
+): AnnuityInvestResult {
+  if (months <= 0 || monthlyPayment <= 0) {
+    return { months: 0, totalContributed: 0, futureValue: 0, nominalGain: 0, netGain: 0 };
+  }
+  const monthlyRate = grossAnnualReturnPct / 100 / 12;
+  const totalContributed = monthlyPayment * months;
+  let futureValue = totalContributed;
+  if (monthlyRate > 0) {
+    futureValue = monthlyPayment * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate);
+  }
+  const nominalGain = Math.max(0, futureValue - totalContributed);
+  const netGain = nominalGain * (1 - BELKA_RATE);
+  return { months, totalContributed, futureValue, nominalGain, netGain };
+}
+
+/**
+ * Compare overpay vs invest at the same end date (baseline loan maturity).
+ * Overpay path: interest saved while nadpłacasz, then invest surplus + freed minimum payment until baseline horizon.
+ * Invest path: invest the monthly surplus for the full baseline loan life (minimum payment continues).
+ */
 export function compareOverpayVsInvest(
   input: Omit<DebtAmortizationInput, "extraMonthlyPayment" | "lumpSumPayment">,
   extraMonthlyPayment: number,
   assumedInvestReturnPct: number
 ): DebtInvestComparison {
   const overpay = compareOverpay(input, extraMonthlyPayment);
-  const months = overpay.baseline.payoffMonths || 1;
-  const monthlyInvestRate = assumedInvestReturnPct / 100 / 12;
-  let investGain = 0;
-  if (monthlyInvestRate > 0) {
-    investGain =
-      extraMonthlyPayment * ((Math.pow(1 + monthlyInvestRate, months) - 1) / monthlyInvestRate);
-  } else {
-    investGain = extraMonthlyPayment * months;
-  }
+  const baselineLoanMonths = overpay.baseline.payoffMonths || 1;
+  const overpayActiveMonths = overpay.withExtra.payoffMonths || 1;
+  const postPayoffInvestMonths = Math.max(0, baselineLoanMonths - overpayActiveMonths);
+
+  const investFull = annuityInvestGain(
+    extraMonthlyPayment,
+    baselineLoanMonths,
+    assumedInvestReturnPct
+  );
+  const postPayoffInvest = annuityInvestGain(
+    extraMonthlyPayment,
+    postPayoffInvestMonths,
+    assumedInvestReturnPct
+  );
+  const freedPaymentInvest = annuityInvestGain(
+    input.monthlyPayment,
+    postPayoffInvestMonths,
+    assumedInvestReturnPct
+  );
 
   const overpayInterestSaved = overpay.interestSaved;
+  const overpayTotalBenefit =
+    overpayInterestSaved + postPayoffInvest.netGain + freedPaymentInvest.netGain;
+  const investTotalBenefit = investFull.netGain;
   const effectiveInvestReturnPct = effectiveReturnAfterBelka(assumedInvestReturnPct);
-  const investNetGain = investGain * (1 - BELKA_RATE);
   const breakEvenGrossReturn = breakEvenGrossBeatsLoan(input.annualRate);
 
+  const tieBand = 0.02;
   let recommendation: DebtInvestComparison["recommendation"] = "tie";
-  if (effectiveInvestReturnPct < input.annualRate - 0.25) recommendation = "overpay";
-  else if (effectiveInvestReturnPct > input.annualRate + 0.25) recommendation = "invest";
+  if (overpayTotalBenefit > investTotalBenefit * (1 + tieBand)) recommendation = "overpay";
+  else if (investTotalBenefit > overpayTotalBenefit * (1 + tieBand)) recommendation = "invest";
 
   return {
     overpayInterestSaved,
-    investNominalGain: investGain,
-    investNetGain,
+    overpayActiveMonths,
+    baselineLoanMonths,
+    postPayoffInvestMonths,
+    postPayoffInvestNetGain: postPayoffInvest.netGain,
+    freedPaymentInvestNetGain: freedPaymentInvest.netGain,
+    investHorizonMonths: baselineLoanMonths,
+    investTotalContributed: investFull.totalContributed,
+    investFutureValue: investFull.futureValue,
+    investNominalGain: investFull.nominalGain,
+    investNetGain: investFull.netGain,
+    overpayTotalBenefit,
+    investTotalBenefit,
+    effectiveInvestReturnPct,
+    recommendation,
+    breakEvenGrossReturn,
+  };
+}
+
+/**
+ * Compare one-time lump-sum overpay vs investing the same amount until baseline loan maturity.
+ */
+export function compareLumpSumVsInvest(
+  input: Omit<DebtAmortizationInput, "extraMonthlyPayment" | "lumpSumPayment">,
+  lumpSumPayment: number,
+  assumedInvestReturnPct: number
+): DebtLumpInvestComparison {
+  const lump = compareLumpSumOverpay(input, lumpSumPayment);
+  const baselineLoanMonths = lump.baseline.payoffMonths || 1;
+  const overpayPayoffMonths = lump.withLump.payoffMonths || 1;
+  const postPayoffInvestMonths = Math.max(0, baselineLoanMonths - overpayPayoffMonths);
+
+  const freedPaymentInvest = annuityInvestGain(
+    input.monthlyPayment,
+    postPayoffInvestMonths,
+    assumedInvestReturnPct
+  );
+  const investLump = lumpSumInvestGain(lumpSumPayment, baselineLoanMonths, assumedInvestReturnPct);
+
+  const overpayTotalBenefit = lump.interestSaved + freedPaymentInvest.netGain;
+  const investTotalBenefit = investLump.netGain;
+  const effectiveInvestReturnPct = effectiveReturnAfterBelka(assumedInvestReturnPct);
+  const breakEvenGrossReturn = breakEvenGrossBeatsLoan(input.annualRate);
+
+  const tieBand = 0.02;
+  let recommendation: DebtLumpInvestComparison["recommendation"] = "tie";
+  if (overpayTotalBenefit > investTotalBenefit * (1 + tieBand)) recommendation = "overpay";
+  else if (investTotalBenefit > overpayTotalBenefit * (1 + tieBand)) recommendation = "invest";
+
+  return {
+    lumpSumPayment,
+    interestSaved: lump.interestSaved,
+    monthsSaved: lump.monthsSaved,
+    baselineLoanMonths,
+    overpayPayoffMonths,
+    postPayoffInvestMonths,
+    freedPaymentInvestNetGain: freedPaymentInvest.netGain,
+    investFutureValue: investLump.futureValue,
+    investNominalGain: investLump.nominalGain,
+    investNetGain: investLump.netGain,
+    overpayTotalBenefit,
+    investTotalBenefit,
     effectiveInvestReturnPct,
     recommendation,
     breakEvenGrossReturn,

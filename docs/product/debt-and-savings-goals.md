@@ -30,7 +30,7 @@ raty** / **Spłać / nadpłać** (debt).
   (**Miesięcznie** | **Jednorazowo**), timeline bar (było → po nadpłacie), inline terms edit.
 - Jednorazowa nadpłata: symulacja wpływu na dzienne odsetki, łączną oszczędność i skrócenie
   spłaty (nie zapisuje kwoty w planie).
-- `/plans/[id]/scenarios`: nadpłata vs inwestycja — werdykt + porównanie stóp zwrotu (Belka 19%),
+- `/plans/[id]/scenarios`: nadpłata vs inwestycja - werdykt + porównanie stóp zwrotu (Belka 19%),
   potem kwoty z jasnym footnote; inwestycja liczona na horyzoncie bazowego kredytu.
 - Semi-auto rata detect ranks recurring expenses ≈ `monthly_payment`; user confirms
   **To moja rata** → `anchor_transaction_id`.

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { goto } from "$app/navigation";
+  import { afterNavigate, beforeNavigate } from "$app/navigation";
   import { page } from "$app/stores";
   import * as m from "$lib/paraglide/messages";
   import {
@@ -9,6 +9,7 @@
     unlinkPlanTransaction,
   } from "$lib/services/plan-settlement";
   import DebtPlanDetail from "$lib/components/plans/DebtPlanDetail.svelte";
+  import PlanForwardNav from "$lib/components/plans/PlanForwardNav.svelte";
   import SavePlanDetail from "$lib/components/plans/SavePlanDetail.svelte";
   import TransactionDialog, {
     type PlanTransactionContext,
@@ -27,14 +28,35 @@
   import { supabase } from "$lib/supabase";
   import type { GroupMemberRole, PlanKind, TransactionType } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
+  import { navigateBack } from "$lib/utils/navigation";
+  import { planSettleHref } from "$lib/utils/plan-routes";
+  import {
+    restoreScrollPosition,
+    saveScrollPosition,
+    scrollRestoreKey,
+  } from "$lib/utils/scroll-restore";
   import { polishPluralForm } from "$lib/utils/polish-plural";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
-  import { ArrowLeft, CalendarDays, ChevronRight, Link2Off, Sparkles, Users } from "lucide-svelte";
+  import { ArrowLeft, CalendarDays, Link2Off, Users } from "lucide-svelte";
   import { onMount } from "svelte";
   import { toast } from "svelte-sonner";
 
   const queryClient = useQueryClient();
   const id = $derived($page.params.id ?? "");
+  const planDetailPath = $derived(`/plans/${id}`);
+  const settleHref = $derived(planSettleHref(id, $page.url.searchParams));
+
+  beforeNavigate(({ from, to }) => {
+    if (from?.url.pathname === planDetailPath && to && to.url.pathname !== planDetailPath) {
+      saveScrollPosition(scrollRestoreKey(planDetailPath));
+    }
+  });
+
+  afterNavigate(({ to }) => {
+    if (to?.url.pathname === planDetailPath) {
+      restoreScrollPosition(scrollRestoreKey(planDetailPath));
+    }
+  });
 
   let currentUserId = $state<string | null>(null);
   onMount(async () => {
@@ -108,7 +130,11 @@
 
   const derivedDebtBalance = $derived(
     planQuery.data?.kind === "debt" && debtTermsQuery.data
-      ? deriveDebtBalanceFromLinks(Number(debtTermsQuery.data.original_amount), expenses)
+      ? deriveDebtBalanceFromLinks(
+          Number(debtTermsQuery.data.original_amount),
+          Number(debtTermsQuery.data.annual_rate),
+          expenses.map((tx) => ({ amount: tx.amount, date: tx.date }))
+        )
       : null
   );
 
@@ -179,7 +205,12 @@
         const expenses = linked.filter((tx) => tx.type === "expense");
         if (terms && expenses.length > 0) {
           try {
-            await applyDebtBalanceFromLinks(id, Number(terms.original_amount), expenses);
+            await applyDebtBalanceFromLinks(
+              id,
+              Number(terms.original_amount),
+              Number(terms.annual_rate),
+              expenses.map((tx) => ({ amount: tx.amount, date: tx.date }))
+            );
             await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms", id] });
           } catch {
             toast.error(m.toast_error());
@@ -267,7 +298,7 @@
         <div class="flex min-w-0 items-center gap-2">
           <button
             type="button"
-            onclick={() => goto("/plans")}
+            onclick={() => navigateBack("/plans")}
             class="shrink-0 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-100"
             aria-label={m.common_back()}
           >
@@ -365,13 +396,7 @@
         syncing={syncBalanceMutation.isPending}
         termsSaving={debtTermsMutation.isPending}
       />
-      <a
-        href="/plans/{id}/settle"
-        class="focus-visible:ring-accent inline-flex items-center gap-1 text-sm font-semibold text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:outline-none"
-      >
-        {m.plan_debt_link_payments()}
-        <ChevronRight size={14} aria-hidden="true" />
-      </a>
+      <PlanForwardNav href={settleHref} title={m.plan_debt_link_payments()} variant="action" />
     {:else if progress}
       <section
         class="rounded-2xl border border-white/5 bg-slate-900/60 bg-[radial-gradient(circle_at_90%_20%,rgba(45,212,191,0.18),transparent_38%)] p-5"
@@ -425,26 +450,15 @@
     {/if}
 
     {#if plan.kind === "spend" && progress}
-      <a
-        href="/plans/{id}/settle"
-        class="bg-accent-gradient focus-visible:ring-accent flex w-full items-center justify-between rounded-2xl p-4 shadow-[0_0_24px_var(--color-accent-glow)] transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none"
-        aria-label={m.plan_detail_history_link()}
-      >
-        <div class="flex items-center gap-3">
-          <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/20">
-            <Sparkles size={19} class="text-slate-900" aria-hidden="true" />
-          </span>
-          <div>
-            <p class="text-lg font-semibold text-slate-900">{m.plan_detail_history_link()}</p>
-            {#if progress.eligibleCount > 0}
-              <p class="text-sm text-slate-800">
-                {settleCtaSubtitle(progress.eligibleCount)}
-              </p>
-            {/if}
-          </div>
-        </div>
-        <ChevronRight size={22} class="text-slate-900" aria-hidden="true" />
-      </a>
+      <PlanForwardNav
+        href={settleHref}
+        title={m.plan_detail_history_link()}
+        subtitle={progress.eligibleCount > 0
+          ? settleCtaSubtitle(progress.eligibleCount)
+          : undefined}
+        ariaLabel={m.plan_detail_history_link()}
+        variant="action"
+      />
     {/if}
 
     <button

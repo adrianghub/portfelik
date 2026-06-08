@@ -160,7 +160,7 @@ test("debt plan detail shows balance hero and scenarios link", async ({ page }) 
   await expect(page.getByRole("button", { name: "Jednorazowo" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Porównaj →" })).toHaveAttribute(
     "href",
-    "/plans/plan-debt-1/scenarios?mode=monthly&extra=500"
+    "/plans/plan-debt-1/scenarios?mode=monthly&extra=500&amount=10000&invest=7"
   );
 
   await page.getByRole("button", { name: "Jednorazowo" }).click();
@@ -173,5 +173,6 @@ test("debt scenarios page shows verdict and rate comparison", async ({ page }) =
   await expect(page.getByRole("heading", { name: "Nadpłata vs inwestycja" })).toBeVisible();
   await expect(page.getByTestId("scenarios-verdict")).toBeVisible();
   await expect(page.getByTestId("scenarios-rate-comparison")).toBeVisible();
-  await expect(page.getByText("Co to znaczy w praktyce?")).toBeVisible();
+  await expect(page.getByText("Porównanie do końca kredytu")).toBeVisible();
+  await expect(page.getByText("Łączna korzyść").first()).toBeVisible();
 });

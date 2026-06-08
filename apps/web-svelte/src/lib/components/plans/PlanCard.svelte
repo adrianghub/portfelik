@@ -33,7 +33,9 @@
       : 0
   );
 
-  const emoji = $derived(getPlanEmoji(categoryName, plan.name));
+  const emoji = $derived(
+    getPlanEmoji(categoryName, plan.name) || (kind === "debt" ? "🏦" : kind === "save" ? "🎯" : "")
+  );
   const spentRatio = $derived(
     plan.budget_amount != null && plan.budget_amount > 0
       ? Math.min(1, plan.spentAmount / plan.budget_amount)

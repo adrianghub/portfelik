@@ -31,6 +31,12 @@ const CATEGORY_EMOJI_MAP: Record<string, string> = {
   beauty: "💄",
   zwierzęta: "🐾",
   pets: "🐾",
+  mieszkanie: "🏠",
+  hipoteka: "🏦",
+  kredyt: "🏦",
+  loan: "🏦",
+  mortgage: "🏦",
+  raty: "🏦",
 };
 
 export function getPlanEmoji(categoryName: string | undefined | null, planName: string): string {

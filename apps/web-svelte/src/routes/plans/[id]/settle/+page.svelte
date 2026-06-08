@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { goto } from "$app/navigation";
   import { page } from "$app/stores";
+  import { navigateBack } from "$lib/utils/navigation";
+  import { planDetailHref } from "$lib/utils/plan-routes";
   import * as m from "$lib/paraglide/messages";
   import {
     computePlanProgress,
@@ -95,7 +96,12 @@
     if (!terms) return;
     const linked = await fetchLinkedTransactions(id);
     const expenses = linked.filter((tx) => tx.type === "expense");
-    await applyDebtBalanceFromLinks(id, Number(terms.original_amount), expenses);
+    await applyDebtBalanceFromLinks(
+      id,
+      Number(terms.original_amount),
+      Number(terms.annual_rate),
+      expenses.map((tx) => ({ amount: tx.amount, date: tx.date }))
+    );
     await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms", id] });
   }
 
@@ -150,7 +156,7 @@
   <div class="flex items-start gap-3">
     <button
       type="button"
-      onclick={() => goto(`/plans/${id}`)}
+      onclick={() => navigateBack(planDetailHref(id, $page.url.searchParams))}
       class="mt-0.5 shrink-0 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-100"
       aria-label={m.common_back()}
     >

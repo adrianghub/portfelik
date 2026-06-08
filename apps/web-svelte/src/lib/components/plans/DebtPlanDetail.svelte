@@ -1,15 +1,28 @@
 <script lang="ts">
+  import { goto } from "$app/navigation";
+  import { page } from "$app/stores";
   import {
     approximateDailyInterest,
     compareLumpSumOverpay,
     compareOverpay,
     formatDuration,
+    isPaymentBelowMonthlyInterest,
+    monthlyInterestAmount,
   } from "$lib/services/debt-amortization";
   import { normalizeDebtTermsInput, type PlanDebtTermsInput } from "$lib/services/plan-debt";
   import type { PlanDebtTerms } from "$lib/types";
   import { cn, formatCurrency } from "$lib/utils";
+  import {
+    debtSimQueryString,
+    parseDebtSimUrl,
+    scenariosHref,
+    type DebtSimMode,
+  } from "$lib/utils/plan-debt-sim-url";
+  import { planSettleHref } from "$lib/utils/plan-routes";
+  import PlanForwardNav from "$lib/components/plans/PlanForwardNav.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import { ChevronRight } from "lucide-svelte";
+  import { onMount } from "svelte";
   import { toast } from "svelte-sonner";
   import * as m from "$lib/paraglide/messages";
 
@@ -35,10 +48,10 @@
     termsSaving = false,
   }: Props = $props();
 
-  type OverpayMode = "monthly" | "lump";
-  let overpayMode = $state<OverpayMode>("monthly");
+  let overpayMode = $state<DebtSimMode>("monthly");
   let extraPayment = $state(500);
   let lumpSumPayment = $state(10_000);
+  let simUrl = $state("");
   let showTermsEdit = $state(false);
   let showSyncConfirm = $state(false);
   let editOriginal = $state("");
@@ -59,6 +72,16 @@
   );
   const dailyInterest = $derived(
     approximateDailyInterest(Number(terms.current_balance), Number(terms.annual_rate))
+  );
+  const monthlyInterest = $derived(
+    monthlyInterestAmount(Number(terms.current_balance), Number(terms.annual_rate))
+  );
+  const paymentBelowInterest = $derived(
+    isPaymentBelowMonthlyInterest(
+      Number(terms.current_balance),
+      Number(terms.annual_rate),
+      Number(terms.monthly_payment)
+    )
   );
   const amortInput = $derived({
     currentBalance: Number(terms.current_balance),
@@ -92,19 +115,66 @@
   const maxLumpSum = $derived(Math.max(0, Math.floor(Number(terms.current_balance))));
   const lumpChips = $derived([5_000, 10_000, 20_000, 50_000].filter((chip) => chip <= maxLumpSum));
   const newInstallment = $derived(Number(terms.monthly_payment) + extraPayment);
-  const scenariosHref = $derived(
-    overpayMode === "monthly"
-      ? `/plans/${planId}/scenarios?mode=monthly&extra=${extraPayment}`
-      : `/plans/${planId}/scenarios?mode=lump&amount=${lumpSumPayment}`
+  const settleHref = $derived(planSettleHref(planId, $page.url.searchParams));
+  const compareHref = $derived(
+    scenariosHref(planId, {
+      mode: overpayMode,
+      extra: extraPayment,
+      amount: lumpSumPayment,
+      invest: parseDebtSimUrl($page.url.searchParams).invest,
+    })
   );
 
-  $effect(() => {
-    if (extraPayment > maxOverpay) extraPayment = maxOverpay;
+  onMount(() => {
+    const params = $page.url.searchParams;
+    if (!params.has("extra")) {
+      goto(`${$page.url.pathname}?${debtSimQueryString(parseDebtSimUrl(params), params)}`, {
+        replaceState: true,
+        noScroll: true,
+      });
+    }
   });
 
   $effect(() => {
-    if (lumpSumPayment > maxLumpSum) lumpSumPayment = maxLumpSum;
+    simUrl = $page.url.searchParams.toString();
   });
+
+  $effect(() => {
+    const parsed = parseDebtSimUrl(new URLSearchParams(simUrl));
+    overpayMode = parsed.mode;
+    extraPayment = Math.min(maxOverpay, parsed.extra);
+    lumpSumPayment = Math.min(maxLumpSum, parsed.amount);
+  });
+
+  function pushSimUrl(patch: Partial<ReturnType<typeof parseDebtSimUrl>>) {
+    const next = {
+      mode: overpayMode,
+      extra: extraPayment,
+      amount: lumpSumPayment,
+      invest: parseDebtSimUrl($page.url.searchParams).invest,
+      ...patch,
+    };
+    goto(`${$page.url.pathname}?${debtSimQueryString(next, $page.url.searchParams)}`, {
+      replaceState: true,
+      keepFocus: true,
+      noScroll: true,
+    });
+  }
+
+  function setOverpayMode(mode: DebtSimMode) {
+    overpayMode = mode;
+    pushSimUrl({ mode });
+  }
+
+  function setExtraPayment(value: number) {
+    extraPayment = clampOverpay(value);
+    pushSimUrl({ extra: extraPayment });
+  }
+
+  function setLumpSumPayment(value: number) {
+    lumpSumPayment = clampLumpSum(value);
+    pushSimUrl({ amount: lumpSumPayment });
+  }
 
   function clampOverpay(value: number): number {
     if (!Number.isFinite(value)) return 0;
@@ -113,7 +183,7 @@
 
   function onOverpayInput(event: Event) {
     const raw = (event.currentTarget as HTMLInputElement).value;
-    extraPayment = clampOverpay(Number(raw));
+    setExtraPayment(Number(raw));
   }
 
   function clampLumpSum(value: number): number {
@@ -123,7 +193,7 @@
 
   function onLumpSumInput(event: Event) {
     const raw = (event.currentTarget as HTMLInputElement).value;
-    lumpSumPayment = clampLumpSum(Number(raw));
+    setLumpSumPayment(Number(raw));
   }
 
   function requestSyncBalance() {
@@ -175,17 +245,12 @@
 
 <section class="space-y-5">
   {#if showLinkPaymentsInfo}
-    <div class="rounded-xl border border-sky-500/25 bg-sky-500/10 px-3 py-2.5">
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <p class="text-sm text-sky-100">{m.plan_debt_link_payments_info()}</p>
-        <a
-          href="/plans/{planId}/settle"
-          class="rounded-full bg-sky-500/20 px-3 py-1 text-xs font-semibold text-sky-200"
-        >
-          {m.plan_debt_sync_link_payments()}
-        </a>
-      </div>
-    </div>
+    <PlanForwardNav
+      href={settleHref}
+      title={m.plan_debt_link_payments_info()}
+      ariaLabel={m.plan_debt_sync_link_payments()}
+      variant="info"
+    />
   {:else if balanceDrift && derivedBalance != null && onSyncBalance}
     <div class="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
       <div class="flex flex-wrap items-center justify-between gap-2">
@@ -258,11 +323,23 @@
     </div>
   </div>
 
+  {#if paymentBelowInterest}
+    <p
+      class="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2.5 text-sm text-rose-200"
+      role="status"
+    >
+      {m.plan_debt_payment_below_interest({
+        payment: formatCurrency(Number(terms.monthly_payment)),
+        interest: formatCurrency(monthlyInterest),
+      })}
+    </p>
+  {/if}
+
   <div class="rounded-2xl border border-white/5 bg-slate-900/50 p-4">
     <div class="flex gap-1 rounded-lg border border-white/10 bg-slate-900/60 p-1">
       <button
         type="button"
-        onclick={() => (overpayMode = "monthly")}
+        onclick={() => setOverpayMode("monthly")}
         class={cn(
           "flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
           overpayMode === "monthly"
@@ -274,7 +351,7 @@
       </button>
       <button
         type="button"
-        onclick={() => (overpayMode = "lump")}
+        onclick={() => setOverpayMode("lump")}
         class={cn(
           "flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
           overpayMode === "lump"
@@ -301,7 +378,8 @@
           min="0"
           max={maxOverpay}
           step="50"
-          bind:value={extraPayment}
+          value={extraPayment}
+          oninput={(e) => setExtraPayment(Number(e.currentTarget.value))}
           class="accent-accent min-w-0 flex-1"
           aria-valuetext="{extraPayment} zł"
         />
@@ -320,7 +398,7 @@
         {#each overpayChips as chip (chip)}
           <button
             type="button"
-            onclick={() => (extraPayment = chip)}
+            onclick={() => setExtraPayment(chip)}
             class="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300 hover:bg-white/5"
           >
             {chip === 0 ? m.plan_debt_overpay_none() : `+${chip}`}
@@ -372,7 +450,8 @@
           min="0"
           max={maxLumpSum}
           step="500"
-          bind:value={lumpSumPayment}
+          value={lumpSumPayment}
+          oninput={(e) => setLumpSumPayment(Number(e.currentTarget.value))}
           class="accent-accent min-w-0 flex-1"
           aria-valuetext="{lumpSumPayment} zł"
         />
@@ -391,7 +470,7 @@
         {#each lumpChips as chip (chip)}
           <button
             type="button"
-            onclick={() => (lumpSumPayment = chip)}
+            onclick={() => setLumpSumPayment(chip)}
             class="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300 hover:bg-white/5"
           >
             {formatCurrency(chip)}
@@ -432,7 +511,7 @@
   </div>
 
   <a
-    href={scenariosHref}
+    href={compareHref}
     class="focus-visible:ring-accent flex items-center justify-between rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3 text-sm font-semibold text-slate-200 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
   >
     {m.plan_debt_compare_link()}

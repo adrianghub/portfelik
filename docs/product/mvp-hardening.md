@@ -38,7 +38,7 @@ Shipped on `main` (`41717c7`):
 - Security hardening migration `20260623000000` (privacy `search_path`, seed RPC revoke).
 - Shopping lists retired → Plany ([#103](https://github.com/adrianghub/portfelik/issues/103) closed).
 
-**Post-merge ops — completed 2026-06-08:**
+**Post-merge ops - completed 2026-06-08:**
 
 1. Prod migrations through `20260624000000` applied (operator-verified).
 2. Production deploy + smoke on `portfelik.adrianzinko.com` confirmed.

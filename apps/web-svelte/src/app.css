@@ -246,6 +246,16 @@
   html.mobile-overlay-open .mobile-bottom-nav {
     transform: translateY(100%) !important;
   }
+
+  /* Forward navigation row - arrow slides right on hover/focus. */
+  .nav-forward-arrow {
+    transition: transform var(--duration-base) var(--ease-out-expo);
+  }
+
+  .nav-forward:hover .nav-forward-arrow,
+  .nav-forward:focus-visible .nav-forward-arrow {
+    transform: translateX(4px);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

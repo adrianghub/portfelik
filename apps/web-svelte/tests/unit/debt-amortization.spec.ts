@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   approximateDailyInterest,
   compareLumpSumOverpay,
+  compareLumpSumVsInvest,
   compareOverpay,
   compareOverpayVsInvest,
+  isPaymentBelowMonthlyInterest,
+  monthlyInterestAmount,
   simulateAmortization,
 } from "$lib/services/debt-amortization";
 
@@ -45,11 +48,13 @@ describe("simulateAmortization", () => {
   it("overpay vs invest comparison picks overpay at low invest return", () => {
     const cmp = compareOverpayVsInvest(MORTGAGE, 500, 3);
     expect(cmp.overpayInterestSaved).toBeGreaterThan(0);
+    expect(cmp.overpayTotalBenefit).toBeGreaterThan(cmp.investTotalBenefit);
     expect(cmp.recommendation).toBe("overpay");
   });
 
   it("overpay vs invest comparison picks invest when return exceeds loan rate", () => {
     const cmp = compareOverpayVsInvest(MORTGAGE, 500, 10);
+    expect(cmp.investTotalBenefit).toBeGreaterThan(cmp.overpayTotalBenefit);
     expect(cmp.recommendation).toBe("invest");
   });
 
@@ -60,12 +65,59 @@ describe("simulateAmortization", () => {
     expect(cmp.effectiveInvestReturnPct).toBeCloseTo(5.67, 1);
   });
 
-  it("invest horizon uses baseline payoff months when user does not overpay", () => {
+  it("compares both paths to baseline loan maturity", () => {
     const overpay = compareOverpay(MORTGAGE, 500);
     const cmp = compareOverpayVsInvest(MORTGAGE, 500, 10);
-    const monthlyRate = 10 / 100 / 12;
-    const expectedGain =
-      500 * ((Math.pow(1 + monthlyRate, overpay.baseline.payoffMonths) - 1) / monthlyRate);
-    expect(cmp.investNominalGain).toBeCloseTo(expectedGain, 0);
+    expect(cmp.baselineLoanMonths).toBe(overpay.baseline.payoffMonths);
+    expect(cmp.overpayActiveMonths).toBe(overpay.withExtra.payoffMonths);
+    expect(cmp.investHorizonMonths).toBe(overpay.baseline.payoffMonths);
+    expect(cmp.overpayTotalBenefit).toBeCloseTo(
+      cmp.overpayInterestSaved +
+        cmp.postPayoffInvestNetGain +
+        cmp.freedPaymentInvestNetGain,
+      0
+    );
+  });
+
+  it("includes freed minimum payment invested after early payoff", () => {
+    const cmp = compareOverpayVsInvest(MORTGAGE, 500, 7);
+    if (cmp.postPayoffInvestMonths > 0) {
+      expect(cmp.freedPaymentInvestNetGain).toBeGreaterThan(0);
+    }
+  });
+
+  it("invest net gain is profit above contributions after Belka, not taxed future value", () => {
+    const cmp = compareOverpayVsInvest(MORTGAGE, 500, 7);
+    expect(cmp.investNetGain).toBeLessThan(cmp.investFutureValue);
+    expect(cmp.investNominalGain).toBeCloseTo(
+      cmp.investFutureValue - cmp.investTotalContributed,
+      0
+    );
+    expect(cmp.investNetGain).toBeCloseTo(cmp.investNominalGain * 0.81, 0);
+    expect(cmp.investTotalBenefit).toBe(cmp.investNetGain);
+  });
+
+  it("lump sum vs invest compares one-time overpay to lump investment", () => {
+    const cmp = compareLumpSumVsInvest(MORTGAGE, 20_000, 7);
+    expect(cmp.interestSaved).toBeGreaterThan(0);
+    expect(cmp.investNetGain).toBeGreaterThan(0);
+    expect(cmp.overpayTotalBenefit).toBeGreaterThan(cmp.interestSaved);
+    expect(cmp.breakEvenGrossReturn).toBeGreaterThan(8.8);
+    expect(["overpay", "invest", "tie"]).toContain(cmp.recommendation);
+  });
+
+  it("detects payment below monthly interest", () => {
+    const interest = monthlyInterestAmount(MORTGAGE.currentBalance, MORTGAGE.annualRate);
+    expect(interest).toBeGreaterThan(1200);
+    expect(
+      isPaymentBelowMonthlyInterest(MORTGAGE.currentBalance, MORTGAGE.annualRate, 1000)
+    ).toBe(true);
+    expect(
+      isPaymentBelowMonthlyInterest(
+        MORTGAGE.currentBalance,
+        MORTGAGE.annualRate,
+        MORTGAGE.monthlyPayment
+      )
+    ).toBe(false);
   });
 });

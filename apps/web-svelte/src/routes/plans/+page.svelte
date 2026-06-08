@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { afterNavigate, beforeNavigate } from "$app/navigation";
+  import { page } from "$app/stores";
   import PlanCard from "$lib/components/plans/PlanCard.svelte";
   import NetWorthHero from "$lib/components/plans/NetWorthHero.svelte";
   import SurplusCard from "$lib/components/plans/SurplusCard.svelte";
@@ -40,6 +42,13 @@
   import { supabase } from "$lib/supabase";
   import type { Plan, PlanKind, PlanSummary } from "$lib/types";
   import { cn } from "$lib/utils";
+  import { syncListViewUrl } from "$lib/utils/navigation";
+  import { parseScopeFilter, type ScopeFilter } from "$lib/utils/list-view-url";
+  import {
+    restoreScrollPosition,
+    saveScrollPosition,
+    scrollRestoreKey,
+  } from "$lib/utils/scroll-restore";
   import {
     createMutation as createSvelteMutation,
     createQuery,
@@ -52,6 +61,25 @@
   import { fetchTransactions } from "$lib/services/transactions";
 
   const queryClient = useQueryClient();
+  const plansHubPath = "/plans";
+
+  beforeNavigate(({ from, to }) => {
+    if (from?.url.pathname === plansHubPath && to && to.url.pathname !== plansHubPath) {
+      saveScrollPosition(scrollRestoreKey(plansHubPath));
+    }
+  });
+
+  afterNavigate(({ to }) => {
+    if (to?.url.pathname === plansHubPath) {
+      restoreScrollPosition(scrollRestoreKey(plansHubPath));
+    }
+  });
+
+  const groupFilter = $derived(parseScopeFilter($page.url.searchParams));
+
+  function setGroupFilter(scope: ScopeFilter) {
+    syncListViewUrl(plansHubPath, $page.url.searchParams, { group: scope });
+  }
 
   let currentUserId = $state<string | null>(null);
   let hubOnboardingDismissed = $state(false);
@@ -102,8 +130,6 @@
     queryFn: () => fetchPlanProgressForPlans(planIds),
     enabled: planIds.length > 0,
   }));
-
-  let groupFilter = $state<"all" | "own" | string>("all");
 
   const debtPlanIds = $derived(
     (plansQuery.data ?? []).filter((p) => p.kind === "debt").map((p) => p.id)
@@ -553,7 +579,7 @@
           type="button"
           role="tab"
           aria-selected={groupFilter === filter.id}
-          onclick={() => (groupFilter = filter.id as "all" | "own")}
+          onclick={() => setGroupFilter(filter.id as ScopeFilter)}
           class={cn(
             "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
             groupFilter === filter.id
@@ -569,7 +595,7 @@
           type="button"
           role="tab"
           aria-selected={groupFilter === group.id}
-          onclick={() => (groupFilter = group.id)}
+          onclick={() => setGroupFilter(group.id)}
           class={cn(
             "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
             groupFilter === group.id
