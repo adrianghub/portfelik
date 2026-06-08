@@ -71,7 +71,7 @@
     const normalized = await normalize(parsed, bytes);
     // Two distinct buckets: rows the adapter couldn't read (genuine parse
     // failures) vs rows normalize() intentionally skipped because the amount is
-    // 0 (auth holds/reversals — DB rejects amount <= 0). They get separate copy.
+    // 0 (auth holds/reversals - DB rejects amount <= 0). They get separate copy.
     skippedRowCount = normalized.errors.filter((e) => e.reason === "non_positive_amount").length;
     parseErrorCount = normalized.errors.length - skippedRowCount;
 
@@ -119,7 +119,7 @@
       throw e;
     }
     // Default-skip probable duplicates once (issue #73). Best-effort: a failure
-    // here must not block the import — the review surface still opens, and the
+    // here must not block the import - the review surface still opens, and the
     // commit RPC re-detects duplicates as a safety net.
     try {
       await markPreviewDuplicates(session.id);

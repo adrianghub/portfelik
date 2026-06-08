@@ -85,6 +85,71 @@ test("save plan detail shows progress and link CTA", async ({ page }) => {
   );
 });
 
+test("creates a debt plan (Kredyt) with terms", async ({ page }) => {
+  let planBody: Record<string, unknown> | undefined;
+  let debtBody: Record<string, unknown> | undefined;
+
+  await page.route(/.*\/rest\/v1\/plans.*/, async (route) => {
+    const request = route.request();
+    if (request.method() === "POST") {
+      planBody = request.postDataJSON() as Record<string, unknown>;
+      return route.fulfill({
+        status: 201,
+        json: {
+          id: "plan-debt-new",
+          name: planBody.name,
+          kind: planBody.kind ?? "debt",
+          user_id: "00000000-0000-0000-0000-000000000001",
+          group_id: null,
+          category_id: null,
+          budget_amount: null,
+          target_amount: planBody.target_amount ?? null,
+          start_date: planBody.start_date,
+          end_date: planBody.end_date,
+          created_at: "2026-06-01T10:00:00Z",
+          updated_at: "2026-06-01T10:00:00Z",
+        },
+      });
+    }
+    return route.fallback();
+  });
+
+  await page.route(/.*\/rest\/v1\/plan_debt_terms.*/, async (route) => {
+    const request = route.request();
+    if (request.method() === "POST") {
+      debtBody = request.postDataJSON() as Record<string, unknown>;
+      return route.fulfill({
+        status: 201,
+        json: {
+          plan_id: debtBody.plan_id,
+          original_amount: debtBody.original_amount,
+          current_balance: debtBody.current_balance,
+          annual_rate: debtBody.annual_rate,
+          monthly_payment: debtBody.monthly_payment,
+          payment_day: null,
+          anchor_transaction_id: null,
+          created_at: "2026-06-01T10:00:00Z",
+          updated_at: "2026-06-01T10:00:00Z",
+        },
+      });
+    }
+    return route.fallback();
+  });
+
+  await page.goto("/plans");
+  await page.getByRole("button", { name: "Nowy plan" }).first().click();
+  await page.getByRole("button", { name: "Kredyt" }).click();
+  await page.getByLabel("Nazwa").fill("Kredyt hipoteczny test");
+  await page.getByLabel("Kwota kredytu").fill("400000");
+  await page.getByLabel("Rata miesięczna").fill("2500");
+  await page.getByLabel("Oprocentowanie (% rocznie)").fill("7.18");
+  await page.getByRole("button", { name: "Zapisz" }).click();
+
+  await expect.poll(() => planBody?.kind).toBe("debt");
+  await expect.poll(() => debtBody?.monthly_payment).toBe(2500);
+  await expect(page.getByText("Plan dodany")).toBeVisible();
+});
+
 test("debt plan detail shows balance hero and scenarios link", async ({ page }) => {
   await page.goto("/plans/plan-debt-1");
 

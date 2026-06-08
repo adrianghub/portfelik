@@ -298,7 +298,7 @@ async function seedDemoRows(userId) {
         },
         {
           user_id: userId,
-          name: `${DEMO_PREFIX} Wakacje — Chorwacja`,
+          name: `${DEMO_PREFIX} Wakacje - Chorwacja`,
           category_id: dining,
           budget_amount: 3000,
           start_date: isoDaysAgo(20),
@@ -313,9 +313,9 @@ async function seedDemoRows(userId) {
     ["Remont łazienki", "Wielkie zakupy"],
     ["Remont łazienki", "Duże zakupy domowe"],
     ["Tygodniowe zakupy", "Zakupy tygodniowe"],
-    ["Wakacje — Chorwacja", "Lunch w mieście"],
-    ["Wakacje — Chorwacja", "Kolacja"],
-    ["Wakacje — Chorwacja", "Pensja"],
+    ["Wakacje - Chorwacja", "Lunch w mieście"],
+    ["Wakacje - Chorwacja", "Kolacja"],
+    ["Wakacje - Chorwacja", "Pensja"],
   ]
     .map(([planName, txLabel]) => ({
       plan_id: planByName.get(planName),

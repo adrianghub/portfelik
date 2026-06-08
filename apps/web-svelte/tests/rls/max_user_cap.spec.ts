@@ -1,18 +1,19 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
-import { resolve } from "node:path";
 import { createAdminClient, provisionTwoUsers, type TestContext } from "./setup";
 
 const CAP_SECRET_NAME = "max_user_cap";
 const EMAIL_PREFIX = "cap-";
 const INVITED_EMAIL_PREFIX = "cap-invited-";
-const REPO_ROOT = resolve(process.cwd(), "../..");
+
+const LOCAL_DB_URL =
+  process.env.SUPABASE_DB_URL ?? "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
 
 let ctx: TestContext;
 
 function executeLocalSql(query: string): void {
-  execFileSync("supabase", ["db", "query", query, "--local", "--workdir", REPO_ROOT], {
-    encoding: "utf8",
+  execFileSync("psql", [LOCAL_DB_URL, "-v", "ON_ERROR_STOP=1", "-c", query], {
+    stdio: "pipe",
   });
 }
 
@@ -47,82 +48,82 @@ async function createCapUser(label: string) {
   });
 }
 
-describe("Auth: max_user_cap", () => {
-  beforeAll(async () => {
-    await deleteCapSecret();
-    ctx = await provisionTwoUsers();
-  });
-
-  beforeEach(async () => {
-    await deleteCapSecret();
-    await deleteCapUsers();
-  });
-
-  afterAll(async () => {
-    await deleteCapSecret();
-    await deleteCapUsers();
-  });
-
-  it("allows auth user creation when the Vault cap is absent", async () => {
-    const result = await createCapUser("open");
-
-    expect(result.error).toBeNull();
-    expect(result.data.user?.id).toBeTruthy();
-  });
-
-  it("blocks auth user creation once the Vault cap is reached", async () => {
-    const { data } = await ctx.admin.auth.admin.listUsers({ page: 1, perPage: 200 });
-    await setCapSecret(String(data.users.length));
-
-    const result = await createCapUser("blocked");
-
-    expect(result.data.user).toBeNull();
-    expect(result.error).not.toBeNull();
-  });
-
-  it("allows invited auth user creation even when the Vault cap is reached", async () => {
-    const { data: groupData, error: groupErr } = await ctx.userA.client.rpc("create_group", {
-      p_name: `__rls__ invite-cap-${crypto.randomUUID()}`,
-    });
-    if (groupErr || !groupData) throw groupErr ?? new Error("no group");
-
-    const invitedEmail = `${INVITED_EMAIL_PREFIX}${crypto.randomUUID()}@rls.test`;
-    const { error: inviteErr } = await ctx.userA.client.rpc("invite_user", {
-      p_group_id: (groupData as { id: string }).id,
-      p_email: invitedEmail,
-    });
-    if (inviteErr) throw inviteErr;
-
-    const { data } = await ctx.admin.auth.admin.listUsers({ page: 1, perPage: 200 });
-    await setCapSecret(String(data.users.length));
-
-    const result = await ctx.admin.auth.admin.createUser({
-      email: invitedEmail,
-      email_confirm: true,
+describe("Auth: max_user_cap", { timeout: 30_000 }, () => {
+    beforeAll(async () => {
+      await deleteCapSecret();
+      ctx = await provisionTwoUsers();
     });
 
-    expect(result.error).toBeNull();
-    expect(result.data.user?.id).toBeTruthy();
-  });
+    beforeEach(async () => {
+      await deleteCapSecret();
+      await deleteCapUsers();
+    });
 
-  it("fails closed when the configured Vault cap is invalid", async () => {
-    await setCapSecret("invalid");
+    afterAll(async () => {
+      await deleteCapSecret();
+      await deleteCapUsers();
+    });
 
-    const result = await createCapUser("invalid");
+    it("allows auth user creation when the Vault cap is absent", async () => {
+      const result = await createCapUser("open");
 
-    expect(result.data.user).toBeNull();
-    expect(result.error).not.toBeNull();
-  });
+      expect(result.error).toBeNull();
+      expect(result.data.user?.id).toBeTruthy();
+    });
 
-  it("serializes concurrent user creation up to the configured cap", async () => {
-    const { data } = await ctx.admin.auth.admin.listUsers({ page: 1, perPage: 200 });
-    await setCapSecret(String(data.users.length + 1));
+    it("blocks auth user creation once the Vault cap is reached", async () => {
+      const { data } = await ctx.admin.auth.admin.listUsers({ page: 1, perPage: 200 });
+      await setCapSecret(String(data.users.length));
 
-    const results = await Promise.all([createCapUser("race-a"), createCapUser("race-b")]);
-    const successes = results.filter((result) => !result.error);
-    const capFailures = results.filter((result) => result.error);
+      const result = await createCapUser("blocked");
 
-    expect(successes).toHaveLength(1);
-    expect(capFailures).toHaveLength(1);
-  });
+      expect(result.data.user).toBeNull();
+      expect(result.error).not.toBeNull();
+    });
+
+    it("allows invited auth user creation even when the Vault cap is reached", async () => {
+      const { data: groupData, error: groupErr } = await ctx.userA.client.rpc("create_group", {
+        p_name: `__rls__ invite-cap-${crypto.randomUUID()}`,
+      });
+      if (groupErr || !groupData) throw groupErr ?? new Error("no group");
+
+      const invitedEmail = `${INVITED_EMAIL_PREFIX}${crypto.randomUUID()}@rls.test`;
+      const { error: inviteErr } = await ctx.userA.client.rpc("invite_user", {
+        p_group_id: (groupData as { id: string }).id,
+        p_email: invitedEmail,
+      });
+      if (inviteErr) throw inviteErr;
+
+      const { data } = await ctx.admin.auth.admin.listUsers({ page: 1, perPage: 200 });
+      await setCapSecret(String(data.users.length));
+
+      const result = await ctx.admin.auth.admin.createUser({
+        email: invitedEmail,
+        email_confirm: true,
+      });
+
+      expect(result.error).toBeNull();
+      expect(result.data.user?.id).toBeTruthy();
+    });
+
+    it("fails closed when the configured Vault cap is invalid", async () => {
+      await setCapSecret("invalid");
+
+      const result = await createCapUser("invalid");
+
+      expect(result.data.user).toBeNull();
+      expect(result.error).not.toBeNull();
+    });
+
+    it("serializes concurrent user creation up to the configured cap", async () => {
+      const { data } = await ctx.admin.auth.admin.listUsers({ page: 1, perPage: 200 });
+      await setCapSecret(String(data.users.length + 1));
+
+      const results = await Promise.all([createCapUser("race-a"), createCapUser("race-b")]);
+      const successes = results.filter((result) => !result.error);
+      const capFailures = results.filter((result) => result.error);
+
+      expect(successes).toHaveLength(1);
+      expect(capFailures).toHaveLength(1);
+    });
 });

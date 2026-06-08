@@ -1,9 +1,39 @@
 import { supabase } from "$lib/supabase";
 import type { GroupMemberRole, Plan, PlanBucket, PlanKind } from "$lib/types";
 
-function todayIso(): string {
+export function todayIso(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+function parseLocalDate(iso: string): Date {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function formatLocalDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** Add N calendar months to a local YYYY-MM-DD anchor. */
+export function addCalendarMonths(anchor: string, months: number): string {
+  const d = parseLocalDate(anchor);
+  d.setMonth(d.getMonth() + months);
+  return formatLocalDate(d);
+}
+
+/** Whole calendar months from today until endDate (inverse of addCalendarMonths). */
+export function calendarMonthsUntil(endDate: string, today = todayIso()): number {
+  const end = parseLocalDate(endDate);
+  const now = parseLocalDate(today);
+  if (end < now) return 0;
+  let months = (end.getFullYear() - now.getFullYear()) * 12 + (end.getMonth() - now.getMonth());
+  if (end.getDate() < now.getDate()) months -= 1;
+  return Math.max(1, months);
+}
+
+export function defaultDebtPlanEndDate(today = todayIso()): string {
+  return addCalendarMonths(today, 12);
 }
 
 export function derivePlanBucket(
@@ -114,22 +144,16 @@ export async function fetchPlansForExport(): Promise<unknown[]> {
 }
 
 export function monthsBetween(startDate: string, endDate: string): number {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  return Math.max(
-    1,
-    (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1
-  );
+  const start = parseLocalDate(startDate);
+  const end = parseLocalDate(endDate);
+  let months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+  if (end.getDate() < start.getDate()) months -= 1;
+  return Math.max(1, months);
 }
 
+/** @deprecated Use calendarMonthsUntil - kept as alias for callers. */
 export function monthsRemaining(endDate: string, today = todayIso()): number {
-  const end = new Date(endDate);
-  const now = new Date(today);
-  if (end < now) return 0;
-  return Math.max(
-    1,
-    (end.getFullYear() - now.getFullYear()) * 12 + (end.getMonth() - now.getMonth()) + 1
-  );
+  return calendarMonthsUntil(endDate, today);
 }
 
 export function canManagePlan(

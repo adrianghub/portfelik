@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("$lib/supabase", () => ({ supabase: {} }));
 
-import { computePlanProgress, rankPlanTransaction } from "$lib/services/plan-settlement";
+import {
+  computePlanProgress,
+  computeSaveMonthlyActual,
+  rankPlanTransaction,
+} from "$lib/services/plan-settlement";
 import type { TransactionWithCategory } from "$lib/types";
 
 function tx(overrides: Partial<TransactionWithCategory> = {}): TransactionWithCategory {
@@ -88,6 +92,33 @@ describe("rankPlanTransaction", () => {
   });
 });
 
+describe("computeSaveMonthlyActual", () => {
+  it("uses current-month linked deposits when present", () => {
+    const actual = computeSaveMonthlyActual({
+      kind: "save",
+      startDate: "2026-01-01",
+      savedAmount: 12_000,
+      linkedIncomes: [
+        tx({ type: "income", amount: 500, date: "2026-06-08" }),
+        tx({ type: "income", amount: 300, date: "2026-01-15" }),
+      ],
+      today: "2026-06-08",
+    });
+    expect(actual).toBe(500);
+  });
+
+  it("falls back to elapsed-month average without current-month deposits", () => {
+    const actual = computeSaveMonthlyActual({
+      kind: "save",
+      startDate: "2026-01-01",
+      savedAmount: 6000,
+      linkedIncomes: [tx({ type: "income", amount: 6000, date: "2026-03-10" })],
+      today: "2026-04-10",
+    });
+    expect(actual).toBe(2000);
+  });
+});
+
 describe("computePlanProgress", () => {
   it("computes save goal monthly needed and actual from linked income", () => {
     const end = new Date();
@@ -100,17 +131,19 @@ describe("computePlanProgress", () => {
       kind: "save",
       budgetAmount: null,
       targetAmount: 60000,
+      startDate: "2026-01-01",
       endDate,
+      today: "2026-06-08",
       linkedTransactions: [
-        tx({ type: "income", amount: 6000, description: "Wpłata na cel" }),
-        tx({ type: "income", amount: 6000, description: "Druga wpłata" }),
+        tx({ type: "income", amount: 6000, description: "Wpłata na cel", date: "2026-06-05" }),
+        tx({ type: "income", amount: 6000, description: "Druga wpłata", date: "2026-03-10" }),
       ],
     });
 
     expect(progress.savedAmount).toBe(12000);
     expect(progress.remaining).toBe(48000);
     expect(progress.monthlyNeeded).toBeGreaterThan(6000);
-    expect(progress.monthlyActual).toBeGreaterThan(0);
+    expect(progress.monthlyActual).toBe(6000);
     expect(progress.monthlyActual).toBeLessThan(progress.monthlyNeeded ?? 0);
   });
 

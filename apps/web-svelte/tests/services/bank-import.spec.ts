@@ -15,7 +15,7 @@ const h = vi.hoisted(() => {
   type Result = { data: unknown; error: unknown };
   const state = {
     results: [] as Result[],
-    // Inlined literal (not TEST_UID) — vi.hoisted runs before the const above.
+    // Inlined literal (not TEST_UID) - vi.hoisted runs before the const above.
     user: { id: "user-aaa" } as { id: string } | null,
     log: {
       from: [] as string[],

@@ -13,7 +13,7 @@ export interface MonthlySurplusSummary {
   cashflowNet: number;
   debtMonthlyPayments: number;
   saveMonthlyNeeded: number;
-  /** Month cashflow (income − expenses). Raty kredytów nie odejmujemy ponownie — są już w wydatkach. */
+  /** Month cashflow (income − expenses). Raty kredytów nie odejmujemy ponownie - są już w wydatkach. */
   surplus: number;
   /** Cashflow minus save-goal pace (when user tracks accumulation targets). */
   afterSaveGoals: number;

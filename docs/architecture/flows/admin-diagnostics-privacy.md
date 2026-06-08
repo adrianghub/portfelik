@@ -2,10 +2,10 @@
 
 **This is pseudonymisation + masking, NOT anonymisation.** A record retrievable
 by ID and tied to an account is not anonymous. The goal: make re-identification
-impossible from the admin/support surface alone — not against a DB superuser or
+impossible from the admin/support surface alone - not against a DB superuser or
 a leaked pepper.
 
-## What this is — and is not
+## What this is - and is not
 
 This is **privacy Layer 1 of 3: masked admin/support diagnostics.** It is NOT
 database encryption and NOT operational access lockdown. Frame it accurately:
@@ -16,21 +16,21 @@ database encryption and NOT operational access lockdown. Frame it accurately:
 
 Do **not** market this as "database data is encrypted from admins." Anyone with
 Supabase project-owner access or direct DB credentials can still read raw tables
-— that is Layer 2/3 territory (below).
+- that is Layer 2/3 territory (below).
 
 ## Three privacy layers
 
-1. **Masked admin access — DONE (this work).** Admin tools use masked RPCs, not
+1. **Masked admin access - DONE (this work).** Admin tools use masked RPCs, not
    raw table reads. Solves: normal admin UI / support diagnostics no longer
    expose raw financial data.
-2. **Operational access lockdown — NOT in this work (operational).** Admins
+2. **Operational access lockdown - NOT in this work (operational).** Admins
    should not have routine SQL/dashboard access to raw production tables. Solved
    operationally, not in code: limit Supabase project access, no shared
    service-role keys, audit admin access, least privilege, and do not build raw
    lookup admin screens.
-3. **Sensitive-column encryption — FUTURE (separate track).** Store the
+3. **Sensitive-column encryption - FUTURE (separate track).** Store the
    highest-risk values encrypted so even direct DB reads show ciphertext without
-   the key. Deliberately deferred — see roadmap below.
+   the key. Deliberately deferred - see roadmap below.
 
 ## Model
 
@@ -46,7 +46,7 @@ context)` = `hex(hmac(context || ':' || lower(trim(value)), privacy_pepper,
   names, labels are masked (`[masked]`); emails masked (`a***@domain`).
 - `privacy_hmac_token` **fails closed**: it raises if the pepper is missing and
   rejects unknown contexts. Helper functions are revoked from all client roles
-  (`public, anon, authenticated, service_role`) — callable only by the
+  (`public, anon, authenticated, service_role`) - callable only by the
   SECURITY DEFINER RPCs.
 
 ## Boundary
@@ -65,7 +65,7 @@ data; make masked records irreversible without the pepper; allow by-ID debugging
 Out of scope: production DB superuser, leaked pepper, full client-side
 encryption, reversible admin decryption.
 
-## Encryption roadmap (future — Layer 3)
+## Encryption roadmap (future - Layer 3)
 
 Do **not** jump to full column encryption for MVP. It affects search, filtering,
 categorization, imports, duplicate detection, debugging, backups, migrations, and
@@ -80,7 +80,7 @@ after designing search/categorization around it.
 - `bank_accounts.label`
 - raw import-row payloads / descriptions if retained
 - notification `title` / `body` when they can contain amounts or merchants
-- `transactions.description` — only after redesigning search/categorization around it
+- `transactions.description` - only after redesigning search/categorization around it
 
 **Do NOT encrypt first** (needed for summaries, dashboards, filtering, reports,
 RLS): `amount`, `date`, `type`, `status`, `category_id`, `user_id`.
@@ -94,7 +94,7 @@ separate, deeper security track, not an MVP blocker.
 
 Honest trust level for using **real** transaction/import data:
 
-- **OK for:** the owner, close collaborators, trusted early testers — people who
+- **OK for:** the owner, close collaborators, trusted early testers - people who
   understand this is beta software.
 - **Not yet ideal for:** broad public onboarding of highly privacy-sensitive
   users, until privacy policy, access controls, operational process,
@@ -104,7 +104,7 @@ Honest trust level for using **real** transaction/import data:
 database because the product needs it for imports, categorization, summaries,
 dashboards, and future plan matching. A database owner / service-role holder /
 production operator can technically access it. Protection is account-level
-access control + privacy-preserving admin tooling + operational restriction —
+access control + privacy-preserving admin tooling + operational restriction -
 **not** cryptographic hiding from the operator.
 
 User-facing wording to use (do not overpromise "no one can ever see your data"):
@@ -120,9 +120,9 @@ User-facing wording to use (do not overpromise "no one can ever see your data"):
 - [x] RLS suite green (account-level isolation).
 - [x] Admin UI shows no raw financial details (Layer 1, this work).
 - [x] Users can delete their account/data (`delete_account()` RPC + Settings → Profile).
-- [~] Production Supabase access limited to owner / essential operators (Layer 2). Runbook authored (`docs/runbooks/ops-access-lockdown.md`); **verify before public launch** — roster §1.
-- [x] Service-role keys not exposed anywhere client-side. Audited 2026-06-05 — clean (no `service_role` in client `src`, no `PUBLIC_`-prefixed secret, example envs placeholder-only, CI passes keys via `${{ secrets.* }}`, no secret echoed to logs). Re-run procedure in the Layer-2 runbook §3.
+- [~] Production Supabase access limited to owner / essential operators (Layer 2). Runbook authored (`docs/runbooks/ops-access-lockdown.md`); **verify before public launch** - roster §1.
+- [x] Service-role keys not exposed anywhere client-side. Audited 2026-06-05 - clean (no `service_role` in client `src`, no `PUBLIC_`-prefixed secret, example envs placeholder-only, CI passes keys via `${{ secrets.* }}`, no secret echoed to logs). Re-run procedure in the Layer-2 runbook §3.
 - [x] Privacy policy states what is stored and who can access it (`docs/legal/privacy-policy.md` + in-app `/privacy` route).
-- [x] Full account-data export — JSON bundle in Settings → Profil (transactions, categories, rules, plans+links, debt terms, groups, import sessions, financial snapshot, profile).
+- [x] Full account-data export - JSON bundle in Settings → Profil (transactions, categories, rules, plans+links, debt terms, groups, import sessions, financial snapshot, profile).
 - [x] Onboarding asks testers to upload only the history they need (`docs/product/beta-onboarding-note.md`).
 - [x] Beta + "not end-to-end encrypted" communicated to testers (beta note + `/privacy` route + login-page notice).

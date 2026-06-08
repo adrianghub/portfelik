@@ -7,7 +7,13 @@
   import CategoryBreakdown from "$lib/components/transactions/CategoryBreakdown.svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchProfile } from "$lib/services/profiles";
-  import { computeSummary, fetchTransactions } from "$lib/services/transactions";
+  import { fetchUserGroups } from "$lib/services/groups";
+  import {
+    computeForecastSummary,
+    computeLedgerSummary,
+    ledgerTransactions,
+  } from "$lib/services/transaction-cashflow";
+  import { fetchTransactions } from "$lib/services/transactions";
   import { supabase } from "$lib/supabase";
   import type { TransactionWithCategory } from "$lib/types";
   import { cn, formatCurrency, getDateRangeBounds } from "$lib/utils";
@@ -95,20 +101,51 @@
     return { start: b.start, end: b.end, buckets: daysInMonth };
   });
 
+  let groupFilter = $state<"all" | "own" | string>("all");
+
+  const groupsQuery = createQuery(() => ({
+    queryKey: ["user_groups"],
+    queryFn: fetchUserGroups,
+    enabled: !!userId,
+  }));
+
   const txQuery = createQuery(() => ({
     queryKey: ["transactions", "dashboard", period, bounds.start, bounds.end] as const,
     queryFn: () => fetchTransactions(bounds.start, bounds.end),
   }));
 
-  const summary = $derived(txQuery.data ? computeSummary(txQuery.data) : null);
+  const scopedTxs = $derived.by(() => {
+    if (!txQuery.data) return [];
+    return txQuery.data.filter((tx) => {
+      return (
+        groupFilter === "all" ||
+        (groupFilter === "own" ? tx.group_id === null : tx.group_id === groupFilter)
+      );
+    });
+  });
+
+  const summary = $derived(
+    scopedTxs.length > 0 || txQuery.data ? computeLedgerSummary(scopedTxs) : null
+  );
+  const forecastSummary = $derived(
+    scopedTxs.length > 0 || txQuery.data ? computeForecastSummary(scopedTxs) : null
+  );
+  const showForecastNote = $derived(
+    !!summary &&
+      !!forecastSummary &&
+      (summary.net !== forecastSummary.net ||
+        summary.total_income !== forecastSummary.total_income ||
+        summary.total_expenses !== forecastSummary.total_expenses)
+  );
 
   const series = $derived.by(() => {
     const inc = new Array<number>(bounds.buckets).fill(0);
     const exp = new Array<number>(bounds.buckets).fill(0);
-    if (!txQuery.data) return { income: inc, expense: exp };
+    const ledger = ledgerTransactions(scopedTxs);
+    if (ledger.length === 0) return { income: inc, expense: exp };
     const startMs = new Date(bounds.start).getTime();
     const endMs = new Date(bounds.end).getTime() - 1;
-    for (const tx of txQuery.data) {
+    for (const tx of ledger) {
       const t = new Date(tx.date).getTime();
       if (t < startMs || t > endMs) continue;
       let idx: number;
@@ -225,6 +262,49 @@
   <DashboardNetWorthStrip />
   <DashboardPlanProgress />
 
+  {#if (groupsQuery.data?.length ?? 0) > 0}
+    <div role="tablist" aria-label={m.dashboard_scope_all()} class="flex flex-wrap gap-1">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={groupFilter === "all"}
+        onclick={() => (groupFilter = "all")}
+        class={cn(
+          "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
+          groupFilter === "all" ? "bg-white/10 text-slate-100" : "text-slate-400 hover:bg-white/5"
+        )}
+      >
+        {m.dashboard_scope_all()}
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={groupFilter === "own"}
+        onclick={() => (groupFilter = "own")}
+        class={cn(
+          "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
+          groupFilter === "own" ? "bg-white/10 text-slate-100" : "text-slate-400 hover:bg-white/5"
+        )}
+      >
+        {m.dashboard_scope_own()}
+      </button>
+      {#each groupsQuery.data ?? [] as g (g.id)}
+        <button
+          type="button"
+          role="tab"
+          aria-selected={groupFilter === g.id}
+          onclick={() => (groupFilter = g.id)}
+          class={cn(
+            "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
+            groupFilter === g.id ? "bg-white/10 text-slate-100" : "text-slate-400 hover:bg-white/5"
+          )}
+        >
+          {g.name}
+        </button>
+      {/each}
+    </div>
+  {/if}
+
   <!-- Hero balance card -->
   <a
     href={transactionsHref()}
@@ -234,6 +314,7 @@
     <p class="text-eyebrow text-slate-400">
       {m.dashboard_balance_title()} · {activePeriodLabel}
     </p>
+    <p class="mt-1 text-xs text-slate-400">{m.dashboard_balance_ledger_note()}</p>
     {#if summary}
       <p
         class={cn(
@@ -243,6 +324,11 @@
       >
         {formatCurrency(summary.net)}
       </p>
+      {#if showForecastNote && forecastSummary}
+        <p class="relative mt-2 text-xs text-slate-400">
+          {m.summary_forecast_note()}: {formatCurrency(forecastSummary.net)}
+        </p>
+      {/if}
     {:else}
       <div class="mt-3 h-14 w-2/3 animate-pulse rounded-lg bg-slate-800/60"></div>
     {/if}

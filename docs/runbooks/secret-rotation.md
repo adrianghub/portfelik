@@ -133,7 +133,7 @@ If a rotation broke push end-to-end:
 
 Used by the admin-diagnostics masking layer (issue #81). HMAC pepper stored in
 Supabase Vault; never exposed to the client. Rotation invalidates all previously
-shown diagnostic tokens — this is acceptable because tokens are diagnostic-only
+shown diagnostic tokens - this is acceptable because tokens are diagnostic-only
 and never stored. Correlation simply restarts under the new pepper; no data
 migration is needed.
 
@@ -144,7 +144,7 @@ migration is needed.
      encode(extensions.gen_random_bytes(32), 'hex')
    );
    ```
-2. No Edge Function or client changes required — the pepper is read on-query by the SECURITY DEFINER RPCs.
+2. No Edge Function or client changes required - the pepper is read on-query by the SECURITY DEFINER RPCs.
 3. **Verify** by calling one of the masked RPCs from the record-diagnostics panel on `/admin` and confirming the returned `user_token` differs from any previously recorded value.
 
 > **Note:** if the `privacy_pepper` secret is missing (e.g. new environment), seed it:

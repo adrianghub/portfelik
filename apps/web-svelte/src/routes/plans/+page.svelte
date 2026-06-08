@@ -2,6 +2,7 @@
   import PlanCard from "$lib/components/plans/PlanCard.svelte";
   import NetWorthHero from "$lib/components/plans/NetWorthHero.svelte";
   import SurplusCard from "$lib/components/plans/SurplusCard.svelte";
+  import { buildPlanningQueueActions } from "$lib/services/planning-queue";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import DayPicker from "$lib/components/ui/DayPicker.svelte";
   import Dialog from "$lib/components/ui/Dialog.svelte";
@@ -26,9 +27,11 @@
     sumDebtMonthlyPayments,
     sumSaveMonthlyNeeded,
   } from "$lib/services/financial-surplus";
+  import { extractPostgrestError, postgrestErrorCode } from "$lib/services/supabase-errors";
   import {
     createPlan,
     canManagePlan,
+    defaultDebtPlanEndDate,
     deletePlan,
     derivePlanBucket,
     fetchPlans,
@@ -45,7 +48,8 @@
   import { Plus } from "lucide-svelte";
   import { onMount } from "svelte";
   import { toast } from "svelte-sonner";
-  import { computeSummary, fetchTransactions } from "$lib/services/transactions";
+  import { computeLedgerSummary } from "$lib/services/transaction-cashflow";
+  import { fetchTransactions } from "$lib/services/transactions";
 
   const queryClient = useQueryClient();
 
@@ -146,7 +150,7 @@
   );
 
   const monthlySurplus = $derived.by(() => {
-    const monthSummary = monthTxQuery.data ? computeSummary(monthTxQuery.data) : null;
+    const monthSummary = monthTxQuery.data ? computeLedgerSummary(monthTxQuery.data) : null;
     if (!monthSummary) return null;
     return computeMonthlySurplus({
       totalIncome: monthSummary.total_income,
@@ -155,6 +159,17 @@
       saveMonthlyNeeded: sumSaveMonthlyNeeded(summaries),
     });
   });
+
+  const planningActions = $derived.by(() => {
+    if (!monthlySurplus) return [];
+    return buildPlanningQueueActions({
+      summaries,
+      monthlySurplus,
+      debtTerms: debtTermsQuery.data ?? {},
+    });
+  });
+
+  const hasActivePlans = $derived((plansQuery.data?.length ?? 0) > 0);
 
   const filteredPlans = $derived(
     summaries.filter((p) => {
@@ -190,7 +205,7 @@
   let targetAmount = $state("");
   let debtOriginal = $state("");
   let debtBalance = $state("");
-  let debtRate = $state("7.18");
+  let debtRate = $state("1");
   let debtPayment = $state("");
   let categoryId = $state("");
   let groupId = $state("");
@@ -226,17 +241,29 @@
     onError: () => toast.error(m.toast_error()),
   }));
 
+  function applyDebtDateDefaults() {
+    startDate = todayIsoLocal();
+    endDate = defaultDebtPlanEndDate(startDate);
+  }
+
   function resetForm(plan?: Plan) {
     editing = plan as PlanSummary | null;
     planKind = plan?.kind ?? "spend";
     name = plan?.name ?? "";
-    startDate = plan?.start_date ?? todayIsoLocal();
-    endDate = plan?.end_date ?? plan?.start_date ?? todayIsoLocal();
+    if (plan) {
+      startDate = plan.start_date;
+      endDate = plan.end_date;
+    } else if (planKind === "debt") {
+      applyDebtDateDefaults();
+    } else {
+      startDate = todayIsoLocal();
+      endDate = todayIsoLocal();
+    }
     budgetAmount = plan?.budget_amount != null ? String(plan.budget_amount) : "";
     targetAmount = plan?.target_amount != null ? String(plan.target_amount) : "";
     debtOriginal = "";
     debtBalance = "";
-    debtRate = "7.18";
+    debtRate = "1";
     debtPayment = "";
     if (plan?.kind === "debt") {
       const terms = debtTermsQuery.data?.[plan.id];
@@ -280,8 +307,9 @@
   }
 
   function toastPlanError(err: unknown) {
-    const code = err instanceof Error ? err.message : "";
-    switch (code) {
+    console.error("[plans]", err);
+    const message = err instanceof Error ? err.message : "";
+    switch (message) {
       case "debt_original_required":
         toast.error(m.plan_debt_original_required());
         return;
@@ -294,6 +322,19 @@
       case "debt_balance_exceeds_original":
         toast.error(m.plan_debt_balance_exceeds_original());
         return;
+      case "debt_terms_save_failed": {
+        const causeCode = err instanceof Error ? postgrestErrorCode(err.cause) : null;
+        if (causeCode === "42P01" || causeCode === "PGRST205" || causeCode === "42703") {
+          toast.error(m.plan_db_migration_required());
+          return;
+        }
+        if (causeCode === "42501") {
+          toast.error(m.plan_db_permission_denied());
+          return;
+        }
+        toast.error(m.plan_debt_terms_save_failed());
+        return;
+      }
       case "name_required":
         toast.error(m.plan_form_name_required());
         return;
@@ -307,8 +348,27 @@
       case "budget_invalid":
         toast.error(m.plan_form_budget_invalid());
         return;
-      default:
+      default: {
+        const pgCode = postgrestErrorCode(err);
+        if (pgCode === "42P01" || pgCode === "PGRST205" || pgCode === "42703") {
+          toast.error(m.plan_db_migration_required());
+          return;
+        }
+        if (pgCode === "42501") {
+          toast.error(m.plan_db_permission_denied());
+          return;
+        }
+        if (pgCode === "23514" || pgCode === "23505") {
+          toast.error(m.plan_db_constraint_failed());
+          return;
+        }
+        const pg = extractPostgrestError(err);
+        if (pg?.message) {
+          toast.error(pg.message);
+          return;
+        }
         toast.error(m.toast_error());
+      }
     }
   }
 
@@ -324,8 +384,13 @@
         try {
           await upsertPlanDebtTerms(plan.id, debtTerms);
         } catch (err) {
-          await deletePlan(plan.id);
-          throw err;
+          console.error("[plans] plan_debt_terms upsert failed", err);
+          try {
+            await deletePlan(plan.id);
+          } catch (rollbackErr) {
+            console.error("[plans] debt plan rollback failed", rollbackErr);
+          }
+          throw new Error("debt_terms_save_failed", { cause: err });
         }
       }
       return plan;
@@ -408,7 +473,7 @@
 
   <p class="text-sm text-slate-400">{m.plans_tagline()}</p>
 
-  {#if !hubOnboardingDismissed}
+  {#if !hubOnboardingDismissed && !hasActivePlans}
     <div
       class="flex items-start justify-between gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3"
       role="status"
@@ -433,7 +498,7 @@
   {#if monthTxQuery.isLoading}
     <div class="h-28 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
   {:else if monthlySurplus}
-    <SurplusCard summary={monthlySurplus} />
+    <SurplusCard summary={monthlySurplus} actions={planningActions} />
   {/if}
 
   {#if plansQuery.isLoading}
@@ -580,7 +645,10 @@
           <button
             type="button"
             disabled={!!editing}
-            onclick={() => (planKind = tile.kind)}
+            onclick={() => {
+              planKind = tile.kind;
+              if (!editing && tile.kind === "debt") applyDebtDateDefaults();
+            }}
             class={cn(
               "rounded-xl border px-2 py-2 text-xs font-semibold transition-colors",
               planKind === tile.kind
@@ -609,8 +677,17 @@
 
     <div class="grid gap-3 sm:grid-cols-2">
       <DayPicker id="plan-start" bind:value={startDate} label={m.plan_form_start_date()} required />
-      <DayPicker id="plan-end" bind:value={endDate} label={m.plan_form_end_date()} required />
+      <DayPicker
+        id="plan-end"
+        bind:value={endDate}
+        label={planKind === "debt" ? m.plan_form_end_date_debt() : m.plan_form_end_date()}
+        yearsAhead={planKind === "debt" ? 5 : 15}
+        required
+      />
     </div>
+    {#if planKind === "debt"}
+      <p class="text-xs text-slate-500">{m.plan_form_debt_dates_hint()}</p>
+    {/if}
 
     {#if planKind === "spend"}
       <div class="space-y-1">
@@ -682,8 +759,9 @@
             min="0"
             step="0.01"
             required
+            placeholder={m.plan_debt_rate_placeholder()}
             bind:value={debtRate}
-            class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
+            class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
           />
         </div>
         <div class="space-y-1">

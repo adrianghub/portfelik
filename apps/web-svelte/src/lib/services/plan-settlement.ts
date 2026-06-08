@@ -1,4 +1,15 @@
-import { monthsRemaining as planMonthsRemaining } from "$lib/services/plans";
+import { currentCalendarMonthBounds } from "$lib/services/financial-surplus";
+import {
+  isSettlementStatus,
+  isTransactionEligibleForPlanSettlement,
+  resolveSettlementTypes,
+  SETTLEMENT_STATUSES,
+} from "$lib/services/plan-settlement-policy";
+import {
+  monthsBetween,
+  monthsRemaining as planMonthsRemaining,
+  todayIso,
+} from "$lib/services/plans";
 import { supabase } from "$lib/supabase";
 import type { Plan, TransactionType, TransactionWithCategory } from "$lib/types";
 
@@ -112,15 +123,10 @@ function filterEligibleTransactions(
   blockedIds: Set<string>,
   opts?: { type?: TransactionType | "all" }
 ): TransactionWithCategory[] {
-  return txs.filter((tx) => {
-    if (blockedIds.has(tx.id)) return false;
-    if (tx.date < plan.start_date || tx.date > plan.end_date) return false;
-    if (opts?.type && opts.type !== "all" && tx.type !== opts.type) return false;
-    if (!opts?.type || opts.type === "all") {
-      if (tx.type !== "expense" && tx.type !== "income") return false;
-    }
-    return true;
-  });
+  const allowedTypes = resolveSettlementTypes(plan, opts);
+  return txs.filter((tx) =>
+    isTransactionEligibleForPlanSettlement({ plan, tx, blockedIds, allowedTypes })
+  );
 }
 
 export async function fetchEligibleSettlementTransactions(
@@ -137,11 +143,13 @@ export async function fetchEligibleSettlementTransactions(
     .order("date", { ascending: false })
     .limit(200);
 
-  if (opts?.type && opts.type !== "all") {
-    query = query.eq("type", opts.type);
+  const allowedTypes = resolveSettlementTypes(plan, opts);
+  if (allowedTypes.length === 1) {
+    query = query.eq("type", allowedTypes[0]);
   } else {
-    query = query.in("type", ["expense", "income"]);
+    query = query.in("type", allowedTypes);
   }
+  query = query.in("status", [...SETTLEMENT_STATUSES]);
 
   if (plan.group_id) {
     query = query.eq("group_id", plan.group_id);
@@ -181,7 +189,7 @@ function extractKeywords(name: string): string[] {
   ]);
   return name
     .toLowerCase()
-    .split(/[\s\-–—,./()]+/)
+    .split(/[\s\-–,./()]+/)
     .filter((w) => w.length >= 3 && !stopWords.has(w));
 }
 
@@ -244,18 +252,55 @@ export async function fetchRankedEligibleTransactions(
     .sort((a, b) => b.score - a.score);
 }
 
+function sumLinkedIncomeInMonth(
+  incomes: TransactionWithCategory[],
+  monthStart: string,
+  monthEnd: string
+): number {
+  return incomes
+    .filter((t) => {
+      const d = t.date.slice(0, 10);
+      return d >= monthStart && d <= monthEnd;
+    })
+    .reduce((sum, t) => sum + t.amount, 0);
+}
+
+export function computeSaveMonthlyActual(input: {
+  kind?: import("$lib/types").PlanKind;
+  startDate?: string;
+  savedAmount: number;
+  linkedIncomes: TransactionWithCategory[];
+  today?: string;
+}): number | null {
+  if (input.kind !== "save") return null;
+  const today = input.today ?? todayIso();
+  const bounds = currentCalendarMonthBounds(new Date(today));
+  const currentMonthDeposits = sumLinkedIncomeInMonth(
+    input.linkedIncomes,
+    bounds.start,
+    bounds.end
+  );
+  if (currentMonthDeposits > 0) return currentMonthDeposits;
+  if (input.savedAmount <= 0) return 0;
+  const elapsedMonths = input.startDate ? monthsBetween(input.startDate, today) : 1;
+  return input.savedAmount / Math.max(1, elapsedMonths);
+}
+
 export function computePlanProgress(input: {
   planId: string;
   planName: string;
   kind?: import("$lib/types").PlanKind;
   budgetAmount: number | null;
   targetAmount?: number | null;
+  startDate?: string;
   endDate?: string;
   linkedTransactions: TransactionWithCategory[];
   eligibleCount?: number;
+  today?: string;
 }): PlanSettlementProgress {
-  const expenses = input.linkedTransactions.filter((t) => t.type === "expense");
-  const incomes = input.linkedTransactions.filter((t) => t.type === "income");
+  const paidLinked = input.linkedTransactions.filter((t) => isSettlementStatus(t.status));
+  const expenses = paidLinked.filter((t) => t.type === "expense");
+  const incomes = paidLinked.filter((t) => t.type === "income");
   const spentAmount = expenses.reduce((s, t) => s + t.amount, 0);
   const incomeAmount = incomes.reduce((s, t) => s + t.amount, 0);
   const savedAmount = incomeAmount;
@@ -271,10 +316,13 @@ export function computePlanProgress(input: {
     targetAmount != null && targetAmount > 0 && monthsRem != null && monthsRem > 0
       ? Math.max(0, (targetAmount - savedAmount) / monthsRem)
       : null;
-  const monthlyActual =
-    input.kind === "save" && monthsRem != null && monthsRem > 0
-      ? savedAmount / Math.max(1, monthsRem)
-      : null;
+  const monthlyActual = computeSaveMonthlyActual({
+    kind: input.kind,
+    startDate: input.startDate,
+    savedAmount,
+    linkedIncomes: incomes,
+    today: input.today,
+  });
   return {
     planId: input.planId,
     planName: input.planName,
@@ -346,6 +394,7 @@ export async function fetchDashboardPlanProgress(limit = 8): Promise<PlanSettlem
       kind: plan.kind,
       budgetAmount: plan.budget_amount,
       targetAmount: plan.target_amount,
+      startDate: plan.start_date,
       endDate: plan.end_date,
       linkedTransactions: linkedTxs,
       eligibleCount: eligibleCounts[plan.id] ?? 0,
@@ -387,6 +436,7 @@ export async function fetchPlanProgressForPlans(
       kind: plan.kind,
       budgetAmount: plan.budget_amount,
       targetAmount: plan.target_amount,
+      startDate: plan.start_date,
       endDate: plan.end_date,
       linkedTransactions: linkedTxs,
       eligibleCount: eligibleCounts[plan.id] ?? 0,
@@ -424,10 +474,10 @@ async function countEligibleForPlans(plans: Plan[]): Promise<Record<string, numb
 
       let query = supabase
         .from("transactions_with_category")
-        .select("id, date, type")
+        .select("id, date, type, status")
         .gte("date", minStart)
         .lte("date", maxEnd)
-        .in("type", ["expense", "income"])
+        .in("status", [...SETTLEMENT_STATUSES])
         .limit(500);
 
       if (sample.group_id) {
@@ -438,15 +488,20 @@ async function countEligibleForPlans(plans: Plan[]): Promise<Record<string, numb
 
       const { data, error } = await query;
       if (error) throw error;
-      const txs = (data ?? []) as Pick<TransactionWithCategory, "id" | "date" | "type">[];
+      const txs = (data ?? []) as Pick<
+        TransactionWithCategory,
+        "id" | "date" | "type" | "status"
+      >[];
 
       for (const plan of scopePlans) {
-        counts[plan.id] = txs.filter(
-          (tx) =>
-            tx.date >= plan.start_date &&
-            tx.date <= plan.end_date &&
-            !linkedIds.has(tx.id) &&
-            (tx.type === "expense" || tx.type === "income")
+        const allowedTypes = resolveSettlementTypes(plan);
+        counts[plan.id] = txs.filter((tx) =>
+          isTransactionEligibleForPlanSettlement({
+            plan,
+            tx,
+            blockedIds: linkedIds,
+            allowedTypes,
+          })
         ).length;
       }
     })
