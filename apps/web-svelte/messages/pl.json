@@ -628,6 +628,7 @@
   "transactions_date_preset_this_month": "Ten miesiąc",
   "transactions_date_preset_last_month": "Poprzedni miesiąc",
   "transactions_date_preset_this_week": "Ten tydzień",
+  "transactions_date_preset_last_week": "Poprzedni tydzień",
   "transactions_date_preset_custom": "Zakres niestandardowy",
   "transactions_date_apply": "Zastosuj",
   "transactions_date_mode_months": "Miesiące",

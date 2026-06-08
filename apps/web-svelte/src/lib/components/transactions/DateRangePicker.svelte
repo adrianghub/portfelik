@@ -122,11 +122,16 @@
     const now = today(tz);
     emit(startOfWeek(now, locale), endOfWeek(now, locale));
   }
+  function applyLastWeek() {
+    const ref = today(tz).subtract({ weeks: 1 });
+    emit(startOfWeek(ref, locale), endOfWeek(ref, locale));
+  }
 
   const presets = [
     { label: m.transactions_date_preset_this_month(), action: applyThisMonth },
     { label: m.transactions_date_preset_last_month(), action: applyLastMonth },
     { label: m.transactions_date_preset_this_week(), action: applyThisWeek },
+    { label: m.transactions_date_preset_last_week(), action: applyLastWeek },
   ];
 
   function clickOutside(e: MouseEvent) {
