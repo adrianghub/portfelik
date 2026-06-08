@@ -35,14 +35,22 @@
   // Resolve the typed/selected name to a category id.
   $effect(() => {
     const resolved = idForName(name);
-    if (resolved !== categoryId) categoryId = resolved;
+    if (resolved === categoryId) return;
+    // Preserve a prefilled id until categories load and the name can sync.
+    if (resolved === "" && categoryId && name === "") return;
+    categoryId = resolved;
   });
 
   // Sync an externally-set id back into the display name (initial load, reset,
   // type change clearing the selection). Skip when the current name already
   // resolves to that id, to avoid clobbering in-progress typing.
   $effect(() => {
+    if (!categoryId) {
+      if (name !== "") name = "";
+      return;
+    }
     const expected = categories.find((c) => c.id === categoryId)?.name ?? "";
+    if (!expected) return;
     if (idForName(name) !== categoryId) name = expected;
   });
 </script>

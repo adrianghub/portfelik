@@ -11,7 +11,7 @@
     today,
     type DateValue,
   } from "@internationalized/date";
-  import { ChevronLeft, ChevronRight } from "lucide-svelte";
+  import { ChevronLeft, ChevronRight, X } from "lucide-svelte";
   import { MediaQuery } from "svelte/reactivity";
   import { untrack } from "svelte";
   import Sheet from "$lib/components/ui/Sheet.svelte";
@@ -23,9 +23,11 @@
     startDate: string | null;
     endDate: string | null;
     onchange: (start: string, end: string) => void;
+    clearable?: boolean;
+    onclear?: () => void;
   }
 
-  let { label, startDate, endDate, onchange }: Props = $props();
+  let { label, startDate, endDate, onchange, clearable = false, onclear }: Props = $props();
 
   const isDesktop = new MediaQuery("(min-width: 640px)");
   const locale = "pl";
@@ -314,6 +316,19 @@
       /><line x1="8" x2="8" y1="2" y2="6" /><line x1="3" x2="21" y1="10" y2="10" /></svg
     >
     <span class="capitalize">{label}</span>
+    {#if clearable && onclear}
+      <button
+        type="button"
+        onclick={(e) => {
+          e.stopPropagation();
+          onclear();
+        }}
+        class="focus-visible:ring-accent -mr-1 rounded-full p-0.5 text-slate-400 transition-colors hover:bg-white/10 hover:text-slate-100 focus-visible:ring-2 focus-visible:outline-none"
+        aria-label={m.transactions_date_clear()}
+      >
+        <X size={14} strokeWidth={2} aria-hidden="true" />
+      </button>
+    {/if}
   </button>
 
   {#if open && isDesktop.current}

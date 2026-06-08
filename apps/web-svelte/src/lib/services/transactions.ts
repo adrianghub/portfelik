@@ -69,6 +69,7 @@ export { computeSummary } from "$lib/services/transaction-summary";
 export interface CreateTransactionInput {
   amount: number;
   type: TransactionType;
+  counterparty?: string | null;
   description: string;
   date: string;
   category_id: string;
@@ -88,10 +89,13 @@ export async function createTransaction(input: CreateTransactionInput): Promise<
   } = await supabase.auth.getUser();
   if (!user) throw new Error("not_authenticated");
 
+  const counterparty = input.counterparty?.trim() || null;
+
   const { data, error } = await supabase
     .from("transactions")
     .insert({
       ...input,
+      counterparty,
       user_id: user.id,
       amount: Math.abs(input.amount),
       status: input.status ?? "paid",
@@ -110,6 +114,9 @@ export async function updateTransaction(
 ): Promise<Transaction> {
   const payload: Partial<CreateTransactionInput & { amount: number }> = { ...updates };
   if (updates.amount !== undefined) payload.amount = Math.abs(updates.amount);
+  if (updates.counterparty !== undefined) {
+    payload.counterparty = updates.counterparty?.trim() || null;
+  }
 
   const { data, error } = await supabase
     .from("transactions")

@@ -105,6 +105,16 @@
   function labelForFullMonth(year: number, month: number): string {
     return monthYearLabel(year, month);
   }
+  const isDefaultDateFilter = $derived.by(() => {
+    const cy = now.getFullYear();
+    const cm = now.getMonth() + 1;
+    if (explicitStartDate && explicitEndDate) {
+      const fm = fullMonthOf(explicitStartDate, explicitEndDate);
+      return fm?.year === cy && fm?.month === cm;
+    }
+    return startYear === cy && startMonth === cm && endYear === cy && endMonth === cm;
+  });
+
   const dateLabel = $derived.by(() => {
     if (explicitStartDate && explicitEndDate) {
       const [sy, sm, sd] = explicitStartDate.split("-").map(Number);
@@ -177,9 +187,13 @@
   // so it deliberately doesn't affect totals.
   let searchQuery = $state("");
   const visibleTxs = $derived(
-    filteredTxs?.filter(
-      (tx) => !searchQuery || tx.description?.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+    filteredTxs?.filter((tx) => {
+      if (!searchQuery) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        tx.description?.toLowerCase().includes(q) || tx.counterparty?.toLowerCase().includes(q)
+      );
+    })
   );
 
   const TX_CHUNK_SIZE = 80;
@@ -399,6 +413,17 @@
     goto(`/transactions?${p.toString()}`, { replaceState: false });
   }
 
+  function onClearDateFilter() {
+    const p = new URLSearchParams($page.url.searchParams);
+    p.delete("startDate");
+    p.delete("endDate");
+    p.delete("startYear");
+    p.delete("startMonth");
+    p.delete("endYear");
+    p.delete("endMonth");
+    goto(`/transactions?${p.toString()}`, { replaceState: false });
+  }
+
   function onTypeChange(type: "income" | "expense" | undefined) {
     const p = new URLSearchParams($page.url.searchParams);
     if (type) p.set("type", type);
@@ -588,6 +613,8 @@
           startDate={explicitStartDate}
           endDate={explicitEndDate}
           onchange={onApplyDateRange}
+          clearable={!isDefaultDateFilter}
+          onclear={onClearDateFilter}
         />
         <CategoryFilterControl
           categories={filterCategories}
