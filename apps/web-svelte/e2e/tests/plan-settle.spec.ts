@@ -251,9 +251,19 @@ test.describe("plan settle page", () => {
       route.fulfill({ status: 200, json: SETTLE_PLAN });
     });
 
-    await page.route(/.*\/rest\/v1\/transactions.*/, async (route) => {
-      const request = route.request();
-      if (request.method() === "POST") {
+    await page.route(/.*\/rest\/v1\/transactions_with_category.*/, (route) => {
+      const url = route.request().url();
+      if (linked && url.includes("id=in.")) {
+        return route.fulfill({
+          status: 200,
+          json: [{ ...TX1, id: createdTxId, description: "Ręczny wydatek", amount: 150 }],
+        });
+      }
+      return route.fulfill({ status: 200, json: [] });
+    });
+
+    await page.route(/.*\/rest\/v1\/transactions(?!_with_category).*/, async (route) => {
+      if (route.request().method() === "POST") {
         return route.fulfill({
           status: 201,
           json: {
@@ -262,12 +272,6 @@ test.describe("plan settle page", () => {
             description: "Ręczny wydatek",
             amount: 150,
           },
-        });
-      }
-      if (linked && request.url().includes("id=in.")) {
-        return route.fulfill({
-          status: 200,
-          json: [{ ...TX1, id: createdTxId, description: "Ręczny wydatek", amount: 150 }],
         });
       }
       return route.fulfill({ status: 200, json: [] });

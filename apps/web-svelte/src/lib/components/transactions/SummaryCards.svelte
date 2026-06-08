@@ -20,7 +20,7 @@
 </script>
 
 <div class="space-y-2">
-  <p class="text-xs text-slate-500">{modeLabel}</p>
+  <p class="text-xs text-slate-400">{modeLabel}</p>
   <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
     <article
       class="relative overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur"

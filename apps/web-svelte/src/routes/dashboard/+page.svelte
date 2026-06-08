@@ -314,7 +314,7 @@
     <p class="text-eyebrow text-slate-400">
       {m.dashboard_balance_title()} · {activePeriodLabel}
     </p>
-    <p class="mt-1 text-xs text-slate-500">{m.dashboard_balance_ledger_note()}</p>
+    <p class="mt-1 text-xs text-slate-400">{m.dashboard_balance_ledger_note()}</p>
     {#if summary}
       <p
         class={cn(
@@ -325,7 +325,7 @@
         {formatCurrency(summary.net)}
       </p>
       {#if showForecastNote && forecastSummary}
-        <p class="relative mt-2 text-xs text-slate-500">
+        <p class="relative mt-2 text-xs text-slate-400">
           {m.summary_forecast_note()}: {formatCurrency(forecastSummary.net)}
         </p>
       {/if}
