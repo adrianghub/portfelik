@@ -341,6 +341,8 @@ test.describe("plan settle page", () => {
       route.fulfill({ status: 200, json: MOCK_LINK });
     });
 
+    await page.goto(`/plans/${PLAN_ID}`);
+    await expect(page.getByRole("heading", { name: "Wakacje" })).toBeVisible();
     await page.goto(`/plans/${PLAN_ID}/settle`);
     await expect(page.getByText("Zakupy spożywcze na wakacje")).toBeVisible();
 
@@ -351,9 +353,9 @@ test.describe("plan settle page", () => {
     await tx1Card.getByRole("button", { name: /Powiąż/ }).click();
     await expect(page.getByText("Transakcja dodana do planu.")).toBeVisible();
 
-    // Navigate back to detail
+    // Navigate back to detail (history.back from settle → detail)
     await page.getByRole("button", { name: /Wróć|Back|←/ }).click();
-    await page.waitForURL(`**/plans/${PLAN_ID}`);
+    await page.waitForURL(`**/plans/${PLAN_ID}`, { waitUntil: "commit" });
 
     // Detail page loaded (plan name visible in heading)
     await expect(page.getByRole("heading", { name: "Wakacje" })).toBeVisible();

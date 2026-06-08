@@ -172,7 +172,10 @@ test("debt scenarios page shows verdict and rate comparison", async ({ page }) =
 
   await expect(page.getByRole("heading", { name: "Nadpłata vs inwestycja" })).toBeVisible();
   await expect(page.getByTestId("scenarios-verdict")).toBeVisible();
-  await expect(page.getByTestId("scenarios-rate-comparison")).toBeVisible();
   await expect(page.getByText("Porównanie do końca kredytu")).toBeVisible();
   await expect(page.getByText("Łączna korzyść").first()).toBeVisible();
+
+  // Rate bars live inside the collapsed breakdown accordion.
+  await page.getByText("Skąd te kwoty?").click();
+  await expect(page.getByTestId("scenarios-rate-comparison")).toBeVisible();
 });
