@@ -1,0 +1,14 @@
+-- Fix: creating/saving a debt (kind='debt') plan failed with
+--   42501 "permission denied for table plan_debt_terms".
+--
+-- The client writes debt terms via PostgREST upsert (INSERT ... ON CONFLICT
+-- (plan_id) DO UPDATE), which sets EVERY payload column in the DO UPDATE arm,
+-- including plan_id (the conflict target). authenticated only had a
+-- column-restricted UPDATE grant (20260618) that omitted plan_id, so the
+-- update arm tripped the table-privilege check.
+--
+-- Grant UPDATE on plan_id so the upsert's update arm passes. This does not let a
+-- user reassign a row to a foreign plan: the "plan_debt_terms: update via plan
+-- manager" RLS policy (20260620) WITH CHECK still requires the new plan_id to
+-- reference a debt plan the caller owns or co-owns.
+grant update (plan_id) on table public.plan_debt_terms to authenticated;
