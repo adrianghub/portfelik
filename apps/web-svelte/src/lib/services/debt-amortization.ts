@@ -3,6 +3,8 @@ export interface DebtAmortizationInput {
   annualRate: number;
   monthlyPayment: number;
   extraMonthlyPayment?: number;
+  /** One-time principal reduction applied before the first interest accrual. */
+  lumpSumPayment?: number;
   maxMonths?: number;
 }
 
@@ -27,6 +29,15 @@ export interface DebtOverpayComparison {
   withExtra: DebtAmortizationResult;
   interestSaved: number;
   monthsSaved: number;
+}
+
+export interface DebtLumpSumComparison {
+  baseline: DebtAmortizationResult;
+  withLump: DebtAmortizationResult;
+  interestSaved: number;
+  monthsSaved: number;
+  previousDailyInterest: number;
+  newDailyInterest: number;
 }
 
 export const BELKA_RATE = 0.19;
@@ -58,7 +69,8 @@ export function simulateAmortization(input: DebtAmortizationInput): DebtAmortiza
   const monthlyRate = input.annualRate / 100 / 12;
   const maxMonths = input.maxMonths ?? DEFAULT_MAX_MONTHS;
   const months: DebtAmortizationMonth[] = [];
-  let balance = input.currentBalance;
+  const lump = input.lumpSumPayment ?? 0;
+  let balance = Math.max(0, input.currentBalance - lump);
   let totalInterest = 0;
 
   for (let i = 0; i < maxMonths && balance > 0.01; i++) {
@@ -91,7 +103,7 @@ export function simulateAmortization(input: DebtAmortizationInput): DebtAmortiza
 }
 
 export function compareOverpay(
-  input: Omit<DebtAmortizationInput, "extraMonthlyPayment">,
+  input: Omit<DebtAmortizationInput, "extraMonthlyPayment" | "lumpSumPayment">,
   extraMonthlyPayment: number
 ): DebtOverpayComparison {
   const baseline = simulateAmortization({ ...input, extraMonthlyPayment: 0 });
@@ -101,6 +113,23 @@ export function compareOverpay(
     withExtra,
     interestSaved: Math.max(0, baseline.totalInterest - withExtra.totalInterest),
     monthsSaved: Math.max(0, baseline.payoffMonths - withExtra.payoffMonths),
+  };
+}
+
+export function compareLumpSumOverpay(
+  input: Omit<DebtAmortizationInput, "extraMonthlyPayment" | "lumpSumPayment">,
+  lumpSumPayment: number
+): DebtLumpSumComparison {
+  const baseline = simulateAmortization({ ...input, extraMonthlyPayment: 0 });
+  const withLump = simulateAmortization({ ...input, extraMonthlyPayment: 0, lumpSumPayment });
+  const newBalance = Math.max(0, input.currentBalance - lumpSumPayment);
+  return {
+    baseline,
+    withLump,
+    interestSaved: Math.max(0, baseline.totalInterest - withLump.totalInterest),
+    monthsSaved: Math.max(0, baseline.payoffMonths - withLump.payoffMonths),
+    previousDailyInterest: approximateDailyInterest(input.currentBalance, input.annualRate),
+    newDailyInterest: approximateDailyInterest(newBalance, input.annualRate),
   };
 }
 
@@ -118,12 +147,12 @@ export function approximateDailyInterest(currentBalance: number, annualRate: num
 }
 
 export function compareOverpayVsInvest(
-  input: Omit<DebtAmortizationInput, "extraMonthlyPayment">,
+  input: Omit<DebtAmortizationInput, "extraMonthlyPayment" | "lumpSumPayment">,
   extraMonthlyPayment: number,
   assumedInvestReturnPct: number
 ): DebtInvestComparison {
   const overpay = compareOverpay(input, extraMonthlyPayment);
-  const months = overpay.withExtra.payoffMonths || 1;
+  const months = overpay.baseline.payoffMonths || 1;
   const monthlyInvestRate = assumedInvestReturnPct / 100 / 12;
   let investGain = 0;
   if (monthlyInvestRate > 0) {
