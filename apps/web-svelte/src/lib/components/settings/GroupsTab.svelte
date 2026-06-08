@@ -1,7 +1,9 @@
 <script lang="ts">
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
+  import { page } from "$app/stores";
   import {
     fetchUserGroups,
+    fetchMyGroupRoles,
     fetchReceivedInvitations,
     fetchSentInvitations,
     fetchGroupMembersWithProfiles,
@@ -33,6 +35,11 @@
     queryFn: fetchUserGroups,
   }));
 
+  const groupRolesQuery = createQuery(() => ({
+    queryKey: ["my-group-roles"],
+    queryFn: fetchMyGroupRoles,
+  }));
+
   const invitationsQuery = createQuery(() => ({
     queryKey: ["group_invitations_received"],
     queryFn: fetchReceivedInvitations,
@@ -42,6 +49,31 @@
   supabase.auth.getSession().then(({ data }) => {
     currentUserId = data.session?.user.id;
   });
+
+  let deepLinkHandled = $state(false);
+  $effect(() => {
+    const groupId = $page.url.searchParams.get("group");
+    if (!groupId || deepLinkHandled || !groupsQuery.data?.length) return;
+    if (groupsQuery.data.some((g) => g.id === groupId)) {
+      membersGroupId = groupId;
+      deepLinkHandled = true;
+    }
+  });
+
+  function myRoleForGroup(groupId: string): GroupMemberRole {
+    return groupRolesQuery.data?.get(groupId) ?? "member";
+  }
+
+  function myRoleLabel(groupId: string, ownerId: string): string {
+    if (ownerId === currentUserId) return m.groups_role_owner();
+    const role = myRoleForGroup(groupId);
+    if (role === "co_owner") return m.group_role_co_owner();
+    return m.groups_role_member();
+  }
+
+  function canManageGroup(group: { id: string; owner_id: string }): boolean {
+    return group.owner_id === currentUserId || myRoleForGroup(group.id) === "co_owner";
+  }
 
   // ── Create group ──────────────────────────────────────────────────────────
   let showCreateGroup = $state(false);
@@ -280,7 +312,7 @@
           <div class="flex items-center justify-between">
             <span class="text-sm font-medium text-slate-100">{group.name}</span>
             <span class="text-xs text-slate-400">
-              {group.owner_id === currentUserId ? m.groups_role_owner() : m.groups_role_member()}
+              {myRoleLabel(group.id, group.owner_id)}
             </span>
           </div>
           {#if group.owner_id === currentUserId}
@@ -362,6 +394,23 @@
                 {/if}
               </div>
             {/if}
+          {:else if canManageGroup(group)}
+            <div class="flex flex-wrap gap-2">
+              <button
+                onclick={() => {
+                  membersGroupId = group.id;
+                }}
+                class="rounded-lg border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                {m.group_members_title()}
+              </button>
+              <button
+                onclick={() => (leaveGroupId = group.id)}
+                class="rounded-lg border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                {m.group_leave()}
+              </button>
+            </div>
           {:else}
             <button
               onclick={() => (leaveGroupId = group.id)}
@@ -525,7 +574,7 @@
                 {m.group_revoke_co_owner()}
               </button>
             {/if}
-            {#if member.user_id !== currentUserId}
+            {#if canManageMemberRoles && member.user_id !== currentUserId}
               <button
                 onclick={() => (removeTargetUserId = member.user_id)}
                 class="rounded-lg border border-rose-200 px-2 py-1 text-xs font-medium text-rose-300 transition-colors hover:bg-rose-50 dark:border-rose-900 dark:text-rose-400 dark:hover:bg-rose-950"

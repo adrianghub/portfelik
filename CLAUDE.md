@@ -100,7 +100,7 @@ the in-app notification row with push as an optional channel.
 
 **Group plans G2 (2026-06-07):** co-owner-only plan/debt-term writes; member read + settle unchanged.
 
-**Immediate next step:** prod Supabase migrate (`20260614`→`20260623` if not applied); confirm GH Actions prod deploy green; post-deploy smoke on `portfelik.adrianzinko.com`; **Layer 2 ops verify** (`docs/runbooks/ops-access-lockdown.md` §1); sync `dev` from `origin/main` and push.
+**Immediate next step:** ship plans post-merge fixes (debt create errors, slider math, manual tx link, group deep-link, surplus redesign); prod Supabase migrate (`20260618`→`20260623` if not applied) then verify Kredyt create on `portfelik.adrianzinko.com`; sync `dev` from `origin/main` and push.
 
 **Open backlog:**
 
@@ -108,7 +108,7 @@ the in-app notification row with push as an optional channel.
 - Offline write queue (Dexie outbox) - parity gap vs legacy `FirestoreService`, last-write-wins decided - Medium, ⏳.
 - axe-core spine sweep shipped (`e2e/tests/a11y-spine.spec.ts`); broader U7 sweep still optional.
 - Mortgage/debt tracking - **save/debt plan kinds + manual net-worth snapshot shipped**; auto net worth from import still deferred.
-- Prod Supabase advisors: enable Auth leaked-password protection, move `pg_net` out of `public`, add `get_advisors` CI gate — all WARN, ⏳.
+- Prod Supabase advisors: enable Auth leaked-password protection, move `pg_net` out of `public`, add `get_advisors` CI gate - all WARN, ⏳.
 
 **Branch flow:** `main` → prod (`portfelik.adrianzinko.com`); `dev` → staging (`dev.portfelik.pages.dev`). Both branches use one Cloudflare Pages project. Supabase is split: `main` uses production; `dev` must use the dedicated `portfelik-staging` project.
 

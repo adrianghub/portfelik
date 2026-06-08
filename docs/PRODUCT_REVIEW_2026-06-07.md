@@ -1,7 +1,7 @@
-# Portfelik — Product Review
+# Portfelik - Product Review
 
 **Date:** 2026-06-07
-**Trigger:** Pre-launch readiness pass before `dev`→`main` promotion — full review of privacy, security, auth, features, UX, product-direction alignment, and extensibility for gamification / AI.
+**Trigger:** Pre-launch readiness pass before `dev`→`main` promotion - full review of privacy, security, auth, features, UX, product-direction alignment, and extensibility for gamification / AI.
 **Prior review:** none (first `docs/PRODUCT_REVIEW_*.md`)
 
 ---
@@ -14,7 +14,7 @@ end-to-end, the data model is disciplined (all money `numeric(12,2)`, RLS on
 every table, group writes through SECURITY DEFINER RPCs), and CI is strong
 (typecheck, lint, format, secret scan, real-Supabase RLS regression, Playwright
 E2E). The biggest strength is the deterministic-engine spine with clean
-service→RPC layering — it is well-positioned for the planned AI and gamification
+service→RPC layering - it is well-positioned for the planned AI and gamification
 layers without risking financial truth. The most urgent gap is operational, not
 architectural: production Supabase advisors flag a handful of WARN-level
 hardening items (3 unpinned privacy functions, `anon`-executable legacy/seed
@@ -37,7 +37,7 @@ save/debt/spend kinds, settlement via `plan_transaction_links`, net-worth strip,
 monthly surplus, and Belka debt scenarios. Couples collaboration ships with
 role-based co-owner RLS for plans, debt terms, and (in the uncommitted
 migration) transactions. Legacy shopping-list routes are clean `301` redirects
-to `/plans` — no orphaned navigation. Every nav entry resolves on both mobile
+to `/plans` - no orphaned navigation. Every nav entry resolves on both mobile
 pill nav and desktop.
 
 **Gaps:**
@@ -81,7 +81,7 @@ naming.
 
 **Gaps:**
 
-- Local production-readiness work is uncommitted (see A) — the documented "immediate next step" is blocked on this commit.
+- Local production-readiness work is uncommitted (see A) - the documented "immediate next step" is blocked on this commit.
 - No automated `get_advisors` gate in CI; security/perf lints are caught only by manual MCP runs.
 
 ---
@@ -102,7 +102,7 @@ RLS, no exposed tables). Open WARN items:
 **Gaps:**
 
 - 3 privacy helpers (`privacy_amount_bucket`, `privacy_mask_email`, `privacy_mask_text`) are `SECURITY INVOKER` with **no `search_path` pin** (consistent local+prod, not drift). Lower risk than a definer, but should be pinned.
-- `anon` role can execute 3 SECURITY DEFINER RPCs over REST: `complete_shopping_list` (legacy — shopping lists retired), `seed_default_categories`, `seed_default_categories_on_profile`. Revoke `EXECUTE` from `anon`; `complete_shopping_list` should be dropped entirely.
+- `anon` role can execute 3 SECURITY DEFINER RPCs over REST: `complete_shopping_list` (legacy - shopping lists retired), `seed_default_categories`, `seed_default_categories_on_profile`. Revoke `EXECUTE` from `anon`; `complete_shopping_list` should be dropped entirely.
 - Supabase Auth **leaked-password protection is disabled** (HaveIBeenPwned check off). Low impact (prod login is Google OAuth) but a one-toggle fix.
 - Extension `pg_net` installed in `public` schema (hardening WARN).
 
@@ -123,7 +123,7 @@ post-2026-05-30 rollout. max_user_cap enforced at DB level
 
 **Gaps:**
 
-- Legacy `complete_shopping_list` RPC still exists on prod though shopping lists are retired from the app surface — dead, anon-executable attack surface that should be dropped.
+- Legacy `complete_shopping_list` RPC still exists on prod though shopping lists are retired from the app surface - dead, anon-executable attack surface that should be dropped.
 - No automated performance-advisor check; pagination while-loop accumulators (PostgREST 1000-row pages) are fine at current scale but unmonitored.
 
 ---
@@ -135,14 +135,14 @@ runtime-overridable accent (`applyAccent`), typography scale, motion tokens
 (`--duration-fast/base/slow`, `--ease-out-expo`), safe-area-aware mobile action
 spacing, accent-tinted scrollbars. Rich UI primitive set (Button, Input, Dialog,
 Sheet, Badge, Card, EmptyState, ProgressRing/Bar, Fab, Breadcrumbs, Combobox
-variants) — features compose these rather than inline HTML. Svelte 5 runes
+variants) - features compose these rather than inline HTML. Svelte 5 runes
 throughout, TanStack Query v6, Paraglide v2 compile-time i18n, static SPA
 (`adapter-static`, no SSR, no `+server.ts`). Progress rings + surplus/net-worth
 cards already give a gamification-ready visual vocabulary.
 
 **Gaps:**
 
-- `svelte-check 0/0` and `pnpm lint` were not re-run in this read-only pass against the uncommitted changes — must be confirmed green before promotion.
+- `svelte-check 0/0` and `pnpm lint` were not re-run in this read-only pass against the uncommitted changes - must be confirmed green before promotion.
 - `pl.json` edited; Paraglide recompile must be confirmed so new keys resolve in `svelte-check`.
 
 ---
@@ -153,7 +153,7 @@ Textbook layering: route `+page.svelte` → `services/*.ts` → Supabase RPC/Pos
 17 cohesive services, no stray `.ts` at `lib/` root, domain-grouped components
 (admin/dashboard/import/plans/settings/transactions/ui), import engine isolated
 under `lib/import/{banks,csv}`. Static-adapter constraint respected. No orphaned
-routes — legacy paths are intentional redirects. Deterministic engines
+routes - legacy paths are intentional redirects. Deterministic engines
 (amortization, surplus, snapshots, settlement, categorize) are pure and
 testable, cleanly separated from UI and from any future AI layer.
 
@@ -174,7 +174,7 @@ Legal privacy-policy.md present and synced with groups/snapshots/export/push.
 
 **Gaps:**
 
-- `docs/architecture/database.md` is modified but uncommitted — ensure it lands with the new tx co-owner + plan tables.
+- `docs/architecture/database.md` is modified but uncommitted - ensure it lands with the new tx co-owner + plan tables.
 - No ADR yet for the role-based co-owner authorization model (a significant, durable decision worth recording).
 
 ---
@@ -184,18 +184,18 @@ Legal privacy-policy.md present and synced with groups/snapshots/export/push.
 North star alignment is excellent: spending visibility + shared household
 expenses, mobile-first, low friction. The import-first loop is fully realized and
 the "AI proposes, deterministic engines dispose, users decide exceptions" law is
-honored — no probabilistic path can mutate financial truth. Deferred items (Dexie
+honored - no probabilistic path can mutate financial truth. Deferred items (Dexie
 offline outbox, AI suggestions/clustering, split allocation, column encryption)
 are correctly post-launch and not blocking. Overengineering risk is low; the
 deterministic spine + progress-ring/surplus UI is a clean substrate for both
 gamification (streaks, goal progress, badges over existing snapshots) and AI
 (explanations/summaries over existing engines).
 
-The offline-write gap is **safely deferred** — the app is online-first with
+The offline-write gap is **safely deferred** - the app is online-first with
 optimistic TanStack mutations; no evidence of real UX failure, just a parity gap
 vs. the legacy Firestore client. Single highest-impact next feature for the
 target user: **deterministic plan-matching suggestions on settlement** (scores +
-reasons) — it directly compounds the import→settle loop and is the natural first
+reasons) - it directly compounds the import→settle loop and is the natural first
 home for the "AI explains" layer.
 
 ---
@@ -240,10 +240,10 @@ home for the "AI explains" layer.
 
 ### Consciously deferred (and why)
 
-- Dexie offline write outbox — app is online-first with optimistic mutations; no observed UX failure, parity-only gap.
-- AI explanations / clustering / draft suggestions — depends on deterministic plan-matching landing first; no financial-truth risk to defer.
-- Split allocation (tx → multiple plans) — needs design before build; deferring avoids premature schema lock-in.
-- Privacy Layer 3 column encryption — Layer 1 masking covers the launch threat model.
+- Dexie offline write outbox - app is online-first with optimistic mutations; no observed UX failure, parity-only gap.
+- AI explanations / clustering / draft suggestions - depends on deterministic plan-matching landing first; no financial-truth risk to defer.
+- Split allocation (tx → multiple plans) - needs design before build; deferring avoids premature schema lock-in.
+- Privacy Layer 3 column encryption - Layer 1 masking covers the launch threat model.
 
 ---
 

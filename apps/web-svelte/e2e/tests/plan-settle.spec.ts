@@ -202,7 +202,7 @@ test.describe("plan settle page", () => {
         // fetchLinkedTransactions fetching linked tx details
         return route.fulfill({ status: 200, json: [TX1] });
       }
-      // eligible query — return tx-s2 only after link, both before
+      // eligible query - return tx-s2 only after link, both before
       route.fulfill({ status: 200, json: url.includes("type=eq.income") ? [TX_INCOME] : linked ? [TX2] : [TX1, TX2] });
     });
 
@@ -214,7 +214,7 @@ test.describe("plan settle page", () => {
       route.fulfill({ status: 200, json: [] });
     });
 
-    // Link RPC — set flag so subsequent fetches return updated state
+    // Link RPC - set flag so subsequent fetches return updated state
     await page.route(/.*\/rpc\/link_plan_transaction.*/, (route) => {
       linked = true;
       route.fulfill({ status: 200, json: MOCK_LINK });
@@ -238,6 +238,65 @@ test.describe("plan settle page", () => {
       .filter({ has: page.getByRole("heading", { name: "Pasujące transakcje" }) });
     await expect(suggestionsSection.getByText("Zakupy spożywcze na wakacje")).not.toBeVisible();
     await expect(suggestionsSection.getByText("Transport na lotnisko")).toBeVisible();
+  });
+
+  test("manual add opens dialog and links new transaction", async ({ page }) => {
+    let linked = false;
+    const createdTxId = "tx-manual-1";
+
+    await injectFakeSession(page);
+    await mockSupabaseAPI(page);
+
+    await page.route(/.*\/rest\/v1\/plans.*id=eq\.plan-1.*/, (route) => {
+      route.fulfill({ status: 200, json: SETTLE_PLAN });
+    });
+
+    await page.route(/.*\/rest\/v1\/transactions.*/, async (route) => {
+      const request = route.request();
+      if (request.method() === "POST") {
+        return route.fulfill({
+          status: 201,
+          json: {
+            ...TX1,
+            id: createdTxId,
+            description: "Ręczny wydatek",
+            amount: 150,
+          },
+        });
+      }
+      if (linked && request.url().includes("id=in.")) {
+        return route.fulfill({
+          status: 200,
+          json: [{ ...TX1, id: createdTxId, description: "Ręczny wydatek", amount: 150 }],
+        });
+      }
+      return route.fulfill({ status: 200, json: [] });
+    });
+
+    await page.route(/.*\/rest\/v1\/plan_transaction_links.*/, (route) => {
+      const url = route.request().url();
+      if (linked && url.includes(`plan_id=eq.${PLAN_ID}`)) {
+        return route.fulfill({
+          status: 200,
+          json: [{ ...MOCK_LINK, transaction_id: createdTxId }],
+        });
+      }
+      return route.fulfill({ status: 200, json: [] });
+    });
+
+    await page.route(/.*\/rpc\/link_plan_transaction.*/, (route) => {
+      linked = true;
+      route.fulfill({ status: 200, json: { ...MOCK_LINK, transaction_id: createdTxId } });
+    });
+
+    await page.goto(`/plans/${PLAN_ID}/settle`);
+    await page.getByRole("button", { name: /Dodaj ręcznie/ }).click();
+    await page.getByLabel("Kwota").fill("150");
+    await page.getByLabel("Opis").fill("Ręczny wydatek");
+    await page.getByRole("button", { name: "Zapisz" }).click();
+
+    await expect(page.getByText("Transakcja dodana do planu.")).toBeVisible();
+    await expect(page.getByText("Ręczny wydatek")).toBeVisible();
   });
 
   test("after linking, navigating back to detail shows updated progress", async ({ page }) => {

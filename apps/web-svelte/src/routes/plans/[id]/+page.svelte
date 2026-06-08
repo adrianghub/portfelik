@@ -10,6 +10,9 @@
   } from "$lib/services/plan-settlement";
   import DebtPlanDetail from "$lib/components/plans/DebtPlanDetail.svelte";
   import SavePlanDetail from "$lib/components/plans/SavePlanDetail.svelte";
+  import TransactionDialog, {
+    type PlanTransactionContext,
+  } from "$lib/components/transactions/TransactionDialog.svelte";
   import { detectRecurringDebtPayments } from "$lib/services/debt-payment-detect";
   import {
     deriveDebtBalanceFromLinks,
@@ -21,6 +24,7 @@
   import { fetchPlanById, updatePlan, canManagePlan } from "$lib/services/plans";
   import { fetchMyGroupRoles } from "$lib/services/groups";
   import { supabase } from "$lib/supabase";
+  import type { GroupMemberRole, PlanKind, TransactionType } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
   import { polishPluralForm } from "$lib/utils/polish-plural";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
@@ -88,6 +92,7 @@
           kind: planQuery.data.kind ?? "spend",
           budgetAmount: planQuery.data.budget_amount,
           targetAmount: planQuery.data.target_amount,
+          startDate: planQuery.data.start_date,
           endDate: planQuery.data.end_date,
           linkedTransactions: linkedQuery.data ?? [],
           eligibleCount: eligibleQuery.data?.length ?? 0,
@@ -109,6 +114,41 @@
     if (!plan || !currentUserId) return false;
     return canManagePlan(plan, currentUserId, groupRolesQuery.data ?? new Map());
   });
+
+  function groupRoleLabel(role: GroupMemberRole | undefined): string {
+    if (role === "owner") return m.groups_role_owner();
+    if (role === "co_owner") return m.group_role_co_owner();
+    return m.groups_role_member();
+  }
+
+  const myGroupRole = $derived.by(() => {
+    const plan = planQuery.data;
+    if (!plan?.group_id) return undefined;
+    return groupRolesQuery.data?.get(plan.group_id);
+  });
+
+  let showManualTxDialog = $state(false);
+  let manualTxType = $state<TransactionType>("expense");
+
+  const manualPlanContext = $derived.by((): PlanTransactionContext | null => {
+    const plan = planQuery.data;
+    if (!plan) return null;
+    return {
+      planId: id,
+      type: manualTxType,
+      groupId: plan.group_id,
+      categoryId: plan.category_id,
+    };
+  });
+
+  function openManualTx(type: TransactionType) {
+    manualTxType = type;
+    showManualTxDialog = true;
+  }
+
+  function defaultManualTxType(kind: PlanKind): TransactionType {
+    return kind === "save" ? "income" : "expense";
+  }
 
   function settleCtaSubtitle(count: number): string {
     const form = polishPluralForm(count);
@@ -141,14 +181,14 @@
   }));
 
   const saveAdjustMutation = createMutation(() => ({
-    mutationFn: (patch: { target_amount: number; end_date: string }) => {
+    mutationFn: (patch: Partial<{ target_amount: number; end_date: string }>) => {
       const plan = planQuery.data!;
       return updatePlan(id, {
         name: plan.name,
         kind: "save",
         start_date: plan.start_date,
-        end_date: patch.end_date,
-        target_amount: patch.target_amount,
+        end_date: patch.end_date ?? plan.end_date,
+        target_amount: patch.target_amount ?? plan.target_amount ?? 0,
         category_id: plan.category_id,
         group_id: plan.group_id,
       });
@@ -231,10 +271,10 @@
         </div>
         {#if plan.group_id}
           <a
-            href="/settings"
+            href="/settings?tab=groups&group={plan.group_id}"
             class="focus-visible:ring-accent pl-8 text-xs font-medium text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:outline-none"
           >
-            {m.plan_group_roles_link()}
+            {m.plan_group_roles_link({ role: groupRoleLabel(myGroupRole) })}
           </a>
         {/if}
       </div>
@@ -336,29 +376,19 @@
           </p>
         {/if}
 
-        <div class="mt-5 grid gap-2 border-t border-white/5 pt-4 sm:grid-cols-2">
-          <div>
-            <p class="text-eyebrow text-slate-500">{m.plan_metric_income()}</p>
+        {#if plan.kind === "spend" && progress.incomeAmount > 0}
+          <div class="mt-5 border-t border-white/5 pt-4">
+            <p class="text-eyebrow text-slate-500">{m.plan_linked_funding()}</p>
             <p class="mt-1 text-sm font-semibold text-emerald-300 tabular-nums">
               {formatCurrency(progress.incomeAmount)}
             </p>
+            <p class="mt-1 text-xs text-slate-500">{m.plan_linked_funding_hint()}</p>
           </div>
-          <div>
-            <p class="text-eyebrow text-slate-500">{m.plan_metric_balance()}</p>
-            <p
-              class={cn(
-                "mt-1 text-sm font-semibold tabular-nums",
-                progress.balance >= 0 ? "text-emerald-300" : "text-rose-300"
-              )}
-            >
-              {progress.balance >= 0 ? "+" : "−"}{formatCurrency(Math.abs(progress.balance))}
-            </p>
-          </div>
-        </div>
+        {/if}
       </section>
     {/if}
 
-    {#if plan.kind === "spend" && progress && progress.eligibleCount > 0}
+    {#if plan.kind === "spend" && progress}
       <a
         href="/plans/{id}/settle"
         class="bg-accent-gradient focus-visible:ring-accent flex w-full items-center justify-between rounded-2xl p-4 shadow-[0_0_24px_var(--color-accent-glow)] transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none"
@@ -370,25 +400,24 @@
           </span>
           <div>
             <p class="text-lg font-semibold text-slate-900">{m.plan_detail_history_link()}</p>
-            <p class="text-sm text-slate-800">
-              {settleCtaSubtitle(progress.eligibleCount)}
-            </p>
+            {#if progress.eligibleCount > 0}
+              <p class="text-sm text-slate-800">
+                {settleCtaSubtitle(progress.eligibleCount)}
+              </p>
+            {/if}
           </div>
         </div>
         <ChevronRight size={22} class="text-slate-900" aria-hidden="true" />
       </a>
     {/if}
 
-    {#if plan.kind === "spend"}
-      <button
-        type="button"
-        disabled
-        class="w-full rounded-xl border border-dashed border-white/10 px-4 py-2.5 text-sm text-slate-500"
-        title={m.plan_detail_manual_fallback()}
-      >
-        {m.plan_detail_manual_fallback()}
-      </button>
-    {/if}
+    <button
+      type="button"
+      onclick={() => openManualTx(defaultManualTxType(plan.kind ?? "spend"))}
+      class="focus-visible:ring-accent w-full rounded-xl border border-dashed border-white/10 px-4 py-2.5 text-sm text-slate-300 transition-colors hover:border-white/20 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+    >
+      {m.plan_detail_manual_add()}
+    </button>
 
     {#if plan.kind !== "debt" || linkedQuery.data?.length}
       <div class="flex items-center justify-between gap-2">
@@ -416,22 +445,34 @@
             pendingId: unlinkPendingId,
             setpending: (txId) => (unlinkPendingId = txId),
             loading: unlinkMutation.isPending,
+            onmanualadd: () => openManualTx("expense"),
           })}
         {/if}
-        {@render LinkedSection({
-          title: m.plan_linked_income(),
-          transactions: incomes,
-          amountClass: "text-emerald-300",
-          sign: "+",
-          onunlink: (txId) => unlinkMutation.mutate(txId),
-          pendingId: unlinkPendingId,
-          setpending: (txId) => (unlinkPendingId = txId),
-          loading: unlinkMutation.isPending,
-        })}
+        {#if plan.kind !== "spend" || incomes.length > 0}
+          {@render LinkedSection({
+            title: plan.kind === "spend" ? m.plan_linked_funding() : m.plan_linked_income(),
+            transactions: incomes,
+            amountClass: "text-emerald-300",
+            sign: "+",
+            onunlink: (txId) => unlinkMutation.mutate(txId),
+            pendingId: unlinkPendingId,
+            setpending: (txId) => (unlinkPendingId = txId),
+            loading: unlinkMutation.isPending,
+            onmanualadd: () => openManualTx("income"),
+          })}
+        {/if}
       </div>
     {/if}
   {/if}
 </div>
+
+{#if planQuery.data}
+  <TransactionDialog
+    open={showManualTxDialog}
+    onclose={() => (showManualTxDialog = false)}
+    planContext={manualPlanContext}
+  />
+{/if}
 
 {#snippet LinkedSection({
   title,
@@ -442,6 +483,7 @@
   pendingId,
   setpending,
   loading,
+  onmanualadd,
 }: {
   title: string;
   transactions: import("$lib/types").TransactionWithCategory[];
@@ -451,13 +493,23 @@
   pendingId: string | null;
   setpending: (txId: string) => void;
   loading: boolean;
+  onmanualadd: () => void;
 })}
   <section class="space-y-2">
     <h2 class="text-eyebrow text-slate-400">{title}</h2>
     {#if transactions.length === 0}
-      <p class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-400">
-        {m.plan_linked_empty()}
-      </p>
+      <div
+        class="space-y-2 rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-400"
+      >
+        <p>{m.plan_linked_empty()}</p>
+        <button
+          type="button"
+          onclick={onmanualadd}
+          class="focus-visible:ring-accent text-xs font-medium text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+        >
+          {m.plan_detail_manual_add()}
+        </button>
+      </div>
     {:else}
       <ul class="space-y-1">
         {#each transactions as tx (tx.id)}

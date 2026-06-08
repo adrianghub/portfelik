@@ -17,6 +17,10 @@
     /** Render the built-in label. Set false when an external label already
         describes the field (e.g. a form using its own eyebrow labels). */
     showLabel?: boolean;
+    /** How many years before today appear in the year dropdown. */
+    yearsPast?: number;
+    /** How many years after today appear in the year dropdown (e.g. loan payoff). */
+    yearsAhead?: number;
   }
 
   const uid = $props.id();
@@ -28,6 +32,8 @@
     required = false,
     disabled = false,
     showLabel = true,
+    yearsPast = 100,
+    yearsAhead = 35,
   }: Props = $props();
 
   const isDesktop = new MediaQuery("(min-width: 640px)");
@@ -39,11 +45,22 @@
   let dropLeft = $state(0);
   let dropWidth = $state(288);
   let dropAbove = $state(false);
+  let calendarPlaceholder = $state<DateValue>(today(tz));
 
-  const POPOVER_HEIGHT_PX = 340;
+  const POPOVER_HEIGHT_PX = 380;
   const VIEWPORT_PADDING_PX = 8;
 
+  const selectClass =
+    "max-w-[9.5rem] min-w-0 flex-1 rounded-lg border border-white/10 bg-slate-900/80 px-2 py-1 text-sm text-slate-100 capitalize focus:border-accent/40 focus:outline-none";
+
   const selected = $derived(toValue(value));
+
+  const yearOptions = $derived.by(() => {
+    const currentYear = today(tz).year;
+    const from = currentYear - yearsPast;
+    const to = currentYear + yearsAhead;
+    return Array.from({ length: to - from + 1 }, (_, i) => from + i);
+  });
 
   function toValue(iso: string | null | undefined): DateValue | undefined {
     if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return undefined;
@@ -62,6 +79,10 @@
       month: "2-digit",
       year: "numeric",
     }).format(new Date(parsed.year, parsed.month - 1, parsed.day));
+  }
+
+  function syncCalendarPlaceholder() {
+    calendarPlaceholder = selected ?? today(tz);
   }
 
   function handleValueChange(next: DateValue | undefined) {
@@ -100,7 +121,10 @@
 
   function toggleOpen() {
     if (disabled) return;
-    if (!open && isDesktop.current) updatePopoverPosition();
+    if (!open) {
+      syncCalendarPlaceholder();
+      if (isDesktop.current) updatePopoverPosition();
+    }
     open = !open;
   }
 
@@ -115,6 +139,10 @@
     }
     open = false;
   }
+
+  $effect(() => {
+    if (!open) syncCalendarPlaceholder();
+  });
 
   $effect(() => {
     if (typeof window === "undefined") return;
@@ -145,7 +173,7 @@
     type="single"
     value={selected}
     onValueChange={handleValueChange}
-    placeholder={selected ?? today(tz)}
+    bind:placeholder={calendarPlaceholder}
     {locale}
     weekdayFormat="short"
     weekStartsOn={1}
@@ -154,16 +182,28 @@
     calendarLabel={label}
   >
     {#snippet children({ months, weekdays })}
-      <Calendar.Header class="mb-2 flex items-center justify-between">
+      <Calendar.Header class="mb-2 flex items-center justify-between gap-1">
         <Calendar.PrevButton
-          class="rounded-lg p-1.5 text-slate-300 transition-colors hover:bg-white/5"
+          class="shrink-0 rounded-lg p-1.5 text-slate-300 transition-colors hover:bg-white/5"
           aria-label={m.day_picker_previous_month()}
         >
           <ChevronLeft size={16} aria-hidden="true" />
         </Calendar.PrevButton>
-        <Calendar.Heading class="text-sm font-medium text-slate-100 capitalize" />
+        <div class="flex min-w-0 flex-1 items-center justify-center gap-1">
+          <Calendar.MonthSelect
+            class={selectClass}
+            monthFormat="long"
+            aria-label={m.day_picker_select_month()}
+          />
+          <Calendar.YearSelect
+            class={selectClass}
+            years={yearOptions}
+            yearFormat="numeric"
+            aria-label={m.day_picker_select_year()}
+          />
+        </div>
         <Calendar.NextButton
-          class="rounded-lg p-1.5 text-slate-300 transition-colors hover:bg-white/5"
+          class="shrink-0 rounded-lg p-1.5 text-slate-300 transition-colors hover:bg-white/5"
           aria-label={m.day_picker_next_month()}
         >
           <ChevronRight size={16} aria-hidden="true" />

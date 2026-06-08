@@ -1,7 +1,8 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
   import { supabase } from "$lib/supabase";
-  import type { TransactionWithCategory } from "$lib/types";
+  import { canManageTransaction } from "$lib/services/transaction-permissions";
+  import type { GroupMemberRole, TransactionWithCategory } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
   import { recurrenceSummary } from "$lib/recurrence";
   import { createQuery } from "@tanstack/svelte-query";
@@ -10,17 +11,29 @@
   interface Props {
     transaction: TransactionWithCategory | null;
     currentUserId?: string | null;
+    groupRoles?: Map<string, GroupMemberRole>;
     onclose: () => void;
     onedit?: (tx: TransactionWithCategory) => void;
     ondelete?: (id: string) => void;
   }
-  let { transaction, currentUserId, onclose, onedit, ondelete }: Props = $props();
+  let {
+    transaction,
+    currentUserId,
+    groupRoles = new Map(),
+    onclose,
+    onedit,
+    ondelete,
+  }: Props = $props();
 
-  // New RLS lets owner OR any group member of a shared row update/delete it.
-  // Visibility implies edit rights, so the gate mirrors the row's visibility:
-  // own row, or group-shared (we wouldn't see it otherwise).
   const canEdit = $derived(
-    !!transaction && (transaction.user_id === currentUserId || transaction.group_id !== null)
+    !!transaction && !!currentUserId && canManageTransaction(transaction, currentUserId, groupRoles)
+  );
+  const isSharedReadonly = $derived(
+    !!transaction &&
+      !!transaction.group_id &&
+      !!currentUserId &&
+      transaction.user_id !== currentUserId &&
+      !canEdit
   );
 
   const statusClass: Record<string, string> = {
@@ -173,6 +186,12 @@
         </div>
       {/if}
     </div>
+
+    {#if isSharedReadonly}
+      <p class="border-t border-white/5 px-5 py-4 text-xs text-slate-500">
+        {m.transaction_shared_readonly_hint()}
+      </p>
+    {/if}
 
     {#if canEdit && (onedit || ondelete)}
       <div class="flex gap-2 border-t border-white/5 px-5 py-4">

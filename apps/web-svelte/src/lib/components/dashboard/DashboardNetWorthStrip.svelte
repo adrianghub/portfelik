@@ -61,7 +61,7 @@
         </p>
         <p class="mt-1 text-xs text-slate-500">
           {m.dashboard_net_worth_subtitle({
-            date: netWorth.asOfDate ? formatDate(netWorth.asOfDate) : "—",
+            date: netWorth.asOfDate ? formatDate(netWorth.asOfDate) : "-",
           })}
         </p>
         <p class="mt-1 text-xs text-slate-500">{m.dashboard_net_worth_manual_note()}</p>

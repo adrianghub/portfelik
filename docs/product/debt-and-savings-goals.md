@@ -1,6 +1,6 @@
 # Debt and savings goals (inside Plany)
 
-User-facing **Plany** covers three plan kinds on one spine module—no separate
+User-facing **Plany** covers three plan kinds on one spine module-no separate
 „Cele” nav item.
 
 ## Plan kinds
@@ -41,7 +41,7 @@ raty** / **Spłać / nadpłać** (debt).
 
 ## Manual net worth (D1)
 
-- `financial_snapshots`: one row per user — `cash_amount`, `investments_amount`,
+- `financial_snapshots`: one row per user - `cash_amount`, `investments_amount`,
   `real_estate_amount`, `as_of_date` (all manual entry).
 - **Majątek netto** on `/plans` = sum(assets) − sum(`plan_debt_terms.current_balance`).
 - Copy states values are user-entered; Portfelik does not derive bank balances from import.
@@ -49,18 +49,23 @@ raty** / **Spłać / nadpłać** (debt).
 
 ## Monthly surplus (D2)
 
-**Bilans miesiąca** on `/plans` (below majątek netto):
+**Nadwyżka planistyczna** on `/plans` (below majątek netto) - distinct from Pulpit
+bilans hero:
 
 ```
 bilans = wpływy − wydatki   (ten miesiąc, z importu / wpisów)
 po celach = bilans − suma monthlyNeeded aktywnych celów save
 ```
 
-- Raty kredytów **nie** odejmujemy ponownie — przy import-first wydatków rata jest
+- Compact three-column strip: przychody · wydatki · bilans miesiąca (small).
+- **Primary highlight:** **Po celach** (`afterSaveGoals`) when user tracks active save
+  goals; green/red card with tempo context.
+- Without save goals: informational copy that free surplus equals month cashflow.
+- Raty kredytów **nie** odejmujemy ponownie - przy import-first wydatków rata jest
   już w wydatkach; karta pokazuje raty z planów tylko jako informację.
 - Save pace from `computePlanProgress().monthlyNeeded` on active save plans
   (`start_date ≤ today ≤ end_date`).
-- Secondary line **Po odłożeniu na cele** when user tracks save goals.
+- Subtle link to `/transactions` for drill-down.
 
 ## Group collaboration (G1 + G2)
 
@@ -77,6 +82,6 @@ po celach = bilans − suma monthlyNeeded aktywnych celów save
 
 ## Lifecycle example
 
-1. `save` „Nowy samochód” — odkładasz via linked wpływy.
-2. After purchase on credit — new `debt` „Kredyt na auto” under **Kredyty**.
+1. `save` „Nowy samochód” - odkładasz via linked wpływy.
+2. After purchase on credit - new `debt` „Kredyt na auto” under **Kredyty**.
 3. Mortgage runs as parallel `debt` „Kredyt hipoteczny”.

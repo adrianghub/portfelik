@@ -1,0 +1,105 @@
+import { describe, expect, it } from "vitest";
+import { buildPlanningQueueActions } from "$lib/services/planning-queue";
+import { computeMonthlySurplus } from "$lib/services/financial-surplus";
+import type { PlanDebtTerms, PlanSummary } from "$lib/types";
+
+function summary(overrides: Partial<PlanSummary> = {}): PlanSummary {
+  return {
+    id: "p1",
+    name: "Plan",
+    kind: "spend",
+    start_date: "2026-01-01",
+    end_date: "2026-12-31",
+    budget_amount: 5000,
+    target_amount: null,
+    category_id: null,
+    group_id: null,
+    user_id: "u1",
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
+    spentAmount: 0,
+    incomeAmount: 0,
+    savedAmount: 0,
+    linkedCount: 0,
+    eligibleCount: 0,
+    monthlyNeeded: null,
+    monthlyActual: null,
+    bucket: "active",
+    ...overrides,
+  };
+}
+
+describe("buildPlanningQueueActions", () => {
+  it("prioritizes settle proposals when eligible transactions exist", () => {
+    const actions = buildPlanningQueueActions({
+      summaries: [summary({ id: "spend-1", name: "Wakacje", eligibleCount: 6 })],
+      monthlySurplus: computeMonthlySurplus({
+        totalIncome: 10_000,
+        totalExpenses: 4000,
+        debtMonthlyPayments: 0,
+        saveMonthlyNeeded: 0,
+      }),
+      debtTerms: {},
+    });
+    expect(actions.some((a) => a.id === "settle")).toBe(true);
+    expect(actions[0]?.href).toBe("/plans/spend-1/settle");
+  });
+
+  it("includes off-track save goal chip", () => {
+    const actions = buildPlanningQueueActions({
+      summaries: [
+        summary({
+          id: "save-1",
+          name: "Edukacja",
+          kind: "save",
+          monthlyNeeded: 50_000,
+          monthlyActual: 1000,
+        }),
+      ],
+      monthlySurplus: computeMonthlySurplus({
+        totalIncome: 8000,
+        totalExpenses: 3000,
+        debtMonthlyPayments: 0,
+        saveMonthlyNeeded: 50_000,
+      }),
+      debtTerms: {},
+    });
+    expect(actions.some((a) => a.id === "save-save-1")).toBe(true);
+  });
+
+  it("caps at three actions", () => {
+    const debtTerms: Record<string, PlanDebtTerms> = {
+      "debt-1": {
+        plan_id: "debt-1",
+        original_amount: 100_000,
+        current_balance: 90_000,
+        annual_rate: 5,
+        monthly_payment: 1200,
+        payment_day: null,
+        anchor_transaction_id: null,
+        created_at: "",
+        updated_at: "",
+      },
+    };
+    const actions = buildPlanningQueueActions({
+      summaries: [
+        summary({ id: "spend-1", eligibleCount: 3 }),
+        summary({
+          id: "save-1",
+          kind: "save",
+          monthlyNeeded: 10_000,
+          monthlyActual: 0,
+        }),
+        summary({ id: "debt-1", kind: "debt" }),
+      ],
+      monthlySurplus: computeMonthlySurplus({
+        totalIncome: 0,
+        totalExpenses: 0,
+        debtMonthlyPayments: 1200,
+        saveMonthlyNeeded: 10_000,
+      }),
+      debtTerms,
+    });
+    expect(actions.length).toBeLessThanOrEqual(3);
+  });
+});

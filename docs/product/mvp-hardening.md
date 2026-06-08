@@ -26,7 +26,7 @@ Public launch program (2026-06). Product doctrine lives in
 - Privacy Layer 1 masked admin diagnostics.
 - Import combobox + `bank-import.ts` service/component tests; bank-import Playwright 19/19.
 
-## Public launch gate (Phase 5 — **merged to `main` 2026-06-07**)
+## Public launch gate (Phase 5 - **merged to `main` 2026-06-07**)
 
 Shipped on `main` (`41717c7`):
 

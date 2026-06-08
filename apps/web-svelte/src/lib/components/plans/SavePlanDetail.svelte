@@ -1,7 +1,7 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
   import type { PlanSettlementProgress } from "$lib/services/plan-settlement";
-  import { monthsRemaining } from "$lib/services/plans";
+  import { addCalendarMonths, calendarMonthsUntil, todayIso } from "$lib/services/plans";
   import type { Plan } from "$lib/types";
   import { formatCurrency } from "$lib/utils";
   import { ChevronRight } from "lucide-svelte";
@@ -9,7 +9,9 @@
   interface Props {
     plan: Plan;
     progress: PlanSettlementProgress;
-    onAdjust?: (patch: { target_amount: number; end_date: string }) => void | Promise<void>;
+    onAdjust?: (
+      patch: Partial<{ target_amount: number; end_date: string }>
+    ) => void | Promise<void>;
     adjusting?: boolean;
   }
 
@@ -30,20 +32,15 @@
 
   $effect(() => {
     sliderTarget = plan.target_amount ?? 60000;
-    sliderMonths = monthsRemaining(plan.end_date);
+    sliderMonths = Math.max(3, calendarMonthsUntil(plan.end_date));
   });
 
-  function endDateFromMonths(months: number): string {
-    const d = new Date();
-    d.setMonth(d.getMonth() + months);
-    return d.toISOString().slice(0, 10);
+  function emitTargetAdjust() {
+    onAdjust?.({ target_amount: sliderTarget });
   }
 
-  function emitAdjust() {
-    onAdjust?.({
-      target_amount: sliderTarget,
-      end_date: endDateFromMonths(sliderMonths),
-    });
+  function emitDeadlineAdjust() {
+    onAdjust?.({ end_date: addCalendarMonths(todayIso(), sliderMonths) });
   }
 </script>
 
@@ -99,7 +96,7 @@
           max="200000"
           step="1000"
           bind:value={sliderTarget}
-          onchange={emitAdjust}
+          onchange={emitTargetAdjust}
           disabled={adjusting}
           class="accent-accent mt-2 w-full"
         />
@@ -115,7 +112,7 @@
           max="60"
           step="1"
           bind:value={sliderMonths}
-          onchange={emitAdjust}
+          onchange={emitDeadlineAdjust}
           disabled={adjusting}
           class="accent-accent mt-2 w-full"
         />
@@ -142,7 +139,13 @@
     {/if}
   </div>
 
-  {#if !onTrack && gap != null && gap > 0}
+  {#if progress.monthsRemaining != null && progress.monthsRemaining <= 1}
+    <p
+      class="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2.5 text-sm text-rose-200"
+    >
+      {m.plan_save_deadline_urgent()}
+    </p>
+  {:else if !onTrack && gap != null && gap > 0}
     <p
       class="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-200"
     >
