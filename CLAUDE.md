@@ -101,15 +101,19 @@ the in-app notification row with push as an optional channel.
 
 **Group plans G2 (2026-06-07):** co-owner-only plan/debt-term writes; member read + settle unchanged.
 
-**Immediate next step:** ship plans post-merge fixes (debt create errors, slider math, manual tx link, group deep-link, surplus redesign); prod Supabase migrate (`20260618`→`20260623` if not applied) then verify Kredyt create on `portfelik.adrianzinko.com`; sync `dev` from `origin/main` and push.
+**Trust hardening (2026-06-08):** ledger vs forecast cashflow, plan settlement policy, shared-tx write UI gates ([#111](https://github.com/adrianghub/portfelik/pull/111) / [#112](https://github.com/adrianghub/portfelik/pull/112) on `main`).
+
+**Launch certification (2026-06-08):** gates green; manual prod/staging verification done; **feature freeze** until post-launch issues opened.
+
+**Immediate next step:** monitor prod/staging; complete optional advisor dashboard toggles (leaked-password on prod+staging); invite beta couples only after group-role E2E + RLS trust tests land.
 
 **Open backlog:**
 
-- Vault secret rotation runbook (`docs/runbooks/secret-rotation.md`) - authored ✅; ops-lockdown runbook (`docs/runbooks/ops-access-lockdown.md`) - authored ✅.
+- Vault secret rotation runbook (`docs/runbooks/secret-rotation.md`) - authored ✅; ops-lockdown runbook (`docs/runbooks/ops-access-lockdown.md`) - authored ✅; Layer 2 audit stamped 2026-06-08 ✅.
 - Offline write queue (Dexie outbox) - parity gap vs legacy `FirestoreService`, last-write-wins decided - Medium, ⏳.
 - axe-core spine sweep shipped (`e2e/tests/a11y-spine.spec.ts`); broader U7 sweep still optional.
 - Mortgage/debt tracking - **save/debt plan kinds + manual net-worth snapshot shipped**; auto net worth from import still deferred.
-- Prod Supabase advisors: enable Auth leaked-password protection, move `pg_net` out of `public`, add `get_advisors` CI gate - all WARN, ⏳.
+- Prod Supabase advisors: leaked-password protection (dashboard toggle, prod+staging) - ⏳ operator; `pg_net` schema migration + extensions-in-public CI gate - ✅ (`20260625`, `scripts/check-security-advisors.sh`).
 
 **Branch flow:** `main` → prod (`portfelik.adrianzinko.com`); `dev` → staging (`dev.portfelik.pages.dev`). Both branches use one Cloudflare Pages project. Supabase is split: `main` uses production; `dev` must use the dedicated `portfelik-staging` project.
 

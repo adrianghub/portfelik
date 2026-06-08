@@ -1,6 +1,6 @@
 # Operational access lockdown runbook (Layer 2)
 
-Last updated: 2026-06-05
+Last updated: 2026-06-08
 
 This is **Layer 2** of the three-layer privacy posture described in
 `docs/architecture/flows/admin-diagnostics-privacy.md`:
@@ -69,10 +69,25 @@ security-critical: leaking it defeats Layer-1 admin masking.
 
 ---
 
+## 2b. Supabase Auth hardening (dashboard toggles)
+
+Operator-only; not enforced in app code.
+
+| Toggle | Where | Prod | Staging |
+| --- | --- | --- | --- |
+| Leaked-password protection (HaveIBeenPwned) | Dashboard → Authentication → Providers → Email | Enable | Enable |
+
+Low impact while Google OAuth is primary, but enable before inviting email/password beta users.
+
+Re-run **Database → Advisors → Security** after migrations land; CI runs
+`scripts/check-security-advisors.sh` (extensions-not-in-public) on every PR.
+
+---
+
 ## 3. Service-role / client-exposure audit (Layer-2 gate)
 
 Run before every beta-tester onboarding wave and after any change touching env
-plumbing, CI, or the Supabase client. Last run: **2026-06-05 - clean**.
+plumbing, CI, or the Supabase client. Last run: **2026-06-08 - clean** (launch certification).
 
 ```bash
 # A. service_role must never appear in client src (server-only files excepted)
