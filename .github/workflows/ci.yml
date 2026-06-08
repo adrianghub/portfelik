@@ -88,6 +88,9 @@ jobs:
         working-directory: apps/web-svelte
         run: pnpm test:rls
 
+      - name: Security advisors (fail on extensions in public)
+        run: bash scripts/check-security-advisors.sh
+
       - name: Stop local Supabase stack
         if: always()
         run: supabase stop --no-backup

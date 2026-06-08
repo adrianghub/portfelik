@@ -765,6 +765,7 @@ export type Database = {
         Row: {
           amount: number;
           category_id: string;
+          counterparty: string | null;
           created_at: string;
           currency: string;
           date: string;
@@ -786,6 +787,7 @@ export type Database = {
         Insert: {
           amount: number;
           category_id: string;
+          counterparty?: string | null;
           created_at?: string;
           currency?: string;
           date: string;
@@ -807,6 +809,7 @@ export type Database = {
         Update: {
           amount?: number;
           category_id?: string;
+          counterparty?: string | null;
           created_at?: string;
           currency?: string;
           date?: string;

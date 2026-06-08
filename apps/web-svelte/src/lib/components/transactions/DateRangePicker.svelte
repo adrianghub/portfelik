@@ -11,7 +11,7 @@
     today,
     type DateValue,
   } from "@internationalized/date";
-  import { ChevronLeft, ChevronRight } from "lucide-svelte";
+  import { ChevronLeft, ChevronRight, X } from "lucide-svelte";
   import { MediaQuery } from "svelte/reactivity";
   import { untrack } from "svelte";
   import Sheet from "$lib/components/ui/Sheet.svelte";
@@ -23,9 +23,11 @@
     startDate: string | null;
     endDate: string | null;
     onchange: (start: string, end: string) => void;
+    clearable?: boolean;
+    onclear?: () => void;
   }
 
-  let { label, startDate, endDate, onchange }: Props = $props();
+  let { label, startDate, endDate, onchange, clearable = false, onclear }: Props = $props();
 
   const isDesktop = new MediaQuery("(min-width: 640px)");
   const locale = "pl";
@@ -288,33 +290,47 @@
 <svelte:window onclick={clickOutside} />
 
 <div class="relative shrink-0" data-date-range-picker>
-  <button
-    type="button"
-    onclick={() => (open = !open)}
-    class="focus-visible:ring-accent flex h-9 items-center gap-2 rounded-full border border-white/10 bg-slate-900/60 px-3.5 text-sm text-slate-200 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
-    aria-haspopup="dialog"
-    aria-expanded={open}
+  <div
+    class="flex h-9 items-center gap-1 rounded-full border border-white/10 bg-slate-900/60 pr-1 pl-3.5 text-sm text-slate-200 backdrop-blur"
   >
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      aria-hidden="true"
-      ><rect width="18" height="18" x="3" y="4" rx="2" ry="2" /><line
-        x1="16"
-        x2="16"
-        y1="2"
-        y2="6"
-      /><line x1="8" x2="8" y1="2" y2="6" /><line x1="3" x2="21" y1="10" y2="10" /></svg
+    <button
+      type="button"
+      onclick={() => (open = !open)}
+      class="focus-visible:ring-accent flex min-w-0 flex-1 items-center gap-2 rounded-full py-1.5 transition-colors hover:text-white focus-visible:ring-2 focus-visible:outline-none"
+      aria-haspopup="dialog"
+      aria-expanded={open}
     >
-    <span class="capitalize">{label}</span>
-  </button>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+        ><rect width="18" height="18" x="3" y="4" rx="2" ry="2" /><line
+          x1="16"
+          x2="16"
+          y1="2"
+          y2="6"
+        /><line x1="8" x2="8" y1="2" y2="6" /><line x1="3" x2="21" y1="10" y2="10" /></svg
+      >
+      <span class="capitalize">{label}</span>
+    </button>
+    {#if clearable && onclear}
+      <button
+        type="button"
+        onclick={onclear}
+        class="focus-visible:ring-accent shrink-0 rounded-full p-0.5 text-slate-400 transition-colors hover:bg-white/10 hover:text-slate-100 focus-visible:ring-2 focus-visible:outline-none"
+        aria-label={m.transactions_date_clear()}
+      >
+        <X size={14} strokeWidth={2} aria-hidden="true" />
+      </button>
+    {/if}
+  </div>
 
   {#if open && isDesktop.current}
     <div

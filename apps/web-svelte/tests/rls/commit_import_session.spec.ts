@@ -269,6 +269,30 @@ describe("RPC: commit_import_session", () => {
     expect(tx.data?.category_id).toBe(inne.data?.id);
   });
 
+  it("copies import row counterparty onto committed transaction", async () => {
+    const seed = await seedAccountAndSession();
+    const merchant = `${SENTINEL} Biedronka`;
+    await insertRow(seed.sessionId, {
+      rowIndex: 0,
+      decision: "import",
+      categoryId: seed.categoryId,
+      description: `${SENTINEL} zakupy`,
+      counterparty: merchant,
+    });
+
+    const { error } = await callCommit(ctx.userA.client, seed.sessionId);
+    expect(error).toBeNull();
+
+    const tx = await ctx.admin
+      .from("transactions")
+      .select("counterparty, description")
+      .eq("user_id", ctx.userA.userId)
+      .eq("description", `${SENTINEL} zakupy`)
+      .single();
+    expect(tx.error).toBeNull();
+    expect(tx.data?.counterparty).toBe(merchant);
+  });
+
   it("happy path: counts skipped + duplicate + inserted; tx + link created", async () => {
     const seed = await seedAccountAndSession();
     await insertRow(seed.sessionId, {

@@ -88,7 +88,7 @@
   >
     <div class="flex items-center justify-between border-b border-white/5 px-5 py-4">
       <h2 class="text-base font-semibold text-slate-100">
-        {transaction.description}
+        {transaction.counterparty?.trim() || transaction.description}
         {#if transaction.is_recurring}
           <span class="ml-1 text-sm font-normal text-slate-400" title="Cykliczna">↻</span>
         {/if}
@@ -121,6 +121,13 @@
           )}
         </p>
       </div>
+
+      {#if transaction.counterparty?.trim() && transaction.description}
+        <div>
+          <p class="text-eyebrow mb-1 text-slate-400">{m.transaction_form_description()}</p>
+          <p class="text-sm text-slate-100">{transaction.description}</p>
+        </div>
+      {/if}
 
       <!-- Meta grid -->
       <dl class="grid grid-cols-2 gap-x-4 gap-y-4 text-sm">

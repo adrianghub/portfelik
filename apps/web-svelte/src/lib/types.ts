@@ -35,6 +35,7 @@ export interface Transaction {
   id: string;
   amount: number;
   currency: string;
+  counterparty: string | null;
   description: string;
   date: string;
   type: TransactionType;

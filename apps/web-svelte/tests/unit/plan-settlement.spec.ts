@@ -14,6 +14,7 @@ function tx(overrides: Partial<TransactionWithCategory> = {}): TransactionWithCa
     id: "tx-1",
     amount: 200,
     currency: "PLN",
+    counterparty: null,
     description: "Test transaction",
     date: "2026-07-05",
     type: "expense",

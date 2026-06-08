@@ -38,13 +38,21 @@ Shipped on `main` (`41717c7`):
 - Security hardening migration `20260623000000` (privacy `search_path`, seed RPC revoke).
 - Shopping lists retired → Plany ([#103](https://github.com/adrianghub/portfelik/issues/103) closed).
 
-**Post-merge ops (before calling launch done):**
+**Post-merge ops — completed 2026-06-08:**
 
-1. Apply pending migrations on **prod** Supabase (through `20260623000000`).
-2. Confirm production Pages deploy + smoke on `portfelik.adrianzinko.com`.
-3. **Layer 2 ops verify** (human): `docs/runbooks/ops-access-lockdown.md` §1 on prod project.
-4. Sync `dev` from `origin/main`, run staging gates, push `dev`.
-5. Re-run `get_advisors(security)` on prod; optional dashboard fixes (leaked-password, `pg_net`).
+1. Prod migrations through `20260624000000` applied (operator-verified).
+2. Production deploy + smoke on `portfelik.adrianzinko.com` confirmed.
+3. Layer 2 ops verify: `docs/runbooks/ops-access-lockdown.md` §1 stamped 2026-06-08.
+4. `dev` synced with `main`; CI gates green (RLS 241, Playwright 54).
+5. Trust hardening on `main`: ledger/forecast semantics, settlement policy, shared-tx UI gates ([#111](https://github.com/adrianghub/portfelik/pull/111)).
+
+**Launch certified 2026-06-08.** New features frozen; post-launch work is certification debt (group-role tests, advisor WARNs) only.
+
+## Trust hardening certification (2026-06-08)
+
+- RLS trust tests: `remove_group_member`, group tx delete, co-owner plan delete, lifecycle RPC denials.
+- Group-role E2E: member readonly, co-owner edit, member settle.
+- Scope polish: dashboard upcoming list, plans surplus filter, category combobox prefetch, seed FK cleanup.
 
 ## Deferred (post-launch / V1+)
 
