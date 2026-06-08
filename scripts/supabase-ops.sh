@@ -7,6 +7,9 @@ ENV_FILE="$ROOT_DIR/supabase/.env"
 TYPES_FILE="$ROOT_DIR/apps/web-svelte/src/lib/supabase.types.ts"
 EDGE_FUNCTIONS=(send-push send-admin-summary sync-user-role)
 
+# shellcheck source=load-local-env.sh
+source "$ROOT_DIR/scripts/load-local-env.sh"
+
 load_env_file() {
   local line
   local name
