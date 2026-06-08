@@ -113,7 +113,7 @@ the in-app notification row with push as an optional channel.
 - Offline write queue (Dexie outbox) - parity gap vs legacy `FirestoreService`, last-write-wins decided - Medium, ⏳.
 - axe-core spine sweep shipped (`e2e/tests/a11y-spine.spec.ts`); broader U7 sweep still optional.
 - Mortgage/debt tracking - **save/debt plan kinds + manual net-worth snapshot shipped**; auto net worth from import still deferred.
-- Prod Supabase advisors: leaked-password protection (dashboard toggle, prod+staging) - ⏳ operator; `pg_net` schema migration + extensions-in-public CI gate - ✅ (`20260625`, `scripts/check-security-advisors.sh`).
+- Prod Supabase advisors: leaked-password protection (dashboard toggle, prod+staging) - ⏳ operator; `pg_net` in public (0014) - ⏳ re-enable via Dashboard on cloud (SET SCHEMA unsupported); extensions-in-public CI gate - ✅ (`scripts/check-security-advisors.sh`, excludes `pg_net`).
 
 **Branch flow:** `main` → prod (`portfelik.adrianzinko.com`); `dev` → staging (`dev.portfelik.pages.dev`). Both branches use one Cloudflare Pages project. Supabase is split: `main` uses production; `dev` must use the dedicated `portfelik-staging` project.
 

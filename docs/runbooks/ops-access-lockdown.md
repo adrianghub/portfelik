@@ -80,7 +80,8 @@ Operator-only; not enforced in app code.
 Low impact while Google OAuth is primary, but enable before inviting email/password beta users.
 
 Re-run **Database → Advisors → Security** after migrations land; CI runs
-`scripts/check-security-advisors.sh` (extensions-not-in-public) on every PR.
+`scripts/check-security-advisors.sh` (pgcrypto-not-in-public regression on the
+local stack; `pg_net` advisor 0014 on hosted projects is Dashboard-only).
 
 ---
 
