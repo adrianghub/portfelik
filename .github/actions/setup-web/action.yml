@@ -15,4 +15,7 @@ runs:
 
     - name: Install dependencies
       shell: bash
+      env:
+        # E2E job installs Chromium explicitly with --with-deps; skip postinstall download.
+        PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
       run: pnpm install --frozen-lockfile
