@@ -597,7 +597,7 @@ for the full model and threat scope.
 | `process-recurring-transactions` | `0 23 * * *` (daily 23:00 UTC)                      | Materialises due rows for recurring templates. Dedup keyed on `recurring_template_id` and target date.            |
 | `update_transaction_statuses`    | `0 5 * * *` (daily 05:00 UTC)                       | Flips `status` based on `date` vs `now()`.                                                                        |
 | `process-bank-import-reminders`  | `0 8 * * *` (daily 08:00 UTC)                       | Creates user-enabled reminders to upload a fresh bank CSV when the latest committed import is older than cadence. |
-| `send-admin-summary` dispatch    | `0 7 * * 1` (Monday 07:00 UTC ≈ 08:00/09:00 Warsaw) | `pg_net.http_post` → `send-admin-summary` Edge Function with Vault Bearer.                                        |
+| `send-admin-summary` dispatch    | `0 7 * * *` (daily 07:00 UTC; sends on Warsaw Mon or day after import reminder) | `pg_net.http_post` → `send-admin-summary` Edge Function with Vault Bearer. |
 
 DST drift is acknowledged: pg_cron runs on UTC, so the local-Warsaw fire time shifts by one hour around DST transitions.
 

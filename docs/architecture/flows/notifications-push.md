@@ -53,7 +53,7 @@ Source:
 | `process_recurring_transactions` | daily cron                                     | `transaction_reminder`                        |
 | `update_transaction_statuses`    | daily cron                                     | `transaction_upcoming`, `transaction_overdue` |
 | `process_bank_import_reminders`  | daily cron                                     | `bank_import_reminder`                        |
-| `send-admin-summary`             | weekly cron, fans across admins                | `transaction_summary`                         |
+| `send-admin-summary`             | daily cron (Warsaw Mon or day after import reminder), fans across admins | `transaction_summary` |
 
 Every one of these ultimately just inserts a `notifications` row. The push trigger is the **single shared dispatcher** - there is no per-source HTTP indirection.
 

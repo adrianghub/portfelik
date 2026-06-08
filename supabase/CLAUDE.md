@@ -72,7 +72,7 @@ All cron expressions are evaluated in **UTC**. Europe/Warsaw is UTC+1 in winter 
 | -------------------------------- | -------------------------------------- | ---------------------------------- | ----------------------------------------------------- |
 | `process-recurring-transactions` | `0 23 1 * *` (23:00 UTC, 1st of month) | 00:00 CET (2nd) / 01:00 CEST (2nd) | `20260425000000_phase5_notifications_push.sql:455`    |
 | `update-transaction-statuses`    | `0 5 * * *` (05:00 UTC daily)          | 06:00 CET / 07:00 CEST             | `20260425000000_phase5_notifications_push.sql:461`    |
-| `send-admin-summary`             | `0 7 * * 1` (07:00 UTC, Mondays)       | 08:00 CET / 09:00 CEST             | `20260425000001_phase5_2_edge_function_hooks.sql:151` |
+| `send-admin-summary`             | `0 7 * * *` (07:00 UTC daily)          | 08:00 CET / 09:00 CEST             | `20260614000000_weekly_summary_daily_schedule.sql` (sends on Warsaw Mon or day after import reminder) |
 
 If exact local-time firing becomes important (e.g. always 09:00 Warsaw regardless of DST), switch to `cron.schedule_in_database(...)` with a timezone argument - this requires the `pg_cron.timezone` GUC set per database.
 
