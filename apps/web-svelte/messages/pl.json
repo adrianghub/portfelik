@@ -866,6 +866,7 @@
   "plan_save_slider_months": "za {count} mies.",
   "plan_save_link_cta": "Powiąż wpłaty",
   "plan_debt_remaining_hero": "Pozostało do spłaty",
+  "plan_debt_balance_accrued_note": "+{amount} odsetek dziennie od {date} ({days} dni)",
   "plan_debt_stats_rate": "Oprocentowanie",
   "plan_debt_stats_payment": "Rata",
   "plan_debt_stats_daily_interest": "Odsetki",

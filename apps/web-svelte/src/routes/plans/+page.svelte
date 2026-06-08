@@ -733,12 +733,20 @@
     </div>
 
     <div class="grid gap-3 sm:grid-cols-2">
-      <DayPicker id="plan-start" bind:value={startDate} label={m.plan_form_start_date()} required />
+      <DayPicker
+        id="plan-start"
+        bind:value={startDate}
+        label={m.plan_form_start_date()}
+        yearsPast={planKind === "debt" ? 50 : 100}
+        yearsAhead={planKind === "debt" ? 1 : 15}
+        required
+      />
       <DayPicker
         id="plan-end"
         bind:value={endDate}
         label={planKind === "debt" ? m.plan_form_end_date_debt() : m.plan_form_end_date()}
-        yearsAhead={planKind === "debt" ? 5 : 15}
+        yearsPast={planKind === "debt" ? 0 : 100}
+        yearsAhead={planKind === "debt" ? 100 : 15}
         required
       />
     </div>
