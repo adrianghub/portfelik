@@ -31,16 +31,14 @@
     queryFn: fetchFinancialSnapshot,
   }));
 
-  const netWorthAsOf = $derived(snapshotQuery.data?.as_of_date ?? new Date().toISOString().slice(0, 10));
+  const netWorthAsOf = $derived(
+    snapshotQuery.data?.as_of_date ?? new Date().toISOString().slice(0, 10)
+  );
 
   const netWorth = $derived(
     computeNetWorth(
       snapshotQuery.data ?? null,
-      collectNetWorthDebtBalances(
-        plansQuery.data ?? [],
-        debtTermsQuery.data ?? {},
-        netWorthAsOf
-      )
+      collectNetWorthDebtBalances(plansQuery.data ?? [], debtTermsQuery.data ?? {}, netWorthAsOf)
     )
   );
 

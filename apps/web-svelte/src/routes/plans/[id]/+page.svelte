@@ -416,9 +416,7 @@
         {linkedExpenseTotal}
         onSyncBalance={canManage ? () => syncBalanceMutation.mutate() : undefined}
         onTermsSave={canManage ? (input) => debtTermsMutation.mutate(input) : undefined}
-        onPlanDatesSave={canManage
-          ? (dates) => debtPlanDatesMutation.mutate(dates)
-          : undefined}
+        onPlanDatesSave={canManage ? (dates) => debtPlanDatesMutation.mutate(dates) : undefined}
         syncing={syncBalanceMutation.isPending}
         termsSaving={debtTermsMutation.isPending || debtPlanDatesMutation.isPending}
       />

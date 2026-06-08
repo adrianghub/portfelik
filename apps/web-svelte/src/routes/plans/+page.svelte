@@ -215,7 +215,7 @@
     return computeMonthlySurplus({
       totalIncome: monthSummary.total_income,
       totalExpenses: monthSummary.total_expenses,
-      debtMonthlyPayments: sumDebtMonthlyPayments(scopedDebtTerms),
+      debtMonthlyPayments: sumDebtMonthlyPayments(scopedSummaries, scopedDebtTerms),
       saveMonthlyNeeded: sumSaveMonthlyNeeded(scopedSummaries),
     });
   });
@@ -223,9 +223,9 @@
   const planningActions = $derived.by(() => {
     if (!monthlySurplus) return [];
     return buildPlanningQueueActions({
-      summaries,
+      summaries: scopedSummaries,
       monthlySurplus,
-      debtTerms: debtTermsQuery.data ?? {},
+      debtTerms: scopedDebtTerms,
     });
   });
 

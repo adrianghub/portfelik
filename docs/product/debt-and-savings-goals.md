@@ -68,7 +68,7 @@ po celach = bilans − suma monthlyNeeded aktywnych celów save
   goals; green/red card with tempo context.
 - Without save goals: informational copy that free surplus equals month cashflow.
 - Raty kredytów **nie** odejmujemy ponownie - przy import-first wydatków rata jest
-  już w wydatkach; karta pokazuje raty z planów tylko jako informację.
+  już w wydatkach; karta pokazuje raty **aktywnych** planów kredytowych tylko jako informację.
 - Save pace from `computePlanProgress().monthlyNeeded` on active save plans
   (`start_date ≤ today ≤ end_date`).
 - Subtle link to `/transactions` for drill-down.

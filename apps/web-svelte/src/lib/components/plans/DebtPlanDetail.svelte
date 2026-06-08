@@ -232,10 +232,7 @@
         anchor_transaction_id: terms.anchor_transaction_id,
       });
       await onTermsSave?.(input);
-      if (
-        onPlanDatesSave &&
-        (editStartDate !== planStartDate || editEndDate !== planEndDate)
-      ) {
+      if (onPlanDatesSave && (editStartDate !== planStartDate || editEndDate !== planEndDate)) {
         await onPlanDatesSave({ start_date: editStartDate, end_date: editEndDate });
       }
       showTermsEdit = false;

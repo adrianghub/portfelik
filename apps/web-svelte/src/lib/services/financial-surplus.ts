@@ -1,4 +1,8 @@
-import type { PlanDebtTerms, PlanKind } from "$lib/types";
+import type { Plan, PlanDebtTerms, PlanKind } from "$lib/types";
+
+function isActivePlan(plan: { start_date: string; end_date: string }, today: string): boolean {
+  return plan.start_date <= today && plan.end_date >= today;
+}
 
 export interface MonthlySurplusInput {
   totalIncome: number;
@@ -34,8 +38,17 @@ export function computeMonthlySurplus(input: MonthlySurplusInput): MonthlySurplu
   };
 }
 
-export function sumDebtMonthlyPayments(terms: Record<string, PlanDebtTerms>): number {
-  return Object.values(terms).reduce((sum, term) => sum + Number(term.monthly_payment), 0);
+export function sumDebtMonthlyPayments(
+  plans: Pick<Plan, "id" | "kind" | "start_date" | "end_date">[],
+  termsByPlanId: Record<string, PlanDebtTerms>,
+  today = new Date().toISOString().slice(0, 10)
+): number {
+  return plans
+    .filter((plan) => plan.kind === "debt" && isActivePlan(plan, today))
+    .reduce((sum, plan) => {
+      const terms = termsByPlanId[plan.id];
+      return sum + (terms ? Number(terms.monthly_payment) : 0);
+    }, 0);
 }
 
 export function sumSaveMonthlyNeeded(
@@ -51,8 +64,7 @@ export function sumSaveMonthlyNeeded(
     .filter(
       (plan) =>
         (plan.kind ?? "spend") === "save" &&
-        (plan.start_date ?? today) <= today &&
-        plan.end_date >= today
+        isActivePlan({ start_date: plan.start_date ?? today, end_date: plan.end_date }, today)
     )
     .reduce((sum, plan) => sum + (plan.monthlyNeeded ?? 0), 0);
 }
