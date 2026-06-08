@@ -2,7 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("$lib/supabase", () => ({ supabase: {} }));
 
-import { derivePlanBucket } from "$lib/services/plans";
+import {
+  addCalendarMonths,
+  calendarMonthsUntil,
+  derivePlanBucket,
+  todayIso,
+} from "$lib/services/plans";
 import type { Plan } from "$lib/types";
 
 function plan(overrides: Partial<Plan> = {}): Plan {
@@ -39,5 +44,22 @@ describe("derivePlanBucket", () => {
 
   it("puts plans finished before today into finished", () => {
     expect(derivePlanBucket(plan({ end_date: "2026-07-14" }), "2026-07-15")).toBe("finished");
+  });
+});
+
+describe("calendar month helpers", () => {
+  const anchor = "2026-06-08";
+
+  it.each([3, 13, 14, 60])("round-trips %i months from anchor", (months) => {
+    const end = addCalendarMonths(anchor, months);
+    expect(calendarMonthsUntil(end, anchor)).toBe(months);
+  });
+
+  it("does not drift when sliding from 14 to 13 months", () => {
+    const at14 = addCalendarMonths(todayIso(), 14);
+    expect(calendarMonthsUntil(at14)).toBe(14);
+    const at13 = addCalendarMonths(todayIso(), 13);
+    expect(calendarMonthsUntil(at13)).toBe(13);
+    expect(at13 < at14).toBe(true);
   });
 });

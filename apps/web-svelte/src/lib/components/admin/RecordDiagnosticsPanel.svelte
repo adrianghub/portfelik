@@ -81,7 +81,7 @@
       {#each Object.entries(result) as [key, value] (key)}
         <dt class="text-muted-foreground font-medium">{key}</dt>
         <dd class:font-mono={isToken(key)} class="break-all">
-          {value === null ? "—" : String(value)}
+          {value === null ? "-" : String(value)}
         </dd>
       {/each}
     </dl>

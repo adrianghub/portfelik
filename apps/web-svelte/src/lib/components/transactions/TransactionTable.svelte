@@ -13,6 +13,7 @@
     emptyLabel?: string;
     emptyHint?: string;
     selectedIds?: Set<string>;
+    canManage?: (tx: TransactionWithCategory) => boolean;
     /** When set, the header row sticks at this CSS top offset (e.g. "top-[6.75rem]").
         Omitted inside the search palette so the header never floats over rows. */
     stickyHeaderOffset?: string;
@@ -26,6 +27,7 @@
     emptyLabel,
     emptyHint,
     selectedIds = $bindable(new Set<string>()),
+    canManage = () => true,
     stickyHeaderOffset,
     stickyHeaderTop,
   }: Props = $props();
@@ -47,7 +49,7 @@
     if (allSelected) {
       selectedIds = new Set<string>();
     } else {
-      selectedIds = new Set(sortedTransactions.map((tx) => tx.id));
+      selectedIds = new Set(selectableTransactions.map((tx) => tx.id));
     }
   }
 
@@ -128,8 +130,11 @@
       .map(({ tx }) => tx)
   );
 
+  const selectableTransactions = $derived(sortedTransactions.filter((tx) => canManage(tx)));
+
   const allSelected = $derived(
-    sortedTransactions.length > 0 && sortedTransactions.every((tx) => selectedIds.has(tx.id))
+    selectableTransactions.length > 0 &&
+      selectableTransactions.every((tx) => selectedIds.has(tx.id))
   );
   const someSelected = $derived(sortedTransactions.some((tx) => selectedIds.has(tx.id)));
 
@@ -222,7 +227,7 @@
               }}
             >
               <div class="flex items-start justify-between gap-3">
-                {#if ondelete}
+                {#if ondelete && canManage(tx)}
                   <button
                     type="button"
                     onclick={(e) => {
@@ -295,7 +300,7 @@
         style={stickyHeaderTop ? `top: ${stickyHeaderTop}` : undefined}
       >
         <tr class="border-b border-white/5 bg-white/5">
-          {#if ondelete}
+          {#if ondelete && selectableTransactions.length > 0}
             <th scope="col" class="w-10 py-3 pl-4">
               <button
                 type="button"
@@ -389,7 +394,7 @@
               if (e.key === "Enter" || e.key === " ") onrowclick?.(tx);
             }}
           >
-            {#if ondelete}
+            {#if ondelete && canManage(tx)}
               <td class="w-10 py-3 pl-4">
                 <button
                   type="button"
@@ -409,6 +414,8 @@
                   {/if}
                 </button>
               </td>
+            {:else if ondelete}
+              <td class="w-10 py-3 pl-4" aria-hidden="true"></td>
             {/if}
             <td class="px-4 py-3 whitespace-nowrap text-slate-400">{formatDate(tx.date)}</td>
             <td class="max-w-xs truncate px-4 py-3 text-slate-100">

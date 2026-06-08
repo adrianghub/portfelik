@@ -7,6 +7,7 @@
   import { normalizeDebtTermsInput, type PlanDebtTermsInput } from "$lib/services/plan-debt";
   import type { PlanDebtTerms } from "$lib/types";
   import { cn, formatCurrency } from "$lib/utils";
+  import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import { ChevronRight } from "lucide-svelte";
   import { toast } from "svelte-sonner";
   import * as m from "$lib/paraglide/messages";
@@ -33,6 +34,7 @@
 
   let extraPayment = $state(500);
   let showTermsEdit = $state(false);
+  let showSyncConfirm = $state(false);
   let editOriginal = $state("");
   let editBalance = $state("");
   let editRate = $state("");
@@ -70,7 +72,23 @@
   const balanceDrift = $derived(
     derivedBalance != null && Math.abs(derivedBalance - Number(terms.current_balance)) > 1
   );
+  const syncIncreasesBalance = $derived(
+    derivedBalance != null && derivedBalance > Number(terms.current_balance) + 1
+  );
   const newInstallment = $derived(Number(terms.monthly_payment) + extraPayment);
+
+  function requestSyncBalance() {
+    if (syncIncreasesBalance) {
+      showSyncConfirm = true;
+      return;
+    }
+    void onSyncBalance?.();
+  }
+
+  function confirmSyncBalance() {
+    showSyncConfirm = false;
+    void onSyncBalance?.();
+  }
 
   async function saveTermsEdit() {
     try {
@@ -108,23 +126,29 @@
 
 <section class="space-y-5">
   {#if balanceDrift && derivedBalance != null && onSyncBalance}
-    <div
-      class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5"
-    >
-      <p class="text-sm text-amber-100">
-        {m.plan_debt_sync_banner({
-          derived: formatCurrency(derivedBalance),
-          stored: formatCurrency(Number(terms.current_balance)),
-        })}
-      </p>
-      <button
-        type="button"
-        disabled={syncing}
-        onclick={() => onSyncBalance?.()}
-        class="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-semibold text-amber-200 disabled:opacity-50"
-      >
-        {m.plan_debt_sync_apply()}
-      </button>
+    <div class="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <p class="text-sm text-amber-100">
+          {m.plan_debt_sync_banner({
+            derived: formatCurrency(derivedBalance),
+            stored: formatCurrency(Number(terms.current_balance)),
+          })}
+        </p>
+        <button
+          type="button"
+          disabled={syncing}
+          onclick={requestSyncBalance}
+          class={cn(
+            "rounded-full px-3 py-1 text-xs font-semibold disabled:opacity-50",
+            syncIncreasesBalance
+              ? "border border-amber-400/40 bg-transparent text-amber-200"
+              : "bg-amber-500/20 text-amber-200"
+          )}
+        >
+          {m.plan_debt_sync_apply()}
+        </button>
+      </div>
+      <p class="mt-2 text-xs text-amber-200/80">{m.plan_debt_sync_explain()}</p>
     </div>
   {/if}
 
@@ -319,3 +343,16 @@
     </div>
   {/if}
 </section>
+
+<ConfirmDialog
+  open={showSyncConfirm}
+  message={derivedBalance != null
+    ? m.plan_debt_sync_confirm_increase({
+        stored: formatCurrency(Number(terms.current_balance)),
+        derived: formatCurrency(derivedBalance),
+      })
+    : ""}
+  pending={syncing}
+  onclose={() => (showSyncConfirm = false)}
+  onconfirm={confirmSyncBalance}
+/>

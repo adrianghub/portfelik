@@ -15,7 +15,9 @@
   import SearchModal from "$lib/components/ui/SearchModal.svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchCategories } from "$lib/services/categories";
-  import { fetchUserGroups } from "$lib/services/groups";
+  import { fetchMyGroupRoles, fetchUserGroups } from "$lib/services/groups";
+  import { computeLedgerSummary } from "$lib/services/transaction-cashflow";
+  import { canManageTransaction } from "$lib/services/transaction-permissions";
   import {
     computeSummary,
     deleteTransaction,
@@ -202,13 +204,40 @@
     return { destroy: () => observer.disconnect() };
   }
 
-  const summary = $derived(filteredTxs ? computeSummary(filteredTxs) : null);
-
   let currentUserId = $state<string | null>(null);
   onMount(async () => {
     const { data } = await supabase.auth.getSession();
     currentUserId = data.session?.user.id ?? null;
   });
+
+  let selectedIds = $state(new Set<string>());
+
+  const groupRolesQuery = createQuery(() => ({
+    queryKey: ["my_group_roles"],
+    queryFn: fetchMyGroupRoles,
+    enabled: !!currentUserId,
+  }));
+
+  function txCanManage(tx: TransactionWithCategory): boolean {
+    if (!currentUserId) return false;
+    return canManageTransaction(tx, currentUserId, groupRolesQuery.data ?? new Map());
+  }
+
+  function manageableSelectedIds(): string[] {
+    return Array.from(selectedIds).filter((id) => {
+      const tx = filteredTxs?.find((row) => row.id === id);
+      return tx ? txCanManage(tx) : false;
+    });
+  }
+
+  const summaryMode = $derived(statusSet ? ("filtered" as const) : ("ledger" as const));
+  const summary = $derived(
+    filteredTxs
+      ? statusSet
+        ? computeSummary(filteredTxs)
+        : computeLedgerSummary(filteredTxs)
+      : null
+  );
 
   const categoriesQuery = createQuery(() => ({
     queryKey: ["categories"],
@@ -273,7 +302,6 @@
     const match = requestedTxFromCurrentPage ?? requestedTxQuery.data;
     if (match && sheetTx?.id !== match.id) sheetTx = match;
   });
-  let selectedIds = $state(new Set<string>());
   let bulkDeleteConfirm = $state(false);
   let searchModalOpen = $state(false);
   let stickyFiltersRef = $state<HTMLDivElement | null>(null);
@@ -322,7 +350,7 @@
   }));
 
   const bulkDeleteMutation = createMutation(() => ({
-    mutationFn: () => deleteTransactions(Array.from(selectedIds)),
+    mutationFn: () => deleteTransactions(manageableSelectedIds()),
     onSuccess: async () => {
       const count = selectedIds.size;
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
@@ -335,7 +363,7 @@
 
   const bulkStatusMutation = createMutation(() => ({
     mutationFn: (status: TransactionStatus) =>
-      updateTransactionsStatus(Array.from(selectedIds), status),
+      updateTransactionsStatus(manageableSelectedIds(), status),
     onSuccess: async () => {
       const count = selectedIds.size;
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
@@ -346,7 +374,7 @@
   }));
 
   const bulkCategoryMutation = createMutation(() => ({
-    mutationFn: (catId: string) => updateTransactionsCategory(Array.from(selectedIds), catId),
+    mutationFn: (catId: string) => updateTransactionsCategory(manageableSelectedIds(), catId),
     onSuccess: async () => {
       const count = selectedIds.size;
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
@@ -651,7 +679,7 @@
   {/if}
 
   {#if summary}
-    <SummaryCards {summary} />
+    <SummaryCards {summary} mode={summaryMode} />
   {:else if txQuery.isLoading}
     <div class="grid grid-cols-3 gap-3">
       {#each [0, 1, 2] as _, i (i)}
@@ -686,6 +714,7 @@
     <TransactionTable
       transactions={renderedTxs}
       {currentUserId}
+      canManage={txCanManage}
       emptyLabel={tableEmptyLabel}
       emptyHint={tableEmptyHint}
       bind:selectedIds
@@ -745,16 +774,21 @@
 <TransactionDetailSheet
   transaction={sheetTx}
   {currentUserId}
+  groupRoles={groupRolesQuery.data ?? new Map()}
   onclose={closeTransactionSheet}
-  onedit={(tx) => {
-    sheetTx = null;
-    editTarget = tx;
-    dialogOpen = true;
-  }}
-  ondelete={(id) => {
-    sheetTx = null;
-    deleteTargetId = id;
-  }}
+  onedit={sheetTx && txCanManage(sheetTx)
+    ? (tx) => {
+        sheetTx = null;
+        editTarget = tx;
+        dialogOpen = true;
+      }
+    : undefined}
+  ondelete={sheetTx && txCanManage(sheetTx)
+    ? (id) => {
+        sheetTx = null;
+        deleteTargetId = id;
+      }
+    : undefined}
 />
 
 <ConfirmDialog

@@ -12,7 +12,7 @@ alter function public.privacy_amount_bucket(numeric) set search_path = public, p
 alter function public.privacy_mask_email(text) set search_path = public, pg_temp;
 alter function public.privacy_mask_text(text) set search_path = public, pg_temp;
 
--- 2. Internal-only seed RPCs — not client-callable via PostgREST /rpc/.
+-- 2. Internal-only seed RPCs - not client-callable via PostgREST /rpc/.
 -- Profile-insert trigger and SECURITY DEFINER callers do not need session EXECUTE.
 revoke execute on function public.seed_default_categories(uuid) from public, anon, authenticated;
 revoke execute on function public.seed_default_categories_on_profile() from public, anon, authenticated;

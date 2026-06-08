@@ -26,9 +26,26 @@ pnpm seed:local
 pnpm exec svelte-check --tsconfig ./tsconfig.json
 pnpm lint
 pnpm format:check
-pnpm test
-pnpm exec playwright test
+pnpm test:unit
+pnpm test:components
 ```
+
+### E2E (Playwright, mocked Supabase)
+
+Chromium is installed automatically on `pnpm install` (`postinstall`). If browsers
+are missing after an upgrade, run:
+
+```bash
+pnpm test:e2e:install
+```
+
+Run headless locally (starts dev server on port 5173):
+
+```bash
+pnpm test:e2e
+```
+
+On Linux CI, system deps are installed separately via `test:e2e:install:deps`.
 
 After editing `messages/pl.json`, recompile Paraglide:
 

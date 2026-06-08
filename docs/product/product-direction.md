@@ -169,6 +169,13 @@ keywords, or clustering unknown rows. AI must not directly mutate financial
 truth. The deterministic engine decides what is allowed; the user confirms
 exceptions.
 
+The broader post-production paths - AI, gamification, deeper automation, split
+allocations, and a durable offline write outbox - are tracked in
+[future product paths](./future-paths.md). They are useful only after the
+deterministic money model is trustworthy: paid-vs-forecast semantics are clear,
+shared-write permissions match RLS, and plan settlement eligibility is correct
+by plan kind.
+
 ## Roadmap
 
 | Stage     | Product scope                                                                                                                                                                              |
@@ -176,7 +183,7 @@ exceptions.
 | **MVP**   | Pulpit, Transakcje, Import CSV, Plany on current compatibility storage, Ustawienia, groups/invites, categories, rules, privacy/regulatory basics.                                          |
 | **MVP+**  | Manual plan-to-transaction linking, plan progress, import as first-class module, manual transactions clearly secondary, shared plan settlement scope rules, group co-owner role direction, **save/debt plan kinds inside Plany** (see `debt-and-savings-goals.md`). |
 | **V1**    | Deterministic plan matching: suggestions, score, reasons, accepted/rejected memory.                                                                                                        |
-| **Later** | AI explanation/summaries, AI keyword proposals, suggested plans, net-worth snapshot hub, Belka in invest compare, deeper observability.                                                                                |
+| **Later** | Future product paths after the deterministic trust fixes: deeper automation, quiet gamification, split allocations, durable offline write outbox, AI explanations/proposals, net-worth snapshot hub, Belka in invest compare, deeper observability. |
 
 ## Design Bar
 

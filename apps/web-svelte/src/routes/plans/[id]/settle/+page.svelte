@@ -9,6 +9,9 @@
     linkPlanTransaction,
     type RankedTransaction,
   } from "$lib/services/plan-settlement";
+  import TransactionDialog, {
+    type PlanTransactionContext,
+  } from "$lib/components/transactions/TransactionDialog.svelte";
   import { fetchPlanById } from "$lib/services/plans";
   import type { TransactionType } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
@@ -21,7 +24,27 @@
   const id = $derived($page.params.id ?? "");
 
   let activeType = $state<TransactionType>("expense");
+  let showManualTxDialog = $state(false);
   const dismissed = new SvelteSet<string>();
+
+  let activeTypeInitialized = $state(false);
+  $effect(() => {
+    const kind = planQuery.data?.kind;
+    if (!kind || activeTypeInitialized) return;
+    activeType = kind === "save" ? "income" : "expense";
+    activeTypeInitialized = true;
+  });
+
+  const manualPlanContext = $derived.by((): PlanTransactionContext | null => {
+    const plan = planQuery.data;
+    if (!plan) return null;
+    return {
+      planId: id,
+      type: activeType,
+      groupId: plan.group_id,
+      categoryId: plan.category_id,
+    };
+  });
 
   const planQuery = createQuery(() => ({
     queryKey: ["plan", id],
@@ -46,7 +69,11 @@
       ? computePlanProgress({
           planId: id,
           planName: planQuery.data.name,
+          kind: planQuery.data.kind ?? "spend",
           budgetAmount: planQuery.data.budget_amount,
+          targetAmount: planQuery.data.target_amount,
+          startDate: planQuery.data.start_date,
+          endDate: planQuery.data.end_date,
           linkedTransactions: linkedQuery.data ?? [],
         })
       : null
@@ -278,7 +305,17 @@
     </section>
   {/if}
 
-  <p class="text-center text-sm text-slate-500">
+  <button
+    type="button"
+    onclick={() => (showManualTxDialog = true)}
+    class="focus-visible:ring-accent mx-auto block text-sm text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+  >
     {m.plan_settle_manual_footer()}
-  </p>
+  </button>
 </div>
+
+<TransactionDialog
+  open={showManualTxDialog}
+  onclose={() => (showManualTxDialog = false)}
+  planContext={manualPlanContext}
+/>

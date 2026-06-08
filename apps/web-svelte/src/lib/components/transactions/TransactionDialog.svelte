@@ -5,6 +5,7 @@
   import * as m from "$lib/paraglide/messages";
   import { fetchCategories } from "$lib/services/categories";
   import { fetchUserGroups } from "$lib/services/groups";
+  import { linkPlanTransaction } from "$lib/services/plan-settlement";
   import { createTransaction, updateTransaction } from "$lib/services/transactions";
   import type {
     RecurrenceFrequency,
@@ -18,12 +19,20 @@
   import { untrack } from "svelte";
   import { toast } from "svelte-sonner";
 
+  export interface PlanTransactionContext {
+    planId: string;
+    type: TransactionType;
+    groupId?: string | null;
+    categoryId?: string | null;
+  }
+
   interface Props {
     open: boolean;
     onclose: () => void;
     initial?: Transaction | null;
+    planContext?: PlanTransactionContext | null;
   }
-  let { open, onclose, initial = null }: Props = $props();
+  let { open, onclose, initial = null, planContext = null }: Props = $props();
 
   const queryClient = useQueryClient();
 
@@ -64,11 +73,11 @@
 
   $effect(() => {
     if (open) {
-      type = initial?.type ?? "expense";
+      type = initial?.type ?? planContext?.type ?? "expense";
       amount = initial ? String(Math.abs(initial.amount)) : "";
       description = initial?.description ?? "";
       date = initial?.date ? initial.date.slice(0, 10) : new Date().toISOString().slice(0, 10);
-      category_id = initial?.category_id ?? "";
+      category_id = initial?.category_id ?? planContext?.categoryId ?? "";
       status = initial?.status ?? "paid";
       is_recurring = initial?.is_recurring ?? false;
       recurring_day = initial?.recurring_day ?? new Date().getDate();
@@ -76,7 +85,7 @@
       recurrence_interval = initial?.recurrence_interval ?? 1;
       recurrence_weekday = initial?.recurrence_weekday ?? (new Date().getDay() || 7);
       recurrence_month = initial?.recurrence_month ?? new Date().getMonth() + 1;
-      group_id = initial?.group_id ?? "";
+      group_id = initial?.group_id ?? planContext?.groupId ?? "";
     }
   });
 
@@ -103,11 +112,28 @@
   const title = $derived(isEdit ? m.transaction_form_title_edit() : m.transaction_form_title_add());
 
   const mutation = createMutation(() => ({
-    mutationFn: (input: Parameters<typeof createTransaction>[0]) =>
-      isEdit ? updateTransaction(initial!.id, input) : createTransaction(input),
+    mutationFn: async (input: Parameters<typeof createTransaction>[0]) => {
+      const tx = isEdit
+        ? await updateTransaction(initial!.id, input)
+        : await createTransaction(input);
+      if (!isEdit && planContext) {
+        await linkPlanTransaction(planContext.planId, tx.id);
+      }
+      return tx;
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      toast.success(isEdit ? m.toast_transaction_updated() : m.toast_transaction_created());
+      if (planContext) {
+        await queryClient.invalidateQueries({ queryKey: ["plan-links", planContext.planId] });
+        await queryClient.invalidateQueries({ queryKey: ["plan-ranked", planContext.planId] });
+        await queryClient.invalidateQueries({ queryKey: ["plan-eligible", planContext.planId] });
+        await queryClient.invalidateQueries({ queryKey: ["plan-progress"] });
+        await queryClient.invalidateQueries({ queryKey: ["plan-progress-list"] });
+        await queryClient.invalidateQueries({ queryKey: ["plans"] });
+        toast.success(m.plan_settle_linked());
+      } else {
+        toast.success(isEdit ? m.toast_transaction_updated() : m.toast_transaction_created());
+      }
       onclose();
     },
     onError: () => toast.error(m.toast_error()),
@@ -142,29 +168,31 @@
 
 <Dialog {open} {onclose} {title}>
   <form onsubmit={handleSubmit} class="space-y-4">
-    <!-- Type toggle -->
-    <div
-      class="flex overflow-hidden rounded-full border border-white/10 bg-slate-900/60 p-1 text-sm"
-    >
-      <button
-        type="button"
-        onclick={() => (type = "expense")}
-        class="flex-1 rounded-full py-1.5 font-medium transition-colors {type === 'expense'
-          ? 'bg-rose-500/90 text-white shadow-[0_0_18px_rgba(244,63,94,0.25)]'
-          : 'text-slate-300 hover:text-slate-100'}"
+    {#if !planContext}
+      <!-- Type toggle -->
+      <div
+        class="flex overflow-hidden rounded-full border border-white/10 bg-slate-900/60 p-1 text-sm"
       >
-        {m.common_expense()}
-      </button>
-      <button
-        type="button"
-        onclick={() => (type = "income")}
-        class="flex-1 rounded-full py-1.5 font-medium transition-colors {type === 'income'
-          ? 'bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]'
-          : 'text-slate-300 hover:text-slate-100'}"
-      >
-        {m.common_income()}
-      </button>
-    </div>
+        <button
+          type="button"
+          onclick={() => (type = "expense")}
+          class="flex-1 rounded-full py-1.5 font-medium transition-colors {type === 'expense'
+            ? 'bg-rose-500/90 text-white shadow-[0_0_18px_rgba(244,63,94,0.25)]'
+            : 'text-slate-300 hover:text-slate-100'}"
+        >
+          {m.common_expense()}
+        </button>
+        <button
+          type="button"
+          onclick={() => (type = "income")}
+          class="flex-1 rounded-full py-1.5 font-medium transition-colors {type === 'income'
+            ? 'bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]'
+            : 'text-slate-300 hover:text-slate-100'}"
+        >
+          {m.common_income()}
+        </button>
+      </div>
+    {/if}
 
     <div class="space-y-1">
       <label class={labelClass} for="tx-amount">{m.transaction_form_amount()}</label>

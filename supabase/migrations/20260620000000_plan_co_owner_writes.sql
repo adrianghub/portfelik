@@ -1,5 +1,5 @@
 -- G2: group plan writes restricted to plan owner or group owner/co-owner.
--- Settlement RPCs unchanged — any group member can still link/unlink transactions.
+-- Settlement RPCs unchanged - any group member can still link/unlink transactions.
 
 drop policy if exists "plans: update own or group" on public.plans;
 drop policy if exists "plans: delete own or group" on public.plans;

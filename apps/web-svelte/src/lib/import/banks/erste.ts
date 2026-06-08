@@ -69,7 +69,7 @@ export const ersteAdapter: ImportAdapter = {
 
     // Count rows shaped like an Erste transaction: ≥8 cols, dd-mm-yyyy date in
     // col1, signed comma amount in col6. The leading account/summary row
-    // (yyyy-mm-dd + currency in col5) is optional — it is skipped during parse
+    // (yyyy-mm-dd + currency in col5) is optional - it is skipped during parse
     // and is NOT required for detection, so a summary-less export still matches.
     // A short trailing row simply doesn't count toward the threshold.
     const txLike = rows.filter(

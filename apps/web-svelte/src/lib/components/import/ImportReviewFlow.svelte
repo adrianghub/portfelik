@@ -168,20 +168,24 @@
   const needsConfirm = $derived(inneRows.length > 0 || duplicateRows.length > 0);
   const pendingRows = $derived(rows.filter((r) => r.decision === "pending"));
 
-  const filterOptions: { kind: FilterKind; label: string }[] = $derived(
-    filterCounts.pending > 0
-      ? [
-          { kind: "pending", label: m.bank_review_filter_pending() },
-          { kind: "all", label: m.bank_review_filter_all() },
-          { kind: "uncategorized", label: m.bank_review_filter_uncategorized() },
-          { kind: "income", label: m.bank_review_filter_income() },
-          { kind: "expense", label: m.bank_review_filter_expense() },
-        ]
-      : [
-          { kind: "all", label: m.bank_review_filter_all() },
-          { kind: "uncategorized", label: m.bank_review_filter_uncategorized() },
-        ]
-  );
+  const filterOptions: { kind: FilterKind; label: string }[] = $derived.by(() => {
+    const base = [
+      { kind: "all" as const, label: m.bank_review_filter_all() },
+      { kind: "uncategorized" as const, label: m.bank_review_filter_uncategorized() },
+      { kind: "income" as const, label: m.bank_review_filter_income() },
+      { kind: "expense" as const, label: m.bank_review_filter_expense() },
+    ];
+    if (filterCounts.pending > 0) {
+      return [{ kind: "pending" as const, label: m.bank_review_filter_pending() }, ...base];
+    }
+    return base;
+  });
+
+  $effect(() => {
+    if (filter === "pending" && filterCounts.pending === 0) {
+      filter = "all";
+    }
+  });
 
   function bankKindLabel(kind: ImportAdapterKind): string {
     return importAdapterLabel(kind);
@@ -217,7 +221,7 @@
 
   async function patchRow(rowId: string, patch: Partial<ImportRow>): Promise<void> {
     // NOTE: the getQueryData + setQueryData pair below MUST stay synchronous
-    // (no await before it) — bulk callers fire many patchRow() via Promise.all
+    // (no await before it) - bulk callers fire many patchRow() via Promise.all
     // and rely on each reading the prior call's optimistic write. An await here
     // would reintroduce a sibling-clobber race.
     const previous = queryClient.getQueryData<ImportRow[]>(rowsKey);
@@ -574,7 +578,7 @@
   }
 
   // Exception-review surface (issue #66 + #73): rows arrive already decided by the
-  // deterministic engine (import / duplicate). Do NOT flip them to "pending" — clean
+  // deterministic engine (import / duplicate). Do NOT flip them to "pending" - clean
   // imports stay one-click committable, and uncategorized rows flow to the user's
   // "Inne" default via the confirm sheet. "pending" is reserved for rows a user
   // explicitly defers (skip / duplicate restore actions). On first load just pick a

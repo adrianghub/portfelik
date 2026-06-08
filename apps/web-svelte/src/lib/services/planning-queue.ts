@@ -1,0 +1,94 @@
+import * as m from "$lib/paraglide/messages";
+import type { MonthlySurplusSummary } from "$lib/services/financial-surplus";
+import type { PlanDebtTerms, PlanSummary } from "$lib/types";
+import { formatCurrency } from "$lib/utils";
+import { polishPluralForm } from "$lib/utils/polish-plural";
+
+export interface PlanningQueueAction {
+  id: string;
+  href: string;
+  label: string;
+  tone: "default" | "warn" | "muted";
+}
+
+export function buildPlanningQueueActions(input: {
+  summaries: PlanSummary[];
+  monthlySurplus: MonthlySurplusSummary;
+  debtTerms: Record<string, PlanDebtTerms>;
+}): PlanningQueueAction[] {
+  const actions: PlanningQueueAction[] = [];
+  const { summaries, monthlySurplus, debtTerms } = input;
+
+  if (monthlySurplus.totalIncome <= 0 && monthlySurplus.hasSaveGoals) {
+    actions.push({
+      id: "no-income",
+      href: "/transactions",
+      label: m.plans_queue_no_income(),
+      tone: "warn",
+    });
+  }
+
+  const settleCandidates = summaries
+    .filter((p) => p.kind === "spend" && (p.eligibleCount ?? 0) > 0)
+    .sort((a, b) => (b.eligibleCount ?? 0) - (a.eligibleCount ?? 0));
+  const totalEligible = settleCandidates.reduce((sum, p) => sum + (p.eligibleCount ?? 0), 0);
+  if (totalEligible > 0 && settleCandidates[0]) {
+    const top = settleCandidates[0];
+    const form = polishPluralForm(totalEligible);
+    const label =
+      form === "one"
+        ? m.plans_queue_settle_one({ count: totalEligible, name: top.name })
+        : form === "few"
+          ? m.plans_queue_settle_few({ count: totalEligible, name: top.name })
+          : m.plans_queue_settle_many({ count: totalEligible, name: top.name });
+    actions.push({
+      id: "settle",
+      href: `/plans/${top.id}/settle`,
+      label,
+      tone: "default",
+    });
+  }
+
+  const offTrackSave = summaries
+    .filter(
+      (p) =>
+        p.kind === "save" &&
+        p.monthlyNeeded != null &&
+        p.monthlyNeeded > 0 &&
+        (p.monthlyActual ?? 0) < p.monthlyNeeded - 0.01
+    )
+    .sort((a, b) => (b.monthlyNeeded ?? 0) - (a.monthlyNeeded ?? 0));
+  if (offTrackSave[0]) {
+    const plan = offTrackSave[0];
+    actions.push({
+      id: `save-${plan.id}`,
+      href: `/plans/${plan.id}`,
+      label: m.plans_queue_save_off_track({
+        name: plan.name,
+        amount: formatCurrency(plan.monthlyNeeded ?? 0),
+      }),
+      tone: "warn",
+    });
+  }
+
+  const debtPlans = summaries.filter((p) => p.kind === "debt");
+  if (debtPlans.length > 0) {
+    const totalDebtPayment = debtPlans.reduce((sum, p) => {
+      const terms = debtTerms[p.id];
+      return sum + (terms ? Number(terms.monthly_payment) : 0);
+    }, 0);
+    if (totalDebtPayment > 0) {
+      const first = debtPlans[0];
+      actions.push({
+        id: `debt-${first.id}`,
+        href: `/plans/${first.id}`,
+        label: m.plans_queue_debt_payment({
+          amount: formatCurrency(totalDebtPayment),
+        }),
+        tone: "muted",
+      });
+    }
+  }
+
+  return actions.slice(0, 3);
+}

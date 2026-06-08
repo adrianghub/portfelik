@@ -109,6 +109,23 @@ export async function mockSupabaseAPI(page: Page): Promise<void> {
 
       // ── Debt plan terms ──────────────────────────────────────────────────
       if (url.includes("/plan_debt_terms")) {
+        if (method === "POST") {
+          const body = route.request().postDataJSON() as Record<string, unknown>;
+          return route.fulfill({
+            status: 201,
+            json: {
+              plan_id: body.plan_id,
+              original_amount: body.original_amount,
+              current_balance: body.current_balance,
+              annual_rate: body.annual_rate,
+              monthly_payment: body.monthly_payment,
+              payment_day: null,
+              anchor_transaction_id: null,
+              created_at: "2026-06-01T10:00:00Z",
+              updated_at: "2026-06-01T10:00:00Z",
+            },
+          });
+        }
         return route.fulfill({ status: 200, json: filterMockDebtTerms(url) });
       }
 
