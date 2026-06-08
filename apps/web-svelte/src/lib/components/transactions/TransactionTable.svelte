@@ -300,7 +300,7 @@
 
   <!-- Desktop table -->
   <div class="hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur sm:block">
-    <table class="w-full text-sm">
+    <table class="w-full table-fixed text-sm">
       <thead
         class={cn(
           (stickyHeaderOffset || stickyHeaderTop) &&
@@ -331,7 +331,7 @@
               </button>
             </th>
           {/if}
-          <th scope="col" aria-sort={ariaSort("date")} class="px-4 py-3 text-left">
+          <th scope="col" aria-sort={ariaSort("date")} class="w-28 px-4 py-3 text-left">
             <button
               type="button"
               class="text-eyebrow focus-visible:ring-accent inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
@@ -353,7 +353,7 @@
               {@render sortIndicator("description")}
             </button>
           </th>
-          <th scope="col" aria-sort={ariaSort("category")} class="px-4 py-3 text-left">
+          <th scope="col" aria-sort={ariaSort("category")} class="w-44 px-4 py-3 text-left">
             <button
               type="button"
               class="text-eyebrow focus-visible:ring-accent inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
@@ -364,7 +364,7 @@
               {@render sortIndicator("category")}
             </button>
           </th>
-          <th scope="col" aria-sort={ariaSort("status")} class="px-4 py-3 text-left">
+          <th scope="col" aria-sort={ariaSort("status")} class="w-36 px-4 py-3 text-left">
             <button
               type="button"
               class="text-eyebrow focus-visible:ring-accent inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
@@ -375,7 +375,7 @@
               {@render sortIndicator("status")}
             </button>
           </th>
-          <th scope="col" aria-sort={ariaSort("amount")} class="px-4 py-3 text-right">
+          <th scope="col" aria-sort={ariaSort("amount")} class="w-36 px-4 py-3 text-right">
             <button
               type="button"
               class="text-eyebrow focus-visible:ring-accent ml-auto inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
@@ -427,14 +427,14 @@
               <td class="w-10 py-3 pl-4" aria-hidden="true"></td>
             {/if}
             <td class="px-4 py-3 whitespace-nowrap text-slate-400">{formatDate(tx.date)}</td>
-            <td class="max-w-xs px-4 py-3 text-slate-100">
+            <td class="px-4 py-3 text-slate-100">
               {#if tx.counterparty?.trim()}
                 <div class="truncate font-medium">{tx.counterparty}</div>
                 {#if tx.description}
                   <div class="truncate text-xs text-slate-400">{tx.description}</div>
                 {/if}
               {:else}
-                <span class="truncate">{tx.description}</span>
+                <span class="block truncate">{tx.description}</span>
               {/if}
               {#if tx.is_recurring}
                 <span class="ml-1 text-xs text-slate-400" aria-label="cykliczna">↻</span>
@@ -447,7 +447,9 @@
                 </span>
               {/if}
             </td>
-            <td class="px-4 py-3 text-slate-400">{tx.category_name}</td>
+            <td class="px-4 py-3 text-slate-400">
+              <span class="block truncate">{tx.category_name}</span>
+            </td>
             <td class="px-4 py-3">
               <span
                 class={cn(
