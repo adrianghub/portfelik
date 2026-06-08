@@ -26,13 +26,16 @@ raty** / **Spłać / nadpłać** (debt).
 
 - Manual terms on create: original balance, current balance, annual rate, monthly
   payment.
-- Detail: balance hero, stats row (%, rata, ~dzienne odsetki), nadpłata slider,
-  timeline bar (było → po nadpłacie), inline terms edit.
-- `/plans/[id]/scenarios`: nadpłata vs inwestycja with Belka (19%), break-even gross
-  % insight, recommendation badge.
+- Detail: balance hero, stats row (%, rata, ~dzienne odsetki), nadpłata tabs
+  (**Miesięcznie** | **Jednorazowo**), timeline bar (było → po nadpłacie), inline terms edit.
+- Jednorazowa nadpłata: symulacja wpływu na dzienne odsetki, łączną oszczędność i skrócenie
+  spłaty (nie zapisuje kwoty w planie).
+- `/plans/[id]/scenarios`: nadpłata vs inwestycja — werdykt + porównanie stóp zwrotu (Belka 19%),
+  potem kwoty z jasnym footnote; inwestycja liczona na horyzoncie bazowego kredytu.
 - Semi-auto rata detect ranks recurring expenses ≈ `monthly_payment`; user confirms
   **To moja rata** → `anchor_transaction_id`.
-- Optional **Zsynchronizuj saldo** when linked raty sum differs from stored balance.
+- Saldo z transakcji: auto-aktualizacja po powiązaniu raty na `/settle`; ręczne **Zastosuj**
+  tylko gdy są powiązania i zapisane saldo odbiega od wyliczenia.
 
 ## Save goals (detail polish)
 
