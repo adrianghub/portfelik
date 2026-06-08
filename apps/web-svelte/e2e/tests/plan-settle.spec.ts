@@ -294,9 +294,16 @@ test.describe("plan settle page", () => {
     });
 
     await page.goto(`/plans/${PLAN_ID}/settle`);
+    await expect(page.getByText("Wakacje")).toBeVisible();
+
     await page.getByRole("button", { name: /Dodaj ręcznie/ }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
     await page.getByLabel("Kwota").fill("150");
     await page.getByLabel("Opis").fill("Ręczny wydatek");
+    // Category combobox clears a prefilled id until categories load; pick explicitly.
+    await page.locator("#tx-cat").click();
+    await page.locator("#tx-cat").fill("Jedzenie");
+    await page.getByRole("option", { name: "Jedzenie" }).click();
     await page.getByRole("button", { name: "Zapisz" }).click();
 
     await expect(page.getByText("Transakcja dodana do planu.")).toBeVisible();
