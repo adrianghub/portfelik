@@ -48,10 +48,6 @@
     termsSaving = false,
   }: Props = $props();
 
-  let overpayMode = $state<DebtSimMode>("monthly");
-  let extraPayment = $state(500);
-  let lumpSumPayment = $state(10_000);
-  let simUrl = $state("");
   let showTermsEdit = $state(false);
   let showSyncConfirm = $state(false);
   let editOriginal = $state("");
@@ -88,6 +84,17 @@
     annualRate: Number(terms.annual_rate),
     monthlyPayment: Number(terms.monthly_payment),
   });
+  const maxOverpay = $derived(
+    Math.min(
+      Math.max(0, Number(terms.current_balance)),
+      Math.max(10_000, Math.ceil(Number(terms.monthly_payment) * 5))
+    )
+  );
+  const maxLumpSum = $derived(Math.max(0, Math.floor(Number(terms.current_balance))));
+  const simState = $derived(parseDebtSimUrl($page.url.searchParams));
+  const overpayMode = $derived(simState.mode);
+  const extraPayment = $derived(Math.min(maxOverpay, simState.extra));
+  const lumpSumPayment = $derived(Math.min(maxLumpSum, simState.amount));
   const comparison = $derived(compareOverpay(amortInput, extraPayment));
   const lumpComparison = $derived(compareLumpSumOverpay(amortInput, lumpSumPayment));
   const timelineWithPct = $derived(
@@ -105,14 +112,7 @@
     derivedBalance != null && derivedBalance > Number(terms.current_balance) + 1
   );
   const showLinkPaymentsInfo = $derived(!hasLinkedPayments && onSyncBalance != null);
-  const maxOverpay = $derived(
-    Math.min(
-      Math.max(0, Number(terms.current_balance)),
-      Math.max(10_000, Math.ceil(Number(terms.monthly_payment) * 5))
-    )
-  );
   const overpayChips = $derived([0, 500, 1000, 2000, 5000].filter((chip) => chip <= maxOverpay));
-  const maxLumpSum = $derived(Math.max(0, Math.floor(Number(terms.current_balance))));
   const lumpChips = $derived([5_000, 10_000, 20_000, 50_000].filter((chip) => chip <= maxLumpSum));
   const newInstallment = $derived(Number(terms.monthly_payment) + extraPayment);
   const settleHref = $derived(planSettleHref(planId, $page.url.searchParams));
@@ -135,25 +135,8 @@
     }
   });
 
-  $effect(() => {
-    simUrl = $page.url.searchParams.toString();
-  });
-
-  $effect(() => {
-    const parsed = parseDebtSimUrl(new URLSearchParams(simUrl));
-    overpayMode = parsed.mode;
-    extraPayment = Math.min(maxOverpay, parsed.extra);
-    lumpSumPayment = Math.min(maxLumpSum, parsed.amount);
-  });
-
   function pushSimUrl(patch: Partial<ReturnType<typeof parseDebtSimUrl>>) {
-    const next = {
-      mode: overpayMode,
-      extra: extraPayment,
-      amount: lumpSumPayment,
-      invest: parseDebtSimUrl($page.url.searchParams).invest,
-      ...patch,
-    };
+    const next = { ...parseDebtSimUrl($page.url.searchParams), ...patch };
     goto(`${$page.url.pathname}?${debtSimQueryString(next, $page.url.searchParams)}`, {
       replaceState: true,
       keepFocus: true,
@@ -162,18 +145,15 @@
   }
 
   function setOverpayMode(mode: DebtSimMode) {
-    overpayMode = mode;
     pushSimUrl({ mode });
   }
 
   function setExtraPayment(value: number) {
-    extraPayment = clampOverpay(value);
-    pushSimUrl({ extra: extraPayment });
+    pushSimUrl({ extra: clampOverpay(value) });
   }
 
   function setLumpSumPayment(value: number) {
-    lumpSumPayment = clampLumpSum(value);
-    pushSimUrl({ amount: lumpSumPayment });
+    pushSimUrl({ amount: clampLumpSum(value) });
   }
 
   function clampOverpay(value: number): number {

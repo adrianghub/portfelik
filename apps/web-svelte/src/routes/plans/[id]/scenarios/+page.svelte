@@ -24,8 +24,7 @@
   const mode = $derived(simState.mode);
   const extraParam = $derived(simState.extra);
   const lumpParam = $derived(simState.amount);
-  let investReturn = $state(7);
-  let simUrl = $state("");
+  const investReturn = $derived(simState.invest);
 
   const planQuery = createQuery(() => ({
     queryKey: ["plan", id],
@@ -39,17 +38,8 @@
     enabled: !!id && planQuery.data?.kind === "debt",
   }));
 
-  $effect(() => {
-    simUrl = $page.url.searchParams.toString();
-  });
-
-  $effect(() => {
-    investReturn = parseDebtSimUrl(new URLSearchParams(simUrl)).invest;
-  });
-
   function setInvestReturn(value: number) {
     const snapped = Math.min(15, Math.max(0, Math.round(value / 0.5) * 0.5));
-    investReturn = snapped;
     const next = { ...parseDebtSimUrl($page.url.searchParams), invest: snapped };
     goto(`${$page.url.pathname}?${debtSimQueryString(next, $page.url.searchParams)}`, {
       replaceState: true,
