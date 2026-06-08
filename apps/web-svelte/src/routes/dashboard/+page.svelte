@@ -188,8 +188,7 @@
   });
 
   const upcomingTxs = $derived(
-    txQuery.data?.filter((tx) => tx.status === "upcoming" || tx.status === "overdue").slice(0, 5) ??
-      []
+    scopedTxs.filter((tx) => tx.status === "upcoming" || tx.status === "overdue").slice(0, 5)
   );
 
   function openTransaction(tx: TransactionWithCategory) {

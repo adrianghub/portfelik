@@ -146,6 +146,19 @@ async function deleteRows(label, query) {
 }
 
 async function cleanupDemoRows(userId) {
+  const { data: demoPlans } = await supabase
+    .from("plans")
+    .select("id")
+    .eq("user_id", userId)
+    .like("name", `${DEMO_PREFIX}%`);
+  const demoPlanIds = (demoPlans ?? []).map((p) => p.id);
+  if (demoPlanIds.length > 0) {
+    await deleteRows(
+      "demo plan links",
+      supabase.from("plan_transaction_links").delete().in("plan_id", demoPlanIds)
+    );
+  }
+
   await deleteRows(
     "demo transactions",
     supabase

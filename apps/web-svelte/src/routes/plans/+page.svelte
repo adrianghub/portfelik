@@ -149,14 +149,45 @@
     })
   );
 
+  const scopedMonthTxs = $derived.by(() => {
+    if (!monthTxQuery.data) return [];
+    return monthTxQuery.data.filter((tx) => {
+      if (groupFilter === "all") return true;
+      if (groupFilter === "own") return tx.group_id === null;
+      return tx.group_id === groupFilter;
+    });
+  });
+
+  const scopedSummaries = $derived(
+    summaries.filter((p) => {
+      if (groupFilter === "all") return true;
+      if (groupFilter === "own") return p.group_id === null;
+      return p.group_id === groupFilter;
+    })
+  );
+
+  const scopedDebtTerms = $derived.by(() => {
+    const terms = debtTermsQuery.data ?? {};
+    const scopedIds = new Set(
+      (plansQuery.data ?? [])
+        .filter((p) => {
+          if (groupFilter === "all") return true;
+          if (groupFilter === "own") return p.group_id === null;
+          return p.group_id === groupFilter;
+        })
+        .map((p) => p.id)
+    );
+    return Object.fromEntries(Object.entries(terms).filter(([planId]) => scopedIds.has(planId)));
+  });
+
   const monthlySurplus = $derived.by(() => {
-    const monthSummary = monthTxQuery.data ? computeLedgerSummary(monthTxQuery.data) : null;
+    const monthSummary = monthTxQuery.data ? computeLedgerSummary(scopedMonthTxs) : null;
     if (!monthSummary) return null;
     return computeMonthlySurplus({
       totalIncome: monthSummary.total_income,
       totalExpenses: monthSummary.total_expenses,
-      debtMonthlyPayments: sumDebtMonthlyPayments(debtTermsQuery.data ?? {}),
-      saveMonthlyNeeded: sumSaveMonthlyNeeded(summaries),
+      debtMonthlyPayments: sumDebtMonthlyPayments(scopedDebtTerms),
+      saveMonthlyNeeded: sumSaveMonthlyNeeded(scopedSummaries),
     });
   });
 
