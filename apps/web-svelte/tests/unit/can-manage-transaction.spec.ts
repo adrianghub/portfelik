@@ -19,4 +19,9 @@ describe("canManageTransaction", () => {
   it("allows co-owner on shared row", () => {
     expect(canManageTransaction({ user_id: "u2", group_id: "g2" }, "u1", roles)).toBe(true);
   });
+
+  it("allows group owner role on shared row", () => {
+    const ownerRoles = new Map<string, GroupMemberRole>([["g3", "owner"]]);
+    expect(canManageTransaction({ user_id: "u2", group_id: "g3" }, "u1", ownerRoles)).toBe(true);
+  });
 });

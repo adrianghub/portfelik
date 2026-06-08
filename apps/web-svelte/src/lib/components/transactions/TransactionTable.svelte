@@ -249,7 +249,16 @@
                 <span
                   class="min-w-0 flex-1 truncate text-sm leading-snug font-medium text-slate-100"
                 >
-                  {tx.description}
+                  {#if tx.counterparty?.trim()}
+                    <span class="block truncate">{tx.counterparty}</span>
+                    {#if tx.description}
+                      <span class="block truncate text-xs font-normal text-slate-400"
+                        >{tx.description}</span
+                      >
+                    {/if}
+                  {:else}
+                    {tx.description}
+                  {/if}
                   {#if tx.is_recurring}
                     <span class="ml-1 text-xs text-slate-400" aria-label="cykliczna">↻</span>
                   {/if}
@@ -418,8 +427,15 @@
               <td class="w-10 py-3 pl-4" aria-hidden="true"></td>
             {/if}
             <td class="px-4 py-3 whitespace-nowrap text-slate-400">{formatDate(tx.date)}</td>
-            <td class="max-w-xs truncate px-4 py-3 text-slate-100">
-              {tx.description}
+            <td class="max-w-xs px-4 py-3 text-slate-100">
+              {#if tx.counterparty?.trim()}
+                <div class="truncate font-medium">{tx.counterparty}</div>
+                {#if tx.description}
+                  <div class="truncate text-xs text-slate-400">{tx.description}</div>
+                {/if}
+              {:else}
+                <span class="truncate">{tx.description}</span>
+              {/if}
               {#if tx.is_recurring}
                 <span class="ml-1 text-xs text-slate-400" aria-label="cykliczna">↻</span>
               {/if}

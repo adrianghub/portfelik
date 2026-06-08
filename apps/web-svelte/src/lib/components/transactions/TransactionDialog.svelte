@@ -48,6 +48,7 @@
 
   let type = $state<TransactionType>(untrack(() => initial?.type ?? "expense"));
   let amount = $state(untrack(() => (initial ? String(Math.abs(initial.amount)) : "")));
+  let counterparty = $state(untrack(() => initial?.counterparty ?? ""));
   let description = $state(untrack(() => initial?.description ?? ""));
   let date = $state(
     untrack(() =>
@@ -75,6 +76,7 @@
     if (open) {
       type = initial?.type ?? planContext?.type ?? "expense";
       amount = initial ? String(Math.abs(initial.amount)) : "";
+      counterparty = initial?.counterparty ?? "";
       description = initial?.description ?? "";
       date = initial?.date ? initial.date.slice(0, 10) : new Date().toISOString().slice(0, 10);
       category_id = initial?.category_id ?? planContext?.categoryId ?? "";
@@ -146,6 +148,7 @@
     mutation.mutate({
       amount: parseFloat(amount),
       type,
+      counterparty: counterparty.trim() || null,
       description,
       date,
       category_id,
@@ -203,6 +206,17 @@
         step="0.01"
         required
         bind:value={amount}
+        class={inputClass}
+      />
+    </div>
+
+    <div class="space-y-1">
+      <label class={labelClass} for="tx-counterparty">{m.transaction_form_counterparty()}</label>
+      <input
+        id="tx-counterparty"
+        type="text"
+        bind:value={counterparty}
+        placeholder={m.transaction_form_counterparty_hint()}
         class={inputClass}
       />
     </div>

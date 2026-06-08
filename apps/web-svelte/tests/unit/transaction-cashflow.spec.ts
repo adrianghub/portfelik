@@ -14,6 +14,7 @@ function tx(
     id: "tx-1",
     amount: 100,
     currency: "PLN",
+    counterparty: null,
     description: "Test",
     date: "2026-06-08",
     type: "expense",

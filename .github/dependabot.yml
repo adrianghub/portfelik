@@ -1,0 +1,14 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /apps/web-svelte
+    schedule:
+      interval: weekly
+    groups:
+      svelte-ecosystem:
+        patterns:
+          - svelte
+          - svelte-*
+          - "@sveltejs/*"
+          - devalue
+          - cookie
