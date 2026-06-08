@@ -93,6 +93,17 @@ export function deriveDebtBalanceFromLinks(
   return Math.max(0, originalAmount - paid);
 }
 
+/** Persist derived balance when at least one payment expense is linked. */
+export async function applyDebtBalanceFromLinks(
+  planId: string,
+  originalAmount: number,
+  linkedExpenses: { amount: number }[]
+): Promise<void> {
+  if (linkedExpenses.length === 0) return;
+  const derived = deriveDebtBalanceFromLinks(originalAmount, linkedExpenses);
+  await updatePlanDebtBalance(planId, derived);
+}
+
 export async function fetchPlanDebtTermsByPlanIds(
   planIds: string[]
 ): Promise<Record<string, PlanDebtTerms>> {

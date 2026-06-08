@@ -12,6 +12,7 @@
   import TransactionDialog, {
     type PlanTransactionContext,
   } from "$lib/components/transactions/TransactionDialog.svelte";
+  import { applyDebtBalanceFromLinks, fetchPlanDebtTerms } from "$lib/services/plan-debt";
   import { fetchPlanById } from "$lib/services/plans";
   import type { TransactionType } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
@@ -87,6 +88,17 @@
 
   const linkedForType = $derived((linkedQuery.data ?? []).filter((tx) => tx.type === activeType));
 
+  async function syncDebtBalanceAfterLinkChange() {
+    const plan = planQuery.data;
+    if (plan?.kind !== "debt") return;
+    const terms = await fetchPlanDebtTerms(id);
+    if (!terms) return;
+    const linked = await fetchLinkedTransactions(id);
+    const expenses = linked.filter((tx) => tx.type === "expense");
+    await applyDebtBalanceFromLinks(id, Number(terms.original_amount), expenses);
+    await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms", id] });
+  }
+
   const linkMutation = createMutation(() => ({
     mutationFn: (txId: string) => linkPlanTransaction(id, txId),
     onSuccess: async () => {
@@ -96,6 +108,12 @@
       await queryClient.invalidateQueries({ queryKey: ["plan-progress-list"] });
       await queryClient.invalidateQueries({ queryKey: ["plan-progress"] });
       await queryClient.invalidateQueries({ queryKey: ["plans"] });
+      try {
+        await syncDebtBalanceAfterLinkChange();
+      } catch {
+        toast.error(m.toast_error());
+        return;
+      }
       toast.success(m.plan_settle_linked());
     },
     onError: () => toast.error(m.toast_error()),

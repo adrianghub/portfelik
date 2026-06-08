@@ -15,6 +15,7 @@
   } from "$lib/components/transactions/TransactionDialog.svelte";
   import { detectRecurringDebtPayments } from "$lib/services/debt-payment-detect";
   import {
+    applyDebtBalanceFromLinks,
     deriveDebtBalanceFromLinks,
     fetchPlanDebtTerms,
     setDebtAnchorTransaction,
@@ -171,6 +172,21 @@
       await queryClient.invalidateQueries({ queryKey: ["plan-eligible", id] });
       await queryClient.invalidateQueries({ queryKey: ["plan-progress"] });
       await queryClient.invalidateQueries({ queryKey: ["plan-progress-list"] });
+      const plan = planQuery.data;
+      if (plan?.kind === "debt") {
+        const terms = await fetchPlanDebtTerms(id);
+        const linked = await fetchLinkedTransactions(id);
+        const expenses = linked.filter((tx) => tx.type === "expense");
+        if (terms && expenses.length > 0) {
+          try {
+            await applyDebtBalanceFromLinks(id, Number(terms.original_amount), expenses);
+            await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms", id] });
+          } catch {
+            toast.error(m.toast_error());
+            return;
+          }
+        }
+      }
       toast.success(m.plan_settle_unlinked());
     },
     onError: () => toast.error(m.toast_error()),
