@@ -46,6 +46,13 @@
 
   const isShared = (tx: TransactionWithCategory) => tx.group_id !== null;
 
+  /** Whole-row "button" semantics conflict with nested settle/checkbox controls (axe nested-interactive). */
+  function rowActsAsButton(tx: TransactionWithCategory): boolean {
+    if (!onrowclick || ondelete) return false;
+    if (onsettle && isQuickSettleEligible(tx.status) && canManage(tx)) return false;
+    return true;
+  }
+
   $effect(() => {
     void transactions;
     selectedIds = new Set<string>();
@@ -229,11 +236,15 @@
                 onrowclick && "cursor-pointer hover:bg-white/5 active:scale-[0.99]",
                 selectedIds.has(tx.id) && "ring-2 ring-slate-400"
               )}
-              role={onrowclick && !ondelete ? "button" : undefined}
-              tabindex={onrowclick ? 0 : undefined}
+              role={rowActsAsButton(tx) ? "button" : undefined}
+              tabindex={rowActsAsButton(tx) ? 0 : undefined}
               onclick={() => onrowclick?.(tx)}
               onkeydown={(e) => {
-                if (e.key === "Enter" || e.key === " ") onrowclick?.(tx);
+                if (!rowActsAsButton(tx)) return;
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onrowclick?.(tx);
+                }
               }}
             >
               <div class="flex items-start justify-between gap-3">
@@ -429,11 +440,15 @@
                 !!onrowclick && "cursor-pointer",
                 selectedIds.has(tx.id) && "bg-white/5"
               )}
-              role={onrowclick && !ondelete ? "button" : undefined}
-              tabindex={onrowclick ? 0 : undefined}
+              role={rowActsAsButton(tx) ? "button" : undefined}
+              tabindex={rowActsAsButton(tx) ? 0 : undefined}
               onclick={() => onrowclick?.(tx)}
               onkeydown={(e) => {
-                if (e.key === "Enter" || e.key === " ") onrowclick?.(tx);
+                if (!rowActsAsButton(tx)) return;
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onrowclick?.(tx);
+                }
               }}
             >
               {#if ondelete && canManage(tx)}
