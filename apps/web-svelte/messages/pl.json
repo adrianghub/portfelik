@@ -948,5 +948,9 @@
   "group_filter_label": "Filtruj",
   "dashboard_plan_progress_error": "Nie udało się załadować planów.",
   "dashboard_plan_progress_all": "Wszystkie plany",
-  "transaction_detail_show_plan": "Plan"
+  "transaction_detail_show_plan": "Plan",
+  "transactions_quick_settle": "Oznacz jako zapłacone",
+  "transactions_quick_settle_short": "Zapłać",
+  "toast_transaction_settled": "Oznaczono jako zapłacone",
+  "toast_transaction_settle_undo": "Cofnij"
 }

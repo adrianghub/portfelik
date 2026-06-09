@@ -389,6 +389,29 @@
     onError: () => toast.error(m.toast_error()),
   }));
 
+  const settleMutation = createMutation(() => ({
+    mutationFn: (vars: { id: string; prev: TransactionStatus }) =>
+      updateTransactionsStatus([vars.id], "paid"),
+    onSuccess: async (_data, vars) => {
+      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      toast.success(m.toast_transaction_settled(), {
+        action: {
+          label: m.toast_transaction_settle_undo(),
+          onClick: () => {
+            void updateTransactionsStatus([vars.id], vars.prev).then(() =>
+              queryClient.invalidateQueries({ queryKey: ["transactions"] })
+            );
+          },
+        },
+      });
+    },
+    onError: () => toast.error(m.toast_error()),
+  }));
+
+  function quickSettle(tx: TransactionWithCategory) {
+    settleMutation.mutate({ id: tx.id, prev: tx.status });
+  }
+
   const bulkCategoryMutation = createMutation(() => ({
     mutationFn: (catId: string) => updateTransactionsCategory(manageableSelectedIds(), catId),
     onSuccess: async () => {
@@ -744,6 +767,7 @@
       bind:selectedIds
       stickyHeaderTop={`calc(3.5rem + ${stickyFiltersHeight}px)`}
       onrowclick={(tx) => (sheetTx = tx)}
+      onsettle={quickSettle}
       ondelete={(id: string) => (deleteTargetId = id)}
     />
     {#if renderedTxCount < visibleTxs.length}

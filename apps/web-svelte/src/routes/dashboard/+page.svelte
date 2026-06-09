@@ -8,15 +8,17 @@
   import CategoryBreakdown from "$lib/components/transactions/CategoryBreakdown.svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchProfile } from "$lib/services/profiles";
-  import { fetchUserGroups } from "$lib/services/groups";
+  import { fetchMyGroupRoles, fetchUserGroups } from "$lib/services/groups";
   import {
     computeForecastSummary,
     computeLedgerSummary,
     ledgerTransactions,
   } from "$lib/services/transaction-cashflow";
-  import { fetchTransactions } from "$lib/services/transactions";
+  import { fetchTransactions, updateTransactionsStatus } from "$lib/services/transactions";
+  import { canManageTransaction } from "$lib/services/transaction-permissions";
+  import { toast } from "svelte-sonner";
   import { supabase } from "$lib/supabase";
-  import type { TransactionWithCategory } from "$lib/types";
+  import type { TransactionStatus, TransactionWithCategory } from "$lib/types";
   import { cn, formatCurrency, getDateRangeBounds } from "$lib/utils";
   import { syncListViewUrl } from "$lib/utils/navigation";
   import {
@@ -25,7 +27,7 @@
     type DashboardPeriod,
     type ScopeFilter,
   } from "$lib/utils/list-view-url";
-  import { createQuery } from "@tanstack/svelte-query";
+  import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { onMount } from "svelte";
   import { dailyGreeting, dailyQuote } from "$lib/dashboard-daily";
 
@@ -86,6 +88,42 @@
     const { data } = await supabase.auth.getSession();
     userId = data.session?.user.id ?? null;
   });
+
+  const queryClient = useQueryClient();
+
+  const groupRolesQuery = createQuery(() => ({
+    queryKey: ["group_roles"],
+    queryFn: fetchMyGroupRoles,
+    enabled: !!userId,
+  }));
+
+  function dashCanManage(tx: TransactionWithCategory): boolean {
+    if (!userId) return false;
+    return canManageTransaction(tx, userId, groupRolesQuery.data ?? new Map());
+  }
+
+  const settleMutation = createMutation(() => ({
+    mutationFn: (vars: { id: string; prev: TransactionStatus }) =>
+      updateTransactionsStatus([vars.id], "paid"),
+    onSuccess: async (_data, vars) => {
+      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      toast.success(m.toast_transaction_settled(), {
+        action: {
+          label: m.toast_transaction_settle_undo(),
+          onClick: () => {
+            void updateTransactionsStatus([vars.id], vars.prev).then(() =>
+              queryClient.invalidateQueries({ queryKey: ["transactions"] })
+            );
+          },
+        },
+      });
+    },
+    onError: () => toast.error(m.toast_error()),
+  }));
+
+  function quickSettle(tx: TransactionWithCategory) {
+    settleMutation.mutate({ id: tx.id, prev: tx.status });
+  }
 
   const profileQuery = createQuery(() => ({
     queryKey: ["profile", userId],
@@ -491,7 +529,10 @@
       <TransactionTable
         transactions={upcomingTxs}
         selectedIds={new Set()}
+        currentUserId={userId}
+        canManage={dashCanManage}
         onrowclick={openTransaction}
+        onsettle={quickSettle}
       />
     {/if}
   </div>

@@ -4,12 +4,14 @@
   import { cn, formatCurrency, formatDate } from "$lib/utils";
   import { ArrowDown, ArrowUp, ArrowUpDown, Check, Users, Wallet } from "lucide-svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
+  import { isQuickSettleEligible } from "$lib/services/transaction-permissions";
 
   interface Props {
     transactions: TransactionWithCategory[];
     currentUserId?: string | null;
     ondelete?: (id: string) => void;
     onrowclick?: (tx: TransactionWithCategory) => void;
+    onsettle?: (tx: TransactionWithCategory) => void;
     emptyLabel?: string;
     emptyHint?: string;
     selectedIds?: Set<string>;
@@ -26,6 +28,7 @@
     transactions,
     ondelete,
     onrowclick,
+    onsettle,
     emptyLabel,
     emptyHint,
     selectedIds = $bindable(new Set<string>()),
@@ -305,6 +308,20 @@
                 >
                   {statusLabel[tx.status] ?? tx.status}
                 </span>
+                {#if onsettle && isQuickSettleEligible(tx.status) && canManage(tx)}
+                  <button
+                    type="button"
+                    onclick={(e) => {
+                      e.stopPropagation();
+                      onsettle?.(tx);
+                    }}
+                    class="focus-visible:ring-accent inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-300 transition-colors hover:bg-emerald-500/20 focus-visible:ring-2 focus-visible:outline-none"
+                    aria-label={m.transactions_quick_settle()}
+                  >
+                    <Check size={11} strokeWidth={2.5} aria-hidden="true" />
+                    {m.transactions_quick_settle_short()}
+                  </button>
+                {/if}
               </div>
             </li>
           {/each}
@@ -476,6 +493,20 @@
                 >
                   {statusLabel[tx.status] ?? tx.status}
                 </span>
+                {#if onsettle && isQuickSettleEligible(tx.status) && canManage(tx)}
+                  <button
+                    type="button"
+                    onclick={(e) => {
+                      e.stopPropagation();
+                      onsettle?.(tx);
+                    }}
+                    class="focus-visible:ring-accent inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-300 transition-colors hover:bg-emerald-500/20 focus-visible:ring-2 focus-visible:outline-none"
+                    aria-label={m.transactions_quick_settle()}
+                  >
+                    <Check size={11} strokeWidth={2.5} aria-hidden="true" />
+                    {m.transactions_quick_settle_short()}
+                  </button>
+                {/if}
               </td>
               <td
                 class={cn(

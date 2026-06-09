@@ -61,6 +61,23 @@ export const MOCK_TRANSACTIONS = [
     created_at: "2026-05-02T10:00:00Z",
     updated_at: "2026-05-02T10:00:00Z",
   },
+  {
+    id: "tx-3",
+    date: "2026-05-15",
+    description: "Rachunek za prąd",
+    amount: 220,
+    type: "expense",
+    status: "upcoming",
+    category_id: "cat-1",
+    category_name: "Jedzenie",
+    is_recurring: false,
+    recurring_day: null,
+    currency: "PLN",
+    user_id: TEST_USER_ID,
+    group_id: null,
+    created_at: "2026-05-10T10:00:00Z",
+    updated_at: "2026-05-10T10:00:00Z",
+  },
 ];
 
 export const MOCK_NEW_TRANSACTION = {
