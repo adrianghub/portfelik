@@ -49,6 +49,10 @@ export function buildPlanningQueueActions(input: {
     });
   }
 
+  // Only demonstrated current-month deposits count as keeping pace. A historical-average
+  // estimate (or no deposits this month) must not suppress the warn chip.
+  const currentMonthPace = (p: PlanSummary): number =>
+    p.monthlyActualBasis === "current-month" ? (p.monthlyActual ?? 0) : 0;
   const offTrackSave = summaries
     .filter(
       (p) =>
@@ -56,7 +60,7 @@ export function buildPlanningQueueActions(input: {
         p.bucket === "active" &&
         p.monthlyNeeded != null &&
         p.monthlyNeeded > 0 &&
-        (p.monthlyActual ?? 0) < p.monthlyNeeded - 0.01
+        currentMonthPace(p) < p.monthlyNeeded - 0.01
     )
     .sort((a, b) => (b.monthlyNeeded ?? 0) - (a.monthlyNeeded ?? 0));
   if (offTrackSave[0]) {

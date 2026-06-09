@@ -22,14 +22,30 @@ export function addCalendarMonths(anchor: string, months: number): string {
   return formatLocalDate(d);
 }
 
-/** Whole calendar months from today until endDate (inverse of addCalendarMonths). */
-export function calendarMonthsUntil(endDate: string, today = todayIso()): number {
+/** Whole calendar months from anchor until endDate (inverse of addCalendarMonths). */
+export function calendarMonthsUntil(endDate: string, anchor = todayIso()): number {
   const end = parseLocalDate(endDate);
-  const now = parseLocalDate(today);
-  if (end < now) return 0;
-  let months = (end.getFullYear() - now.getFullYear()) * 12 + (end.getMonth() - now.getMonth());
-  if (end.getDate() < now.getDate()) months -= 1;
+  const start = parseLocalDate(anchor);
+  if (end < start) return 0;
+  let months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+  if (end.getDate() < start.getDate()) months -= 1;
   return Math.max(1, months);
+}
+
+/** Save-goal deadline slider anchor: plan start when upcoming, else today. */
+export function savePlanDeadlineAnchor(
+  plan: Pick<Plan, "start_date" | "end_date">,
+  today = todayIso()
+): string {
+  return derivePlanBucket(plan, today) === "upcoming" ? plan.start_date : today;
+}
+
+/** Months shown on the save-goal deadline slider (start→end or today→end). */
+export function savePlanSliderMonths(
+  plan: Pick<Plan, "start_date" | "end_date">,
+  today = todayIso()
+): number {
+  return calendarMonthsUntil(plan.end_date, savePlanDeadlineAnchor(plan, today));
 }
 
 export function defaultDebtPlanEndDate(today = todayIso()): string {

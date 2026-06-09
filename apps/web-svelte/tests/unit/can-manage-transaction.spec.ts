@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { canManageTransaction } from "$lib/services/transaction-permissions";
+import {
+  canManageTransaction,
+  isQuickSettleEligible,
+} from "$lib/services/transaction-permissions";
 import type { GroupMemberRole } from "$lib/types";
 
 describe("canManageTransaction", () => {
@@ -23,5 +26,17 @@ describe("canManageTransaction", () => {
   it("allows group owner role on shared row", () => {
     const ownerRoles = new Map<string, GroupMemberRole>([["g3", "owner"]]);
     expect(canManageTransaction({ user_id: "u2", group_id: "g3" }, "u1", ownerRoles)).toBe(true);
+  });
+});
+
+describe("isQuickSettleEligible", () => {
+  it("is eligible for upcoming and overdue", () => {
+    expect(isQuickSettleEligible("upcoming")).toBe(true);
+    expect(isQuickSettleEligible("overdue")).toBe(true);
+  });
+
+  it("is not eligible for already-paid or draft rows", () => {
+    expect(isQuickSettleEligible("paid")).toBe(false);
+    expect(isQuickSettleEligible("draft")).toBe(false);
   });
 });

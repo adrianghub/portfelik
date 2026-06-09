@@ -1,8 +1,12 @@
-const CACHE_NAME = 'portfelik-20260606';
+const CACHE_NAME = 'portfelik-20260608';
 
 const APP_SHELL = ['/', '/transactions', '/import', '/plans', '/settings'];
 
 const DEFAULT_ICON = '/icon-192x192.png';
+
+/** Must match notification-sync.ts */
+const NOTIFICATION_SYNC_CHANNEL = 'portfelik-notifications';
+const SW_NOTIFICATION_MESSAGE_TYPE = 'portfelik:notification';
 
 self.addEventListener('install', (event) => {
 	event.waitUntil(
@@ -34,22 +38,68 @@ self.addEventListener('fetch', (event) => {
 	);
 });
 
+async function hasVisibleClient() {
+	const windowClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+	return windowClients.some((client) => client.visibilityState === 'visible');
+}
+
+function broadcastInvalidate() {
+	try {
+		const channel = new BroadcastChannel(NOTIFICATION_SYNC_CHANNEL);
+		channel.postMessage({ type: 'invalidate' });
+		channel.close();
+	} catch {
+		// BroadcastChannel unavailable in some SW contexts — postMessage still runs.
+	}
+}
+
+function notifyOpenClients(payload) {
+	return clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+		for (const client of windowClients) {
+			client.postMessage({
+				type: SW_NOTIFICATION_MESSAGE_TYPE,
+				payload: {
+					title: payload.title,
+					body: payload.body,
+					notificationId: payload.notificationId
+				}
+			});
+		}
+	});
+}
+
 self.addEventListener('push', (event) => {
-	let payload = { title: 'Portfelik', body: '' };
+	let payload = { title: 'Portfelik', body: '', data: {} };
 	try {
 		payload = event.data?.json() ?? payload;
 	} catch {
 		payload.body = event.data?.text() ?? '';
 	}
 
+	const data = payload.data ?? {};
+	const notificationId = data.notificationId ?? data.type ?? 'portfelik';
+
 	event.waitUntil(
-		self.registration.showNotification(payload.title, {
-			body: payload.body,
-			icon: DEFAULT_ICON,
-			badge: DEFAULT_ICON,
-			vibrate: [100, 50, 100],
-			data: payload.data ?? {},
-			actions: [{ action: 'open', title: 'Otwórz' }]
+		hasVisibleClient().then((visible) => {
+			if (visible) {
+				broadcastInvalidate();
+				return notifyOpenClients({
+					title: payload.title,
+					body: payload.body,
+					notificationId
+				});
+			}
+
+			return self.registration.showNotification(payload.title, {
+				body: payload.body,
+				icon: DEFAULT_ICON,
+				badge: DEFAULT_ICON,
+				tag: notificationId,
+				renotify: false,
+				vibrate: [100, 50, 100],
+				data,
+				actions: [{ action: 'open', title: 'Otwórz' }]
+			});
 		})
 	);
 });

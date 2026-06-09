@@ -41,6 +41,10 @@
     {/if}
   </p>
 
+  {#if summary.hasDebtPlans && !summary.debtAssumptionVerified}
+    <p class="mt-1 text-[11px] text-slate-500">{m.plans_surplus_estimate_note()}</p>
+  {/if}
+
   {#if actions.length > 0}
     <ul class="mt-4 space-y-2">
       {#each actions as action (action.id)}

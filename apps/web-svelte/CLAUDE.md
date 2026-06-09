@@ -22,7 +22,11 @@ Loaded automatically when working in `apps/web-svelte/`.
 - `transactions.ts` - `fetchTransactions(start, end, categoryId?)`, `computeSummary(txs)`, `createTransaction`, `updateTransaction`, `deleteTransaction`
 - `categories.ts` - `fetchCategories`, `createCategory`, `updateCategory`, `deleteCategory`
 - `groups.ts` - all group SECURITY DEFINER RPCs
-- `shopping-lists.ts` - current internal service for user-facing Plans; `fetchShoppingLists`, `fetchShoppingListById`, `fetchShoppingListItemHistory`, item CRUD, `completeShoppingList`, `duplicateShoppingList`
+- `plans.ts` - first-class Plans storage + lifecycle; `fetchPlans`, `fetchPlanById`, `createPlan`, `updatePlan`, `deletePlan`, `derivePlanBucket`, `canManagePlan`, save/debt date helpers
+- `plan-settlement.ts` - link/unlink transactions, `rankPlanTransaction`, `computePlanProgress`, `computeSaveMonthlyActual` / `computeSaveMonthlyActualDetail` (returns pace `basis`)
+- `plan-settlement-policy.ts` - settlement write-policy gates
+- `plan-debt.ts` - debt terms normalize/CRUD, `consolidateDebtLinkedPayments`, `deriveDebtBalanceFromLinks`; `debt-amortization.ts` - payoff/Belka scenarios
+- `planning-queue.ts` - surplus action cards; `financial-surplus.ts` - `computeMonthlySurplus` (`unreflectedDebt` / `debtAssumptionVerified`); `financial-snapshots.ts` - net-worth snapshots
 - `profiles.ts` - `fetchProfile`, `updateProfile`, `assignAdminRole`, `revokeAdminRole`
 - `notifications.ts` - `fetchNotifications`, `markNotificationRead`, `markAllNotificationsRead`, `deleteNotification`
 - `push.ts` - `registerServiceWorker`, `autoSubscribePush`, `requestAndSubscribePush`, `unsubscribeFromPush`
@@ -32,11 +36,12 @@ Loaded automatically when working in `apps/web-svelte/`.
 - `ui/` - `Dialog`, `ConfirmDialog`, `NotificationsPopover`
 - `transactions/` - `MonthRangePicker`, `CategoryFilter`, `TransactionTable` (shared tx badge, row click), `TransactionDialog`, `TransactionDetailSheet`, `SummaryCards`, `CategoryBreakdown` (clickable)
 - `settings/` - `CategoriesTab`, `GroupsTab`, `ProfileTab`, `CategoryDialog`
-- `shopping-lists/` - current internal components for user-facing Plans (`ShoppingListCard`, `ShoppingListSuggestions`, detail views)
+- `plans/` - first-class Plans UI (`PlanCard`, `SavePlanDetail`, `DebtPlanDetail`, `SurplusCard`, `NetWorthHero`, `PlanForwardNav`)
+- `dashboard/` - `DashboardImportHealth`, `DashboardNetWorthStrip`, `DashboardPlanProgress`
 
 **Utils** (`src/lib/utils.ts`): `cn`, `formatCurrency`, `formatDate`, `getMonthBounds`, `getDateRangeBounds`, `monthName`, `monthYearLabel`
 
-**Types** (`src/lib/types.ts`): `Transaction`, `TransactionWithCategory`, `TransactionStatus`, `TransactionType`, `MonthlySummary`, `CategorySummary`, `Category`, `Profile`, `UserGroup`, `GroupMember`, `GroupMemberWithProfile`, `GroupInvitation`, `ShoppingList`, `ShoppingListSummary`, `ShoppingListItem`, `ShoppingListWithItems`, `Notification`
+**Types** (`src/lib/types.ts`): `Transaction`, `TransactionWithCategory`, `TransactionStatus`, `TransactionType`, `MonthlySummary`, `CategorySummary`, `Category`, `Profile`, `UserGroup`, `GroupMember`, `GroupMemberWithProfile`, `GroupInvitation`, `Plan`, `PlanKind`, `PlanBucket`, `PlanSummary`, `PlanDebtTerms`, `FinancialSnapshot`, `Notification`
 
 **i18n**: `messages/pl.json` - always recompile after editing.
 

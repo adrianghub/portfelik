@@ -815,6 +815,7 @@
   "plans_surplus_no_save_goals": "Bez aktywnych celów oszczędnościowych - bilans to wolna nadwyżka.",
   "plans_surplus_transactions_link": "Zobacz transakcje",
   "plans_surplus_debt_note": "Raty w planach {debt}/mies - zwykle już w wydatkach, jeśli importujesz transakcje.",
+  "plans_surplus_estimate_note": "≈ szacunek - zakładamy, że raty masz już w wydatkach",
   "dashboard_net_worth_title": "Majątek netto",
   "dashboard_net_worth_subtitle": "Stan na {date} · wpis ręczny",
   "dashboard_net_worth_empty": "Uzupełnij majątek w Plany.",
@@ -860,10 +861,13 @@
   "plan_save_gap_warning": "Brakuje {amount}/mies, by zdążyć na czas. Zwiększ wpłatę albo przesuń termin.",
   "plan_save_on_track": "Jesteś na dobrej drodze",
   "plan_save_on_track_badge": "na dobrej drodze",
+  "plan_save_on_track_estimate_badge": "≈ wg dotychczasowych wpłat",
   "plan_save_slider_target": "Budżet celu",
   "plan_save_slider_deadline": "Termin celu",
   "plan_save_deadline_urgent": "Termin jest już dziś lub za miesiąc - stąd wysoka kwota miesięczna. Przesuń termin albo zwiększ wpłaty.",
   "plan_save_slider_months": "za {count} mies.",
+  "plan_save_slider_months_duration": "{count} mies.",
+  "plan_save_slider_period": "{from} – {to}",
   "plan_save_link_cta": "Powiąż wpłaty",
   "plan_debt_remaining_hero": "Pozostało do spłaty",
   "plan_debt_balance_accrued_note": "+{amount} odsetek dziennie od {date} ({days} dni)",
@@ -944,5 +948,9 @@
   "group_filter_label": "Filtruj",
   "dashboard_plan_progress_error": "Nie udało się załadować planów.",
   "dashboard_plan_progress_all": "Wszystkie plany",
-  "transaction_detail_show_plan": "Plan"
+  "transaction_detail_show_plan": "Plan",
+  "transactions_quick_settle": "Oznacz jako zapłacone",
+  "transactions_quick_settle_short": "Zapłać",
+  "toast_transaction_settled": "Oznaczono jako zapłacone",
+  "toast_transaction_settle_undo": "Cofnij"
 }

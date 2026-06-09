@@ -25,10 +25,16 @@
   );
   const debtPaidPct = $derived(
     debtTerms && debtTerms.original_amount > 0
-      ? Math.round(
-          ((Number(debtTerms.original_amount) - Number(debtTerms.current_balance)) /
-            Number(debtTerms.original_amount)) *
-            100
+      ? Math.min(
+          100,
+          Math.max(
+            0,
+            Math.round(
+              ((Number(debtTerms.original_amount) - Number(debtTerms.current_balance)) /
+                Number(debtTerms.original_amount)) *
+                100
+            )
+          )
         )
       : 0
   );
@@ -56,6 +62,12 @@
       plan.monthlyActual != null &&
       plan.monthlyActual >= plan.monthlyNeeded - 0.01
   );
+  // "historical-average" pace is an estimate from past deposits, not a demonstrated
+  // current-month rate — don't assert on-track confidently from it.
+  const saveOnTrackEstimate = $derived(
+    saveOnTrack && plan.monthlyActualBasis === "historical-average"
+  );
+  const saveOnTrackConfident = $derived(saveOnTrack && !saveOnTrackEstimate);
   const hasActions = $derived(!!onedit || !!ondelete);
 
   function suggestionLabel(count: number): string {
@@ -147,11 +159,18 @@
                   {m.plan_card_upcoming_badge()}
                 </span>
               {/if}
-              {#if saveOnTrack}
+              {#if saveOnTrackConfident}
                 <span
                   class="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 uppercase"
                 >
                   {m.plan_save_on_track_badge()}
+                </span>
+              {:else if saveOnTrackEstimate}
+                <span
+                  class="shrink-0 rounded-full border border-slate-500/30 bg-slate-500/10 px-2 py-0.5 text-[10px] font-medium text-slate-300 normal-case"
+                  title={m.plan_save_on_track_estimate_badge()}
+                >
+                  {m.plan_save_on_track_badge()} · {m.plan_save_on_track_estimate_badge()}
                 </span>
               {/if}
               {#if plan.group_id && groupName}
@@ -193,17 +212,15 @@
             <div class="bg-accent-gradient h-full rounded-full" style="width: {debtPaidPct}%"></div>
           </div>
           <div class="mt-1.5 flex items-center justify-between gap-2 text-xs">
-            <span class="text-slate-400">
+            <span class="min-w-0 truncate text-slate-400">
               {m.plan_debt_card_progress({
                 paid: formatCurrency(
                   Number(debtTerms.original_amount) - Number(debtTerms.current_balance)
                 ),
                 total: formatCurrency(Number(debtTerms.original_amount)),
-              })}
+              })} · {formatCurrency(Number(debtTerms.monthly_payment))}/mies
             </span>
-            <span class="text-slate-400 tabular-nums"
-              >{formatCurrency(Number(debtTerms.monthly_payment))}/mies</span
-            >
+            <span class="text-accent shrink-0 font-semibold tabular-nums">{debtPaidPct}%</span>
           </div>
         </div>
       {:else if plan.budget_amount != null}

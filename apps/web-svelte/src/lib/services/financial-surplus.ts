@@ -9,6 +9,14 @@ export interface MonthlySurplusInput {
   totalExpenses: number;
   debtMonthlyPayments: number;
   saveMonthlyNeeded: number;
+  /**
+   * Portion of `debtMonthlyPayments` actually observed inside `totalExpenses` this month
+   * (e.g. detected/linked debt-payment transactions). Omit when unknown — the surplus is
+   * then flagged `debtAssumptionVerified: false` and the headline assumes raty already sit
+   * in expenses (legacy behaviour). When supplied, any shortfall is treated as an obligation
+   * not yet reflected in the cashflow and is subtracted from `afterSaveGoals`.
+   */
+  debtPaymentsInExpenses?: number;
 }
 
 export interface MonthlySurplusSummary {
@@ -19,20 +27,34 @@ export interface MonthlySurplusSummary {
   saveMonthlyNeeded: number;
   /** Month cashflow (income − expenses). Raty kredytów nie odejmujemy ponownie - są już w wydatkach. */
   surplus: number;
-  /** Cashflow minus save-goal pace (when user tracks accumulation targets). */
+  /** Cashflow minus save-goal pace minus any debt obligation not reflected in expenses. */
   afterSaveGoals: number;
+  /** Debt obligation NOT observed inside expenses (subtracted from afterSaveGoals). */
+  unreflectedDebt: number;
+  /** True only when the caller supplied observed debt coverage; false = assumption unchecked. */
+  debtAssumptionVerified: boolean;
   hasSaveGoals: boolean;
   hasDebtPlans: boolean;
 }
 
 export function computeMonthlySurplus(input: MonthlySurplusInput): MonthlySurplusSummary {
   const cashflowNet = input.totalIncome - input.totalExpenses;
-  const afterSaveGoals = cashflowNet - input.saveMonthlyNeeded;
+  // When coverage is unknown, assume the full payment is already inside expenses
+  // (legacy behaviour) but flag the result as unverified so the UI can mark it an estimate.
+  const debtAssumptionVerified = input.debtPaymentsInExpenses !== undefined;
+  const observed = input.debtPaymentsInExpenses ?? input.debtMonthlyPayments;
+  const unreflectedDebt = Math.max(0, input.debtMonthlyPayments - observed);
+  const afterSaveGoals = cashflowNet - input.saveMonthlyNeeded - unreflectedDebt;
   return {
-    ...input,
+    totalIncome: input.totalIncome,
+    totalExpenses: input.totalExpenses,
+    debtMonthlyPayments: input.debtMonthlyPayments,
+    saveMonthlyNeeded: input.saveMonthlyNeeded,
     cashflowNet,
     surplus: cashflowNet,
     afterSaveGoals,
+    unreflectedDebt,
+    debtAssumptionVerified,
     hasSaveGoals: input.saveMonthlyNeeded > 0,
     hasDebtPlans: input.debtMonthlyPayments > 0,
   };

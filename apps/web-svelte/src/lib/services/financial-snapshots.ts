@@ -32,13 +32,17 @@ export function computeNetWorth(
   };
 }
 
-/** Balance for one debt plan in net-worth (active + upcoming; finished only if balance remains). */
+/** Balance for one active debt plan in net-worth (finished only if balance remains). */
 export function debtBalanceForNetWorth(
   plan: Pick<Plan, "start_date" | "end_date" | "target_amount">,
   terms: PlanDebtTerms | undefined,
   asOfDate = todayIso()
 ): number {
   const bucket = derivePlanBucket(plan, asOfDate);
+
+  if (bucket === "upcoming") {
+    return 0;
+  }
 
   if (bucket === "finished") {
     if (!terms) return 0;
@@ -47,10 +51,6 @@ export function debtBalanceForNetWorth(
   }
 
   if (terms) {
-    if (bucket === "upcoming") {
-      // Future loan: full principal obligation counts toward net worth today.
-      return Math.max(Number(terms.current_balance), Number(terms.original_amount));
-    }
     const anchor = terms.updated_at.slice(0, 10);
     return accrueBalanceWithDailyInterest(
       Number(terms.current_balance),
@@ -60,7 +60,7 @@ export function debtBalanceForNetWorth(
     );
   }
 
-  // Plan exists but terms not saved yet — use target_amount from create form.
+  // Active plan without terms row yet — use target_amount from create form.
   const fallback = plan.target_amount != null ? Number(plan.target_amount) : 0;
   return fallback > 0.01 ? fallback : 0;
 }

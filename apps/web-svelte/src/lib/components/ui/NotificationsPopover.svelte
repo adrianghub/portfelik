@@ -11,6 +11,7 @@
     markAllNotificationsRead,
     deleteNotification,
   } from "$lib/services/notifications";
+  import { notifyNotificationsChanged } from "$lib/services/notification-sync";
   import { formatDate } from "$lib/utils";
   import type { Notification } from "$lib/types";
   import { notificationTargetHref } from "$lib/notification-targets";
@@ -44,22 +45,22 @@
 
   const markReadMutation = createMutation(() => ({
     mutationFn: (id: string) => markNotificationRead(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+    onSuccess: () => notifyNotificationsChanged(queryClient),
   }));
 
   const markUnreadMutation = createMutation(() => ({
     mutationFn: (id: string) => markNotificationUnread(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+    onSuccess: () => notifyNotificationsChanged(queryClient),
   }));
 
   const markAllMutation = createMutation(() => ({
     mutationFn: markAllNotificationsRead,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+    onSuccess: () => notifyNotificationsChanged(queryClient),
   }));
 
   const deleteMutation = createMutation(() => ({
     mutationFn: (id: string) => deleteNotification(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+    onSuccess: () => notifyNotificationsChanged(queryClient),
   }));
 
   function handleOpen() {
