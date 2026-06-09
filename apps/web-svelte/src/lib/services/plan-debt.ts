@@ -48,22 +48,29 @@ export function applyDebtPaymentPeriod(
   return Math.max(0, balance - principal);
 }
 
-/** Collapse linked expenses into ordered payment amounts (one period per calendar month when dated). */
+/**
+ * Collapse linked expenses into ordered payment periods.
+ * Dated rows are grouped by calendar month (ascending) — one interest period per month —
+ * even when other rows are undated. Undated rows have unknown timing, so each stays its own
+ * period and they are applied AFTER all dated months, in input order. The result is fully
+ * deterministic regardless of the order linked expenses arrive in.
+ */
 export function consolidateDebtLinkedPayments(linkedExpenses: DebtLinkedPayment[]): number[] {
   if (linkedExpenses.length === 0) return [];
-  const dated = linkedExpenses.filter((e) => e.date?.slice(0, 7));
-  if (dated.length === linkedExpenses.length) {
-    const byMonth = new Map<string, number>();
-    for (const exp of linkedExpenses) {
-      const key = exp.date!.slice(0, 7);
-      byMonth.set(key, (byMonth.get(key) ?? 0) + Math.abs(exp.amount));
+  const byMonth = new Map<string, number>();
+  const undated: number[] = [];
+  for (const exp of linkedExpenses) {
+    const month = exp.date?.slice(0, 7);
+    if (month) {
+      byMonth.set(month, (byMonth.get(month) ?? 0) + Math.abs(exp.amount));
+    } else {
+      undated.push(Math.abs(exp.amount));
     }
-    return [...byMonth.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, sum]) => sum);
   }
-  const sorted = [...linkedExpenses].sort((a, b) =>
-    (a.date?.slice(0, 10) ?? "").localeCompare(b.date?.slice(0, 10) ?? "")
-  );
-  return sorted.map((e) => Math.abs(e.amount));
+  const datedPeriods = [...byMonth.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, sum]) => sum);
+  return [...datedPeriods, ...undated];
 }
 
 /**
