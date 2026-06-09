@@ -161,6 +161,9 @@
         <p class="mt-1 text-sm font-semibold text-emerald-300 tabular-nums">
           {m.plan_save_monthly_actual({ amount: formatCurrency(progress.monthlyActual) })}
         </p>
+        {#if progress.monthlyActualBasis === "historical-average"}
+          <p class="mt-1 text-[11px] text-slate-500">{m.plan_save_on_track_estimate_badge()}</p>
+        {/if}
       </div>
     {/if}
   </div>

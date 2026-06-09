@@ -242,3 +242,41 @@ describe("computePlanProgress", () => {
     expect(progress.monthlyNeeded).toBeGreaterThan(progress.monthlyActual ?? 0);
   });
 });
+
+describe("computePlanProgress linkedExpenseCurrentMonth", () => {
+  it("sums current-month paid linked expenses (debt payment coverage)", () => {
+    const progress = computePlanProgress({
+      planId: "debt-1",
+      planName: "Kredyt",
+      kind: "debt",
+      budgetAmount: null,
+      targetAmount: null,
+      startDate: "2026-01-01",
+      endDate: "2030-01-01",
+      linkedTransactions: [
+        tx({ id: "a", type: "expense", amount: 2370, date: "2026-06-05", status: "paid" }),
+        tx({ id: "b", type: "expense", amount: 2370, date: "2026-05-05", status: "paid" }),
+      ],
+      today: "2026-06-08",
+    });
+    expect(progress.linkedExpenseCurrentMonth).toBe(2370);
+  });
+
+  it("excludes non-current-month and non-paid linked expenses", () => {
+    const progress = computePlanProgress({
+      planId: "debt-1",
+      planName: "Kredyt",
+      kind: "debt",
+      budgetAmount: null,
+      targetAmount: null,
+      startDate: "2026-01-01",
+      endDate: "2030-01-01",
+      linkedTransactions: [
+        tx({ id: "a", type: "expense", amount: 2370, date: "2026-06-05", status: "upcoming" }),
+        tx({ id: "b", type: "expense", amount: 1000, date: "2026-04-05", status: "paid" }),
+      ],
+      today: "2026-06-08",
+    });
+    expect(progress.linkedExpenseCurrentMonth).toBe(0);
+  });
+});

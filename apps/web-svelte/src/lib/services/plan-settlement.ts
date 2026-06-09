@@ -39,6 +39,9 @@ export interface PlanSettlementProgress {
   monthlyNeeded: number | null;
   monthlyActual: number | null;
   monthlyActualBasis: SavePaceBasis;
+  /** Sum of paid linked EXPENSE transactions dated in the current calendar month
+      (debt-payment coverage actually present in this month's tracked expenses). */
+  linkedExpenseCurrentMonth: number;
   monthsRemaining: number | null;
 }
 
@@ -343,6 +346,13 @@ export function computePlanProgress(input: {
   const incomes = paidLinked.filter((t) => t.type === "income");
   const spentAmount = expenses.reduce((s, t) => s + t.amount, 0);
   const incomeAmount = incomes.reduce((s, t) => s + t.amount, 0);
+  const monthBounds = currentCalendarMonthBounds(new Date(today));
+  const linkedExpenseCurrentMonth = expenses
+    .filter((t) => {
+      const d = t.date.slice(0, 10);
+      return d >= monthBounds.start && d <= monthBounds.end;
+    })
+    .reduce((sum, t) => sum + t.amount, 0);
   const savedAmount = incomeAmount;
   const targetAmount = input.targetAmount ?? null;
   const remaining =
@@ -387,6 +397,7 @@ export function computePlanProgress(input: {
     monthlyNeeded,
     monthlyActual,
     monthlyActualBasis: monthlyActualDetail.basis,
+    linkedExpenseCurrentMonth,
     monthsRemaining: monthsRem,
   };
 }

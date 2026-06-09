@@ -184,3 +184,55 @@ describe("buildPlanningQueueActions", () => {
     expect(actions.length).toBeLessThanOrEqual(3);
   });
 });
+
+describe("buildPlanningQueueActions save-pace basis", () => {
+  const surplus = {
+    totalIncome: 8000,
+    totalExpenses: 5000,
+    cashflowNet: 3000,
+    debtMonthlyPayments: 0,
+    saveMonthlyNeeded: 1000,
+    surplus: 3000,
+    afterSaveGoals: 2000,
+    unreflectedDebt: 0,
+    debtAssumptionVerified: false,
+    hasSaveGoals: true,
+    hasDebtPlans: false,
+  };
+
+  it("still warns when pace meets need only via historical average", () => {
+    const actions = buildPlanningQueueActions({
+      summaries: [
+        summary({
+          id: "save-1",
+          kind: "save",
+          target_amount: 60_000,
+          monthlyNeeded: 1000,
+          monthlyActual: 1500,
+          monthlyActualBasis: "historical-average",
+        }),
+      ],
+      monthlySurplus: surplus,
+      debtTerms: {},
+    });
+    expect(actions.some((a) => a.id === "save-save-1")).toBe(true);
+  });
+
+  it("does not warn when current-month deposits meet the need", () => {
+    const actions = buildPlanningQueueActions({
+      summaries: [
+        summary({
+          id: "save-1",
+          kind: "save",
+          target_amount: 60_000,
+          monthlyNeeded: 1000,
+          monthlyActual: 1500,
+          monthlyActualBasis: "current-month",
+        }),
+      ],
+      monthlySurplus: surplus,
+      debtTerms: {},
+    });
+    expect(actions.some((a) => a.id === "save-save-1")).toBe(false);
+  });
+});
