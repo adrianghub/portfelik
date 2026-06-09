@@ -51,6 +51,58 @@ describe("computeMonthlySurplus", () => {
     expect(result.surplus).toBe(200);
     expect(result.afterSaveGoals).toBe(-300);
   });
+
+  it("flags the debt assumption unverified when coverage is not supplied", () => {
+    const result = computeMonthlySurplus({
+      totalIncome: 5000,
+      totalExpenses: 4800,
+      debtMonthlyPayments: 2370,
+      saveMonthlyNeeded: 0,
+    });
+    expect(result.debtAssumptionVerified).toBe(false);
+    expect(result.unreflectedDebt).toBe(0);
+    // unchanged math: full payment assumed already inside expenses
+    expect(result.afterSaveGoals).toBe(200);
+  });
+
+  it("subtracts the unreflected debt shortfall when coverage is partial", () => {
+    const result = computeMonthlySurplus({
+      totalIncome: 5000,
+      totalExpenses: 4800,
+      debtMonthlyPayments: 2370,
+      debtPaymentsInExpenses: 1370,
+      saveMonthlyNeeded: 0,
+    });
+    expect(result.debtAssumptionVerified).toBe(true);
+    expect(result.unreflectedDebt).toBe(1000);
+    // cashflow 200 − save 0 − unreflected 1000
+    expect(result.afterSaveGoals).toBe(-800);
+  });
+
+  it("does not double-count when debt payments are fully reflected in expenses", () => {
+    const result = computeMonthlySurplus({
+      totalIncome: 12000,
+      totalExpenses: 8500,
+      debtMonthlyPayments: 2370,
+      debtPaymentsInExpenses: 2370,
+      saveMonthlyNeeded: 800,
+    });
+    expect(result.debtAssumptionVerified).toBe(true);
+    expect(result.unreflectedDebt).toBe(0);
+    expect(result.afterSaveGoals).toBe(2700);
+  });
+
+  it("clamps unreflected debt at zero when expenses over-report the payment", () => {
+    const result = computeMonthlySurplus({
+      totalIncome: 5000,
+      totalExpenses: 4800,
+      debtMonthlyPayments: 2370,
+      debtPaymentsInExpenses: 3000,
+      saveMonthlyNeeded: 0,
+    });
+    expect(result.unreflectedDebt).toBe(0);
+    expect(result.afterSaveGoals).toBe(200);
+  });
 });
 
 describe("sumDebtMonthlyPayments", () => {
