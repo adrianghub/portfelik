@@ -15,12 +15,15 @@
     LogOut,
   } from "lucide-svelte";
   import NotificationsPopover from "$lib/components/ui/NotificationsPopover.svelte";
+  import { MediaQuery } from "svelte/reactivity";
 
   interface Props {
     profile: Profile | null;
     user: User | null;
   }
   let { profile, user }: Props = $props();
+
+  const isDesktopNav = new MediaQuery("(min-width: 768px)");
 
   // Mobile bottom nav keeps Panel (dashboard) centered.
   const navItems = [
@@ -145,7 +148,9 @@
   </nav>
 
   <div class="relative ml-auto flex items-center gap-2">
-    <NotificationsPopover />
+    {#if isDesktopNav.current}
+      <NotificationsPopover placement="top" />
+    {/if}
     <button
       bind:this={menuButtonRef}
       type="button"
@@ -175,7 +180,9 @@
 >
   <span class="text-base font-semibold tracking-tight text-slate-100">{m.app_name()}</span>
   <div class="ml-auto">
-    <NotificationsPopover />
+    {#if !isDesktopNav.current}
+      <NotificationsPopover placement="bottom" />
+    {/if}
   </div>
   <button
     bind:this={menuButtonMobileRef}
