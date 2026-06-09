@@ -6,14 +6,7 @@
   import type { Profile } from "$lib/types";
   import type { User } from "@supabase/supabase-js";
   import * as m from "$lib/paraglide/messages";
-  import {
-    LayoutDashboard,
-    Wallet,
-    ShoppingBasket,
-    Settings,
-    ShieldCheck,
-    LogOut,
-  } from "lucide-svelte";
+  import { LayoutDashboard, Wallet, Target, Settings, ShieldCheck, LogOut } from "lucide-svelte";
   import NotificationsPopover from "$lib/components/ui/NotificationsPopover.svelte";
   import { MediaQuery } from "svelte/reactivity";
 
@@ -29,13 +22,13 @@
   const navItems = [
     { href: "/transactions", label: m.nav_transactions(), icon: Wallet },
     { href: "/dashboard", label: m.nav_dashboard(), icon: LayoutDashboard },
-    { href: "/plans", label: m.nav_plans(), icon: ShoppingBasket },
+    { href: "/plans", label: m.nav_plans(), icon: Target },
   ];
 
   const desktopNavItems = [
     { href: "/dashboard", label: m.nav_dashboard(), icon: LayoutDashboard },
     { href: "/transactions", label: m.nav_transactions(), icon: Wallet },
-    { href: "/plans", label: m.nav_plans(), icon: ShoppingBasket },
+    { href: "/plans", label: m.nav_plans(), icon: Target },
   ];
 
   const isActive = (href: string) => $page.url.pathname.startsWith(href);
