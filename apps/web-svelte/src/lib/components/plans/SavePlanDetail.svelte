@@ -6,7 +6,6 @@
     derivePlanBucket,
     savePlanDeadlineAnchor,
     savePlanSliderMonths,
-    todayIso,
   } from "$lib/services/plans";
   import type { Plan } from "$lib/types";
   import { formatCurrency, formatDate } from "$lib/utils";
