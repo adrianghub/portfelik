@@ -14,6 +14,7 @@
   import * as m from "$lib/paraglide/messages";
   import { fetchProfile } from "$lib/services/profiles";
   import { applyAccent } from "$lib/theme/accent-presets";
+  import { setupNotificationSync } from "$lib/services/notification-sync";
   import {
     autoSubscribePush,
     registerServiceWorker,
@@ -25,6 +26,7 @@
   import type { User } from "@supabase/supabase-js";
   import { QueryClient, QueryClientProvider } from "@tanstack/svelte-query";
   import { onMount } from "svelte";
+  import { toast } from "svelte-sonner";
   import { Toaster } from "svelte-sonner";
   import { fade } from "svelte/transition";
   import "../app.css";
@@ -133,9 +135,13 @@
     registerServiceWorker().then(() => autoSubscribePush(authUser.id).catch(() => {}));
   }
 
-  onMount(async () => {
+  onMount(() => {
     if ("Notification" in window) notifPermission = Notification.permission;
     readPushPromptCooldown();
+
+    const teardownNotificationSync = setupNotificationSync(queryClient, ({ title, body }) => {
+      toast(title, { description: body || undefined });
+    });
 
     supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
@@ -152,25 +158,31 @@
       }
     });
 
-    const bootstrapRevision = authRevision;
-    const {
-      data: { user: authUser },
-      error: userError,
-    } = await supabase.auth.getUser();
+    void (async () => {
+      const bootstrapRevision = authRevision;
+      const {
+        data: { user: authUser },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-    // A sign-in (or sign-out) landed while getUser() was in flight - its result
-    // is authoritative, so discard this now-stale bootstrap snapshot.
-    if (bootstrapRevision !== authRevision) return;
+      // A sign-in (or sign-out) landed while getUser() was in flight - its result
+      // is authoritative, so discard this now-stale bootstrap snapshot.
+      if (bootstrapRevision !== authRevision) return;
 
-    if (userError || !authUser) {
-      clearAuthenticatedUser();
-    } else {
-      loadAuthenticatedUser(authUser);
-    }
+      if (userError || !authUser) {
+        clearAuthenticatedUser();
+      } else {
+        loadAuthenticatedUser(authUser);
+      }
 
-    if (!authUser && !isPublicRoute) {
-      redirectToLogin();
-    }
+      if (!authUser && !isPublicRoute) {
+        redirectToLogin();
+      }
+    })();
+
+    return () => {
+      teardownNotificationSync();
+    };
   });
 </script>
 

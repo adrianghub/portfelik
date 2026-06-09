@@ -4,12 +4,14 @@
   import { cn, formatCurrency, formatDate } from "$lib/utils";
   import { ArrowDown, ArrowUp, ArrowUpDown, Check, Users, Wallet } from "lucide-svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
+  import { isQuickSettleEligible } from "$lib/services/transaction-permissions";
 
   interface Props {
     transactions: TransactionWithCategory[];
     currentUserId?: string | null;
     ondelete?: (id: string) => void;
     onrowclick?: (tx: TransactionWithCategory) => void;
+    onsettle?: (tx: TransactionWithCategory) => void;
     emptyLabel?: string;
     emptyHint?: string;
     selectedIds?: Set<string>;
@@ -26,6 +28,7 @@
     transactions,
     ondelete,
     onrowclick,
+    onsettle,
     emptyLabel,
     emptyHint,
     selectedIds = $bindable(new Set<string>()),
@@ -42,6 +45,13 @@
   let sortDirection = $state<SortDirection>("desc");
 
   const isShared = (tx: TransactionWithCategory) => tx.group_id !== null;
+
+  /** Whole-row "button" semantics conflict with nested settle/checkbox controls (axe nested-interactive). */
+  function rowActsAsButton(tx: TransactionWithCategory): boolean {
+    if (!onrowclick || ondelete) return false;
+    if (onsettle && isQuickSettleEligible(tx.status) && canManage(tx)) return false;
+    return true;
+  }
 
   $effect(() => {
     void transactions;
@@ -226,11 +236,15 @@
                 onrowclick && "cursor-pointer hover:bg-white/5 active:scale-[0.99]",
                 selectedIds.has(tx.id) && "ring-2 ring-slate-400"
               )}
-              role={onrowclick && !ondelete ? "button" : undefined}
-              tabindex={onrowclick ? 0 : undefined}
+              role={rowActsAsButton(tx) ? "button" : undefined}
+              tabindex={rowActsAsButton(tx) ? 0 : undefined}
               onclick={() => onrowclick?.(tx)}
               onkeydown={(e) => {
-                if (e.key === "Enter" || e.key === " ") onrowclick?.(tx);
+                if (!rowActsAsButton(tx)) return;
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onrowclick?.(tx);
+                }
               }}
             >
               <div class="flex items-start justify-between gap-3">
@@ -305,6 +319,20 @@
                 >
                   {statusLabel[tx.status] ?? tx.status}
                 </span>
+                {#if onsettle && isQuickSettleEligible(tx.status) && canManage(tx)}
+                  <button
+                    type="button"
+                    onclick={(e) => {
+                      e.stopPropagation();
+                      onsettle?.(tx);
+                    }}
+                    class="focus-visible:ring-accent inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-300 transition-colors hover:bg-emerald-500/20 focus-visible:ring-2 focus-visible:outline-none"
+                    aria-label={m.transactions_quick_settle()}
+                  >
+                    <Check size={11} strokeWidth={2.5} aria-hidden="true" />
+                    {m.transactions_quick_settle_short()}
+                  </button>
+                {/if}
               </div>
             </li>
           {/each}
@@ -412,11 +440,15 @@
                 !!onrowclick && "cursor-pointer",
                 selectedIds.has(tx.id) && "bg-white/5"
               )}
-              role={onrowclick && !ondelete ? "button" : undefined}
-              tabindex={onrowclick ? 0 : undefined}
+              role={rowActsAsButton(tx) ? "button" : undefined}
+              tabindex={rowActsAsButton(tx) ? 0 : undefined}
               onclick={() => onrowclick?.(tx)}
               onkeydown={(e) => {
-                if (e.key === "Enter" || e.key === " ") onrowclick?.(tx);
+                if (!rowActsAsButton(tx)) return;
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onrowclick?.(tx);
+                }
               }}
             >
               {#if ondelete && canManage(tx)}
@@ -476,6 +508,20 @@
                 >
                   {statusLabel[tx.status] ?? tx.status}
                 </span>
+                {#if onsettle && isQuickSettleEligible(tx.status) && canManage(tx)}
+                  <button
+                    type="button"
+                    onclick={(e) => {
+                      e.stopPropagation();
+                      onsettle?.(tx);
+                    }}
+                    class="focus-visible:ring-accent inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-300 transition-colors hover:bg-emerald-500/20 focus-visible:ring-2 focus-visible:outline-none"
+                    aria-label={m.transactions_quick_settle()}
+                  >
+                    <Check size={11} strokeWidth={2.5} aria-hidden="true" />
+                    {m.transactions_quick_settle_short()}
+                  </button>
+                {/if}
               </td>
               <td
                 class={cn(

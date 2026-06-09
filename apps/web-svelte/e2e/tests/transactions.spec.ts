@@ -244,3 +244,14 @@ test("bulk delete: confirm and show success toast", async ({ page }) => {
   // Success toast - message: "Usunięto 2 transakcji"
   await expect(page.getByText(/Usunięto 2 transakcji/)).toBeVisible();
 });
+
+
+test("quick-settle marks an upcoming transaction paid", async ({ page }) => {
+  // tx-3 ("Rachunek za prąd") is seeded with status "upcoming" → eligible for quick-settle.
+  await expect(desktopTable(page).getByText("Rachunek za prąd")).toBeVisible();
+  const settle = page.getByRole("button", { name: "Oznacz jako zapłacone" }).first();
+  await expect(settle).toBeVisible();
+  await settle.click();
+  // Success toast confirms the mark-paid mutation fired with an undo affordance.
+  await expect(page.getByText("Oznaczono jako zapłacone")).toBeVisible();
+});

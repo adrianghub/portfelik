@@ -173,6 +173,7 @@
         eligibleCount: progress?.eligibleCount ?? 0,
         monthlyNeeded: progress?.monthlyNeeded ?? null,
         monthlyActual: progress?.monthlyActual ?? null,
+        monthlyActualBasis: progress?.monthlyActualBasis,
         bucket: derivePlanBucket(plan),
       };
     })
@@ -212,11 +213,19 @@
   const monthlySurplus = $derived.by(() => {
     const monthSummary = monthTxQuery.data ? computeLedgerSummary(scopedMonthTxs) : null;
     if (!monthSummary) return null;
+    // Observed debt-payment coverage: sum of current-month linked expenses across active debt
+    // plans. Only pass it once progress has loaded; until then the surplus stays an estimate.
+    const debtPaymentsInExpenses = progressQuery.data
+      ? scopedSummaries
+          .filter((p) => p.kind === "debt" && p.bucket === "active")
+          .reduce((sum, p) => sum + (progressQuery.data?.[p.id]?.linkedExpenseCurrentMonth ?? 0), 0)
+      : undefined;
     return computeMonthlySurplus({
       totalIncome: monthSummary.total_income,
       totalExpenses: monthSummary.total_expenses,
       debtMonthlyPayments: sumDebtMonthlyPayments(scopedSummaries, scopedDebtTerms),
       saveMonthlyNeeded: sumSaveMonthlyNeeded(scopedSummaries),
+      debtPaymentsInExpenses,
     });
   });
 

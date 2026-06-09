@@ -6,15 +6,9 @@
   import type { Profile } from "$lib/types";
   import type { User } from "@supabase/supabase-js";
   import * as m from "$lib/paraglide/messages";
-  import {
-    LayoutDashboard,
-    Wallet,
-    ShoppingBasket,
-    Settings,
-    ShieldCheck,
-    LogOut,
-  } from "lucide-svelte";
+  import { LayoutDashboard, Wallet, Target, Settings, ShieldCheck, LogOut } from "lucide-svelte";
   import NotificationsPopover from "$lib/components/ui/NotificationsPopover.svelte";
+  import { MediaQuery } from "svelte/reactivity";
 
   interface Props {
     profile: Profile | null;
@@ -22,17 +16,19 @@
   }
   let { profile, user }: Props = $props();
 
+  const isDesktopNav = new MediaQuery("(min-width: 768px)");
+
   // Mobile bottom nav keeps Panel (dashboard) centered.
   const navItems = [
     { href: "/transactions", label: m.nav_transactions(), icon: Wallet },
     { href: "/dashboard", label: m.nav_dashboard(), icon: LayoutDashboard },
-    { href: "/plans", label: m.nav_plans(), icon: ShoppingBasket },
+    { href: "/plans", label: m.nav_plans(), icon: Target },
   ];
 
   const desktopNavItems = [
     { href: "/dashboard", label: m.nav_dashboard(), icon: LayoutDashboard },
     { href: "/transactions", label: m.nav_transactions(), icon: Wallet },
-    { href: "/plans", label: m.nav_plans(), icon: ShoppingBasket },
+    { href: "/plans", label: m.nav_plans(), icon: Target },
   ];
 
   const isActive = (href: string) => $page.url.pathname.startsWith(href);
@@ -145,7 +141,9 @@
   </nav>
 
   <div class="relative ml-auto flex items-center gap-2">
-    <NotificationsPopover />
+    {#if isDesktopNav.current}
+      <NotificationsPopover placement="top" />
+    {/if}
     <button
       bind:this={menuButtonRef}
       type="button"
@@ -175,7 +173,9 @@
 >
   <span class="text-base font-semibold tracking-tight text-slate-100">{m.app_name()}</span>
   <div class="ml-auto">
-    <NotificationsPopover />
+    {#if !isDesktopNav.current}
+      <NotificationsPopover placement="bottom" />
+    {/if}
   </div>
   <button
     bind:this={menuButtonMobileRef}

@@ -138,4 +138,19 @@ Notifications could be pushed to live tabs via Supabase Realtime without web-pus
 
 ## In-app bell
 
-The in-app notification list is read straight from `public.notifications` via TanStack Query (`["notifications"]`, 5-min staleTime + `refetchOnReconnect`). `mark_notification_read(id)` and `mark_all_notifications_read()` RPCs flip `read_at`. There is no Realtime subscription; the bell becomes accurate on the next refetch (most commonly when the user clicks something or comes back online).
+The in-app notification list is read straight from `public.notifications` via TanStack Query (`["notifications"]`, 30s staleTime in the popover + `refetchOnReconnect`). `mark_notification_read(id)` and `mark_all_notifications_read()` RPCs flip `read_at`. There is no Realtime subscription; the bell becomes accurate on the next refetch (most commonly when the user clicks something or comes back online).
+
+## Foreground + cross-tab sync (native-like)
+
+`static/sw.js` push handler:
+
+1. If any Portfelik tab is **visible** (`WindowClient.visibilityState === 'visible'`):
+   - **Skip** `showNotification` (no OS banner while the app is open).
+   - `postMessage` to all open clients + `BroadcastChannel('portfelik-notifications')` with `{ type: 'invalidate' }`.
+   - The focused tab may show a subtle in-app toast (`+layout.svelte`); the bell refetches everywhere.
+2. If all tabs are hidden/closed:
+   - `showNotification` with `tag: notificationId` so duplicate sends replace rather than stack.
+
+`notification-sync.ts` wires SW messages and `BroadcastChannel` into TanStack Query invalidation. Mark-read/delete mutations call `notifyNotificationsChanged()` so other tabs pick up `read_at` without waiting for staleTime.
+
+`Navigation.svelte` mounts a **single** `NotificationsPopover` (desktop or mobile breakpoint, not both).

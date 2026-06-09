@@ -74,6 +74,43 @@ describe("consolidateDebtLinkedPayments", () => {
       ])
     ).toEqual([2370, 2370]);
   });
+
+  it("still groups dated rows by month when some rows are undated", () => {
+    expect(
+      consolidateDebtLinkedPayments([
+        { amount: 1000, date: "2026-01-05" },
+        { amount: 1370, date: "2026-01-20" },
+        { amount: 2370, date: "2026-02-10" },
+        { amount: 500 },
+      ])
+    ).toEqual([2370, 2370, 500]);
+  });
+
+  it("appends undated periods after dated months", () => {
+    expect(
+      consolidateDebtLinkedPayments([
+        { amount: 800 },
+        { amount: 1000, date: "2026-03-01" },
+      ])
+    ).toEqual([1000, 800]);
+  });
+
+  it("is deterministic regardless of input order", () => {
+    const a = consolidateDebtLinkedPayments([
+      { amount: 2370, date: "2026-02-10" },
+      { amount: 500 },
+      { amount: 1370, date: "2026-01-20" },
+      { amount: 1000, date: "2026-01-05" },
+    ]);
+    const b = consolidateDebtLinkedPayments([
+      { amount: 1000, date: "2026-01-05" },
+      { amount: 2370, date: "2026-02-10" },
+      { amount: 1370, date: "2026-01-20" },
+      { amount: 500 },
+    ]);
+    expect(a).toEqual([2370, 2370, 500]);
+    expect(a).toEqual(b);
+  });
 });
 
 describe("deriveDebtBalanceFromLinks", () => {
