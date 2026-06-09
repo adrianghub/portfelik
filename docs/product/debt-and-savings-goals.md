@@ -46,10 +46,10 @@ raty** / **Spłać / nadpłać** (debt).
 
 - `financial_snapshots`: one row per user - `cash_amount`, `investments_amount`,
   `real_estate_amount`, `as_of_date` (all manual entry).
-- **Majątek netto** on `/plans` = sum(assets) − sum(debt liabilities). Active loans use
-  accrued balance to the snapshot date; **upcoming (future) loans** count full
-  `original_amount`; finished loans drop out when balance is zero. If terms are not
-  saved yet, `plans.target_amount` is used as fallback.
+- **Majątek netto** on `/plans` = sum(assets) − sum(debt liabilities). Only **active**
+  loans count (accrued balance to the snapshot date); upcoming/future loans are
+  excluded until `start_date`; finished loans drop out when balance is zero. If
+  terms are not saved yet on an active plan, `plans.target_amount` is used as fallback.
 - Copy states values are user-entered; Portfelik does not derive bank balances from import.
 - **Pulpit strip (D2):** compact net-worth summary linking to `/plans`; same manual snapshot.
 

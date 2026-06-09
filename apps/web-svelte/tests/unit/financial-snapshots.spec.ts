@@ -66,18 +66,18 @@ const debtTerms = (overrides: Partial<PlanDebtTerms> = {}): PlanDebtTerms => ({
 });
 
 describe("debtBalanceForNetWorth", () => {
-  it("counts full original for upcoming loans", () => {
+  it("excludes upcoming loans from net worth", () => {
     const balance = debtBalanceForNetWorth(
       debtPlan({ start_date: "2026-07-01" }),
       debtTerms({ original_amount: 200_000, current_balance: 199_000 }),
       "2026-06-08"
     );
-    expect(balance).toBe(200_000);
+    expect(balance).toBe(0);
   });
 
-  it("falls back to plan target when terms row is missing", () => {
+  it("falls back to plan target when active plan has no terms row", () => {
     const balance = debtBalanceForNetWorth(
-      debtPlan({ target_amount: 150_000, start_date: "2026-08-01" }),
+      debtPlan({ target_amount: 150_000, start_date: "2025-01-01", end_date: "2045-01-01" }),
       undefined,
       "2026-06-08"
     );
@@ -95,7 +95,7 @@ describe("debtBalanceForNetWorth", () => {
 });
 
 describe("collectNetWorthDebtBalances", () => {
-  it("sums active and upcoming debt plans", () => {
+  it("sums active debt plans only", () => {
     const plans = [
       debtPlan({ id: "d1", start_date: "2025-01-01", end_date: "2030-01-01" }),
       debtPlan({
@@ -115,7 +115,7 @@ describe("collectNetWorthDebtBalances", () => {
       d2: debtTerms({ plan_id: "d2", original_amount: 100_000, current_balance: 100_000 }),
     };
     const balances = collectNetWorthDebtBalances(plans, terms, "2026-06-08");
-    expect(balances).toHaveLength(2);
-    expect(balances.reduce((a, b) => a + b, 0)).toBe(307_000);
+    expect(balances).toHaveLength(1);
+    expect(balances[0]).toBe(207_000);
   });
 });

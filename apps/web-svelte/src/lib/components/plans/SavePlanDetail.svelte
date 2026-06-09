@@ -1,9 +1,15 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
   import type { PlanSettlementProgress } from "$lib/services/plan-settlement";
-  import { addCalendarMonths, calendarMonthsUntil, todayIso } from "$lib/services/plans";
+  import {
+    addCalendarMonths,
+    derivePlanBucket,
+    savePlanDeadlineAnchor,
+    savePlanSliderMonths,
+    todayIso,
+  } from "$lib/services/plans";
   import type { Plan } from "$lib/types";
-  import { formatCurrency } from "$lib/utils";
+  import { formatCurrency, formatDate } from "$lib/utils";
   import { page } from "$app/stores";
   import PlanForwardNav from "$lib/components/plans/PlanForwardNav.svelte";
   import { planSettleHref } from "$lib/utils/plan-routes";
@@ -33,9 +39,15 @@
   let sliderTarget = $state(60000);
   let sliderMonths = $state(12);
 
+  const isUpcoming = $derived(derivePlanBucket(plan) === "upcoming");
+  const deadlineAnchor = $derived(savePlanDeadlineAnchor(plan));
+  const sliderEndPreview = $derived(addCalendarMonths(deadlineAnchor, sliderMonths));
+  const sliderMinMonths = $derived(isUpcoming ? 1 : 3);
+
   $effect(() => {
     sliderTarget = plan.target_amount ?? 60000;
-    sliderMonths = Math.max(3, calendarMonthsUntil(plan.end_date));
+    const months = savePlanSliderMonths(plan);
+    sliderMonths = Math.max(sliderMinMonths, months);
   });
 
   function emitTargetAdjust() {
@@ -43,7 +55,7 @@
   }
 
   function emitDeadlineAdjust() {
-    onAdjust?.({ end_date: addCalendarMonths(todayIso(), sliderMonths) });
+    onAdjust?.({ end_date: sliderEndPreview });
   }
 </script>
 
@@ -107,11 +119,23 @@
       <div>
         <div class="flex items-center justify-between text-xs text-slate-400">
           <span>{m.plan_save_slider_deadline()}</span>
-          <span class="text-slate-200">{m.plan_save_slider_months({ count: sliderMonths })}</span>
+          <span class="text-slate-200">
+            {#if isUpcoming}
+              {m.plan_save_slider_months_duration({ count: sliderMonths })}
+            {:else}
+              {m.plan_save_slider_months({ count: sliderMonths })}
+            {/if}
+          </span>
         </div>
+        <p class="mt-0.5 text-[11px] text-slate-500 tabular-nums">
+          {m.plan_save_slider_period({
+            from: formatDate(deadlineAnchor),
+            to: formatDate(sliderEndPreview),
+          })}
+        </p>
         <input
           type="range"
-          min="3"
+          min={sliderMinMonths}
           max="60"
           step="1"
           bind:value={sliderMonths}

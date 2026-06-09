@@ -6,6 +6,8 @@ import {
   addCalendarMonths,
   calendarMonthsUntil,
   derivePlanBucket,
+  savePlanDeadlineAnchor,
+  savePlanSliderMonths,
   todayIso,
 } from "$lib/services/plans";
 import type { Plan } from "$lib/types";
@@ -61,5 +63,30 @@ describe("calendar month helpers", () => {
     const at13 = addCalendarMonths(todayIso(), 13);
     expect(calendarMonthsUntil(at13)).toBe(13);
     expect(at13 < at14).toBe(true);
+  });
+});
+
+describe("save plan deadline slider", () => {
+  it("anchors upcoming goals at start_date", () => {
+    const upcoming = plan({
+      kind: "save",
+      start_date: "2027-01-04",
+      end_date: "2027-07-08",
+      target_amount: 40_000,
+    });
+    expect(savePlanDeadlineAnchor(upcoming, "2026-06-08")).toBe("2027-01-04");
+    expect(savePlanSliderMonths(upcoming, "2026-06-08")).toBe(6);
+    expect(addCalendarMonths("2027-01-04", 3)).toBe("2027-04-04");
+  });
+
+  it("anchors active goals at today", () => {
+    const active = plan({
+      kind: "save",
+      start_date: "2026-01-01",
+      end_date: "2027-01-01",
+      target_amount: 40_000,
+    });
+    expect(savePlanDeadlineAnchor(active, "2026-06-08")).toBe("2026-06-08");
+    expect(savePlanSliderMonths(active, "2026-06-08")).toBe(6);
   });
 });
