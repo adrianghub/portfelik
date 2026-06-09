@@ -38,6 +38,7 @@ export interface PlanSettlementProgress {
   eligibleCount: number;
   monthlyNeeded: number | null;
   monthlyActual: number | null;
+  monthlyActualBasis: SavePaceBasis;
   monthsRemaining: number | null;
 }
 
@@ -266,6 +267,53 @@ function sumLinkedIncomeInMonth(
     .reduce((sum, t) => sum + t.amount, 0);
 }
 
+export type SavePaceBasis = "none" | "current-month" | "historical-average";
+
+export interface SaveMonthlyActualDetail {
+  /** null when the plan is not a save plan. */
+  amount: number | null;
+  /**
+   * How `amount` was derived:
+   * - "current-month": real deposits linked this calendar month (demonstrated pace),
+   * - "historical-average": savedAmount averaged over elapsed months (an estimate — a single
+   *   upfront lump sum inflates this and must not be presented as sustained ongoing pace),
+   * - "none": not a save plan, not active, or nothing saved yet.
+   */
+  basis: SavePaceBasis;
+}
+
+export function computeSaveMonthlyActualDetail(input: {
+  kind?: import("$lib/types").PlanKind;
+  startDate?: string;
+  endDate?: string;
+  savedAmount: number;
+  linkedIncomes: TransactionWithCategory[];
+  today?: string;
+}): SaveMonthlyActualDetail {
+  if (input.kind !== "save") return { amount: null, basis: "none" };
+  const today = input.today ?? todayIso();
+  if (
+    input.startDate &&
+    input.endDate &&
+    derivePlanBucket({ start_date: input.startDate, end_date: input.endDate }, today) !== "active"
+  ) {
+    return { amount: 0, basis: "none" };
+  }
+  const bounds = currentCalendarMonthBounds(new Date(today));
+  const currentMonthDeposits = sumLinkedIncomeInMonth(
+    input.linkedIncomes,
+    bounds.start,
+    bounds.end
+  );
+  if (currentMonthDeposits > 0) return { amount: currentMonthDeposits, basis: "current-month" };
+  if (input.savedAmount <= 0) return { amount: 0, basis: "none" };
+  const elapsedMonths = input.startDate ? monthsBetween(input.startDate, today) : 1;
+  return {
+    amount: input.savedAmount / Math.max(1, elapsedMonths),
+    basis: "historical-average",
+  };
+}
+
 export function computeSaveMonthlyActual(input: {
   kind?: import("$lib/types").PlanKind;
   startDate?: string;
@@ -274,25 +322,7 @@ export function computeSaveMonthlyActual(input: {
   linkedIncomes: TransactionWithCategory[];
   today?: string;
 }): number | null {
-  if (input.kind !== "save") return null;
-  const today = input.today ?? todayIso();
-  if (
-    input.startDate &&
-    input.endDate &&
-    derivePlanBucket({ start_date: input.startDate, end_date: input.endDate }, today) !== "active"
-  ) {
-    return 0;
-  }
-  const bounds = currentCalendarMonthBounds(new Date(today));
-  const currentMonthDeposits = sumLinkedIncomeInMonth(
-    input.linkedIncomes,
-    bounds.start,
-    bounds.end
-  );
-  if (currentMonthDeposits > 0) return currentMonthDeposits;
-  if (input.savedAmount <= 0) return 0;
-  const elapsedMonths = input.startDate ? monthsBetween(input.startDate, today) : 1;
-  return input.savedAmount / Math.max(1, elapsedMonths);
+  return computeSaveMonthlyActualDetail(input).amount;
 }
 
 export function computePlanProgress(input: {
@@ -331,7 +361,7 @@ export function computePlanProgress(input: {
     isActive && targetAmount != null && targetAmount > 0 && monthsRem != null && monthsRem > 0
       ? Math.max(0, (targetAmount - savedAmount) / monthsRem)
       : null;
-  const monthlyActual = computeSaveMonthlyActual({
+  const monthlyActualDetail = computeSaveMonthlyActualDetail({
     kind: input.kind,
     startDate: input.startDate,
     endDate: input.endDate,
@@ -339,6 +369,7 @@ export function computePlanProgress(input: {
     linkedIncomes: incomes,
     today,
   });
+  const monthlyActual = monthlyActualDetail.amount;
   return {
     planId: input.planId,
     planName: input.planName,
@@ -355,6 +386,7 @@ export function computePlanProgress(input: {
     eligibleCount: input.eligibleCount ?? 0,
     monthlyNeeded,
     monthlyActual,
+    monthlyActualBasis: monthlyActualDetail.basis,
     monthsRemaining: monthsRem,
   };
 }

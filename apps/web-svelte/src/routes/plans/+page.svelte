@@ -173,6 +173,7 @@
         eligibleCount: progress?.eligibleCount ?? 0,
         monthlyNeeded: progress?.monthlyNeeded ?? null,
         monthlyActual: progress?.monthlyActual ?? null,
+        monthlyActualBasis: progress?.monthlyActualBasis,
         bucket: derivePlanBucket(plan),
       };
     })

@@ -5,6 +5,7 @@ vi.mock("$lib/supabase", () => ({ supabase: {} }));
 import {
   computePlanProgress,
   computeSaveMonthlyActual,
+  computeSaveMonthlyActualDetail,
   rankPlanTransaction,
 } from "$lib/services/plan-settlement";
 import type { TransactionWithCategory } from "$lib/types";
@@ -129,6 +130,69 @@ describe("computeSaveMonthlyActual", () => {
       today: "2026-06-08",
     });
     expect(actual).toBe(0);
+  });
+});
+
+describe("computeSaveMonthlyActualDetail", () => {
+  it("reports a current-month basis when there is a deposit this month", () => {
+    const detail = computeSaveMonthlyActualDetail({
+      kind: "save",
+      startDate: "2026-01-01",
+      savedAmount: 12_000,
+      linkedIncomes: [
+        tx({ type: "income", amount: 500, date: "2026-06-08" }),
+        tx({ type: "income", amount: 300, date: "2026-01-15" }),
+      ],
+      today: "2026-06-08",
+    });
+    expect(detail.amount).toBe(500);
+    expect(detail.basis).toBe("current-month");
+  });
+
+  it("flags the elapsed-average fallback as a historical estimate", () => {
+    const detail = computeSaveMonthlyActualDetail({
+      kind: "save",
+      startDate: "2026-01-01",
+      savedAmount: 6000,
+      linkedIncomes: [tx({ type: "income", amount: 6000, date: "2026-03-10" })],
+      today: "2026-04-10",
+    });
+    expect(detail.amount).toBe(2000);
+    expect(detail.basis).toBe("historical-average");
+  });
+
+  it("reports no basis when nothing has been saved yet", () => {
+    const detail = computeSaveMonthlyActualDetail({
+      kind: "save",
+      startDate: "2026-01-01",
+      savedAmount: 0,
+      linkedIncomes: [],
+      today: "2026-06-08",
+    });
+    expect(detail.amount).toBe(0);
+    expect(detail.basis).toBe("none");
+  });
+
+  it("returns a null amount and no basis for non-save plans", () => {
+    const detail = computeSaveMonthlyActualDetail({
+      kind: "spend",
+      savedAmount: 1000,
+      linkedIncomes: [],
+      today: "2026-06-08",
+    });
+    expect(detail.amount).toBeNull();
+    expect(detail.basis).toBe("none");
+  });
+
+  it("matches computeSaveMonthlyActual for the same input", () => {
+    const args = {
+      kind: "save" as const,
+      startDate: "2026-01-01",
+      savedAmount: 6000,
+      linkedIncomes: [tx({ type: "income", amount: 6000, date: "2026-03-10" })],
+      today: "2026-04-10",
+    };
+    expect(computeSaveMonthlyActualDetail(args).amount).toBe(computeSaveMonthlyActual(args));
   });
 });
 
