@@ -147,16 +147,16 @@ North star = spending visibility + shared household expenses, mobile-first, mini
 ## Action Checklist
 
 ### Must close before any new feature
-- [ ] **Surplus double-count guard** — in `financial-surplus.ts` `computeMonthlySurplus`, either verify debt payments are inside `totalExpenses` or stop assuming it; surface "estimate" when unverifiable. This number drives every condition surface.
-- [ ] **Save-pace honesty** — `plan-settlement.ts` `computeSaveMonthlyActual`: stop letting a lump-sum inflate the monthly pace into a false "on track" badge; distinguish recurring vs one-off, or label as estimate.
-- [ ] **Debt consolidation determinism** — `plan-debt.ts` `consolidateDebtLinkedPayments`: define one deterministic order for the mixed dated/undated case; add a unit test asserting the derived balance.
-- [ ] **Fix `apps/web-svelte/CLAUDE.md`** — replace shopping-list service/RPC/type references with the first-class Plans model (`plans.ts`, `plan-debt.ts`, `plan-settlement.ts`); remove obsolete gotcha #4.
+- [x] **Surplus double-count guard** — in `financial-surplus.ts` `computeMonthlySurplus`, either verify debt payments are inside `totalExpenses` or stop assuming it; surface "estimate" when unverifiable. This number drives every condition surface.
+- [x] **Save-pace honesty** — `plan-settlement.ts` `computeSaveMonthlyActual`: stop letting a lump-sum inflate the monthly pace into a false "on track" badge; distinguish recurring vs one-off, or label as estimate.
+- [x] **Debt consolidation determinism** — `plan-debt.ts` `consolidateDebtLinkedPayments`: define one deterministic order for the mixed dated/undated case; add a unit test asserting the derived balance.
+- [x] **Fix `apps/web-svelte/CLAUDE.md`** — replace shopping-list service/RPC/type references with the first-class Plans model (`plans.ts`, `plan-debt.ts`, `plan-settlement.ts`); remove obsolete gotcha #4.
 
 ### High value, low overengineering risk
-- [ ] Inline quick-settle from Dashboard upcoming + a single-tap settle on Transactions rows (closes the loop at the intent moment).
-- [ ] Swap Plans nav icon off `ShoppingBasket` to a target/goal metaphor (`Navigation.svelte:32,38`).
-- [ ] Unify group-filter state (URL param) across Dashboard and Transactions so context survives navigation.
-- [ ] Make PlanCard right-rail semantics consistent across spend/save/debt; clamp `debtPaidPct` to 100.
+- [x] Inline quick-settle from Dashboard upcoming + a single-tap settle on Transactions rows (closes the loop at the intent moment).
+- [x] Swap Plans nav icon off `ShoppingBasket` to a target/goal metaphor (`Navigation.svelte:32,38`).
+- [x] Unify group-filter state (URL param) across Dashboard and Transactions so context survives navigation.
+- [x] Make PlanCard right-rail semantics consistent across spend/save/debt; clamp `debtPaidPct` to 100.
 
 ### Medium term
 - [ ] Extract `PlanForm` out of the 999-line `plans/+page.svelte`; test the kind picker in isolation.
@@ -169,6 +169,12 @@ North star = spending visibility + shared household expenses, mobile-first, mini
 - Offline write queue (Dexie outbox) — last-write-wins decided, no current UX failure; safe to defer.
 - Auto net-worth from import — manual snapshot ships value now; automation is polish.
 - Belka invest-vs-overpay scenario polish — already shipped; defer further depth until the basic trusted numbers are hardened (avoid overengineering ahead of trust).
+
+---
+
+## Update 2026-06-09 (implementation)
+
+All four must-close items closed and committed; surplus now wires real `debtPaymentsInExpenses` from current-month linked debt expenses on `/plans` (verified math when progress loads, estimate marker until then). planning-queue now treats `historical-average` save pace as no current-month pace so a lump sum no longer suppresses the warn chip. Quick-settle shipped on Dashboard upcoming + Transactions rows (mark-paid, optimistic, undo toast, permission-gated) with a Playwright case. Gates: svelte-check 0/0, eslint 0 errors, unit 160 passed, e2e transactions 15 passed.
 
 ---
 
