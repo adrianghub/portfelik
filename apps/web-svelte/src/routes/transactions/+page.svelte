@@ -28,6 +28,8 @@
     updateTransactionsStatus,
   } from "$lib/services/transactions";
   import { supabase } from "$lib/supabase";
+  import { parseScopeFilter } from "$lib/utils/list-view-url";
+  import { syncListViewUrl } from "$lib/utils/navigation";
   import type { TransactionStatus, TransactionWithCategory } from "$lib/types";
   import {
     cn,
@@ -166,7 +168,7 @@
 
   const statusSet = $derived(statusFilter ? new Set(statusFilter.split(",")) : null);
 
-  let groupFilter = $state<"all" | "own" | string>("all");
+  const groupFilter = $derived(parseScopeFilter($page.url.searchParams));
 
   // filteredTxs: applies BOTH status filter AND group filter so it's the
   // canonical "what the user is looking at" set used by summary,
@@ -652,7 +654,7 @@
         type="button"
         role="tab"
         aria-selected={groupFilter === "all"}
-        onclick={() => (groupFilter = "all")}
+        onclick={() => syncListViewUrl("/transactions", $page.url.searchParams, { group: "all" })}
         class={cn(
           "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
           groupFilter === "all"
@@ -666,7 +668,7 @@
         type="button"
         role="tab"
         aria-selected={groupFilter === "own"}
-        onclick={() => (groupFilter = "own")}
+        onclick={() => syncListViewUrl("/transactions", $page.url.searchParams, { group: "own" })}
         class={cn(
           "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
           groupFilter === "own"
@@ -681,7 +683,7 @@
           type="button"
           role="tab"
           aria-selected={groupFilter === g.id}
-          onclick={() => (groupFilter = g.id)}
+          onclick={() => syncListViewUrl("/transactions", $page.url.searchParams, { group: g.id })}
           class={cn(
             "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
             groupFilter === g.id
