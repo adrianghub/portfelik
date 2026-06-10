@@ -13,7 +13,6 @@
     formatDuration,
   } from "$lib/services/debt-amortization";
   import { fetchPlanDebtTerms } from "$lib/services/plan-debt";
-  import { fetchLinkedTransactions } from "$lib/services/plan-settlement";
   import { fetchPlanById, todayIso } from "$lib/services/plans";
   import { cn, formatCurrency } from "$lib/utils";
   import { debtSimQueryString, parseDebtSimUrl } from "$lib/utils/plan-debt-sim-url";
@@ -40,16 +39,6 @@
     enabled: !!id && planQuery.data?.kind === "debt",
   }));
 
-  const linkedQuery = createQuery(() => ({
-    queryKey: ["plan-links", id],
-    queryFn: () => fetchLinkedTransactions(id),
-    enabled: !!id && planQuery.data?.kind === "debt",
-  }));
-
-  const hasLinkedPayments = $derived(
-    (linkedQuery.data ?? []).some((tx) => tx.type === "expense" && tx.amount > 0.01)
-  );
-
   function setInvestReturn(value: number) {
     const snapped = Math.min(15, Math.max(0, Math.round(value / 0.5) * 0.5));
     const next = { ...parseDebtSimUrl($page.url.searchParams), invest: snapped };
@@ -74,7 +63,6 @@
         annualRate: Number(terms.annual_rate),
         anchorDateIso: terms.updated_at.slice(0, 10),
         asOfDateIso: todayIso(),
-        hasLinkedPayments,
       }),
       annualRate: Number(terms.annual_rate),
       monthlyPayment: Number(terms.monthly_payment),

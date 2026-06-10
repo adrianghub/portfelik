@@ -146,14 +146,10 @@ describe("debtDisplayBalance", () => {
     asOfDateIso: "2026-06-10",
   };
 
-  it("accrues daily interest to the as-of date when no payments are linked", () => {
+  it("accrues daily interest to the as-of date from the balance anchor", () => {
     const balance = debtDisplayBalance(input);
     expect(balance).toBeGreaterThan(input.currentBalance + 80);
     expect(balance).toBeLessThan(input.currentBalance + 85);
-  });
-
-  it("returns the stored balance untouched when payments are linked", () => {
-    expect(debtDisplayBalance({ ...input, hasLinkedPayments: true })).toBe(input.currentBalance);
   });
 
   it("returns the stored balance when as-of equals the anchor", () => {

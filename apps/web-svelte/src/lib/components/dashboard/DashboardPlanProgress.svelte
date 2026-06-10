@@ -51,7 +51,6 @@
         annualRate: Number(terms.annual_rate),
         anchorDateIso: terms.updated_at.slice(0, 10),
         asOfDateIso: todayIso(),
-        hasLinkedPayments: plan.spentAmount > 0.01,
       });
       const paid = Math.max(0, Number(terms.original_amount) - balance);
       const pct = Math.min(

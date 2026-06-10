@@ -96,7 +96,6 @@
       annualRate: Number(terms.annual_rate),
       anchorDateIso: accrualAnchor,
       asOfDateIso: todayIso(),
-      hasLinkedPayments,
     })
   );
   const paid = $derived(Math.max(0, Number(terms.original_amount) - displayBalance));

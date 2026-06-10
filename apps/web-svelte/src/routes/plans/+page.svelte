@@ -150,19 +150,8 @@
 
   // Debts are valued as of today (matching the plan detail headline); only assets keep
   // the manual snapshot date.
-  const debtLinkedPayments = $derived(
-    Object.fromEntries(
-      debtPlanIds.map((planId) => [planId, (progressQuery.data?.[planId]?.spentAmount ?? 0) > 0.01])
-    )
-  );
-
   const debtBalances = $derived(
-    collectNetWorthDebtBalances(
-      plansQuery.data ?? [],
-      debtTermsQuery.data ?? {},
-      todayIsoLocal(),
-      debtLinkedPayments
-    )
+    collectNetWorthDebtBalances(plansQuery.data ?? [], debtTermsQuery.data ?? {}, todayIsoLocal())
   );
 
   const netWorth = $derived(computeNetWorth(snapshotQuery.data ?? null, debtBalances));

@@ -37,7 +37,6 @@
           annualRate: Number(debtTerms.annual_rate),
           anchorDateIso: debtTerms.updated_at.slice(0, 10),
           asOfDateIso: todayIso(),
-          hasLinkedPayments: plan.spentAmount > 0.01,
         })
       : 0
   );

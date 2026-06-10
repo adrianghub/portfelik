@@ -217,20 +217,15 @@ export interface DebtDisplayBalanceInput {
   /** ISO date (YYYY-MM-DD) the stored balance was last written - accrual anchor. */
   anchorDateIso: string;
   asOfDateIso: string;
-  /**
-   * When real payments are linked, the stored/derived balance already reflects real interest
-   * inside the raty - synthetic daily accrual would double-count it.
-   */
-  hasLinkedPayments?: boolean;
 }
 
 /**
  * Canonical remaining balance shown on every surface (plan detail, cards, net worth,
- * scenarios): stored balance plus daily compound interest accrued from its anchor date,
- * unless real payments are linked.
+ * scenarios): stored balance plus daily compound interest accrued from its anchor date.
+ * After a linked rata sync, anchor is terms.updated_at so only days since the last
+ * payment are accrued — replay already handled interest inside that payment period.
  */
 export function debtDisplayBalance(input: DebtDisplayBalanceInput): number {
-  if (input.hasLinkedPayments) return input.currentBalance;
   return accrueBalanceWithDailyInterest(
     input.currentBalance,
     input.annualRate,
