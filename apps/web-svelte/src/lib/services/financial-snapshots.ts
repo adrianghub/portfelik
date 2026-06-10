@@ -1,4 +1,4 @@
-import { debtDisplayBalance } from "$lib/services/debt-amortization";
+import { deriveDebtDisplayBalance } from "$lib/services/plan-debt";
 import { derivePlanBucket, todayIso } from "$lib/services/plans";
 import type { FinancialSnapshot, NetWorthSummary, Plan, PlanDebtTerms } from "$lib/types";
 import { supabase } from "$lib/supabase";
@@ -55,12 +55,7 @@ export function debtBalanceForNetWorth(
   }
 
   if (terms) {
-    return debtDisplayBalance({
-      currentBalance: Number(terms.current_balance),
-      annualRate: Number(terms.annual_rate),
-      anchorDateIso: terms.updated_at.slice(0, 10),
-      asOfDateIso: asOfDate,
-    });
+    return deriveDebtDisplayBalance(terms, [], asOfDate);
   }
 
   // Active plan without terms row yet - use target_amount from create form.

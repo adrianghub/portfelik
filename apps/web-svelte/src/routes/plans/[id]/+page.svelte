@@ -17,14 +17,19 @@
   import { detectRecurringDebtPayments } from "$lib/services/debt-payment-detect";
   import {
     applyDebtBalanceFromLinks,
-    debtBalanceReplayFromTerms,
-    deriveDebtBalanceFromLinks,
+    deriveDebtDisplayBalance,
     fetchPlanDebtTerms,
     setDebtAnchorTransaction,
     updatePlanDebtBalance,
     upsertPlanDebtTerms,
   } from "$lib/services/plan-debt";
-  import { derivePlanBucket, fetchPlanById, updatePlan, canManagePlan } from "$lib/services/plans";
+  import {
+    derivePlanBucket,
+    fetchPlanById,
+    todayIso,
+    updatePlan,
+    canManagePlan,
+  } from "$lib/services/plans";
   import { fetchMyGroupRoles } from "$lib/services/groups";
   import { supabase } from "$lib/supabase";
   import type { GroupMemberRole, PlanKind, TransactionType } from "$lib/types";
@@ -131,11 +136,10 @@
 
   const derivedDebtBalance = $derived(
     planQuery.data?.kind === "debt" && debtTermsQuery.data
-      ? deriveDebtBalanceFromLinks(
-          debtBalanceReplayFromTerms(
-            debtTermsQuery.data,
-            expenses.map((tx) => ({ amount: tx.amount, date: tx.date }))
-          )
+      ? deriveDebtDisplayBalance(
+          debtTermsQuery.data,
+          expenses.map((tx) => ({ amount: tx.amount, date: tx.date })),
+          todayIso()
         )
       : null
   );

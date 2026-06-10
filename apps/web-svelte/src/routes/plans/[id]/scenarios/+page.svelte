@@ -8,11 +8,11 @@
     compareLumpSumVsInvest,
     compareOverpay,
     compareOverpayVsInvest,
-    debtDisplayBalance,
     effectiveReturnAfterBelka,
     formatDuration,
   } from "$lib/services/debt-amortization";
-  import { fetchPlanDebtTerms } from "$lib/services/plan-debt";
+  import { deriveDebtDisplayBalance, fetchPlanDebtTerms } from "$lib/services/plan-debt";
+  import { fetchLinkedTransactions } from "$lib/services/plan-settlement";
   import { fetchPlanById, todayIso } from "$lib/services/plans";
   import { cn, formatCurrency } from "$lib/utils";
   import { debtSimQueryString, parseDebtSimUrl } from "$lib/utils/plan-debt-sim-url";
@@ -39,6 +39,18 @@
     enabled: !!id && planQuery.data?.kind === "debt",
   }));
 
+  const linkedQuery = createQuery(() => ({
+    queryKey: ["plan-links", id],
+    queryFn: () => fetchLinkedTransactions(id),
+    enabled: !!id && planQuery.data?.kind === "debt",
+  }));
+
+  const debtLinkedExpenses = $derived(
+    (linkedQuery.data ?? [])
+      .filter((tx) => tx.type === "expense")
+      .map((tx) => ({ amount: tx.amount, date: tx.date }))
+  );
+
   function setInvestReturn(value: number) {
     const snapped = Math.min(15, Math.max(0, Math.round(value / 0.5) * 0.5));
     const next = { ...parseDebtSimUrl($page.url.searchParams), invest: snapped };
@@ -58,12 +70,7 @@
     if (!terms) return null;
     // Same canonical balance as the plan detail headline, so slider projections agree with it.
     const input = {
-      currentBalance: debtDisplayBalance({
-        currentBalance: Number(terms.current_balance),
-        annualRate: Number(terms.annual_rate),
-        anchorDateIso: terms.updated_at.slice(0, 10),
-        asOfDateIso: todayIso(),
-      }),
+      currentBalance: deriveDebtDisplayBalance(terms, debtLinkedExpenses, todayIso()),
       annualRate: Number(terms.annual_rate),
       monthlyPayment: Number(terms.monthly_payment),
     };

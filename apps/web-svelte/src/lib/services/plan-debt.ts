@@ -1,8 +1,12 @@
 import { todayIso } from "$lib/services/plans";
 import { supabase } from "$lib/supabase";
 import type { PlanDebtTerms } from "$lib/types";
+import { debtDisplayBalance } from "$lib/services/debt-amortization";
 import {
+  deriveDebtBalanceFlatAccrual,
   deriveDebtBalanceFromLinks,
+  filterPreAnchorPayments,
+  isSnapshotDebtReplay,
   type DebtBalanceReplayInput,
   type DebtLinkedPayment,
 } from "$lib/services/debt-balance-replay";
@@ -16,6 +20,7 @@ export type {
 export {
   applyDebtPaymentPeriod,
   consolidateDebtLinkedPayments,
+  deriveDebtBalanceFlatAccrual,
   deriveDebtBalanceFromLinks,
   filterPreAnchorPayments,
   interestAccruedFromLinkedPayments,
@@ -52,6 +57,70 @@ export function debtBalanceReplayFromTerms(
     balanceAnchorDate: terms.balance_anchor_date,
     linkedExpenses,
   };
+}
+
+/** Canonical live balance: snapshot flat accrual, full-replay amortization, or stored+accrual. */
+export function deriveDebtDisplayBalance(
+  terms: Pick<
+    PlanDebtTerms,
+    | "original_amount"
+    | "annual_rate"
+    | "current_balance"
+    | "updated_at"
+    | "anchor_balance"
+    | "balance_anchor_date"
+  >,
+  linkedExpenses: DebtLinkedPayment[] = [],
+  asOfDateIso: string = todayIso()
+): number {
+  const rate = Number(terms.annual_rate);
+
+  if (isSnapshotDebtReplay(terms.anchor_balance, terms.balance_anchor_date)) {
+    const { forward } = filterPreAnchorPayments(linkedExpenses, terms.balance_anchor_date);
+
+    if (forward.length > 0) {
+      return deriveDebtBalanceFlatAccrual({
+        startBalance: Number(terms.anchor_balance),
+        startDateIso: terms.balance_anchor_date!,
+        annualRate: rate,
+        linkedExpenses: forward,
+        asOfDateIso,
+      });
+    }
+
+    const fromAnchor = deriveDebtBalanceFlatAccrual({
+      startBalance: Number(terms.anchor_balance),
+      startDateIso: terms.balance_anchor_date!,
+      annualRate: rate,
+      linkedExpenses: [],
+      asOfDateIso,
+    });
+    const fromStored = debtDisplayBalance({
+      currentBalance: Number(terms.current_balance),
+      annualRate: rate,
+      anchorDateIso: terms.updated_at.slice(0, 10),
+      asOfDateIso,
+    });
+    // Hub/net-worth lack linked tx dates; prefer synced stored balance after raty.
+    if (fromStored < fromAnchor - 1) {
+      return fromStored;
+    }
+    return fromAnchor;
+  }
+
+  if (linkedExpenses.length > 0) {
+    return deriveDebtBalanceFromLinks(
+      debtBalanceReplayFromTerms(terms, linkedExpenses),
+      asOfDateIso
+    );
+  }
+
+  return debtDisplayBalance({
+    currentBalance: Number(terms.current_balance),
+    annualRate: rate,
+    anchorDateIso: terms.updated_at.slice(0, 10),
+    asOfDateIso,
+  });
 }
 
 export function normalizeDebtTermsInput(input: PlanDebtTermsInput): PlanDebtTermsInput {
@@ -156,11 +225,16 @@ export async function applyDebtBalanceFromLinks(
   planId: string,
   terms: Pick<
     PlanDebtTerms,
-    "original_amount" | "annual_rate" | "anchor_balance" | "balance_anchor_date"
+    | "original_amount"
+    | "annual_rate"
+    | "anchor_balance"
+    | "balance_anchor_date"
+    | "current_balance"
+    | "updated_at"
   >,
   linkedExpenses: DebtLinkedPayment[]
 ): Promise<void> {
-  const derived = deriveDebtBalanceFromLinks(debtBalanceReplayFromTerms(terms, linkedExpenses));
+  const derived = deriveDebtDisplayBalance(terms, linkedExpenses, todayIso());
   await updatePlanDebtBalance(planId, derived);
 }
 
