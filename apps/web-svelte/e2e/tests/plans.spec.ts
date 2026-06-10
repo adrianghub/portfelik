@@ -157,7 +157,7 @@ test("debt plan detail shows balance hero and scenarios link", async ({ page }) 
 
   await expect(page.getByRole("heading", { name: "Kredyt hipoteczny" })).toBeVisible();
   await expect(page.getByText("Pozostało do spłaty")).toBeVisible();
-  await expect(page.getByText(/Saldo zakotwiczone/i)).toBeVisible();
+  await expect(page.getByText(/Wpis kotwicy/i)).toBeVisible();
   await expect(page.locator(".text-4xl").filter({ hasText: "206" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Miesięcznie" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Jednorazowo" })).toBeVisible();

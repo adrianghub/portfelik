@@ -76,9 +76,7 @@ describe("simulateAmortization", () => {
     expect(cmp.overpayActiveMonths).toBe(overpay.withExtra.payoffMonths);
     expect(cmp.investHorizonMonths).toBe(overpay.baseline.payoffMonths);
     expect(cmp.overpayTotalBenefit).toBeCloseTo(
-      cmp.overpayInterestSaved +
-        cmp.postPayoffInvestNetGain +
-        cmp.freedPaymentInvestNetGain,
+      cmp.overpayInterestSaved + cmp.postPayoffInvestNetGain + cmp.freedPaymentInvestNetGain,
       0
     );
   });
@@ -113,9 +111,9 @@ describe("simulateAmortization", () => {
   it("detects payment below monthly interest", () => {
     const interest = monthlyInterestAmount(MORTGAGE.currentBalance, MORTGAGE.annualRate);
     expect(interest).toBeGreaterThan(1200);
-    expect(
-      isPaymentBelowMonthlyInterest(MORTGAGE.currentBalance, MORTGAGE.annualRate, 1000)
-    ).toBe(true);
+    expect(isPaymentBelowMonthlyInterest(MORTGAGE.currentBalance, MORTGAGE.annualRate, 1000)).toBe(
+      true
+    );
     expect(
       isPaymentBelowMonthlyInterest(
         MORTGAGE.currentBalance,
@@ -160,68 +158,38 @@ describe("debtDisplayBalance", () => {
 describe("estimateInterestAccruedSince", () => {
   const loan = { originalAmount: 330_000, currentBalance: 207_130, annualRate: 7.18 };
 
-  it("uses current-balance daily rate × days when no linked raty", () => {
+  it("uses current-balance daily rate × days since plan start", () => {
     const start = "2025-04-30";
     const end = "2026-06-10";
     const interest = estimateInterestAccruedSince(loan, start, end);
-    const expected = approximateDailyInterest(loan.currentBalance, loan.annualRate) * daysBetween(start, end);
+    const expected =
+      approximateDailyInterest(loan.currentBalance, loan.annualRate) * daysBetween(start, end);
     expect(interest).toBeCloseTo(expected, 0);
-    // ~407 days × ~40.75 zł/dzień ≈ 16.6k - not the old trapezoid ~21k overestimate.
     expect(interest).toBeGreaterThan(15_000);
     expect(interest).toBeLessThan(18_000);
   });
 
-  it("replays linked raty when payment history is available (full replay)", () => {
-    const fromLinks = estimateInterestAccruedSince(
+  it("ignores linked raty and keeps the daily-rate estimate", () => {
+    const start = "2025-04-30";
+    const end = "2026-06-10";
+    const baseline = estimateInterestAccruedSince(loan, start, end);
+    const withLinks = estimateInterestAccruedSince(
       {
-        ...loan,
-        anchorBalance: null,
-        balanceAnchorDate: null,
-        linkedPayments: [
-          { amount: 2370, date: "2025-05-10" },
-          { amount: 2370, date: "2025-06-10" },
-        ],
+        originalAmount: loan.originalAmount,
+        currentBalance: loan.currentBalance,
+        annualRate: loan.annualRate,
       },
-      "2025-04-30",
-      "2026-06-10"
+      start,
+      end
     );
-    expect(fromLinks).toBeGreaterThan(0);
-    expect(fromLinks).toBeGreaterThan(3000);
-    expect(fromLinks).toBeLessThan(5000);
-  });
-
-  it("snapshot replay uses anchor balance and forward links only for interest", () => {
-    const fromSnapshot = estimateInterestAccruedSince(
-      {
-        ...loan,
-        anchorBalance: 207_000,
-        balanceAnchorDate: "2026-06-01",
-        linkedPayments: [
-          { amount: 2370, date: "2026-05-01" },
-          { amount: 2370, date: "2026-06-10" },
-        ],
-      },
-      "2025-04-30",
-      "2026-06-10"
-    );
-    const forwardOnly = estimateInterestAccruedSince(
-      {
-        ...loan,
-        anchorBalance: 207_000,
-        balanceAnchorDate: "2026-06-01",
-        linkedPayments: [{ amount: 2370, date: "2026-06-10" }],
-      },
-      "2025-04-30",
-      "2026-06-10"
-    );
-    expect(fromSnapshot).toBe(forwardOnly);
-    expect(forwardOnly).toBeCloseTo(207_000 * (7.18 / 100 / 12), 0);
+    expect(withLinks).toBe(baseline);
+    expect(withLinks).toBeGreaterThan(15_000);
   });
 
   it("returns 0 before the start date or at zero rate", () => {
     expect(estimateInterestAccruedSince(loan, "2026-06-10", "2026-06-10")).toBe(0);
-    expect(estimateInterestAccruedSince({ ...loan, annualRate: 0 }, "2025-04-30", "2026-06-10")).toBe(
-      0
-    );
+    expect(
+      estimateInterestAccruedSince({ ...loan, annualRate: 0 }, "2025-04-30", "2026-06-10")
+    ).toBe(0);
   });
 });
