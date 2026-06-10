@@ -113,7 +113,7 @@
         {m.plan_save_saved({ saved: formatCurrency(saved), target: formatCurrency(target) })}
       </p>
       {#if saved <= 0}
-        <p class="mt-1 text-xs text-slate-500">{m.plan_save_empty_hint()}</p>
+        <p class="mt-1 text-xs text-slate-400">{m.plan_save_empty_hint()}</p>
       {/if}
     </div>
   </div>

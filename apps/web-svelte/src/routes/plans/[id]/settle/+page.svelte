@@ -262,7 +262,7 @@
     {:else if suggestions.length === 0}
       <div class="space-y-1 py-4 text-center text-sm text-slate-400">
         <p>{m.plan_settle_no_eligible()}</p>
-        <p class="text-xs text-slate-500">{m.plan_settle_no_eligible_hint()}</p>
+        <p class="text-xs text-slate-400">{m.plan_settle_no_eligible_hint()}</p>
       </div>
     {:else}
       {#each suggestions as ranked (ranked.tx.id)}

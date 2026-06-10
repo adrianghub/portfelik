@@ -245,7 +245,7 @@
             <span class="text-accent shrink-0 font-semibold tabular-nums">{debtPaidPct}%</span>
           </div>
           {#if debtInterestSinceStart > 0.01}
-            <p class="mt-1 truncate text-xs text-slate-500">
+            <p class="mt-1 truncate text-xs text-slate-400">
               {m.plan_debt_interest_paid_since({
                 date: formatDate(plan.start_date),
                 amount: formatCurrency(debtInterestSinceStart),

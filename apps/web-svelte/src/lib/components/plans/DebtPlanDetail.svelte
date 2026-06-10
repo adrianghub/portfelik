@@ -338,7 +338,7 @@
       })}
     </p>
     {#if interestPaidSinceStart > 0.01}
-      <p class="mt-1 text-xs text-slate-500">
+      <p class="mt-1 text-xs text-slate-400">
         {m.plan_debt_interest_paid_since({
           date: formatDate(planStartDate),
           amount: formatCurrency(interestPaidSinceStart),
