@@ -1,3 +1,8 @@
+import {
+  interestAccruedFromLinkedPayments,
+  resolveDebtReplay,
+} from "$lib/services/debt-balance-replay";
+
 export interface DebtAmortizationInput {
   currentBalance: number;
   annualRate: number;
@@ -238,6 +243,8 @@ export interface EstimateInterestAccruedInput {
   originalAmount: number;
   currentBalance: number;
   annualRate: number;
+  anchorBalance?: number | null;
+  balanceAnchorDate?: string | null;
   /** When dated linked raty are available, replay interest per payment period. */
   linkedPayments?: { amount: number; date?: string }[];
 }
@@ -259,28 +266,17 @@ export function estimateInterestAccruedSince(
   if (days <= 0) return 0;
 
   if (input.linkedPayments && input.linkedPayments.length > 0) {
-    const byMonth = new Map<string, number>();
-    const undated: number[] = [];
-    for (const exp of input.linkedPayments) {
-      const month = exp.date?.slice(0, 7);
-      if (month) byMonth.set(month, (byMonth.get(month) ?? 0) + Math.abs(exp.amount));
-      else undated.push(Math.abs(exp.amount));
+    const replayInput = {
+      originalAmount: input.originalAmount,
+      annualRate: input.annualRate,
+      linkedExpenses: input.linkedPayments,
+      anchorBalance: input.anchorBalance,
+      balanceAnchorDate: input.balanceAnchorDate,
+    };
+    const { forwardExpenses } = resolveDebtReplay(replayInput);
+    if (forwardExpenses.length > 0) {
+      return interestAccruedFromLinkedPayments(replayInput);
     }
-    const periods = [
-      ...[...byMonth.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, sum]) => sum),
-      ...undated,
-    ];
-    const monthlyRate = input.annualRate / 100 / 12;
-    let balance = Math.max(0, input.originalAmount);
-    let totalInterest = 0;
-    for (const payment of periods) {
-      if (balance <= 0.01) break;
-      const interest = balance * monthlyRate;
-      totalInterest += interest;
-      const actualPayment = Math.min(Math.abs(payment), balance + interest);
-      balance = Math.max(0, balance - Math.max(0, actualPayment - interest));
-    }
-    return Math.round(totalInterest * 100) / 100;
   }
 
   const balance = Math.max(0, input.currentBalance);
