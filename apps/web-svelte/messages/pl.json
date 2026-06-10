@@ -844,6 +844,7 @@
   "plan_form_target_placeholder": "np. 60 000 zł",
   "plan_debt_original": "Kwota kredytu",
   "plan_debt_balance": "Pozostało do spłaty",
+  "plan_debt_balance_today_estimate": "Dziś szacunkowo: ~{amount}",
   "plan_debt_rate": "Oprocentowanie (% rocznie)",
   "plan_debt_rate_placeholder": "1",
   "plan_debt_payment": "Rata miesięczna",

@@ -637,6 +637,9 @@
               bind:value={editBalance}
               class="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
             />
+            <span class="mt-1 block text-xs text-slate-500">
+              {m.plan_debt_balance_today_estimate({ amount: formatCurrency(displayBalance) })}
+            </span>
           </label>
           <label class="block text-xs text-slate-400">
             {m.plan_debt_rate()}
