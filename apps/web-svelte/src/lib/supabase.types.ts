@@ -329,6 +329,52 @@ export type Database = {
           },
         ];
       };
+      plan_settlement_dismissals: {
+        Row: {
+          dismissed_at: string;
+          dismissed_by: string;
+          id: string;
+          plan_id: string;
+          transaction_id: string;
+        };
+        Insert: {
+          dismissed_at?: string;
+          dismissed_by?: string;
+          id?: string;
+          plan_id: string;
+          transaction_id: string;
+        };
+        Update: {
+          dismissed_at?: string;
+          dismissed_by?: string;
+          id?: string;
+          plan_id?: string;
+          transaction_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "plan_settlement_dismissals_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "plans";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "plan_settlement_dismissals_transaction_id_fkey";
+            columns: ["transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "plan_settlement_dismissals_transaction_id_fkey";
+            columns: ["transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions_with_category";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       plan_transaction_links: {
         Row: {
           created_at: string;
@@ -891,6 +937,7 @@ export type Database = {
           category_id: string | null;
           category_name: string | null;
           category_type: Database["public"]["Enums"]["transaction_type"] | null;
+          counterparty: string | null;
           created_at: string | null;
           currency: string | null;
           date: string | null;
