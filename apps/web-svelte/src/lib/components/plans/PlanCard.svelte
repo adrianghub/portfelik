@@ -1,5 +1,10 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
+  import {
+    debtDisplayBalance,
+    estimateInterestAccruedSince,
+  } from "$lib/services/debt-amortization";
+  import { todayIso } from "$lib/services/plans";
   import type { PlanDebtTerms, PlanSummary } from "$lib/types";
   import { getPlanEmoji } from "$lib/utils/plan-emoji";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
@@ -23,18 +28,37 @@
       ? Math.min(100, Math.round((plan.savedAmount / plan.target_amount) * 100))
       : 0
   );
+  // Canonical display balance (daily accrual unless payments are linked) so the card
+  // matches the plan detail headline and the net-worth Kredyty line.
+  const debtBalance = $derived(
+    debtTerms
+      ? debtDisplayBalance({
+          currentBalance: Number(debtTerms.current_balance),
+          annualRate: Number(debtTerms.annual_rate),
+          anchorDateIso: debtTerms.updated_at.slice(0, 10),
+          asOfDateIso: todayIso(),
+          hasLinkedPayments: plan.spentAmount > 0.01,
+        })
+      : 0
+  );
+  const debtPaid = $derived(
+    debtTerms ? Math.max(0, Number(debtTerms.original_amount) - debtBalance) : 0
+  );
   const debtPaidPct = $derived(
     debtTerms && debtTerms.original_amount > 0
-      ? Math.min(
-          100,
-          Math.max(
-            0,
-            Math.round(
-              ((Number(debtTerms.original_amount) - Number(debtTerms.current_balance)) /
-                Number(debtTerms.original_amount)) *
-                100
-            )
-          )
+      ? Math.min(100, Math.max(0, Math.round((debtPaid / Number(debtTerms.original_amount)) * 100)))
+      : 0
+  );
+  const debtInterestSinceStart = $derived(
+    debtTerms
+      ? estimateInterestAccruedSince(
+          {
+            originalAmount: Number(debtTerms.original_amount),
+            currentBalance: debtBalance,
+            annualRate: Number(debtTerms.annual_rate),
+          },
+          plan.start_date,
+          todayIso()
         )
       : 0
   );
@@ -214,14 +238,20 @@
           <div class="mt-1.5 flex items-center justify-between gap-2 text-xs">
             <span class="min-w-0 truncate text-slate-400">
               {m.plan_debt_card_progress({
-                paid: formatCurrency(
-                  Number(debtTerms.original_amount) - Number(debtTerms.current_balance)
-                ),
+                paid: formatCurrency(debtPaid),
                 total: formatCurrency(Number(debtTerms.original_amount)),
               })} · {formatCurrency(Number(debtTerms.monthly_payment))}/mies
             </span>
             <span class="text-accent shrink-0 font-semibold tabular-nums">{debtPaidPct}%</span>
           </div>
+          {#if debtInterestSinceStart > 0.01}
+            <p class="mt-1 truncate text-xs text-slate-500">
+              {m.plan_debt_interest_paid_since({
+                date: formatDate(plan.start_date),
+                amount: formatCurrency(debtInterestSinceStart),
+              })}
+            </p>
+          {/if}
         </div>
       {:else if plan.budget_amount != null}
         <div class="mt-3">

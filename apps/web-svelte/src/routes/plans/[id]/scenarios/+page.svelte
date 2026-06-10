@@ -8,11 +8,13 @@
     compareLumpSumVsInvest,
     compareOverpay,
     compareOverpayVsInvest,
+    debtDisplayBalance,
     effectiveReturnAfterBelka,
     formatDuration,
   } from "$lib/services/debt-amortization";
   import { fetchPlanDebtTerms } from "$lib/services/plan-debt";
-  import { fetchPlanById } from "$lib/services/plans";
+  import { fetchLinkedTransactions } from "$lib/services/plan-settlement";
+  import { fetchPlanById, todayIso } from "$lib/services/plans";
   import { cn, formatCurrency } from "$lib/utils";
   import { debtSimQueryString, parseDebtSimUrl } from "$lib/utils/plan-debt-sim-url";
   import { planDetailHref } from "$lib/utils/plan-routes";
@@ -38,6 +40,16 @@
     enabled: !!id && planQuery.data?.kind === "debt",
   }));
 
+  const linkedQuery = createQuery(() => ({
+    queryKey: ["plan-links", id],
+    queryFn: () => fetchLinkedTransactions(id),
+    enabled: !!id && planQuery.data?.kind === "debt",
+  }));
+
+  const hasLinkedPayments = $derived(
+    (linkedQuery.data ?? []).some((tx) => tx.type === "expense" && tx.amount > 0.01)
+  );
+
   function setInvestReturn(value: number) {
     const snapped = Math.min(15, Math.max(0, Math.round(value / 0.5) * 0.5));
     const next = { ...parseDebtSimUrl($page.url.searchParams), invest: snapped };
@@ -55,8 +67,15 @@
   const comparison = $derived.by(() => {
     const terms = termsQuery.data;
     if (!terms) return null;
+    // Same canonical balance as the plan detail headline, so slider projections agree with it.
     const input = {
-      currentBalance: Number(terms.current_balance),
+      currentBalance: debtDisplayBalance({
+        currentBalance: Number(terms.current_balance),
+        annualRate: Number(terms.annual_rate),
+        anchorDateIso: terms.updated_at.slice(0, 10),
+        asOfDateIso: todayIso(),
+        hasLinkedPayments,
+      }),
       annualRate: Number(terms.annual_rate),
       monthlyPayment: Number(terms.monthly_payment),
     };
@@ -184,16 +203,28 @@
       <label class="text-xs text-slate-400" for="invest-return"
         >{m.plan_scenarios_invest_return()}</label
       >
-      <input
-        id="invest-return"
-        type="range"
-        min="0"
-        max="15"
-        step="0.5"
-        value={investReturn}
-        oninput={(e) => setInvestReturn(Number(e.currentTarget.value))}
-        class="accent-accent w-full"
-      />
+      <div class="flex items-center gap-3">
+        <input
+          id="invest-return"
+          type="range"
+          min="0"
+          max="15"
+          step="0.5"
+          value={investReturn}
+          oninput={(e) => setInvestReturn(Number(e.currentTarget.value))}
+          class="accent-accent min-w-0 flex-1"
+        />
+        <input
+          type="number"
+          min="0"
+          max="15"
+          step="0.5"
+          value={investReturn}
+          oninput={(e) => setInvestReturn(Number(e.currentTarget.value))}
+          aria-label={m.plan_scenarios_invest_return()}
+          class="w-20 rounded-lg border border-white/10 bg-slate-900/60 px-2 py-1.5 text-right text-sm text-slate-100 tabular-nums"
+        />
+      </div>
       <div class="flex items-center justify-between text-sm">
         <span class="font-semibold text-slate-100 tabular-nums">{investReturn}%</span>
         <span class="text-xs text-slate-500">

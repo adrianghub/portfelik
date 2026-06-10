@@ -7,6 +7,8 @@ import {
   compareOverpay,
   compareOverpayVsInvest,
   daysBetween,
+  debtDisplayBalance,
+  estimateInterestAccruedSince,
   isPaymentBelowMonthlyInterest,
   monthlyInterestAmount,
   simulateAmortization,
@@ -133,5 +135,46 @@ describe("simulateAmortization", () => {
     const afterWeek = accrueBalanceWithDailyInterest(base, 7.18, "2026-06-01", "2026-06-08");
     expect(afterWeek).toBeGreaterThan(base);
     expect(afterWeek).toBeLessThan(base + approximateDailyInterest(base, 7.18) * 8);
+  });
+});
+
+describe("debtDisplayBalance", () => {
+  const input = {
+    currentBalance: 207_048.67,
+    annualRate: 7.18,
+    anchorDateIso: "2026-06-08",
+    asOfDateIso: "2026-06-10",
+  };
+
+  it("accrues daily interest to the as-of date when no payments are linked", () => {
+    const balance = debtDisplayBalance(input);
+    expect(balance).toBeGreaterThan(input.currentBalance + 80);
+    expect(balance).toBeLessThan(input.currentBalance + 85);
+  });
+
+  it("returns the stored balance untouched when payments are linked", () => {
+    expect(debtDisplayBalance({ ...input, hasLinkedPayments: true })).toBe(input.currentBalance);
+  });
+
+  it("returns the stored balance when as-of equals the anchor", () => {
+    expect(debtDisplayBalance({ ...input, asOfDateIso: "2026-06-08" })).toBe(input.currentBalance);
+  });
+});
+
+describe("estimateInterestAccruedSince", () => {
+  const loan = { originalAmount: 330_000, currentBalance: 207_130, annualRate: 7.18 };
+
+  it("estimates interest on the average balance over the elapsed period", () => {
+    // ~13.4 months elapsed, avg balance ~268.5k at 7.18% → roughly 21-22k of interest.
+    const interest = estimateInterestAccruedSince(loan, "2025-04-30", "2026-06-10");
+    expect(interest).toBeGreaterThan(19_000);
+    expect(interest).toBeLessThan(24_000);
+  });
+
+  it("returns 0 before the start date or at zero rate", () => {
+    expect(estimateInterestAccruedSince(loan, "2026-06-10", "2026-06-10")).toBe(0);
+    expect(estimateInterestAccruedSince({ ...loan, annualRate: 0 }, "2025-04-30", "2026-06-10")).toBe(
+      0
+    );
   });
 });

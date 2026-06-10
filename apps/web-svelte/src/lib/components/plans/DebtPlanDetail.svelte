@@ -3,10 +3,11 @@
   import { page } from "$app/stores";
   import {
     approximateDailyInterest,
-    accrueBalanceWithDailyInterest,
     compareLumpSumOverpay,
     compareOverpay,
     daysBetween,
+    debtDisplayBalance,
+    estimateInterestAccruedSince,
     formatDuration,
     isPaymentBelowMonthlyInterest,
     monthlyInterestAmount,
@@ -14,7 +15,7 @@
   import { normalizeDebtTermsInput, type PlanDebtTermsInput } from "$lib/services/plan-debt";
   import { todayIso } from "$lib/services/plans";
   import type { PlanDebtTerms } from "$lib/types";
-  import { cn, formatCurrency } from "$lib/utils";
+  import { cn, formatCurrency, formatDate } from "$lib/utils";
   import {
     debtSimQueryString,
     parseDebtSimUrl,
@@ -81,17 +82,27 @@
   const accrualDays = $derived(daysBetween(accrualAnchor, todayIso()));
   const storedBalance = $derived(Number(terms.current_balance));
   const displayBalance = $derived(
-    hasLinkedPayments
-      ? storedBalance
-      : accrueBalanceWithDailyInterest(
-          storedBalance,
-          Number(terms.annual_rate),
-          accrualAnchor,
-          todayIso()
-        )
+    debtDisplayBalance({
+      currentBalance: storedBalance,
+      annualRate: Number(terms.annual_rate),
+      anchorDateIso: accrualAnchor,
+      asOfDateIso: todayIso(),
+      hasLinkedPayments,
+    })
   );
   const accruedInterestAmount = $derived(Math.max(0, displayBalance - storedBalance));
   const paid = $derived(Math.max(0, Number(terms.original_amount) - displayBalance));
+  const interestPaidSinceStart = $derived(
+    estimateInterestAccruedSince(
+      {
+        originalAmount: Number(terms.original_amount),
+        currentBalance: displayBalance,
+        annualRate: Number(terms.annual_rate),
+      },
+      planStartDate,
+      todayIso()
+    )
+  );
   const paidPct = $derived(
     terms.original_amount > 0 ? Math.round((paid / terms.original_amount) * 100) : 0
   );
@@ -326,6 +337,14 @@
         total: formatCurrency(Number(terms.original_amount)),
       })}
     </p>
+    {#if interestPaidSinceStart > 0.01}
+      <p class="mt-1 text-xs text-slate-500">
+        {m.plan_debt_interest_paid_since({
+          date: formatDate(planStartDate),
+          amount: formatCurrency(interestPaidSinceStart),
+        })}
+      </p>
+    {/if}
   </div>
 
   <div class="grid grid-cols-3 gap-2">
