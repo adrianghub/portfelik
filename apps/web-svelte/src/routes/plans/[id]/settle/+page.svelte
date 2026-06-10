@@ -5,6 +5,8 @@
   import * as m from "$lib/paraglide/messages";
   import {
     computePlanProgress,
+    dismissPlanSuggestion,
+    fetchDismissedTransactionIds,
     fetchLinkedTransactions,
     fetchRankedEligibleTransactions,
     linkPlanTransaction,
@@ -27,6 +29,7 @@
 
   let activeType = $state<TransactionType>("expense");
   let showManualTxDialog = $state(false);
+  /** Optimistic local copy; the durable source is plan_settlement_dismissals. */
   const dismissed = new SvelteSet<string>();
 
   let activeTypeInitialized = $state(false);
@@ -66,6 +69,26 @@
     enabled: !!id,
   }));
 
+  const dismissedQuery = createQuery(() => ({
+    queryKey: ["plan-dismissed", id],
+    queryFn: () => fetchDismissedTransactionIds(id),
+    enabled: !!id,
+  }));
+
+  const dismissMutation = createMutation(() => ({
+    mutationFn: (txId: string) => dismissPlanSuggestion(id, txId),
+    onMutate: (txId: string) => {
+      dismissed.add(txId);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["plan-dismissed", id] });
+    },
+    onError: (_err, txId) => {
+      dismissed.delete(txId);
+      toast.error(m.toast_error());
+    },
+  }));
+
   const progress = $derived(
     planQuery.data
       ? computePlanProgress({
@@ -81,9 +104,14 @@
       : null
   );
 
+  const persistedDismissed = $derived(new Set(dismissedQuery.data ?? []));
+
   const suggestions = $derived(
     (rankedQuery.data ?? []).filter(
-      (r) => !dismissed.has(r.tx.id) && !(linkedQuery.data ?? []).some((lt) => lt.id === r.tx.id)
+      (r) =>
+        !dismissed.has(r.tx.id) &&
+        !persistedDismissed.has(r.tx.id) &&
+        !(linkedQuery.data ?? []).some((lt) => lt.id === r.tx.id)
     )
   );
 
@@ -143,6 +171,7 @@
     if (key === "category") return m.plan_settle_reason_category({ name: label });
     if (key === "keyword") return m.plan_settle_reason_keyword({ word: label });
     if (key === "amount") return m.plan_settle_reason_amount();
+    if (key === "recent") return m.plan_settle_reason_recent();
     if (key === "other_category") return m.plan_settle_reason_other_category({ name: label });
     return label;
   }
@@ -219,7 +248,9 @@
     {/each}
   </div>
 
-  <p class="text-sm leading-relaxed text-slate-400">{m.plan_settle_tagline()}</p>
+  <p class="text-sm leading-relaxed text-slate-400">
+    {activeType === "income" ? m.plan_settle_tagline_income() : m.plan_settle_tagline()}
+  </p>
 
   <section class="space-y-3">
     <h2 class="text-eyebrow text-slate-400">{m.plan_settle_candidates()}</h2>
@@ -229,7 +260,10 @@
         <div class="h-20 animate-pulse rounded-2xl bg-slate-800/50"></div>
       {/each}
     {:else if suggestions.length === 0}
-      <p class="py-4 text-center text-sm text-slate-400">{m.plan_settle_no_eligible()}</p>
+      <div class="space-y-1 py-4 text-center text-sm text-slate-400">
+        <p>{m.plan_settle_no_eligible()}</p>
+        <p class="text-xs text-slate-500">{m.plan_settle_no_eligible_hint()}</p>
+      </div>
     {:else}
       {#each suggestions as ranked (ranked.tx.id)}
         <div class="rounded-2xl border border-white/5 bg-slate-900/60 p-4">
@@ -290,9 +324,7 @@
             </button>
             <button
               type="button"
-              onclick={() => {
-                dismissed.add(ranked.tx.id);
-              }}
+              onclick={() => dismissMutation.mutate(ranked.tx.id)}
               class="focus-visible:ring-accent inline-flex min-h-11 items-center rounded-full border border-white/10 px-4 text-sm font-medium text-slate-400 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
             >
               {m.plan_settle_reject()}
