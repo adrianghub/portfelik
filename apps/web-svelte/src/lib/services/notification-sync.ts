@@ -1,6 +1,6 @@
 import type { QueryClient } from "@tanstack/svelte-query";
 
-/** Shared with static/sw.js — keep in sync when renaming. */
+/** Shared with static/sw.js - keep in sync when renaming. */
 export const NOTIFICATION_SYNC_CHANNEL = "portfelik-notifications";
 
 /** postMessage type from the service worker to open tabs. */
@@ -21,7 +21,7 @@ export function broadcastNotificationSync(payload: NotificationSyncPayload): voi
     channel.postMessage(payload);
     channel.close();
   } catch {
-    // Private mode / unsupported — local invalidate still runs.
+    // Private mode / unsupported - local invalidate still runs.
   }
 }
 

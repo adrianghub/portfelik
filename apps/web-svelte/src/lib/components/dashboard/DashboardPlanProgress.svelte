@@ -51,7 +51,6 @@
         annualRate: Number(terms.annual_rate),
         anchorDateIso: terms.updated_at.slice(0, 10),
         asOfDateIso: todayIso(),
-        hasLinkedPayments: plan.spentAmount > 0.01,
       });
       const paid = Math.max(0, Number(terms.original_amount) - balance);
       const pct = Math.min(
@@ -111,8 +110,7 @@
             href={plan.eligibleCount > 0 ? `/plans/${plan.planId}/settle` : `/plans/${plan.planId}`}
             class="block rounded-xl border border-white/5 px-3 py-2 transition-colors hover:bg-white/5"
           >
-            <div class="flex items-center gap-2">
-              <!-- Emoji avatar -->
+            <div class="flex min-w-0 items-center gap-2">
               <div
                 class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-800 text-sm"
                 aria-hidden="true"
@@ -136,12 +134,12 @@
                   {plan.eligibleCount}
                 </span>
               {/if}
-              <span class="shrink-0 text-xs text-slate-400 tabular-nums">
-                {display.label}
-                {#if display.pct != null}
-                  · <span class="text-accent font-semibold">{display.pct}%</span>
-                {/if}
-              </span>
+            </div>
+            <div class="mt-1 flex min-w-0 items-center justify-between gap-2 text-xs">
+              <span class="min-w-0 truncate text-slate-400 tabular-nums">{display.label}</span>
+              {#if display.pct != null}
+                <span class="text-accent shrink-0 font-semibold tabular-nums">{display.pct}%</span>
+              {/if}
             </div>
             {#if display.pct != null}
               <div

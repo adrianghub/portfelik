@@ -128,6 +128,8 @@ test("creates a debt plan (Kredyt) with terms", async ({ page }) => {
           monthly_payment: debtBody.monthly_payment,
           payment_day: null,
           anchor_transaction_id: null,
+          anchor_balance: debtBody.current_balance,
+          balance_anchor_date: "2026-06-01",
           created_at: "2026-06-01T10:00:00Z",
           updated_at: "2026-06-01T10:00:00Z",
         },
@@ -155,6 +157,7 @@ test("debt plan detail shows balance hero and scenarios link", async ({ page }) 
 
   await expect(page.getByRole("heading", { name: "Kredyt hipoteczny" })).toBeVisible();
   await expect(page.getByText("Pozostało do spłaty")).toBeVisible();
+  await expect(page.getByText(/Saldo zakotwiczone/i)).toBeVisible();
   await expect(page.locator(".text-4xl").filter({ hasText: "206" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Miesięcznie" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Jednorazowo" })).toBeVisible();

@@ -1,3 +1,8 @@
+import {
+  interestAccruedFromLinkedPayments,
+  resolveDebtReplay,
+} from "$lib/services/debt-balance-replay";
+
 export interface DebtAmortizationInput {
   currentBalance: number;
   annualRate: number;
@@ -209,23 +214,18 @@ export function accrueBalanceWithDailyInterest(
 export interface DebtDisplayBalanceInput {
   currentBalance: number;
   annualRate: number;
-  /** ISO date (YYYY-MM-DD) the stored balance was last written — accrual anchor. */
+  /** ISO date (YYYY-MM-DD) the stored balance was last written - accrual anchor. */
   anchorDateIso: string;
   asOfDateIso: string;
-  /**
-   * When real payments are linked, the stored/derived balance already reflects real interest
-   * inside the raty — synthetic daily accrual would double-count it.
-   */
-  hasLinkedPayments?: boolean;
 }
 
 /**
  * Canonical remaining balance shown on every surface (plan detail, cards, net worth,
- * scenarios): stored balance plus daily compound interest accrued from its anchor date,
- * unless real payments are linked.
+ * scenarios): stored balance plus daily compound interest accrued from its anchor date.
+ * After a linked rata sync, anchor is terms.updated_at so only days since the last
+ * payment are accrued — replay already handled interest inside that payment period.
  */
 export function debtDisplayBalance(input: DebtDisplayBalanceInput): number {
-  if (input.hasLinkedPayments) return input.currentBalance;
   return accrueBalanceWithDailyInterest(
     input.currentBalance,
     input.annualRate,
@@ -234,22 +234,48 @@ export function debtDisplayBalance(input: DebtDisplayBalanceInput): number {
   );
 }
 
+export interface EstimateInterestAccruedInput {
+  originalAmount: number;
+  currentBalance: number;
+  annualRate: number;
+  anchorBalance?: number | null;
+  balanceAnchorDate?: string | null;
+  /** When dated linked raty are available, replay interest per payment period. */
+  linkedPayments?: { amount: number; date?: string }[];
+}
+
 /**
  * Estimated total interest accrued since the loan start, for reference display only.
- * Interest accrues on the remaining balance; with only the start and current balance known,
- * assume a roughly linear decline between them (trapezoid rule). This respects the actual
- * repayment pace (including overpayments) instead of replaying the scheduled plan.
+ * With linked raty: sum monthly interest from each replayed payment period.
+ * Without linked raty: approximate from the current holdings balance × daily rate × elapsed
+ * days - matches the "~40 zł/dzień × okres" mental model and reflects overpayments already
+ * baked into the stored balance, instead of averaging against the original principal.
  */
 export function estimateInterestAccruedSince(
-  input: { originalAmount: number; currentBalance: number; annualRate: number },
+  input: EstimateInterestAccruedInput,
   startDateIso: string,
   asOfDateIso: string
 ): number {
   if (input.annualRate <= 0) return 0;
   const days = daysBetween(startDateIso, asOfDateIso);
   if (days <= 0) return 0;
-  const avgBalance = (Math.max(0, input.originalAmount) + Math.max(0, input.currentBalance)) / 2;
-  return avgBalance * (input.annualRate / 100) * (days / 365);
+
+  if (input.linkedPayments && input.linkedPayments.length > 0) {
+    const replayInput = {
+      originalAmount: input.originalAmount,
+      annualRate: input.annualRate,
+      linkedExpenses: input.linkedPayments,
+      anchorBalance: input.anchorBalance,
+      balanceAnchorDate: input.balanceAnchorDate,
+    };
+    const { forwardExpenses } = resolveDebtReplay(replayInput);
+    if (forwardExpenses.length > 0) {
+      return interestAccruedFromLinkedPayments(replayInput);
+    }
+  }
+
+  const balance = Math.max(0, input.currentBalance);
+  return approximateDailyInterest(balance, input.annualRate) * days;
 }
 
 /** Monthly interest on the current balance at the plan rate. */

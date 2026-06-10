@@ -222,7 +222,7 @@ function extractKeywords(name: string): string[] {
     .filter((w) => w.length >= 3 && !stopWords.has(w));
 }
 
-/** Suggestions below this rank are hidden entirely — baseline-only rows carry no real signal. */
+/** Suggestions below this rank are hidden entirely - baseline-only rows carry no real signal. */
 export const MIN_SUGGESTION_RANK_PCT = 45;
 
 export function rankPlanTransaction(
@@ -287,6 +287,36 @@ export function rankPlanTransaction(
   return { tx, score, rankPct, rankLabel, reasons };
 }
 
+/** Count suggestions that would appear on the settle screen (rank ≥ cutoff, not dismissed). */
+export function countRankedSuggestions(
+  plan: Pick<Plan, "category_id" | "name" | "budget_amount" | "kind" | "target_amount">,
+  eligible: TransactionWithCategory[],
+  linkedTransactions: TransactionWithCategory[],
+  dismissedIds: ReadonlySet<string> = new Set()
+): number {
+  const spentAmount = linkedTransactions
+    .filter((t) => t.type === "expense")
+    .reduce((s, t) => s + t.amount, 0);
+  const savedAmount = linkedTransactions
+    .filter((t) => t.type === "income")
+    .reduce((s, t) => s + t.amount, 0);
+  return eligible
+    .filter((tx) => !dismissedIds.has(tx.id))
+    .map((tx) => rankPlanTransaction(plan, tx, spentAmount, { savedAmount }))
+    .filter((r) => r.rankPct >= MIN_SUGGESTION_RANK_PCT).length;
+}
+
+export async function fetchSuggestionCount(planId: string): Promise<number> {
+  const plan = await fetchPlanForSettlement(planId);
+  const blockedIds = await fetchBlockedTransactionIds();
+  const [eligible, linked, dismissed] = await Promise.all([
+    fetchEligibleSettlementTransactions(planId, undefined, { plan, blockedIds }),
+    fetchLinkedTransactions(planId),
+    fetchDismissedTransactionIds(planId),
+  ]);
+  return countRankedSuggestions(plan, eligible, linked, new Set(dismissed));
+}
+
 export async function fetchRankedEligibleTransactions(
   planId: string,
   opts?: { type?: TransactionType | "all" }
@@ -327,7 +357,7 @@ export interface SaveMonthlyActualDetail {
   /**
    * How `amount` was derived:
    * - "current-month": real deposits linked this calendar month (demonstrated pace),
-   * - "historical-average": savedAmount averaged over elapsed months (an estimate — a single
+   * - "historical-average": savedAmount averaged over elapsed months (an estimate - a single
    *   upfront lump sum inflates this and must not be presented as sustained ongoing pace),
    * - "none": not a save plan, not active, or nothing saved yet.
    */
@@ -558,7 +588,36 @@ async function countEligibleForPlans(plans: Plan[]): Promise<Record<string, numb
   if (plans.length === 0) return {};
 
   const planIds = plans.map((p) => p.id);
-  const linkedIds = await fetchLinkedTransactionIds();
+  const [linkedIds, linksRes, dismissRes] = await Promise.all([
+    fetchLinkedTransactionIds(),
+    supabase
+      .from("plan_transaction_links")
+      .select("plan_id, transaction_id")
+      .in("plan_id", planIds),
+    supabase
+      .from("plan_settlement_dismissals")
+      .select("plan_id, transaction_id")
+      .in("plan_id", planIds),
+  ]);
+  if (linksRes.error) throw linksRes.error;
+  if (dismissRes.error) throw dismissRes.error;
+
+  const links = linksRes.data ?? [];
+  const txById = await fetchTransactionsByLinkedIds(links);
+  const dismissedByPlan = new Map<string, Set<string>>();
+  for (const row of dismissRes.data ?? []) {
+    const set = dismissedByPlan.get(row.plan_id) ?? new Set();
+    set.add(row.transaction_id);
+    dismissedByPlan.set(row.plan_id, set);
+  }
+
+  const linkedByPlan = new Map<string, TransactionWithCategory[]>();
+  for (const planId of planIds) linkedByPlan.set(planId, []);
+  for (const link of links) {
+    const tx = txById.get(link.transaction_id);
+    if (tx) linkedByPlan.get(link.plan_id)?.push(tx);
+  }
+
   const counts: Record<string, number> = Object.fromEntries(planIds.map((id) => [id, 0]));
 
   const byScope = new Map<string, Plan[]>();
@@ -583,7 +642,7 @@ async function countEligibleForPlans(plans: Plan[]): Promise<Record<string, numb
 
       let query = supabase
         .from("transactions_with_category")
-        .select("id, date, type, status")
+        .select("*")
         .gte("date", minStart)
         .lte("date", maxEnd)
         .in("status", [...SETTLEMENT_STATUSES])
@@ -597,21 +656,24 @@ async function countEligibleForPlans(plans: Plan[]): Promise<Record<string, numb
 
       const { data, error } = await query;
       if (error) throw error;
-      const txs = (data ?? []) as Pick<
-        TransactionWithCategory,
-        "id" | "date" | "type" | "status"
-      >[];
+      const txs = (data ?? []) as TransactionWithCategory[];
 
       for (const plan of scopePlans) {
         const allowedTypes = resolveSettlementTypes(plan);
-        counts[plan.id] = txs.filter((tx) =>
+        const eligible = txs.filter((tx) =>
           isTransactionEligibleForPlanSettlement({
             plan,
             tx,
             blockedIds: linkedIds,
             allowedTypes,
           })
-        ).length;
+        );
+        counts[plan.id] = countRankedSuggestions(
+          plan,
+          eligible,
+          linkedByPlan.get(plan.id) ?? [],
+          dismissedByPlan.get(plan.id) ?? new Set()
+        );
       }
     })
   );

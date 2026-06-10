@@ -40,8 +40,7 @@ export function computeNetWorth(
 export function debtBalanceForNetWorth(
   plan: Pick<Plan, "start_date" | "end_date" | "target_amount">,
   terms: PlanDebtTerms | undefined,
-  asOfDate = todayIso(),
-  hasLinkedPayments = false
+  asOfDate = todayIso()
 ): number {
   const bucket = derivePlanBucket(plan, asOfDate);
 
@@ -61,11 +60,10 @@ export function debtBalanceForNetWorth(
       annualRate: Number(terms.annual_rate),
       anchorDateIso: terms.updated_at.slice(0, 10),
       asOfDateIso: asOfDate,
-      hasLinkedPayments,
     });
   }
 
-  // Active plan without terms row yet — use target_amount from create form.
+  // Active plan without terms row yet - use target_amount from create form.
   const fallback = plan.target_amount != null ? Number(plan.target_amount) : 0;
   return fallback > 0.01 ? fallback : 0;
 }
@@ -73,19 +71,11 @@ export function debtBalanceForNetWorth(
 export function collectNetWorthDebtBalances(
   plans: Plan[],
   termsByPlanId: Record<string, PlanDebtTerms>,
-  asOfDate = todayIso(),
-  linkedPaymentsByPlanId: Record<string, boolean> = {}
+  asOfDate = todayIso()
 ): number[] {
   return plans
     .filter((plan) => plan.kind === "debt")
-    .map((plan) =>
-      debtBalanceForNetWorth(
-        plan,
-        termsByPlanId[plan.id],
-        asOfDate,
-        linkedPaymentsByPlanId[plan.id] ?? false
-      )
-    )
+    .map((plan) => debtBalanceForNetWorth(plan, termsByPlanId[plan.id], asOfDate))
     .filter((balance) => balance > 0.01);
 }
 

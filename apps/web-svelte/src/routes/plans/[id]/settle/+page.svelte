@@ -117,17 +117,22 @@
 
   const linkedForType = $derived((linkedQuery.data ?? []).filter((tx) => tx.type === activeType));
 
-  async function syncDebtBalanceAfterLinkChange() {
+  async function syncDebtBalanceAfterLinkChange(linkedTxId?: string) {
     const plan = planQuery.data;
     if (plan?.kind !== "debt") return;
     const terms = await fetchPlanDebtTerms(id);
     if (!terms) return;
     const linked = await fetchLinkedTransactions(id);
     const expenses = linked.filter((tx) => tx.type === "expense");
+    if (linkedTxId && terms.balance_anchor_date) {
+      const newlyLinked = expenses.find((tx) => tx.id === linkedTxId);
+      if (newlyLinked?.date && newlyLinked.date <= terms.balance_anchor_date) {
+        toast.warning(m.plan_debt_pre_anchor_link_ignored());
+      }
+    }
     await applyDebtBalanceFromLinks(
       id,
-      Number(terms.original_amount),
-      Number(terms.annual_rate),
+      terms,
       expenses.map((tx) => ({ amount: tx.amount, date: tx.date }))
     );
     await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms", id] });
@@ -135,7 +140,7 @@
 
   const linkMutation = createMutation(() => ({
     mutationFn: (txId: string) => linkPlanTransaction(id, txId),
-    onSuccess: async () => {
+    onSuccess: async (_data, txId) => {
       await queryClient.invalidateQueries({ queryKey: ["plan-links", id] });
       await queryClient.invalidateQueries({ queryKey: ["plan-ranked", id] });
       await queryClient.invalidateQueries({ queryKey: ["plan-eligible", id] });
@@ -143,7 +148,7 @@
       await queryClient.invalidateQueries({ queryKey: ["plan-progress"] });
       await queryClient.invalidateQueries({ queryKey: ["plans"] });
       try {
-        await syncDebtBalanceAfterLinkChange();
+        await syncDebtBalanceAfterLinkChange(txId);
       } catch {
         toast.error(m.toast_error());
         return;

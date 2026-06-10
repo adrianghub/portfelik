@@ -4,8 +4,8 @@
   import * as m from "$lib/paraglide/messages";
   import {
     computePlanProgress,
-    fetchEligibleSettlementTransactions,
     fetchLinkedTransactions,
+    fetchSuggestionCount,
     unlinkPlanTransaction,
   } from "$lib/services/plan-settlement";
   import DebtPlanDetail from "$lib/components/plans/DebtPlanDetail.svelte";
@@ -17,11 +17,12 @@
   import { detectRecurringDebtPayments } from "$lib/services/debt-payment-detect";
   import {
     applyDebtBalanceFromLinks,
+    debtBalanceReplayFromTerms,
     deriveDebtBalanceFromLinks,
     fetchPlanDebtTerms,
     setDebtAnchorTransaction,
-    upsertPlanDebtTerms,
     updatePlanDebtBalance,
+    upsertPlanDebtTerms,
   } from "$lib/services/plan-debt";
   import { derivePlanBucket, fetchPlanById, updatePlan, canManagePlan } from "$lib/services/plans";
   import { fetchMyGroupRoles } from "$lib/services/groups";
@@ -81,9 +82,9 @@
     enabled: !!id,
   }));
 
-  const eligibleQuery = createQuery(() => ({
-    queryKey: ["plan-eligible", id],
-    queryFn: () => fetchEligibleSettlementTransactions(id),
+  const suggestionCountQuery = createQuery(() => ({
+    queryKey: ["plan-suggestion-count", id],
+    queryFn: () => fetchSuggestionCount(id),
     enabled: !!id,
   }));
 
@@ -118,7 +119,7 @@
           startDate: planQuery.data.start_date,
           endDate: planQuery.data.end_date,
           linkedTransactions: linkedQuery.data ?? [],
-          eligibleCount: eligibleQuery.data?.length ?? 0,
+          eligibleCount: suggestionCountQuery.data ?? 0,
         })
       : null
   );
@@ -131,9 +132,10 @@
   const derivedDebtBalance = $derived(
     planQuery.data?.kind === "debt" && debtTermsQuery.data
       ? deriveDebtBalanceFromLinks(
-          Number(debtTermsQuery.data.original_amount),
-          Number(debtTermsQuery.data.annual_rate),
-          expenses.map((tx) => ({ amount: tx.amount, date: tx.date }))
+          debtBalanceReplayFromTerms(
+            debtTermsQuery.data,
+            expenses.map((tx) => ({ amount: tx.amount, date: tx.date }))
+          )
         )
       : null
   );
@@ -203,12 +205,11 @@
         const terms = await fetchPlanDebtTerms(id);
         const linked = await fetchLinkedTransactions(id);
         const expenses = linked.filter((tx) => tx.type === "expense");
-        if (terms && expenses.length > 0) {
+        if (terms) {
           try {
             await applyDebtBalanceFromLinks(
               id,
-              Number(terms.original_amount),
-              Number(terms.annual_rate),
+              terms,
               expenses.map((tx) => ({ amount: tx.amount, date: tx.date }))
             );
             await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms", id] });
@@ -414,8 +415,13 @@
         planEndDate={plan.end_date}
         derivedBalance={derivedDebtBalance}
         {linkedExpenseTotal}
+        linkedExpenses={expenses.map((tx) => ({ amount: tx.amount, date: tx.date }))}
         onSyncBalance={canManage ? () => syncBalanceMutation.mutate() : undefined}
-        onTermsSave={canManage ? (input) => debtTermsMutation.mutate(input) : undefined}
+        onTermsSave={canManage
+          ? async (input) => {
+              await debtTermsMutation.mutateAsync(input);
+            }
+          : undefined}
         onPlanDatesSave={canManage ? (dates) => debtPlanDatesMutation.mutate(dates) : undefined}
         syncing={syncBalanceMutation.isPending}
         termsSaving={debtTermsMutation.isPending || debtPlanDatesMutation.isPending}

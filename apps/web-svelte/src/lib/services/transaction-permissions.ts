@@ -1,6 +1,6 @@
 import type { GroupMemberRole, TransactionStatus, TransactionWithCategory } from "$lib/types";
 
-/** Rows that quick-settle ("mark paid") can act on — a planned/overdue obligation, not yet settled. */
+/** Rows that quick-settle ("mark paid") can act on - a planned/overdue obligation, not yet settled. */
 export function isQuickSettleEligible(status: TransactionStatus): boolean {
   return status === "upcoming" || status === "overdue";
 }

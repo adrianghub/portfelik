@@ -52,7 +52,7 @@ function broadcastInvalidate() {
 		channel.postMessage({ type: 'invalidate' });
 		channel.close();
 	} catch {
-		// BroadcastChannel unavailable in some SW contexts — postMessage still runs.
+		// BroadcastChannel unavailable in some SW contexts - postMessage still runs.
 	}
 }
 

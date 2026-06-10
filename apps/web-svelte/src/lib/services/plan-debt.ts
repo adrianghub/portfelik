@@ -1,5 +1,27 @@
+import { todayIso } from "$lib/services/plans";
 import { supabase } from "$lib/supabase";
 import type { PlanDebtTerms } from "$lib/types";
+import {
+  deriveDebtBalanceFromLinks,
+  type DebtBalanceReplayInput,
+  type DebtLinkedPayment,
+} from "$lib/services/debt-balance-replay";
+
+export type {
+  DebtBalanceReplayInput,
+  DebtBalanceReplayMode,
+  DebtLinkedPayment,
+} from "$lib/services/debt-balance-replay";
+
+export {
+  applyDebtPaymentPeriod,
+  consolidateDebtLinkedPayments,
+  deriveDebtBalanceFromLinks,
+  filterPreAnchorPayments,
+  interestAccruedFromLinkedPayments,
+  isSnapshotDebtReplay,
+  resolveDebtReplay,
+} from "$lib/services/debt-balance-replay";
 
 export type PlanDebtTermsInput = {
   original_amount: number;
@@ -8,9 +30,29 @@ export type PlanDebtTermsInput = {
   monthly_payment: number;
   payment_day?: number | null;
   anchor_transaction_id?: string | null;
+  anchor_balance?: number | null;
+  balance_anchor_date?: string | null;
+  /** Reset snapshot anchor from current_balance + today (manual balance edit). */
+  reset_balance_anchor?: boolean;
+  /** Clear snapshot anchor for full replay from original_amount. */
+  clear_balance_anchor?: boolean;
 };
 
-export type DebtLinkedPayment = { amount: number; date?: string };
+export function debtBalanceReplayFromTerms(
+  terms: Pick<
+    PlanDebtTerms,
+    "original_amount" | "annual_rate" | "anchor_balance" | "balance_anchor_date"
+  >,
+  linkedExpenses: DebtLinkedPayment[]
+): DebtBalanceReplayInput {
+  return {
+    originalAmount: Number(terms.original_amount),
+    annualRate: Number(terms.annual_rate),
+    anchorBalance: terms.anchor_balance,
+    balanceAnchorDate: terms.balance_anchor_date,
+    linkedExpenses,
+  };
+}
 
 export function normalizeDebtTermsInput(input: PlanDebtTermsInput): PlanDebtTermsInput {
   const original = Math.abs(Number(input.original_amount));
@@ -34,63 +76,6 @@ export function normalizeDebtTermsInput(input: PlanDebtTermsInput): PlanDebtTerm
   };
 }
 
-/** One amortization period: accrue interest, then apply payment toward principal. */
-export function applyDebtPaymentPeriod(
-  balance: number,
-  annualRate: number,
-  payment: number
-): number {
-  if (balance <= 0.01) return 0;
-  const monthlyRate = annualRate / 100 / 12;
-  const interest = balance * monthlyRate;
-  const actualPayment = Math.min(Math.abs(payment), balance + interest);
-  const principal = Math.max(0, actualPayment - interest);
-  return Math.max(0, balance - principal);
-}
-
-/**
- * Collapse linked expenses into ordered payment periods.
- * Dated rows are grouped by calendar month (ascending) — one interest period per month —
- * even when other rows are undated. Undated rows have unknown timing, so each stays its own
- * period and they are applied AFTER all dated months, in input order. The result is fully
- * deterministic regardless of the order linked expenses arrive in.
- */
-export function consolidateDebtLinkedPayments(linkedExpenses: DebtLinkedPayment[]): number[] {
-  if (linkedExpenses.length === 0) return [];
-  const byMonth = new Map<string, number>();
-  const undated: number[] = [];
-  for (const exp of linkedExpenses) {
-    const month = exp.date?.slice(0, 7);
-    if (month) {
-      byMonth.set(month, (byMonth.get(month) ?? 0) + Math.abs(exp.amount));
-    } else {
-      undated.push(Math.abs(exp.amount));
-    }
-  }
-  const datedPeriods = [...byMonth.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([, sum]) => sum);
-  return [...datedPeriods, ...undated];
-}
-
-/**
- * Remaining balance after linked raty: each payment covers interest first, then principal.
- * Uses plan annual rate; groups multiple links in the same calendar month into one period.
- */
-export function deriveDebtBalanceFromLinks(
-  originalAmount: number,
-  annualRate: number,
-  linkedExpenses: DebtLinkedPayment[]
-): number {
-  if (linkedExpenses.length === 0) return Math.max(0, originalAmount);
-  let balance = Math.max(0, originalAmount);
-  for (const payment of consolidateDebtLinkedPayments(linkedExpenses)) {
-    balance = applyDebtPaymentPeriod(balance, annualRate, payment);
-    if (balance <= 0.01) return 0;
-  }
-  return Math.round(balance * 100) / 100;
-}
-
 export async function fetchPlanDebtTerms(planId: string): Promise<PlanDebtTerms | null> {
   const { data, error } = await supabase
     .from("plan_debt_terms")
@@ -106,6 +91,27 @@ export async function upsertPlanDebtTerms(
   input: PlanDebtTermsInput
 ): Promise<PlanDebtTerms> {
   const normalized = normalizeDebtTermsInput(input);
+  const existing = await fetchPlanDebtTerms(planId);
+
+  let anchor_balance: number | null = existing?.anchor_balance ?? null;
+  let balance_anchor_date: string | null = existing?.balance_anchor_date ?? null;
+
+  if (input.clear_balance_anchor) {
+    anchor_balance = null;
+    balance_anchor_date = null;
+  } else if (input.reset_balance_anchor) {
+    anchor_balance = normalized.current_balance;
+    balance_anchor_date = todayIso();
+  } else if (input.anchor_balance !== undefined || input.balance_anchor_date !== undefined) {
+    if (input.anchor_balance !== undefined) anchor_balance = input.anchor_balance;
+    if (input.balance_anchor_date !== undefined) {
+      balance_anchor_date = input.balance_anchor_date;
+    }
+  } else if (!existing) {
+    anchor_balance = normalized.current_balance;
+    balance_anchor_date = todayIso();
+  }
+
   const payload = {
     plan_id: planId,
     original_amount: normalized.original_amount,
@@ -114,6 +120,8 @@ export async function upsertPlanDebtTerms(
     monthly_payment: normalized.monthly_payment,
     payment_day: input.payment_day ?? null,
     anchor_transaction_id: input.anchor_transaction_id ?? null,
+    anchor_balance,
+    balance_anchor_date,
   };
   const { data, error } = await supabase
     .from("plan_debt_terms")
@@ -143,15 +151,16 @@ export async function setDebtAnchorTransaction(
   if (error) throw error;
 }
 
-/** Persist derived balance when at least one payment expense is linked. */
+/** Persist derived balance from linked payment replay (does not mutate snapshot anchor). */
 export async function applyDebtBalanceFromLinks(
   planId: string,
-  originalAmount: number,
-  annualRate: number,
+  terms: Pick<
+    PlanDebtTerms,
+    "original_amount" | "annual_rate" | "anchor_balance" | "balance_anchor_date"
+  >,
   linkedExpenses: DebtLinkedPayment[]
 ): Promise<void> {
-  if (linkedExpenses.length === 0) return;
-  const derived = deriveDebtBalanceFromLinks(originalAmount, annualRate, linkedExpenses);
+  const derived = deriveDebtBalanceFromLinks(debtBalanceReplayFromTerms(terms, linkedExpenses));
   await updatePlanDebtBalance(planId, derived);
 }
 
