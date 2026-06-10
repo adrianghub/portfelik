@@ -12,7 +12,7 @@ import {
   todayIso,
 } from "$lib/services/plans";
 import { supabase } from "$lib/supabase";
-import type { Plan, TransactionType, TransactionWithCategory } from "$lib/types";
+import type { Plan, PlanKind, TransactionType, TransactionWithCategory } from "$lib/types";
 
 export interface PlanTransactionLink {
   id: string;
@@ -25,6 +25,7 @@ export interface PlanTransactionLink {
 export interface PlanSettlementProgress {
   planId: string;
   planName: string;
+  kind: PlanKind;
   budgetAmount: number | null;
   targetAmount: number | null;
   spentAmount: number;
@@ -86,6 +87,29 @@ export async function unlinkPlanTransaction(planId: string, transactionId: strin
     p_plan_id: planId,
     p_transaction_id: transactionId,
   });
+  if (error) throw error;
+}
+
+export async function fetchDismissedTransactionIds(planId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("plan_settlement_dismissals")
+    .select("transaction_id")
+    .eq("plan_id", planId);
+  if (error) throw error;
+  return (data ?? []).map((r) => r.transaction_id as string);
+}
+
+export async function dismissPlanSuggestion(planId: string, transactionId: string): Promise<void> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("not_authenticated");
+  const { error } = await supabase
+    .from("plan_settlement_dismissals")
+    .upsert(
+      { plan_id: planId, transaction_id: transactionId, dismissed_by: user.id },
+      { onConflict: "plan_id,transaction_id", ignoreDuplicates: true }
+    );
   if (error) throw error;
 }
 
@@ -198,10 +222,14 @@ function extractKeywords(name: string): string[] {
     .filter((w) => w.length >= 3 && !stopWords.has(w));
 }
 
+/** Suggestions below this rank are hidden entirely — baseline-only rows carry no real signal. */
+export const MIN_SUGGESTION_RANK_PCT = 45;
+
 export function rankPlanTransaction(
-  plan: Pick<Plan, "category_id" | "name" | "budget_amount">,
+  plan: Pick<Plan, "category_id" | "name" | "budget_amount" | "kind" | "target_amount">,
   tx: TransactionWithCategory,
-  spentAmount: number
+  spentAmount: number,
+  opts?: { savedAmount?: number; today?: string }
 ): RankedTransaction {
   const reasons: RankedTransactionReason[] = [
     { key: "date_in_range", label: "", signal: "match" },
@@ -231,11 +259,30 @@ export function rankPlanTransaction(
   if (tx.type === "expense" && remaining !== null && tx.amount <= remaining) {
     score += 20;
     reasons.push({ key: "amount", label: "", signal: "match" });
+  } else if (tx.type === "income" && (plan.kind ?? "spend") === "save") {
+    // Income on save plans previously had no path past the baseline, so every deposit
+    // showed as a weak match. A deposit that fits the remaining target is a real signal.
+    const targetRemaining =
+      plan.target_amount != null && plan.target_amount > 0
+        ? Math.max(0, plan.target_amount - (opts?.savedAmount ?? 0))
+        : null;
+    if (targetRemaining !== null && tx.amount > 0 && tx.amount <= targetRemaining) {
+      score += 20;
+      reasons.push({ key: "amount", label: "", signal: "match" });
+    }
+  }
+
+  const today = opts?.today ?? todayIso();
+  const txDate = tx.date.slice(0, 10);
+  const ageDays = (Date.parse(today) - Date.parse(txDate)) / 86_400_000;
+  if (ageDays >= 0 && ageDays <= 30) {
+    score += 10;
+    reasons.push({ key: "recent", label: "", signal: "match" });
   }
 
   const rankPct = Math.min(100, Math.round(score));
   const rankLabel: "high" | "medium" | "low" =
-    rankPct >= 75 ? "high" : rankPct >= 45 ? "medium" : "low";
+    rankPct >= 75 ? "high" : rankPct >= MIN_SUGGESTION_RANK_PCT ? "medium" : "low";
 
   return { tx, score, rankPct, rankLabel, reasons };
 }
@@ -251,9 +298,11 @@ export async function fetchRankedEligibleTransactions(
     fetchLinkedTransactions(planId),
   ]);
   const spentAmount = linked.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
+  const savedAmount = linked.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
 
   return eligible
-    .map((tx) => rankPlanTransaction(plan, tx, spentAmount))
+    .map((tx) => rankPlanTransaction(plan, tx, spentAmount, { savedAmount }))
+    .filter((r) => r.rankPct >= MIN_SUGGESTION_RANK_PCT)
     .sort((a, b) => b.score - a.score);
 }
 
@@ -383,6 +432,7 @@ export function computePlanProgress(input: {
   return {
     planId: input.planId,
     planName: input.planName,
+    kind: input.kind ?? "spend",
     budgetAmount: input.budgetAmount,
     targetAmount,
     spentAmount,

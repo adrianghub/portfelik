@@ -1,6 +1,13 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
-  import { fetchDashboardPlanProgress } from "$lib/services/plan-settlement";
+  import { debtDisplayBalance } from "$lib/services/debt-amortization";
+  import { fetchPlanDebtTermsByPlanIds } from "$lib/services/plan-debt";
+  import {
+    fetchDashboardPlanProgress,
+    type PlanSettlementProgress,
+  } from "$lib/services/plan-settlement";
+  import { todayIso } from "$lib/services/plans";
+  import type { PlanDebtTerms } from "$lib/types";
   import { getPlanEmoji } from "$lib/utils/plan-emoji";
   import { formatCurrency } from "$lib/utils";
   import { createQuery } from "@tanstack/svelte-query";
@@ -14,9 +21,67 @@
   const activePlans = $derived(
     (progressQuery.data ?? []).filter(
       (p) =>
-        p.eligibleCount > 0 || p.linkedCount > 0 || (p.budgetAmount != null && p.budgetAmount > 0)
+        p.kind === "debt" ||
+        (p.targetAmount != null && p.targetAmount > 0) ||
+        p.eligibleCount > 0 ||
+        p.linkedCount > 0 ||
+        (p.budgetAmount != null && p.budgetAmount > 0)
     )
   );
+
+  const debtPlanIds = $derived(
+    (progressQuery.data ?? []).filter((p) => p.kind === "debt").map((p) => p.planId)
+  );
+
+  const debtTermsQuery = createQuery(() => ({
+    queryKey: ["plan-debt-terms-list", debtPlanIds],
+    queryFn: () => fetchPlanDebtTermsByPlanIds(debtPlanIds),
+    enabled: debtPlanIds.length > 0,
+  }));
+
+  // Kind-aware display matching PlanCard on /plans: debt uses the canonical display balance,
+  // save uses saved/target, spend uses spent/budget.
+  function progressDisplay(
+    plan: PlanSettlementProgress,
+    terms: PlanDebtTerms | undefined
+  ): { pct: number | null; label: string } {
+    if (plan.kind === "debt" && terms && Number(terms.original_amount) > 0) {
+      const balance = debtDisplayBalance({
+        currentBalance: Number(terms.current_balance),
+        annualRate: Number(terms.annual_rate),
+        anchorDateIso: terms.updated_at.slice(0, 10),
+        asOfDateIso: todayIso(),
+        hasLinkedPayments: plan.spentAmount > 0.01,
+      });
+      const paid = Math.max(0, Number(terms.original_amount) - balance);
+      const pct = Math.min(
+        100,
+        Math.max(0, Math.round((paid / Number(terms.original_amount)) * 100))
+      );
+      return {
+        pct,
+        label: m.plan_debt_card_progress({
+          paid: formatCurrency(paid),
+          total: formatCurrency(Number(terms.original_amount)),
+        }),
+      };
+    }
+    if (plan.kind === "save" && plan.targetAmount != null && plan.targetAmount > 0) {
+      const pct = Math.min(100, Math.round((plan.savedAmount / plan.targetAmount) * 100));
+      return {
+        pct,
+        label: `${formatCurrency(plan.savedAmount)} / ${formatCurrency(plan.targetAmount)}`,
+      };
+    }
+    if (plan.budgetAmount != null && plan.budgetAmount > 0) {
+      const pct = Math.round(Math.min(1, plan.spentAmount / plan.budgetAmount) * 100);
+      return {
+        pct,
+        label: `${formatCurrency(plan.spentAmount)} / ${formatCurrency(plan.budgetAmount)}`,
+      };
+    }
+    return { pct: null, label: formatCurrency(plan.spentAmount) };
+  }
 </script>
 
 {#if progressQuery.isPending}
@@ -39,10 +104,8 @@
     <ul class="space-y-2">
       {#each activePlans.slice(0, 4) as plan (plan.planId)}
         {@const emoji = getPlanEmoji(undefined, plan.planName)}
-        {@const spentPct =
-          plan.budgetAmount != null && plan.budgetAmount > 0
-            ? Math.round(Math.min(1, plan.spentAmount / plan.budgetAmount) * 100)
-            : null}
+        {@const terms = plan.kind === "debt" ? debtTermsQuery.data?.[plan.planId] : undefined}
+        {@const display = progressDisplay(plan, terms)}
         <li>
           <a
             href={plan.eligibleCount > 0 ? `/plans/${plan.planId}/settle` : `/plans/${plan.planId}`}
@@ -74,31 +137,27 @@
                 </span>
               {/if}
               <span class="shrink-0 text-xs text-slate-400 tabular-nums">
-                {formatCurrency(plan.spentAmount)}
-                {#if plan.budgetAmount != null && plan.budgetAmount > 0}
-                  / {formatCurrency(plan.budgetAmount)}
-                  {#if spentPct != null}
-                    · {spentPct}%
-                  {/if}
+                {display.label}
+                {#if display.pct != null}
+                  · <span class="text-accent font-semibold">{display.pct}%</span>
                 {/if}
               </span>
             </div>
-            {#if plan.budgetAmount != null && plan.budgetAmount > 0}
-              {@const ratio = Math.min(1, plan.spentAmount / plan.budgetAmount)}
+            {#if display.pct != null}
               <div
                 class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-800"
                 role="progressbar"
-                aria-valuenow={Math.round(ratio * 100)}
+                aria-valuenow={display.pct}
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-label={m.dashboard_plan_progress_bar({
                   name: plan.planName,
-                  pct: Math.round(ratio * 100),
+                  pct: display.pct,
                 })}
               >
                 <div
                   class="bg-accent-gradient h-full rounded-full transition-all"
-                  style={`width: ${Math.round(ratio * 100)}%`}
+                  style={`width: ${display.pct}%`}
                 ></div>
               </div>
             {:else if plan.linkedCount > 0}
