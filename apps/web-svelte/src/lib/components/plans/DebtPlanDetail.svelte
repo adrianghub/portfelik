@@ -12,6 +12,7 @@
     monthlyInterestAmount,
   } from "$lib/services/debt-amortization";
   import {
+    isSnapshotDebtReplay,
     normalizeDebtTermsInput,
     type DebtLinkedPayment,
     type PlanDebtTermsInput,
@@ -66,6 +67,7 @@
 
   let showTermsEdit = $state(false);
   let showSyncConfirm = $state(false);
+  let showFullReplayConfirm = $state(false);
   let editOriginal = $state("");
   let editBalance = $state("");
   let editRate = $state("");
@@ -83,6 +85,9 @@
   });
 
   const hasLinkedPayments = $derived(linkedExpenseTotal > 0.01);
+  const snapshotMode = $derived(
+    isSnapshotDebtReplay(terms.anchor_balance, terms.balance_anchor_date)
+  );
   const accrualAnchor = $derived(terms.updated_at.slice(0, 10));
   const storedBalance = $derived(Number(terms.current_balance));
   const displayBalance = $derived(
@@ -101,6 +106,8 @@
         originalAmount: Number(terms.original_amount),
         currentBalance: displayBalance,
         annualRate: Number(terms.annual_rate),
+        anchorBalance: terms.anchor_balance,
+        balanceAnchorDate: terms.balance_anchor_date,
         linkedPayments: hasLinkedPayments ? linkedExpenses : undefined,
       },
       planStartDate,
@@ -155,6 +162,17 @@
     derivedBalance != null && derivedBalance > Number(terms.current_balance) + 1
   );
   const showLinkPaymentsInfo = $derived(!hasLinkedPayments && onSyncBalance != null);
+  const linkPaymentsInfoTitle = $derived(
+    snapshotMode && terms.balance_anchor_date != null && terms.anchor_balance != null
+      ? m.plan_debt_link_payments_info({
+          date: formatDate(terms.balance_anchor_date),
+          amount: formatCurrency(Number(terms.anchor_balance)),
+        })
+      : m.plan_debt_link_payments_info({
+          date: formatDate(planStartDate),
+          amount: formatCurrency(Number(terms.current_balance)),
+        })
+  );
   const overpayChips = $derived([0, 500, 1000, 2000, 5000].filter((chip) => chip <= maxOverpay));
   const lumpChips = $derived([5_000, 10_000, 20_000, 50_000].filter((chip) => chip <= maxLumpSum));
   const newInstallment = $derived(Number(terms.monthly_payment) + extraPayment);
@@ -232,20 +250,45 @@
     void onSyncBalance?.();
   }
 
+  async function confirmFullReplay() {
+    showFullReplayConfirm = false;
+    try {
+      const input: PlanDebtTermsInput = {
+        ...normalizeDebtTermsInput({
+          original_amount: Number(terms.original_amount),
+          current_balance: Number(terms.current_balance),
+          annual_rate: Number(terms.annual_rate),
+          monthly_payment: Number(terms.monthly_payment),
+          payment_day: terms.payment_day,
+          anchor_transaction_id: terms.anchor_transaction_id,
+        }),
+        clear_balance_anchor: true,
+      };
+      await onTermsSave?.(input);
+      await onSyncBalance?.();
+    } catch {
+      toast.error(m.toast_error());
+    }
+  }
+
   async function saveTermsEdit() {
     if (editEndDate < editStartDate) {
       toast.error(m.plan_form_dates_invalid());
       return;
     }
     try {
-      const input = normalizeDebtTermsInput({
-        original_amount: Number(editOriginal),
-        current_balance: Number(editBalance),
-        annual_rate: Number(editRate),
-        monthly_payment: Number(editPayment),
-        payment_day: terms.payment_day,
-        anchor_transaction_id: terms.anchor_transaction_id,
-      });
+      const balanceChanged = Math.abs(Number(editBalance) - Number(terms.current_balance)) > 0.01;
+      const input: PlanDebtTermsInput = {
+        ...normalizeDebtTermsInput({
+          original_amount: Number(editOriginal),
+          current_balance: Number(editBalance),
+          annual_rate: Number(editRate),
+          monthly_payment: Number(editPayment),
+          payment_day: terms.payment_day,
+          anchor_transaction_id: terms.anchor_transaction_id,
+        }),
+        ...(balanceChanged ? { reset_balance_anchor: true } : {}),
+      };
       await onTermsSave?.(input);
       if (onPlanDatesSave && (editStartDate !== planStartDate || editEndDate !== planEndDate)) {
         await onPlanDatesSave({ start_date: editStartDate, end_date: editEndDate });
@@ -277,7 +320,7 @@
   {#if showLinkPaymentsInfo}
     <PlanForwardNav
       href={settleHref}
-      title={m.plan_debt_link_payments_info()}
+      title={linkPaymentsInfoTitle}
       ariaLabel={m.plan_debt_sync_link_payments()}
       variant="info"
     />
@@ -317,6 +360,14 @@
     <p class="mt-1 text-sm text-slate-400">
       z {formatCurrency(Number(terms.original_amount))}
     </p>
+    {#if snapshotMode && terms.balance_anchor_date != null && terms.anchor_balance != null}
+      <p class="mt-1 text-xs text-slate-500">
+        {m.plan_debt_snapshot_note({
+          amount: formatCurrency(Number(terms.anchor_balance)),
+          date: formatDate(terms.balance_anchor_date),
+        })}
+      </p>
+    {/if}
     <div
       class="mt-4 h-2 overflow-hidden rounded-full bg-slate-800"
       role="progressbar"
@@ -644,11 +695,35 @@
           >
             {m.common_save()}
           </button>
+          {#if snapshotMode && onSyncBalance}
+            <button
+              type="button"
+              disabled={termsSaving}
+              onclick={() => (showFullReplayConfirm = true)}
+              class="w-full rounded-xl border border-white/10 py-2.5 text-sm font-medium text-slate-400 hover:text-slate-200 disabled:opacity-50"
+            >
+              {m.plan_debt_full_replay_action()}
+            </button>
+          {/if}
         </div>
       {/if}
     </div>
   {/if}
 </section>
+
+<ConfirmDialog
+  open={showFullReplayConfirm}
+  message={snapshotMode && terms.balance_anchor_date != null && terms.anchor_balance != null
+    ? m.plan_debt_full_replay_confirm({
+        original: formatCurrency(Number(terms.original_amount)),
+        amount: formatCurrency(Number(terms.anchor_balance)),
+        date: formatDate(terms.balance_anchor_date),
+      })
+    : ""}
+  pending={termsSaving || syncing}
+  onclose={() => (showFullReplayConfirm = false)}
+  onconfirm={confirmFullReplay}
+/>
 
 <ConfirmDialog
   open={showSyncConfirm}
