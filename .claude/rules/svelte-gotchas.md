@@ -12,7 +12,7 @@ paths:
 
 3. **PostgREST insert requires ALL NOT NULL columns.** Pass `user_id: user.id` explicitly from `supabase.auth.getUser()`. RLS does NOT auto-set it.
 
-4. **Plan settlement links existing transactions; it does NOT create financial truth.** `linkPlanTransaction`/`unlinkPlanTransaction` in `services/plan-settlement.ts` write `plan_transaction_links` only. Invalidate `plans`, `plan-links`, `plan-progress`, and (when status changes) `transactions` + `summary` query keys on success. (Legacy `complete_shopping_list` RPC is retired — Plans use first-class `plans` storage.)
+4. **Plan settlement links existing transactions; it does NOT create financial truth.** `linkPlanTransaction`/`unlinkPlanTransaction` in `services/plan-settlement.ts` write `plan_transaction_links` only. Invalidate `plans`, `plan-links`, `plan-progress`, and (when status changes) `transactions` + `summary` query keys on success. (Legacy `complete_shopping_list` RPC is retired - Plans use first-class `plans` storage.)
 
 5. **Group writes are ALL SECURITY DEFINER RPCs.** Direct writes to `user_groups`, `group_members`, `group_invitations` blocked by `using (false)`. Use RPCs in `services/groups.ts`.
 

@@ -50,7 +50,7 @@ export function applyDebtPaymentPeriod(
 
 /**
  * Collapse linked expenses into ordered payment periods.
- * Dated rows are grouped by calendar month (ascending) — one interest period per month —
+ * Dated rows are grouped by calendar month (ascending) - one interest period per month -
  * even when other rows are undated. Undated rows have unknown timing, so each stays its own
  * period and they are applied AFTER all dated months, in input order. The result is fully
  * deterministic regardless of the order linked expenses arrive in.
@@ -89,6 +89,26 @@ export function deriveDebtBalanceFromLinks(
     if (balance <= 0.01) return 0;
   }
   return Math.round(balance * 100) / 100;
+}
+
+/** Sum interest portions from replaying linked raty against the original principal. */
+export function interestAccruedFromLinkedPayments(
+  originalAmount: number,
+  annualRate: number,
+  linkedExpenses: DebtLinkedPayment[]
+): number {
+  const periods = consolidateDebtLinkedPayments(linkedExpenses);
+  if (periods.length === 0) return 0;
+
+  const monthlyRate = annualRate / 100 / 12;
+  let balance = Math.max(0, originalAmount);
+  let totalInterest = 0;
+  for (const payment of periods) {
+    if (balance <= 0.01) break;
+    totalInterest += balance * monthlyRate;
+    balance = applyDebtPaymentPeriod(balance, annualRate, payment);
+  }
+  return Math.round(totalInterest * 100) / 100;
 }
 
 export async function fetchPlanDebtTerms(planId: string): Promise<PlanDebtTerms | null> {

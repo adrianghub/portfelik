@@ -11,12 +11,12 @@ export interface MonthlySurplusInput {
   saveMonthlyNeeded: number;
   /**
    * Portion of `debtMonthlyPayments` actually observed inside `totalExpenses` this month
-   * (e.g. detected/linked debt-payment transactions). Omit when unknown — the surplus is
+   * (e.g. detected/linked debt-payment transactions). Omit when unknown - the surplus is
    * then flagged `debtAssumptionVerified: false` and the headline assumes raty already sit
    * in expenses (legacy behaviour). When supplied, any shortfall is treated as an obligation
    * not yet reflected in the cashflow and is subtracted from `afterSaveGoals`.
    *
-   * Note: an observed value of `0` means "no linked payments" — in the common
+   * Note: an observed value of `0` means "no linked payments" - in the common
    * imported-but-unlinked case the rata may still sit inside expenses, so callers should
    * omit this field (not pass `0`) unless coverage was actually detected.
    */

@@ -164,11 +164,32 @@ describe("debtDisplayBalance", () => {
 describe("estimateInterestAccruedSince", () => {
   const loan = { originalAmount: 330_000, currentBalance: 207_130, annualRate: 7.18 };
 
-  it("estimates interest on the average balance over the elapsed period", () => {
-    // ~13.4 months elapsed, avg balance ~268.5k at 7.18% → roughly 21-22k of interest.
-    const interest = estimateInterestAccruedSince(loan, "2025-04-30", "2026-06-10");
-    expect(interest).toBeGreaterThan(19_000);
-    expect(interest).toBeLessThan(24_000);
+  it("uses current-balance daily rate × days when no linked raty", () => {
+    const start = "2025-04-30";
+    const end = "2026-06-10";
+    const interest = estimateInterestAccruedSince(loan, start, end);
+    const expected = approximateDailyInterest(loan.currentBalance, loan.annualRate) * daysBetween(start, end);
+    expect(interest).toBeCloseTo(expected, 0);
+    // ~407 days × ~40.75 zł/dzień ≈ 16.6k - not the old trapezoid ~21k overestimate.
+    expect(interest).toBeGreaterThan(15_000);
+    expect(interest).toBeLessThan(18_000);
+  });
+
+  it("replays linked raty when payment history is available", () => {
+    const fromLinks = estimateInterestAccruedSince(
+      {
+        ...loan,
+        linkedPayments: [
+          { amount: 2370, date: "2025-05-10" },
+          { amount: 2370, date: "2025-06-10" },
+        ],
+      },
+      "2025-04-30",
+      "2026-06-10"
+    );
+    expect(fromLinks).toBeGreaterThan(0);
+    expect(fromLinks).toBeGreaterThan(3000);
+    expect(fromLinks).toBeLessThan(5000);
   });
 
   it("returns 0 before the start date or at zero rate", () => {

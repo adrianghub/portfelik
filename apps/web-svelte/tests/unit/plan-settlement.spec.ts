@@ -6,6 +6,8 @@ import {
   computePlanProgress,
   computeSaveMonthlyActual,
   computeSaveMonthlyActualDetail,
+  countRankedSuggestions,
+  MIN_SUGGESTION_RANK_PCT,
   rankPlanTransaction,
 } from "$lib/services/plan-settlement";
 import type { TransactionWithCategory } from "$lib/types";
@@ -155,6 +157,33 @@ describe("rankPlanTransaction", () => {
       today: "2026-09-01",
     });
     expect(future.reasons.some((r) => r.key === "recent")).toBe(false);
+  });
+});
+
+describe("countRankedSuggestions", () => {
+  it("counts only suggestions at or above the cutoff, excluding dismissed", () => {
+    const plan = {
+      category_id: "cat-travel",
+      budget_amount: 3000,
+      name: "Wakacje Chorwacja",
+      kind: "spend" as const,
+      target_amount: null,
+    };
+    const strong = tx({
+      id: "tx-strong",
+      category_id: "cat-travel",
+      description: "Booking wakacje hotel",
+      amount: 500,
+    });
+    const weak = tx({ id: "tx-weak", description: "Random expense", amount: 5000 });
+    const dismissed = tx({ id: "tx-dismissed", description: "Wakacje hotel", amount: 400 });
+
+    expect(
+      countRankedSuggestions(plan, [strong, weak, dismissed], [], new Set([dismissed.id]))
+    ).toBe(1);
+    expect(rankPlanTransaction(plan, weak, 0, { today: "2026-09-01" }).rankPct).toBeLessThan(
+      MIN_SUGGESTION_RANK_PCT
+    );
   });
 });
 

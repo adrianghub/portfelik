@@ -209,12 +209,12 @@ export function accrueBalanceWithDailyInterest(
 export interface DebtDisplayBalanceInput {
   currentBalance: number;
   annualRate: number;
-  /** ISO date (YYYY-MM-DD) the stored balance was last written — accrual anchor. */
+  /** ISO date (YYYY-MM-DD) the stored balance was last written - accrual anchor. */
   anchorDateIso: string;
   asOfDateIso: string;
   /**
    * When real payments are linked, the stored/derived balance already reflects real interest
-   * inside the raty — synthetic daily accrual would double-count it.
+   * inside the raty - synthetic daily accrual would double-count it.
    */
   hasLinkedPayments?: boolean;
 }
@@ -234,22 +234,57 @@ export function debtDisplayBalance(input: DebtDisplayBalanceInput): number {
   );
 }
 
+export interface EstimateInterestAccruedInput {
+  originalAmount: number;
+  currentBalance: number;
+  annualRate: number;
+  /** When dated linked raty are available, replay interest per payment period. */
+  linkedPayments?: { amount: number; date?: string }[];
+}
+
 /**
  * Estimated total interest accrued since the loan start, for reference display only.
- * Interest accrues on the remaining balance; with only the start and current balance known,
- * assume a roughly linear decline between them (trapezoid rule). This respects the actual
- * repayment pace (including overpayments) instead of replaying the scheduled plan.
+ * With linked raty: sum monthly interest from each replayed payment period.
+ * Without linked raty: approximate from the current holdings balance × daily rate × elapsed
+ * days - matches the "~40 zł/dzień × okres" mental model and reflects overpayments already
+ * baked into the stored balance, instead of averaging against the original principal.
  */
 export function estimateInterestAccruedSince(
-  input: { originalAmount: number; currentBalance: number; annualRate: number },
+  input: EstimateInterestAccruedInput,
   startDateIso: string,
   asOfDateIso: string
 ): number {
   if (input.annualRate <= 0) return 0;
   const days = daysBetween(startDateIso, asOfDateIso);
   if (days <= 0) return 0;
-  const avgBalance = (Math.max(0, input.originalAmount) + Math.max(0, input.currentBalance)) / 2;
-  return avgBalance * (input.annualRate / 100) * (days / 365);
+
+  if (input.linkedPayments && input.linkedPayments.length > 0) {
+    const byMonth = new Map<string, number>();
+    const undated: number[] = [];
+    for (const exp of input.linkedPayments) {
+      const month = exp.date?.slice(0, 7);
+      if (month) byMonth.set(month, (byMonth.get(month) ?? 0) + Math.abs(exp.amount));
+      else undated.push(Math.abs(exp.amount));
+    }
+    const periods = [
+      ...[...byMonth.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, sum]) => sum),
+      ...undated,
+    ];
+    const monthlyRate = input.annualRate / 100 / 12;
+    let balance = Math.max(0, input.originalAmount);
+    let totalInterest = 0;
+    for (const payment of periods) {
+      if (balance <= 0.01) break;
+      const interest = balance * monthlyRate;
+      totalInterest += interest;
+      const actualPayment = Math.min(Math.abs(payment), balance + interest);
+      balance = Math.max(0, balance - Math.max(0, actualPayment - interest));
+    }
+    return Math.round(totalInterest * 100) / 100;
+  }
+
+  const balance = Math.max(0, input.currentBalance);
+  return approximateDailyInterest(balance, input.annualRate) * days;
 }
 
 /** Monthly interest on the current balance at the plan rate. */

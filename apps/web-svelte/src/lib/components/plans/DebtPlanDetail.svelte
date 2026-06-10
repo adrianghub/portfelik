@@ -5,14 +5,17 @@
     approximateDailyInterest,
     compareLumpSumOverpay,
     compareOverpay,
-    daysBetween,
     debtDisplayBalance,
     estimateInterestAccruedSince,
     formatDuration,
     isPaymentBelowMonthlyInterest,
     monthlyInterestAmount,
   } from "$lib/services/debt-amortization";
-  import { normalizeDebtTermsInput, type PlanDebtTermsInput } from "$lib/services/plan-debt";
+  import {
+    normalizeDebtTermsInput,
+    type DebtLinkedPayment,
+    type PlanDebtTermsInput,
+  } from "$lib/services/plan-debt";
   import { todayIso } from "$lib/services/plans";
   import type { PlanDebtTerms } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
@@ -38,6 +41,7 @@
     planEndDate: string;
     derivedBalance?: number | null;
     linkedExpenseTotal?: number;
+    linkedExpenses?: DebtLinkedPayment[];
     onSyncBalance?: () => void | Promise<void>;
     onTermsSave?: (input: PlanDebtTermsInput) => void | Promise<void>;
     onPlanDatesSave?: (dates: { start_date: string; end_date: string }) => void | Promise<void>;
@@ -52,6 +56,7 @@
     planEndDate,
     derivedBalance = null,
     linkedExpenseTotal = 0,
+    linkedExpenses = [],
     onSyncBalance,
     onTermsSave,
     onPlanDatesSave,
@@ -79,7 +84,6 @@
 
   const hasLinkedPayments = $derived(linkedExpenseTotal > 0.01);
   const accrualAnchor = $derived(terms.updated_at.slice(0, 10));
-  const accrualDays = $derived(daysBetween(accrualAnchor, todayIso()));
   const storedBalance = $derived(Number(terms.current_balance));
   const displayBalance = $derived(
     debtDisplayBalance({
@@ -90,7 +94,6 @@
       hasLinkedPayments,
     })
   );
-  const accruedInterestAmount = $derived(Math.max(0, displayBalance - storedBalance));
   const paid = $derived(Math.max(0, Number(terms.original_amount) - displayBalance));
   const interestPaidSinceStart = $derived(
     estimateInterestAccruedSince(
@@ -98,6 +101,7 @@
         originalAmount: Number(terms.original_amount),
         currentBalance: displayBalance,
         annualRate: Number(terms.annual_rate),
+        linkedPayments: hasLinkedPayments ? linkedExpenses : undefined,
       },
       planStartDate,
       todayIso()
@@ -310,15 +314,6 @@
     <p class="text-accent mt-2 text-4xl font-semibold tabular-nums">
       {formatCurrency(displayBalance)}
     </p>
-    {#if accruedInterestAmount > 0.01 && !hasLinkedPayments}
-      <p class="mt-1 text-xs text-amber-200/90">
-        {m.plan_debt_balance_accrued_note({
-          date: accrualAnchor,
-          amount: formatCurrency(accruedInterestAmount),
-          days: accrualDays,
-        })}
-      </p>
-    {/if}
     <p class="mt-1 text-sm text-slate-400">
       z {formatCurrency(Number(terms.original_amount))}
     </p>
@@ -344,6 +339,9 @@
           amount: formatCurrency(interestPaidSinceStart),
         })}
       </p>
+      {#if !hasLinkedPayments}
+        <p class="mt-0.5 text-xs text-slate-500">{m.plan_debt_interest_estimate_note()}</p>
+      {/if}
     {/if}
   </div>
 

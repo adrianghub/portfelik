@@ -87,7 +87,7 @@
       plan.monthlyActual >= plan.monthlyNeeded - 0.01
   );
   // "historical-average" pace is an estimate from past deposits, not a demonstrated
-  // current-month rate — don't assert on-track confidently from it.
+  // current-month rate - don't assert on-track confidently from it.
   const saveOnTrackEstimate = $derived(
     saveOnTrack && plan.monthlyActualBasis === "historical-average"
   );

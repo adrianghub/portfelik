@@ -4,8 +4,8 @@
   import * as m from "$lib/paraglide/messages";
   import {
     computePlanProgress,
-    fetchEligibleSettlementTransactions,
     fetchLinkedTransactions,
+    fetchSuggestionCount,
     unlinkPlanTransaction,
   } from "$lib/services/plan-settlement";
   import DebtPlanDetail from "$lib/components/plans/DebtPlanDetail.svelte";
@@ -81,9 +81,9 @@
     enabled: !!id,
   }));
 
-  const eligibleQuery = createQuery(() => ({
-    queryKey: ["plan-eligible", id],
-    queryFn: () => fetchEligibleSettlementTransactions(id),
+  const suggestionCountQuery = createQuery(() => ({
+    queryKey: ["plan-suggestion-count", id],
+    queryFn: () => fetchSuggestionCount(id),
     enabled: !!id,
   }));
 
@@ -118,7 +118,7 @@
           startDate: planQuery.data.start_date,
           endDate: planQuery.data.end_date,
           linkedTransactions: linkedQuery.data ?? [],
-          eligibleCount: eligibleQuery.data?.length ?? 0,
+          eligibleCount: suggestionCountQuery.data ?? 0,
         })
       : null
   );
@@ -414,6 +414,7 @@
         planEndDate={plan.end_date}
         derivedBalance={derivedDebtBalance}
         {linkedExpenseTotal}
+        linkedExpenses={expenses.map((tx) => ({ amount: tx.amount, date: tx.date }))}
         onSyncBalance={canManage ? () => syncBalanceMutation.mutate() : undefined}
         onTermsSave={canManage ? (input) => debtTermsMutation.mutate(input) : undefined}
         onPlanDatesSave={canManage ? (dates) => debtPlanDatesMutation.mutate(dates) : undefined}

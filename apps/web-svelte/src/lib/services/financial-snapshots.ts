@@ -65,7 +65,7 @@ export function debtBalanceForNetWorth(
     });
   }
 
-  // Active plan without terms row yet — use target_amount from create form.
+  // Active plan without terms row yet - use target_amount from create form.
   const fallback = plan.target_amount != null ? Number(plan.target_amount) : 0;
   return fallback > 0.01 ? fallback : 0;
 }
