@@ -6,10 +6,39 @@ import {
   applyDebtPaymentPeriod,
   consolidateDebtLinkedPayments,
   deriveDebtBalanceFromLinks,
-  normalizeDebtTermsInput,
-} from "$lib/services/plan-debt";
+  filterPreAnchorPayments,
+  resolveDebtReplay,
+} from "$lib/services/debt-balance-replay";
+import { normalizeDebtTermsInput } from "$lib/services/plan-debt";
 import { canManagePlan } from "$lib/services/plans";
 import type { GroupMemberRole } from "$lib/types";
+
+const fullReplay = (
+  originalAmount: number,
+  annualRate: number,
+  linkedExpenses: { amount: number; date?: string }[]
+) =>
+  deriveDebtBalanceFromLinks({
+    originalAmount,
+    annualRate,
+    linkedExpenses,
+    anchorBalance: null,
+    balanceAnchorDate: null,
+  });
+
+const snapshotReplay = (
+  anchorBalance: number,
+  anchorDate: string,
+  annualRate: number,
+  linkedExpenses: { amount: number; date?: string }[]
+) =>
+  deriveDebtBalanceFromLinks({
+    originalAmount: 330_000,
+    annualRate,
+    linkedExpenses,
+    anchorBalance,
+    balanceAnchorDate: anchorDate,
+  });
 
 describe("normalizeDebtTermsInput", () => {
   it("accepts whole-number amounts and defaults balance to original", () => {
@@ -113,10 +142,54 @@ describe("consolidateDebtLinkedPayments", () => {
   });
 });
 
+describe("filterPreAnchorPayments", () => {
+  it("splits dated payments around anchor date", () => {
+    const { forward, ignored } = filterPreAnchorPayments(
+      [
+        { amount: 2370, date: "2026-05-01" },
+        { amount: 15_000, date: "2026-06-10" },
+        { amount: 500 },
+      ],
+      "2026-06-01"
+    );
+    expect(ignored).toHaveLength(1);
+    expect(forward).toHaveLength(2);
+    expect(forward.find((p) => p.amount === 15_000)).toBeDefined();
+  });
+});
+
+describe("resolveDebtReplay", () => {
+  it("uses snapshot start when anchor fields are set", () => {
+    const resolved = resolveDebtReplay({
+      originalAmount: 330_000,
+      annualRate: 7.18,
+      linkedExpenses: [{ amount: 2370, date: "2026-06-10" }],
+      anchorBalance: 207_000,
+      balanceAnchorDate: "2026-06-01",
+    });
+    expect(resolved.mode).toBe("snapshot");
+    expect(resolved.startBalance).toBe(207_000);
+    expect(resolved.forwardExpenses).toHaveLength(1);
+  });
+
+  it("uses full replay when anchor fields are null", () => {
+    const resolved = resolveDebtReplay({
+      originalAmount: 330_000,
+      annualRate: 7.18,
+      linkedExpenses: [{ amount: 15_000, date: "2026-05-01" }],
+      anchorBalance: null,
+      balanceAnchorDate: null,
+    });
+    expect(resolved.mode).toBe("full");
+    expect(resolved.startBalance).toBe(330_000);
+    expect(resolved.forwardExpenses).toHaveLength(1);
+  });
+});
+
 describe("deriveDebtBalanceFromLinks", () => {
-  it("allocates each payment to interest then principal", () => {
+  it("allocates each payment to interest then principal (full replay)", () => {
     expect(
-      deriveDebtBalanceFromLinks(206_000, 7.18, [
+      fullReplay(206_000, 7.18, [
         { amount: 2370 },
         { amount: 2370 },
         { amount: 500 },
@@ -125,11 +198,44 @@ describe("deriveDebtBalanceFromLinks", () => {
   });
 
   it("never goes below zero when payment exceeds balance", () => {
-    expect(deriveDebtBalanceFromLinks(10_000, 5, [{ amount: 15_000 }])).toBe(0);
+    expect(fullReplay(10_000, 5, [{ amount: 15_000 }])).toBe(0);
   });
 
-  it("returns original when no linked expenses", () => {
-    expect(deriveDebtBalanceFromLinks(206_000, 7.18, [])).toBe(206_000);
+  it("returns start balance when no linked expenses (full replay)", () => {
+    expect(fullReplay(206_000, 7.18, [])).toBe(206_000);
+  });
+
+  it("snapshot: 15k forward overpay reduces from anchor not original", () => {
+    const after = snapshotReplay(207_000, "2026-06-01", 7.18, [
+      { amount: 15_000, date: "2026-06-10" },
+    ]);
+    expect(after).toBeLessThan(207_000);
+    expect(after).toBeGreaterThan(190_000);
+    expect(after).toBeLessThan(320_000);
+  });
+
+  it("snapshot: forward 2370 rata reduces modestly from 207k anchor", () => {
+    const after = snapshotReplay(207_000, "2026-06-01", 7.18, [
+      { amount: 2370, date: "2026-06-10" },
+    ]);
+    expect(after).toBeCloseTo(205_868.55, 0);
+  });
+
+  it("snapshot: pre-anchor links ignored for balance math", () => {
+    const withPreAnchor = snapshotReplay(207_000, "2026-06-01", 7.18, [
+      { amount: 15_000, date: "2026-05-01" },
+      { amount: 2370, date: "2026-06-10" },
+    ]);
+    const forwardOnly = snapshotReplay(207_000, "2026-06-01", 7.18, [
+      { amount: 2370, date: "2026-06-10" },
+    ]);
+    expect(withPreAnchor).toBe(forwardOnly);
+  });
+
+  it("snapshot: returns anchor when only pre-anchor links exist", () => {
+    expect(
+      snapshotReplay(207_000, "2026-06-01", 7.18, [{ amount: 2370, date: "2026-05-01" }])
+    ).toBe(207_000);
   });
 });
 

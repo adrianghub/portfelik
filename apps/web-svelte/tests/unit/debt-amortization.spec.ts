@@ -175,10 +175,12 @@ describe("estimateInterestAccruedSince", () => {
     expect(interest).toBeLessThan(18_000);
   });
 
-  it("replays linked raty when payment history is available", () => {
+  it("replays linked raty when payment history is available (full replay)", () => {
     const fromLinks = estimateInterestAccruedSince(
       {
         ...loan,
+        anchorBalance: null,
+        balanceAnchorDate: null,
         linkedPayments: [
           { amount: 2370, date: "2025-05-10" },
           { amount: 2370, date: "2025-06-10" },
@@ -190,6 +192,34 @@ describe("estimateInterestAccruedSince", () => {
     expect(fromLinks).toBeGreaterThan(0);
     expect(fromLinks).toBeGreaterThan(3000);
     expect(fromLinks).toBeLessThan(5000);
+  });
+
+  it("snapshot replay uses anchor balance and forward links only for interest", () => {
+    const fromSnapshot = estimateInterestAccruedSince(
+      {
+        ...loan,
+        anchorBalance: 207_000,
+        balanceAnchorDate: "2026-06-01",
+        linkedPayments: [
+          { amount: 2370, date: "2026-05-01" },
+          { amount: 2370, date: "2026-06-10" },
+        ],
+      },
+      "2025-04-30",
+      "2026-06-10"
+    );
+    const forwardOnly = estimateInterestAccruedSince(
+      {
+        ...loan,
+        anchorBalance: 207_000,
+        balanceAnchorDate: "2026-06-01",
+        linkedPayments: [{ amount: 2370, date: "2026-06-10" }],
+      },
+      "2025-04-30",
+      "2026-06-10"
+    );
+    expect(fromSnapshot).toBe(forwardOnly);
+    expect(forwardOnly).toBeCloseTo(207_000 * (7.18 / 100 / 12), 0);
   });
 
   it("returns 0 before the start date or at zero rate", () => {
