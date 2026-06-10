@@ -15,6 +15,10 @@ export interface MonthlySurplusInput {
    * then flagged `debtAssumptionVerified: false` and the headline assumes raty already sit
    * in expenses (legacy behaviour). When supplied, any shortfall is treated as an obligation
    * not yet reflected in the cashflow and is subtracted from `afterSaveGoals`.
+   *
+   * Note: an observed value of `0` means "no linked payments" — in the common
+   * imported-but-unlinked case the rata may still sit inside expenses, so callers should
+   * omit this field (not pass `0`) unless coverage was actually detected.
    */
   debtPaymentsInExpenses?: number;
 }
@@ -58,6 +62,16 @@ export function computeMonthlySurplus(input: MonthlySurplusInput): MonthlySurplu
     hasSaveGoals: input.saveMonthlyNeeded > 0,
     hasDebtPlans: input.debtMonthlyPayments > 0,
   };
+}
+
+/**
+ * Gate observed debt coverage before passing it to `computeMonthlySurplus`.
+ * Returns the value only when coverage was actually observed (> 0); otherwise
+ * `undefined`, so the surplus stays an estimate instead of double-counting an
+ * imported-but-unlinked rata.
+ */
+export function gateObservedDebtCoverage(observed: number): number | undefined {
+  return observed > 0 ? observed : undefined;
 }
 
 export function sumDebtMonthlyPayments(

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeMonthlySurplus,
   currentCalendarMonthBounds,
+  gateObservedDebtCoverage,
   sumDebtMonthlyPayments,
   sumSaveMonthlyNeeded,
 } from "$lib/services/financial-surplus";
@@ -92,6 +93,21 @@ describe("computeMonthlySurplus", () => {
     expect(result.afterSaveGoals).toBe(2700);
   });
 
+  it("keeps the estimate (no double-count) when loaded coverage is zero and gets gated", () => {
+    // Imported-but-unlinked rata: progress loaded with 0 linked payments must be
+    // gated to undefined so the full rata is not subtracted a second time.
+    const result = computeMonthlySurplus({
+      totalIncome: 5000,
+      totalExpenses: 4800,
+      debtMonthlyPayments: 2370,
+      debtPaymentsInExpenses: gateObservedDebtCoverage(0),
+      saveMonthlyNeeded: 0,
+    });
+    expect(result.debtAssumptionVerified).toBe(false);
+    expect(result.unreflectedDebt).toBe(0);
+    expect(result.afterSaveGoals).toBe(200);
+  });
+
   it("clamps unreflected debt at zero when expenses over-report the payment", () => {
     const result = computeMonthlySurplus({
       totalIncome: 5000,
@@ -102,6 +118,16 @@ describe("computeMonthlySurplus", () => {
     });
     expect(result.unreflectedDebt).toBe(0);
     expect(result.afterSaveGoals).toBe(200);
+  });
+});
+
+describe("gateObservedDebtCoverage", () => {
+  it("returns undefined for zero coverage (unknown, keep estimate)", () => {
+    expect(gateObservedDebtCoverage(0)).toBeUndefined();
+  });
+
+  it("passes positive coverage through", () => {
+    expect(gateObservedDebtCoverage(1370)).toBe(1370);
   });
 });
 
