@@ -273,8 +273,10 @@ export type Database = {
       };
       plan_debt_terms: {
         Row: {
+          anchor_balance: number | null;
           anchor_transaction_id: string | null;
           annual_rate: number;
+          balance_anchor_date: string | null;
           created_at: string;
           current_balance: number;
           monthly_payment: number;
@@ -284,8 +286,10 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          anchor_balance?: number | null;
           anchor_transaction_id?: string | null;
           annual_rate: number;
+          balance_anchor_date?: string | null;
           created_at?: string;
           current_balance: number;
           monthly_payment: number;
@@ -295,8 +299,10 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          anchor_balance?: number | null;
           anchor_transaction_id?: string | null;
           annual_rate?: number;
+          balance_anchor_date?: string | null;
           created_at?: string;
           current_balance?: number;
           monthly_payment?: number;
