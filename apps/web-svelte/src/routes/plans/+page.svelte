@@ -27,6 +27,7 @@
   import {
     computeMonthlySurplus,
     currentCalendarMonthBounds,
+    gateObservedDebtCoverage,
     sumDebtMonthlyPayments,
     sumSaveMonthlyNeeded,
   } from "$lib/services/financial-surplus";
@@ -147,10 +148,21 @@
     queryFn: fetchFinancialSnapshot,
   }));
 
-  const netWorthAsOf = $derived(snapshotQuery.data?.as_of_date ?? todayIsoLocal());
+  // Debts are valued as of today (matching the plan detail headline); only assets keep
+  // the manual snapshot date.
+  const debtLinkedPayments = $derived(
+    Object.fromEntries(
+      debtPlanIds.map((planId) => [planId, (progressQuery.data?.[planId]?.spentAmount ?? 0) > 0.01])
+    )
+  );
 
   const debtBalances = $derived(
-    collectNetWorthDebtBalances(plansQuery.data ?? [], debtTermsQuery.data ?? {}, netWorthAsOf)
+    collectNetWorthDebtBalances(
+      plansQuery.data ?? [],
+      debtTermsQuery.data ?? {},
+      todayIsoLocal(),
+      debtLinkedPayments
+    )
   );
 
   const netWorth = $derived(computeNetWorth(snapshotQuery.data ?? null, debtBalances));
@@ -214,12 +226,14 @@
     const monthSummary = monthTxQuery.data ? computeLedgerSummary(scopedMonthTxs) : null;
     if (!monthSummary) return null;
     // Observed debt-payment coverage: sum of current-month linked expenses across active debt
-    // plans. Only pass it once progress has loaded; until then the surplus stays an estimate.
-    const debtPaymentsInExpenses = progressQuery.data
+    // plans. Pass it only when coverage is actually observed (> 0); an unlinked-but-imported
+    // rata would otherwise be double-counted and the estimate note would vanish.
+    const observedDebtCoverage = progressQuery.data
       ? scopedSummaries
           .filter((p) => p.kind === "debt" && p.bucket === "active")
           .reduce((sum, p) => sum + (progressQuery.data?.[p.id]?.linkedExpenseCurrentMonth ?? 0), 0)
-      : undefined;
+      : 0;
+    const debtPaymentsInExpenses = gateObservedDebtCoverage(observedDebtCoverage);
     return computeMonthlySurplus({
       totalIncome: monthSummary.total_income,
       totalExpenses: monthSummary.total_expenses,

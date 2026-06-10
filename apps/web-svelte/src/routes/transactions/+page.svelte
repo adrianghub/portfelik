@@ -382,25 +382,30 @@
       updateTransactionsStatus(manageableSelectedIds(), status),
     onSuccess: async () => {
       const count = selectedIds.size;
-      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      await invalidateAfterSettle();
       toast.success(m.toast_transactions_bulk_status({ count }));
       selectedIds = new Set<string>();
     },
     onError: () => toast.error(m.toast_error()),
   }));
 
+  // Settling can flip a plan-linked transaction to paid, so plan progress must refresh too.
+  async function invalidateAfterSettle() {
+    await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    await queryClient.invalidateQueries({ queryKey: ["plan-progress"] });
+    await queryClient.invalidateQueries({ queryKey: ["plan-progress-list"] });
+  }
+
   const settleMutation = createMutation(() => ({
     mutationFn: (vars: { id: string; prev: TransactionStatus }) =>
       updateTransactionsStatus([vars.id], "paid"),
     onSuccess: async (_data, vars) => {
-      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      await invalidateAfterSettle();
       toast.success(m.toast_transaction_settled(), {
         action: {
           label: m.toast_transaction_settle_undo(),
           onClick: () => {
-            void updateTransactionsStatus([vars.id], vars.prev).then(() =>
-              queryClient.invalidateQueries({ queryKey: ["transactions"] })
-            );
+            void updateTransactionsStatus([vars.id], vars.prev).then(() => invalidateAfterSettle());
           },
         },
       });

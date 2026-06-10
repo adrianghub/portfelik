@@ -84,6 +84,36 @@ describe("debtBalanceForNetWorth", () => {
     expect(balance).toBe(150_000);
   });
 
+  it("accrues daily interest to the as-of date for active loans without linked payments", () => {
+    const balance = debtBalanceForNetWorth(
+      debtPlan({ start_date: "2025-04-30", end_date: "2028-12-31" }),
+      debtTerms({
+        original_amount: 330_000,
+        current_balance: 207_048.67,
+        annual_rate: 7.18,
+        updated_at: "2026-06-08T00:00:00Z",
+      }),
+      "2026-06-10"
+    );
+    expect(balance).toBeGreaterThan(207_048.67 + 80);
+    expect(balance).toBeLessThan(207_048.67 + 85);
+  });
+
+  it("keeps the stored balance when payments are linked", () => {
+    const balance = debtBalanceForNetWorth(
+      debtPlan({ start_date: "2025-04-30", end_date: "2028-12-31" }),
+      debtTerms({
+        original_amount: 330_000,
+        current_balance: 207_048.67,
+        annual_rate: 7.18,
+        updated_at: "2026-06-08T00:00:00Z",
+      }),
+      "2026-06-10",
+      true
+    );
+    expect(balance).toBe(207_048.67);
+  });
+
   it("excludes finished loans with zero balance", () => {
     const balance = debtBalanceForNetWorth(
       debtPlan({ start_date: "2020-01-01", end_date: "2025-12-31" }),

@@ -42,14 +42,21 @@ const basePlan = {
   category_id: "cat-travel",
   budget_amount: 3000,
   name: "Wakacje Chorwacja",
+  kind: "spend" as const,
+  target_amount: null,
 };
+
+// Fixed "today" far from the tx date (2026-07-05) so the recency bonus stays off
+// in tests that assert the legacy scoring.
+const NO_RECENCY = { today: "2026-09-01" };
 
 describe("rankPlanTransaction", () => {
   it("assigns high rank when category matches and keyword found", () => {
     const result = rankPlanTransaction(
       basePlan,
       tx({ category_id: "cat-travel", description: "Booking wakacje hotel", amount: 500 }),
-      0
+      0,
+      NO_RECENCY
     );
     expect(result.rankLabel).toBe("high");
     expect(result.reasons.some((r) => r.key === "date_in_range")).toBe(true);
@@ -62,7 +69,8 @@ describe("rankPlanTransaction", () => {
     const result = rankPlanTransaction(
       basePlan,
       tx({ category_id: "cat-other", description: "Wakacje rezerwacja", amount: 500 }),
-      0
+      0,
+      NO_RECENCY
     );
     // baseline(25) + keyword(25) = 50 → medium
     expect(result.rankLabel).toBe("medium");
@@ -73,7 +81,8 @@ describe("rankPlanTransaction", () => {
     const result = rankPlanTransaction(
       basePlan,
       tx({ category_id: "cat-food", category_name: "Jedzenie", description: "Restaurant bill" }),
-      0
+      0,
+      NO_RECENCY
     );
     expect(result.reasons.some((r) => r.key === "other_category" && r.signal === "warn")).toBe(
       true
@@ -81,16 +90,71 @@ describe("rankPlanTransaction", () => {
   });
 
   it("amount exceeding remaining budget skips amount bonus", () => {
-    const withBudget = rankPlanTransaction(basePlan, tx({ amount: 200 }), 2900);
-    const overBudget = rankPlanTransaction(basePlan, tx({ amount: 200 }), 2850);
+    const withBudget = rankPlanTransaction(basePlan, tx({ amount: 200 }), 2900, NO_RECENCY);
+    const overBudget = rankPlanTransaction(basePlan, tx({ amount: 200 }), 2850, NO_RECENCY);
     // remaining = 3000 - 2900 = 100, tx.amount=200 > 100 → no bonus
     expect(withBudget.reasons.some((r) => r.key === "amount")).toBe(false);
     // remaining = 3000 - 2850 = 150, tx.amount=200 > 150 → no bonus
     expect(overBudget.reasons.some((r) => r.key === "amount")).toBe(false);
 
     // When amount fits: remaining = 3000 - 0 = 3000, tx.amount=200 ≤ 3000 → bonus
-    const fits = rankPlanTransaction(basePlan, tx({ amount: 200 }), 0);
+    const fits = rankPlanTransaction(basePlan, tx({ amount: 200 }), 0, NO_RECENCY);
     expect(fits.reasons.some((r) => r.key === "amount")).toBe(true);
+  });
+
+  it("grants the amount bonus to income that fits the remaining save target", () => {
+    const savePlan = {
+      category_id: null,
+      budget_amount: null,
+      name: "Poduszka bezpieczeństwa",
+      kind: "save" as const,
+      target_amount: 10000,
+    };
+    const deposit = tx({ type: "income" as const, amount: 1000, description: "Przelew własny" });
+
+    // saved 8000 → remaining 2000, deposit 1000 fits → baseline(25) + amount(20) = 45 → medium
+    const fits = rankPlanTransaction(savePlan, deposit, 0, {
+      ...NO_RECENCY,
+      savedAmount: 8000,
+    });
+    expect(fits.reasons.some((r) => r.key === "amount" && r.signal === "match")).toBe(true);
+    expect(fits.rankPct).toBe(45);
+    expect(fits.rankLabel).toBe("medium");
+
+    // saved 9500 → remaining 500, deposit 1000 exceeds it → baseline only
+    const exceeds = rankPlanTransaction(savePlan, deposit, 0, {
+      ...NO_RECENCY,
+      savedAmount: 9500,
+    });
+    expect(exceeds.reasons.some((r) => r.key === "amount")).toBe(false);
+    expect(exceeds.rankPct).toBe(25);
+  });
+
+  it("does not grant the income amount bonus on spend plans", () => {
+    const result = rankPlanTransaction(
+      basePlan,
+      tx({ type: "income" as const, amount: 100 }),
+      0,
+      NO_RECENCY
+    );
+    expect(result.reasons.some((r) => r.key === "amount")).toBe(false);
+  });
+
+  it("adds a recency bonus for transactions within the last 30 days", () => {
+    const recent = rankPlanTransaction(basePlan, tx({ date: "2026-08-20" }), 0, {
+      today: "2026-09-01",
+    });
+    expect(recent.reasons.some((r) => r.key === "recent" && r.signal === "match")).toBe(true);
+
+    const old = rankPlanTransaction(basePlan, tx({ date: "2026-07-01" }), 0, {
+      today: "2026-09-01",
+    });
+    expect(old.reasons.some((r) => r.key === "recent")).toBe(false);
+
+    const future = rankPlanTransaction(basePlan, tx({ date: "2026-09-15" }), 0, {
+      today: "2026-09-01",
+    });
+    expect(future.reasons.some((r) => r.key === "recent")).toBe(false);
   });
 });
 

@@ -103,6 +103,8 @@ the in-app notification row with push as an optional channel.
 
 **Trust hardening (2026-06-08):** ledger vs forecast cashflow, plan settlement policy, shared-tx write UI gates ([#111](https://github.com/adrianghub/portfelik/pull/111) / [#112](https://github.com/adrianghub/portfelik/pull/112) on `main`).
 
+**Plans consistency pass (2026-06-10, local):** canonical `debtDisplayBalance` + `estimateInterestAccruedSince` (detail, net worth, PlanCard, scenarios now agree), kind-aware `DashboardPlanProgress`, surplus debt-coverage gating (`gateObservedDebtCoverage`), SW focused-client suppression, quick-settle plan-progress invalidation, numeric inputs beside sliders, persistent settle dismissals (`plan_settlement_dismissals` table + RLS, migration `20260701000000`), suggestion scoring rebalance (income amount bonus on save plans + 30-day recency) with a hard <45% cutoff and empty-state hint. Gates: svelte-check 0/0, lint 0, format clean, unit 173/173, RLS 256/256, plan-settle E2E 6/6, secret scan clean. Awaiting manual commits.
+
 **Launch certification (2026-06-08):** gates green; manual prod/staging verification done; **feature freeze** until post-launch issues opened.
 
 **Immediate next step:** monitor prod/staging; complete optional advisor dashboard toggles (leaked-password on prod+staging); invite beta couples only after group-role E2E + RLS trust tests land.

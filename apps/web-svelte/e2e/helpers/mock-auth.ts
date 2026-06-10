@@ -113,6 +113,14 @@ export async function mockSupabaseAPI(page: Page): Promise<void> {
         return route.fulfill({ status: 200, json: [] });
       }
 
+      // ── Plan settlement dismissals ────────────────────────────────────────
+      if (url.includes("/plan_settlement_dismissals")) {
+        if (method === "POST") {
+          return route.fulfill({ status: 201, json: [] });
+        }
+        return route.fulfill({ status: 200, json: [] });
+      }
+
       // ── Debt plan terms ──────────────────────────────────────────────────
       if (url.includes("/plan_debt_terms")) {
         if (method === "POST") {

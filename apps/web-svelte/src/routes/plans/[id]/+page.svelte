@@ -495,7 +495,11 @@
 
     {#if plan.kind !== "debt" || linkedQuery.data?.length}
       <div class="flex items-center justify-between gap-2">
-        <h2 class="text-eyebrow text-slate-400">{m.plan_detail_linked_header()}</h2>
+        <h2 class="text-eyebrow text-slate-400">
+          {plan.kind === "save"
+            ? m.plan_detail_linked_header_save()
+            : m.plan_detail_linked_header()}
+        </h2>
         {#if progress}
           <p class="text-xs text-slate-500">
             {progress.linkedCount}

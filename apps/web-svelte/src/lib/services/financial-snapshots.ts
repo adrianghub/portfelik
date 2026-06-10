@@ -1,4 +1,4 @@
-import { accrueBalanceWithDailyInterest } from "$lib/services/debt-amortization";
+import { debtDisplayBalance } from "$lib/services/debt-amortization";
 import { derivePlanBucket, todayIso } from "$lib/services/plans";
 import type { FinancialSnapshot, NetWorthSummary, Plan, PlanDebtTerms } from "$lib/types";
 import { supabase } from "$lib/supabase";
@@ -32,11 +32,16 @@ export function computeNetWorth(
   };
 }
 
-/** Balance for one active debt plan in net-worth (finished only if balance remains). */
+/**
+ * Balance for one active debt plan in net-worth (finished only if balance remains).
+ * Debts are always valued as of today (assets keep the snapshot date) so the figure
+ * matches the plan detail headline.
+ */
 export function debtBalanceForNetWorth(
   plan: Pick<Plan, "start_date" | "end_date" | "target_amount">,
   terms: PlanDebtTerms | undefined,
-  asOfDate = todayIso()
+  asOfDate = todayIso(),
+  hasLinkedPayments = false
 ): number {
   const bucket = derivePlanBucket(plan, asOfDate);
 
@@ -51,13 +56,13 @@ export function debtBalanceForNetWorth(
   }
 
   if (terms) {
-    const anchor = terms.updated_at.slice(0, 10);
-    return accrueBalanceWithDailyInterest(
-      Number(terms.current_balance),
-      Number(terms.annual_rate),
-      anchor,
-      asOfDate
-    );
+    return debtDisplayBalance({
+      currentBalance: Number(terms.current_balance),
+      annualRate: Number(terms.annual_rate),
+      anchorDateIso: terms.updated_at.slice(0, 10),
+      asOfDateIso: asOfDate,
+      hasLinkedPayments,
+    });
   }
 
   // Active plan without terms row yet — use target_amount from create form.
@@ -68,11 +73,19 @@ export function debtBalanceForNetWorth(
 export function collectNetWorthDebtBalances(
   plans: Plan[],
   termsByPlanId: Record<string, PlanDebtTerms>,
-  asOfDate = todayIso()
+  asOfDate = todayIso(),
+  linkedPaymentsByPlanId: Record<string, boolean> = {}
 ): number[] {
   return plans
     .filter((plan) => plan.kind === "debt")
-    .map((plan) => debtBalanceForNetWorth(plan, termsByPlanId[plan.id], asOfDate))
+    .map((plan) =>
+      debtBalanceForNetWorth(
+        plan,
+        termsByPlanId[plan.id],
+        asOfDate,
+        linkedPaymentsByPlanId[plan.id] ?? false
+      )
+    )
     .filter((balance) => balance > 0.01);
 }
 

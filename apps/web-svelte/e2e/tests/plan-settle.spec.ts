@@ -3,7 +3,7 @@
  *
  * Covers:
  *  - /plans/[id]/settle renders ranked suggestions with rank badge + reason chips
- *  - Pomiń dismisses suggestion client-side without making an API call
+ *  - Pomiń persists the dismissal (plan_settlement_dismissals) and survives reload
  *  - Powiąż calls link RPC, shows toast, removes tx from suggestions
  *  - After linking, navigating back to detail reflects updated linked amount
  *
@@ -84,10 +84,11 @@ const TX2 = {
   updated_at: "2026-07-08T10:00:00Z",
 };
 
+// keyword "wakacje" (25pts) + baseline (25pts) → score=50, rank=medium (clears the 45% cutoff)
 const TX_INCOME = {
   ...TX1,
   id: "tx-income",
-  description: "Premia wakacyjna",
+  description: "Premia na wakacje",
   amount: 500,
   date: "2026-07-05",
   type: "income",
@@ -154,17 +155,33 @@ test.describe("plan settle page", () => {
 
     await page.getByRole("button", { name: "Wpływy" }).click();
 
-    await expect(page.getByText("Premia wakacyjna")).toBeVisible();
+    await expect(page.getByText("Premia na wakacje")).toBeVisible();
     await expect(page.getByText(/Słabe trafienie|Może pasować|Pasuje świetnie/)).toBeVisible();
   });
 
-  test("Pomiń removes suggestion client-side without API call", async ({ page }) => {
+  test("Pomiń persists the dismissal and keeps it hidden after reload", async ({ page }) => {
     await setupSettleMocks(page);
 
-    let apiCallMade = false;
+    // Stateful dismissals mock: empty until the dismiss POST lands, then returns the row.
+    let dismissPosted = false;
+    await page.route(/.*\/rest\/v1\/plan_settlement_dismissals.*/, (route) => {
+      if (route.request().method() === "POST") {
+        dismissPosted = true;
+        return route.fulfill({
+          status: 201,
+          json: [{ id: "dis-1", plan_id: PLAN_ID, transaction_id: "tx-s1" }],
+        });
+      }
+      return route.fulfill({
+        status: 200,
+        json: dismissPosted ? [{ transaction_id: "tx-s1" }] : [],
+      });
+    });
+
+    let linkRpcCalled = false;
     page.on("request", (req) => {
-      if (req.url().includes("/rpc/") || req.method() === "POST") {
-        apiCallMade = true;
+      if (req.url().includes("/rpc/")) {
+        linkRpcCalled = true;
       }
     });
 
@@ -181,8 +198,14 @@ test.describe("plan settle page", () => {
     await expect(page.getByText("Zakupy spożywcze na wakacje")).not.toBeVisible();
     await expect(page.getByText("Transport na lotnisko")).toBeVisible();
 
-    // No link/unlink RPC was called
-    expect(apiCallMade).toBe(false);
+    // Dismissal was persisted (poll: getUser + upsert happen async after the optimistic hide)
+    await expect.poll(() => dismissPosted).toBe(true);
+    expect(linkRpcCalled).toBe(false);
+
+    // After a full reload the dismissal still hides TX1
+    await page.reload();
+    await expect(page.getByText("Transport na lotnisko")).toBeVisible();
+    await expect(page.getByText("Zakupy spożywcze na wakacje")).not.toBeVisible();
   });
 
   test("Powiąż calls link RPC and removes transaction from suggestions", async ({ page }) => {

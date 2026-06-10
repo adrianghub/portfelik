@@ -38,9 +38,12 @@ self.addEventListener('fetch', (event) => {
 	);
 });
 
-async function hasVisibleClient() {
+async function hasFocusedClient() {
 	const windowClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
-	return windowClients.some((client) => client.visibilityState === 'visible');
+	// A visible-but-unfocused client (browser in background, covered PWA window) cannot show
+	// the in-app toast (it requires document.hasFocus()), so only a focused client suppresses
+	// the system notification.
+	return windowClients.some((client) => client.focused);
 }
 
 function broadcastInvalidate() {
@@ -80,9 +83,9 @@ self.addEventListener('push', (event) => {
 	const notificationId = data.notificationId ?? data.type ?? 'portfelik';
 
 	event.waitUntil(
-		hasVisibleClient().then((visible) => {
-			if (visible) {
-				broadcastInvalidate();
+		hasFocusedClient().then((focused) => {
+			broadcastInvalidate();
+			if (focused) {
 				return notifyOpenClients({
 					title: payload.title,
 					body: payload.body,

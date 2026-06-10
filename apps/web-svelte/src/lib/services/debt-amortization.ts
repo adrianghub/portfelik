@@ -206,6 +206,52 @@ export function accrueBalanceWithDailyInterest(
   return balance * Math.pow(1 + dailyRate, days);
 }
 
+export interface DebtDisplayBalanceInput {
+  currentBalance: number;
+  annualRate: number;
+  /** ISO date (YYYY-MM-DD) the stored balance was last written — accrual anchor. */
+  anchorDateIso: string;
+  asOfDateIso: string;
+  /**
+   * When real payments are linked, the stored/derived balance already reflects real interest
+   * inside the raty — synthetic daily accrual would double-count it.
+   */
+  hasLinkedPayments?: boolean;
+}
+
+/**
+ * Canonical remaining balance shown on every surface (plan detail, cards, net worth,
+ * scenarios): stored balance plus daily compound interest accrued from its anchor date,
+ * unless real payments are linked.
+ */
+export function debtDisplayBalance(input: DebtDisplayBalanceInput): number {
+  if (input.hasLinkedPayments) return input.currentBalance;
+  return accrueBalanceWithDailyInterest(
+    input.currentBalance,
+    input.annualRate,
+    input.anchorDateIso,
+    input.asOfDateIso
+  );
+}
+
+/**
+ * Estimated total interest accrued since the loan start, for reference display only.
+ * Interest accrues on the remaining balance; with only the start and current balance known,
+ * assume a roughly linear decline between them (trapezoid rule). This respects the actual
+ * repayment pace (including overpayments) instead of replaying the scheduled plan.
+ */
+export function estimateInterestAccruedSince(
+  input: { originalAmount: number; currentBalance: number; annualRate: number },
+  startDateIso: string,
+  asOfDateIso: string
+): number {
+  if (input.annualRate <= 0) return 0;
+  const days = daysBetween(startDateIso, asOfDateIso);
+  if (days <= 0) return 0;
+  const avgBalance = (Math.max(0, input.originalAmount) + Math.max(0, input.currentBalance)) / 2;
+  return avgBalance * (input.annualRate / 100) * (days / 365);
+}
+
 /** Monthly interest on the current balance at the plan rate. */
 export function monthlyInterestAmount(currentBalance: number, annualRate: number): number {
   return currentBalance * (annualRate / 100 / 12);

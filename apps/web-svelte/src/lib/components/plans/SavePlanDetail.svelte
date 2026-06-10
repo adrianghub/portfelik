@@ -49,12 +49,30 @@
     sliderMonths = Math.max(sliderMinMonths, months);
   });
 
+  // Let the typed value exceed the slider range; the slider track grows to match.
+  const sliderTargetMax = $derived(Math.max(200_000, sliderTarget));
+  const sliderMaxMonths = $derived(Math.max(60, sliderMonths));
+
   function emitTargetAdjust() {
     onAdjust?.({ target_amount: sliderTarget });
   }
 
   function emitDeadlineAdjust() {
     onAdjust?.({ end_date: sliderEndPreview });
+  }
+
+  function onTargetInput(event: Event) {
+    const raw = Number((event.currentTarget as HTMLInputElement).value);
+    if (!Number.isFinite(raw)) return;
+    sliderTarget = Math.min(1_000_000, Math.max(100, Math.round(raw)));
+    emitTargetAdjust();
+  }
+
+  function onMonthsInput(event: Event) {
+    const raw = Number((event.currentTarget as HTMLInputElement).value);
+    if (!Number.isFinite(raw)) return;
+    sliderMonths = Math.min(120, Math.max(sliderMinMonths, Math.round(raw)));
+    emitDeadlineAdjust();
   }
 </script>
 
@@ -94,6 +112,9 @@
       <p class="text-sm text-slate-400">
         {m.plan_save_saved({ saved: formatCurrency(saved), target: formatCurrency(target) })}
       </p>
+      {#if saved <= 0}
+        <p class="mt-1 text-xs text-slate-400">{m.plan_save_empty_hint()}</p>
+      {/if}
     </div>
   </div>
 
@@ -104,16 +125,30 @@
           <span>{m.plan_save_slider_target()}</span>
           <span class="text-slate-200 tabular-nums">{formatCurrency(sliderTarget)}</span>
         </div>
-        <input
-          type="range"
-          min="5000"
-          max="200000"
-          step="1000"
-          bind:value={sliderTarget}
-          onchange={emitTargetAdjust}
-          disabled={adjusting}
-          class="accent-accent mt-2 w-full"
-        />
+        <div class="mt-2 flex items-center gap-3">
+          <input
+            type="range"
+            min="5000"
+            max={sliderTargetMax}
+            step="1000"
+            bind:value={sliderTarget}
+            onchange={emitTargetAdjust}
+            disabled={adjusting}
+            class="accent-accent min-w-0 flex-1"
+            aria-label={m.plan_save_slider_target()}
+          />
+          <input
+            type="number"
+            min="100"
+            max="1000000"
+            step="500"
+            value={sliderTarget}
+            onchange={onTargetInput}
+            disabled={adjusting}
+            aria-label={m.plan_save_slider_target()}
+            class="w-28 rounded-lg border border-white/10 bg-slate-900/60 px-2 py-1.5 text-right text-sm text-slate-100 tabular-nums"
+          />
+        </div>
       </div>
       <div>
         <div class="flex items-center justify-between text-xs text-slate-400">
@@ -132,16 +167,30 @@
             to: formatDate(sliderEndPreview),
           })}
         </p>
-        <input
-          type="range"
-          min={sliderMinMonths}
-          max="60"
-          step="1"
-          bind:value={sliderMonths}
-          onchange={emitDeadlineAdjust}
-          disabled={adjusting}
-          class="accent-accent mt-2 w-full"
-        />
+        <div class="mt-2 flex items-center gap-3">
+          <input
+            type="range"
+            min={sliderMinMonths}
+            max={sliderMaxMonths}
+            step="1"
+            bind:value={sliderMonths}
+            onchange={emitDeadlineAdjust}
+            disabled={adjusting}
+            class="accent-accent min-w-0 flex-1"
+            aria-label={m.plan_save_slider_deadline()}
+          />
+          <input
+            type="number"
+            min={sliderMinMonths}
+            max="120"
+            step="1"
+            value={sliderMonths}
+            onchange={onMonthsInput}
+            disabled={adjusting}
+            aria-label={m.plan_save_slider_deadline()}
+            class="w-20 rounded-lg border border-white/10 bg-slate-900/60 px-2 py-1.5 text-right text-sm text-slate-100 tabular-nums"
+          />
+        </div>
       </div>
     </div>
   {/if}

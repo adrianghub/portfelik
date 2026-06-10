@@ -184,6 +184,7 @@
     class="rounded-xl border border-white/5 bg-slate-900/60 p-3"
     type="single"
     value={selected}
+    preventDeselect
     onValueChange={handleValueChange}
     bind:placeholder={calendarPlaceholder}
     {locale}
