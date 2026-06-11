@@ -150,8 +150,6 @@ export const MOCK_DEBT_TERMS = [
     current_balance: 206000,
     annual_rate: 7.18,
     monthly_payment: 2370,
-    payment_day: 10,
-    anchor_transaction_id: null,
     anchor_balance: 206000,
     balance_anchor_date: "2024-01-01",
     created_at: "2024-01-01T10:00:00Z",

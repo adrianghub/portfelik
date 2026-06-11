@@ -58,8 +58,6 @@ const debtTerms = (overrides: Partial<PlanDebtTerms> = {}): PlanDebtTerms => ({
   current_balance: 200_000,
   annual_rate: 7,
   monthly_payment: 1400,
-  payment_day: null,
-  anchor_transaction_id: null,
   anchor_balance: 200_000,
   balance_anchor_date: "2026-06-01",
   created_at: "2026-06-01T00:00:00Z",

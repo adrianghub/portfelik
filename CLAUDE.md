@@ -107,7 +107,9 @@ the in-app notification row with push as an optional channel.
 
 **Launch certification (2026-06-08):** gates green; manual prod/staging verification done; **feature freeze** until post-launch issues opened.
 
-**Immediate next step:** monitor prod/staging; complete optional advisor dashboard toggles (leaked-password on prod+staging); invite beta couples only after group-role E2E + RLS trust tests land.
+**Recurring + debt-banner trust fix (2026-06-11, local):** recurring templates are now reminder-only — migration `20260703000000` rewrites `process_recurring_transactions` to send `transaction_reminder` notifications (next occurrence ≤ tomorrow, deduped per template+date) and never insert transaction rows (root cause of the phantom same-day rata + overdue alert). Debt detect banner confirm performs a real settlement link + balance sync; detection excludes already-linked txs and suggests the newest occurrence (pure `groupDebtPaymentCandidates` core + unit tests). Vestigial `plan_debt_terms.anchor_transaction_id`/`payment_day` dropped (migration `20260704000000`). Gates: db reset + function smoke, svelte-check 0/0, lint 0, format clean, unit 191/191, RLS 256/256, plans+plan-settle E2E 12/12, secret scan clean. Awaiting manual commits.
+
+**Immediate next step:** commit the 2026-06-11 trust fix (3-commit list handed off), push through `dev` → staging so migrations `20260703`/`20260704` apply to `portfelik-staging`, then promote to `main`/prod. Review backlog still open: delete-plan cache invalidations, onboarding/empty-state duplication, staging demo-seed idempotency (3× dupes), PlanCard empty-links balance heuristic, terms-edit cancel button. Then: monitor prod/staging; advisor dashboard toggles; invite beta couples after group-role E2E + RLS trust tests.
 
 **Open backlog:**
 

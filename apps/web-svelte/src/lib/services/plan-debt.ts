@@ -33,8 +33,6 @@ export type PlanDebtTermsInput = {
   current_balance: number;
   annual_rate: number;
   monthly_payment: number;
-  payment_day?: number | null;
-  anchor_transaction_id?: string | null;
   anchor_balance?: number | null;
   balance_anchor_date?: string | null;
   /** Reset snapshot anchor from current_balance + today (manual balance edit). */
@@ -187,8 +185,6 @@ export async function upsertPlanDebtTerms(
     current_balance: normalized.current_balance,
     annual_rate: normalized.annual_rate,
     monthly_payment: normalized.monthly_payment,
-    payment_day: input.payment_day ?? null,
-    anchor_transaction_id: input.anchor_transaction_id ?? null,
     anchor_balance,
     balance_anchor_date,
   };
@@ -205,17 +201,6 @@ export async function updatePlanDebtBalance(planId: string, currentBalance: numb
   const { error } = await supabase
     .from("plan_debt_terms")
     .update({ current_balance: currentBalance })
-    .eq("plan_id", planId);
-  if (error) throw error;
-}
-
-export async function setDebtAnchorTransaction(
-  planId: string,
-  transactionId: string | null
-): Promise<void> {
-  const { error } = await supabase
-    .from("plan_debt_terms")
-    .update({ anchor_transaction_id: transactionId })
     .eq("plan_id", planId);
   if (error) throw error;
 }

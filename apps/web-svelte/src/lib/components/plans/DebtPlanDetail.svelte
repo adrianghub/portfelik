@@ -250,8 +250,6 @@
           current_balance: Number(terms.current_balance),
           annual_rate: Number(terms.annual_rate),
           monthly_payment: Number(terms.monthly_payment),
-          payment_day: terms.payment_day,
-          anchor_transaction_id: terms.anchor_transaction_id,
         }),
         clear_balance_anchor: true,
       };
@@ -275,8 +273,6 @@
           current_balance: Number(editBalance),
           annual_rate: Number(editRate),
           monthly_payment: Number(editPayment),
-          payment_day: terms.payment_day,
-          anchor_transaction_id: terms.anchor_transaction_id,
         }),
         ...(balanceChanged ? { reset_balance_anchor: true } : {}),
       };
