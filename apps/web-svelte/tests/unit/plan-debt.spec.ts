@@ -9,7 +9,8 @@ import {
   filterPreAnchorPayments,
   resolveDebtReplay,
 } from "$lib/services/debt-balance-replay";
-import { normalizeDebtTermsInput } from "$lib/services/plan-debt";
+import { accrueBalanceWithDailyInterest } from "$lib/services/debt-amortization";
+import { normalizeDebtTermsInput, deriveDebtDisplayBalance } from "$lib/services/plan-debt";
 import { canManagePlan } from "$lib/services/plans";
 import type { GroupMemberRole } from "$lib/types";
 
@@ -30,15 +31,19 @@ const snapshotReplay = (
   anchorBalance: number,
   anchorDate: string,
   annualRate: number,
-  linkedExpenses: { amount: number; date?: string }[]
+  linkedExpenses: { amount: number; date?: string }[],
+  asOfDate = "2026-06-10"
 ) =>
-  deriveDebtBalanceFromLinks({
-    originalAmount: 330_000,
-    annualRate,
-    linkedExpenses,
-    anchorBalance,
-    balanceAnchorDate: anchorDate,
-  });
+  deriveDebtBalanceFromLinks(
+    {
+      originalAmount: 330_000,
+      annualRate,
+      linkedExpenses,
+      anchorBalance,
+      balanceAnchorDate: anchorDate,
+    },
+    asOfDate
+  );
 
 describe("normalizeDebtTermsInput", () => {
   it("accepts whole-number amounts and defaults balance to original", () => {
@@ -117,10 +122,7 @@ describe("consolidateDebtLinkedPayments", () => {
 
   it("appends undated periods after dated months", () => {
     expect(
-      consolidateDebtLinkedPayments([
-        { amount: 800 },
-        { amount: 1000, date: "2026-03-01" },
-      ])
+      consolidateDebtLinkedPayments([{ amount: 800 }, { amount: 1000, date: "2026-03-01" }])
     ).toEqual([1000, 800]);
   });
 
@@ -189,11 +191,7 @@ describe("resolveDebtReplay", () => {
 describe("deriveDebtBalanceFromLinks", () => {
   it("allocates each payment to interest then principal (full replay)", () => {
     expect(
-      fullReplay(206_000, 7.18, [
-        { amount: 2370 },
-        { amount: 2370 },
-        { amount: 500 },
-      ])
+      fullReplay(206_000, 7.18, [{ amount: 2370 }, { amount: 2370 }, { amount: 500 }])
     ).toBeCloseTo(203_718.32, 0);
   });
 
@@ -205,20 +203,41 @@ describe("deriveDebtBalanceFromLinks", () => {
     expect(fullReplay(206_000, 7.18, [])).toBe(206_000);
   });
 
-  it("snapshot: 15k forward overpay reduces from anchor not original", () => {
+  it("snapshot: forward rata subtracts full payment after daily accrual", () => {
+    const anchor = 207_000;
+    const anchorDate = "2026-06-01";
+    const paymentDate = "2026-06-10";
+    const afterPayment = deriveDebtBalanceFromLinks(
+      {
+        originalAmount: 330_000,
+        annualRate: 7.18,
+        linkedExpenses: [{ amount: 2370, date: paymentDate }],
+        anchorBalance: anchor,
+        balanceAnchorDate: anchorDate,
+      },
+      paymentDate
+    );
+    const accruedToPayment = accrueBalanceWithDailyInterest(anchor, 7.18, anchorDate, paymentDate);
+    expect(afterPayment).toBeCloseTo(accruedToPayment - 2370, 0);
+    expect(afterPayment).toBeLessThan(anchor);
+  });
+
+  it("snapshot: accrues from anchor when no forward links", () => {
+    const anchor = 207_000;
+    const anchorDate = "2026-06-01";
+    const asOf = "2026-06-10";
+    expect(snapshotReplay(anchor, anchorDate, 7.18, [])).toBeCloseTo(
+      accrueBalanceWithDailyInterest(anchor, 7.18, anchorDate, asOf),
+      0
+    );
+  });
+
+  it("snapshot: 15k forward overpay subtracts full amount after accrual", () => {
     const after = snapshotReplay(207_000, "2026-06-01", 7.18, [
       { amount: 15_000, date: "2026-06-10" },
     ]);
-    expect(after).toBeLessThan(207_000);
-    expect(after).toBeGreaterThan(190_000);
-    expect(after).toBeLessThan(320_000);
-  });
-
-  it("snapshot: forward 2370 rata reduces modestly from 207k anchor", () => {
-    const after = snapshotReplay(207_000, "2026-06-01", 7.18, [
-      { amount: 2370, date: "2026-06-10" },
-    ]);
-    expect(after).toBeCloseTo(205_868.55, 0);
+    const accrued = accrueBalanceWithDailyInterest(207_000, 7.18, "2026-06-01", "2026-06-10");
+    expect(after).toBeCloseTo(accrued - 15_000, 0);
   });
 
   it("snapshot: pre-anchor links ignored for balance math", () => {
@@ -232,15 +251,67 @@ describe("deriveDebtBalanceFromLinks", () => {
     expect(withPreAnchor).toBe(forwardOnly);
   });
 
-  it("snapshot: returns anchor when only pre-anchor links exist", () => {
+  it("snapshot: accrues from anchor when only pre-anchor links exist", () => {
+    const asOf = "2026-06-10";
     expect(
-      snapshotReplay(207_000, "2026-06-01", 7.18, [{ amount: 2370, date: "2026-05-01" }])
-    ).toBe(207_000);
+      deriveDebtBalanceFromLinks(
+        {
+          originalAmount: 330_000,
+          annualRate: 7.18,
+          linkedExpenses: [{ amount: 2370, date: "2026-05-01" }],
+          anchorBalance: 207_000,
+          balanceAnchorDate: "2026-06-01",
+        },
+        asOf
+      )
+    ).toBeCloseTo(accrueBalanceWithDailyInterest(207_000, 7.18, "2026-06-01", asOf), 0);
+  });
+});
+
+describe("deriveDebtDisplayBalance", () => {
+  const snapshotTerms = {
+    original_amount: 330_000,
+    current_balance: 207_048.67,
+    annual_rate: 7.18,
+    updated_at: "2026-06-08T00:00:00Z",
+    anchor_balance: 207_048.67,
+    balance_anchor_date: "2026-06-08",
+  };
+
+  it("accrues from anchor when no linked raty", () => {
+    const balance = deriveDebtDisplayBalance(snapshotTerms, [], "2026-06-10");
+    expect(balance).toBeGreaterThan(207_048.67 + 80);
+    expect(balance).toBeLessThan(207_048.67 + 85);
+  });
+
+  it("subtracts full linked rata after accrual on detail path", () => {
+    const withRata = deriveDebtDisplayBalance(
+      snapshotTerms,
+      [{ amount: 2370.26, date: "2026-06-09" }],
+      "2026-06-10"
+    );
+    const withoutRata = deriveDebtDisplayBalance(snapshotTerms, [], "2026-06-10");
+    expect(withRata).toBeLessThan(withoutRata - 2300);
+  });
+
+  it("prefers synced stored balance on hub when below anchor-only accrual", () => {
+    const syncedTerms = {
+      ...snapshotTerms,
+      current_balance: 204_500,
+      updated_at: "2026-06-09T00:00:00Z",
+    };
+    const hub = deriveDebtDisplayBalance(syncedTerms, [], "2026-06-10");
+    const anchorOnly = deriveDebtDisplayBalance(snapshotTerms, [], "2026-06-10");
+    expect(hub).toBeLessThan(anchorOnly - 1000);
+    expect(hub).toBeGreaterThan(204_500);
   });
 });
 
 describe("canManagePlan", () => {
-  const roles = new Map<string, GroupMemberRole>([["g1", "member"], ["g2", "co_owner"]]);
+  const roles = new Map<string, GroupMemberRole>([
+    ["g1", "member"],
+    ["g2", "co_owner"],
+  ]);
 
   it("allows plan owner on private plan", () => {
     expect(canManagePlan({ user_id: "u1", group_id: null }, "u1", roles)).toBe(true);

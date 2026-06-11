@@ -92,6 +92,8 @@ describe("debtBalanceForNetWorth", () => {
       debtTerms({
         original_amount: 330_000,
         current_balance: 207_048.67,
+        anchor_balance: 207_048.67,
+        balance_anchor_date: "2026-06-08",
         annual_rate: 7.18,
         updated_at: "2026-06-08T00:00:00Z",
       }),
@@ -127,6 +129,8 @@ describe("collectNetWorthDebtBalances", () => {
         plan_id: "d1",
         original_amount: 207_000,
         current_balance: 207_000,
+        anchor_balance: 207_000,
+        balance_anchor_date: "2026-06-08",
         updated_at: "2026-06-08T00:00:00Z",
       }),
       d2: debtTerms({ plan_id: "d2", original_amount: 100_000, current_balance: 100_000 }),

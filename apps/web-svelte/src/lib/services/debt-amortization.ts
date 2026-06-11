@@ -1,8 +1,3 @@
-import {
-  interestAccruedFromLinkedPayments,
-  resolveDebtReplay,
-} from "$lib/services/debt-balance-replay";
-
 export interface DebtAmortizationInput {
   currentBalance: number;
   annualRate: number;
@@ -238,18 +233,11 @@ export interface EstimateInterestAccruedInput {
   originalAmount: number;
   currentBalance: number;
   annualRate: number;
-  anchorBalance?: number | null;
-  balanceAnchorDate?: string | null;
-  /** When dated linked raty are available, replay interest per payment period. */
-  linkedPayments?: { amount: number; date?: string }[];
 }
 
 /**
- * Estimated total interest accrued since the loan start, for reference display only.
- * With linked raty: sum monthly interest from each replayed payment period.
- * Without linked raty: approximate from the current holdings balance × daily rate × elapsed
- * days - matches the "~40 zł/dzień × okres" mental model and reflects overpayments already
- * baked into the stored balance, instead of averaging against the original principal.
+ * Estimated cumulative interest since plan start for reference display only.
+ * Approximates current balance × daily rate × elapsed days (~40 zł/d × okres).
  */
 export function estimateInterestAccruedSince(
   input: EstimateInterestAccruedInput,
@@ -259,20 +247,6 @@ export function estimateInterestAccruedSince(
   if (input.annualRate <= 0) return 0;
   const days = daysBetween(startDateIso, asOfDateIso);
   if (days <= 0) return 0;
-
-  if (input.linkedPayments && input.linkedPayments.length > 0) {
-    const replayInput = {
-      originalAmount: input.originalAmount,
-      annualRate: input.annualRate,
-      linkedExpenses: input.linkedPayments,
-      anchorBalance: input.anchorBalance,
-      balanceAnchorDate: input.balanceAnchorDate,
-    };
-    const { forwardExpenses } = resolveDebtReplay(replayInput);
-    if (forwardExpenses.length > 0) {
-      return interestAccruedFromLinkedPayments(replayInput);
-    }
-  }
 
   const balance = Math.max(0, input.currentBalance);
   return approximateDailyInterest(balance, input.annualRate) * days;

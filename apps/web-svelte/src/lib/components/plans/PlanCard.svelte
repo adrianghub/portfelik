@@ -1,9 +1,7 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
-  import {
-    debtDisplayBalance,
-    estimateInterestAccruedSince,
-  } from "$lib/services/debt-amortization";
+  import { deriveDebtDisplayBalance } from "$lib/services/plan-debt";
+  import { estimateInterestAccruedSince } from "$lib/services/debt-amortization";
   import { todayIso } from "$lib/services/plans";
   import type { PlanDebtTerms, PlanSummary } from "$lib/types";
   import { getPlanEmoji } from "$lib/utils/plan-emoji";
@@ -30,16 +28,7 @@
   );
   // Canonical display balance (daily accrual unless payments are linked) so the card
   // matches the plan detail headline and the net-worth Kredyty line.
-  const debtBalance = $derived(
-    debtTerms
-      ? debtDisplayBalance({
-          currentBalance: Number(debtTerms.current_balance),
-          annualRate: Number(debtTerms.annual_rate),
-          anchorDateIso: debtTerms.updated_at.slice(0, 10),
-          asOfDateIso: todayIso(),
-        })
-      : 0
-  );
+  const debtBalance = $derived(debtTerms ? deriveDebtDisplayBalance(debtTerms, [], todayIso()) : 0);
   const debtPaid = $derived(
     debtTerms ? Math.max(0, Number(debtTerms.original_amount) - debtBalance) : 0
   );

@@ -1,7 +1,6 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
-  import { debtDisplayBalance } from "$lib/services/debt-amortization";
-  import { fetchPlanDebtTermsByPlanIds } from "$lib/services/plan-debt";
+  import { deriveDebtDisplayBalance, fetchPlanDebtTermsByPlanIds } from "$lib/services/plan-debt";
   import {
     fetchDashboardPlanProgress,
     type PlanSettlementProgress,
@@ -46,12 +45,7 @@
     terms: PlanDebtTerms | undefined
   ): { pct: number | null; label: string } {
     if (plan.kind === "debt" && terms && Number(terms.original_amount) > 0) {
-      const balance = debtDisplayBalance({
-        currentBalance: Number(terms.current_balance),
-        annualRate: Number(terms.annual_rate),
-        anchorDateIso: terms.updated_at.slice(0, 10),
-        asOfDateIso: todayIso(),
-      });
+      const balance = deriveDebtDisplayBalance(terms, [], todayIso());
       const paid = Math.max(0, Number(terms.original_amount) - balance);
       const pct = Math.min(
         100,

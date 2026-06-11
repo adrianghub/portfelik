@@ -1,4 +1,29 @@
+import { todayIso } from "$lib/services/plans";
+
 export type DebtLinkedPayment = { amount: number; date?: string };
+
+/** Whole calendar days from `fromIso` (exclusive anchor) to `toIso` (inclusive end). */
+function daysBetween(fromIso: string, toIso: string): number {
+  const [fy, fm, fd] = fromIso.split("-").map(Number);
+  const [ty, tm, td] = toIso.split("-").map(Number);
+  const from = Date.UTC(fy, fm - 1, fd);
+  const to = Date.UTC(ty, tm - 1, td);
+  return Math.floor((to - from) / 86_400_000);
+}
+
+/** Compound daily interest on outstanding balance since the anchor date. */
+function accrueBalanceWithDailyInterest(
+  balance: number,
+  annualRatePct: number,
+  anchorDateIso: string,
+  asOfDateIso: string
+): number {
+  if (balance <= 0.01 || annualRatePct <= 0) return balance;
+  const days = daysBetween(anchorDateIso, asOfDateIso);
+  if (days <= 0) return balance;
+  const dailyRate = annualRatePct / 100 / 365;
+  return balance * Math.pow(1 + dailyRate, days);
+}
 
 export type DebtBalanceReplayMode = "snapshot" | "full";
 
@@ -88,11 +113,62 @@ export function consolidateDebtLinkedPayments(linkedExpenses: DebtLinkedPayment[
   return [...datedPeriods, ...undated];
 }
 
-export function deriveDebtBalanceFromLinks(input: DebtBalanceReplayInput): number {
-  const { startBalance, forwardExpenses } = resolveDebtReplay(input);
+/**
+ * Snapshot model: compound daily interest between events, subtract the full linked
+ * payment on each date (not amortization interest-first). Matches manual tracking
+ * where ~40 zł/d accrues and the whole rata leaves the balance on payment day.
+ */
+export function deriveDebtBalanceFlatAccrual(input: {
+  startBalance: number;
+  startDateIso: string;
+  annualRate: number;
+  linkedExpenses: DebtLinkedPayment[];
+  asOfDateIso: string;
+}): number {
+  let balance = Math.max(0, input.startBalance);
+  let cursor = input.startDateIso;
+
+  const dated = input.linkedExpenses
+    .filter((e) => e.date)
+    .map((e) => ({ date: e.date!.slice(0, 10), amount: Math.abs(e.amount) }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const undated = input.linkedExpenses.filter((e) => !e.date).map((e) => Math.abs(e.amount));
+
+  for (const { date, amount } of dated) {
+    balance = accrueBalanceWithDailyInterest(balance, input.annualRate, cursor, date);
+    balance = Math.max(0, balance - amount);
+    cursor = date;
+  }
+
+  for (const amount of undated) {
+    balance = Math.max(0, balance - amount);
+  }
+
+  balance = accrueBalanceWithDailyInterest(balance, input.annualRate, cursor, input.asOfDateIso);
+  return Math.round(balance * 100) / 100;
+}
+
+export function deriveDebtBalanceFromLinks(
+  input: DebtBalanceReplayInput,
+  asOfDateIso: string = todayIso()
+): number {
+  const { mode, startBalance, forwardExpenses } = resolveDebtReplay(input);
+
+  if (mode === "snapshot") {
+    return deriveDebtBalanceFlatAccrual({
+      startBalance,
+      startDateIso: input.balanceAnchorDate!,
+      annualRate: input.annualRate,
+      linkedExpenses: forwardExpenses,
+      asOfDateIso,
+    });
+  }
+
   if (forwardExpenses.length === 0) {
     return Math.round(startBalance * 100) / 100;
   }
+
   let balance = startBalance;
   for (const payment of consolidateDebtLinkedPayments(forwardExpenses)) {
     balance = applyDebtPaymentPeriod(balance, input.annualRate, payment);

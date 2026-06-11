@@ -12,6 +12,7 @@
     monthlyInterestAmount,
   } from "$lib/services/debt-amortization";
   import {
+    deriveDebtDisplayBalance,
     isSnapshotDebtReplay,
     normalizeDebtTermsInput,
     type DebtLinkedPayment,
@@ -88,16 +89,7 @@
   const snapshotMode = $derived(
     isSnapshotDebtReplay(terms.anchor_balance, terms.balance_anchor_date)
   );
-  const accrualAnchor = $derived(terms.updated_at.slice(0, 10));
-  const storedBalance = $derived(Number(terms.current_balance));
-  const displayBalance = $derived(
-    debtDisplayBalance({
-      currentBalance: storedBalance,
-      annualRate: Number(terms.annual_rate),
-      anchorDateIso: accrualAnchor,
-      asOfDateIso: todayIso(),
-    })
-  );
+  const displayBalance = $derived(deriveDebtDisplayBalance(terms, linkedExpenses, todayIso()));
   const paid = $derived(Math.max(0, Number(terms.original_amount) - displayBalance));
   const interestPaidSinceStart = $derived(
     estimateInterestAccruedSince(
@@ -105,9 +97,6 @@
         originalAmount: Number(terms.original_amount),
         currentBalance: displayBalance,
         annualRate: Number(terms.annual_rate),
-        anchorBalance: terms.anchor_balance,
-        balanceAnchorDate: terms.balance_anchor_date,
-        linkedPayments: hasLinkedPayments ? linkedExpenses : undefined,
       },
       planStartDate,
       todayIso()
@@ -152,25 +141,28 @@
       ? Math.round((comparison.withExtra.payoffMonths / comparison.baseline.payoffMonths) * 100)
       : 100
   );
+  const storedLiveBalance = $derived(
+    debtDisplayBalance({
+      currentBalance: Number(terms.current_balance),
+      annualRate: Number(terms.annual_rate),
+      anchorDateIso: terms.updated_at.slice(0, 10),
+      asOfDateIso: todayIso(),
+    })
+  );
   const balanceDrift = $derived(
-    hasLinkedPayments &&
-      derivedBalance != null &&
-      Math.abs(derivedBalance - Number(terms.current_balance)) > 1
+    hasLinkedPayments && Math.abs(displayBalance - storedLiveBalance) > 1
   );
-  const syncIncreasesBalance = $derived(
-    derivedBalance != null && derivedBalance > Number(terms.current_balance) + 1
-  );
+  const syncIncreasesBalance = $derived(displayBalance > storedLiveBalance + 1);
   const showLinkPaymentsInfo = $derived(!hasLinkedPayments && onSyncBalance != null);
   const linkPaymentsInfoTitle = $derived(
-    snapshotMode && terms.balance_anchor_date != null && terms.anchor_balance != null
-      ? m.plan_debt_link_payments_info({
-          date: formatDate(terms.balance_anchor_date),
-          amount: formatCurrency(Number(terms.anchor_balance)),
-        })
-      : m.plan_debt_link_payments_info({
-          date: formatDate(planStartDate),
-          amount: formatCurrency(Number(terms.current_balance)),
-        })
+    m.plan_debt_link_payments_info({
+      date: formatDate(
+        snapshotMode && terms.balance_anchor_date != null
+          ? terms.balance_anchor_date
+          : planStartDate
+      ),
+      amount: formatCurrency(displayBalance),
+    })
   );
   const overpayChips = $derived([0, 500, 1000, 2000, 5000].filter((chip) => chip <= maxOverpay));
   const lumpChips = $derived([5_000, 10_000, 20_000, 50_000].filter((chip) => chip <= maxLumpSum));
@@ -328,8 +320,8 @@
       <div class="flex flex-wrap items-center justify-between gap-2">
         <p class="text-sm text-amber-100">
           {m.plan_debt_sync_from_links({
-            derived: formatCurrency(derivedBalance),
-            stored: formatCurrency(Number(terms.current_balance)),
+            derived: formatCurrency(displayBalance),
+            stored: formatCurrency(storedLiveBalance),
           })}
         </p>
         <button
@@ -354,7 +346,7 @@
   >
     <p class="text-eyebrow text-slate-400">{m.plan_debt_remaining_hero()}</p>
     <p class="text-accent mt-2 text-4xl font-semibold tabular-nums">
-      {formatCurrency(displayBalance)}
+      ~{formatCurrency(displayBalance)}
     </p>
     <p class="mt-1 text-sm text-slate-400">
       z {formatCurrency(Number(terms.original_amount))}
@@ -645,6 +637,9 @@
               bind:value={editBalance}
               class="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
             />
+            <span class="mt-1 block text-xs text-slate-500">
+              {m.plan_debt_balance_today_estimate({ amount: formatCurrency(displayBalance) })}
+            </span>
           </label>
           <label class="block text-xs text-slate-400">
             {m.plan_debt_rate()}
@@ -728,8 +723,8 @@
   open={showSyncConfirm}
   message={derivedBalance != null
     ? m.plan_debt_sync_confirm_increase({
-        stored: formatCurrency(Number(terms.current_balance)),
-        derived: formatCurrency(derivedBalance),
+        stored: formatCurrency(storedLiveBalance),
+        derived: formatCurrency(displayBalance),
       })
     : ""}
   pending={syncing}
