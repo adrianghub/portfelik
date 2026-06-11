@@ -6,6 +6,7 @@
     fetchFinancialSnapshot,
   } from "$lib/services/financial-snapshots";
   import { fetchPlanDebtTermsByPlanIds } from "$lib/services/plan-debt";
+  import { fetchPlanProgressForPlans } from "$lib/services/plan-settlement";
   import { fetchPlans, todayIso } from "$lib/services/plans";
   import { createQuery } from "@tanstack/svelte-query";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
@@ -26,15 +27,32 @@
     enabled: debtPlanIds.length > 0,
   }));
 
+  const debtProgressQuery = createQuery(() => ({
+    queryKey: ["plan-progress-list", debtPlanIds],
+    queryFn: () => fetchPlanProgressForPlans(debtPlanIds),
+    enabled: debtPlanIds.length > 0,
+  }));
+
   const snapshotQuery = createQuery(() => ({
     queryKey: ["financial-snapshot"],
     queryFn: fetchFinancialSnapshot,
   }));
 
+  const linkedExpensesByPlanId = $derived(
+    Object.fromEntries(
+      Object.entries(debtProgressQuery.data ?? {}).map(([planId, p]) => [planId, p.linkedExpenses])
+    )
+  );
+
   const netWorth = $derived(
     computeNetWorth(
       snapshotQuery.data ?? null,
-      collectNetWorthDebtBalances(plansQuery.data ?? [], debtTermsQuery.data ?? {}, todayIso())
+      collectNetWorthDebtBalances(
+        plansQuery.data ?? [],
+        debtTermsQuery.data ?? {},
+        todayIso(),
+        linkedExpensesByPlanId
+      )
     )
   );
 

@@ -1,7 +1,6 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
-  import { deriveDebtDisplayBalance } from "$lib/services/plan-debt";
-  import { estimateInterestAccruedSince } from "$lib/services/debt-amortization";
+  import { deriveDebtDisplayBalance, estimateInterestPaidSince } from "$lib/services/plan-debt";
   import { todayIso } from "$lib/services/plans";
   import type { PlanDebtTerms, PlanSummary } from "$lib/types";
   import { getPlanEmoji } from "$lib/utils/plan-emoji";
@@ -12,13 +11,23 @@
   interface Props {
     plan: PlanSummary;
     debtTerms?: PlanDebtTerms;
+    /** Paid linked expense payments — same inputs as the plan detail balance. */
+    linkedExpenses?: { amount: number; date: string }[];
     categoryName?: string;
     groupName?: string;
     onedit?: (plan: PlanSummary) => void;
     ondelete?: (id: string) => void;
   }
 
-  let { plan, debtTerms, categoryName, groupName, onedit, ondelete }: Props = $props();
+  let {
+    plan,
+    debtTerms,
+    linkedExpenses = [],
+    categoryName,
+    groupName,
+    onedit,
+    ondelete,
+  }: Props = $props();
 
   const kind = $derived(plan.kind ?? "spend");
   const savePct = $derived(
@@ -28,7 +37,9 @@
   );
   // Canonical display balance (daily accrual unless payments are linked) so the card
   // matches the plan detail headline and the net-worth Kredyty line.
-  const debtBalance = $derived(debtTerms ? deriveDebtDisplayBalance(debtTerms, [], todayIso()) : 0);
+  const debtBalance = $derived(
+    debtTerms ? deriveDebtDisplayBalance(debtTerms, linkedExpenses, todayIso()) : 0
+  );
   const debtPaid = $derived(
     debtTerms ? Math.max(0, Number(debtTerms.original_amount) - debtBalance) : 0
   );
@@ -39,11 +50,14 @@
   );
   const debtInterestSinceStart = $derived(
     debtTerms
-      ? estimateInterestAccruedSince(
+      ? estimateInterestPaidSince(
           {
             originalAmount: Number(debtTerms.original_amount),
             currentBalance: debtBalance,
             annualRate: Number(debtTerms.annual_rate),
+            anchorBalance: debtTerms.anchor_balance,
+            balanceAnchorDate: debtTerms.balance_anchor_date,
+            linkedExpenses,
           },
           plan.start_date,
           todayIso()
