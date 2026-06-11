@@ -150,8 +150,19 @@
 
   // Debts are valued as of today (matching the plan detail headline); only assets keep
   // the manual snapshot date.
+  const linkedExpensesByPlanId = $derived(
+    Object.fromEntries(
+      Object.entries(progressQuery.data ?? {}).map(([planId, p]) => [planId, p.linkedExpenses])
+    )
+  );
+
   const debtBalances = $derived(
-    collectNetWorthDebtBalances(plansQuery.data ?? [], debtTermsQuery.data ?? {}, todayIsoLocal())
+    collectNetWorthDebtBalances(
+      plansQuery.data ?? [],
+      debtTermsQuery.data ?? {},
+      todayIsoLocal(),
+      linkedExpensesByPlanId
+    )
   );
 
   const netWorth = $derived(computeNetWorth(snapshotQuery.data ?? null, debtBalances));
@@ -520,6 +531,9 @@
     onSuccess: async () => {
       toast.success(m.plan_toast_deleted());
       await queryClient.invalidateQueries({ queryKey: ["plans"] });
+      await queryClient.invalidateQueries({ queryKey: ["plan-progress"] });
+      await queryClient.invalidateQueries({ queryKey: ["plan-progress-list"] });
+      await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms-list"] });
     },
     onError: () => toast.error(m.toast_error()),
     onSettled: () => (deleteTargetId = null),
@@ -688,6 +702,7 @@
           <PlanCard
             {plan}
             debtTerms={debtTermsQuery.data?.[plan.id]}
+            linkedExpenses={progressQuery.data?.[plan.id]?.linkedExpenses ?? []}
             categoryName={categoryMap.get(plan.category_id ?? "")}
             groupName={groupMap.get(plan.group_id ?? "")}
             onedit={planCanManage(plan) ? resetForm : undefined}

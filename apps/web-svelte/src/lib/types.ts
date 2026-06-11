@@ -157,8 +157,6 @@ export interface PlanDebtTerms {
   current_balance: number;
   annual_rate: number;
   monthly_payment: number;
-  payment_day: number | null;
-  anchor_transaction_id: string | null;
   /** Frozen principal at balance_anchor_date (snapshot replay start). */
   anchor_balance: number | null;
   /** Only linked payments after this date affect snapshot replay. */

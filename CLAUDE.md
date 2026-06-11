@@ -65,8 +65,11 @@ Apply to every task regardless of phase.
 Current product direction lives in `docs/product/product-direction.md`; UI
 doctrine lives in `docs/product/intent-oriented-ui.md`.
 
-**Product spine:** Pulpit, Transakcje, Import, Plany, Ustawienia. Import is the
-preferred source of real transaction data. Manual transactions stay as
+**Product spine:** Pulpit, Transakcje, Import, Plany, Ustawienia. Main nav
+intentionally shows only Pulpit / Transakcje / Plany (+ Ustawienia in the
+avatar menu); Import is a flow, not a nav destination — entered from the
+Transakcje header, the Pulpit import-health card, and import reminders.
+Import is the preferred source of real transaction data. Manual transactions stay as
 fallback/corrections. Plans express future intent and should be settled by
 linking to existing transactions, not by creating financial truth by default.
 Groups/invites are a core collaboration layer for couples, friends, and trusted
@@ -107,7 +110,11 @@ the in-app notification row with push as an optional channel.
 
 **Launch certification (2026-06-08):** gates green; manual prod/staging verification done; **feature freeze** until post-launch issues opened.
 
-**Immediate next step:** monitor prod/staging; complete optional advisor dashboard toggles (leaked-password on prod+staging); invite beta couples only after group-role E2E + RLS trust tests land.
+**Recurring + debt-banner trust fix (2026-06-11, local):** recurring templates are now reminder-only — migration `20260703000000` rewrites `process_recurring_transactions` to send `transaction_reminder` notifications (next occurrence ≤ tomorrow, deduped per template+date) and never insert transaction rows (root cause of the phantom same-day rata + overdue alert). Debt detect banner confirm performs a real settlement link + balance sync; detection excludes already-linked txs and suggests the newest occurrence (pure `groupDebtPaymentCandidates` core + unit tests). Vestigial `plan_debt_terms.anchor_transaction_id`/`payment_day` dropped (migration `20260704000000`). Gates: db reset + function smoke, svelte-check 0/0, lint 0, format clean, unit 191/191, RLS 256/256, plans+plan-settle E2E 12/12, secret scan clean. Awaiting manual commits.
+
+**Product review 2026-06-11:** `docs/PRODUCT_REVIEW_2026-06-11.md` — overall 8/10; safe for invited testers after beta gates close. Alignment pass done same day (local): prod deploy workflow gained env guard + read-only post-deploy probe, delete-plan now invalidates progress/debt-terms caches, PlanCard + net-worth surfaces consume real linked payments (`PlanSettlementProgress.linkedExpenses`) instead of the stored-balance heuristic, orphaned `transactions.recurring_template_id` dropped (migration `20260705000000`), architecture docs (database.md, recurring flow, supabase/CLAUDE.md) refreshed. Same pass fixed the "zapłacone odsetki" regression: old estimate (current balance × days) shrank whenever a payment lowered the balance; new `estimateInterestPaidSince` (debt-balance-replay.ts) is piecewise — frozen pre-anchor average-balance segment + actual post-anchor flat accrual — so paid interest is monotonic.
+
+**Immediate next step:** beta-gate closure per the review: (1) commit + land the 2026-06-11 trust fix and alignment pass through `dev` → staging → `main` (migrations `20260703`–`20260705` reach prod); (2) make `seed-staging.mjs` idempotent and clean the 3× duplicated demo rows on staging; (3) enable leaked-password protection (prod+staging dashboards). Then invite first test couple. Remaining review backlog: `/plans` zero-state dedupe, detect-banner E2E case, terms-edit cancel + input disabling, PlanForm extraction, Dashboard error state.
 
 **Open backlog:**
 

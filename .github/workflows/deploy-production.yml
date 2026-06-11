@@ -146,7 +146,13 @@ jobs:
           PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
           PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
           PUBLIC_VAPID_KEY: ${{ secrets.PUBLIC_VAPID_KEY }}
-        run: pnpm build
+        run: |
+          # Misconfigured environment guard: production must build against the
+          # production Supabase project, never a staging/mock value.
+          test "$PUBLIC_SUPABASE_URL" = "https://emqzcygfwcvbmhxhfkcc.supabase.co"
+          test -n "$PUBLIC_SUPABASE_ANON_KEY"
+          test -n "$PUBLIC_VAPID_KEY"
+          pnpm build
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
@@ -154,3 +160,44 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy apps/web-svelte/build --project-name=portfelik --branch=main --commit-dirty=true
+
+  smoke:
+    # Read-only probe — production gets no smoke personas or written test data
+    # (staging runs the full write-suite). Verifies the deployed shell serves
+    # and the Supabase project behind it answers.
+    name: Production probe (read-only)
+    needs: deploy
+    runs-on: ubuntu-latest
+    environment:
+      name: Production
+      url: https://portfelik.adrianzinko.com
+    steps:
+      - name: App shell responds
+        run: |
+          for i in 1 2 3; do
+            status=$(curl -s -o /tmp/index.html -w "%{http_code}" https://portfelik.adrianzinko.com/)
+            [ "$status" = "200" ] && break
+            sleep 10
+          done
+          test "$status" = "200"
+          grep -q "Portfelik" /tmp/index.html
+
+      - name: Supabase REST endpoint reachable
+        env:
+          PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
+          PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "apikey: $PUBLIC_SUPABASE_ANON_KEY" \
+            "$PUBLIC_SUPABASE_URL/rest/v1/")
+          test "$status" = "200"
+
+      - name: Auth health endpoint reachable
+        env:
+          PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
+          PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "apikey: $PUBLIC_SUPABASE_ANON_KEY" \
+            "$PUBLIC_SUPABASE_URL/auth/v1/health")
+          test "$status" = "200"

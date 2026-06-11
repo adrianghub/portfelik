@@ -58,8 +58,6 @@ const debtTerms = (overrides: Partial<PlanDebtTerms> = {}): PlanDebtTerms => ({
   current_balance: 200_000,
   annual_rate: 7,
   monthly_payment: 1400,
-  payment_day: null,
-  anchor_transaction_id: null,
   anchor_balance: 200_000,
   balance_anchor_date: "2026-06-01",
   created_at: "2026-06-01T00:00:00Z",
@@ -101,6 +99,36 @@ describe("debtBalanceForNetWorth", () => {
     );
     expect(balance).toBeGreaterThan(207_048.67 + 80);
     expect(balance).toBeLessThan(207_048.67 + 85);
+  });
+
+  it("subtracts linked payments via flat accrual when payment data is supplied", () => {
+    const withoutPayments = debtBalanceForNetWorth(
+      debtPlan({ start_date: "2025-04-30", end_date: "2028-12-31" }),
+      debtTerms({
+        original_amount: 330_000,
+        current_balance: 207_048.67,
+        anchor_balance: 207_048.67,
+        balance_anchor_date: "2026-06-01",
+        annual_rate: 7.18,
+        updated_at: "2026-06-01T00:00:00Z",
+      }),
+      "2026-06-10"
+    );
+    const withPayment = debtBalanceForNetWorth(
+      debtPlan({ start_date: "2025-04-30", end_date: "2028-12-31" }),
+      debtTerms({
+        original_amount: 330_000,
+        current_balance: 207_048.67,
+        anchor_balance: 207_048.67,
+        balance_anchor_date: "2026-06-01",
+        annual_rate: 7.18,
+        updated_at: "2026-06-01T00:00:00Z",
+      }),
+      "2026-06-10",
+      [{ amount: 2370.26, date: "2026-06-10" }]
+    );
+    expect(withPayment).toBeLessThan(withoutPayments);
+    expect(withoutPayments - withPayment).toBeGreaterThan(2000);
   });
 
   it("excludes finished loans with zero balance", () => {

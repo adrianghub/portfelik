@@ -371,6 +371,7 @@
 
         <!-- Live, auditable preview -->
         <p class="text-accent/90 text-sm">{recurrencePreview}</p>
+        <p class="text-xs text-slate-400">{m.transaction_form_recurring_hint()}</p>
       </div>
     {/if}
 

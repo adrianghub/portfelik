@@ -133,8 +133,6 @@ export async function mockSupabaseAPI(page: Page): Promise<void> {
               current_balance: body.current_balance,
               annual_rate: body.annual_rate,
               monthly_payment: body.monthly_payment,
-              payment_day: null,
-              anchor_transaction_id: null,
               anchor_balance: body.anchor_balance ?? body.current_balance,
               balance_anchor_date: body.balance_anchor_date ?? "2026-06-01",
               created_at: "2026-06-01T10:00:00Z",

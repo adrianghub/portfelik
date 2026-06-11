@@ -43,6 +43,10 @@ export interface PlanSettlementProgress {
   /** Sum of paid linked EXPENSE transactions dated in the current calendar month
       (debt-payment coverage actually present in this month's tracked expenses). */
   linkedExpenseCurrentMonth: number;
+  /** Paid linked expense payments (amount + date) — lets hub/net-worth surfaces run the
+      same flat-accrual debt balance as the plan detail instead of a stored-balance
+      heuristic. */
+  linkedExpenses: { amount: number; date: string }[];
   monthsRemaining: number | null;
 }
 
@@ -478,6 +482,7 @@ export function computePlanProgress(input: {
     monthlyActual,
     monthlyActualBasis: monthlyActualDetail.basis,
     linkedExpenseCurrentMonth,
+    linkedExpenses: expenses.map((t) => ({ amount: t.amount, date: t.date })),
     monthsRemaining: monthsRem,
   };
 }

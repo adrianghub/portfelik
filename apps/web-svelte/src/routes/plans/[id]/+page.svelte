@@ -6,6 +6,7 @@
     computePlanProgress,
     fetchLinkedTransactions,
     fetchSuggestionCount,
+    linkPlanTransaction,
     unlinkPlanTransaction,
   } from "$lib/services/plan-settlement";
   import DebtPlanDetail from "$lib/components/plans/DebtPlanDetail.svelte";
@@ -19,7 +20,6 @@
     applyDebtBalanceFromLinks,
     deriveDebtDisplayBalance,
     fetchPlanDebtTerms,
-    setDebtAnchorTransaction,
     updatePlanDebtBalance,
     upsertPlanDebtTerms,
   } from "$lib/services/plan-debt";
@@ -99,8 +99,10 @@
     enabled: !!id && planQuery.data?.kind === "debt",
   }));
 
+  const linkedTxIds = $derived(new Set((linkedQuery.data ?? []).map((tx) => tx.id)));
+
   const paymentDetectQuery = createQuery(() => ({
-    queryKey: ["plan-debt-detect", id],
+    queryKey: ["plan-debt-detect", id, [...linkedTxIds].sort().join(",")],
     queryFn: async () => {
       const plan = planQuery.data!;
       const terms = debtTermsQuery.data!;
@@ -108,9 +110,14 @@
         monthlyPayment: Number(terms.monthly_payment),
         userId: plan.user_id,
         groupId: plan.group_id,
+        excludeTransactionIds: linkedTxIds,
       });
     },
-    enabled: !!planQuery.data && planQuery.data.kind === "debt" && !!debtTermsQuery.data,
+    enabled:
+      !!planQuery.data &&
+      planQuery.data.kind === "debt" &&
+      !!debtTermsQuery.data &&
+      !!linkedQuery.data,
   }));
 
   const progress = $derived(
@@ -229,11 +236,33 @@
   }));
 
   const confirmPaymentMutation = createMutation(() => ({
-    mutationFn: (txId: string) => setDebtAnchorTransaction(id, txId),
+    mutationFn: async (txId: string) => {
+      await linkPlanTransaction(id, txId);
+      const terms = await fetchPlanDebtTerms(id);
+      if (terms) {
+        const linked = await fetchLinkedTransactions(id);
+        await applyDebtBalanceFromLinks(
+          id,
+          terms,
+          linked
+            .filter((tx) => tx.type === "expense")
+            .map((tx) => ({
+              amount: tx.amount,
+              date: tx.date,
+            }))
+        );
+      }
+    },
     onSuccess: async () => {
       toast.success(m.plan_settle_linked());
+      await queryClient.invalidateQueries({ queryKey: ["plan-links", id] });
+      await queryClient.invalidateQueries({ queryKey: ["plan-eligible", id] });
+      await queryClient.invalidateQueries({ queryKey: ["plan-suggestion-count", id] });
       await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms", id] });
       await queryClient.invalidateQueries({ queryKey: ["plan-debt-detect", id] });
+      await queryClient.invalidateQueries({ queryKey: ["plan-progress"] });
+      await queryClient.invalidateQueries({ queryKey: ["plan-progress-list"] });
+      await queryClient.invalidateQueries({ queryKey: ["plans"] });
     },
     onError: () => toast.error(m.toast_error()),
   }));
@@ -394,21 +423,23 @@
           {m.plan_shared_readonly_hint()}
         </p>
       {/if}
-      {#if paymentDetectQuery.data?.[0] && !debtTermsQuery.data.anchor_transaction_id && canManage}
+      {#if paymentDetectQuery.data?.[0] && canManage}
         <div
           class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5"
         >
           <p class="text-sm text-emerald-200">
             {m.plan_debt_detect_banner({
-              amount: formatCurrency(Number(debtTermsQuery.data.monthly_payment)),
+              amount: formatCurrency(paymentDetectQuery.data[0].tx.amount),
+              date: formatDate(paymentDetectQuery.data[0].tx.date),
             })}
           </p>
           <button
             type="button"
             onclick={() => confirmPaymentMutation.mutate(paymentDetectQuery.data![0].tx.id)}
-            class="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-300"
+            disabled={confirmPaymentMutation.isPending}
+            class="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-300 disabled:opacity-50"
           >
-            {m.plan_debt_confirm_payment()}
+            {confirmPaymentMutation.isPending ? m.common_saving() : m.plan_debt_confirm_payment()}
           </button>
         </div>
       {/if}

@@ -149,6 +149,106 @@ export function deriveDebtBalanceFlatAccrual(input: {
   return Math.round(balance * 100) / 100;
 }
 
+/**
+ * Interest accrued in a flat-accrual walk (same event order as
+ * deriveDebtBalanceFlatAccrual). Monotonic in time: payments only reduce the
+ * balance future interest accrues on — they never lower interest already
+ * accrued.
+ */
+export function interestAccruedFlatAccrual(input: {
+  startBalance: number;
+  startDateIso: string;
+  annualRate: number;
+  linkedExpenses: DebtLinkedPayment[];
+  asOfDateIso: string;
+}): number {
+  let balance = Math.max(0, input.startBalance);
+  let cursor = input.startDateIso;
+  let interest = 0;
+
+  const dated = input.linkedExpenses
+    .filter((e) => e.date)
+    .map((e) => ({ date: e.date!.slice(0, 10), amount: Math.abs(e.amount) }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const undated = input.linkedExpenses.filter((e) => !e.date).map((e) => Math.abs(e.amount));
+
+  for (const { date, amount } of dated) {
+    const accrued = accrueBalanceWithDailyInterest(balance, input.annualRate, cursor, date);
+    interest += accrued - balance;
+    balance = Math.max(0, accrued - amount);
+    cursor = date;
+  }
+
+  for (const amount of undated) {
+    balance = Math.max(0, balance - amount);
+  }
+
+  const accrued = accrueBalanceWithDailyInterest(
+    balance,
+    input.annualRate,
+    cursor,
+    input.asOfDateIso
+  );
+  interest += accrued - balance;
+
+  return Math.round(interest * 100) / 100;
+}
+
+/**
+ * Estimated total interest paid/accrued since plan start, for the
+ * "zapłacone odsetki od {date}" reference line.
+ *
+ * Piecewise so the figure can only grow over time:
+ * - pre-anchor (no payment history): average of original and anchor balance ×
+ *   daily rate × days — FROZEN once the anchor exists, unaffected by new links;
+ * - post-anchor: actual flat-accrual interest from the anchor through asOf
+ *   given linked payments;
+ * - no anchor + linked payments: monthly-replay interest (matches the
+ *   full-replay balance model);
+ * - no anchor, no payments: average of original and current balance × daily
+ *   rate × days (best available single-segment estimate).
+ */
+export function estimateInterestPaidSince(
+  input: DebtBalanceReplayInput & { currentBalance: number },
+  startDateIso: string,
+  asOfDateIso: string
+): number {
+  if (input.annualRate <= 0) return 0;
+  const totalDays = daysBetween(startDateIso, asOfDateIso);
+  if (totalDays <= 0) return 0;
+  const dailyRate = input.annualRate / 100 / 365;
+
+  if (isSnapshotDebtReplay(input.anchorBalance, input.balanceAnchorDate)) {
+    const anchorDate = input.balanceAnchorDate!;
+    const anchorBalance = Math.max(0, Number(input.anchorBalance));
+    const preDays = Math.min(totalDays, Math.max(0, daysBetween(startDateIso, anchorDate)));
+    const preAvgBalance = (Math.max(0, input.originalAmount) + anchorBalance) / 2;
+    const preInterest = preAvgBalance * dailyRate * preDays;
+
+    const { forward } = filterPreAnchorPayments(input.linkedExpenses, anchorDate);
+    const postInterest =
+      daysBetween(anchorDate, asOfDateIso) > 0 || forward.length > 0
+        ? interestAccruedFlatAccrual({
+            startBalance: anchorBalance,
+            startDateIso: anchorDate,
+            annualRate: input.annualRate,
+            linkedExpenses: forward,
+            asOfDateIso,
+          })
+        : 0;
+
+    return Math.round((preInterest + postInterest) * 100) / 100;
+  }
+
+  if (input.linkedExpenses.length > 0) {
+    return interestAccruedFromLinkedPayments(input);
+  }
+
+  const avgBalance = (Math.max(0, input.originalAmount) + Math.max(0, input.currentBalance)) / 2;
+  return Math.round(avgBalance * dailyRate * totalDays * 100) / 100;
+}
+
 export function deriveDebtBalanceFromLinks(
   input: DebtBalanceReplayInput,
   asOfDateIso: string = todayIso()

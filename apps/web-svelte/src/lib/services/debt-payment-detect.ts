@@ -12,10 +12,60 @@ function amountMatches(expected: number, actual: number): boolean {
   return Math.abs(actual - expected) <= tolerance;
 }
 
+/**
+ * Pure grouping core: recurring pattern is detected over ALL candidates
+ * (linked history included), but the suggested transaction is the newest
+ * occurrence not yet linked to the plan. Groups with every occurrence
+ * already linked produce no suggestion.
+ */
+export function groupDebtPaymentCandidates(
+  candidates: TransactionWithCategory[],
+  monthlyPayment: number,
+  excludeTransactionIds: ReadonlySet<string> = new Set()
+): DetectedDebtPayment[] {
+  const byDescription = new Map<string, TransactionWithCategory[]>();
+
+  for (const tx of candidates) {
+    if (!amountMatches(monthlyPayment, tx.amount)) continue;
+    const key = tx.description.trim().toLowerCase().slice(0, 40) || tx.id;
+    const group = byDescription.get(key) ?? [];
+    group.push(tx);
+    byDescription.set(key, group);
+  }
+
+  const results: DetectedDebtPayment[] = [];
+
+  for (const [, txs] of byDescription) {
+    if (txs.length < 2) continue;
+    const sorted = [...txs].sort((a, b) => a.date.localeCompare(b.date));
+    const newestUnlinked = [...sorted].reverse().find((tx) => !excludeTransactionIds.has(tx.id));
+    if (!newestUnlinked) continue;
+    const daySpread = sorted.map((t) => new Date(t.date).getDate());
+    const avgDay = daySpread.reduce((s, d) => s + d, 0) / daySpread.length;
+    const desc = sorted[0].description.toLowerCase();
+    const keywordHit = ["hipotek", "kredyt", "rata", "spłat", "splata", "loan"].some((k) =>
+      desc.includes(k)
+    );
+    const reasons = [
+      `${txs.length}× kwota ~${monthlyPayment} zł`,
+      `ok. ${Math.round(avgDay)}. dnia miesiąca`,
+    ];
+    if (keywordHit) reasons.push("pasuje opis (kredyt/rata)");
+    results.push({
+      tx: newestUnlinked,
+      score: 50 + txs.length * 10 + (keywordHit ? 15 : 0),
+      reasons,
+    });
+  }
+
+  return results.sort((a, b) => b.score - a.score);
+}
+
 export async function detectRecurringDebtPayments(input: {
   monthlyPayment: number;
   userId: string;
   groupId: string | null;
+  excludeTransactionIds?: ReadonlySet<string>;
   lookbackMonths?: number;
 }): Promise<DetectedDebtPayment[]> {
   const lookback = input.lookbackMonths ?? 6;
@@ -40,39 +90,9 @@ export async function detectRecurringDebtPayments(input: {
   const { data, error } = await query;
   if (error) throw error;
 
-  const candidates = (data ?? []) as TransactionWithCategory[];
-  const byDescription = new Map<string, TransactionWithCategory[]>();
-
-  for (const tx of candidates) {
-    if (!amountMatches(input.monthlyPayment, tx.amount)) continue;
-    const key = tx.description.trim().toLowerCase().slice(0, 40) || tx.id;
-    const group = byDescription.get(key) ?? [];
-    group.push(tx);
-    byDescription.set(key, group);
-  }
-
-  const results: DetectedDebtPayment[] = [];
-
-  for (const [, txs] of byDescription) {
-    if (txs.length < 2) continue;
-    const sorted = [...txs].sort((a, b) => a.date.localeCompare(b.date));
-    const daySpread = sorted.map((t) => new Date(t.date).getDate());
-    const avgDay = daySpread.reduce((s, d) => s + d, 0) / daySpread.length;
-    const desc = sorted[0].description.toLowerCase();
-    const keywordHit = ["hipotek", "kredyt", "rata", "spłat", "splata", "loan"].some((k) =>
-      desc.includes(k)
-    );
-    const reasons = [
-      `${txs.length}× kwota ~${input.monthlyPayment} zł`,
-      `ok. ${Math.round(avgDay)}. dnia miesiąca`,
-    ];
-    if (keywordHit) reasons.push("pasuje opis (kredyt/rata)");
-    results.push({
-      tx: sorted[0],
-      score: 50 + txs.length * 10 + (keywordHit ? 15 : 0),
-      reasons,
-    });
-  }
-
-  return results.sort((a, b) => b.score - a.score);
+  return groupDebtPaymentCandidates(
+    (data ?? []) as TransactionWithCategory[],
+    input.monthlyPayment,
+    input.excludeTransactionIds ?? new Set()
+  );
 }

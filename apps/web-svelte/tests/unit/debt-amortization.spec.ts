@@ -1,4 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("$lib/supabase", () => ({ supabase: {} }));
+
 import {
   accrueBalanceWithDailyInterest,
   approximateDailyInterest,
@@ -8,11 +11,11 @@ import {
   compareOverpayVsInvest,
   daysBetween,
   debtDisplayBalance,
-  estimateInterestAccruedSince,
   isPaymentBelowMonthlyInterest,
   monthlyInterestAmount,
   simulateAmortization,
 } from "$lib/services/debt-amortization";
+import { estimateInterestPaidSince } from "$lib/services/debt-balance-replay";
 
 const MORTGAGE = {
   currentBalance: 206_000,
@@ -155,41 +158,84 @@ describe("debtDisplayBalance", () => {
   });
 });
 
-describe("estimateInterestAccruedSince", () => {
-  const loan = { originalAmount: 330_000, currentBalance: 207_130, annualRate: 7.18 };
+describe("estimateInterestPaidSince", () => {
+  const anchored = {
+    originalAmount: 330_000,
+    annualRate: 7.18,
+    anchorBalance: 207_048.67,
+    balanceAnchorDate: "2026-06-08",
+    currentBalance: 207_048.67,
+    linkedExpenses: [] as { amount: number; date?: string }[],
+  };
+  const start = "2025-04-30";
 
-  it("uses current-balance daily rate × days since plan start", () => {
-    const start = "2025-04-30";
-    const end = "2026-06-10";
-    const interest = estimateInterestAccruedSince(loan, start, end);
-    const expected =
-      approximateDailyInterest(loan.currentBalance, loan.annualRate) * daysBetween(start, end);
-    expect(interest).toBeCloseTo(expected, 0);
-    expect(interest).toBeGreaterThan(15_000);
-    expect(interest).toBeLessThan(18_000);
+  it("freezes the pre-anchor segment and accrues flat after the anchor", () => {
+    const interest = estimateInterestPaidSince(anchored, start, "2026-06-10");
+    // avg(330000, 207048.67) × 7.18%/365 × 404d ≈ 21.3k + 2 days of ~40 zł
+    expect(interest).toBeGreaterThan(20_000);
+    expect(interest).toBeLessThan(23_000);
   });
 
-  it("ignores linked raty and keeps the daily-rate estimate", () => {
-    const start = "2025-04-30";
-    const end = "2026-06-10";
-    const baseline = estimateInterestAccruedSince(loan, start, end);
-    const withLinks = estimateInterestAccruedSince(
+  it("never decreases when a payment is linked (monotonic)", () => {
+    const before = estimateInterestPaidSince(anchored, start, "2026-06-10");
+    const after = estimateInterestPaidSince(
       {
-        originalAmount: loan.originalAmount,
-        currentBalance: loan.currentBalance,
-        annualRate: loan.annualRate,
+        ...anchored,
+        currentBalance: 204_800.15,
+        linkedExpenses: [{ amount: 2370.26, date: "2026-06-10" }],
       },
       start,
-      end
+      "2026-06-10"
     );
-    expect(withLinks).toBe(baseline);
-    expect(withLinks).toBeGreaterThan(15_000);
+    expect(after).toBeGreaterThanOrEqual(before);
+  });
+
+  it("keeps growing day over day after a payment", () => {
+    const input = {
+      ...anchored,
+      currentBalance: 204_800.15,
+      linkedExpenses: [{ amount: 2370.26, date: "2026-06-10" }],
+    };
+    const day1 = estimateInterestPaidSince(input, start, "2026-06-10");
+    const day2 = estimateInterestPaidSince(input, start, "2026-06-11");
+    expect(day2).toBeGreaterThan(day1);
+  });
+
+  it("falls back to average-balance estimate without anchor or payments", () => {
+    const interest = estimateInterestPaidSince(
+      {
+        originalAmount: 330_000,
+        annualRate: 7.18,
+        currentBalance: 207_130,
+        linkedExpenses: [],
+      },
+      start,
+      "2026-06-10"
+    );
+    const avg = (330_000 + 207_130) / 2;
+    expect(interest).toBeCloseTo(avg * (7.18 / 100 / 365) * daysBetween(start, "2026-06-10"), 0);
+  });
+
+  it("uses monthly replay interest without anchor when payments exist", () => {
+    const interest = estimateInterestPaidSince(
+      {
+        originalAmount: 10_000,
+        annualRate: 12,
+        currentBalance: 9_000,
+        linkedExpenses: [{ amount: 600, date: "2026-05-10" }, { amount: 600, date: "2026-06-10" }],
+      },
+      "2026-04-30",
+      "2026-06-10"
+    );
+    // two monthly periods at 1%/mo on ~10k → ≈ 195 zł
+    expect(interest).toBeGreaterThan(150);
+    expect(interest).toBeLessThan(250);
   });
 
   it("returns 0 before the start date or at zero rate", () => {
-    expect(estimateInterestAccruedSince(loan, "2026-06-10", "2026-06-10")).toBe(0);
+    expect(estimateInterestPaidSince(anchored, "2026-06-10", "2026-06-10")).toBe(0);
     expect(
-      estimateInterestAccruedSince({ ...loan, annualRate: 0 }, "2025-04-30", "2026-06-10")
+      estimateInterestPaidSince({ ...anchored, annualRate: 0 }, "2025-04-30", "2026-06-10")
     ).toBe(0);
   });
 });

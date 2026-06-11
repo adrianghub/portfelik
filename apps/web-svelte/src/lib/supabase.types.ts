@@ -274,58 +274,38 @@ export type Database = {
       plan_debt_terms: {
         Row: {
           anchor_balance: number | null;
-          anchor_transaction_id: string | null;
           annual_rate: number;
           balance_anchor_date: string | null;
           created_at: string;
           current_balance: number;
           monthly_payment: number;
           original_amount: number;
-          payment_day: number | null;
           plan_id: string;
           updated_at: string;
         };
         Insert: {
           anchor_balance?: number | null;
-          anchor_transaction_id?: string | null;
           annual_rate: number;
           balance_anchor_date?: string | null;
           created_at?: string;
           current_balance: number;
           monthly_payment: number;
           original_amount: number;
-          payment_day?: number | null;
           plan_id: string;
           updated_at?: string;
         };
         Update: {
           anchor_balance?: number | null;
-          anchor_transaction_id?: string | null;
           annual_rate?: number;
           balance_anchor_date?: string | null;
           created_at?: string;
           current_balance?: number;
           monthly_payment?: number;
           original_amount?: number;
-          payment_day?: number | null;
           plan_id?: string;
           updated_at?: string;
         };
         Relationships: [
-          {
-            foreignKeyName: "plan_debt_terms_anchor_transaction_id_fkey";
-            columns: ["anchor_transaction_id"];
-            isOneToOne: false;
-            referencedRelation: "transactions";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "plan_debt_terms_anchor_transaction_id_fkey";
-            columns: ["anchor_transaction_id"];
-            isOneToOne: false;
-            referencedRelation: "transactions_with_category";
-            referencedColumns: ["id"];
-          },
           {
             foreignKeyName: "plan_debt_terms_plan_id_fkey";
             columns: ["plan_id"];
