@@ -1,12 +1,22 @@
-# Recurring transactions + status updates
+# Recurring reminders + status updates
 
 Two daily SQL jobs keep the ledger consistent without any application code running.
 
-## `process_recurring_transactions` - daily
+## `process_recurring_transactions` - daily, reminder-only
 
-A row with `is_recurring = true` is a **template**. The job runs daily so
-daily, weekly, monthly, and yearly recurrences can all fire close to their due
-date. Each run creates only the children due for the current date.
+A row with `is_recurring = true` is a **template**. Since
+`20260703000000_recurring_reminders_only.sql` the job **never creates
+transaction rows**. It computes each template's next occurrence
+(frequency-aware: daily / weekly / monthly / yearly with interval, weekday,
+month, and day-of-month clamping) and, when that occurrence is today or
+tomorrow, inserts a `transaction_reminder` notification. The existing
+after-insert trigger on `notifications` fans the reminder out via web push.
+
+Rationale: financial truth comes from bank import or explicit manual entry.
+The previous materializing design cloned templates into `upcoming` rows —
+including a same-day duplicate of an already-recorded payment — which the
+status job then flipped to `overdue` with a phantom alert. Recurrence now
+expresses intent (a reminder), not truth (a ledger row).
 
 ```mermaid
 sequenceDiagram
@@ -14,36 +24,40 @@ sequenceDiagram
     participant Cron as pg_cron<br/>0 23 * * * (UTC)
     participant Job as process_recurring_transactions()
     participant T as transactions
+    participant N as notifications
 
     Cron->>Job: fire daily at 23:00 UTC
     Job->>T: SELECT * FROM transactions<br/>WHERE is_recurring = true
     loop per template
-        Job->>Job: calculate whether template is due today<br/>from frequency + interval fields
-        Job->>T: INSERT child transaction<br/>(date = target date,<br/> status='upcoming',<br/> recurring_template_id = template.id,<br/> is_recurring = false)<br/>WHERE no child exists for<br/>template + target date
+        Job->>Job: compute next occurrence<br/>from frequency + interval fields
+        alt occurrence is today or tomorrow
+            Job->>N: INSERT transaction_reminder<br/>(templateId + occurrence date)<br/>unless one already exists
+        end
     end
 ```
 
-Two correctness properties:
+Correctness properties:
 
-- **Idempotent per target date.** The dedupe predicate is keyed on
-  `recurring_template_id` plus the calculated child date, so re-running the job
-  for the same due date produces no duplicates. Useful for catching up after
-  platform downtime.
+- **Idempotent per occurrence.** Dedupe is keyed on
+  (`user_id`, `data->>'templateId'`, `data->>'date'`) with a partial index, so
+  re-running the job produces no duplicate reminders.
 - **Frequency-aware.** Daily, weekly, monthly, and yearly templates use their
-  recurrence-specific fields to decide whether today is due.
-- **Day-of-month clamping.** A monthly template for day 31 in February yields
-  the 28th (or 29th in a leap year).
+  recurrence-specific fields; monthly/yearly clamp day-of-month (a template for
+  day 31 in February reminds on the 28th, 29th in a leap year).
+- **No writes to `transactions`.** The job's only side effect is notification
+  rows.
 
-Source: `supabase/migrations/20260425000000_phase5_notifications_push.sql`
-(original function + cron schedule),
-`supabase/migrations/20260426000000_fix_recurring_template_id.sql` (FK +
-dedup hardening), and
-`supabase/migrations/20260606000000_recurring_frequency.sql` (frequency-aware
-daily producer).
+Source: `supabase/migrations/20260606000000_recurring_frequency.sql`
+(frequency model + date math) and
+`supabase/migrations/20260703000000_recurring_reminders_only.sql`
+(reminder-only rewrite). The historical materializing design lived in
+`20260425000000` / `20260426000000`; its `recurring_template_id` column was
+dropped in `20260705000000_drop_recurring_template_id.sql`.
 
 ## `update_transaction_statuses` - daily
 
-Flips `status` based on `date` vs `now()`.
+Flips `status` based on `date` vs `now()` for **manually created** `upcoming`
+rows (the recurring job no longer produces any).
 
 ```mermaid
 flowchart LR
@@ -63,7 +77,8 @@ sequenceDiagram
     Job->>T: UPDATE transactions<br/>SET status = 'overdue'<br/>WHERE status = 'upcoming'<br/>  AND date < (now()::date)
 ```
 
-Status `paid` and `draft` are user-set and never auto-flipped. The job is a single statement with no per-row work; it is fast even on large tables.
+Status `paid` and `draft` are user-set and never auto-flipped. The job also
+sends due-today / due-tomorrow reminder notifications for `upcoming` rows.
 
 ## DST drift
 

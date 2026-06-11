@@ -38,7 +38,6 @@ erDiagram
     auth_users ||--o| financial_snapshots : "manual holdings"
     plan_transaction_links }o--|| transactions : links
 
-    transactions ||--o{ transactions : "recurring_template_id (self-ref)"
     transactions ||--o| transaction_import_links : "provenance (owner-only)"
 
     bank_accounts ||--o{ transaction_import_sessions : has
@@ -104,7 +103,6 @@ erDiagram
         uuid user_id FK
         bool is_recurring
         smallint recurring_day
-        uuid recurring_template_id FK_nullable
         timestamptz created_at
         timestamptz updated_at
     }
@@ -128,8 +126,8 @@ erDiagram
         numeric current_balance
         numeric annual_rate
         numeric monthly_payment
-        smallint payment_day
-        uuid anchor_transaction_id FK_nullable
+        numeric anchor_balance
+        date balance_anchor_date
     }
     financial_snapshots {
         uuid user_id PK_FK
@@ -295,13 +293,14 @@ Core ledger. Amount is stored as a positive magnitude; sign is carried by
 `type`. Currency defaults to `PLN`. Date is `timestamptz` (not `date`, despite
 the name).
 
-- **PK**: `id`. **FKs**: `category_id` (RESTRICT), `user_id` (CASCADE),
-  `recurring_template_id` (SET NULL self-ref).
+- **PK**: `id`. **FKs**: `category_id` (RESTRICT), `user_id` (CASCADE).
+  (`recurring_template_id` dropped in `20260705000000` — recurrence is
+  reminder-only, instances are never materialised.)
 - **CHECK**: `amount > 0`, `recurring_day BETWEEN 1 AND 31`.
 - **RLS read**: own + group-shared. **RLS write**: creator for own rows; group
   owner/co-owner (`is_group_co_owner`) for group-scoped peer rows. Migration:
   `20260622000000_transaction_co_owner_writes.sql`.
-- **Indexes**: `idx_transactions_user_date_asc`, `idx_transactions_category_user_date`, `idx_transactions_status_date`, `idx_transactions_recurring`, `idx_transactions_recurring_template` (redundant `idx_transactions_user_date_desc` dropped in `20260530000000`).
+- **Indexes**: `idx_transactions_user_date_asc`, `idx_transactions_category_user_date`, `idx_transactions_status_date`, `idx_transactions_recurring` (redundant `idx_transactions_user_date_desc` dropped in `20260530000000`; `idx_transactions_recurring_template` dropped with its column in `20260705000000`).
 
 A view `transactions_with_category` joins to `categories` for display; the SvelteKit app reads this view in `fetchTransactions`.
 
@@ -334,8 +333,10 @@ history rows through `plan_transaction_links`.
 
 - **PK/FK**: `plan_id` → `plans(id)` (CASCADE). Plan must have `kind=debt`.
 - **Columns**: `original_amount`, `current_balance`, `annual_rate`,
-  `monthly_payment`, optional `payment_day`, optional `anchor_transaction_id`
-  (confirmed recurring rata from import).
+  `monthly_payment`, optional snapshot anchor `anchor_balance` +
+  `balance_anchor_date` (flat-accrual replay starts there; payments linked
+  after the anchor reduce it — `20260702000000`). Vestigial `payment_day` and
+  `anchor_transaction_id` were dropped in `20260704000000`.
 - **CHECK**: `current_balance <= original_amount`; positive amounts/rate constraints.
 - **RLS**: read via parent plan (owner or group member); insert/update/delete
   by plan creator or group owner/co-owner only. Migration:
@@ -594,7 +595,7 @@ for the full model and threat scope.
 
 | Job                              | Cron (UTC)                                          | Action                                                                                                            |
 | -------------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `process-recurring-transactions` | `0 23 * * *` (daily 23:00 UTC)                      | Materialises due rows for recurring templates. Dedup keyed on `recurring_template_id` and target date.            |
+| `process-recurring-transactions` | `0 23 * * *` (daily 23:00 UTC)                      | Reminder-only since `20260703000000`: sends `transaction_reminder` notifications for templates due today/tomorrow; never inserts transaction rows. Dedup keyed on template id + occurrence date. |
 | `update_transaction_statuses`    | `0 5 * * *` (daily 05:00 UTC)                       | Flips `status` based on `date` vs `now()`.                                                                        |
 | `process-bank-import-reminders`  | `0 8 * * *` (daily 08:00 UTC)                       | Creates user-enabled reminders to upload a fresh bank CSV when the latest committed import is older than cadence. |
 | `send-admin-summary` dispatch    | `0 7 * * *` (daily 07:00 UTC; sends on Warsaw Mon or day after import reminder) | `pg_net.http_post` → `send-admin-summary` Edge Function with Vault Bearer. |

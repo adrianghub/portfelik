@@ -62,7 +62,8 @@ ignored per-machine state, not project truth.
 - `migrations/20260423000000_initial_schema.sql` - main schema (tables, RLS, RPCs, triggers)
 - `migrations/20260425000000_phase5_notifications_push.sql` - notifications + push_subscriptions tables, `mark_notification_read`, `mark_all_notifications_read`, `process_recurring_transactions`, pg_cron jobs
 - `migrations/20260425000001_phase5_2_edge_function_hooks.sql` - DB triggers → Edge Function calls (Vault-based)
-- `migrations/20260426000000_fix_recurring_template_id.sql` - added `recurring_template_id` FK for dedup
+- `migrations/20260426000000_fix_recurring_template_id.sql` - added `recurring_template_id` FK for dedup (column dropped in `20260705000000` after the reminder-only rewrite)
+- `migrations/20260703000000_recurring_reminders_only.sql` - `process_recurring_transactions` rewritten to send `transaction_reminder` notifications only; never inserts transaction rows
 
 ## Scheduled jobs (pg_cron)
 
@@ -70,7 +71,7 @@ All cron expressions are evaluated in **UTC**. Europe/Warsaw is UTC+1 in winter 
 
 | Job                              | UTC schedule                           | Local (winter / summer)            | Source migration                                      |
 | -------------------------------- | -------------------------------------- | ---------------------------------- | ----------------------------------------------------- |
-| `process-recurring-transactions` | `0 23 1 * *` (23:00 UTC, 1st of month) | 00:00 CET (2nd) / 01:00 CEST (2nd) | `20260425000000_phase5_notifications_push.sql:455`    |
+| `process-recurring-transactions` | `0 23 * * *` (23:00 UTC daily)         | 00:00 CET / 01:00 CEST             | `20260703000000_recurring_reminders_only.sql` (reminder-only; no transaction inserts) |
 | `update-transaction-statuses`    | `0 5 * * *` (05:00 UTC daily)          | 06:00 CET / 07:00 CEST             | `20260425000000_phase5_notifications_push.sql:461`    |
 | `send-admin-summary`             | `0 7 * * *` (07:00 UTC daily)          | 08:00 CET / 09:00 CEST             | `20260630000000_weekly_summary_daily_schedule.sql` (sends on Warsaw Mon or day after import reminder) |
 
@@ -80,10 +81,11 @@ The 1-hour DST drift is acceptable for these jobs (none are user-facing in a sub
 
 ## Migration tracking
 
-Production `supabase_migrations.schema_migrations` was built partly through
-Supabase MCP applies before CLI promotion became the normal path. Some tracked
-production versions can therefore differ from the canonical local migration
-timestamps, and older applied SQL files can still need history repair.
+Production `supabase_migrations.schema_migrations` was verified in sync with
+the canonical local files on 2026-06-11 (every committed migration through
+`20260702000000` is tracked under its canonical timestamp). Historical MCP
+applies that once drifted the history have been repaired; the repair commands
+below remain the procedure if drift ever reappears.
 
 **SQL files in `supabase/migrations/` are canonical.** Do not manually edit the
 history table. Inspect the linked target first, then repair only a local
