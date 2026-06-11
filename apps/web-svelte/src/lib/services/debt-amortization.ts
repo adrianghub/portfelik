@@ -229,29 +229,6 @@ export function debtDisplayBalance(input: DebtDisplayBalanceInput): number {
   );
 }
 
-export interface EstimateInterestAccruedInput {
-  originalAmount: number;
-  currentBalance: number;
-  annualRate: number;
-}
-
-/**
- * Estimated cumulative interest since plan start for reference display only.
- * Approximates current balance × daily rate × elapsed days (~40 zł/d × okres).
- */
-export function estimateInterestAccruedSince(
-  input: EstimateInterestAccruedInput,
-  startDateIso: string,
-  asOfDateIso: string
-): number {
-  if (input.annualRate <= 0) return 0;
-  const days = daysBetween(startDateIso, asOfDateIso);
-  if (days <= 0) return 0;
-
-  const balance = Math.max(0, input.currentBalance);
-  return approximateDailyInterest(balance, input.annualRate) * days;
-}
-
 /** Monthly interest on the current balance at the plan rate. */
 export function monthlyInterestAmount(currentBalance: number, annualRate: number): number {
   return currentBalance * (annualRate / 100 / 12);

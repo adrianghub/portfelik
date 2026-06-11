@@ -6,13 +6,13 @@
     compareLumpSumOverpay,
     compareOverpay,
     debtDisplayBalance,
-    estimateInterestAccruedSince,
     formatDuration,
     isPaymentBelowMonthlyInterest,
     monthlyInterestAmount,
   } from "$lib/services/debt-amortization";
   import {
     deriveDebtDisplayBalance,
+    estimateInterestPaidSince,
     isSnapshotDebtReplay,
     normalizeDebtTermsInput,
     type DebtLinkedPayment,
@@ -92,11 +92,14 @@
   const displayBalance = $derived(deriveDebtDisplayBalance(terms, linkedExpenses, todayIso()));
   const paid = $derived(Math.max(0, Number(terms.original_amount) - displayBalance));
   const interestPaidSinceStart = $derived(
-    estimateInterestAccruedSince(
+    estimateInterestPaidSince(
       {
         originalAmount: Number(terms.original_amount),
         currentBalance: displayBalance,
         annualRate: Number(terms.annual_rate),
+        anchorBalance: terms.anchor_balance,
+        balanceAnchorDate: terms.balance_anchor_date,
+        linkedExpenses,
       },
       planStartDate,
       todayIso()
