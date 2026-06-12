@@ -152,6 +152,12 @@ jobs:
           test "$PUBLIC_SUPABASE_URL" = "https://emqzcygfwcvbmhxhfkcc.supabase.co"
           test -n "$PUBLIC_SUPABASE_ANON_KEY"
           test -n "$PUBLIC_VAPID_KEY"
+          case "$PUBLIC_SUPABASE_ANON_KEY" in
+            sb_secret_*)
+              echo "::error::PUBLIC_SUPABASE_ANON_KEY must be sb_publishable_ or legacy anon (eyJ...), not sb_secret_ (bypasses RLS in the client bundle)"
+              exit 1
+              ;;
+          esac
           pnpm build
 
       - name: Deploy to Cloudflare Pages
@@ -182,22 +188,31 @@ jobs:
           test "$status" = "200"
           grep -q "Portfelik" /tmp/index.html
 
-      - name: Supabase REST endpoint reachable
+      - name: Supabase backend reachable
         env:
           PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
           PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
         run: |
-          status=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "apikey: $PUBLIC_SUPABASE_ANON_KEY" \
-            "$PUBLIC_SUPABASE_URL/rest/v1/")
-          test "$status" = "200"
+          case "$PUBLIC_SUPABASE_ANON_KEY" in
+            sb_secret_*)
+              echo "::error::PUBLIC_SUPABASE_ANON_KEY must not be sb_secret_ (RLS bypass; not for client bundles)"
+              exit 1
+              ;;
+          esac
 
-      - name: Auth health endpoint reachable
-        env:
-          PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
-          PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
-        run: |
-          status=$(curl -s -o /dev/null -w "%{http_code}" \
+          auth_status=$(curl -s -o /dev/null -w "%{http_code}" \
             -H "apikey: $PUBLIC_SUPABASE_ANON_KEY" \
             "$PUBLIC_SUPABASE_URL/auth/v1/health")
-          test "$status" = "200"
+          test "$auth_status" = "200"
+
+          # /rest/v1/ OpenAPI root requires secret keys since 2026-03; probe a real table route.
+          data_status=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "apikey: $PUBLIC_SUPABASE_ANON_KEY" \
+            "$PUBLIC_SUPABASE_URL/rest/v1/categories?select=id&limit=0")
+          case "$data_status" in
+            200|401) ;;
+            *)
+              echo "::error::Data API returned HTTP $data_status (expected 200 or 401 with publishable key)"
+              exit 1
+              ;;
+          esac
