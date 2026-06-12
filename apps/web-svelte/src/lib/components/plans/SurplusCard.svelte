@@ -114,6 +114,14 @@
           amount: formatCurrency(summary.afterSaveGoals),
         })}
       </p>
+      {#if summary.saveContributionsThisMonth > 0}
+        <p class="mt-1 text-xs text-emerald-400/90">
+          {m.plans_surplus_saved_this_month({
+            saved: formatCurrency(summary.saveContributionsThisMonth),
+            need: formatCurrency(summary.saveMonthlyNeeded),
+          })}
+        </p>
+      {/if}
     {/if}
     {#if summary.hasDebtPlans}
       <p class="mt-2 text-xs text-slate-500">

@@ -43,6 +43,10 @@ export interface PlanSettlementProgress {
   /** Sum of paid linked EXPENSE transactions dated in the current calendar month
       (debt-payment coverage actually present in this month's tracked expenses). */
   linkedExpenseCurrentMonth: number;
+  /** Sum of paid linked INCOME transactions dated in the current calendar month
+      (save-goal deposits already made this month - credited against the monthly
+      pace so a deposit is never counted as both an expense and an unmet goal). */
+  linkedIncomeCurrentMonth: number;
   /** Paid linked expense payments (amount + date) — lets hub/net-worth surfaces run the
       same flat-accrual debt balance as the plan detail instead of a stored-balance
       heuristic. */
@@ -430,11 +434,15 @@ export function computePlanProgress(input: {
   const spentAmount = expenses.reduce((s, t) => s + t.amount, 0);
   const incomeAmount = incomes.reduce((s, t) => s + t.amount, 0);
   const monthBounds = currentCalendarMonthBounds(new Date(today));
+  const inCurrentMonth = (t: TransactionWithCategory) => {
+    const d = t.date.slice(0, 10);
+    return d >= monthBounds.start && d <= monthBounds.end;
+  };
   const linkedExpenseCurrentMonth = expenses
-    .filter((t) => {
-      const d = t.date.slice(0, 10);
-      return d >= monthBounds.start && d <= monthBounds.end;
-    })
+    .filter(inCurrentMonth)
+    .reduce((sum, t) => sum + t.amount, 0);
+  const linkedIncomeCurrentMonth = incomes
+    .filter(inCurrentMonth)
     .reduce((sum, t) => sum + t.amount, 0);
   const savedAmount = incomeAmount;
   const targetAmount = input.targetAmount ?? null;
@@ -482,6 +490,7 @@ export function computePlanProgress(input: {
     monthlyActual,
     monthlyActualBasis: monthlyActualDetail.basis,
     linkedExpenseCurrentMonth,
+    linkedIncomeCurrentMonth,
     linkedExpenses: expenses.map((t) => ({ amount: t.amount, date: t.date })),
     monthsRemaining: monthsRem,
   };
