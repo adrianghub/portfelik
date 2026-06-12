@@ -30,6 +30,7 @@
     categoriesFor: (type: "income" | "expense") => Category[];
     createCategoryInline: (name: string, type: "income" | "expense") => Promise<string | null>;
     matchedRuleFor: (row: ImportRow) => CategorizationRule | null;
+    spanNudge: { spanDays: number; cadenceDays: number } | null;
     inspectedRule: CategorizationRule | null;
     inspectedRuleCount: number;
     onClearInspectedRule: () => void;
@@ -60,6 +61,7 @@
     categoriesFor,
     createCategoryInline,
     matchedRuleFor,
+    spanNudge,
     inspectedRule,
     inspectedRuleCount,
     onClearInspectedRule,
@@ -216,6 +218,14 @@
       class="rounded-xl border border-slate-500/30 bg-slate-500/10 px-4 py-3 text-sm text-slate-300"
     >
       {m.bank_review_skipped_zero_banner({ count: skippedRowCount })}
+    </p>
+  {/if}
+
+  {#if spanNudge}
+    <p
+      class="rounded-xl border border-slate-500/30 bg-slate-500/10 px-4 py-3 text-sm text-slate-300"
+    >
+      {m.bank_review_span_nudge({ span: spanNudge.spanDays, cadence: spanNudge.cadenceDays })}
     </p>
   {/if}
 

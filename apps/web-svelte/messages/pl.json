@@ -460,6 +460,7 @@
   "bank_review_filter_empty_body": "Wyczyść filtr lub wybierz inny zakres.",
   "bank_review_filter_clear": "Wyczyść filtr",
   "bank_review_large_warning": "{count} wierszy w pliku. Przegląd może być wolny.",
+  "bank_review_span_nudge": "Wyciąg obejmuje {span} dni. Importuj co {cadence} dni (jak w przypomnieniach) - przegląd będzie krótszy, a duplikaty rzadsze.",
   "bank_review_group_own": "Bez grupy (własne)",
   "bank_review_category_required": "Wybierz kategorię dla importu",
   "bank_review_commit": "Zatwierdź import",

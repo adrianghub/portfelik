@@ -27,12 +27,15 @@
     fetchBankAccount,
     fetchSessionRows,
     previewFingerprintWarnings,
+    statementSpanDays,
     updateRowDecision,
     type CommitResult,
     type ImportRow,
     type ImportSession,
     type RowDecision,
   } from "$lib/services/bank-import";
+  import { fetchProfile } from "$lib/services/profiles";
+  import { supabase } from "$lib/supabase";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { toast } from "svelte-sonner";
   import { cn, formatCurrency } from "$lib/utils";
@@ -119,6 +122,17 @@
     queryFn: () => fetchBankAccount(session.bank_account_id),
   }));
 
+  const profileQuery = createQuery(() => ({
+    queryKey: ["profile"],
+    queryFn: async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("not_authenticated");
+      return fetchProfile(user.id);
+    },
+  }));
+
   const warningsByRow = $derived(new Map((warningsQuery.data ?? []).map((w) => [w.row_id, w])));
   const rows = $derived<ImportRow[]>(rowsQuery.data ?? []);
 
@@ -182,6 +196,19 @@
 
   const inneRows = $derived(uncategorizedImportRows);
   const needsConfirm = $derived(inneRows.length > 0 || duplicateRows.length > 0);
+
+  // Cadence nudge: when the statement spans more days than the user's import-reminder
+  // cadence (default 14), suggest importing on that rhythm. Informational only - a hard
+  // cap would block first-import history backfill.
+  const reminderCadenceDays = $derived(
+    profileQuery.data?.settings?.alerts?.bankImportReminder?.cadenceDays ?? 14
+  );
+  const statementSpan = $derived(statementSpanDays(rows));
+  const spanNudge = $derived(
+    statementSpan > reminderCadenceDays
+      ? { spanDays: statementSpan, cadenceDays: reminderCadenceDays }
+      : null
+  );
   const pendingRows = $derived(rows.filter((r) => r.decision === "pending"));
 
   const filterOptions: { kind: FilterKind; label: string }[] = $derived.by(() => {
@@ -826,6 +853,7 @@
     {categoriesFor}
     {createCategoryInline}
     {matchedRuleFor}
+    {spanNudge}
     {inspectedRule}
     inspectedRuleCount={inspectedRuleRows.length}
     onClearInspectedRule={() => (inspectedRuleId = null)}
