@@ -145,7 +145,11 @@ jobs:
         env:
           PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
           PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
-          PUBLIC_VAPID_KEY: ${{ secrets.PUBLIC_VAPID_KEY }}
+          # VAPID public key is not a secret; it must match the VAPID_PRIVATE_KEY /
+          # VAPID_PUBLIC_KEY pair set in Supabase Edge Function secrets. The GH secret
+          # PUBLIC_VAPID_KEY drifted from that pair (2026-06-12 incident: every web push
+          # was rejected by FCM/autopush), so the canonical value is pinned here.
+          PUBLIC_VAPID_KEY: BHKoiccZwq3Y5Qw5dmFxVLJIA7w9zcSZkchPKWk-vxBeR421yieZW7gGxuluBBa6sRmpIsFXRSuFyRarLcdvqT4
         run: |
           # Misconfigured environment guard: production must build against the
           # production Supabase project, never a staging/mock value.

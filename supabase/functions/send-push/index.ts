@@ -89,7 +89,15 @@ Deno.serve(async (req: Request) => {
         );
       } catch (err) {
         const status = (err as { statusCode?: number }).statusCode;
-        if (status === 404 || status === 410) {
+        // Log push-service host + status only - never notification content.
+        console.error(
+          `send-push: endpoint=${new URL(s.endpoint).host} status=${status ?? "?"} ` +
+            `body=${String((err as { body?: string }).body ?? "").slice(0, 200)}`,
+        );
+        // 404/410: endpoint gone. 401/403: VAPID auth rejected - the subscription was
+        // created under a different VAPID key and can never succeed; prune it so the
+        // client re-subscribes under the current key on next app open.
+        if (status === 401 || status === 403 || status === 404 || status === 410) {
           await supabase
             .from("push_subscriptions")
             .delete()
@@ -103,6 +111,7 @@ Deno.serve(async (req: Request) => {
 
   const sent = results.filter((r) => r.status === "fulfilled").length;
   const failed = results.length - sent;
+  console.log(`send-push: notification=${body.notificationId} sent=${sent} failed=${failed}`);
 
   return new Response(
     JSON.stringify({ sent, failed, total: results.length }),
