@@ -30,6 +30,11 @@
     categoriesFor: (type: "income" | "expense") => Category[];
     createCategoryInline: (name: string, type: "income" | "expense") => Promise<string | null>;
     matchedRuleFor: (row: ImportRow) => CategorizationRule | null;
+    inspectedRule: CategorizationRule | null;
+    inspectedRuleCount: number;
+    onClearInspectedRule: () => void;
+    canUndo: boolean;
+    onUndo: () => void;
     onFilterChange: (kind: FilterKind) => void;
     onClearFilter: () => void;
     onBulkImportVisible: () => void;
@@ -55,6 +60,11 @@
     categoriesFor,
     createCategoryInline,
     matchedRuleFor,
+    inspectedRule,
+    inspectedRuleCount,
+    onClearInspectedRule,
+    canUndo,
+    onUndo,
     onFilterChange,
     onClearFilter,
     onBulkImportVisible,
@@ -221,8 +231,17 @@
     bind:this={stickyToolbarRef}
     class="sticky top-14 z-30 -mx-4 space-y-2 border-b border-white/10 bg-slate-950 px-4 py-2"
   >
-    {#if bulkImportableVisibleCount > 0 || bulkRestorableVisibleCount > 0}
+    {#if bulkImportableVisibleCount > 0 || bulkRestorableVisibleCount > 0 || canUndo}
       <div class="flex flex-wrap items-center gap-2">
+        {#if canUndo}
+          <button
+            type="button"
+            class="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-400 transition-colors hover:bg-white/5"
+            onclick={onUndo}
+          >
+            {m.bank_review_undo_last_change()}
+          </button>
+        {/if}
         {#if bulkImportableVisibleCount > 0}
           <button
             type="button"
@@ -245,6 +264,21 @@
     {/if}
 
     <div class="flex flex-wrap items-center gap-2 overflow-x-auto">
+      {#if inspectedRule}
+        <button
+          type="button"
+          class="border-accent bg-accent/10 text-accent inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors"
+          title={m.bank_review_rule_filter_clear()}
+          aria-label={m.bank_review_rule_filter_clear()}
+          onclick={onClearInspectedRule}
+        >
+          <span class="max-w-60 truncate">
+            {m.bank_review_rule_filter_chip({ rule: ruleMatchText(inspectedRule) })}
+          </span>
+          <span class="text-slate-400">{inspectedRuleCount}</span>
+          <span aria-hidden="true">×</span>
+        </button>
+      {/if}
       {#each filterOptions as f (f.kind)}
         <button
           type="button"

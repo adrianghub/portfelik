@@ -943,3 +943,100 @@ test("import wizard: warns when the duplicate pre-scan fails", async ({ page }) 
   });
   await expect(page.getByRole("button", { name: /^Zaimportuj \d+ transakc/ })).toBeEnabled();
 });
+
+test("import wizard: income/expense filters narrow the review list", async ({ page }) => {
+  await page.goto("/import");
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "wyciag.csv",
+    mimeType: "text/csv",
+    buffer: mbankSample,
+  });
+
+  const table = page.getByRole("table");
+  await expect(table.getByText("WSPÓLNOTA MIESZKANIOWA", { exact: true })).toBeVisible({
+    timeout: 10_000,
+  });
+
+  // Clean import: no pending rows. The pills must still filter (regression: a stale
+  // $effect used to reset income/expense back to "all" whenever pending count was 0).
+  await page.getByRole("button", { name: /^Przychody/ }).click();
+  await expect(table.getByText("FIRMA SP Z O O", { exact: true })).toBeVisible();
+  await expect(table.getByText("WSPÓLNOTA MIESZKANIOWA", { exact: true })).toHaveCount(0);
+
+  await page.getByRole("button", { name: /^Wydatki/ }).click();
+  await expect(table.getByText("WSPÓLNOTA MIESZKANIOWA", { exact: true })).toBeVisible();
+  await expect(table.getByText("FIRMA SP Z O O", { exact: true })).toHaveCount(0);
+
+  await page.getByRole("button", { name: /^Wszystkie/ }).click();
+  await expect(table.getByText("FIRMA SP Z O O", { exact: true })).toBeVisible();
+  await expect(table.getByText("WSPÓLNOTA MIESZKANIOWA", { exact: true })).toBeVisible();
+});
+
+test("import wizard: undo restores the previous category pick", async ({ page }) => {
+  await page.unrouteAll();
+  await injectFakeSession(page);
+  await mockBankImportAPI(page, { defaultRules: false });
+  await page.goto("/import");
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "wyciag.csv",
+    mimeType: "text/csv",
+    buffer: mbankNoCounterpartySample,
+  });
+
+  const combo = page.getByRole("table").getByRole("combobox", { name: "Kategoria" });
+  await expect(combo).toBeVisible({ timeout: 10_000 });
+  await combo.click();
+  await page.getByRole("option", { name: "Jedzenie", exact: true }).click();
+
+  await expect(
+    page.getByRole("table").getByRole("button", { name: "Wyczyść kategorię" })
+  ).toContainText("Jedzenie");
+
+  await page.getByRole("button", { name: "Cofnij ostatnią zmianę" }).click();
+
+  await expect(
+    page.getByRole("table").getByRole("button", { name: "Wyczyść kategorię" })
+  ).toHaveCount(0);
+  await expect(page.getByRole("table").getByRole("combobox", { name: "Kategoria" })).toBeVisible();
+});
+
+test("import wizard: confirm sheet skips uncategorized rows and imports the rest", async ({
+  page,
+}) => {
+  await page.unrouteAll();
+  await injectFakeSession(page);
+  await mockBankImportAPI(page, { defaultRules: false });
+  await page.goto("/import");
+
+  const twoMerchantsSample = Buffer.from(
+    `"mBank S.A."
+"Historia operacji"
+"Klient";"Jan Kowalski"
+"Numer rachunku";"PL00 0000 0000 0000 0000 0000 0000"
+""
+#Data księgowania;#Data operacji;#Opis operacji;#Tytuł;#Nadawca/Odbiorca;#Numer konta;#Kwota;#Saldo po operacji
+2026-05-06;2026-05-06;"ZAKUP TOWARÓW I USŁUG";"KAWA NA MIEŚCIE";"KAWIARNIA";"PL00 5555 5555 5555 5555 5555 5555";-24,00;9217,81
+2026-05-07;2026-05-07;"USŁUGA NIEZNANA";"FAKTURA 123";"TAJEMNICZA FIRMA";"PL00 6666 6666 6666 6666 6666 6666";-50,00;9167,81
+`,
+    "utf8"
+  );
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "wyciag.csv",
+    mimeType: "text/csv",
+    buffer: twoMerchantsSample,
+  });
+
+  const rows = page.getByRole("table").getByRole("row").filter({ hasText: "KAWIARNIA" });
+  await expect(rows).toHaveCount(1, { timeout: 10_000 });
+  await rows.first().getByRole("combobox", { name: "Kategoria" }).click();
+  await page.getByRole("option", { name: "Jedzenie", exact: true }).click();
+
+  await page.getByRole("button", { name: /^Zaimportuj \d+ transakc/ }).click();
+  await expect(page.getByRole("heading", { name: "Potwierdź import" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Pomiń bez kategorii (1)" }).click();
+  await expect(page).toHaveURL(/\/transactions/);
+});

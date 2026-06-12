@@ -139,7 +139,23 @@
     expense: activeRows.filter((r) => r.type === "expense").length,
   });
 
+  // Rule inspection: show exactly the rows a rule currently applies to (conditions
+  // match AND the rule's category is selected) so a freshly captured rule can be audited.
+  let inspectedRuleId = $state<string | null>(null);
+  const inspectedRule = $derived(
+    inspectedRuleId ? ((rulesQuery.data ?? []).find((r) => r.id === inspectedRuleId) ?? null) : null
+  );
+  const inspectedRuleRows = $derived(
+    inspectedRule
+      ? activeRows.filter(
+          (r) =>
+            r.selected_category_id === inspectedRule.category_id && rowMatchesRule(r, inspectedRule)
+        )
+      : []
+  );
+
   const visibleRows = $derived.by(() => {
+    if (inspectedRule) return inspectedRuleRows;
     switch (filter) {
       case "pending":
         return activeRows.filter((r) => r.decision === "pending");
@@ -253,17 +269,44 @@
     }
   }
 
+  // Review-level undo: every direct row mutation (decision toggle, category pick,
+  // bulk action, rule cascade) records the prior row state. "Cofnij" restores the
+  // last change's rows; it never deletes a captured rule (the rule-save toast
+  // keeps its own undo for that).
+  interface UndoPatch {
+    rowId: string;
+    before: Partial<ImportRow>;
+  }
+  let undoStack = $state<UndoPatch[][]>([]);
+  const UNDO_LIMIT = 50;
+
+  function pushUndo(patches: UndoPatch[]): void {
+    if (patches.length === 0) return;
+    undoStack = [...undoStack.slice(-(UNDO_LIMIT - 1)), patches];
+  }
+
+  async function undoLastChange(): Promise<void> {
+    const entry = undoStack.at(-1);
+    if (!entry) return;
+    undoStack = undoStack.slice(0, -1);
+    await Promise.all(entry.map((p) => patchRow(p.rowId, p.before)));
+    toast.success(m.bank_review_change_undone());
+  }
+
   async function setDecision(row: ImportRow, decision: "import" | "skip"): Promise<void> {
+    pushUndo([{ rowId: row.id, before: { decision: row.decision } }]);
     await patchRow(row.id, { decision });
   }
 
   async function bulkImportVisible(): Promise<void> {
     const targets = visibleRows.filter((r) => r.decision === "pending");
+    pushUndo(targets.map((r) => ({ rowId: r.id, before: { decision: r.decision } })));
     await Promise.all(targets.map((r) => patchRow(r.id, { decision: "import" })));
   }
 
   async function bulkRestoreVisible(): Promise<void> {
     const targets = visibleRows.filter((r) => r.decision === "skip");
+    pushUndo(targets.map((r) => ({ rowId: r.id, before: { decision: r.decision } })));
     await Promise.all(targets.map((r) => patchRow(r.id, { decision: "pending" })));
   }
 
@@ -305,6 +348,12 @@
       selected_category_id: r.selected_category_id,
       decision: r.decision,
     }));
+    pushUndo(
+      targets.map((r) => ({
+        rowId: r.id,
+        before: { selected_category_id: r.selected_category_id },
+      }))
+    );
     const results = await Promise.allSettled(
       targets.map((r) => patchRow(r.id, { selected_category_id: rule.category_id }))
     );
@@ -429,6 +478,14 @@
         label: m.common_undo(),
         onClick: () => void undoSavedRule(created.id, snapshots, created.category_id),
       },
+      ...(snapshots.length > 0
+        ? {
+            cancel: {
+              label: m.bank_review_rule_show_matches_short(),
+              onClick: () => (inspectedRuleId = created.id),
+            },
+          }
+        : {}),
       duration: 8000,
     });
 
@@ -498,6 +555,7 @@
         },
       };
     }
+    pushUndo([{ rowId: row.id, before: { selected_category_id: row.selected_category_id } }]);
     await patchRow(row.id, { selected_category_id: selectedCategoryId });
     if (!selectedCategoryId) return;
     if (pendingReplacement) {
@@ -591,13 +649,6 @@
     filter = pendingRows.length > 0 ? "pending" : "all";
   });
 
-  $effect(() => {
-    if (filterCounts.pending > 0) return;
-    if (filter === "pending" || filter === "income" || filter === "expense") {
-      filter = "all";
-    }
-  });
-
   async function saveRuleEditor(): Promise<void> {
     if (!editingRule) return;
 
@@ -652,11 +703,13 @@
   }
 
   async function importDuplicateAnyway(row: ImportRow): Promise<void> {
+    pushUndo([{ rowId: row.id, before: { decision: row.decision } }]);
     await patchRow(row.id, { decision: "import" });
   }
 
   async function restoreAllDuplicates(): Promise<void> {
     const flagged = rows.filter((r) => r.decision === "duplicate");
+    pushUndo(flagged.map((r) => ({ rowId: r.id, before: { decision: r.decision } })));
     await Promise.all(flagged.map((r) => patchRow(r.id, { decision: "pending" })));
   }
 
@@ -686,6 +739,21 @@
   function confirmCommit(): void {
     confirmOpen = false;
     commitMut.mutate();
+  }
+
+  // "Inne" escape hatch: park every still-uncategorized row as skipped and commit the
+  // clean remainder. Skipped rows stay in the session history; nothing is lost.
+  async function skipInneAndCommit(): Promise<void> {
+    const targets = inneRows;
+    pushUndo(targets.map((r) => ({ rowId: r.id, before: { decision: r.decision } })));
+    await Promise.all(targets.map((r) => patchRow(r.id, { decision: "skip" })));
+    if (importRows.length === 0) {
+      // Every import row was uncategorized - nothing left to commit.
+      confirmOpen = false;
+      toast.info(m.bank_review_commit_zero_hint());
+      return;
+    }
+    confirmCommit();
   }
 </script>
 
@@ -758,8 +826,19 @@
     {categoriesFor}
     {createCategoryInline}
     {matchedRuleFor}
-    onFilterChange={(k) => (filter = k)}
-    onClearFilter={() => (filter = "all")}
+    {inspectedRule}
+    inspectedRuleCount={inspectedRuleRows.length}
+    onClearInspectedRule={() => (inspectedRuleId = null)}
+    canUndo={undoStack.length > 0}
+    onUndo={() => void undoLastChange()}
+    onFilterChange={(k) => {
+      inspectedRuleId = null;
+      filter = k;
+    }}
+    onClearFilter={() => {
+      inspectedRuleId = null;
+      filter = "all";
+    }}
     onBulkImportVisible={() => void bulkImportVisible()}
     onBulkRestoreVisible={() => void bulkRestoreVisible()}
     onPatchRow={(id, patch) => void patchRow(id, patch)}
@@ -811,6 +890,7 @@
   commitPending={commitMut.isPending}
   onClose={() => (confirmOpen = false)}
   onCommit={confirmCommit}
+  onSkipInne={() => void skipInneAndCommit()}
 />
 
 <Dialog open={editRuleOpen} onclose={closeRuleEditor} title={m.bank_review_rule_edit()}>
@@ -864,18 +944,30 @@
       {/if}
     </div>
 
-    <div class="flex justify-end gap-2 pt-1">
-      <Button variant="ghost" onclick={closeRuleEditor} disabled={editRuleSaving}>
-        {m.common_cancel()}
-      </Button>
+    <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
       <Button
-        variant="primary"
-        onclick={() => void saveRuleEditor()}
-        loading={editRuleSaving}
+        variant="ghost"
         disabled={editRuleSaving}
+        onclick={() => {
+          if (editingRule) inspectedRuleId = editingRule.id;
+          closeRuleEditor();
+        }}
       >
-        {m.common_save()}
+        {m.bank_review_rule_show_matches()}
       </Button>
+      <div class="flex gap-2">
+        <Button variant="ghost" onclick={closeRuleEditor} disabled={editRuleSaving}>
+          {m.common_cancel()}
+        </Button>
+        <Button
+          variant="primary"
+          onclick={() => void saveRuleEditor()}
+          loading={editRuleSaving}
+          disabled={editRuleSaving}
+        >
+          {m.common_save()}
+        </Button>
+      </div>
     </div>
   </div>
 </Dialog>
