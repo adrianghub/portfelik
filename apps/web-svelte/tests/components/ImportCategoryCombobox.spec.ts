@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/svelte";
 import { tick } from "svelte";
 import { describe, expect, it, vi } from "vitest";
-import ImportCategoryCombobox from "$lib/components/import/ImportCategoryCombobox.svelte";
+import CategorySelect from "$lib/components/transactions/CategorySelect.svelte";
 import type { Category } from "$lib/types";
 
 const cat = (id: string, name: string): Category => ({
@@ -22,16 +22,17 @@ async function focusOpen(input: HTMLElement): Promise<void> {
   await tick();
 }
 
-describe("ImportCategoryCombobox", () => {
+describe("ImportCategoryCombobox (via CategorySelect pillMode)", () => {
   it("shows a clear chip for the selected category and clears on click", async () => {
     const onchange = vi.fn();
-    render(ImportCategoryCombobox, {
+    render(CategorySelect, {
       props: {
         categories,
         type: "expense",
         selectedId: "c1",
         onchange,
         oncreate: async () => null,
+        pillMode: true,
       },
     });
 
@@ -43,13 +44,14 @@ describe("ImportCategoryCombobox", () => {
   });
 
   it("renders the combobox when nothing is selected", () => {
-    render(ImportCategoryCombobox, {
+    render(CategorySelect, {
       props: {
         categories,
         type: "expense",
         selectedId: null,
         onchange: vi.fn(),
         oncreate: async () => null,
+        pillMode: true,
       },
     });
     expect(screen.getByRole("combobox")).toBeTruthy();
@@ -57,13 +59,14 @@ describe("ImportCategoryCombobox", () => {
 
   it("selecting a category name notifies the parent with its id", async () => {
     const onchange = vi.fn();
-    render(ImportCategoryCombobox, {
+    render(CategorySelect, {
       props: {
         categories,
         type: "expense",
         selectedId: null,
         onchange,
         oncreate: async () => null,
+        pillMode: true,
       },
     });
 
@@ -75,8 +78,8 @@ describe("ImportCategoryCombobox", () => {
   it("creating a category calls oncreate(name, type) then notifies with the new id", async () => {
     const onchange = vi.fn();
     const oncreate = vi.fn(async () => "c-new");
-    render(ImportCategoryCombobox, {
-      props: { categories, type: "expense", selectedId: null, onchange, oncreate },
+    render(CategorySelect, {
+      props: { categories, type: "expense", selectedId: null, onchange, oncreate, pillMode: true },
     });
 
     const input = screen.getByRole("combobox");

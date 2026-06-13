@@ -6,7 +6,7 @@
   import Badge from "$lib/components/ui/Badge.svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import Dialog from "$lib/components/ui/Dialog.svelte";
-  import ImportCategoryCombobox from "$lib/components/import/ImportCategoryCombobox.svelte";
+  import CategorySelect from "$lib/components/transactions/CategorySelect.svelte";
   import type { ImportRow } from "$lib/services/bank-import";
   import type { Category, CategorizationRule, UserGroup } from "$lib/types";
   import { cn, formatCurrency } from "$lib/utils";
@@ -384,13 +384,15 @@
                 {/if}
               </td>
               <td class="min-w-48 px-3 py-2 align-top">
-                <ImportCategoryCombobox
+                <CategorySelect
                   class="min-w-40"
                   categories={categoriesFor(row.type)}
                   type={row.type}
                   selectedId={row.selected_category_id}
+                  placeholder={m.bank_review_header_category()}
                   onchange={(id) => onCategoryChange(row, id)}
                   oncreate={createCategoryInline}
+                  pillMode
                 />
                 <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
                   {#if rule}
@@ -475,13 +477,15 @@
               });
             }}
           />
-          <ImportCategoryCombobox
+          <CategorySelect
             class="w-full min-w-0"
             categories={categoriesFor(row.type)}
             type={row.type}
             selectedId={row.selected_category_id}
+            placeholder={m.bank_review_header_category()}
             onchange={(id) => onCategoryChange(row, id)}
             oncreate={createCategoryInline}
+            pillMode
           />
           <div class="flex flex-wrap items-center gap-2">
             {#if rule}
