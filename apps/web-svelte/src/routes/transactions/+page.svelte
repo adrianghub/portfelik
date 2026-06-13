@@ -690,20 +690,6 @@
       <button
         type="button"
         role="tab"
-        aria-selected={groupFilter === "all"}
-        onclick={() => syncListViewUrl("/transactions", $page.url.searchParams, { group: "all" })}
-        class={cn(
-          "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
-          groupFilter === "all"
-            ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
-            : "border border-white/5 text-slate-300 hover:bg-white/5"
-        )}
-      >
-        {m.group_filter_all()}
-      </button>
-      <button
-        type="button"
-        role="tab"
         aria-selected={groupFilter === "own"}
         onclick={() => syncListViewUrl("/transactions", $page.url.searchParams, { group: "own" })}
         class={cn(
@@ -714,6 +700,20 @@
         )}
       >
         {m.group_filter_own()}
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={groupFilter === "all"}
+        onclick={() => syncListViewUrl("/transactions", $page.url.searchParams, { group: "all" })}
+        class={cn(
+          "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
+          groupFilter === "all"
+            ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
+            : "border border-white/5 text-slate-300 hover:bg-white/5"
+        )}
+      >
+        {m.group_filter_all()}
       </button>
       {#each groupsQuery.data as g (g.id)}
         <button
