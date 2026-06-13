@@ -11,6 +11,12 @@
   import type { ImportRowFilter } from "$lib/import/filter-rows";
   import type { Category, CategorizationRule, UserGroup } from "$lib/types";
   import { cn, formatCurrency } from "$lib/utils";
+
+  function parseAmount(v: string): number | null {
+    if (v.trim() === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
   import { ChevronDown, Users } from "lucide-svelte";
 
   type FilterKind = "pending" | "all" | "uncategorized" | "income" | "expense";
@@ -345,9 +351,7 @@
         step="0.01"
         placeholder={m.bank_review_amount_min()}
         value={advancedFilter.amountMin ?? ""}
-        oninput={(e) =>
-          (advancedFilter.amountMin =
-            e.currentTarget.value === "" ? null : Number(e.currentTarget.value))}
+        oninput={(e) => (advancedFilter.amountMin = parseAmount(e.currentTarget.value))}
         class="h-9 w-28 rounded-full border border-white/10 bg-slate-900/60 px-3 text-sm text-slate-200"
       />
       <input
@@ -356,9 +360,7 @@
         step="0.01"
         placeholder={m.bank_review_amount_max()}
         value={advancedFilter.amountMax ?? ""}
-        oninput={(e) =>
-          (advancedFilter.amountMax =
-            e.currentTarget.value === "" ? null : Number(e.currentTarget.value))}
+        oninput={(e) => (advancedFilter.amountMax = parseAmount(e.currentTarget.value))}
         class="h-9 w-28 rounded-full border border-white/10 bg-slate-900/60 px-3 text-sm text-slate-200"
       />
       <CategorySelect

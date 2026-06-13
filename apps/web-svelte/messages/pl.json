@@ -443,7 +443,6 @@
   "bank_review_decision_import": "Importuj",
   "bank_review_decision_skip": "Pomiń",
   "bank_review_decision_pending_cue": "Do decyzji",
-  "bank_review_category_create": "Dodaj kategorię „{value}”",
   "bank_review_category_clear": "Wyczyść kategorię",
   "bank_review_save_rule_field_description": "Opis",
   "bank_review_save_rule_field_counterparty": "Kontrahent",

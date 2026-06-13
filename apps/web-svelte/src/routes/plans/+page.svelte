@@ -901,7 +901,7 @@
         id="plan-category"
         categories={categoriesQuery.data ?? []}
         selectedId={categoryId || null}
-        type="expense"
+        type={planKind === "save" ? "income" : "expense"}
         onchange={(id) => (categoryId = id ?? "")}
         oncreate={createCategoryInline}
         placeholder={m.plan_form_no_category()}
