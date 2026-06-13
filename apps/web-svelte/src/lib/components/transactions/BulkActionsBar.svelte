@@ -12,6 +12,8 @@
     onsetstatus: (status: TransactionStatus) => void;
     onsetcategory: (categoryId: string) => void;
     oncreatecategory?: (name: string, type: TransactionType) => Promise<string | null>;
+    /** Common type of the selection; null when mixed/unknown. Gates inline create. */
+    createType?: TransactionType | null;
     ondelete: () => void;
   }
 
@@ -23,6 +25,7 @@
     onsetstatus,
     onsetcategory,
     oncreatecategory,
+    createType = null,
     ondelete,
   }: Props = $props();
 
@@ -77,11 +80,11 @@
     <CategorySelect
       {categories}
       selectedId={null}
-      type="expense"
+      type={createType ?? "expense"}
       onchange={(id) => {
         if (id) onsetcategory(id);
       }}
-      oncreate={oncreatecategory}
+      oncreate={createType ? oncreatecategory : undefined}
       disabled={pending}
       placeholder={m.transactions_bulk_set_category()}
       class="min-w-48"

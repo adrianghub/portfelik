@@ -31,7 +31,7 @@
   import { supabase } from "$lib/supabase";
   import { parseScopeFilter } from "$lib/utils/list-view-url";
   import { syncListViewUrl } from "$lib/utils/navigation";
-  import type { TransactionStatus, TransactionWithCategory } from "$lib/types";
+  import type { TransactionStatus, TransactionType, TransactionWithCategory } from "$lib/types";
   import {
     cn,
     formatDate,
@@ -254,6 +254,19 @@
       return tx ? txCanManage(tx) : false;
     });
   }
+
+  // Common transaction type across the current bulk selection, or null when the
+  // selection is empty or mixes income + expense. Inline category creation in the
+  // bulk bar is gated on this so we never create an expense category for income
+  // rows (or vice versa); mixed selections fall back to pick-only.
+  const bulkSelectionType = $derived.by((): TransactionType | null => {
+    const types = new Set<TransactionType>();
+    for (const id of selectedIds) {
+      const tx = txQuery.data?.find((row) => row.id === id);
+      if (tx) types.add(tx.type);
+    }
+    return types.size === 1 ? [...types][0] : null;
+  });
 
   const summaryMode = $derived(statusSet ? ("filtered" as const) : ("ledger" as const));
   const summary = $derived(
@@ -764,6 +777,7 @@
       onsetstatus={(status) => bulkStatusMutation.mutate(status)}
       onsetcategory={(catId) => bulkCategoryMutation.mutate(catId)}
       oncreatecategory={createCategoryInline}
+      createType={bulkSelectionType}
       ondelete={() => (bulkDeleteConfirm = true)}
     />
   {/if}
