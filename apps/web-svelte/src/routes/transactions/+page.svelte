@@ -14,7 +14,8 @@
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import SearchModal from "$lib/components/ui/SearchModal.svelte";
   import * as m from "$lib/paraglide/messages";
-  import { fetchCategories } from "$lib/services/categories";
+  import { createCategory, fetchCategories } from "$lib/services/categories";
+  import { makeCreateCategoryInline } from "$lib/category-create";
   import { fetchMyGroupRoles, fetchUserGroups } from "$lib/services/groups";
   import { computeLedgerSummary } from "$lib/services/transaction-cashflow";
   import { canManageTransaction } from "$lib/services/transaction-permissions";
@@ -45,6 +46,14 @@
   import { toast } from "svelte-sonner";
 
   const queryClient = useQueryClient();
+
+  const createCategoryInline = makeCreateCategoryInline({
+    createCategory,
+    invalidate: () => queryClient.invalidateQueries({ queryKey: ["categories"] }),
+    toastSuccess: () => toast.success(m.toast_category_created()),
+    toastError: () => toast.error(m.toast_error()),
+  });
+
   const now = new Date();
 
   function parseIsoDateParam(value: string | null): string | null {
@@ -681,20 +690,6 @@
       <button
         type="button"
         role="tab"
-        aria-selected={groupFilter === "all"}
-        onclick={() => syncListViewUrl("/transactions", $page.url.searchParams, { group: "all" })}
-        class={cn(
-          "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
-          groupFilter === "all"
-            ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
-            : "border border-white/5 text-slate-300 hover:bg-white/5"
-        )}
-      >
-        {m.group_filter_all()}
-      </button>
-      <button
-        type="button"
-        role="tab"
         aria-selected={groupFilter === "own"}
         onclick={() => syncListViewUrl("/transactions", $page.url.searchParams, { group: "own" })}
         class={cn(
@@ -705,6 +700,20 @@
         )}
       >
         {m.group_filter_own()}
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={groupFilter === "all"}
+        onclick={() => syncListViewUrl("/transactions", $page.url.searchParams, { group: "all" })}
+        class={cn(
+          "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
+          groupFilter === "all"
+            ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
+            : "border border-white/5 text-slate-300 hover:bg-white/5"
+        )}
+      >
+        {m.group_filter_all()}
       </button>
       {#each groupsQuery.data as g (g.id)}
         <button
@@ -754,6 +763,7 @@
       onclear={() => (selectedIds = new Set<string>())}
       onsetstatus={(status) => bulkStatusMutation.mutate(status)}
       onsetcategory={(catId) => bulkCategoryMutation.mutate(catId)}
+      oncreatecategory={createCategoryInline}
       ondelete={() => (bulkDeleteConfirm = true)}
     />
   {/if}

@@ -10,7 +10,9 @@
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import Fab from "$lib/components/ui/Fab.svelte";
   import * as m from "$lib/paraglide/messages";
-  import { fetchCategories } from "$lib/services/categories";
+  import CategorySelect from "$lib/components/transactions/CategorySelect.svelte";
+  import { createCategory, fetchCategories } from "$lib/services/categories";
+  import { makeCreateCategoryInline } from "$lib/category-create";
   import { fetchUserGroups, fetchMyGroupRoles } from "$lib/services/groups";
   import { fetchPlanProgressForPlans } from "$lib/services/plan-settlement";
   import {
@@ -64,6 +66,13 @@
 
   const queryClient = useQueryClient();
   const plansHubPath = "/plans";
+
+  const createCategoryInline = makeCreateCategoryInline({
+    createCategory,
+    invalidate: () => queryClient.invalidateQueries({ queryKey: ["categories"] }),
+    toastSuccess: () => toast.success(m.toast_category_created()),
+    toastError: () => toast.error(m.toast_error()),
+  });
 
   beforeNavigate(({ from, to }) => {
     if (from?.url.pathname === plansHubPath && to && to.url.pathname !== plansHubPath) {
@@ -888,16 +897,15 @@
       <label class="text-xs font-medium text-slate-300" for="plan-category">
         {m.plan_form_category()}
       </label>
-      <select
+      <CategorySelect
         id="plan-category"
-        bind:value={categoryId}
-        class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur focus:ring-2 focus:outline-none"
-      >
-        <option value="">{m.plan_form_no_category()}</option>
-        {#each categoriesQuery.data ?? [] as category (category.id)}
-          <option value={category.id}>{category.name}</option>
-        {/each}
-      </select>
+        categories={categoriesQuery.data ?? []}
+        selectedId={categoryId || null}
+        type={planKind === "save" ? "income" : "expense"}
+        onchange={(id) => (categoryId = id ?? "")}
+        oncreate={createCategoryInline}
+        placeholder={m.plan_form_no_category()}
+      />
     </div>
 
     {#if (groupsQuery.data?.length ?? 0) > 0}

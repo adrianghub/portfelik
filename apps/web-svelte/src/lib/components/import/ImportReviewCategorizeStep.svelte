@@ -6,10 +6,17 @@
   import Badge from "$lib/components/ui/Badge.svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import Dialog from "$lib/components/ui/Dialog.svelte";
-  import ImportCategoryCombobox from "$lib/components/import/ImportCategoryCombobox.svelte";
+  import CategorySelect from "$lib/components/transactions/CategorySelect.svelte";
   import type { ImportRow } from "$lib/services/bank-import";
+  import type { ImportRowFilter } from "$lib/import/filter-rows";
   import type { Category, CategorizationRule, UserGroup } from "$lib/types";
   import { cn, formatCurrency } from "$lib/utils";
+
+  function parseAmount(v: string): number | null {
+    if (v.trim() === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
   import { ChevronDown, Users } from "lucide-svelte";
 
   type FilterKind = "pending" | "all" | "uncategorized" | "income" | "expense";
@@ -25,6 +32,10 @@
     filterCounts: Record<FilterKind, number>;
     filterOptions: { kind: FilterKind; label: string }[];
     visibleRows: ImportRow[];
+    advancedFilter: ImportRowFilter;
+    advancedActive: boolean;
+    onclearfilter: () => void;
+    filterCategories: Category[];
     totalActiveRows: number;
     groups: UserGroup[];
     categoriesFor: (type: "income" | "expense") => Category[];
@@ -56,6 +67,10 @@
     filterCounts,
     filterOptions,
     visibleRows,
+    advancedFilter = $bindable<ImportRowFilter>(),
+    advancedActive,
+    onclearfilter,
+    filterCategories,
     totalActiveRows,
     groups,
     categoriesFor,
@@ -322,6 +337,50 @@
         />
       </div>
     </div>
+
+    <div class="flex flex-wrap items-center gap-2">
+      <input
+        type="search"
+        bind:value={advancedFilter.text}
+        placeholder={m.bank_review_search_placeholder()}
+        class="h-9 min-w-48 flex-1 rounded-full border border-white/10 bg-slate-900/60 px-3 text-sm text-slate-200"
+      />
+      <input
+        type="number"
+        inputmode="decimal"
+        step="0.01"
+        placeholder={m.bank_review_amount_min()}
+        value={advancedFilter.amountMin ?? ""}
+        oninput={(e) => (advancedFilter.amountMin = parseAmount(e.currentTarget.value))}
+        class="h-9 w-28 rounded-full border border-white/10 bg-slate-900/60 px-3 text-sm text-slate-200"
+      />
+      <input
+        type="number"
+        inputmode="decimal"
+        step="0.01"
+        placeholder={m.bank_review_amount_max()}
+        value={advancedFilter.amountMax ?? ""}
+        oninput={(e) => (advancedFilter.amountMax = parseAmount(e.currentTarget.value))}
+        class="h-9 w-28 rounded-full border border-white/10 bg-slate-900/60 px-3 text-sm text-slate-200"
+      />
+      <CategorySelect
+        categories={filterCategories}
+        selectedId={advancedFilter.categoryId}
+        type="expense"
+        onchange={(id) => (advancedFilter.categoryId = id)}
+        placeholder={m.bank_review_header_category()}
+        class="min-w-40"
+      />
+      {#if advancedActive}
+        <button
+          type="button"
+          onclick={onclearfilter}
+          class="h-9 rounded-full border border-white/10 px-3 text-xs font-medium text-slate-300 hover:bg-white/5"
+        >
+          {m.bank_review_filter_clear()}
+        </button>
+      {/if}
+    </div>
   </div>
 
   {#if totalActiveRows === 0}
@@ -384,13 +443,15 @@
                 {/if}
               </td>
               <td class="min-w-48 px-3 py-2 align-top">
-                <ImportCategoryCombobox
+                <CategorySelect
                   class="min-w-40"
                   categories={categoriesFor(row.type)}
                   type={row.type}
                   selectedId={row.selected_category_id}
+                  placeholder={m.bank_review_header_category()}
                   onchange={(id) => onCategoryChange(row, id)}
                   oncreate={createCategoryInline}
+                  pillMode
                 />
                 <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
                   {#if rule}
@@ -475,13 +536,15 @@
               });
             }}
           />
-          <ImportCategoryCombobox
+          <CategorySelect
             class="w-full min-w-0"
             categories={categoriesFor(row.type)}
             type={row.type}
             selectedId={row.selected_category_id}
+            placeholder={m.bank_review_header_category()}
             onchange={(id) => onCategoryChange(row, id)}
             oncreate={createCategoryInline}
+            pillMode
           />
           <div class="flex flex-wrap items-center gap-2">
             {#if rule}

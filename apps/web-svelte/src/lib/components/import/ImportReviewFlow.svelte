@@ -21,6 +21,12 @@
   } from "$lib/import/categorize";
   import type { CategorizationRule, TransactionType } from "$lib/types";
   import { importAdapterLabel } from "$lib/import/banks/registry";
+  import {
+    filterImportRows,
+    isImportRowFilterActive,
+    EMPTY_IMPORT_ROW_FILTER,
+    type ImportRowFilter,
+  } from "$lib/import/filter-rows";
   import type { ImportAdapterKind } from "$lib/import/banks/types";
   import {
     commitImportSession,
@@ -70,6 +76,11 @@
   const rowsKey = $derived(["import_session_rows", session.id]);
 
   let filter = $state<FilterKind>("all");
+  let advancedFilter = $state<ImportRowFilter>({ ...EMPTY_IMPORT_ROW_FILTER });
+  const advancedActive = $derived(isImportRowFilterActive(advancedFilter));
+  function clearAdvancedFilter(): void {
+    advancedFilter = { ...EMPTY_IMPORT_ROW_FILTER };
+  }
   let confirmOpen = $state(false);
   let editRuleOpen = $state(false);
   let editingRule = $state<CategorizationRule | null>(null);
@@ -170,20 +181,26 @@
 
   const visibleRows = $derived.by(() => {
     if (inspectedRule) return inspectedRuleRows;
+    let base: typeof activeRows;
     switch (filter) {
       case "pending":
-        return activeRows.filter((r) => r.decision === "pending");
+        base = activeRows.filter((r) => r.decision === "pending");
+        break;
       case "uncategorized":
-        return activeRows.filter((r) => r.selected_category_id == null);
-      case "all":
-        return activeRows;
+        base = activeRows.filter((r) => r.selected_category_id == null);
+        break;
       case "income":
-        return activeRows.filter((r) => r.type === "income");
+        base = activeRows.filter((r) => r.type === "income");
+        break;
       case "expense":
-        return activeRows.filter((r) => r.type === "expense");
+        base = activeRows.filter((r) => r.type === "expense");
+        break;
+      case "all":
       default:
-        return activeRows.filter((r) => r.decision === "pending");
+        base = activeRows;
+        break;
     }
+    return advancedActive ? filterImportRows(base, advancedFilter) : base;
   });
 
   // Bulk actions are BOTH scoped to the current filter (visibleRows).
@@ -848,6 +865,10 @@
     {filterCounts}
     {filterOptions}
     {visibleRows}
+    bind:advancedFilter
+    {advancedActive}
+    onclearfilter={clearAdvancedFilter}
+    filterCategories={categoriesQuery.data ?? []}
     totalActiveRows={activeRows.length}
     groups={groupsQuery.data ?? []}
     {categoriesFor}
