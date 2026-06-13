@@ -251,7 +251,7 @@
         id="tx-cat"
         categories={filteredCategories}
         selectedId={category_id || null}
-        type={type}
+        {type}
         onchange={(id) => (category_id = id ?? "")}
         oncreate={createCategoryInline}
         required

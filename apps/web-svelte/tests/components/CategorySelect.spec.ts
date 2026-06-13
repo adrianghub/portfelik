@@ -22,7 +22,7 @@ async function focusOpen(input: HTMLElement): Promise<void> {
   await tick();
 }
 
-describe("ImportCategoryCombobox (via CategorySelect pillMode)", () => {
+describe("CategorySelect (pillMode)", () => {
   it("shows a clear chip for the selected category and clears on click", async () => {
     const onchange = vi.fn();
     render(CategorySelect, {
