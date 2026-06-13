@@ -401,3 +401,18 @@ export async function commitImportSession(sessionId: string): Promise<CommitResu
   if (error) throw error;
   return data as unknown as CommitResult;
 }
+
+/** Inclusive day span between the earliest and latest row dates (0 when empty).
+    Drives the review nudge that aligns import frequency with the user's
+    bank-import reminder cadence. */
+export function statementSpanDays(rows: { posted_at: string }[]): number {
+  if (rows.length === 0) return 0;
+  let min = rows[0].posted_at.slice(0, 10);
+  let max = min;
+  for (const row of rows) {
+    const d = row.posted_at.slice(0, 10);
+    if (d < min) min = d;
+    if (d > max) max = d;
+  }
+  return Math.round((Date.parse(max) - Date.parse(min)) / 86_400_000) + 1;
+}

@@ -42,14 +42,31 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
   }
 }
 
+function keysEqual(a: ArrayBuffer | null, b: Uint8Array): boolean {
+  if (!a) return false;
+  const view = new Uint8Array(a);
+  if (view.length !== b.length) return false;
+  for (let i = 0; i < view.length; i++) if (view[i] !== b[i]) return false;
+  return true;
+}
+
 async function doSubscribe(userId: string): Promise<void> {
   const registration = await navigator.serviceWorker.ready;
+  const serverKey = urlBase64ToUint8Array(PUBLIC_VAPID_KEY);
 
   let subscription = await registration.pushManager.getSubscription();
+  // A subscription created under a different VAPID key can never receive pushes
+  // signed with the current pair - drop it and re-subscribe under the current key.
+  if (subscription && !keysEqual(subscription.options.applicationServerKey, serverKey)) {
+    const staleEndpoint = subscription.endpoint;
+    await subscription.unsubscribe().catch(() => {});
+    await supabase.from("push_subscriptions").delete().eq("endpoint", staleEndpoint);
+    subscription = null;
+  }
   if (!subscription) {
     subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY),
+      applicationServerKey: serverKey,
     });
   }
 

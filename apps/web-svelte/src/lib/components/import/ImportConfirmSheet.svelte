@@ -14,6 +14,7 @@
     commitPending: boolean;
     onClose: () => void;
     onCommit: () => void;
+    onSkipInne: () => void;
   }
   let {
     open,
@@ -24,6 +25,7 @@
     commitPending,
     onClose,
     onCommit,
+    onSkipInne,
   }: Props = $props();
 </script>
 
@@ -67,10 +69,15 @@
       </p>
     {/if}
 
-    <div class="flex justify-end gap-2">
+    <div class="flex flex-wrap items-center justify-end gap-2">
       <Button variant="ghost" onclick={onClose} disabled={commitPending}>
         {m.bank_confirm_back()}
       </Button>
+      {#if inneRows.length > 0}
+        <Button variant="ghost" disabled={commitPending} onclick={onSkipInne}>
+          {m.bank_confirm_skip_inne({ count: inneRows.length })}
+        </Button>
+      {/if}
       <Button variant="primary" loading={commitPending} disabled={commitPending} onclick={onCommit}>
         {m.bank_confirm_submit({ count: importCount })}
       </Button>

@@ -65,13 +65,22 @@ export function buildPlanningQueueActions(input: {
     .sort((a, b) => (b.monthlyNeeded ?? 0) - (a.monthlyNeeded ?? 0));
   if (offTrackSave[0]) {
     const plan = offTrackSave[0];
+    const paceSoFar = currentMonthPace(plan);
+    // A partial deposit this month is progress, not failure - ask only for the rest.
+    const label =
+      paceSoFar > 0
+        ? m.plans_queue_save_remaining({
+            name: plan.name,
+            amount: formatCurrency((plan.monthlyNeeded ?? 0) - paceSoFar),
+          })
+        : m.plans_queue_save_off_track({
+            name: plan.name,
+            amount: formatCurrency(plan.monthlyNeeded ?? 0),
+          });
     actions.push({
       id: `save-${plan.id}`,
       href: `/plans/${plan.id}`,
-      label: m.plans_queue_save_off_track({
-        name: plan.name,
-        amount: formatCurrency(plan.monthlyNeeded ?? 0),
-      }),
+      label,
       tone: "warn",
     });
   }

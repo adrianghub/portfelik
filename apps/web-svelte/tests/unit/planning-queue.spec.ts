@@ -193,6 +193,8 @@ describe("buildPlanningQueueActions save-pace basis", () => {
     debtMonthlyPayments: 0,
     saveMonthlyNeeded: 1000,
     surplus: 3000,
+    saveContributionsThisMonth: 0,
+    unmetSaveNeed: 1000,
     afterSaveGoals: 2000,
     unreflectedDebt: 0,
     debtAssumptionVerified: false,
@@ -216,6 +218,28 @@ describe("buildPlanningQueueActions save-pace basis", () => {
       debtTerms: {},
     });
     expect(actions.some((a) => a.id === "save-save-1")).toBe(true);
+  });
+
+  it("asks only for the remaining amount after a partial deposit this month", () => {
+    const actions = buildPlanningQueueActions({
+      summaries: [
+        summary({
+          id: "save-1",
+          name: "Wakacje",
+          kind: "save",
+          target_amount: 60_000,
+          monthlyNeeded: 1000,
+          monthlyActual: 400,
+          monthlyActualBasis: "current-month",
+        }),
+      ],
+      monthlySurplus: surplus,
+      debtTerms: {},
+    });
+    const chip = actions.find((a) => a.id === "save-save-1");
+    expect(chip).toBeDefined();
+    expect(chip?.label).toContain("jeszcze");
+    expect(chip?.label).toContain("600");
   });
 
   it("does not warn when current-month deposits meet the need", () => {

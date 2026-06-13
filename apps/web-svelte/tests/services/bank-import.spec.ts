@@ -72,6 +72,7 @@ import {
   findExistingSession,
   insertPreviewRows,
   openImportSession,
+  statementSpanDays,
   updateRowDecision,
 } from "$lib/services/bank-import";
 import type { NormalizedRow } from "$lib/import/banks/types";
@@ -258,5 +259,34 @@ describe("commitImportSession", () => {
   it("throws when the RPC errors (validation rollback)", async () => {
     h.state.results = [{ data: null, error: { message: "rows_pending" } }];
     await expect(commitImportSession("s1")).rejects.toEqual({ message: "rows_pending" });
+  });
+});
+
+describe("statementSpanDays", () => {
+  it("returns 0 for no rows", () => {
+    expect(statementSpanDays([])).toBe(0);
+  });
+
+  it("returns 1 for a single day", () => {
+    expect(statementSpanDays([{ posted_at: "2026-05-02" }])).toBe(1);
+  });
+
+  it("returns the inclusive span regardless of row order", () => {
+    expect(
+      statementSpanDays([
+        { posted_at: "2026-05-10" },
+        { posted_at: "2026-05-02" },
+        { posted_at: "2026-05-05" },
+      ])
+    ).toBe(9);
+  });
+
+  it("handles timestamps by comparing date parts only", () => {
+    expect(
+      statementSpanDays([
+        { posted_at: "2026-05-01T23:59:00Z" },
+        { posted_at: "2026-05-15T00:01:00Z" },
+      ])
+    ).toBe(15);
   });
 });
