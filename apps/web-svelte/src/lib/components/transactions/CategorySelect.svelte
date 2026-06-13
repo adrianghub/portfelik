@@ -1,6 +1,6 @@
 <!-- src/lib/components/transactions/CategorySelect.svelte -->
 <script lang="ts">
-  import { tick } from "svelte";
+  import { tick, untrack } from "svelte";
   import SingleValueCombobox from "$lib/components/ui/SingleValueCombobox.svelte";
   import * as m from "$lib/paraglide/messages";
   import { cn } from "$lib/utils";
@@ -57,16 +57,26 @@
     onchange?.(next);
   }
 
-  // Sync display name when selection changes from outside; keep pill/edit state.
+  // Sync the display name from an EXTERNAL selection change (prefill, rule apply,
+  // type switch, clear). Depends only on `selectedId` + `categories` - never on
+  // `name` - so a user's in-progress typing is never clobbered back to the
+  // currently-selected category. Without this, typing a new search over an
+  // existing category (or the smoke filling the field) resets the input and the
+  // required id is lost. The body runs untracked to keep `name` out of the deps.
   $effect(() => {
     const expected = categories.find((c) => c.id === selectedId)?.name ?? "";
-    if (idForName(name) !== selectedId) name = expected;
-    if (selectedId !== lastSelectedId) {
-      editing = pillMode ? !selectedId : true;
-      lastSelectedId = selectedId ?? null;
-    } else if (!selectedId && pillMode) {
-      editing = true;
-    }
+    untrack(() => {
+      if (selectedId !== lastSelectedId) {
+        lastSelectedId = selectedId ?? null;
+        name = expected;
+        editing = pillMode ? !selectedId : true;
+      } else if (selectedId && name === "" && expected) {
+        // Categories loaded after a prefilled id - populate the name once.
+        name = expected;
+      } else if (!selectedId && pillMode) {
+        editing = true;
+      }
+    });
   });
 
   function handleSelect(picked: string): void {

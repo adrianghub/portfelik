@@ -91,3 +91,42 @@ describe("CategorySelect (pillMode)", () => {
     await waitFor(() => expect(onchange).toHaveBeenCalledWith("c-new"));
   });
 });
+
+describe("CategorySelect (non-pill / form usage)", () => {
+  it("prefills the input with the externally-selected category name", async () => {
+    render(CategorySelect, {
+      props: { categories, type: "expense", selectedId: "c1", onchange: vi.fn() },
+    });
+    const input = screen.getByRole("combobox") as HTMLInputElement;
+    await waitFor(() => expect(input.value).toBe("Jedzenie"));
+  });
+
+  it("does NOT clobber an in-progress search back to the selected category", async () => {
+    // Regression: the sync effect used to depend on `name`, so every keystroke
+    // that did not resolve to the current id reset the input - making it
+    // impossible to type-search and change an existing category (and breaking
+    // the real-DB smoke create flow).
+    render(CategorySelect, {
+      props: { categories, type: "expense", selectedId: "c1", onchange: vi.fn() },
+    });
+    const input = screen.getByRole("combobox") as HTMLInputElement;
+    await waitFor(() => expect(input.value).toBe("Jedzenie"));
+
+    await focusOpen(input);
+    await fireEvent.input(input, { target: { value: "Trans" } });
+    await tick();
+    expect(input.value).toBe("Trans");
+  });
+
+  it("selecting a different category after typing notifies the parent with the new id", async () => {
+    const onchange = vi.fn();
+    render(CategorySelect, {
+      props: { categories, type: "expense", selectedId: "c1", onchange },
+    });
+    const input = screen.getByRole("combobox");
+    await focusOpen(input);
+    await fireEvent.input(input, { target: { value: "Trans" } });
+    await fireEvent.click(screen.getByRole("option", { name: "Transport" }));
+    expect(onchange).toHaveBeenCalledWith("c2");
+  });
+});
