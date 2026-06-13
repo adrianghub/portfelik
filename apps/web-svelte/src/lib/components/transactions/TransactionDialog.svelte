@@ -1,9 +1,10 @@
 <script lang="ts">
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import DayPicker from "$lib/components/ui/DayPicker.svelte";
-  import TransactionCategoryCombobox from "$lib/components/transactions/TransactionCategoryCombobox.svelte";
+  import CategorySelect from "$lib/components/transactions/CategorySelect.svelte";
   import * as m from "$lib/paraglide/messages";
-  import { fetchCategories } from "$lib/services/categories";
+  import { createCategory, fetchCategories } from "$lib/services/categories";
+  import { makeCreateCategoryInline } from "$lib/category-create";
   import { fetchUserGroups } from "$lib/services/groups";
   import { linkPlanTransaction } from "$lib/services/plan-settlement";
   import { createTransaction, updateTransaction } from "$lib/services/transactions";
@@ -35,6 +36,13 @@
   let { open, onclose, initial = null, planContext = null }: Props = $props();
 
   const queryClient = useQueryClient();
+
+  const createCategoryInline = makeCreateCategoryInline({
+    createCategory,
+    invalidate: () => queryClient.invalidateQueries({ queryKey: ["categories"] }),
+    toastSuccess: () => toast.success(m.toast_category_created()),
+    toastError: () => toast.error(m.toast_error()),
+  });
 
   const categoriesQuery = createQuery(() => ({
     queryKey: ["categories"],
@@ -239,10 +247,13 @@
 
     <div class="space-y-1">
       <label class={labelClass} for="tx-cat">{m.transaction_form_category()}</label>
-      <TransactionCategoryCombobox
+      <CategorySelect
         id="tx-cat"
-        bind:categoryId={category_id}
         categories={filteredCategories}
+        selectedId={category_id || null}
+        type={type}
+        onchange={(id) => (category_id = id ?? "")}
+        oncreate={createCategoryInline}
         required
       />
     </div>
