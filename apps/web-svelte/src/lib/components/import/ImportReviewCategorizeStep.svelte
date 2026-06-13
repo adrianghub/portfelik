@@ -8,6 +8,7 @@
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import CategorySelect from "$lib/components/transactions/CategorySelect.svelte";
   import type { ImportRow } from "$lib/services/bank-import";
+  import type { ImportRowFilter } from "$lib/import/filter-rows";
   import type { Category, CategorizationRule, UserGroup } from "$lib/types";
   import { cn, formatCurrency } from "$lib/utils";
   import { ChevronDown, Users } from "lucide-svelte";
@@ -25,6 +26,10 @@
     filterCounts: Record<FilterKind, number>;
     filterOptions: { kind: FilterKind; label: string }[];
     visibleRows: ImportRow[];
+    advancedFilter: ImportRowFilter;
+    advancedActive: boolean;
+    onclearfilter: () => void;
+    filterCategories: Category[];
     totalActiveRows: number;
     groups: UserGroup[];
     categoriesFor: (type: "income" | "expense") => Category[];
@@ -56,6 +61,10 @@
     filterCounts,
     filterOptions,
     visibleRows,
+    advancedFilter = $bindable<ImportRowFilter>(),
+    advancedActive,
+    onclearfilter,
+    filterCategories,
     totalActiveRows,
     groups,
     categoriesFor,
@@ -321,6 +330,54 @@
           class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-slate-400"
         />
       </div>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2">
+      <input
+        type="search"
+        bind:value={advancedFilter.text}
+        placeholder={m.bank_review_search_placeholder()}
+        class="h-9 min-w-48 flex-1 rounded-full border border-white/10 bg-slate-900/60 px-3 text-sm text-slate-200"
+      />
+      <input
+        type="number"
+        inputmode="decimal"
+        step="0.01"
+        placeholder={m.bank_review_amount_min()}
+        value={advancedFilter.amountMin ?? ""}
+        oninput={(e) =>
+          (advancedFilter.amountMin =
+            e.currentTarget.value === "" ? null : Number(e.currentTarget.value))}
+        class="h-9 w-28 rounded-full border border-white/10 bg-slate-900/60 px-3 text-sm text-slate-200"
+      />
+      <input
+        type="number"
+        inputmode="decimal"
+        step="0.01"
+        placeholder={m.bank_review_amount_max()}
+        value={advancedFilter.amountMax ?? ""}
+        oninput={(e) =>
+          (advancedFilter.amountMax =
+            e.currentTarget.value === "" ? null : Number(e.currentTarget.value))}
+        class="h-9 w-28 rounded-full border border-white/10 bg-slate-900/60 px-3 text-sm text-slate-200"
+      />
+      <CategorySelect
+        categories={filterCategories}
+        selectedId={advancedFilter.categoryId}
+        type="expense"
+        onchange={(id) => (advancedFilter.categoryId = id)}
+        placeholder={m.bank_review_header_category()}
+        class="min-w-40"
+      />
+      {#if advancedActive}
+        <button
+          type="button"
+          onclick={onclearfilter}
+          class="h-9 rounded-full border border-white/10 px-3 text-xs font-medium text-slate-300 hover:bg-white/5"
+        >
+          {m.bank_review_filter_clear()}
+        </button>
+      {/if}
     </div>
   </div>
 
