@@ -1,5 +1,6 @@
+<!-- src/lib/components/transactions/CategorySelect.svelte -->
 <script lang="ts">
-  import { tick } from "svelte";
+  import { tick, untrack } from "svelte";
   import SingleValueCombobox from "$lib/components/ui/SingleValueCombobox.svelte";
   import * as m from "$lib/paraglide/messages";
   import { cn } from "$lib/utils";
@@ -8,34 +9,35 @@
   interface Props {
     /** Categories already filtered to `type`. */
     categories: Category[];
+    /** Selection by id; "" or null means none. Bindable. */
+    selectedId?: string | null;
     type: TransactionType;
-    /** Currently selected category id, or null. */
-    selectedId: string | null;
-    /** Fired when the selection changes (existing pick, create, or clear). */
-    onchange: (id: string | null) => void;
-    /** Create a category inline; resolves to the new id (or null on failure). */
-    oncreate: (name: string, type: TransactionType) => Promise<string | null>;
+    onchange?: (id: string | null) => void;
+    /** Inline create; resolves to the new id (or null on failure). Omit to disable create. */
+    oncreate?: (name: string, type: TransactionType) => Promise<string | null>;
     id?: string;
     placeholder?: string;
     disabled?: boolean;
+    required?: boolean;
+    /** Pill-with-× display once selected (import review style). Default false. */
+    pillMode?: boolean;
     class?: string;
   }
 
   let {
     categories,
+    selectedId = $bindable(null),
     type,
-    selectedId,
     onchange,
     oncreate,
     id,
-    placeholder = m.bank_review_header_category(),
+    placeholder = m.transaction_form_select_category(),
     disabled = false,
+    required = false,
+    pillMode = false,
     class: className,
   }: Props = $props();
 
-  // The combobox edits a display name; this wrapper maps name <-> id and only
-  // notifies the parent on an explicit select/create/clear (never on raw typing),
-  // so there's no feedback loop with the externally-driven `selectedId`.
   let name = $state("");
   let editing = $state(true);
   let rootRef = $state<HTMLDivElement | null>(null);
@@ -50,41 +52,52 @@
     return categories.find((c) => c.name.toLocaleLowerCase("pl") === q)?.id ?? null;
   }
 
-  // Keep the display name in sync when the selection changes from the outside
-  // (a rule applies, a row resets, the type switches the category set). Skip when
-  // the typed name already resolves to the current selection, so in-progress
-  // typing isn't clobbered.
+  function emit(next: string | null): void {
+    selectedId = next;
+    onchange?.(next);
+  }
+
+  // Sync the display name from an EXTERNAL selection change (prefill, rule apply,
+  // type switch, clear). Depends only on `selectedId` + `categories` - never on
+  // `name` - so a user's in-progress typing is never clobbered back to the
+  // currently-selected category. Without this, typing a new search over an
+  // existing category (or the smoke filling the field) resets the input and the
+  // required id is lost. The body runs untracked to keep `name` out of the deps.
   $effect(() => {
     const expected = categories.find((c) => c.id === selectedId)?.name ?? "";
-    if (idForName(name) !== selectedId) name = expected;
-    // Keep behavior consistent no matter how category was assigned:
-    // manual pick, auto-rule application, or restored session.
-    if (selectedId !== lastSelectedId) {
-      editing = !selectedId;
-      lastSelectedId = selectedId;
-    } else if (!selectedId) {
-      editing = true;
-    }
+    untrack(() => {
+      if (selectedId !== lastSelectedId) {
+        lastSelectedId = selectedId ?? null;
+        name = expected;
+        editing = pillMode ? !selectedId : true;
+      } else if (selectedId && name === "" && expected) {
+        // Categories loaded after a prefilled id - populate the name once.
+        name = expected;
+      } else if (!selectedId && pillMode) {
+        editing = true;
+      }
+    });
   });
 
   function handleSelect(picked: string): void {
-    const id = idForName(picked);
-    onchange(id);
-    if (id) editing = false;
+    const next = idForName(picked);
+    emit(next);
+    if (next && pillMode) editing = false;
   }
 
   async function handleCreate(value: string): Promise<void> {
+    if (!oncreate) return;
     const newId = await oncreate(value, type);
     if (newId) {
       name = value;
-      onchange(newId);
-      editing = false;
+      emit(newId);
+      if (pillMode) editing = false;
     }
   }
 
   async function clearSelected(): Promise<void> {
     name = "";
-    onchange(null);
+    emit(null);
     editing = true;
     await tick();
     rootRef?.querySelector<HTMLInputElement>('input[role="combobox"]')?.focus();
@@ -92,7 +105,7 @@
 </script>
 
 <div bind:this={rootRef} class={cn("flex w-full min-w-0 items-center", className)}>
-  {#if selectedId && !editing}
+  {#if pillMode && selectedId && !editing}
     <button
       type="button"
       class={cn(
@@ -117,12 +130,15 @@
         {id}
         {placeholder}
         {disabled}
-        allowCreate
+        allowCreate={!!oncreate}
         showAllOnFocus
-        createLabel={(v) => m.bank_review_category_create({ value: v })}
+        createLabel={(v) => m.combobox_create({ value: v })}
         onchange={handleSelect}
         oncreate={(v) => void handleCreate(v)}
       />
     </div>
+  {/if}
+  {#if required}
+    <input tabindex="-1" class="sr-only" {required} value={selectedId ?? ""} />
   {/if}
 </div>

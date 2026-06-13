@@ -1,7 +1,8 @@
 <script lang="ts">
   import { Trash2, X } from "lucide-svelte";
   import * as m from "$lib/paraglide/messages";
-  import type { Category, TransactionStatus } from "$lib/types";
+  import type { Category, TransactionStatus, TransactionType } from "$lib/types";
+  import CategorySelect from "$lib/components/transactions/CategorySelect.svelte";
 
   interface Props {
     count: number;
@@ -10,6 +11,9 @@
     onclear: () => void;
     onsetstatus: (status: TransactionStatus) => void;
     onsetcategory: (categoryId: string) => void;
+    oncreatecategory?: (name: string, type: TransactionType) => Promise<string | null>;
+    /** Common type of the selection; null when mixed/unknown. Gates inline create. */
+    createType?: TransactionType | null;
     ondelete: () => void;
   }
 
@@ -20,6 +24,8 @@
     onclear,
     onsetstatus,
     onsetcategory,
+    oncreatecategory,
+    createType = null,
     ondelete,
   }: Props = $props();
 
@@ -34,14 +40,6 @@
     const el = e.target as HTMLSelectElement;
     if (el.value) {
       onsetstatus(el.value as TransactionStatus);
-      el.value = "";
-    }
-  }
-
-  function onCategorySelect(e: Event) {
-    const el = e.target as HTMLSelectElement;
-    if (el.value) {
-      onsetcategory(el.value);
       el.value = "";
     }
   }
@@ -79,17 +77,18 @@
       {/each}
     </select>
 
-    <select
-      onchange={onCategorySelect}
+    <CategorySelect
+      {categories}
+      selectedId={null}
+      type={createType ?? "expense"}
+      onchange={(id) => {
+        if (id) onsetcategory(id);
+      }}
+      oncreate={createType ? oncreatecategory : undefined}
       disabled={pending}
-      class={selectClass}
-      aria-label={m.transactions_bulk_set_category()}
-    >
-      <option value="">{m.transactions_bulk_set_category()}</option>
-      {#each categories as cat (cat.id)}
-        <option value={cat.id}>{cat.name}</option>
-      {/each}
-    </select>
+      placeholder={m.transactions_bulk_set_category()}
+      class="min-w-48"
+    />
 
     <button
       type="button"

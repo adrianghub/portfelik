@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/svelte";
 import { tick } from "svelte";
 import { describe, expect, it, vi } from "vitest";
-import ImportCategoryCombobox from "$lib/components/import/ImportCategoryCombobox.svelte";
+import CategorySelect from "$lib/components/transactions/CategorySelect.svelte";
 import type { Category } from "$lib/types";
 
 const cat = (id: string, name: string): Category => ({
@@ -22,16 +22,17 @@ async function focusOpen(input: HTMLElement): Promise<void> {
   await tick();
 }
 
-describe("ImportCategoryCombobox", () => {
+describe("CategorySelect (pillMode)", () => {
   it("shows a clear chip for the selected category and clears on click", async () => {
     const onchange = vi.fn();
-    render(ImportCategoryCombobox, {
+    render(CategorySelect, {
       props: {
         categories,
         type: "expense",
         selectedId: "c1",
         onchange,
         oncreate: async () => null,
+        pillMode: true,
       },
     });
 
@@ -43,13 +44,14 @@ describe("ImportCategoryCombobox", () => {
   });
 
   it("renders the combobox when nothing is selected", () => {
-    render(ImportCategoryCombobox, {
+    render(CategorySelect, {
       props: {
         categories,
         type: "expense",
         selectedId: null,
         onchange: vi.fn(),
         oncreate: async () => null,
+        pillMode: true,
       },
     });
     expect(screen.getByRole("combobox")).toBeTruthy();
@@ -57,13 +59,14 @@ describe("ImportCategoryCombobox", () => {
 
   it("selecting a category name notifies the parent with its id", async () => {
     const onchange = vi.fn();
-    render(ImportCategoryCombobox, {
+    render(CategorySelect, {
       props: {
         categories,
         type: "expense",
         selectedId: null,
         onchange,
         oncreate: async () => null,
+        pillMode: true,
       },
     });
 
@@ -75,8 +78,8 @@ describe("ImportCategoryCombobox", () => {
   it("creating a category calls oncreate(name, type) then notifies with the new id", async () => {
     const onchange = vi.fn();
     const oncreate = vi.fn(async () => "c-new");
-    render(ImportCategoryCombobox, {
-      props: { categories, type: "expense", selectedId: null, onchange, oncreate },
+    render(CategorySelect, {
+      props: { categories, type: "expense", selectedId: null, onchange, oncreate, pillMode: true },
     });
 
     const input = screen.getByRole("combobox");
@@ -86,5 +89,44 @@ describe("ImportCategoryCombobox", () => {
 
     expect(oncreate).toHaveBeenCalledWith("Wakacje", "expense");
     await waitFor(() => expect(onchange).toHaveBeenCalledWith("c-new"));
+  });
+});
+
+describe("CategorySelect (non-pill / form usage)", () => {
+  it("prefills the input with the externally-selected category name", async () => {
+    render(CategorySelect, {
+      props: { categories, type: "expense", selectedId: "c1", onchange: vi.fn() },
+    });
+    const input = screen.getByRole("combobox") as HTMLInputElement;
+    await waitFor(() => expect(input.value).toBe("Jedzenie"));
+  });
+
+  it("does NOT clobber an in-progress search back to the selected category", async () => {
+    // Regression: the sync effect used to depend on `name`, so every keystroke
+    // that did not resolve to the current id reset the input - making it
+    // impossible to type-search and change an existing category (and breaking
+    // the real-DB smoke create flow).
+    render(CategorySelect, {
+      props: { categories, type: "expense", selectedId: "c1", onchange: vi.fn() },
+    });
+    const input = screen.getByRole("combobox") as HTMLInputElement;
+    await waitFor(() => expect(input.value).toBe("Jedzenie"));
+
+    await focusOpen(input);
+    await fireEvent.input(input, { target: { value: "Trans" } });
+    await tick();
+    expect(input.value).toBe("Trans");
+  });
+
+  it("selecting a different category after typing notifies the parent with the new id", async () => {
+    const onchange = vi.fn();
+    render(CategorySelect, {
+      props: { categories, type: "expense", selectedId: "c1", onchange },
+    });
+    const input = screen.getByRole("combobox");
+    await focusOpen(input);
+    await fireEvent.input(input, { target: { value: "Trans" } });
+    await fireEvent.click(screen.getByRole("option", { name: "Transport" }));
+    expect(onchange).toHaveBeenCalledWith("c2");
   });
 });
