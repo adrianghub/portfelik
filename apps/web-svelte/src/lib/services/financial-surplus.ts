@@ -21,6 +21,13 @@ export interface MonthlySurplusInput {
    * omit this field (not pass `0`) unless coverage was actually detected.
    */
   debtPaymentsInExpenses?: number;
+  /**
+   * Save-goal deposits already made this calendar month (current-month linked income
+   * across active save plans). Credited against `saveMonthlyNeeded` so a deposit is not
+   * punished twice: once as the transfer's expense side inside `totalExpenses` and again
+   * as a still-unmet monthly pace. Defaults to 0 (no observed deposits).
+   */
+  saveContributionsThisMonth?: number;
 }
 
 export interface MonthlySurplusSummary {
@@ -31,7 +38,11 @@ export interface MonthlySurplusSummary {
   saveMonthlyNeeded: number;
   /** Month cashflow (income − expenses). Raty kredytów nie odejmujemy ponownie - są już w wydatkach. */
   surplus: number;
-  /** Cashflow minus save-goal pace minus any debt obligation not reflected in expenses. */
+  /** Save-goal deposits already made this month (observed linked income). */
+  saveContributionsThisMonth: number;
+  /** Monthly save pace still left to cover after this month's deposits. */
+  unmetSaveNeed: number;
+  /** Cashflow minus UNMET save-goal pace minus any debt obligation not reflected in expenses. */
   afterSaveGoals: number;
   /** Debt obligation NOT observed inside expenses (subtracted from afterSaveGoals). */
   unreflectedDebt: number;
@@ -48,7 +59,9 @@ export function computeMonthlySurplus(input: MonthlySurplusInput): MonthlySurplu
   const debtAssumptionVerified = input.debtPaymentsInExpenses !== undefined;
   const observed = input.debtPaymentsInExpenses ?? input.debtMonthlyPayments;
   const unreflectedDebt = Math.max(0, input.debtMonthlyPayments - observed);
-  const afterSaveGoals = cashflowNet - input.saveMonthlyNeeded - unreflectedDebt;
+  const saveContributionsThisMonth = input.saveContributionsThisMonth ?? 0;
+  const unmetSaveNeed = Math.max(0, input.saveMonthlyNeeded - saveContributionsThisMonth);
+  const afterSaveGoals = cashflowNet - unmetSaveNeed - unreflectedDebt;
   return {
     totalIncome: input.totalIncome,
     totalExpenses: input.totalExpenses,
@@ -56,6 +69,8 @@ export function computeMonthlySurplus(input: MonthlySurplusInput): MonthlySurplu
     saveMonthlyNeeded: input.saveMonthlyNeeded,
     cashflowNet,
     surplus: cashflowNet,
+    saveContributionsThisMonth,
+    unmetSaveNeed,
     afterSaveGoals,
     unreflectedDebt,
     debtAssumptionVerified,

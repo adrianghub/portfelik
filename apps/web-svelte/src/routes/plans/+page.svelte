@@ -234,12 +234,20 @@
           .reduce((sum, p) => sum + (progressQuery.data?.[p.id]?.linkedExpenseCurrentMonth ?? 0), 0)
       : 0;
     const debtPaymentsInExpenses = gateObservedDebtCoverage(observedDebtCoverage);
+    // Deposits already made this month (linked income on active save plans) are credited
+    // against the monthly pace - saving toward a goal must not read as falling behind.
+    const saveContributionsThisMonth = progressQuery.data
+      ? scopedSummaries
+          .filter((p) => p.kind === "save" && p.bucket === "active")
+          .reduce((sum, p) => sum + (progressQuery.data?.[p.id]?.linkedIncomeCurrentMonth ?? 0), 0)
+      : 0;
     return computeMonthlySurplus({
       totalIncome: monthSummary.total_income,
       totalExpenses: monthSummary.total_expenses,
       debtMonthlyPayments: sumDebtMonthlyPayments(scopedSummaries, scopedDebtTerms),
       saveMonthlyNeeded: sumSaveMonthlyNeeded(scopedSummaries),
       debtPaymentsInExpenses,
+      saveContributionsThisMonth,
     });
   });
 

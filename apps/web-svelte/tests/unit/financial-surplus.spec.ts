@@ -108,6 +108,45 @@ describe("computeMonthlySurplus", () => {
     expect(result.afterSaveGoals).toBe(200);
   });
 
+  it("credits this month's save deposits against the monthly pace", () => {
+    // User transferred 1000 toward a goal (linked income); transfer's expense side
+    // already sits in totalExpenses. Only the remaining 667 may reduce the headline.
+    const result = computeMonthlySurplus({
+      totalIncome: 10000,
+      totalExpenses: 7000,
+      debtMonthlyPayments: 0,
+      saveMonthlyNeeded: 1667,
+      saveContributionsThisMonth: 1000,
+    });
+    expect(result.saveContributionsThisMonth).toBe(1000);
+    expect(result.unmetSaveNeed).toBe(667);
+    expect(result.afterSaveGoals).toBe(3000 - 667);
+  });
+
+  it("does not punish deposits beyond the monthly pace", () => {
+    const result = computeMonthlySurplus({
+      totalIncome: 10000,
+      totalExpenses: 7000,
+      debtMonthlyPayments: 0,
+      saveMonthlyNeeded: 1667,
+      saveContributionsThisMonth: 2500,
+    });
+    expect(result.unmetSaveNeed).toBe(0);
+    expect(result.afterSaveGoals).toBe(3000);
+  });
+
+  it("keeps legacy behaviour when no deposits are observed", () => {
+    const result = computeMonthlySurplus({
+      totalIncome: 10000,
+      totalExpenses: 7000,
+      debtMonthlyPayments: 0,
+      saveMonthlyNeeded: 1667,
+    });
+    expect(result.saveContributionsThisMonth).toBe(0);
+    expect(result.unmetSaveNeed).toBe(1667);
+    expect(result.afterSaveGoals).toBe(3000 - 1667);
+  });
+
   it("clamps unreflected debt at zero when expenses over-report the payment", () => {
     const result = computeMonthlySurplus({
       totalIncome: 5000,

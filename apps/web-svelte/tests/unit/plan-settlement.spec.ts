@@ -355,6 +355,25 @@ describe("computePlanProgress linkedExpenseCurrentMonth", () => {
     expect(progress.linkedExpenseCurrentMonth).toBe(2370);
   });
 
+  it("sums current-month paid linked incomes (save deposit coverage)", () => {
+    const progress = computePlanProgress({
+      planId: "save-1",
+      planName: "Wakacje",
+      kind: "save",
+      budgetAmount: null,
+      targetAmount: 40000,
+      startDate: "2026-06-01",
+      endDate: "2028-06-01",
+      linkedTransactions: [
+        tx({ id: "a", type: "income", amount: 1000, date: "2026-06-05", status: "paid" }),
+        tx({ id: "b", type: "income", amount: 800, date: "2026-05-20", status: "paid" }),
+        tx({ id: "c", type: "income", amount: 500, date: "2026-06-07", status: "upcoming" }),
+      ],
+      today: "2026-06-08",
+    });
+    expect(progress.linkedIncomeCurrentMonth).toBe(1000);
+  });
+
   it("excludes non-current-month and non-paid linked expenses", () => {
     const progress = computePlanProgress({
       planId: "debt-1",
