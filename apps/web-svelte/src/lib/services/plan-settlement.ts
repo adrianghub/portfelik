@@ -12,6 +12,7 @@ import {
   todayIso,
 } from "$lib/services/plans";
 import { supabase } from "$lib/supabase";
+import { suggestRuleText } from "$lib/import/categorize";
 import type { Plan, PlanKind, TransactionType, TransactionWithCategory } from "$lib/types";
 
 export interface PlanTransactionLink {
@@ -233,11 +234,26 @@ function extractKeywords(name: string): string[] {
 /** Suggestions below this rank are hidden entirely - baseline-only rows carry no real signal. */
 export const MIN_SUGGESTION_RANK_PCT = 45;
 
+// A stable similarity key for "the user already rejected things like this on this plan".
+// Counterparty-preferred token (same extractor the import rules use) so repeated dismissals
+// of e.g. "Żabka" suppress future Żabka rows without touching unrelated candidates.
+function dismissalKey(tx: {
+  type: TransactionType;
+  description: string;
+  counterparty: string | null;
+}): string {
+  return suggestRuleText({
+    type: tx.type,
+    description: tx.description,
+    counterparty: tx.counterparty,
+  }).toLowerCase();
+}
+
 export function rankPlanTransaction(
   plan: Pick<Plan, "category_id" | "name" | "budget_amount" | "kind" | "target_amount">,
   tx: TransactionWithCategory,
   spentAmount: number,
-  opts?: { savedAmount?: number; today?: string }
+  opts?: { savedAmount?: number; today?: string; dismissedKeys?: ReadonlySet<string> }
 ): RankedTransaction {
   const reasons: RankedTransactionReason[] = [
     { key: "date_in_range", label: "", signal: "match" },
@@ -288,6 +304,16 @@ export function rankPlanTransaction(
     reasons.push({ key: "recent", label: "", signal: "match" });
   }
 
+  // Settlement memory: a candidate similar to one the user already dismissed on this plan
+  // is penalised below the visibility cutoff, so the same rejected merchant stops resurfacing.
+  if (opts?.dismissedKeys && opts.dismissedKeys.size > 0) {
+    const key = dismissalKey(tx);
+    if (key !== "" && opts.dismissedKeys.has(key)) {
+      score -= 40;
+      reasons.push({ key: "dismissed_similar", label: "", signal: "warn" });
+    }
+  }
+
   const rankPct = Math.min(100, Math.round(score));
   const rankLabel: "high" | "medium" | "low" =
     rankPct >= 75 ? "high" : rankPct >= MIN_SUGGESTION_RANK_PCT ? "medium" : "low";
@@ -325,21 +351,42 @@ export async function fetchSuggestionCount(planId: string): Promise<number> {
   return countRankedSuggestions(plan, eligible, linked, new Set(dismissed));
 }
 
+/** Similarity keys of transactions previously dismissed on this plan (settlement memory). */
+async function fetchDismissedKeys(planId: string): Promise<Set<string>> {
+  const ids = await fetchDismissedTransactionIds(planId);
+  if (ids.length === 0) return new Set();
+  const { data, error } = await supabase
+    .from("transactions_with_category")
+    .select("type, description, counterparty")
+    .in("id", ids);
+  if (error) throw error;
+  const keys = new Set<string>();
+  for (const t of (data ?? []) as Pick<
+    TransactionWithCategory,
+    "type" | "description" | "counterparty"
+  >[]) {
+    const key = dismissalKey(t);
+    if (key !== "") keys.add(key);
+  }
+  return keys;
+}
+
 export async function fetchRankedEligibleTransactions(
   planId: string,
   opts?: { type?: TransactionType | "all" }
 ): Promise<RankedTransaction[]> {
   const plan = await fetchPlanForSettlement(planId);
   const blockedIds = await fetchBlockedTransactionIds();
-  const [eligible, linked] = await Promise.all([
+  const [eligible, linked, dismissedKeys] = await Promise.all([
     fetchEligibleSettlementTransactions(planId, opts, { plan, blockedIds }),
     fetchLinkedTransactions(planId),
+    fetchDismissedKeys(planId),
   ]);
   const spentAmount = linked.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
   const savedAmount = linked.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
 
   return eligible
-    .map((tx) => rankPlanTransaction(plan, tx, spentAmount, { savedAmount }))
+    .map((tx) => rankPlanTransaction(plan, tx, spentAmount, { savedAmount, dismissedKeys }))
     .filter((r) => r.rankPct >= MIN_SUGGESTION_RANK_PCT)
     .sort((a, b) => b.score - a.score);
 }

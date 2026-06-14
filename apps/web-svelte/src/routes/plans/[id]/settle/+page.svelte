@@ -178,6 +178,7 @@
     if (key === "amount") return m.plan_settle_reason_amount();
     if (key === "recent") return m.plan_settle_reason_recent();
     if (key === "other_category") return m.plan_settle_reason_other_category({ name: label });
+    if (key === "dismissed_similar") return m.plan_settle_reason_dismissed_similar();
     return label;
   }
 

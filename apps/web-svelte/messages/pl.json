@@ -564,6 +564,7 @@
   "attention_settle_few": "{count} transakcje do rozliczenia → {name}",
   "attention_settle_many": "{count} transakcji do rozliczenia → {name}",
   "attention_save_offtrack": "Cel „{name}” poniżej tempa",
+  "plan_settle_reason_dismissed_similar": "Podobne odrzucono wcześniej",
   "dashboard_import_health_stale": "Od ostatniego importu minęło {days} dni.",
   "dashboard_import_health_cta": "Importuj wyciąg",
   "dashboard_import_health_fresh": "Wyciąg jest aktualny.",
