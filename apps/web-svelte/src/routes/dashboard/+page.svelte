@@ -93,7 +93,7 @@
   const queryClient = useQueryClient();
 
   const groupRolesQuery = createQuery(() => ({
-    queryKey: ["group_roles"],
+    queryKey: ["my-group-roles"],
     queryFn: fetchMyGroupRoles,
     enabled: !!userId,
   }));
@@ -530,6 +530,8 @@
           <div class="h-14 animate-pulse rounded-xl border border-white/5 bg-slate-900/60"></div>
         {/each}
       </div>
+    {:else if txQuery.isError}
+      <p class="py-6 text-center text-sm text-rose-300">{m.common_error_title()}</p>
     {:else if upcomingTxs.length === 0}
       <p class="py-6 text-center text-sm text-slate-400">
         {m.dashboard_empty_upcoming()}
