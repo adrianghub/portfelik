@@ -67,6 +67,31 @@ export function suggestRuleText(
   return normalized;
 }
 
+export interface CapturedRuleDraft {
+  kind: "contains";
+  match_description: string;
+  match_counterparty: string;
+  match_type: null;
+}
+
+/**
+ * Build a "contains" rule draft from a transaction the user just (re)categorized, so future
+ * imports of similar rows auto-apply the same category. Mirrors the import-flow capture: the
+ * suggested token is matched against both description and counterparty (OR logic), and
+ * `match_type` stays null - the category-type safeguard in `matchCategory` keeps it correct.
+ * Returns null when no usable token exists (caller should then offer nothing).
+ */
+export function suggestRuleFromRow(row: MatchableRow): CapturedRuleDraft | null {
+  const text = suggestRuleText(row);
+  if (text.trim() === "") return null;
+  return {
+    kind: "contains",
+    match_description: text,
+    match_counterparty: text,
+    match_type: null,
+  };
+}
+
 function textMatches(
   rule: CategorizationRule,
   row: MatchableRow,
@@ -146,6 +171,44 @@ export function resolveCategorizationRule(
     return rule;
   }
   return null;
+}
+
+/** A stored transaction reduced to what retroactive rule application needs. */
+export interface RetroTransaction extends MatchableRow {
+  id: string;
+  user_id: string;
+  category_id: string | null;
+  date?: string | null;
+}
+
+/**
+ * Select ids of the user's own transactions a freshly-created rule would re-categorize:
+ * the rule matches (via the same safeguards as import - category exists, type agrees) and
+ * the transaction is not already in the rule's target category. Pure for unit testing.
+ */
+export function selectRetroMatches(
+  rule: CategorizationRule,
+  transactions: RetroTransaction[],
+  categories: Category[],
+  userId: string
+): string[] {
+  return transactions
+    .filter(
+      (tx) =>
+        tx.user_id === userId &&
+        tx.category_id !== rule.category_id &&
+        matchCategory(
+          {
+            type: tx.type,
+            description: tx.description,
+            counterparty: tx.counterparty,
+            posted_at: tx.date ?? null,
+          },
+          [rule],
+          categories
+        ) === rule.category_id
+    )
+    .map((tx) => tx.id);
 }
 
 export function isEquivalentCategorizationRule(

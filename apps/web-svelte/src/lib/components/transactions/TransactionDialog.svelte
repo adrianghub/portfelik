@@ -7,7 +7,13 @@
   import { makeCreateCategoryInline } from "$lib/category-create";
   import { fetchUserGroups } from "$lib/services/groups";
   import { linkPlanTransaction } from "$lib/services/plan-settlement";
-  import { createTransaction, updateTransaction } from "$lib/services/transactions";
+  import {
+    createTransaction,
+    updateTransaction,
+    updateTransactionsCategory,
+  } from "$lib/services/transactions";
+  import { createCategorizationRule, findRetroMatchIds } from "$lib/services/categorization-rules";
+  import { suggestRuleFromRow } from "$lib/import/categorize";
   import type {
     RecurrenceFrequency,
     Transaction,
@@ -143,11 +149,68 @@
         toast.success(m.plan_settle_linked());
       } else {
         toast.success(isEdit ? m.toast_transaction_updated() : m.toast_transaction_created());
+        maybeOfferRuleCapture();
       }
       onclose();
     },
     onError: () => toast.error(m.toast_error()),
   }));
+
+  async function applyRuleRetro(categoryId: string, ids: string[]): Promise<void> {
+    try {
+      await updateTransactionsCategory(ids, categoryId);
+      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      await queryClient.invalidateQueries({ queryKey: ["plan-progress"] });
+      toast.success(m.rule_apply_done({ count: ids.length }));
+    } catch {
+      toast.error(m.toast_error());
+    }
+  }
+
+  function maybeOfferRuleCapture(): void {
+    // Learn from the correction: when an existing transaction is moved to a different category,
+    // offer (never auto-create) a rule so future imports apply it. Plan-linked saves are skipped.
+    if (!isEdit || !initial) return;
+    if (!category_id || category_id === initial.category_id) return;
+    const draft = suggestRuleFromRow({
+      type,
+      description,
+      counterparty: counterparty.trim() || null,
+    });
+    if (!draft) return;
+    const targetCategoryId = category_id;
+    const token = draft.match_counterparty || draft.match_description;
+    toast(m.rule_capture_offer({ text: token }), {
+      action: {
+        label: m.rule_capture_action(),
+        onClick: () => {
+          void (async () => {
+            try {
+              const created = await createCategorizationRule({
+                ...draft,
+                category_id: targetCategoryId,
+                priority: 10,
+              });
+              await queryClient.invalidateQueries({ queryKey: ["categorization_rules"] });
+              const matchIds = await findRetroMatchIds(created);
+              if (matchIds.length > 0) {
+                toast.success(m.rule_capture_created(), {
+                  action: {
+                    label: m.rule_apply_action({ count: matchIds.length }),
+                    onClick: () => void applyRuleRetro(created.category_id, matchIds),
+                  },
+                });
+              } else {
+                toast.success(m.rule_capture_created());
+              }
+            } catch {
+              toast.info(m.rule_capture_exists());
+            }
+          })();
+        },
+      },
+    });
+  }
 
   function handleSubmit(e: Event) {
     e.preventDefault();
