@@ -553,7 +553,12 @@
         {/if}
       </div>
 
-      <div class="grid gap-4 lg:grid-cols-2">
+      <div
+        class={cn(
+          "grid gap-4",
+          plan.kind !== "save" && (plan.kind !== "spend" || incomes.length > 0) && "lg:grid-cols-2"
+        )}
+      >
         {#if plan.kind !== "save"}
           {@render LinkedSection({
             title: m.plan_linked_expenses(),
