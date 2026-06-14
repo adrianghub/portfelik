@@ -313,6 +313,7 @@
   "shopping_list_form_no_category": "Bez kategorii",
   "toast_transaction_created": "Transakcja dodana",
   "toast_transaction_updated": "Transakcja zaktualizowana",
+  "transaction_plan_period_error": "Data musi mieścić się w okresie planu ({from} - {to}).",
   "rule_capture_offer": "Zawsze przypisywać „{text}” do tej kategorii?",
   "rule_capture_action": "Zapamiętaj",
   "rule_capture_created": "Reguła zapisana - przyszłe importy zrobią to automatycznie.",
