@@ -83,6 +83,7 @@
     mutationFn: () => createGroup(newGroupName),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["user_groups"] });
+      await queryClient.invalidateQueries({ queryKey: ["my-group-roles"] });
       toast.success(m.toast_group_created());
       newGroupName = "";
       showCreateGroup = false;
@@ -115,6 +116,7 @@
     mutationFn: () => disbandGroup(disbandGroupId!),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["user_groups"] });
+      await queryClient.invalidateQueries({ queryKey: ["my-group-roles"] });
       toast.success(m.toast_group_disbanded());
       disbandGroupId = null;
     },
@@ -136,6 +138,7 @@
     mutationFn: () => leaveGroup(leaveGroupId!),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["user_groups"] });
+      await queryClient.invalidateQueries({ queryKey: ["my-group-roles"] });
       toast.success(m.toast_group_left());
       leaveGroupId = null;
     },
@@ -147,6 +150,7 @@
     mutationFn: (id: string) => acceptInvitation(id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["user_groups"] });
+      await queryClient.invalidateQueries({ queryKey: ["my-group-roles"] });
       await queryClient.invalidateQueries({ queryKey: ["group_invitations_received"] });
       toast.success(m.toast_invitation_accepted());
     },

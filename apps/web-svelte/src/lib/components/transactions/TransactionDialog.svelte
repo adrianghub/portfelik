@@ -7,7 +7,13 @@
   import { makeCreateCategoryInline } from "$lib/category-create";
   import { fetchUserGroups } from "$lib/services/groups";
   import { linkPlanTransaction } from "$lib/services/plan-settlement";
-  import { createTransaction, updateTransaction } from "$lib/services/transactions";
+  import {
+    createTransaction,
+    updateTransaction,
+    updateTransactionsCategory,
+  } from "$lib/services/transactions";
+  import { createCategorizationRule, findRetroMatchIds } from "$lib/services/categorization-rules";
+  import { suggestRuleFromRow } from "$lib/import/categorize";
   import type {
     RecurrenceFrequency,
     Transaction,
@@ -15,7 +21,7 @@
     TransactionType,
   } from "$lib/types";
   import { isoWeekdayName, recurrenceSummary } from "$lib/recurrence";
-  import { monthName } from "$lib/utils";
+  import { formatDate, monthName } from "$lib/utils";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { untrack } from "svelte";
   import { toast } from "svelte-sonner";
@@ -25,6 +31,9 @@
     type: TransactionType;
     groupId?: string | null;
     categoryId?: string | null;
+    /** Plan period - a linked transaction must fall within it (RPC rejects otherwise). */
+    startDate?: string;
+    endDate?: string;
   }
 
   interface Props {
@@ -79,9 +88,11 @@
     untrack(() => initial?.recurrence_month ?? new Date().getMonth() + 1)
   );
   let group_id = $state<string>(untrack(() => initial?.group_id ?? ""));
+  let formError = $state<string | null>(null);
 
   $effect(() => {
     if (open) {
+      formError = null;
       type = initial?.type ?? planContext?.type ?? "expense";
       amount = initial ? String(Math.abs(initial.amount)) : "";
       counterparty = initial?.counterparty ?? "";
@@ -143,14 +154,83 @@
         toast.success(m.plan_settle_linked());
       } else {
         toast.success(isEdit ? m.toast_transaction_updated() : m.toast_transaction_created());
+        maybeOfferRuleCapture();
       }
       onclose();
     },
     onError: () => toast.error(m.toast_error()),
   }));
 
+  async function applyRuleRetro(categoryId: string, ids: string[]): Promise<void> {
+    try {
+      await updateTransactionsCategory(ids, categoryId);
+      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      await queryClient.invalidateQueries({ queryKey: ["plan-progress"] });
+      toast.success(m.rule_apply_done({ count: ids.length }));
+    } catch {
+      toast.error(m.toast_error());
+    }
+  }
+
+  function maybeOfferRuleCapture(): void {
+    // Learn from the correction: when an existing transaction is moved to a different category,
+    // offer (never auto-create) a rule so future imports apply it. Plan-linked saves are skipped.
+    if (!isEdit || !initial) return;
+    if (!category_id || category_id === initial.category_id) return;
+    const draft = suggestRuleFromRow({
+      type,
+      description,
+      counterparty: counterparty.trim() || null,
+    });
+    if (!draft) return;
+    const targetCategoryId = category_id;
+    const token = draft.match_counterparty || draft.match_description;
+    toast(m.rule_capture_offer({ text: token }), {
+      action: {
+        label: m.rule_capture_action(),
+        onClick: () => {
+          void (async () => {
+            try {
+              const created = await createCategorizationRule({
+                ...draft,
+                category_id: targetCategoryId,
+                priority: 10,
+              });
+              await queryClient.invalidateQueries({ queryKey: ["categorization_rules"] });
+              const matchIds = await findRetroMatchIds(created);
+              if (matchIds.length > 0) {
+                toast.success(m.rule_capture_created(), {
+                  action: {
+                    label: m.rule_apply_action({ count: matchIds.length }),
+                    onClick: () => void applyRuleRetro(created.category_id, matchIds),
+                  },
+                });
+              } else {
+                toast.success(m.rule_capture_created());
+              }
+            } catch {
+              toast.info(m.rule_capture_exists());
+            }
+          })();
+        },
+      },
+    });
+  }
+
   function handleSubmit(e: Event) {
     e.preventDefault();
+    formError = null;
+    // A plan-linked transaction must fall within the plan period, or the link RPC rejects it
+    // and leaves an orphan transaction. Validate up front and tell the user the allowed range.
+    if (planContext?.startDate && planContext?.endDate) {
+      if (date < planContext.startDate || date > planContext.endDate) {
+        formError = m.transaction_plan_period_error({
+          from: formatDate(planContext.startDate),
+          to: formatDate(planContext.endDate),
+        });
+        return;
+      }
+    }
     const usesDay =
       is_recurring && (recurrence_frequency === "monthly" || recurrence_frequency === "yearly");
     mutation.mutate({
@@ -390,6 +470,9 @@
       <p class="text-sm text-rose-300">{m.common_error_title()}</p>
     {/if}
 
+    {#if formError}
+      <p class="text-sm text-rose-300">{formError}</p>
+    {/if}
     <div class="flex gap-2 pt-1">
       <button
         type="button"

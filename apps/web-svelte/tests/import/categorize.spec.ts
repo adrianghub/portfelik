@@ -3,8 +3,11 @@ import {
   findDuplicateCategorizationRule,
   matchCategory,
   resolveCategorizationRule,
+  selectRetroMatches,
+  suggestRuleFromRow,
   suggestRuleText,
   type MatchableRow,
+  type RetroTransaction,
 } from "$lib/import/categorize";
 import type { CategorizationRule, Category } from "$lib/types";
 
@@ -171,5 +174,60 @@ describe("import/categorize matchCategory", () => {
   it("skips rules whose category no longer exists", () => {
     const rules = [rule({ match_description: "biedronka", category_id: "deleted-cat" })];
     expect(matchCategory(expenseRow, rules, categories)).toBeNull();
+  });
+});
+
+describe("suggestRuleFromRow", () => {
+  it("builds a contains rule from the suggested token (counterparty preferred)", () => {
+    const draft = suggestRuleFromRow({
+      type: "expense",
+      description: "Płatność kartą",
+      counterparty: "Żabka Z123",
+    });
+    expect(draft).toEqual({
+      kind: "contains",
+      match_description: "Żabka",
+      match_counterparty: "Żabka",
+      match_type: null,
+    });
+  });
+
+  it("falls back to a description token when counterparty is absent", () => {
+    const draft = suggestRuleFromRow({
+      type: "expense",
+      description: "Zakup Biedronka 4456",
+      counterparty: null,
+    });
+    expect(draft?.match_description).toBe("Biedronka");
+    expect(draft?.match_counterparty).toBe("Biedronka");
+  });
+
+  it("returns null when no usable token exists", () => {
+    expect(suggestRuleFromRow({ type: "expense", description: "   ", counterparty: null })).toBeNull();
+  });
+});
+
+describe("selectRetroMatches", () => {
+  const retroRule = rule({
+    kind: "contains",
+    match_description: "biedronka",
+    match_counterparty: "biedronka",
+    category_id: expenseCat.id,
+  });
+  const txs: RetroTransaction[] = [
+    { id: "t1", user_id: "u1", category_id: otherExpenseCat.id, type: "expense", description: "BIEDRONKA 1", counterparty: null },
+    { id: "t2", user_id: "u1", category_id: expenseCat.id, type: "expense", description: "BIEDRONKA 2", counterparty: null },
+    { id: "t3", user_id: "u2", category_id: null, type: "expense", description: "BIEDRONKA 3", counterparty: null },
+    { id: "t4", user_id: "u1", category_id: null, type: "income", description: "BIEDRONKA refund", counterparty: null },
+    { id: "t5", user_id: "u1", category_id: null, type: "expense", description: "LIDL", counterparty: null },
+  ];
+
+  it("returns only own, non-target-category, type-correct, matching transactions", () => {
+    expect(selectRetroMatches(retroRule, txs, categories, "u1")).toEqual(["t1"]);
+  });
+
+  it("returns empty when the rule matches nothing", () => {
+    const noneRule = rule({ match_description: "zzznope", match_counterparty: "zzznope" });
+    expect(selectRetroMatches(noneRule, txs, categories, "u1")).toEqual([]);
   });
 });

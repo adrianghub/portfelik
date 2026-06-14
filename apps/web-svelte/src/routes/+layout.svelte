@@ -10,6 +10,7 @@
   import Navigation from "$lib/components/Navigation.svelte";
   import Breadcrumbs from "$lib/components/ui/Breadcrumbs.svelte";
   import OfflineIndicator from "$lib/components/ui/OfflineIndicator.svelte";
+  import InstallPrompt from "$lib/components/ui/InstallPrompt.svelte";
   import { motionDuration } from "$lib/motion";
   import * as m from "$lib/paraglide/messages";
   import { fetchProfile } from "$lib/services/profiles";
@@ -160,16 +161,21 @@
 
     void (async () => {
       const bootstrapRevision = authRevision;
+      // getSession() reads the persisted token locally (instant for a valid token; only
+      // hits the network to refresh an expired one), so the splash clears immediately
+      // instead of blocking on a getUser() round-trip every cold start. Authorization is
+      // still enforced by RLS on every data call, and onAuthStateChange handles changes.
       const {
-        data: { user: authUser },
-        error: userError,
-      } = await supabase.auth.getUser();
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+      const authUser = session?.user ?? null;
 
-      // A sign-in (or sign-out) landed while getUser() was in flight - its result
+      // A sign-in (or sign-out) landed while getSession() was in flight - its result
       // is authoritative, so discard this now-stale bootstrap snapshot.
       if (bootstrapRevision !== authRevision) return;
 
-      if (userError || !authUser) {
+      if (sessionError || !authUser) {
         clearAuthenticatedUser();
       } else {
         loadAuthenticatedUser(authUser);
@@ -232,6 +238,7 @@
         </div>
       {/key}
     </main>
+    <InstallPrompt />
   {:else}
     {@render children()}
   {/if}

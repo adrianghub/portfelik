@@ -238,7 +238,7 @@
   let selectedIds = $state(new Set<string>());
 
   const groupRolesQuery = createQuery(() => ({
-    queryKey: ["my_group_roles"],
+    queryKey: ["my-group-roles"],
     queryFn: fetchMyGroupRoles,
     enabled: !!currentUserId,
   }));
