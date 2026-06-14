@@ -509,7 +509,7 @@
   "profile_import_alert_cadence_weekly": "Co tydzień",
   "profile_import_alert_cadence_biweekly": "Co 2 tygodnie",
   "profile_import_alert_cadence_monthly": "Co miesiąc",
-  "profile_import_alert_push_note": "Przypomnienie pojawi się w aplikacji. Push na tym urządzeniu wymaga osobnego włączenia powiadomień.",
+  "profile_import_alert_push_note": "Przypomnienie zawsze pojawi się w aplikacji. Po włączeniu poprosimy o zgodę na powiadomienia push na tym urządzeniu - jeśli odmówisz, przypomnienie i tak dotrze w aplikacji.",
   "toast_push_subscribed": "Włączono powiadomienia push",
   "toast_push_unsubscribed": "Wyłączono powiadomienia push",
   "admin_trigger_summary": "Wyślij podsumowanie tygodniowe",

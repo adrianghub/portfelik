@@ -140,6 +140,13 @@
       enabled,
       cadenceDays: bankImportReminder.cadenceDays,
     });
+    // A reminder is the intent; push is its delivery channel on this device. Enabling the
+    // reminder also registers OS push in the same user gesture so the alert actually reaches
+    // the phone instead of only the in-app row. Push stays optional - if permission is
+    // denied/blocked, the reminder still lands in the in-app notification row.
+    if (enabled && notifSupported && pushState === "disabled") {
+      subMutation.mutate();
+    }
   }
 
   function setReminderCadence(value: string): void {
