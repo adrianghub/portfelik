@@ -10,6 +10,7 @@
   import Navigation from "$lib/components/Navigation.svelte";
   import Breadcrumbs from "$lib/components/ui/Breadcrumbs.svelte";
   import OfflineIndicator from "$lib/components/ui/OfflineIndicator.svelte";
+  import InstallPrompt from "$lib/components/ui/InstallPrompt.svelte";
   import { motionDuration } from "$lib/motion";
   import * as m from "$lib/paraglide/messages";
   import { fetchProfile } from "$lib/services/profiles";
@@ -232,6 +233,7 @@
         </div>
       {/key}
     </main>
+    <InstallPrompt />
   {:else}
     {@render children()}
   {/if}
