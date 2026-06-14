@@ -8,7 +8,9 @@
 // user_id on insert - pass it explicitly.
 
 import { supabase } from "$lib/supabase";
-import { findDuplicateCategorizationRule } from "$lib/import/categorize";
+import { findDuplicateCategorizationRule, selectRetroMatches } from "$lib/import/categorize";
+import { fetchCategories } from "$lib/services/categories";
+import { fetchAllTransactionsForExport } from "$lib/services/transactions";
 import type { CategorizationRule, CategorizationRuleKind, TransactionType } from "$lib/types";
 
 export interface CategorizationRuleInput {
@@ -93,4 +95,21 @@ export async function updateCategorizationRule(
 export async function deleteCategorizationRule(id: string): Promise<void> {
   const { error } = await supabase.from("categorization_rules").delete().eq("id", id);
   if (error) throw error;
+}
+
+/**
+ * Ids of the caller's own already-committed transactions a freshly-created rule would
+ * re-categorize (retroactive apply). Scoped to own transactions to avoid touching
+ * co-owned group rows; the bulk update goes through `updateTransactionsCategory`.
+ */
+export async function findRetroMatchIds(rule: CategorizationRule): Promise<string[]> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+  const [transactions, categories] = await Promise.all([
+    fetchAllTransactionsForExport(),
+    fetchCategories(),
+  ]);
+  return selectRetroMatches(rule, transactions, categories, user.id);
 }

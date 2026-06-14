@@ -193,6 +193,7 @@ describe("buildPlanningQueueActions save-pace basis", () => {
     debtMonthlyPayments: 0,
     saveMonthlyNeeded: 1000,
     surplus: 3000,
+    availableForGoals: 3000,
     saveContributionsThisMonth: 0,
     unmetSaveNeed: 1000,
     afterSaveGoals: 2000,

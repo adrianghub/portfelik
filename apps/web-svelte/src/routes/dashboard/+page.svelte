@@ -3,6 +3,7 @@
   import { page } from "$app/stores";
   import TransactionTable from "$lib/components/transactions/TransactionTable.svelte";
   import DashboardImportHealth from "$lib/components/dashboard/DashboardImportHealth.svelte";
+  import DashboardAttention from "$lib/components/dashboard/DashboardAttention.svelte";
   import DashboardNetWorthStrip from "$lib/components/dashboard/DashboardNetWorthStrip.svelte";
   import DashboardPlanProgress from "$lib/components/dashboard/DashboardPlanProgress.svelte";
   import CategoryBreakdown from "$lib/components/transactions/CategoryBreakdown.svelte";
@@ -92,7 +93,7 @@
   const queryClient = useQueryClient();
 
   const groupRolesQuery = createQuery(() => ({
-    queryKey: ["group_roles"],
+    queryKey: ["my-group-roles"],
     queryFn: fetchMyGroupRoles,
     enabled: !!userId,
   }));
@@ -249,6 +250,8 @@
     scopedTxs.filter((tx) => tx.status === "upcoming" || tx.status === "overdue").slice(0, 5)
   );
 
+  const overdueCount = $derived(scopedTxs.filter((tx) => tx.status === "overdue").length);
+
   function openTransaction(tx: TransactionWithCategory) {
     goto(transactionsHref({ status: tx.status }));
   }
@@ -315,6 +318,7 @@
     {/each}
   </div>
 
+  <DashboardAttention {userId} {overdueCount} />
   <DashboardImportHealth />
   <DashboardNetWorthStrip />
   <DashboardPlanProgress />
@@ -526,6 +530,8 @@
           <div class="h-14 animate-pulse rounded-xl border border-white/5 bg-slate-900/60"></div>
         {/each}
       </div>
+    {:else if txQuery.isError}
+      <p class="py-6 text-center text-sm text-rose-300">{m.common_error_title()}</p>
     {:else if upcomingTxs.length === 0}
       <p class="py-6 text-center text-sm text-slate-400">
         {m.dashboard_empty_upcoming()}

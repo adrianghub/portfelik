@@ -21,6 +21,8 @@
     yearsPast?: number;
     /** How many years after today appear in the year dropdown (e.g. loan payoff). */
     yearsAhead?: number;
+    /** Fired when the user picks (or clears) a date. Receives the ISO value ("" when cleared). */
+    onchange?: (value: string) => void;
   }
 
   const uid = $props.id();
@@ -34,6 +36,7 @@
     showLabel = true,
     yearsPast = 100,
     yearsAhead = 35,
+    onchange,
   }: Props = $props();
 
   const isDesktop = new MediaQuery("(min-width: 640px)");
@@ -98,10 +101,12 @@
   function handleValueChange(next: DateValue | undefined) {
     if (!next) {
       value = "";
+      onchange?.("");
       return;
     }
     value = next.toString();
     open = false;
+    onchange?.(value);
   }
 
   function updatePopoverPosition() {

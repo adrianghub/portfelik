@@ -81,7 +81,8 @@ export function buildPlanningQueueActions(input: {
       id: `save-${plan.id}`,
       href: `/plans/${plan.id}`,
       label,
-      tone: "warn",
+      // Save-goal nudge is an opportunity, not a failure - keep it neutral, not alarm tone.
+      tone: "default",
     });
   }
 

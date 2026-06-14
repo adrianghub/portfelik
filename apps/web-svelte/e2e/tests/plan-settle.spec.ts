@@ -120,7 +120,20 @@ async function setupSettleMocks(page: Page): Promise<void> {
   // Return our eligible transactions (overrides MOCK_TRANSACTIONS from base mock)
   await page.route(/.*\/rest\/v1\/transactions_with_category.*/, (route) => {
     const url = route.request().url();
-    route.fulfill({ status: 200, json: url.includes("type=eq.income") ? [TX_INCOME] : [TX1, TX2] });
+    if (url.includes("type=eq.income")) {
+      return route.fulfill({ status: 200, json: [TX_INCOME] });
+    }
+    // Honor an id=in.(...) lookup (settlement-memory dismissed-key fetch) so only the
+    // dismissed rows come back, mirroring PostgREST instead of returning every tx.
+    const idFilter = decodeURIComponent(url).match(/id=in\.\(([^)]*)\)/);
+    if (idFilter) {
+      const ids = idFilter[1].split(",").map((v) => v.replace(/"/g, ""));
+      return route.fulfill({
+        status: 200,
+        json: [TX1, TX2, TX_INCOME].filter((t) => ids.includes(t.id)),
+      });
+    }
+    return route.fulfill({ status: 200, json: [TX1, TX2] });
   });
 
   // Plan links: empty by default (no linked, no blocked)

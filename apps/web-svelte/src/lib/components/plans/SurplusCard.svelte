@@ -12,7 +12,9 @@
 
   let { summary, actions = [] }: Props = $props();
 
-  const headlineAmount = $derived(summary.hasSaveGoals ? summary.afterSaveGoals : summary.surplus);
+  // Headline = free money after debt obligations. Aspirational save goals never push it
+  // negative; only an actual deficit (cashflow can't cover obligations) shows alarm framing.
+  const headlineAmount = $derived(summary.availableForGoals);
   const headlinePositive = $derived(headlineAmount >= 0);
 </script>
 
