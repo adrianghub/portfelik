@@ -14,7 +14,7 @@ export interface MonthlySurplusInput {
    * (e.g. detected/linked debt-payment transactions). Omit when unknown - the surplus is
    * then flagged `debtAssumptionVerified: false` and the headline assumes raty already sit
    * in expenses (legacy behaviour). When supplied, any shortfall is treated as an obligation
-   * not yet reflected in the cashflow and is subtracted from `afterSaveGoals`.
+   * not yet reflected in the cashflow and is subtracted from `availableForGoals`.
    *
    * Note: an observed value of `0` means "no linked payments" - in the common
    * imported-but-unlinked case the rata may still sit inside expenses, so callers should
@@ -38,13 +38,24 @@ export interface MonthlySurplusSummary {
   saveMonthlyNeeded: number;
   /** Month cashflow (income − expenses). Raty kredytów nie odejmujemy ponownie - są już w wydatkach. */
   surplus: number;
+  /**
+   * Headline number: free money after debt OBLIGATIONS only (cashflow − unreflected debt).
+   * Aspirational save goals never reduce it - putting money toward a goal is an
+   * accomplishment, not a deduction. Negative here means a genuine deficit (cashflow cannot
+   * cover the debt obligation), which is the only case that warrants alarm framing.
+   */
+  availableForGoals: number;
   /** Save-goal deposits already made this month (observed linked income). */
   saveContributionsThisMonth: number;
   /** Monthly save pace still left to cover after this month's deposits. */
   unmetSaveNeed: number;
-  /** Cashflow minus UNMET save-goal pace minus any debt obligation not reflected in expenses. */
+  /**
+   * Informational only (breakdown): what would remain after also setting aside the monthly
+   * save pace (`availableForGoals − unmetSaveNeed`). NOT the headline - a negative value here
+   * just means goals are not fully funded yet, which is not a deficit.
+   */
   afterSaveGoals: number;
-  /** Debt obligation NOT observed inside expenses (subtracted from afterSaveGoals). */
+  /** Debt obligation NOT observed inside expenses (subtracted from availableForGoals). */
   unreflectedDebt: number;
   /** True only when the caller supplied observed debt coverage; false = assumption unchecked. */
   debtAssumptionVerified: boolean;
@@ -61,7 +72,10 @@ export function computeMonthlySurplus(input: MonthlySurplusInput): MonthlySurplu
   const unreflectedDebt = Math.max(0, input.debtMonthlyPayments - observed);
   const saveContributionsThisMonth = input.saveContributionsThisMonth ?? 0;
   const unmetSaveNeed = Math.max(0, input.saveMonthlyNeeded - saveContributionsThisMonth);
-  const afterSaveGoals = cashflowNet - unmetSaveNeed - unreflectedDebt;
+  // Free money after debt obligations only - aspirational save goals do NOT reduce the headline.
+  const availableForGoals = cashflowNet - unreflectedDebt;
+  // Informational breakdown number: what would be left after also covering the save pace.
+  const afterSaveGoals = availableForGoals - unmetSaveNeed;
   return {
     totalIncome: input.totalIncome,
     totalExpenses: input.totalExpenses,
@@ -69,6 +83,7 @@ export function computeMonthlySurplus(input: MonthlySurplusInput): MonthlySurplu
     saveMonthlyNeeded: input.saveMonthlyNeeded,
     cashflowNet,
     surplus: cashflowNet,
+    availableForGoals,
     saveContributionsThisMonth,
     unmetSaveNeed,
     afterSaveGoals,

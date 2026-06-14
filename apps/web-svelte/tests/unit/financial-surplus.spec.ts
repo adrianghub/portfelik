@@ -37,9 +37,39 @@ describe("computeMonthlySurplus", () => {
     });
     expect(result.cashflowNet).toBe(3500);
     expect(result.surplus).toBe(3500);
+    // Headline = free money after obligations; aspirational goals do not reduce it.
+    expect(result.availableForGoals).toBe(3500);
     expect(result.afterSaveGoals).toBe(2700);
     expect(result.hasSaveGoals).toBe(true);
     expect(result.hasDebtPlans).toBe(true);
+  });
+
+  it("does NOT let unfunded save goals reduce the headline (availableForGoals)", () => {
+    // Goals are aspirational allocation, not an obligation. A large unfunded pace
+    // must keep the headline positive - only the informational afterSaveGoals dips.
+    const result = computeMonthlySurplus({
+      totalIncome: 5000,
+      totalExpenses: 4800,
+      debtMonthlyPayments: 0,
+      saveMonthlyNeeded: 2000,
+    });
+    expect(result.cashflowNet).toBe(200);
+    expect(result.availableForGoals).toBe(200); // headline stays positive
+    expect(result.afterSaveGoals).toBe(-1800); // breakdown-only "what would remain"
+  });
+
+  it("availableForGoals subtracts only unreflected debt obligations", () => {
+    // A genuine deficit: cashflow cannot cover the debt obligation not yet in expenses.
+    const result = computeMonthlySurplus({
+      totalIncome: 5000,
+      totalExpenses: 4800,
+      debtMonthlyPayments: 2370,
+      debtPaymentsInExpenses: 1370,
+      saveMonthlyNeeded: 1000,
+    });
+    expect(result.unreflectedDebt).toBe(1000);
+    expect(result.availableForGoals).toBe(-800); // 200 − 1000 obligation shortfall
+    expect(result.afterSaveGoals).toBe(-1800); // − 1000 unmet save pace (info only)
   });
 
   it("does not subtract debt payments again from cashflow", () => {
