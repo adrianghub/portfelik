@@ -242,13 +242,14 @@
   const confirmPaymentMutation = createMutation(() => ({
     mutationFn: async (txId: string) => {
       await linkPlanTransaction(id, txId);
+      const plan = planQuery.data;
       const terms = await fetchPlanDebtTerms(id);
-      if (terms) {
+      if (plan && terms) {
         const linked = await fetchLinkedTransactions(id);
         await applyDebtBalanceFromLinks(
           id,
           terms,
-          planQuery.data?.start_date ?? todayIso(),
+          plan.start_date,
           linked
             .filter((tx) => tx.type === "expense")
             .map((tx) => ({

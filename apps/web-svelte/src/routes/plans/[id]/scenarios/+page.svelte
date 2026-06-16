@@ -67,12 +67,13 @@
 
   const comparison = $derived.by(() => {
     const terms = termsQuery.data;
-    if (!terms) return null;
+    const plan = planQuery.data;
+    if (!terms || !plan) return null;
     // Same canonical balance as the plan detail headline, so slider projections agree with it.
     const input = {
       currentBalance: deriveDebtDisplayBalance(
         terms,
-        planQuery.data?.start_date ?? todayIso(),
+        plan.start_date,
         debtLinkedExpenses,
         todayIso()
       ),
