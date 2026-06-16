@@ -16,11 +16,17 @@ const debtTerms = (planId: string, payment: number): PlanDebtTerms => ({
   monthly_payment: payment,
   anchor_balance: 200_000,
   balance_anchor_date: "2026-06-01",
+  first_payment_date: null,
+  first_payment_amount: null,
   created_at: "",
   updated_at: "",
 });
 
-const debtPlan = (id: string, start: string, end: string): Pick<Plan, "id" | "kind" | "start_date" | "end_date"> => ({
+const debtPlan = (
+  id: string,
+  start: string,
+  end: string
+): Pick<Plan, "id" | "kind" | "start_date" | "end_date"> => ({
   id,
   kind: "debt",
   start_date: start,

@@ -147,6 +147,9 @@ export interface Plan {
   target_amount: number | null;
   start_date: string;
   end_date: string;
+  status: "active" | "refinanced" | "closed";
+  refinanced_from_plan_id: string | null;
+  replaced_by_plan_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -161,6 +164,10 @@ export interface PlanDebtTerms {
   anchor_balance: number | null;
   /** Only linked payments after this date affect snapshot replay. */
   balance_anchor_date: string | null;
+  /** Date of the first installment; schedule starts here. Null falls back to plans.start_date. */
+  first_payment_date: string | null;
+  /** Explicit odd first installment (loan agreement). Null falls back to monthly_payment. */
+  first_payment_amount: number | null;
   created_at: string;
   updated_at: string;
 }
