@@ -35,7 +35,9 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 export function addCalendarMonthsIso(iso: string, months: number): string {
   const [y, m, d] = iso.split("-").map(Number);
   const base = new Date(Date.UTC(y, m - 1 + months, 1));
-  const daysInMonth = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + 1, 0)).getUTCDate();
+  const daysInMonth = new Date(
+    Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + 1, 0)
+  ).getUTCDate();
   const day = Math.min(d, daysInMonth);
   const mm = String(base.getUTCMonth() + 1).padStart(2, "0");
   const dd = String(day).padStart(2, "0");
@@ -79,7 +81,15 @@ export function scheduleBalanceAt(terms: DebtScheduleTerms, asOfIso: string = to
 }
 
 /** Cumulative interest billed through asOf (sum of schedule interest for rows ≤ asOf). */
-export function interestPaidThrough(terms: DebtScheduleTerms, asOfIso: string = todayIso()): number {
+export function interestPaidThrough(
+  terms: DebtScheduleTerms,
+  asOfIso: string = todayIso()
+): number {
+  // Rounding decision (accepted tradeoff): we sum the already-2dp-rounded `row.interest`
+  // values and round once more, so cumulative rounding bias can reach ~half a cent per row
+  // over long terms. This is intentional — the schedule rows are the canonical billed
+  // figures, and summing the billed amounts keeps this total consistent with what each
+  // installment actually charged. Do not switch to an unrounded running total.
   let interest = 0;
   for (const row of buildSchedule(terms)) {
     if (row.date > asOfIso) break;
@@ -92,7 +102,7 @@ export function interestPaidThrough(terms: DebtScheduleTerms, asOfIso: string = 
 export function reanchorWithPayment(
   snapshot: DebtSnapshot,
   payment: { amount: number; date: string },
-  annualRate: number,
+  annualRate: number
 ): DebtSnapshot {
   const days = Math.max(0, daysBetween(snapshot.date, payment.date));
   const interest = annualRate > 0 ? snapshot.balance * (annualRate / 100 / 365) * days : 0;
@@ -114,7 +124,7 @@ export function liveBalance(
   terms: DebtScheduleTerms,
   anchor: LiveBalanceAnchor,
   linkedPayments: { amount: number; date?: string }[],
-  asOfIso: string = todayIso(),
+  asOfIso: string = todayIso()
 ): number {
   let snapshot: DebtSnapshot =
     anchor.anchorBalance != null && anchor.balanceAnchorDate != null

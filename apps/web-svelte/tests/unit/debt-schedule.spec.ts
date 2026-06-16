@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("$lib/supabase", () => ({ supabase: {} }));
 
 import {
+  addCalendarMonthsIso,
   buildSchedule,
   scheduleBalanceAt,
   interestPaidThrough,
@@ -20,6 +21,33 @@ const simple: DebtScheduleTerms = {
   disbursementDate: "2026-01-01",
   firstPaymentDate: "2026-02-01",
   firstPaymentAmount: null,
+};
+
+describe("addCalendarMonthsIso", () => {
+  it("clamps to month-end (non-leap February)", () => {
+    expect(addCalendarMonthsIso("2026-01-31", 1)).toBe("2026-02-28");
+  });
+  it("clamps to leap-year February 29", () => {
+    expect(addCalendarMonthsIso("2028-01-31", 1)).toBe("2028-02-29");
+  });
+  it("rolls over a full year", () => {
+    expect(addCalendarMonthsIso("2026-01-15", 12)).toBe("2027-01-15");
+  });
+  it("wraps month and year", () => {
+    expect(addCalendarMonthsIso("2026-12-15", 1)).toBe("2027-01-15");
+  });
+});
+
+// True odd-gap loan: disbursement 2026-06-12, first payment 2026-08-10 (59-day gap).
+// Distinguishes gap interest from a single month of interest (the `simple` fixture's
+// 31-day gap happens to coincide with ~one month).
+const oddGap: DebtScheduleTerms = {
+  originalAmount: 173000,
+  annualRate: 5.96,
+  monthlyPayment: 2255.01,
+  disbursementDate: "2026-06-12",
+  firstPaymentDate: "2026-08-10",
+  firstPaymentAmount: 3115.38,
 };
 
 describe("buildSchedule", () => {
@@ -52,6 +80,34 @@ describe("buildSchedule", () => {
   it("guards negative amortization (payment below interest) by stopping", () => {
     const rows = buildSchedule({ ...simple, monthlyPayment: 1 });
     expect(rows.length).toBeLessThanOrEqual(601);
+  });
+
+  it("computes a true odd first-period gap (59 days) distinct from one month", () => {
+    const rows = buildSchedule(oddGap);
+    expect(rows[0].date).toBe("2026-08-10");
+    expect(rows[0].payment).toBeCloseTo(3115.38, 2); // explicit first installment honored
+    // 59-day simple-daily gap interest, same primitives as the implementation
+    const gapInterest = Math.round(173000 * (5.96 / 100 / 365) * 59 * 100) / 100;
+    expect(rows[0].interest).toBe(gapInterest);
+    expect(rows[1].payment).toBeCloseTo(2255.01, 2);
+    // balance strictly decreases across the first 5 rows
+    for (let i = 1; i < 5; i++) {
+      expect(rows[i].balance).toBeLessThan(rows[i - 1].balance);
+    }
+  });
+
+  it("emits no rows after the balance reaches exactly zero", () => {
+    // 1000 / 250 at 0% interest => exactly 4 rows, last balance exactly 0.
+    const rows = buildSchedule({
+      originalAmount: 1000,
+      annualRate: 0,
+      monthlyPayment: 250,
+      disbursementDate: "2026-01-01",
+      firstPaymentDate: "2026-02-01",
+      firstPaymentAmount: null,
+    });
+    expect(rows.length).toBe(4);
+    expect(rows[rows.length - 1].balance).toBe(0);
   });
 });
 
@@ -86,6 +142,16 @@ describe("reanchorWithPayment", () => {
     expect(next.balance).toBeCloseTo(100000 + interest - 15000, 2);
     expect(next.date).toBe("2026-03-01");
   });
+
+  it("with annualRate 0 charges no interest (balance = prior - amount, date updates)", () => {
+    const next = reanchorWithPayment(
+      { balance: 50000, date: "2026-01-01" },
+      { amount: 12000, date: "2026-04-01" },
+      0,
+    );
+    expect(next.balance).toBe(50000 - 12000);
+    expect(next.date).toBe("2026-04-01");
+  });
 });
 
 describe("liveBalance", () => {
@@ -106,5 +172,32 @@ describe("liveBalance", () => {
     );
     const interest = 90000 * (12 / 100 / 365) * 31; // 03-01 -> 04-01
     expect(out).toBeCloseTo(Math.round((90000 + interest - 10000) * 100) / 100, 2);
+  });
+
+  it("falls back to original principal when the anchor is only partially set", () => {
+    const noAnchor = liveBalance(
+      simple,
+      { anchorBalance: null, balanceAnchorDate: null },
+      [],
+      "2026-04-15",
+    );
+    // anchorBalance set, balanceAnchorDate null -> partial -> same as no anchor
+    expect(
+      liveBalance(
+        simple,
+        { anchorBalance: 90000, balanceAnchorDate: null },
+        [],
+        "2026-04-15",
+      ),
+    ).toBe(noAnchor);
+    // balanceAnchorDate set, anchorBalance null -> partial -> same as no anchor
+    expect(
+      liveBalance(
+        simple,
+        { anchorBalance: null, balanceAnchorDate: "2026-03-01" },
+        [],
+        "2026-04-15",
+      ),
+    ).toBe(noAnchor);
   });
 });
