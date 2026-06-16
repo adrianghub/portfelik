@@ -89,7 +89,9 @@ describe("debtBalanceForNetWorth", () => {
     expect(balance).toBe(150_000);
   });
 
-  it("accrues daily interest to the as-of date for active loans", () => {
+  it("holds at the snapshot anchor for active loans with no forward payments", () => {
+    // Engine contract: the live balance only moves when a real linked payment lands,
+    // so with no forward payment it equals the snapshot anchor (no daily tick).
     const balance = debtBalanceForNetWorth(
       debtPlan({ start_date: "2025-04-30", end_date: "2028-12-31" }),
       debtTerms({
@@ -102,8 +104,7 @@ describe("debtBalanceForNetWorth", () => {
       }),
       "2026-06-10"
     );
-    expect(balance).toBeGreaterThan(207_048.67 + 80);
-    expect(balance).toBeLessThan(207_048.67 + 85);
+    expect(balance).toBeCloseTo(207_048.67, 0);
   });
 
   it("subtracts linked payments via flat accrual when payment data is supplied", () => {

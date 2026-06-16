@@ -145,6 +145,7 @@
     planQuery.data?.kind === "debt" && debtTermsQuery.data
       ? deriveDebtDisplayBalance(
           debtTermsQuery.data,
+          planQuery.data.start_date,
           expenses.map((tx) => ({ amount: tx.amount, date: tx.date })),
           todayIso()
         )
@@ -223,6 +224,7 @@
             await applyDebtBalanceFromLinks(
               id,
               terms,
+              plan.start_date,
               expenses.map((tx) => ({ amount: tx.amount, date: tx.date }))
             );
             await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms", id] });
@@ -246,6 +248,7 @@
         await applyDebtBalanceFromLinks(
           id,
           terms,
+          planQuery.data?.start_date ?? todayIso(),
           linked
             .filter((tx) => tx.type === "expense")
             .map((tx) => ({

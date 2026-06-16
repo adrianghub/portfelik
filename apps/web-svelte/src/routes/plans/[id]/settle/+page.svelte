@@ -133,6 +133,7 @@
     await applyDebtBalanceFromLinks(
       id,
       terms,
+      plan.start_date,
       expenses.map((tx) => ({ amount: tx.amount, date: tx.date }))
     );
     await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms", id] });

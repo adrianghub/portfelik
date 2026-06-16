@@ -45,7 +45,7 @@
     terms: PlanDebtTerms | undefined
   ): { pct: number | null; label: string } {
     if (plan.kind === "debt" && terms && Number(terms.original_amount) > 0) {
-      const balance = deriveDebtDisplayBalance(terms, [], todayIso());
+      const balance = deriveDebtDisplayBalance(terms, plan.startDate ?? todayIso(), [], todayIso());
       const paid = Math.max(0, Number(terms.original_amount) - balance);
       const pct = Math.min(
         100,

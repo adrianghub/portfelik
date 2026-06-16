@@ -56,7 +56,7 @@ export function debtBalanceForNetWorth(
   }
 
   if (terms) {
-    return deriveDebtDisplayBalance(terms, linkedExpenses, asOfDate);
+    return deriveDebtDisplayBalance(terms, plan.start_date, linkedExpenses, asOfDate);
   }
 
   // Active plan without terms row yet - use target_amount from create form.

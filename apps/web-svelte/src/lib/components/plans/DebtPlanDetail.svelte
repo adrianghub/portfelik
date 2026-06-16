@@ -5,7 +5,6 @@
     approximateDailyInterest,
     compareLumpSumOverpay,
     compareOverpay,
-    debtDisplayBalance,
     formatDuration,
     isPaymentBelowMonthlyInterest,
     monthlyInterestAmount,
@@ -89,21 +88,12 @@
   const snapshotMode = $derived(
     isSnapshotDebtReplay(terms.anchor_balance, terms.balance_anchor_date)
   );
-  const displayBalance = $derived(deriveDebtDisplayBalance(terms, linkedExpenses, todayIso()));
+  const displayBalance = $derived(
+    deriveDebtDisplayBalance(terms, planStartDate, linkedExpenses, todayIso())
+  );
   const paid = $derived(Math.max(0, Number(terms.original_amount) - displayBalance));
   const interestPaidSinceStart = $derived(
-    estimateInterestPaidSince(
-      {
-        originalAmount: Number(terms.original_amount),
-        currentBalance: displayBalance,
-        annualRate: Number(terms.annual_rate),
-        anchorBalance: terms.anchor_balance,
-        balanceAnchorDate: terms.balance_anchor_date,
-        linkedExpenses,
-      },
-      planStartDate,
-      todayIso()
-    )
+    estimateInterestPaidSince(terms, planStartDate, todayIso())
   );
   const paidPct = $derived(
     terms.original_amount > 0 ? Math.round((paid / terms.original_amount) * 100) : 0
@@ -144,14 +134,7 @@
       ? Math.round((comparison.withExtra.payoffMonths / comparison.baseline.payoffMonths) * 100)
       : 100
   );
-  const storedLiveBalance = $derived(
-    debtDisplayBalance({
-      currentBalance: Number(terms.current_balance),
-      annualRate: Number(terms.annual_rate),
-      anchorDateIso: terms.updated_at.slice(0, 10),
-      asOfDateIso: todayIso(),
-    })
-  );
+  const storedLiveBalance = $derived(Number(terms.current_balance));
   const balanceDrift = $derived(
     hasLinkedPayments && Math.abs(displayBalance - storedLiveBalance) > 1
   );
