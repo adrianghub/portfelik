@@ -9,17 +9,13 @@ Branch: `feat/debt-engine-simplification` — 13 commits, **based directly on cu
 - **Refinance = no-money flow** (migration `20260711000000` adds `plans.status` `active|refinanced|closed` + `refinanced_from_plan_id` / `replaced_by_plan_id`). `services/plan-refinance.ts::refinanceDebtPlan` inserts the new debt plan + terms, patches the old plan (`status=refinanced`, links replacement), rolls back the new plan on failure (terms cascade via FK), writes **zero transactions** (cash wash nets to zero).
 - **UI**: first-payment fields in the debt create/edit form; "Refinansuj kredyt" accordion (submit "Otwórz nowy kredyt") + lineage badges in `DebtPlanDetail`; parent route fills owner/scope via `getUser()`, navigates to the new plan.
 
-## ⚠️ Top correctness gap — refinanced plans double-count (DO THIS FIRST)
+## ✅ RESOLVED — refinanced plans no longer double-count (commit `9103a39`)
 
-The `plans.status` column has **no read-side consumer**. Bucketing (`derivePlanBucket`, `isActivePlan`) is **date-only, status-blind**. After a refinance the old plan keeps a future `end_date` and a positive balance, so it still reads as `active`:
+Was: `plans.status` had no read-side consumer; bucketing (`derivePlanBucket`, `isActivePlan`) is date-only, so a refinanced old plan (future `end_date`, positive balance) still read as `active` and double-counted with its replacement in net worth, monthly obligations, and the hub debt list.
 
-- `financial-snapshots.ts::collectNetWorthDebtBalances` — filters `kind === "debt"` only → **old loan balance double-counts in net worth** alongside the new loan.
-- `financial-surplus.ts::sumDebtMonthlyPayments` — filters `kind === "debt" && isActivePlan` → **old loan `monthly_payment` double-counts** in monthly obligations / surplus.
-- `routes/plans/+page.svelte` `debtPlans` — filters `kind === "debt"` → **old (refinanced) loan still renders** in the hub debt section.
+Fix: added `isLivePlan(plan)` = `status === "active"` in `services/plans.ts`, applied in `collectNetWorthDebtBalances`, `sumDebtMonthlyPayments`, the `planning-queue` debt chip, and the hub debt list + observed-coverage sum (`routes/plans/+page.svelte`). Unit tests cover the refinanced-exclusion in all three pure functions (223 unit total); E2E mock fixtures now carry `status` so the hub keeps rendering live debt plans (plans E2E 7/7). `fetchPlans` still selects `*` (no server filter) — gating is purely read-side.
 
-`fetchPlans` selects `*` (status is available client-side) and applies no server filter, so the fix is purely read-side.
-
-**Recommended fix:** treat `status !== 'active'` as out of the active debt set. Add a helper (e.g. `isLivePlan(plan)` = active bucket **and** `status === 'active'`) and apply it in the three surfaces above (and any debt chip in `planning-queue.ts`). Add unit coverage: a `status:'refinanced'` plan must be excluded from `collectNetWorthDebtBalances` and `sumDebtMonthlyPayments`, and the refinanced old plan should move to a "finished/archived" section (or hide) in the hub. Extend the E2E to assert the old plan leaves the active debt list after refinance.
+Possible follow-on (optional): surface refinanced/closed plans in an "archived" hub section instead of hiding them (they remain reachable via the lineage badge on the replacement plan).
 
 ## Secondary review notes
 
