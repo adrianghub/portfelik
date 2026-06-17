@@ -192,43 +192,6 @@ export function daysBetween(fromIso: string, toIso: string): number {
   return Math.floor((to - from) / 86_400_000);
 }
 
-/** Compound daily interest on outstanding balance since the anchor date. */
-export function accrueBalanceWithDailyInterest(
-  balance: number,
-  annualRatePct: number,
-  anchorDateIso: string,
-  asOfDateIso: string
-): number {
-  if (balance <= 0.01 || annualRatePct <= 0) return balance;
-  const days = daysBetween(anchorDateIso, asOfDateIso);
-  if (days <= 0) return balance;
-  const dailyRate = annualRatePct / 100 / 365;
-  return balance * Math.pow(1 + dailyRate, days);
-}
-
-export interface DebtDisplayBalanceInput {
-  currentBalance: number;
-  annualRate: number;
-  /** ISO date (YYYY-MM-DD) the stored balance was last written - accrual anchor. */
-  anchorDateIso: string;
-  asOfDateIso: string;
-}
-
-/**
- * Canonical remaining balance shown on every surface (plan detail, cards, net worth,
- * scenarios): stored balance plus daily compound interest accrued from its anchor date.
- * After a linked rata sync, anchor is terms.updated_at so only days since the last
- * payment are accrued — replay already handled interest inside that payment period.
- */
-export function debtDisplayBalance(input: DebtDisplayBalanceInput): number {
-  return accrueBalanceWithDailyInterest(
-    input.currentBalance,
-    input.annualRate,
-    input.anchorDateIso,
-    input.asOfDateIso
-  );
-}
-
 /** Monthly interest on the current balance at the plan rate. */
 export function monthlyInterestAmount(currentBalance: number, annualRate: number): number {
   return currentBalance * (annualRate / 100 / 12);

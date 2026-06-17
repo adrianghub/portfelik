@@ -27,6 +27,8 @@ export interface PlanSettlementProgress {
   planId: string;
   planName: string;
   kind: PlanKind;
+  /** Plan start date (debt disbursement anchor for the amortization schedule). */
+  startDate: string | null;
   budgetAmount: number | null;
   targetAmount: number | null;
   spentAmount: number;
@@ -522,6 +524,7 @@ export function computePlanProgress(input: {
     planId: input.planId,
     planName: input.planName,
     kind: input.kind ?? "spend",
+    startDate: input.startDate ?? null,
     budgetAmount: input.budgetAmount,
     targetAmount,
     spentAmount,

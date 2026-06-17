@@ -86,7 +86,9 @@ export function buildPlanningQueueActions(input: {
     });
   }
 
-  const activeDebtPlans = summaries.filter((p) => p.kind === "debt" && p.bucket === "active");
+  const activeDebtPlans = summaries.filter(
+    (p) => p.kind === "debt" && p.bucket === "active" && p.status === "active"
+  );
   if (activeDebtPlans.length > 0) {
     const totalDebtPayment = activeDebtPlans.reduce((sum, p) => {
       const terms = debtTerms[p.id];

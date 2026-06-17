@@ -1,40 +1,92 @@
 import { todayIso } from "$lib/services/plans";
 import { supabase } from "$lib/supabase";
 import type { PlanDebtTerms } from "$lib/types";
-import { debtDisplayBalance } from "$lib/services/debt-amortization";
 import {
-  deriveDebtBalanceFlatAccrual,
-  deriveDebtBalanceFromLinks,
-  filterPreAnchorPayments,
-  isSnapshotDebtReplay,
-  type DebtBalanceReplayInput,
-  type DebtLinkedPayment,
-} from "$lib/services/debt-balance-replay";
+  interestPaidThrough,
+  liveBalance,
+  type DebtScheduleTerms,
+} from "$lib/services/debt-schedule";
 
-export type {
-  DebtBalanceReplayInput,
-  DebtBalanceReplayMode,
-  DebtLinkedPayment,
-} from "$lib/services/debt-balance-replay";
+export type DebtLinkedPayment = { amount: number; date?: string };
 
-export {
-  applyDebtPaymentPeriod,
-  consolidateDebtLinkedPayments,
-  deriveDebtBalanceFlatAccrual,
-  deriveDebtBalanceFromLinks,
-  estimateInterestPaidSince,
-  filterPreAnchorPayments,
-  interestAccruedFlatAccrual,
-  interestAccruedFromLinkedPayments,
-  isSnapshotDebtReplay,
-  resolveDebtReplay,
-} from "$lib/services/debt-balance-replay";
+/** Snapshot anchor present (both balance and date set). */
+export function isSnapshotDebtReplay(
+  anchorBalance: number | null | undefined,
+  balanceAnchorDate: string | null | undefined
+): boolean {
+  return anchorBalance != null && balanceAnchorDate != null;
+}
+
+/** Build schedule terms from stored debt terms + the plan's start date (disbursement). */
+export function scheduleTermsFromDebt(
+  terms: Pick<
+    PlanDebtTerms,
+    | "original_amount"
+    | "annual_rate"
+    | "monthly_payment"
+    | "first_payment_date"
+    | "first_payment_amount"
+  >,
+  planStartDate: string
+): DebtScheduleTerms {
+  return {
+    originalAmount: Number(terms.original_amount),
+    annualRate: Number(terms.annual_rate),
+    monthlyPayment: Number(terms.monthly_payment),
+    disbursementDate: planStartDate,
+    firstPaymentDate: terms.first_payment_date ?? planStartDate,
+    firstPaymentAmount: terms.first_payment_amount ?? null,
+  };
+}
+
+/** Canonical live balance: snapshot anchor (or original) replayed over actual linked payments. */
+export function deriveDebtDisplayBalance(
+  terms: Pick<
+    PlanDebtTerms,
+    | "original_amount"
+    | "annual_rate"
+    | "monthly_payment"
+    | "anchor_balance"
+    | "balance_anchor_date"
+    | "first_payment_date"
+    | "first_payment_amount"
+  >,
+  planStartDate: string,
+  linkedExpenses: DebtLinkedPayment[] = [],
+  asOfDateIso: string = todayIso()
+): number {
+  const scheduleTerms = scheduleTermsFromDebt(terms, planStartDate);
+  return liveBalance(
+    scheduleTerms,
+    { anchorBalance: terms.anchor_balance, balanceAnchorDate: terms.balance_anchor_date },
+    linkedExpenses,
+    asOfDateIso
+  );
+}
+
+/** Cumulative interest billed since plan start, read off the schedule. */
+export function estimateInterestPaidSince(
+  terms: Pick<
+    PlanDebtTerms,
+    | "original_amount"
+    | "annual_rate"
+    | "monthly_payment"
+    | "first_payment_date"
+    | "first_payment_amount"
+  >,
+  planStartDate: string,
+  asOfDateIso: string = todayIso()
+): number {
+  return interestPaidThrough(scheduleTermsFromDebt(terms, planStartDate), asOfDateIso);
+}
 
 export type PlanDebtTermsInput = {
   original_amount: number;
   current_balance: number;
   annual_rate: number;
   monthly_payment: number;
+  first_payment_date?: string | null;
+  first_payment_amount?: number | null;
   anchor_balance?: number | null;
   balance_anchor_date?: string | null;
   /** Reset snapshot anchor from current_balance + today (manual balance edit). */
@@ -42,86 +94,6 @@ export type PlanDebtTermsInput = {
   /** Clear snapshot anchor for full replay from original_amount. */
   clear_balance_anchor?: boolean;
 };
-
-export function debtBalanceReplayFromTerms(
-  terms: Pick<
-    PlanDebtTerms,
-    "original_amount" | "annual_rate" | "anchor_balance" | "balance_anchor_date"
-  >,
-  linkedExpenses: DebtLinkedPayment[]
-): DebtBalanceReplayInput {
-  return {
-    originalAmount: Number(terms.original_amount),
-    annualRate: Number(terms.annual_rate),
-    anchorBalance: terms.anchor_balance,
-    balanceAnchorDate: terms.balance_anchor_date,
-    linkedExpenses,
-  };
-}
-
-/** Canonical live balance: snapshot flat accrual, full-replay amortization, or stored+accrual. */
-export function deriveDebtDisplayBalance(
-  terms: Pick<
-    PlanDebtTerms,
-    | "original_amount"
-    | "annual_rate"
-    | "current_balance"
-    | "updated_at"
-    | "anchor_balance"
-    | "balance_anchor_date"
-  >,
-  linkedExpenses: DebtLinkedPayment[] = [],
-  asOfDateIso: string = todayIso()
-): number {
-  const rate = Number(terms.annual_rate);
-
-  if (isSnapshotDebtReplay(terms.anchor_balance, terms.balance_anchor_date)) {
-    const { forward } = filterPreAnchorPayments(linkedExpenses, terms.balance_anchor_date);
-
-    if (forward.length > 0) {
-      return deriveDebtBalanceFlatAccrual({
-        startBalance: Number(terms.anchor_balance),
-        startDateIso: terms.balance_anchor_date!,
-        annualRate: rate,
-        linkedExpenses: forward,
-        asOfDateIso,
-      });
-    }
-
-    const fromAnchor = deriveDebtBalanceFlatAccrual({
-      startBalance: Number(terms.anchor_balance),
-      startDateIso: terms.balance_anchor_date!,
-      annualRate: rate,
-      linkedExpenses: [],
-      asOfDateIso,
-    });
-    const fromStored = debtDisplayBalance({
-      currentBalance: Number(terms.current_balance),
-      annualRate: rate,
-      anchorDateIso: terms.updated_at.slice(0, 10),
-      asOfDateIso,
-    });
-    // Hub/net-worth lack linked tx dates; prefer synced stored balance after raty.
-    if (fromStored < fromAnchor - 1) {
-      return fromStored;
-    }
-    return fromAnchor;
-  }
-
-  if (linkedExpenses.length > 0) {
-    return deriveDebtBalanceFromLinks(
-      debtBalanceReplayFromTerms(terms, linkedExpenses),
-      asOfDateIso
-    );
-  }
-
-  return debtDisplayBalance({
-    currentBalance: Number(terms.current_balance),
-    annualRate: rate,
-    anchorDateIso: terms.updated_at.slice(0, 10),
-    asOfDateIso,
-  });
-}
 
 export function normalizeDebtTermsInput(input: PlanDebtTermsInput): PlanDebtTermsInput {
   const original = Math.abs(Number(input.original_amount));
@@ -187,6 +159,18 @@ export async function upsertPlanDebtTerms(
     current_balance: normalized.current_balance,
     annual_rate: normalized.annual_rate,
     monthly_payment: normalized.monthly_payment,
+    // Preserve stored first-payment terms when the caller omits them (e.g. the
+    // DebtPlanDetail terms-edit / full-replay paths) - only an explicit value
+    // (including null) overwrites. Otherwise editing terms would wipe the odd
+    // first-installment schedule.
+    first_payment_date:
+      input.first_payment_date !== undefined
+        ? input.first_payment_date
+        : (existing?.first_payment_date ?? null),
+    first_payment_amount:
+      input.first_payment_amount !== undefined
+        ? input.first_payment_amount
+        : (existing?.first_payment_amount ?? null),
     anchor_balance,
     balance_anchor_date,
   };
@@ -207,21 +191,23 @@ export async function updatePlanDebtBalance(planId: string, currentBalance: numb
   if (error) throw error;
 }
 
-/** Persist derived balance from linked payment replay (does not mutate snapshot anchor). */
+/** Persist the derived live balance into the current_balance cache (does not mutate the snapshot anchor). */
 export async function applyDebtBalanceFromLinks(
   planId: string,
   terms: Pick<
     PlanDebtTerms,
     | "original_amount"
     | "annual_rate"
+    | "monthly_payment"
     | "anchor_balance"
     | "balance_anchor_date"
-    | "current_balance"
-    | "updated_at"
+    | "first_payment_date"
+    | "first_payment_amount"
   >,
+  planStartDate: string,
   linkedExpenses: DebtLinkedPayment[]
 ): Promise<void> {
-  const derived = deriveDebtDisplayBalance(terms, linkedExpenses, todayIso());
+  const derived = deriveDebtDisplayBalance(terms, planStartDate, linkedExpenses, todayIso());
   await updatePlanDebtBalance(planId, derived);
 }
 

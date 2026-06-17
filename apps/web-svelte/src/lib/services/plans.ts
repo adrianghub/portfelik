@@ -61,6 +61,16 @@ export function derivePlanBucket(
   return "active";
 }
 
+/**
+ * A plan is "live" when its lifecycle status is active. Refinanced/closed plans
+ * are archived: they must drop out of active debt aggregates (net worth, monthly
+ * obligations) and the hub's active lists so a refinanced loan never double-counts
+ * with its replacement. Date bucket (`derivePlanBucket`) is a separate axis.
+ */
+export function isLivePlan(plan: Pick<Plan, "status">): boolean {
+  return plan.status === "active";
+}
+
 export interface PlanInput {
   name: string;
   kind?: PlanKind;
