@@ -197,6 +197,16 @@ export interface FinancialSnapshot {
   updated_at: string;
 }
 
+export interface CashPosition {
+  id: string;
+  owner_id: string | null;
+  group_id: string | null;
+  opening_amount: number;
+  as_of_date: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface NetWorthSummary {
   hasSnapshot: boolean;
   asOfDate: string | null;
