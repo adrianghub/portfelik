@@ -68,15 +68,26 @@ flowchart LR
 **Quick start (fresh stack + seeded personas + dev server):**
 
 ```bash
-# repo root
+# repo root — boot the stack + apply all migrations
 supabase start && supabase db reset
+
+# one-time per checkout (run from repo root): create the gitignored seed/RLS env
+# file, then paste its SUPABASE_ANON_KEY + SUPABASE_SERVICE_ROLE_KEY from the keys
+# printed by status (shown there as ANON_KEY / SERVICE_ROLE_KEY).
+cp apps/web-svelte/.env.test.example apps/web-svelte/.env.test   # skip if it exists
+supabase status -o env                                          # then edit apps/web-svelte/.env.test
+
+# seed personas + run the dev server (from the app dir)
 cd apps/web-svelte && pnpm seed:local && pnpm dev
 ```
 
-`supabase start` boots the local stack, `db reset` re-applies every migration,
-`pnpm seed:local` creates the `admin@portfelik.test` / `user@portfelik.test`
-personas (password = login), and `pnpm dev` serves the app at
-`127.0.0.1:5173` against the local Supabase. Then log in and explore.
+`supabase start` boots the local stack and `db reset` re-applies every
+migration. `pnpm seed:local` creates the `admin@portfelik.test` /
+`user@portfelik.test` personas (password = login) — it reads
+`SUPABASE_SERVICE_ROLE_KEY` from `apps/web-svelte/.env.test`, so that file must
+exist first (it's gitignored and only set up once; the same file backs
+`pnpm test:rls`). Finally `pnpm dev` serves the app at `127.0.0.1:5173` against
+the local Supabase. Then log in and explore.
 
 - Config: `apps/web-svelte/.env.local`.
 - After the local-stack switch (2026-05-15), `.env.local` points at the local Supabase stack.
