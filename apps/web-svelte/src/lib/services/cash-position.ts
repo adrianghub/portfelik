@@ -6,7 +6,12 @@ export interface PositionTx {
   type: "income" | "expense";
   amount: number; // always absolute; sign comes from `type`
   status: string; // 'paid' counts toward live balance; others are forecast
-  date: string; // ISO date
+  date: string; // ISO date or timestamp; compared date-only (transactions.date is timestamptz)
+}
+
+/** Date-only (YYYY-MM-DD) prefix, so a timestamptz value compares against a bare as_of_date. */
+function dateOnly(d: string): string {
+  return d.slice(0, 10);
 }
 
 type Anchor = Pick<CashPosition, "opening_amount" | "as_of_date"> | null;
@@ -31,7 +36,7 @@ function signed(tx: PositionTx): number {
 export function livePosition(anchor: Anchor, txs: PositionTx[]): number {
   const asOf = asOfOf(anchor);
   return txs
-    .filter((t) => t.status === "paid" && t.date >= asOf)
+    .filter((t) => t.status === "paid" && dateOnly(t.date) >= asOf)
     .reduce((sum, t) => sum + signed(t), openingOf(anchor));
 }
 

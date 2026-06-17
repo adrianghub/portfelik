@@ -169,11 +169,16 @@
   }));
 
   const cashRangeStart = $derived(cashPositionQuery.data?.as_of_date ?? "2000-01-01");
-  const cashRangeEnd = $derived(todayIsoLocal());
+  // Open upper bound: fetchTransactions uses an exclusive `.lt("date", end)`, so a real
+  // current date would drop today's (and any future-dated) paid rows. The live position
+  // has no upper bound — the engine filters to paid. Use a far-future sentinel.
+  const CASH_RANGE_END = "9999-12-31";
   const positionTxQuery = createQuery(() => ({
-    queryKey: ["transactions", "cash-position-range", cashRangeStart, cashRangeEnd],
-    queryFn: () => fetchTransactions(cashRangeStart, cashRangeEnd),
-    enabled: !cashPositionQuery.isLoading,
+    queryKey: ["transactions", "cash-position-range", cashRangeStart],
+    queryFn: () => fetchTransactions(cashRangeStart, CASH_RANGE_END),
+    // isSuccess (not !isLoading): on an anchor-query error we must NOT fall back to the
+    // "2000-01-01" default range with a null anchor and render a confidently wrong figure.
+    enabled: cashPositionQuery.isSuccess,
   }));
 
   const derivedCash = $derived(

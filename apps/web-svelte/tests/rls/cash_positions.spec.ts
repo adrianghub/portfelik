@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
+  SENTINEL,
   cleanupSentinels,
   expectBlockedWrite,
   provisionTwoUsers,
@@ -82,5 +83,64 @@ describe("RLS: cash_positions", () => {
       .eq("owner_id", ctx.userA.userId)
       .single();
     expect(Number(data?.opening_amount)).toBe(1234);
+  });
+});
+
+describe("RLS: cash_positions (group scope)", () => {
+  let ctx: TestContext;
+  let groupId: string;
+
+  beforeAll(async () => {
+    ctx = await provisionTwoUsers();
+    await cleanupSentinels(ctx.admin);
+
+    // userA owns a group; userB is a plain member (not co-owner).
+    const { data, error } = await ctx.userA.client.rpc("create_group", {
+      p_name: `${SENTINEL} cash-pos-group`,
+    });
+    if (error || !data) throw error ?? new Error("no group");
+    groupId = (data as { id: string }).id;
+    await ctx.admin
+      .from("group_members")
+      .upsert({ group_id: groupId, user_id: ctx.userB.userId, role: "member" });
+
+    // Owner (co-owner-equivalent) seeds the group cash position.
+    const { error: insErr } = await ctx.userA.client
+      .from("cash_positions")
+      .insert({ group_id: groupId, opening_amount: 5000, as_of_date: "2026-06-01" });
+    if (insErr) throw insErr;
+  });
+
+  afterAll(async () => {
+    // Deleting the SENTINEL group cascades to its cash_positions (group_id FK ON DELETE CASCADE).
+    await cleanupSentinels(ctx.admin);
+  });
+
+  it("group owner can write the group position", async () => {
+    const { data } = await ctx.userA.client
+      .from("cash_positions")
+      .select("opening_amount")
+      .eq("group_id", groupId)
+      .single();
+    expect(Number(data?.opening_amount)).toBe(5000);
+  });
+
+  it("a plain member can read the group position", async () => {
+    const { data, error } = await ctx.userB.client
+      .from("cash_positions")
+      .select("opening_amount")
+      .eq("group_id", groupId)
+      .single();
+    expect(error).toBeNull();
+    expect(Number(data?.opening_amount)).toBe(5000);
+  });
+
+  it("a plain member (non-co-owner) cannot update the group position", async () => {
+    const result = await ctx.userB.client
+      .from("cash_positions")
+      .update({ opening_amount: 1 })
+      .eq("group_id", groupId)
+      .select();
+    expectBlockedWrite(result);
   });
 });
