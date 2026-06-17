@@ -567,6 +567,11 @@ export async function fetchDashboardPlanProgress(limit = 8): Promise<PlanSettlem
   const { data: plans, error } = await supabase
     .from("plans")
     .select("*")
+    // Only active plans: a refinanced/closed debt whose end_date is still in the
+    // future must not keep showing on the dashboard (it would double-count against
+    // the live replacement). Mirrors isLivePlan (status === 'active') used by the
+    // net-worth and obligation surfaces.
+    .eq("status", "active")
     .gte("end_date", new Date().toISOString().slice(0, 10))
     .order("start_date", { ascending: true })
     .limit(limit);
