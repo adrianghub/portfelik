@@ -61,6 +61,44 @@ export type Database = {
         };
         Relationships: [];
       };
+      cash_positions: {
+        Row: {
+          as_of_date: string;
+          created_at: string;
+          group_id: string | null;
+          id: string;
+          opening_amount: number;
+          owner_id: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          as_of_date?: string;
+          created_at?: string;
+          group_id?: string | null;
+          id?: string;
+          opening_amount?: number;
+          owner_id?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          as_of_date?: string;
+          created_at?: string;
+          group_id?: string | null;
+          id?: string;
+          opening_amount?: number;
+          owner_id?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "cash_positions_group_id_fkey";
+            columns: ["group_id"];
+            isOneToOne: false;
+            referencedRelation: "user_groups";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       categories: {
         Row: {
           created_at: string;

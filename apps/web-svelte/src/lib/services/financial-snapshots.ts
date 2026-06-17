@@ -5,23 +5,32 @@ import { supabase } from "$lib/supabase";
 
 export interface FinancialSnapshotInput {
   as_of_date: string;
-  cash_amount: number;
   investments_amount: number;
   real_estate_amount: number;
 }
 
-export function computeNetWorth(
-  snapshot: FinancialSnapshot | null,
-  debtBalances: number[]
-): NetWorthSummary {
-  const cash = snapshot ? Number(snapshot.cash_amount) : 0;
-  const investments = snapshot ? Number(snapshot.investments_amount) : 0;
-  const realEstate = snapshot ? Number(snapshot.real_estate_amount) : 0;
-  const totalAssets = cash + investments + realEstate;
-  const totalDebt = debtBalances.reduce((sum, balance) => sum + balance, 0);
+export interface ComputeNetWorthArgs {
+  snapshot: Pick<
+    FinancialSnapshot,
+    "as_of_date" | "investments_amount" | "real_estate_amount"
+  > | null;
+  derivedCash: number;
+  debtBalances: number[];
+}
 
+export function computeNetWorth({
+  snapshot,
+  derivedCash,
+  debtBalances,
+}: ComputeNetWorthArgs): NetWorthSummary {
+  const cash = derivedCash;
+  const investments = snapshot?.investments_amount ?? 0;
+  const realEstate = snapshot?.real_estate_amount ?? 0;
+  const totalAssets = cash + investments + realEstate;
+  const totalDebt = debtBalances.reduce((s, b) => s + b, 0);
   return {
-    hasSnapshot: snapshot != null,
+    hasSnapshot: snapshot !== null,
+    hasData: snapshot !== null || cash !== 0,
     asOfDate: snapshot?.as_of_date ?? null,
     cash,
     investments,
@@ -109,7 +118,7 @@ export async function upsertFinancialSnapshot(
   const payload = {
     user_id: user.id,
     as_of_date: input.as_of_date,
-    cash_amount: Math.max(0, input.cash_amount),
+    cash_amount: 0,
     investments_amount: Math.max(0, input.investments_amount),
     real_estate_amount: Math.max(0, input.real_estate_amount),
   };

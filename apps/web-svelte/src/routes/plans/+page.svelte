@@ -64,6 +64,11 @@
   import { toast } from "svelte-sonner";
   import { computeLedgerSummary } from "$lib/services/transaction-cashflow";
   import { fetchTransactions } from "$lib/services/transactions";
+  import {
+    fetchPrivateCashPosition,
+    livePosition,
+    upsertPrivateCashPosition,
+  } from "$lib/services/cash-position";
 
   const queryClient = useQueryClient();
   const plansHubPath = "/plans";
@@ -158,6 +163,33 @@
     queryFn: fetchFinancialSnapshot,
   }));
 
+  const cashPositionQuery = createQuery(() => ({
+    queryKey: ["cash-position"],
+    queryFn: fetchPrivateCashPosition,
+  }));
+
+  const cashRangeStart = $derived(cashPositionQuery.data?.as_of_date ?? "2000-01-01");
+  // Open upper bound: fetchTransactions uses an exclusive `.lt("date", end)`, so a real
+  // current date would drop today's (and any future-dated) paid rows. The live position
+  // has no upper bound — the engine filters to paid. Use a far-future sentinel.
+  const CASH_RANGE_END = "9999-12-31";
+  const positionTxQuery = createQuery(() => ({
+    queryKey: ["transactions", "cash-position-range", cashRangeStart],
+    queryFn: () => fetchTransactions(cashRangeStart, CASH_RANGE_END),
+    // isSuccess (not !isLoading): on an anchor-query error we must NOT fall back to the
+    // "2000-01-01" default range with a null anchor and render a confidently wrong figure.
+    enabled: cashPositionQuery.isSuccess,
+  }));
+
+  const derivedCash = $derived(
+    livePosition(
+      cashPositionQuery.data ?? null,
+      (positionTxQuery.data ?? [])
+        .filter((t) => (t.group_id ?? null) === null)
+        .map((t) => ({ type: t.type, amount: t.amount, status: t.status, date: t.date }))
+    )
+  );
+
   // Debts are valued as of today (matching the plan detail headline); only assets keep
   // the manual snapshot date.
   const linkedExpensesByPlanId = $derived(
@@ -175,7 +207,13 @@
     )
   );
 
-  const netWorth = $derived(computeNetWorth(snapshotQuery.data ?? null, debtBalances));
+  const netWorth = $derived(
+    computeNetWorth({
+      snapshot: snapshotQuery.data ?? null,
+      derivedCash,
+      debtBalances,
+    })
+  );
 
   function planCanManage(plan: PlanSummary): boolean {
     if (!currentUserId) return false;
@@ -315,31 +353,43 @@
 
   let showNetWorthForm = $state(false);
   let snapshotDate = $state("");
-  let snapshotCash = $state("");
   let snapshotInvest = $state("");
   let snapshotEstate = $state("");
+  let openingAmount = $state("");
+  let openingAsOf = $state(todayIsoLocal());
 
   function openNetWorthForm() {
+    // Only open once both anchors have resolved. Otherwise the fields would
+    // initialize blank/today and a submit would overwrite the seeded cash anchor
+    // and assets snapshot with 0s.
+    if (!cashPositionQuery.isSuccess || !snapshotQuery.isSuccess) return;
     const snap = snapshotQuery.data;
     snapshotDate = snap?.as_of_date ?? todayIsoLocal();
-    snapshotCash = snap ? String(snap.cash_amount) : "";
     snapshotInvest = snap ? String(snap.investments_amount) : "";
     snapshotEstate = snap ? String(snap.real_estate_amount) : "";
+    const pos = cashPositionQuery.data;
+    openingAmount = pos ? String(pos.opening_amount) : "";
+    openingAsOf = pos ? pos.as_of_date : todayIsoLocal();
     showNetWorthForm = true;
   }
 
   const snapshotMutation = createSvelteMutation(() => ({
-    mutationFn: () =>
-      upsertFinancialSnapshot({
+    mutationFn: async () => {
+      await upsertFinancialSnapshot({
         as_of_date: snapshotDate,
-        cash_amount: snapshotCash === "" ? 0 : Number(snapshotCash),
         investments_amount: snapshotInvest === "" ? 0 : Number(snapshotInvest),
         real_estate_amount: snapshotEstate === "" ? 0 : Number(snapshotEstate),
-      }),
+      });
+      await upsertPrivateCashPosition({
+        opening_amount: openingAmount === "" ? 0 : Number(openingAmount),
+        as_of_date: openingAsOf,
+      });
+    },
     onSuccess: async () => {
       showNetWorthForm = false;
       toast.success(m.plans_net_worth_toast_saved());
       await queryClient.invalidateQueries({ queryKey: ["financial-snapshot"] });
+      await queryClient.invalidateQueries({ queryKey: ["cash-position"] });
     },
     onError: () => toast.error(m.toast_error()),
   }));
@@ -1004,18 +1054,30 @@
       />
     </div>
     <div class="space-y-1">
-      <label class="text-xs font-medium text-slate-300" for="snapshot-cash">
-        {m.plans_net_worth_cash()}
+      <label class="text-xs font-medium text-slate-300" for="snapshot-opening-amount">
+        {m.net_worth_cash_position_label()}
       </label>
       <input
-        id="snapshot-cash"
+        id="snapshot-opening-amount"
         type="number"
         min="0"
         step="0.01"
-        bind:value={snapshotCash}
+        bind:value={openingAmount}
         placeholder="0"
         class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
       />
+    </div>
+    <div class="space-y-1">
+      <label class="text-xs font-medium text-slate-300" for="snapshot-opening-as-of">
+        {m.net_worth_cash_position_as_of()}
+      </label>
+      <input
+        id="snapshot-opening-as-of"
+        type="date"
+        bind:value={openingAsOf}
+        class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
+      />
+      <p class="text-xs text-slate-500">{m.net_worth_cash_position_hint()}</p>
     </div>
     <div class="space-y-1">
       <label class="text-xs font-medium text-slate-300" for="snapshot-invest">
@@ -1055,7 +1117,9 @@
       </button>
       <button
         type="submit"
-        disabled={snapshotMutation.isPending}
+        disabled={snapshotMutation.isPending ||
+          !cashPositionQuery.isSuccess ||
+          !snapshotQuery.isSuccess}
         class="bg-accent-gradient flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
       >
         {snapshotMutation.isPending ? m.common_saving() : m.common_save()}

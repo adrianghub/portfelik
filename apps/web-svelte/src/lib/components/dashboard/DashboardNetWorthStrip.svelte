@@ -8,6 +8,8 @@
   import { fetchPlanDebtTermsByPlanIds } from "$lib/services/plan-debt";
   import { fetchPlanProgressForPlans } from "$lib/services/plan-settlement";
   import { fetchPlans, todayIso } from "$lib/services/plans";
+  import { fetchPrivateCashPosition, livePosition } from "$lib/services/cash-position";
+  import { fetchTransactions } from "$lib/services/transactions";
   import { createQuery } from "@tanstack/svelte-query";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
   import { ChevronRight, Wallet } from "lucide-svelte";
@@ -38,6 +40,33 @@
     queryFn: fetchFinancialSnapshot,
   }));
 
+  const cashPositionQuery = createQuery(() => ({
+    queryKey: ["cash-position"],
+    queryFn: fetchPrivateCashPosition,
+  }));
+
+  const cashRangeStart = $derived(cashPositionQuery.data?.as_of_date ?? "2000-01-01");
+  // Open upper bound: fetchTransactions uses an exclusive `.lt("date", end)`, so a real
+  // current date would drop today's (and any future-dated) paid rows. The live position
+  // has no upper bound — the engine filters to paid. Use a far-future sentinel.
+  const CASH_RANGE_END = "9999-12-31";
+  const positionTxQuery = createQuery(() => ({
+    queryKey: ["transactions", "cash-position-range", cashRangeStart],
+    queryFn: () => fetchTransactions(cashRangeStart, CASH_RANGE_END),
+    // isSuccess (not !isLoading): on an anchor-query error we must NOT fall back to the
+    // "2000-01-01" default range with a null anchor and render a confidently wrong figure.
+    enabled: cashPositionQuery.isSuccess,
+  }));
+
+  const derivedCash = $derived(
+    livePosition(
+      cashPositionQuery.data ?? null,
+      (positionTxQuery.data ?? [])
+        .filter((t) => (t.group_id ?? null) === null)
+        .map((t) => ({ type: t.type, amount: t.amount, status: t.status, date: t.date }))
+    )
+  );
+
   const linkedExpensesByPlanId = $derived(
     Object.fromEntries(
       Object.entries(debtProgressQuery.data ?? {}).map(([planId, p]) => [planId, p.linkedExpenses])
@@ -45,15 +74,16 @@
   );
 
   const netWorth = $derived(
-    computeNetWorth(
-      snapshotQuery.data ?? null,
-      collectNetWorthDebtBalances(
+    computeNetWorth({
+      snapshot: snapshotQuery.data ?? null,
+      derivedCash,
+      debtBalances: collectNetWorthDebtBalances(
         plansQuery.data ?? [],
         debtTermsQuery.data ?? {},
         todayIso(),
         linkedExpensesByPlanId
-      )
-    )
+      ),
+    })
   );
 
   const loading = $derived(snapshotQuery.isPending || plansQuery.isPending);
@@ -70,7 +100,7 @@
       </p>
       {#if loading}
         <div class="mt-3 h-8 w-40 animate-pulse rounded-lg bg-slate-800/60"></div>
-      {:else if !netWorth.hasSnapshot}
+      {:else if !netWorth.hasData && !cashPositionQuery.data}
         <p class="mt-2 text-sm text-slate-400">{m.dashboard_net_worth_empty()}</p>
       {:else}
         <p
@@ -81,12 +111,12 @@
         >
           {formatCurrency(netWorth.netWorth)}
         </p>
-        <p class="mt-1 text-xs text-slate-500">
+        <p class="mt-1 text-xs text-slate-400">
           {m.dashboard_net_worth_subtitle({
             date: netWorth.asOfDate ? formatDate(netWorth.asOfDate) : "-",
           })}
         </p>
-        <p class="mt-1 text-xs text-slate-500">{m.dashboard_net_worth_manual_note()}</p>
+        <p class="mt-1 text-xs text-slate-400">{m.dashboard_net_worth_manual_note()}</p>
       {/if}
     </div>
     <Wallet size={18} class="shrink-0 text-slate-500" aria-hidden="true" />
