@@ -58,8 +58,8 @@
       cashPositionQuery.data ?? null,
       (positionTxQuery.data ?? [])
         .filter((t) => (t.group_id ?? null) === null)
-        .map((t) => ({ type: t.type, amount: t.amount, status: t.status, date: t.date })),
-    ),
+        .map((t) => ({ type: t.type, amount: t.amount, status: t.status, date: t.date }))
+    )
   );
 
   const linkedExpensesByPlanId = $derived(

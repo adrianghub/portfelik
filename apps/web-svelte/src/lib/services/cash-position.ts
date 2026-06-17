@@ -77,7 +77,7 @@ export async function upsertPrivateCashPosition(input: CashPositionInput): Promi
         opening_amount: input.opening_amount,
         as_of_date: input.as_of_date,
       },
-      { onConflict: "owner_id" },
+      { onConflict: "owner_id" }
     )
     .select()
     .single();
