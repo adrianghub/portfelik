@@ -159,8 +159,18 @@ export async function upsertPlanDebtTerms(
     current_balance: normalized.current_balance,
     annual_rate: normalized.annual_rate,
     monthly_payment: normalized.monthly_payment,
-    first_payment_date: input.first_payment_date ?? null,
-    first_payment_amount: input.first_payment_amount ?? null,
+    // Preserve stored first-payment terms when the caller omits them (e.g. the
+    // DebtPlanDetail terms-edit / full-replay paths) - only an explicit value
+    // (including null) overwrites. Otherwise editing terms would wipe the odd
+    // first-installment schedule.
+    first_payment_date:
+      input.first_payment_date !== undefined
+        ? input.first_payment_date
+        : (existing?.first_payment_date ?? null),
+    first_payment_amount:
+      input.first_payment_amount !== undefined
+        ? input.first_payment_amount
+        : (existing?.first_payment_amount ?? null),
     anchor_balance,
     balance_anchor_date,
   };

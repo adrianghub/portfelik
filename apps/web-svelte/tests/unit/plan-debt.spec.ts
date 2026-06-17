@@ -2,9 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("$lib/supabase", () => ({ supabase: {} }));
 
-import { normalizeDebtTermsInput, deriveDebtDisplayBalance } from "$lib/services/plan-debt";
+import {
+  normalizeDebtTermsInput,
+  deriveDebtDisplayBalance,
+  upsertPlanDebtTerms,
+} from "$lib/services/plan-debt";
 import { canManagePlan } from "$lib/services/plans";
-import type { GroupMemberRole } from "$lib/types";
+import { supabase } from "$lib/supabase";
+import type { GroupMemberRole, PlanDebtTerms } from "$lib/types";
 
 describe("normalizeDebtTermsInput", () => {
   it("accepts whole-number amounts and defaults balance to original", () => {
@@ -125,5 +130,79 @@ describe("canManagePlan", () => {
 
   it("allows co-owner on shared plan", () => {
     expect(canManagePlan({ user_id: "u1", group_id: "g2" }, "u2", roles)).toBe(true);
+  });
+});
+
+describe("upsertPlanDebtTerms first-payment merge", () => {
+  // Minimal chainable mock: fetch (.select().eq().maybeSingle()) and
+  // upsert (.upsert().select().single()) share one builder. single() returns
+  // the captured upsert payload so we can assert what was persisted.
+  function mockSupabase(existing: Partial<PlanDebtTerms> | null) {
+    let capturedPayload: Record<string, unknown> = {};
+    const builder: Record<string, unknown> = {
+      select: () => builder,
+      eq: () => builder,
+      maybeSingle: async () => ({ data: existing, error: null }),
+      upsert: (payload: Record<string, unknown>) => {
+        capturedPayload = payload;
+        return builder;
+      },
+      single: async () => ({ data: capturedPayload, error: null }),
+    };
+    (supabase as unknown as { from: () => unknown }).from = () => builder;
+    return () => capturedPayload;
+  }
+
+  const baseInput = {
+    original_amount: 207000,
+    current_balance: 207000,
+    annual_rate: 5.96,
+    monthly_payment: 2255.01,
+  };
+
+  it("preserves stored first-payment terms when the caller omits them", async () => {
+    const captured = mockSupabase({
+      first_payment_date: "2026-08-10",
+      first_payment_amount: 3115.38,
+      anchor_balance: 207000,
+      balance_anchor_date: "2026-06-12",
+    } as Partial<PlanDebtTerms>);
+
+    await upsertPlanDebtTerms("plan-1", { ...baseInput });
+
+    expect(captured().first_payment_date).toBe("2026-08-10");
+    expect(captured().first_payment_amount).toBe(3115.38);
+  });
+
+  it("lets an explicit value overwrite the stored first-payment terms", async () => {
+    const captured = mockSupabase({
+      first_payment_date: "2026-08-10",
+      first_payment_amount: 3115.38,
+    } as Partial<PlanDebtTerms>);
+
+    await upsertPlanDebtTerms("plan-1", {
+      ...baseInput,
+      first_payment_date: "2026-09-01",
+      first_payment_amount: 2255.01,
+    });
+
+    expect(captured().first_payment_date).toBe("2026-09-01");
+    expect(captured().first_payment_amount).toBe(2255.01);
+  });
+
+  it("lets an explicit null clear the stored first-payment terms", async () => {
+    const captured = mockSupabase({
+      first_payment_date: "2026-08-10",
+      first_payment_amount: 3115.38,
+    } as Partial<PlanDebtTerms>);
+
+    await upsertPlanDebtTerms("plan-1", {
+      ...baseInput,
+      first_payment_date: null,
+      first_payment_amount: null,
+    });
+
+    expect(captured().first_payment_date).toBeNull();
+    expect(captured().first_payment_amount).toBeNull();
   });
 });
