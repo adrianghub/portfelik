@@ -8,6 +8,8 @@
   import { fetchPlanDebtTermsByPlanIds } from "$lib/services/plan-debt";
   import { fetchPlanProgressForPlans } from "$lib/services/plan-settlement";
   import { fetchPlans, todayIso } from "$lib/services/plans";
+  import { fetchPrivateCashPosition, livePosition } from "$lib/services/cash-position";
+  import { fetchTransactions } from "$lib/services/transactions";
   import { createQuery } from "@tanstack/svelte-query";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
   import { ChevronRight, Wallet } from "lucide-svelte";
@@ -38,6 +40,28 @@
     queryFn: fetchFinancialSnapshot,
   }));
 
+  const cashPositionQuery = createQuery(() => ({
+    queryKey: ["cash-position"],
+    queryFn: fetchPrivateCashPosition,
+  }));
+
+  const cashRangeStart = $derived(cashPositionQuery.data?.as_of_date ?? "2000-01-01");
+  const cashRangeEnd = $derived(todayIso());
+  const positionTxQuery = createQuery(() => ({
+    queryKey: ["transactions", "cash-position-range", cashRangeStart, cashRangeEnd],
+    queryFn: () => fetchTransactions(cashRangeStart, cashRangeEnd),
+    enabled: !cashPositionQuery.isLoading,
+  }));
+
+  const derivedCash = $derived(
+    livePosition(
+      cashPositionQuery.data ?? null,
+      (positionTxQuery.data ?? [])
+        .filter((t) => (t.group_id ?? null) === null)
+        .map((t) => ({ type: t.type, amount: t.amount, status: t.status, date: t.date })),
+    ),
+  );
+
   const linkedExpensesByPlanId = $derived(
     Object.fromEntries(
       Object.entries(debtProgressQuery.data ?? {}).map(([planId, p]) => [planId, p.linkedExpenses])
@@ -45,15 +69,16 @@
   );
 
   const netWorth = $derived(
-    computeNetWorth(
-      snapshotQuery.data ?? null,
-      collectNetWorthDebtBalances(
+    computeNetWorth({
+      snapshot: snapshotQuery.data ?? null,
+      derivedCash,
+      debtBalances: collectNetWorthDebtBalances(
         plansQuery.data ?? [],
         debtTermsQuery.data ?? {},
         todayIso(),
         linkedExpensesByPlanId
-      )
-    )
+      ),
+    })
   );
 
   const loading = $derived(snapshotQuery.isPending || plansQuery.isPending);
@@ -70,7 +95,7 @@
       </p>
       {#if loading}
         <div class="mt-3 h-8 w-40 animate-pulse rounded-lg bg-slate-800/60"></div>
-      {:else if !netWorth.hasSnapshot}
+      {:else if !netWorth.hasData}
         <p class="mt-2 text-sm text-slate-400">{m.dashboard_net_worth_empty()}</p>
       {:else}
         <p
