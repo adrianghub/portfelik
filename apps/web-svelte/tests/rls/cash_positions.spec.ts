@@ -84,6 +84,15 @@ describe("RLS: cash_positions", () => {
       .single();
     expect(Number(data?.opening_amount)).toBe(1234);
   });
+
+  it("private scope is immutable on update (cannot attach a group_id)", async () => {
+    const result = await ctx.userA.client
+      .from("cash_positions")
+      .update({ group_id: "00000000-0000-0000-0000-000000000001" })
+      .eq("owner_id", ctx.userA.userId)
+      .select();
+    expectBlockedWrite(result);
+  });
 });
 
 describe("RLS: cash_positions (group scope)", () => {
@@ -142,5 +151,26 @@ describe("RLS: cash_positions (group scope)", () => {
       .eq("group_id", groupId)
       .select();
     expectBlockedWrite(result);
+  });
+
+  it("a co-owner cannot move the group anchor into their private scope", async () => {
+    // The vuln the scope-lock trigger closes: owner/co-owner has UPDATE rights on the
+    // group row, and {owner_id = me, group_id = null} is a valid private shape — only an
+    // OLD-vs-NEW scope comparison blocks the move.
+    const result = await ctx.userA.client
+      .from("cash_positions")
+      .update({ owner_id: ctx.userA.userId, group_id: null })
+      .eq("group_id", groupId)
+      .select();
+    expectBlockedWrite(result);
+
+    // Group anchor untouched.
+    const { data } = await ctx.userA.client
+      .from("cash_positions")
+      .select("opening_amount, owner_id")
+      .eq("group_id", groupId)
+      .single();
+    expect(Number(data?.opening_amount)).toBe(5000);
+    expect(data?.owner_id).toBeNull();
   });
 });

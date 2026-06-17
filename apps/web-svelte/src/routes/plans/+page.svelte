@@ -359,6 +359,10 @@
   let openingAsOf = $state(todayIsoLocal());
 
   function openNetWorthForm() {
+    // Only open once both anchors have resolved. Otherwise the fields would
+    // initialize blank/today and a submit would overwrite the seeded cash anchor
+    // and assets snapshot with 0s.
+    if (!cashPositionQuery.isSuccess || !snapshotQuery.isSuccess) return;
     const snap = snapshotQuery.data;
     snapshotDate = snap?.as_of_date ?? todayIsoLocal();
     snapshotInvest = snap ? String(snap.investments_amount) : "";
@@ -1113,7 +1117,9 @@
       </button>
       <button
         type="submit"
-        disabled={snapshotMutation.isPending}
+        disabled={snapshotMutation.isPending ||
+          !cashPositionQuery.isSuccess ||
+          !snapshotQuery.isSuccess}
         class="bg-accent-gradient flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
       >
         {snapshotMutation.isPending ? m.common_saving() : m.common_save()}

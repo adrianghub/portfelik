@@ -54,9 +54,14 @@ create policy "cash_positions: update own or group co-owner"
     owner_id = (select auth.uid())
     or (group_id is not null and (select public.is_group_co_owner(group_id)))
   )
+  -- WITH CHECK mirrors the insert predicate so an update can only ever leave the
+  -- row in a valid private-own or co-owned-group shape. The scope columns
+  -- themselves are additionally frozen by cash_positions_lock_scope below —
+  -- mirroring alone is not enough, since {owner_id = me, group_id = null} is a
+  -- valid private shape a group co-owner could otherwise move a group row into.
   with check (
-    owner_id = (select auth.uid())
-    or (group_id is not null and (select public.is_group_co_owner(group_id)))
+    (owner_id = (select auth.uid()) and group_id is null)
+    or (owner_id is null and group_id is not null and (select public.is_group_co_owner(group_id)))
   );
 
 revoke all on table public.cash_positions from public;
@@ -66,6 +71,28 @@ grant select, insert, update on table public.cash_positions to authenticated;
 create trigger set_updated_at
   before update on public.cash_positions
   for each row execute function public.handle_updated_at();
+
+-- Freeze the scope columns: an update may change opening_amount / as_of_date but
+-- never move a row between private (owner_id) and group (group_id) scope. RLS
+-- policies cannot compare OLD vs NEW, so this is enforced here.
+create or replace function public.cash_positions_lock_scope()
+  returns trigger
+  language plpgsql
+  set search_path = public
+as $$
+begin
+  if new.owner_id is distinct from old.owner_id
+     or new.group_id is distinct from old.group_id then
+    raise exception 'cash_positions: scope columns (owner_id, group_id) are immutable'
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger cash_positions_lock_scope
+  before update on public.cash_positions
+  for each row execute function public.cash_positions_lock_scope();
 
 insert into public.cash_positions (owner_id, opening_amount, as_of_date)
 select fs.user_id, greatest(coalesce(fs.cash_amount, 0), 0), fs.as_of_date

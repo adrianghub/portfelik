@@ -111,12 +111,12 @@
         >
           {formatCurrency(netWorth.netWorth)}
         </p>
-        <p class="mt-1 text-xs text-slate-500">
+        <p class="mt-1 text-xs text-slate-400">
           {m.dashboard_net_worth_subtitle({
             date: netWorth.asOfDate ? formatDate(netWorth.asOfDate) : "-",
           })}
         </p>
-        <p class="mt-1 text-xs text-slate-500">{m.dashboard_net_worth_manual_note()}</p>
+        <p class="mt-1 text-xs text-slate-400">{m.dashboard_net_worth_manual_note()}</p>
       {/if}
     </div>
     <Wallet size={18} class="shrink-0 text-slate-500" aria-hidden="true" />
