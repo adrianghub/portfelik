@@ -21,8 +21,13 @@ create table public.cash_positions (
 comment on table public.cash_positions is
   'Opening balance + as-of date anchoring a single derived cash position per scope (private owner_id or group_id). Live balance is computed in app code from paid transactions; never stored here.';
 
-create unique index cash_positions_owner_uniq on public.cash_positions(owner_id) where owner_id is not null;
-create unique index cash_positions_group_uniq on public.cash_positions(group_id) where group_id is not null;
+-- Plain (non-partial) unique indexes: one row per scope. NULL scope keys stay
+-- multi-allowed (default NULLS DISTINCT), so a private row's NULL group_id and a
+-- group row's NULL owner_id never collide; the cash_positions_one_scope CHECK still
+-- guarantees exactly one scope is set. Plain (not partial) so they are valid
+-- ON CONFLICT arbiters for the owner_id upsert in upsertPrivateCashPosition.
+create unique index cash_positions_owner_uniq on public.cash_positions(owner_id);
+create unique index cash_positions_group_uniq on public.cash_positions(group_id);
 
 alter table public.cash_positions enable row level security;
 
