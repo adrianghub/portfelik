@@ -936,7 +936,7 @@
   "plan_debt_refinance_name": "Nazwa nowego kredytu",
   "plan_debt_refinance_disbursement": "Data uruchomienia nowego kredytu",
   "plan_debt_refinance_first_payment": "Data pierwszej raty",
-  "plan_debt_refinance_submit": "Refinansuj kredyt",
+  "plan_debt_refinance_submit": "Otwórz nowy kredyt",
   "plan_debt_refinance_done": "Kredyt zrefinansowany. Otwarto nowy plan.",
   "plan_debt_refinance_name_required": "Podaj nazwę nowego kredytu.",
   "plan_debt_refinance_from": "Powstał z refinansowania poprzedniego kredytu",
