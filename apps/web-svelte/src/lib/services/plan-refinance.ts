@@ -1,6 +1,7 @@
 import { supabase } from "$lib/supabase";
-import { upsertPlanDebtTerms } from "$lib/services/plan-debt";
-import type { Plan } from "$lib/types";
+import type { Database } from "$lib/supabase.types";
+
+type RefinanceRpcArgs = Database["public"]["Functions"]["refinance_debt_plan"]["Args"];
 
 /** Fields the user enters in the refinance form. The parent fills in identity/scope. */
 export interface RefinanceFormInput {
@@ -21,82 +22,55 @@ export interface RefinanceInput extends RefinanceFormInput {
   categoryId: string | null;
 }
 
-export interface RefinancePlanRows {
-  newPlan: Pick<
-    Plan,
-    | "name"
-    | "user_id"
-    | "group_id"
-    | "category_id"
-    | "kind"
-    | "target_amount"
-    | "start_date"
-    | "end_date"
-    | "status"
-    | "refinanced_from_plan_id"
-  >;
-  newTerms: {
-    original_amount: number;
-    current_balance: number;
-    annual_rate: number;
-    monthly_payment: number;
-    first_payment_date: string;
-    first_payment_amount: number | null;
-  };
-  oldPatch: { status: "refinanced"; replaced_by_plan_id: string };
+/** Named arguments for the `refinance_debt_plan` Postgres RPC. */
+export interface RefinanceRpcParams {
+  p_old_plan_id: string;
+  p_name: string;
+  p_group_id: string | null;
+  p_category_id: string | null;
+  p_target_amount: number;
+  p_start_date: string;
+  p_end_date: string;
+  p_annual_rate: number;
+  p_monthly_payment: number;
+  p_first_payment_date: string;
+  p_first_payment_amount: number | null;
 }
 
-/** Pure mapping from refinance input to the rows we will persist. Testable without a DB. */
-export function buildRefinancePlans(input: RefinanceInput, newPlanId: string): RefinancePlanRows {
+/**
+ * Pure mapping from refinance form input to the RPC arguments. Testable without a DB.
+ * `user_id` is intentionally omitted: the RPC sets it to `auth.uid()` server-side so
+ * the new plan can never be created under another user's identity.
+ */
+export function buildRefinanceRpcParams(input: RefinanceInput): RefinanceRpcParams {
   return {
-    newPlan: {
-      name: input.newName,
-      user_id: input.userId,
-      group_id: input.groupId,
-      category_id: input.categoryId,
-      kind: "debt",
-      target_amount: input.originalAmount,
-      start_date: input.disbursementDate,
-      end_date: input.endDate,
-      status: "active",
-      refinanced_from_plan_id: input.oldPlanId,
-    },
-    newTerms: {
-      original_amount: input.originalAmount,
-      current_balance: input.originalAmount,
-      annual_rate: input.annualRate,
-      monthly_payment: input.monthlyPayment,
-      first_payment_date: input.firstPaymentDate,
-      first_payment_amount: input.firstPaymentAmount,
-    },
-    oldPatch: { status: "refinanced", replaced_by_plan_id: newPlanId },
+    p_old_plan_id: input.oldPlanId,
+    p_name: input.newName,
+    p_group_id: input.groupId,
+    p_category_id: input.categoryId,
+    p_target_amount: input.originalAmount,
+    p_start_date: input.disbursementDate,
+    p_end_date: input.endDate,
+    p_annual_rate: input.annualRate,
+    p_monthly_payment: input.monthlyPayment,
+    p_first_payment_date: input.firstPaymentDate,
+    p_first_payment_amount: input.firstPaymentAmount,
   };
 }
 
 /**
- * Execute a refinance: create the new debt plan + terms, archive the old plan, link both.
- * No transactions are written (the cash wash nets zero). Rolls back the new plan if terms fail.
+ * Execute a refinance atomically via the `refinance_debt_plan` RPC: it creates the
+ * new active debt plan + terms and archives the old plan in a single transaction, so
+ * an interrupted client can never leave both the old and new loans active (which would
+ * double-count the debt). No transactions are written (the cash wash nets to zero).
  */
 export async function refinanceDebtPlan(input: RefinanceInput): Promise<{ newPlanId: string }> {
-  const draft = buildRefinancePlans(input, "");
-  const { data: created, error: createErr } = await supabase
-    .from("plans")
-    .insert(draft.newPlan)
-    .select("id")
-    .single();
-  if (createErr) throw createErr;
-  const newPlanId = (created as { id: string }).id;
-
-  try {
-    await upsertPlanDebtTerms(newPlanId, { ...draft.newTerms });
-    const { error: patchErr } = await supabase
-      .from("plans")
-      .update({ status: "refinanced", replaced_by_plan_id: newPlanId })
-      .eq("id", input.oldPlanId);
-    if (patchErr) throw patchErr;
-  } catch (err) {
-    await supabase.from("plans").delete().eq("id", newPlanId);
-    throw err;
-  }
-  return { newPlanId };
+  // Nullable uuid/numeric RPC args (group_id, category_id, first_payment_amount) are
+  // valid as null at runtime; the generated Args type models them as non-null, so cast.
+  const { data, error } = await supabase.rpc(
+    "refinance_debt_plan",
+    buildRefinanceRpcParams(input) as RefinanceRpcArgs
+  );
+  if (error) throw error;
+  return { newPlanId: data as string };
 }

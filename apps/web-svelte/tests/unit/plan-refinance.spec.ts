@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("$lib/supabase", () => ({ supabase: {} }));
 
-import { buildRefinancePlans, type RefinanceInput } from "$lib/services/plan-refinance";
+import { buildRefinanceRpcParams, type RefinanceInput } from "$lib/services/plan-refinance";
 
 const input: RefinanceInput = {
   oldPlanId: "old-1",
@@ -19,26 +19,37 @@ const input: RefinanceInput = {
   firstPaymentAmount: 3115.38,
 };
 
-describe("buildRefinancePlans", () => {
-  it("maps the new plan row as an active debt plan linking the old one", () => {
-    const { newPlan } = buildRefinancePlans(input, "new-1");
-    expect(newPlan.kind).toBe("debt");
-    expect(newPlan.status).toBe("active");
-    expect(newPlan.refinanced_from_plan_id).toBe("old-1");
-    expect(newPlan.start_date).toBe("2026-06-12");
-    expect(newPlan.user_id).toBe("u-1");
+describe("buildRefinanceRpcParams", () => {
+  it("maps the form input to the refinance_debt_plan RPC arguments", () => {
+    const params = buildRefinanceRpcParams(input);
+    expect(params.p_old_plan_id).toBe("old-1");
+    expect(params.p_name).toBe("Hipoteka 2026 (refinansowanie)");
+    expect(params.p_target_amount).toBe(173000);
+    expect(params.p_start_date).toBe("2026-06-12");
+    expect(params.p_end_date).toBe("2036-10-10");
+    expect(params.p_annual_rate).toBe(5.96);
+    expect(params.p_monthly_payment).toBe(2255.01);
   });
 
-  it("maps the new debt terms with the explicit first installment", () => {
-    const { newTerms } = buildRefinancePlans(input, "new-1");
-    expect(newTerms.first_payment_amount).toBe(3115.38);
-    expect(newTerms.first_payment_date).toBe("2026-08-10");
-    expect(newTerms.current_balance).toBe(173000);
+  it("carries the explicit first installment through", () => {
+    const params = buildRefinanceRpcParams(input);
+    expect(params.p_first_payment_date).toBe("2026-08-10");
+    expect(params.p_first_payment_amount).toBe(3115.38);
   });
 
-  it("maps the old-plan archive patch", () => {
-    const { oldPatch } = buildRefinancePlans(input, "new-1");
-    expect(oldPatch.status).toBe("refinanced");
-    expect(oldPatch.replaced_by_plan_id).toBe("new-1");
+  it("omits user_id (the RPC sets it to auth.uid() server-side)", () => {
+    const params = buildRefinanceRpcParams(input) as unknown as Record<string, unknown>;
+    expect("p_user_id" in params).toBe(false);
+    expect("user_id" in params).toBe(false);
+  });
+
+  it("passes group + category scope straight through", () => {
+    const params = buildRefinanceRpcParams({
+      ...input,
+      groupId: "g-1",
+      categoryId: "c-1",
+    });
+    expect(params.p_group_id).toBe("g-1");
+    expect(params.p_category_id).toBe("c-1");
   });
 });
