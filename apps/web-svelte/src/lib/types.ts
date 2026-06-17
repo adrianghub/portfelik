@@ -209,6 +209,7 @@ export interface CashPosition {
 
 export interface NetWorthSummary {
   hasSnapshot: boolean;
+  hasData: boolean;
   asOfDate: string | null;
   cash: number;
   investments: number;

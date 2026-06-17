@@ -21,7 +21,8 @@ const snapshot: FinancialSnapshot = {
 
 describe("computeNetWorth", () => {
   it("sums manual assets minus debt plan balances", () => {
-    const result = computeNetWorth(snapshot, [206_000]);
+    // cash_amount on the snapshot is now ignored; cash flows in as derivedCash.
+    const result = computeNetWorth({ snapshot, derivedCash: 42000, debtBalances: [206_000] });
     expect(result.totalAssets).toBe(513_000);
     expect(result.totalDebt).toBe(206_000);
     expect(result.netWorth).toBe(307_000);
@@ -29,7 +30,7 @@ describe("computeNetWorth", () => {
   });
 
   it("returns empty state when no snapshot", () => {
-    const result = computeNetWorth(null, [100_000]);
+    const result = computeNetWorth({ snapshot: null, derivedCash: 0, debtBalances: [100_000] });
     expect(result.hasSnapshot).toBe(false);
     expect(result.totalAssets).toBe(0);
     expect(result.netWorth).toBe(-100_000);
