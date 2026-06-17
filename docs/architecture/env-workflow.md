@@ -65,6 +65,19 @@ flowchart LR
 
 ### Local
 
+**Quick start (fresh stack + seeded personas + dev server):**
+
+```bash
+# repo root
+supabase start && supabase db reset
+cd apps/web-svelte && pnpm seed:local && pnpm dev
+```
+
+`supabase start` boots the local stack, `db reset` re-applies every migration,
+`pnpm seed:local` creates the `admin@portfelik.test` / `user@portfelik.test`
+personas (password = login), and `pnpm dev` serves the app at
+`127.0.0.1:5173` against the local Supabase. Then log in and explore.
+
 - Config: `apps/web-svelte/.env.local`.
 - After the local-stack switch (2026-05-15), `.env.local` points at the local Supabase stack.
 - Stack boot (from repo root): `supabase start`. Stops with `supabase stop`. Resets schema + re-applies all migrations: `supabase db reset`.
