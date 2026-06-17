@@ -95,6 +95,7 @@
   "transactions_col_description": "Opis",
   "transactions_col_category": "Kategoria",
   "transactions_col_amount": "Kwota",
+  "transactions_col_balance": "Saldo",
   "transactions_col_status": "Status",
   "transactions_sort_by": "Sortuj kolumnę {column}: {direction}",
   "transactions_sort_direction_asc": "rosnąco",
