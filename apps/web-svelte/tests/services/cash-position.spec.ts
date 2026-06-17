@@ -1,4 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// cash-position.ts pulls in the supabase singleton (for fetch/upsert), which
+// imports $env/static/public — unresolvable under vitest. The pure engine under
+// test never touches it, so stub the module.
+vi.mock("$lib/supabase", () => ({ supabase: {} }));
+
 import { forecastPosition, livePosition } from "$lib/services/cash-position";
 
 type Tx = { type: "income" | "expense"; amount: number; status: string; date: string };
