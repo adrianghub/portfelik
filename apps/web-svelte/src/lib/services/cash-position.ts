@@ -1,3 +1,4 @@
+import { supabase } from "$lib/supabase";
 import type { CashPosition } from "$lib/types";
 
 /** Minimal transaction shape the position engine needs. */
@@ -40,4 +41,46 @@ export function forecastPosition(anchor: Anchor, txs: PositionTx[]): number {
     .filter((t) => t.status === "upcoming")
     .reduce((sum, t) => sum + signed(t), 0);
   return livePosition(anchor, txs) + upcoming;
+}
+
+/** Fetch the private cash position for the signed-in user (null if not set yet). */
+export async function fetchPrivateCashPosition(): Promise<CashPosition | null> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+  const { data, error } = await supabase
+    .from("cash_positions")
+    .select("*")
+    .eq("owner_id", user.id)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as CashPosition | null) ?? null;
+}
+
+export interface CashPositionInput {
+  opening_amount: number;
+  as_of_date: string;
+}
+
+/** Create or update the private cash position (one row per user, keyed by owner_id). */
+export async function upsertPrivateCashPosition(input: CashPositionInput): Promise<CashPosition> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+  const { data, error } = await supabase
+    .from("cash_positions")
+    .upsert(
+      {
+        owner_id: user.id,
+        opening_amount: input.opening_amount,
+        as_of_date: input.as_of_date,
+      },
+      { onConflict: "owner_id" },
+    )
+    .select()
+    .single();
+  if (error) throw error;
+  return data as CashPosition;
 }
