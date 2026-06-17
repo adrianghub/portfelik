@@ -1124,6 +1124,22 @@ export type Database = {
       privacy_mask_text: { Args: { p_label: string }; Returns: string };
       process_bank_import_reminders: { Args: never; Returns: undefined };
       process_recurring_transactions: { Args: never; Returns: undefined };
+      refinance_debt_plan: {
+        Args: {
+          p_annual_rate: number;
+          p_category_id: string;
+          p_end_date: string;
+          p_first_payment_amount: number;
+          p_first_payment_date: string;
+          p_group_id: string;
+          p_monthly_payment: number;
+          p_name: string;
+          p_old_plan_id: string;
+          p_start_date: string;
+          p_target_amount: number;
+        };
+        Returns: string;
+      };
       reject_invitation: {
         Args: { p_invitation_id: string };
         Returns: undefined;
