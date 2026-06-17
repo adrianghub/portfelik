@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { afterNavigate, beforeNavigate } from "$app/navigation";
+  import { afterNavigate, beforeNavigate, goto } from "$app/navigation";
   import { page } from "$app/stores";
   import * as m from "$lib/paraglide/messages";
   import {
@@ -16,6 +16,7 @@
     type PlanTransactionContext,
   } from "$lib/components/transactions/TransactionDialog.svelte";
   import { detectRecurringDebtPayments } from "$lib/services/debt-payment-detect";
+  import { refinanceDebtPlan, type RefinanceFormInput } from "$lib/services/plan-refinance";
   import {
     applyDebtBalanceFromLinks,
     deriveDebtDisplayBalance,
@@ -336,6 +337,30 @@
     },
     onError: () => toast.error(m.toast_error()),
   }));
+
+  const refinanceMutation = createMutation(() => ({
+    mutationFn: async (input: RefinanceFormInput) => {
+      const plan = planQuery.data!;
+      const { data } = await supabase.auth.getUser();
+      const userId = data.user?.id;
+      if (!userId) throw new Error("not_authenticated");
+      return refinanceDebtPlan({
+        ...input,
+        oldPlanId: id,
+        userId,
+        groupId: plan.group_id,
+        categoryId: plan.category_id,
+      });
+    },
+    onSuccess: async ({ newPlanId }) => {
+      toast.success(m.plan_debt_refinance_done());
+      await queryClient.invalidateQueries({ queryKey: ["plans"] });
+      await queryClient.invalidateQueries({ queryKey: ["plan-progress-list"] });
+      await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms-list"] });
+      await goto(`/plans/${newPlanId}`);
+    },
+    onError: () => toast.error(m.toast_error()),
+  }));
 </script>
 
 <svelte:head>
@@ -464,6 +489,14 @@
             }
           : undefined}
         onPlanDatesSave={canManage ? (dates) => debtPlanDatesMutation.mutate(dates) : undefined}
+        onRefinance={canManage
+          ? async (input) => {
+              await refinanceMutation.mutateAsync(input);
+            }
+          : undefined}
+        refinancing={refinanceMutation.isPending}
+        refinancedFromPlanId={plan.refinanced_from_plan_id}
+        replacedByPlanId={plan.replaced_by_plan_id}
         syncing={syncBalanceMutation.isPending}
         termsSaving={debtTermsMutation.isPending || debtPlanDatesMutation.isPending}
       />

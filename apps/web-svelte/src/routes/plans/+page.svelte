@@ -307,6 +307,8 @@
   let debtBalance = $state("");
   let debtRate = $state("1");
   let debtPayment = $state("");
+  let debtFirstPaymentDate = $state("");
+  let debtFirstPaymentAmount = $state("");
   let categoryId = $state("");
   let groupId = $state("");
 
@@ -365,6 +367,8 @@
     debtBalance = "";
     debtRate = "1";
     debtPayment = "";
+    debtFirstPaymentDate = "";
+    debtFirstPaymentAmount = "";
     if (plan?.kind === "debt") {
       const terms = debtTermsQuery.data?.[plan.id];
       if (terms) {
@@ -372,6 +376,9 @@
         debtBalance = String(terms.current_balance);
         debtRate = String(terms.annual_rate);
         debtPayment = String(terms.monthly_payment);
+        debtFirstPaymentDate = terms.first_payment_date ?? "";
+        debtFirstPaymentAmount =
+          terms.first_payment_amount != null ? String(terms.first_payment_amount) : "";
       }
     }
     categoryId = plan?.category_id ?? "";
@@ -403,6 +410,8 @@
       current_balance: debtBalance !== "" ? Number(debtBalance) : Number(debtOriginal),
       annual_rate: Number(debtRate),
       monthly_payment: Number(debtPayment),
+      first_payment_date: debtFirstPaymentDate || null,
+      first_payment_amount: debtFirstPaymentAmount !== "" ? Number(debtFirstPaymentAmount) : null,
     };
   }
 
@@ -890,7 +899,28 @@
             class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
           />
         </div>
+        <DayPicker
+          id="debt-first-payment-date"
+          bind:value={debtFirstPaymentDate}
+          label={m.plan_debt_first_payment_date()}
+          yearsPast={5}
+          yearsAhead={2}
+        />
+        <div class="space-y-1">
+          <label class="text-xs font-medium text-slate-300" for="debt-first-payment-amount"
+            >{m.plan_debt_first_payment_amount()}</label
+          >
+          <input
+            id="debt-first-payment-amount"
+            type="number"
+            min="0.01"
+            step="0.01"
+            bind:value={debtFirstPaymentAmount}
+            class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
+          />
+        </div>
       </div>
+      <p class="text-xs text-slate-500">{m.plan_debt_first_payment_hint()}</p>
     {/if}
 
     <div class="space-y-1">

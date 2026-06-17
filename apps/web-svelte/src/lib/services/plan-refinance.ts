@@ -2,12 +2,9 @@ import { supabase } from "$lib/supabase";
 import { upsertPlanDebtTerms } from "$lib/services/plan-debt";
 import type { Plan } from "$lib/types";
 
-export interface RefinanceInput {
-  oldPlanId: string;
-  userId: string;
-  groupId: string | null;
+/** Fields the user enters in the refinance form. The parent fills in identity/scope. */
+export interface RefinanceFormInput {
   newName: string;
-  categoryId: string | null;
   disbursementDate: string; // ISO -> new plan start_date
   firstPaymentDate: string; // ISO
   endDate: string; // ISO
@@ -15,6 +12,13 @@ export interface RefinanceInput {
   annualRate: number;
   monthlyPayment: number;
   firstPaymentAmount: number | null;
+}
+
+export interface RefinanceInput extends RefinanceFormInput {
+  oldPlanId: string;
+  userId: string;
+  groupId: string | null;
+  categoryId: string | null;
 }
 
 export interface RefinancePlanRows {
