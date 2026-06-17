@@ -173,4 +173,37 @@ describe("collectNetWorthDebtBalances", () => {
     expect(balances).toHaveLength(1);
     expect(balances[0]).toBe(207_000);
   });
+
+  it("excludes refinanced (archived) debt plans from net worth", () => {
+    const plans = [
+      debtPlan({ id: "d1", start_date: "2025-01-01", end_date: "2030-01-01" }),
+      debtPlan({
+        id: "d-refi",
+        start_date: "2025-01-01",
+        end_date: "2030-01-01",
+        status: "refinanced",
+      }),
+    ];
+    const terms = {
+      d1: debtTerms({
+        plan_id: "d1",
+        original_amount: 207_000,
+        current_balance: 207_000,
+        anchor_balance: 207_000,
+        balance_anchor_date: "2026-06-08",
+        updated_at: "2026-06-08T00:00:00Z",
+      }),
+      "d-refi": debtTerms({
+        plan_id: "d-refi",
+        original_amount: 300_000,
+        current_balance: 300_000,
+        anchor_balance: 300_000,
+        balance_anchor_date: "2026-06-08",
+        updated_at: "2026-06-08T00:00:00Z",
+      }),
+    };
+    const balances = collectNetWorthDebtBalances(plans, terms, "2026-06-08");
+    expect(balances).toHaveLength(1);
+    expect(balances[0]).toBe(207_000);
+  });
 });

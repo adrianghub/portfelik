@@ -1,5 +1,5 @@
 import { deriveDebtDisplayBalance } from "$lib/services/plan-debt";
-import { derivePlanBucket, todayIso } from "$lib/services/plans";
+import { derivePlanBucket, isLivePlan, todayIso } from "$lib/services/plans";
 import type { FinancialSnapshot, NetWorthSummary, Plan, PlanDebtTerms } from "$lib/types";
 import { supabase } from "$lib/supabase";
 
@@ -71,7 +71,7 @@ export function collectNetWorthDebtBalances(
   linkedExpensesByPlanId: Record<string, { amount: number; date: string }[]> = {}
 ): number[] {
   return plans
-    .filter((plan) => plan.kind === "debt")
+    .filter((plan) => plan.kind === "debt" && isLivePlan(plan))
     .map((plan) =>
       debtBalanceForNetWorth(
         plan,

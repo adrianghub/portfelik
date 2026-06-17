@@ -41,6 +41,7 @@
     deletePlan,
     derivePlanBucket,
     fetchPlans,
+    isLivePlan,
     updatePlan,
   } from "$lib/services/plans";
   import { supabase } from "$lib/supabase";
@@ -239,7 +240,7 @@
     // rata would otherwise be double-counted and the estimate note would vanish.
     const observedDebtCoverage = progressQuery.data
       ? scopedSummaries
-          .filter((p) => p.kind === "debt" && p.bucket === "active")
+          .filter((p) => p.kind === "debt" && p.bucket === "active" && isLivePlan(p))
           .reduce((sum, p) => sum + (progressQuery.data?.[p.id]?.linkedExpenseCurrentMonth ?? 0), 0)
       : 0;
     const debtPaymentsInExpenses = gateObservedDebtCoverage(observedDebtCoverage);
@@ -288,7 +289,7 @@
     filteredPlans.filter((p) => p.kind === "spend" && p.bucket === "finished")
   );
   const savePlans = $derived(filteredPlans.filter((p) => p.kind === "save"));
-  const debtPlans = $derived(filteredPlans.filter((p) => p.kind === "debt"));
+  const debtPlans = $derived(filteredPlans.filter((p) => p.kind === "debt" && isLivePlan(p)));
 
   function todayIsoLocal(): string {
     const now = new Date();

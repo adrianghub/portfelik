@@ -25,12 +25,14 @@ const debtTerms = (planId: string, payment: number): PlanDebtTerms => ({
 const debtPlan = (
   id: string,
   start: string,
-  end: string
-): Pick<Plan, "id" | "kind" | "start_date" | "end_date"> => ({
+  end: string,
+  status: Plan["status"] = "active"
+): Pick<Plan, "id" | "kind" | "start_date" | "end_date" | "status"> => ({
   id,
   kind: "debt",
   start_date: start,
   end_date: end,
+  status,
 });
 
 describe("computeMonthlySurplus", () => {
@@ -217,6 +219,18 @@ describe("sumDebtMonthlyPayments", () => {
       active: debtTerms("active", 2370),
       upcoming: debtTerms("upcoming", 2242),
       finished: debtTerms("finished", 900),
+    };
+    expect(sumDebtMonthlyPayments(plans, terms, "2026-06-08")).toBe(2370);
+  });
+
+  it("excludes refinanced (archived) debt plans so the old loan does not double-count", () => {
+    const plans = [
+      debtPlan("active", "2025-01-01", "2030-01-01"),
+      debtPlan("refinanced", "2025-01-01", "2030-01-01", "refinanced"),
+    ];
+    const terms = {
+      active: debtTerms("active", 2370),
+      refinanced: debtTerms("refinanced", 2242),
     };
     expect(sumDebtMonthlyPayments(plans, terms, "2026-06-08")).toBe(2370);
   });

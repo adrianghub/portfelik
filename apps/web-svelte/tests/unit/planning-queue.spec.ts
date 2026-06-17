@@ -155,6 +155,44 @@ describe("buildPlanningQueueActions", () => {
     expect(debtAction?.label).not.toContain("3 442");
   });
 
+  it("ignores refinanced debt plans for the debt chip", () => {
+    const debtTerms: Record<string, PlanDebtTerms> = {
+      "debt-refi": {
+        plan_id: "debt-refi",
+        original_amount: 100_000,
+        current_balance: 90_000,
+        annual_rate: 5,
+        monthly_payment: 1200,
+        anchor_balance: 90_000,
+        balance_anchor_date: "2026-01-01",
+        first_payment_date: null,
+        first_payment_amount: null,
+        created_at: "",
+        updated_at: "",
+      },
+    };
+    const actions = buildPlanningQueueActions({
+      summaries: [
+        summary({
+          id: "debt-refi",
+          kind: "debt",
+          bucket: "active",
+          status: "refinanced",
+          start_date: "2025-01-01",
+          end_date: "2030-01-01",
+        }),
+      ],
+      monthlySurplus: computeMonthlySurplus({
+        totalIncome: 5000,
+        totalExpenses: 4000,
+        debtMonthlyPayments: 1200,
+        saveMonthlyNeeded: 0,
+      }),
+      debtTerms,
+    });
+    expect(actions.some((a) => a.id.startsWith("debt-"))).toBe(false);
+  });
+
   it("caps at three actions", () => {
     const debtTerms: Record<string, PlanDebtTerms> = {
       "debt-1": {

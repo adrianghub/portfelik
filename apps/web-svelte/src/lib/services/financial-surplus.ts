@@ -105,12 +105,12 @@ export function gateObservedDebtCoverage(observed: number): number | undefined {
 }
 
 export function sumDebtMonthlyPayments(
-  plans: Pick<Plan, "id" | "kind" | "start_date" | "end_date">[],
+  plans: Pick<Plan, "id" | "kind" | "start_date" | "end_date" | "status">[],
   termsByPlanId: Record<string, PlanDebtTerms>,
   today = new Date().toISOString().slice(0, 10)
 ): number {
   return plans
-    .filter((plan) => plan.kind === "debt" && isActivePlan(plan, today))
+    .filter((plan) => plan.kind === "debt" && plan.status === "active" && isActivePlan(plan, today))
     .reduce((sum, plan) => {
       const terms = termsByPlanId[plan.id];
       return sum + (terms ? Number(terms.monthly_payment) : 0);
