@@ -38,7 +38,7 @@
   // Canonical display balance (daily accrual unless payments are linked) so the card
   // matches the plan detail headline and the net-worth Kredyty line.
   const debtBalance = $derived(
-    debtTerms ? deriveDebtDisplayBalance(debtTerms, linkedExpenses, todayIso()) : 0
+    debtTerms ? deriveDebtDisplayBalance(debtTerms, plan.start_date, linkedExpenses, todayIso()) : 0
   );
   const debtPaid = $derived(
     debtTerms ? Math.max(0, Number(debtTerms.original_amount) - debtBalance) : 0
@@ -49,20 +49,7 @@
       : 0
   );
   const debtInterestSinceStart = $derived(
-    debtTerms
-      ? estimateInterestPaidSince(
-          {
-            originalAmount: Number(debtTerms.original_amount),
-            currentBalance: debtBalance,
-            annualRate: Number(debtTerms.annual_rate),
-            anchorBalance: debtTerms.anchor_balance,
-            balanceAnchorDate: debtTerms.balance_anchor_date,
-            linkedExpenses,
-          },
-          plan.start_date,
-          todayIso()
-        )
-      : 0
+    debtTerms ? estimateInterestPaidSince(debtTerms, plan.start_date, todayIso()) : 0
   );
 
   const emoji = $derived(

@@ -168,6 +168,38 @@ test("debt plan detail shows balance hero and scenarios link", async ({ page }) 
   await expect(page.getByText("Ile nadpłacić jednorazowo?")).toBeVisible();
 });
 
+test("refinances a debt plan: closes old, opens new, writes no transaction", async ({ page }) => {
+  let rpcBody: Record<string, unknown> | undefined;
+  let transactionWritten = false;
+
+  await page.route(/.*\/rest\/v1\/transactions.*/, async (route) => {
+    if (route.request().method() === "POST") transactionWritten = true;
+    return route.fallback();
+  });
+  // Refinance is now a single atomic RPC; assert against its one request body.
+  await page.route(/.*\/rest\/v1\/rpc\/refinance_debt_plan.*/, async (route) => {
+    rpcBody = route.request().postDataJSON() as Record<string, unknown>;
+    return route.fulfill({ status: 200, json: "plan-refi-new" });
+  });
+
+  await page.goto("/plans/plan-debt-1");
+  await page.getByRole("button", { name: "Refinansuj kredyt" }).click();
+  await page.getByLabel("Nazwa nowego kredytu").fill("Hipoteka refinansowana");
+  await page.getByLabel("Kwota kredytu").fill("207000");
+  await page.getByLabel("Oprocentowanie (% rocznie)").fill("5.96");
+  await page.getByLabel("Rata miesięczna", { exact: true }).fill("2255.01");
+  await page.getByRole("button", { name: "Otwórz nowy kredyt" }).click();
+
+  await expect.poll(() => rpcBody?.p_old_plan_id).toBe("plan-debt-1");
+  expect(rpcBody?.p_name).toBe("Hipoteka refinansowana");
+  expect(Number(rpcBody?.p_target_amount)).toBe(207000);
+  expect(Number(rpcBody?.p_annual_rate)).toBe(5.96);
+  expect(Number(rpcBody?.p_monthly_payment)).toBe(2255.01);
+
+  await expect.poll(() => page.url()).toContain("/plans/plan-refi-new");
+  expect(transactionWritten).toBe(false);
+});
+
 test("debt scenarios page shows verdict and rate comparison", async ({ page }) => {
   await page.goto("/plans/plan-debt-1/scenarios?mode=monthly&extra=500");
 

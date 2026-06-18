@@ -61,6 +61,44 @@ export type Database = {
         };
         Relationships: [];
       };
+      cash_positions: {
+        Row: {
+          as_of_date: string;
+          created_at: string;
+          group_id: string | null;
+          id: string;
+          opening_amount: number;
+          owner_id: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          as_of_date?: string;
+          created_at?: string;
+          group_id?: string | null;
+          id?: string;
+          opening_amount?: number;
+          owner_id?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          as_of_date?: string;
+          created_at?: string;
+          group_id?: string | null;
+          id?: string;
+          opening_amount?: number;
+          owner_id?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "cash_positions_group_id_fkey";
+            columns: ["group_id"];
+            isOneToOne: false;
+            referencedRelation: "user_groups";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       categories: {
         Row: {
           created_at: string;
@@ -278,6 +316,8 @@ export type Database = {
           balance_anchor_date: string | null;
           created_at: string;
           current_balance: number;
+          first_payment_amount: number | null;
+          first_payment_date: string | null;
           monthly_payment: number;
           original_amount: number;
           plan_id: string;
@@ -289,6 +329,8 @@ export type Database = {
           balance_anchor_date?: string | null;
           created_at?: string;
           current_balance: number;
+          first_payment_amount?: number | null;
+          first_payment_date?: string | null;
           monthly_payment: number;
           original_amount: number;
           plan_id: string;
@@ -300,6 +342,8 @@ export type Database = {
           balance_anchor_date?: string | null;
           created_at?: string;
           current_balance?: number;
+          first_payment_amount?: number | null;
+          first_payment_date?: string | null;
           monthly_payment?: number;
           original_amount?: number;
           plan_id?: string;
@@ -417,7 +461,10 @@ export type Database = {
           id: string;
           kind: string;
           name: string;
+          refinanced_from_plan_id: string | null;
+          replaced_by_plan_id: string | null;
           start_date: string;
+          status: string;
           target_amount: number | null;
           updated_at: string;
           user_id: string;
@@ -431,7 +478,10 @@ export type Database = {
           id?: string;
           kind?: string;
           name: string;
+          refinanced_from_plan_id?: string | null;
+          replaced_by_plan_id?: string | null;
           start_date: string;
+          status?: string;
           target_amount?: number | null;
           updated_at?: string;
           user_id: string;
@@ -445,7 +495,10 @@ export type Database = {
           id?: string;
           kind?: string;
           name?: string;
+          refinanced_from_plan_id?: string | null;
+          replaced_by_plan_id?: string | null;
           start_date?: string;
+          status?: string;
           target_amount?: number | null;
           updated_at?: string;
           user_id?: string;
@@ -463,6 +516,20 @@ export type Database = {
             columns: ["group_id"];
             isOneToOne: false;
             referencedRelation: "user_groups";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "plans_refinanced_from_plan_id_fkey";
+            columns: ["refinanced_from_plan_id"];
+            isOneToOne: false;
+            referencedRelation: "plans";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "plans_replaced_by_plan_id_fkey";
+            columns: ["replaced_by_plan_id"];
+            isOneToOne: false;
+            referencedRelation: "plans";
             referencedColumns: ["id"];
           },
         ];
@@ -810,7 +877,6 @@ export type Database = {
           recurrence_month: number | null;
           recurrence_weekday: number | null;
           recurring_day: number | null;
-          recurring_template_id: string | null;
           status: Database["public"]["Enums"]["transaction_status"];
           type: Database["public"]["Enums"]["transaction_type"];
           updated_at: string;
@@ -832,7 +898,6 @@ export type Database = {
           recurrence_month?: number | null;
           recurrence_weekday?: number | null;
           recurring_day?: number | null;
-          recurring_template_id?: string | null;
           status?: Database["public"]["Enums"]["transaction_status"];
           type: Database["public"]["Enums"]["transaction_type"];
           updated_at?: string;
@@ -854,7 +919,6 @@ export type Database = {
           recurrence_month?: number | null;
           recurrence_weekday?: number | null;
           recurring_day?: number | null;
-          recurring_template_id?: string | null;
           status?: Database["public"]["Enums"]["transaction_status"];
           type?: Database["public"]["Enums"]["transaction_type"];
           updated_at?: string;
@@ -873,20 +937,6 @@ export type Database = {
             columns: ["group_id"];
             isOneToOne: false;
             referencedRelation: "user_groups";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "transactions_recurring_template_id_fkey";
-            columns: ["recurring_template_id"];
-            isOneToOne: false;
-            referencedRelation: "transactions";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "transactions_recurring_template_id_fkey";
-            columns: ["recurring_template_id"];
-            isOneToOne: false;
-            referencedRelation: "transactions_with_category";
             referencedColumns: ["id"];
           },
         ];
@@ -936,7 +986,6 @@ export type Database = {
           recurrence_month: number | null;
           recurrence_weekday: number | null;
           recurring_day: number | null;
-          recurring_template_id: string | null;
           status: Database["public"]["Enums"]["transaction_status"] | null;
           type: Database["public"]["Enums"]["transaction_type"] | null;
           updated_at: string | null;
@@ -955,20 +1004,6 @@ export type Database = {
             columns: ["group_id"];
             isOneToOne: false;
             referencedRelation: "user_groups";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "transactions_recurring_template_id_fkey";
-            columns: ["recurring_template_id"];
-            isOneToOne: false;
-            referencedRelation: "transactions";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "transactions_recurring_template_id_fkey";
-            columns: ["recurring_template_id"];
-            isOneToOne: false;
-            referencedRelation: "transactions_with_category";
             referencedColumns: ["id"];
           },
         ];
@@ -1127,6 +1162,22 @@ export type Database = {
       privacy_mask_text: { Args: { p_label: string }; Returns: string };
       process_bank_import_reminders: { Args: never; Returns: undefined };
       process_recurring_transactions: { Args: never; Returns: undefined };
+      refinance_debt_plan: {
+        Args: {
+          p_annual_rate: number;
+          p_category_id: string;
+          p_end_date: string;
+          p_first_payment_amount: number;
+          p_first_payment_date: string;
+          p_group_id: string;
+          p_monthly_payment: number;
+          p_name: string;
+          p_old_plan_id: string;
+          p_start_date: string;
+          p_target_amount: number;
+        };
+        Returns: string;
+      };
       reject_invitation: {
         Args: { p_invitation_id: string };
         Returns: undefined;

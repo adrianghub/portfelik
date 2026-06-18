@@ -5,7 +5,6 @@
     approximateDailyInterest,
     compareLumpSumOverpay,
     compareOverpay,
-    debtDisplayBalance,
     formatDuration,
     isPaymentBelowMonthlyInterest,
     monthlyInterestAmount,
@@ -19,6 +18,7 @@
     type PlanDebtTermsInput,
   } from "$lib/services/plan-debt";
   import { todayIso } from "$lib/services/plans";
+  import type { RefinanceFormInput } from "$lib/services/plan-refinance";
   import type { PlanDebtTerms } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
   import {
@@ -47,6 +47,10 @@
     onSyncBalance?: () => void | Promise<void>;
     onTermsSave?: (input: PlanDebtTermsInput) => void | Promise<void>;
     onPlanDatesSave?: (dates: { start_date: string; end_date: string }) => void | Promise<void>;
+    onRefinance?: (input: RefinanceFormInput) => void | Promise<void>;
+    refinancing?: boolean;
+    refinancedFromPlanId?: string | null;
+    replacedByPlanId?: string | null;
     syncing?: boolean;
     termsSaving?: boolean;
   }
@@ -62,11 +66,69 @@
     onSyncBalance,
     onTermsSave,
     onPlanDatesSave,
+    onRefinance,
+    refinancing = false,
+    refinancedFromPlanId = null,
+    replacedByPlanId = null,
     syncing = false,
     termsSaving = false,
   }: Props = $props();
 
   let showTermsEdit = $state(false);
+  let showRefinance = $state(false);
+  let refiName = $state("");
+  let refiDisbursement = $state("");
+  let refiFirstPayment = $state("");
+  let refiEndDate = $state("");
+  let refiOriginal = $state("");
+  let refiRate = $state("");
+  let refiPayment = $state("");
+  let refiFirstPaymentAmount = $state("");
+
+  function openRefinance() {
+    refiName = "";
+    refiDisbursement = todayIso();
+    refiFirstPayment = "";
+    refiEndDate = planEndDate;
+    refiOriginal = "";
+    refiRate = String(terms.annual_rate);
+    refiPayment = "";
+    refiFirstPaymentAmount = "";
+    showRefinance = true;
+  }
+
+  async function submitRefinance() {
+    const original = Number(refiOriginal);
+    const payment = Number(refiPayment);
+    const rate = Number(refiRate);
+    if (!refiName.trim()) {
+      toast.error(m.plan_debt_refinance_name_required());
+      return;
+    }
+    if (!original || Number.isNaN(original) || !payment || Number.isNaN(payment)) {
+      toast.error(m.plan_debt_payment_required());
+      return;
+    }
+    if (refiEndDate < refiDisbursement) {
+      toast.error(m.plan_form_dates_invalid());
+      return;
+    }
+    try {
+      await onRefinance?.({
+        newName: refiName.trim(),
+        disbursementDate: refiDisbursement,
+        firstPaymentDate: refiFirstPayment || refiDisbursement,
+        endDate: refiEndDate,
+        originalAmount: original,
+        annualRate: rate,
+        monthlyPayment: payment,
+        firstPaymentAmount: refiFirstPaymentAmount !== "" ? Number(refiFirstPaymentAmount) : null,
+      });
+      showRefinance = false;
+    } catch {
+      toast.error(m.toast_error());
+    }
+  }
   let showSyncConfirm = $state(false);
   let showFullReplayConfirm = $state(false);
   let editOriginal = $state("");
@@ -89,21 +151,12 @@
   const snapshotMode = $derived(
     isSnapshotDebtReplay(terms.anchor_balance, terms.balance_anchor_date)
   );
-  const displayBalance = $derived(deriveDebtDisplayBalance(terms, linkedExpenses, todayIso()));
+  const displayBalance = $derived(
+    deriveDebtDisplayBalance(terms, planStartDate, linkedExpenses, todayIso())
+  );
   const paid = $derived(Math.max(0, Number(terms.original_amount) - displayBalance));
   const interestPaidSinceStart = $derived(
-    estimateInterestPaidSince(
-      {
-        originalAmount: Number(terms.original_amount),
-        currentBalance: displayBalance,
-        annualRate: Number(terms.annual_rate),
-        anchorBalance: terms.anchor_balance,
-        balanceAnchorDate: terms.balance_anchor_date,
-        linkedExpenses,
-      },
-      planStartDate,
-      todayIso()
-    )
+    estimateInterestPaidSince(terms, planStartDate, todayIso())
   );
   const paidPct = $derived(
     terms.original_amount > 0 ? Math.round((paid / terms.original_amount) * 100) : 0
@@ -144,14 +197,7 @@
       ? Math.round((comparison.withExtra.payoffMonths / comparison.baseline.payoffMonths) * 100)
       : 100
   );
-  const storedLiveBalance = $derived(
-    debtDisplayBalance({
-      currentBalance: Number(terms.current_balance),
-      annualRate: Number(terms.annual_rate),
-      anchorDateIso: terms.updated_at.slice(0, 10),
-      asOfDateIso: todayIso(),
-    })
-  );
+  const storedLiveBalance = $derived(Number(terms.current_balance));
   const balanceDrift = $derived(
     hasLinkedPayments && Math.abs(displayBalance - storedLiveBalance) > 1
   );
@@ -307,6 +353,30 @@
 </script>
 
 <section class="space-y-5">
+  {#if refinancedFromPlanId}
+    <a
+      href="/plans/{refinancedFromPlanId}"
+      class="focus-visible:ring-accent flex items-center justify-between rounded-xl border border-sky-500/25 bg-sky-500/10 px-4 py-2.5 text-xs font-medium text-sky-300 hover:bg-sky-500/15 focus-visible:ring-2 focus-visible:outline-none"
+    >
+      {m.plan_debt_refinance_from()}
+      <span class="inline-flex items-center gap-1 font-semibold">
+        {m.plan_debt_refinance_view_old()}
+        <ChevronRight size={14} aria-hidden="true" />
+      </span>
+    </a>
+  {/if}
+  {#if replacedByPlanId}
+    <a
+      href="/plans/{replacedByPlanId}"
+      class="focus-visible:ring-accent flex items-center justify-between rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-2.5 text-xs font-medium text-amber-300 hover:bg-amber-500/15 focus-visible:ring-2 focus-visible:outline-none"
+    >
+      {m.plan_debt_refinanced_badge()}
+      <span class="inline-flex items-center gap-1 font-semibold">
+        {m.plan_debt_refinance_view_new()}
+        <ChevronRight size={14} aria-hidden="true" />
+      </span>
+    </a>
+  {/if}
   {#if showLinkPaymentsInfo}
     <PlanForwardNav
       href={settleHref}
@@ -599,6 +669,117 @@
     {m.plan_debt_compare_link()}
     <ChevronRight size={16} aria-hidden="true" />
   </a>
+
+  {#if onRefinance && !replacedByPlanId}
+    <div class="rounded-2xl border border-white/5 bg-slate-900/40">
+      <button
+        type="button"
+        onclick={() => (showRefinance ? (showRefinance = false) : openRefinance())}
+        class="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-slate-300 hover:text-slate-100"
+      >
+        {m.plan_debt_refinance_action()}
+        <ChevronRight
+          size={16}
+          class={cn("transition-transform", showRefinance && "rotate-90")}
+          aria-hidden="true"
+        />
+      </button>
+      {#if showRefinance}
+        <div class="space-y-3 border-t border-white/5 px-4 py-4">
+          <p class="text-xs text-slate-500">{m.plan_debt_refinance_hint()}</p>
+          <label class="block text-xs text-slate-400">
+            {m.plan_debt_refinance_name()}
+            <input
+              type="text"
+              required
+              bind:value={refiName}
+              class="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
+            />
+          </label>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <DayPicker
+              id="debt-refi-disbursement-{planId}"
+              bind:value={refiDisbursement}
+              label={m.plan_debt_refinance_disbursement()}
+              yearsPast={5}
+              yearsAhead={1}
+              showLabel={true}
+            />
+            <DayPicker
+              id="debt-refi-first-payment-{planId}"
+              bind:value={refiFirstPayment}
+              label={m.plan_debt_refinance_first_payment()}
+              yearsPast={1}
+              yearsAhead={2}
+              showLabel={true}
+            />
+          </div>
+          <DayPicker
+            id="debt-refi-end-{planId}"
+            bind:value={refiEndDate}
+            label={m.plan_form_end_date_debt()}
+            yearsPast={0}
+            yearsAhead={100}
+            showLabel={true}
+          />
+          <div class="grid gap-3 sm:grid-cols-2">
+            <label class="block text-xs text-slate-400">
+              {m.plan_debt_original()}
+              <input
+                type="number"
+                min="0.01"
+                step="0.01"
+                required
+                bind:value={refiOriginal}
+                class="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
+              />
+            </label>
+            <label class="block text-xs text-slate-400">
+              {m.plan_debt_rate()}
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                required
+                bind:value={refiRate}
+                class="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
+              />
+            </label>
+            <label class="block text-xs text-slate-400">
+              {m.plan_debt_payment()}
+              <input
+                type="number"
+                min="0.01"
+                step="0.01"
+                required
+                bind:value={refiPayment}
+                class="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
+              />
+            </label>
+            <label class="block text-xs text-slate-400">
+              {m.plan_debt_first_payment_amount()}
+              <input
+                type="number"
+                min="0.01"
+                step="0.01"
+                bind:value={refiFirstPaymentAmount}
+                class="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
+              />
+            </label>
+          </div>
+          <p class="text-xs text-slate-500">{m.plan_debt_first_payment_hint()}</p>
+          <button
+            type="button"
+            disabled={refinancing}
+            onclick={submitRefinance}
+            class="bg-accent-gradient w-full rounded-xl py-2.5 text-sm font-semibold text-slate-900 disabled:opacity-50"
+          >
+            {refinancing ? m.common_saving() : m.plan_debt_refinance_submit()}
+          </button>
+        </div>
+      {/if}
+    </div>
+  {/if}
 
   {#if onTermsSave}
     <div class="rounded-2xl border border-white/5 bg-slate-900/40">

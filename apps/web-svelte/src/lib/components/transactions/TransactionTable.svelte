@@ -23,6 +23,8 @@
     stickyHeaderTop?: string;
     /** responsive: cards on mobile, table on sm+; cards: card list at all breakpoints (e.g. search). */
     layout?: "responsive" | "cards";
+    /** When provided, renders a right-aligned "Saldo" column showing the running balance after each row. */
+    runningBalanceById?: Map<string, number>;
   }
   let {
     transactions,
@@ -36,7 +38,10 @@
     stickyHeaderOffset,
     stickyHeaderTop,
     layout = "responsive",
+    runningBalanceById,
   }: Props = $props();
+
+  const showBalance = $derived(!!runningBalanceById);
 
   type SortKey = "date" | "description" | "category" | "status" | "amount";
   type SortDirection = "asc" | "desc";
@@ -430,6 +435,13 @@
                 {@render sortIndicator("amount")}
               </button>
             </th>
+            {#if showBalance}
+              <th scope="col" class="w-36 px-4 py-3 text-right">
+                <span class="text-eyebrow ml-auto inline-flex items-center text-slate-400">
+                  {m.transactions_col_balance()}
+                </span>
+              </th>
+            {/if}
           </tr>
         </thead>
         <tbody>
@@ -531,6 +543,14 @@
               >
                 {tx.type === "income" ? "+" : "−"}{formatCurrency(tx.amount, tx.currency)}
               </td>
+              {#if showBalance}
+                {@const bal = runningBalanceById?.get(tx.id)}
+                <td
+                  class="px-4 py-3 text-right font-semibold whitespace-nowrap text-slate-400 tabular-nums"
+                >
+                  {bal != null ? formatCurrency(bal) : "—"}
+                </td>
+              {/if}
             </tr>
           {/each}
         </tbody>

@@ -27,6 +27,8 @@ export interface PlanSettlementProgress {
   planId: string;
   planName: string;
   kind: PlanKind;
+  /** Plan start date (debt disbursement anchor for the amortization schedule). */
+  startDate: string | null;
   budgetAmount: number | null;
   targetAmount: number | null;
   spentAmount: number;
@@ -145,7 +147,12 @@ function planScopeKey(plan: Pick<Plan, "user_id" | "group_id">): string {
   return plan.group_id ? `g:${plan.group_id}` : `u:${plan.user_id}`;
 }
 
-async function fetchLinkedTransactionIds(): Promise<Set<string>> {
+/**
+ * Every transaction id the signed-in user can see as linked to any plan (RLS
+ * scopes to own + accessible group links). Used internally for suggestion
+ * blocking and by the Transakcje "Bez planu" quick-view (complement of this set).
+ */
+export async function fetchLinkedTransactionIds(): Promise<Set<string>> {
   const { data, error } = await supabase.from("plan_transaction_links").select("transaction_id");
   if (error) throw error;
   return new Set((data ?? []).map((r) => r.transaction_id));
@@ -522,6 +529,7 @@ export function computePlanProgress(input: {
     planId: input.planId,
     planName: input.planName,
     kind: input.kind ?? "spend",
+    startDate: input.startDate ?? null,
     budgetAmount: input.budgetAmount,
     targetAmount,
     spentAmount,
@@ -564,6 +572,11 @@ export async function fetchDashboardPlanProgress(limit = 8): Promise<PlanSettlem
   const { data: plans, error } = await supabase
     .from("plans")
     .select("*")
+    // Only active plans: a refinanced/closed debt whose end_date is still in the
+    // future must not keep showing on the dashboard (it would double-count against
+    // the live replacement). Mirrors isLivePlan (status === 'active') used by the
+    // net-worth and obligation surfaces.
+    .eq("status", "active")
     .gte("end_date", new Date().toISOString().slice(0, 10))
     .order("start_date", { ascending: true })
     .limit(limit);
