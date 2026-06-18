@@ -105,6 +105,7 @@
   "transactions_view_unlinked": "Bez planu",
   "transactions_view_inne": "Inne",
   "transactions_view_month": "Ten miesiąc",
+  "transactions_view_quick": "Szybkie filtry",
   "transactions_status_draft": "Szkic",
   "transactions_status_upcoming": "Nadchodzące",
   "transactions_status_overdue": "Zaległe",
