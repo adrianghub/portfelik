@@ -2,6 +2,7 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import BulkActionsBar from "$lib/components/transactions/BulkActionsBar.svelte";
+  import CashPositionStrip from "$lib/components/transactions/CashPositionStrip.svelte";
   import CategoryBreakdown from "$lib/components/transactions/CategoryBreakdown.svelte";
   import CategoryFilterControl from "$lib/components/transactions/CategoryFilterControl.svelte";
   import DateRangePicker from "$lib/components/transactions/DateRangePicker.svelte";
@@ -14,9 +15,16 @@
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import SearchModal from "$lib/components/ui/SearchModal.svelte";
   import * as m from "$lib/paraglide/messages";
+  import {
+    fetchPrivateCashPosition,
+    forecastPosition,
+    livePosition,
+    runningBalances,
+  } from "$lib/services/cash-position";
   import { createCategory, fetchCategories } from "$lib/services/categories";
   import { makeCreateCategoryInline } from "$lib/category-create";
   import { fetchMyGroupRoles, fetchUserGroups } from "$lib/services/groups";
+  import { fetchLinkedTransactionIds } from "$lib/services/plan-settlement";
   import { computeLedgerSummary } from "$lib/services/transaction-cashflow";
   import { canManageTransaction } from "$lib/services/transaction-permissions";
   import {
@@ -179,6 +187,49 @@
 
   const groupFilter = $derived(parseScopeFilter($page.url.searchParams));
 
+  // Derived cash position. The strip + per-row running balance read the private
+  // pool anchor plus the full paid history since the anchor's as_of_date —
+  // independent of the visible month/category filters. `showCashView` (defined
+  // after groupsQuery) widens this to solo users whose only scope is "all".
+  const isPrivateScope = $derived(groupFilter === "own");
+  const CASH_END = "9999-12-31"; // sentinel for fetchTransactions' exclusive .lt() upper bound
+
+  const cashAnchorQuery = createQuery(() => ({
+    queryKey: ["cash-position"],
+    queryFn: fetchPrivateCashPosition,
+  }));
+
+  const anchorStart = $derived(cashAnchorQuery.data?.as_of_date ?? "2000-01-01");
+
+  const paidHistoryQuery = createQuery(() => ({
+    queryKey: ["transactions", "cash-history", anchorStart],
+    queryFn: () => fetchTransactions(anchorStart, CASH_END),
+    enabled: cashAnchorQuery.isSuccess,
+  }));
+
+  // Private (non-group) rows only — the pool is a personal balance.
+  const privatePaidTxs = $derived(
+    (paidHistoryQuery.data ?? [])
+      .filter((t) => (t.group_id ?? null) === null)
+      .map((t) => ({ id: t.id, type: t.type, amount: t.amount, status: t.status, date: t.date }))
+  );
+
+  const cashAnchor = $derived(cashAnchorQuery.data ?? null);
+  const cashLive = $derived(livePosition(cashAnchor, privatePaidTxs));
+  const cashForecast = $derived(forecastPosition(cashAnchor, privatePaidTxs));
+
+  // Quick-view presets. `view` is a URL param so a preset is shareable and
+  // survives reload. "unlinked" (Bez planu) and "inne" are client-side filters
+  // layered onto filteredTxs; "all" / "month" just reset the relevant params.
+  const viewFilter = $derived($page.url.searchParams.get("view") ?? undefined);
+
+  const linkedIdsQuery = createQuery(() => ({
+    queryKey: ["plan-links", "all"],
+    queryFn: fetchLinkedTransactionIds,
+    enabled: viewFilter === "unlinked",
+  }));
+  const linkedIds = $derived(linkedIdsQuery.data ?? new Set<string>());
+
   // filteredTxs: applies BOTH status filter AND group filter so it's the
   // canonical "what the user is looking at" set used by summary,
   // CategoryBreakdown, CSV export, etc.
@@ -190,7 +241,13 @@
       const matchGroup =
         groupFilter === "all" ||
         (groupFilter === "own" ? tx.group_id === null : tx.group_id === groupFilter);
-      return matchStatus && matchType && matchGroup;
+      const matchView =
+        viewFilter === "unlinked"
+          ? !linkedIds.has(tx.id)
+          : viewFilter === "inne"
+            ? inneCategoryIds.has(tx.category_id)
+            : true;
+      return matchStatus && matchType && matchGroup && matchView;
     });
   });
 
@@ -282,6 +339,17 @@
     queryFn: fetchCategories,
   }));
 
+  // "Inne" quick-view = the two per-user fallback categories import assigns to
+  // uncategorized rows ("Inne wydatki" / "Inne przychody"). Matched by name,
+  // mirroring commit_import_session's fallback resolution.
+  const inneCategoryIds = $derived(
+    new Set(
+      (categoriesQuery.data ?? [])
+        .filter((c) => c.name === "Inne wydatki" || c.name === "Inne przychody")
+        .map((c) => c.id)
+    )
+  );
+
   const filterCategories = $derived(
     categoriesQuery.data?.filter((c) => !typeFilter || c.type === typeFilter) ?? []
   );
@@ -312,6 +380,21 @@
     queryFn: fetchUserGroups,
     enabled: !!currentUserId,
   }));
+
+  // Solo users (no groups) never get the own/all tabs and stay in the default
+  // "all" scope — yet every row they have is private, so the cash pool applies.
+  // Treat that as the cash view; group users keep the strict own-scope gate so a
+  // mixed "all" ledger hides the personal pool.
+  const soloAllScope = $derived(
+    groupFilter === "all" && groupsQuery.isSuccess && (groupsQuery.data?.length ?? 0) === 0
+  );
+  const showCashView = $derived(isPrivateScope || soloAllScope);
+
+  // Per-row running balance only once an opening anchor exists — otherwise the
+  // column would accumulate from 0 while the strip still asks to set a balance.
+  const runningBalanceById = $derived(
+    showCashView && cashAnchor ? runningBalances(cashAnchor, privatePaidTxs) : undefined
+  );
 
   // Dialog state
   let dialogOpen = $state(false);
@@ -496,6 +579,41 @@
     p.delete("status");
     goto(`/transactions?${p.toString()}`, { replaceState: false });
   }
+
+  // Quick-view preset actions. Each mutates the shared URL filter state; no
+  // parallel filtering pipeline.
+  function setViewPreset(view: "unlinked" | "inne" | undefined) {
+    const p = new URLSearchParams($page.url.searchParams);
+    if (view && viewFilter !== view) p.set("view", view);
+    else p.delete("view"); // toggle off when re-tapping the active preset
+    goto(`/transactions?${p.toString()}`, { replaceState: false });
+  }
+
+  function applyAllPreset() {
+    const p = new URLSearchParams($page.url.searchParams);
+    p.delete("type");
+    p.delete("status");
+    p.delete("categoryId");
+    p.delete("view");
+    searchQuery = "";
+    goto(`/transactions?${p.toString()}`, { replaceState: false });
+  }
+
+  function applyMonthPreset() {
+    const p = new URLSearchParams($page.url.searchParams);
+    const cy = now.getFullYear();
+    const cm = now.getMonth() + 1;
+    p.set("startYear", String(cy));
+    p.set("startMonth", String(cm));
+    p.set("endYear", String(cy));
+    p.set("endMonth", String(cm));
+    p.delete("startDate");
+    p.delete("endDate");
+    goto(`/transactions?${p.toString()}`, { replaceState: false });
+  }
+
+  // A preset chip is "active" when its slice of the URL state currently holds.
+  const isAllPresetActive = $derived(!viewFilter && !typeFilter && !statusFilter && !categoryId);
 
   const statusLabels: Record<string, string> = {
     paid: m.transactions_status_paid(),
@@ -747,6 +865,28 @@
     </div>
   {/if}
 
+  <div class="flex flex-wrap gap-2" role="group" aria-label={m.transactions_view_all()}>
+    {#each [{ key: "all", label: m.transactions_view_all(), active: isAllPresetActive, run: applyAllPreset }, { key: "unlinked", label: m.transactions_view_unlinked(), active: viewFilter === "unlinked", run: () => setViewPreset("unlinked") }, { key: "inne", label: m.transactions_view_inne(), active: viewFilter === "inne", run: () => setViewPreset("inne") }, { key: "month", label: m.transactions_view_month(), active: isDefaultDateFilter, run: applyMonthPreset }] as preset (preset.key)}
+      <button
+        type="button"
+        aria-pressed={preset.active}
+        onclick={preset.run}
+        class={cn(
+          "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
+          preset.active
+            ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
+            : "border border-white/5 text-slate-300 hover:bg-white/5"
+        )}
+      >
+        {preset.label}
+      </button>
+    {/each}
+  </div>
+
+  {#if showCashView}
+    <CashPositionStrip live={cashLive} forecast={cashForecast} hasAnchor={!!cashAnchorQuery.data} />
+  {/if}
+
   {#if summary}
     <SummaryCards
       {summary}
@@ -790,6 +930,7 @@
     <TransactionTable
       transactions={renderedTxs}
       {currentUserId}
+      {runningBalanceById}
       canManage={txCanManage}
       emptyLabel={tableEmptyLabel}
       emptyHint={tableEmptyHint}

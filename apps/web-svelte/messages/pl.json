@@ -95,11 +95,16 @@
   "transactions_col_description": "Opis",
   "transactions_col_category": "Kategoria",
   "transactions_col_amount": "Kwota",
+  "transactions_col_balance": "Saldo",
   "transactions_col_status": "Status",
   "transactions_sort_by": "Sortuj kolumnę {column}: {direction}",
   "transactions_sort_direction_asc": "rosnąco",
   "transactions_sort_direction_desc": "malejąco",
   "transactions_status_paid": "Opłacone",
+  "transactions_view_all": "Wszystkie",
+  "transactions_view_unlinked": "Bez planu",
+  "transactions_view_inne": "Inne",
+  "transactions_view_month": "Ten miesiąc",
   "transactions_status_draft": "Szkic",
   "transactions_status_upcoming": "Nadchodzące",
   "transactions_status_overdue": "Zaległe",
@@ -1022,5 +1027,8 @@
   "transactions_quick_settle": "Oznacz jako zapłacone",
   "transactions_quick_settle_short": "Zapłać",
   "toast_transaction_settled": "Oznaczono jako zapłacone",
-  "toast_transaction_settle_undo": "Cofnij"
+  "toast_transaction_settle_undo": "Cofnij",
+  "cash_position_label": "Pozycja",
+  "cash_position_forecast": "prognoza {amount}",
+  "cash_position_set_hint": "Ustaw saldo początkowe w Planach, aby śledzić pozycję."
 }
