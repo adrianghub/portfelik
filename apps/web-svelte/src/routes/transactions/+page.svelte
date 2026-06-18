@@ -589,32 +589,6 @@
     goto(`/transactions?${p.toString()}`, { replaceState: false });
   }
 
-  function applyAllPreset() {
-    const p = new URLSearchParams($page.url.searchParams);
-    p.delete("type");
-    p.delete("status");
-    p.delete("categoryId");
-    p.delete("view");
-    searchQuery = "";
-    goto(`/transactions?${p.toString()}`, { replaceState: false });
-  }
-
-  function applyMonthPreset() {
-    const p = new URLSearchParams($page.url.searchParams);
-    const cy = now.getFullYear();
-    const cm = now.getMonth() + 1;
-    p.set("startYear", String(cy));
-    p.set("startMonth", String(cm));
-    p.set("endYear", String(cy));
-    p.set("endMonth", String(cm));
-    p.delete("startDate");
-    p.delete("endDate");
-    goto(`/transactions?${p.toString()}`, { replaceState: false });
-  }
-
-  // A preset chip is "active" when its slice of the URL state currently holds.
-  const isAllPresetActive = $derived(!viewFilter && !typeFilter && !statusFilter && !categoryId);
-
   const statusLabels: Record<string, string> = {
     paid: m.transactions_status_paid(),
     upcoming: m.transactions_status_upcoming(),
@@ -865,8 +839,8 @@
     </div>
   {/if}
 
-  <div class="flex flex-wrap gap-2" role="group" aria-label={m.transactions_view_all()}>
-    {#each [{ key: "all", label: m.transactions_view_all(), active: isAllPresetActive, run: applyAllPreset }, { key: "unlinked", label: m.transactions_view_unlinked(), active: viewFilter === "unlinked", run: () => setViewPreset("unlinked") }, { key: "inne", label: m.transactions_view_inne(), active: viewFilter === "inne", run: () => setViewPreset("inne") }, { key: "month", label: m.transactions_view_month(), active: isDefaultDateFilter, run: applyMonthPreset }] as preset (preset.key)}
+  <div class="flex flex-wrap gap-2" role="group" aria-label={m.transactions_view_quick()}>
+    {#each [{ key: "unlinked", label: m.transactions_view_unlinked(), active: viewFilter === "unlinked", run: () => setViewPreset("unlinked") }, { key: "inne", label: m.transactions_view_inne(), active: viewFilter === "inne", run: () => setViewPreset("inne") }] as preset (preset.key)}
       <button
         type="button"
         aria-pressed={preset.active}
