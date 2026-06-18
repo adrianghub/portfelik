@@ -187,9 +187,10 @@
 
   const groupFilter = $derived(parseScopeFilter($page.url.searchParams));
 
-  // Derived cash position (private scope only). The strip + per-row running
-  // balance read the private pool anchor plus the full paid history since the
-  // anchor's as_of_date — independent of the visible month/category filters.
+  // Derived cash position. The strip + per-row running balance read the private
+  // pool anchor plus the full paid history since the anchor's as_of_date —
+  // independent of the visible month/category filters. `showCashView` (defined
+  // after groupsQuery) widens this to solo users whose only scope is "all".
   const isPrivateScope = $derived(groupFilter === "own");
   const CASH_END = "9999-12-31"; // sentinel for fetchTransactions' exclusive .lt() upper bound
 
@@ -216,9 +217,6 @@
   const cashAnchor = $derived(cashAnchorQuery.data ?? null);
   const cashLive = $derived(livePosition(cashAnchor, privatePaidTxs));
   const cashForecast = $derived(forecastPosition(cashAnchor, privatePaidTxs));
-  const runningBalanceById = $derived(
-    isPrivateScope ? runningBalances(cashAnchor, privatePaidTxs) : undefined
-  );
 
   // Quick-view presets. `view` is a URL param so a preset is shareable and
   // survives reload. "unlinked" (Bez planu) and "inne" are client-side filters
@@ -382,6 +380,21 @@
     queryFn: fetchUserGroups,
     enabled: !!currentUserId,
   }));
+
+  // Solo users (no groups) never get the own/all tabs and stay in the default
+  // "all" scope — yet every row they have is private, so the cash pool applies.
+  // Treat that as the cash view; group users keep the strict own-scope gate so a
+  // mixed "all" ledger hides the personal pool.
+  const soloAllScope = $derived(
+    groupFilter === "all" && groupsQuery.isSuccess && (groupsQuery.data?.length ?? 0) === 0
+  );
+  const showCashView = $derived(isPrivateScope || soloAllScope);
+
+  // Per-row running balance only once an opening anchor exists — otherwise the
+  // column would accumulate from 0 while the strip still asks to set a balance.
+  const runningBalanceById = $derived(
+    showCashView && cashAnchor ? runningBalances(cashAnchor, privatePaidTxs) : undefined
+  );
 
   // Dialog state
   let dialogOpen = $state(false);
@@ -870,7 +883,7 @@
     {/each}
   </div>
 
-  {#if isPrivateScope}
+  {#if showCashView}
     <CashPositionStrip live={cashLive} forecast={cashForecast} hasAnchor={!!cashAnchorQuery.data} />
   {/if}
 

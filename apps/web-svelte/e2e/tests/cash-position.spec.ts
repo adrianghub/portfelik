@@ -76,7 +76,19 @@ const strip = (page: Page) => page.getByRole("region", { name: "Pozycja" });
 const saldoCell = (page: Page, description: string) =>
   desktopTable(page).locator("tbody tr").filter({ hasText: description }).locator("td").last();
 
-async function mockCash(page: Page, withAnchor = true): Promise<void> {
+const MOCK_GROUP = {
+  id: "group-1",
+  name: "Wspólny budżet",
+  owner_id: TEST_USER_ID,
+  created_at: "2026-01-01T10:00:00Z",
+  updated_at: "2026-01-01T10:00:00Z",
+};
+
+async function mockCash(
+  page: Page,
+  opts: { withAnchor?: boolean; withGroup?: boolean } = {}
+): Promise<void> {
+  const { withAnchor = true, withGroup = false } = opts;
   await injectFakeSession(page);
   await mockSupabaseAPI(page);
   // Registered after the base handler, so these win (Playwright matches newest-first).
@@ -86,6 +98,11 @@ async function mockCash(page: Page, withAnchor = true): Promise<void> {
   await page.route("**/rest/v1/transactions_with_category**", (route) =>
     route.fulfill({ status: 200, json: CASH_TXS })
   );
+  if (withGroup) {
+    await page.route("**/rest/v1/user_groups**", (route) =>
+      route.fulfill({ status: 200, json: [MOCK_GROUP] })
+    );
+  }
 }
 
 test("private scope: strip shows live total and the last paid row's running balance matches it", async ({
@@ -113,11 +130,42 @@ test("private scope: strip shows live total and the last paid row's running bala
   expect(firstBalance).toMatch(/1\D?500,00/);
 });
 
-test("group/all scope hides the strip and the running-balance column", async ({ page }) => {
-  await mockCash(page);
-  await page.goto("/transactions"); // no group param → scope "all"
+test("solo user (no groups) sees the cash view in the default scope", async ({ page }) => {
+  // No groups → no own/all tabs; the page defaults to scope "all", but every row
+  // is private so the pool must still be reachable.
+  await mockCash(page); // default mock returns [] for user_groups
+  await page.goto("/transactions");
 
+  await expect(strip(page)).toBeVisible();
+  await expect(desktopTable(page).getByText("Saldo", { exact: true })).toBeVisible();
+  const lastBalance = (await saldoCell(page, "Wydatek gotówkowy").textContent())?.trim() ?? "";
+  expect(lastBalance).toMatch(/1\D?300,00/);
+});
+
+test("group user: mixed all scope hides the cash view, own scope shows it", async ({ page }) => {
+  await mockCash(page, { withGroup: true });
+
+  // "all" scope mixes private + group rows → personal pool is hidden.
+  await page.goto("/transactions");
   await expect(desktopTable(page).getByText("Wydatek gotówkowy")).toBeVisible();
   await expect(strip(page)).toHaveCount(0);
+  await expect(desktopTable(page).getByText("Saldo", { exact: true })).toHaveCount(0);
+
+  // Switching to own scope brings the pool back.
+  await page.goto("/transactions?group=own");
+  await expect(strip(page)).toBeVisible();
+  await expect(desktopTable(page).getByText("Saldo", { exact: true })).toBeVisible();
+});
+
+test("private scope without an anchor: strip prompts to set a balance, no Saldo column", async ({
+  page,
+}) => {
+  await mockCash(page, { withAnchor: false });
+  await page.goto("/transactions?group=own");
+
+  await expect(desktopTable(page).getByText("Wydatek gotówkowy")).toBeVisible();
+  // Strip still renders, but as a prompt — no fabricated total.
+  await expect(strip(page).getByText(/Ustaw saldo początkowe/)).toBeVisible();
+  // The running-balance column stays hidden until an opening anchor exists.
   await expect(desktopTable(page).getByText("Saldo", { exact: true })).toHaveCount(0);
 });
