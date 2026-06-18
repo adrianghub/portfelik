@@ -301,7 +301,7 @@
     <button
       type="button"
       onclick={() => (open = !open)}
-      class="focus-visible:ring-accent flex min-w-0 flex-1 items-center gap-2 rounded-full py-1.5 transition-colors hover:text-white focus-visible:ring-2 focus-visible:outline-none"
+      class="focus-visible:ring-accent flex flex-1 items-center gap-2 rounded-full py-1.5 transition-colors hover:text-white focus-visible:ring-2 focus-visible:outline-none"
       aria-haspopup="dialog"
       aria-expanded={open}
     >
@@ -316,6 +316,7 @@
         stroke-linecap="round"
         stroke-linejoin="round"
         aria-hidden="true"
+        class="shrink-0"
         ><rect width="18" height="18" x="3" y="4" rx="2" ry="2" /><line
           x1="16"
           x2="16"
@@ -323,7 +324,7 @@
           y2="6"
         /><line x1="8" x2="8" y1="2" y2="6" /><line x1="3" x2="21" y1="10" y2="10" /></svg
       >
-      <span class="capitalize">{label}</span>
+      <span class="whitespace-nowrap capitalize">{label}</span>
     </button>
     {#if clearable && onclear}
       <button
