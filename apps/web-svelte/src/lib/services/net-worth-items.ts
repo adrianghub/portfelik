@@ -55,8 +55,13 @@ export async function saveNetWorthItems(items: NetWorthItemInput[]): Promise<voi
 
   if (cleaned.length === 0) return;
 
+  // Generate ids client-side for new rows so every payload row has the same
+  // columns. A mixed bulk upsert (some rows with id, some without) makes PostgREST
+  // send `id: null` for the id-less rows instead of applying the column default,
+  // which violates the NOT NULL primary key. Uniform columns avoid that; existing
+  // rows still update on their id, new rows insert with a fresh uuid.
   const payload = cleaned.map((i, idx) => ({
-    ...(i.id ? { id: i.id } : {}),
+    id: i.id ?? crypto.randomUUID(),
     user_id: user.id,
     label: i.label.trim().slice(0, 60),
     amount: Math.max(0, i.amount),
