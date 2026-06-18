@@ -11,27 +11,29 @@
 
   let { summary, onedit }: Props = $props();
 
+  const itemPalette = [
+    "bg-emerald-400",
+    "bg-emerald-600",
+    "bg-emerald-700",
+    "bg-teal-500",
+    "bg-cyan-500",
+  ];
+
   const assetSegments = $derived(
     [
       { key: "cash", label: m.plans_net_worth_cash(), amount: summary.cash, class: "bg-sky-500" },
-      {
-        key: "invest",
-        label: m.plans_net_worth_investments(),
-        amount: summary.investments,
-        class: "bg-emerald-400",
-      },
-      {
-        key: "re",
-        label: m.plans_net_worth_real_estate(),
-        amount: summary.realEstate,
-        class: "bg-emerald-700",
-      },
+      ...summary.items.map((it, i) => ({
+        key: `item-${i}`,
+        label: it.currency === "PLN" ? it.label : `${it.label} (${it.currency})`,
+        amount: it.amountPln,
+        class: itemPalette[i % itemPalette.length],
+      })),
     ].filter((s) => s.amount > 0)
   );
   const stripTotal = $derived(assetSegments.reduce((s, seg) => s + seg.amount, 0));
 </script>
 
-{#if !summary.hasSnapshot}
+{#if !summary.hasSnapshot && summary.items.length === 0}
   <section
     class="rounded-2xl border border-dashed border-white/10 bg-slate-900/40 px-4 py-5 text-center"
   >

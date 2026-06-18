@@ -27,6 +27,12 @@
     upsertFinancialSnapshot,
   } from "$lib/services/financial-snapshots";
   import {
+    fetchNetWorthItems,
+    saveNetWorthItems,
+    type NetWorthItemInput,
+  } from "$lib/services/net-worth-items";
+  import { convertToPln, fetchPlnRates, SUPPORTED_CURRENCIES } from "$lib/services/fx";
+  import {
     computeMonthlySurplus,
     currentCalendarMonthBounds,
     gateObservedDebtCoverage,
@@ -59,7 +65,7 @@
     createQuery,
     useQueryClient,
   } from "@tanstack/svelte-query";
-  import { Plus } from "lucide-svelte";
+  import { Plus, Trash2 } from "lucide-svelte";
   import { onMount } from "svelte";
   import { toast } from "svelte-sonner";
   import { computeLedgerSummary } from "$lib/services/transaction-cashflow";
@@ -86,8 +92,9 @@
     }
   });
 
-  afterNavigate(({ to }) => {
-    if (to?.url.pathname === plansHubPath) {
+  afterNavigate(({ to, type }) => {
+    // Restore only on browser back/forward; a forward nav-bar click should land at top.
+    if (type === "popstate" && to?.url.pathname === plansHubPath) {
       restoreScrollPosition(scrollRestoreKey(plansHubPath));
     }
   });
@@ -168,6 +175,26 @@
     queryFn: fetchPrivateCashPosition,
   }));
 
+  const itemsQuery = createQuery(() => ({
+    queryKey: ["net-worth-items"],
+    queryFn: fetchNetWorthItems,
+  }));
+
+  const fxQuery = createQuery(() => ({
+    queryKey: ["fx", "nbp-table-a"],
+    queryFn: fetchPlnRates,
+    staleTime: 12 * 60 * 60 * 1000,
+  }));
+
+  const valuedItems = $derived(
+    (itemsQuery.data ?? []).map((it) => ({
+      label: it.label,
+      currency: it.currency,
+      amount: it.amount,
+      amountPln: convertToPln(it.amount, it.currency, fxQuery.data ?? { PLN: 1 }),
+    }))
+  );
+
   const cashRangeStart = $derived(cashPositionQuery.data?.as_of_date ?? "2000-01-01");
   // Open upper bound: fetchTransactions uses an exclusive `.lt("date", end)`, so a real
   // current date would drop today's (and any future-dated) paid rows. The live position
@@ -209,7 +236,8 @@
 
   const netWorth = $derived(
     computeNetWorth({
-      snapshot: snapshotQuery.data ?? null,
+      asOfDate: snapshotQuery.data?.as_of_date ?? null,
+      items: valuedItems,
       derivedCash,
       debtBalances,
     })
@@ -353,43 +381,59 @@
 
   let showNetWorthForm = $state(false);
   let snapshotDate = $state("");
-  let snapshotInvest = $state("");
-  let snapshotEstate = $state("");
   let openingAmount = $state("");
-  let openingAsOf = $state(todayIsoLocal());
+  let netWorthItems = $state<{ id?: string; label: string; amount: string; currency: string }[]>(
+    []
+  );
+
+  function addNetWorthItem() {
+    netWorthItems = [...netWorthItems, { label: "", amount: "", currency: "PLN" }];
+  }
+
+  function removeNetWorthItem(index: number) {
+    netWorthItems = netWorthItems.filter((_, i) => i !== index);
+  }
 
   function openNetWorthForm() {
     // Only open once both anchors have resolved. Otherwise the fields would
     // initialize blank/today and a submit would overwrite the seeded cash anchor
     // and assets snapshot with 0s.
-    if (!cashPositionQuery.isSuccess || !snapshotQuery.isSuccess) return;
+    if (!cashPositionQuery.isSuccess || !snapshotQuery.isSuccess || !itemsQuery.isSuccess) return;
     const snap = snapshotQuery.data;
     snapshotDate = snap?.as_of_date ?? todayIsoLocal();
-    snapshotInvest = snap ? String(snap.investments_amount) : "";
-    snapshotEstate = snap ? String(snap.real_estate_amount) : "";
     const pos = cashPositionQuery.data;
     openingAmount = pos ? String(pos.opening_amount) : "";
-    openingAsOf = pos ? pos.as_of_date : todayIsoLocal();
+    netWorthItems = (itemsQuery.data ?? []).map((it) => ({
+      id: it.id,
+      label: it.label,
+      amount: String(it.amount),
+      currency: it.currency,
+    }));
     showNetWorthForm = true;
   }
 
   const snapshotMutation = createSvelteMutation(() => ({
     mutationFn: async () => {
-      await upsertFinancialSnapshot({
-        as_of_date: snapshotDate,
-        investments_amount: snapshotInvest === "" ? 0 : Number(snapshotInvest),
-        real_estate_amount: snapshotEstate === "" ? 0 : Number(snapshotEstate),
-      });
+      await upsertFinancialSnapshot({ as_of_date: snapshotDate });
       await upsertPrivateCashPosition({
         opening_amount: openingAmount === "" ? 0 : Number(openingAmount),
-        as_of_date: openingAsOf,
+        as_of_date: snapshotDate,
       });
+      const items: NetWorthItemInput[] = netWorthItems.map((it) => ({
+        id: it.id,
+        label: it.label,
+        amount: it.amount === "" ? 0 : Number(it.amount),
+        currency: it.currency,
+      }));
+      await saveNetWorthItems(items);
     },
     onSuccess: async () => {
       showNetWorthForm = false;
       toast.success(m.plans_net_worth_toast_saved());
       await queryClient.invalidateQueries({ queryKey: ["financial-snapshot"] });
       await queryClient.invalidateQueries({ queryKey: ["cash-position"] });
+      await queryClient.invalidateQueries({ queryKey: ["net-worth-items"] });
+      await queryClient.invalidateQueries({ queryKey: ["fx"] });
     },
     onError: () => toast.error(m.toast_error()),
   }));
@@ -1066,46 +1110,58 @@
         placeholder="0"
         class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
       />
-    </div>
-    <div class="space-y-1">
-      <label class="text-xs font-medium text-slate-300" for="snapshot-opening-as-of">
-        {m.net_worth_cash_position_as_of()}
-      </label>
-      <input
-        id="snapshot-opening-as-of"
-        type="date"
-        bind:value={openingAsOf}
-        class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
-      />
       <p class="text-xs text-slate-500">{m.net_worth_cash_position_hint()}</p>
     </div>
-    <div class="space-y-1">
-      <label class="text-xs font-medium text-slate-300" for="snapshot-invest">
-        {m.plans_net_worth_investments()}
-      </label>
-      <input
-        id="snapshot-invest"
-        type="number"
-        min="0"
-        step="0.01"
-        bind:value={snapshotInvest}
-        placeholder="0"
-        class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
-      />
-    </div>
-    <div class="space-y-1">
-      <label class="text-xs font-medium text-slate-300" for="snapshot-estate">
-        {m.plans_net_worth_real_estate()}
-      </label>
-      <input
-        id="snapshot-estate"
-        type="number"
-        min="0"
-        step="0.01"
-        bind:value={snapshotEstate}
-        placeholder="0"
-        class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
-      />
+    <div class="space-y-2">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-medium text-slate-300">{m.net_worth_items_label()}</span>
+        <button
+          type="button"
+          onclick={addNetWorthItem}
+          class="text-accent text-xs font-medium hover:underline"
+        >
+          {m.net_worth_items_add()}
+        </button>
+      </div>
+      {#each netWorthItems as item, i (i)}
+        <div class="flex items-center gap-2">
+          <input
+            type="text"
+            bind:value={item.label}
+            placeholder={m.net_worth_items_label_placeholder()}
+            maxlength="60"
+            class="focus:border-accent/40 min-w-0 flex-1 rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
+          />
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            bind:value={item.amount}
+            placeholder="0"
+            class="focus:border-accent/40 w-24 rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
+          />
+          <select
+            bind:value={item.currency}
+            aria-label={m.net_worth_items_currency_label()}
+            class="focus:border-accent/40 rounded-xl border border-white/10 bg-slate-900/60 px-2 py-2 text-sm text-slate-100"
+          >
+            {#each SUPPORTED_CURRENCIES as code (code)}
+              <option value={code}>{code}</option>
+            {/each}
+          </select>
+          <button
+            type="button"
+            onclick={() => removeNetWorthItem(i)}
+            aria-label={m.net_worth_items_remove()}
+            class="shrink-0 rounded-full border border-white/10 p-2 text-slate-400 hover:bg-white/5 hover:text-rose-300"
+          >
+            <Trash2 size={14} aria-hidden="true" />
+          </button>
+        </div>
+      {/each}
+      {#if netWorthItems.length === 0}
+        <p class="text-xs text-slate-500">{m.net_worth_items_empty()}</p>
+      {/if}
     </div>
     <div class="flex gap-2 pt-1">
       <button
@@ -1119,7 +1175,8 @@
         type="submit"
         disabled={snapshotMutation.isPending ||
           !cashPositionQuery.isSuccess ||
-          !snapshotQuery.isSuccess}
+          !snapshotQuery.isSuccess ||
+          !itemsQuery.isSuccess}
         class="bg-accent-gradient flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
       >
         {snapshotMutation.isPending ? m.common_saving() : m.common_save()}
