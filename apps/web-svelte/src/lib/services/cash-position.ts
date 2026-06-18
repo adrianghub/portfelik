@@ -63,6 +63,30 @@ export async function fetchPrivateCashPosition(): Promise<CashPosition | null> {
   return (data as CashPosition | null) ?? null;
 }
 
+/** A paid transaction with an id, for per-row running-balance display. */
+export interface RunningBalanceTx extends PositionTx {
+  id: string;
+}
+
+/**
+ * Balance-after-each-row for paid transactions on/after the anchor's as_of_date,
+ * accumulated in chronological order. Keyed by tx id. Rows before the anchor or
+ * not paid are omitted. Pure — caller fetches the paid history since as_of_date.
+ */
+export function runningBalances(anchor: Anchor, txs: RunningBalanceTx[]): Map<string, number> {
+  const asOf = asOfOf(anchor);
+  const paid = txs
+    .filter((t) => t.status === "paid" && dateOnly(t.date) >= asOf)
+    .sort((a, b) => dateOnly(a.date).localeCompare(dateOnly(b.date)));
+  const result = new Map<string, number>();
+  let balance = openingOf(anchor);
+  for (const t of paid) {
+    balance += signed(t);
+    result.set(t.id, balance);
+  }
+  return result;
+}
+
 export interface CashPositionInput {
   opening_amount: number;
   as_of_date: string;
