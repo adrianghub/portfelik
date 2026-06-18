@@ -2,6 +2,7 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import BulkActionsBar from "$lib/components/transactions/BulkActionsBar.svelte";
+  import CashPositionStrip from "$lib/components/transactions/CashPositionStrip.svelte";
   import CategoryBreakdown from "$lib/components/transactions/CategoryBreakdown.svelte";
   import CategoryFilterControl from "$lib/components/transactions/CategoryFilterControl.svelte";
   import DateRangePicker from "$lib/components/transactions/DateRangePicker.svelte";
@@ -14,6 +15,12 @@
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import SearchModal from "$lib/components/ui/SearchModal.svelte";
   import * as m from "$lib/paraglide/messages";
+  import {
+    fetchPrivateCashPosition,
+    forecastPosition,
+    livePosition,
+    runningBalances,
+  } from "$lib/services/cash-position";
   import { createCategory, fetchCategories } from "$lib/services/categories";
   import { makeCreateCategoryInline } from "$lib/category-create";
   import { fetchMyGroupRoles, fetchUserGroups } from "$lib/services/groups";
@@ -178,6 +185,39 @@
   const statusSet = $derived(statusFilter ? new Set(statusFilter.split(",")) : null);
 
   const groupFilter = $derived(parseScopeFilter($page.url.searchParams));
+
+  // Derived cash position (private scope only). The strip + per-row running
+  // balance read the private pool anchor plus the full paid history since the
+  // anchor's as_of_date — independent of the visible month/category filters.
+  const isPrivateScope = $derived(groupFilter === "own");
+  const CASH_END = "9999-12-31"; // sentinel for fetchTransactions' exclusive .lt() upper bound
+
+  const cashAnchorQuery = createQuery(() => ({
+    queryKey: ["cash-position"],
+    queryFn: fetchPrivateCashPosition,
+  }));
+
+  const anchorStart = $derived(cashAnchorQuery.data?.as_of_date ?? "2000-01-01");
+
+  const paidHistoryQuery = createQuery(() => ({
+    queryKey: ["transactions", "cash-history", anchorStart],
+    queryFn: () => fetchTransactions(anchorStart, CASH_END),
+    enabled: cashAnchorQuery.isSuccess,
+  }));
+
+  // Private (non-group) rows only — the pool is a personal balance.
+  const privatePaidTxs = $derived(
+    (paidHistoryQuery.data ?? [])
+      .filter((t) => (t.group_id ?? null) === null)
+      .map((t) => ({ id: t.id, type: t.type, amount: t.amount, status: t.status, date: t.date }))
+  );
+
+  const cashAnchor = $derived(cashAnchorQuery.data ?? null);
+  const cashLive = $derived(livePosition(cashAnchor, privatePaidTxs));
+  const cashForecast = $derived(forecastPosition(cashAnchor, privatePaidTxs));
+  const runningBalanceById = $derived(
+    isPrivateScope ? runningBalances(cashAnchor, privatePaidTxs) : undefined
+  );
 
   // filteredTxs: applies BOTH status filter AND group filter so it's the
   // canonical "what the user is looking at" set used by summary,
@@ -747,6 +787,10 @@
     </div>
   {/if}
 
+  {#if isPrivateScope}
+    <CashPositionStrip live={cashLive} forecast={cashForecast} hasAnchor={!!cashAnchorQuery.data} />
+  {/if}
+
   {#if summary}
     <SummaryCards
       {summary}
@@ -790,6 +834,7 @@
     <TransactionTable
       transactions={renderedTxs}
       {currentUserId}
+      {runningBalanceById}
       canManage={txCanManage}
       emptyLabel={tableEmptyLabel}
       emptyHint={tableEmptyHint}
