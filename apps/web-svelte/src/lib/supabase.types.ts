@@ -203,6 +203,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      net_worth_items: {
+        Row: {
+          amount: number;
+          created_at: string;
+          currency: string;
+          id: string;
+          label: string;
+          position: number;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          amount?: number;
+          created_at?: string;
+          currency?: string;
+          id?: string;
+          label: string;
+          position?: number;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          amount?: number;
+          created_at?: string;
+          currency?: string;
+          id?: string;
+          label?: string;
+          position?: number;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       group_invitations: {
         Row: {
           created_at: string;

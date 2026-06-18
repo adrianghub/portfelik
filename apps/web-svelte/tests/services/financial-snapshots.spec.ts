@@ -5,27 +5,36 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("$lib/supabase", () => ({ supabase: {} }));
 
 import { computeNetWorth } from "$lib/services/financial-snapshots";
+import type { NetWorthItemValued } from "$lib/types";
 
 describe("computeNetWorth (derived cash)", () => {
-  it("uses the passed-in derived cash, not snapshot.cash_amount", () => {
-    const snapshot = {
-      as_of_date: "2026-06-01",
-      cash_amount: 99999, // must be IGNORED now
-      investments_amount: 2000,
-      real_estate_amount: 5000,
-    };
-    const result = computeNetWorth({ snapshot, derivedCash: 1300, debtBalances: [500] });
+  it("sums derived cash with PLN-valued items", () => {
+    const items: NetWorthItemValued[] = [
+      { label: "Inwestycje", currency: "PLN", amount: 2000, amountPln: 2000 },
+      { label: "Nieruchomość", currency: "PLN", amount: 5000, amountPln: 5000 },
+    ];
+    const result = computeNetWorth({
+      asOfDate: "2026-06-01",
+      items,
+      derivedCash: 1300,
+      debtBalances: [500],
+    });
     expect(result.cash).toBe(1300);
+    expect(result.otherAssets).toBe(7000);
     expect(result.totalAssets).toBe(1300 + 2000 + 5000);
     expect(result.totalDebt).toBe(500);
     expect(result.netWorth).toBe(8300 - 500);
   });
 
-  it("works with no snapshot (assets zero) but a derived cash value", () => {
-    const result = computeNetWorth({ snapshot: null, derivedCash: 400, debtBalances: [] });
+  it("works with no items (assets zero) but a derived cash value", () => {
+    const result = computeNetWorth({
+      asOfDate: null,
+      items: [],
+      derivedCash: 400,
+      debtBalances: [],
+    });
     expect(result.cash).toBe(400);
-    expect(result.investments).toBe(0);
-    expect(result.realEstate).toBe(0);
+    expect(result.otherAssets).toBe(0);
     expect(result.netWorth).toBe(400);
     expect(result.hasData).toBe(true);
   });

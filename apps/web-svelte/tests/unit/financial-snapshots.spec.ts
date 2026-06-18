@@ -7,33 +7,50 @@ import {
   computeNetWorth,
   debtBalanceForNetWorth,
 } from "$lib/services/financial-snapshots";
-import type { FinancialSnapshot, Plan, PlanDebtTerms } from "$lib/types";
+import type { NetWorthItemValued, Plan, PlanDebtTerms } from "$lib/types";
 
-const snapshot: FinancialSnapshot = {
-  user_id: "u1",
-  as_of_date: "2026-06-01",
-  cash_amount: 42000,
-  investments_amount: 51000,
-  real_estate_amount: 420000,
-  created_at: "2026-06-01T10:00:00Z",
-  updated_at: "2026-06-01T10:00:00Z",
-};
+const items: NetWorthItemValued[] = [
+  { label: "Inwestycje", currency: "PLN", amount: 51000, amountPln: 51000 },
+  { label: "Nieruchomość", currency: "PLN", amount: 420000, amountPln: 420000 },
+];
 
 describe("computeNetWorth", () => {
-  it("sums manual assets minus debt plan balances", () => {
-    // cash_amount on the snapshot is now ignored; cash flows in as derivedCash.
-    const result = computeNetWorth({ snapshot, derivedCash: 42000, debtBalances: [206_000] });
+  it("sums derived cash + valued items minus debt plan balances", () => {
+    const result = computeNetWorth({
+      asOfDate: "2026-06-01",
+      items,
+      derivedCash: 42000,
+      debtBalances: [206_000],
+    });
+    expect(result.otherAssets).toBe(471_000);
     expect(result.totalAssets).toBe(513_000);
     expect(result.totalDebt).toBe(206_000);
     expect(result.netWorth).toBe(307_000);
     expect(result.hasSnapshot).toBe(true);
   });
 
-  it("returns empty state when no snapshot", () => {
-    const result = computeNetWorth({ snapshot: null, derivedCash: 0, debtBalances: [100_000] });
+  it("returns empty state when no snapshot and no items", () => {
+    const result = computeNetWorth({
+      asOfDate: null,
+      items: [],
+      derivedCash: 0,
+      debtBalances: [100_000],
+    });
     expect(result.hasSnapshot).toBe(false);
+    expect(result.hasData).toBe(false);
     expect(result.totalAssets).toBe(0);
     expect(result.netWorth).toBe(-100_000);
+  });
+
+  it("treats items-only (no snapshot date) as having data", () => {
+    const result = computeNetWorth({
+      asOfDate: null,
+      items: [{ label: "Konto", currency: "PLN", amount: 1000, amountPln: 1000 }],
+      derivedCash: 0,
+      debtBalances: [],
+    });
+    expect(result.hasData).toBe(true);
+    expect(result.totalAssets).toBe(1000);
   });
 });
 
