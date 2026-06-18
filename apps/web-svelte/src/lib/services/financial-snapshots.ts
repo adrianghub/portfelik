@@ -1,40 +1,44 @@
 import { deriveDebtDisplayBalance } from "$lib/services/plan-debt";
 import { derivePlanBucket, isLivePlan, todayIso } from "$lib/services/plans";
-import type { FinancialSnapshot, NetWorthSummary, Plan, PlanDebtTerms } from "$lib/types";
+import type {
+  FinancialSnapshot,
+  NetWorthItemValued,
+  NetWorthSummary,
+  Plan,
+  PlanDebtTerms,
+} from "$lib/types";
 import { supabase } from "$lib/supabase";
 
 export interface FinancialSnapshotInput {
   as_of_date: string;
-  investments_amount: number;
-  real_estate_amount: number;
 }
 
 export interface ComputeNetWorthArgs {
-  snapshot: Pick<
-    FinancialSnapshot,
-    "as_of_date" | "investments_amount" | "real_estate_amount"
-  > | null;
+  /** Assets "as of" date, or null when the user has never saved net worth. */
+  asOfDate: string | null;
+  /** Custom asset items, already converted to PLN. */
+  items: NetWorthItemValued[];
   derivedCash: number;
   debtBalances: number[];
 }
 
 export function computeNetWorth({
-  snapshot,
+  asOfDate,
+  items,
   derivedCash,
   debtBalances,
 }: ComputeNetWorthArgs): NetWorthSummary {
   const cash = derivedCash;
-  const investments = snapshot?.investments_amount ?? 0;
-  const realEstate = snapshot?.real_estate_amount ?? 0;
-  const totalAssets = cash + investments + realEstate;
+  const otherAssets = items.reduce((s, it) => s + it.amountPln, 0);
+  const totalAssets = cash + otherAssets;
   const totalDebt = debtBalances.reduce((s, b) => s + b, 0);
   return {
-    hasSnapshot: snapshot !== null,
-    hasData: snapshot !== null || cash !== 0,
-    asOfDate: snapshot?.as_of_date ?? null,
+    hasSnapshot: asOfDate !== null,
+    hasData: asOfDate !== null || items.length > 0 || cash !== 0,
+    asOfDate,
     cash,
-    investments,
-    realEstate,
+    items,
+    otherAssets,
     totalAssets,
     totalDebt,
     netWorth: totalAssets - totalDebt,
@@ -115,12 +119,14 @@ export async function upsertFinancialSnapshot(
   } = await supabase.auth.getUser();
   if (!user) throw new Error("not_authenticated");
 
+  // Assets now live in net_worth_items; the snapshot row only carries the "as of"
+  // date for the net-worth display. Legacy amount columns are kept at 0.
   const payload = {
     user_id: user.id,
     as_of_date: input.as_of_date,
     cash_amount: 0,
-    investments_amount: Math.max(0, input.investments_amount),
-    real_estate_amount: Math.max(0, input.real_estate_amount),
+    investments_amount: 0,
+    real_estate_amount: 0,
   };
 
   const { data, error } = await supabase

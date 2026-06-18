@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { goto } from "$app/navigation";
+  import { afterNavigate, goto } from "$app/navigation";
   import { page } from "$app/state";
   import {
     clearLoginRedirect,
@@ -45,6 +45,16 @@
   });
 
   let { children } = $props();
+
+  // Forward navigations (nav-bar clicks, links) should land at the top. SvelteKit
+  // handles the window scroll, but be explicit so the page-transition keyed block
+  // never retains the previous offset. Browser back/forward (popstate) keeps the
+  // restored position (e.g. the Plany hub's saved scroll).
+  afterNavigate(({ type }) => {
+    if (type !== "popstate") {
+      window.scrollTo(0, 0);
+    }
+  });
 
   const PUBLIC_PATHS = ["/login", "/auth/callback", "/privacy"];
   const PUSH_PROMPT_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;

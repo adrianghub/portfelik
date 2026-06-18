@@ -207,13 +207,32 @@ export interface CashPosition {
   updated_at: string;
 }
 
+export interface NetWorthItem {
+  id: string;
+  user_id: string;
+  label: string;
+  amount: number;
+  currency: string;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A net-worth item with its PLN-converted value resolved for display/summing. */
+export interface NetWorthItemValued {
+  label: string;
+  currency: string;
+  amount: number;
+  amountPln: number;
+}
+
 export interface NetWorthSummary {
   hasSnapshot: boolean;
   hasData: boolean;
   asOfDate: string | null;
   cash: number;
-  investments: number;
-  realEstate: number;
+  items: NetWorthItemValued[];
+  otherAssets: number;
   totalAssets: number;
   totalDebt: number;
   netWorth: number;
