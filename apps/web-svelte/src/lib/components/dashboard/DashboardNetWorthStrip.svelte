@@ -5,6 +5,8 @@
     computeNetWorth,
     fetchFinancialSnapshot,
   } from "$lib/services/financial-snapshots";
+  import { fetchNetWorthItems } from "$lib/services/net-worth-items";
+  import { convertToPln, fetchPlnRates } from "$lib/services/fx";
   import { fetchPlanDebtTermsByPlanIds } from "$lib/services/plan-debt";
   import { fetchPlanProgressForPlans } from "$lib/services/plan-settlement";
   import { fetchPlans, todayIso } from "$lib/services/plans";
@@ -39,6 +41,26 @@
     queryKey: ["financial-snapshot"],
     queryFn: fetchFinancialSnapshot,
   }));
+
+  const itemsQuery = createQuery(() => ({
+    queryKey: ["net-worth-items"],
+    queryFn: fetchNetWorthItems,
+  }));
+
+  const fxQuery = createQuery(() => ({
+    queryKey: ["fx", "nbp-table-a"],
+    queryFn: fetchPlnRates,
+    staleTime: 12 * 60 * 60 * 1000,
+  }));
+
+  const valuedItems = $derived(
+    (itemsQuery.data ?? []).map((it) => ({
+      label: it.label,
+      currency: it.currency,
+      amount: it.amount,
+      amountPln: convertToPln(it.amount, it.currency, fxQuery.data ?? { PLN: 1 }),
+    }))
+  );
 
   const cashPositionQuery = createQuery(() => ({
     queryKey: ["cash-position"],
@@ -75,7 +97,8 @@
 
   const netWorth = $derived(
     computeNetWorth({
-      snapshot: snapshotQuery.data ?? null,
+      asOfDate: snapshotQuery.data?.as_of_date ?? null,
+      items: valuedItems,
       derivedCash,
       debtBalances: collectNetWorthDebtBalances(
         plansQuery.data ?? [],
