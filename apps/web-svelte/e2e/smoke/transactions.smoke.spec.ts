@@ -42,13 +42,20 @@ test('login + create + read + delete transaction against real Supabase', async (
 
   // Category is a searchable combobox (not a native select). Wait for the
   // seeded category to load via TanStack Query, then pick it from the listbox.
+  // `exact: true` is essential: the create affordance ("Dodaj „<name>”") contains
+  // the category name as a substring, so a non-exact match can resolve to the
+  // create option while the categories query is still loading - selecting it would
+  // POST a duplicate category (409) and leave the transaction without a category.
+  // Exact match targets only the real option and waits for the list to populate.
   const categoryInput = page.locator('#tx-cat');
   await categoryInput.click();
   await categoryInput.fill(categoryName);
-  await expect(page.getByRole('option', { name: categoryName })).toBeVisible({
+  await expect(
+    page.getByRole('option', { name: categoryName, exact: true }),
+  ).toBeVisible({
     timeout: 10000,
   });
-  await page.getByRole('option', { name: categoryName }).click();
+  await page.getByRole('option', { name: categoryName, exact: true }).click();
 
   await page.getByRole('button', { name: 'Zapisz' }).click();
 
