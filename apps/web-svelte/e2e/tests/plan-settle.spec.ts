@@ -21,9 +21,9 @@ const PLAN_ID = "plan-1";
 const SETTLE_PLAN = {
   id: PLAN_ID,
   name: "Wakacje",
-  kind: "spend",
-  budget_amount: 1000,
-  target_amount: null,
+  kind: "debt",
+  budget_amount: null,
+  target_amount: 1000,
   start_date: "2026-07-01",
   end_date: "2026-07-31",
   category_id: "cat-1",
@@ -33,8 +33,30 @@ const SETTLE_PLAN = {
   updated_at: "2026-06-01T00:00:00Z",
 };
 
+const SETTLE_SAVE_PLAN = {
+  ...SETTLE_PLAN,
+  kind: "save",
+  budget_amount: null,
+  target_amount: 1000,
+  category_id: null,
+};
+
+const SETTLE_DEBT_TERMS = {
+  plan_id: PLAN_ID,
+  original_amount: 1000,
+  current_balance: 1000,
+  annual_rate: 1,
+  monthly_payment: 100,
+  anchor_balance: 1000,
+  balance_anchor_date: "2026-07-01",
+  first_payment_date: null,
+  first_payment_amount: null,
+  created_at: "2026-06-01T00:00:00Z",
+  updated_at: "2026-06-01T00:00:00Z",
+};
+
 // category_id matches plan → category signal fires (30pts) + keyword "wakacje" (25pts)
-// + amount fits 1000 budget (20pts) + baseline (25pts) → score=100, rank=high
+// + baseline (25pts) → score=80, rank=high
 const TX1 = {
   id: "tx-s1",
   description: "Zakupy spożywcze na wakacje",
@@ -59,7 +81,7 @@ const TX1 = {
   updated_at: "2026-07-10T10:00:00Z",
 };
 
-// different category, no keyword match → baseline only (25pts) + amount (20pts) → score=45, rank=medium
+// different category, no keyword match → hidden below the 45% cutoff
 const TX2 = {
   id: "tx-s2",
   description: "Transport na lotnisko",
@@ -108,13 +130,17 @@ const MOCK_LINK = {
 // ── Shared setup ──────────────────────────────────────────────────────────────
 
 /** Sets up base mocks then overrides settle-specific routes. */
-async function setupSettleMocks(page: Page): Promise<void> {
+async function setupSettleMocks(page: Page, plan = SETTLE_PLAN): Promise<void> {
   await injectFakeSession(page);
   await mockSupabaseAPI(page);
 
   // Return our plan (with budget + category_id) for any single-plan lookup
   await page.route(/.*\/rest\/v1\/plans.*id=eq\.plan-1.*/, (route) => {
-    route.fulfill({ status: 200, json: SETTLE_PLAN });
+    route.fulfill({ status: 200, json: plan });
+  });
+
+  await page.route(/.*\/rest\/v1\/plan_debt_terms.*plan_id=eq\.plan-1.*/, (route) => {
+    route.fulfill({ status: 200, json: plan.kind === "debt" ? [SETTLE_DEBT_TERMS] : [] });
   });
 
   // Return our eligible transactions (overrides MOCK_TRANSACTIONS from base mock)
@@ -151,22 +177,18 @@ test.describe("plan settle page", () => {
 
     // Suggestions visible
     await expect(page.getByText("Zakupy spożywcze na wakacje")).toBeVisible();
-    await expect(page.getByText("Transport na lotnisko")).toBeVisible();
+    await expect(page.getByText("Transport na lotnisko")).not.toBeVisible();
 
     // TX1 → high rank badge
     await expect(page.getByText(/Pasuje świetnie/)).toBeVisible();
-    // TX2 → medium rank badge
-    await expect(page.getByText(/Może pasować/)).toBeVisible();
 
     // At least one reason chip visible (category, keyword, or amount)
     await expect(page.getByText("✓ kategoria: Jedzenie")).toBeVisible();
   });
 
-  test("renders income suggestions on the Wpływy tab", async ({ page }) => {
-    await setupSettleMocks(page);
+  test("renders income suggestions for saving goals", async ({ page }) => {
+    await setupSettleMocks(page, SETTLE_SAVE_PLAN);
     await page.goto(`/plans/${PLAN_ID}/settle`);
-
-    await page.getByRole("button", { name: "Wpływy" }).click();
 
     await expect(page.getByText("Premia na wakacje")).toBeVisible();
     await expect(page.getByText(/Słabe trafienie|Może pasować|Pasuje świetnie/)).toBeVisible();
@@ -207,9 +229,9 @@ test.describe("plan settle page", () => {
       .filter({ hasText: "Zakupy spożywcze na wakacje" });
     await tx1Card.getByRole("button", { name: /Pomiń/ }).click();
 
-    // TX1 gone, TX2 still visible
+    // TX1 gone, no lower-ranked expense remains visible
     await expect(page.getByText("Zakupy spożywcze na wakacje")).not.toBeVisible();
-    await expect(page.getByText("Transport na lotnisko")).toBeVisible();
+    await expect(page.getByText("Transport na lotnisko")).not.toBeVisible();
 
     // Dismissal was persisted (poll: getUser + upsert happen async after the optimistic hide)
     await expect.poll(() => dismissPosted).toBe(true);
@@ -217,7 +239,6 @@ test.describe("plan settle page", () => {
 
     // After a full reload the dismissal still hides TX1
     await page.reload();
-    await expect(page.getByText("Transport na lotnisko")).toBeVisible();
     await expect(page.getByText("Zakupy spożywcze na wakacje")).not.toBeVisible();
   });
 
@@ -231,6 +252,10 @@ test.describe("plan settle page", () => {
       route.fulfill({ status: 200, json: SETTLE_PLAN });
     });
 
+    await page.route(/.*\/rest\/v1\/plan_debt_terms.*plan_id=eq\.plan-1.*/, (route) => {
+      route.fulfill({ status: 200, json: [SETTLE_DEBT_TERMS] });
+    });
+
     // After linking: tx-s1 appears in linked list; eligible drops to tx-s2 only
     await page.route(/.*\/rest\/v1\/transactions_with_category.*/, (route) => {
       const url = route.request().url();
@@ -238,8 +263,11 @@ test.describe("plan settle page", () => {
         // fetchLinkedTransactions fetching linked tx details
         return route.fulfill({ status: 200, json: [TX1] });
       }
-      // eligible query - return tx-s2 only after link, both before
-      route.fulfill({ status: 200, json: url.includes("type=eq.income") ? [TX_INCOME] : linked ? [TX2] : [TX1, TX2] });
+      // eligible query - no visible expense suggestions remain after linking
+      route.fulfill({
+        status: 200,
+        json: url.includes("type=eq.income") ? [TX_INCOME] : linked ? [] : [TX1, TX2],
+      });
     });
 
     await page.route(/.*\/rest\/v1\/plan_transaction_links.*/, (route) => {
@@ -273,7 +301,7 @@ test.describe("plan settle page", () => {
       .locator("section")
       .filter({ has: page.getByRole("heading", { name: "Pasujące transakcje" }) });
     await expect(suggestionsSection.getByText("Zakupy spożywcze na wakacje")).not.toBeVisible();
-    await expect(suggestionsSection.getByText("Transport na lotnisko")).toBeVisible();
+    await expect(suggestionsSection.getByText("Transport na lotnisko")).not.toBeVisible();
   });
 
   test("manual add opens dialog and links new transaction", async ({ page }) => {
@@ -285,6 +313,10 @@ test.describe("plan settle page", () => {
 
     await page.route(/.*\/rest\/v1\/plans.*id=eq\.plan-1.*/, (route) => {
       route.fulfill({ status: 200, json: SETTLE_PLAN });
+    });
+
+    await page.route(/.*\/rest\/v1\/plan_debt_terms.*plan_id=eq\.plan-1.*/, (route) => {
+      route.fulfill({ status: 200, json: [SETTLE_DEBT_TERMS] });
     });
 
     await page.route(/.*\/rest\/v1\/transactions_with_category.*/, (route) => {
@@ -356,12 +388,19 @@ test.describe("plan settle page", () => {
       route.fulfill({ status: 200, json: SETTLE_PLAN });
     });
 
+    await page.route(/.*\/rest\/v1\/plan_debt_terms.*plan_id=eq\.plan-1.*/, (route) => {
+      route.fulfill({ status: 200, json: [SETTLE_DEBT_TERMS] });
+    });
+
     await page.route(/.*\/rest\/v1\/transactions_with_category.*/, (route) => {
       const url = route.request().url();
       if (linked && url.includes("id=in.")) {
         return route.fulfill({ status: 200, json: [TX1] });
       }
-      route.fulfill({ status: 200, json: url.includes("type=eq.income") ? [TX_INCOME] : linked ? [TX2] : [TX1, TX2] });
+      route.fulfill({
+        status: 200,
+        json: url.includes("type=eq.income") ? [TX_INCOME] : linked ? [] : [TX1, TX2],
+      });
     });
 
     await page.route(/.*\/rest\/v1\/plan_transaction_links.*/, (route) => {
@@ -391,12 +430,13 @@ test.describe("plan settle page", () => {
 
     // Navigate back to detail (history.back from settle → detail)
     await page.getByRole("button", { name: /Wróć|Back|←/ }).click();
-    await page.waitForURL(`**/plans/${PLAN_ID}`, { waitUntil: "commit" });
+    await page.waitForURL(`**/plans/${PLAN_ID}**`, { waitUntil: "commit" });
 
     // Detail page loaded (plan name visible in heading)
     await expect(page.getByRole("heading", { name: "Wakacje" })).toBeVisible();
 
-    // POSTĘP PLANU hero shows linked amount (TX1.amount = 300)
-    await expect(page.getByLabel("Postęp planu").getByText(/300,00/).first()).toBeVisible();
+    // Linked section shows the newly linked payment amount (TX1.amount = 300).
+    await expect(page.getByRole("heading", { name: "Powiązane transakcje" })).toBeVisible();
+    await expect(page.getByText("1 · 300,00 zł")).toBeVisible();
   });
 });
