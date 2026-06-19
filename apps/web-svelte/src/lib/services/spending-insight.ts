@@ -1,3 +1,4 @@
+import { ledgerTransactions } from "$lib/services/transaction-cashflow";
 import type { TransactionWithCategory } from "$lib/types";
 
 export interface SpendingBudget {
@@ -66,7 +67,10 @@ export function computeSpendingInsight(input: {
   periodsInRolling: number;
   budgets: SpendingBudget[];
 }): SpendingInsight {
-  const { current, previous, rolling, periodsInRolling, budgets } = input;
+  const { periodsInRolling, budgets } = input;
+  const current = ledgerTransactions(input.current);
+  const previous = ledgerTransactions(input.previous);
+  const rolling = ledgerTransactions(input.rolling);
 
   const curByCat = expenseByCategory(current);
   const prevByCat = expenseByCategory(previous);

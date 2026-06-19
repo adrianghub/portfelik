@@ -18,8 +18,7 @@
     ledgerTransactions,
   } from "$lib/services/transaction-cashflow";
   import { fetchTransactions, updateTransactionsStatus } from "$lib/services/transactions";
-  import { computeSpendingInsight, type SpendingBudget } from "$lib/services/spending-insight";
-  import { fetchPlans } from "$lib/services/plans";
+  import { computeSpendingInsight } from "$lib/services/spending-insight";
   import { canManageTransaction } from "$lib/services/transaction-permissions";
   import { toast } from "svelte-sonner";
   import { supabase } from "$lib/supabase";
@@ -186,6 +185,7 @@
       );
     });
   });
+  const scopedLedgerTxs = $derived(ledgerTransactions(scopedTxs));
 
   const summary = $derived(
     scopedTxs.length > 0 || txQuery.data ? computeLedgerSummary(scopedTxs) : null
@@ -256,11 +256,6 @@
     queryFn: () => fetchTransactions(rollingBounds.start, rollingBounds.end),
   }));
 
-  const plansQuery = createQuery(() => ({
-    queryKey: ["plans"],
-    queryFn: fetchPlans,
-  }));
-
   function scopeFilter(list: TransactionWithCategory[]) {
     return list.filter(
       (tx) =>
@@ -269,23 +264,16 @@
     );
   }
 
-  // Budgets from active spend-plans with a category + budget_amount.
-  const spendingBudgets = $derived<SpendingBudget[]>(
-    (plansQuery.data ?? [])
-      .filter(
-        (p): p is typeof p & { category_id: string; budget_amount: number } =>
-          p.kind === "spend" && p.status === "active" && !!p.category_id && !!p.budget_amount
-      )
-      .map((p) => ({ categoryId: p.category_id, budgetAmount: p.budget_amount }))
-  );
+  const previousLedgerTxs = $derived(ledgerTransactions(scopeFilter(prevTxQuery.data ?? [])));
+  const rollingLedgerTxs = $derived(ledgerTransactions(scopeFilter(rollingTxQuery.data ?? [])));
 
   const spendingInsight = $derived(
     computeSpendingInsight({
-      current: scopedTxs,
-      previous: scopeFilter(prevTxQuery.data ?? []),
-      rolling: scopeFilter(rollingTxQuery.data ?? []),
+      current: scopedLedgerTxs,
+      previous: previousLedgerTxs,
+      rolling: rollingLedgerTxs,
       periodsInRolling: ROLLING_PERIODS,
-      budgets: spendingBudgets,
+      budgets: [],
     })
   );
 
@@ -351,7 +339,7 @@
       for (let i = 0; i < bounds.buckets; i++) labels.push(String(i + 1));
     }
 
-    const ledger = ledgerTransactions(scopedTxs);
+    const ledger = scopedLedgerTxs;
     if (ledger.length === 0) return { income: inc, expense: exp, labels };
     const startMs = new Date(bounds.start).getTime();
     const endMs = new Date(bounds.end).getTime() - 1;

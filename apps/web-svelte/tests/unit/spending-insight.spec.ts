@@ -2,18 +2,31 @@ import { describe, expect, it } from "vitest";
 import { computeSpendingInsight } from "$lib/services/spending-insight";
 import type { TransactionWithCategory } from "$lib/types";
 
-function tx(o: Partial<TransactionWithCategory> & { id: string; amount: number }): TransactionWithCategory {
+function tx(
+  o: Partial<TransactionWithCategory> & { id: string; amount: number }
+): TransactionWithCategory {
   return {
-    currency: "PLN", counterparty: null,
-    description: "tx", date: "2026-06-10",
-    type: "expense" as const, status: "paid" as const,
-    category_id: "c1", category_name: "Jedzenie",
+    currency: "PLN",
+    counterparty: null,
+    description: "tx",
+    date: "2026-06-10",
+    type: "expense" as const,
+    status: "paid" as const,
+    category_id: "c1",
+    category_name: "Jedzenie",
     category_type: (o.type ?? "expense") as TransactionWithCategory["category_type"],
-    is_hold: false, user_id: "u1",
-    is_recurring: false, recurring_day: null, recurrence_frequency: null,
-    recurrence_interval: 1, recurrence_weekday: null, recurrence_month: null,
-    recurring_template_id: null, group_id: null,
-    created_at: "2026-06-10T00:00:00Z", updated_at: "2026-06-10T00:00:00Z",
+    is_hold: false,
+    user_id: "u1",
+    is_recurring: false,
+    recurring_day: null,
+    recurrence_frequency: null,
+    recurrence_interval: 1,
+    recurrence_weekday: null,
+    recurrence_month: null,
+    recurring_template_id: null,
+    group_id: null,
+    created_at: "2026-06-10T00:00:00Z",
+    updated_at: "2026-06-10T00:00:00Z",
     ...o,
   } as TransactionWithCategory;
 }
@@ -26,7 +39,10 @@ describe("computeSpendingInsight", () => {
         tx({ id: "b", amount: 50, category_id: "food", category_name: "Jedzenie" }),
         tx({ id: "c", amount: 200, type: "income", category_id: "sal", category_name: "Wypłata" }),
       ],
-      previous: [], rolling: [], periodsInRolling: 3, budgets: [],
+      previous: [],
+      rolling: [],
+      periodsInRolling: 3,
+      budgets: [],
     });
     expect(out.spent).toBe(150);
     expect(out.net).toBe(50); // 200 income - 150 expense
@@ -34,11 +50,64 @@ describe("computeSpendingInsight", () => {
     expect(food.total).toBe(150);
   });
 
+  it("ignores non-ledger rows in spending totals, deltas, and biggest expenses", () => {
+    const out = computeSpendingInsight({
+      current: [
+        tx({ id: "paid-food", amount: 100, category_id: "food", category_name: "Jedzenie" }),
+        tx({
+          id: "future-rent",
+          amount: 900,
+          status: "upcoming",
+          category_id: "rent",
+          category_name: "Czynsz",
+        }),
+        tx({
+          id: "draft-income",
+          amount: 1000,
+          type: "income",
+          status: "draft",
+          category_id: "salary",
+          category_name: "Wypłata",
+        }),
+      ],
+      previous: [
+        tx({
+          id: "overdue-prev",
+          amount: 80,
+          status: "overdue",
+          category_id: "food",
+          category_name: "Jedzenie",
+        }),
+      ],
+      rolling: [
+        tx({
+          id: "draft-roll",
+          amount: 300,
+          status: "draft",
+          category_id: "food",
+          category_name: "Jedzenie",
+        }),
+      ],
+      periodsInRolling: 3,
+      budgets: [],
+    });
+
+    expect(out.spent).toBe(100);
+    expect(out.net).toBe(-100);
+    expect(out.prevSpent).toBe(0);
+    expect(out.categories.map((c) => c.categoryId)).toEqual(["food"]);
+    expect(out.categories[0].prevTotal).toBe(0);
+    expect(out.categories[0].avgTotal).toBe(0);
+    expect(out.biggestExpenses.map((e) => e.id)).toEqual(["paid-food"]);
+  });
+
   it("computes delta vs previous, null deltaPct when prevTotal is 0", () => {
     const out = computeSpendingInsight({
       current: [tx({ id: "a", amount: 140, category_id: "food" })],
       previous: [tx({ id: "p", amount: 100, category_id: "food" })],
-      rolling: [], periodsInRolling: 3, budgets: [],
+      rolling: [],
+      periodsInRolling: 3,
+      budgets: [],
     });
     const food = out.categories.find((c) => c.categoryId === "food")!;
     expect(food.prevTotal).toBe(100);
@@ -47,7 +116,10 @@ describe("computeSpendingInsight", () => {
 
     const fresh = computeSpendingInsight({
       current: [tx({ id: "a", amount: 30, category_id: "new" })],
-      previous: [], rolling: [], periodsInRolling: 3, budgets: [],
+      previous: [],
+      rolling: [],
+      periodsInRolling: 3,
+      budgets: [],
     });
     expect(fresh.categories[0].deltaPct).toBeNull();
   });
@@ -61,14 +133,20 @@ describe("computeSpendingInsight", () => {
     ];
     const hot = computeSpendingInsight({
       current: [tx({ id: "a", amount: 150, category_id: "food" })],
-      previous: [], rolling, periodsInRolling: 3, budgets: [],
+      previous: [],
+      rolling,
+      periodsInRolling: 3,
+      budgets: [],
     });
     expect(hot.categories[0].avgTotal).toBe(100);
     expect(hot.categories[0].anomaly).toBe(true);
 
     const calm = computeSpendingInsight({
       current: [tx({ id: "a", amount: 120, category_id: "food" })],
-      previous: [], rolling, periodsInRolling: 3, budgets: [],
+      previous: [],
+      rolling,
+      periodsInRolling: 3,
+      budgets: [],
     });
     expect(calm.categories[0].anomaly).toBe(false); // 120 < 150
   });
@@ -76,7 +154,9 @@ describe("computeSpendingInsight", () => {
   it("computes budget usage only when a budget exists", () => {
     const out = computeSpendingInsight({
       current: [tx({ id: "a", amount: 104, category_id: "food" })],
-      previous: [], rolling: [], periodsInRolling: 3,
+      previous: [],
+      rolling: [],
+      periodsInRolling: 3,
       budgets: [{ categoryId: "food", budgetAmount: 100 }],
     });
     const food = out.categories.find((c) => c.categoryId === "food")!;
@@ -85,7 +165,10 @@ describe("computeSpendingInsight", () => {
 
     const noBudget = computeSpendingInsight({
       current: [tx({ id: "a", amount: 50, category_id: "x" })],
-      previous: [], rolling: [], periodsInRolling: 3, budgets: [],
+      previous: [],
+      rolling: [],
+      periodsInRolling: 3,
+      budgets: [],
     });
     expect(noBudget.categories[0].budgetAmount).toBeNull();
     expect(noBudget.categories[0].budgetUsedPct).toBeNull();
@@ -101,7 +184,9 @@ describe("computeSpendingInsight", () => {
         tx({ id: "pa", amount: 100, category_id: "food" }),
         tx({ id: "pb", amount: 80, category_id: "fun" }),
       ],
-      rolling: [], periodsInRolling: 3, budgets: [],
+      rolling: [],
+      periodsInRolling: 3,
+      budgets: [],
     });
     expect(out.biggestMovers[0].categoryId).toBe("food"); // delta 200 > 10
     expect(out.biggestExpenses[0].id).toBe("a"); // 300 first
@@ -111,7 +196,10 @@ describe("computeSpendingInsight", () => {
   it("marks first period when previous and rolling are empty", () => {
     const out = computeSpendingInsight({
       current: [tx({ id: "a", amount: 10 })],
-      previous: [], rolling: [], periodsInRolling: 3, budgets: [],
+      previous: [],
+      rolling: [],
+      periodsInRolling: 3,
+      budgets: [],
     });
     expect(out.isFirstPeriod).toBe(true);
   });
