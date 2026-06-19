@@ -203,39 +203,6 @@ export type Database = {
         };
         Relationships: [];
       };
-      net_worth_items: {
-        Row: {
-          amount: number;
-          created_at: string;
-          currency: string;
-          id: string;
-          label: string;
-          position: number;
-          updated_at: string;
-          user_id: string;
-        };
-        Insert: {
-          amount?: number;
-          created_at?: string;
-          currency?: string;
-          id?: string;
-          label: string;
-          position?: number;
-          updated_at?: string;
-          user_id: string;
-        };
-        Update: {
-          amount?: number;
-          created_at?: string;
-          currency?: string;
-          id?: string;
-          label?: string;
-          position?: number;
-          updated_at?: string;
-          user_id?: string;
-        };
-        Relationships: [];
-      };
       group_invitations: {
         Row: {
           created_at: string;
@@ -308,6 +275,39 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      net_worth_items: {
+        Row: {
+          amount: number;
+          created_at: string;
+          currency: string;
+          id: string;
+          label: string;
+          position: number;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          amount?: number;
+          created_at?: string;
+          currency?: string;
+          id?: string;
+          label: string;
+          position?: number;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          amount?: number;
+          created_at?: string;
+          currency?: string;
+          id?: string;
+          label?: string;
+          position?: number;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
       };
       notifications: {
         Row: {
@@ -720,6 +720,7 @@ export type Database = {
           edited_description: string | null;
           external_id: string | null;
           id: string;
+          is_hold: boolean;
           posted_at: string;
           raw_row_hash: string;
           row_index: number;
@@ -741,6 +742,7 @@ export type Database = {
           edited_description?: string | null;
           external_id?: string | null;
           id?: string;
+          is_hold?: boolean;
           posted_at: string;
           raw_row_hash: string;
           row_index: number;
@@ -762,6 +764,7 @@ export type Database = {
           edited_description?: string | null;
           external_id?: string | null;
           id?: string;
+          is_hold?: boolean;
           posted_at?: string;
           raw_row_hash?: string;
           row_index?: number;
