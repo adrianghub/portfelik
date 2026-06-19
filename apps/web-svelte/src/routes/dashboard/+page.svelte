@@ -475,11 +475,6 @@
     {/each}
   </div>
 
-  <DashboardAttention {userId} {overdueCount} />
-  <DashboardImportHealth />
-  <DashboardNetWorthStrip />
-  <DashboardPlanProgress />
-
   {#if (groupsQuery.data?.length ?? 0) > 0}
     <div role="tablist" aria-label={m.dashboard_scope_all()} class="flex flex-wrap gap-1">
       <button
@@ -530,6 +525,17 @@
     <SpendTrendChart current={series.expense} previous={prevSeriesExpense} labels={series.labels} />
     <CategoryMixChart categories={spendingInsight.categories} />
   </div>
+
+  <!-- Status band -->
+  <section class="mt-6">
+    <h2 class="mb-2 text-sm font-medium text-slate-400">{m.dashboard_status_band()}</h2>
+    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <DashboardAttention {userId} {overdueCount} />
+      <DashboardImportHealth />
+      <DashboardNetWorthStrip />
+      <DashboardPlanProgress />
+    </div>
+  </section>
 
   <!-- Hero balance card -->
   <a

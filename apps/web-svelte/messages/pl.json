@@ -1042,5 +1042,6 @@
   "dashboard_spending_budget_used": "budżetu",
   "dashboard_spending_biggest": "Największe wydatki",
   "dashboard_spending_first_period": "Pierwszy okres — brak danych do porównania.",
-  "dashboard_spending_empty": "Zaimportuj lub dodaj transakcje, by zobaczyć, gdzie idą pieniądze."
+  "dashboard_spending_empty": "Zaimportuj lub dodaj transakcje, by zobaczyć, gdzie idą pieniądze.",
+  "dashboard_status_band": "Status"
 }
