@@ -15,10 +15,11 @@
 -- from their fingerprint Path A, so the settled row survives to commit as
 -- decision='import' for the fold to act on.
 --
--- Starting points (latest definitions, all from
--- 20260617000000_first_class_plans.sql): find_import_duplicate_warning,
--- mark_preview_duplicates, commit_import_session. preview_fingerprint_warnings
--- is unchanged here because it delegates Path A to find_import_duplicate_warning.
+-- Starting points (latest definitions): find_import_duplicate_warning and
+-- mark_preview_duplicates from 20260617000000_first_class_plans.sql;
+-- commit_import_session from 20260627000000_commit_import_counterparty.sql.
+-- preview_fingerprint_warnings is unchanged here because it delegates Path A
+-- to find_import_duplicate_warning.
 
 -- 1. Link columns: hold flag + counterparty (for the tolerant fold lookup).
 alter table public.transaction_import_links
