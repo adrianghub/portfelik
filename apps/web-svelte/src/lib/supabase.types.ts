@@ -636,9 +636,11 @@ export type Database = {
       transaction_import_links: {
         Row: {
           bank_account_id: string;
+          counterparty: string | null;
           created_at: string;
           external_transaction_id: string | null;
           fingerprint: string;
+          is_hold: boolean;
           row_id: string;
           session_id: string;
           source_file_hash: string;
@@ -648,9 +650,11 @@ export type Database = {
         };
         Insert: {
           bank_account_id: string;
+          counterparty?: string | null;
           created_at?: string;
           external_transaction_id?: string | null;
           fingerprint: string;
+          is_hold?: boolean;
           row_id: string;
           session_id: string;
           source_file_hash: string;
@@ -660,9 +664,11 @@ export type Database = {
         };
         Update: {
           bank_account_id?: string;
+          counterparty?: string | null;
           created_at?: string;
           external_transaction_id?: string | null;
           fingerprint?: string;
+          is_hold?: boolean;
           row_id?: string;
           session_id?: string;
           source_file_hash?: string;
