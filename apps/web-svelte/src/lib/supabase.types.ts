@@ -492,7 +492,7 @@ export type Database = {
           end_date: string;
           group_id: string | null;
           id: string;
-          kind: string;
+          kind: "save" | "debt";
           name: string;
           refinanced_from_plan_id: string | null;
           replaced_by_plan_id: string | null;
@@ -509,7 +509,7 @@ export type Database = {
           end_date: string;
           group_id?: string | null;
           id?: string;
-          kind?: string;
+          kind: "save" | "debt";
           name: string;
           refinanced_from_plan_id?: string | null;
           replaced_by_plan_id?: string | null;
@@ -526,7 +526,7 @@ export type Database = {
           end_date?: string;
           group_id?: string | null;
           id?: string;
-          kind?: string;
+          kind?: "save" | "debt";
           name?: string;
           refinanced_from_plan_id?: string | null;
           replaced_by_plan_id?: string | null;

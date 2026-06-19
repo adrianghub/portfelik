@@ -8,6 +8,7 @@ import {
 } from "./setup";
 
 type TxType = "expense" | "income";
+type PlanKind = "save" | "debt";
 
 describe("RPC: plan settlement", () => {
   let ctx: TestContext;
@@ -35,16 +36,23 @@ describe("RPC: plan settlement", () => {
     return created.data.id;
   }
 
-  async function createPlan(userId: string, name: string, groupId: string | null = null) {
+  async function createPlan(
+    userId: string,
+    name: string,
+    groupId: string | null = null,
+    kind: PlanKind = "debt"
+  ) {
     const { data, error } = await ctx.admin
       .from("plans")
       .insert({
         name: `${SENTINEL} ${name}`,
         user_id: userId,
         group_id: groupId,
+        kind,
         start_date: "2026-06-01",
         end_date: "2026-06-30",
-        budget_amount: 1000,
+        budget_amount: null,
+        target_amount: kind === "save" ? 1000 : null,
       })
       .select("id")
       .single();
@@ -129,8 +137,8 @@ describe("RPC: plan settlement", () => {
     expect(unlinkError).toBeNull();
   });
 
-  it("links income transactions as plan funding", async () => {
-    const planId = await createPlan(ctx.userA.userId, "income plan");
+  it("links income transactions to saving goals", async () => {
+    const planId = await createPlan(ctx.userA.userId, "income plan", null, "save");
     const txId = await createTx({
       userId: ctx.userA.userId,
       description: "income",
@@ -144,6 +152,37 @@ describe("RPC: plan settlement", () => {
     });
     expect(error).toBeNull();
     expect(data?.transaction_id).toBe(txId);
+  });
+
+  it("enforces settlement transaction type by plan kind", async () => {
+    const savePlanId = await createPlan(ctx.userA.userId, "save type policy", null, "save");
+    const debtPlanId = await createPlan(ctx.userA.userId, "debt type policy", null, "debt");
+    const expenseTxId = await createTx({
+      userId: ctx.userA.userId,
+      description: "save wrong type expense",
+      type: "expense",
+      categoryId: expenseCategoryAId,
+    });
+    const incomeTxId = await createTx({
+      userId: ctx.userA.userId,
+      description: "debt wrong type income",
+      type: "income",
+      categoryId: incomeCategoryAId,
+    });
+
+    const saveResult = await ctx.userA.client.rpc("link_plan_transaction", {
+      p_plan_id: savePlanId,
+      p_transaction_id: expenseTxId,
+    });
+    expect(saveResult.error).not.toBeNull();
+    expect(saveResult.error?.message ?? "").toMatch(/transaction_type_not_supported/);
+
+    const debtResult = await ctx.userA.client.rpc("link_plan_transaction", {
+      p_plan_id: debtPlanId,
+      p_transaction_id: incomeTxId,
+    });
+    expect(debtResult.error).not.toBeNull();
+    expect(debtResult.error?.message ?? "").toMatch(/transaction_type_not_supported/);
   });
 
   it("rejects transactions outside the plan period", async () => {

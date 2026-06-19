@@ -134,7 +134,7 @@ export interface GroupInvitation {
   updated_at: string;
 }
 
-export type PlanKind = "spend" | "save" | "debt";
+export type PlanKind = "save" | "debt";
 
 export interface Plan {
   id: string;
