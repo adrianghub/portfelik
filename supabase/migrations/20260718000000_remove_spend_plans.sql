@@ -15,7 +15,7 @@ alter table public.plans
   add constraint plans_kind_check check (kind in ('save', 'debt'));
 
 comment on column public.plans.kind is
-  'Plan intent: save (target accumulation) or debt (loan repayment). Spend/expense plans were removed in 20260715000000.';
+  'Plan intent: save (target accumulation) or debt (loan repayment). Spend/expense plans were removed in 20260718000000.';
 
 create or replace function public.link_plan_transaction(
   p_plan_id        uuid,
