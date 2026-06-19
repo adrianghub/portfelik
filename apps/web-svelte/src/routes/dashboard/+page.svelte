@@ -7,6 +7,8 @@
   import DashboardNetWorthStrip from "$lib/components/dashboard/DashboardNetWorthStrip.svelte";
   import DashboardPlanProgress from "$lib/components/dashboard/DashboardPlanProgress.svelte";
   import DashboardSpendingInsight from "$lib/components/dashboard/DashboardSpendingInsight.svelte";
+  import SpendTrendChart from "$lib/components/dashboard/charts/SpendTrendChart.svelte";
+  import CategoryMixChart from "$lib/components/dashboard/charts/CategoryMixChart.svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchProfile } from "$lib/services/profiles";
   import { fetchMyGroupRoles, fetchUserGroups } from "$lib/services/groups";
@@ -287,11 +289,70 @@
     })
   );
 
+  /** Bucket transactions into per-period arrays. Extracted so we can reuse for prevSeries. */
+  function bucketExpenses(
+    txs: TransactionWithCategory[],
+    bStart: string,
+    bEnd: string,
+    bucketCount: number
+  ): number[] {
+    const exp = new Array<number>(bucketCount).fill(0);
+    const ledger = ledgerTransactions(txs);
+    if (ledger.length === 0) return exp;
+    const startMs = new Date(bStart).getTime();
+    const endMs = new Date(bEnd).getTime() - 1;
+    for (const tx of ledger) {
+      if (tx.type !== "expense") continue;
+      const t = new Date(tx.date).getTime();
+      if (t < startMs || t > endMs) continue;
+      let idx: number;
+      if (period === "year") {
+        idx = new Date(tx.date).getMonth();
+      } else {
+        idx = Math.floor((t - startMs) / 86_400_000);
+      }
+      if (idx < 0 || idx >= bucketCount) continue;
+      exp[idx] += Math.abs(Number(tx.amount));
+    }
+    return exp;
+  }
+
+  const MONTH_SHORT_PL = [
+    "Sty",
+    "Lut",
+    "Mar",
+    "Kwi",
+    "Maj",
+    "Cze",
+    "Lip",
+    "Sie",
+    "Wrz",
+    "Paź",
+    "Lis",
+    "Gru",
+  ];
+
   const series = $derived.by(() => {
     const inc = new Array<number>(bounds.buckets).fill(0);
     const exp = new Array<number>(bounds.buckets).fill(0);
+    const labels: string[] = [];
+
+    // Build bucket labels
+    if (period === "year") {
+      for (let i = 0; i < 12; i++) labels.push(MONTH_SHORT_PL[i]);
+    } else if (period === "week") {
+      const s = new Date(bounds.start);
+      for (let i = 0; i < bounds.buckets; i++) {
+        const d = new Date(s);
+        d.setDate(d.getDate() + i);
+        labels.push(`${d.getDate()}.${String(d.getMonth() + 1).padStart(2, "0")}`);
+      }
+    } else {
+      for (let i = 0; i < bounds.buckets; i++) labels.push(String(i + 1));
+    }
+
     const ledger = ledgerTransactions(scopedTxs);
-    if (ledger.length === 0) return { income: inc, expense: exp };
+    if (ledger.length === 0) return { income: inc, expense: exp, labels };
     const startMs = new Date(bounds.start).getTime();
     const endMs = new Date(bounds.end).getTime() - 1;
     for (const tx of ledger) {
@@ -308,7 +369,13 @@
       if (tx.type === "income") inc[idx] += amount;
       else exp[idx] += amount;
     }
-    return { income: inc, expense: exp };
+    return { income: inc, expense: exp, labels };
+  });
+
+  /** Previous-period expense series, bucketed identically to current period. */
+  const prevSeriesExpense = $derived.by(() => {
+    const prevTxs = scopeFilter(prevTxQuery.data ?? []);
+    return bucketExpenses(prevTxs, prevBounds.start, prevBounds.end, bounds.buckets);
   });
 
   function sparklinePath(values: number[]): string {
@@ -457,6 +524,12 @@
   {/if}
 
   <DashboardSpendingInsight insight={spendingInsight} />
+
+  <!-- Spend trend + category mix charts -->
+  <div class="mt-4 grid gap-4 lg:grid-cols-2">
+    <SpendTrendChart current={series.expense} previous={prevSeriesExpense} labels={series.labels} />
+    <CategoryMixChart categories={spendingInsight.categories} />
+  </div>
 
   <!-- Hero balance card -->
   <a
