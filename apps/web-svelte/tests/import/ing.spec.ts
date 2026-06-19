@@ -90,3 +90,43 @@ describe("ing adapter - synthetic fixture", () => {
     expect(out.rows[1].amount).toBe(100);
   });
 });
+
+describe("ing adapter - card holds (blokady)", () => {
+  const holds = readFileSync(resolve(__dirname, "fixtures/ing/holds.csv"), "utf-8");
+
+  it("parses all 5 rows with no errors (holds no longer dropped)", () => {
+    const out = ingAdapter.parse(holds);
+    expect(out.errors).toEqual([]);
+    expect(out.rows).toHaveLength(5);
+  });
+
+  it("tags hold rows is_hold with amount from the blokady column", () => {
+    const out = ingAdapter.parse(holds);
+    const lidl = out.rows.find((r) => r.counterparty?.includes("LIDL"))!;
+    expect(lidl.is_hold).toBe(true);
+    expect(lidl.type).toBe("expense");
+    expect(lidl.amount).toBe(25.46);
+
+    const fuel = out.rows.find((r) => r.counterparty?.includes("HYPEROIL"))!;
+    expect(fuel.is_hold).toBe(true);
+    expect(fuel.amount).toBe(200);
+  });
+
+  it("does not tag settled rows", () => {
+    const out = ingAdapter.parse(holds);
+    const settled = out.rows.find((r) => r.counterparty?.includes("BIEDRONKA"))!;
+    expect(settled.is_hold).toBeFalsy();
+    expect(settled.amount).toBe(41.93);
+    const income = out.rows.find((r) => r.counterparty?.includes("ROKSANA"))!;
+    expect(income.is_hold).toBeFalsy();
+    expect(income.type).toBe("income");
+  });
+
+  it("parses a release (zwolnienie blokady) as is_hold income", () => {
+    const out = ingAdapter.parse(holds);
+    const rel = out.rows.find((r) => r.description.includes("Zwolnienie"))!;
+    expect(rel.is_hold).toBe(true);
+    expect(rel.type).toBe("income");
+    expect(rel.amount).toBe(30);
+  });
+});

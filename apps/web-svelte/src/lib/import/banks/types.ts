@@ -55,6 +55,8 @@ export interface ParsedRow {
   source_row_text: string;
   /** 0-based position in the source file (after header). */
   row_index: number;
+  /** True when the amount was sourced from the card-hold (blokada) column. */
+  is_hold?: boolean;
 }
 
 export interface ParseError {
