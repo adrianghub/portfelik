@@ -30,7 +30,7 @@ Public launch program (2026-06). Product doctrine lives in
 
 Shipped on `main` (`41717c7`):
 
-- Plany hub: net worth (D1), monthly surplus (D2), save/debt/spend kinds, settlement, Belka scenarios.
+- Plany hub: net worth (D1), monthly surplus (D2), save/debt kinds, settlement, Belka scenarios.
 - Couples G1/G2: co-owner RLS for plans, debt terms, and transactions; UI `canManagePlan()` gating.
 - Privacy policy synced with product (groups, snapshots, export bundle, push).
 - Account export includes `plan_debt_terms` + `financial_snapshot`.

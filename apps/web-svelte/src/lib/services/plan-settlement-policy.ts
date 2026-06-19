@@ -17,7 +17,6 @@ export function settlementTypesForPlanKind(kind: PlanKind): TransactionType[] {
   switch (kind) {
     case "save":
       return ["income"];
-    case "spend":
     case "debt":
       return ["expense"];
   }
@@ -31,10 +30,10 @@ export function resolveSettlementTypes(
   plan: Pick<Plan, "kind">,
   opts?: { type?: TransactionType | "all" }
 ): TransactionType[] {
-  const kind = plan.kind ?? "spend";
-  if (opts?.type === "all" && kind === "spend") return ["expense", "income"];
-  if (opts?.type && opts.type !== "all") return [opts.type];
-  return settlementTypesForPlanKind(kind);
+  const kind = plan.kind ?? "save";
+  const allowed = settlementTypesForPlanKind(kind);
+  if (opts?.type && opts.type !== "all" && allowed.includes(opts.type)) return [opts.type];
+  return allowed;
 }
 
 export function isTransactionEligibleForPlanSettlement(input: {

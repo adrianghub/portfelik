@@ -82,30 +82,26 @@ export interface PlanInput {
   end_date: string;
 }
 
-function normalizePlanInput(input: PlanInput): PlanInput {
+type NormalizedPlanInput = Omit<PlanInput, "kind"> & { kind: PlanKind };
+
+function normalizePlanInput(input: PlanInput): NormalizedPlanInput {
   const name = input.name.trim();
   if (!name) throw new Error("name_required");
   if (!input.start_date || !input.end_date) throw new Error("date_required");
   if (input.end_date < input.start_date) throw new Error("date_order");
-  const kind = input.kind ?? "spend";
-  const budget =
-    input.budget_amount != null && !Number.isNaN(input.budget_amount)
-      ? Math.abs(input.budget_amount)
-      : null;
+  const kind = input.kind ?? "save";
   const target =
     input.target_amount != null && !Number.isNaN(input.target_amount)
       ? Math.abs(input.target_amount)
       : null;
   if (kind === "save" && (!target || target <= 0)) throw new Error("target_required");
-  if (kind === "spend" && budget != null && budget <= 0) throw new Error("budget_invalid");
   return {
     name,
     kind,
     group_id: input.group_id ?? null,
     category_id: input.category_id ?? null,
-    budget_amount: kind === "spend" ? (budget && budget > 0 ? budget : null) : null,
-    target_amount:
-      kind === "save" ? target : kind === "debt" ? (target && target > 0 ? target : null) : null,
+    budget_amount: null,
+    target_amount: kind === "save" ? target : target && target > 0 ? target : null,
     start_date: input.start_date,
     end_date: input.end_date,
   };

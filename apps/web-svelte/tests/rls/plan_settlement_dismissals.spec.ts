@@ -38,9 +38,10 @@ describe("RLS: plan_settlement_dismissals", () => {
         name: `${SENTINEL} ${name}`,
         user_id: userId,
         group_id: groupId,
+        kind: "debt",
         start_date: "2026-06-01",
         end_date: "2026-06-30",
-        budget_amount: 1000,
+        budget_amount: null,
       })
       .select("id")
       .single();

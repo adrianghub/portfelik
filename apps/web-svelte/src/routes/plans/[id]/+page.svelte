@@ -42,7 +42,6 @@
     saveScrollPosition,
     scrollRestoreKey,
   } from "$lib/utils/scroll-restore";
-  import { polishPluralForm } from "$lib/utils/polish-plural";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { ArrowLeft, CalendarDays, Link2Off, Users } from "lucide-svelte";
   import { onMount } from "svelte";
@@ -126,7 +125,7 @@
       ? computePlanProgress({
           planId: id,
           planName: planQuery.data.name,
-          kind: planQuery.data.kind ?? "spend",
+          kind: planQuery.data.kind ?? "save",
           budgetAmount: planQuery.data.budget_amount,
           targetAmount: planQuery.data.target_amount,
           startDate: planQuery.data.start_date,
@@ -198,13 +197,6 @@
 
   function defaultManualTxType(kind: PlanKind): TransactionType {
     return kind === "save" ? "income" : "expense";
-  }
-
-  function settleCtaSubtitle(count: number): string {
-    const form = polishPluralForm(count);
-    if (form === "one") return m.plan_detail_settle_cta_subtitle_one({ count });
-    if (form === "few") return m.plan_detail_settle_cta_subtitle_few({ count });
-    return m.plan_detail_settle_cta_subtitle_many({ count });
   }
 
   let unlinkPendingId = $state<string | null>(null);
@@ -501,73 +493,11 @@
         termsSaving={debtTermsMutation.isPending || debtPlanDatesMutation.isPending}
       />
       <PlanForwardNav href={settleHref} title={m.plan_debt_link_payments()} variant="action" />
-    {:else if progress}
-      <section
-        class="rounded-2xl border border-white/5 bg-slate-900/60 bg-[radial-gradient(circle_at_90%_20%,rgba(45,212,191,0.18),transparent_38%)] p-5"
-        aria-label={m.plan_detail_progress_title()}
-      >
-        <p class="text-eyebrow text-slate-400">{m.plan_detail_progress_title()}</p>
-        {#if progress.budgetAmount != null && progress.budgetAmount > 0}
-          {@const pct = Math.round(Math.min(1, progress.spentAmount / progress.budgetAmount) * 100)}
-          <div class="mt-5 flex flex-wrap items-end justify-between gap-3">
-            <p class="text-accent text-4xl font-semibold tabular-nums">
-              {formatCurrency(progress.spentAmount)}
-              <span class="text-xl font-medium text-slate-500">
-                z {formatCurrency(progress.budgetAmount)}
-              </span>
-            </p>
-          </div>
-          <div
-            class="mt-5 h-2 overflow-hidden rounded-full bg-slate-800"
-            role="progressbar"
-            aria-valuenow={pct}
-            aria-valuemin={0}
-            aria-valuemax={100}
-          >
-            <div
-              class="bg-accent-gradient h-full rounded-full transition-all duration-500"
-              style="width: {pct}%"
-            ></div>
-          </div>
-          <div class="mt-3 flex items-center justify-between gap-3 text-sm">
-            <p class="text-slate-400">
-              {m.plan_detail_remaining({ amount: formatCurrency(progress.remaining ?? 0) })}
-            </p>
-            <p class="text-accent font-semibold tabular-nums">{pct}%</p>
-          </div>
-        {:else}
-          <p class="text-accent mt-4 text-4xl font-semibold tabular-nums">
-            {formatCurrency(progress.spentAmount)}
-          </p>
-        {/if}
-
-        {#if plan.kind === "spend" && progress.incomeAmount > 0}
-          <div class="mt-5 border-t border-white/5 pt-4">
-            <p class="text-eyebrow text-slate-500">{m.plan_linked_funding()}</p>
-            <p class="mt-1 text-sm font-semibold text-emerald-300 tabular-nums">
-              {formatCurrency(progress.incomeAmount)}
-            </p>
-            <p class="mt-1 text-xs text-slate-500">{m.plan_linked_funding_hint()}</p>
-          </div>
-        {/if}
-      </section>
-    {/if}
-
-    {#if plan.kind === "spend" && progress}
-      <PlanForwardNav
-        href={settleHref}
-        title={m.plan_detail_history_link()}
-        subtitle={progress.eligibleCount > 0
-          ? settleCtaSubtitle(progress.eligibleCount)
-          : undefined}
-        ariaLabel={m.plan_detail_history_link()}
-        variant="action"
-      />
     {/if}
 
     <button
       type="button"
-      onclick={() => openManualTx(defaultManualTxType(plan.kind ?? "spend"))}
+      onclick={() => openManualTx(defaultManualTxType(plan.kind ?? "save"))}
       class="focus-visible:ring-accent w-full rounded-xl border border-dashed border-white/10 px-4 py-2.5 text-sm text-slate-300 transition-colors hover:border-white/20 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
     >
       {m.plan_detail_manual_add()}
@@ -592,12 +522,7 @@
         {/if}
       </div>
 
-      <div
-        class={cn(
-          "grid gap-4",
-          plan.kind !== "save" && (plan.kind !== "spend" || incomes.length > 0) && "lg:grid-cols-2"
-        )}
-      >
+      <div class={cn("grid gap-4", plan.kind !== "save" && "lg:grid-cols-2")}>
         {#if plan.kind !== "save"}
           {@render LinkedSection({
             title: m.plan_linked_expenses(),
@@ -611,9 +536,9 @@
             onmanualadd: () => openManualTx("expense"),
           })}
         {/if}
-        {#if plan.kind !== "spend" || incomes.length > 0}
+        {#if plan.kind === "save" || incomes.length > 0}
           {@render LinkedSection({
-            title: plan.kind === "spend" ? m.plan_linked_funding() : m.plan_linked_income(),
+            title: m.plan_linked_income(),
             transactions: incomes,
             amountClass: "text-emerald-300",
             sign: "+",
