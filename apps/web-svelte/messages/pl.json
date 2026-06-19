@@ -1033,5 +1033,14 @@
   "toast_transaction_settle_undo": "Cofnij",
   "cash_position_label": "Pozycja",
   "cash_position_forecast": "prognoza {amount}",
-  "cash_position_set_hint": "Ustaw saldo początkowe w Planach, aby śledzić pozycję."
+  "cash_position_set_hint": "Ustaw saldo początkowe w Planach, aby śledzić pozycję.",
+  "dashboard_spending_title": "Gdzie poszły pieniądze",
+  "dashboard_spending_spent": "Wydano",
+  "dashboard_spending_net": "netto",
+  "dashboard_spending_vs_prev": "vs poprzedni okres",
+  "dashboard_spending_anomaly": "nietypowo wysoko",
+  "dashboard_spending_budget_used": "budżetu",
+  "dashboard_spending_biggest": "Największe wydatki",
+  "dashboard_spending_first_period": "Pierwszy okres — brak danych do porównania.",
+  "dashboard_spending_empty": "Zaimportuj lub dodaj transakcje, by zobaczyć, gdzie idą pieniądze."
 }

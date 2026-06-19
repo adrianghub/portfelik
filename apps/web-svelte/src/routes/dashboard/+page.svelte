@@ -6,7 +6,7 @@
   import DashboardAttention from "$lib/components/dashboard/DashboardAttention.svelte";
   import DashboardNetWorthStrip from "$lib/components/dashboard/DashboardNetWorthStrip.svelte";
   import DashboardPlanProgress from "$lib/components/dashboard/DashboardPlanProgress.svelte";
-  import CategoryBreakdown from "$lib/components/transactions/CategoryBreakdown.svelte";
+  import DashboardSpendingInsight from "$lib/components/dashboard/DashboardSpendingInsight.svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchProfile } from "$lib/services/profiles";
   import { fetchMyGroupRoles, fetchUserGroups } from "$lib/services/groups";
@@ -16,6 +16,8 @@
     ledgerTransactions,
   } from "$lib/services/transaction-cashflow";
   import { fetchTransactions, updateTransactionsStatus } from "$lib/services/transactions";
+  import { computeSpendingInsight, type SpendingBudget } from "$lib/services/spending-insight";
+  import { fetchPlans } from "$lib/services/plans";
   import { canManageTransaction } from "$lib/services/transaction-permissions";
   import { toast } from "svelte-sonner";
   import { supabase } from "$lib/supabase";
@@ -197,6 +199,94 @@
         summary.total_expenses !== forecastSummary.total_expenses)
   );
 
+  // Previous-period bounds: shift the current window back by its own length.
+  const prevBounds = $derived.by(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    if (period === "year") {
+      return getDateRangeBounds(y - 1, 1, y - 1, 12);
+    }
+    if (period === "week") {
+      // week: previous 7-day window, contiguous with and exclusive of the current week start
+      const start = new Date(bounds.start);
+      start.setDate(start.getDate() - 7);
+      return { start: toIsoDate(start), end: bounds.start };
+    }
+    const mo = now.getMonth() + 1;
+    return mo === 1
+      ? getDateRangeBounds(y - 1, 12, y - 1, 12)
+      : getDateRangeBounds(y, mo - 1, y, mo - 1);
+  });
+
+  // Rolling window: last 3 complete periods before the current one (for averages).
+  const ROLLING_PERIODS = 3;
+  const rollingBounds = $derived.by(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    if (period === "year") return getDateRangeBounds(y - ROLLING_PERIODS, 1, y - 1, 12);
+    if (period === "week") {
+      // rolling: last ROLLING_PERIODS complete weeks, contiguous with current week start
+      const start = new Date(bounds.start);
+      start.setDate(start.getDate() - 7 * ROLLING_PERIODS);
+      return { start: toIsoDate(start), end: bounds.start };
+    }
+    const mo = now.getMonth() + 1;
+    const startMonthIdx = mo - ROLLING_PERIODS;
+    const startYear = startMonthIdx > 0 ? y : y - 1;
+    const startMonth = ((startMonthIdx - 1 + 12) % 12) + 1;
+    const endYear = mo === 1 ? y - 1 : y;
+    const endMonth = mo === 1 ? 12 : mo - 1;
+    return getDateRangeBounds(startYear, startMonth, endYear, endMonth);
+  });
+
+  const prevTxQuery = createQuery(() => ({
+    queryKey: ["transactions", "dashboard-prev", period, prevBounds.start, prevBounds.end] as const,
+    queryFn: () => fetchTransactions(prevBounds.start, prevBounds.end),
+  }));
+  const rollingTxQuery = createQuery(() => ({
+    queryKey: [
+      "transactions",
+      "dashboard-rolling",
+      period,
+      rollingBounds.start,
+      rollingBounds.end,
+    ] as const,
+    queryFn: () => fetchTransactions(rollingBounds.start, rollingBounds.end),
+  }));
+
+  const plansQuery = createQuery(() => ({
+    queryKey: ["plans"],
+    queryFn: fetchPlans,
+  }));
+
+  function scopeFilter(list: TransactionWithCategory[]) {
+    return list.filter(
+      (tx) =>
+        groupFilter === "all" ||
+        (groupFilter === "own" ? tx.group_id === null : tx.group_id === groupFilter)
+    );
+  }
+
+  // Budgets from active spend-plans with a category + budget_amount.
+  const spendingBudgets = $derived<SpendingBudget[]>(
+    (plansQuery.data ?? [])
+      .filter(
+        (p): p is typeof p & { category_id: string; budget_amount: number } =>
+          p.kind === "spend" && p.status === "active" && !!p.category_id && !!p.budget_amount
+      )
+      .map((p) => ({ categoryId: p.category_id, budgetAmount: p.budget_amount }))
+  );
+
+  const spendingInsight = $derived(
+    computeSpendingInsight({
+      current: scopedTxs,
+      previous: scopeFilter(prevTxQuery.data ?? []),
+      rolling: scopeFilter(rollingTxQuery.data ?? []),
+      periodsInRolling: ROLLING_PERIODS,
+      budgets: spendingBudgets,
+    })
+  );
+
   const series = $derived.by(() => {
     const inc = new Array<number>(bounds.buckets).fill(0);
     const exp = new Array<number>(bounds.buckets).fill(0);
@@ -366,6 +456,8 @@
     </div>
   {/if}
 
+  <DashboardSpendingInsight insight={spendingInsight} />
+
   <!-- Hero balance card -->
   <a
     href={transactionsHref()}
@@ -502,13 +594,6 @@
       </svg>
     </a>
   </div>
-
-  {#if summary && summary.categories.length > 0}
-    <CategoryBreakdown
-      categories={summary.categories}
-      oncategoryclick={(categoryId) => goto(transactionsHref({ categoryId }))}
-    />
-  {/if}
 
   <!-- Upcoming / overdue -->
   <div>
