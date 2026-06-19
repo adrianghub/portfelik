@@ -57,6 +57,7 @@ export interface Transaction {
 export interface TransactionWithCategory extends Transaction {
   category_name: string;
   category_type: TransactionType;
+  is_hold: boolean;
 }
 
 export interface CategorySummary {

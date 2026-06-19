@@ -25,6 +25,7 @@ function tx(overrides: Partial<TransactionWithCategory> = {}): TransactionWithCa
     category_id: "cat-other",
     category_name: "Inne",
     category_type: "expense",
+    is_hold: false,
     user_id: "u1",
     is_recurring: false,
     recurring_day: null,

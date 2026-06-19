@@ -21,6 +21,7 @@ function tx(
     category_id: "cat",
     category_name: "Inne",
     category_type: "expense",
+    is_hold: false,
     user_id: "u1",
     is_recurring: false,
     recurring_day: null,

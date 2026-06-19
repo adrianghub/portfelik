@@ -1022,6 +1022,7 @@ export type Database = {
           description: string | null;
           group_id: string | null;
           id: string | null;
+          is_hold: boolean | null;
           is_recurring: boolean | null;
           recurrence_frequency: Database["public"]["Enums"]["recurrence_frequency"] | null;
           recurrence_interval: number | null;
