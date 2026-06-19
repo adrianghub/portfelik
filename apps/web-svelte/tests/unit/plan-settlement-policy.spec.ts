@@ -7,7 +7,7 @@ import {
 import type { Plan, TransactionWithCategory } from "$lib/types";
 
 const plan: Pick<Plan, "kind" | "start_date" | "end_date"> = {
-  kind: "spend",
+  kind: "debt",
   start_date: "2026-01-01",
   end_date: "2026-12-31",
 };
@@ -28,10 +28,9 @@ describe("plan-settlement-policy", () => {
   it("maps kinds to settlement types", () => {
     expect(settlementTypesForPlanKind("save")).toEqual(["income"]);
     expect(settlementTypesForPlanKind("debt")).toEqual(["expense"]);
-    expect(settlementTypesForPlanKind("spend")).toEqual(["expense"]);
   });
 
-  it("rejects draft and wrong type for spend plans", () => {
+  it("rejects draft and wrong type for loan plans", () => {
     const blocked = new Set<string>();
     expect(
       isTransactionEligibleForPlanSettlement({
@@ -59,11 +58,9 @@ describe("plan-settlement-policy", () => {
     ).toBe(true);
   });
 
-  it("allows spend funding income when tab override is set", () => {
-    expect(resolveSettlementTypes({ kind: "spend" }, { type: "income" })).toEqual(["income"]);
-    expect(resolveSettlementTypes({ kind: "spend" }, { type: "all" })).toEqual([
-      "expense",
-      "income",
-    ]);
+  it("ignores type overrides outside the plan kind policy", () => {
+    expect(resolveSettlementTypes({ kind: "debt" }, { type: "income" })).toEqual(["expense"]);
+    expect(resolveSettlementTypes({ kind: "save" }, { type: "expense" })).toEqual(["income"]);
+    expect(resolveSettlementTypes({ kind: "debt" }, { type: "all" })).toEqual(["expense"]);
   });
 });

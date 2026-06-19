@@ -129,7 +129,7 @@ export function sumSaveMonthlyNeeded(
   return plans
     .filter(
       (plan) =>
-        (plan.kind ?? "spend") === "save" &&
+        (plan.kind ?? "save") === "save" &&
         isActivePlan({ start_date: plan.start_date ?? today, end_date: plan.end_date }, today)
     )
     .reduce((sum, plan) => sum + (plan.monthlyNeeded ?? 0), 0);

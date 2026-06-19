@@ -5,7 +5,6 @@
 
 import * as m from "$lib/paraglide/messages";
 import type { PlanKind } from "$lib/types";
-import { polishPluralForm } from "$lib/utils/polish-plural";
 
 export interface AttentionItem {
   id: string;
@@ -63,28 +62,7 @@ export function buildAttentionItems(input: AttentionInput): AttentionItem[] {
     });
   }
 
-  // 3. Eligible settlements - link reality to intent on the busiest spend plan.
-  const settle = input.plans
-    .filter((p) => p.kind === "spend" && p.eligibleCount > 0)
-    .sort((a, b) => b.eligibleCount - a.eligibleCount)[0];
-  if (settle) {
-    const count = settle.eligibleCount;
-    const form = polishPluralForm(count);
-    const label =
-      form === "one"
-        ? m.attention_settle_one({ count, name: settle.planName })
-        : form === "few"
-          ? m.attention_settle_few({ count, name: settle.planName })
-          : m.attention_settle_many({ count, name: settle.planName });
-    items.push({
-      id: `settle-${settle.planId}`,
-      label,
-      href: `/plans/${settle.planId}/settle`,
-      tone: "default",
-    });
-  }
-
-  // 4. Save goal below this month's pace - a nudge, not an alarm.
+  // 3. Save goal below this month's pace - a nudge, not an alarm.
   const offTrack = input.plans
     .filter(
       (p) =>

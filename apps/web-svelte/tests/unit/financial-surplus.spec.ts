@@ -243,7 +243,7 @@ describe("sumSaveMonthlyNeeded", () => {
         { kind: "save", start_date: "2026-01-01", end_date: "2026-12-01", monthlyNeeded: 800 },
         { kind: "save", start_date: "2026-01-01", end_date: "2025-01-01", monthlyNeeded: 500 },
         { kind: "save", start_date: "2026-12-01", end_date: "2027-12-01", monthlyNeeded: 400 },
-        { kind: "spend", end_date: "2026-12-01", monthlyNeeded: 200 },
+        { kind: "debt", end_date: "2026-12-01", monthlyNeeded: 200 },
       ],
       "2026-06-07"
     );
