@@ -392,6 +392,8 @@
   "bank_upload_adapter_label": "Typ pliku",
   "bank_upload_adapter_confirm": "Kontynuuj",
   "bank_upload_adapter_placeholder": "- wybierz bank -",
+  "bank_review_hold_badge": "Blokada",
+  "bank_review_hold_hint": "Blokada kartą — kwota jeszcze nierozliczona. Zostaw, by ją zachować, albo pomiń.",
   "bank_review_probable_duplicate": "Możliwy duplikat",
   "bank_review_probable_duplicate_detail": "Pasuje do: {date} · {amount} · {description}",
   "bank_review_dup_summary": "Wykryto {count} możliwych duplikatów - domyślnie pominięte",
