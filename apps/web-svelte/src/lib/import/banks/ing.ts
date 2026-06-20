@@ -67,6 +67,7 @@ function hasTransactionSignal(cells: string[], idx: Record<string, number>): boo
     idx.amountSigned,
     idx.debit,
     idx.credit,
+    idx.amountBlock,
   ]
     .filter((i) => i !== -1)
     .map((i) => cells[i]?.trim() ?? "");
@@ -139,6 +140,7 @@ export const ingAdapter: ImportAdapter = {
       amountSigned: headers.findIndex((h) => h.trim().toLowerCase().startsWith("kwota transakcji")),
       debit: findIndex(headers, ["Kwota debetu"]),
       credit: findIndex(headers, ["Kwota kredytu"]),
+      amountBlock: findIndex(headers, ["Kwota blokady/zwolnienie blokady"]),
     };
 
     if ((idx.dateOp === -1 && idx.dateBook === -1) || idx.title === -1) {
@@ -169,13 +171,22 @@ export const ingAdapter: ImportAdapter = {
       }
 
       let signed: number | null = null;
+      let isHold = false;
       if (idx.amountSigned !== -1) {
         signed = parseAmount(cells[idx.amountSigned] ?? "");
-      } else if (idx.debit !== -1 || idx.credit !== -1) {
+      }
+      if (signed === null && (idx.debit !== -1 || idx.credit !== -1)) {
         const debit = idx.debit !== -1 ? parseAmount(cells[idx.debit] ?? "") : null;
         const credit = idx.credit !== -1 ? parseAmount(cells[idx.credit] ?? "") : null;
         if (debit !== null && debit !== 0) signed = -Math.abs(debit);
         else if (credit !== null && credit !== 0) signed = Math.abs(credit);
+      }
+      if (signed === null && idx.amountBlock !== -1) {
+        const block = parseAmount(cells[idx.amountBlock] ?? "");
+        if (block !== null && block !== 0) {
+          signed = block; // negative = hold, positive = release
+          isHold = true;
+        }
       }
       if (signed === null) {
         errors.push({ row_index: localIndex, reason: "ing_invalid_amount" });
@@ -185,12 +196,11 @@ export const ingAdapter: ImportAdapter = {
       const type = signed < 0 ? "expense" : "income";
       const amount = Math.abs(signed);
 
+      const counterparty = idx.counterparty !== -1 ? collapseWs(cells[idx.counterparty] ?? "") : "";
       const titleRaw = idx.title !== -1 ? (cells[idx.title] ?? "") : "";
       const detailsRaw = idx.details !== -1 ? (cells[idx.details] ?? "") : "";
       const description =
         collapseWs([titleRaw, detailsRaw].filter(Boolean).join(" - ")) || "(brak opisu)";
-
-      const counterparty = idx.counterparty !== -1 ? collapseWs(cells[idx.counterparty] ?? "") : "";
       const external_id = idx.external !== -1 ? (cells[idx.external] ?? "").trim() : "";
 
       const currency =
@@ -206,6 +216,7 @@ export const ingAdapter: ImportAdapter = {
         currency,
         source_row_text: rawLine,
         row_index: localIndex,
+        is_hold: isHold || undefined,
       });
     }
 

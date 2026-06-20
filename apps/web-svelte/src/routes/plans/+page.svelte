@@ -253,7 +253,7 @@
       const progress = progressQuery.data?.[plan.id];
       return {
         ...plan,
-        kind: plan.kind ?? "spend",
+        kind: plan.kind ?? "save",
         spentAmount: progress?.spentAmount ?? 0,
         incomeAmount: progress?.incomeAmount ?? 0,
         savedAmount: progress?.savedAmount ?? 0,
@@ -345,15 +345,6 @@
       return p.group_id === groupFilter;
     })
   );
-  const activePlans = $derived(
-    filteredPlans.filter((p) => p.kind === "spend" && p.bucket === "active")
-  );
-  const upcomingPlans = $derived(
-    filteredPlans.filter((p) => p.kind === "spend" && p.bucket === "upcoming")
-  );
-  const finishedPlans = $derived(
-    filteredPlans.filter((p) => p.kind === "spend" && p.bucket === "finished")
-  );
   const savePlans = $derived(filteredPlans.filter((p) => p.kind === "save"));
   const debtPlans = $derived(filteredPlans.filter((p) => p.kind === "debt" && isLivePlan(p)));
 
@@ -364,11 +355,10 @@
 
   let showForm = $state(false);
   let editing = $state<PlanSummary | null>(null);
-  let planKind = $state<PlanKind>("spend");
+  let planKind = $state<PlanKind>("save");
   let name = $state("");
   let startDate = $state(todayIsoLocal());
   let endDate = $state(todayIsoLocal());
-  let budgetAmount = $state("");
   let targetAmount = $state("");
   let debtOriginal = $state("");
   let debtBalance = $state("");
@@ -445,7 +435,7 @@
 
   function resetForm(plan?: Plan) {
     editing = plan as PlanSummary | null;
-    planKind = plan?.kind ?? "spend";
+    planKind = plan?.kind ?? "save";
     name = plan?.name ?? "";
     if (plan) {
       startDate = plan.start_date;
@@ -456,7 +446,6 @@
       startDate = todayIsoLocal();
       endDate = todayIsoLocal();
     }
-    budgetAmount = plan?.budget_amount != null ? String(plan.budget_amount) : "";
     targetAmount = plan?.target_amount != null ? String(plan.target_amount) : "";
     debtOriginal = "";
     debtBalance = "";
@@ -487,7 +476,7 @@
       kind: planKind,
       start_date: startDate,
       end_date: endDate,
-      budget_amount: planKind === "spend" && budgetAmount !== "" ? Number(budgetAmount) : null,
+      budget_amount: null,
       target_amount:
         planKind === "save" && targetAmount !== ""
           ? Number(targetAmount)
@@ -548,9 +537,6 @@
         return;
       case "target_required":
         toast.error(m.plan_form_target_required());
-        return;
-      case "budget_invalid":
-        toast.error(m.plan_form_budget_invalid());
         return;
       default: {
         const pgCode = postgrestErrorCode(err);
@@ -717,7 +703,7 @@
   {:else if plansQuery.isError}
     <p class="text-sm text-rose-600">{m.common_error_title()}</p>
   {:else}
-    {#if (plansQuery.data?.length ?? 0) === 0}
+    {#if filteredPlans.length === 0}
       <p class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-400">
         {m.plans_empty_hint()}
       </p>
@@ -757,33 +743,6 @@
         </button>
       {/each}
     </div>
-
-    {#each [{ title: m.plans_section_active(), plans: activePlans, empty: m.plans_section_active_empty() }, { title: m.plans_section_upcoming(), plans: upcomingPlans, empty: m.plans_section_upcoming_empty() }, { title: m.plans_section_finished(), plans: finishedPlans, empty: m.plans_section_finished_empty() }] as section (section.title)}
-      {#if section.plans.length > 0 || section.title === m.plans_section_active()}
-        <section class="space-y-2">
-          <h2 class="text-xs font-medium tracking-wide text-slate-400 uppercase">
-            {m.plans_section_spend()} · {section.title}
-          </h2>
-          {#if section.plans.length === 0}
-            <p
-              class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-400"
-            >
-              {section.empty}
-            </p>
-          {:else}
-            {#each section.plans as plan (plan.id)}
-              <PlanCard
-                {plan}
-                categoryName={categoryMap.get(plan.category_id ?? "")}
-                groupName={groupMap.get(plan.group_id ?? "")}
-                onedit={planCanManage(plan) ? resetForm : undefined}
-                ondelete={planCanManage(plan) ? (id) => (deleteTargetId = id) : undefined}
-              />
-            {/each}
-          {/if}
-        </section>
-      {/if}
-    {/each}
 
     <section class="space-y-2">
       <h2 class="text-xs font-medium tracking-wide text-slate-400 uppercase">
@@ -848,8 +807,8 @@
   <form onsubmit={submitForm} class="space-y-4">
     <div class="space-y-1">
       <p class="text-xs font-medium text-slate-300">{m.plan_form_kind()}</p>
-      <div class="grid grid-cols-3 gap-2">
-        {#each [{ kind: "spend" as PlanKind, label: m.plan_kind_spend() }, { kind: "save" as PlanKind, label: m.plan_kind_save() }, { kind: "debt" as PlanKind, label: m.plan_kind_debt() }] as tile (tile.kind)}
+      <div class="grid grid-cols-2 gap-2">
+        {#each [{ kind: "save" as PlanKind, label: m.plan_kind_save() }, { kind: "debt" as PlanKind, label: m.plan_kind_debt() }] as tile (tile.kind)}
           <button
             type="button"
             disabled={!!editing}
@@ -905,22 +864,7 @@
       <p class="text-xs text-slate-500">{m.plan_form_debt_dates_hint()}</p>
     {/if}
 
-    {#if planKind === "spend"}
-      <div class="space-y-1">
-        <label class="text-xs font-medium text-slate-300" for="plan-budget">
-          {m.plan_form_budget()}
-        </label>
-        <input
-          id="plan-budget"
-          type="number"
-          min="0.01"
-          step="0.01"
-          bind:value={budgetAmount}
-          placeholder={m.plan_form_budget_placeholder()}
-          class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:ring-2 focus:outline-none"
-        />
-      </div>
-    {:else if planKind === "save"}
+    {#if planKind === "save"}
       <div class="space-y-1">
         <label class="text-xs font-medium text-slate-300" for="plan-target">
           {m.plan_form_target()}

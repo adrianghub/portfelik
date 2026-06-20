@@ -54,7 +54,7 @@ flowchart LR
   Transactions --> Plans
 ```
 
-User-facing **Plany** live at `/plans` with `spend`, `save`, and `debt` plan kinds,
+User-facing **Plany** live at `/plans` with `save` goals and `debt` loans,
 manual net-worth snapshots (`financial_snapshots`), and settlement via
 `plan_transaction_links`. Bank import remains at `/transactions/import` today;
 product direction treats it as **Import**.

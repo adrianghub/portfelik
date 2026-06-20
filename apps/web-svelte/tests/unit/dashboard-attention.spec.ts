@@ -8,7 +8,7 @@ import {
 const plan = (o: Partial<AttentionPlan> = {}): AttentionPlan => ({
   planId: "p1",
   planName: "Plan",
-  kind: "spend",
+  kind: "save",
   eligibleCount: 0,
   monthlyNeeded: null,
   monthlyActual: null,
@@ -47,18 +47,6 @@ describe("buildAttentionItems", () => {
     );
   });
 
-  it("picks the spend plan with the most eligible settlements", () => {
-    const items = buildAttentionItems({
-      ...base,
-      plans: [
-        plan({ planId: "a", kind: "spend", eligibleCount: 2 }),
-        plan({ planId: "b", kind: "spend", eligibleCount: 9 }),
-      ],
-    });
-    const settle = items.find((i) => i.id.startsWith("settle-"));
-    expect(settle?.href).toBe("/plans/b/settle");
-  });
-
   it("counts a save plan off-track only when the current-month pace is short", () => {
     const offTrack = buildAttentionItems({
       ...base,
@@ -89,11 +77,10 @@ describe("buildAttentionItems", () => {
       cadenceDays: 14,
       overdueCount: 2,
       plans: [
-        plan({ planId: "a", kind: "spend", eligibleCount: 3 }),
         plan({ planId: "s", kind: "save", monthlyNeeded: 500, monthlyActual: 0, monthlyActualBasis: "none" }),
       ],
     });
     expect(items.length).toBeLessThanOrEqual(4);
-    expect(items.map((i) => i.id)).toEqual(["overdue", "import", "settle-a", "save-s"]);
+    expect(items.map((i) => i.id)).toEqual(["overdue", "import", "save-s"]);
   });
 });

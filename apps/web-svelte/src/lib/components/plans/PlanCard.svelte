@@ -4,9 +4,8 @@
   import { todayIso } from "$lib/services/plans";
   import type { PlanDebtTerms, PlanSummary } from "$lib/types";
   import { getPlanEmoji } from "$lib/utils/plan-emoji";
-  import { cn, formatCurrency, formatDate } from "$lib/utils";
-  import { polishPluralForm } from "$lib/utils/polish-plural";
-  import { CalendarDays, MoreVertical, Pencil, Sparkles, Trash2, Users } from "lucide-svelte";
+  import { formatCurrency, formatDate } from "$lib/utils";
+  import { CalendarDays, MoreVertical, Pencil, Trash2, Users } from "lucide-svelte";
 
   interface Props {
     plan: PlanSummary;
@@ -29,7 +28,7 @@
     ondelete,
   }: Props = $props();
 
-  const kind = $derived(plan.kind ?? "spend");
+  const kind = $derived(plan.kind ?? "save");
   const savePct = $derived(
     plan.target_amount != null && plan.target_amount > 0
       ? Math.min(100, Math.round((plan.savedAmount / plan.target_amount) * 100))
@@ -52,15 +51,7 @@
     debtTerms ? estimateInterestPaidSince(debtTerms, plan.start_date, todayIso()) : 0
   );
 
-  const emoji = $derived(
-    getPlanEmoji(categoryName, plan.name) || (kind === "debt" ? "🏦" : kind === "save" ? "🎯" : "")
-  );
-  const spentRatio = $derived(
-    plan.budget_amount != null && plan.budget_amount > 0
-      ? Math.min(1, plan.spentAmount / plan.budget_amount)
-      : 0
-  );
-  const spentPct = $derived(Math.round(spentRatio * 100));
+  const emoji = $derived(getPlanEmoji(categoryName, plan.name) || (kind === "debt" ? "🏦" : "🎯"));
   const isUpcoming = $derived(plan.bucket === "upcoming");
   const periodLabel = $derived(
     isUpcoming
@@ -82,13 +73,6 @@
   );
   const saveOnTrackConfident = $derived(saveOnTrack && !saveOnTrackEstimate);
   const hasActions = $derived(!!onedit || !!ondelete);
-
-  function suggestionLabel(count: number): string {
-    const form = polishPluralForm(count);
-    if (form === "one") return m.plan_card_suggestions_one({ count });
-    if (form === "few") return m.plan_card_suggestions_few({ count });
-    return m.plan_card_suggestions_many({ count });
-  }
 
   let menuOpen = $state(false);
   let buttonRef = $state<HTMLButtonElement | null>(null);
@@ -242,31 +226,6 @@
             </p>
           {/if}
         </div>
-      {:else if plan.budget_amount != null}
-        <div class="mt-3">
-          <div class="h-1.5 overflow-hidden rounded-full bg-slate-800" aria-hidden="true">
-            <div
-              class="bg-accent-gradient h-full rounded-full transition-[width] duration-500"
-              style="width: {Math.max(spentPct, plan.spentAmount > 0 ? 2 : 0)}%"
-            ></div>
-          </div>
-          <div class="mt-1.5 flex items-center justify-between gap-2 text-xs">
-            <span class="text-slate-400">
-              {m.plan_card_spent_of_budget({
-                spent: formatCurrency(plan.spentAmount),
-                budget: formatCurrency(plan.budget_amount),
-              })}
-            </span>
-            <span
-              class={cn(
-                "shrink-0 font-semibold tabular-nums",
-                spentPct >= 90 ? "text-amber-400" : "text-accent"
-              )}
-            >
-              {spentPct}%
-            </span>
-          </div>
-        </div>
       {:else}
         <div class="mt-3 flex items-center justify-between gap-2 text-xs">
           <span class="text-slate-400"
@@ -275,25 +234,6 @@
           <span class="text-slate-400"
             >{m.plan_metric_income()}: {formatCurrency(plan.incomeAmount)}</span
           >
-        </div>
-      {/if}
-
-      {#if kind === "spend" && plan.eligibleCount > 0}
-        <div
-          class="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-white/5 pt-3"
-        >
-          <span
-            class="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-400"
-          >
-            <Sparkles size={10} strokeWidth={2} aria-hidden="true" />
-            {suggestionLabel(plan.eligibleCount)}
-          </span>
-          <a
-            href="/plans/{plan.id}/settle"
-            class="text-accent rounded-full px-2 py-1 text-xs font-semibold transition-colors hover:bg-white/5"
-          >
-            {m.plan_card_settle_link()} →
-          </a>
         </div>
       {/if}
     </div>

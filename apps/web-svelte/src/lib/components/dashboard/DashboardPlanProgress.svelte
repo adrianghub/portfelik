@@ -39,7 +39,7 @@
   }));
 
   // Kind-aware display matching PlanCard on /plans: debt uses the canonical display balance,
-  // save uses saved/target, spend uses spent/budget.
+  // save uses saved/target.
   function progressDisplay(
     plan: PlanSettlementProgress,
     terms: PlanDebtTerms | undefined

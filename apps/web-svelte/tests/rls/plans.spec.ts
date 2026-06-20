@@ -22,9 +22,10 @@ describe("RLS: plans", () => {
         .insert({
           user_id: userId,
           name: `${SENTINEL} ${label}`,
+          kind: "debt",
           start_date: "2026-06-01",
           end_date: "2026-06-30",
-          budget_amount: 1000,
+          budget_amount: null,
         })
         .select("id")
         .single();
@@ -83,6 +84,7 @@ describe("RLS: plans", () => {
     const result = await ctx.userA.client.from("plans").insert({
       user_id: ctx.userA.userId,
       name: `${SENTINEL} invalid-period`,
+      kind: "debt",
       start_date: "2026-07-14",
       end_date: "2026-07-01",
     });
@@ -93,6 +95,7 @@ describe("RLS: plans", () => {
     const result = await ctx.userA.client.from("plans").insert({
       user_id: ctx.userB.userId,
       name: `${SENTINEL} spoofed`,
+      kind: "debt",
       start_date: "2026-06-01",
       end_date: "2026-06-30",
     });
@@ -140,10 +143,11 @@ describe("RLS: plans", () => {
         .insert({
           user_id: ctx.userA.userId,
           name: `${SENTINEL} shared-plan`,
+          kind: "debt",
           group_id: groupAId,
           start_date: "2026-06-01",
           end_date: "2026-06-30",
-          budget_amount: 2000,
+          budget_amount: null,
         })
         .select("id")
         .single();
@@ -164,6 +168,7 @@ describe("RLS: plans", () => {
       const result = await ctx.userB.client.from("plans").insert({
         user_id: ctx.userB.userId,
         name: `${SENTINEL} unauthorized-group`,
+        kind: "debt",
         group_id: groupBId,
         start_date: "2026-06-01",
         end_date: "2026-06-30",
@@ -177,6 +182,7 @@ describe("RLS: plans", () => {
         .insert({
           user_id: ctx.userB.userId,
           name: `${SENTINEL} member-groupA`,
+          kind: "debt",
           group_id: groupAId,
           start_date: "2026-06-01",
           end_date: "2026-06-30",
@@ -242,6 +248,7 @@ describe("RLS: plans", () => {
         .insert({
           user_id: ctx.userA.userId,
           name: `${SENTINEL} shared-plan-delete`,
+          kind: "debt",
           group_id: groupAId,
           start_date: "2026-06-01",
           end_date: "2026-06-30",
@@ -271,6 +278,7 @@ describe("RLS: plans", () => {
         .insert({
           user_id: ctx.userA.userId,
           name: `${SENTINEL} private-for-hijack`,
+          kind: "debt",
           start_date: "2026-06-01",
           end_date: "2026-06-30",
         })

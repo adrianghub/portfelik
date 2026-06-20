@@ -14,6 +14,7 @@ import type { NormalizedRow } from "$lib/import/banks/types";
 import type { ImportAdapterKind, ImportSourceKind } from "$lib/import/banks/types";
 export type { ImportAdapterKind, ImportSourceKind } from "$lib/import/banks/types";
 import type { Database } from "$lib/supabase.types";
+import { decisionForRow } from "$lib/import/holds";
 
 type RowUpdate = Database["public"]["Tables"]["transaction_import_rows"]["Update"];
 
@@ -60,6 +61,7 @@ export interface ImportRow {
   currency: string;
   external_id: string | null;
   raw_row_hash: string;
+  is_hold: boolean;
   suggested_category_id: string | null;
   selected_category_id: string | null;
   selected_group_id: string | null;
@@ -328,9 +330,10 @@ export async function insertPreviewRows(
       currency: r.currency,
       external_id: r.external_id ?? null,
       raw_row_hash: r.raw_row_hash,
+      is_hold: r.is_hold ?? false,
       suggested_category_id: categoryId,
       selected_category_id: categoryId,
-      decision: "import" as const,
+      decision: decisionForRow(r),
     };
   });
 

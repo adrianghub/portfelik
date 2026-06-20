@@ -312,10 +312,11 @@ history rows through `plan_transaction_links`.
 
 - **PK**: `id`. **FKs**: `user_id` (CASCADE), `group_id` (SET NULL),
   `category_id` (SET NULL).
-- **`kind`**: `spend` (budget/outflow plans), `save` (accumulation goals), or
-  `debt` (loan repayment). Default `spend`. Migration:
-  `20260618000000_plan_kinds_debt.sql`.
-- **`budget_amount`**: optional for `spend`; nullable `numeric(12,2)`.
+- **`kind`**: `save` (accumulation goals) or `debt` (loan repayment). No database
+  default; callers must choose a kind. Migration:
+  `20260715000000_remove_spend_plans.sql` removed the old budget/outflow
+  `spend` kind.
+- **`budget_amount`**: retained nullable legacy column; unused by current UI.
 - **`target_amount`**: required for `save`; optional payoff framing for `debt`.
   CHECK `target_amount > 0` when set.
 - **`start_date`**, **`end_date`**, CHECK `end_date >= start_date`.

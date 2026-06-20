@@ -25,6 +25,7 @@ function tx(overrides: Partial<TransactionWithCategory> = {}): TransactionWithCa
     category_id: "cat-other",
     category_name: "Inne",
     category_type: "expense",
+    is_hold: false,
     user_id: "u1",
     is_recurring: false,
     recurring_day: null,
@@ -42,9 +43,9 @@ function tx(overrides: Partial<TransactionWithCategory> = {}): TransactionWithCa
 
 const basePlan = {
   category_id: "cat-travel",
-  budget_amount: 3000,
+  budget_amount: null,
   name: "Wakacje Chorwacja",
-  kind: "spend" as const,
+  kind: "debt" as const,
   target_amount: null,
 };
 
@@ -91,19 +92,6 @@ describe("rankPlanTransaction", () => {
     );
   });
 
-  it("amount exceeding remaining budget skips amount bonus", () => {
-    const withBudget = rankPlanTransaction(basePlan, tx({ amount: 200 }), 2900, NO_RECENCY);
-    const overBudget = rankPlanTransaction(basePlan, tx({ amount: 200 }), 2850, NO_RECENCY);
-    // remaining = 3000 - 2900 = 100, tx.amount=200 > 100 → no bonus
-    expect(withBudget.reasons.some((r) => r.key === "amount")).toBe(false);
-    // remaining = 3000 - 2850 = 150, tx.amount=200 > 150 → no bonus
-    expect(overBudget.reasons.some((r) => r.key === "amount")).toBe(false);
-
-    // When amount fits: remaining = 3000 - 0 = 3000, tx.amount=200 ≤ 3000 → bonus
-    const fits = rankPlanTransaction(basePlan, tx({ amount: 200 }), 0, NO_RECENCY);
-    expect(fits.reasons.some((r) => r.key === "amount")).toBe(true);
-  });
-
   it("grants the amount bonus to income that fits the remaining save target", () => {
     const savePlan = {
       category_id: null,
@@ -132,7 +120,7 @@ describe("rankPlanTransaction", () => {
     expect(exceeds.rankPct).toBe(25);
   });
 
-  it("does not grant the income amount bonus on spend plans", () => {
+  it("does not grant the income amount bonus on loan plans", () => {
     const result = rankPlanTransaction(
       basePlan,
       tx({ type: "income" as const, amount: 100 }),
@@ -188,9 +176,9 @@ describe("countRankedSuggestions", () => {
   it("counts only suggestions at or above the cutoff, excluding dismissed", () => {
     const plan = {
       category_id: "cat-travel",
-      budget_amount: 3000,
+      budget_amount: null,
       name: "Wakacje Chorwacja",
-      kind: "spend" as const,
+      kind: "debt" as const,
       target_amount: null,
     };
     const strong = tx({
@@ -290,9 +278,9 @@ describe("computeSaveMonthlyActualDetail", () => {
     expect(detail.basis).toBe("none");
   });
 
-  it("returns a null amount and no basis for non-save plans", () => {
+  it("returns a null amount and no basis for loan plans", () => {
     const detail = computeSaveMonthlyActualDetail({
-      kind: "spend",
+      kind: "debt",
       savedAmount: 1000,
       linkedIncomes: [],
       today: "2026-06-08",

@@ -2,7 +2,6 @@ import * as m from "$lib/paraglide/messages";
 import type { MonthlySurplusSummary } from "$lib/services/financial-surplus";
 import type { PlanDebtTerms, PlanSummary } from "$lib/types";
 import { formatCurrency } from "$lib/utils";
-import { polishPluralForm } from "$lib/utils/polish-plural";
 
 export interface PlanningQueueAction {
   id: string;
@@ -25,27 +24,6 @@ export function buildPlanningQueueActions(input: {
       href: "/transactions",
       label: m.plans_queue_no_income(),
       tone: "warn",
-    });
-  }
-
-  const settleCandidates = summaries
-    .filter((p) => p.kind === "spend" && p.bucket === "active" && (p.eligibleCount ?? 0) > 0)
-    .sort((a, b) => (b.eligibleCount ?? 0) - (a.eligibleCount ?? 0));
-  const totalEligible = settleCandidates.reduce((sum, p) => sum + (p.eligibleCount ?? 0), 0);
-  if (totalEligible > 0 && settleCandidates[0]) {
-    const top = settleCandidates[0];
-    const form = polishPluralForm(totalEligible);
-    const label =
-      form === "one"
-        ? m.plans_queue_settle_one({ count: totalEligible, name: top.name })
-        : form === "few"
-          ? m.plans_queue_settle_few({ count: totalEligible, name: top.name })
-          : m.plans_queue_settle_many({ count: totalEligible, name: top.name });
-    actions.push({
-      id: "settle",
-      href: `/plans/${top.id}/settle`,
-      label,
-      tone: "default",
     });
   }
 

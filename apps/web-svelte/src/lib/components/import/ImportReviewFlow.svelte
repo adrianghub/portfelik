@@ -904,6 +904,9 @@
         <span class="text-amber-300">
           {m.bank_review_pending_warning({ count: pendingRows.length })}
         </span>
+        {#if rows.some((r) => r.is_hold && r.decision === "pending")}
+          <p class="text-muted-foreground text-sm">{m.bank_review_hold_hint()}</p>
+        {/if}
       {:else if importRows.length === 0}
         <span class="text-amber-300">{m.bank_review_commit_zero_hint()}</span>
       {:else}

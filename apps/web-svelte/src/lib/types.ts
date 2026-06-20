@@ -57,6 +57,7 @@ export interface Transaction {
 export interface TransactionWithCategory extends Transaction {
   category_name: string;
   category_type: TransactionType;
+  is_hold: boolean;
 }
 
 export interface CategorySummary {
@@ -134,7 +135,7 @@ export interface GroupInvitation {
   updated_at: string;
 }
 
-export type PlanKind = "spend" | "save" | "debt";
+export type PlanKind = "save" | "debt";
 
 export interface Plan {
   id: string;

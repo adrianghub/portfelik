@@ -290,7 +290,7 @@ export function rankPlanTransaction(
   if (tx.type === "expense" && remaining !== null && tx.amount <= remaining) {
     score += 20;
     reasons.push({ key: "amount", label: "", signal: "match" });
-  } else if (tx.type === "income" && (plan.kind ?? "spend") === "save") {
+  } else if (tx.type === "income" && (plan.kind ?? "save") === "save") {
     // Income on save plans previously had no path past the baseline, so every deposit
     // showed as a weak match. A deposit that fits the remaining target is a real signal.
     const targetRemaining =
@@ -528,7 +528,7 @@ export function computePlanProgress(input: {
   return {
     planId: input.planId,
     planName: input.planName,
-    kind: input.kind ?? "spend",
+    kind: input.kind ?? "save",
     startDate: input.startDate ?? null,
     budgetAmount: input.budgetAmount,
     targetAmount,

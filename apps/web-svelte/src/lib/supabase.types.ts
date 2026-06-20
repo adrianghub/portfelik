@@ -203,39 +203,6 @@ export type Database = {
         };
         Relationships: [];
       };
-      net_worth_items: {
-        Row: {
-          amount: number;
-          created_at: string;
-          currency: string;
-          id: string;
-          label: string;
-          position: number;
-          updated_at: string;
-          user_id: string;
-        };
-        Insert: {
-          amount?: number;
-          created_at?: string;
-          currency?: string;
-          id?: string;
-          label: string;
-          position?: number;
-          updated_at?: string;
-          user_id: string;
-        };
-        Update: {
-          amount?: number;
-          created_at?: string;
-          currency?: string;
-          id?: string;
-          label?: string;
-          position?: number;
-          updated_at?: string;
-          user_id?: string;
-        };
-        Relationships: [];
-      };
       group_invitations: {
         Row: {
           created_at: string;
@@ -308,6 +275,39 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      net_worth_items: {
+        Row: {
+          amount: number;
+          created_at: string;
+          currency: string;
+          id: string;
+          label: string;
+          position: number;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          amount?: number;
+          created_at?: string;
+          currency?: string;
+          id?: string;
+          label: string;
+          position?: number;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          amount?: number;
+          created_at?: string;
+          currency?: string;
+          id?: string;
+          label?: string;
+          position?: number;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
       };
       notifications: {
         Row: {
@@ -492,7 +492,7 @@ export type Database = {
           end_date: string;
           group_id: string | null;
           id: string;
-          kind: string;
+          kind: "save" | "debt";
           name: string;
           refinanced_from_plan_id: string | null;
           replaced_by_plan_id: string | null;
@@ -509,7 +509,7 @@ export type Database = {
           end_date: string;
           group_id?: string | null;
           id?: string;
-          kind?: string;
+          kind: "save" | "debt";
           name: string;
           refinanced_from_plan_id?: string | null;
           replaced_by_plan_id?: string | null;
@@ -526,7 +526,7 @@ export type Database = {
           end_date?: string;
           group_id?: string | null;
           id?: string;
-          kind?: string;
+          kind?: "save" | "debt";
           name?: string;
           refinanced_from_plan_id?: string | null;
           replaced_by_plan_id?: string | null;
@@ -636,9 +636,11 @@ export type Database = {
       transaction_import_links: {
         Row: {
           bank_account_id: string;
+          counterparty: string | null;
           created_at: string;
           external_transaction_id: string | null;
           fingerprint: string;
+          is_hold: boolean;
           row_id: string;
           session_id: string;
           source_file_hash: string;
@@ -648,9 +650,11 @@ export type Database = {
         };
         Insert: {
           bank_account_id: string;
+          counterparty?: string | null;
           created_at?: string;
           external_transaction_id?: string | null;
           fingerprint: string;
+          is_hold?: boolean;
           row_id: string;
           session_id: string;
           source_file_hash: string;
@@ -660,9 +664,11 @@ export type Database = {
         };
         Update: {
           bank_account_id?: string;
+          counterparty?: string | null;
           created_at?: string;
           external_transaction_id?: string | null;
           fingerprint?: string;
+          is_hold?: boolean;
           row_id?: string;
           session_id?: string;
           source_file_hash?: string;
@@ -720,6 +726,7 @@ export type Database = {
           edited_description: string | null;
           external_id: string | null;
           id: string;
+          is_hold: boolean;
           posted_at: string;
           raw_row_hash: string;
           row_index: number;
@@ -741,6 +748,7 @@ export type Database = {
           edited_description?: string | null;
           external_id?: string | null;
           id?: string;
+          is_hold?: boolean;
           posted_at: string;
           raw_row_hash: string;
           row_index: number;
@@ -762,6 +770,7 @@ export type Database = {
           edited_description?: string | null;
           external_id?: string | null;
           id?: string;
+          is_hold?: boolean;
           posted_at?: string;
           raw_row_hash?: string;
           row_index?: number;
@@ -1013,6 +1022,7 @@ export type Database = {
           description: string | null;
           group_id: string | null;
           id: string | null;
+          is_hold: boolean | null;
           is_recurring: boolean | null;
           recurrence_frequency: Database["public"]["Enums"]["recurrence_frequency"] | null;
           recurrence_interval: number | null;

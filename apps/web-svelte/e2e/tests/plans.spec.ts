@@ -6,25 +6,24 @@ test.beforeEach(async ({ page }) => {
   await mockSupabaseAPI(page);
 });
 
-test("renders sectioned hub with spend, save and debt plans", async ({ page }) => {
+test("renders sectioned hub with saving goals and debt plans", async ({ page }) => {
   await page.goto("/plans");
 
   await expect(page.getByRole("heading", { name: "Plany" })).toBeVisible();
-  await expect(page.getByText("Dodaj gotówkę i inwestycje, by zobaczyć majątek netto.")).toBeVisible();
   await expect(
-    page.getByText("Plan to przyszły zamiar. Zrealizuj go transakcjami z historii.")
+    page.getByText("Dodaj gotówkę i inwestycje, by zobaczyć majątek netto.")
   ).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Wydatki · Aktywne" })).toBeVisible();
+  await expect(page.getByText("Plany obejmują cele oszczędnościowe i kredyty.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Cele oszczędnościowe" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Kredyty" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Wakacje/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /Nowy samochód/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /Kredyt hipoteczny/ })).toBeVisible();
-  await expect(page.getByText("wydano 0,00 zł z 1000,00 zł")).toBeVisible();
+  await expect(page.getByText("Odłożono 0,00 zł z 1000,00 zł")).toBeVisible();
   await expect(page.getByText("Odłożono 0,00 zł z 60 000,00 zł")).toBeVisible();
 });
 
-test("creates a spend plan with date period and budget", async ({ page }) => {
+test("creates a saving goal with date period and target", async ({ page }) => {
   let postedBody: Record<string, unknown> | undefined;
   await page.route(/.*\/rest\/v1\/plans.*/, async (route) => {
     const request = route.request();
@@ -35,11 +34,11 @@ test("creates a spend plan with date period and budget", async ({ page }) => {
         json: {
           id: "plan-created",
           name: postedBody.name,
-          kind: postedBody.kind ?? "spend",
+          kind: postedBody.kind ?? "save",
           user_id: "00000000-0000-0000-0000-000000000001",
           group_id: null,
           category_id: null,
-          budget_amount: postedBody.budget_amount,
+          budget_amount: null,
           target_amount: postedBody.target_amount ?? null,
           start_date: postedBody.start_date,
           end_date: postedBody.end_date,
@@ -58,20 +57,22 @@ test("creates a spend plan with date period and budget", async ({ page }) => {
   await page.locator('[data-date="2026-06-10"]').click();
   await page.getByRole("button", { name: "Do", exact: true }).click();
   await page.locator('[data-date="2026-06-30"]').click();
-  await page.getByLabel("Ile planujesz wydać").fill("2500");
+  await page.getByLabel("Kwota celu").fill("2500");
   await page.getByRole("button", { name: "Zapisz" }).click();
 
-  await expect.poll(() => postedBody).toEqual({
-    name: "Remont kuchni",
-    kind: "spend",
-    start_date: "2026-06-10",
-    end_date: "2026-06-30",
-    budget_amount: 2500,
-    target_amount: null,
-    category_id: null,
-    group_id: null,
-    user_id: "00000000-0000-0000-0000-000000000001",
-  });
+  await expect
+    .poll(() => postedBody)
+    .toEqual({
+      name: "Remont kuchni",
+      kind: "save",
+      start_date: "2026-06-10",
+      end_date: "2026-06-30",
+      budget_amount: null,
+      target_amount: 2500,
+      category_id: null,
+      group_id: null,
+      user_id: "00000000-0000-0000-0000-000000000001",
+    });
 });
 
 test("save plan detail shows progress and link CTA", async ({ page }) => {

@@ -1,0 +1,9 @@
+"Lista transakcji";;;;;"ING Bank Śląski S.A.";;;;;;;;;;
+"Zakres dat:";"2026-06-17 - 2026-06-19";;;;;;;;;;;;;;
+""
+"Data transakcji";"Data księgowania";"Dane kontrahenta";"Tytuł";"Nr rachunku";"Nazwa banku";"Szczegóły";"Nr transakcji";"Kwota transakcji (waluta rachunku)";"Waluta";"Kwota blokady/zwolnienie blokady";"Waluta";"Kwota płatności w walucie";"Waluta";"Konto"
+2026-06-19;;" LIDL MLYNSKA  Reda  POL ";" Płatność kartą  19.06.2026 ";;;"";;;;-25,46;PLN;;;"KONTO Direct"
+2026-06-19;;" HYPEROIL  RUMIA  POL ";" Płatność kartą  19.06.2026 ";;;"";;;;-200,00;PLN;;;"KONTO Direct"
+2026-06-18;;" ROKSANA M ROSPOPA ";" Przelew ";;;"";;135,00;PLN;;;;;"KONTO Direct"
+2026-06-17;;" JMP S.A. BIEDRONKA ";" Płatność kartą  17.06.2026 ";;;"";;-41,93;PLN;;;;;"KONTO Direct"
+2026-06-15;;" ZWROT BLOKADY ";" Zwolnienie blokady ";;;"";;;;30,00;PLN;;;"KONTO Direct"

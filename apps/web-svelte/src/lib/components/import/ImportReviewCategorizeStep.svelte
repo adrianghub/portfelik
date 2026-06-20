@@ -426,7 +426,24 @@
               </td>
               <td class="max-w-xs px-3 py-2 align-top">
                 {#if row.counterparty}
-                  <p class="text-sm font-medium text-slate-100">{row.counterparty}</p>
+                  <p class="text-sm font-medium text-slate-100">
+                    {row.counterparty}
+                    {#if row.is_hold}
+                      <span
+                        class="ml-2 inline-flex items-center rounded-full bg-amber-900/15 px-2 py-0.5 text-xs font-medium text-amber-400"
+                        title={m.bank_review_hold_hint()}
+                      >
+                        {m.bank_review_hold_badge()}
+                      </span>
+                    {/if}
+                  </p>
+                {:else if row.is_hold}
+                  <span
+                    class="inline-flex items-center rounded-full bg-amber-900/15 px-2 py-0.5 text-xs font-medium text-amber-400"
+                    title={m.bank_review_hold_hint()}
+                  >
+                    {m.bank_review_hold_badge()}
+                  </span>
                 {/if}
                 <Input
                   class={row.counterparty ? "mt-1" : undefined}
@@ -522,6 +539,14 @@
           </div>
           <div class="flex flex-wrap items-center gap-2 text-xs text-slate-400">
             <span>{row.posted_at}</span>
+            {#if row.is_hold}
+              <span
+                class="inline-flex items-center rounded-full bg-amber-900/15 px-2 py-0.5 text-xs font-medium text-amber-400"
+                title={m.bank_review_hold_hint()}
+              >
+                {m.bank_review_hold_badge()}
+              </span>
+            {/if}
             {#if groupName}
               <Badge variant="shared">{groupName}</Badge>
             {/if}
