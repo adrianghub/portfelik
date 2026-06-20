@@ -3,10 +3,11 @@
 -- A committed card hold (blokada) is marked is_hold + counterparty on its
 -- transaction_import_link. A later settled row that reconciles that hold drifts
 -- in amount (fuel pre-auths, e.g. a 200,00 hold settling at 199,93). On commit,
--- if a settled row matches a kept hold by counterparty + ±3 days + amount
--- tolerance, the held transaction's amount/date are updated in place, the hold
--- flag is cleared, and the settled row is marked decision='duplicate' -- so the
--- pre-auth reconciles instead of double-counting.
+-- if a settled non-hold row matches a kept hold by counterparty + same bank
+-- account + ±3 days + amount tolerance, the held transaction's amount/date and
+-- import-link provenance are updated in place, the hold flag is cleared, and
+-- the settled row is marked decision='duplicate' -- so the pre-auth reconciles
+-- instead of double-counting.
 --
 -- The fold MUTATION happens ONLY in commit_import_session. The preview matchers
 -- merely step aside for hold-linked matches: the shared duplicate scanner
@@ -411,18 +412,31 @@ begin
       continue;
     end if;
 
-    -- Hold-aware tolerant fold: this settled row reconciles a previously kept
-    -- card hold. Gated on l.is_hold so a normal same-merchant purchase of a
-    -- different amount is never folded. Counterparty equality + ±3 days +
-    -- amount tolerance (settle <= hold OR |Δ| <= greatest(50, 10% of hold)).
+    v_fingerprint := encode(
+      extensions.digest(
+        v_row.amount::text
+        || '|' || v_row.currency
+        || '|' || coalesce(v_row.description, '')
+        || '|' || coalesce(v_row.counterparty, ''),
+        'sha256'
+      ),
+      'hex'
+    );
+
+    -- Hold-aware tolerant fold: this settled non-hold row reconciles a
+    -- previously kept card hold. Gated on the incoming row not being a hold and
+    -- on l.is_hold so a refreshed/overlapping hold row cannot settle itself.
+    -- Counterparty equality + same bank account + ±3 days + amount tolerance
+    -- (settle <= hold OR |Δ| <= greatest(50, 10% of hold)).
     -- transaction_import_links is keyed by transaction_id (no surrogate id).
-    if v_row.counterparty is not null then
+    if coalesce(v_row.is_hold, false) = false and v_row.counterparty is not null then
       v_hold_match := null;
       select l.transaction_id as transaction_id, t.amount as hold_amount
         into v_hold_match
         from public.transaction_import_links l
         join public.transactions t on t.id = l.transaction_id
        where l.user_id = v_uid
+         and l.bank_account_id = v_session.bank_account_id
          and l.is_hold = true
          and l.counterparty is not null
          and l.counterparty = v_row.counterparty
@@ -443,7 +457,14 @@ begin
                date = v_row.posted_at::timestamptz
          where id = v_hold_match.transaction_id;
         update public.transaction_import_links
-           set is_hold = false
+           set session_id = p_session_id,
+               row_id = v_row.id,
+               external_transaction_id = v_row.external_id,
+               source_file_hash = v_session.source_file_hash,
+               source_row_index = v_row.row_index,
+               fingerprint = v_fingerprint,
+               is_hold = false,
+               counterparty = v_row.counterparty
          where transaction_id = v_hold_match.transaction_id;
         update public.transaction_import_rows
            set decision = 'duplicate', duplicate_of = v_hold_match.transaction_id
@@ -460,17 +481,6 @@ begin
     else
       v_cat_id := v_inne_income;
     end if;
-
-    v_fingerprint := encode(
-      extensions.digest(
-        v_row.amount::text
-        || '|' || v_row.currency
-        || '|' || coalesce(v_row.description, '')
-        || '|' || coalesce(v_row.counterparty, ''),
-        'sha256'
-      ),
-      'hex'
-    );
 
     begin
       insert into public.transactions (

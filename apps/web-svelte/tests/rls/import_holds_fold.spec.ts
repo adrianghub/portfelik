@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { SENTINEL, cleanupSentinels, provisionTwoUsers, type TestContext } from "./setup";
 
@@ -27,7 +28,7 @@ describe("import holds fold", () => {
     await cleanupSentinels(ctx.admin);
   });
 
-  type Seed = { accountId: string; sessionId: string; fileSuffix: string };
+  type Seed = { accountId: string; sessionId: string; fileSuffix: string; kind: string };
 
   // One active bank_account is allowed per (user, kind), so each session uses a
   // distinct kind from the adapter set to avoid the unique-index collision.
@@ -44,23 +45,32 @@ describe("import holds fold", () => {
   ];
   let kindCursor = 0;
 
-  async function seedSession(opts?: { user?: "A" | "B" }): Promise<Seed> {
+  async function seedSession(opts?: {
+    user?: "A" | "B";
+    account?: Pick<Seed, "accountId" | "kind">;
+  }): Promise<Seed> {
     const userId = (opts?.user ?? "A") === "A" ? ctx.userA.userId : ctx.userB.userId;
     const fileSuffix = Math.random().toString(36).slice(2, 8);
-    const kind = KINDS[kindCursor++ % KINDS.length];
+    const kind = opts?.account?.kind ?? KINDS[kindCursor++ % KINDS.length];
+    let accountId = opts?.account?.accountId;
 
-    const acct = await ctx.admin
-      .from("bank_accounts")
-      .insert({ user_id: userId, kind, label: `${SENTINEL} acct-${fileSuffix}` })
-      .select("id")
-      .single();
-    if (acct.error) throw acct.error;
+    if (!accountId) {
+      const acct = await ctx.admin
+        .from("bank_accounts")
+        .insert({ user_id: userId, kind, label: `${SENTINEL} acct-${fileSuffix}` })
+        .select("id")
+        .single();
+      if (acct.error) throw acct.error;
+      accountId = acct.data.id;
+    }
+    const resolvedAccountId = accountId;
+    if (!resolvedAccountId) throw new Error("seedSession account unavailable");
 
     const sess = await ctx.admin
       .from("transaction_import_sessions")
       .insert({
         user_id: userId,
-        bank_account_id: acct.data.id,
+        bank_account_id: resolvedAccountId,
         source_file_hash: `hash-${SENTINEL}-${fileSuffix}`,
         detected_kind: kind,
         status: "preview",
@@ -69,7 +79,7 @@ describe("import holds fold", () => {
       .single();
     if (sess.error) throw sess.error;
 
-    return { accountId: acct.data.id, sessionId: sess.data.id, fileSuffix };
+    return { accountId: resolvedAccountId, sessionId: sess.data.id, fileSuffix, kind };
   }
 
   async function seedCategory(opts?: { user?: "A" | "B" }): Promise<string> {
@@ -99,6 +109,7 @@ describe("import holds fold", () => {
       postedAt?: string;
       counterparty?: string;
       description?: string;
+      externalId?: string;
       selectedCategoryId?: string;
     }
   ): Promise<string> {
@@ -113,6 +124,7 @@ describe("import holds fold", () => {
         currency: opts.currency ?? "PLN",
         description: opts.description ?? `${SENTINEL} row r${opts.rowIndex}`,
         counterparty: opts.counterparty ?? null,
+        external_id: opts.externalId ?? null,
         raw_row_hash: `rh-${SENTINEL}-${seed.fileSuffix}-${opts.rowIndex}`,
         decision: opts.decision ?? "import",
         is_hold: opts.isHold ?? false,
@@ -132,6 +144,19 @@ describe("import holds fold", () => {
     return client.rpc("mark_preview_duplicates", { p_session_id: sessionId });
   }
 
+  function importFingerprint(opts: {
+    amount: number;
+    currency?: string;
+    description: string;
+    counterparty?: string | null;
+  }): string {
+    return createHash("sha256")
+      .update(
+        `${opts.amount}|${opts.currency ?? "PLN"}|${opts.description}|${opts.counterparty ?? ""}`
+      )
+      .digest("hex");
+  }
+
   // Commit a single hold expense row and return the resulting transaction id +
   // its link id, after asserting the link is marked is_hold/counterparty.
   async function commitHold(opts: {
@@ -139,7 +164,7 @@ describe("import holds fold", () => {
     amount: number;
     postedAt: string;
     isHold?: boolean;
-  }): Promise<{ txId: string; sessionId: string }> {
+  }): Promise<{ txId: string; sessionId: string; accountId: string; kind: string }> {
     const categoryId = await seedCategory();
     const seed = await seedSession();
     await insertRow(seed, {
@@ -164,6 +189,8 @@ describe("import holds fold", () => {
     return {
       txId: link.data.transaction_id as string,
       sessionId: seed.sessionId,
+      accountId: seed.accountId,
+      kind: seed.kind,
     };
   }
 
@@ -194,15 +221,16 @@ describe("import holds fold", () => {
 
   it("folds a settled row into a kept hold within tolerance and updates the amount", async () => {
     const cp = `${SENTINEL} HYPEROIL`;
-    const { txId } = await commitHold({
+    const hold = await commitHold({
       counterparty: cp,
       amount: 200,
       postedAt: "2026-06-19",
     });
+    const { txId } = hold;
 
     // New session: same counterparty, settled at 199.93 one day later.
     const categoryId = await seedCategory();
-    const seed = await seedSession();
+    const seed = await seedSession({ account: hold });
     const rowId = await insertRow(seed, {
       rowIndex: 0,
       amount: 199.93,
@@ -264,17 +292,115 @@ describe("import holds fold", () => {
     expect(all.data?.length).toBe(1);
   });
 
-  it("does NOT fold when amount drift exceeds tolerance", async () => {
+  it("does NOT fold a refreshed hold row into an existing hold", async () => {
     const cp = `${SENTINEL} HYPEROIL`;
-    const { txId } = await commitHold({
+    const hold = await commitHold({
       counterparty: cp,
       amount: 200,
       postedAt: "2026-06-19",
     });
 
+    const categoryId = await seedCategory();
+    const seed = await seedSession({ account: hold });
+    const rowId = await insertRow(seed, {
+      rowIndex: 0,
+      amount: 199.93,
+      postedAt: "2026-06-20",
+      counterparty: cp,
+      isHold: true,
+      selectedCategoryId: categoryId,
+    });
+
+    const { error } = await commit(ctx.userA.client, seed.sessionId);
+    expect(error).toBeNull();
+
+    const originalLink = await ctx.admin
+      .from("transaction_import_links")
+      .select("is_hold")
+      .eq("transaction_id", hold.txId)
+      .single();
+    expect(originalLink.error).toBeNull();
+    expect(originalLink.data?.is_hold).toBe(true);
+
+    const row = await ctx.admin
+      .from("transaction_import_rows")
+      .select("decision, transaction_id")
+      .eq("id", rowId)
+      .single();
+    expect(row.error).toBeNull();
+    expect(row.data?.decision).toBe("import");
+    expect(row.data?.transaction_id).toBeTruthy();
+    expect(row.data?.transaction_id).not.toBe(hold.txId);
+
+    const all = await ctx.admin
+      .from("transactions")
+      .select("id")
+      .eq("user_id", ctx.userA.userId)
+      .like("description", `${SENTINEL}%`);
+    expect(all.error).toBeNull();
+    expect(all.data?.length).toBe(2);
+  });
+
+  it("updates the held link to the settled row provenance after folding", async () => {
+    const cp = `${SENTINEL} HYPEROIL`;
+    const hold = await commitHold({
+      counterparty: cp,
+      amount: 200,
+      postedAt: "2026-06-19",
+    });
+
+    const categoryId = await seedCategory();
+    const seed = await seedSession({ account: hold });
+    const rowId = await insertRow(seed, {
+      rowIndex: 7,
+      amount: 199.93,
+      postedAt: "2026-06-20",
+      counterparty: cp,
+      description: `${SENTINEL} settled row`,
+      externalId: `${SENTINEL}-settled-ext`,
+      isHold: false,
+      selectedCategoryId: categoryId,
+    });
+
+    const { error } = await commit(ctx.userA.client, seed.sessionId);
+    expect(error).toBeNull();
+
+    const link = await ctx.admin
+      .from("transaction_import_links")
+      .select(
+        "session_id, row_id, external_transaction_id, source_file_hash, source_row_index, fingerprint, is_hold, counterparty"
+      )
+      .eq("transaction_id", hold.txId)
+      .single();
+    expect(link.error).toBeNull();
+    expect(link.data?.session_id).toBe(seed.sessionId);
+    expect(link.data?.row_id).toBe(rowId);
+    expect(link.data?.external_transaction_id).toBe(`${SENTINEL}-settled-ext`);
+    expect(link.data?.source_file_hash).toBe(`hash-${SENTINEL}-${seed.fileSuffix}`);
+    expect(link.data?.source_row_index).toBe(7);
+    expect(link.data?.fingerprint).toBe(
+      importFingerprint({
+        amount: 199.93,
+        description: `${SENTINEL} settled row`,
+        counterparty: cp,
+      })
+    );
+    expect(link.data?.is_hold).toBe(false);
+    expect(link.data?.counterparty).toBe(cp);
+  });
+
+  it("does NOT fold when amount drift exceeds tolerance", async () => {
+    const cp = `${SENTINEL} HYPEROIL`;
+    const hold = await commitHold({
+      counterparty: cp,
+      amount: 200,
+      postedAt: "2026-06-19",
+    });
+    const { txId } = hold;
+
     // Settled at 260 (> hold, Δ=60 > max(50, 20)) -> must NOT fold.
     const categoryId = await seedCategory();
-    const seed = await seedSession();
+    const seed = await seedSession({ account: hold });
     const rowId = await insertRow(seed, {
       rowIndex: 0,
       amount: 260,
@@ -320,17 +446,18 @@ describe("import holds fold", () => {
   it("does NOT fold a non-hold same-merchant different-amount row", async () => {
     const cp = `${SENTINEL} HYPEROIL`;
     // Commit a NORMAL expense (link is_hold = false).
-    const { txId } = await commitHold({
+    const hold = await commitHold({
       counterparty: cp,
       amount: 200,
       postedAt: "2026-06-19",
       isHold: false,
     });
+    const { txId } = hold;
 
     // Same merchant, 150 within 3 days -> tolerant path is gated on is_hold,
     // so this must stay decision='import' (a new tx is inserted).
     const categoryId = await seedCategory();
-    const seed = await seedSession();
+    const seed = await seedSession({ account: hold });
     const rowId = await insertRow(seed, {
       rowIndex: 0,
       amount: 150,

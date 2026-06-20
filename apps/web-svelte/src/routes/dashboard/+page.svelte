@@ -6,7 +6,9 @@
   import DashboardAttention from "$lib/components/dashboard/DashboardAttention.svelte";
   import DashboardNetWorthStrip from "$lib/components/dashboard/DashboardNetWorthStrip.svelte";
   import DashboardPlanProgress from "$lib/components/dashboard/DashboardPlanProgress.svelte";
-  import CategoryBreakdown from "$lib/components/transactions/CategoryBreakdown.svelte";
+  import DashboardSpendingInsight from "$lib/components/dashboard/DashboardSpendingInsight.svelte";
+  import SpendTrendChart from "$lib/components/dashboard/charts/SpendTrendChart.svelte";
+  import CategoryMixChart from "$lib/components/dashboard/charts/CategoryMixChart.svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchProfile } from "$lib/services/profiles";
   import { fetchMyGroupRoles, fetchUserGroups } from "$lib/services/groups";
@@ -16,6 +18,7 @@
     ledgerTransactions,
   } from "$lib/services/transaction-cashflow";
   import { fetchTransactions, updateTransactionsStatus } from "$lib/services/transactions";
+  import { computeSpendingInsight } from "$lib/services/spending-insight";
   import { canManageTransaction } from "$lib/services/transaction-permissions";
   import { toast } from "svelte-sonner";
   import { supabase } from "$lib/supabase";
@@ -182,6 +185,7 @@
       );
     });
   });
+  const scopedLedgerTxs = $derived(ledgerTransactions(scopedTxs));
 
   const summary = $derived(
     scopedTxs.length > 0 || txQuery.data ? computeLedgerSummary(scopedTxs) : null
@@ -197,11 +201,146 @@
         summary.total_expenses !== forecastSummary.total_expenses)
   );
 
+  // Previous-period bounds: shift the current window back by its own length.
+  const prevBounds = $derived.by(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    if (period === "year") {
+      return getDateRangeBounds(y - 1, 1, y - 1, 12);
+    }
+    if (period === "week") {
+      // week: previous 7-day window, contiguous with and exclusive of the current week start
+      const start = new Date(bounds.start);
+      start.setDate(start.getDate() - 7);
+      return { start: toIsoDate(start), end: bounds.start };
+    }
+    const mo = now.getMonth() + 1;
+    return mo === 1
+      ? getDateRangeBounds(y - 1, 12, y - 1, 12)
+      : getDateRangeBounds(y, mo - 1, y, mo - 1);
+  });
+
+  // Rolling window: last 3 complete periods before the current one (for averages).
+  const ROLLING_PERIODS = 3;
+  const rollingBounds = $derived.by(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    if (period === "year") return getDateRangeBounds(y - ROLLING_PERIODS, 1, y - 1, 12);
+    if (period === "week") {
+      // rolling: last ROLLING_PERIODS complete weeks, contiguous with current week start
+      const start = new Date(bounds.start);
+      start.setDate(start.getDate() - 7 * ROLLING_PERIODS);
+      return { start: toIsoDate(start), end: bounds.start };
+    }
+    const mo = now.getMonth() + 1;
+    const startMonthIdx = mo - ROLLING_PERIODS;
+    const startYear = startMonthIdx > 0 ? y : y - 1;
+    const startMonth = ((startMonthIdx - 1 + 12) % 12) + 1;
+    const endYear = mo === 1 ? y - 1 : y;
+    const endMonth = mo === 1 ? 12 : mo - 1;
+    return getDateRangeBounds(startYear, startMonth, endYear, endMonth);
+  });
+
+  const prevTxQuery = createQuery(() => ({
+    queryKey: ["transactions", "dashboard-prev", period, prevBounds.start, prevBounds.end] as const,
+    queryFn: () => fetchTransactions(prevBounds.start, prevBounds.end),
+  }));
+  const rollingTxQuery = createQuery(() => ({
+    queryKey: [
+      "transactions",
+      "dashboard-rolling",
+      period,
+      rollingBounds.start,
+      rollingBounds.end,
+    ] as const,
+    queryFn: () => fetchTransactions(rollingBounds.start, rollingBounds.end),
+  }));
+
+  function scopeFilter(list: TransactionWithCategory[]) {
+    return list.filter(
+      (tx) =>
+        groupFilter === "all" ||
+        (groupFilter === "own" ? tx.group_id === null : tx.group_id === groupFilter)
+    );
+  }
+
+  const previousLedgerTxs = $derived(ledgerTransactions(scopeFilter(prevTxQuery.data ?? [])));
+  const rollingLedgerTxs = $derived(ledgerTransactions(scopeFilter(rollingTxQuery.data ?? [])));
+
+  const spendingInsight = $derived(
+    computeSpendingInsight({
+      current: scopedLedgerTxs,
+      previous: previousLedgerTxs,
+      rolling: rollingLedgerTxs,
+      periodsInRolling: ROLLING_PERIODS,
+      budgets: [],
+    })
+  );
+
+  /** Bucket transactions into per-period arrays. Extracted so we can reuse for prevSeries. */
+  function bucketExpenses(
+    txs: TransactionWithCategory[],
+    bStart: string,
+    bEnd: string,
+    bucketCount: number
+  ): number[] {
+    const exp = new Array<number>(bucketCount).fill(0);
+    const ledger = ledgerTransactions(txs);
+    if (ledger.length === 0) return exp;
+    const startMs = new Date(bStart).getTime();
+    const endMs = new Date(bEnd).getTime() - 1;
+    for (const tx of ledger) {
+      if (tx.type !== "expense") continue;
+      const t = new Date(tx.date).getTime();
+      if (t < startMs || t > endMs) continue;
+      let idx: number;
+      if (period === "year") {
+        idx = new Date(tx.date).getMonth();
+      } else {
+        idx = Math.floor((t - startMs) / 86_400_000);
+      }
+      if (idx < 0 || idx >= bucketCount) continue;
+      exp[idx] += Math.abs(Number(tx.amount));
+    }
+    return exp;
+  }
+
+  const MONTH_SHORT_PL = [
+    "Sty",
+    "Lut",
+    "Mar",
+    "Kwi",
+    "Maj",
+    "Cze",
+    "Lip",
+    "Sie",
+    "Wrz",
+    "Paź",
+    "Lis",
+    "Gru",
+  ];
+
   const series = $derived.by(() => {
     const inc = new Array<number>(bounds.buckets).fill(0);
     const exp = new Array<number>(bounds.buckets).fill(0);
-    const ledger = ledgerTransactions(scopedTxs);
-    if (ledger.length === 0) return { income: inc, expense: exp };
+    const labels: string[] = [];
+
+    // Build bucket labels
+    if (period === "year") {
+      for (let i = 0; i < 12; i++) labels.push(MONTH_SHORT_PL[i]);
+    } else if (period === "week") {
+      const s = new Date(bounds.start);
+      for (let i = 0; i < bounds.buckets; i++) {
+        const d = new Date(s);
+        d.setDate(d.getDate() + i);
+        labels.push(`${d.getDate()}.${String(d.getMonth() + 1).padStart(2, "0")}`);
+      }
+    } else {
+      for (let i = 0; i < bounds.buckets; i++) labels.push(String(i + 1));
+    }
+
+    const ledger = scopedLedgerTxs;
+    if (ledger.length === 0) return { income: inc, expense: exp, labels };
     const startMs = new Date(bounds.start).getTime();
     const endMs = new Date(bounds.end).getTime() - 1;
     for (const tx of ledger) {
@@ -218,7 +357,13 @@
       if (tx.type === "income") inc[idx] += amount;
       else exp[idx] += amount;
     }
-    return { income: inc, expense: exp };
+    return { income: inc, expense: exp, labels };
+  });
+
+  /** Previous-period expense series, bucketed identically to current period. */
+  const prevSeriesExpense = $derived.by(() => {
+    const prevTxs = scopeFilter(prevTxQuery.data ?? []);
+    return bucketExpenses(prevTxs, prevBounds.start, prevBounds.end, bounds.buckets);
   });
 
   function sparklinePath(values: number[]): string {
@@ -318,11 +463,6 @@
     {/each}
   </div>
 
-  <DashboardAttention {userId} {overdueCount} />
-  <DashboardImportHealth />
-  <DashboardNetWorthStrip />
-  <DashboardPlanProgress />
-
   {#if (groupsQuery.data?.length ?? 0) > 0}
     <div role="tablist" aria-label={m.dashboard_scope_all()} class="flex flex-wrap gap-1">
       <button
@@ -365,6 +505,25 @@
       {/each}
     </div>
   {/if}
+
+  <DashboardSpendingInsight insight={spendingInsight} />
+
+  <!-- Spend trend + category mix charts -->
+  <div class="mt-4 grid gap-4 lg:grid-cols-2">
+    <SpendTrendChart current={series.expense} previous={prevSeriesExpense} labels={series.labels} />
+    <CategoryMixChart categories={spendingInsight.categories} />
+  </div>
+
+  <!-- Status band -->
+  <section class="mt-6">
+    <h2 class="mb-2 text-sm font-medium text-slate-400">{m.dashboard_status_band()}</h2>
+    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <DashboardAttention {userId} {overdueCount} />
+      <DashboardImportHealth />
+      <DashboardNetWorthStrip />
+      <DashboardPlanProgress />
+    </div>
+  </section>
 
   <!-- Hero balance card -->
   <a
@@ -502,13 +661,6 @@
       </svg>
     </a>
   </div>
-
-  {#if summary && summary.categories.length > 0}
-    <CategoryBreakdown
-      categories={summary.categories}
-      oncategoryclick={(categoryId) => goto(transactionsHref({ categoryId }))}
-    />
-  {/if}
 
   <!-- Upcoming / overdue -->
   <div>
