@@ -7,7 +7,7 @@ function summary(overrides: Partial<PlanSummary> = {}): PlanSummary {
   return {
     id: "p1",
     name: "Plan",
-    kind: "spend",
+    kind: "save",
     start_date: "2026-01-01",
     end_date: "2026-12-31",
     budget_amount: 5000,
@@ -33,21 +33,6 @@ function summary(overrides: Partial<PlanSummary> = {}): PlanSummary {
 }
 
 describe("buildPlanningQueueActions", () => {
-  it("prioritizes settle proposals when eligible transactions exist", () => {
-    const actions = buildPlanningQueueActions({
-      summaries: [summary({ id: "spend-1", name: "Wakacje", eligibleCount: 6 })],
-      monthlySurplus: computeMonthlySurplus({
-        totalIncome: 10_000,
-        totalExpenses: 4000,
-        debtMonthlyPayments: 0,
-        saveMonthlyNeeded: 0,
-      }),
-      debtTerms: {},
-    });
-    expect(actions.some((a) => a.id === "settle")).toBe(true);
-    expect(actions[0]?.href).toBe("/plans/spend-1/settle");
-  });
-
   it("includes off-track save goal chip", () => {
     const actions = buildPlanningQueueActions({
       summaries: [
@@ -211,7 +196,6 @@ describe("buildPlanningQueueActions", () => {
     };
     const actions = buildPlanningQueueActions({
       summaries: [
-        summary({ id: "spend-1", eligibleCount: 3 }),
         summary({
           id: "save-1",
           kind: "save",

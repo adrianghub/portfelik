@@ -1,18 +1,17 @@
 # Debt and savings goals (inside Plany)
 
-User-facing **Plany** covers three plan kinds on one spine module-no separate
-„Cele” nav item.
+User-facing **Plany** covers goals and loans on one spine module-no separate
+„Cele” nav item and no redundant expense-plan type.
 
 ## Plan kinds
 
 | Kind | Polish UI section | Purpose |
 | ---- | ----------------- | ------- |
-| `spend` | Wydatki | Budget/outflow plans (wakacje, remont). Settle with linked expenses. |
 | `save` | Cele oszczędnościowe | Accumulation goals (np. Nowy samochód). Progress from linked **income**. |
 | `debt` | Kredyty | Loan repayment (hipoteka, auto, consumer). Terms in `plan_debt_terms`. |
 
-Copy is casual PL: **Zrealizuj** (spend), **Powiąż wpłaty** (save), **Powiąż
-raty** / **Spłać / nadpłać** (debt).
+Copy is casual PL: **Powiąż wpłaty** (save), **Powiąż raty** / **Spłać /
+nadpłać** (debt).
 
 ## Save goals
 

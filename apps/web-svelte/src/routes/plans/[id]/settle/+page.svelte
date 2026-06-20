@@ -27,18 +27,18 @@
   const queryClient = useQueryClient();
   const id = $derived($page.params.id ?? "");
 
-  let activeType = $state<TransactionType>("expense");
   let showManualTxDialog = $state(false);
   /** Optimistic local copy; the durable source is plan_settlement_dismissals. */
   const dismissed = new SvelteSet<string>();
 
-  let activeTypeInitialized = $state(false);
-  $effect(() => {
-    const kind = planQuery.data?.kind;
-    if (!kind || activeTypeInitialized) return;
-    activeType = kind === "save" ? "income" : "expense";
-    activeTypeInitialized = true;
-  });
+  const planQuery = createQuery(() => ({
+    queryKey: ["plan", id],
+    queryFn: () => fetchPlanById(id),
+    enabled: !!id,
+  }));
+  const activeType = $derived<TransactionType>(
+    planQuery.data?.kind === "save" ? "income" : "expense"
+  );
 
   const manualPlanContext = $derived.by((): PlanTransactionContext | null => {
     const plan = planQuery.data;
@@ -50,12 +50,6 @@
       categoryId: plan.category_id,
     };
   });
-
-  const planQuery = createQuery(() => ({
-    queryKey: ["plan", id],
-    queryFn: () => fetchPlanById(id),
-    enabled: !!id,
-  }));
 
   const rankedQuery = createQuery(() => ({
     queryKey: ["plan-ranked", id, activeType],
@@ -94,7 +88,7 @@
       ? computePlanProgress({
           planId: id,
           planName: planQuery.data.name,
-          kind: planQuery.data.kind ?? "spend",
+          kind: planQuery.data.kind ?? "save",
           budgetAmount: planQuery.data.budget_amount,
           targetAmount: planQuery.data.target_amount,
           startDate: planQuery.data.start_date,
@@ -102,6 +96,9 @@
           linkedTransactions: linkedQuery.data ?? [],
         })
       : null
+  );
+  const progressAmount = $derived(
+    progress ? (activeType === "income" ? progress.savedAmount : progress.spentAmount) : 0
   );
 
   const persistedDismissed = $derived(new Set(dismissedQuery.data ?? []));
@@ -217,7 +214,7 @@
             remaining: formatCurrency(progress.remaining ?? 0),
           })}
         {:else}
-          {formatCurrency(progress.spentAmount)}
+          {formatCurrency(progressAmount)}
         {/if}
       </div>
       {#if progress.budgetAmount != null && progress.budgetAmount > 0}
@@ -234,26 +231,6 @@
       {/if}
     </div>
   {/if}
-
-  <div class="inline-flex rounded-full border border-white/10 bg-slate-900/60 p-1">
-    {#each [{ type: "expense" as TransactionType, label: m.plan_tab_expenses() }, { type: "income" as TransactionType, label: m.plan_tab_income() }] as tab (tab.type)}
-      <button
-        type="button"
-        onclick={() => {
-          activeType = tab.type;
-          dismissed.clear();
-        }}
-        class={cn(
-          "focus-visible:ring-accent rounded-full px-3 py-1.5 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
-          activeType === tab.type
-            ? "bg-accent-gradient text-slate-900"
-            : "text-slate-400 hover:text-slate-100"
-        )}
-      >
-        {tab.label}
-      </button>
-    {/each}
-  </div>
 
   <p class="text-sm leading-relaxed text-slate-400">
     {activeType === "income" ? m.plan_settle_tagline_income() : m.plan_settle_tagline()}
@@ -373,7 +350,7 @@
     onclick={() => (showManualTxDialog = true)}
     class="focus-visible:ring-accent mx-auto block text-sm text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:outline-none"
   >
-    {m.plan_settle_manual_footer()}
+    {activeType === "income" ? m.plan_settle_manual_add() : m.plan_settle_manual_footer()}
   </button>
 </div>
 
