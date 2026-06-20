@@ -294,26 +294,31 @@ async function seedDemoRows(userId) {
       .insert([
         {
           user_id: userId,
-          group_id: group.id,
           name: `${DEMO_PREFIX} Remont łazienki`,
-          category_id: groceries.id,
-          budget_amount: 5000,
+          kind: "save",
+          category_id: salary.id,
+          budget_amount: null,
+          target_amount: 5000,
           start_date: isoDaysAgo(70),
           end_date: isoDaysAgo(-30),
         },
         {
           user_id: userId,
           name: `${DEMO_PREFIX} Tygodniowe zakupy`,
-          category_id: groceries.id,
-          budget_amount: 600,
-          start_date: isoDaysAgo(8),
+          kind: "save",
+          category_id: salary.id,
+          budget_amount: null,
+          target_amount: 600,
+          start_date: isoDaysAgo(10),
           end_date: isoDaysAgo(-1),
         },
         {
           user_id: userId,
           name: `${DEMO_PREFIX} Wakacje - Chorwacja`,
-          category_id: dining,
-          budget_amount: 3000,
+          kind: "save",
+          category_id: salary.id,
+          budget_amount: null,
+          target_amount: 3000,
           start_date: isoDaysAgo(20),
           end_date: isoDaysAgo(-45),
         },
@@ -323,11 +328,8 @@ async function seedDemoRows(userId) {
 
   const planByName = new Map(plans.map((plan) => [plan.name.replace(`${DEMO_PREFIX} `, ""), plan.id]));
   const linkRows = [
-    ["Remont łazienki", "Wielkie zakupy"],
-    ["Remont łazienki", "Duże zakupy domowe"],
-    ["Tygodniowe zakupy", "Zakupy tygodniowe"],
-    ["Wakacje - Chorwacja", "Lunch w mieście"],
-    ["Wakacje - Chorwacja", "Kolacja"],
+    ["Remont łazienki", "Pensja (dwa miesiące temu)"],
+    ["Tygodniowe zakupy", "Pensja (poprzedni miesiąc)"],
     ["Wakacje - Chorwacja", "Pensja"],
   ]
     .map(([planName, txLabel]) => ({
