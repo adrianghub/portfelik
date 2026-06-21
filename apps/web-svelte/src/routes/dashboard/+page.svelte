@@ -494,7 +494,7 @@
             class={cn(
               "mt-1 font-semibold tabular-nums",
               savingsRatio === null
-                ? "text-sm text-slate-500"
+                ? "text-sm text-slate-400"
                 : savingsRatio >= 0
                   ? "text-lg text-emerald-300"
                   : "text-lg text-rose-300"

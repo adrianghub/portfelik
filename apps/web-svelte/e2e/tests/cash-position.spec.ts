@@ -111,10 +111,13 @@ test("private scope: strip shows live total and the last paid row's running bala
   await mockCash(page);
   await page.goto("/transactions?group=own");
 
-  // Strip renders the live cash position.
+  // Strip renders the live cash position. It first paints the opening balance,
+  // then settles to live once the paid-history query resolves, so wait for the
+  // settled value (auto-retrying) before capturing it for reuse below.
   await expect(strip(page)).toBeVisible();
-  const liveText = (await strip(page).locator("p.text-2xl").textContent())?.trim() ?? "";
-  expect(liveText).toMatch(/1\D?300,00/); // 1000 + 500 − 200
+  const liveLocator = strip(page).locator("p.text-2xl");
+  await expect(liveLocator).toHaveText(/1\D?300,00/); // 1000 + 500 − 200
+  const liveText = (await liveLocator.textContent())?.trim() ?? "";
 
   // Forecast (live + upcoming income) is surfaced faintly.
   await expect(strip(page).getByText(/prognoza/)).toBeVisible();
