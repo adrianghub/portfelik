@@ -87,6 +87,17 @@
     return `/transactions?${params.toString()}`;
   }
 
+  /** Drill from a spend-history bar into that exact window's transactions. */
+  function selectHistoryPeriod(bucket: { start: string; end: string }): void {
+    // bucket.end is exclusive; the transactions range wants an inclusive last day.
+    const endIncl = new Date(`${bucket.end}T00:00:00`);
+    endIncl.setDate(endIncl.getDate() - 1);
+    const params = new URLSearchParams();
+    params.set("startDate", bucket.start);
+    params.set("endDate", toIsoDate(endIncl));
+    goto(`/transactions?${params.toString()}`);
+  }
+
   let userId = $state<string | null>(null);
   onMount(async () => {
     const { data } = await supabase.auth.getSession();
@@ -499,7 +510,7 @@
 
   <!-- Multi-period spend comparison (last 6 weeks/months/years) -->
   <div class="mt-4">
-    <SpendHistoryChart buckets={historyBuckets} />
+    <SpendHistoryChart buckets={historyBuckets} onselectperiod={selectHistoryPeriod} />
   </div>
 
   <!-- Status band -->

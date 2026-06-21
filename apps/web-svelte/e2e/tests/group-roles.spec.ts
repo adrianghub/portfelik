@@ -92,7 +92,7 @@ async function setupGroupRoleMocks(page: Page, role: "member" | "co_owner"): Pro
 test.describe("group roles", () => {
   test("member sees peer shared transaction as readonly", async ({ page }) => {
     await setupGroupRoleMocks(page, "member");
-    await page.goto("/transactions");
+    await page.goto("/transactions?group=all");
 
     await page.locator("tbody tr").first().click();
     await expect(page.getByText(/Tylko do odczytu/)).toBeVisible();
@@ -102,7 +102,7 @@ test.describe("group roles", () => {
 
   test("co-owner can edit peer shared transaction", async ({ page }) => {
     await setupGroupRoleMocks(page, "co_owner");
-    await page.goto("/transactions");
+    await page.goto("/transactions?group=all");
 
     await page.locator("tbody tr").first().click();
     await expect(page.getByRole("button", { name: "Edytuj" })).toBeVisible();
