@@ -124,31 +124,50 @@ describe("computeSpendingInsight", () => {
     expect(fresh.categories[0].deltaPct).toBeNull();
   });
 
-  it("flags anomaly when total >= 1.5x rolling average", () => {
-    // rolling has 3 periods worth: 300 total over 3 periods => avg 100
+  it("flags anomaly when total >= 1.5x rolling average and the baseline is meaningful", () => {
+    // rolling has 3 periods worth: 600 total over 3 periods => avg 200 (above the floor)
+    const rolling = [
+      tx({ id: "r1", amount: 200, category_id: "food", date: "2026-03-10" }),
+      tx({ id: "r2", amount: 200, category_id: "food", date: "2026-04-10" }),
+      tx({ id: "r3", amount: 200, category_id: "food", date: "2026-05-10" }),
+    ];
+    const hot = computeSpendingInsight({
+      current: [tx({ id: "a", amount: 300, category_id: "food" })],
+      previous: [],
+      rolling,
+      periodsInRolling: 3,
+      budgets: [],
+    });
+    expect(hot.categories[0].avgTotal).toBe(200);
+    expect(hot.categories[0].anomaly).toBe(true);
+
+    const calm = computeSpendingInsight({
+      current: [tx({ id: "a", amount: 250, category_id: "food" })],
+      previous: [],
+      rolling,
+      periodsInRolling: 3,
+      budgets: [],
+    });
+    expect(calm.categories[0].anomaly).toBe(false); // 250 < 1.5 * 200
+  });
+
+  it("suppresses anomaly when the rolling baseline is below the noise floor", () => {
+    // avg 100/period is too small a base — a single spend trips 1.5x trivially,
+    // so we must NOT flag it (avoids week-view false positives off near-empty history).
     const rolling = [
       tx({ id: "r1", amount: 100, category_id: "food", date: "2026-03-10" }),
       tx({ id: "r2", amount: 100, category_id: "food", date: "2026-04-10" }),
       tx({ id: "r3", amount: 100, category_id: "food", date: "2026-05-10" }),
     ];
-    const hot = computeSpendingInsight({
-      current: [tx({ id: "a", amount: 150, category_id: "food" })],
+    const out = computeSpendingInsight({
+      current: [tx({ id: "a", amount: 300, category_id: "food" })], // 3x the avg
       previous: [],
       rolling,
       periodsInRolling: 3,
       budgets: [],
     });
-    expect(hot.categories[0].avgTotal).toBe(100);
-    expect(hot.categories[0].anomaly).toBe(true);
-
-    const calm = computeSpendingInsight({
-      current: [tx({ id: "a", amount: 120, category_id: "food" })],
-      previous: [],
-      rolling,
-      periodsInRolling: 3,
-      budgets: [],
-    });
-    expect(calm.categories[0].anomaly).toBe(false); // 120 < 150
+    expect(out.categories[0].avgTotal).toBe(100);
+    expect(out.categories[0].anomaly).toBe(false);
   });
 
   it("computes budget usage only when a budget exists", () => {
