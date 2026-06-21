@@ -1,6 +1,12 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap");
 @import "tailwindcss";
 
+/* LayerChart ships Tailwind utility classes (e.g. `fill-transparent` on its
+   hover hit-rects). Tailwind v4 auto-detection skips node_modules, so without
+   this @source those utilities are never generated and the transparent rects
+   fall back to SVG-default black — painting a black box over the chart. */
+@source "../node_modules/layerchart/dist";
+
 /* Phase 12 / U1e - Force dark mode via class on <html>. All existing `dark:`
    Tailwind utilities now apply unconditionally. Subsequent phases drop the
    `dark:` prefix file-by-file as those files are touched. */

@@ -37,6 +37,13 @@ export interface SpendingInsight {
 
 const ANOMALY_RATIO = 1.5;
 const TOP_N = 5;
+/**
+ * Baselines below these floors make percentage deltas explode (e.g. +225% off a
+ * near-empty prior week), so we suppress the comparison instead of showing noise.
+ */
+const ANOMALY_BASELINE_FLOOR = 150;
+const HEADLINE_DELTA_FLOOR = 150;
+const CATEGORY_DELTA_FLOOR = 50;
 
 /** Sum expense amounts per category id; also capture a display name per id. */
 function expenseByCategory(
@@ -82,9 +89,9 @@ export function computeSpendingInsight(input: {
   for (const [categoryId, { name, total }] of curByCat) {
     const prevTotal = prevByCat.get(categoryId)?.total ?? 0;
     const deltaAbs = total - prevTotal;
-    const deltaPct = prevTotal === 0 ? null : (deltaAbs / prevTotal) * 100;
+    const deltaPct = prevTotal < CATEGORY_DELTA_FLOOR ? null : (deltaAbs / prevTotal) * 100;
     const avgTotal = (rollByCat.get(categoryId)?.total ?? 0) / periods;
-    const anomaly = avgTotal > 0 && total >= ANOMALY_RATIO * avgTotal;
+    const anomaly = avgTotal >= ANOMALY_BASELINE_FLOOR && total >= ANOMALY_RATIO * avgTotal;
     const budgetAmount = budgetByCat.get(categoryId) ?? null;
     const budgetUsedPct = budgetAmount && budgetAmount > 0 ? (total / budgetAmount) * 100 : null;
     categories.push({
@@ -121,7 +128,8 @@ export function computeSpendingInsight(input: {
   const spent = sumExpenses(current);
   const prevSpent = sumExpenses(previous);
   const net = sumIncome(current) - spent;
-  const spentDeltaPct = prevSpent === 0 ? null : ((spent - prevSpent) / prevSpent) * 100;
+  const spentDeltaPct =
+    prevSpent < HEADLINE_DELTA_FLOOR ? null : ((spent - prevSpent) / prevSpent) * 100;
 
   return {
     spent,

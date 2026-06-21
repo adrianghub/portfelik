@@ -3,13 +3,27 @@
   import { formatCurrency, cn } from "$lib/utils";
   import * as m from "$lib/paraglide/messages";
 
-  let { insight }: { insight: SpendingInsight } = $props();
+  let { insight, period }: { insight: SpendingInsight; period: "week" | "month" | "year" } =
+    $props();
 
   const topCategories = $derived(insight.categories.slice(0, 5));
+  const vsPrevLabel = $derived(
+    period === "week"
+      ? m.dashboard_spending_vs_prev_week()
+      : period === "year"
+        ? m.dashboard_spending_vs_prev_year()
+        : m.dashboard_spending_vs_prev_month()
+  );
   function deltaLabel(pct: number | null): string {
     if (pct === null) return "";
     const arrow = pct >= 0 ? "↑" : "↓";
     return `${arrow}${Math.abs(Math.round(pct))}%`;
+  }
+  function expenseLabel(e: (typeof insight.biggestExpenses)[number]): string {
+    const cat = e.categoryName?.trim();
+    if (cat) return cat;
+    const desc = e.description.trim();
+    return desc.length > 28 ? `${desc.slice(0, 28).trimEnd()}…` : desc;
   }
 </script>
 
@@ -30,7 +44,7 @@
           class={cn("text-sm", insight.spentDeltaPct >= 0 ? "text-rose-400" : "text-emerald-400")}
         >
           {deltaLabel(insight.spentDeltaPct)}
-          {m.dashboard_spending_vs_prev()}
+          {vsPrevLabel}
         </span>
       {/if}
     </p>
@@ -69,7 +83,7 @@
     {#if insight.biggestExpenses.length > 0}
       <p class="mt-3 text-xs text-slate-400">
         {m.dashboard_spending_biggest()}:
-        {#each insight.biggestExpenses as e, i (e.id)}{i > 0 ? " · " : " "}{e.description}
+        {#each insight.biggestExpenses as e, i (e.id)}{i > 0 ? " · " : " "}{expenseLabel(e)}
           {formatCurrency(e.amount)}{/each}
       </p>
     {/if}
