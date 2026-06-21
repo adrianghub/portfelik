@@ -89,9 +89,9 @@
       {/each}
     </div>
   {:else if !browser}
-    <div class="flex h-56 items-center justify-center text-xs text-slate-500">Ładowanie...</div>
+    <div class="flex h-56 items-center justify-center text-xs text-slate-400">Ładowanie...</div>
   {:else}
-    <div class="flex h-56 items-center justify-center text-xs text-slate-500">
+    <div class="flex h-56 items-center justify-center text-xs text-slate-400">
       Brak danych do porównania
     </div>
   {/if}

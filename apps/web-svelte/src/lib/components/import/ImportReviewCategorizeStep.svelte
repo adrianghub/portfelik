@@ -430,7 +430,7 @@
                     {row.counterparty}
                     {#if row.is_hold}
                       <span
-                        class="ml-2 text-[10px] font-normal text-slate-500"
+                        class="ml-2 text-[10px] font-normal text-slate-400"
                         title={m.bank_review_hold_hint()}
                       >
                         {m.bank_review_hold_badge()}
@@ -439,7 +439,7 @@
                   </p>
                 {:else if row.is_hold}
                   <span
-                    class="text-[10px] font-normal text-slate-500"
+                    class="text-[10px] font-normal text-slate-400"
                     title={m.bank_review_hold_hint()}
                   >
                     {m.bank_review_hold_badge()}
@@ -541,7 +541,7 @@
             <span>{row.posted_at}</span>
             {#if row.is_hold}
               <span
-                class="text-[10px] font-normal text-slate-500"
+                class="text-[10px] font-normal text-slate-400"
                 title={m.bank_review_hold_hint()}
               >
                 {m.bank_review_hold_badge()}

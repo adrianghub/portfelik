@@ -141,8 +141,10 @@ test("solo user (no groups) sees the cash view in the default scope", async ({ p
 
   await expect(strip(page)).toBeVisible();
   await expect(desktopTable(page).getByText("Saldo", { exact: true })).toBeVisible();
-  const lastBalance = (await saldoCell(page, "Wydatek gotówkowy").textContent())?.trim() ?? "";
-  expect(lastBalance).toMatch(/1\D?300,00/);
+  // For solo users the cash view only engages once groupsQuery resolves (no groups),
+  // and the running-balance map fills after the paid-history query. Assert with
+  // auto-retry instead of a one-shot read, else we race the "—" placeholder.
+  await expect(saldoCell(page, "Wydatek gotówkowy")).toHaveText(/1\D?300,00/);
 });
 
 test("group user: mixed all scope hides the cash view, own scope shows it", async ({ page }) => {

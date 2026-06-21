@@ -85,7 +85,7 @@
     {/if}
 
     {#if insight.isFirstPeriod}
-      <p class="mt-2 text-xs text-slate-500">{m.dashboard_spending_first_period()}</p>
+      <p class="mt-2 text-xs text-slate-400">{m.dashboard_spending_first_period()}</p>
     {/if}
   {/if}
 </section>
