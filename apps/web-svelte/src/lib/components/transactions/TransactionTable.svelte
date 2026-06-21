@@ -303,14 +303,6 @@
                       <Users size={9} />
                     </span>
                   {/if}
-                  {#if tx.is_hold}
-                    <span
-                      class="ml-1 inline-flex items-center rounded-full bg-amber-900/15 px-2 py-0.5 text-xs font-medium text-amber-400"
-                      title={m.bank_review_hold_hint()}
-                    >
-                      {m.bank_review_hold_badge()}
-                    </span>
-                  {/if}
                 </span>
                 <span
                   class={cn(
@@ -512,14 +504,6 @@
                     class="border-accent/20 bg-accent/10 text-accent ml-1 inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px]"
                   >
                     <Users size={10} />
-                  </span>
-                {/if}
-                {#if tx.is_hold}
-                  <span
-                    class="ml-1 inline-flex items-center rounded-full bg-amber-900/15 px-2 py-0.5 text-xs font-medium text-amber-400"
-                    title={m.bank_review_hold_hint()}
-                  >
-                    {m.bank_review_hold_badge()}
                   </span>
                 {/if}
               </td>
