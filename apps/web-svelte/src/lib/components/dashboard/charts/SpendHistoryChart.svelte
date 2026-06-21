@@ -6,10 +6,28 @@
   import { stackCategoryHistory } from "$lib/services/period-history";
   import { formatCurrency } from "$lib/utils";
 
-  let { buckets }: { buckets: PeriodHistoryBucket[] } = $props();
+  let {
+    buckets,
+    onselectperiod,
+  }: {
+    buckets: PeriodHistoryBucket[];
+    /** Click a bar to drill into that window's transactions. */
+    onselectperiod?: (bucket: PeriodHistoryBucket) => void;
+  } = $props();
 
-  // Distinct, legible hues; last entry (slate) is reserved for the folded "Inne" bucket.
-  const PALETTE = ["#34d399", "#38bdf8", "#a78bfa", "#fbbf24", "#fb7185", "#94a3b8"];
+  // Distinct, legible hues; last entry (slate) is reserved for the folded
+  // "Pozostałe" bucket — kept in step with SpendingTreemap's vocabulary + top-N.
+  const PALETTE = [
+    "#34d399",
+    "#38bdf8",
+    "#a78bfa",
+    "#fbbf24",
+    "#fb7185",
+    "#22d3ee",
+    "#f472b6",
+    "#fb923c",
+    "#94a3b8",
+  ];
 
   // Drop leading empty windows so a brand-new account doesn't render months of
   // blank pre-history bars (and their empty tooltips).
@@ -18,7 +36,11 @@
     return first > 0 ? buckets.slice(first) : buckets;
   });
 
-  const stack = $derived(stackCategoryHistory(visibleBuckets, 5));
+  const bucketByLabel = $derived(new Map(visibleBuckets.map((b) => [b.label, b])));
+
+  // Same top-N + fold label as the treemap, so the two charts agree on which
+  // categories are named vs folded into "Pozostałe".
+  const stack = $derived(stackCategoryHistory(visibleBuckets, 8, "Pozostałe"));
   const series = $derived(
     stack.categories.map((key, i) => ({
       key,
@@ -38,7 +60,7 @@
 
 <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
   {#if browser && hasData}
-    <div class="h-56">
+    <div class={onselectperiod ? "h-56 cursor-pointer" : "h-56"}>
       <BarChart
         data={stack.rows}
         x="label"
@@ -48,6 +70,11 @@
         axis="x"
         grid={false}
         rule={false}
+        onbarclick={(_e, detail) => {
+          const label = String((detail?.data as { label?: unknown })?.label ?? "");
+          const bucket = bucketByLabel.get(label);
+          if (bucket) onselectperiod?.(bucket);
+        }}
         props={{
           bars: { radius: 2 },
           xAxis: { classes: { tickLabel: "text-[11px] fill-slate-400" } },
