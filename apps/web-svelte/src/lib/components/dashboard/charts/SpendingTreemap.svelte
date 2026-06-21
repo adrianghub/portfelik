@@ -9,7 +9,14 @@
     deltaPct: number | null;
   }
 
-  let { categories }: { categories: TreemapCategory[] } = $props();
+  let {
+    categories,
+    categoryHref,
+  }: {
+    categories: TreemapCategory[];
+    /** Build a period-aware transactions link for a category (null = all). */
+    categoryHref: (categoryId: string | null) => string;
+  } = $props();
 
   // Distinct hues; "Inne" (folded remainder, categoryId === null) renders slate.
   const PALETTE = ["#34d399", "#38bdf8", "#a78bfa", "#fbbf24", "#fb7185", "#22d3ee", "#f472b6"];
@@ -29,9 +36,6 @@
   function colorFor(c: TreemapCategory, i: number): string {
     return c.categoryId === null ? OTHER_COLOR : PALETTE[i % PALETTE.length];
   }
-  function hrefFor(c: TreemapCategory): string {
-    return c.categoryId ? `/transactions?categoryId=${c.categoryId}` : "/transactions";
-  }
   function deltaLabel(pct: number | null): string {
     if (pct === null) return "";
     return `${pct >= 0 ? "↑" : "↓"}${Math.abs(Math.round(pct))}%`;
@@ -41,7 +45,7 @@
 <div bind:clientWidth={boxW} bind:clientHeight={boxH} class="relative h-64 w-full sm:h-72">
   {#each tiles as t, i (t.data.categoryId ?? t.data.name)}
     <a
-      href={hrefFor(t.data)}
+      href={categoryHref(t.data.categoryId)}
       title={`${t.data.name} · ${formatCurrency(t.data.total)}`}
       class="focus-visible:ring-accent absolute block overflow-hidden p-0.5 focus-visible:ring-2 focus-visible:outline-none"
       style="left:{t.x}px; top:{t.y}px; width:{t.w}px; height:{t.h}px;"

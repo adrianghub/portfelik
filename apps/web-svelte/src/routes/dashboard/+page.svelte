@@ -491,7 +491,11 @@
     {/if}
   </section>
 
-  <DashboardSpendingInsight insight={spendingInsight} {period} />
+  <DashboardSpendingInsight
+    insight={spendingInsight}
+    {period}
+    categoryHref={(id) => (id ? transactionsHref({ categoryId: id }) : transactionsHref())}
+  />
 
   <!-- Multi-period spend comparison (last 6 weeks/months/years) -->
   <div class="mt-4">

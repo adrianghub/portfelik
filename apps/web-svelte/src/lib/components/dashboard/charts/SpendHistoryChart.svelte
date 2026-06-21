@@ -58,6 +58,7 @@
         <svelte:fragment slot="tooltip" let:tooltip let:visibleSeries>
           {#if rowTotal(tooltip?.data) > 0}
             <Tooltip.Root
+              contained="window"
               class="rounded-lg border border-slate-700 bg-slate-900/95 px-3 py-2 text-xs shadow-xl backdrop-blur"
               let:data
             >
