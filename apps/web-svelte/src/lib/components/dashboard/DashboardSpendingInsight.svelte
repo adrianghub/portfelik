@@ -2,11 +2,32 @@
   import type { SpendingInsight } from "$lib/services/spending-insight";
   import { formatCurrency, cn } from "$lib/utils";
   import * as m from "$lib/paraglide/messages";
+  import SpendingTreemap, {
+    type TreemapCategory,
+  } from "$lib/components/dashboard/charts/SpendingTreemap.svelte";
 
   let { insight, period }: { insight: SpendingInsight; period: "week" | "month" | "year" } =
     $props();
 
-  const topCategories = $derived(insight.categories.slice(0, 5));
+  // Cap the treemap so tiny slivers stay legible; fold the tail into "Inne".
+  const TREEMAP_TOP = 7;
+  const treemapCategories = $derived.by<TreemapCategory[]>(() => {
+    const cats = insight.categories.filter((c) => c.total > 0);
+    const toTile = (c: (typeof cats)[number]): TreemapCategory => ({
+      categoryId: c.categoryId,
+      name: c.name,
+      total: c.total,
+      deltaPct: insight.isFirstPeriod ? null : c.deltaPct,
+    });
+    if (cats.length <= TREEMAP_TOP) return cats.map(toTile);
+    const top = cats.slice(0, TREEMAP_TOP).map(toTile);
+    const restTotal = cats.slice(TREEMAP_TOP).reduce((s, c) => s + c.total, 0);
+    if (restTotal > 0) {
+      top.push({ categoryId: null, name: "Inne", total: restTotal, deltaPct: null });
+    }
+    return top;
+  });
+
   const vsPrevLabel = $derived(
     period === "week"
       ? m.dashboard_spending_vs_prev_week()
@@ -49,36 +70,11 @@
       {/if}
     </p>
 
-    <ul class="mt-3 grid gap-2 sm:grid-cols-2">
-      {#each topCategories as c (c.categoryId)}
-        <li>
-          <a
-            href={`/transactions?categoryId=${c.categoryId}`}
-            class="flex items-center justify-between rounded-lg bg-slate-950/40 px-3 py-2 hover:bg-slate-800/60"
-          >
-            <span class="truncate">{c.name}</span>
-            <span class="flex items-center gap-2">
-              <span class="font-medium">{formatCurrency(c.total)}</span>
-              {#if !insight.isFirstPeriod && c.deltaPct !== null}
-                <span class={cn("text-xs", c.deltaPct >= 0 ? "text-rose-400" : "text-emerald-400")}>
-                  {deltaLabel(c.deltaPct)}
-                </span>
-              {/if}
-              {#if c.anomaly}
-                <span class="text-xs text-amber-400" title={m.dashboard_spending_anomaly()}>⚠</span>
-              {/if}
-              {#if c.budgetUsedPct !== null}
-                <span
-                  class={cn("text-xs", c.budgetUsedPct > 100 ? "text-rose-400" : "text-slate-400")}
-                >
-                  {Math.round(c.budgetUsedPct)}% {m.dashboard_spending_budget_used()}
-                </span>
-              {/if}
-            </span>
-          </a>
-        </li>
-      {/each}
-    </ul>
+    {#if treemapCategories.length > 0}
+      <div class="mt-3">
+        <SpendingTreemap categories={treemapCategories} />
+      </div>
+    {/if}
 
     {#if insight.biggestExpenses.length > 0}
       <p class="mt-3 text-xs text-slate-400">
