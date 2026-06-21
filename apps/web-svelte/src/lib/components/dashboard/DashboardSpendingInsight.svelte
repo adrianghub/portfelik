@@ -6,11 +6,21 @@
     type TreemapCategory,
   } from "$lib/components/dashboard/charts/SpendingTreemap.svelte";
 
-  let { insight, period }: { insight: SpendingInsight; period: "week" | "month" | "year" } =
-    $props();
+  let {
+    insight,
+    period,
+    categoryHref,
+  }: {
+    insight: SpendingInsight;
+    period: "week" | "month" | "year";
+    /** Period-aware transactions link for a treemap tile (null = all). */
+    categoryHref: (categoryId: string | null) => string;
+  } = $props();
 
-  // Cap the treemap so tiny slivers stay legible; fold the tail into "Inne".
-  const TREEMAP_TOP = 7;
+  // Cap the treemap so tiny slivers stay legible. Fold the tail into a neutral
+  // "Pozostałe" bucket only when it collapses 2+ categories — a single overflow
+  // stays named (and never collides with the real "Inne wydatki" category).
+  const TREEMAP_TOP = 8;
   const treemapCategories = $derived.by<TreemapCategory[]>(() => {
     const cats = insight.categories.filter((c) => c.total > 0);
     const toTile = (c: (typeof cats)[number]): TreemapCategory => ({
@@ -19,11 +29,11 @@
       total: c.total,
       deltaPct: insight.isFirstPeriod ? null : c.deltaPct,
     });
-    if (cats.length <= TREEMAP_TOP) return cats.map(toTile);
+    if (cats.length <= TREEMAP_TOP + 1) return cats.map(toTile);
     const top = cats.slice(0, TREEMAP_TOP).map(toTile);
     const restTotal = cats.slice(TREEMAP_TOP).reduce((s, c) => s + c.total, 0);
     if (restTotal > 0) {
-      top.push({ categoryId: null, name: "Inne", total: restTotal, deltaPct: null });
+      top.push({ categoryId: null, name: "Pozostałe", total: restTotal, deltaPct: null });
     }
     return top;
   });
@@ -39,12 +49,6 @@
     if (pct === null) return "";
     const arrow = pct >= 0 ? "↑" : "↓";
     return `${arrow}${Math.abs(Math.round(pct))}%`;
-  }
-  function expenseLabel(e: (typeof insight.biggestExpenses)[number]): string {
-    const cat = e.categoryName?.trim();
-    if (cat) return cat;
-    const desc = e.description.trim();
-    return desc.length > 28 ? `${desc.slice(0, 28).trimEnd()}…` : desc;
   }
 </script>
 
@@ -72,16 +76,8 @@
 
     {#if treemapCategories.length > 0}
       <div class="mt-3">
-        <SpendingTreemap categories={treemapCategories} />
+        <SpendingTreemap categories={treemapCategories} {categoryHref} />
       </div>
-    {/if}
-
-    {#if insight.biggestExpenses.length > 0}
-      <p class="mt-3 text-xs text-slate-400">
-        {m.dashboard_spending_biggest()}:
-        {#each insight.biggestExpenses as e, i (e.id)}{i > 0 ? " · " : " "}{expenseLabel(e)}
-          {formatCurrency(e.amount)}{/each}
-      </p>
     {/if}
 
     {#if insight.isFirstPeriod}
