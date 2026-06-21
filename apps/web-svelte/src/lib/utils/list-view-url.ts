@@ -3,13 +3,14 @@ export type DashboardPeriod = "week" | "month" | "year";
 
 export function parseScopeFilter(params: URLSearchParams): ScopeFilter {
   const raw = params.get("group");
-  if (raw === "own") return "own";
-  if (!raw || raw === "all") return "all";
+  if (raw === "all") return "all";
+  if (!raw || raw === "own") return "own";
   return raw;
 }
 
 export function writeScopeFilter(params: URLSearchParams, scope: ScopeFilter): void {
-  if (scope === "all") params.delete("group");
+  // "own" is the default scope ("see mine first"), so it is the omitted canonical.
+  if (scope === "own") params.delete("group");
   else params.set("group", scope);
 }
 

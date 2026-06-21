@@ -70,7 +70,7 @@ const CASH_TXS = [
 ];
 
 const desktopTable = (page: Page) => page.locator("table");
-const strip = (page: Page) => page.getByRole("region", { name: "Pozycja" });
+const strip = (page: Page) => page.getByRole("region", { name: "Stan środków" });
 
 // Saldo cell of a given row (last cell when the running-balance column shows).
 const saldoCell = (page: Page, description: string) =>
@@ -151,7 +151,7 @@ test("group user: mixed all scope hides the cash view, own scope shows it", asyn
   await mockCash(page, { withGroup: true });
 
   // "all" scope mixes private + group rows → personal pool is hidden.
-  await page.goto("/transactions");
+  await page.goto("/transactions?group=all");
   await expect(desktopTable(page).getByText("Wydatek gotówkowy")).toBeVisible();
   await expect(strip(page)).toHaveCount(0);
   await expect(desktopTable(page).getByText("Saldo", { exact: true })).toHaveCount(0);
