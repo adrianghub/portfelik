@@ -70,7 +70,7 @@ const CASH_TXS = [
 ];
 
 const desktopTable = (page: Page) => page.locator("table");
-const strip = (page: Page) => page.getByRole("region", { name: "Stan środków" });
+const strip = (page: Page) => page.getByRole("region", { name: "Gotówka" });
 
 // Saldo cell of a given row (last cell when the running-balance column shows).
 const saldoCell = (page: Page, description: string) =>

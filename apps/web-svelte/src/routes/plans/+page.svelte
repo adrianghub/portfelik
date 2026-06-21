@@ -52,7 +52,7 @@
   } from "$lib/services/plans";
   import { supabase } from "$lib/supabase";
   import type { Plan, PlanKind, PlanSummary } from "$lib/types";
-  import { cn } from "$lib/utils";
+  import { cn, formatCurrency } from "$lib/utils";
   import { syncListViewUrl } from "$lib/utils/navigation";
   import { parseScopeFilter, type ScopeFilter } from "$lib/utils/list-view-url";
   import {
@@ -1055,6 +1055,9 @@
         class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
       />
       <p class="text-xs text-slate-500">{m.net_worth_cash_position_hint()}</p>
+      <p class="text-xs text-slate-400">
+        {m.net_worth_cash_current_hint({ amount: formatCurrency(derivedCash) })}
+      </p>
     </div>
     <div class="space-y-2">
       <div class="flex items-center justify-between">
