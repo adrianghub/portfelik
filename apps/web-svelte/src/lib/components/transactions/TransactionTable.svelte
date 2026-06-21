@@ -303,6 +303,12 @@
                       <Users size={9} />
                     </span>
                   {/if}
+                  {#if tx.is_hold}
+                    <span
+                      class="ml-1 text-[10px] font-normal text-slate-400"
+                      title={m.bank_review_hold_hint()}>{m.bank_review_hold_badge()}</span
+                    >
+                  {/if}
                 </span>
                 <span
                   class={cn(
@@ -505,6 +511,12 @@
                   >
                     <Users size={10} />
                   </span>
+                {/if}
+                {#if tx.is_hold}
+                  <span
+                    class="ml-1 text-[10px] font-normal text-slate-400"
+                    title={m.bank_review_hold_hint()}>{m.bank_review_hold_badge()}</span
+                  >
                 {/if}
               </td>
               <td class="px-4 py-3 text-slate-400">
