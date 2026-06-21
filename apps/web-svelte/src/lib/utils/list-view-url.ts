@@ -15,12 +15,12 @@ export function writeScopeFilter(params: URLSearchParams, scope: ScopeFilter): v
 
 export function parseDashboardPeriod(params: URLSearchParams): DashboardPeriod {
   const raw = params.get("period");
-  if (raw === "week" || raw === "year") return raw;
-  return "month";
+  if (raw === "month" || raw === "year") return raw;
+  return "week";
 }
 
 export function writeDashboardPeriod(params: URLSearchParams, period: DashboardPeriod): void {
-  if (period === "month") params.delete("period");
+  if (period === "week") params.delete("period");
   else params.set("period", period);
 }
 

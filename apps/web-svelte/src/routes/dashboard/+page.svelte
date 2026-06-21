@@ -381,18 +381,6 @@
       <button
         type="button"
         role="tab"
-        aria-selected={groupFilter === "all"}
-        onclick={() => setGroupFilter("all")}
-        class={cn(
-          "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
-          groupFilter === "all" ? "bg-white/10 text-slate-100" : "text-slate-400 hover:bg-white/5"
-        )}
-      >
-        {m.dashboard_scope_all()}
-      </button>
-      <button
-        type="button"
-        role="tab"
         aria-selected={groupFilter === "own"}
         onclick={() => setGroupFilter("own")}
         class={cn(
@@ -401,6 +389,18 @@
         )}
       >
         {m.dashboard_scope_own()}
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={groupFilter === "all"}
+        onclick={() => setGroupFilter("all")}
+        class={cn(
+          "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
+          groupFilter === "all" ? "bg-white/10 text-slate-100" : "text-slate-400 hover:bg-white/5"
+        )}
+      >
+        {m.dashboard_scope_all()}
       </button>
       {#each groupsQuery.data ?? [] as g (g.id)}
         <button
@@ -418,24 +418,6 @@
       {/each}
     </div>
   {/if}
-
-  <DashboardSpendingInsight insight={spendingInsight} {period} />
-
-  <!-- Multi-period spend comparison (last 6 weeks/months/years) -->
-  <div class="mt-4">
-    <SpendHistoryChart buckets={historyBuckets} />
-  </div>
-
-  <!-- Status band -->
-  <section class="mt-6">
-    <h2 class="mb-2 text-sm font-medium text-slate-400">{m.dashboard_status_band()}</h2>
-    <div class="grid gap-3 sm:grid-cols-2">
-      <DashboardAttention {userId} {overdueCount} />
-      <DashboardImportHealth />
-      <DashboardNetWorthStrip />
-      <DashboardPlanProgress />
-    </div>
-  </section>
 
   <!-- Bilans hero + inline income / expense / savings -->
   <section
@@ -472,23 +454,23 @@
       <div class="relative mt-5 grid grid-cols-3 gap-3 border-t border-white/5 pt-4">
         <a
           href={transactionsHref({ type: "income" })}
-          class="focus-visible:ring-accent rounded-xl px-1 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+          class="focus-visible:ring-accent min-w-0 rounded-xl px-1 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
         >
           <p class="text-eyebrow text-slate-400">{m.summary_income()}</p>
-          <p class="mt-1 text-lg font-semibold text-emerald-300 tabular-nums">
+          <p class="mt-1 truncate text-base font-semibold text-emerald-300 tabular-nums sm:text-lg">
             {formatCurrency(summary.total_income)}
           </p>
         </a>
         <a
           href={transactionsHref({ type: "expense" })}
-          class="focus-visible:ring-accent rounded-xl px-1 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+          class="focus-visible:ring-accent min-w-0 rounded-xl px-1 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
         >
           <p class="text-eyebrow text-slate-400">{m.summary_expenses()}</p>
-          <p class="mt-1 text-lg font-semibold text-rose-300 tabular-nums">
+          <p class="mt-1 truncate text-base font-semibold text-rose-300 tabular-nums sm:text-lg">
             {formatCurrency(summary.total_expenses)}
           </p>
         </a>
-        <div class="px-1">
+        <div class="min-w-0 px-1">
           <p class="text-eyebrow text-slate-400">{m.summary_savings_ratio()}</p>
           <p
             class={cn(
@@ -496,8 +478,8 @@
               savingsRatio === null
                 ? "text-sm text-slate-400"
                 : savingsRatio >= 0
-                  ? "text-lg text-emerald-300"
-                  : "text-lg text-rose-300"
+                  ? "text-base text-emerald-300 sm:text-lg"
+                  : "text-base text-rose-300 sm:text-lg"
             )}
           >
             {savingsRatio === null ? m.dashboard_savings_na() : `${savingsRatio}%`}
@@ -507,6 +489,24 @@
     {:else}
       <div class="relative mt-3 h-14 w-2/3 animate-pulse rounded-lg bg-slate-800/60"></div>
     {/if}
+  </section>
+
+  <DashboardSpendingInsight insight={spendingInsight} {period} />
+
+  <!-- Multi-period spend comparison (last 6 weeks/months/years) -->
+  <div class="mt-4">
+    <SpendHistoryChart buckets={historyBuckets} />
+  </div>
+
+  <!-- Status band -->
+  <section class="mt-6">
+    <h2 class="mb-2 text-sm font-medium text-slate-400">{m.dashboard_status_band()}</h2>
+    <div class="grid gap-3 sm:grid-cols-2">
+      <DashboardAttention {userId} {overdueCount} />
+      <DashboardImportHealth />
+      <DashboardNetWorthStrip />
+      <DashboardPlanProgress />
+    </div>
   </section>
 
   <!-- Upcoming / overdue -->

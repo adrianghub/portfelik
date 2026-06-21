@@ -41,7 +41,9 @@
     >
   </button>
 
-  <span class="w-32 text-center text-sm font-medium text-zinc-900 capitalize select-none">
+  <span
+    class="min-w-32 px-1 text-center text-sm font-medium whitespace-nowrap text-zinc-900 capitalize select-none"
+  >
     {monthName(month)}
     {year}
   </span>

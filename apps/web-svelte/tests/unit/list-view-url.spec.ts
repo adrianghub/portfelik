@@ -19,29 +19,29 @@ describe("parseScopeFilter", () => {
 });
 
 describe("parseDashboardPeriod", () => {
-  it("defaults to month", () => {
-    expect(parseDashboardPeriod(new URLSearchParams())).toBe("month");
+  it("defaults to week", () => {
+    expect(parseDashboardPeriod(new URLSearchParams())).toBe("week");
   });
 
-  it("parses week and year", () => {
-    expect(parseDashboardPeriod(new URLSearchParams("period=week"))).toBe("week");
+  it("parses month and year", () => {
+    expect(parseDashboardPeriod(new URLSearchParams("period=month"))).toBe("month");
     expect(parseDashboardPeriod(new URLSearchParams("period=year"))).toBe("year");
   });
 });
 
 describe("write helpers", () => {
   it("omits default values from query", () => {
-    const params = new URLSearchParams("group=own&period=week");
+    const params = new URLSearchParams("group=own&period=month");
     writeScopeFilter(params, "all");
-    writeDashboardPeriod(params, "month");
+    writeDashboardPeriod(params, "week");
     expect(params.toString()).toBe("");
   });
 });
 
 describe("buildListViewUrl", () => {
   it("builds dashboard url with scope and period", () => {
-    expect(buildListViewUrl("/dashboard", new URLSearchParams(), { group: "own", period: "week" })).toBe(
-      "/dashboard?group=own&period=week"
-    );
+    expect(
+      buildListViewUrl("/dashboard", new URLSearchParams(), { group: "own", period: "month" })
+    ).toBe("/dashboard?group=own&period=month");
   });
 });
