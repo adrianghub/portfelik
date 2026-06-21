@@ -7,8 +7,7 @@
   import DashboardNetWorthStrip from "$lib/components/dashboard/DashboardNetWorthStrip.svelte";
   import DashboardPlanProgress from "$lib/components/dashboard/DashboardPlanProgress.svelte";
   import DashboardSpendingInsight from "$lib/components/dashboard/DashboardSpendingInsight.svelte";
-  import SpendTrendChart from "$lib/components/dashboard/charts/SpendTrendChart.svelte";
-  import CategoryMixChart from "$lib/components/dashboard/charts/CategoryMixChart.svelte";
+  import SpendHistoryChart from "$lib/components/dashboard/charts/SpendHistoryChart.svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchProfile } from "$lib/services/profiles";
   import { fetchMyGroupRoles, fetchUserGroups } from "$lib/services/groups";
@@ -19,6 +18,7 @@
   } from "$lib/services/transaction-cashflow";
   import { fetchTransactions, updateTransactionsStatus } from "$lib/services/transactions";
   import { computeSpendingInsight } from "$lib/services/spending-insight";
+  import { buildPeriodWindows, bucketPeriodHistory } from "$lib/services/period-history";
   import { canManageTransaction } from "$lib/services/transaction-permissions";
   import { toast } from "svelte-sonner";
   import { supabase } from "$lib/supabase";
@@ -277,113 +277,26 @@
     })
   );
 
-  /** Bucket transactions into per-period arrays. Extracted so we can reuse for prevSeries. */
-  function bucketExpenses(
-    txs: TransactionWithCategory[],
-    bStart: string,
-    bEnd: string,
-    bucketCount: number
-  ): number[] {
-    const exp = new Array<number>(bucketCount).fill(0);
-    const ledger = ledgerTransactions(txs);
-    if (ledger.length === 0) return exp;
-    const startMs = new Date(bStart).getTime();
-    const endMs = new Date(bEnd).getTime() - 1;
-    for (const tx of ledger) {
-      if (tx.type !== "expense") continue;
-      const t = new Date(tx.date).getTime();
-      if (t < startMs || t > endMs) continue;
-      let idx: number;
-      if (period === "year") {
-        idx = new Date(tx.date).getMonth();
-      } else {
-        idx = Math.floor((t - startMs) / 86_400_000);
-      }
-      if (idx < 0 || idx >= bucketCount) continue;
-      exp[idx] += Math.abs(Number(tx.amount));
-    }
-    return exp;
-  }
-
-  const MONTH_SHORT_PL = [
-    "Sty",
-    "Lut",
-    "Mar",
-    "Kwi",
-    "Maj",
-    "Cze",
-    "Lip",
-    "Sie",
-    "Wrz",
-    "Paź",
-    "Lis",
-    "Gru",
-  ];
-
-  const series = $derived.by(() => {
-    const inc = new Array<number>(bounds.buckets).fill(0);
-    const exp = new Array<number>(bounds.buckets).fill(0);
-    const labels: string[] = [];
-
-    // Build bucket labels
-    if (period === "year") {
-      for (let i = 0; i < 12; i++) labels.push(MONTH_SHORT_PL[i]);
-    } else if (period === "week") {
-      const s = new Date(bounds.start);
-      for (let i = 0; i < bounds.buckets; i++) {
-        const d = new Date(s);
-        d.setDate(d.getDate() + i);
-        labels.push(`${d.getDate()}.${String(d.getMonth() + 1).padStart(2, "0")}`);
-      }
-    } else {
-      for (let i = 0; i < bounds.buckets; i++) labels.push(String(i + 1));
-    }
-
-    const ledger = scopedLedgerTxs;
-    if (ledger.length === 0) return { income: inc, expense: exp, labels };
-    const startMs = new Date(bounds.start).getTime();
-    const endMs = new Date(bounds.end).getTime() - 1;
-    for (const tx of ledger) {
-      const t = new Date(tx.date).getTime();
-      if (t < startMs || t > endMs) continue;
-      let idx: number;
-      if (period === "year") {
-        idx = new Date(tx.date).getMonth();
-      } else {
-        idx = Math.floor((t - startMs) / 86_400_000);
-      }
-      if (idx < 0 || idx >= bounds.buckets) continue;
-      const amount = Math.abs(Number(tx.amount));
-      if (tx.type === "income") inc[idx] += amount;
-      else exp[idx] += amount;
-    }
-    return { income: inc, expense: exp, labels };
+  // Multi-period comparison history: last 6 periods (weeks/months/years per toggle).
+  const HISTORY_PERIODS = 6;
+  const historyWindows = $derived(buildPeriodWindows(period, HISTORY_PERIODS));
+  const historyBounds = $derived({
+    start: historyWindows[0].start,
+    end: historyWindows[historyWindows.length - 1].end,
   });
-
-  /** Previous-period expense series, bucketed identically to current period. */
-  const prevSeriesExpense = $derived.by(() => {
-    const prevTxs = scopeFilter(prevTxQuery.data ?? []);
-    return bucketExpenses(prevTxs, prevBounds.start, prevBounds.end, bounds.buckets);
-  });
-
-  function sparklinePath(values: number[]): string {
-    if (values.length < 2) return "";
-    const max = Math.max(...values, 1);
-    const w = 100;
-    const h = 24;
-    const step = w / (values.length - 1);
-    return values
-      .map((v, i) => {
-        const x = (i * step).toFixed(2);
-        const y = (h - (v / max) * h).toFixed(2);
-        return `${i === 0 ? "M" : "L"} ${x} ${y}`;
-      })
-      .join(" ");
-  }
-
-  const incomePath = $derived(sparklinePath(series.income));
-  const expensePath = $derived(sparklinePath(series.expense));
-  const savingsPath = $derived(sparklinePath(series.income.map((v, i) => v - series.expense[i])));
+  const historyTxQuery = createQuery(() => ({
+    queryKey: [
+      "transactions",
+      "dashboard-history",
+      period,
+      historyBounds.start,
+      historyBounds.end,
+    ] as const,
+    queryFn: () => fetchTransactions(historyBounds.start, historyBounds.end),
+  }));
+  const historyBuckets = $derived(
+    bucketPeriodHistory(ledgerTransactions(scopeFilter(historyTxQuery.data ?? [])), historyWindows)
+  );
 
   const savingsRatio = $derived.by(() => {
     if (!summary) return null;
@@ -506,18 +419,17 @@
     </div>
   {/if}
 
-  <DashboardSpendingInsight insight={spendingInsight} />
+  <DashboardSpendingInsight insight={spendingInsight} {period} />
 
-  <!-- Spend trend + category mix charts -->
-  <div class="mt-4 grid gap-4 lg:grid-cols-2">
-    <SpendTrendChart current={series.expense} previous={prevSeriesExpense} labels={series.labels} />
-    <CategoryMixChart categories={spendingInsight.categories} />
+  <!-- Multi-period spend comparison (last 6 weeks/months/years) -->
+  <div class="mt-4">
+    <SpendHistoryChart buckets={historyBuckets} />
   </div>
 
   <!-- Status band -->
   <section class="mt-6">
     <h2 class="mb-2 text-sm font-medium text-slate-400">{m.dashboard_status_band()}</h2>
-    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+    <div class="grid gap-3 sm:grid-cols-2">
       <DashboardAttention {userId} {overdueCount} />
       <DashboardImportHealth />
       <DashboardNetWorthStrip />
@@ -525,16 +437,23 @@
     </div>
   </section>
 
-  <!-- Hero balance card -->
-  <a
-    href={transactionsHref()}
-    class="relative block overflow-hidden rounded-3xl border border-white/5 bg-slate-900/60 p-6 backdrop-blur transition-colors hover:bg-white/5"
+  <!-- Bilans hero + inline income / expense / savings -->
+  <section
+    class="relative overflow-hidden rounded-3xl border border-white/5 bg-slate-900/60 p-6 backdrop-blur"
   >
     <span class="glow-disc absolute -top-12 -right-12 h-40 w-40" aria-hidden="true"></span>
-    <p class="text-eyebrow text-slate-400">
-      {m.dashboard_balance_title()} · {activePeriodLabel}
-    </p>
-    <p class="mt-1 text-xs text-slate-400">{m.dashboard_balance_ledger_note()}</p>
+    <div class="relative flex items-start justify-between gap-4">
+      <div>
+        <p class="text-eyebrow text-slate-400">
+          {m.dashboard_balance_title()} · {activePeriodLabel}
+        </p>
+        <p class="mt-1 text-xs text-slate-400">{m.dashboard_balance_ledger_note()}</p>
+      </div>
+      <a href={transactionsHref()} class="text-accent shrink-0 text-xs font-medium hover:underline">
+        {m.dashboard_balance_all_link()} →
+      </a>
+    </div>
+
     {#if summary}
       <p
         class={cn(
@@ -549,118 +468,46 @@
           {m.summary_forecast_note()}: {formatCurrency(forecastSummary.net)}
         </p>
       {/if}
-    {:else}
-      <div class="mt-3 h-14 w-2/3 animate-pulse rounded-lg bg-slate-800/60"></div>
-    {/if}
-  </a>
 
-  <!-- Stat row with sparklines -->
-  <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
-    <!-- Income -->
-    <a
-      href={transactionsHref({ type: "income" })}
-      class="focus-visible:ring-accent relative block overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
-    >
-      <p class="text-eyebrow text-slate-400">{m.summary_income()}</p>
-      {#if summary}
-        <p class="mt-1.5 text-lg font-semibold text-emerald-300 tabular-nums">
-          {formatCurrency(summary.total_income)}
-        </p>
-      {:else}
-        <div class="mt-1.5 h-6 w-2/3 animate-pulse rounded bg-slate-800/60"></div>
-      {/if}
-      <svg
-        class="mt-3 h-6 w-full text-emerald-400/70"
-        viewBox="0 0 100 24"
-        preserveAspectRatio="none"
-        aria-hidden="true"
-      >
-        {#if incomePath}
-          <path
-            d={incomePath}
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        {/if}
-      </svg>
-    </a>
-
-    <!-- Expenses -->
-    <a
-      href={transactionsHref({ type: "expense" })}
-      class="focus-visible:ring-accent relative block overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
-    >
-      <p class="text-eyebrow text-slate-400">{m.summary_expenses()}</p>
-      {#if summary}
-        <p class="mt-1.5 text-lg font-semibold text-rose-300 tabular-nums">
-          {formatCurrency(summary.total_expenses)}
-        </p>
-      {:else}
-        <div class="mt-1.5 h-6 w-2/3 animate-pulse rounded bg-slate-800/60"></div>
-      {/if}
-      <svg
-        class="mt-3 h-6 w-full text-rose-400/70"
-        viewBox="0 0 100 24"
-        preserveAspectRatio="none"
-        aria-hidden="true"
-      >
-        {#if expensePath}
-          <path
-            d={expensePath}
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        {/if}
-      </svg>
-    </a>
-
-    <!-- Savings ratio -->
-    <a
-      href={transactionsHref()}
-      class="focus-visible:ring-accent relative col-span-2 block overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none sm:col-span-1"
-    >
-      <p class="text-eyebrow text-slate-400">{m.summary_savings_ratio()}</p>
-      {#if summary}
-        <p
-          class={cn(
-            "mt-1.5 text-lg font-semibold tabular-nums",
-            savingsRatio === null
-              ? "text-slate-400"
-              : savingsRatio >= 0
-                ? "text-emerald-300"
-                : "text-rose-300"
-          )}
+      <div class="relative mt-5 grid grid-cols-3 gap-3 border-t border-white/5 pt-4">
+        <a
+          href={transactionsHref({ type: "income" })}
+          class="focus-visible:ring-accent rounded-xl px-1 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
         >
-          {savingsRatio === null ? "-" : `${savingsRatio}%`}
-        </p>
-      {:else}
-        <div class="mt-1.5 h-6 w-1/2 animate-pulse rounded bg-slate-800/60"></div>
-      {/if}
-      <svg
-        class="mt-3 h-6 w-full text-slate-300/60"
-        viewBox="0 0 100 24"
-        preserveAspectRatio="none"
-        aria-hidden="true"
-      >
-        {#if savingsPath}
-          <path
-            d={savingsPath}
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        {/if}
-      </svg>
-    </a>
-  </div>
+          <p class="text-eyebrow text-slate-400">{m.summary_income()}</p>
+          <p class="mt-1 text-lg font-semibold text-emerald-300 tabular-nums">
+            {formatCurrency(summary.total_income)}
+          </p>
+        </a>
+        <a
+          href={transactionsHref({ type: "expense" })}
+          class="focus-visible:ring-accent rounded-xl px-1 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+        >
+          <p class="text-eyebrow text-slate-400">{m.summary_expenses()}</p>
+          <p class="mt-1 text-lg font-semibold text-rose-300 tabular-nums">
+            {formatCurrency(summary.total_expenses)}
+          </p>
+        </a>
+        <div class="px-1">
+          <p class="text-eyebrow text-slate-400">{m.summary_savings_ratio()}</p>
+          <p
+            class={cn(
+              "mt-1 font-semibold tabular-nums",
+              savingsRatio === null
+                ? "text-sm text-slate-500"
+                : savingsRatio >= 0
+                  ? "text-lg text-emerald-300"
+                  : "text-lg text-rose-300"
+            )}
+          >
+            {savingsRatio === null ? m.dashboard_savings_na() : `${savingsRatio}%`}
+          </p>
+        </div>
+      </div>
+    {:else}
+      <div class="relative mt-3 h-14 w-2/3 animate-pulse rounded-lg bg-slate-800/60"></div>
+    {/if}
+  </section>
 
   <!-- Upcoming / overdue -->
   <div>
