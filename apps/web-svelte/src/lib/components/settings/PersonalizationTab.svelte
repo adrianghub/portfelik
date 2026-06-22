@@ -8,7 +8,7 @@
     type AccentPresetId,
   } from "$lib/theme/accent-presets";
   import type { Profile } from "$lib/types";
-  import { toast } from "svelte-sonner";
+  import { toastError } from "$lib/toast-error";
   import * as m from "$lib/paraglide/messages";
 
   const ACCENT_LABELS: Record<AccentPresetId, () => string> = {
@@ -41,10 +41,10 @@
       queryClient.setQueryData(["profile", updated.id], updated);
       await queryClient.invalidateQueries({ queryKey: ["profile"] });
     },
-    onError: () => {
+    onError: (err) => {
       // Revert to the persisted value on failure.
       applyAccent(profile?.settings?.accentColor ?? DEFAULT_ACCENT_ID);
-      toast.error(m.toast_error());
+      toastError(err);
     },
   }));
 

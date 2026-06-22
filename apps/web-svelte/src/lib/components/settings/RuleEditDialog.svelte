@@ -6,6 +6,7 @@
   import Input from "$lib/components/ui/Input.svelte";
   import Button from "$lib/components/ui/Button.svelte";
   import { toast } from "svelte-sonner";
+  import { toastError } from "$lib/toast-error";
   import * as m from "$lib/paraglide/messages";
 
   interface Props {
@@ -80,7 +81,7 @@
       toast.success(m.bank_review_rule_updated());
       onclose();
     },
-    onError: (err: Error) => toast.error(err.message || m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 </script>
 

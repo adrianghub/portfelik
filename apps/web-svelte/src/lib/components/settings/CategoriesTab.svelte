@@ -6,6 +6,8 @@
   import CategoryDialog from "./CategoryDialog.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import { toast } from "svelte-sonner";
+  import { toastError } from "$lib/toast-error";
+  import QueryError from "$lib/components/ui/QueryError.svelte";
   import * as m from "$lib/paraglide/messages";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import Fab from "$lib/components/ui/Fab.svelte";
@@ -29,10 +31,7 @@
       toast.success(m.toast_category_deleted());
       deleteTargetId = null;
     },
-    onError: (err: { code?: string }) => {
-      if (err?.code === "23503") toast.error(m.toast_category_in_use());
-      else toast.error(m.toast_error());
-    },
+    onError: (err) => toastError(err, { overrides: { "23503": m.toast_category_in_use() } }),
   }));
 
   function openAdd() {
@@ -63,7 +62,7 @@
     {/each}
   </div>
 {:else if query.isError}
-  <p class="text-sm text-rose-300" role="alert">{m.common_error_title()}</p>
+  <QueryError error={query.error} onRetry={() => query.refetch()} />
 {:else if query.data}
   <!-- Mobile card list -->
   <ul class="space-y-1.5 sm:hidden">
