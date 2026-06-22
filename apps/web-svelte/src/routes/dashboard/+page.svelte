@@ -21,6 +21,8 @@
   import { buildPeriodWindows, bucketPeriodHistory } from "$lib/services/period-history";
   import { canManageTransaction } from "$lib/services/transaction-permissions";
   import { toast } from "svelte-sonner";
+  import { toastError } from "$lib/toast-error";
+  import QueryError from "$lib/components/ui/QueryError.svelte";
   import { supabase } from "$lib/supabase";
   import type { TransactionStatus, TransactionWithCategory } from "$lib/types";
   import { cn, formatCurrency, getDateRangeBounds } from "$lib/utils";
@@ -138,7 +140,7 @@
         },
       });
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 
   function quickSettle(tx: TransactionWithCategory) {
@@ -545,7 +547,7 @@
         {/each}
       </div>
     {:else if txQuery.isError}
-      <p class="py-6 text-center text-sm text-rose-300">{m.common_error_title()}</p>
+      <QueryError error={txQuery.error} onRetry={() => txQuery.refetch()} />
     {:else if upcomingTxs.length === 0}
       <p class="py-6 text-center text-sm text-slate-400">
         {m.dashboard_empty_upcoming()}
