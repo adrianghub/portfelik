@@ -34,6 +34,7 @@
   import { ChevronRight } from "lucide-svelte";
   import { onMount } from "svelte";
   import { toast } from "svelte-sonner";
+  import { toastError } from "$lib/toast-error";
   import * as m from "$lib/paraglide/messages";
 
   interface Props {
@@ -125,8 +126,8 @@
         firstPaymentAmount: refiFirstPaymentAmount !== "" ? Number(refiFirstPaymentAmount) : null,
       });
       showRefinance = false;
-    } catch {
-      toast.error(m.toast_error());
+    } catch (err) {
+      toastError(err);
     }
   }
   let showSyncConfirm = $state(false);
@@ -304,8 +305,8 @@
       };
       await onTermsSave?.(input);
       await onSyncBalance?.();
-    } catch {
-      toast.error(m.toast_error());
+    } catch (err) {
+      toastError(err);
     }
   }
 
@@ -346,7 +347,7 @@
           toast.error(m.plan_debt_balance_exceeds_original());
           break;
         default:
-          toast.error(m.toast_error());
+          toastError(err);
       }
     }
   }

@@ -68,6 +68,8 @@
   import { Plus, Trash2 } from "lucide-svelte";
   import { onMount } from "svelte";
   import { toast } from "svelte-sonner";
+  import { toastError } from "$lib/toast-error";
+  import QueryError from "$lib/components/ui/QueryError.svelte";
   import { computeLedgerSummary } from "$lib/services/transaction-cashflow";
   import { fetchTransactions } from "$lib/services/transactions";
   import {
@@ -425,7 +427,7 @@
       await queryClient.invalidateQueries({ queryKey: ["net-worth-items"] });
       await queryClient.invalidateQueries({ queryKey: ["fx"] });
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 
   function applyDebtDateDefaults() {
@@ -642,7 +644,7 @@
       await queryClient.invalidateQueries({ queryKey: ["plan-progress-list"] });
       await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms-list"] });
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastError(err),
     onSettled: () => (deleteTargetId = null),
   }));
 </script>
@@ -701,7 +703,7 @@
       {/each}
     </div>
   {:else if plansQuery.isError}
-    <p class="text-sm text-rose-600">{m.common_error_title()}</p>
+    <QueryError error={plansQuery.error} onRetry={() => plansQuery.refetch()} />
   {:else}
     {#if filteredPlans.length === 0}
       <p class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-400">
