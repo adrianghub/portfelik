@@ -25,6 +25,8 @@
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { untrack } from "svelte";
   import { toast } from "svelte-sonner";
+  import { toastError } from "$lib/toast-error";
+  import { errorMessage } from "$lib/services/supabase-errors";
 
   export interface PlanTransactionContext {
     planId: string;
@@ -158,7 +160,7 @@
       }
       onclose();
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 
   async function applyRuleRetro(categoryId: string, ids: string[]): Promise<void> {
@@ -167,8 +169,8 @@
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
       await queryClient.invalidateQueries({ queryKey: ["plan-progress"] });
       toast.success(m.rule_apply_done({ count: ids.length }));
-    } catch {
-      toast.error(m.toast_error());
+    } catch (err) {
+      toastError(err);
     }
   }
 
@@ -467,7 +469,7 @@
     {/if}
 
     {#if mutation.isError}
-      <p class="text-sm text-rose-300">{m.common_error_title()}</p>
+      <p class="text-sm text-rose-300">{errorMessage(mutation.error)}</p>
     {/if}
 
     {#if formError}

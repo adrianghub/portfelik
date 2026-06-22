@@ -52,6 +52,8 @@
   import { onMount } from "svelte";
   import { Plus, Search, X } from "lucide-svelte";
   import { toast } from "svelte-sonner";
+  import { toastError } from "$lib/toast-error";
+  import QueryError from "$lib/components/ui/QueryError.svelte";
 
   const queryClient = useQueryClient();
 
@@ -467,7 +469,7 @@
       toast.success(m.toast_transaction_deleted());
       deleteTargetId = null;
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 
   const bulkDeleteMutation = createMutation(() => ({
@@ -479,7 +481,7 @@
       selectedIds = new Set<string>();
       bulkDeleteConfirm = false;
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 
   const bulkStatusMutation = createMutation(() => ({
@@ -491,7 +493,7 @@
       toast.success(m.toast_transactions_bulk_status({ count }));
       selectedIds = new Set<string>();
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 
   // Settling can flip a plan-linked transaction to paid, so plan progress must refresh too.
@@ -515,7 +517,7 @@
         },
       });
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 
   function quickSettle(tx: TransactionWithCategory) {
@@ -530,7 +532,7 @@
       toast.success(m.toast_transactions_bulk_category({ count }));
       selectedIds = new Set<string>();
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 
   const bulkPending = $derived(
@@ -899,7 +901,7 @@
   {#if txQuery.isLoading}
     <div class="h-48 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
   {:else if txQuery.isError}
-    <p class="text-sm text-rose-300">{m.common_error_title()}</p>
+    <QueryError error={txQuery.error} onRetry={() => txQuery.refetch()} />
   {:else if visibleTxs}
     <TransactionTable
       transactions={renderedTxs}
