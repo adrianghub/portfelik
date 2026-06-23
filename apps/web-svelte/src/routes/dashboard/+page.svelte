@@ -487,12 +487,12 @@
           <p class="text-eyebrow text-slate-400">{m.summary_savings_ratio()}</p>
           <p
             class={cn(
-              "mt-1 font-semibold tabular-nums",
+              "mt-1 text-base font-semibold tabular-nums sm:text-lg",
               savingsRatio === null
-                ? "text-sm text-slate-400"
+                ? "text-slate-400"
                 : savingsRatio >= 0
-                  ? "text-base text-emerald-300 sm:text-lg"
-                  : "text-base text-rose-300 sm:text-lg"
+                  ? "text-emerald-300"
+                  : "text-rose-300"
             )}
           >
             {savingsRatio === null ? m.dashboard_savings_na() : `${savingsRatio}%`}
