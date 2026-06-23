@@ -12,6 +12,8 @@
   import RuleEditDialog from "$lib/components/settings/RuleEditDialog.svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import { toast } from "svelte-sonner";
+  import { toastError } from "$lib/toast-error";
+  import QueryError from "$lib/components/ui/QueryError.svelte";
   import * as m from "$lib/paraglide/messages";
   import { Wand2, Trash2, Pencil } from "lucide-svelte";
   import { page } from "$app/stores";
@@ -97,7 +99,7 @@
       toast.success(m.rules_deleted());
       deleteTargetId = null;
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 
   // Deep-link from the review screen: ?highlight=<rule_id> scrolls the row
@@ -134,7 +136,7 @@
     {/each}
   </div>
 {:else if rulesQuery.isError}
-  <p class="text-sm text-rose-300" role="alert">{m.common_error_title()}</p>
+  <QueryError error={rulesQuery.error} onRetry={() => rulesQuery.refetch()} />
 {:else if rulesQuery.data}
   {#if rulesQuery.data.length === 0}
     <EmptyState title={m.rules_empty()} body={m.rules_empty_hint()}>

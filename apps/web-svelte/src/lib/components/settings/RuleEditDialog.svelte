@@ -6,6 +6,8 @@
   import Input from "$lib/components/ui/Input.svelte";
   import Button from "$lib/components/ui/Button.svelte";
   import { toast } from "svelte-sonner";
+  import { toastError } from "$lib/toast-error";
+  import { ValidationError } from "$lib/services/supabase-errors";
   import * as m from "$lib/paraglide/messages";
 
   interface Props {
@@ -47,12 +49,13 @@
     mutationFn: async () => {
       if (!rule) throw new Error("no_rule");
       const hasTextConstraint = editDescEnabled || editCounterpartyEnabled;
-      if (!hasTextConstraint) throw new Error(m.bank_review_rule_edit_require_condition());
+      if (!hasTextConstraint)
+        throw new ValidationError(m.bank_review_rule_edit_require_condition());
 
       const nextDesc = editDescEnabled ? editDesc.trim() : null;
       const nextCounterparty = editCounterpartyEnabled ? editCounterparty.trim() : null;
       if (hasTextConstraint && !nextDesc && !nextCounterparty) {
-        throw new Error(m.bank_review_rule_edit_require_text());
+        throw new ValidationError(m.bank_review_rule_edit_require_text());
       }
 
       const nextDayOfMonth: number | null = editDateEnabled ? Number(editDayOfMonth) : null;
@@ -63,7 +66,7 @@
           nextDayOfMonth < 1 ||
           nextDayOfMonth > 31)
       ) {
-        throw new Error(m.bank_review_rule_edit_require_date());
+        throw new ValidationError(m.bank_review_rule_edit_require_date());
       }
 
       return updateCategorizationRule(rule.id, {
@@ -80,7 +83,7 @@
       toast.success(m.bank_review_rule_updated());
       onclose();
     },
-    onError: (err: Error) => toast.error(err.message || m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 </script>
 

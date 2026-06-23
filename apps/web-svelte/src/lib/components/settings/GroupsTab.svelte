@@ -23,6 +23,9 @@
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import { toast } from "svelte-sonner";
+  import { toastError } from "$lib/toast-error";
+  import { errorMessage } from "$lib/services/supabase-errors";
+  import QueryError from "$lib/components/ui/QueryError.svelte";
   import * as m from "$lib/paraglide/messages";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import { Users } from "lucide-svelte";
@@ -88,7 +91,7 @@
       newGroupName = "";
       showCreateGroup = false;
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 
   // ── Invite ────────────────────────────────────────────────────────────────
@@ -106,7 +109,7 @@
       inviteEmail = "";
       inviteGroupId = null;
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 
   // ── Disband ───────────────────────────────────────────────────────────────
@@ -127,7 +130,7 @@
         });
         return;
       }
-      toast.error(m.toast_error());
+      toastError(err);
     },
   }));
 
@@ -142,7 +145,7 @@
       toast.success(m.toast_group_left());
       leaveGroupId = null;
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 
   // ── Accept / reject received invitations ─────────────────────────────────
@@ -154,7 +157,7 @@
       await queryClient.invalidateQueries({ queryKey: ["group_invitations_received"] });
       toast.success(m.toast_invitation_accepted());
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 
   const rejectMutation = createMutation(() => ({
@@ -163,7 +166,7 @@
       await queryClient.invalidateQueries({ queryKey: ["group_invitations_received"] });
       toast.success(m.toast_invitation_rejected());
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 
   // ── Sent invitations + cancel ─────────────────────────────────────────────
@@ -183,7 +186,7 @@
       });
       toast.success(m.toast_invitation_cancelled());
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 
   // ── Members ───────────────────────────────────────────────────────────────
@@ -219,7 +222,7 @@
           : m.toast_group_co_owner_revoked()
       );
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 
   const removeMemberMutation = createMutation(() => ({
@@ -231,7 +234,7 @@
       toast.success(m.toast_member_removed());
       removeTargetUserId = null;
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 
   // ── Status label helper ───────────────────────────────────────────────────
@@ -299,7 +302,7 @@
     {/each}
   </div>
 {:else if groupsQuery.isError}
-  <p class="text-sm text-rose-300">{m.common_error_title()}</p>
+  <QueryError error={groupsQuery.error} onRetry={() => groupsQuery.refetch()} />
 {:else}
   {#if groupsQuery.data?.length === 0}
     <EmptyState title={m.groups_empty()} body={m.groups_empty_hint()}>
@@ -459,7 +462,7 @@
       />
     </div>
     {#if createGroupMutation.isError}
-      <p class="text-sm text-rose-300">{m.common_error_title()}</p>
+      <p class="text-sm text-rose-300">{errorMessage(createGroupMutation.error)}</p>
     {/if}
     <div class="flex gap-2 pt-1">
       <button
@@ -500,7 +503,7 @@
       />
     </div>
     {#if inviteMutation.isError}
-      <p class="text-sm text-rose-300">{m.common_error_title()}</p>
+      <p class="text-sm text-rose-300">{errorMessage(inviteMutation.error)}</p>
     {/if}
     <div class="flex gap-2 pt-1">
       <button

@@ -16,6 +16,7 @@
   import { getBankImportReminder, type ImportReminderCadence } from "$lib/profile-settings";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import { toast } from "svelte-sonner";
+  import { toastError } from "$lib/toast-error";
   import * as m from "$lib/paraglide/messages";
 
   interface Props {
@@ -43,7 +44,7 @@
       toast.success(m.toast_profile_updated());
       editing = false;
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 
   let showDeleteConfirm = $state(false);
@@ -61,7 +62,7 @@
         deleteError = m.profile_delete_account_has_groups();
       } else {
         deleteError = null;
-        toast.error(m.toast_error());
+        toastError(err);
       }
     },
   }));
@@ -94,9 +95,9 @@
       await refreshPushState();
       toast.success(m.toast_push_subscribed());
     },
-    onError: async () => {
+    onError: async (err) => {
       await refreshPushState();
-      toast.error(m.toast_error());
+      toastError(err);
     },
   }));
 
@@ -106,7 +107,7 @@
       await refreshPushState();
       toast.success(m.toast_push_unsubscribed());
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 
   function nextSettingsForReminder(input: {
@@ -132,7 +133,7 @@
       await queryClient.invalidateQueries({ queryKey: ["profile"] });
       toast.success(m.toast_profile_updated());
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 
   function setReminderEnabled(enabled: boolean): void {
@@ -322,8 +323,8 @@
             const bundle = await buildAccountExport();
             downloadAccountExport(bundle);
             toast.success(m.settings_export_success());
-          } catch {
-            toast.error(m.toast_error());
+          } catch (err) {
+            toastError(err);
           }
         }}
         class="shrink-0 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-white/5"
