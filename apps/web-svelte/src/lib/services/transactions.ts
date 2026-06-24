@@ -53,6 +53,17 @@ export async function fetchAllTransactionsForExport(): Promise<TransactionWithCa
   return all;
 }
 
+/** All recurring templates (is_recurring=true), scoped by RLS. No date window —
+ * the forecast projector expands these forward at read time. */
+export async function fetchRecurringTemplates(): Promise<TransactionWithCategory[]> {
+  const { data, error } = await supabase
+    .from("transactions_with_category")
+    .select("*")
+    .eq("is_recurring", true);
+  if (error) throw error;
+  return (data as TransactionWithCategory[]) ?? [];
+}
+
 export async function fetchTransactionById(id: string): Promise<TransactionWithCategory> {
   const { data, error } = await supabase
     .from("transactions_with_category")

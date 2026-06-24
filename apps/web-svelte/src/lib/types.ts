@@ -58,6 +58,8 @@ export interface TransactionWithCategory extends Transaction {
   category_name: string;
   category_type: TransactionType;
   is_hold: boolean;
+  /** True for read-time projected (recurring forecast) rows. Never persisted. */
+  projected?: boolean;
 }
 
 export interface CategorySummary {
