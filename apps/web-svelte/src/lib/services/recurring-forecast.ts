@@ -145,7 +145,6 @@ export function projectRecurringOccurrences(
 
   const out: TransactionWithCategory[] = [];
   for (const t of templates) {
-    if (t.type !== "expense") continue; // expenses-only forecast (this cut)
     const freq = t.recurrence_frequency;
     if (!freq) continue;
     for (const d of occurrenceDates(t, afterMs, beforeMs)) {

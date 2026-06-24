@@ -26,7 +26,10 @@
   }: Props = $props();
 
   const canEdit = $derived(
-    !!transaction && !!currentUserId && canManageTransaction(transaction, currentUserId, groupRoles)
+    !!transaction &&
+      !transaction.projected &&
+      !!currentUserId &&
+      canManageTransaction(transaction, currentUserId, groupRoles)
   );
   const isSharedReadonly = $derived(
     !!transaction &&
@@ -62,7 +65,7 @@
       if (error) throw error;
       return data as { plan_id: string; plans: { name: string } | null } | null;
     },
-    enabled: !!transaction,
+    enabled: !!transaction && !transaction.projected,
   }));
 
   function handleKeydown(e: KeyboardEvent) {
@@ -89,7 +92,7 @@
     <div class="flex items-center justify-between border-b border-white/5 px-5 py-4">
       <h2 class="text-base font-semibold text-slate-100">
         {transaction.counterparty?.trim() || transaction.description}
-        {#if transaction.is_recurring}
+        {#if transaction.is_recurring || transaction.projected}
           <span class="ml-1 text-sm font-normal text-slate-400" title="Cykliczna">↻</span>
         {/if}
       </h2>
@@ -176,6 +179,17 @@
           </div>
         {/if}
       </dl>
+
+      {#if transaction.projected}
+        <div class="rounded-xl border border-sky-400/20 bg-sky-400/10 p-3">
+          <p class="text-sm font-medium text-sky-200">
+            {m.transactions_projected_detail_title()}
+          </p>
+          <p class="mt-1 text-xs leading-relaxed text-sky-100/80">
+            {m.transactions_projected_detail_body()}
+          </p>
+        </div>
+      {/if}
 
       <!-- Linked plan -->
       {#if planLinkQuery.data}

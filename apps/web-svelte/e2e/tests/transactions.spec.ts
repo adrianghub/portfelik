@@ -108,6 +108,58 @@ test("txId deep link opens transaction outside the current date range", async ({
   await expect(sheet.getByText("Stara transakcja z planu")).toBeVisible();
 });
 
+test("recurring forecast rows appear as read-only upcoming items for future ranges", async ({
+  page,
+}) => {
+  const recurringTemplate = {
+    id: "tmpl-rent",
+    date: "2026-01-05",
+    description: "Czynsz",
+    amount: 2500,
+    type: "expense",
+    status: "paid",
+    category_id: "cat-1",
+    category_name: "Jedzenie",
+    category_type: "expense",
+    is_recurring: true,
+    recurring_day: 5,
+    recurrence_frequency: "monthly",
+    recurrence_interval: 1,
+    recurrence_weekday: null,
+    recurrence_month: null,
+    recurring_template_id: null,
+    currency: "PLN",
+    user_id: TEST_USER_ID,
+    group_id: null,
+    created_at: "2026-01-05T10:00:00Z",
+    updated_at: "2026-01-05T10:00:00Z",
+  };
+
+  await page.route("**/rest/v1/transactions_with_category**", (route) => {
+    const url = route.request().url();
+    if (url.includes("is_recurring=eq.true")) {
+      return route.fulfill({ status: 200, json: [recurringTemplate] });
+    }
+    return route.fulfill({ status: 200, json: [] });
+  });
+
+  await page.goto(
+    "/transactions?startDate=2026-07-01&endDate=2026-07-31&status=upcoming&forecast=recurring"
+  );
+
+  const row = desktopTable(page).locator("tbody tr").filter({ hasText: "Czynsz" });
+  await expect(row).toBeVisible();
+  await expect(row.getByText("Cykliczne / Planowane")).toBeVisible();
+  await expect(row.getByRole("button", { name: "Oznacz jako zapłacone" })).toHaveCount(0);
+
+  await row.click();
+  const sheet = page.locator("aside");
+  await expect(sheet.getByText("Prognoza cykliczna")).toBeVisible();
+  await expect(sheet.getByText("Nie trafił do historii")).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Edytuj" })).toHaveCount(0);
+  await expect(sheet.getByRole("button", { name: "Usuń" })).toHaveCount(0);
+});
+
 test("mobile date range sheet stays open while interacting with controls", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/transactions");
@@ -244,7 +296,6 @@ test("bulk delete: confirm and show success toast", async ({ page }) => {
   // Success toast - message: "Usunięto 2 transakcji"
   await expect(page.getByText(/Usunięto 2 transakcji/)).toBeVisible();
 });
-
 
 test("quick-settle marks an upcoming transaction paid", async ({ page }) => {
   // tx-3 ("Rachunek za prąd") is seeded with status "upcoming" → eligible for quick-settle.

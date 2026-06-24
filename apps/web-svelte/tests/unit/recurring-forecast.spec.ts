@@ -44,6 +44,27 @@ describe("projectRecurringOccurrences — monthly", () => {
     expect(out.every((t) => t.amount === 100 && t.category_name === "Subskrypcje")).toBe(true);
   });
 
+  it("projects recurring income as upcoming forecast rows too", () => {
+    const out = projectRecurringOccurrences(
+      [
+        template({
+          id: "salary-template",
+          type: "income",
+          category_type: "income",
+          category_name: "Wynagrodzenie",
+          description: "Wypłata",
+        }),
+      ],
+      SPAN_START,
+      SPAN_END
+    );
+    expect(out.map((t) => [t.date, t.type, t.category_name])).toEqual([
+      ["2026-07-10", "income", "Wynagrodzenie"],
+      ["2026-08-10", "income", "Wynagrodzenie"],
+      ["2026-09-10", "income", "Wynagrodzenie"],
+    ]);
+  });
+
   it("respects recurrence_interval > 1 (every 2 months)", () => {
     const out = projectRecurringOccurrences(
       [template({ recurrence_interval: 2 })],
