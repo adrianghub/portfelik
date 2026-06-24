@@ -84,8 +84,14 @@
         <!-- Suppress the tooltip entirely for zero-total windows. -->
         <svelte:fragment slot="tooltip" let:tooltip let:visibleSeries>
           {#if rowTotal(tooltip?.data) > 0}
+            <!-- Anchor over the hovered bar (x="data") and clamp to the chart box
+                 (contained="container") so the tooltip stops jumping to the window
+                 edge near the first/last bars. -->
             <Tooltip.Root
-              contained="window"
+              x="data"
+              y="pointer"
+              anchor="bottom"
+              contained="container"
               class="rounded-lg border border-slate-700 bg-slate-900/95 px-3 py-2 text-xs shadow-xl backdrop-blur"
               let:data
             >
