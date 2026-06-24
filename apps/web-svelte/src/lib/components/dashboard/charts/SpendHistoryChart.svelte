@@ -91,10 +91,10 @@
         <!-- Faint band + "Teraz" divider marking the projected forecast region. -->
         <svelte:fragment slot="belowMarks" let:xScale let:height>
           {#if firstProjectedLabel}
-            {@const bandX =
-              (xScale as ReturnType<typeof scaleBand<string>>)(firstProjectedLabel) ?? 0}
-            {@const bandW =
-              ((xScale as ReturnType<typeof scaleBand<string>>).range?.()[1] ?? 0) - bandX}
+            <!-- Band covers the contiguous rightmost projected region (buckets are [...past, ...forward]). -->
+            {@const typedScale = xScale as ReturnType<typeof scaleBand<string>>}
+            {@const bandX = typedScale(firstProjectedLabel) ?? 0}
+            {@const bandW = (typedScale.range?.()[1] ?? 0) - bandX}
             <rect x={bandX} y={0} width={Math.max(0, bandW)} {height} class="fill-white/5" />
             <line
               x1={bandX}
@@ -104,7 +104,7 @@
               class="stroke-slate-600"
               stroke-dasharray="3 3"
             />
-            <text x={bandX + 4} y={12} class="fill-slate-500 text-[9px]" font-size="9"
+            <text x={bandX + 4} y={12} class="fill-slate-500 text-[9px]"
               >{m.dashboard_forecast_now_divider()}</text
             >
           {/if}

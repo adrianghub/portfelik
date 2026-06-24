@@ -23,21 +23,21 @@ function tx(p: {
 
 describe("buildPeriodWindows", () => {
   it("builds N month windows oldest-first ending on the ref month", () => {
-    const w = buildPeriodWindows("month", 6, new Date(2026, 5, 15)); // June 2026
+    const w = buildPeriodWindows("month", 6, new Date(Date.UTC(2026, 5, 15))); // June 2026
     expect(w).toHaveLength(6);
     expect(w[0].label).toBe("Sty"); // January 2026
     expect(w[5].label).toBe("Cze"); // June 2026
-    expect(w[5].start).toBe(new Date(2026, 5, 1).toISOString());
-    expect(w[5].end).toBe(new Date(2026, 6, 1).toISOString());
+    expect(w[5].start).toBe(new Date(Date.UTC(2026, 5, 1)).toISOString());
+    expect(w[5].end).toBe(new Date(Date.UTC(2026, 6, 1)).toISOString());
   });
 
   it("crosses the year boundary for months", () => {
-    const w = buildPeriodWindows("month", 3, new Date(2026, 1, 10)); // Feb 2026
+    const w = buildPeriodWindows("month", 3, new Date(Date.UTC(2026, 1, 10))); // Feb 2026
     expect(w.map((x) => x.label)).toEqual(["Gru", "Sty", "Lut"]);
   });
 
   it("builds 7-day week windows ending today", () => {
-    const w = buildPeriodWindows("week", 6, new Date(2026, 5, 15));
+    const w = buildPeriodWindows("week", 6, new Date(Date.UTC(2026, 5, 15)));
     expect(w).toHaveLength(6);
     // newest window: [now-6d, now+1d)
     expect(w[5].start).toBe("2026-06-09");
@@ -47,14 +47,14 @@ describe("buildPeriodWindows", () => {
   });
 
   it("builds calendar-year windows", () => {
-    const w = buildPeriodWindows("year", 3, new Date(2026, 5, 1));
+    const w = buildPeriodWindows("year", 3, new Date(Date.UTC(2026, 5, 1)));
     expect(w.map((x) => x.label)).toEqual(["2024", "2025", "2026"]);
   });
 });
 
 describe("bucketPeriodHistory", () => {
   it("sums only expenses into the right window with category breakdown", () => {
-    const windows = buildPeriodWindows("month", 3, new Date(2026, 5, 15));
+    const windows = buildPeriodWindows("month", 3, new Date(Date.UTC(2026, 5, 15)));
     const txs = [
       tx({ date: "2026-04-10", amount: 100, category_name: "Jedzenie" }),
       tx({ date: "2026-05-05", amount: 200, category_name: "Jedzenie" }),
@@ -74,9 +74,9 @@ describe("bucketPeriodHistory", () => {
   });
 
   it("excludes the window's exclusive end boundary", () => {
-    const windows = buildPeriodWindows("month", 1, new Date(2026, 5, 15));
+    const windows = buildPeriodWindows("month", 1, new Date(Date.UTC(2026, 5, 15)));
     // first instant of July must NOT fall into the June bucket
-    const julyStart = new Date(2026, 6, 1).toISOString();
+    const julyStart = new Date(Date.UTC(2026, 6, 1)).toISOString();
     const buckets = bucketPeriodHistory([tx({ date: julyStart, amount: 500 })], windows);
     expect(buckets[0].total).toBe(0);
   });
@@ -89,7 +89,7 @@ describe("bucketPeriodHistory", () => {
 });
 
 describe("stackCategoryHistory", () => {
-  const windows = buildPeriodWindows("month", 2, new Date(2026, 5, 15));
+  const windows = buildPeriodWindows("month", 2, new Date(Date.UTC(2026, 5, 15)));
   const txs = [
     // May
     tx({ date: "2026-05-05", amount: 300, category_name: "Mieszkanie" }),

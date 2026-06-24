@@ -83,13 +83,35 @@ function occurrenceDates(t: TransactionWithCategory, afterMs: number, beforeMs: 
     return new Date(Date.UTC(y, monthIdx, Math.min(day, lastDayOfMonth(y, monthIdx))));
   };
 
-  let guard = 0;
   // Fast-forward to the first occurrence strictly after `afterMs`.
-  while (cursor.getTime() <= afterMs && guard++ < MAX_OCCURRENCES_PER_TEMPLATE) {
-    cursor = step(cursor);
+  // For daily/weekly, compute the first in-span occurrence arithmetically
+  // to avoid exhausting iterations on stale anchors (e.g. daily template
+  // anchored >400 days before spanStart).
+  if (cursor.getTime() <= afterMs) {
+    if (freq === "daily") {
+      const anchorMs = cursor.getTime();
+      const gapDays = Math.ceil((afterMs - anchorMs) / 86_400_000 / interval);
+      cursor = new Date(anchorMs + gapDays * interval * 86_400_000);
+      // Ensure strictly after afterMs.
+      while (cursor.getTime() <= afterMs) cursor = step(cursor);
+    } else if (freq === "weekly") {
+      const anchorMs = cursor.getTime();
+      const stepMs = 7 * interval * 86_400_000;
+      const gapWeeks = Math.ceil((afterMs - anchorMs) / stepMs);
+      cursor = new Date(anchorMs + gapWeeks * stepMs);
+      while (cursor.getTime() <= afterMs) cursor = step(cursor);
+    } else {
+      // monthly/yearly: step count is bounded by span years, safe to iterate.
+      const FF_LIMIT = 5000;
+      let ffGuard = 0;
+      while (cursor.getTime() <= afterMs && ffGuard++ < FF_LIMIT) {
+        cursor = step(cursor);
+      }
+    }
   }
-  // Collect while strictly before `beforeMs`.
-  while (cursor.getTime() < beforeMs && guard++ < MAX_OCCURRENCES_PER_TEMPLATE) {
+  // Collect while strictly before `beforeMs`, capped at MAX_OCCURRENCES_PER_TEMPLATE.
+  let collected = 0;
+  while (cursor.getTime() < beforeMs && collected++ < MAX_OCCURRENCES_PER_TEMPLATE) {
     out.push(new Date(cursor));
     cursor = step(cursor);
   }

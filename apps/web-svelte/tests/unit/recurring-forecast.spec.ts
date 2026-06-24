@@ -90,6 +90,38 @@ describe("projectRecurringOccurrences — weekly / daily / yearly", () => {
   });
 });
 
+describe("projectRecurringOccurrences — stale anchor", () => {
+  it("daily template anchored >400 days before spanStart still emits occurrences", () => {
+    // Anchor well over 400 days before span start to exercise the arithmetic fast-forward.
+    const t = template({
+      recurrence_frequency: "daily",
+      recurrence_interval: 1,
+      recurring_day: null,
+      date: "2024-01-01", // ~900+ days before span
+    });
+    const out = projectRecurringOccurrences([t], "2026-06-20", "2026-06-25");
+    expect(out.map((x) => x.date)).toEqual([
+      "2026-06-21",
+      "2026-06-22",
+      "2026-06-23",
+      "2026-06-24",
+    ]);
+  });
+
+  it("weekly template anchored far in the past still emits occurrences", () => {
+    const t = template({
+      recurrence_frequency: "weekly",
+      recurrence_interval: 1,
+      recurrence_weekday: 1, // Monday
+      recurring_day: null,
+      date: "2023-01-02", // a Monday, ~3.5 years before span
+    });
+    const out = projectRecurringOccurrences([t], "2026-06-20", "2026-07-07");
+    // Mondays after 06-20 and before 07-07: 06-22, 06-29, 07-06
+    expect(out.map((x) => x.date)).toEqual(["2026-06-22", "2026-06-29", "2026-07-06"]);
+  });
+});
+
 describe("projectRecurringOccurrences — bounds, dedup, ledger exclusion", () => {
   it("excludes occurrences on/before spanStart and on/after spanEnd", () => {
     const out = projectRecurringOccurrences([template()], "2026-07-10", "2026-09-10");
