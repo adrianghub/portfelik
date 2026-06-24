@@ -24,6 +24,8 @@ export interface PeriodHistoryBucket extends PeriodWindow {
   categories: PeriodCategoryTotal[];
   /** True for the period containing "now" (the rightmost, in-progress bucket). */
   isCurrent: boolean;
+  /** True for read-time projected (forecast) buckets. */
+  isProjected?: boolean;
 }
 
 const MONTH_SHORT_PL = [
@@ -79,6 +81,49 @@ export function buildPeriodWindows(
       });
     } else {
       const y = ref.getFullYear() - i;
+      windows.push({
+        label: String(y),
+        start: new Date(y, 0, 1).toISOString(),
+        end: new Date(y + 1, 0, 1).toISOString(),
+      });
+    }
+  }
+  return windows;
+}
+
+/**
+ * Build the next `count` period windows strictly AFTER the period containing
+ * `ref` (the in-progress current period), oldest-first. Mirrors the window math
+ * in `buildPeriodWindows` so past + forward windows tile without gaps/overlap.
+ */
+export function buildForwardPeriodWindows(
+  kind: PeriodKind,
+  count: number,
+  ref: Date = new Date()
+): PeriodWindow[] {
+  const windows: PeriodWindow[] = [];
+  for (let i = 1; i <= count; i++) {
+    if (kind === "week") {
+      // Current week = trailing 7 days ending today (start = today - 6).
+      // Forward week i starts at today - 6 + 7*i.
+      const start = new Date(ref);
+      start.setHours(0, 0, 0, 0);
+      start.setDate(start.getDate() - 6 + 7 * i);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 7);
+      const dd = start.getDate();
+      const mm = String(start.getMonth() + 1).padStart(2, "0");
+      windows.push({ label: `${dd}.${mm}`, start: isoDate(start), end: isoDate(end) });
+    } else if (kind === "month") {
+      const d = new Date(ref.getFullYear(), ref.getMonth() + i, 1);
+      const end = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+      windows.push({
+        label: MONTH_SHORT_PL[d.getMonth()],
+        start: d.toISOString(),
+        end: end.toISOString(),
+      });
+    } else {
+      const y = ref.getFullYear() + i;
       windows.push({
         label: String(y),
         start: new Date(y, 0, 1).toISOString(),
