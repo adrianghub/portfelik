@@ -12,6 +12,20 @@ export const FORECAST_EXTRA_STATUSES = [
 
 export type CashflowSummaryMode = "ledger" | "forecast";
 
+/** Today as an ISO `YYYY-MM-DD` string (UTC), matching the form's date field. */
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * Suggest a transaction status from its date: a future date is `upcoming`,
+ * today or past is `paid`. `overdue` / `draft` are never auto-suggested — they
+ * express intent the date can't infer. Pure; `today` is injectable for tests.
+ */
+export function suggestStatusForDate(date: string, today: string = todayIso()): TransactionStatus {
+  return date > today ? "upcoming" : "paid";
+}
+
 export function filterTransactionsByStatuses(
   transactions: TransactionWithCategory[],
   statuses: readonly TransactionStatus[]

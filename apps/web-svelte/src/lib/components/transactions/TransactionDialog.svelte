@@ -20,6 +20,7 @@
     TransactionStatus,
     TransactionType,
   } from "$lib/types";
+  import { suggestStatusForDate } from "$lib/services/transaction-cashflow";
   import { isoWeekdayName, recurrenceSummary } from "$lib/recurrence";
   import { formatDate, monthName } from "$lib/utils";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
@@ -75,7 +76,23 @@
     )
   );
   let category_id = $state(untrack(() => initial?.category_id ?? ""));
-  let status = $state<TransactionStatus>(untrack(() => initial?.status ?? "paid"));
+  let status = $state<TransactionStatus>(
+    untrack(
+      () =>
+        initial?.status ??
+        suggestStatusForDate(
+          initial?.date ? initial.date.slice(0, 10) : new Date().toISOString().slice(0, 10)
+        )
+    )
+  );
+  // Soft prefill: while false, status tracks the date; a manual pick locks it.
+  let statusTouched = $state(false);
+
+  // Re-suggest status as the date changes, until the user picks one manually.
+  $effect(() => {
+    const d = date;
+    if (!statusTouched) status = suggestStatusForDate(d);
+  });
   let is_recurring = $state(untrack(() => initial?.is_recurring ?? false));
   let recurring_day = $state(untrack(() => initial?.recurring_day ?? new Date().getDate()));
   let recurrence_frequency = $state<RecurrenceFrequency>(
@@ -101,7 +118,8 @@
       description = initial?.description ?? "";
       date = initial?.date ? initial.date.slice(0, 10) : new Date().toISOString().slice(0, 10);
       category_id = initial?.category_id ?? planContext?.categoryId ?? "";
-      status = initial?.status ?? "paid";
+      statusTouched = initial?.status != null;
+      status = initial?.status ?? suggestStatusForDate(date);
       is_recurring = initial?.is_recurring ?? false;
       recurring_day = initial?.recurring_day ?? new Date().getDate();
       recurrence_frequency = initial?.recurrence_frequency ?? "monthly";
@@ -342,7 +360,12 @@
 
     <div class="space-y-1">
       <label class={labelClass} for="tx-status">{m.transaction_form_status()}</label>
-      <select id="tx-status" bind:value={status} class={inputClass}>
+      <select
+        id="tx-status"
+        bind:value={status}
+        onchange={() => (statusTouched = true)}
+        class={inputClass}
+      >
         <option value="paid">{m.transactions_status_paid()}</option>
         <option value="upcoming">{m.transactions_status_upcoming()}</option>
         <option value="draft">{m.transactions_status_draft()}</option>
