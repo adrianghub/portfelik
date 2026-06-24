@@ -16,9 +16,18 @@
     computeLedgerSummary,
     ledgerTransactions,
   } from "$lib/services/transaction-cashflow";
-  import { fetchTransactions, updateTransactionsStatus } from "$lib/services/transactions";
+  import {
+    fetchRecurringTemplates,
+    fetchTransactions,
+    updateTransactionsStatus,
+  } from "$lib/services/transactions";
   import { computeSpendingInsight } from "$lib/services/spending-insight";
-  import { buildPeriodWindows, bucketPeriodHistory } from "$lib/services/period-history";
+  import { projectRecurringOccurrences } from "$lib/services/recurring-forecast";
+  import {
+    buildPeriodWindows,
+    buildForwardPeriodWindows,
+    bucketPeriodHistory,
+  } from "$lib/services/period-history";
   import { canManageTransaction } from "$lib/services/transaction-permissions";
   import { toast } from "svelte-sonner";
   import { toastError } from "$lib/toast-error";
@@ -311,6 +320,25 @@
     bucketPeriodHistory(ledgerTransactions(scopeFilter(historyTxQuery.data ?? [])), historyWindows)
   );
 
+  // Recurring-template projection: next 3 periods appended as isProjected buckets.
+  const FORWARD_PERIODS = 3;
+  const recurringTemplatesQuery = createQuery(() => ({
+    queryKey: ["transactions", "recurring-templates"] as const,
+    queryFn: fetchRecurringTemplates,
+  }));
+  const forwardWindows = $derived(buildForwardPeriodWindows(period, FORWARD_PERIODS));
+  const projectedTxs = $derived.by(() => {
+    const templates = scopeFilter(recurringTemplatesQuery.data ?? []);
+    if (templates.length === 0 || forwardWindows.length === 0) return [];
+    const spanStart = new Date().toISOString();
+    const spanEnd = forwardWindows[forwardWindows.length - 1].end;
+    return projectRecurringOccurrences(templates, spanStart, spanEnd, scopedTxs);
+  });
+  const forwardBuckets = $derived(
+    bucketPeriodHistory(projectedTxs, forwardWindows).map((b) => ({ ...b, isProjected: true }))
+  );
+  const combinedHistoryBuckets = $derived([...historyBuckets, ...forwardBuckets]);
+
   const savingsRatio = $derived.by(() => {
     if (!summary) return null;
     if (summary.total_income <= 0) return null;
@@ -512,7 +540,7 @@
 
   <!-- Multi-period spend comparison (last 6 weeks/months/years) -->
   <div class="mt-4">
-    <SpendHistoryChart buckets={historyBuckets} onselectperiod={selectHistoryPeriod} />
+    <SpendHistoryChart buckets={combinedHistoryBuckets} onselectperiod={selectHistoryPeriod} />
   </div>
 
   <!-- Status band -->

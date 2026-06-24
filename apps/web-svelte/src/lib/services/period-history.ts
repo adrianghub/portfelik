@@ -24,6 +24,8 @@ export interface PeriodHistoryBucket extends PeriodWindow {
   categories: PeriodCategoryTotal[];
   /** True for the period containing "now" (the rightmost, in-progress bucket). */
   isCurrent: boolean;
+  /** True for read-time projected (forecast) buckets. */
+  isProjected?: boolean;
 }
 
 const MONTH_SHORT_PL = [
@@ -42,10 +44,15 @@ const MONTH_SHORT_PL = [
 ];
 
 function isoDate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
+}
+
+/** UTC-midnight ISO string for a given UTC timestamp. */
+function utcIso(ms: number): string {
+  return new Date(ms).toISOString();
 }
 
 /**
@@ -61,28 +68,72 @@ export function buildPeriodWindows(
   const windows: PeriodWindow[] = [];
   for (let i = count - 1; i >= 0; i--) {
     if (kind === "week") {
-      const start = new Date(ref);
-      start.setHours(0, 0, 0, 0);
-      start.setDate(start.getDate() - 6 - 7 * i);
-      const end = new Date(start);
-      end.setDate(end.getDate() + 7);
-      const dd = start.getDate();
-      const mm = String(start.getMonth() + 1).padStart(2, "0");
-      windows.push({ label: `${dd}.${mm}`, start: isoDate(start), end: isoDate(end) });
+      // Trailing 7-day window aligned to `ref` day, all in UTC.
+      const refMs = Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), ref.getUTCDate());
+      const startMs = refMs - (6 + 7 * i) * 86_400_000;
+      const endMs = startMs + 7 * 86_400_000;
+      const s = new Date(startMs);
+      const dd = s.getUTCDate();
+      const mm = String(s.getUTCMonth() + 1).padStart(2, "0");
+      windows.push({ label: `${dd}.${mm}`, start: isoDate(s), end: isoDate(new Date(endMs)) });
     } else if (kind === "month") {
-      const d = new Date(ref.getFullYear(), ref.getMonth() - i, 1);
-      const end = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+      const startMs = Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth() - i, 1);
+      const d = new Date(startMs);
+      const endMs = Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1);
       windows.push({
-        label: MONTH_SHORT_PL[d.getMonth()],
-        start: d.toISOString(),
-        end: end.toISOString(),
+        label: MONTH_SHORT_PL[d.getUTCMonth()],
+        start: utcIso(startMs),
+        end: utcIso(endMs),
       });
     } else {
-      const y = ref.getFullYear() - i;
+      const y = ref.getUTCFullYear() - i;
       windows.push({
         label: String(y),
-        start: new Date(y, 0, 1).toISOString(),
-        end: new Date(y + 1, 0, 1).toISOString(),
+        start: utcIso(Date.UTC(y, 0, 1)),
+        end: utcIso(Date.UTC(y + 1, 0, 1)),
+      });
+    }
+  }
+  return windows;
+}
+
+/**
+ * Build the next `count` period windows strictly AFTER the period containing
+ * `ref` (the in-progress current period), oldest-first. Mirrors the window math
+ * in `buildPeriodWindows` so past + forward windows tile without gaps/overlap.
+ */
+export function buildForwardPeriodWindows(
+  kind: PeriodKind,
+  count: number,
+  ref: Date = new Date()
+): PeriodWindow[] {
+  const windows: PeriodWindow[] = [];
+  for (let i = 1; i <= count; i++) {
+    if (kind === "week") {
+      // Current week = trailing 7 days ending today (start = today - 6).
+      // Forward week i starts at today - 6 + 7*i.
+      const refMs = Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), ref.getUTCDate());
+      const startMs = refMs + (-6 + 7 * i) * 86_400_000;
+      const endMs = startMs + 7 * 86_400_000;
+      const s = new Date(startMs);
+      const dd = s.getUTCDate();
+      const mm = String(s.getUTCMonth() + 1).padStart(2, "0");
+      windows.push({ label: `${dd}.${mm}`, start: isoDate(s), end: isoDate(new Date(endMs)) });
+    } else if (kind === "month") {
+      const startMs = Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth() + i, 1);
+      const d = new Date(startMs);
+      const endMs = Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1);
+      windows.push({
+        label: MONTH_SHORT_PL[d.getUTCMonth()],
+        start: utcIso(startMs),
+        end: utcIso(endMs),
+      });
+    } else {
+      const y = ref.getUTCFullYear() + i;
+      windows.push({
+        label: String(y),
+        start: utcIso(Date.UTC(y, 0, 1)),
+        end: utcIso(Date.UTC(y + 1, 0, 1)),
       });
     }
   }
