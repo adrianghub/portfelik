@@ -28,6 +28,30 @@ export type Database = {
   };
   public: {
     Tables: {
+      action_dismissals: {
+        Row: {
+          action_key: string;
+          created_at: string;
+          dismissed_until: string | null;
+          id: string;
+          user_id: string;
+        };
+        Insert: {
+          action_key: string;
+          created_at?: string;
+          dismissed_until?: string | null;
+          id?: string;
+          user_id?: string;
+        };
+        Update: {
+          action_key?: string;
+          created_at?: string;
+          dismissed_until?: string | null;
+          id?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       bank_accounts: {
         Row: {
           archived_at: string | null;
