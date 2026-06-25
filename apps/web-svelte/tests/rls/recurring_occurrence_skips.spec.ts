@@ -148,7 +148,9 @@ describe("RLS: recurring_occurrence_skips", () => {
   it("denies anon access", async () => {
     const anon = createAnonClient();
     const select = await anon.from("recurring_occurrence_skips").select("id").limit(1);
-    expect(select.error).toBeNull();
+    // The table grants no privileges to anon (Supabase Data API rollout), so CI/cloud
+    // returns a hard table-level denial (data null); local stacks that still default-grant
+    // anon instead let RLS hide rows to an empty set. Either way anon must read nothing.
     expect(select.data ?? []).toHaveLength(0);
 
     const insert = await anon.from("recurring_occurrence_skips").insert({
