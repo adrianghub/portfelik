@@ -50,6 +50,9 @@
   let sortDirection = $state<SortDirection>("desc");
 
   const isShared = (tx: TransactionWithCategory) => tx.group_id !== null;
+  const isProjected = (tx: TransactionWithCategory) => tx.projected === true;
+  const isRecurringOccurrence = (tx: TransactionWithCategory) =>
+    !!tx.recurring_template_id && !isProjected(tx);
 
   /** Whole-row "button" semantics conflict with nested settle/checkbox controls (axe nested-interactive). */
   function rowActsAsButton(tx: TransactionWithCategory): boolean {
@@ -238,6 +241,7 @@
             <li
               class={cn(
                 "rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3 backdrop-blur transition-colors",
+                isProjected(tx) && "border-sky-400/15 bg-sky-950/20",
                 onrowclick && "cursor-pointer hover:bg-white/5 active:scale-[0.99]",
                 selectedIds.has(tx.id) && "ring-2 ring-slate-400"
               )}
@@ -296,6 +300,21 @@
                   {#if tx.is_recurring}
                     <span class="ml-1 text-xs text-slate-400" aria-label="cykliczna">↻</span>
                   {/if}
+                  {#if isProjected(tx)}
+                    <span
+                      class="ml-1 inline-flex rounded-full border border-sky-400/20 bg-sky-400/10 px-1.5 py-0.5 text-[10px] font-normal text-sky-300"
+                      title={m.transactions_projected_hint()}
+                    >
+                      {m.transactions_recurring()} / {m.transactions_projected_badge()}
+                    </span>
+                  {:else if isRecurringOccurrence(tx)}
+                    <span
+                      class="ml-1 inline-flex rounded-full border border-emerald-400/20 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] font-normal text-emerald-300"
+                      title={m.transactions_recurring_occurrence_hint()}
+                    >
+                      {m.transactions_recurring()}
+                    </span>
+                  {/if}
                   {#if isShared(tx)}
                     <span
                       class="border-accent/20 bg-accent/10 text-accent ml-1 inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px]"
@@ -330,7 +349,7 @@
                 >
                   {statusLabel[tx.status] ?? tx.status}
                 </span>
-                {#if onsettle && isQuickSettleEligible(tx.status) && canManage(tx)}
+                {#if onsettle && !isProjected(tx) && isQuickSettleEligible(tx.status) && canManage(tx)}
                   <button
                     type="button"
                     onclick={(e) => {
@@ -455,6 +474,7 @@
             <tr
               class={cn(
                 "border-b border-white/5 transition-colors last:border-0 hover:bg-white/5",
+                isProjected(tx) && "bg-sky-950/15",
                 !!onrowclick && "cursor-pointer",
                 selectedIds.has(tx.id) && "bg-white/5"
               )}
@@ -505,6 +525,21 @@
                 {#if tx.is_recurring}
                   <span class="ml-1 text-xs text-slate-400" aria-label="cykliczna">↻</span>
                 {/if}
+                {#if isProjected(tx)}
+                  <span
+                    class="ml-1 inline-flex rounded-full border border-sky-400/20 bg-sky-400/10 px-1.5 py-0.5 text-[10px] font-normal text-sky-300"
+                    title={m.transactions_projected_hint()}
+                  >
+                    {m.transactions_recurring()} / {m.transactions_projected_badge()}
+                  </span>
+                {:else if isRecurringOccurrence(tx)}
+                  <span
+                    class="ml-1 inline-flex rounded-full border border-emerald-400/20 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] font-normal text-emerald-300"
+                    title={m.transactions_recurring_occurrence_hint()}
+                  >
+                    {m.transactions_recurring()}
+                  </span>
+                {/if}
                 {#if isShared(tx)}
                   <span
                     class="border-accent/20 bg-accent/10 text-accent ml-1 inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px]"
@@ -532,7 +567,7 @@
                 >
                   {statusLabel[tx.status] ?? tx.status}
                 </span>
-                {#if onsettle && isQuickSettleEligible(tx.status) && canManage(tx)}
+                {#if onsettle && !isProjected(tx) && isQuickSettleEligible(tx.status) && canManage(tx)}
                   <button
                     type="button"
                     onclick={(e) => {

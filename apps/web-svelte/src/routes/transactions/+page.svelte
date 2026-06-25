@@ -32,10 +32,21 @@
     deleteTransaction,
     deleteTransactions,
     fetchTransactionById,
+    fetchRecurringTemplates,
     fetchTransactions,
     updateTransactionsCategory,
     updateTransactionsStatus,
   } from "$lib/services/transactions";
+  import {
+    recurringProjectionsForTransactionRange,
+    shouldShowProjectedRows,
+  } from "$lib/services/transaction-projections";
+  import {
+    fetchRecurringOccurrenceSkips,
+    materializeRecurringOccurrencesForNearTerm,
+    nearTermRecurringWindow,
+    rememberRecurringOccurrenceSkip,
+  } from "$lib/services/recurring-occurrences";
   import { supabase } from "$lib/supabase";
   import { parseScopeFilter } from "$lib/utils/list-view-url";
   import { syncListViewUrl } from "$lib/utils/navigation";
@@ -232,6 +243,22 @@
   }));
   const linkedIds = $derived(linkedIdsQuery.data ?? new Set<string>());
 
+  const categoriesQuery = createQuery(() => ({
+    queryKey: ["categories"],
+    queryFn: fetchCategories,
+  }));
+
+  // "Inne" quick-view = the two per-user fallback categories import assigns to
+  // uncategorized rows ("Inne wydatki" / "Inne przychody"). Matched by name,
+  // mirroring commit_import_session's fallback resolution.
+  const inneCategoryIds = $derived(
+    new Set(
+      (categoriesQuery.data ?? [])
+        .filter((c) => c.name === "Inne wydatki" || c.name === "Inne przychody")
+        .map((c) => c.id)
+    )
+  );
+
   // filteredTxs: applies BOTH status filter AND group filter so it's the
   // canonical "what the user is looking at" set used by summary,
   // CategoryBreakdown, CSV export, etc.
@@ -253,11 +280,54 @@
     });
   });
 
+  const showProjectedRows = $derived(shouldShowProjectedRows(statusSet));
+
+  const recurringTemplatesQuery = createQuery(() => ({
+    queryKey: ["transactions", "recurring-templates"] as const,
+    queryFn: fetchRecurringTemplates,
+    enabled: showProjectedRows,
+  }));
+
+  const recurringSkipsQuery = createQuery(() => ({
+    queryKey: ["transactions", "recurring-skips", bounds.start, bounds.end] as const,
+    queryFn: () => fetchRecurringOccurrenceSkips(bounds.start, bounds.end),
+    enabled: showProjectedRows,
+  }));
+
+  const projectedTxs = $derived.by(() => {
+    if (!showProjectedRows || !txQuery.data) return [];
+    const templates = (recurringTemplatesQuery.data ?? []).filter((tx) => {
+      const matchType = !typeFilter || tx.type === typeFilter;
+      const matchCategory = !categoryId || tx.category_id === categoryId;
+      const matchGroup =
+        groupFilter === "all" ||
+        (groupFilter === "own" ? tx.group_id === null : tx.group_id === groupFilter);
+      const matchView =
+        viewFilter === "unlinked"
+          ? !linkedIds.has(tx.id)
+          : viewFilter === "inne"
+            ? inneCategoryIds.has(tx.category_id)
+            : true;
+      return matchType && matchCategory && matchGroup && matchView;
+    });
+    return recurringProjectionsForTransactionRange({
+      templates,
+      existing: txQuery.data,
+      skipped: recurringSkipsQuery.data ?? [],
+      start: bounds.start,
+      end: bounds.end,
+    });
+  });
+
+  const displayTxs = $derived(
+    filteredTxs ? [...filteredTxs, ...projectedTxs] : txQuery.data ? projectedTxs : undefined
+  );
+
   // visibleTxs adds the search filter on top - search is row-only UI sugar
   // so it deliberately doesn't affect totals.
   let searchQuery = $state("");
   const visibleTxs = $derived(
-    filteredTxs?.filter((tx) => {
+    displayTxs?.filter((tx) => {
       if (!searchQuery) return true;
       const q = searchQuery.toLowerCase();
       return (
@@ -294,6 +364,23 @@
     currentUserId = data.session?.user.id ?? null;
   });
 
+  const recurringMaterializationWindow = $derived(nearTermRecurringWindow());
+  let recurringMaterializationKey = $state("");
+
+  $effect(() => {
+    if (!currentUserId) return;
+    const key = `${currentUserId}:${recurringMaterializationWindow.start}:${recurringMaterializationWindow.end}`;
+    if (key === recurringMaterializationKey) return;
+    recurringMaterializationKey = key;
+    void materializeRecurringOccurrencesForNearTerm()
+      .then((count) => {
+        if (count > 0) {
+          void queryClient.invalidateQueries({ queryKey: ["transactions"] });
+        }
+      })
+      .catch((err) => toastError(err));
+  });
+
   let selectedIds = $state(new Set<string>());
 
   const groupRolesQuery = createQuery(() => ({
@@ -303,6 +390,7 @@
   }));
 
   function txCanManage(tx: TransactionWithCategory): boolean {
+    if (tx.projected) return false;
     if (!currentUserId) return false;
     return canManageTransaction(tx, currentUserId, groupRolesQuery.data ?? new Map());
   }
@@ -336,42 +424,26 @@
       : null
   );
 
-  const categoriesQuery = createQuery(() => ({
-    queryKey: ["categories"],
-    queryFn: fetchCategories,
-  }));
-
-  // "Inne" quick-view = the two per-user fallback categories import assigns to
-  // uncategorized rows ("Inne wydatki" / "Inne przychody"). Matched by name,
-  // mirroring commit_import_session's fallback resolution.
-  const inneCategoryIds = $derived(
-    new Set(
-      (categoriesQuery.data ?? [])
-        .filter((c) => c.name === "Inne wydatki" || c.name === "Inne przychody")
-        .map((c) => c.id)
-    )
-  );
-
   const filterCategories = $derived(
     categoriesQuery.data?.filter((c) => !typeFilter || c.type === typeFilter) ?? []
   );
 
   const tableEmptyLabel = $derived.by(() => {
     const base = txQuery.data ?? [];
-    if (searchQuery && (filteredTxs?.length ?? 0) > 0 && (visibleTxs?.length ?? 0) === 0) {
+    if (searchQuery && (displayTxs?.length ?? 0) > 0 && (visibleTxs?.length ?? 0) === 0) {
       return m.transactions_empty_search();
     }
-    if ((filteredTxs?.length ?? 0) === 0 && base.length > 0) {
+    if ((displayTxs?.length ?? 0) === 0 && base.length > 0) {
       return m.transactions_empty_filtered();
     }
     return emptyLabel;
   });
 
   const tableEmptyHint = $derived.by(() => {
-    if (searchQuery && (filteredTxs?.length ?? 0) > 0 && (visibleTxs?.length ?? 0) === 0) {
+    if (searchQuery && (displayTxs?.length ?? 0) > 0 && (visibleTxs?.length ?? 0) === 0) {
       return m.transactions_empty_search_hint();
     }
-    if ((filteredTxs?.length ?? 0) === 0 && (txQuery.data?.length ?? 0) > 0) {
+    if ((displayTxs?.length ?? 0) === 0 && (txQuery.data?.length ?? 0) > 0) {
       return m.transactions_empty_filtered_hint();
     }
     return m.transactions_empty_hint();
@@ -463,9 +535,14 @@
   }
 
   const deleteMutation = createMutation(() => ({
-    mutationFn: () => deleteTransaction(deleteTargetId!),
+    mutationFn: async () => {
+      const tx = txQuery.data?.find((row) => row.id === deleteTargetId);
+      if (tx) await rememberRecurringOccurrenceSkip(tx);
+      await deleteTransaction(deleteTargetId!);
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      await queryClient.invalidateQueries({ queryKey: ["transactions", "recurring-skips"] });
       toast.success(m.toast_transaction_deleted());
       deleteTargetId = null;
     },
@@ -473,10 +550,20 @@
   }));
 
   const bulkDeleteMutation = createMutation(() => ({
-    mutationFn: () => deleteTransactions(manageableSelectedIds()),
+    mutationFn: async () => {
+      const ids = manageableSelectedIds();
+      const byId = new Map((txQuery.data ?? []).map((tx) => [tx.id, tx]));
+      await Promise.all(
+        ids
+          .map((id) => byId.get(id))
+          .map((tx) => (tx ? rememberRecurringOccurrenceSkip(tx) : undefined))
+      );
+      await deleteTransactions(ids);
+    },
     onSuccess: async () => {
       const count = selectedIds.size;
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      await queryClient.invalidateQueries({ queryKey: ["transactions", "recurring-skips"] });
       toast.success(m.toast_transactions_bulk_deleted({ count }));
       selectedIds = new Set<string>();
       bulkDeleteConfirm = false;

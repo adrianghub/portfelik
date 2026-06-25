@@ -13,6 +13,7 @@
     updateTransactionsCategory,
   } from "$lib/services/transactions";
   import { createCategorizationRule, findRetroMatchIds } from "$lib/services/categorization-rules";
+  import { materializeRecurringOccurrencesForNearTerm } from "$lib/services/recurring-occurrences";
   import { suggestRuleFromRow } from "$lib/import/categorize";
   import type {
     RecurrenceFrequency,
@@ -120,7 +121,7 @@
       category_id = initial?.category_id ?? planContext?.categoryId ?? "";
       statusTouched = initial?.status != null;
       status = initial?.status ?? suggestStatusForDate(date);
-      is_recurring = initial?.is_recurring ?? false;
+      is_recurring = initial?.recurring_template_id ? false : (initial?.is_recurring ?? false);
       recurring_day = initial?.recurring_day ?? new Date().getDate();
       recurrence_frequency = initial?.recurrence_frequency ?? "monthly";
       recurrence_interval = initial?.recurrence_interval ?? 1;
@@ -150,6 +151,7 @@
   });
 
   const isEdit = $derived(!!initial);
+  const isRecurringOccurrenceEdit = $derived(!!initial?.recurring_template_id);
   const title = $derived(isEdit ? m.transaction_form_title_edit() : m.transaction_form_title_add());
 
   const mutation = createMutation(() => ({
@@ -162,7 +164,10 @@
       }
       return tx;
     },
-    onSuccess: async () => {
+    onSuccess: async (_tx, input) => {
+      if (input.is_recurring) {
+        await materializeRecurringOccurrencesForNearTerm();
+      }
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
       if (planContext) {
         await queryClient.invalidateQueries({ queryKey: ["plan-links", planContext.planId] });
@@ -251,8 +256,9 @@
         return;
       }
     }
+    const saveAsRecurring = is_recurring && !isRecurringOccurrenceEdit;
     const usesDay =
-      is_recurring && (recurrence_frequency === "monthly" || recurrence_frequency === "yearly");
+      saveAsRecurring && (recurrence_frequency === "monthly" || recurrence_frequency === "yearly");
     mutation.mutate({
       amount: parseFloat(amount),
       type,
@@ -261,13 +267,14 @@
       date,
       category_id,
       status,
-      is_recurring,
-      recurrence_frequency: is_recurring ? recurrence_frequency : null,
-      recurrence_interval: is_recurring ? Math.max(recurrence_interval, 1) : 1,
+      is_recurring: saveAsRecurring,
+      recurrence_frequency: saveAsRecurring ? recurrence_frequency : null,
+      recurrence_interval: saveAsRecurring ? Math.max(recurrence_interval, 1) : 1,
       recurring_day: usesDay ? recurring_day : null,
       recurrence_weekday:
-        is_recurring && recurrence_frequency === "weekly" ? recurrence_weekday : null,
-      recurrence_month: is_recurring && recurrence_frequency === "yearly" ? recurrence_month : null,
+        saveAsRecurring && recurrence_frequency === "weekly" ? recurrence_weekday : null,
+      recurrence_month:
+        saveAsRecurring && recurrence_frequency === "yearly" ? recurrence_month : null,
       group_id: group_id || null,
     });
   }
@@ -386,23 +393,25 @@
       </div>
     {/if}
 
-    <label class="flex cursor-pointer items-center gap-3 select-none">
-      <input type="checkbox" bind:checked={is_recurring} class="sr-only" />
-      <div
-        class="relative h-5 w-9 rounded-full transition-colors {is_recurring
-          ? 'bg-accent-gradient shadow-[0_0_12px_var(--color-accent-glow)]'
-          : 'bg-slate-700'}"
-      >
+    {#if !isRecurringOccurrenceEdit}
+      <label class="flex cursor-pointer items-center gap-3 select-none">
+        <input type="checkbox" bind:checked={is_recurring} class="sr-only" />
         <div
-          class="absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform {is_recurring
-            ? 'translate-x-4'
-            : 'translate-x-0'}"
-        ></div>
-      </div>
-      <span class="text-sm text-slate-200">{m.transaction_form_recurring()}</span>
-    </label>
+          class="relative h-5 w-9 rounded-full transition-colors {is_recurring
+            ? 'bg-accent-gradient shadow-[0_0_12px_var(--color-accent-glow)]'
+            : 'bg-slate-700'}"
+        >
+          <div
+            class="absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform {is_recurring
+              ? 'translate-x-4'
+              : 'translate-x-0'}"
+          ></div>
+        </div>
+        <span class="text-sm text-slate-200">{m.transaction_form_recurring()}</span>
+      </label>
+    {/if}
 
-    {#if is_recurring}
+    {#if is_recurring && !isRecurringOccurrenceEdit}
       <div class="space-y-3 rounded-xl border border-white/5 bg-slate-900/40 p-3">
         <!-- Frequency segmented control -->
         <div class="space-y-1">

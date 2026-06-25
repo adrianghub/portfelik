@@ -37,6 +37,7 @@ const SHARED_TX = {
   recurrence_weekday: null,
   recurrence_month: null,
   recurring_template_id: null,
+  recurring_occurrence_date: null,
   currency: "PLN",
   created_at: "2026-06-10T10:00:00Z",
   updated_at: "2026-06-10T10:00:00Z",
