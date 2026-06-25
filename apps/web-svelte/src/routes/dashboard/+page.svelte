@@ -3,11 +3,12 @@
   import { page } from "$app/stores";
   import TransactionTable from "$lib/components/transactions/TransactionTable.svelte";
   import DashboardImportHealth from "$lib/components/dashboard/DashboardImportHealth.svelte";
-  import DashboardAttention from "$lib/components/dashboard/DashboardAttention.svelte";
+  import DashboardActions from "$lib/components/dashboard/DashboardActions.svelte";
   import DashboardNetWorthStrip from "$lib/components/dashboard/DashboardNetWorthStrip.svelte";
   import DashboardPlanProgress from "$lib/components/dashboard/DashboardPlanProgress.svelte";
   import DashboardSpendingInsight from "$lib/components/dashboard/DashboardSpendingInsight.svelte";
   import SpendHistoryChart from "$lib/components/dashboard/charts/SpendHistoryChart.svelte";
+  import InfoTooltip from "$lib/components/ui/InfoTooltip.svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchProfile } from "$lib/services/profiles";
   import { fetchMyGroupRoles, fetchUserGroups } from "$lib/services/groups";
@@ -22,6 +23,7 @@
     updateTransactionsStatus,
   } from "$lib/services/transactions";
   import { computeSpendingInsight } from "$lib/services/spending-insight";
+  import { fetchRecurringOccurrenceSkips } from "$lib/services/recurring-occurrences";
   import { projectRecurringOccurrences } from "$lib/services/recurring-forecast";
   import {
     buildPeriodWindows,
@@ -99,13 +101,31 @@
   }
 
   /** Drill from a spend-history bar into that exact window's transactions. */
-  function selectHistoryPeriod(bucket: { start: string; end: string }): void {
+  function dateOnly(value: string): string {
+    return new Date(value).toISOString().slice(0, 10);
+  }
+
+  function previousDateOnly(value: string): string {
+    const d = new Date(value);
+    d.setUTCDate(d.getUTCDate() - 1);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function selectHistoryPeriod(bucket: {
+    start: string;
+    end: string;
+    isProjected?: boolean;
+  }): void {
     // bucket.end is exclusive; the transactions range wants an inclusive last day.
-    const endIncl = new Date(`${bucket.end}T00:00:00`);
-    endIncl.setDate(endIncl.getDate() - 1);
     const params = new URLSearchParams();
-    params.set("startDate", bucket.start);
-    params.set("endDate", toIsoDate(endIncl));
+    params.set("startDate", dateOnly(bucket.start));
+    params.set("endDate", previousDateOnly(bucket.end));
+    params.set("group", groupFilter);
+    params.set("type", "expense");
+    if (bucket.isProjected) {
+      params.set("status", "upcoming");
+      params.set("forecast", "recurring");
+    }
     goto(`/transactions?${params.toString()}`);
   }
 
@@ -327,12 +347,41 @@
     queryFn: fetchRecurringTemplates,
   }));
   const forwardWindows = $derived(buildForwardPeriodWindows(period, FORWARD_PERIODS));
+  const forwardBounds = $derived({
+    start: forwardWindows[0].start,
+    end: forwardWindows[forwardWindows.length - 1].end,
+  });
+  const forwardRealTxQuery = createQuery(() => ({
+    queryKey: [
+      "transactions",
+      "dashboard-forward-real",
+      period,
+      forwardBounds.start,
+      forwardBounds.end,
+    ] as const,
+    queryFn: () => fetchTransactions(forwardBounds.start, forwardBounds.end),
+  }));
+  const forwardRecurringSkipsQuery = createQuery(() => ({
+    queryKey: [
+      "transactions",
+      "dashboard-forward-recurring-skips",
+      forwardBounds.start,
+      forwardBounds.end,
+    ] as const,
+    queryFn: () => fetchRecurringOccurrenceSkips(forwardBounds.start, forwardBounds.end),
+  }));
   const projectedTxs = $derived.by(() => {
     const templates = scopeFilter(recurringTemplatesQuery.data ?? []);
     if (templates.length === 0 || forwardWindows.length === 0) return [];
     const spanStart = new Date().toISOString();
     const spanEnd = forwardWindows[forwardWindows.length - 1].end;
-    return projectRecurringOccurrences(templates, spanStart, spanEnd, scopedTxs);
+    return projectRecurringOccurrences(
+      templates,
+      spanStart,
+      spanEnd,
+      scopeFilter(forwardRealTxQuery.data ?? []),
+      forwardRecurringSkipsQuery.data ?? []
+    );
   });
   const forwardBuckets = $derived(
     bucketPeriodHistory(projectedTxs, forwardWindows).map((b) => ({ ...b, isProjected: true }))
@@ -487,32 +536,44 @@
         {formatCurrency(summary.net)}
       </p>
       {#if showForecastNote && forecastSummary}
-        <p class="relative mt-2 text-xs text-slate-400">
-          {m.summary_forecast_note()}: {formatCurrency(forecastSummary.net)}
+        <p class="relative mt-2 inline-flex items-center gap-1 text-xs text-slate-400">
+          <span>{m.summary_forecast_note()}: {formatCurrency(forecastSummary.net)}</span>
+          <InfoTooltip
+            label={m.summary_forecast_note()}
+            text={m.summary_forecast_info()}
+            side="bottom"
+          />
         </p>
       {/if}
 
       <div class="relative mt-5 grid grid-cols-3 gap-3 border-t border-white/5 pt-4">
         <a
           href={transactionsHref({ type: "income" })}
-          class="focus-visible:ring-accent min-w-0 rounded-xl px-1 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+          class="focus-visible:ring-accent grid min-w-0 grid-rows-[2rem_auto] rounded-xl px-1 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
         >
-          <p class="text-eyebrow text-slate-400">{m.summary_income()}</p>
+          <p class="text-eyebrow self-start text-slate-400">{m.summary_income()}</p>
           <p class="mt-1 truncate text-base font-semibold text-emerald-300 tabular-nums sm:text-lg">
             {formatCurrency(summary.total_income)}
           </p>
         </a>
         <a
           href={transactionsHref({ type: "expense" })}
-          class="focus-visible:ring-accent min-w-0 rounded-xl px-1 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+          class="focus-visible:ring-accent grid min-w-0 grid-rows-[2rem_auto] rounded-xl px-1 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
         >
-          <p class="text-eyebrow text-slate-400">{m.summary_expenses()}</p>
+          <p class="text-eyebrow self-start text-slate-400">{m.summary_expenses()}</p>
           <p class="mt-1 truncate text-base font-semibold text-rose-300 tabular-nums sm:text-lg">
             {formatCurrency(summary.total_expenses)}
           </p>
         </a>
-        <div class="min-w-0 px-1">
-          <p class="text-eyebrow text-slate-400">{m.summary_savings_ratio()}</p>
+        <div class="grid min-w-0 grid-rows-[2rem_auto] px-1">
+          <p class="text-eyebrow flex items-start gap-1 text-slate-400">
+            <span>{m.summary_savings_ratio()}</span>
+            <InfoTooltip
+              label={m.summary_savings_ratio()}
+              text={m.summary_savings_ratio_info()}
+              side="bottom"
+            />
+          </p>
           <p
             class={cn(
               "mt-1 text-base font-semibold tabular-nums sm:text-lg",
@@ -547,7 +608,12 @@
   <section class="mt-6">
     <h2 class="mb-2 text-sm font-medium text-slate-400">{m.dashboard_status_band()}</h2>
     <div class="grid gap-3 sm:grid-cols-2">
-      <DashboardAttention {userId} {overdueCount} />
+      <DashboardActions
+        {userId}
+        {overdueCount}
+        insight={spendingInsight}
+        periodKey={bounds.start}
+      />
       <DashboardImportHealth />
       <DashboardNetWorthStrip />
       <DashboardPlanProgress />
