@@ -16,7 +16,7 @@ function lastDayOfMonth(year: number, monthIdx: number): number {
 }
 
 /** Dedup key for an existing real row vs a generated occurrence. */
-function periodKey(freq: string, d: Date): string {
+export function recurringPeriodKey(freq: string, d: Date): string {
   if (freq === "monthly") return `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
   if (freq === "yearly") return String(d.getUTCFullYear());
   return isoDate(d); // daily/weekly: exact day
@@ -29,7 +29,11 @@ function periodKey(freq: string, d: Date): string {
  * runs in UTC so cursor dates compare apples-to-apples with the span bounds,
  * which `new Date("YYYY-MM-DD")` parses as UTC midnight regardless of host TZ.
  */
-function occurrenceDates(t: TransactionWithCategory, afterMs: number, beforeMs: number): Date[] {
+export function occurrenceDates(
+  t: TransactionWithCategory,
+  afterMs: number,
+  beforeMs: number
+): Date[] {
   const freq = t.recurrence_frequency;
   if (!t.is_recurring || !freq) return [];
   const interval = Math.max(1, t.recurrence_interval || 1);
@@ -129,7 +133,8 @@ export function projectRecurringOccurrences(
   templates: TransactionWithCategory[],
   spanStart: string,
   spanEnd: string,
-  existing: TransactionWithCategory[] = []
+  existing: TransactionWithCategory[] = [],
+  skipped: Array<{ recurring_template_id: string; occurrence_date: string }> = []
 ): TransactionWithCategory[] {
   const afterMs = new Date(spanStart).getTime();
   const beforeMs = new Date(spanEnd).getTime();
@@ -140,16 +145,26 @@ export function projectRecurringOccurrences(
     if (!r.recurring_template_id) continue;
     const freq = templates.find((t) => t.id === r.recurring_template_id)?.recurrence_frequency;
     if (!freq) continue;
-    taken.add(`${r.recurring_template_id}|${periodKey(freq, new Date(r.date))}`);
+    const occurrenceDate = r.recurring_occurrence_date ?? r.date;
+    taken.add(`${r.recurring_template_id}|${recurringPeriodKey(freq, new Date(occurrenceDate))}`);
+  }
+  for (const skip of skipped) {
+    const freq = templates.find((t) => t.id === skip.recurring_template_id)?.recurrence_frequency;
+    if (!freq) continue;
+    taken.add(
+      `${skip.recurring_template_id}|${recurringPeriodKey(freq, new Date(skip.occurrence_date))}`
+    );
   }
 
   const out: TransactionWithCategory[] = [];
   for (const t of templates) {
     const freq = t.recurrence_frequency;
     if (!freq) continue;
+    const templateDate = t.date.slice(0, 10);
     for (const d of occurrenceDates(t, afterMs, beforeMs)) {
-      if (taken.has(`${t.id}|${periodKey(freq, d)}`)) continue;
       const date = isoDate(d);
+      if (date === templateDate) continue;
+      if (taken.has(`${t.id}|${recurringPeriodKey(freq, d)}`)) continue;
       out.push({
         ...t,
         id: `projected:${t.id}:${date}`,
@@ -157,6 +172,7 @@ export function projectRecurringOccurrences(
         status: "upcoming",
         is_recurring: false,
         recurring_template_id: t.id,
+        recurring_occurrence_date: date,
         projected: true,
       });
     }

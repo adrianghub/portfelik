@@ -189,6 +189,15 @@
             {m.transactions_projected_detail_body()}
           </p>
         </div>
+      {:else if transaction.recurring_template_id}
+        <div class="rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3">
+          <p class="text-sm font-medium text-emerald-200">
+            {m.transactions_recurring_occurrence_detail_title()}
+          </p>
+          <p class="mt-1 text-xs leading-relaxed text-emerald-100/80">
+            {m.transactions_recurring_occurrence_detail_body()}
+          </p>
+        </div>
       {/if}
 
       <!-- Linked plan -->

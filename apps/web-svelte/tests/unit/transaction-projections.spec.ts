@@ -24,6 +24,7 @@ function tx(over: Partial<TransactionWithCategory> = {}): TransactionWithCategor
     recurrence_weekday: null,
     recurrence_month: null,
     recurring_template_id: null,
+    recurring_occurrence_date: null,
     group_id: null,
     created_at: "",
     updated_at: "",
@@ -66,7 +67,14 @@ describe("transaction projections", () => {
   it("dedupes against a real recurring occurrence already in the range", () => {
     const out = recurringProjectionsForTransactionRange({
       templates: [tx()],
-      existing: [tx({ id: "real-july", date: "2026-07-01", recurring_template_id: "tmpl-1" })],
+      existing: [
+        tx({
+          id: "real-july",
+          date: "2026-07-01",
+          recurring_template_id: "tmpl-1",
+          recurring_occurrence_date: "2026-07-01",
+        }),
+      ],
       start: "2026-07-01",
       end: "2026-08-01",
       now: new Date("2026-06-24T12:00:00Z"),

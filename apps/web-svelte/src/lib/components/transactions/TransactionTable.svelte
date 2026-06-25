@@ -51,6 +51,8 @@
 
   const isShared = (tx: TransactionWithCategory) => tx.group_id !== null;
   const isProjected = (tx: TransactionWithCategory) => tx.projected === true;
+  const isRecurringOccurrence = (tx: TransactionWithCategory) =>
+    !!tx.recurring_template_id && !isProjected(tx);
 
   /** Whole-row "button" semantics conflict with nested settle/checkbox controls (axe nested-interactive). */
   function rowActsAsButton(tx: TransactionWithCategory): boolean {
@@ -305,6 +307,13 @@
                     >
                       {m.transactions_recurring()} / {m.transactions_projected_badge()}
                     </span>
+                  {:else if isRecurringOccurrence(tx)}
+                    <span
+                      class="ml-1 inline-flex rounded-full border border-emerald-400/20 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] font-normal text-emerald-300"
+                      title={m.transactions_recurring_occurrence_hint()}
+                    >
+                      {m.transactions_recurring()}
+                    </span>
                   {/if}
                   {#if isShared(tx)}
                     <span
@@ -522,6 +531,13 @@
                     title={m.transactions_projected_hint()}
                   >
                     {m.transactions_recurring()} / {m.transactions_projected_badge()}
+                  </span>
+                {:else if isRecurringOccurrence(tx)}
+                  <span
+                    class="ml-1 inline-flex rounded-full border border-emerald-400/20 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] font-normal text-emerald-300"
+                    title={m.transactions_recurring_occurrence_hint()}
+                  >
+                    {m.transactions_recurring()}
                   </span>
                 {/if}
                 {#if isShared(tx)}

@@ -4,6 +4,7 @@
   import { scaleBand } from "d3-scale";
   import type { PeriodHistoryBucket } from "$lib/services/period-history";
   import { stackCategoryHistory } from "$lib/services/period-history";
+  import InfoTooltip from "$lib/components/ui/InfoTooltip.svelte";
   import { formatCurrency } from "$lib/utils";
   import * as m from "$lib/paraglide/messages";
 
@@ -78,7 +79,6 @@
         rule={false}
         onbarclick={(_e, detail) => {
           const label = String((detail?.data as { label?: unknown })?.label ?? "");
-          if (projectedLabels.has(label)) return;
           const bucket = bucketByLabel.get(label);
           if (bucket) onselectperiod?.(bucket);
         }}
@@ -95,18 +95,25 @@
             {@const typedScale = xScale as ReturnType<typeof scaleBand<string>>}
             {@const bandX = typedScale(firstProjectedLabel) ?? 0}
             {@const bandW = (typedScale.range?.()[1] ?? 0) - bandX}
-            <rect x={bandX} y={0} width={Math.max(0, bandW)} {height} class="fill-white/5" />
+            <rect
+              x={bandX}
+              y={0}
+              width={Math.max(0, bandW)}
+              {height}
+              class="pointer-events-none fill-white/5"
+            />
             <line
               x1={bandX}
               x2={bandX}
               y1={0}
               y2={height}
-              class="stroke-slate-600"
+              class="pointer-events-none stroke-slate-600"
               stroke-dasharray="3 3"
             />
-            <text x={bandX + 4} y={12} class="fill-slate-500 text-[9px]"
-              >{m.dashboard_forecast_now_divider()}</text
-            >
+            <text x={bandX + 4} y={12} class="pointer-events-none fill-slate-500 text-[9px]">
+              <title>{m.dashboard_now_divider_info()}</title>
+              {m.dashboard_forecast_now_divider()}
+            </text>
           {/if}
         </svelte:fragment>
 
@@ -159,11 +166,23 @@
         <span class="flex items-center gap-1.5 text-[11px] text-slate-400">
           <span class="size-2 rounded-full bg-white/20"></span>
           {m.dashboard_forecast_legend()}
+          <InfoTooltip
+            label={m.dashboard_forecast_legend()}
+            text={m.dashboard_forecast_info()}
+            side="top"
+          />
         </span>
       {/if}
     </div>
     {#if projectedLabels.size > 0}
-      <p class="mt-2 text-[11px] text-slate-500">{m.dashboard_forecast_caption()}</p>
+      <p class="mt-2 inline-flex items-center gap-1 text-[11px] text-slate-500">
+        <span>{m.dashboard_forecast_caption()}</span>
+        <InfoTooltip
+          label={m.dashboard_forecast_tooltip_tag()}
+          text={m.dashboard_now_divider_info()}
+          side="top"
+        />
+      </p>
     {/if}
   {:else if !browser}
     <div class="flex h-56 items-center justify-center text-xs text-slate-400">Ładowanie...</div>

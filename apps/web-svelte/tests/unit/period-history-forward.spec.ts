@@ -87,6 +87,7 @@ describe("UTC-consistency of period window bounds", () => {
       recurrence_weekday: null,
       recurrence_month: null,
       recurring_template_id: null,
+      recurring_occurrence_date: null,
       group_id: null,
       created_at: "",
       updated_at: "",

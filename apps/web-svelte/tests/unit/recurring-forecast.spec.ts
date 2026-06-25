@@ -22,6 +22,7 @@ function template(over: Partial<TransactionWithCategory> = {}): TransactionWithC
     recurrence_weekday: null,
     recurrence_month: null,
     recurring_template_id: null,
+    recurring_occurrence_date: null,
     group_id: null,
     created_at: "",
     updated_at: "",
@@ -81,7 +82,7 @@ describe("projectRecurringOccurrences — monthly", () => {
       "2026-01-15",
       "2026-04-15"
     );
-    expect(out.map((t) => t.date)).toEqual(["2026-01-31", "2026-02-28", "2026-03-31"]);
+    expect(out.map((t) => t.date)).toEqual(["2026-02-28", "2026-03-31"]);
   });
 });
 
@@ -154,11 +155,23 @@ describe("projectRecurringOccurrences — bounds, dedup, ledger exclusion", () =
     const real = template({
       id: "real-aug",
       recurring_template_id: "tmpl-1",
+      recurring_occurrence_date: "2026-08-10",
       date: "2026-08-10",
       projected: false,
     });
     const out = projectRecurringOccurrences([template()], SPAN_START, SPAN_END, [real]);
     expect(out.map((t) => t.date)).toEqual(["2026-07-10", "2026-09-10"]); // Aug folded
+  });
+
+  it("dedupes against skipped occurrence memory", () => {
+    const out = projectRecurringOccurrences(
+      [template()],
+      SPAN_START,
+      SPAN_END,
+      [],
+      [{ recurring_template_id: "tmpl-1", occurrence_date: "2026-08-10" }]
+    );
+    expect(out.map((t) => t.date)).toEqual(["2026-07-10", "2026-09-10"]);
   });
 
   it("projected rows are excluded from the ledger", () => {

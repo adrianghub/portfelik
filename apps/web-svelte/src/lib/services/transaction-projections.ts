@@ -26,12 +26,14 @@ export function shouldShowProjectedRows(statuses: Set<string> | null): boolean {
 export function recurringProjectionsForTransactionRange({
   templates,
   existing,
+  skipped = [],
   start,
   end,
   now = new Date(),
 }: {
   templates: TransactionWithCategory[];
   existing: TransactionWithCategory[];
+  skipped?: Array<{ recurring_template_id: string; occurrence_date: string }>;
   start: string;
   end: string;
   now?: Date;
@@ -40,7 +42,8 @@ export function recurringProjectionsForTransactionRange({
     templates,
     projectionSpanStart(start, now),
     end,
-    existing
+    existing,
+    skipped
   );
   const startKey = dateOnly(start);
   const endMs = new Date(end).getTime();

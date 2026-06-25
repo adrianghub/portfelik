@@ -24,6 +24,7 @@ function tx(
     recurrence_weekday: null,
     recurrence_month: null,
     recurring_template_id: null,
+    recurring_occurrence_date: null,
     group_id: null,
     created_at: "2026-06-10T00:00:00Z",
     updated_at: "2026-06-10T00:00:00Z",

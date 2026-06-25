@@ -41,6 +41,12 @@
     recurringProjectionsForTransactionRange,
     shouldShowProjectedRows,
   } from "$lib/services/transaction-projections";
+  import {
+    fetchRecurringOccurrenceSkips,
+    materializeRecurringOccurrencesForNearTerm,
+    nearTermRecurringWindow,
+    rememberRecurringOccurrenceSkip,
+  } from "$lib/services/recurring-occurrences";
   import { supabase } from "$lib/supabase";
   import { parseScopeFilter } from "$lib/utils/list-view-url";
   import { syncListViewUrl } from "$lib/utils/navigation";
@@ -282,6 +288,12 @@
     enabled: showProjectedRows,
   }));
 
+  const recurringSkipsQuery = createQuery(() => ({
+    queryKey: ["transactions", "recurring-skips", bounds.start, bounds.end] as const,
+    queryFn: () => fetchRecurringOccurrenceSkips(bounds.start, bounds.end),
+    enabled: showProjectedRows,
+  }));
+
   const projectedTxs = $derived.by(() => {
     if (!showProjectedRows || !txQuery.data) return [];
     const templates = (recurringTemplatesQuery.data ?? []).filter((tx) => {
@@ -301,6 +313,7 @@
     return recurringProjectionsForTransactionRange({
       templates,
       existing: txQuery.data,
+      skipped: recurringSkipsQuery.data ?? [],
       start: bounds.start,
       end: bounds.end,
     });
@@ -349,6 +362,23 @@
   onMount(async () => {
     const { data } = await supabase.auth.getSession();
     currentUserId = data.session?.user.id ?? null;
+  });
+
+  const recurringMaterializationWindow = $derived(nearTermRecurringWindow());
+  let recurringMaterializationKey = $state("");
+
+  $effect(() => {
+    if (!currentUserId) return;
+    const key = `${currentUserId}:${recurringMaterializationWindow.start}:${recurringMaterializationWindow.end}`;
+    if (key === recurringMaterializationKey) return;
+    recurringMaterializationKey = key;
+    void materializeRecurringOccurrencesForNearTerm()
+      .then((count) => {
+        if (count > 0) {
+          void queryClient.invalidateQueries({ queryKey: ["transactions"] });
+        }
+      })
+      .catch((err) => toastError(err));
   });
 
   let selectedIds = $state(new Set<string>());
@@ -505,9 +535,14 @@
   }
 
   const deleteMutation = createMutation(() => ({
-    mutationFn: () => deleteTransaction(deleteTargetId!),
+    mutationFn: async () => {
+      const tx = txQuery.data?.find((row) => row.id === deleteTargetId);
+      if (tx) await rememberRecurringOccurrenceSkip(tx);
+      await deleteTransaction(deleteTargetId!);
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      await queryClient.invalidateQueries({ queryKey: ["transactions", "recurring-skips"] });
       toast.success(m.toast_transaction_deleted());
       deleteTargetId = null;
     },
@@ -515,10 +550,20 @@
   }));
 
   const bulkDeleteMutation = createMutation(() => ({
-    mutationFn: () => deleteTransactions(manageableSelectedIds()),
+    mutationFn: async () => {
+      const ids = manageableSelectedIds();
+      const byId = new Map((txQuery.data ?? []).map((tx) => [tx.id, tx]));
+      await Promise.all(
+        ids
+          .map((id) => byId.get(id))
+          .map((tx) => (tx ? rememberRecurringOccurrenceSkip(tx) : undefined))
+      );
+      await deleteTransactions(ids);
+    },
     onSuccess: async () => {
       const count = selectedIds.size;
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      await queryClient.invalidateQueries({ queryKey: ["transactions", "recurring-skips"] });
       toast.success(m.toast_transactions_bulk_deleted({ count }));
       selectedIds = new Set<string>();
       bulkDeleteConfirm = false;
