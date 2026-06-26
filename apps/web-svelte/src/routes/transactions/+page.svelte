@@ -324,6 +324,15 @@
     filteredTxs ? [...filteredTxs, ...projectedTxs] : txQuery.data ? projectedTxs : undefined
   );
 
+  /** Summary/breakdown/export must match visible rows — including projected recurring. */
+  const accountedTxs = $derived.by(() => {
+    if (filteredTxs === undefined) return undefined;
+    if (showProjectedRows && projectedTxs.length > 0) {
+      return [...filteredTxs, ...projectedTxs];
+    }
+    return filteredTxs;
+  });
+
   // visibleTxs adds the search filter on top - search is row-only UI sugar
   // so it deliberately doesn't affect totals.
   let searchQuery = $state("");
@@ -418,10 +427,10 @@
 
   const summaryMode = $derived(statusSet ? ("filtered" as const) : ("ledger" as const));
   const summary = $derived(
-    filteredTxs
+    accountedTxs
       ? statusSet
-        ? computeSummary(filteredTxs)
-        : computeLedgerSummary(filteredTxs)
+        ? computeSummary(accountedTxs)
+        : computeLedgerSummary(filteredTxs ?? [])
       : null
   );
 
@@ -832,7 +841,8 @@
   }
 
   function handleExport() {
-    if (!filteredTxs?.length) return;
+    const rows = accountedTxs;
+    if (!rows?.length) return;
     const headers = [
       "date",
       "description",
@@ -843,7 +853,7 @@
       "is_recurring",
       "recurring_day",
     ];
-    const rows = filteredTxs.map((tx) =>
+    const csvRows = rows.map((tx) =>
       [
         tx.date,
         tx.description,
@@ -857,7 +867,7 @@
         .map(csvEscape)
         .join(",")
     );
-    const csv = [headers.join(","), ...rows].join("\n");
+    const csv = [headers.join(","), ...csvRows].join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -902,7 +912,7 @@
       >
         + {m.transaction_manual_add()}
       </button>
-      <TransactionDataActions exportDisabled={!filteredTxs?.length} onexport={handleExport} />
+      <TransactionDataActions exportDisabled={!accountedTxs?.length} onexport={handleExport} />
     </div>
   </div>
 
