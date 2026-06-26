@@ -149,7 +149,7 @@ test("far-future recurring forecast rows expose only scoped series actions", asy
 
   const row = desktopTable(page).locator("tbody tr").filter({ hasText: "Czynsz" });
   await expect(row).toBeVisible();
-  await expect(row.getByText("Cykliczne / Planowane")).toBeVisible();
+  await expect(row.getByLabel("cykliczna (prognoza)")).toBeVisible();
   await expect(row.getByRole("button", { name: "Oznacz jako zapłacone" })).toHaveCount(0);
 
   await row.click();
@@ -201,7 +201,7 @@ test("near-term recurring occurrence rows are manageable transactions", async ({
 
   const row = desktopTable(page).locator("tbody tr").filter({ hasText: "Czynsz" });
   await expect(row).toBeVisible();
-  await expect(row.getByText("Cykliczne")).toBeVisible();
+  await expect(row.getByLabel("cykliczna")).toBeVisible();
   await expect(row.getByRole("button", { name: "Oznacz jako zapłacone" })).toBeVisible();
 
   await row.click();

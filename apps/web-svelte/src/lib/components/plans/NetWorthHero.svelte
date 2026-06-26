@@ -54,7 +54,7 @@
     aria-label={m.plans_net_worth_title()}
   >
     <div class="flex items-start justify-between gap-3">
-      <div>
+      <div class="min-w-0">
         <p class="text-eyebrow text-slate-400">{m.plans_net_worth_title()}</p>
         <p
           class={cn(
@@ -64,7 +64,24 @@
         >
           {formatCurrency(summary.netWorth)}
         </p>
-        <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+        {#if summary.asOfDate}
+          <p class="mt-2 text-xs text-slate-500">
+            {m.plans_net_worth_subtitle({ date: formatDate(summary.asOfDate) })}
+          </p>
+        {/if}
+      </div>
+      <div class="flex shrink-0 flex-col items-end gap-3">
+        {#if onedit}
+          <button
+            type="button"
+            onclick={onedit}
+            class="focus-visible:ring-accent rounded-full border border-white/10 p-2 text-slate-400 hover:bg-white/5 hover:text-slate-100 focus-visible:ring-2 focus-visible:outline-none"
+            aria-label={m.plans_net_worth_edit()}
+          >
+            <Pencil size={16} aria-hidden="true" />
+          </button>
+        {/if}
+        <div class="flex flex-col items-end gap-1 text-sm">
           <span class="text-emerald-300 tabular-nums">
             {m.plans_net_worth_assets({ amount: formatCurrency(summary.totalAssets) })}
           </span>
@@ -74,22 +91,7 @@
             </span>
           {/if}
         </div>
-        {#if summary.asOfDate}
-          <p class="mt-2 text-xs text-slate-500">
-            {m.plans_net_worth_subtitle({ date: formatDate(summary.asOfDate) })}
-          </p>
-        {/if}
       </div>
-      {#if onedit}
-        <button
-          type="button"
-          onclick={onedit}
-          class="focus-visible:ring-accent shrink-0 rounded-full border border-white/10 p-2 text-slate-400 hover:bg-white/5 hover:text-slate-100 focus-visible:ring-2 focus-visible:outline-none"
-          aria-label={m.plans_net_worth_edit()}
-        >
-          <Pencil size={16} aria-hidden="true" />
-        </button>
-      {/if}
     </div>
 
     {#if assetSegments.length > 0 && stripTotal > 0}

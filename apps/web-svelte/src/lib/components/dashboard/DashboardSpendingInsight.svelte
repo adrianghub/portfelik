@@ -17,26 +17,16 @@
     categoryHref: (categoryId: string | null) => string;
   } = $props();
 
-  // Cap the treemap so tiny slivers stay legible. Fold the tail into a neutral
-  // "Pozostałe" bucket only when it collapses 2+ categories — a single overflow
-  // stays named (and never collides with the real "Inne wydatki" category).
-  const TREEMAP_TOP = 8;
-  const treemapCategories = $derived.by<TreemapCategory[]>(() => {
-    const cats = insight.categories.filter((c) => c.total > 0);
-    const toTile = (c: (typeof cats)[number]): TreemapCategory => ({
-      categoryId: c.categoryId,
-      name: c.name,
-      total: c.total,
-      deltaPct: insight.isFirstPeriod ? null : c.deltaPct,
-    });
-    if (cats.length <= TREEMAP_TOP + 1) return cats.map(toTile);
-    const top = cats.slice(0, TREEMAP_TOP).map(toTile);
-    const restTotal = cats.slice(TREEMAP_TOP).reduce((s, c) => s + c.total, 0);
-    if (restTotal > 0) {
-      top.push({ categoryId: null, name: "Pozostałe", total: restTotal, deltaPct: null });
-    }
-    return top;
-  });
+  const treemapCategories = $derived.by<TreemapCategory[]>(() =>
+    insight.categories
+      .filter((c) => c.total > 0)
+      .map((c) => ({
+        categoryId: c.categoryId,
+        name: c.name,
+        total: c.total,
+        deltaPct: insight.isFirstPeriod ? null : c.deltaPct,
+      }))
+  );
 
   const vsPrevLabel = $derived(
     period === "week"

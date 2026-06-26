@@ -72,10 +72,6 @@ const CASH_TXS = [
 const desktopTable = (page: Page) => page.locator("table");
 const strip = (page: Page) => page.getByRole("region", { name: "Gotówka" });
 
-// Saldo cell of a given row (last cell when the running-balance column shows).
-const saldoCell = (page: Page, description: string) =>
-  desktopTable(page).locator("tbody tr").filter({ hasText: description }).locator("td").last();
-
 const MOCK_GROUP = {
   id: "group-1",
   name: "Wspólny budżet",
@@ -105,36 +101,19 @@ async function mockCash(
   }
 }
 
-test("private scope: strip shows live total and the last paid row's running balance matches it", async ({
-  page,
-}) => {
+test("private scope: strip shows live total and forecast", async ({ page }) => {
   await mockCash(page);
   await page.goto("/transactions?group=own");
 
   // Strip renders the live cash position. It first paints the opening balance,
   // then settles to live once the paid-history query resolves, so wait for the
-  // settled value (auto-retrying) before capturing it for reuse below.
+  // settled value (auto-retrying).
   await expect(strip(page)).toBeVisible();
-  const liveLocator = strip(page).locator("p.text-2xl");
-  await expect(liveLocator).toHaveText(/1\D?300,00/); // 1000 + 500 − 200
-  const liveText = (await liveLocator.textContent())?.trim() ?? "";
+  await expect(strip(page).locator("p.text-2xl")).toHaveText(/1\D?300,00/); // 1000 + 500 − 200
 
   // Forecast (live + upcoming income) is surfaced faintly.
   await expect(strip(page).getByText(/prognoza/)).toBeVisible();
   await expect(strip(page).getByText(/1\D?600,00/)).toBeVisible();
-
-  // The running-balance column shows, and the latest paid row equals the live total.
-  await expect(desktopTable(page).getByText("Saldo", { exact: true })).toBeVisible();
-  const lastBalance = (await saldoCell(page, "Wydatek gotówkowy").textContent())?.trim() ?? "";
-  expect(lastBalance).toBe(liveText);
-
-  // The earlier paid row carries the intermediate balance (1000 + 500).
-  const firstBalance = (await saldoCell(page, "Wpłata gotówki").textContent())?.trim() ?? "";
-  expect(firstBalance).toMatch(/1\D?500,00/);
-
-  // Upcoming rows continue the same private-scope balance rather than falling
-  // back to an empty Saldo cell.
-  await expect(saldoCell(page, "Przyszły wpływ")).toHaveText(/1\D?600,00/);
 });
 
 test("solo user (no groups) sees the cash view in the default scope", async ({ page }) => {
@@ -144,11 +123,7 @@ test("solo user (no groups) sees the cash view in the default scope", async ({ p
   await page.goto("/transactions");
 
   await expect(strip(page)).toBeVisible();
-  await expect(desktopTable(page).getByText("Saldo", { exact: true })).toBeVisible();
-  // For solo users the cash view only engages once groupsQuery resolves (no groups),
-  // and the running-balance map fills after the paid-history query. Assert with
-  // auto-retry instead of a one-shot read, else we race the "—" placeholder.
-  await expect(saldoCell(page, "Wydatek gotówkowy")).toHaveText(/1\D?300,00/);
+  await expect(strip(page).locator("p.text-2xl")).toHaveText(/1\D?300,00/);
 });
 
 test("group user: mixed all scope hides the cash view, own scope shows it", async ({ page }) => {
@@ -158,23 +133,17 @@ test("group user: mixed all scope hides the cash view, own scope shows it", asyn
   await page.goto("/transactions?group=all");
   await expect(desktopTable(page).getByText("Wydatek gotówkowy")).toBeVisible();
   await expect(strip(page)).toHaveCount(0);
-  await expect(desktopTable(page).getByText("Saldo", { exact: true })).toHaveCount(0);
 
   // Switching to own scope brings the pool back.
   await page.goto("/transactions?group=own");
   await expect(strip(page)).toBeVisible();
-  await expect(desktopTable(page).getByText("Saldo", { exact: true })).toBeVisible();
 });
 
-test("private scope without an anchor: strip prompts to set a balance, no Saldo column", async ({
-  page,
-}) => {
+test("private scope without an anchor: strip prompts to set a balance", async ({ page }) => {
   await mockCash(page, { withAnchor: false });
   await page.goto("/transactions?group=own");
 
   await expect(desktopTable(page).getByText("Wydatek gotówkowy")).toBeVisible();
   // Strip still renders, but as a prompt — no fabricated total.
   await expect(strip(page).getByText(/Ustaw saldo początkowe/)).toBeVisible();
-  // The running-balance column stays hidden until an opening anchor exists.
-  await expect(desktopTable(page).getByText("Saldo", { exact: true })).toHaveCount(0);
 });

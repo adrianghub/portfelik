@@ -411,6 +411,23 @@
     buildRecurringSeriesList(recurringTemplatesQuery.data ?? []).length
   );
 
+  // "See all upcoming" must span the whole forecast horizon, not the dashboard's
+  // selected period — upcoming/overdue rows sit in future months and a week-wide
+  // window would land on an empty range.
+  const upcomingHref = $derived.by(() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = forwardWindows.length
+      ? previousDateOnly(forwardWindows[forwardWindows.length - 1].end)
+      : toIsoDate(now);
+    const p = new URLSearchParams();
+    p.set("startDate", toIsoDate(start));
+    p.set("endDate", end);
+    p.set("group", groupFilter);
+    p.set("status", "upcoming,overdue");
+    return `/transactions?${p.toString()}`;
+  });
+
   function openTransaction(tx: TransactionWithCategory) {
     goto(transactionsHref({ status: tx.status }));
   }
@@ -617,17 +634,7 @@
 
   <!-- Status band -->
   <section class="mt-6">
-    <div class="mb-2 flex items-center justify-between gap-2">
-      <h2 class="text-sm font-medium text-slate-400">{m.dashboard_status_band()}</h2>
-      {#if activeRecurringCount > 0}
-        <a
-          href="/recurring"
-          class="hover:text-accent text-xs font-medium text-slate-400 transition-colors"
-        >
-          {m.recurring_entry()} ({activeRecurringCount})
-        </a>
-      {/if}
-    </div>
+    <h2 class="mb-2 text-sm font-medium text-slate-400">{m.dashboard_status_band()}</h2>
     <div class="grid gap-3 sm:grid-cols-2">
       <DashboardActions
         {userId}
@@ -643,16 +650,23 @@
 
   <!-- Upcoming / overdue -->
   <div>
-    <div class="mb-2 flex items-center justify-between">
+    <div class="mb-2 flex items-center justify-between gap-2">
       <p class="text-eyebrow text-slate-400">{m.dashboard_upcoming_title()}</p>
-      {#if upcomingTxs.length > 0}
-        <a
-          href={transactionsHref({ status: "upcoming,overdue" })}
-          class="text-accent hover:text-accent text-xs font-medium"
-        >
-          {m.dashboard_upcoming_see_all()}
-        </a>
-      {/if}
+      <div class="flex items-center gap-3">
+        {#if activeRecurringCount > 0}
+          <a
+            href="/recurring"
+            class="hover:text-accent text-xs font-medium text-slate-400 transition-colors"
+          >
+            {m.recurring_entry()} ({activeRecurringCount})
+          </a>
+        {/if}
+        {#if upcomingTxs.length > 0}
+          <a href={upcomingHref} class="text-accent hover:text-accent text-xs font-medium">
+            {m.dashboard_upcoming_see_all()}
+          </a>
+        {/if}
+      </div>
     </div>
 
     {#if txQuery.isPending}
