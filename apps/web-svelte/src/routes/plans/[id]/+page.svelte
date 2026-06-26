@@ -12,6 +12,7 @@
   import DebtPlanDetail from "$lib/components/plans/DebtPlanDetail.svelte";
   import PlanForwardNav from "$lib/components/plans/PlanForwardNav.svelte";
   import SavePlanDetail from "$lib/components/plans/SavePlanDetail.svelte";
+  import QueryError from "$lib/components/ui/QueryError.svelte";
   import TransactionDialog, {
     type PlanTransactionContext,
   } from "$lib/components/transactions/TransactionDialog.svelte";
@@ -37,6 +38,7 @@
   import { cn, formatCurrency, formatDate } from "$lib/utils";
   import { navigateBack } from "$lib/utils/navigation";
   import { planSettleHref } from "$lib/utils/plan-routes";
+  import { toastError } from "$lib/toast-error";
   import {
     restoreScrollPosition,
     saveScrollPosition,
@@ -221,15 +223,15 @@
               expenses.map((tx) => ({ amount: tx.amount, date: tx.date }))
             );
             await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms", id] });
-          } catch {
-            toast.error(m.toast_error());
+          } catch (err) {
+            toastError(err);
             return;
           }
         }
       }
       toast.success(m.plan_settle_unlinked());
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 
   const confirmPaymentMutation = createMutation(() => ({
@@ -263,7 +265,7 @@
       await queryClient.invalidateQueries({ queryKey: ["plan-progress-list"] });
       await queryClient.invalidateQueries({ queryKey: ["plans"] });
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 
   const saveAdjustMutation = createMutation(() => ({
@@ -284,7 +286,7 @@
       await queryClient.invalidateQueries({ queryKey: ["plans"] });
       await queryClient.invalidateQueries({ queryKey: ["plan-progress-list"] });
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 
   const debtTermsMutation = createMutation(() => ({
@@ -294,7 +296,7 @@
       toast.success(m.plan_toast_updated());
       await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms", id] });
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 
   const debtPlanDatesMutation = createMutation(() => ({
@@ -315,7 +317,7 @@
       await queryClient.invalidateQueries({ queryKey: ["plans"] });
       await queryClient.invalidateQueries({ queryKey: ["plan-progress-list"] });
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 
   const syncBalanceMutation = createMutation(() => ({
@@ -327,7 +329,7 @@
       toast.success(m.plan_debt_sync_done());
       await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms", id] });
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 
   const refinanceMutation = createMutation(() => ({
@@ -351,7 +353,7 @@
       await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms-list"] });
       await goto(`/plans/${newPlanId}`);
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 </script>
 
@@ -368,7 +370,7 @@
       <div class="h-28 animate-pulse rounded-2xl bg-slate-800/70"></div>
     </div>
   {:else if planQuery.isError}
-    <p class="text-sm text-rose-600">{m.common_error_title()}</p>
+    <QueryError error={planQuery.error} onRetry={() => planQuery.refetch()} />
   {:else if planQuery.data}
     {@const plan = planQuery.data}
     <div class="flex items-start justify-between gap-3">

@@ -1,6 +1,6 @@
 # Product Direction
 
-Last updated: 2026-06-04
+Last updated: 2026-06-26
 
 Portfelik is an import-first personal finance PWA. It is not trying to become a
 manual bookkeeping spreadsheet with charts. The product should connect what
@@ -31,8 +31,8 @@ The product has five first-class modules:
 
 | Module         | Role                                                                                                         |
 | -------------- | ------------------------------------------------------------------------------------------------------------ |
-| **Pulpit**     | Shows the health of the current month: income, expenses, balance, largest categories, and plan progress.     |
-| **Transakcje** | The confirmed ledger of financial history. Imported and manual rows live here after they are accepted.       |
+| **Pulpit**     | Shows the health of the current month: income, expenses, balance, largest categories, plan progress, and deterministic action prompts. |
+| **Transakcje** | The confirmed ledger of financial history, upcoming obligations, recurring occurrences, and private cash-position context. |
 | **Import**     | Structured intake from bank files: parse, preview, categorize, handle duplicates, confirm, and commit.       |
 | **Plany**      | Future intent for `save` goals and `debt` loans; manual net-worth hero; settle by linking history transactions. |
 | **Ustawienia** | Categories, categorization rules, profile, groups, invitations, personalization, and account controls.       |
@@ -92,24 +92,42 @@ Future alerts should follow the same rule: they must help the user keep
 transactions, plans, groups, or settlement current, and they must be explainable
 from deterministic product state.
 
+Dashboard action cards follow the same rule. They are deterministic prompts over
+already-computed product state: overdue or stale-import attention, off-track save
+goals, spending anomalies, and settlement-ready plans. Dismissals are memory for
+attention surfaces, not financial truth.
+
+## Recurring Entries And Cash Position
+
+Recurring entries are manageable future intent, not hidden committed history.
+Near-term recurring occurrences can materialize as `upcoming` rows so users can
+edit, skip, settle, or end the series. Farther future periods remain read-time
+forecast. A skipped occurrence is remembered so sync does not recreate it.
+
+Cash position is derived from a scoped opening balance plus transaction rows.
+Private scope can show live paid balance and faint forecast balance; group/all
+scope remains deliberately conservative until shared cash semantics are designed
+end-to-end.
+
 ## Plans And Settlement
 
 User-facing list workflows have been replaced by first-class **Plans**. A plan
-describes future intent with a required period (`start_date` / `end_date`) and
-an optional budget. It should not create financial truth by default. The primary
-settlement flow is:
+describes future intent with a required period (`start_date` / `end_date`).
+Current user-facing kinds are saving goals (`save`) and loans (`debt`); old
+budget/outflow `spend` plans are retired. Plans should not create financial
+truth by default. The primary settlement flow is:
 
 ```mermaid
 flowchart LR
-  Plan[Plan<br/>Wakacje 3000 zl<br/>1-14 lip] --> Link[Zrealizuj plan]
-  Tx1[Imported expense<br/>Booking] --> Link
-  Tx2[Imported income<br/>Premia] --> Link
-  Link --> Progress[Progress<br/>wydano / wplywy / pozostalo / bilans]
+  Plan[Plan<br/>Cel oszczędzania albo kredyt] --> Link[Zrealizuj plan]
+  Tx1[Imported expense<br/>Rata] --> Link
+  Tx2[Imported income<br/>Wpłata na cel] --> Link
+  Link --> Progress[Progress<br/>wpłacono / spłacono / pozostało]
 ```
 
-MVP+ settlement direction:
+Current settlement direction:
 
-- A plan can link to many expense and income transactions.
+- Saving goals link income transactions; loans link expense transactions.
 - A transaction belongs to at most one plan until split allocation is explicitly
   designed.
 - Use the dedicated `plans` + `plan_transaction_links` model for settlement.
@@ -180,9 +198,9 @@ by plan kind.
 
 | Stage     | Product scope                                                                                                                                                                              |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **MVP**   | Pulpit, Transakcje, Import CSV, Plany on current compatibility storage, Ustawienia, groups/invites, categories, rules, privacy/regulatory basics.                                          |
-| **MVP+**  | Manual plan-to-transaction linking, plan progress, import as first-class module, manual transactions clearly secondary, shared plan settlement scope rules, group co-owner role direction, **save/debt plan kinds inside Plany** (see `debt-and-savings-goals.md`). |
-| **V1**    | Deterministic plan matching: suggestions, score, reasons, accepted/rejected memory.                                                                                                        |
+| **MVP**   | Pulpit, Transakcje, Import CSV, first-class Plany, Ustawienia, groups/invites, categories, rules, privacy/regulatory basics.                                                               |
+| **MVP+**  | Manual plan-to-transaction linking, plan progress, import as first-class module, manual transactions clearly secondary, shared plan settlement scope rules, group co-owner role direction, save/debt plan kinds, derived cash position, and actionable recurring occurrences. |
+| **V1**    | Deterministic plan matching and attention surfaces: suggestions, score, reasons, accepted/rejected/dismissed memory.                                                                       |
 | **Later** | Future product paths after the deterministic trust fixes: deeper automation, quiet gamification, split allocations, durable offline write outbox, AI explanations/proposals, net-worth snapshot hub, Belka in invest compare, deeper observability. |
 
 ## Design Bar

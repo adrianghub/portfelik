@@ -29,7 +29,7 @@ The legacy app used TanStack Query against Firestore service classes and was hap
 
 - Components use `createQuery` for reads, `createMutation` for writes.
 - **`createMutation` is not a Svelte store.** Access fields directly: `mutation.isPending`, `mutation.mutate(...)`. **Never** `$mutation.xxx`. Captured in `.claude/rules/svelte-gotchas.md`.
-- Query keys follow consistent shapes: `['transactions', start, end, categoryId?]`, `['shopping-list', id]`, `['profile', userId]`, `['user-groups']`, `['notifications']`.
+- Query keys follow consistent shapes: `['transactions', start, end, categoryId?]`, `['plans']`, `['plan', id]`, `['plan-progress', id]`, `['profile', userId]`, `['user-groups']`, `['notifications']`.
 - After a mutation succeeds, the calling component invalidates only the keys it changed.
 
 ## Consequences

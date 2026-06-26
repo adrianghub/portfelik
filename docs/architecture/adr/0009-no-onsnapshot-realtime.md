@@ -28,12 +28,12 @@ Supabase has Realtime (logical replication → WebSocket fan-out), which is the 
 
 **Bad**
 
-- Two browsers belonging to the same user (e.g. desktop + phone) do not see each other's changes until staleTime expires or a refetch fires. For a personal-finance PWA used by one person at a time, this is fine. For shared-group editing (two users editing the same shopping list simultaneously), the lag matters more - but in practice each user mostly edits in their own window and our consistency is "eventually-correct within ~5 minutes".
+- Two browsers belonging to the same user (e.g. desktop + phone) do not see each other's changes until staleTime expires or a refetch fires. For a personal-finance PWA used by one person at a time, this is fine. For shared-group editing (two users editing the same plan or transaction simultaneously), the lag matters more - but in practice each user mostly edits in their own window and our consistency is "eventually-correct within ~5 minutes".
 - Notifications appear in the bell on the next refetch, not instantly. Push covers the urgent path.
 
 **Neutral**
 
-- We can add Realtime to one specific feature in the future without changing this decision globally - e.g. shared shopping list collaboration, if it ever becomes a problem.
+- We can add Realtime to one specific feature in the future without changing this decision globally - e.g. shared plan or transaction collaboration, if it ever becomes a problem.
 
 ## Alternatives considered
 
