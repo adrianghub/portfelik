@@ -26,8 +26,10 @@ User decisions:
   loaded with the template (not a duplicated inline form).
 - Ship as one increment.
 - Delete scopes: *To wystąpienie* + *To i przyszłe* only (not *Cała seria*).
-- Edit scopes: *To wystąpienie* + *Cała seria* only (no this-and-following
-  split / series lineage in v1).
+- Edit scopes: *To wystąpienie* + *Cała seria* only. Edit "this and following"
+  is **won't-do** (delete-and-recreate covers it).
+- Forecast running balance is private-scope only; group-scope cash position
+  (live + forecast together) is deferred to a separate Spec 3.
 
 ## Current state (verified)
 
@@ -172,6 +174,14 @@ mirroring the existing delete-occurrence flow.
   carry/require it (ignored on non-template rows).
 
 ## Out of scope
-- Edit "this and following" (series split / lineage) — deferred.
+- Edit "this and following" (series split / lineage) — **won't do**. The
+  delete-series-and-recreate flow covers this need; not worth the lineage
+  complexity.
 - Full-history series delete ("Cała seria incl. past").
-- Group-scope forecast running balance (private only in v1).
+- Group-scope cash position — **deferred to Spec 3**. Today both the live `Saldo`
+  column and the cash strip are private-only; this is a UI wiring gap, not a
+  data-model limit (`cash_positions` already supports group scope with
+  member-read RLS from Phase A). Live + forecast running balance must share the
+  same scope rules, so group support is a separate increment that brings group
+  scope to both together — not a Spec 2 sub-feature. Spec 2 forecast balance
+  stays private-only to scope-match the existing column.
