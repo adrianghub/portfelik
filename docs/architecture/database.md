@@ -314,7 +314,7 @@ history rows through `plan_transaction_links`.
   `category_id` (SET NULL).
 - **`kind`**: `save` (accumulation goals) or `debt` (loan repayment). No database
   default; callers must choose a kind. Migration:
-  `20260715000000_remove_spend_plans.sql` removed the old budget/outflow
+  `20260718000000_remove_spend_plans.sql` removed the old budget/outflow
   `spend` kind.
 - **`budget_amount`**: retained nullable legacy column; unused by current UI.
 - **`target_amount`**: required for `save`; optional payoff framing for `debt`.
