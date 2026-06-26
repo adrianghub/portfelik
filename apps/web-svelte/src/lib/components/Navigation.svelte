@@ -6,6 +6,7 @@
   import type { Profile } from "$lib/types";
   import type { User } from "@supabase/supabase-js";
   import * as m from "$lib/paraglide/messages";
+  import { avatarSrc } from "$lib/theme/avatar-presets";
   import { LayoutDashboard, Wallet, Target, Settings, ShieldCheck, LogOut } from "lucide-svelte";
   import NotificationsPopover from "$lib/components/ui/NotificationsPopover.svelte";
   import { MediaQuery } from "svelte/reactivity";
@@ -41,6 +42,10 @@
 
   const avatarUrl = $derived<string | null>(
     (user?.user_metadata?.avatar_url as string | undefined) ?? null
+  );
+  // Fallback chain: preset avatar → OAuth photo → initials.
+  const avatarImg = $derived<string | null>(
+    avatarSrc(profile?.settings?.avatarPresetId) ?? avatarUrl
   );
   const initials = $derived.by(() => {
     const source = profile?.name?.trim() || profile?.email || user?.email || "";
@@ -153,9 +158,9 @@
       aria-label={email || "Account"}
       class="focus-visible:ring-accent relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-slate-800 text-xs font-semibold text-slate-100 transition-colors hover:border-white/20 focus-visible:ring-2 focus-visible:outline-none"
     >
-      {#if avatarUrl}
+      {#if avatarImg}
         <img
-          src={avatarUrl}
+          src={avatarImg}
           alt=""
           class="h-full w-full object-cover"
           referrerpolicy="no-referrer"
@@ -186,8 +191,8 @@
     aria-label={email || "Account"}
     class="focus-visible:ring-accent relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-slate-800 text-xs font-semibold text-slate-100 transition-colors hover:border-white/20 focus-visible:ring-2 focus-visible:outline-none"
   >
-    {#if avatarUrl}
-      <img src={avatarUrl} alt="" class="h-full w-full object-cover" referrerpolicy="no-referrer" />
+    {#if avatarImg}
+      <img src={avatarImg} alt="" class="h-full w-full object-cover" referrerpolicy="no-referrer" />
     {:else}
       <span aria-hidden="true">{initials}</span>
     {/if}
