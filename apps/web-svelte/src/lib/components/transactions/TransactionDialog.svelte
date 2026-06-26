@@ -14,6 +14,7 @@
   } from "$lib/services/transactions";
   import { createCategorizationRule, findRetroMatchIds } from "$lib/services/categorization-rules";
   import { materializeRecurringOccurrencesForNearTerm } from "$lib/services/recurring-occurrences";
+  import { dayAfter, removeFutureMaterializedOccurrences } from "$lib/services/recurring-series";
   import { suggestRuleFromRow } from "$lib/import/categorize";
   import type {
     RecurrenceFrequency,
@@ -167,6 +168,9 @@
       return tx;
     },
     onSuccess: async (_tx, input) => {
+      if (isEdit && input.is_recurring && input.recurrence_end_date) {
+        await removeFutureMaterializedOccurrences(initial!.id, dayAfter(input.recurrence_end_date));
+      }
       if (input.is_recurring) {
         await materializeRecurringOccurrencesForNearTerm();
       }
