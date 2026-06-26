@@ -65,7 +65,6 @@ interface RecurringSuggestion {
   signature: string;        // stable: `${type}|${normalizedCounterparty}`
   counterparty: string;     // display (representative raw counterparty)
   type: "income" | "expense";
-  categoryId: string;       // anchor's category
   amount: number;           // representative (median of |amount|)
   frequency: "weekly" | "monthly";
   interval: number;         // 1 (v1 only emits interval 1)
@@ -89,8 +88,7 @@ Algorithm (all UTC, pure; `now` injectable):
      if CV > 0.15 (amounts not stable enough).
    - Infer `recurringDay` (monthly: most common day-of-month) or
      `recurrenceWeekday` (weekly: most common ISO weekday).
-   - `amount` = median of `|amount|`; `anchorTxId` = most recent row's id;
-     `categoryId` = anchor's category.
+   - `amount` = median of `|amount|`; `anchorTxId` = most recent row's id.
 4. Exclude groups whose signature is in `decided`, or already covered by an
    existing template (a template row with the same signature, or any input row
    carrying `recurring_template_id`).
@@ -106,20 +104,24 @@ create table public.suggestion_events (
   user_id     uuid not null default auth.uid() references auth.users(id) on delete cascade,
   kind        text not null,            -- 'recurring_detected' (more in later slices)
   signature   text not null,            -- pattern identity; suppresses re-suggestion
-  payload     jsonb not null default '{}'::jsonb,
-  confidence  int,
+  confidence  int,                      -- recorded for the audit trail
   decision    text not null check (decision in ('accepted','rejected')),
-  reversal    jsonb,                    -- undo handle (anchor tx id + prior recurrence state)
   created_at  timestamptz not null default now(),
   constraint suggestion_events_user_kind_sig_unique unique (user_id, kind, signature)
 );
 alter table public.suggestion_events enable row level security;
--- owner-only select/insert/delete; no update needed (decision is terminal,
--- undo deletes the row). Narrow grants to authenticated.
+-- owner-only select/insert/delete; no update (decision is terminal; undo deletes
+-- the row). Narrow grants to authenticated.
 ```
 RLS: owner-only (`user_id = auth.uid()`) for select/insert/delete. Grant
 select/insert/delete to authenticated. The unique constraint makes a decision
 idempotent and is the suppression key.
+
+The row is the audit record (who decided what, when, at what confidence) **and**
+the suppression key. The undo handle is NOT persisted — it is returned in-memory
+by `acceptRecurringSuggestion` for the toast (YAGNI: no undo-history UI in v1;
+after the toast the item is a normal series managed via Spec 2). `signature`
+(`type|normalizedCounterparty`) is the human-readable "what was suggested".
 
 Note: the audit-event `kind` (`'recurring_detected'`) is a distinct namespace
 from the dashboard **action** kind (`'recurring_suggested'`, §4). The event
@@ -129,21 +131,22 @@ records what was decided; the action kind drives card rendering.
 - `fetchDecidedSuggestions(kind): Promise<Set<string>>` — signatures with an
   existing event for `kind` (feeds the detector's `decided`).
 - `acceptRecurringSuggestion(s: RecurringSuggestion): Promise<SuggestionReversal>`
-  - Read the anchor tx's current recurrence fields (prior state) for `reversal`.
+  - Read the anchor tx's current recurrence fields (prior state) — held in the
+    returned reversal handle, NOT persisted.
   - Update the anchor tx: `is_recurring=true`, `recurrence_frequency`,
     `recurrence_interval=1`, `recurring_day`/`recurrence_weekday`,
     `recurrence_month=null`, `recurrence_end_date=null`.
   - `materializeRecurringOccurrencesForNearTerm()` (existing) so the next
     occurrence appears.
-  - Insert `suggestion_events` row: `decision='accepted'`, `payload` (signature,
-    counterparty, amount, cadence, anchorTxId), `confidence`, `reversal`
-    (`{anchorTxId, prior}`).
-  - Return the reversal handle for the undo toast.
+  - Insert `suggestion_events` row: `kind='recurring_detected'`, `signature`,
+    `confidence`, `decision='accepted'`.
+  - Return `SuggestionReversal = { signature, anchorTxId, prior }` for the toast.
 - `rejectRecurringSuggestion(s): Promise<void>` — insert `decision='rejected'`
   event (no mutation).
 - `undoRecurringAcceptance(reversal): Promise<void>` — restore the anchor tx's
   prior recurrence fields, `removeFutureMaterializedOccurrences(anchorTxId, today)`
-  (reuse Spec 2), delete the `suggestion_events` row.
+  (reuse Spec 2), delete the `suggestion_events` row for that signature (so the
+  pattern is un-decided and can surface again).
 
 Accept flags the most-recent matching transaction as the template (no new row,
 no history duplication); undo reverts it cleanly. All writes pass `user_id`
@@ -163,17 +166,19 @@ implicitly via RLS default / existing update RLS.
   Both optimistically remove the card and invalidate `["transactions"]`,
   `["suggestion-events"]`, and the dashboard queries. Existing deep-link/dismiss
   cards are unchanged.
-- The dashboard page wires the detector: a pure `$derived` over the already
-  fetched rolling/history private paid rows + `recurringTemplatesQuery` +
-  `fetchDecidedSuggestions`.
+- The dashboard page wires the detector: a pure `$derived` over a dedicated
+  180-day private paid query + `recurringTemplatesQuery` +
+  `fetchDecidedSuggestions('recurring_detected')`.
 
 ### 5. Confidence (deterministic) — in `recurring-detect.ts`
-`confidence(occurrences, cv, cadenceRegularity): number` → 0–100:
-- occurrences: 3→60, 4→70, 5→78, 6+→85 (capped contribution).
-- amount stability: `+ (1 - min(cv/0.15, 1)) * 10`.
-- cadence regularity: gap stdev/median → `+ (1 - min(ratio, 1)) * 5`.
-- Clamp to [0,100]; floor 60 (below → not surfaced). Stored in the audit row
-  for later tuning. Monotonic in occurrences and stability (unit-tested).
+`confidence(occurrences, cv): number` → 0–100, kept simple (KISS):
+- base from occurrences: `min(85, 50 + occurrences * 6)` (3→68, 5→80, 6+→85).
+- variance penalty: `- round((min(cv, 0.15) / 0.15) * 15)` (stable→0, at the CV
+  cutoff→−15).
+- clamp [0,100]; floor 60 (below → not surfaced).
+- Monotonic: rises with occurrences, falls with variance (unit-tested). Recorded
+  in the audit row. Two inputs only — no cadence-regularity term (it never moved
+  the needle past the cadence gate in §1).
 
 ### 6. Scope + suppression
 - Private only: `group_id === null`, paid rows. Group scope deferred.
@@ -216,10 +221,9 @@ relevant, mirroring existing mutation patterns.
 - Accept flips an existing historical tx to a template; undo must fully restore
   prior recurrence state (capture it before mutating) and remove materialized
   rows. Unit/E2E pin the round-trip.
-- Detection runs client-side over already-fetched rows; if the dashboard's
-  lookback window is shorter than 180 days, extend that query or detect over a
-  dedicated lookback query (decide in the plan; prefer reusing fetched rows if
-  the window already covers ≥180 days, else add one private lookback query).
+- Detection runs client-side over a dedicated 180-day private paid query (one
+  `createQuery`, cached), not whatever the dashboard happens to fetch — so the
+  detector's window is explicit and independent of dashboard changes.
 
 ## Out of scope
 - Domain B (category-rule suggestions) and Domain C (settlement surfacing).
