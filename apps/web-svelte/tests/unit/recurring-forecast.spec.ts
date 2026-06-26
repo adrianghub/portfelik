@@ -23,6 +23,7 @@ function template(over: Partial<TransactionWithCategory> = {}): TransactionWithC
     recurrence_month: null,
     recurring_template_id: null,
     recurring_occurrence_date: null,
+    recurrence_end_date: null,
     group_id: null,
     created_at: "",
     updated_at: "",
