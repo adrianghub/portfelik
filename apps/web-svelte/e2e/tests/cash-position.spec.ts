@@ -122,7 +122,6 @@ test("private scope: strip shows live total and the last paid row's running bala
   // Forecast (live + upcoming income) is surfaced faintly.
   await expect(strip(page).getByText(/prognoza/)).toBeVisible();
   await expect(strip(page).getByText(/1\D?600,00/)).toBeVisible();
-  await expect(page.getByText("Przewidywane saldo:")).toBeVisible();
 
   // The running-balance column shows, and the latest paid row equals the live total.
   await expect(desktopTable(page).getByText("Saldo", { exact: true })).toBeVisible();

@@ -1073,5 +1073,19 @@
   "dashboard_balance_all_link": "Wszystkie transakcje",
   "dashboard_savings_na": "Brak przychodów",
   "dashboard_spending_empty": "Zaimportuj lub dodaj transakcje, by zobaczyć, gdzie idą pieniądze.",
-  "dashboard_status_band": "Status"
+  "dashboard_status_band": "Status",
+  "recurring_page_title": "Transakcje cykliczne",
+  "recurring_page_subtitle": "Twoje aktywne serie. Edytuj lub zakończ.",
+  "recurring_next": "następne",
+  "recurring_range": "zakres",
+  "recurring_open_ended": "bezterminowo",
+  "recurring_scope_private": "Prywatne",
+  "recurring_scope_shared": "Wspólne",
+  "recurring_action_edit": "Edytuj serię",
+  "recurring_action_end": "Zakończ od dziś",
+  "recurring_end_confirm": "Zakończyć tę serię od dziś? Przyszłe wystąpienia znikną; historia zostaje.",
+  "recurring_empty": "Nie masz aktywnych transakcji cyklicznych.",
+  "recurring_empty_hint": "Serię tworzysz, oznaczając transakcję jako cykliczną.",
+  "recurring_ended_toast": "Serię zakończono.",
+  "recurring_entry": "Cykliczne"
 }

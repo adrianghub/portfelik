@@ -2,6 +2,8 @@ import { supabase } from "$lib/supabase";
 import type { TransactionWithCategory } from "$lib/types";
 import { rememberRecurringOccurrenceSkip } from "$lib/services/recurring-occurrences";
 import { deleteTransaction } from "$lib/services/transactions";
+import { occurrenceDates } from "$lib/services/recurring-forecast";
+import { recurrenceSummary } from "$lib/recurrence";
 
 /** Date-only YYYY-MM-DD, one UTC day before the given ISO date. */
 export function dayBefore(iso: string): string {
@@ -116,4 +118,80 @@ export async function materializeOccurrence(opts: {
     .single();
   if (fetchErr) throw fetchErr;
   return row as TransactionWithCategory;
+}
+
+export interface RecurringSeriesSummary {
+  id: string;
+  title: string;
+  type: "income" | "expense";
+  amount: number;
+  categoryName: string;
+  groupId: string | null;
+  cadence: string;
+  nextDate: string | null;
+  startDate: string;
+  endDate: string | null;
+}
+
+const DAY_MS = 86_400_000;
+
+/** Active = a generating template whose end date (if any) has not passed. */
+export function isActiveRecurringSeries(t: TransactionWithCategory, today: string): boolean {
+  if (!t.is_recurring || !t.recurrence_frequency) return false;
+  return t.recurrence_end_date == null || t.recurrence_end_date >= today;
+}
+
+/** Display summary for one recurring template. Pure; `now` injectable. */
+export function summarizeRecurringSeries(
+  t: TransactionWithCategory,
+  now: Date = new Date()
+): RecurringSeriesSummary {
+  const today = now.toISOString().slice(0, 10);
+  const todayMs = new Date(`${today}T00:00:00.000Z`).getTime();
+  // occurrenceDates is exclusive on its lower bound, so start a day before today
+  // to include an occurrence landing exactly today; look ~13 months ahead.
+  const upcoming = occurrenceDates(t, todayMs - DAY_MS, todayMs + 400 * DAY_MS);
+  // Filter out next dates that are after the series end date
+  let nextDate: string | null = null;
+  if (upcoming.length > 0) {
+    const candidate = upcoming[0].toISOString().slice(0, 10);
+    if (!t.recurrence_end_date || candidate <= t.recurrence_end_date) {
+      nextDate = candidate;
+    }
+  }
+  return {
+    id: t.id,
+    title: t.counterparty?.trim() || t.description,
+    type: t.type,
+    amount: Math.abs(Number(t.amount)),
+    categoryName: t.category_name,
+    groupId: t.group_id,
+    cadence: recurrenceSummary({
+      frequency: t.recurrence_frequency,
+      interval: t.recurrence_interval,
+      weekday: t.recurrence_weekday,
+      day: t.recurring_day,
+      month: t.recurrence_month,
+    }),
+    nextDate,
+    startDate: t.date.slice(0, 10),
+    endDate: t.recurrence_end_date,
+  };
+}
+
+/** Active series only, summarized, sorted by next occurrence (nulls last). */
+export function buildRecurringSeriesList(
+  templates: TransactionWithCategory[],
+  now: Date = new Date()
+): RecurringSeriesSummary[] {
+  const today = now.toISOString().slice(0, 10);
+  return templates
+    .filter((t) => isActiveRecurringSeries(t, today))
+    .map((t) => summarizeRecurringSeries(t, now))
+    .sort((a, b) => {
+      if (a.nextDate === b.nextDate) return 0;
+      if (a.nextDate === null) return 1;
+      if (b.nextDate === null) return -1;
+      return a.nextDate.localeCompare(b.nextDate);
+    });
 }

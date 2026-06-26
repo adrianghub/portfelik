@@ -22,6 +22,7 @@
     fetchTransactions,
     updateTransactionsStatus,
   } from "$lib/services/transactions";
+  import { buildRecurringSeriesList } from "$lib/services/recurring-series";
   import { computeSpendingInsight } from "$lib/services/spending-insight";
   import { fetchRecurringOccurrenceSkips } from "$lib/services/recurring-occurrences";
   import { forwardForecastTransactions } from "$lib/services/transaction-projections";
@@ -406,6 +407,10 @@
 
   const overdueCount = $derived(scopedTxs.filter((tx) => tx.status === "overdue").length);
 
+  const activeRecurringCount = $derived(
+    buildRecurringSeriesList(recurringTemplatesQuery.data ?? []).length
+  );
+
   function openTransaction(tx: TransactionWithCategory) {
     goto(transactionsHref({ status: tx.status }));
   }
@@ -612,7 +617,17 @@
 
   <!-- Status band -->
   <section class="mt-6">
-    <h2 class="mb-2 text-sm font-medium text-slate-400">{m.dashboard_status_band()}</h2>
+    <div class="mb-2 flex items-center justify-between gap-2">
+      <h2 class="text-sm font-medium text-slate-400">{m.dashboard_status_band()}</h2>
+      {#if activeRecurringCount > 0}
+        <a
+          href="/recurring"
+          class="hover:text-accent text-xs font-medium text-slate-400 transition-colors"
+        >
+          {m.recurring_entry()} ({activeRecurringCount})
+        </a>
+      {/if}
+    </div>
     <div class="grid gap-3 sm:grid-cols-2">
       <DashboardActions
         {userId}

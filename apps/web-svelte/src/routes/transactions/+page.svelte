@@ -898,6 +898,12 @@
       {/if}
     </div>
     <div class="flex shrink-0 items-center gap-2">
+      <a
+        href="/recurring"
+        class="focus-visible:ring-accent hidden h-9 items-center gap-1.5 rounded-full border border-white/10 px-3.5 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none md:inline-flex"
+      >
+        {m.recurring_entry()}
+      </a>
       <button
         onclick={openAdd}
         class="focus-visible:ring-accent hidden h-9 items-center gap-1.5 rounded-full border border-white/10 px-3.5 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none md:inline-flex"
