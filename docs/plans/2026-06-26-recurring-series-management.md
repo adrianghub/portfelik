@@ -2,7 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Calendar-style recurrence management (act on any occurrence with scope: this one / this and following) via a new `recurrence_end_date`, plus a forecast running balance that shows expected balance after upcoming transactions.
+**Goal:** Calendar-style recurrence management: edit this occurrence or the whole series, and delete this occurrence or this and future occurrences, via a new `recurrence_end_date`; plus a forecast running balance that shows expected balance after upcoming transactions.
+
+**Implementation status (2026-06-26):** Complete locally. The follow-up update-grant migration is required because `transactions` uses a column-level authenticated `UPDATE` allow-list. Group-scope cash position remains explicitly out of scope for Spec 3.
 
 **Architecture:** Add a nullable `recurrence_end_date` to `transactions` (template-only state). Pure projection (`recurring-forecast.ts`) and materialization respect it. A new `services/recurring-series.ts` holds the scoped write operations + pure date helpers. `TransactionDetailSheet` gains a "Seria cykliczna" panel with scope choosers; series freq/interval/day editing reuses the existing `TransactionDialog` loaded with the template. A new pure `forecastRunningBalances` in `cash-position.ts` continues the live balance through upcoming + projected rows; the `Saldo` column and a "Przewidywane saldo" figure consume it. Private scope only.
 
@@ -16,7 +18,7 @@
 - All UTC date math; `transactions.date` is `timestamptz`, compared date-only (`YYYY-MM-DD`).
 - PostgREST inserts must pass `user_id` explicitly (RLS does not auto-set).
 - `createMutation` is NOT a store — use `mutation.mutate(...)`, `mutation.isPending`.
-- Migrations: never amend an applied migration; idempotent naming `YYYYMMDDHHMMSS_*.sql`. The next free timestamp after `20260721000000` is **`20260722000000`**.
+- Migrations: never amend an applied migration; idempotent naming `YYYYMMDDHHMMSS_*.sql`. This increment uses `20260722000000` for the column/view and `20260723000000` for its column-level update grant.
 - Run Svelte MCP autofixer (`mcp__svelte__svelte-autofixer`) on every edited `.svelte` component.
 - Forecast running balance is PRIVATE scope only (`group_id === null`, `showCashView`). Group scope is out of scope (Spec 3).
 - All paths below are relative to `apps/web-svelte/` unless prefixed with `supabase/`.
