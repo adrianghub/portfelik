@@ -59,7 +59,6 @@
   import type { TransactionStatus, TransactionType, TransactionWithCategory } from "$lib/types";
   import {
     cn,
-    formatCurrency,
     formatDate,
     fullMonthOf,
     getDateRangeBounds,
@@ -1051,13 +1050,6 @@
 
   {#if showCashView}
     <CashPositionStrip live={cashLive} forecast={cashForecast} hasAnchor={!!cashAnchorQuery.data} />
-    {#if cashAnchor}
-      <p class="mt-2 text-xs text-slate-400">
-        {m.transactions_forecast_balance()}:
-        <span class="font-semibold text-slate-200 tabular-nums">{formatCurrency(cashForecast)}</span
-        >
-      </p>
-    {/if}
   {/if}
 
   {#if summary}
