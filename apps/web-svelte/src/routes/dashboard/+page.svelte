@@ -398,9 +398,11 @@
     return Math.round((summary.net / summary.total_income) * 100);
   });
 
-  const upcomingTxs = $derived(
-    scopedTxs.filter((tx) => tx.status === "upcoming" || tx.status === "overdue").slice(0, 5)
-  );
+  const upcomingTxs = $derived.by(() => {
+    const real = scopedTxs.filter((tx) => tx.status === "upcoming" || tx.status === "overdue");
+    const projected = forwardForecastTxs.filter((tx) => tx.projected);
+    return [...real, ...projected].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 5);
+  });
 
   const overdueCount = $derived(scopedTxs.filter((tx) => tx.status === "overdue").length);
 
