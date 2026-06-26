@@ -23,10 +23,6 @@
     stickyHeaderTop?: string;
     /** responsive: cards on mobile, table on sm+; cards: card list at all breakpoints (e.g. search). */
     layout?: "responsive" | "cards";
-    /** When provided, renders a right-aligned "Saldo" column showing the running balance after each row. */
-    runningBalanceById?: Map<string, number>;
-    /** Forecast continuation for upcoming/projected rows in the private cash view. */
-    forecastBalanceById?: Map<string, number>;
   }
   let {
     transactions,
@@ -40,11 +36,7 @@
     stickyHeaderOffset,
     stickyHeaderTop,
     layout = "responsive",
-    runningBalanceById,
-    forecastBalanceById,
   }: Props = $props();
-
-  const showBalance = $derived(!!runningBalanceById || !!forecastBalanceById);
 
   type SortKey = "date" | "description" | "category" | "status" | "amount";
   type SortDirection = "asc" | "desc";
@@ -300,23 +292,18 @@
                   {:else}
                     {tx.description}
                   {/if}
-                  {#if tx.is_recurring}
-                    <span class="ml-1 text-xs text-slate-400" aria-label="cykliczna">↻</span>
-                  {/if}
                   {#if isProjected(tx)}
                     <span
-                      class="ml-1 inline-flex rounded-full border border-sky-400/20 bg-sky-400/10 px-1.5 py-0.5 text-[10px] font-normal text-sky-300"
+                      class="ml-1 text-xs text-sky-300/70"
                       title={m.transactions_projected_hint()}
+                      aria-label="cykliczna (prognoza)">↻</span
                     >
-                      {m.transactions_recurring()} / {m.transactions_projected_badge()}
-                    </span>
-                  {:else if isRecurringOccurrence(tx)}
+                  {:else if isRecurringOccurrence(tx) || tx.is_recurring}
                     <span
-                      class="ml-1 inline-flex rounded-full border border-emerald-400/20 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] font-normal text-emerald-300"
+                      class="ml-1 text-xs text-slate-400"
                       title={m.transactions_recurring_occurrence_hint()}
+                      aria-label="cykliczna">↻</span
                     >
-                      {m.transactions_recurring()}
-                    </span>
                   {/if}
                   {#if isShared(tx)}
                     <span
@@ -463,13 +450,6 @@
                 {@render sortIndicator("amount")}
               </button>
             </th>
-            {#if showBalance}
-              <th scope="col" class="w-36 px-4 py-3 text-right">
-                <span class="text-eyebrow ml-auto inline-flex items-center text-slate-400">
-                  {m.transactions_col_balance()}
-                </span>
-              </th>
-            {/if}
           </tr>
         </thead>
         <tbody>
@@ -525,23 +505,18 @@
                 {:else}
                   <span class="block truncate">{tx.description}</span>
                 {/if}
-                {#if tx.is_recurring}
-                  <span class="ml-1 text-xs text-slate-400" aria-label="cykliczna">↻</span>
-                {/if}
                 {#if isProjected(tx)}
                   <span
-                    class="ml-1 inline-flex rounded-full border border-sky-400/20 bg-sky-400/10 px-1.5 py-0.5 text-[10px] font-normal text-sky-300"
+                    class="ml-1 text-xs text-sky-300/70"
                     title={m.transactions_projected_hint()}
+                    aria-label="cykliczna (prognoza)">↻</span
                   >
-                    {m.transactions_recurring()} / {m.transactions_projected_badge()}
-                  </span>
-                {:else if isRecurringOccurrence(tx)}
+                {:else if isRecurringOccurrence(tx) || tx.is_recurring}
                   <span
-                    class="ml-1 inline-flex rounded-full border border-emerald-400/20 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] font-normal text-emerald-300"
+                    class="ml-1 text-xs text-slate-400"
                     title={m.transactions_recurring_occurrence_hint()}
+                    aria-label="cykliczna">↻</span
                   >
-                    {m.transactions_recurring()}
-                  </span>
                 {/if}
                 {#if isShared(tx)}
                   <span
@@ -593,17 +568,6 @@
               >
                 {tx.type === "income" ? "+" : "−"}{formatCurrency(tx.amount, tx.currency)}
               </td>
-              {#if showBalance}
-                {@const bal = runningBalanceById?.get(tx.id) ?? forecastBalanceById?.get(tx.id)}
-                <td
-                  class="px-4 py-3 text-right font-semibold whitespace-nowrap tabular-nums {tx.status ===
-                  'paid'
-                    ? 'text-slate-400'
-                    : 'text-slate-500 italic'}"
-                >
-                  {bal != null ? formatCurrency(bal) : "—"}
-                </td>
-              {/if}
             </tr>
           {/each}
         </tbody>

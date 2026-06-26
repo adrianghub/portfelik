@@ -17,10 +17,8 @@
   import * as m from "$lib/paraglide/messages";
   import {
     fetchPrivateCashPosition,
-    forecastRunningBalances,
     forecastPosition,
     livePosition,
-    runningBalances,
   } from "$lib/services/cash-position";
   import { createCategory, fetchCategories } from "$lib/services/categories";
   import { makeCreateCategoryInline } from "$lib/category-create";
@@ -67,7 +65,7 @@
   } from "$lib/utils";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { onMount } from "svelte";
-  import { Plus, Search, X } from "lucide-svelte";
+  import { Plus, Repeat, Search, X } from "lucide-svelte";
   import { toast } from "svelte-sonner";
   import { toastError } from "$lib/toast-error";
   import QueryError from "$lib/components/ui/QueryError.svelte";
@@ -467,11 +465,6 @@
   );
   const showCashView = $derived(isPrivateScope || soloAllScope);
 
-  // Per-row running balance only once an opening anchor exists — otherwise the
-  // column would accumulate from 0 while the strip still asks to set a balance.
-  const runningBalanceById = $derived(
-    showCashView && cashAnchor ? runningBalances(cashAnchor, privatePaidTxs) : undefined
-  );
   // Filter-independent private projection for the cash forecast: the full
   // private template set over the window, deduped against the full private cash
   // history. Using the table-filtered projectedTxs would make the personal
@@ -498,11 +491,6 @@
       date: tx.date,
     }));
   });
-  const forecastBalanceById = $derived(
-    showCashView && cashAnchor
-      ? forecastRunningBalances(cashAnchor, [...privatePaidTxs, ...privateForecastProjectedTxs])
-      : undefined
-  );
   const cashForecast = $derived(
     forecastPosition(cashAnchor, [...privatePaidTxs, ...privateForecastProjectedTxs])
   );
@@ -785,6 +773,7 @@
     upcoming: m.transactions_status_upcoming(),
     draft: m.transactions_status_draft(),
     overdue: m.transactions_status_overdue(),
+    "upcoming,overdue": m.dashboard_upcoming_title(),
   };
 
   // Applied filters shown as removable chips below the toolbar (only when set).
@@ -900,9 +889,11 @@
     <div class="flex shrink-0 items-center gap-2">
       <a
         href="/recurring"
-        class="focus-visible:ring-accent hidden h-9 items-center gap-1.5 rounded-full border border-white/10 px-3.5 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none md:inline-flex"
+        class="focus-visible:ring-accent inline-flex h-9 items-center gap-1.5 rounded-full border border-white/10 px-3 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none sm:px-3.5"
+        title={m.recurring_entry()}
       >
-        {m.recurring_entry()}
+        <Repeat size={16} aria-hidden="true" />
+        <span class="hidden sm:inline">{m.recurring_entry()}</span>
       </a>
       <button
         onclick={openAdd}
@@ -1101,8 +1092,6 @@
     <TransactionTable
       transactions={renderedTxs}
       {currentUserId}
-      {runningBalanceById}
-      {forecastBalanceById}
       canManage={txCanManage}
       emptyLabel={tableEmptyLabel}
       emptyHint={tableEmptyHint}
