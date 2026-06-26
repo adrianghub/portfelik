@@ -296,13 +296,13 @@
                     <span
                       class="ml-1 text-xs text-sky-300/70"
                       title={m.transactions_projected_hint()}
-                      aria-label="cykliczna (prognoza)">↻</span
+                      aria-label={m.transactions_recurring_payment_forecast()}>↻</span
                     >
                   {:else if isRecurringOccurrence(tx) || tx.is_recurring}
                     <span
                       class="ml-1 text-xs text-slate-400"
                       title={m.transactions_recurring_occurrence_hint()}
-                      aria-label="cykliczna">↻</span
+                      aria-label={m.transactions_recurring_payment()}>↻</span
                     >
                   {/if}
                   {#if isShared(tx)}
@@ -509,13 +509,13 @@
                   <span
                     class="ml-1 text-xs text-sky-300/70"
                     title={m.transactions_projected_hint()}
-                    aria-label="cykliczna (prognoza)">↻</span
+                    aria-label={m.transactions_recurring_payment_forecast()}>↻</span
                   >
                 {:else if isRecurringOccurrence(tx) || tx.is_recurring}
                   <span
                     class="ml-1 text-xs text-slate-400"
                     title={m.transactions_recurring_occurrence_hint()}
-                    aria-label="cykliczna">↻</span
+                    aria-label={m.transactions_recurring_payment()}>↻</span
                   >
                 {/if}
                 {#if isShared(tx)}

@@ -15,7 +15,7 @@ test("landing lists the three sections and their subsections", async ({ page }) 
   await gotoSettings(page);
 
   await expect(page.getByRole("heading", { name: "Ustawienia" })).toBeVisible();
-  for (const section of ["Konto", "Finanse", "Współdzielenie"]) {
+  for (const section of ["Konto", "Finanse", "Inne"]) {
     await expect(page.getByRole("heading", { name: section, exact: true })).toBeVisible();
   }
   for (const sub of ["Profil", "Personalizacja", "Kategorie", "Reguły", "Grupy"]) {

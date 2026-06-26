@@ -149,13 +149,13 @@ test("far-future recurring forecast rows expose only scoped series actions", asy
 
   const row = desktopTable(page).locator("tbody tr").filter({ hasText: "Czynsz" });
   await expect(row).toBeVisible();
-  await expect(row.getByLabel("cykliczna (prognoza)")).toBeVisible();
+  await expect(row.getByLabel("Płatność cykliczna, prognoza")).toBeVisible();
   await expect(row.getByRole("button", { name: "Oznacz jako zapłacone" })).toHaveCount(0);
 
   await row.click();
   const sheet = page.locator("aside");
-  await expect(sheet.getByText("Prognoza cykliczna")).toBeVisible();
-  await expect(sheet.getByText("Nie jest jeszcze w historii")).toBeVisible();
+  await expect(sheet.getByText("Płatność cykliczna")).toBeVisible();
+  await expect(sheet.getByText("Jeszcze nie ma w historii")).toBeVisible();
   await expect(sheet.getByText("Seria cykliczna")).toBeVisible();
   await sheet.getByRole("button", { name: "Edytuj" }).click();
   await expect(sheet.getByRole("button", { name: "To wystąpienie" })).toBeVisible();
@@ -201,12 +201,12 @@ test("near-term recurring occurrence rows are manageable transactions", async ({
 
   const row = desktopTable(page).locator("tbody tr").filter({ hasText: "Czynsz" });
   await expect(row).toBeVisible();
-  await expect(row.getByLabel("cykliczna")).toBeVisible();
+  await expect(row.getByLabel("Płatność cykliczna")).toBeVisible();
   await expect(row.getByRole("button", { name: "Oznacz jako zapłacone" })).toBeVisible();
 
   await row.click();
   const sheet = page.locator("aside");
-  await expect(sheet.getByText("Wystąpienie cykliczne")).toBeVisible();
+  await expect(sheet.getByText("Płatność cykliczna")).toBeVisible();
   await expect(sheet.getByRole("button", { name: "Edytuj" })).toHaveCount(2);
   await expect(sheet.getByRole("button", { name: "Usuń" })).toHaveCount(2);
 });

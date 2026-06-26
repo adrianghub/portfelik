@@ -63,7 +63,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
       {
         tab: "groups",
         label: () => m.settings_tab_groups(),
-        keywords: ["grupy", "zaproszenia", "członkowie", "współdzielenie"],
+        keywords: ["grupy", "zaproszenia", "członkowie", "inne", "wspólnie"],
       },
     ],
   },

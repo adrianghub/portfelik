@@ -104,9 +104,12 @@
 <header
   class="fixed inset-x-0 top-0 z-50 hidden h-14 items-center gap-4 border-b border-white/5 bg-slate-950/80 px-6 backdrop-blur md:flex"
 >
-  <span class="mr-2 shrink-0 text-base font-semibold tracking-tight text-slate-100"
-    >{m.app_name()}</span
+  <a
+    href="/"
+    class="mr-2 shrink-0 text-base font-semibold tracking-tight text-slate-100 transition-colors hover:text-white"
   >
+    {m.app_name()}
+  </a>
 
   <nav aria-label={m.nav_main()} class="flex items-center gap-1">
     {#each desktopNavItems as item (item.href)}
@@ -176,7 +179,12 @@
 <header
   class="fixed inset-x-0 top-0 z-50 flex h-14 items-center gap-3 border-b border-white/5 bg-slate-950/80 px-4 backdrop-blur md:hidden"
 >
-  <span class="text-base font-semibold tracking-tight text-slate-100">{m.app_name()}</span>
+  <a
+    href="/"
+    class="text-base font-semibold tracking-tight text-slate-100 transition-colors hover:text-white"
+  >
+    {m.app_name()}
+  </a>
   <div class="ml-auto">
     {#if !isDesktopNav.current}
       <NotificationsPopover placement="bottom" />
