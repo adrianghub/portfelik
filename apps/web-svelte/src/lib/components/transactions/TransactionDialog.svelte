@@ -14,6 +14,7 @@
   } from "$lib/services/transactions";
   import { createCategorizationRule, findRetroMatchIds } from "$lib/services/categorization-rules";
   import { materializeRecurringOccurrencesForNearTerm } from "$lib/services/recurring-occurrences";
+  import { dayAfter, removeFutureMaterializedOccurrences } from "$lib/services/recurring-series";
   import { suggestRuleFromRow } from "$lib/import/categorize";
   import type {
     RecurrenceFrequency,
@@ -107,6 +108,7 @@
   let recurrence_month = $state(
     untrack(() => initial?.recurrence_month ?? new Date().getMonth() + 1)
   );
+  let recurrenceEndDate = $state<string>("");
   let group_id = $state<string>(untrack(() => initial?.group_id ?? ""));
   let formError = $state<string | null>(null);
 
@@ -127,6 +129,7 @@
       recurrence_interval = initial?.recurrence_interval ?? 1;
       recurrence_weekday = initial?.recurrence_weekday ?? (new Date().getDay() || 7);
       recurrence_month = initial?.recurrence_month ?? new Date().getMonth() + 1;
+      recurrenceEndDate = initial?.recurrence_end_date ?? "";
       group_id = initial?.group_id ?? planContext?.groupId ?? "";
     }
   });
@@ -165,6 +168,9 @@
       return tx;
     },
     onSuccess: async (_tx, input) => {
+      if (isEdit && input.is_recurring && input.recurrence_end_date) {
+        await removeFutureMaterializedOccurrences(initial!.id, dayAfter(input.recurrence_end_date));
+      }
       if (input.is_recurring) {
         await materializeRecurringOccurrencesForNearTerm();
       }
@@ -275,6 +281,7 @@
         saveAsRecurring && recurrence_frequency === "weekly" ? recurrence_weekday : null,
       recurrence_month:
         saveAsRecurring && recurrence_frequency === "yearly" ? recurrence_month : null,
+      recurrence_end_date: saveAsRecurring ? recurrenceEndDate || null : null,
       group_id: group_id || null,
     });
   }
@@ -493,6 +500,18 @@
             </div>
           {/if}
         </div>
+
+        <!-- End date (optional) -->
+        <label class="block">
+          <span class="text-eyebrow mb-1 block text-slate-400"
+            >{m.transaction_form_recurrence_end()}</span
+          >
+          <input
+            type="date"
+            bind:value={recurrenceEndDate}
+            class="w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
+          />
+        </label>
 
         <!-- Live, auditable preview -->
         <p class="text-accent/90 text-sm">{recurrencePreview}</p>

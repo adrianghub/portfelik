@@ -51,13 +51,13 @@
       style="left:{t.x}px; top:{t.y}px; width:{t.w}px; height:{t.h}px;"
     >
       <div
-        class="flex h-full w-full flex-col justify-between rounded-md p-2 text-slate-950 transition-opacity hover:opacity-90"
+        class="flex h-full w-full flex-col justify-between rounded-md p-2 text-slate-950 outline outline-1 -outline-offset-1 outline-black/10 transition-opacity hover:opacity-90"
         style="background:{colorFor(t.data, i)};"
       >
-        {#if t.h >= 34}
+        {#if t.h >= 22}
           <span class="truncate text-xs leading-tight font-semibold">{t.data.name}</span>
         {/if}
-        {#if t.w >= 56 && t.h >= 52}
+        {#if t.w >= 56 && t.h >= 44}
           <span class="flex items-baseline justify-between gap-1">
             <span class="truncate text-sm font-bold tabular-nums"
               >{formatCurrency(t.data.total)}</span

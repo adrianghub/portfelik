@@ -87,6 +87,29 @@ export function runningBalances(anchor: Anchor, txs: RunningBalanceTx[]): Map<st
   return result;
 }
 
+/**
+ * Forecast balance-after-each-row: continues the live balance through both paid
+ * and upcoming rows on/after the anchor's as_of_date, in chronological order.
+ * Keyed by tx id. Rows before the anchor or with other statuses (draft/overdue)
+ * are omitted. Pure — caller supplies the private paid + upcoming + projected set.
+ */
+export function forecastRunningBalances(
+  anchor: Anchor,
+  txs: RunningBalanceTx[]
+): Map<string, number> {
+  const asOf = asOfOf(anchor);
+  const rows = txs
+    .filter((t) => (t.status === "paid" || t.status === "upcoming") && dateOnly(t.date) >= asOf)
+    .sort((a, b) => dateOnly(a.date).localeCompare(dateOnly(b.date)));
+  const result = new Map<string, number>();
+  let balance = openingOf(anchor);
+  for (const t of rows) {
+    balance += signed(t);
+    result.set(t.id, balance);
+  }
+  return result;
+}
+
 export interface CashPositionInput {
   opening_amount: number;
   as_of_date: string;

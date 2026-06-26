@@ -124,15 +124,13 @@ export function buildDashboardActions(input: BuildDashboardActionsInput): Dashbo
 
   // 2. Spending anomalies — computed by computeSpendingInsight but otherwise unsurfaced.
   for (const a of input.anomalies) {
-    const times = a.avgTotal > 0 ? a.total / a.avgTotal : 0;
     out.push({
       id: `anomaly-${a.categoryId}`,
       kind: "spending_anomaly",
       priority: PRIORITY.spending_anomaly,
       tone: "warn",
       title: m.dashboard_action_anomaly_title({ name: a.name }),
-      detail:
-        times > 0 ? m.dashboard_action_anomaly_detail({ times: times.toFixed(1) }) : undefined,
+      detail: m.dashboard_action_anomaly_detail(),
       href: `/transactions?categoryId=${a.categoryId}`,
       // Period-scoped: a fresh spike in a later period gets a new key and re-surfaces.
       dismissKey: `spending_anomaly:${a.categoryId}:${input.periodKey}`,

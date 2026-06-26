@@ -17,6 +17,7 @@
   import * as m from "$lib/paraglide/messages";
   import {
     fetchPrivateCashPosition,
+    forecastRunningBalances,
     forecastPosition,
     livePosition,
     runningBalances,
@@ -47,12 +48,18 @@
     nearTermRecurringWindow,
     rememberRecurringOccurrenceSkip,
   } from "$lib/services/recurring-occurrences";
+  import {
+    endSeriesFromOccurrence,
+    materializeOccurrence,
+    skipOccurrence,
+  } from "$lib/services/recurring-series";
   import { supabase } from "$lib/supabase";
   import { parseScopeFilter } from "$lib/utils/list-view-url";
   import { syncListViewUrl } from "$lib/utils/navigation";
   import type { TransactionStatus, TransactionType, TransactionWithCategory } from "$lib/types";
   import {
     cn,
+    formatCurrency,
     formatDate,
     fullMonthOf,
     getDateRangeBounds,
@@ -229,7 +236,6 @@
 
   const cashAnchor = $derived(cashAnchorQuery.data ?? null);
   const cashLive = $derived(livePosition(cashAnchor, privatePaidTxs));
-  const cashForecast = $derived(forecastPosition(cashAnchor, privatePaidTxs));
 
   // Quick-view presets. `view` is a URL param so a preset is shareable and
   // survives reload. "unlinked" (Bez planu) and "inne" are client-side filters
@@ -285,13 +291,11 @@
   const recurringTemplatesQuery = createQuery(() => ({
     queryKey: ["transactions", "recurring-templates"] as const,
     queryFn: fetchRecurringTemplates,
-    enabled: showProjectedRows,
   }));
 
   const recurringSkipsQuery = createQuery(() => ({
     queryKey: ["transactions", "recurring-skips", bounds.start, bounds.end] as const,
     queryFn: () => fetchRecurringOccurrenceSkips(bounds.start, bounds.end),
-    enabled: showProjectedRows,
   }));
 
   const projectedTxs = $derived.by(() => {
@@ -469,6 +473,40 @@
   const runningBalanceById = $derived(
     showCashView && cashAnchor ? runningBalances(cashAnchor, privatePaidTxs) : undefined
   );
+  // Filter-independent private projection for the cash forecast: the full
+  // private template set over the window, deduped against the full private cash
+  // history. Using the table-filtered projectedTxs would make the personal
+  // balance shift with category/type/quick-view filters and omit hidden
+  // recurring obligations before a displayed projected row.
+  const privateForecastProjectedTxs = $derived.by(() => {
+    if (!showCashView) return [];
+    const templates = (recurringTemplatesQuery.data ?? []).filter(
+      (tx) => (tx.group_id ?? null) === null
+    );
+    if (templates.length === 0) return [];
+    const privateReal = (paidHistoryQuery.data ?? []).filter((t) => (t.group_id ?? null) === null);
+    return recurringProjectionsForTransactionRange({
+      templates,
+      existing: privateReal,
+      skipped: recurringSkipsQuery.data ?? [],
+      start: bounds.start,
+      end: bounds.end,
+    }).map((tx) => ({
+      id: tx.id,
+      type: tx.type,
+      amount: tx.amount,
+      status: tx.status,
+      date: tx.date,
+    }));
+  });
+  const forecastBalanceById = $derived(
+    showCashView && cashAnchor
+      ? forecastRunningBalances(cashAnchor, [...privatePaidTxs, ...privateForecastProjectedTxs])
+      : undefined
+  );
+  const cashForecast = $derived(
+    forecastPosition(cashAnchor, [...privatePaidTxs, ...privateForecastProjectedTxs])
+  );
 
   // Dialog state
   let dialogOpen = $state(false);
@@ -548,6 +586,71 @@
     },
     onError: (err) => toastError(err),
   }));
+
+  async function invalidateAfterSeriesMutation() {
+    await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    await queryClient.invalidateQueries({ queryKey: ["transactions", "recurring-skips"] });
+    await queryClient.invalidateQueries({ queryKey: ["plans"] });
+    await queryClient.invalidateQueries({ queryKey: ["plan-links"] });
+    await queryClient.invalidateQueries({ queryKey: ["plan-progress"] });
+    await queryClient.invalidateQueries({ queryKey: ["plan-progress-list"] });
+  }
+
+  async function resolveTemplate(tx: TransactionWithCategory): Promise<TransactionWithCategory> {
+    if (tx.is_recurring && !tx.recurring_template_id) return tx;
+    if (tx.recurring_template_id) return fetchTransactionById(tx.recurring_template_id);
+    return tx;
+  }
+
+  const skipSeriesMutation = createMutation(() => ({
+    mutationFn: (tx: TransactionWithCategory) => skipOccurrence(tx),
+    onSuccess: async () => {
+      await invalidateAfterSeriesMutation();
+      toast.success(m.toast_transaction_deleted());
+    },
+    onError: (err) => toastError(err),
+  }));
+
+  const endSeriesMutation = createMutation(() => ({
+    mutationFn: async (tx: TransactionWithCategory) => {
+      const template = await resolveTemplate(tx);
+      const occurrenceDate =
+        tx.is_recurring && !tx.recurring_template_id
+          ? new Date().toISOString().slice(0, 10)
+          : (tx.recurring_occurrence_date ?? tx.date.slice(0, 10));
+      await endSeriesFromOccurrence({ template, occurrenceDate });
+    },
+    onSuccess: async () => {
+      await invalidateAfterSeriesMutation();
+      toast.success(m.toast_transaction_deleted());
+    },
+    onError: (err) => toastError(err),
+  }));
+
+  async function editSeries(tx: TransactionWithCategory) {
+    try {
+      editTarget = await resolveTemplate(tx);
+      dialogOpen = true;
+    } catch (err) {
+      toastError(err);
+    }
+  }
+
+  async function editOccurrence(tx: TransactionWithCategory) {
+    try {
+      const row = tx.projected
+        ? await materializeOccurrence({
+            template: await resolveTemplate(tx),
+            occurrenceDate: tx.recurring_occurrence_date ?? tx.date.slice(0, 10),
+          })
+        : tx;
+      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      editTarget = row;
+      dialogOpen = true;
+    } catch (err) {
+      toastError(err);
+    }
+  }
 
   const bulkDeleteMutation = createMutation(() => ({
     mutationFn: async () => {
@@ -948,6 +1051,13 @@
 
   {#if showCashView}
     <CashPositionStrip live={cashLive} forecast={cashForecast} hasAnchor={!!cashAnchorQuery.data} />
+    {#if cashAnchor}
+      <p class="mt-2 text-xs text-slate-400">
+        {m.transactions_forecast_balance()}:
+        <span class="font-semibold text-slate-200 tabular-nums">{formatCurrency(cashForecast)}</span
+        >
+      </p>
+    {/if}
   {/if}
 
   {#if summary}
@@ -994,6 +1104,7 @@
       transactions={renderedTxs}
       {currentUserId}
       {runningBalanceById}
+      {forecastBalanceById}
       canManage={txCanManage}
       emptyLabel={tableEmptyLabel}
       emptyHint={tableEmptyHint}
@@ -1071,6 +1182,10 @@
         deleteTargetId = id;
       }
     : undefined}
+  oneditseries={(tx) => void editSeries(tx)}
+  oneditoccurrence={(tx) => void editOccurrence(tx)}
+  onskipoccurrence={(tx) => skipSeriesMutation.mutate(tx)}
+  onendseries={(tx) => endSeriesMutation.mutate(tx)}
 />
 
 <ConfirmDialog

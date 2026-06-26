@@ -161,9 +161,14 @@ export function projectRecurringOccurrences(
     const freq = t.recurrence_frequency;
     if (!freq) continue;
     const templateDate = t.date.slice(0, 10);
+    // Inclusive last day the template may generate; null = open-ended.
+    const endMs = t.recurrence_end_date
+      ? new Date(t.recurrence_end_date).getTime()
+      : Number.POSITIVE_INFINITY;
     for (const d of occurrenceDates(t, afterMs, beforeMs)) {
       const date = isoDate(d);
       if (date === templateDate) continue;
+      if (d.getTime() > endMs) continue;
       if (taken.has(`${t.id}|${recurringPeriodKey(freq, d)}`)) continue;
       out.push({
         ...t,

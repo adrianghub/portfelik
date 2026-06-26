@@ -44,6 +44,36 @@
     new Set(visibleBuckets.filter((b) => b.isProjected).map((b) => b.label))
   );
   const firstProjectedLabel = $derived(visibleBuckets.find((b) => b.isProjected)?.label ?? null);
+  // Current (in-progress) period — bolded on the x-axis so "now" reads from the
+  // axis instead of a floating "Teraz" label.
+  const currentLabel = $derived(visibleBuckets.find((b) => b.isCurrent)?.label ?? null);
+
+  // The Axis applies one static class to every tick label, so emphasise the
+  // current period by toggling classes on the matching <text> directly. A
+  // MutationObserver keeps it correct across re-renders (we observe child/text
+  // mutations only, not attributes, so toggling classes can't loop).
+  function emphasizeCurrentTick(node: HTMLElement, label: string | null) {
+    let current = label;
+    const apply = () => {
+      node.querySelectorAll<SVGTextElement>("text.tickLabel").forEach((t) => {
+        const isCur = current != null && t.textContent?.trim() === current;
+        t.classList.toggle("font-semibold", isCur);
+        t.classList.toggle("fill-slate-100", isCur);
+      });
+    };
+    apply();
+    const obs = new MutationObserver(apply);
+    obs.observe(node, { childList: true, subtree: true, characterData: true });
+    return {
+      update(next: string | null) {
+        current = next;
+        apply();
+      },
+      destroy() {
+        obs.disconnect();
+      },
+    };
+  }
 
   // Same top-N + fold label as the treemap, so the two charts agree on which
   // categories are named vs folded into "Pozostałe".
@@ -65,9 +95,12 @@
   }
 </script>
 
-<div class="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+<div class="overflow-x-hidden rounded-xl border border-slate-800 bg-slate-900/60 p-4">
   {#if browser && hasData}
-    <div class={onselectperiod ? "h-56 cursor-pointer" : "h-56"}>
+    <div
+      class={onselectperiod ? "h-56 cursor-pointer" : "h-56"}
+      use:emphasizeCurrentTick={currentLabel}
+    >
       <BarChart
         data={stack.rows}
         x="label"
@@ -77,6 +110,11 @@
         axis="x"
         grid={false}
         rule={false}
+        ontooltipclick={(_e, detail) => {
+          const label = String((detail?.data as { label?: unknown })?.label ?? "");
+          const bucket = bucketByLabel.get(label);
+          if (bucket) onselectperiod?.(bucket);
+        }}
         onbarclick={(_e, detail) => {
           const label = String((detail?.data as { label?: unknown })?.label ?? "");
           const bucket = bucketByLabel.get(label);
@@ -88,7 +126,8 @@
           highlight: { area: { class: "fill-white/5" } },
         }}
       >
-        <!-- Faint band + "Teraz" divider marking the projected forecast region. -->
+        <!-- Faint band + dashed divider marking the projected forecast region;
+             the current period is bolded on the axis instead of a label. -->
         <svelte:fragment slot="belowMarks" let:xScale let:height>
           {#if firstProjectedLabel}
             <!-- Band covers the contiguous rightmost projected region (buckets are [...past, ...forward]). -->
@@ -110,10 +149,6 @@
               class="pointer-events-none stroke-slate-600"
               stroke-dasharray="3 3"
             />
-            <text x={bandX + 4} y={12} class="pointer-events-none fill-slate-500 text-[9px]">
-              <title>{m.dashboard_now_divider_info()}</title>
-              {m.dashboard_forecast_now_divider()}
-            </text>
           {/if}
         </svelte:fragment>
 
@@ -128,7 +163,7 @@
               y="pointer"
               anchor="bottom"
               contained="container"
-              class="rounded-lg border border-slate-700 bg-slate-900/95 px-3 py-2 text-xs shadow-xl backdrop-blur"
+              class="max-w-[min(16rem,90vw)] rounded-lg border border-slate-700 bg-slate-900/95 px-3 py-2 text-xs shadow-xl backdrop-blur"
               let:data
             >
               <Tooltip.Header class="font-medium text-slate-200">
