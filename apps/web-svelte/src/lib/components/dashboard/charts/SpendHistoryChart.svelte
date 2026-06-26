@@ -153,7 +153,7 @@
         </svelte:fragment>
 
         <!-- Suppress the tooltip entirely for zero-total windows. -->
-        <svelte:fragment slot="tooltip" let:tooltip let:visibleSeries>
+        <svelte:fragment slot="tooltip" let:tooltip>
           {#if rowTotal(tooltip?.data) > 0}
             <!-- Anchor over the hovered bar (x="data") and clamp to the chart box
                  (contained="container") so the tooltip stops jumping to the window
@@ -174,19 +174,11 @@
                 {/if}
                 {String(data.label)}
               </Tooltip.Header>
-              <Tooltip.List>
-                {#each [...visibleSeries]
-                  .reverse()
-                  .filter((s) => (Number(data[s.key]) || 0) > 0) as s (s.key)}
-                  <Tooltip.Item
-                    label={s.label}
-                    value={Number(data[s.key]) || 0}
-                    format={(v: unknown) => formatCurrency(v as number)}
-                    color={s.color}
-                    valueAlign="right"
-                  />
-                {/each}
-              </Tooltip.List>
+              <!-- Period total only — the per-category list grew taller than the chart and
+                   spilled over the legend; the stacked segments + legend already convey the split. -->
+              <div class="mt-0.5 text-sm font-semibold text-slate-100 tabular-nums">
+                {formatCurrency(rowTotal(data))}
+              </div>
             </Tooltip.Root>
           {/if}
         </svelte:fragment>
