@@ -291,13 +291,11 @@
   const recurringTemplatesQuery = createQuery(() => ({
     queryKey: ["transactions", "recurring-templates"] as const,
     queryFn: fetchRecurringTemplates,
-    enabled: showProjectedRows,
   }));
 
   const recurringSkipsQuery = createQuery(() => ({
     queryKey: ["transactions", "recurring-skips", bounds.start, bounds.end] as const,
     queryFn: () => fetchRecurringOccurrenceSkips(bounds.start, bounds.end),
-    enabled: showProjectedRows,
   }));
 
   const projectedTxs = $derived.by(() => {
@@ -327,21 +325,6 @@
 
   const displayTxs = $derived(
     filteredTxs ? [...filteredTxs, ...projectedTxs] : txQuery.data ? projectedTxs : undefined
-  );
-
-  // Real upcoming rows already live in the full cash-history query. Add only
-  // virtual projected rows here, otherwise materialized occurrences would be
-  // counted twice in the forecast balance.
-  const privateProjectedTxs = $derived(
-    projectedTxs
-      .filter((tx) => (tx.group_id ?? null) === null)
-      .map((tx) => ({
-        id: tx.id,
-        type: tx.type,
-        amount: tx.amount,
-        status: tx.status,
-        date: tx.date,
-      }))
   );
 
   // visibleTxs adds the search filter on top - search is row-only UI sugar
@@ -490,13 +473,39 @@
   const runningBalanceById = $derived(
     showCashView && cashAnchor ? runningBalances(cashAnchor, privatePaidTxs) : undefined
   );
+  // Filter-independent private projection for the cash forecast: the full
+  // private template set over the window, deduped against the full private cash
+  // history. Using the table-filtered projectedTxs would make the personal
+  // balance shift with category/type/quick-view filters and omit hidden
+  // recurring obligations before a displayed projected row.
+  const privateForecastProjectedTxs = $derived.by(() => {
+    if (!showCashView) return [];
+    const templates = (recurringTemplatesQuery.data ?? []).filter(
+      (tx) => (tx.group_id ?? null) === null
+    );
+    if (templates.length === 0) return [];
+    const privateReal = (paidHistoryQuery.data ?? []).filter((t) => (t.group_id ?? null) === null);
+    return recurringProjectionsForTransactionRange({
+      templates,
+      existing: privateReal,
+      skipped: recurringSkipsQuery.data ?? [],
+      start: bounds.start,
+      end: bounds.end,
+    }).map((tx) => ({
+      id: tx.id,
+      type: tx.type,
+      amount: tx.amount,
+      status: tx.status,
+      date: tx.date,
+    }));
+  });
   const forecastBalanceById = $derived(
     showCashView && cashAnchor
-      ? forecastRunningBalances(cashAnchor, [...privatePaidTxs, ...privateProjectedTxs])
+      ? forecastRunningBalances(cashAnchor, [...privatePaidTxs, ...privateForecastProjectedTxs])
       : undefined
   );
   const cashForecast = $derived(
-    forecastPosition(cashAnchor, [...privatePaidTxs, ...privateProjectedTxs])
+    forecastPosition(cashAnchor, [...privatePaidTxs, ...privateForecastProjectedTxs])
   );
 
   // Dialog state
