@@ -296,7 +296,10 @@
 
 <div class="relative shrink-0" data-date-range-picker>
   <div
-    class="flex h-9 items-center gap-1 rounded-full border border-white/10 bg-slate-900/60 pr-1 pl-3.5 text-sm text-slate-200 backdrop-blur"
+    class={cn(
+      "flex h-9 items-center gap-1 rounded-full border border-white/10 bg-slate-900/60 pl-3.5 text-sm text-slate-200 backdrop-blur",
+      clearable && onclear ? "pr-1" : "pr-3.5"
+    )}
   >
     <button
       type="button"
