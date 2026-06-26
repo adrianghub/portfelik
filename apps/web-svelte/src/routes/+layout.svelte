@@ -154,6 +154,20 @@
       toast(title, { description: body || undefined });
     });
 
+    // The header reads `profile` from this one-shot fetch (the layout hosts the
+    // QueryClientProvider, so it can't createQuery its own profile). Mirror the
+    // profile query cache here so a mutation elsewhere (avatar/name in Settings)
+    // reflects in the header immediately instead of only after reload.
+    const unsubscribeProfileCache = queryClient.getQueryCache().subscribe((event) => {
+      const key = event.query.queryKey;
+      if (!Array.isArray(key) || key[0] !== "profile") return;
+      const data = event.query.state.data as Profile | undefined;
+      if (data && data.id === userId) {
+        profile = data;
+        applyAccent(data.settings?.accentColor);
+      }
+    });
+
     supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
         unsubscribeFromPush().catch(() => {});
@@ -198,6 +212,7 @@
 
     return () => {
       teardownNotificationSync();
+      unsubscribeProfileCache();
     };
   });
 </script>

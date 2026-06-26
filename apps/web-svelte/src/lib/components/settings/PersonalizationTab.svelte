@@ -62,11 +62,27 @@
       updateProfile(profile!.id, {
         settings: { ...profile!.settings, avatarPresetId },
       }),
+    // Optimistic: write the new selection to the profile cache up front so the
+    // header avatar (which mirrors this cache) flips on click, not after the round-trip.
+    onMutate: (avatarPresetId: string | undefined) => {
+      const key = ["profile", profile!.id] as const;
+      const prev = queryClient.getQueryData<Profile>(key);
+      if (prev) {
+        queryClient.setQueryData<Profile>(key, {
+          ...prev,
+          settings: { ...prev.settings, avatarPresetId },
+        });
+      }
+      return { key, prev };
+    },
     onSuccess: async (updated) => {
       queryClient.setQueryData(["profile", updated.id], updated);
       await queryClient.invalidateQueries({ queryKey: ["profile"] });
     },
-    onError: (err) => toastError(err),
+    onError: (err, _id, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(ctx.key, ctx.prev);
+      toastError(err);
+    },
   }));
 
   function chooseAvatar(id: string | undefined) {
