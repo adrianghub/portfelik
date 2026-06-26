@@ -88,7 +88,10 @@ export async function materializeOccurrence(opts: {
         type: template.type,
         status: "upcoming" as const,
         category_id: template.category_id,
-        user_id: template.user_id,
+        // The acting user owns the materialized row — transaction insert RLS
+        // requires user_id = auth.uid(), so a co-owner materializing a shared
+        // template's occurrence must insert as themselves (not the template owner).
+        user_id: user.id,
         group_id: template.group_id,
         is_recurring: false,
         recurring_day: null,
