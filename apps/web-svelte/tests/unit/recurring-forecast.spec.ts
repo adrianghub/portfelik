@@ -190,3 +190,18 @@ describe("projectRecurringOccurrences — bounds, dedup, ledger exclusion", () =
     ).toHaveLength(0);
   });
 });
+
+describe("projectRecurringOccurrences — recurrence_end_date", () => {
+  it("stops emitting occurrences after the end date", () => {
+    const t = template({ recurrence_end_date: "2026-07-31" });
+    const out = projectRecurringOccurrences([t], "2026-06-23", "2026-09-23");
+    // monthly on the 10th: Jul 10 kept, Aug 10 / Sep 10 dropped (after end).
+    expect(out.map((o) => o.date)).toEqual(["2026-07-10"]);
+  });
+
+  it("treats a null/absent end date as open-ended", () => {
+    const t = template({ recurrence_end_date: null });
+    const out = projectRecurringOccurrences([t], "2026-06-23", "2026-09-23");
+    expect(out.length).toBeGreaterThanOrEqual(3);
+  });
+});
