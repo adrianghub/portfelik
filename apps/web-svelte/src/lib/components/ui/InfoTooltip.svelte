@@ -1,7 +1,6 @@
 <script lang="ts">
   import { CircleHelp } from "lucide-svelte";
   import { tick } from "svelte";
-  import { cn } from "$lib/utils";
 
   interface Props {
     label: string;
@@ -14,6 +13,40 @@
   let panelId = $state(`info-${Math.random().toString(36).slice(2)}`);
   let closeTimer: ReturnType<typeof setTimeout> | null = null;
   let buttonRef = $state<HTMLButtonElement | null>(null);
+  let panelRef = $state<HTMLElement | null>(null);
+  let pos = $state({ left: 0, top: 0 });
+
+  const MARGIN = 8; // min viewport gutter
+  const GAP = 8; // distance between trigger and panel
+
+  /**
+   * Position the portaled panel in viewport coordinates (it lives on <body>, so
+   * `position: fixed` + getBoundingClientRect agree). Center on the trigger,
+   * clamp horizontally to the viewport, and flip vertical side when the
+   * preferred side has no room. Prevents the old `absolute` panel from being
+   * clipped by a card's edge/overflow.
+   */
+  function reposition() {
+    const btn = buttonRef;
+    if (!btn) return;
+    const r = btn.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const pw = panelRef?.offsetWidth ?? 256;
+    const ph = panelRef?.offsetHeight ?? 0;
+
+    let left = r.left + r.width / 2 - pw / 2;
+    left = Math.max(MARGIN, Math.min(left, vw - pw - MARGIN));
+
+    let placeTop = side === "top";
+    const fitsTop = r.top - GAP - ph >= MARGIN;
+    const fitsBottom = r.bottom + GAP + ph <= vh - MARGIN;
+    if (placeTop && !fitsTop && fitsBottom) placeTop = false;
+    else if (!placeTop && !fitsBottom && fitsTop) placeTop = true;
+
+    const top = placeTop ? r.top - GAP - ph : r.bottom + GAP;
+    pos = { left, top };
+  }
 
   function clearCloseTimer() {
     if (closeTimer) clearTimeout(closeTimer);
@@ -43,6 +76,31 @@
       tick().then(() => buttonRef?.focus());
     }
   }
+
+  // Reposition once the panel is in the DOM (so offsetWidth/Height are real),
+  // and keep it anchored while open as the user scrolls/resizes.
+  $effect(() => {
+    if (!open) return;
+    void panelRef; // re-run once the panel mounts
+    reposition();
+    const onMove = () => reposition();
+    window.addEventListener("scroll", onMove, true);
+    window.addEventListener("resize", onMove);
+    return () => {
+      window.removeEventListener("scroll", onMove, true);
+      window.removeEventListener("resize", onMove);
+    };
+  });
+
+  /** Move the panel to <body> so no ancestor's overflow can clip it. */
+  function portal(node: HTMLElement) {
+    document.body.appendChild(node);
+    return {
+      destroy() {
+        node.remove();
+      },
+    };
+  }
 </script>
 
 <span class="relative inline-flex items-center">
@@ -65,12 +123,12 @@
 
   {#if open}
     <span
+      bind:this={panelRef}
+      use:portal
       id={panelId}
       role="tooltip"
-      class={cn(
-        "absolute left-1/2 z-50 w-64 -translate-x-1/2 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-left text-xs leading-relaxed text-slate-300 shadow-xl",
-        side === "top" ? "bottom-7" : "top-7"
-      )}
+      class="fixed z-50 w-64 max-w-[calc(100vw-1rem)] rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-left text-xs leading-relaxed text-slate-300 shadow-xl"
+      style="left:{pos.left}px;top:{pos.top}px"
       onmouseenter={show}
       onmouseleave={scheduleHide}
     >

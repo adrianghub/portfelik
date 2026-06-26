@@ -109,7 +109,7 @@ test("txId deep link opens transaction outside the current date range", async ({
   await expect(sheet.getByText("Stara transakcja z planu")).toBeVisible();
 });
 
-test("far-future recurring forecast rows stay read-only", async ({ page }) => {
+test("far-future recurring forecast rows expose only scoped series actions", async ({ page }) => {
   const recurringTemplate = {
     id: "tmpl-rent",
     date: "2026-01-05",
@@ -156,8 +156,11 @@ test("far-future recurring forecast rows stay read-only", async ({ page }) => {
   const sheet = page.locator("aside");
   await expect(sheet.getByText("Prognoza cykliczna")).toBeVisible();
   await expect(sheet.getByText("Nie jest jeszcze w historii")).toBeVisible();
-  await expect(sheet.getByRole("button", { name: "Edytuj" })).toHaveCount(0);
-  await expect(sheet.getByRole("button", { name: "Usuń" })).toHaveCount(0);
+  await expect(sheet.getByText("Seria cykliczna")).toBeVisible();
+  await sheet.getByRole("button", { name: "Edytuj" }).click();
+  await expect(sheet.getByRole("button", { name: "To wystąpienie" })).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Cała seria" })).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Usuń" })).toBeVisible();
 });
 
 test("near-term recurring occurrence rows are manageable transactions", async ({ page }) => {
@@ -204,8 +207,8 @@ test("near-term recurring occurrence rows are manageable transactions", async ({
   await row.click();
   const sheet = page.locator("aside");
   await expect(sheet.getByText("Wystąpienie cykliczne")).toBeVisible();
-  await expect(sheet.getByRole("button", { name: "Edytuj" })).toBeVisible();
-  await expect(sheet.getByRole("button", { name: "Usuń" })).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Edytuj" })).toHaveCount(2);
+  await expect(sheet.getByRole("button", { name: "Usuń" })).toHaveCount(2);
 });
 
 test("mobile date range sheet stays open while interacting with controls", async ({ page }) => {

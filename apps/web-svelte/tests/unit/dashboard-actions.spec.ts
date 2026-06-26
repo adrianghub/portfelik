@@ -37,7 +37,7 @@ describe("buildDashboardActions", () => {
     expect(importStale?.dismissKey).toBe("stale_import");
   });
 
-  it("surfaces spending anomalies with a period-scoped dismiss key and ×avg detail", () => {
+  it("surfaces spending anomalies with a period-scoped dismiss key and a natural action detail", () => {
     const actions = buildDashboardActions({
       ...base,
       anomalies: [{ categoryId: "c1", name: "Restauracje", total: 300, avgTotal: 100 }],
@@ -45,7 +45,9 @@ describe("buildDashboardActions", () => {
     const anomaly = actions.find((a) => a.kind === "spending_anomaly");
     expect(anomaly?.dismissKey).toBe("spending_anomaly:c1:2026-06-22");
     expect(anomaly?.href).toBe("/transactions?categoryId=c1");
-    expect(anomaly?.detail).toContain("3.0");
+    expect(anomaly?.title).toContain("Restauracje");
+    expect(anomaly?.detail).toBeTruthy();
+    expect(anomaly?.detail).not.toContain("×");
     expect(anomaly?.tone).toBe("warn");
   });
 
@@ -118,9 +120,7 @@ describe("buildDashboardActions", () => {
         ],
       },
       // planning-queue would emit the same save_off_track:s1 key — must collapse to one.
-      planningActions: [
-        { id: "save-s1", href: "/plans/s1", label: "dup", tone: "default" },
-      ],
+      planningActions: [{ id: "save-s1", href: "/plans/s1", label: "dup", tone: "default" }],
     });
     expect(actions.filter((a) => a.dismissKey === "save_off_track:s1")).toHaveLength(1);
   });

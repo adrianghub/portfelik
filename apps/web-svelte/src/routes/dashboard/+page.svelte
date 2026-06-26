@@ -24,7 +24,7 @@
   } from "$lib/services/transactions";
   import { computeSpendingInsight } from "$lib/services/spending-insight";
   import { fetchRecurringOccurrenceSkips } from "$lib/services/recurring-occurrences";
-  import { projectRecurringOccurrences } from "$lib/services/recurring-forecast";
+  import { forwardForecastTransactions } from "$lib/services/transaction-projections";
   import {
     buildPeriodWindows,
     buildForwardPeriodWindows,
@@ -370,21 +370,25 @@
     ] as const,
     queryFn: () => fetchRecurringOccurrenceSkips(forwardBounds.start, forwardBounds.end),
   }));
-  const projectedTxs = $derived.by(() => {
-    const templates = scopeFilter(recurringTemplatesQuery.data ?? []);
-    if (templates.length === 0 || forwardWindows.length === 0) return [];
-    const spanStart = new Date().toISOString();
-    const spanEnd = forwardWindows[forwardWindows.length - 1].end;
-    return projectRecurringOccurrences(
-      templates,
-      spanStart,
-      spanEnd,
-      scopeFilter(forwardRealTxQuery.data ?? []),
-      forwardRecurringSkipsQuery.data ?? []
-    );
+  // Forecast source = scheduled real rows (one-off upcoming + materialized
+  // recurring occurrences) UNIONed with deduped projections — so the chart's
+  // forecast region agrees with the /transactions upcoming list for a window,
+  // instead of under-reporting by showing recurring projections only.
+  const forwardForecastTxs = $derived.by(() => {
+    if (forwardWindows.length === 0) return [];
+    return forwardForecastTransactions({
+      templates: scopeFilter(recurringTemplatesQuery.data ?? []),
+      existing: scopeFilter(forwardRealTxQuery.data ?? []),
+      skipped: forwardRecurringSkipsQuery.data ?? [],
+      start: forwardWindows[0].start,
+      end: forwardWindows[forwardWindows.length - 1].end,
+    });
   });
   const forwardBuckets = $derived(
-    bucketPeriodHistory(projectedTxs, forwardWindows).map((b) => ({ ...b, isProjected: true }))
+    bucketPeriodHistory(forwardForecastTxs, forwardWindows).map((b) => ({
+      ...b,
+      isProjected: true,
+    }))
   );
   const combinedHistoryBuckets = $derived([...historyBuckets, ...forwardBuckets]);
 

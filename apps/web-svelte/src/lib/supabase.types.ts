@@ -516,7 +516,7 @@ export type Database = {
           end_date: string;
           group_id: string | null;
           id: string;
-          kind: "save" | "debt";
+          kind: string;
           name: string;
           refinanced_from_plan_id: string | null;
           replaced_by_plan_id: string | null;
@@ -533,7 +533,7 @@ export type Database = {
           end_date: string;
           group_id?: string | null;
           id?: string;
-          kind: "save" | "debt";
+          kind: string;
           name: string;
           refinanced_from_plan_id?: string | null;
           replaced_by_plan_id?: string | null;
@@ -550,7 +550,7 @@ export type Database = {
           end_date?: string;
           group_id?: string | null;
           id?: string;
-          kind?: "save" | "debt";
+          kind?: string;
           name?: string;
           refinanced_from_plan_id?: string | null;
           replaced_by_plan_id?: string | null;
@@ -656,6 +656,75 @@ export type Database = {
           user_id?: string;
         };
         Relationships: [];
+      };
+      recurring_occurrence_skips: {
+        Row: {
+          created_at: string;
+          created_by: string;
+          group_id: string | null;
+          id: string;
+          occurrence_date: string;
+          recurring_template_id: string;
+          skipped_transaction_id: string | null;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by: string;
+          group_id?: string | null;
+          id?: string;
+          occurrence_date: string;
+          recurring_template_id: string;
+          skipped_transaction_id?: string | null;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string;
+          group_id?: string | null;
+          id?: string;
+          occurrence_date?: string;
+          recurring_template_id?: string;
+          skipped_transaction_id?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "recurring_occurrence_skips_group_id_fkey";
+            columns: ["group_id"];
+            isOneToOne: false;
+            referencedRelation: "user_groups";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "recurring_occurrence_skips_recurring_template_id_fkey";
+            columns: ["recurring_template_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "recurring_occurrence_skips_recurring_template_id_fkey";
+            columns: ["recurring_template_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions_with_category";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "recurring_occurrence_skips_skipped_transaction_id_fkey";
+            columns: ["skipped_transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "recurring_occurrence_skips_skipped_transaction_id_fkey";
+            columns: ["skipped_transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions_with_category";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       transaction_import_links: {
         Row: {
@@ -926,61 +995,6 @@ export type Database = {
           },
         ];
       };
-      recurring_occurrence_skips: {
-        Row: {
-          created_at: string;
-          created_by: string;
-          group_id: string | null;
-          id: string;
-          occurrence_date: string;
-          recurring_template_id: string;
-          skipped_transaction_id: string | null;
-          user_id: string;
-        };
-        Insert: {
-          created_at?: string;
-          created_by: string;
-          group_id?: string | null;
-          id?: string;
-          occurrence_date: string;
-          recurring_template_id: string;
-          skipped_transaction_id?: string | null;
-          user_id: string;
-        };
-        Update: {
-          created_at?: string;
-          created_by?: string;
-          group_id?: string | null;
-          id?: string;
-          occurrence_date?: string;
-          recurring_template_id?: string;
-          skipped_transaction_id?: string | null;
-          user_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "recurring_occurrence_skips_group_id_fkey";
-            columns: ["group_id"];
-            isOneToOne: false;
-            referencedRelation: "user_groups";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "recurring_occurrence_skips_recurring_template_id_fkey";
-            columns: ["recurring_template_id"];
-            isOneToOne: false;
-            referencedRelation: "transactions";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "recurring_occurrence_skips_skipped_transaction_id_fkey";
-            columns: ["skipped_transaction_id"];
-            isOneToOne: false;
-            referencedRelation: "transactions";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
       transactions: {
         Row: {
           amount: number;
@@ -993,12 +1007,13 @@ export type Database = {
           group_id: string | null;
           id: string;
           is_recurring: boolean;
+          recurrence_end_date: string | null;
           recurrence_frequency: Database["public"]["Enums"]["recurrence_frequency"] | null;
           recurrence_interval: number;
           recurrence_month: number | null;
           recurrence_weekday: number | null;
-          recurring_occurrence_date: string | null;
           recurring_day: number | null;
+          recurring_occurrence_date: string | null;
           recurring_template_id: string | null;
           status: Database["public"]["Enums"]["transaction_status"];
           type: Database["public"]["Enums"]["transaction_type"];
@@ -1016,12 +1031,13 @@ export type Database = {
           group_id?: string | null;
           id?: string;
           is_recurring?: boolean;
+          recurrence_end_date?: string | null;
           recurrence_frequency?: Database["public"]["Enums"]["recurrence_frequency"] | null;
           recurrence_interval?: number;
           recurrence_month?: number | null;
           recurrence_weekday?: number | null;
-          recurring_occurrence_date?: string | null;
           recurring_day?: number | null;
+          recurring_occurrence_date?: string | null;
           recurring_template_id?: string | null;
           status?: Database["public"]["Enums"]["transaction_status"];
           type: Database["public"]["Enums"]["transaction_type"];
@@ -1039,12 +1055,13 @@ export type Database = {
           group_id?: string | null;
           id?: string;
           is_recurring?: boolean;
+          recurrence_end_date?: string | null;
           recurrence_frequency?: Database["public"]["Enums"]["recurrence_frequency"] | null;
           recurrence_interval?: number;
           recurrence_month?: number | null;
           recurrence_weekday?: number | null;
-          recurring_occurrence_date?: string | null;
           recurring_day?: number | null;
+          recurring_occurrence_date?: string | null;
           recurring_template_id?: string | null;
           status?: Database["public"]["Enums"]["transaction_status"];
           type?: Database["public"]["Enums"]["transaction_type"];
@@ -1052,13 +1069,6 @@ export type Database = {
           user_id?: string;
         };
         Relationships: [
-          {
-            foreignKeyName: "transactions_recurring_template_id_fkey";
-            columns: ["recurring_template_id"];
-            isOneToOne: false;
-            referencedRelation: "transactions";
-            referencedColumns: ["id"];
-          },
           {
             foreignKeyName: "transactions_category_id_fkey";
             columns: ["category_id"];
@@ -1071,6 +1081,20 @@ export type Database = {
             columns: ["group_id"];
             isOneToOne: false;
             referencedRelation: "user_groups";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transactions_recurring_template_id_fkey";
+            columns: ["recurring_template_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transactions_recurring_template_id_fkey";
+            columns: ["recurring_template_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions_with_category";
             referencedColumns: ["id"];
           },
         ];
@@ -1116,12 +1140,13 @@ export type Database = {
           id: string | null;
           is_hold: boolean | null;
           is_recurring: boolean | null;
+          recurrence_end_date: string | null;
           recurrence_frequency: Database["public"]["Enums"]["recurrence_frequency"] | null;
           recurrence_interval: number | null;
           recurrence_month: number | null;
           recurrence_weekday: number | null;
-          recurring_occurrence_date: string | null;
           recurring_day: number | null;
+          recurring_occurrence_date: string | null;
           recurring_template_id: string | null;
           status: Database["public"]["Enums"]["transaction_status"] | null;
           type: Database["public"]["Enums"]["transaction_type"] | null;
@@ -1129,13 +1154,6 @@ export type Database = {
           user_id: string | null;
         };
         Relationships: [
-          {
-            foreignKeyName: "transactions_recurring_template_id_fkey";
-            columns: ["recurring_template_id"];
-            isOneToOne: false;
-            referencedRelation: "transactions";
-            referencedColumns: ["id"];
-          },
           {
             foreignKeyName: "transactions_category_id_fkey";
             columns: ["category_id"];
@@ -1148,6 +1166,20 @@ export type Database = {
             columns: ["group_id"];
             isOneToOne: false;
             referencedRelation: "user_groups";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transactions_recurring_template_id_fkey";
+            columns: ["recurring_template_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transactions_recurring_template_id_fkey";
+            columns: ["recurring_template_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions_with_category";
             referencedColumns: ["id"];
           },
         ];
