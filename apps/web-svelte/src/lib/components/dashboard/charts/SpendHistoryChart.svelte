@@ -175,7 +175,9 @@
                 {String(data.label)}
               </Tooltip.Header>
               <Tooltip.List>
-                {#each [...visibleSeries].reverse() as s (s.key)}
+                {#each [...visibleSeries]
+                  .reverse()
+                  .filter((s) => (Number(data[s.key]) || 0) > 0) as s (s.key)}
                   <Tooltip.Item
                     label={s.label}
                     value={Number(data[s.key]) || 0}
@@ -209,16 +211,6 @@
         </span>
       {/if}
     </div>
-    {#if projectedLabels.size > 0}
-      <p class="mt-2 inline-flex items-center gap-1 text-[11px] text-slate-500">
-        <span>{m.dashboard_forecast_caption()}</span>
-        <InfoTooltip
-          label={m.dashboard_forecast_tooltip_tag()}
-          text={m.dashboard_now_divider_info()}
-          side="top"
-        />
-      </p>
-    {/if}
   {:else if !browser}
     <div class="flex h-56 items-center justify-center text-xs text-slate-400">Ładowanie...</div>
   {:else}

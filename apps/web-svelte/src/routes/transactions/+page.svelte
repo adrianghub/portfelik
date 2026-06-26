@@ -59,7 +59,6 @@
   import type { TransactionStatus, TransactionType, TransactionWithCategory } from "$lib/types";
   import {
     cn,
-    formatCurrency,
     formatDate,
     fullMonthOf,
     getDateRangeBounds,
@@ -899,6 +898,12 @@
       {/if}
     </div>
     <div class="flex shrink-0 items-center gap-2">
+      <a
+        href="/recurring"
+        class="focus-visible:ring-accent hidden h-9 items-center gap-1.5 rounded-full border border-white/10 px-3.5 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none md:inline-flex"
+      >
+        {m.recurring_entry()}
+      </a>
       <button
         onclick={openAdd}
         class="focus-visible:ring-accent hidden h-9 items-center gap-1.5 rounded-full border border-white/10 px-3.5 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none md:inline-flex"
@@ -1051,13 +1056,6 @@
 
   {#if showCashView}
     <CashPositionStrip live={cashLive} forecast={cashForecast} hasAnchor={!!cashAnchorQuery.data} />
-    {#if cashAnchor}
-      <p class="mt-2 text-xs text-slate-400">
-        {m.transactions_forecast_balance()}:
-        <span class="font-semibold text-slate-200 tabular-nums">{formatCurrency(cashForecast)}</span
-        >
-      </p>
-    {/if}
   {/if}
 
   {#if summary}
