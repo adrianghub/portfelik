@@ -227,6 +227,7 @@
   "transaction_form_recurrence_freq_weekly": "Tygodniowa",
   "transaction_form_recurrence_freq_monthly": "Miesięczna",
   "transaction_form_recurrence_freq_yearly": "Roczna",
+  "transaction_form_recurrence_end": "Data zakończenia (opcjonalnie)",
   "recurrence_daily": "Codziennie",
   "recurrence_daily_n": "Co {count} dni",
   "recurrence_weekly": "Co tydzień",
