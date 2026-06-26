@@ -9,12 +9,7 @@
   import ProfileTab from "$lib/components/settings/ProfileTab.svelte";
   import PersonalizationTab from "$lib/components/settings/PersonalizationTab.svelte";
   import RulesTab from "$lib/components/settings/RulesTab.svelte";
-  import {
-    SETTINGS_SECTIONS,
-    searchSubsections,
-    sectionForTab,
-    type SettingsTab,
-  } from "$lib/settings/sections";
+  import { SETTINGS_SECTIONS, searchSubsections, type SettingsTab } from "$lib/settings/sections";
   import { ChevronLeft, ChevronRight, Search } from "lucide-svelte";
   import * as m from "$lib/paraglide/messages";
 
@@ -25,8 +20,6 @@
     const t = $page.url.searchParams.get("tab");
     return t && TAB_IDS.includes(t as SettingsTab) ? (t as SettingsTab) : null;
   });
-  const activeSection = $derived(activeTab ? sectionForTab(activeTab) : undefined);
-
   let search = $state("");
   const results = $derived(searchSubsections(search));
 
@@ -63,7 +56,7 @@
       class="focus-visible:ring-accent -ml-1 inline-flex items-center gap-1 rounded-full px-2 py-1 text-sm font-medium text-slate-400 transition-colors hover:text-slate-100 focus-visible:ring-2 focus-visible:outline-none"
     >
       <ChevronLeft size={16} aria-hidden="true" />
-      {activeSection?.label() ?? m.settings_back()}
+      {m.settings_title()}
     </button>
 
     <div role="tabpanel">

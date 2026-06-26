@@ -28,8 +28,8 @@ test("drill into a subsection then back to the landing", async ({ page }) => {
 
   await page.getByRole("button", { name: "Personalizacja", exact: true }).click();
   await expect(page).toHaveURL(/tab=personalization/);
-  // Back link carries the parent section label.
-  const back = page.getByRole("button", { name: "Konto" });
+  // Back link returns to the settings landing.
+  const back = page.getByRole("button", { name: "Ustawienia" });
   await expect(back).toBeVisible();
 
   await back.click();
@@ -40,9 +40,9 @@ test("drill into a subsection then back to the landing", async ({ page }) => {
 test("deep link to a tab renders that panel directly", async ({ page }) => {
   await gotoSettings(page, "?tab=categories");
 
-  // Landing search is not shown; the back link shows the parent section.
+  // Landing search is not shown; the back link returns to the landing.
   await expect(page.getByPlaceholder("Szukaj ustawień")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Finanse" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Ustawienia" })).toBeVisible();
 });
 
 test("search filters subsections and navigates", async ({ page }) => {
