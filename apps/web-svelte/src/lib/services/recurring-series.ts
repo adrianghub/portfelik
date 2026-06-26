@@ -10,6 +10,27 @@ export function dayBefore(iso: string): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Date-only YYYY-MM-DD, one UTC day after the given ISO date. */
+export function dayAfter(iso: string): string {
+  const d = new Date(`${iso.slice(0, 10)}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Remove materialized upcoming rows at or after an exclusive series boundary. */
+export async function removeFutureMaterializedOccurrences(
+  templateId: string,
+  fromDate: string
+): Promise<void> {
+  const { error } = await supabase
+    .from("transactions")
+    .delete()
+    .eq("recurring_template_id", templateId)
+    .eq("status", "upcoming")
+    .gte("date", fromDate.slice(0, 10));
+  if (error) throw error;
+}
+
 /**
  * End a series at `occurrenceDate` ("this and following"): set the template's
  * recurrence_end_date to the day before, then delete future upcoming
@@ -26,13 +47,7 @@ export async function endSeriesFromOccurrence(opts: {
     .eq("id", template.id);
   if (updErr) throw updErr;
 
-  const { error: delErr } = await supabase
-    .from("transactions")
-    .delete()
-    .eq("recurring_template_id", template.id)
-    .eq("status", "upcoming")
-    .gte("date", occurrenceDate.slice(0, 10));
-  if (delErr) throw delErr;
+  await removeFutureMaterializedOccurrences(template.id, occurrenceDate);
 }
 
 /** Skip a single occurrence ("this occurrence"): record a skip + delete the real row if materialized. */

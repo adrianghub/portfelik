@@ -116,7 +116,10 @@ export async function rememberRecurringOccurrenceSkip(tx: TransactionWithCategor
       group_id: tx.group_id,
       recurring_template_id: tx.recurring_template_id,
       occurrence_date: tx.recurring_occurrence_date,
-      skipped_transaction_id: tx.id,
+      // Virtual forecast rows have synthetic `projected:…` ids and therefore
+      // cannot satisfy this optional FK. The template/date pair is the durable
+      // skip identity for both projected and materialized occurrences.
+      skipped_transaction_id: tx.projected ? null : tx.id,
       created_by: user.id,
     },
     { onConflict: "recurring_template_id,occurrence_date", ignoreDuplicates: true }

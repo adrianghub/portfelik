@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("$lib/supabase", () => ({ supabase: {} }));
 
-import { dayBefore } from "$lib/services/recurring-series";
+import { dayAfter, dayBefore } from "$lib/services/recurring-series";
 
 describe("dayBefore", () => {
   it("returns the previous UTC day", () => {
@@ -13,5 +13,8 @@ describe("dayBefore", () => {
   });
   it("crosses year boundaries", () => {
     expect(dayBefore("2026-01-01")).toBe("2025-12-31");
+  });
+  it("returns the next UTC day", () => {
+    expect(dayAfter("2026-07-31")).toBe("2026-08-01");
   });
 });
