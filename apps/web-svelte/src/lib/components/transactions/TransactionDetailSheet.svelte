@@ -15,6 +15,10 @@
     onclose: () => void;
     onedit?: (tx: TransactionWithCategory) => void;
     ondelete?: (id: string) => void;
+    oneditseries?: (tx: TransactionWithCategory) => void;
+    oneditoccurrence?: (tx: TransactionWithCategory) => void;
+    onskipoccurrence?: (tx: TransactionWithCategory) => void;
+    onendseries?: (tx: TransactionWithCategory) => void;
   }
   let {
     transaction,
@@ -23,6 +27,10 @@
     onclose,
     onedit,
     ondelete,
+    oneditseries,
+    oneditoccurrence,
+    onskipoccurrence,
+    onendseries,
   }: Props = $props();
 
   const canEdit = $derived(
@@ -31,6 +39,17 @@
       !!currentUserId &&
       canManageTransaction(transaction, currentUserId, groupRoles)
   );
+  const canManageSeries = $derived(
+    !!transaction && !!currentUserId && canManageTransaction(transaction, currentUserId, groupRoles)
+  );
+  const isSeries = $derived(
+    !!transaction &&
+      (transaction.is_recurring || !!transaction.recurring_template_id || !!transaction.projected)
+  );
+  const isSeriesTemplate = $derived(
+    !!transaction && transaction.is_recurring && !transaction.recurring_template_id
+  );
+  let openScope = $state<"edit" | "delete" | null>(null);
   const isSharedReadonly = $derived(
     !!transaction &&
       !!transaction.group_id &&
@@ -71,6 +90,11 @@
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === "Escape") onclose();
   }
+
+  $effect(() => {
+    void transaction?.id;
+    openScope = null;
+  });
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -197,6 +221,84 @@
           <p class="mt-1 text-xs leading-relaxed text-emerald-100/80">
             {m.transactions_recurring_occurrence_detail_body()}
           </p>
+        </div>
+      {/if}
+
+      {#if isSeries && canManageSeries}
+        <div class="rounded-xl border border-white/5 bg-slate-900/40 p-3">
+          <p class="text-eyebrow mb-2 text-slate-400">{m.transactions_series_title()}</p>
+          <div class="flex gap-2">
+            <button
+              type="button"
+              onclick={() => (openScope = openScope === "edit" ? null : "edit")}
+              class="flex flex-1 items-center justify-center gap-1.5 rounded-full border border-white/10 bg-slate-900/60 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-white/5"
+            >
+              <Edit size={14} />
+              {m.transactions_series_edit()}
+            </button>
+            <button
+              type="button"
+              onclick={() => (openScope = openScope === "delete" ? null : "delete")}
+              class="flex flex-1 items-center justify-center gap-1.5 rounded-full border border-rose-400/20 bg-rose-500/10 py-2 text-sm font-medium text-rose-300 transition-colors hover:bg-rose-500/20"
+            >
+              <Trash2 size={14} />
+              {m.transactions_series_delete()}
+            </button>
+          </div>
+
+          {#if openScope === "edit"}
+            <div class="mt-2 flex flex-col gap-1.5">
+              {#if !isSeriesTemplate}
+                <button
+                  type="button"
+                  onclick={() => {
+                    oneditoccurrence?.(transaction);
+                    onclose();
+                  }}
+                  class="rounded-lg border border-white/10 px-3 py-2 text-left text-sm text-slate-200 transition-colors hover:bg-white/5"
+                >
+                  {m.transactions_series_scope_this()}
+                </button>
+              {/if}
+              <button
+                type="button"
+                onclick={() => {
+                  oneditseries?.(transaction);
+                  onclose();
+                }}
+                class="rounded-lg border border-white/10 px-3 py-2 text-left text-sm text-slate-200 transition-colors hover:bg-white/5"
+              >
+                {m.transactions_series_scope_all()}
+              </button>
+            </div>
+          {/if}
+
+          {#if openScope === "delete"}
+            <div class="mt-2 flex flex-col gap-1.5">
+              {#if !isSeriesTemplate}
+                <button
+                  type="button"
+                  onclick={() => {
+                    onskipoccurrence?.(transaction);
+                    onclose();
+                  }}
+                  class="rounded-lg border border-rose-400/20 px-3 py-2 text-left text-sm text-rose-200 transition-colors hover:bg-rose-500/10"
+                >
+                  {m.transactions_series_scope_this()}
+                </button>
+              {/if}
+              <button
+                type="button"
+                onclick={() => {
+                  onendseries?.(transaction);
+                  onclose();
+                }}
+                class="rounded-lg border border-rose-400/20 px-3 py-2 text-left text-sm text-rose-200 transition-colors hover:bg-rose-500/10"
+              >
+                {m.transactions_series_scope_following()}
+              </button>
+            </div>
+          {/if}
         </div>
       {/if}
 

@@ -25,6 +25,8 @@
     layout?: "responsive" | "cards";
     /** When provided, renders a right-aligned "Saldo" column showing the running balance after each row. */
     runningBalanceById?: Map<string, number>;
+    /** Forecast continuation for upcoming/projected rows in the private cash view. */
+    forecastBalanceById?: Map<string, number>;
   }
   let {
     transactions,
@@ -39,9 +41,10 @@
     stickyHeaderTop,
     layout = "responsive",
     runningBalanceById,
+    forecastBalanceById,
   }: Props = $props();
 
-  const showBalance = $derived(!!runningBalanceById);
+  const showBalance = $derived(!!runningBalanceById || !!forecastBalanceById);
 
   type SortKey = "date" | "description" | "category" | "status" | "amount";
   type SortDirection = "asc" | "desc";
@@ -591,9 +594,12 @@
                 {tx.type === "income" ? "+" : "−"}{formatCurrency(tx.amount, tx.currency)}
               </td>
               {#if showBalance}
-                {@const bal = runningBalanceById?.get(tx.id)}
+                {@const bal = runningBalanceById?.get(tx.id) ?? forecastBalanceById?.get(tx.id)}
                 <td
-                  class="px-4 py-3 text-right font-semibold whitespace-nowrap text-slate-400 tabular-nums"
+                  class="px-4 py-3 text-right font-semibold whitespace-nowrap tabular-nums {tx.status ===
+                  'paid'
+                    ? 'text-slate-400'
+                    : 'text-slate-500 italic'}"
                 >
                   {bal != null ? formatCurrency(bal) : "—"}
                 </td>

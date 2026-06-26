@@ -68,7 +68,7 @@ describe("RLS: transactions", () => {
     expect(data?.map((t) => t.description)).toEqual([`${SENTINEL} A tx`]);
   });
 
-  it("user A can update own tx including recurrence fields", async () => {
+  it("user A can update own tx including recurrence fields and the end date", async () => {
     const result = await ctx.userA.client
       .from("transactions")
       .update({
@@ -78,11 +78,13 @@ describe("RLS: transactions", () => {
         recurrence_interval: 1,
         recurrence_weekday: null,
         recurrence_month: null,
+        recurrence_end_date: "2026-12-31",
       })
       .eq("description", `${SENTINEL} A tx`)
       .select();
     expect(result.error).toBeNull();
     expect(result.data?.[0]?.amount).toBe(99.5);
+    expect(result.data?.[0]?.recurrence_end_date).toBe("2026-12-31");
   });
 
   it("user A does NOT see user B's tx", async () => {

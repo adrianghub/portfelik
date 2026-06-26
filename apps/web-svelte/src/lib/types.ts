@@ -50,6 +50,7 @@ export interface Transaction {
   recurrence_month: number | null;
   recurring_template_id: string | null;
   recurring_occurrence_date: string | null;
+  recurrence_end_date: string | null;
   group_id: string | null;
   created_at: string;
   updated_at: string;

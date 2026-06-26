@@ -122,6 +122,7 @@ test("private scope: strip shows live total and the last paid row's running bala
   // Forecast (live + upcoming income) is surfaced faintly.
   await expect(strip(page).getByText(/prognoza/)).toBeVisible();
   await expect(strip(page).getByText(/1\D?600,00/)).toBeVisible();
+  await expect(page.getByText("Przewidywane saldo:")).toBeVisible();
 
   // The running-balance column shows, and the latest paid row equals the live total.
   await expect(desktopTable(page).getByText("Saldo", { exact: true })).toBeVisible();
@@ -131,6 +132,10 @@ test("private scope: strip shows live total and the last paid row's running bala
   // The earlier paid row carries the intermediate balance (1000 + 500).
   const firstBalance = (await saldoCell(page, "Wpłata gotówki").textContent())?.trim() ?? "";
   expect(firstBalance).toMatch(/1\D?500,00/);
+
+  // Upcoming rows continue the same private-scope balance rather than falling
+  // back to an empty Saldo cell.
+  await expect(saldoCell(page, "Przyszły wpływ")).toHaveText(/1\D?600,00/);
 });
 
 test("solo user (no groups) sees the cash view in the default scope", async ({ page }) => {

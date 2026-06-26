@@ -13,8 +13,10 @@ stop a series without hunting the template row, projected rows are read-only, an
 upcoming transactions don't show their impact on balance.
 
 Goal: Google/Outlook-Calendar-style recurrence management — act on any
-occurrence with **scope** (this one / this and following / all) — plus a
-forecast running balance so the user sees expected balance after upcoming hits.
+occurrence with scoped actions: edit **this occurrence** or **the whole
+series**, and delete **this occurrence** or **this and future occurrences** —
+plus a forecast running balance so the user sees expected balance after upcoming
+hits.
 
 User decisions:
 - Remove "remove a series": two non-destructive scopes — *To wystąpienie*
@@ -57,7 +59,8 @@ User decisions:
 ## Design
 
 ### 1. Schema
-Migration `2026XXXXXXXXXX_recurrence_end_date.sql`:
+Migrations `20260722000000_recurrence_end_date.sql` and
+`20260723000000_recurrence_end_date_update_grant.sql`:
 - `ALTER TABLE transactions ADD COLUMN recurrence_end_date date;` (nullable;
   `NULL` = open-ended). Meaningful only on template rows (`is_recurring=true`).
 - Verify `transactions_recurring_template_id_fkey` is `ON DELETE SET NULL`. The
@@ -67,6 +70,9 @@ Migration `2026XXXXXXXXXX_recurrence_end_date.sql`:
   deleted occurrence doesn't orphan a skip. Alter only if current behavior
   would break these flows.
 - No new table. Existing transactions RLS covers the new column.
+- Grant authenticated users column-level `UPDATE` access to
+  `recurrence_end_date`; existing RLS policies still enforce owner/co-owner
+  row access.
 
 ### 2. Projection + materialization respect the end date
 - `recurring-forecast.ts`: add `recurrence_end_date` to the template type;
@@ -74,6 +80,8 @@ Migration `2026XXXXXXXXXX_recurrence_end_date.sql`:
   `date > recurrence_end_date`.
 - `materializeRecurringOccurrencesForNearTerm`: skip occurrences past
   `recurrence_end_date`.
+- When a template end date is shortened in the dialog, remove its already
+  materialized `upcoming` rows after the new inclusive boundary as well.
 - Effect: shorten/extend instantly reshapes the chart, the `/transactions`
   list, and the forecast (all read these).
 
@@ -101,6 +109,10 @@ Scope chooser: a small Calendar-style prompt (reuse `ConfirmDialog` pattern or a
 lightweight scoped sheet). Works from any row → no template hunting. `canEdit`
 gains series-action permission for projected rows (single-row edit/delete of a
 projection remains N/A; the panel provides the appropriate scoped action).
+On the template row itself, only the safe series-level choices are offered:
+edit the whole series or end it from today. The template is also the historical
+seed transaction, so treating it as a single occurrence would either mutate the
+whole series or produce a no-op skip.
 
 ### 4. Forecast running balance + end figure (/transactions)
 - `cash-position.ts`: new pure `forecastRunningBalances(anchor, txs)` — like
