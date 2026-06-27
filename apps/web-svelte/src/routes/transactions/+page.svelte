@@ -4,9 +4,9 @@
   import BulkActionsBar from "$lib/components/transactions/BulkActionsBar.svelte";
   import CashPositionStrip from "$lib/components/transactions/CashPositionStrip.svelte";
   import CategoryBreakdown from "$lib/components/transactions/CategoryBreakdown.svelte";
-  import CategoryFilterControl from "$lib/components/transactions/CategoryFilterControl.svelte";
-  import DateRangePicker from "$lib/components/transactions/DateRangePicker.svelte";
-  import FiltersMenu from "$lib/components/transactions/FiltersMenu.svelte";
+  import TransactionFiltersBar, {
+    type TransactionSheetFilters,
+  } from "$lib/components/transactions/TransactionFiltersBar.svelte";
   import SummaryCards from "$lib/components/transactions/SummaryCards.svelte";
   import TransactionDataActions from "$lib/components/transactions/TransactionDataActions.svelte";
   import TransactionDetailSheet from "$lib/components/transactions/TransactionDetailSheet.svelte";
@@ -52,11 +52,10 @@
     skipOccurrence,
   } from "$lib/services/recurring-series";
   import { supabase } from "$lib/supabase";
-  import { parseScopeFilter } from "$lib/utils/list-view-url";
+  import { parseScopeFilter, type ScopeFilter } from "$lib/utils/list-view-url";
   import { syncListViewUrl } from "$lib/utils/navigation";
   import type { TransactionStatus, TransactionType, TransactionWithCategory } from "$lib/types";
   import {
-    cn,
     formatDate,
     fullMonthOf,
     getDateRangeBounds,
@@ -434,10 +433,6 @@
       : null
   );
 
-  const filterCategories = $derived(
-    categoriesQuery.data?.filter((c) => !typeFilter || c.type === typeFilter) ?? []
-  );
-
   const tableEmptyLabel = $derived.by(() => {
     const base = txQuery.data ?? [];
     if (searchQuery && (displayTxs?.length ?? 0) > 0 && (visibleTxs?.length ?? 0) === 0) {
@@ -788,6 +783,14 @@
   // Applied filters shown as removable chips below the toolbar (only when set).
   const activeFilters = $derived.by(() => {
     const chips: { key: string; label: string; clear: () => void }[] = [];
+    if (categoryId) {
+      const cat = categoriesQuery.data?.find((c) => c.id === categoryId);
+      chips.push({
+        key: "category",
+        label: cat?.name ?? m.transactions_filter_category(),
+        clear: () => onCategoryChange(undefined),
+      });
+    }
     if (typeFilter) {
       chips.push({
         key: "type",
@@ -802,12 +805,56 @@
         clear: () => onStatusChange(undefined),
       });
     }
+    if ((groupsQuery.data?.length ?? 0) > 0 && groupFilter !== "own") {
+      const groupLabel =
+        groupFilter === "all"
+          ? m.group_filter_all()
+          : (groupsQuery.data?.find((g) => g.id === groupFilter)?.name ??
+            m.dashboard_scope_label());
+      chips.push({
+        key: "group",
+        label: groupLabel,
+        clear: () => onGroupChange("own"),
+      });
+    }
+    if (viewFilter === "unlinked") {
+      chips.push({
+        key: "view",
+        label: m.transactions_view_unlinked(),
+        clear: () => setViewPreset(undefined),
+      });
+    } else if (viewFilter === "inne") {
+      chips.push({
+        key: "view",
+        label: m.transactions_view_inne(),
+        clear: () => setViewPreset(undefined),
+      });
+    }
     return chips;
   });
 
   function openAdd() {
     editTarget = null;
     dialogOpen = true;
+  }
+
+  function onGroupChange(scope: ScopeFilter) {
+    syncListViewUrl("/transactions", $page.url.searchParams, { group: scope });
+  }
+
+  function onApplySheetFilters(filters: TransactionSheetFilters) {
+    const p = new URLSearchParams($page.url.searchParams);
+    if (filters.categoryId) p.set("categoryId", filters.categoryId);
+    else p.delete("categoryId");
+    if (filters.type) p.set("type", filters.type);
+    else p.delete("type");
+    if (filters.status) p.set("status", filters.status);
+    else p.delete("status");
+    if (filters.group === "own") p.delete("group");
+    else p.set("group", filters.group);
+    if (filters.view) p.set("view", filters.view);
+    else p.delete("view");
+    goto(`/transactions?${p.toString()}`, { replaceState: false });
   }
 
   function onCategoryChange(id: string | undefined) {
@@ -916,56 +963,34 @@
     </div>
   </div>
 
-  <!-- Sticky filter bar: date + category visible, type/status behind Inne filtry -->
+  <!-- Sticky filter bar -->
   {#if categoriesQuery.data && selectedIds.size === 0}
-    <div
-      bind:this={stickyFiltersRef}
-      class="sticky top-14 z-30 -mx-4 border-b border-white/5 bg-slate-950"
-    >
-      <div class="flex items-center gap-2 overflow-x-auto px-4 py-2 sm:overflow-x-visible">
-        <button
-          type="button"
-          onclick={toggleSearch}
-          class="focus-visible:ring-accent relative hidden h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors focus-visible:ring-2 focus-visible:outline-none md:flex {searchModalOpen
-            ? 'border-accent/40 bg-accent/15 text-accent'
-            : 'border-white/10 bg-slate-900/60 text-slate-300 hover:bg-white/5'}"
-          aria-label={searchModalOpen
-            ? m.transactions_search_close()
-            : m.transactions_search_open()}
-          aria-pressed={searchModalOpen}
-        >
-          <Search size={15} strokeWidth={1.8} aria-hidden="true" />
-          {#if searchQuery}
-            <span class="bg-accent-gradient absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full"
-            ></span>
-          {/if}
-        </button>
-        <DateRangePicker
-          label={dateLabel}
-          startDate={explicitStartDate}
-          endDate={explicitEndDate}
-          onchange={onApplyDateRange}
-          clearable={!isDefaultDateFilter}
-          onclear={onClearDateFilter}
-        />
-        <CategoryFilterControl
-          categories={filterCategories}
-          selectedId={categoryId}
-          onchange={onCategoryChange}
-        />
-        <FiltersMenu
-          type={typeFilter}
-          status={statusFilter}
-          ontypechange={onTypeChange}
-          onstatuschange={onStatusChange}
-          onclear={onClearFilters}
-        />
-      </div>
-      <div
-        class="pointer-events-none absolute inset-y-0 right-0 w-12 bg-linear-to-l from-slate-950 to-transparent sm:hidden"
-        aria-hidden="true"
-      ></div>
-    </div>
+    <TransactionFiltersBar
+      bind:stickyRef={stickyFiltersRef}
+      {dateLabel}
+      {explicitStartDate}
+      {explicitEndDate}
+      {isDefaultDateFilter}
+      categories={categoriesQuery.data ?? []}
+      {categoryId}
+      {typeFilter}
+      {statusFilter}
+      {groupFilter}
+      {viewFilter}
+      groups={groupsQuery.data ?? []}
+      searchQueryActive={!!searchQuery}
+      {onApplyDateRange}
+      {onClearDateFilter}
+      {onCategoryChange}
+      {onTypeChange}
+      {onStatusChange}
+      {onClearFilters}
+      {onGroupChange}
+      onViewPreset={setViewPreset}
+      {onApplySheetFilters}
+      onToggleSearch={toggleSearch}
+      {searchModalOpen}
+    />
   {/if}
 
   {#if activeFilters.length > 0}
@@ -987,73 +1012,6 @@
       {/each}
     </div>
   {/if}
-
-  {#if groupsQuery.data && groupsQuery.data.length > 0}
-    <div role="tablist" aria-label="Grupa" class="flex flex-wrap gap-1">
-      <button
-        type="button"
-        role="tab"
-        aria-selected={groupFilter === "own"}
-        onclick={() => syncListViewUrl("/transactions", $page.url.searchParams, { group: "own" })}
-        class={cn(
-          "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
-          groupFilter === "own"
-            ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
-            : "border border-white/5 text-slate-300 hover:bg-white/5"
-        )}
-      >
-        {m.group_filter_own()}
-      </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={groupFilter === "all"}
-        onclick={() => syncListViewUrl("/transactions", $page.url.searchParams, { group: "all" })}
-        class={cn(
-          "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
-          groupFilter === "all"
-            ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
-            : "border border-white/5 text-slate-300 hover:bg-white/5"
-        )}
-      >
-        {m.group_filter_all()}
-      </button>
-      {#each groupsQuery.data as g (g.id)}
-        <button
-          type="button"
-          role="tab"
-          aria-selected={groupFilter === g.id}
-          onclick={() => syncListViewUrl("/transactions", $page.url.searchParams, { group: g.id })}
-          class={cn(
-            "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
-            groupFilter === g.id
-              ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
-              : "border border-white/5 text-slate-300 hover:bg-white/5"
-          )}
-        >
-          {g.name}
-        </button>
-      {/each}
-    </div>
-  {/if}
-
-  <div class="flex flex-wrap gap-2" role="group" aria-label={m.transactions_view_quick()}>
-    {#each [{ key: "unlinked", label: m.transactions_view_unlinked(), active: viewFilter === "unlinked", run: () => setViewPreset("unlinked") }, { key: "inne", label: m.transactions_view_inne(), active: viewFilter === "inne", run: () => setViewPreset("inne") }] as preset (preset.key)}
-      <button
-        type="button"
-        aria-pressed={preset.active}
-        onclick={preset.run}
-        class={cn(
-          "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
-          preset.active
-            ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
-            : "border border-white/5 text-slate-300 hover:bg-white/5"
-        )}
-      >
-        {preset.label}
-      </button>
-    {/each}
-  </div>
 
   {#if showCashView}
     <CashPositionStrip live={cashLive} forecast={cashForecast} hasAnchor={!!cashAnchorQuery.data} />
