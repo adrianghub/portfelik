@@ -1,0 +1,47 @@
+mBank S.A. Bankowość Detaliczna;
+	Skrytka Pocztowa 2108;
+	90-959 Łódź 2;
+	www.mBank.pl;
+
+#Klient;
+JAN TESTOWY KOWALSKI;
+
+Lista operacji;
+
+#Za okres:;
+01.06.2026;27.06.2026;
+
+#dla rachunków:;
+	eKonto - 00 0000 0000 0000 0000 0000 0001;
+
+#Waluta;#Wpływy;#Wydatki;
+PLN;9 800,00;-7 312,45;
+
+#Data operacji;#Opis operacji;#Rachunek;#Kategoria;#Kwota;
+2026-06-26;"PŁATNOŚĆ KARTĄ BIEDRONKA 1234 WARSZAWA";"eKonto 0000 ... 0001";"Zakupy spożywcze";-142,30 PLN;;
+2026-06-25;"PRZELEW PRZYCHODZĄCY WYNAGRODZENIE FIRMA TESTOWA SP Z O O";"eKonto 0000 ... 0001";"Wpływy - wynagrodzenie";9 800,00 PLN;;
+2026-06-24;"PŁATNOŚĆ KARTĄ ORLEN STACJA PALIW";"eKonto 0000 ... 0001";"Transport";-251,00 PLN;;
+2026-06-23;"PRZELEW WYCHODZĄCY CZYNSZ CZERWIEC WSPÓLNOTA MIESZKANIOWA";"eKonto 0000 ... 0001";"Mieszkanie";-1 800,00 PLN;;
+2026-06-22;"PŁATNOŚĆ KARTĄ LIDL WARSZAWA";"eKonto 0000 ... 0001";"Zakupy spożywcze";-98,76 PLN;;
+2026-06-22;"PŁATNOŚĆ KARTĄ LIDL WARSZAWA";"eKonto 0000 ... 0001";"Zakupy spożywcze";-98,76 PLN;;
+2026-06-21;"BLIK ZAKUP INTERNETOWY ALLEGRO";"eKonto 0000 ... 0001";"Zakupy";-329,99 PLN;;
+2026-06-20;"PŁATNOŚĆ KARTĄ NETFLIX.COM";"eKonto 0000 ... 0001";"Subskrypcje";-43,00 PLN;;
+2026-06-19;"PŁATNOŚĆ KARTĄ RESTAURACJA POD RÓŻĄ";"eKonto 0000 ... 0001";"Restauracje";-187,50 PLN;;
+2026-06-18;"PRZELEW WYCHODZĄCY RATA KREDYTU HIPOTECZNEGO";"eKonto 0000 ... 0001";"Spłaty rat";-2 100,00 PLN;;
+2026-06-17;"PŁATNOŚĆ KARTĄ ROSSMANN WARSZAWA";"eKonto 0000 ... 0001";"Zdrowie i uroda";-64,20 PLN;;
+2026-06-16;"WYPŁATA Z BANKOMATU EURONET";"eKonto 0000 ... 0001";"Wypłaty gotówki";-400,00 PLN;;
+2026-06-15;"PŁATNOŚĆ KARTĄ MPK BILET MIESIĘCZNY";"eKonto 0000 ... 0001";"Transport";-110,00 PLN;;
+2026-06-14;"BLIK NA TELEFON 500xxx600";"eKonto 0000 ... 0001";"Przelewy";-150,00 PLN;;
+2026-06-13;"PŁATNOŚĆ KARTĄ APTEKA DBAM O ZDROWIE";"eKonto 0000 ... 0001";"Zdrowie i uroda";-78,90 PLN;;
+2026-06-12;"PRZELEW PRZYCHODZĄCY ZWROT ZA BILETY";"eKonto 0000 ... 0001";"Wpływy - inne";230,00 PLN;;
+2026-06-11;"PŁATNOŚĆ KARTĄ ŻABKA Z9912";"eKonto 0000 ... 0001";"Zakupy spożywcze";-23,45 PLN;;
+2026-06-10;"PŁATNOŚĆ KARTĄ CINEMA CITY";"eKonto 0000 ... 0001";"Rozrywka";-89,00 PLN;;
+2026-06-09;"PŁATNOŚĆ KARTĄ DECATHLON WARSZAWA";"eKonto 0000 ... 0001";"Sport";-412,99 PLN;;
+2026-06-08;"PŁATNOŚĆ KARTĄ STARBUCKS";"eKonto 0000 ... 0001";"Restauracje";-27,80 PLN;;
+2026-06-07;"PRZELEW WYCHODZĄCY OSZCZĘDNOŚCI KONTO OSZCZĘDNOŚCIOWE";"eKonto 0000 ... 0001";"Oszczędności";-1 000,00 PLN;;
+2026-06-06;"PŁATNOŚĆ KARTĄ IKEA JANKI";"eKonto 0000 ... 0001";"Dom i ogród";-643,15 PLN;;
+2026-06-05;"PŁATNOŚĆ KARTĄ AUCHAN";"eKonto 0000 ... 0001";"Zakupy spożywcze";-289,40 PLN;;
+2026-06-04;"PŁATNOŚĆ KARTĄ BOLT.EU PRZEJAZD";"eKonto 0000 ... 0001";"Transport";-34,60 PLN;;
+2026-06-03;"PŁATNOŚĆ KARTĄ EMPIK";"eKonto 0000 ... 0001";"Kultura";-59,99 PLN;;
+2026-06-02;"PRZELEW PRZYCHODZĄCY ZWROT PODATKU URZĄD SKARBOWY";"eKonto 0000 ... 0001";"Wpływy - inne";1 540,00 PLN;;
+2026-06-01;"PŁATNOŚĆ KARTĄ MULTISPORT KARTA";"eKonto 0000 ... 0001";"Sport";-149,00 PLN;;

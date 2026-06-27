@@ -1,32 +1,25 @@
 <script lang="ts">
   import type { SpendingInsight } from "$lib/services/spending-insight";
+  import { formatDeltaPct, isSignificantDeltaPct } from "$lib/services/spending-category-display";
+  import SpendingCategoryBreakdown from "$lib/components/dashboard/SpendingCategoryBreakdown.svelte";
   import { formatCurrency, cn } from "$lib/utils";
   import * as m from "$lib/paraglide/messages";
-  import SpendingTreemap, {
-    type TreemapCategory,
-  } from "$lib/components/dashboard/charts/SpendingTreemap.svelte";
+  import { ChevronDown } from "lucide-svelte";
+  import { MediaQuery } from "svelte/reactivity";
 
   let {
     insight,
     period,
     categoryHref,
+    expanded = $bindable(false),
   }: {
     insight: SpendingInsight;
     period: "week" | "month" | "year";
-    /** Period-aware transactions link for a treemap tile (null = all). */
     categoryHref: (categoryId: string | null) => string;
+    expanded?: boolean;
   } = $props();
 
-  const treemapCategories = $derived.by<TreemapCategory[]>(() =>
-    insight.categories
-      .filter((c) => c.total > 0)
-      .map((c) => ({
-        categoryId: c.categoryId,
-        name: c.name,
-        total: c.total,
-        deltaPct: insight.isFirstPeriod ? null : c.deltaPct,
-      }))
-  );
+  const isMdLayout = new MediaQuery("(min-width: 768px)");
 
   const vsPrevLabel = $derived(
     period === "week"
@@ -35,69 +28,83 @@
         ? m.dashboard_spending_vs_prev_year()
         : m.dashboard_spending_vs_prev_month()
   );
-  function deltaLabel(pct: number | null): string {
-    if (pct === null) return "";
-    const arrow = pct >= 0 ? "↑" : "↓";
-    return `${arrow}${Math.abs(Math.round(pct))}%`;
-  }
 
-  // Biggest movers vs the previous period — already computed by computeSpendingInsight,
-  // just unsurfaced. Drop sub-floor noise and the first period (nothing to compare).
-  const movers = $derived(
-    insight.isFirstPeriod
-      ? []
-      : insight.biggestMovers.filter((c) => Math.abs(c.deltaAbs) >= 50).slice(0, 3)
-  );
+  const showContent = $derived(expanded || isMdLayout.current);
 </script>
 
-<section class="rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur">
-  <h2 class="text-sm font-medium text-slate-400">{m.dashboard_spending_title()}</h2>
-
+{#snippet spendingBody()}
   {#if insight.spent === 0 && insight.categories.length === 0}
-    <p class="mt-2 text-sm text-slate-400">{m.dashboard_spending_empty()}</p>
+    <p class="text-sm text-slate-400">{m.dashboard_spending_empty()}</p>
   {:else}
-    <p class="mt-1 text-lg font-semibold">
-      {m.dashboard_spending_spent()}
-      {formatCurrency(insight.spent)}
-      <span class="text-slate-400"
-        >· {m.dashboard_spending_net()} {formatCurrency(insight.net)}</span
-      >
-      {#if !insight.isFirstPeriod && insight.spentDeltaPct !== null}
-        <span
-          class={cn("text-sm", insight.spentDeltaPct >= 0 ? "text-rose-400" : "text-emerald-400")}
-        >
-          {deltaLabel(insight.spentDeltaPct)}
-          {vsPrevLabel}
-        </span>
-      {/if}
-    </p>
-
-    {#if treemapCategories.length > 0}
-      <div class="mt-3">
-        <SpendingTreemap categories={treemapCategories} {categoryHref} />
-      </div>
+    {#if !insight.isFirstPeriod && isSignificantDeltaPct(insight.spentDeltaPct)}
+      <p class={cn("text-sm", insight.spentDeltaPct >= 0 ? "text-rose-400" : "text-emerald-400")}>
+        {formatDeltaPct(insight.spentDeltaPct)}
+        {vsPrevLabel}
+      </p>
     {/if}
 
-    {#if movers.length > 0}
-      <div class="mt-3">
-        <p class="text-eyebrow text-slate-400">{m.dashboard_spending_movers()}</p>
-        <ul class="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-          {#each movers as mv (mv.categoryId)}
-            <li class="text-slate-300">
-              {mv.name}
-              <span
-                class={cn("tabular-nums", mv.deltaAbs >= 0 ? "text-rose-400" : "text-emerald-400")}
-              >
-                {mv.deltaAbs >= 0 ? "+" : "−"}{formatCurrency(Math.abs(mv.deltaAbs))}
-              </span>
-            </li>
-          {/each}
-        </ul>
-      </div>
-    {/if}
+    <SpendingCategoryBreakdown
+      categories={insight.categories}
+      biggestMovers={insight.biggestMovers}
+      spent={insight.spent}
+      isFirstPeriod={insight.isFirstPeriod}
+      categoryHref={(id) => categoryHref(id)}
+    />
 
     {#if insight.isFirstPeriod}
       <p class="mt-2 text-xs text-slate-400">{m.dashboard_spending_first_period()}</p>
     {/if}
+  {/if}
+{/snippet}
+
+<section
+  id="dashboard-spending"
+  class="flex h-full min-w-0 flex-col overflow-x-clip rounded-3xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur"
+>
+  {#if isMdLayout.current}
+    <div class="flex items-baseline justify-between gap-3">
+      <h2 class="text-sm font-medium text-slate-400">{m.dashboard_spending_title()}</h2>
+      {#if insight.spent > 0 || insight.categories.length > 0}
+        <span class="shrink-0 text-sm font-semibold text-slate-200 tabular-nums">
+          {formatCurrency(insight.spent)}
+        </span>
+      {/if}
+    </div>
+    <div class="mt-2 min-w-0 flex-1 space-y-2">
+      {@render spendingBody()}
+    </div>
+  {:else}
+    <button
+      type="button"
+      class="flex w-full items-baseline justify-between gap-3"
+      aria-expanded={expanded}
+      onclick={() => (expanded = !expanded)}
+    >
+      <h2 class="text-sm font-medium text-slate-400">{m.dashboard_spending_title()}</h2>
+      <span class="flex shrink-0 items-center gap-2">
+        {#if insight.spent > 0 || insight.categories.length > 0}
+          <span class="text-sm font-semibold text-slate-200 tabular-nums">
+            {formatCurrency(insight.spent)}
+          </span>
+        {/if}
+        <ChevronDown
+          size={17}
+          strokeWidth={1.8}
+          class={cn(
+            "text-slate-400 transition-transform duration-300 ease-out",
+            expanded && "rotate-180"
+          )}
+          aria-hidden="true"
+        />
+      </span>
+    </button>
+
+    <div class={cn("expand-grid", showContent && "expand-grid--open")} aria-hidden={!showContent}>
+      <div class="expand-grid-inner">
+        <div class="expand-grid-panel pt-2">
+          {@render spendingBody()}
+        </div>
+      </div>
+    </div>
   {/if}
 </section>

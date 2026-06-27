@@ -53,6 +53,21 @@ describe("mbank adapter - synthetic fixture", () => {
     for (const r of out.rows) expect(r.source_row_text).toBeTruthy();
   });
 
+  it("parses 2026 export shape: currency-suffixed amounts, #Rachunek/#Kategoria columns", () => {
+    // Real mBank export (mid-2026): #Kwota carries a " PLN" suffix and space
+    // thousands separators, columns are Data/Opis/Rachunek/Kategoria/Kwota.
+    const real = [
+      "#Data operacji;#Opis operacji;#Rachunek;#Kategoria;#Kwota;",
+      '2026-06-25;"PRZELEW PRZYCHODZĄCY";"eKonto 5211 ... 2372";"Wpływy - inne";14 000,00 PLN;;',
+      '2026-06-15;"SPŁATA RATY";"eKonto 5211 ... 2372";"Spłaty rat";-205 955,00 PLN;;',
+    ].join("\r\n");
+    const out = mbankAdapter.parse(real);
+    expect(out.errors).toEqual([]);
+    expect(out.rows).toHaveLength(2);
+    expect(out.rows[0]).toMatchObject({ type: "income", amount: 14000 });
+    expect(out.rows[1]).toMatchObject({ type: "expense", amount: 205955 });
+  });
+
   it("returns an error row when required headers are missing", () => {
     const bad = "Foo;Bar\n1;2\n";
     const out = mbankAdapter.parse(bad);

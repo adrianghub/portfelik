@@ -43,6 +43,9 @@ function targetEnv(name) {
   return undefined;
 }
 
+const adminEmail = targetEnv("ADMIN_EMAIL") ?? process.env.SEED_ADMIN_EMAIL ?? DEFAULT_ADMIN_LOGIN;
+const userEmail = targetEnv("USER_EMAIL") ?? process.env.SEED_USER_EMAIL ?? DEFAULT_USER_LOGIN;
+
 function getConfig() {
   if (target === "staging") {
     return {
@@ -167,6 +170,7 @@ async function cleanupDemoRows(userId) {
       .eq("user_id", userId)
       .like("description", `${DEMO_PREFIX}%`)
   );
+  // Deleting demo plans cascades plan_debt_terms (FK on delete cascade).
   await deleteRows(
     "demo plans",
     supabase.from("plans").delete().eq("user_id", userId).like("name", `${DEMO_PREFIX}%`)
@@ -175,6 +179,7 @@ async function cleanupDemoRows(userId) {
     "demo categories",
     supabase.from("categories").delete().eq("user_id", userId).like("name", `${DEMO_PREFIX}%`)
   );
+  // Deleting demo groups cascades group_members (incl. co-owner rows).
   await deleteRows(
     "demo groups",
     supabase.from("user_groups").delete().eq("owner_id", userId).like("name", `${DEMO_PREFIX}%`)
@@ -187,53 +192,67 @@ function isoDaysAgo(days) {
   return d.toISOString().slice(0, 10);
 }
 
-// Build a varied transaction set spanning ~3 months with mixed categories,
-// statuses and types so the local UI (date-range picker, category/status
-// filters, search, bulk ops) has realistic data to exercise after each
-// increment. All descriptions keep the DEMO_PREFIX so cleanupDemoRows removes
-// them idempotently.
-function buildDemoTransactions(userId, { groupId, groceries, salary, transport, dining }) {
-  const rows = [
-    // This week - covers the "Ten tydzień" preset
-    { d: 1, amount: 42.9, cat: dining, type: "expense", status: "paid", label: "Lunch w mieście" },
-    { d: 2, amount: 19.5, cat: transport, type: "expense", status: "paid", label: "Bilet MPK" },
-    { d: 4, amount: 230.0, cat: groceries, type: "expense", status: "paid", label: "Zakupy tygodniowe" },
-    // Earlier this month
-    { d: 9, amount: 6900, cat: salary, type: "income", status: "paid", label: "Pensja" },
-    { d: 12, amount: 89.99, cat: dining, type: "expense", status: "paid", label: "Kolacja" },
-    { d: 15, amount: 54.0, cat: transport, type: "expense", status: "paid", label: "Paliwo" },
-    { d: 18, amount: 320.5, cat: groceries, type: "expense", status: "paid", label: "Wielkie zakupy", groupId },
-    { d: 20, amount: 150.0, cat: dining, type: "expense", status: "draft", label: "Rezerwacja restauracji" },
-    { d: 22, amount: 60.0, cat: transport, type: "expense", status: "upcoming", label: "Przegląd auta" },
-    // Last month
-    { d: 33, amount: 6900, cat: salary, type: "income", status: "paid", label: "Pensja (poprzedni miesiąc)" },
-    { d: 36, amount: 199.0, cat: groceries, type: "expense", status: "paid", label: "Zakupy" },
-    { d: 40, amount: 75.0, cat: dining, type: "expense", status: "paid", label: "Obiad rodzinny" },
-    { d: 45, amount: 40.0, cat: transport, type: "expense", status: "overdue", label: "Mandat" },
-    { d: 50, amount: 500.0, cat: groceries, type: "expense", status: "paid", label: "Duże zakupy domowe", groupId },
-    // Two months ago
-    { d: 63, amount: 6900, cat: salary, type: "income", status: "paid", label: "Pensja (dwa miesiące temu)" },
-    { d: 68, amount: 120.0, cat: dining, type: "expense", status: "paid", label: "Wyjście ze znajomymi" },
-    { d: 74, amount: 88.0, cat: transport, type: "expense", status: "paid", label: "Taxi" },
-    { d: 80, amount: 260.0, cat: groceries, type: "expense", status: "paid", label: "Zakupy miesięczne" },
-    // Future - exercises "upcoming" status / forward date filtering
-    { d: -5, amount: 1200, cat: groceries, type: "expense", status: "upcoming", label: "Planowany wydatek" },
-    { d: -10, amount: 99.0, cat: dining, type: "expense", status: "upcoming", label: "Zaplanowana kolacja" },
-  ];
+// Build a varied transaction set spanning ~10 months with mixed categories,
+// statuses and types so the UI (date-range picker, category/status filters,
+// search, bulk ops, dashboard trends, treemap, cash position) has realistic
+// data. One recent month carries a deliberate spending spike so the dashboard
+// anomaly surface lights up. Specific "Pensja"/"Rata kredytu" rows are linked
+// to plans afterwards. All descriptions keep the DEMO_PREFIX so cleanupDemoRows
+// removes them idempotently.
+function buildDemoTransactions(userId, cats, groupId) {
+  const { groceries, salary, transport, dining, housing, health, fun, subs } = cats;
+  const rows = [];
+  const tx = (d, amount, cat, type, status, label, useGroup = false) => {
+    rows.push({
+      user_id: userId,
+      ...(useGroup ? { group_id: groupId } : {}),
+      amount,
+      currency: "PLN",
+      description: `${DEMO_PREFIX} ${label}`,
+      date: isoDaysAgo(d),
+      type,
+      status,
+      category_id: cat,
+    });
+  };
 
-  return rows.map((r) => ({
-    user_id: userId,
-    ...(r.groupId ? { group_id: r.groupId } : {}),
-    amount: r.amount,
-    currency: "PLN",
-    description: `${DEMO_PREFIX} ${r.label}`,
-    date: isoDaysAgo(r.d),
-    type: r.type,
-    status: r.status,
-    category_id: r.cat,
-  }));
+  for (let mo = 0; mo <= 9; mo++) {
+    const base = mo * 30;
+    const tag = mo === 0 ? "(ten mies.)" : `(${mo} mies. temu)`;
+    tx(base + 5, 6900 + (mo % 2) * 150, salary, "income", "paid", `Pensja ${tag}`);
+    tx(base + 10, 1800, housing, "expense", "paid", `Czynsz ${tag}`);
+    tx(base + 8, 210 + (mo % 3) * 18, groceries, "expense", "paid", `Zakupy spożywcze ${tag} #1`, mo < 3);
+    tx(base + 21, 175 + (mo % 4) * 12, groceries, "expense", "paid", `Zakupy spożywcze ${tag} #2`);
+    tx(base + 12, 55 + (mo % 3) * 9, transport, "expense", "paid", `Paliwo ${tag}`);
+    tx(base + 16, 85 + (mo % 5) * 7, dining, "expense", "paid", `Restauracja ${tag}`);
+    tx(base + 3, 43, subs, "expense", "paid", `Subskrypcja Netflix ${tag}`);
+    tx(base + 15, 2100, housing, "expense", "paid", `Rata kredytu ${tag}`);
+  }
+
+  // Occasional categories so health/fun are not empty.
+  tx(48, 260, health, "expense", "paid", "Wizyta u dentysty");
+  tx(75, 140, health, "expense", "paid", "Apteka");
+  tx(95, 320, fun, "expense", "paid", "Bilety na koncert");
+
+  // Deliberate spending anomaly ~last month (dining + fun far above usual) so
+  // the dashboard "wyżej niż zwykle" action surfaces.
+  tx(34, 480, dining, "expense", "paid", "Kolacja urodzinowa");
+  tx(38, 620, fun, "expense", "paid", "Weekend SPA");
+  tx(42, 390, fun, "expense", "paid", "Gokarty ze znajomymi");
+
+  // Current month: non-paid statuses.
+  tx(2, 64, transport, "expense", "draft", "Bilet kolejowy (szkic)");
+  tx(6, 120, dining, "expense", "upcoming", "Zaplanowana kolacja");
+  tx(20, 90, transport, "expense", "overdue", "Mandat (zaległy)");
+
+  // Future upcoming.
+  tx(-5, 1200, groceries, "expense", "upcoming", "Planowany duży zakup");
+  tx(-12, 150, fun, "expense", "upcoming", "Bilety do kina");
+
+  return rows;
 }
 
+// Returns the owner's demo group id (used to wire the shared-group scenario).
 async function seedDemoRows(userId) {
   const demoCategories = await must(
     "create demo categories",
@@ -244,15 +263,24 @@ async function seedDemoRows(userId) {
         { user_id: userId, name: `${DEMO_PREFIX} Wynagrodzenie`, type: "income" },
         { user_id: userId, name: `${DEMO_PREFIX} Transport`, type: "expense" },
         { user_id: userId, name: `${DEMO_PREFIX} Restauracje`, type: "expense" },
+        { user_id: userId, name: `${DEMO_PREFIX} Mieszkanie`, type: "expense" },
+        { user_id: userId, name: `${DEMO_PREFIX} Zdrowie`, type: "expense" },
+        { user_id: userId, name: `${DEMO_PREFIX} Rozrywka`, type: "expense" },
+        { user_id: userId, name: `${DEMO_PREFIX} Subskrypcje`, type: "expense" },
       ])
       .select("id, name, type")
   );
-  const byName = (suffix) =>
-    demoCategories.find((c) => c.name === `${DEMO_PREFIX} ${suffix}`)?.id;
-  const groceries = { id: byName("Zakupy"), type: "expense" };
-  const salary = { id: byName("Wynagrodzenie"), type: "income" };
-  const transport = byName("Transport");
-  const dining = byName("Restauracje");
+  const catId = (suffix) => demoCategories.find((c) => c.name === `${DEMO_PREFIX} ${suffix}`)?.id;
+  const cats = {
+    groceries: catId("Zakupy"),
+    salary: catId("Wynagrodzenie"),
+    transport: catId("Transport"),
+    dining: catId("Restauracje"),
+    housing: catId("Mieszkanie"),
+    health: catId("Zdrowie"),
+    fun: catId("Rozrywka"),
+    subs: catId("Subskrypcje"),
+  };
 
   const group = await must(
     "create demo group",
@@ -267,70 +295,122 @@ async function seedDemoRows(userId) {
     supabase.from("group_members").insert({
       group_id: group.id,
       user_id: userId,
+      role: "owner",
     })
   );
 
-  const demoTransactions = buildDemoTransactions(userId, {
-    groupId: group.id,
-    groceries: groceries.id,
-    salary: salary.id,
-    transport,
-    dining,
-  });
-
+  const demoTransactions = buildDemoTransactions(userId, cats, group.id);
   const createdTransactions = await must(
     "create demo transactions",
     supabase.from("transactions").insert(demoTransactions).select("id, description, type")
   );
-
   const txByLabel = new Map(
     createdTransactions.map((tx) => [tx.description.replace(`${DEMO_PREFIX} `, ""), tx.id])
   );
+
+  // Recurring templates (is_recurring=true) drive /recurring + forecast bars.
+  const recurringTemplates = [
+    { day: 5, amount: 6900, cat: cats.salary, type: "income", label: "Pensja (cykliczna)" },
+    { day: 3, amount: 43, cat: cats.subs, type: "expense", label: "Subskrypcja Netflix (cykliczna)" },
+    { day: 10, amount: 1800, cat: cats.housing, type: "expense", label: "Czynsz (cykliczny)" },
+  ].map((t) => ({
+    user_id: userId,
+    amount: t.amount,
+    currency: "PLN",
+    description: `${DEMO_PREFIX} ${t.label}`,
+    date: isoDaysAgo(5),
+    type: t.type,
+    status: "paid",
+    category_id: t.cat,
+    is_recurring: true,
+    recurrence_frequency: "monthly",
+    recurrence_interval: 1,
+    recurring_day: t.day,
+  }));
+  await must(
+    "create demo recurring templates",
+    supabase.from("transactions").insert(recurringTemplates)
+  );
+
+  const savePlans = [
+    {
+      user_id: userId,
+      name: `${DEMO_PREFIX} Remont łazienki`,
+      kind: "save",
+      category_id: cats.salary,
+      budget_amount: null,
+      target_amount: 5000,
+      start_date: isoDaysAgo(70),
+      end_date: isoDaysAgo(-30),
+    },
+    {
+      user_id: userId,
+      name: `${DEMO_PREFIX} Tygodniowe zakupy`,
+      kind: "save",
+      category_id: cats.salary,
+      budget_amount: null,
+      target_amount: 600,
+      start_date: isoDaysAgo(10),
+      end_date: isoDaysAgo(-1),
+    },
+    {
+      user_id: userId,
+      name: `${DEMO_PREFIX} Wakacje - Chorwacja`,
+      kind: "save",
+      category_id: cats.salary,
+      budget_amount: null,
+      target_amount: 3000,
+      start_date: isoDaysAgo(20),
+      end_date: isoDaysAgo(-45),
+    },
+  ];
+  const debtPlan = {
+    user_id: userId,
+    name: `${DEMO_PREFIX} Kredyt hipoteczny`,
+    kind: "debt",
+    category_id: cats.housing,
+    budget_amount: null,
+    target_amount: null,
+    start_date: isoDaysAgo(300),
+    end_date: isoDaysAgo(-3650),
+  };
 
   const plans = await must(
     "create demo plans",
     supabase
       .from("plans")
-      .insert([
-        {
-          user_id: userId,
-          name: `${DEMO_PREFIX} Remont łazienki`,
-          kind: "save",
-          category_id: salary.id,
-          budget_amount: null,
-          target_amount: 5000,
-          start_date: isoDaysAgo(70),
-          end_date: isoDaysAgo(-30),
-        },
-        {
-          user_id: userId,
-          name: `${DEMO_PREFIX} Tygodniowe zakupy`,
-          kind: "save",
-          category_id: salary.id,
-          budget_amount: null,
-          target_amount: 600,
-          start_date: isoDaysAgo(10),
-          end_date: isoDaysAgo(-1),
-        },
-        {
-          user_id: userId,
-          name: `${DEMO_PREFIX} Wakacje - Chorwacja`,
-          kind: "save",
-          category_id: salary.id,
-          budget_amount: null,
-          target_amount: 3000,
-          start_date: isoDaysAgo(20),
-          end_date: isoDaysAgo(-45),
-        },
-      ])
-      .select("id, name")
+      .insert([...savePlans, debtPlan])
+      .select("id, name, kind")
+  );
+  const planByName = new Map(
+    plans.map((plan) => [plan.name.replace(`${DEMO_PREFIX} `, ""), plan.id])
   );
 
-  const planByName = new Map(plans.map((plan) => [plan.name.replace(`${DEMO_PREFIX} `, ""), plan.id]));
+  const debtPlanId = plans.find((p) => p.kind === "debt")?.id;
+  if (debtPlanId) {
+    await must(
+      "create demo debt terms",
+      supabase.from("plan_debt_terms").insert({
+        plan_id: debtPlanId,
+        original_amount: 320000,
+        current_balance: 298000,
+        annual_rate: 0.072,
+        monthly_payment: 2100,
+        first_payment_date: isoDaysAgo(300),
+        first_payment_amount: 2100,
+        balance_anchor_date: isoDaysAgo(15),
+        anchor_balance: 298000,
+      })
+    );
+  }
+
   const linkRows = [
-    ["Remont łazienki", "Pensja (dwa miesiące temu)"],
-    ["Tygodniowe zakupy", "Pensja (poprzedni miesiąc)"],
-    ["Wakacje - Chorwacja", "Pensja"],
+    ["Remont łazienki", "Pensja (2 mies. temu)"],
+    ["Tygodniowe zakupy", "Pensja (1 mies. temu)"],
+    ["Wakacje - Chorwacja", "Pensja (ten mies.)"],
+    ["Kredyt hipoteczny", "Rata kredytu (ten mies.)"],
+    ["Kredyt hipoteczny", "Rata kredytu (1 mies. temu)"],
+    ["Kredyt hipoteczny", "Rata kredytu (2 mies. temu)"],
   ]
     .map(([planName, txLabel]) => ({
       plan_id: planByName.get(planName),
@@ -339,16 +419,74 @@ async function seedDemoRows(userId) {
     }))
     .filter((row) => row.plan_id && row.transaction_id);
 
+  await must("create demo plan links", supabase.from("plan_transaction_links").insert(linkRows));
+
+  return group.id;
+}
+
+// Wire a collaboration scenario: the co-owner persona joins the owner's demo
+// group with role=co_owner and a few group-scoped transactions + a group plan
+// land under the owner. Idempotent: shared rows carry DEMO_PREFIX (cleaned by
+// cleanupDemoRows(ownerId)) and the membership cascades when the group is reset.
+async function seedSharedScenario(ownerId, coOwnerId, ownerGroupId) {
   await must(
-    "create demo plan links",
-    supabase.from("plan_transaction_links").insert(linkRows)
+    "add demo co-owner",
+    supabase
+      .from("group_members")
+      .upsert(
+        { group_id: ownerGroupId, user_id: coOwnerId, role: "co_owner" },
+        { onConflict: "group_id,user_id" }
+      )
+  );
+
+  const ownerCats = await must(
+    "lookup owner demo categories",
+    supabase
+      .from("categories")
+      .select("id, name")
+      .eq("user_id", ownerId)
+      .in("name", [`${DEMO_PREFIX} Zakupy`, `${DEMO_PREFIX} Wynagrodzenie`])
+  );
+  const groceriesId = ownerCats.find((c) => c.name === `${DEMO_PREFIX} Zakupy`)?.id;
+  const salaryId = ownerCats.find((c) => c.name === `${DEMO_PREFIX} Wynagrodzenie`)?.id;
+
+  const sharedTransactions = [
+    { d: 7, amount: 540, label: "Wspólne zakupy (grupa)" },
+    { d: 19, amount: 220, label: "Rachunek za prąd (grupa)" },
+    { d: 33, amount: 380, label: "Wspólne zakupy (grupa, zeszły mies.)" },
+  ].map((t) => ({
+    user_id: ownerId,
+    group_id: ownerGroupId,
+    amount: t.amount,
+    currency: "PLN",
+    description: `${DEMO_PREFIX} ${t.label}`,
+    date: isoDaysAgo(t.d),
+    type: "expense",
+    status: "paid",
+    category_id: groceriesId,
+  }));
+  await must(
+    "create demo shared transactions",
+    supabase.from("transactions").insert(sharedTransactions)
+  );
+
+  await must(
+    "create demo group plan",
+    supabase.from("plans").insert({
+      user_id: ownerId,
+      group_id: ownerGroupId,
+      name: `${DEMO_PREFIX} Wspólny cel - wakacje`,
+      kind: "save",
+      category_id: salaryId,
+      budget_amount: null,
+      target_amount: 4000,
+      start_date: isoDaysAgo(15),
+      end_date: isoDaysAgo(-60),
+    })
   );
 }
 
 function manualPersonas() {
-  const adminEmail =
-    targetEnv("ADMIN_EMAIL") ?? process.env.SEED_ADMIN_EMAIL ?? DEFAULT_ADMIN_LOGIN;
-  const userEmail = targetEnv("USER_EMAIL") ?? process.env.SEED_USER_EMAIL ?? DEFAULT_USER_LOGIN;
   return [
     {
       email: adminEmail,
@@ -400,20 +538,31 @@ function stagingPersonas() {
 
 const personas = [...manualPersonas(), ...stagingPersonas()];
 const seen = new Set();
+const personaResults = new Map();
 for (const persona of personas) {
   if (seen.has(persona.email)) continue;
   seen.add(persona.email);
 
   const user = await ensureUser(persona);
+  let groupId = null;
   if (persona.withDemoRows) {
     await cleanupDemoRows(user.id);
-    await seedDemoRows(user.id);
+    groupId = await seedDemoRows(user.id);
   }
+  personaResults.set(persona.email, { userId: user.id, groupId });
 
   console.log(
     `${target}: seeded ${persona.role} persona ${persona.email}` +
       (persona.password === persona.email ? " (password matches login)" : "")
   );
+}
+
+// Collaboration scenario: admin co-owns the user persona's demo group.
+const owner = personaResults.get(userEmail);
+const coOwner = personaResults.get(adminEmail);
+if (owner?.groupId && coOwner?.userId && owner.userId !== coOwner.userId) {
+  await seedSharedScenario(owner.userId, coOwner.userId, owner.groupId);
+  console.log(`${target}: wired shared-group scenario (${adminEmail} co-owns ${userEmail}'s group)`);
 }
 
 console.log(`${target}: personas and synthetic rows are ready.`);

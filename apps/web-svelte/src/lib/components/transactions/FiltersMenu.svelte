@@ -10,9 +10,11 @@
     ontypechange: (type: "income" | "expense" | undefined) => void;
     onstatuschange: (status: string | undefined) => void;
     onclear: () => void;
+    /** Render body only — for embedding inside a parent filters sheet on mobile. */
+    embedded?: boolean;
   }
 
-  let { type, status, ontypechange, onstatuschange, onclear }: Props = $props();
+  let { type, status, ontypechange, onstatuschange, onclear, embedded = false }: Props = $props();
 
   const isDesktop = new MediaQuery("(min-width: 640px)");
   let open = $state(false);
@@ -34,6 +36,7 @@
   ];
 
   function clickOutside(e: MouseEvent) {
+    if (embedded) return;
     const t = e.target as HTMLElement;
     if (!t.closest("[data-filters-menu]")) open = false;
   }
@@ -92,38 +95,42 @@
 
 <svelte:window onclick={clickOutside} />
 
-<div class="relative shrink-0" data-filters-menu>
-  <button
-    type="button"
-    onclick={() => (open = !open)}
-    class="focus-visible:ring-accent relative flex h-9 items-center gap-1.5 rounded-full border border-white/10 bg-slate-900/60 px-3.5 text-sm font-medium text-slate-300 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
-    aria-haspopup="dialog"
-    aria-expanded={open}
-  >
-    <SlidersHorizontal size={14} strokeWidth={1.8} aria-hidden="true" />
-    {m.transactions_filter_button()}
-    {#if activeCount > 0}
-      <span
-        class="bg-accent-gradient absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold text-slate-900"
-      >
-        {activeCount}
-      </span>
-    {/if}
-  </button>
-
-  {#if open && isDesktop.current}
-    <div
-      class="absolute top-11 right-0 z-50 w-72 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/95 p-4 shadow-[0_0_40px_rgba(0,0,0,0.4)] backdrop-blur"
-      role="dialog"
-      aria-label={m.transactions_filter_button()}
+{#if embedded}
+  {@render body()}
+{:else}
+  <div class="relative shrink-0" data-filters-menu>
+    <button
+      type="button"
+      onclick={() => (open = !open)}
+      class="focus-visible:ring-accent relative flex h-9 items-center gap-1.5 rounded-full border border-white/10 bg-slate-900/60 px-3.5 text-sm font-medium text-slate-300 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+      aria-haspopup="dialog"
+      aria-expanded={open}
     >
-      {@render body()}
-    </div>
-  {/if}
-</div>
+      <SlidersHorizontal size={14} strokeWidth={1.8} aria-hidden="true" />
+      {m.transactions_filter_button()}
+      {#if activeCount > 0}
+        <span
+          class="bg-accent-gradient absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold text-slate-900"
+        >
+          {activeCount}
+        </span>
+      {/if}
+    </button>
 
-{#if !isDesktop.current}
-  <Sheet {open} onclose={() => (open = false)} title={m.transactions_filter_button()}>
-    {@render body()}
-  </Sheet>
+    {#if open && isDesktop.current}
+      <div
+        class="absolute top-11 right-0 z-50 w-72 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/95 p-4 shadow-[0_0_40px_rgba(0,0,0,0.4)] backdrop-blur"
+        role="dialog"
+        aria-label={m.transactions_filter_button()}
+      >
+        {@render body()}
+      </div>
+    {/if}
+  </div>
+
+  {#if !isDesktop.current}
+    <Sheet {open} onclose={() => (open = false)} title={m.transactions_filter_button()}>
+      {@render body()}
+    </Sheet>
+  {/if}
 {/if}

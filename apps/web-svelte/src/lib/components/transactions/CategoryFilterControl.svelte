@@ -10,9 +10,13 @@
     categories: Category[];
     selectedId: string | undefined;
     onchange: (id: string | undefined) => void;
+    /** Render list only — for embedding inside a parent filters sheet on mobile. */
+    embedded?: boolean;
+    /** Called after a category is picked in embedded mode (e.g. close parent sheet). */
+    onembeddedpick?: () => void;
   }
 
-  let { categories, selectedId, onchange }: Props = $props();
+  let { categories, selectedId, onchange, embedded = false, onembeddedpick }: Props = $props();
 
   const isDesktop = new MediaQuery("(min-width: 640px)");
   let open = $state(false);
@@ -30,10 +34,11 @@
     onchange(id);
     open = false;
     search = "";
+    onembeddedpick?.();
   }
 
   function clickOutside(e: MouseEvent) {
-    if (!open || !isDesktop.current) return;
+    if (embedded || !open || !isDesktop.current) return;
     const t = e.target as HTMLElement;
     if (!t.closest("[data-category-filter]")) open = false;
   }
@@ -99,56 +104,60 @@
 
 <svelte:window onclick={clickOutside} />
 
-<div class="relative shrink-0" data-category-filter>
-  {#if selected}
-    <div
-      class="border-accent/30 bg-accent/10 text-accent flex h-9 items-center gap-1 rounded-full border pr-1 pl-3 text-sm"
-    >
+{#if embedded}
+  {@render list()}
+{:else}
+  <div class="relative shrink-0" data-category-filter>
+    {#if selected}
+      <div
+        class="border-accent/30 bg-accent/10 text-accent flex h-9 items-center gap-1 rounded-full border pr-1 pl-3 text-sm"
+      >
+        <button
+          type="button"
+          onclick={() => (open = !open)}
+          class="flex items-center gap-1.5 focus-visible:outline-none"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+        >
+          <Tag size={13} strokeWidth={1.8} aria-hidden="true" />
+          {selected.name}
+        </button>
+        <button
+          type="button"
+          onclick={() => pick(undefined)}
+          class="text-accent/80 hover:bg-accent/20 hover:text-accent rounded-full p-1 transition-colors"
+          aria-label={m.transactions_category_clear()}
+        >
+          <X size={14} strokeWidth={2} aria-hidden="true" />
+        </button>
+      </div>
+    {:else}
       <button
         type="button"
         onclick={() => (open = !open)}
-        class="flex items-center gap-1.5 focus-visible:outline-none"
+        class="focus-visible:ring-accent flex h-9 items-center gap-1.5 rounded-full border border-white/10 bg-slate-900/60 px-3.5 text-sm font-medium text-slate-300 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
         aria-haspopup="dialog"
         aria-expanded={open}
       >
-        <Tag size={13} strokeWidth={1.8} aria-hidden="true" />
-        {selected.name}
+        <Tag size={14} strokeWidth={1.8} aria-hidden="true" />
+        {m.transactions_filter_category()}
       </button>
-      <button
-        type="button"
-        onclick={() => pick(undefined)}
-        class="text-accent/80 hover:bg-accent/20 hover:text-accent rounded-full p-1 transition-colors"
-        aria-label={m.transactions_category_clear()}
+    {/if}
+
+    {#if open && isDesktop.current}
+      <div
+        class="absolute top-11 left-0 z-50 w-60 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/95 p-2 shadow-[0_0_40px_rgba(0,0,0,0.4)] backdrop-blur"
+        role="dialog"
+        aria-label={m.transactions_category_filter_label()}
       >
-        <X size={14} strokeWidth={2} aria-hidden="true" />
-      </button>
-    </div>
-  {:else}
-    <button
-      type="button"
-      onclick={() => (open = !open)}
-      class="focus-visible:ring-accent flex h-9 items-center gap-1.5 rounded-full border border-white/10 bg-slate-900/60 px-3.5 text-sm font-medium text-slate-300 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
-      aria-haspopup="dialog"
-      aria-expanded={open}
-    >
-      <Tag size={14} strokeWidth={1.8} aria-hidden="true" />
-      {m.transactions_filter_category()}
-    </button>
-  {/if}
+        {@render list()}
+      </div>
+    {/if}
+  </div>
 
-  {#if open && isDesktop.current}
-    <div
-      class="absolute top-11 left-0 z-50 w-60 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/95 p-2 shadow-[0_0_40px_rgba(0,0,0,0.4)] backdrop-blur"
-      role="dialog"
-      aria-label={m.transactions_category_filter_label()}
-    >
+  {#if !isDesktop.current}
+    <Sheet {open} onclose={() => (open = false)} title={m.transactions_category_filter_label()}>
       {@render list()}
-    </div>
+    </Sheet>
   {/if}
-</div>
-
-{#if !isDesktop.current}
-  <Sheet {open} onclose={() => (open = false)} title={m.transactions_category_filter_label()}>
-    {@render list()}
-  </Sheet>
 {/if}

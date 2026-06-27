@@ -294,17 +294,17 @@
 
 <svelte:window onclick={clickOutside} />
 
-<div class="relative shrink-0" data-date-range-picker>
+<div class="relative inline-flex max-w-full shrink-0" data-date-range-picker>
   <div
     class={cn(
-      "flex h-9 items-center gap-1 rounded-full border border-white/10 bg-slate-900/60 pl-3.5 text-sm text-slate-200 backdrop-blur",
+      "inline-flex h-9 max-w-full items-center gap-1 rounded-full border border-white/10 bg-slate-900/60 pl-3.5 text-sm text-slate-200 backdrop-blur",
       clearable && onclear ? "pr-1" : "pr-3.5"
     )}
   >
     <button
       type="button"
       onclick={() => (open = !open)}
-      class="focus-visible:ring-accent flex flex-1 items-center gap-2 rounded-full py-1.5 transition-colors hover:text-white focus-visible:ring-2 focus-visible:outline-none"
+      class="focus-visible:ring-accent inline-flex max-w-full items-center gap-2 rounded-full py-1.5 transition-colors hover:text-white focus-visible:ring-2 focus-visible:outline-none"
       aria-haspopup="dialog"
       aria-expanded={open}
     >
@@ -327,7 +327,7 @@
           y2="6"
         /><line x1="8" x2="8" y1="2" y2="6" /><line x1="3" x2="21" y1="10" y2="10" /></svg
       >
-      <span class="whitespace-nowrap capitalize">{label}</span>
+      <span class="max-w-[11rem] truncate whitespace-nowrap capitalize sm:max-w-none">{label}</span>
     </button>
     {#if clearable && onclear}
       <button

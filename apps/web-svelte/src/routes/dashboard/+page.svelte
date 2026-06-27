@@ -6,9 +6,10 @@
   import DashboardActions from "$lib/components/dashboard/DashboardActions.svelte";
   import DashboardNetWorthStrip from "$lib/components/dashboard/DashboardNetWorthStrip.svelte";
   import DashboardPlanProgress from "$lib/components/dashboard/DashboardPlanProgress.svelte";
+  import DashboardBalanceHero from "$lib/components/dashboard/DashboardBalanceHero.svelte";
   import DashboardSpendingInsight from "$lib/components/dashboard/DashboardSpendingInsight.svelte";
+  import DashboardViewToolbar from "$lib/components/dashboard/DashboardViewToolbar.svelte";
   import SpendHistoryChart from "$lib/components/dashboard/charts/SpendHistoryChart.svelte";
-  import InfoTooltip from "$lib/components/ui/InfoTooltip.svelte";
   import * as m from "$lib/paraglide/messages";
   import { fetchProfile } from "$lib/services/profiles";
   import { fetchMyGroupRoles, fetchUserGroups } from "$lib/services/groups";
@@ -37,7 +38,7 @@
   import QueryError from "$lib/components/ui/QueryError.svelte";
   import { supabase } from "$lib/supabase";
   import type { TransactionStatus, TransactionWithCategory } from "$lib/types";
-  import { cn, formatCurrency, getDateRangeBounds } from "$lib/utils";
+  import { cn, getDateRangeBounds } from "$lib/utils";
   import { syncListViewUrl } from "$lib/utils/navigation";
   import {
     parseDashboardPeriod,
@@ -47,7 +48,15 @@
   } from "$lib/utils/list-view-url";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { onMount } from "svelte";
+  import { MediaQuery } from "svelte/reactivity";
+  import { untrack } from "svelte";
+  import { ChevronDown } from "lucide-svelte";
   import { dailyGreeting, dailyQuote } from "$lib/dashboard-daily";
+
+  const isDesktop = new MediaQuery("(min-width: 640px)");
+  let historyExpanded = $state(untrack(() => isDesktop.current));
+  let balanceExpanded = $state(false);
+  let spendingExpanded = $state(false);
 
   const greeting = dailyGreeting();
   const quote = dailyQuote();
@@ -443,7 +452,7 @@
   <title>{m.dashboard_title()} · Portfelik</title>
 </svelte:head>
 
-<div class="container mx-auto max-w-4xl space-y-5 px-4 py-6">
+<div class="container mx-auto max-w-4xl min-w-0 space-y-4 px-4 py-6 md:max-w-5xl">
   <!-- Header - mobile (single line greeting + quote underneath) -->
   <div class="md:hidden">
     <p class="truncate text-base font-medium text-slate-100">
@@ -473,177 +482,93 @@
     </div>
   </div>
 
-  <!-- Period chips -->
-  <div role="tablist" aria-label="Okres" class="flex gap-1">
-    {#each periodChips as chip (chip.value)}
-      <button
-        type="button"
-        role="tab"
-        aria-selected={period === chip.value}
-        onclick={() => setPeriod(chip.value)}
-        class={cn(
-          "focus-visible:ring-accent rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
-          period === chip.value
-            ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
-            : "border border-white/5 text-slate-300 hover:bg-white/5"
-        )}
-      >
-        {chip.label}
-      </button>
-    {/each}
-  </div>
-
-  {#if (groupsQuery.data?.length ?? 0) > 0}
-    <div role="tablist" aria-label={m.dashboard_scope_all()} class="flex flex-wrap gap-1">
-      <button
-        type="button"
-        role="tab"
-        aria-selected={groupFilter === "own"}
-        onclick={() => setGroupFilter("own")}
-        class={cn(
-          "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
-          groupFilter === "own" ? "bg-white/10 text-slate-100" : "text-slate-400 hover:bg-white/5"
-        )}
-      >
-        {m.dashboard_scope_own()}
-      </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={groupFilter === "all"}
-        onclick={() => setGroupFilter("all")}
-        class={cn(
-          "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
-          groupFilter === "all" ? "bg-white/10 text-slate-100" : "text-slate-400 hover:bg-white/5"
-        )}
-      >
-        {m.dashboard_scope_all()}
-      </button>
-      {#each groupsQuery.data ?? [] as g (g.id)}
-        <button
-          type="button"
-          role="tab"
-          aria-selected={groupFilter === g.id}
-          onclick={() => setGroupFilter(g.id)}
-          class={cn(
-            "focus-visible:ring-accent rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
-            groupFilter === g.id ? "bg-white/10 text-slate-100" : "text-slate-400 hover:bg-white/5"
-          )}
-        >
-          {g.name}
-        </button>
-      {/each}
-    </div>
-  {/if}
-
-  <!-- Bilans hero + inline income / expense / savings -->
-  <section
-    class="relative overflow-hidden rounded-3xl border border-white/5 bg-slate-900/60 p-6 backdrop-blur"
-  >
-    <span class="glow-disc absolute -top-12 -right-12 h-40 w-40" aria-hidden="true"></span>
-    <div class="relative flex items-start justify-between gap-4">
-      <div>
-        <p class="text-eyebrow text-slate-400">
-          {m.dashboard_balance_title()} · {activePeriodLabel}
-        </p>
-        <p class="mt-1 text-xs text-slate-400">{m.dashboard_balance_ledger_note()}</p>
-      </div>
-      <a href={transactionsHref()} class="text-accent shrink-0 text-xs font-medium hover:underline">
-        {m.dashboard_balance_all_link()} →
-      </a>
-    </div>
-
-    {#if summary}
-      <p
-        class={cn(
-          "text-display relative mt-3 font-semibold tabular-nums",
-          summary.net >= 0 ? "text-accent-gradient" : "text-rose-400"
-        )}
-      >
-        {formatCurrency(summary.net)}
-      </p>
-      {#if showForecastNote && forecastSummary}
-        <p class="relative mt-2 inline-flex items-center gap-1 text-xs text-slate-400">
-          <span>{m.summary_forecast_note()}: {formatCurrency(forecastSummary.net)}</span>
-          <InfoTooltip
-            label={m.summary_forecast_note()}
-            text={m.summary_forecast_info()}
-            side="bottom"
-          />
-        </p>
-      {/if}
-
-      <div class="relative mt-5 grid grid-cols-3 gap-3 border-t border-white/5 pt-4">
-        <a
-          href={transactionsHref({ type: "income" })}
-          class="focus-visible:ring-accent grid min-w-0 grid-rows-[2rem_auto] rounded-xl px-1 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
-        >
-          <p class="text-eyebrow self-start text-slate-400">{m.summary_income()}</p>
-          <p class="mt-1 truncate text-base font-semibold text-emerald-300 tabular-nums sm:text-lg">
-            {formatCurrency(summary.total_income)}
-          </p>
-        </a>
-        <a
-          href={transactionsHref({ type: "expense" })}
-          class="focus-visible:ring-accent grid min-w-0 grid-rows-[2rem_auto] rounded-xl px-1 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
-        >
-          <p class="text-eyebrow self-start text-slate-400">{m.summary_expenses()}</p>
-          <p class="mt-1 truncate text-base font-semibold text-rose-300 tabular-nums sm:text-lg">
-            {formatCurrency(summary.total_expenses)}
-          </p>
-        </a>
-        <div class="grid min-w-0 grid-rows-[2rem_auto] px-1">
-          <p class="text-eyebrow flex items-start gap-1 text-slate-400">
-            <span>{m.summary_savings_ratio()}</span>
-            <InfoTooltip
-              label={m.summary_savings_ratio()}
-              text={m.summary_savings_ratio_info()}
-              side="bottom"
-            />
-          </p>
-          <p
-            class={cn(
-              "mt-1 text-base font-semibold tabular-nums sm:text-lg",
-              savingsRatio === null
-                ? "text-slate-400"
-                : savingsRatio >= 0
-                  ? "text-emerald-300"
-                  : "text-rose-300"
-            )}
-          >
-            {savingsRatio === null ? m.dashboard_savings_na() : `${savingsRatio}%`}
-          </p>
-        </div>
-      </div>
-    {:else}
-      <div class="relative mt-3 h-14 w-2/3 animate-pulse rounded-lg bg-slate-800/60"></div>
-    {/if}
-  </section>
-
-  <DashboardSpendingInsight
-    insight={spendingInsight}
+  <!-- Period + scope toolbar -->
+  <DashboardViewToolbar
     {period}
-    categoryHref={(id) => (id ? transactionsHref({ categoryId: id }) : transactionsHref())}
+    {groupFilter}
+    groups={groupsQuery.data ?? []}
+    {periodChips}
+    onPeriodChange={setPeriod}
+    onScopeChange={setGroupFilter}
   />
+
+  <!-- Bilans + spending — side by side from md up -->
+  <div class="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 md:items-stretch">
+    <DashboardBalanceHero
+      periodLabel={activePeriodLabel}
+      {summary}
+      {savingsRatio}
+      spent={spendingInsight.spent}
+      categories={spendingInsight.categories}
+      {showForecastNote}
+      forecastNet={forecastSummary?.net}
+      {transactionsHref}
+      bind:breakdownOpen={balanceExpanded}
+    />
+
+    <DashboardSpendingInsight
+      insight={spendingInsight}
+      {period}
+      bind:expanded={spendingExpanded}
+      categoryHref={(id) => (id ? transactionsHref({ categoryId: id }) : transactionsHref())}
+    />
+  </div>
 
   <!-- Multi-period spend comparison (last 6 weeks/months/years) -->
   <div class="mt-4">
-    <SpendHistoryChart buckets={combinedHistoryBuckets} onselectperiod={selectHistoryPeriod} />
+    {#if isDesktop.current}
+      <SpendHistoryChart buckets={combinedHistoryBuckets} onselectperiod={selectHistoryPeriod} />
+    {:else}
+      <div class="rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur">
+        <button
+          type="button"
+          class="flex w-full items-center justify-between gap-3 p-4"
+          aria-expanded={historyExpanded}
+          onclick={() => (historyExpanded = !historyExpanded)}
+        >
+          <span class="text-sm font-medium text-slate-300">{m.dashboard_history_title()}</span>
+          <ChevronDown
+            size={17}
+            strokeWidth={1.8}
+            class={cn(
+              "text-slate-400 transition-transform duration-300 ease-out",
+              historyExpanded && "rotate-180"
+            )}
+            aria-hidden="true"
+          />
+        </button>
+        <div
+          class={cn("expand-grid", historyExpanded && "expand-grid--open")}
+          aria-hidden={!historyExpanded}
+        >
+          <div class="expand-grid-inner">
+            <div class="expand-grid-panel px-2 pb-2">
+              <SpendHistoryChart
+                buckets={combinedHistoryBuckets}
+                onselectperiod={selectHistoryPeriod}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    {/if}
   </div>
 
   <!-- Status band -->
-  <section class="mt-6">
-    <h2 class="mb-2 text-sm font-medium text-slate-400">{m.dashboard_status_band()}</h2>
-    <div class="grid gap-3 sm:grid-cols-2">
+  <section class="mt-4">
+    <h2 class="mb-1.5 text-sm font-medium text-slate-400">{m.dashboard_status_band()}</h2>
+    <div class="grid min-w-0 grid-cols-1 items-stretch gap-2 sm:grid-cols-2">
       <DashboardActions
         {userId}
         {overdueCount}
         insight={spendingInsight}
         periodKey={bounds.start}
       />
-      <DashboardImportHealth />
-      <DashboardNetWorthStrip />
       <DashboardPlanProgress />
+      <div class="grid min-w-0 grid-cols-1 gap-2 sm:col-span-2 sm:grid-cols-2">
+        <DashboardImportHealth />
+        <DashboardNetWorthStrip />
+      </div>
     </div>
   </section>
 

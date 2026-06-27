@@ -198,6 +198,267 @@
     filter: blur(60px);
   }
 
+  /* Bilans ring — specular highlight gliding around the stroke (conic mask). */
+  @keyframes balance-ring-orbit-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes balance-ring-invite-pulse {
+    0%,
+    100% {
+      opacity: 0.32;
+      transform: scale(0.94);
+    }
+
+    50% {
+      opacity: 0.72;
+      transform: scale(1.06);
+    }
+  }
+
+  .balance-ring-orbit-wrap {
+    transform-origin: center center;
+    animation: balance-ring-orbit-spin 9s linear infinite;
+    will-change: transform;
+  }
+
+  .balance-ring-invite-pulse {
+    z-index: 0;
+    background: radial-gradient(
+      circle,
+      color-mix(in oklch, var(--color-accent-from) 28%, transparent) 0%,
+      color-mix(in oklch, var(--color-accent-from) 12%, transparent) 48%,
+      transparent 70%
+    );
+    animation: balance-ring-invite-pulse 3.2s ease-in-out infinite;
+    will-change: opacity, transform;
+  }
+
+  .balance-ring-invite-pulse--negative {
+    background: radial-gradient(
+      circle,
+      color-mix(in oklch, oklch(0.72 0.17 12) 24%, transparent) 0%,
+      color-mix(in oklch, oklch(0.72 0.17 12) 10%, transparent) 48%,
+      transparent 70%
+    );
+  }
+
+  .balance-ring-shine {
+    --shine-accent: var(--color-accent-from);
+    --shine-accent-bright: var(--color-accent-to);
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    border-radius: 50%;
+    opacity: 0.94;
+    transition: opacity 280ms ease;
+    -webkit-mask: radial-gradient(
+      circle,
+      transparent calc(50% - var(--ring-stroke)),
+      #000 calc(50% - var(--ring-stroke) + 0.75px),
+      #000 calc(50% - 0.5px),
+      transparent 50%
+    );
+    mask: radial-gradient(
+      circle,
+      transparent calc(50% - var(--ring-stroke)),
+      #000 calc(50% - var(--ring-stroke) + 0.75px),
+      #000 calc(50% - 0.5px),
+      transparent 50%
+    );
+  }
+
+  .balance-ring-shine::before,
+  .balance-ring-shine::after {
+    content: "";
+    position: absolute;
+    inset: -80%;
+    border-radius: 50%;
+  }
+
+  /* Soft trailing bloom — wider wedge, blurred, tinted with accent. */
+  .balance-ring-shine::before {
+    background: conic-gradient(
+      from 0deg at 50% 50%,
+      transparent 0deg,
+      transparent 298deg,
+      color-mix(in oklch, var(--shine-accent) 10%, transparent) 318deg,
+      color-mix(in oklch, var(--shine-accent) 26%, transparent) 338deg,
+      color-mix(in oklch, var(--shine-accent-bright) 18%, transparent) 348deg,
+      transparent 360deg
+    );
+    filter: blur(5px);
+    opacity: 0.88;
+    transition:
+      opacity 280ms ease,
+      filter 280ms ease;
+  }
+
+  /* Tight specular core — accent-tinted peak with smooth shoulders. */
+  .balance-ring-shine::after {
+    background: conic-gradient(
+      from 0deg at 50% 50%,
+      transparent 0deg,
+      transparent 326deg,
+      color-mix(in oklch, var(--shine-accent) 20%, transparent) 342deg,
+      color-mix(in oklch, var(--shine-accent-bright) 52%, transparent) 351deg,
+      color-mix(in oklch, var(--shine-accent) 28%, transparent) 356deg,
+      transparent 360deg
+    );
+    opacity: 0.92;
+    transition:
+      opacity 280ms ease,
+      filter 280ms ease;
+  }
+
+  .balance-ring-shine--negative {
+    --shine-accent: oklch(0.72 0.17 12);
+    --shine-accent-bright: oklch(0.8 0.14 12);
+  }
+
+  @media (max-width: 639px) {
+    .balance-ring-shine::before {
+      opacity: 0.95;
+    }
+
+    .balance-ring-shine::after {
+      opacity: 0.96;
+    }
+  }
+
+  .group:hover .balance-ring-shine,
+  .group:focus-visible .balance-ring-shine,
+  .group:focus-within .balance-ring-shine {
+    opacity: 1;
+  }
+
+  .group:hover .balance-ring-shine::before,
+  .group:focus-visible .balance-ring-shine::before,
+  .group:focus-within .balance-ring-shine::before {
+    opacity: 1;
+    filter: blur(6px) brightness(1.18);
+  }
+
+  .group:hover .balance-ring-shine::after,
+  .group:focus-visible .balance-ring-shine::after,
+  .group:focus-within .balance-ring-shine::after {
+    opacity: 1;
+    filter: brightness(1.15);
+  }
+
+  .group:hover .balance-ring-ambient,
+  .group:focus-visible .balance-ring-ambient,
+  .group:focus-within .balance-ring-ambient {
+    background-color: color-mix(in oklch, var(--color-accent-from) 16%, transparent);
+  }
+
+  .group:hover .balance-ring-ambient--negative,
+  .group:focus-visible .balance-ring-ambient--negative,
+  .group:focus-within .balance-ring-ambient--negative {
+    background-color: rgb(244 63 94 / 0.12);
+  }
+
+  .balance-ring-hover-card {
+    transition: opacity 180ms ease;
+  }
+
+  .expand-grid {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+      grid-template-rows 360ms var(--ease-out-expo),
+      opacity 280ms ease,
+      visibility 0ms linear 360ms;
+  }
+
+  .expand-grid--open {
+    grid-template-rows: 1fr;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition:
+      grid-template-rows 360ms var(--ease-out-expo),
+      opacity 280ms ease,
+      visibility 0ms;
+  }
+
+  .expand-grid-inner {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .expand-grid--stagger.expand-grid--open .expand-grid-item {
+    animation: expand-grid-item-in 380ms var(--ease-out-expo) backwards;
+  }
+
+  .expand-grid--stagger.expand-grid--open .expand-grid-item:nth-child(1) {
+    animation-delay: 50ms;
+  }
+
+  .expand-grid--stagger.expand-grid--open .expand-grid-item:nth-child(2) {
+    animation-delay: 110ms;
+  }
+
+  .expand-grid--stagger.expand-grid--open .expand-grid-item:nth-child(3) {
+    animation-delay: 170ms;
+  }
+
+  @keyframes expand-grid-item-in {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (min-width: 640px) {
+    .expand-grid--md-open {
+      grid-template-rows: 1fr;
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .expand-grid--md-open .expand-grid-item {
+      animation: none;
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .expand-grid {
+      transition: none;
+    }
+
+    .expand-grid--stagger.expand-grid--open .expand-grid-item {
+      animation: none;
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .balance-ring-orbit-wrap {
+      animation: none;
+    }
+
+    .balance-ring-invite-pulse {
+      animation: none;
+      opacity: 0.5;
+      transform: scale(1);
+    }
+  }
+
   .mobile-floating-action {
     transition:
       opacity var(--duration-fast) ease-out,
