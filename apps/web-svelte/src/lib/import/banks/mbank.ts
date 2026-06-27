@@ -1,22 +1,20 @@
 // mBank CSV adapter - based on the standard "Historia operacji" export.
 //
-// Documented columns (Polish headers, varies slightly year-to-year):
-//   #Data księgowania  - booking date
+// Columns vary by export layout; we locate them by header name, not position.
 //   #Data operacji     - operation date (we use this as posted_at)
+//   #Data księgowania  - booking date (fallback when operation date absent)
 //   #Opis operacji     - primary description
-//   #Tytuł             - secondary description / counterparty memo
-//   #Nadawca/Odbiorca  - counterparty
-//   #Numer konta       - counterparty account
+//   #Tytuł             - secondary description / counterparty memo (older layout)
+//   #Nadawca/Odbiorca  - counterparty (older layout)
 //   #Kwota             - signed amount (negative = expense)
-//   #Saldo po operacji - running balance (ignored)
+//
+// The 2026 "Lista operacji" export drops #Tytuł/#Nadawca/Odbiorca, adds
+// #Rachunek/#Kategoria, and suffixes #Kwota with a currency code
+// (e.g. "14 000,00 PLN"). parsePlnAmount strips the suffix.
 //
 // Sign convention: amount column carries the sign; negative → expense.
 // Encoding: typically Windows-1250 (decode.ts handles).
 // Separator: `;`.
-//
-// FIXTURE STATUS: behavior verified against synthetic minimal fixtures
-// (tests/import/fixtures/mbank/). Validation against real anonymized
-// mBank exports is a step-2.5 task; behavior here is provisional.
 
 import { parseCsv } from "../csv/parse";
 import type {
@@ -39,8 +37,10 @@ function findIndex(headers: string[], candidates: string[]): number {
 }
 
 function parsePlnAmount(raw: string): number | null {
-  // mBank uses comma as decimal separator and may include thin-space thousands.
-  const cleaned = raw.replace(/[\s\u00A0\u2009\u202F]/g, "").replace(",", ".");
+  // mBank uses comma as decimal separator and space thousands; the 2026 export
+  // also appends a currency code (e.g. "14 000,00 PLN"). Strip everything that
+  // isn't a digit, sign, or separator before validating.
+  const cleaned = raw.replace(/[^\d,.-]/g, "").replace(",", ".");
   if (cleaned === "" || !/^-?\d+(\.\d+)?$/.test(cleaned)) return null;
   return Number(cleaned);
 }
