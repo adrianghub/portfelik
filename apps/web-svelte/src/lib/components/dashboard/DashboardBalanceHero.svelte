@@ -217,11 +217,11 @@
       </div>
     </div>
     {#if savingsRatio !== null}
-      <p class="mt-1.5 text-[11px] text-slate-500 sm:text-xs">
+      <p class="mt-1.5 text-[11px] text-slate-400 sm:text-xs">
         {m.dashboard_savings_kept_pct({ pct: savingsRatio })}
       </p>
     {:else}
-      <p class="mt-1.5 text-[11px] text-slate-500 sm:text-xs">{m.dashboard_savings_na()}</p>
+      <p class="mt-1.5 text-[11px] text-slate-400 sm:text-xs">{m.dashboard_savings_na()}</p>
     {/if}
   {/if}
 {/snippet}
@@ -248,7 +248,7 @@
         </span>
       </div>
     </div>
-    <p class="mt-1 text-[10px] font-medium text-slate-500 sm:text-[11px]">
+    <p class="mt-1 text-[10px] font-medium text-slate-400 sm:text-[11px]">
       {m.dashboard_balance_ring_hint()}
     </p>
   {/if}
@@ -261,7 +261,7 @@
       compact ? "px-2.5 py-2" : "px-3 py-2.5"
     )}
   >
-    <p class="text-eyebrow text-slate-500">{m.dashboard_balance_ring_legend_title()}</p>
+    <p class="text-eyebrow text-slate-400">{m.dashboard_balance_ring_legend_title()}</p>
 
     {#if ringLegend.length > 0}
       <ul class={cn("space-y-1", compact ? "mt-1.5" : "mt-2")}>
@@ -282,7 +282,7 @@
               <span class="shrink-0 text-right text-[11px] tabular-nums sm:text-xs">
                 <span class="font-medium text-slate-100">{formatCurrency(seg.amount)}</span>
                 {#if seg.sharePct > 0}
-                  <span class="ml-1 text-slate-500">
+                  <span class="ml-1 text-slate-400">
                     {m.dashboard_balance_ring_spent_share({ pct: seg.sharePct })}
                   </span>
                 {/if}
@@ -315,7 +315,7 @@
           aria-hidden="true"
         ></span>
         <span class="min-w-0 flex-1">
-          <span class="text-eyebrow block text-slate-500">{m.summary_income()}</span>
+          <span class="text-eyebrow block text-slate-400">{m.summary_income()}</span>
           <span class="mt-0.5 block text-sm font-semibold text-emerald-300 tabular-nums">
             {formatCurrency(summary.total_income)}
           </span>
@@ -331,7 +331,7 @@
           aria-hidden="true"
         ></span>
         <span class="min-w-0 flex-1">
-          <span class="text-eyebrow block text-slate-500">{m.summary_expenses()}</span>
+          <span class="text-eyebrow block text-slate-400">{m.summary_expenses()}</span>
           <span class="mt-0.5 block text-sm font-semibold text-rose-300 tabular-nums">
             {formatCurrency(summary.total_expenses)}
           </span>
@@ -353,7 +353,7 @@
           aria-hidden="true"
         ></span>
         <span class="min-w-0 flex-1">
-          <span class="text-eyebrow flex items-center gap-1 text-slate-500">
+          <span class="text-eyebrow flex items-center gap-1 text-slate-400">
             {m.dashboard_savings_short()}
             <InfoTooltip
               label={m.summary_savings_ratio()}
@@ -400,7 +400,7 @@
       <p class="text-eyebrow text-slate-400">
         {m.dashboard_balance_title()} · {periodLabel}
       </p>
-      <p class="mt-1 text-xs text-slate-500">{m.dashboard_balance_ledger_note()}</p>
+      <p class="mt-1 text-xs text-slate-400">{m.dashboard_balance_ledger_note()}</p>
     </div>
     <a href={transactionsHref()} class="text-accent shrink-0 text-xs font-medium hover:underline">
       {m.dashboard_balance_all_link()} →
@@ -456,12 +456,12 @@
                 {#if showMobileRingStats}
                   {@render ringCenterStats()}
                 {:else}
-                  <span class="mt-1 flex items-center gap-0.5 text-[11px] text-slate-500">
+                  <span class="mt-1 flex items-center gap-0.5 text-[11px] text-slate-400">
                     {m.dashboard_balance_ring_hint_collapse()}
                     <ChevronDown
                       size={12}
                       strokeWidth={2}
-                      class="text-slate-500"
+                      class="text-slate-400"
                       aria-hidden="true"
                     />
                   </span>
@@ -494,7 +494,7 @@
     </div>
 
     {#if showForecastNote && forecastNet !== undefined}
-      <p class="relative mt-auto flex items-center gap-1 pt-3 text-xs text-slate-500">
+      <p class="relative mt-auto flex items-center gap-1 pt-3 text-xs text-slate-400">
         <span>{m.dashboard_balance_with_planned({ amount: formatCurrency(forecastNet) })}</span>
         <InfoTooltip
           label={m.dashboard_balance_with_planned({ amount: formatCurrency(forecastNet) })}

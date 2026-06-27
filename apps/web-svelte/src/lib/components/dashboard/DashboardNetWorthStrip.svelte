@@ -129,7 +129,7 @@
         >
           {formatCurrency(netWorth.netWorth)}
         </p>
-        <p class="mt-0.5 text-xs text-slate-500">
+        <p class="mt-0.5 text-xs text-slate-400">
           {#if netWorth.asOfDate}
             {m.dashboard_net_worth_subtitle_dated({ date: formatDate(netWorth.asOfDate) })}
           {:else}
@@ -138,13 +138,13 @@
         </p>
         <dl class="mt-2 space-y-1.5 text-xs">
           <div class="flex min-w-0 items-baseline justify-between gap-3">
-            <dt class="shrink-0 text-slate-500">{m.dashboard_net_worth_assets_label()}</dt>
+            <dt class="shrink-0 text-slate-400">{m.dashboard_net_worth_assets_label()}</dt>
             <dd class="min-w-0 text-right font-medium text-slate-300 tabular-nums">
               {formatCurrency(netWorth.totalAssets)}
             </dd>
           </div>
           <div class="flex min-w-0 items-baseline justify-between gap-3">
-            <dt class="shrink-0 text-slate-500">{m.dashboard_net_worth_debt_label()}</dt>
+            <dt class="shrink-0 text-slate-400">{m.dashboard_net_worth_debt_label()}</dt>
             <dd class="min-w-0 text-right font-medium text-slate-300 tabular-nums">
               {formatCurrency(netWorth.totalDebt)}
             </dd>

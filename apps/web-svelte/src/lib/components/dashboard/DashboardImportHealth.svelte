@@ -64,7 +64,7 @@
       {:else}
         <p class="mt-1.5 text-sm text-slate-300">{m.dashboard_import_health_never()}</p>
       {/if}
-      <p class="mt-1 text-xs text-slate-500">
+      <p class="mt-1 text-xs text-slate-400">
         {m.dashboard_import_health_cadence({ days: cadenceDays })}
       </p>
     </div>

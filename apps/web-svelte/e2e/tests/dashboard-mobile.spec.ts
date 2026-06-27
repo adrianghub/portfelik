@@ -33,8 +33,12 @@ test.describe("dashboard mobile layout", () => {
     await page.goto("/dashboard");
     const toggle = page.getByRole("button", { name: /wydatki w tym okresie/i });
     await expect(toggle).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText(/top kategorie/i)).not.toBeVisible();
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    const panel = page.locator("#dashboard-spending .expand-grid");
+    await expect(panel).toHaveAttribute("aria-hidden", "true");
     await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await expect(panel).toHaveAttribute("aria-hidden", "false");
     await expect(page.getByText(/top kategorie/i)).toBeVisible();
   });
 
