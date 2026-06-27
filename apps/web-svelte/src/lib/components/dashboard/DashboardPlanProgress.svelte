@@ -86,7 +86,7 @@
     class="min-w-0 overflow-x-clip rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur"
     aria-labelledby="dashboard-plan-progress-title"
   >
-    <div class="mb-3 flex items-center justify-between gap-2">
+    <div class="mb-2 flex items-center justify-between gap-2">
       <p id="dashboard-plan-progress-title" class="text-eyebrow text-slate-400">
         {m.dashboard_plan_progress_title()}
       </p>
@@ -94,7 +94,7 @@
         {m.dashboard_plan_progress_all()}
       </a>
     </div>
-    <ul class="space-y-2">
+    <ul class="space-y-1.5">
       {#each activePlans.slice(0, 4) as plan (plan.planId)}
         {@const emoji = getPlanEmoji(undefined, plan.planName)}
         {@const terms = plan.kind === "debt" ? debtTermsQuery.data?.[plan.planId] : undefined}
@@ -102,7 +102,7 @@
         <li>
           <a
             href={plan.eligibleCount > 0 ? `/plans/${plan.planId}/settle` : `/plans/${plan.planId}`}
-            class="block rounded-xl border border-white/5 px-3 py-2 transition-colors hover:bg-white/5"
+            class="block rounded-xl border border-white/5 px-3 py-1.5 transition-colors hover:bg-white/5"
           >
             <div class="flex min-w-0 items-center gap-2">
               <div

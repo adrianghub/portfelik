@@ -55,8 +55,8 @@
 
   const isDesktop = new MediaQuery("(min-width: 640px)");
   let historyExpanded = $state(untrack(() => isDesktop.current));
-  let balanceExpanded = $state(untrack(() => isDesktop.current));
-  let spendingExpanded = $state(untrack(() => isDesktop.current));
+  let balanceExpanded = $state(false);
+  let spendingExpanded = $state(false);
 
   const greeting = dailyGreeting();
   const quote = dailyQuote();
@@ -452,7 +452,7 @@
   <title>{m.dashboard_title()} · Portfelik</title>
 </svelte:head>
 
-<div class="container mx-auto max-w-4xl min-w-0 space-y-5 px-4 py-6">
+<div class="container mx-auto max-w-4xl min-w-0 space-y-4 px-4 py-6 md:max-w-5xl">
   <!-- Header - mobile (single line greeting + quote underneath) -->
   <div class="md:hidden">
     <p class="truncate text-base font-medium text-slate-100">
@@ -492,25 +492,27 @@
     onScopeChange={setGroupFilter}
   />
 
-  <!-- Bilans hero -->
-  <DashboardBalanceHero
-    periodLabel={activePeriodLabel}
-    {summary}
-    {savingsRatio}
-    spent={spendingInsight.spent}
-    categories={spendingInsight.categories}
-    {showForecastNote}
-    forecastNet={forecastSummary?.net}
-    {transactionsHref}
-    bind:breakdownOpen={balanceExpanded}
-  />
+  <!-- Bilans + spending — side by side from md up -->
+  <div class="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 md:items-stretch">
+    <DashboardBalanceHero
+      periodLabel={activePeriodLabel}
+      {summary}
+      {savingsRatio}
+      spent={spendingInsight.spent}
+      categories={spendingInsight.categories}
+      {showForecastNote}
+      forecastNet={forecastSummary?.net}
+      {transactionsHref}
+      bind:breakdownOpen={balanceExpanded}
+    />
 
-  <DashboardSpendingInsight
-    insight={spendingInsight}
-    {period}
-    bind:expanded={spendingExpanded}
-    categoryHref={(id) => (id ? transactionsHref({ categoryId: id }) : transactionsHref())}
-  />
+    <DashboardSpendingInsight
+      insight={spendingInsight}
+      {period}
+      bind:expanded={spendingExpanded}
+      categoryHref={(id) => (id ? transactionsHref({ categoryId: id }) : transactionsHref())}
+    />
+  </div>
 
   <!-- Multi-period spend comparison (last 6 weeks/months/years) -->
   <div class="mt-4">
@@ -553,18 +555,20 @@
   </div>
 
   <!-- Status band -->
-  <section class="mt-6">
-    <h2 class="mb-2 text-sm font-medium text-slate-400">{m.dashboard_status_band()}</h2>
-    <div class="grid min-w-0 items-start gap-3 sm:grid-cols-2">
+  <section class="mt-4">
+    <h2 class="mb-1.5 text-sm font-medium text-slate-400">{m.dashboard_status_band()}</h2>
+    <div class="grid min-w-0 grid-cols-1 items-stretch gap-2 sm:grid-cols-2">
       <DashboardActions
         {userId}
         {overdueCount}
         insight={spendingInsight}
         periodKey={bounds.start}
       />
-      <DashboardImportHealth />
-      <DashboardNetWorthStrip />
       <DashboardPlanProgress />
+      <div class="grid min-w-0 grid-cols-1 gap-2 sm:col-span-2 sm:grid-cols-2">
+        <DashboardImportHealth />
+        <DashboardNetWorthStrip />
+      </div>
     </div>
   </section>
 

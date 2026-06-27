@@ -224,7 +224,7 @@
   <p id="dashboard-actions-title" class="text-eyebrow text-slate-400">{m.attention_title()}</p>
 
   {#if actions.length > 0}
-    <ul class="mt-3 min-w-0 space-y-2">
+    <ul class="mt-2.5 min-w-0 space-y-1.5">
       {#each actions as action (action.id)}
         <li
           class={cn(
@@ -234,7 +234,7 @@
         >
           <a
             href={action.href}
-            class="focus-visible:ring-accent flex min-w-0 flex-1 items-center gap-2 overflow-hidden rounded-l-xl px-3 py-2.5 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
+            class="focus-visible:ring-accent flex min-w-0 flex-1 items-center gap-2 overflow-hidden rounded-l-xl px-3 py-2 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
             title={action.detail ? `${action.title} — ${action.detail}` : action.title}
           >
             <span class="min-w-0 flex-1 overflow-hidden">

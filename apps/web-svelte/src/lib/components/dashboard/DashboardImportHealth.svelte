@@ -38,7 +38,7 @@
 </script>
 
 <section
-  class="min-w-0 overflow-x-clip rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur sm:p-5"
+  class="flex h-full min-w-0 flex-col overflow-x-clip rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur"
   aria-labelledby="dashboard-import-health-title"
 >
   <div class="flex items-start justify-between gap-3">
@@ -74,7 +74,7 @@
   <a
     href="/import"
     class={cn(
-      "focus-visible:ring-accent mt-3 inline-flex items-center gap-1 text-sm font-semibold focus-visible:ring-2 focus-visible:outline-none",
+      "focus-visible:ring-accent mt-auto inline-flex items-center gap-1 pt-2 text-sm font-semibold focus-visible:ring-2 focus-visible:outline-none",
       isStale ? "text-emerald-400 hover:underline" : "text-slate-400 hover:text-slate-300"
     )}
   >

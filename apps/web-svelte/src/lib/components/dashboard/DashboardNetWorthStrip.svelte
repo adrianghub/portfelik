@@ -108,7 +108,7 @@
 </script>
 
 <section
-  class="min-w-0 rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur"
+  class="flex h-full min-w-0 flex-col rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur"
   aria-labelledby="dashboard-net-worth-title"
 >
   <div class="flex items-start justify-between gap-3">
@@ -157,7 +157,7 @@
 
   <a
     href="/plans"
-    class="focus-visible:ring-accent mt-3 inline-flex max-w-full items-center gap-1 text-sm font-semibold text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+    class="focus-visible:ring-accent mt-auto inline-flex max-w-full items-center gap-1 pt-2 text-sm font-semibold text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:outline-none"
   >
     {m.dashboard_net_worth_link()}
     <ChevronRight size={14} aria-hidden="true" />

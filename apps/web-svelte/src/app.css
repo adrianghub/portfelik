@@ -275,7 +275,7 @@
   .balance-ring-shine::after {
     content: "";
     position: absolute;
-    inset: -120%;
+    inset: -80%;
     border-radius: 50%;
   }
 
@@ -330,29 +330,34 @@
   }
 
   .group:hover .balance-ring-shine,
-  .group:focus-visible .balance-ring-shine {
+  .group:focus-visible .balance-ring-shine,
+  .group:focus-within .balance-ring-shine {
     opacity: 1;
   }
 
   .group:hover .balance-ring-shine::before,
-  .group:focus-visible .balance-ring-shine::before {
+  .group:focus-visible .balance-ring-shine::before,
+  .group:focus-within .balance-ring-shine::before {
     opacity: 1;
     filter: blur(6px) brightness(1.18);
   }
 
   .group:hover .balance-ring-shine::after,
-  .group:focus-visible .balance-ring-shine::after {
+  .group:focus-visible .balance-ring-shine::after,
+  .group:focus-within .balance-ring-shine::after {
     opacity: 1;
     filter: brightness(1.15);
   }
 
   .group:hover .balance-ring-ambient,
-  .group:focus-visible .balance-ring-ambient {
+  .group:focus-visible .balance-ring-ambient,
+  .group:focus-within .balance-ring-ambient {
     background-color: color-mix(in oklch, var(--color-accent-from) 16%, transparent);
   }
 
   .group:hover .balance-ring-ambient--negative,
-  .group:focus-visible .balance-ring-ambient--negative {
+  .group:focus-visible .balance-ring-ambient--negative,
+  .group:focus-within .balance-ring-ambient--negative {
     background-color: rgb(244 63 94 / 0.12);
   }
 
