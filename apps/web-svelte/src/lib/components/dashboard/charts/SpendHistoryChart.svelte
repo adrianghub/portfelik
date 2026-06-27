@@ -19,7 +19,7 @@
   } = $props();
 
   // Distinct, legible hues; last entry (slate) is reserved for the folded
-  // "Pozostałe" bucket — kept in step with SpendingTreemap's vocabulary + top-N.
+  // "Pozostałe" bucket in the stacked bar chart.
   const PALETTE = [
     "#34d399",
     "#38bdf8",
@@ -76,8 +76,7 @@
     };
   }
 
-  // Same top-N + fold label as the treemap, so the two charts agree on which
-  // categories are named vs folded into "Pozostałe".
+  // Same top-N + fold label as the category breakdown lists on the dashboard.
   const stack = $derived(stackCategoryHistory(visibleBuckets, 8, "Pozostałe"));
   const series = $derived(
     stack.categories.map((key, i) => ({
