@@ -2,6 +2,7 @@
   import { browser } from "$app/environment";
   import { BarChart, Tooltip } from "layerchart";
   import { scaleBand } from "d3-scale";
+  import { Check, X } from "lucide-svelte";
   import type { PeriodHistoryBucket } from "$lib/services/period-history";
   import { stackCategoryHistory } from "$lib/services/period-history";
   import InfoTooltip from "$lib/components/ui/InfoTooltip.svelte";
@@ -13,7 +14,7 @@
     onselectperiod,
   }: {
     buckets: PeriodHistoryBucket[];
-    /** Click a bar to drill into that window's transactions. */
+    /** Confirm drill-down from the bar breakdown panel. */
     onselectperiod?: (bucket: PeriodHistoryBucket) => void;
   } = $props();
 
@@ -85,6 +86,8 @@
       color: PALETTE[i] ?? PALETTE[PALETTE.length - 1],
     }))
   );
+  const colorByKey = $derived(new Map(series.map((s) => [s.key, s.color])));
+
   const hasData = $derived(
     stack.rows.some((r) => stack.categories.some((c) => (r[c] as number) > 0))
   );
@@ -93,12 +96,86 @@
     if (!row) return 0;
     return stack.categories.reduce((sum, c) => sum + (Number(row[c]) || 0), 0);
   }
+
+  /** Bar click opens a breakdown panel; navigation waits for explicit confirm. */
+  let selectedBucket = $state<PeriodHistoryBucket | null>(null);
+  /** Ignore the window click that opens the panel (same tick as band click). */
+  let ignoreOutsideUntil = 0;
+
+  const selectedSegments = $derived.by(() => {
+    const bucket = selectedBucket;
+    if (!bucket) return [];
+    const row = stack.rows.find((r) => r.label === bucket.label);
+    if (!row) return [];
+    return stack.categories
+      .map((key) => ({
+        key,
+        amount: Number(row[key]) || 0,
+        color: colorByKey.get(key) ?? PALETTE[PALETTE.length - 1],
+      }))
+      .filter((s) => s.amount > 0);
+  });
+
+  function selectBar(label: string) {
+    const bucket = bucketByLabel.get(label);
+    if (!bucket || bucket.total <= 0) return;
+    selectedBucket = selectedBucket?.label === label ? null : bucket;
+    ignoreOutsideUntil = Date.now() + 200;
+  }
+
+  function barLabelFromDetail(detail: { data?: unknown } | null | undefined): string {
+    return String((detail?.data as { label?: unknown })?.label ?? "");
+  }
+
+  function dismissSelection() {
+    selectedBucket = null;
+  }
+
+  function confirmSelection() {
+    if (selectedBucket) onselectperiod?.(selectedBucket);
+    dismissSelection();
+  }
+
+  function clickOutside(e: MouseEvent) {
+    if (!selectedBucket || Date.now() < ignoreOutsideUntil) return;
+    const t = e.target as HTMLElement;
+    if (t.closest("[data-spend-history-popup]")) return;
+    if (!t.closest("[data-spend-history-chart]")) dismissSelection();
+  }
+
+  function onKeydown(e: KeyboardEvent) {
+    if (e.key === "Escape") dismissSelection();
+  }
+
+  /** Inclusive last day of a bucket window (end is exclusive in storage). */
+  function bucketEndInclusive(end: string): string {
+    const d = new Date(end.slice(0, 10));
+    d.setUTCDate(d.getUTCDate() - 1);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function formatDayLabel(iso: string): string {
+    const [, mm, dd] = iso.slice(0, 10).split("-");
+    return `${dd}.${mm}`;
+  }
+
+  function bucketPeriodLabel(bucket: PeriodHistoryBucket): string {
+    const start = formatDayLabel(bucket.start);
+    const end = formatDayLabel(bucketEndInclusive(bucket.end));
+    return start === end ? start : `${start} – ${end}`;
+  }
 </script>
 
-<div class="overflow-x-hidden rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+<svelte:window onclick={clickOutside} onkeydown={onKeydown} />
+
+<div
+  class="overflow-x-hidden rounded-xl border border-slate-800 bg-slate-900/60 p-4"
+  data-spend-history-root
+>
   {#if browser && hasData}
     <div
       class={onselectperiod ? "h-56 cursor-pointer" : "h-56"}
+      data-spend-history-chart
       use:emphasizeCurrentTick={currentLabel}
     >
       <BarChart
@@ -110,16 +187,8 @@
         axis="x"
         grid={false}
         rule={false}
-        ontooltipclick={(_e, detail) => {
-          const label = String((detail?.data as { label?: unknown })?.label ?? "");
-          const bucket = bucketByLabel.get(label);
-          if (bucket) onselectperiod?.(bucket);
-        }}
-        onbarclick={(_e, detail) => {
-          const label = String((detail?.data as { label?: unknown })?.label ?? "");
-          const bucket = bucketByLabel.get(label);
-          if (bucket) onselectperiod?.(bucket);
-        }}
+        ontooltipclick={(_e, detail) => selectBar(barLabelFromDetail(detail))}
+        onbarclick={(_e, detail) => selectBar(barLabelFromDetail(detail))}
         props={{
           bars: { radius: 2 },
           xAxis: { classes: { tickLabel: "text-[11px] fill-slate-400" } },
@@ -152,38 +221,107 @@
           {/if}
         </svelte:fragment>
 
-        <!-- Suppress the tooltip entirely for zero-total windows. -->
+        <!-- Hover: total only. Click opens the breakdown panel below. -->
         <svelte:fragment slot="tooltip" let:tooltip>
           {#if rowTotal(tooltip?.data) > 0}
-            <!-- Anchor over the hovered bar (x="data") and clamp to the chart box
-                 (contained="container") so the tooltip stops jumping to the window
-                 edge near the first/last bars. -->
-            <Tooltip.Root
-              x="data"
-              y="pointer"
-              anchor="bottom"
-              contained="container"
-              class="max-w-[min(16rem,90vw)] rounded-lg border border-slate-700 bg-slate-900/95 px-3 py-2 text-xs shadow-xl backdrop-blur"
-              let:data
-            >
-              <Tooltip.Header class="font-medium text-slate-200">
-                {#if projectedLabels.has(String(data.label))}
-                  <span class="mr-1 rounded bg-slate-700 px-1 text-[10px] text-slate-300 uppercase">
-                    {m.dashboard_forecast_tooltip_tag()}
-                  </span>
-                {/if}
-                {String(data.label)}
-              </Tooltip.Header>
-              <!-- Period total only — the per-category list grew taller than the chart and
-                   spilled over the legend; the stacked segments + legend already convey the split. -->
-              <div class="mt-0.5 text-sm font-semibold text-slate-100 tabular-nums">
-                {formatCurrency(rowTotal(data))}
-              </div>
-            </Tooltip.Root>
+            {@const label = String((tooltip?.data as { label?: unknown })?.label ?? "")}
+            {@const bucket = bucketByLabel.get(label)}
+            {#if selectedBucket?.label !== label}
+              <Tooltip.Root
+                x="data"
+                y="pointer"
+                anchor="bottom"
+                contained="container"
+                class="max-w-[min(16rem,90vw)] rounded-lg border border-slate-700 bg-slate-900/95 px-3 py-2 text-xs shadow-xl backdrop-blur"
+                let:data
+              >
+                <Tooltip.Header class="font-medium text-slate-200">
+                  {#if projectedLabels.has(String(data.label))}
+                    <span
+                      class="mr-1 rounded bg-slate-700 px-1 text-[10px] text-slate-300 uppercase"
+                    >
+                      {m.dashboard_forecast_tooltip_tag()}
+                    </span>
+                  {/if}
+                  {bucket ? bucketPeriodLabel(bucket) : String(data.label)}
+                </Tooltip.Header>
+                <div class="mt-0.5 text-sm font-semibold text-slate-100 tabular-nums">
+                  {formatCurrency(rowTotal(data))}
+                </div>
+                <p class="mt-1 text-[10px] text-slate-500">
+                  {m.dashboard_history_bar_click_hint()}
+                </p>
+              </Tooltip.Root>
+            {/if}
           {/if}
         </svelte:fragment>
       </BarChart>
     </div>
+
+    {#if selectedBucket}
+      <div
+        class="mt-3 rounded-lg border border-slate-700 bg-slate-900/95 p-3 shadow-lg"
+        role="dialog"
+        aria-label={m.dashboard_history_bar_breakdown({
+          label: bucketPeriodLabel(selectedBucket),
+        })}
+        data-spend-history-popup
+      >
+        <div class="mb-2 flex items-start justify-between gap-2">
+          <p class="text-sm font-medium text-slate-200">
+            {#if selectedBucket.isProjected}
+              <span class="mr-1 rounded bg-slate-700 px-1 text-[10px] text-slate-300 uppercase">
+                {m.dashboard_forecast_tooltip_tag()}
+              </span>
+            {/if}
+            {bucketPeriodLabel(selectedBucket)}
+          </p>
+          <button
+            type="button"
+            class="focus-visible:ring-accent shrink-0 rounded-full p-1 text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
+            aria-label={m.common_close()}
+            onclick={dismissSelection}
+          >
+            <X size={16} aria-hidden="true" />
+          </button>
+        </div>
+
+        <ul class="max-h-40 space-y-1.5 overflow-y-auto">
+          {#each selectedSegments as segment (segment.key)}
+            <li class="flex items-center justify-between gap-3 text-xs">
+              <span class="flex min-w-0 items-center gap-2 text-slate-300">
+                <span class="size-2 shrink-0 rounded-full" style="background:{segment.color}"
+                ></span>
+                <span class="truncate">{segment.key}</span>
+              </span>
+              <span class="shrink-0 font-medium text-slate-100 tabular-nums">
+                {formatCurrency(segment.amount)}
+              </span>
+            </li>
+          {/each}
+        </ul>
+
+        <div class="mt-3 flex items-center justify-between gap-3 border-t border-slate-800 pt-3">
+          <span class="text-xs text-slate-400">
+            {m.dashboard_history_bar_total()}:
+            <span class="font-semibold text-slate-200 tabular-nums">
+              {formatCurrency(selectedBucket.total)}
+            </span>
+          </span>
+          {#if onselectperiod}
+            <button
+              type="button"
+              class="focus-visible:ring-accent inline-flex items-center gap-1.5 rounded-full bg-emerald-600/90 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-500 focus-visible:ring-2 focus-visible:outline-none"
+              onclick={confirmSelection}
+            >
+              <Check size={14} aria-hidden="true" />
+              {m.dashboard_history_bar_details()}
+            </button>
+          {/if}
+        </div>
+      </div>
+    {/if}
+
     <div class="mt-3 flex flex-wrap gap-x-3 gap-y-1">
       {#each series as s (s.key)}
         <span class="flex items-center gap-1.5 text-[11px] text-slate-400">

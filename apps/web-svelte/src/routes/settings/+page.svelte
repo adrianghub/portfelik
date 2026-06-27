@@ -9,20 +9,19 @@
   import ProfileTab from "$lib/components/settings/ProfileTab.svelte";
   import PersonalizationTab from "$lib/components/settings/PersonalizationTab.svelte";
   import RulesTab from "$lib/components/settings/RulesTab.svelte";
-  import { cn } from "$lib/utils";
+  import { SETTINGS_SECTIONS, searchSubsections, type SettingsTab } from "$lib/settings/sections";
+  import { ChevronLeft, ChevronRight, Search } from "lucide-svelte";
   import * as m from "$lib/paraglide/messages";
 
-  type Tab = "personalization" | "categories" | "rules" | "groups" | "profile";
+  const TAB_IDS: SettingsTab[] = ["categories", "rules", "groups", "profile", "personalization"];
 
-  const activeTab = $derived(($page.url.searchParams.get("tab") ?? "categories") as Tab);
-
-  const tabs: { id: Tab; label: string }[] = [
-    { id: "categories", label: m.settings_tab_categories() },
-    { id: "rules", label: m.settings_tab_rules() },
-    { id: "groups", label: m.settings_tab_groups() },
-    { id: "profile", label: m.settings_tab_profile() },
-    { id: "personalization", label: m.settings_tab_personalization() },
-  ];
+  // `?tab=` stays the canonical deep-link param. Absent/invalid → section landing.
+  const activeTab = $derived.by<SettingsTab | null>(() => {
+    const t = $page.url.searchParams.get("tab");
+    return t && TAB_IDS.includes(t as SettingsTab) ? (t as SettingsTab) : null;
+  });
+  let search = $state("");
+  const results = $derived(searchSubsections(search));
 
   let userId = $state<string | undefined>(undefined);
   supabase.auth.getSession().then(({ data }) => {
@@ -34,13 +33,13 @@
     queryFn: () => fetchProfile(userId!),
     enabled: !!userId,
   }));
-
   const profile = $derived(profileQuery.data ?? null);
 
-  function setTab(tab: Tab) {
-    const params = new URLSearchParams($page.url.searchParams);
-    params.set("tab", tab);
-    goto(`/settings?${params.toString()}`, { replaceState: true });
+  function openTab(tab: SettingsTab) {
+    goto(`/settings?tab=${tab}`);
+  }
+  function backToLanding() {
+    goto("/settings");
   }
 </script>
 
@@ -49,49 +48,97 @@
 </svelte:head>
 
 <div class="container mx-auto max-w-3xl space-y-4 px-4 py-6">
-  <h1 class="text-hero font-semibold text-slate-100">{m.settings_title()}</h1>
-
-  <div class="relative">
-    <div
-      role="tablist"
-      aria-label={m.settings_title()}
-      class="no-accent-scrollbar flex w-full gap-1 overflow-x-auto rounded-full border border-white/5 bg-slate-900/60 p-1 backdrop-blur md:grid md:grid-cols-5 md:overflow-visible"
+  {#if activeTab}
+    <!-- Drill-down: back link + the subsection panel -->
+    <button
+      type="button"
+      onclick={backToLanding}
+      class="focus-visible:ring-accent -ml-1 inline-flex items-center gap-1 rounded-full px-2 py-1 text-sm font-medium text-slate-400 transition-colors hover:text-slate-100 focus-visible:ring-2 focus-visible:outline-none"
     >
-      {#each tabs as tab (tab.id)}
-        <button
-          role="tab"
-          type="button"
-          aria-selected={activeTab === tab.id}
-          tabindex={activeTab === tab.id ? 0 : -1}
-          onclick={() => setTab(tab.id)}
-          class={cn(
-            "focus-visible:ring-accent shrink-0 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:outline-none md:min-w-0 md:shrink",
-            activeTab === tab.id
-              ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
-              : "text-slate-400 hover:text-slate-100"
-          )}
-        >
-          {tab.label}
-        </button>
-      {/each}
-    </div>
-    <div
-      class="pointer-events-none absolute inset-y-0 right-0 w-8 rounded-r-full bg-linear-to-l from-slate-950 to-transparent md:hidden"
-      aria-hidden="true"
-    ></div>
-  </div>
+      <ChevronLeft size={16} aria-hidden="true" />
+      {m.settings_title()}
+    </button>
 
-  <div role="tabpanel">
-    {#if activeTab === "categories"}
-      <CategoriesTab />
-    {:else if activeTab === "rules"}
-      <RulesTab />
-    {:else if activeTab === "groups"}
-      <GroupsTab />
-    {:else if activeTab === "profile"}
-      <ProfileTab {profile} />
-    {:else if activeTab === "personalization"}
-      <PersonalizationTab {profile} />
+    <div role="tabpanel">
+      {#if activeTab === "categories"}
+        <CategoriesTab />
+      {:else if activeTab === "rules"}
+        <RulesTab />
+      {:else if activeTab === "groups"}
+        <GroupsTab />
+      {:else if activeTab === "profile"}
+        <ProfileTab {profile} />
+      {:else if activeTab === "personalization"}
+        <PersonalizationTab {profile} />
+      {/if}
+    </div>
+  {:else}
+    <!-- Landing: title + search + section cards -->
+    <h1 class="text-hero font-semibold text-slate-100">{m.settings_title()}</h1>
+
+    <label class="relative block">
+      <Search
+        size={16}
+        class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-slate-500"
+        aria-hidden="true"
+      />
+      <input
+        type="search"
+        bind:value={search}
+        placeholder={m.settings_search_placeholder()}
+        aria-label={m.settings_search_placeholder()}
+        class="focus-visible:ring-accent w-full rounded-full border border-white/10 bg-slate-900/60 py-2.5 pr-3 pl-9 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus-visible:ring-2 focus-visible:outline-none"
+      />
+    </label>
+
+    {#if search.trim()}
+      {#if results.length > 0}
+        <ul class="space-y-2">
+          {#each results as r (r.tab)}
+            <li>
+              <button
+                type="button"
+                onclick={() => openTab(r.tab)}
+                class="focus-visible:ring-accent flex w-full items-center justify-between gap-3 rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3 text-left backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+              >
+                <span class="min-w-0">
+                  <span class="block text-sm font-medium text-slate-100">{r.label()}</span>
+                  <span class="block text-xs text-slate-400">{r.sectionLabel()}</span>
+                </span>
+                <ChevronRight size={16} class="shrink-0 text-slate-500" aria-hidden="true" />
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {:else}
+        <p class="py-6 text-center text-sm text-slate-400">{m.settings_search_empty()}</p>
+      {/if}
+    {:else}
+      <div class="space-y-4">
+        {#each SETTINGS_SECTIONS as section (section.id)}
+          {@const Icon = section.icon}
+          <section class="rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur">
+            <div class="flex items-center gap-2 px-4 pt-4 pb-2">
+              <Icon size={16} class="text-slate-400" aria-hidden="true" />
+              <h2 class="text-eyebrow text-slate-400">{section.label()}</h2>
+            </div>
+            <ul class="divide-y divide-white/5">
+              {#each section.subs as sub (sub.tab)}
+                <li>
+                  <button
+                    type="button"
+                    onclick={() => openTab(sub.tab)}
+                    class="focus-visible:ring-accent flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+                  >
+                    <span class="text-sm font-medium text-slate-100">{sub.label()}</span>
+                    <ChevronRight size={16} class="shrink-0 text-slate-500" aria-hidden="true" />
+                  </button>
+                </li>
+              {/each}
+            </ul>
+          </section>
+        {/each}
+      </div>
     {/if}
-  </div>
+  {/if}
 </div>

@@ -40,6 +40,14 @@
     const arrow = pct >= 0 ? "↑" : "↓";
     return `${arrow}${Math.abs(Math.round(pct))}%`;
   }
+
+  // Biggest movers vs the previous period — already computed by computeSpendingInsight,
+  // just unsurfaced. Drop sub-floor noise and the first period (nothing to compare).
+  const movers = $derived(
+    insight.isFirstPeriod
+      ? []
+      : insight.biggestMovers.filter((c) => Math.abs(c.deltaAbs) >= 50).slice(0, 3)
+  );
 </script>
 
 <section class="rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur">
@@ -67,6 +75,24 @@
     {#if treemapCategories.length > 0}
       <div class="mt-3">
         <SpendingTreemap categories={treemapCategories} {categoryHref} />
+      </div>
+    {/if}
+
+    {#if movers.length > 0}
+      <div class="mt-3">
+        <p class="text-eyebrow text-slate-400">{m.dashboard_spending_movers()}</p>
+        <ul class="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+          {#each movers as mv (mv.categoryId)}
+            <li class="text-slate-300">
+              {mv.name}
+              <span
+                class={cn("tabular-nums", mv.deltaAbs >= 0 ? "text-rose-400" : "text-emerald-400")}
+              >
+                {mv.deltaAbs >= 0 ? "+" : "−"}{formatCurrency(Math.abs(mv.deltaAbs))}
+              </span>
+            </li>
+          {/each}
+        </ul>
       </div>
     {/if}
 

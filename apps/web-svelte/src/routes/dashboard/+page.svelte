@@ -124,8 +124,7 @@
     params.set("group", groupFilter);
     params.set("type", "expense");
     if (bucket.isProjected) {
-      params.set("status", "upcoming");
-      params.set("forecast", "recurring");
+      params.set("status", "upcoming,overdue");
     }
     goto(`/transactions?${params.toString()}`);
   }

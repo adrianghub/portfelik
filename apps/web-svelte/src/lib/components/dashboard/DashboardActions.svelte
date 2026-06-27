@@ -6,7 +6,13 @@
   import { toastError } from "$lib/toast-error";
   import { fetchProfile } from "$lib/services/profiles";
   import { fetchLastCommittedImportSession } from "$lib/services/bank-import";
-  import { fetchDashboardPlanProgress } from "$lib/services/plan-settlement";
+  import {
+    fetchDashboardPlanProgress,
+    fetchLinkedTransactionIds,
+  } from "$lib/services/plan-settlement";
+  import { fetchPlans } from "$lib/services/plans";
+  import { fetchPlanDebtTermsByPlanIds } from "$lib/services/plan-debt";
+  import { detectRecurringDebtPayments } from "$lib/services/debt-payment-detect";
   import { getBankImportReminder } from "$lib/profile-settings";
   import type { AttentionPlan } from "$lib/dashboard-attention";
   import type { SpendingInsight } from "$lib/services/spending-insight";
@@ -14,6 +20,7 @@
     buildDashboardActions,
     type DashboardAction,
     type DashboardActionTone,
+    type DebtDetectedInput,
   } from "$lib/services/dashboard-actions";
   import {
     fetchActiveDismissedKeys,
@@ -98,12 +105,59 @@
     }))
   );
 
+  // Detected recurring debt payments not yet linked to their plan: for each active debt
+  // plan, group the matching expenses (lookback) and suggest the newest unlinked one.
+  // Reuses the same core as the plan-detail detect banner; the global linked-id set
+  // excludes anything already settled so we never re-suggest a linked rata.
+  const plansQuery = createQuery(() => ({ queryKey: ["plans"], queryFn: fetchPlans }));
+  const debtPlans = $derived(
+    (plansQuery.data ?? []).filter((p) => p.kind === "debt" && p.status === "active")
+  );
+  const debtPlanIds = $derived(debtPlans.map((p) => p.id));
+
+  const debtTermsQuery = createQuery(() => ({
+    queryKey: ["plan-debt-terms-list", debtPlanIds],
+    queryFn: () => fetchPlanDebtTermsByPlanIds(debtPlanIds),
+    enabled: debtPlanIds.length > 0,
+  }));
+
+  const linkedIdsQuery = createQuery(() => ({
+    queryKey: ["plan-linked-tx-ids"],
+    queryFn: fetchLinkedTransactionIds,
+    enabled: debtPlanIds.length > 0,
+  }));
+
+  const debtDetectedQuery = createQuery(() => ({
+    queryKey: ["dashboard-debt-detected", debtPlanIds, [...(linkedIdsQuery.data ?? [])].sort()],
+    enabled: debtPlanIds.length > 0 && !!debtTermsQuery.data && !!linkedIdsQuery.data,
+    queryFn: async (): Promise<DebtDetectedInput[]> => {
+      const terms = debtTermsQuery.data ?? {};
+      const excludeTransactionIds = linkedIdsQuery.data ?? new Set<string>();
+      const results = await Promise.all(
+        debtPlans.map(async (plan) => {
+          const monthlyPayment = terms[plan.id] ? Number(terms[plan.id].monthly_payment) : 0;
+          if (!(monthlyPayment > 0)) return null;
+          const detected = await detectRecurringDebtPayments({
+            monthlyPayment,
+            userId: plan.user_id,
+            groupId: plan.group_id,
+            excludeTransactionIds,
+          });
+          return detected[0]
+            ? { planId: plan.id, planName: plan.name, reason: detected[0].reasons[0] }
+            : null;
+        })
+      );
+      return results.filter((r): r is DebtDetectedInput => r !== null);
+    },
+  }));
+
   const actions = $derived(
     buildDashboardActions({
       attention: { daysSinceImport, cadenceDays, overdueCount, plans },
       anomalies,
       settleReady,
-      debtDetected: [],
+      debtDetected: debtDetectedQuery.data ?? [],
       periodKey,
       dismissedKeys: dismissalsQuery.data ?? new Set<string>(),
     })
