@@ -1,32 +1,26 @@
 <script lang="ts">
   import type { SpendingInsight } from "$lib/services/spending-insight";
+  import { formatDeltaPct, isSignificantDeltaPct } from "$lib/services/spending-category-display";
+  import SpendingCategoryBreakdown from "$lib/components/dashboard/SpendingCategoryBreakdown.svelte";
   import { formatCurrency, cn } from "$lib/utils";
   import * as m from "$lib/paraglide/messages";
-  import SpendingTreemap, {
-    type TreemapCategory,
-  } from "$lib/components/dashboard/charts/SpendingTreemap.svelte";
+  import { ChevronDown } from "lucide-svelte";
+  import { MediaQuery } from "svelte/reactivity";
+  import { untrack } from "svelte";
 
   let {
     insight,
     period,
     categoryHref,
+    expanded = $bindable(untrack(() => isDesktop.current)),
   }: {
     insight: SpendingInsight;
     period: "week" | "month" | "year";
-    /** Period-aware transactions link for a treemap tile (null = all). */
     categoryHref: (categoryId: string | null) => string;
+    expanded?: boolean;
   } = $props();
 
-  const treemapCategories = $derived.by<TreemapCategory[]>(() =>
-    insight.categories
-      .filter((c) => c.total > 0)
-      .map((c) => ({
-        categoryId: c.categoryId,
-        name: c.name,
-        total: c.total,
-        deltaPct: insight.isFirstPeriod ? null : c.deltaPct,
-      }))
-  );
+  const isDesktop = new MediaQuery("(min-width: 640px)");
 
   const vsPrevLabel = $derived(
     period === "week"
@@ -35,69 +29,68 @@
         ? m.dashboard_spending_vs_prev_year()
         : m.dashboard_spending_vs_prev_month()
   );
-  function deltaLabel(pct: number | null): string {
-    if (pct === null) return "";
-    const arrow = pct >= 0 ? "↑" : "↓";
-    return `${arrow}${Math.abs(Math.round(pct))}%`;
-  }
-
-  // Biggest movers vs the previous period — already computed by computeSpendingInsight,
-  // just unsurfaced. Drop sub-floor noise and the first period (nothing to compare).
-  const movers = $derived(
-    insight.isFirstPeriod
-      ? []
-      : insight.biggestMovers.filter((c) => Math.abs(c.deltaAbs) >= 50).slice(0, 3)
-  );
 </script>
 
-<section class="rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur">
-  <h2 class="text-sm font-medium text-slate-400">{m.dashboard_spending_title()}</h2>
-
-  {#if insight.spent === 0 && insight.categories.length === 0}
-    <p class="mt-2 text-sm text-slate-400">{m.dashboard_spending_empty()}</p>
-  {:else}
-    <p class="mt-1 text-lg font-semibold">
-      {m.dashboard_spending_spent()}
-      {formatCurrency(insight.spent)}
-      <span class="text-slate-400"
-        >· {m.dashboard_spending_net()} {formatCurrency(insight.net)}</span
-      >
-      {#if !insight.isFirstPeriod && insight.spentDeltaPct !== null}
-        <span
-          class={cn("text-sm", insight.spentDeltaPct >= 0 ? "text-rose-400" : "text-emerald-400")}
-        >
-          {deltaLabel(insight.spentDeltaPct)}
-          {vsPrevLabel}
+<section
+  id="dashboard-spending"
+  class="min-w-0 overflow-x-clip rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur"
+>
+  <button
+    type="button"
+    class="flex w-full items-baseline justify-between gap-3"
+    aria-expanded={expanded}
+    onclick={() => (expanded = !expanded)}
+  >
+    <h2 class="text-sm font-medium text-slate-400">{m.dashboard_spending_title()}</h2>
+    <span class="flex shrink-0 items-center gap-2">
+      {#if insight.spent > 0 || insight.categories.length > 0}
+        <span class="text-sm font-semibold text-slate-200 tabular-nums">
+          {formatCurrency(insight.spent)}
         </span>
       {/if}
-    </p>
+      <ChevronDown
+        size={17}
+        strokeWidth={1.8}
+        class={cn(
+          "text-slate-400 transition-transform duration-300 ease-out",
+          expanded && "rotate-180"
+        )}
+        aria-hidden="true"
+      />
+    </span>
+  </button>
 
-    {#if treemapCategories.length > 0}
-      <div class="mt-3">
-        <SpendingTreemap categories={treemapCategories} {categoryHref} />
+  <div class={cn("expand-grid", expanded && "expand-grid--open")} aria-hidden={!expanded}>
+    <div class="expand-grid-inner">
+      <div class="expand-grid-panel">
+        {#if insight.spent === 0 && insight.categories.length === 0}
+          <p class="pt-2 text-sm text-slate-400">{m.dashboard_spending_empty()}</p>
+        {:else}
+          {#if !insight.isFirstPeriod && isSignificantDeltaPct(insight.spentDeltaPct)}
+            <p
+              class={cn(
+                "pt-2 text-sm",
+                insight.spentDeltaPct >= 0 ? "text-rose-400" : "text-emerald-400"
+              )}
+            >
+              {formatDeltaPct(insight.spentDeltaPct)}
+              {vsPrevLabel}
+            </p>
+          {/if}
+
+          <SpendingCategoryBreakdown
+            categories={insight.categories}
+            biggestMovers={insight.biggestMovers}
+            spent={insight.spent}
+            isFirstPeriod={insight.isFirstPeriod}
+            categoryHref={(id) => categoryHref(id)}
+          />
+
+          {#if insight.isFirstPeriod}
+            <p class="mt-2 text-xs text-slate-400">{m.dashboard_spending_first_period()}</p>
+          {/if}
+        {/if}
       </div>
-    {/if}
-
-    {#if movers.length > 0}
-      <div class="mt-3">
-        <p class="text-eyebrow text-slate-400">{m.dashboard_spending_movers()}</p>
-        <ul class="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-          {#each movers as mv (mv.categoryId)}
-            <li class="text-slate-300">
-              {mv.name}
-              <span
-                class={cn("tabular-nums", mv.deltaAbs >= 0 ? "text-rose-400" : "text-emerald-400")}
-              >
-                {mv.deltaAbs >= 0 ? "+" : "−"}{formatCurrency(Math.abs(mv.deltaAbs))}
-              </span>
-            </li>
-          {/each}
-        </ul>
-      </div>
-    {/if}
-
-    {#if insight.isFirstPeriod}
-      <p class="mt-2 text-xs text-slate-400">{m.dashboard_spending_first_period()}</p>
-    {/if}
-  {/if}
+    </div>
+  </div>
 </section>

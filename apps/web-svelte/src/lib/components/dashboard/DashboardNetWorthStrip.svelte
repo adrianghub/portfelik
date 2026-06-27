@@ -68,15 +68,10 @@
   }));
 
   const cashRangeStart = $derived(cashPositionQuery.data?.as_of_date ?? "2000-01-01");
-  // Open upper bound: fetchTransactions uses an exclusive `.lt("date", end)`, so a real
-  // current date would drop today's (and any future-dated) paid rows. The live position
-  // has no upper bound — the engine filters to paid. Use a far-future sentinel.
   const CASH_RANGE_END = "9999-12-31";
   const positionTxQuery = createQuery(() => ({
     queryKey: ["transactions", "cash-position-range", cashRangeStart],
     queryFn: () => fetchTransactions(cashRangeStart, CASH_RANGE_END),
-    // isSuccess (not !isLoading): on an anchor-query error we must NOT fall back to the
-    // "2000-01-01" default range with a null anchor and render a confidently wrong figure.
     enabled: cashPositionQuery.isSuccess,
   }));
 
@@ -113,40 +108,56 @@
 </script>
 
 <section
-  class="rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur"
+  class="min-w-0 rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur"
   aria-labelledby="dashboard-net-worth-title"
 >
   <div class="flex items-start justify-between gap-3">
-    <div class="min-w-0">
+    <div class="min-w-0 flex-1">
       <p id="dashboard-net-worth-title" class="text-eyebrow text-slate-400">
         {m.dashboard_net_worth_title()}
       </p>
       {#if loading}
-        <div class="mt-3 h-8 w-40 animate-pulse rounded-lg bg-slate-800/60"></div>
+        <div class="mt-2 h-7 w-36 animate-pulse rounded bg-slate-800/60"></div>
       {:else if !netWorth.hasData && !cashPositionQuery.data}
-        <p class="mt-2 text-sm text-slate-400">{m.dashboard_net_worth_empty()}</p>
+        <p class="mt-1.5 text-sm text-slate-400">{m.dashboard_net_worth_empty()}</p>
       {:else}
         <p
           class={cn(
-            "mt-2 text-2xl font-semibold tabular-nums",
+            "mt-1.5 text-xl font-semibold tracking-tight break-words tabular-nums sm:text-2xl",
             netWorth.netWorth >= 0 ? "text-accent" : "text-rose-400"
           )}
         >
           {formatCurrency(netWorth.netWorth)}
         </p>
-        <p class="mt-1 text-xs text-slate-400">
-          {m.dashboard_net_worth_subtitle({
-            date: netWorth.asOfDate ? formatDate(netWorth.asOfDate) : "-",
-          })}
+        <p class="mt-0.5 text-xs text-slate-500">
+          {#if netWorth.asOfDate}
+            {m.dashboard_net_worth_subtitle_dated({ date: formatDate(netWorth.asOfDate) })}
+          {:else}
+            {m.dashboard_net_worth_subtitle_today()}
+          {/if}
         </p>
-        <p class="mt-1 text-xs text-slate-400">{m.dashboard_net_worth_manual_note()}</p>
+        <dl class="mt-2 space-y-1.5 text-xs">
+          <div class="flex min-w-0 items-baseline justify-between gap-3">
+            <dt class="shrink-0 text-slate-500">{m.dashboard_net_worth_assets_label()}</dt>
+            <dd class="min-w-0 text-right font-medium text-slate-300 tabular-nums">
+              {formatCurrency(netWorth.totalAssets)}
+            </dd>
+          </div>
+          <div class="flex min-w-0 items-baseline justify-between gap-3">
+            <dt class="shrink-0 text-slate-500">{m.dashboard_net_worth_debt_label()}</dt>
+            <dd class="min-w-0 text-right font-medium text-slate-300 tabular-nums">
+              {formatCurrency(netWorth.totalDebt)}
+            </dd>
+          </div>
+        </dl>
       {/if}
     </div>
-    <Wallet size={18} class="shrink-0 text-slate-500" aria-hidden="true" />
+    <Wallet size={18} class="mt-0.5 shrink-0 text-slate-500" aria-hidden="true" />
   </div>
+
   <a
     href="/plans"
-    class="focus-visible:ring-accent mt-3 inline-flex items-center gap-1 text-sm font-semibold text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+    class="focus-visible:ring-accent mt-3 inline-flex max-w-full items-center gap-1 text-sm font-semibold text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:outline-none"
   >
     {m.dashboard_net_worth_link()}
     <ChevronRight size={14} aria-hidden="true" />

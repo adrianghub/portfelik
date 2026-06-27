@@ -83,7 +83,7 @@
   <p class="text-sm text-rose-400">{m.dashboard_plan_progress_error()}</p>
 {:else if activePlans.length > 0}
   <section
-    class="rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur"
+    class="min-w-0 overflow-x-clip rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur"
     aria-labelledby="dashboard-plan-progress-title"
   >
     <div class="mb-3 flex items-center justify-between gap-2">
@@ -131,11 +131,11 @@
             </div>
             <div class="mt-1 flex min-w-0 items-center justify-between gap-2 text-xs">
               <span class="min-w-0 truncate text-slate-400 tabular-nums">{display.label}</span>
-              {#if display.pct != null}
+              {#if display.pct != null && display.pct > 0}
                 <span class="text-accent shrink-0 font-semibold tabular-nums">{display.pct}%</span>
               {/if}
             </div>
-            {#if display.pct != null}
+            {#if display.pct != null && display.pct > 0}
               <div
                 class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-800"
                 role="progressbar"

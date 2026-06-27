@@ -4,9 +4,9 @@
   import { fetchProfile } from "$lib/services/profiles";
   import { getBankImportReminder } from "$lib/profile-settings";
   import { supabase } from "$lib/supabase";
-  import { formatDate } from "$lib/utils";
+  import { cn, formatDate } from "$lib/utils";
   import { createQuery } from "@tanstack/svelte-query";
-  import { Landmark } from "lucide-svelte";
+  import { ChevronRight, Landmark } from "lucide-svelte";
 
   const profileQuery = createQuery(() => ({
     queryKey: ["profile"],
@@ -38,41 +38,47 @@
 </script>
 
 <section
-  class="rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur"
+  class="min-w-0 overflow-x-clip rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur sm:p-5"
   aria-labelledby="dashboard-import-health-title"
 >
   <div class="flex items-start justify-between gap-3">
-    <div class="min-w-0">
+    <div class="min-w-0 flex-1">
       <p id="dashboard-import-health-title" class="text-eyebrow text-slate-400">
         {m.dashboard_import_health_title()}
       </p>
       {#if importHealthQuery.isPending}
-        <div class="mt-2 h-5 w-48 animate-pulse rounded bg-slate-800/60"></div>
+        <div class="mt-2 h-4 w-40 animate-pulse rounded bg-slate-800/60"></div>
       {:else if importHealthQuery.data?.committed_at}
-        <p class="mt-1 text-sm text-slate-200">
+        <p class="mt-1.5 text-sm text-slate-200">
           {m.dashboard_import_health_last({
             date: formatDate(importHealthQuery.data.committed_at),
           })}
         </p>
-        {#if isStale && daysSinceImport !== null}
-          <p class="mt-0.5 text-xs text-amber-300/90">
+        <p class={cn("mt-0.5 text-xs", isStale ? "text-amber-300/90" : "text-emerald-300/80")}>
+          {#if isStale && daysSinceImport !== null}
             {m.dashboard_import_health_stale({ days: daysSinceImport })}
-          </p>
-        {:else if !isStale}
-          <p class="mt-0.5 text-xs text-emerald-300/90">{m.dashboard_import_health_fresh()}</p>
-        {/if}
+          {:else if !isStale}
+            {m.dashboard_import_health_fresh()}
+          {/if}
+        </p>
       {:else}
-        <p class="mt-1 text-sm text-slate-300">{m.dashboard_import_health_never()}</p>
+        <p class="mt-1.5 text-sm text-slate-300">{m.dashboard_import_health_never()}</p>
       {/if}
+      <p class="mt-1 text-xs text-slate-500">
+        {m.dashboard_import_health_cadence({ days: cadenceDays })}
+      </p>
     </div>
-    <Landmark size={20} class="shrink-0 text-slate-400" aria-hidden="true" />
+    <Landmark size={18} class="mt-0.5 shrink-0 text-slate-500" aria-hidden="true" />
   </div>
-  {#if isStale}
-    <a
-      href="/import"
-      class="bg-accent-gradient mt-3 inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-colors hover:brightness-110"
-    >
-      {m.dashboard_import_health_cta()}
-    </a>
-  {/if}
+
+  <a
+    href="/import"
+    class={cn(
+      "focus-visible:ring-accent mt-3 inline-flex items-center gap-1 text-sm font-semibold focus-visible:ring-2 focus-visible:outline-none",
+      isStale ? "text-emerald-400 hover:underline" : "text-slate-400 hover:text-slate-300"
+    )}
+  >
+    {isStale ? m.dashboard_import_health_cta() : m.dashboard_import_health_review()}
+    <ChevronRight size={14} aria-hidden="true" />
+  </a>
 </section>
