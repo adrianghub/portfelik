@@ -33,8 +33,27 @@
     breakdownOpen?: boolean;
   } = $props();
 
-  const ringSize = $derived(isMdLayout.current ? 268 : isDesktop.current ? 228 : 212);
-  const stroke = $derived(isMdLayout.current ? 13 : isDesktop.current ? 11 : 11);
+  let ringSlotWidth = $state(0);
+
+  function mobileRingSize(width: number): number {
+    const basis = width > 0 ? width : 280;
+    return Math.min(280, Math.max(232, Math.round(basis * 0.92)));
+  }
+
+  const ringSize = $derived(
+    isMdLayout.current ? 268 : isDesktop.current ? 228 : mobileRingSize(ringSlotWidth)
+  );
+  const stroke = $derived(
+    isMdLayout.current
+      ? 13
+      : isDesktop.current
+        ? 11
+        : ringSize >= 270
+          ? 13
+          : ringSize >= 252
+            ? 12
+            : 11
+  );
   const radius = $derived((ringSize - stroke) / 2);
   const circumference = $derived(2 * Math.PI * radius);
   const cx = $derived(ringSize / 2);
@@ -72,18 +91,18 @@
   const netAmountClass = $derived.by(() => {
     const len = netFormatted.length;
     if (isDesktop.current) {
-      if (len > 14) return "text-base leading-tight sm:text-lg";
-      if (len > 11) return "text-lg leading-tight sm:text-xl";
-      return "text-xl leading-none sm:text-2xl";
+      if (len > 14) return "text-lg leading-tight sm:text-xl";
+      if (len > 11) return "text-xl leading-tight sm:text-2xl";
+      return "text-2xl leading-none sm:text-3xl";
     }
     if (!showMobileRingStats) {
-      if (len > 14) return "text-base leading-tight";
-      if (len > 11) return "text-lg leading-tight";
-      return "text-xl leading-none";
+      if (len > 14) return "text-lg leading-tight";
+      if (len > 11) return "text-xl leading-tight";
+      return "text-2xl leading-none";
     }
-    if (len > 14) return "text-sm leading-tight";
-    if (len > 11) return "text-base leading-tight";
-    return "text-lg leading-none";
+    if (len > 14) return "text-base leading-tight";
+    if (len > 11) return "text-lg leading-tight";
+    return "text-xl leading-none";
   });
 
   function toggleBreakdown() {
@@ -168,7 +187,7 @@
 {#snippet ringCenterLabel()}
   <span
     class={cn(
-      "max-w-[9.5rem] font-semibold tabular-nums sm:max-w-[10rem] md:max-w-[11rem]",
+      "max-w-[10.5rem] font-semibold tabular-nums sm:max-w-[11rem] md:max-w-[12rem]",
       netAmountClass,
       netPositive ? "text-accent-gradient" : "text-rose-400"
     )}
@@ -179,30 +198,30 @@
 
 {#snippet ringCenterStatsDesktop()}
   {#if summary}
-    <div class="mt-2 grid w-full max-w-[9.5rem] grid-cols-2 gap-x-3 gap-y-0.5 sm:max-w-[10rem]">
+    <div class="mt-2 grid w-full max-w-[10.5rem] grid-cols-2 gap-x-3 gap-y-0.5 sm:max-w-[11rem]">
       <div class="min-w-0 text-left">
-        <span class="text-eyebrow block text-[9px] text-emerald-400/80">{m.summary_income()}</span>
+        <span class="text-eyebrow block text-[10px] text-emerald-400/80">{m.summary_income()}</span>
         <span
-          class="block truncate text-[10px] font-medium text-emerald-300/90 tabular-nums sm:text-[11px]"
+          class="block truncate text-[11px] font-medium text-emerald-300/90 tabular-nums sm:text-xs"
         >
           {formatCurrency(summary.total_income)}
         </span>
       </div>
       <div class="min-w-0 text-right">
-        <span class="text-eyebrow block text-[9px] text-rose-400/80">{m.summary_expenses()}</span>
+        <span class="text-eyebrow block text-[10px] text-rose-400/80">{m.summary_expenses()}</span>
         <span
-          class="block truncate text-[10px] font-medium text-rose-300/90 tabular-nums sm:text-[11px]"
+          class="block truncate text-[11px] font-medium text-rose-300/90 tabular-nums sm:text-xs"
         >
           {formatCurrency(summary.total_expenses)}
         </span>
       </div>
     </div>
     {#if savingsRatio !== null}
-      <p class="mt-1.5 text-[10px] text-slate-500">
+      <p class="mt-1.5 text-[11px] text-slate-500 sm:text-xs">
         {m.dashboard_savings_kept_pct({ pct: savingsRatio })}
       </p>
     {:else}
-      <p class="mt-1.5 text-[10px] text-slate-500">{m.dashboard_savings_na()}</p>
+      <p class="mt-1.5 text-[11px] text-slate-500 sm:text-xs">{m.dashboard_savings_na()}</p>
     {/if}
   {/if}
 {/snippet}
@@ -210,22 +229,28 @@
 {#snippet ringCenterStats()}
   {#if summary}
     <div
-      class="mt-1.5 grid w-full max-w-[8.5rem] grid-cols-2 gap-x-2 gap-y-0.5 sm:mt-2 sm:max-w-[7.5rem]"
+      class="mt-1.5 grid w-full max-w-[10rem] grid-cols-2 gap-x-2.5 gap-y-0.5 sm:mt-2 sm:max-w-[10.5rem]"
     >
       <div class="min-w-0 text-left">
-        <span class="text-eyebrow block text-[9px] text-emerald-400/80">{m.summary_income()}</span>
-        <span class="block truncate text-[10px] font-medium text-emerald-300/90 tabular-nums">
+        <span class="text-eyebrow block text-[10px] text-emerald-400/80">{m.summary_income()}</span>
+        <span
+          class="block truncate text-[11px] font-medium text-emerald-300/90 tabular-nums sm:text-xs"
+        >
           {formatCurrency(summary.total_income)}
         </span>
       </div>
       <div class="min-w-0 text-right">
-        <span class="text-eyebrow block text-[9px] text-rose-400/80">{m.summary_expenses()}</span>
-        <span class="block truncate text-[10px] font-medium text-rose-300/90 tabular-nums">
+        <span class="text-eyebrow block text-[10px] text-rose-400/80">{m.summary_expenses()}</span>
+        <span
+          class="block truncate text-[11px] font-medium text-rose-300/90 tabular-nums sm:text-xs"
+        >
           {formatCurrency(summary.total_expenses)}
         </span>
       </div>
     </div>
-    <p class="mt-1 text-[9px] font-medium text-slate-500">{m.dashboard_balance_ring_hint()}</p>
+    <p class="mt-1 text-[10px] font-medium text-slate-500 sm:text-[11px]">
+      {m.dashboard_balance_ring_hint()}
+    </p>
   {/if}
 {/snippet}
 
@@ -237,12 +262,9 @@
     )}
   >
     <p class="text-eyebrow text-slate-500">{m.dashboard_balance_ring_legend_title()}</p>
-    <p class="mt-0.5 text-[11px] leading-snug text-slate-500 sm:text-xs">
-      {m.dashboard_balance_ring_legend_note()}
-    </p>
 
     {#if ringLegend.length > 0}
-      <ul class={cn("space-y-1", compact ? "mt-1.5" : "mt-2.5")}>
+      <ul class={cn("space-y-1", compact ? "mt-1.5" : "mt-2")}>
         {#each ringLegend as seg (seg.key)}
           <li>
             <a
@@ -389,6 +411,7 @@
     <div class="relative mt-3 flex min-w-0 flex-1 flex-col gap-2 sm:gap-3">
       <div
         class="relative flex w-full min-w-0 flex-1 items-center justify-center sm:min-h-[12rem] md:min-h-[14rem]"
+        bind:clientWidth={ringSlotWidth}
       >
         <div class="group relative shrink-0" style="width: {ringSize}px; height: {ringSize}px">
           {#if isDesktop.current}
@@ -433,12 +456,12 @@
                 {#if showMobileRingStats}
                   {@render ringCenterStats()}
                 {:else}
-                  <span class="mt-1 flex items-center gap-0.5 text-[10px] text-slate-500">
-                    {m.dashboard_balance_ring_hint()}
+                  <span class="mt-1 flex items-center gap-0.5 text-[11px] text-slate-500">
+                    {m.dashboard_balance_ring_hint_collapse()}
                     <ChevronDown
                       size={12}
                       strokeWidth={2}
-                      class="rotate-180 text-slate-500"
+                      class="text-slate-500"
                       aria-hidden="true"
                     />
                   </span>
@@ -483,7 +506,7 @@
   {:else}
     <div class="relative mt-5 flex flex-col items-center gap-4">
       <div
-        class="size-[212px] shrink-0 animate-pulse rounded-full border-[11px] border-white/5 sm:size-[228px] sm:border-[11px] md:size-[268px] md:border-[13px]"
+        class="aspect-square w-full max-w-[280px] shrink-0 animate-pulse rounded-full border-[12px] border-white/5 sm:max-w-[228px] sm:border-[11px] md:max-w-[268px] md:border-[13px]"
       ></div>
       <div class="w-full space-y-2">
         {#each [0, 1] as i (i)}
