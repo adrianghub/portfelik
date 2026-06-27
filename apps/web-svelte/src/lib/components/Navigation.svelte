@@ -6,6 +6,7 @@
   import type { Profile } from "$lib/types";
   import type { User } from "@supabase/supabase-js";
   import * as m from "$lib/paraglide/messages";
+  import { avatarSrc } from "$lib/theme/avatar-presets";
   import { LayoutDashboard, Wallet, Target, Settings, ShieldCheck, LogOut } from "lucide-svelte";
   import NotificationsPopover from "$lib/components/ui/NotificationsPopover.svelte";
   import { MediaQuery } from "svelte/reactivity";
@@ -41,6 +42,10 @@
 
   const avatarUrl = $derived<string | null>(
     (user?.user_metadata?.avatar_url as string | undefined) ?? null
+  );
+  // Fallback chain: preset avatar → OAuth photo → initials.
+  const avatarImg = $derived<string | null>(
+    avatarSrc(profile?.settings?.avatarPresetId) ?? avatarUrl
   );
   const initials = $derived.by(() => {
     const source = profile?.name?.trim() || profile?.email || user?.email || "";
@@ -99,9 +104,12 @@
 <header
   class="fixed inset-x-0 top-0 z-50 hidden h-14 items-center gap-4 border-b border-white/5 bg-slate-950/80 px-6 backdrop-blur md:flex"
 >
-  <span class="mr-2 shrink-0 text-base font-semibold tracking-tight text-slate-100"
-    >{m.app_name()}</span
+  <a
+    href="/"
+    class="mr-2 shrink-0 text-base font-semibold tracking-tight text-slate-100 transition-colors hover:text-white"
   >
+    {m.app_name()}
+  </a>
 
   <nav aria-label={m.nav_main()} class="flex items-center gap-1">
     {#each desktopNavItems as item (item.href)}
@@ -153,9 +161,9 @@
       aria-label={email || "Account"}
       class="focus-visible:ring-accent relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-slate-800 text-xs font-semibold text-slate-100 transition-colors hover:border-white/20 focus-visible:ring-2 focus-visible:outline-none"
     >
-      {#if avatarUrl}
+      {#if avatarImg}
         <img
-          src={avatarUrl}
+          src={avatarImg}
           alt=""
           class="h-full w-full object-cover"
           referrerpolicy="no-referrer"
@@ -171,7 +179,12 @@
 <header
   class="fixed inset-x-0 top-0 z-50 flex h-14 items-center gap-3 border-b border-white/5 bg-slate-950/80 px-4 backdrop-blur md:hidden"
 >
-  <span class="text-base font-semibold tracking-tight text-slate-100">{m.app_name()}</span>
+  <a
+    href="/"
+    class="text-base font-semibold tracking-tight text-slate-100 transition-colors hover:text-white"
+  >
+    {m.app_name()}
+  </a>
   <div class="ml-auto">
     {#if !isDesktopNav.current}
       <NotificationsPopover placement="bottom" />
@@ -186,8 +199,8 @@
     aria-label={email || "Account"}
     class="focus-visible:ring-accent relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-slate-800 text-xs font-semibold text-slate-100 transition-colors hover:border-white/20 focus-visible:ring-2 focus-visible:outline-none"
   >
-    {#if avatarUrl}
-      <img src={avatarUrl} alt="" class="h-full w-full object-cover" referrerpolicy="no-referrer" />
+    {#if avatarImg}
+      <img src={avatarImg} alt="" class="h-full w-full object-cover" referrerpolicy="no-referrer" />
     {:else}
       <span aria-hidden="true">{initials}</span>
     {/if}

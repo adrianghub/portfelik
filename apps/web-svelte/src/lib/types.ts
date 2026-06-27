@@ -83,6 +83,8 @@ export interface MonthlySummary {
 export interface ProfileSettings {
   notificationsEnabled?: boolean;
   accentColor?: string;
+  /** Preset avatar id (see avatar-presets.ts); absent ⇒ OAuth photo or initials. */
+  avatarPresetId?: string;
   alerts?: {
     bankImportReminder?: {
       enabled: boolean;

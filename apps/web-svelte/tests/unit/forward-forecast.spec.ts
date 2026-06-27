@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { TransactionWithCategory } from "$lib/types";
 import { forwardForecastTransactions } from "$lib/services/transaction-projections";
+import { computeSummary } from "$lib/services/transaction-summary";
 
 function tx(over: Partial<TransactionWithCategory> = {}): TransactionWithCategory {
   return {
@@ -129,5 +130,23 @@ describe("forwardForecastTransactions", () => {
     const projected = out.filter((t) => t.projected === true);
     expect(projected.length).toBeGreaterThanOrEqual(4);
     expect(projected.every((t) => t.recurring_template_id === "tmpl-1")).toBe(true);
+  });
+
+  it("summary must include projected rows to match the visible forecast list", () => {
+    const tmpl = template();
+    const oneOff = tx({ id: "sportano", date: "2026-07-20", amount: 389.99 });
+    const out = forwardForecastTransactions({
+      templates: [tmpl],
+      existing: [oneOff],
+      start: START,
+      end: END,
+      now: NOW,
+    });
+    const real = out.filter((t) => !t.projected);
+    const projected = out.filter((t) => t.projected);
+    const filteredOnly = computeSummary(real).total_expenses;
+    const withProjected = computeSummary([...real, ...projected]).total_expenses;
+    expect(withProjected).toBeGreaterThan(filteredOnly);
+    expect(withProjected).toBe(out.reduce((s, t) => s + (t.type === "expense" ? t.amount : 0), 0));
   });
 });
