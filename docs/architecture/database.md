@@ -22,11 +22,16 @@ erDiagram
     auth_users ||--o{ push_subscriptions : has
     auth_users ||--o{ bank_accounts : owns
     auth_users ||--o{ categorization_rules : owns
+    auth_users ||--o{ cash_positions : anchors
+    auth_users ||--o{ net_worth_items : owns
+    auth_users ||--o{ action_dismissals : dismisses
 
     user_groups ||--o{ group_members : has
     user_groups ||--o{ group_invitations : has
     user_groups ||--o{ plans : "scopes (nullable)"
     user_groups ||--o{ transaction_import_rows : "scopes review (nullable)"
+    user_groups ||--o{ cash_positions : anchors
+    user_groups ||--o{ recurring_occurrence_skips : "skips shared occurrences"
 
     categories ||--o{ transactions : tags
     categories ||--o{ plans : "tags (nullable)"
@@ -35,10 +40,12 @@ erDiagram
 
     plans ||--o{ plan_transaction_links : settles
     plans ||--o| plan_debt_terms : "debt terms (1:1)"
-    auth_users ||--o| financial_snapshots : "manual holdings"
+    auth_users ||--o| financial_snapshots : "net-worth date"
+    auth_users ||--o{ net_worth_items : "manual assets"
     plan_transaction_links }o--|| transactions : links
 
     transactions ||--o| transaction_import_links : "provenance (owner-only)"
+    transactions ||--o{ transactions : "recurring template to occurrence"
 
     bank_accounts ||--o{ transaction_import_sessions : has
     bank_accounts ||--o{ transaction_import_links : tagged
@@ -70,6 +77,7 @@ erDiagram
     group_members {
         uuid group_id PK_FK
         uuid user_id PK_FK
+        text role
         timestamptz joined_at
     }
     group_invitations {
@@ -103,6 +111,9 @@ erDiagram
         uuid user_id FK
         bool is_recurring
         smallint recurring_day
+        uuid recurring_template_id FK_nullable
+        date recurring_occurrence_date
+        date recurrence_end_date
         timestamptz created_at
         timestamptz updated_at
     }
@@ -113,6 +124,9 @@ erDiagram
         uuid user_id FK
         uuid group_id FK_nullable
         uuid category_id FK_nullable
+        text status
+        uuid refinanced_from_plan_id FK_nullable
+        uuid replaced_by_plan_id FK_nullable
         numeric budget_amount
         numeric target_amount
         date start_date
@@ -128,13 +142,27 @@ erDiagram
         numeric monthly_payment
         numeric anchor_balance
         date balance_anchor_date
+        date first_payment_date
+        numeric first_payment_amount
     }
     financial_snapshots {
         uuid user_id PK_FK
         date as_of_date
-        numeric cash_amount
-        numeric investments_amount
-        numeric real_estate_amount
+    }
+    cash_positions {
+        uuid id PK
+        uuid owner_id FK_nullable
+        uuid group_id FK_nullable
+        numeric opening_amount
+        date as_of_date
+    }
+    net_worth_items {
+        uuid id PK
+        uuid user_id FK
+        text label
+        numeric amount
+        text currency
+        int position
     }
     plan_transaction_links {
         uuid plan_id PK_FK
@@ -231,6 +259,21 @@ erDiagram
         int priority
         timestamptz created_at
     }
+    action_dismissals {
+        uuid id PK
+        uuid user_id FK
+        text action_key
+        timestamptz dismissed_until
+    }
+    recurring_occurrence_skips {
+        uuid id PK
+        uuid user_id FK
+        uuid group_id FK_nullable
+        uuid recurring_template_id FK
+        uuid skipped_transaction_id FK_nullable
+        uuid created_by FK
+        date occurrence_date
+    }
 ```
 
 ## Enums
@@ -266,9 +309,9 @@ Join table between `user_groups` and `auth.users`. Compound PK; cascade-delete o
 
 - **RLS read**: members of the group can read the full roster.
 - **RLS write**: blocked. Use `create_group`, `accept_invitation`, `leave_group`, `remove_group_member`, `disband_group`.
-- **Product direction**: membership should become role-based. Add co-owner
-  semantics before expanding group-scoped transaction/plan management beyond
-  today's flat member model.
+- **Role**: `owner` is derived from `user_groups.owner_id`; non-owner rows carry
+  `member` or `co_owner`. Owners manage lifecycle/invites; co-owners can manage
+  group-scoped transactions, plans, debt terms, and cash-position anchors.
 
 ### `group_invitations`
 
@@ -293,10 +336,13 @@ Core ledger. Amount is stored as a positive magnitude; sign is carried by
 `type`. Currency defaults to `PLN`. Date is `timestamptz` (not `date`, despite
 the name).
 
-- **PK**: `id`. **FKs**: `category_id` (RESTRICT), `user_id` (CASCADE).
-  (`recurring_template_id` dropped in `20260705000000` — recurrence is
-  reminder-only, instances are never materialised.)
+- **PK**: `id`. **FKs**: `category_id` (RESTRICT), `user_id` (CASCADE),
+  optional `recurring_template_id` self-FK for materialized recurring
+  occurrences.
 - **CHECK**: `amount > 0`, `recurring_day BETWEEN 1 AND 31`.
+- **Recurring fields**: template rows carry `is_recurring`, `recurring_day`,
+  frequency fields, and optional `recurrence_end_date`; generated near-term rows
+  carry `recurring_template_id` + `recurring_occurrence_date`.
 - **RLS read**: own + group-shared. **RLS write**: creator for own rows; group
   owner/co-owner (`is_group_co_owner`) for group-scoped peer rows. Migration:
   `20260622000000_transaction_co_owner_writes.sql`.
@@ -316,6 +362,9 @@ history rows through `plan_transaction_links`.
   default; callers must choose a kind. Migration:
   `20260718000000_remove_spend_plans.sql` removed the old budget/outflow
   `spend` kind.
+- **`status`**: `active`, `refinanced`, or `closed`. Refinance links are stored
+  in `refinanced_from_plan_id` / `replaced_by_plan_id`; non-active debt plans
+  are excluded from live net worth and obligation math.
 - **`budget_amount`**: retained nullable legacy column; unused by current UI.
 - **`target_amount`**: required for `save`; optional payoff framing for `debt`.
   CHECK `target_amount > 0` when set.
@@ -335,9 +384,9 @@ history rows through `plan_transaction_links`.
 - **PK/FK**: `plan_id` → `plans(id)` (CASCADE). Plan must have `kind=debt`.
 - **Columns**: `original_amount`, `current_balance`, `annual_rate`,
   `monthly_payment`, optional snapshot anchor `anchor_balance` +
-  `balance_anchor_date` (flat-accrual replay starts there; payments linked
-  after the anchor reduce it — `20260702000000`). Vestigial `payment_day` and
-  `anchor_transaction_id` were dropped in `20260704000000`.
+  `balance_anchor_date`, optional `first_payment_date` +
+  `first_payment_amount` for odd opening installments. Vestigial `payment_day`
+  and `anchor_transaction_id` were dropped in `20260704000000`.
 - **CHECK**: `current_balance <= original_amount`; positive amounts/rate constraints.
 - **RLS**: read via parent plan (owner or group member); insert/update/delete
   by plan creator or group owner/co-owner only. Migration:
@@ -345,15 +394,22 @@ history rows through `plan_transaction_links`.
 - **Client simulation**: amortization and overpay vs invest compare run in
   `debt-amortization.ts` (monthly compounding v1; Belka 19% in scenario compare).
 
-### `financial_snapshots`
+### `financial_snapshots`, `cash_positions`, `net_worth_items`
 
-Owner-entered asset snapshot for net-worth hero on Plany (one row per user).
+Net worth is split between a lightweight snapshot date, a derived cash anchor,
+and free-form manual asset items.
 
-- **PK/FK**: `user_id` → `auth.users(id)` (CASCADE).
-- **Columns**: `as_of_date`, `cash_amount`, `investments_amount`, `real_estate_amount` (all ≥ 0).
-- **RLS**: owner read/insert/update/delete only.
-- **Net worth**: client computes `sum(assets) − sum(debt plan balances)`; not stored.
-- **Dashboard strip**: same snapshot read; compact link to `/plans` for edit.
+- **`financial_snapshots`**: one row per user; keeps the manual assets'
+  `as_of_date` for display/back-compat.
+- **`cash_positions`**: one private owner or group row per scope. Stores
+  `opening_amount` + `as_of_date`; live and forecast cash are computed in app
+  code from paid/upcoming transaction rows. RLS: owner read/write for private
+  rows, group members read, group co-owners write. Scope columns are immutable
+  via trigger.
+- **`net_worth_items`**: owner-entered assets (`label`, `amount`, `currency`,
+  `position`). Cash is not stored here; it is derived from `cash_positions`.
+- **Net worth**: client computes derived cash + manual asset items - live debt
+  plan balances. Nothing stores the final net-worth total.
 
 ### `notifications`
 
@@ -440,6 +496,30 @@ Per-user deterministic categorization rules consumed by the import review step. 
 - **Index**: `categorization_rules_user_priority_idx` on `(user_id, priority DESC)`.
 - **RLS read/insert/update/delete**: own.
 - **Column GRANTs (UPDATE)**: `kind`, `match_description`, `match_counterparty`, `match_type`, `category_id`, `priority`.
+
+### `action_dismissals`
+
+Per-user memory for deterministic dashboard action cards. It is UI attention
+state, not financial truth.
+
+- **PK**: `id`. **FK**: `user_id` → `auth.users(id)` (CASCADE).
+- **Unique**: `(user_id, action_key)`.
+- **`dismissed_until`**: `NULL` means permanently hidden until the action key
+  changes; a future timestamp is a snooze.
+- **RLS read/insert/update/delete**: owner only.
+
+### `recurring_occurrence_skips`
+
+One-off skip memory for recurring occurrences. Deleting/skipping a materialized
+or projected occurrence records the template/date slot so sync and forecast do
+not recreate it.
+
+- **FKs**: `user_id`, optional `group_id`, and recurring template id.
+- **RLS read/insert**: owner or group co-owner for group-scoped skips; no client
+  update/delete path is exposed.
+- **Product rule**: a skip is scoped to one occurrence date. Ending or editing a
+  whole series changes the template (`recurrence_end_date` / recurrence fields)
+  instead.
 
 ## RLS strategy
 

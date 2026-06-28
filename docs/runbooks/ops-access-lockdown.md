@@ -12,7 +12,8 @@ This is **Layer 2** of the three-layer privacy posture described in
   reach the production database/keys, what those keys are, where they live, and
   how access is revoked. This is process, not code.
 - **Layer 3 - selective column encryption** (future track): cryptographic
-  hiding of specific columns from the operator. Not in scope for beta.
+  hiding of specific columns from the operator. Not in scope for the current
+  production readiness track.
 
 > The app is **not** end-to-end encrypted. Raw data exists in the production DB
 > because imports, categorization, summaries, dashboards, and plan matching need
@@ -77,7 +78,8 @@ Operator-only; not enforced in app code.
 | --- | --- | --- | --- |
 | Leaked-password protection (HaveIBeenPwned) | Dashboard → Authentication → Providers → Email | Enable | Enable |
 
-Low impact while Google OAuth is primary, but enable before inviting email/password beta users.
+Low impact while Google OAuth is primary, but enable before inviting
+email/password users.
 
 Re-run **Database → Advisors → Security** after migrations land; CI runs
 `scripts/check-security-advisors.sh` (pgcrypto-not-in-public regression on the
@@ -87,7 +89,7 @@ local stack; `pg_net` advisor 0014 on hosted projects is Dashboard-only).
 
 ## 3. Service-role / client-exposure audit (Layer-2 gate)
 
-Run before every beta-tester onboarding wave and after any change touching env
+Run before every production onboarding wave and after any change touching env
 plumbing, CI, or the Supabase client. Last run: **2026-06-08 - clean** (launch certification).
 
 ```bash
@@ -112,7 +114,7 @@ grep -nE "eyJ[a-zA-Z0-9_-]{20,}|sb_secret_|sbp_[a-zA-Z0-9]{20,}" \
 
 Expected result: A/C/D empty; B only matches the allowlisted local-demo JWTs in
 `.gitleaks.toml`. Anything else is a blocker - stop and remediate before
-onboarding.
+production onboarding.
 
 > Note: the per-change secret scan in `CLAUDE.md` (step 4) scans changed files
 > directly, so it will flag this runbook (and `CLAUDE.md` itself) on the
@@ -153,7 +155,7 @@ or `privacy_pepper`)
 ## 5. Access review schedule
 
 - **Cadence:** every release-promotion to production and before each new
-  beta-tester wave.
+  onboarding wave.
 - **Checklist:**
   - [ ] Roster (§1) matches actual Supabase members; no stragglers.
   - [ ] Production human access = owner + justified operators only.

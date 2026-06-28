@@ -90,15 +90,15 @@ statement above → lock down operational production-DB access (Layer 2) → the
 selectively encrypt the highest-risk fields (Layer 3). Treat Layer 3 as a
 separate, deeper security track, not an MVP blocker.
 
-## Beta trust posture
+## Production trust posture
 
 Honest trust level for using **real** transaction/import data:
 
-- **OK for:** the owner, close collaborators, trusted early testers - people who
-  understand this is beta software.
-- **Not yet ideal for:** broad public onboarding of highly privacy-sensitive
-  users, until privacy policy, access controls, operational process,
-  deletion/export, and incident posture are all clear.
+- **OK for:** users who accept account-level access control and understand the
+  app is not end-to-end encrypted.
+- **Needs explicit review before expanding:** highly privacy-sensitive use cases
+  or larger public onboarding waves, especially when operational access,
+  deletion/export, and incident-response posture change.
 
 **The app is NOT end-to-end encrypted.** Raw data exists in the production
 database because the product needs it for imports, categorization, summaries,
@@ -112,17 +112,16 @@ User-facing wording to use (do not overpromise "no one can ever see your data"):
 > Your data is protected by account-level access controls. Admin/support tools
 > are privacy-preserving and show masked diagnostic data. Raw financial data is
 > not exposed through normal admin screens. Production database access is
-> restricted to operators who need it. The app is beta and not end-to-end
-> encrypted.
+> restricted to operators who need it. The app is not end-to-end encrypted.
 
-### Pre-beta readiness checklist
+### Production privacy readiness checklist
 
 - [x] RLS suite green (account-level isolation).
 - [x] Admin UI shows no raw financial details (Layer 1, this work).
 - [x] Users can delete their account/data (`delete_account()` RPC + Settings → Profile).
-- [~] Production Supabase access limited to owner / essential operators (Layer 2). Runbook authored (`docs/runbooks/ops-access-lockdown.md`); **verify before public launch** - roster §1.
+- [x] Production Supabase access limited to owner / essential operators (Layer 2). Runbook authored (`docs/runbooks/ops-access-lockdown.md`); roster §1 stamped 2026-06-08.
 - [x] Service-role keys not exposed anywhere client-side. Audited 2026-06-05 - clean (no `service_role` in client `src`, no `PUBLIC_`-prefixed secret, example envs placeholder-only, CI passes keys via `${{ secrets.* }}`, no secret echoed to logs). Re-run procedure in the Layer-2 runbook §3.
 - [x] Privacy policy states what is stored and who can access it (`docs/legal/privacy-policy.md` + in-app `/privacy` route).
 - [x] Full account-data export - JSON bundle in Settings → Profil (transactions, categories, rules, plans+links, debt terms, groups, import sessions, financial snapshot, profile).
-- [x] Onboarding asks testers to upload only the history they need (`docs/product/beta-onboarding-note.md`).
-- [x] Beta + "not end-to-end encrypted" communicated to testers (beta note + `/privacy` route + login-page notice).
+- [x] Login and `/privacy` avoid overpromising encryption; account export/delete live in Settings → Profile.
+- [x] First-run checklist guides users through Pulpit, Import, Transakcje, and Plany without asking them to upload excessive history.

@@ -46,13 +46,21 @@ Shipped on `main` (`41717c7`):
 4. `dev` synced with `main`; CI gates green (RLS 241, Playwright 54).
 5. Trust hardening on `main`: ledger/forecast semantics, settlement policy, shared-tx UI gates ([#111](https://github.com/adrianghub/portfelik/pull/111)).
 
-**Launch certified 2026-06-08.** New features frozen; post-launch work is certification debt (group-role tests, advisor WARNs) only.
+**Launch certified 2026-06-08.** This is the historical launch baseline; later
+increments continue against the same production-readiness bar rather than this
+document acting as a long-term work stop.
 
 ## Trust hardening certification (2026-06-08)
 
 - RLS trust tests: `remove_group_member`, group tx delete, co-owner plan delete, lifecycle RPC denials.
 - Group-role E2E: member readonly, co-owner edit, member settle.
 - Scope polish: dashboard upcoming list, plans surplus filter, category combobox prefetch, seed FK cleanup.
+
+## Production readiness cleanup (2026-06-28)
+
+- Runtime copy no longer references pre-release posture or retired shopping-list i18n.
+- Architecture docs reflect the current onboarding checklist, glossary, recurring skips, action dismissals, and derived cash-position model.
+- Operational privacy docs use production onboarding language; pre-release notes stay only where they document historical decisions.
 
 ## Deferred (post-launch / V1+)
 
@@ -77,4 +85,4 @@ Before promoting to production (`dev` → `main`):
 - `pnpm format:check`
 - RLS suite + staging smoke + focused Playwright on touched flows
 - changed-file secret scan from `CLAUDE.md`
-- Public launch gate in `docs/architecture/flows/admin-diagnostics-privacy.md`
+- Production privacy readiness checklist in `docs/architecture/flows/admin-diagnostics-privacy.md`

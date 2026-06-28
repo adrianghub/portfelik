@@ -98,7 +98,8 @@ the local Supabase. Then log in and explore.
   `cd apps/web-svelte && pnpm seed:local` or
   `./scripts/supabase-ops.sh local seed`. This creates
   `admin@portfelik.test` and `user@portfelik.test`, each with password equal to
-  login, plus shopping-item category vocabulary.
+  login, plus synthetic transactions, plans, recurring series, groups, and
+  net-worth/cash-position fixtures.
 
 ### Staging
 
@@ -150,8 +151,7 @@ flowchart LR
   early-history caveats documented in `supabase/CLAUDE.md`.
 - Applied locally by `supabase db reset` (runs every file in order, then `seed.sql`).
 - `seed.sql` is the common system seed. `pnpm seed:local` and
-  `pnpm seed:staging` add synthetic personas, default shopping-item categories,
-  and fixture rows.
+  `pnpm seed:staging` add synthetic personas and fixture rows.
 - Manual local/staging/prod commands go through the guarded dispatcher and
   command reference in [Supabase operations](../runbooks/supabase-operations.md).
 
