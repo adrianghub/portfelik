@@ -233,7 +233,14 @@
   {/if}
 
   <p class="text-sm leading-relaxed text-slate-400">
-    {activeType === "income" ? m.plan_settle_tagline_income() : m.plan_settle_tagline()}
+    {#if planQuery.data?.kind === "save"}
+      {m.plan_settle_tagline_income()}
+      <span class="mt-1 block text-xs text-emerald-400/90"
+        >{m.plan_settle_tagline_save_progress()}</span
+      >
+    {:else}
+      {m.plan_settle_tagline()}
+    {/if}
   </p>
 
   <section class="space-y-3">
