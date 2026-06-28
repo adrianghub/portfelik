@@ -16,6 +16,7 @@ export const MOCK_PROFILE = {
   email: "test@portfelik.test",
   name: "Test User",
   role: "user",
+  settings: {},
   created_at: "2024-01-01T00:00:00Z",
   updated_at: "2024-01-01T00:00:00Z",
 };

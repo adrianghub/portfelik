@@ -1,14 +1,17 @@
 <script lang="ts">
   import { CircleHelp } from "lucide-svelte";
   import { tick } from "svelte";
+  import * as m from "$lib/paraglide/messages";
 
   interface Props {
     label: string;
     text: string;
     side?: "top" | "bottom";
+    glossaryEntryId?: string;
+    onOpenGlossary?: (entryId: string) => void;
   }
 
-  let { label, text, side = "top" }: Props = $props();
+  let { label, text, side = "top", glossaryEntryId, onOpenGlossary }: Props = $props();
   let open = $state(false);
   let panelId = $state(`info-${Math.random().toString(36).slice(2)}`);
   let closeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -16,16 +19,9 @@
   let panelRef = $state<HTMLElement | null>(null);
   let pos = $state({ left: 0, top: 0 });
 
-  const MARGIN = 8; // min viewport gutter
-  const GAP = 8; // distance between trigger and panel
+  const MARGIN = 8;
+  const GAP = 8;
 
-  /**
-   * Position the portaled panel in viewport coordinates (it lives on <body>, so
-   * `position: fixed` + getBoundingClientRect agree). Center on the trigger,
-   * clamp horizontally to the viewport, and flip vertical side when the
-   * preferred side has no room. Prevents the old `absolute` panel from being
-   * clipped by a card's edge/overflow.
-   */
   function reposition() {
     const btn = buttonRef;
     if (!btn) return;
@@ -77,11 +73,17 @@
     }
   }
 
-  // Reposition once the panel is in the DOM (so offsetWidth/Height are real),
-  // and keep it anchored while open as the user scrolls/resizes.
+  function openGlossary(e: MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!glossaryEntryId || !onOpenGlossary) return;
+    open = false;
+    onOpenGlossary(glossaryEntryId);
+  }
+
   $effect(() => {
     if (!open) return;
-    void panelRef; // re-run once the panel mounts
+    void panelRef;
     reposition();
     const onMove = () => reposition();
     window.addEventListener("scroll", onMove, true);
@@ -92,7 +94,6 @@
     };
   });
 
-  /** Move the panel to <body> so no ancestor's overflow can clip it. */
   function portal(node: HTMLElement) {
     document.body.appendChild(node);
     return {
@@ -133,6 +134,15 @@
       onmouseleave={scheduleHide}
     >
       {text}
+      {#if glossaryEntryId && onOpenGlossary}
+        <button
+          type="button"
+          class="text-accent mt-2 block font-medium hover:underline"
+          onclick={openGlossary}
+        >
+          {m.glossary_learn_more()} →
+        </button>
+      {/if}
     </span>
   {/if}
 </span>

@@ -12,15 +12,26 @@
   import SpendHistoryChart from "$lib/components/dashboard/charts/SpendHistoryChart.svelte";
   import * as m from "$lib/paraglide/messages";
   import DashboardOnboardingChecklist from "$lib/components/dashboard/DashboardOnboardingChecklist.svelte";
+  import DemoShowcaseBanner from "$lib/components/onboarding/DemoShowcaseBanner.svelte";
+  import GlossarySheet from "$lib/components/ui/GlossarySheet.svelte";
+  import { track, trackOnce } from "$lib/analytics";
   import { fetchLastCommittedImportSession } from "$lib/services/bank-import";
+  import { clearDemoData, canSeedDemo, hasDemoData, seedDemoData } from "$lib/services/demo-data";
+  import { fetchFinancialSnapshot } from "$lib/services/financial-snapshots";
+  import { getBankImportReminder } from "$lib/profile-settings";
   import { fetchPlans } from "$lib/services/plans";
   import { updateProfile, fetchProfile } from "$lib/services/profiles";
   import {
     buildOnboardingSteps,
+    countCoreStepsDone,
+    CORE_ONBOARDING_STEPS,
     deriveOnboardingFromSignals,
-    isOnboardingComplete,
+    isCoreOnboardingComplete,
     mergeOnboardingProgress,
+    onboardingCompletionDelta,
+    readOnboardingDismissedLocal,
     readOnboardingProgress,
+    writeOnboardingDismissedLocal,
   } from "$lib/services/onboarding-progress";
   import { fetchMyGroupRoles, fetchUserGroups } from "$lib/services/groups";
   import {
@@ -217,6 +228,12 @@
     enabled: !!userId,
   }));
 
+  const snapshotQuery = createQuery(() => ({
+    queryKey: ["financial-snapshot"],
+    queryFn: fetchFinancialSnapshot,
+    enabled: !!userId,
+  }));
+
   const txCountQuery = createQuery(() => ({
     queryKey: ["transactions", "count-probe"],
     queryFn: async () => {
@@ -229,25 +246,101 @@
     enabled: !!userId,
   }));
 
+  const demoProbeQuery = createQuery(() => ({
+    queryKey: ["transactions", "demo-probe"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("id, description")
+        .like("description", "Demo:%")
+        .limit(5);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!userId,
+  }));
+
+  const storedOnboarding = $derived(readOnboardingProgress(profileQuery.data?.settings));
+
   const onboardingProgress = $derived.by(() => {
-    const base = readOnboardingProgress(profileQuery.data?.settings);
     return deriveOnboardingFromSignals({
-      progress: base,
+      progress: storedOnboarding,
       visitedDashboard: true,
       hasCommittedImport: !!importHealthQuery.data?.committed_at,
       transactionCount: txCountQuery.data ?? 0,
-      hasPlanOrNetWorth: (plansQuery.data?.length ?? 0) > 0,
+      hasPlanOrNetWorth: (plansQuery.data?.length ?? 0) > 0 || snapshotQuery.data !== null,
+      importReminderEnabled: getBankImportReminder(profileQuery.data?.settings).enabled,
     });
   });
 
-  const showOnboarding = $derived(!!profileQuery.data && !isOnboardingComplete(onboardingProgress));
+  const showOnboarding = $derived(
+    !!profileQuery.data &&
+      !readOnboardingDismissedLocal() &&
+      !storedOnboarding.dismissed &&
+      !isCoreOnboardingComplete(onboardingProgress)
+  );
 
   const onboardingSteps = $derived(buildOnboardingSteps(onboardingProgress));
+  const onboardingCoreDone = $derived(countCoreStepsDone(onboardingProgress));
+
+  const demoActive = $derived(
+    hasDemoData({
+      transactions: demoProbeQuery.data ?? [],
+      plans: plansQuery.data ?? [],
+    })
+  );
+
+  const showDemoSeedCta = $derived(
+    showOnboarding && canSeedDemo(txCountQuery.data ?? 0) && !demoActive
+  );
+
+  let glossaryOpen = $state(false);
+  let glossaryFocusId = $state<string | undefined>(undefined);
+
+  function openGlossary(entryId: string) {
+    glossaryFocusId = entryId;
+    glossaryOpen = true;
+  }
+
+  const persistOnboardingMutation = createMutation(() => ({
+    mutationFn: async (patch: NonNullable<ReturnType<typeof onboardingCompletionDelta>>) => {
+      if (!userId || !profileQuery.data) return;
+      const current = readOnboardingProgress(profileQuery.data.settings);
+      const next = mergeOnboardingProgress(current, { completed: patch });
+      await updateProfile(userId, {
+        settings: {
+          ...profileQuery.data.settings,
+          onboarding: next as unknown as Json,
+        },
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["profile"] });
+    },
+  }));
+
+  $effect(() => {
+    if (!showOnboarding) return;
+    trackOnce("onboarding_started", { step_count: CORE_ONBOARDING_STEPS.length });
+  });
+
+  let onboardingPersistKey = $state("");
+
+  $effect(() => {
+    if (!profileQuery.data) return;
+    const delta = onboardingCompletionDelta(storedOnboarding, onboardingProgress);
+    if (!delta || persistOnboardingMutation.isPending) return;
+    const key = JSON.stringify(delta);
+    if (key === onboardingPersistKey) return;
+    onboardingPersistKey = key;
+    persistOnboardingMutation.mutate(delta);
+  });
 
   const dismissOnboardingMutation = createMutation(() => ({
     mutationFn: async () => {
       if (!userId || !profileQuery.data) return;
-      const next = mergeOnboardingProgress(readOnboardingProgress(profileQuery.data.settings), {
+      writeOnboardingDismissedLocal();
+      const next = mergeOnboardingProgress(storedOnboarding, {
         dismissed: true,
         completed: onboardingProgress.completed,
       });
@@ -261,6 +354,32 @@
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["profile"] });
     },
+  }));
+
+  const seedDemoMutation = createMutation(() => ({
+    mutationFn: seedDemoData,
+    onSuccess: async (result) => {
+      track("demo_loaded", { row_count: result.inserted });
+      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      await queryClient.invalidateQueries({ queryKey: ["plans"] });
+      await queryClient.invalidateQueries({ queryKey: ["transactions", "demo-probe"] });
+      await queryClient.invalidateQueries({ queryKey: ["transactions", "count-probe"] });
+      toast.success(m.demo_loaded_toast());
+    },
+    onError: (err) => toastError(err),
+  }));
+
+  const clearDemoMutation = createMutation(() => ({
+    mutationFn: clearDemoData,
+    onSuccess: async (result) => {
+      track("demo_cleared", { row_count: result.deleted });
+      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      await queryClient.invalidateQueries({ queryKey: ["plans"] });
+      await queryClient.invalidateQueries({ queryKey: ["transactions", "demo-probe"] });
+      await queryClient.invalidateQueries({ queryKey: ["transactions", "count-probe"] });
+      toast.success(m.demo_cleared_toast());
+    },
+    onError: (err) => toastError(err),
   }));
 
   const bounds = $derived.by(() => {
@@ -541,7 +660,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.dashboard_title()} · Portfelik</title>
+  <title>{m.dashboard_title()} · JakStoimy</title>
 </svelte:head>
 
 <div class="container mx-auto max-w-4xl min-w-0 space-y-4 px-4 py-6 md:max-w-5xl">
@@ -584,11 +703,22 @@
     onScopeChange={setGroupFilter}
   />
 
+  {#if demoActive}
+    <DemoShowcaseBanner
+      onclear={() => clearDemoMutation.mutate()}
+      clearing={clearDemoMutation.isPending}
+    />
+  {/if}
+
   {#if showOnboarding}
     <DashboardOnboardingChecklist
       steps={onboardingSteps}
+      coreDone={onboardingCoreDone}
       onDismiss={() => dismissOnboardingMutation.mutate()}
       onNavigate={(href) => void goto(href)}
+      showDemoCta={showDemoSeedCta}
+      demoLoading={seedDemoMutation.isPending}
+      onLoadDemo={() => seedDemoMutation.mutate()}
     />
   {/if}
 
@@ -603,6 +733,7 @@
       {showForecastNote}
       forecastNet={forecastSummary?.net}
       {transactionsHref}
+      onOpenGlossary={openGlossary}
       bind:breakdownOpen={balanceExpanded}
     />
 
@@ -618,7 +749,11 @@
   <!-- Multi-period spend comparison (last 6 weeks/months/years) -->
   <div class="mt-4">
     {#if isDesktop.current}
-      <SpendHistoryChart buckets={combinedHistoryBuckets} onselectperiod={selectHistoryPeriod} />
+      <SpendHistoryChart
+        buckets={combinedHistoryBuckets}
+        onselectperiod={selectHistoryPeriod}
+        onOpenGlossary={openGlossary}
+      />
     {:else}
       <div class="rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur">
         <button
@@ -647,6 +782,7 @@
               <SpendHistoryChart
                 buckets={combinedHistoryBuckets}
                 onselectperiod={selectHistoryPeriod}
+                onOpenGlossary={openGlossary}
               />
             </div>
           </div>
@@ -703,9 +839,15 @@
     {:else if txQuery.isError}
       <QueryError error={txQuery.error} onRetry={() => txQuery.refetch()} />
     {:else if upcomingTxs.length === 0}
-      <p class="py-6 text-center text-sm text-slate-400">
-        {m.dashboard_empty_upcoming()}
-      </p>
+      <div class="py-6 text-center">
+        <p class="text-sm text-slate-400">{m.dashboard_empty_upcoming()}</p>
+        <a
+          href={upcomingHref}
+          class="text-accent mt-2 inline-block text-sm font-medium hover:underline"
+        >
+          {m.dashboard_empty_upcoming_cta()}
+        </a>
+      </div>
     {:else}
       <TransactionTable
         transactions={upcomingTxs}
@@ -718,3 +860,13 @@
     {/if}
   </div>
 </div>
+
+<GlossarySheet
+  open={glossaryOpen}
+  focusEntryId={glossaryFocusId}
+  source="tooltip"
+  onclose={() => {
+    glossaryOpen = false;
+    glossaryFocusId = undefined;
+  }}
+/>
