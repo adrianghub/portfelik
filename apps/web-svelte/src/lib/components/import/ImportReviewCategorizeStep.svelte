@@ -9,6 +9,7 @@
   import CategorySelect from "$lib/components/transactions/CategorySelect.svelte";
   import type { ImportRow } from "$lib/services/bank-import";
   import type { ImportRowFilter } from "$lib/import/filter-rows";
+  import { matchSavePlanHint } from "$lib/import/plan-category-hints";
   import type { Category, CategorizationRule, UserGroup } from "$lib/types";
   import { cn, formatCurrency } from "$lib/utils";
 
@@ -54,6 +55,8 @@
     onPatchRow: (rowId: string, patch: Partial<ImportRow>) => void;
     onCategoryChange: (row: ImportRow, selectedCategoryId: string | null) => void;
     onEditRule: (rule: CategorizationRule) => void;
+    celeCategoryId?: string | null;
+    savePlans?: { id: string; name: string }[];
     decisionControl: Snippet<[ImportRow]>;
   }
 
@@ -89,6 +92,8 @@
     onPatchRow,
     onCategoryChange,
     onEditRule,
+    celeCategoryId = null,
+    savePlans = [],
     decisionControl,
   }: Props = $props();
 
@@ -471,6 +476,26 @@
                   pillMode
                 />
                 <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  {#if celeCategoryId && row.type === "expense"}
+                    {@const planHint = matchSavePlanHint(
+                      {
+                        type: row.type,
+                        description: row.edited_description ?? row.description,
+                        counterparty: row.counterparty,
+                      },
+                      savePlans
+                    )}
+                    {#if planHint && row.selected_category_id !== celeCategoryId}
+                      <button
+                        type="button"
+                        class="rounded-md bg-emerald-950/50 px-2 py-0.5 text-xs text-emerald-300 hover:bg-emerald-900/50"
+                        title={m.bank_review_cele_hint({ plan: planHint.planName })}
+                        onclick={() => onCategoryChange(row, celeCategoryId)}
+                      >
+                        {m.bank_review_cele_apply()}
+                      </button>
+                    {/if}
+                  {/if}
                   {#if rule}
                     <span
                       class="rounded-md bg-slate-800/80 px-2 py-0.5 text-xs text-slate-300"
@@ -572,6 +597,25 @@
             pillMode
           />
           <div class="flex flex-wrap items-center gap-2">
+            {#if celeCategoryId && row.type === "expense"}
+              {@const planHint = matchSavePlanHint(
+                {
+                  type: row.type,
+                  description: row.edited_description ?? row.description,
+                  counterparty: row.counterparty,
+                },
+                savePlans
+              )}
+              {#if planHint && row.selected_category_id !== celeCategoryId}
+                <button
+                  type="button"
+                  class="rounded-md bg-emerald-950/50 px-2 py-0.5 text-xs text-emerald-300"
+                  onclick={() => onCategoryChange(row, celeCategoryId)}
+                >
+                  {m.bank_review_cele_apply()}
+                </button>
+              {/if}
+            {/if}
             {#if rule}
               <span
                 class="rounded-md bg-slate-800/80 px-2 py-0.5 text-xs text-slate-300"

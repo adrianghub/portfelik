@@ -48,16 +48,24 @@ const COMMON_BANK_TOKENS = new Set([
   "operacja",
 ]);
 
+const TRAILING_DATE_NOISE = /\s+\d{1,2}[./-]\d{1,2}([./-]\d{2,4})?.*$/;
+
+function cleanMerchantText(raw: string): string {
+  return raw.replace(TRAILING_DATE_NOISE, "").replace(/\s+/g, " ").trim();
+}
+
 export function suggestRuleText(
   row: MatchableRow,
   preferredField?: "description" | "counterparty"
 ): string {
+  const cp = row.counterparty ? cleanMerchantText(row.counterparty) : "";
+  const desc = cleanMerchantText(row.description);
   const raw =
     preferredField === "description"
-      ? row.description
+      ? desc
       : preferredField === "counterparty"
-        ? (row.counterparty ?? row.description)
-        : (row.counterparty ?? row.description);
+        ? cp || desc
+        : cp || desc;
   const normalized = raw.replace(/\s+/g, " ").trim();
   if (normalized === "") return "";
 
