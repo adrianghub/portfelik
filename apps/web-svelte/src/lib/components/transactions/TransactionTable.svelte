@@ -14,6 +14,9 @@
     onsettle?: (tx: TransactionWithCategory) => void;
     emptyLabel?: string;
     emptyHint?: string;
+    /** When true and the list is empty, show import + manual-add CTAs (base empty state only). */
+    showEmptyActions?: boolean;
+    onemptyadd?: () => void;
     selectedIds?: Set<string>;
     canManage?: (tx: TransactionWithCategory) => boolean;
     /** When set, the header row sticks at this CSS top offset (e.g. "top-[6.75rem]").
@@ -31,6 +34,8 @@
     onsettle,
     emptyLabel,
     emptyHint,
+    showEmptyActions = false,
+    onemptyadd,
     selectedIds = $bindable(new Set<string>()),
     canManage = () => true,
     stickyHeaderOffset,
@@ -213,14 +218,44 @@
 {/snippet}
 
 {#if transactions.length === 0}
-  <EmptyState
-    title={emptyLabel ?? m.transactions_empty()}
-    body={emptyHint ?? m.transactions_empty_hint()}
-  >
-    {#snippet icon()}
-      <Wallet size={28} strokeWidth={1.4} />
-    {/snippet}
-  </EmptyState>
+  {#if showEmptyActions}
+    <EmptyState
+      title={emptyLabel ?? m.transactions_empty()}
+      body={emptyHint ?? m.transactions_empty_hint()}
+    >
+      {#snippet icon()}
+        <Wallet size={28} strokeWidth={1.4} />
+      {/snippet}
+      {#snippet action()}
+        <div class="flex flex-wrap items-center justify-center gap-2">
+          <a
+            href="/import"
+            class="bg-accent-gradient focus-visible:ring-accent inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold text-slate-900 focus-visible:ring-2 focus-visible:outline-none"
+          >
+            {m.transactions_empty_import_cta()}
+          </a>
+          {#if onemptyadd}
+            <button
+              type="button"
+              class="focus-visible:ring-accent rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+              onclick={onemptyadd}
+            >
+              {m.transactions_empty_add_cta()}
+            </button>
+          {/if}
+        </div>
+      {/snippet}
+    </EmptyState>
+  {:else}
+    <EmptyState
+      title={emptyLabel ?? m.transactions_empty()}
+      body={emptyHint ?? m.transactions_empty_hint()}
+    >
+      {#snippet icon()}
+        <Wallet size={28} strokeWidth={1.4} />
+      {/snippet}
+    </EmptyState>
+  {/if}
 {:else}
   <!-- Card list (mobile main list, or search palette on all breakpoints) -->
   <div
