@@ -174,7 +174,7 @@
     </button>
 
     <p class="mt-6 text-center text-xs leading-relaxed text-slate-400">
-      {m.privacy_beta_notice()}
+      {m.privacy_login_notice()}
       <a href="/privacy" class="text-slate-400 underline hover:text-slate-200"
         >{m.privacy_policy_link()}</a
       >
