@@ -7,6 +7,7 @@
     redirectTargetFromUrl,
     rememberLoginRedirect,
   } from "$lib/auth-redirect";
+  import BrandMark from "$lib/components/BrandMark.svelte";
   import * as m from "$lib/paraglide/messages";
   import { dailyGreeting } from "$lib/dashboard-daily";
 
@@ -75,9 +76,7 @@
 </svelte:head>
 
 <div class="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4">
-  <p class="mb-3 text-xs font-medium tracking-[0.3em] text-slate-400 uppercase">
-    {m.app_name()}
-  </p>
+  <BrandMark size="sm" class="mb-4" />
   <div
     class="relative w-full max-w-sm overflow-hidden rounded-3xl border border-white/5 bg-slate-900/60 p-8 shadow-[0_0_60px_rgba(16,185,129,0.08)] backdrop-blur"
   >

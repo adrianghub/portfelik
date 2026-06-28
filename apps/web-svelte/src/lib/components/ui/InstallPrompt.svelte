@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { trackOnce } from "$lib/analytics";
   import * as m from "$lib/paraglide/messages";
 
   // Not in the TS DOM lib yet - minimal shape of the Chromium install event.
@@ -57,7 +58,10 @@
       e.preventDefault();
       deferred = e as BeforeInstallPromptEvent;
     };
-    const onInstalled = () => dismiss();
+    const onInstalled = () => {
+      trackOnce("pwa_installed");
+      dismiss();
+    };
     window.addEventListener("beforeinstallprompt", onBeforeInstall);
     window.addEventListener("appinstalled", onInstalled);
     return () => {

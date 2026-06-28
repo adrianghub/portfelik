@@ -44,7 +44,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.settings_title()} · Portfelik</title>
+  <title>{m.settings_title()} · JakStoimy</title>
 </svelte:head>
 
 <div class="container mx-auto max-w-3xl space-y-4 px-4 py-6">

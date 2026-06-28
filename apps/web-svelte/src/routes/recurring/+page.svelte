@@ -107,6 +107,12 @@
     <div class="rounded-xl border border-white/5 bg-slate-900/40 p-6 text-center">
       <p class="text-sm text-slate-300">{m.recurring_empty()}</p>
       <p class="mt-1 text-xs text-slate-500">{m.recurring_empty_hint()}</p>
+      <a
+        href="/transactions"
+        class="bg-accent-gradient mt-4 inline-flex rounded-full px-4 py-2 text-sm font-semibold text-slate-900"
+      >
+        {m.recurring_empty_cta()}
+      </a>
     </div>
   {:else}
     <ul class="space-y-2">

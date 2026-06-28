@@ -159,7 +159,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.bank_import_title()} · Portfelik</title>
+  <title>{m.bank_import_title()} · JakStoimy</title>
 </svelte:head>
 
 <div class="mx-auto w-full max-w-5xl space-y-6 px-4 py-6">

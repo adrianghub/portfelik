@@ -6,6 +6,7 @@
   import type { Profile } from "$lib/types";
   import type { User } from "@supabase/supabase-js";
   import * as m from "$lib/paraglide/messages";
+  import BrandMark from "$lib/components/BrandMark.svelte";
   import { avatarSrc } from "$lib/theme/avatar-presets";
   import { LayoutDashboard, Wallet, Target, Settings, ShieldCheck, LogOut } from "lucide-svelte";
   import NotificationsPopover from "$lib/components/ui/NotificationsPopover.svelte";
@@ -104,11 +105,8 @@
 <header
   class="fixed inset-x-0 top-0 z-50 hidden h-14 items-center gap-4 border-b border-white/5 bg-slate-950/80 px-6 backdrop-blur md:flex"
 >
-  <a
-    href="/"
-    class="mr-2 shrink-0 text-base font-semibold tracking-tight text-slate-100 transition-colors hover:text-white"
-  >
-    {m.app_name()}
+  <a href="/" class="mr-2 shrink-0 transition-opacity hover:opacity-90" aria-label={m.app_name()}>
+    <BrandMark size="sm" />
   </a>
 
   <nav aria-label={m.nav_main()} class="flex items-center gap-1">
@@ -179,11 +177,8 @@
 <header
   class="fixed inset-x-0 top-0 z-50 flex h-14 items-center gap-3 border-b border-white/5 bg-slate-950/80 px-4 backdrop-blur md:hidden"
 >
-  <a
-    href="/"
-    class="text-base font-semibold tracking-tight text-slate-100 transition-colors hover:text-white"
-  >
-    {m.app_name()}
+  <a href="/" class="shrink-0 transition-opacity hover:opacity-90" aria-label={m.app_name()}>
+    <BrandMark size="sm" />
   </a>
   <div class="ml-auto">
     {#if !isDesktopNav.current}

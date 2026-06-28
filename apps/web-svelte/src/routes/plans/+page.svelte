@@ -70,6 +70,8 @@
   import { toast } from "svelte-sonner";
   import { toastError } from "$lib/toast-error";
   import QueryError from "$lib/components/ui/QueryError.svelte";
+  import CoachmarkBanner from "$lib/components/onboarding/CoachmarkBanner.svelte";
+  import { dismissCoachmark, isCoachmarkDismissed } from "$lib/services/coachmarks";
   import { computeLedgerSummary } from "$lib/services/transaction-cashflow";
   import { fetchTransactions } from "$lib/services/transactions";
   import {
@@ -110,14 +112,14 @@
   let currentUserId = $state<string | null>(null);
   let hubOnboardingDismissed = $state(false);
   onMount(async () => {
-    hubOnboardingDismissed = localStorage.getItem("plans-hub-onboarding") === "1";
+    hubOnboardingDismissed = isCoachmarkDismissed("plans_hub");
     const { data } = await supabase.auth.getSession();
     currentUserId = data.session?.user.id ?? null;
   });
 
   function dismissHubOnboarding() {
     hubOnboardingDismissed = true;
-    localStorage.setItem("plans-hub-onboarding", "1");
+    dismissCoachmark("plans_hub");
   }
 
   const plansQuery = createQuery(() => ({
@@ -650,7 +652,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.nav_plans()} · Portfelik</title>
+  <title>{m.nav_plans()} · JakStoimy</title>
 </svelte:head>
 
 <div class="container mx-auto max-w-3xl space-y-5 px-4 py-6">
@@ -669,19 +671,11 @@
   <p class="text-sm text-slate-400">{m.plans_tagline()}</p>
 
   {#if !hubOnboardingDismissed && !hasActivePlans}
-    <div
-      class="flex items-start justify-between gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3"
-      role="status"
-    >
-      <p class="text-sm text-slate-300">{m.plans_hub_onboarding()}</p>
-      <button
-        type="button"
-        onclick={dismissHubOnboarding}
-        class="focus-visible:ring-accent shrink-0 rounded-full border border-white/10 px-3 py-1 text-xs font-medium text-slate-200 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
-      >
-        {m.plans_hub_onboarding_dismiss()}
-      </button>
-    </div>
+    <CoachmarkBanner
+      message={m.plans_hub_onboarding()}
+      dismissLabel={m.coachmark_dismiss()}
+      ondismiss={dismissHubOnboarding}
+    />
   {/if}
 
   {#if snapshotQuery.isLoading}
