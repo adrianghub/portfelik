@@ -140,7 +140,9 @@ the in-app notification row with push as an optional channel.
 
 **Onboarding + instrumentation (2026-06-28, committed on `dev`):** Spec #1 newcomer path (checklist persistence, demo seed/clear, glossary sheet, empty CTAs), Spec #2 Plausible (`PUBLIC_PLAUSIBLE_DOMAIN`, milestone `trackOnce` hooks, privacy copy), Spec #3 coachmarks (`plans_hub`, `transactions_import`), plus JakStoimy app-visible rebrand (nav/PWA/titles; operator cutover checklist in `docs/specs/2026-06-28-jakstoimy-rebrand-cutover-checklist.md`). Gates: Paraglide compile, svelte-check 0/0, format clean, unit 353/353, changed-file secret scan clean (login password state only).
 
-**Immediate next step (2026-06-28):** operator sets `STAGING_PUBLIC_PLAUSIBLE_DOMAIN` / `PUBLIC_PLAUSIBLE_DOMAIN` GH secrets + Plausible custom-event goals; staging smoke; execute Spec #5 domain/OAuth cutover when ready. Next product increment: Capacitor Phase A (Spec #4). Deferred: group-scope cash position, dashboard slice 2, field-scoped search, AI prep.
+**Production deploy workflow fix (2026-06-28, local):** push run `28330322328` failed in mocked Playwright build because `deploy-production.yml` omitted `PUBLIC_PLAUSIBLE_DOMAIN` after Plausible landed; production deploy/probe were skipped. Fixed by adding an empty Plausible domain to the mocked build env and updating the read-only production smoke grep from `Portfelik` to `JakStoimy`. Local gates: `pnpm build` in `apps/web-svelte`, `git diff --check`.
+
+**Immediate next step (2026-06-28):** push/merge the production workflow fix to `main`, rerun/monitor Deploy production, then operator sets `STAGING_PUBLIC_PLAUSIBLE_DOMAIN` / `PUBLIC_PLAUSIBLE_DOMAIN` GH secrets + Plausible custom-event goals; staging smoke; execute Spec #5 domain/OAuth cutover when ready. Next product increment: Capacitor Phase A (Spec #4). Deferred: group-scope cash position, dashboard slice 2, field-scoped search, AI prep.
 
 **Open backlog:**
 
