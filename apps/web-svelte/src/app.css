@@ -474,7 +474,7 @@
     transition: padding-bottom var(--duration-base) var(--ease-out-expo);
   }
 
-  /* Extra scroll clearance for fixed in-page actions (shopping detail FABs). */
+  /* Extra scroll clearance for fixed in-page detail actions. */
   .mobile-detail-bottom {
     padding-bottom: calc(var(--mobile-action-bottom) + 3.5rem);
     transition: padding-bottom var(--duration-base) var(--ease-out-expo);

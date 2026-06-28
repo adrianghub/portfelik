@@ -174,7 +174,7 @@ export async function findExistingSession(input: {
 
 /**
  * Read-only pre-commit probable-dup scan. Calls the SECURITY DEFINER RPC that
- * checks prior imports, shopping-list expenses, and manual/non-list transactions.
+ * checks prior imports, plan-linked expenses, and manual transactions.
  * Result shape mirrors commit-time fingerprint_warnings exactly.
  */
 export async function previewFingerprintWarnings(sessionId: string): Promise<DuplicateWarning[]> {
