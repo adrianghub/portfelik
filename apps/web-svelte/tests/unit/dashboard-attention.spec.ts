@@ -36,22 +36,32 @@ describe("buildAttentionItems", () => {
   });
 
   it("flags a never-run import distinctly from a stale one", () => {
-    expect(buildAttentionItems({ ...base, daysSinceImport: null }).some((i) => i.id === "import")).toBe(
-      true
-    );
-    expect(buildAttentionItems({ ...base, daysSinceImport: 5, cadenceDays: 14 }).some((i) => i.id === "import")).toBe(
-      false
-    );
-    expect(buildAttentionItems({ ...base, daysSinceImport: 20, cadenceDays: 14 }).some((i) => i.id === "import")).toBe(
-      true
-    );
+    expect(
+      buildAttentionItems({ ...base, daysSinceImport: null }).some((i) => i.id === "import")
+    ).toBe(true);
+    expect(
+      buildAttentionItems({ ...base, daysSinceImport: 5, cadenceDays: 14 }).some(
+        (i) => i.id === "import"
+      )
+    ).toBe(false);
+    expect(
+      buildAttentionItems({ ...base, daysSinceImport: 20, cadenceDays: 14 }).some(
+        (i) => i.id === "import"
+      )
+    ).toBe(true);
   });
 
   it("counts a save plan off-track only when the current-month pace is short", () => {
     const offTrack = buildAttentionItems({
       ...base,
       plans: [
-        plan({ planId: "s", kind: "save", monthlyNeeded: 1000, monthlyActual: 0, monthlyActualBasis: "none" }),
+        plan({
+          planId: "s",
+          kind: "save",
+          monthlyNeeded: 1000,
+          monthlyActual: 0,
+          monthlyActualBasis: "none",
+        }),
       ],
     });
     expect(offTrack.some((i) => i.id === "save-s")).toBe(true);
@@ -77,7 +87,13 @@ describe("buildAttentionItems", () => {
       cadenceDays: 14,
       overdueCount: 2,
       plans: [
-        plan({ planId: "s", kind: "save", monthlyNeeded: 500, monthlyActual: 0, monthlyActualBasis: "none" }),
+        plan({
+          planId: "s",
+          kind: "save",
+          monthlyNeeded: 500,
+          monthlyActual: 0,
+          monthlyActualBasis: "none",
+        }),
       ],
     });
     expect(items.length).toBeLessThanOrEqual(4);

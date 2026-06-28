@@ -1,3 +1,5 @@
+import { trackOnce } from "$lib/analytics";
+import { isDemoDescription } from "$lib/services/demo-data-guards";
 import { supabase } from "$lib/supabase";
 import type {
   RecurrenceFrequency,
@@ -117,7 +119,11 @@ export async function createTransaction(input: CreateTransactionInput): Promise<
     .single();
 
   if (error) throw error;
-  return data as Transaction;
+  const tx = data as Transaction;
+  trackOnce("first_transaction_created", {
+    source: isDemoDescription(input.description) ? "demo" : "manual",
+  });
+  return tx;
 }
 
 export async function updateTransaction(

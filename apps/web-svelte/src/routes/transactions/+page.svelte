@@ -13,6 +13,7 @@
   import TransactionDialog from "$lib/components/transactions/TransactionDialog.svelte";
   import TransactionTable from "$lib/components/transactions/TransactionTable.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
+  import CoachmarkBanner from "$lib/components/onboarding/CoachmarkBanner.svelte";
   import SearchModal from "$lib/components/ui/SearchModal.svelte";
   import * as m from "$lib/paraglide/messages";
   import {
@@ -26,6 +27,7 @@
   import { fetchLinkedTransactionIds } from "$lib/services/plan-settlement";
   import { computeLedgerSummary } from "$lib/services/transaction-cashflow";
   import { canManageTransaction } from "$lib/services/transaction-permissions";
+  import { dismissCoachmark, isCoachmarkDismissed } from "$lib/services/coachmarks";
   import {
     computeSummary,
     deleteTransaction,
@@ -368,10 +370,33 @@
   }
 
   let currentUserId = $state<string | null>(null);
+  let importCoachmarkDismissed = $state(false);
   onMount(async () => {
+    importCoachmarkDismissed = isCoachmarkDismissed("transactions_import");
     const { data } = await supabase.auth.getSession();
     currentUserId = data.session?.user.id ?? null;
   });
+
+  const txCountQuery = createQuery(() => ({
+    queryKey: ["transactions", "count-probe"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("transactions")
+        .select("id", { count: "exact", head: true });
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: !!currentUserId,
+  }));
+
+  const showImportCoachmark = $derived(
+    !importCoachmarkDismissed && txCountQuery.isSuccess && (txCountQuery.data ?? 0) === 0
+  );
+
+  function dismissImportCoachmark() {
+    importCoachmarkDismissed = true;
+    dismissCoachmark("transactions_import");
+  }
 
   const recurringMaterializationWindow = $derived(nearTermRecurringWindow());
   let recurringMaterializationKey = $state("");
@@ -926,14 +951,14 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `portfelik-transakcje-${new Date().toISOString().slice(0, 7)}.csv`;
+    a.download = `jakstoimy-transakcje-${new Date().toISOString().slice(0, 7)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
 </script>
 
 <svelte:head>
-  <title>{m.transactions_title()} · Portfelik</title>
+  <title>{m.transactions_title()} · JakStoimy</title>
 </svelte:head>
 
 <svelte:window onkeydown={onWindowKeydown} />
@@ -969,6 +994,14 @@
       <TransactionDataActions exportDisabled={!accountedTxs?.length} onexport={handleExport} />
     </div>
   </div>
+
+  {#if showImportCoachmark}
+    <CoachmarkBanner
+      message={m.transactions_import_coachmark()}
+      dismissLabel={m.coachmark_dismiss()}
+      ondismiss={dismissImportCoachmark}
+    />
+  {/if}
 
   <!-- Sticky filter bar -->
   {#if categoriesQuery.data && selectedIds.size === 0}

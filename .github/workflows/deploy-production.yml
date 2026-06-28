@@ -25,7 +25,7 @@ jobs:
       - name: Typecheck
         working-directory: apps/web-svelte
         run: |
-          printf 'PUBLIC_SUPABASE_URL=https://placeholder.supabase.co\nPUBLIC_SUPABASE_ANON_KEY=placeholder\nPUBLIC_VAPID_KEY=placeholder\n' > .env
+          printf 'PUBLIC_SUPABASE_URL=https://placeholder.supabase.co\nPUBLIC_SUPABASE_ANON_KEY=placeholder\nPUBLIC_VAPID_KEY=placeholder\nPUBLIC_PLAUSIBLE_DOMAIN=\n' > .env
           pnpm exec svelte-kit sync
           pnpm exec svelte-check --tsconfig ./tsconfig.json
 
@@ -150,6 +150,7 @@ jobs:
           # PUBLIC_VAPID_KEY drifted from that pair (2026-06-12 incident: every web push
           # was rejected by FCM/autopush), so the canonical value is pinned here.
           PUBLIC_VAPID_KEY: BHKoiccZwq3Y5Qw5dmFxVLJIA7w9zcSZkchPKWk-vxBeR421yieZW7gGxuluBBa6sRmpIsFXRSuFyRarLcdvqT4
+          PUBLIC_PLAUSIBLE_DOMAIN: ${{ secrets.PUBLIC_PLAUSIBLE_DOMAIN }}
         run: |
           # Misconfigured environment guard: production must build against the
           # production Supabase project, never a staging/mock value.

@@ -1,3 +1,4 @@
+import { trackOnce } from "$lib/analytics";
 import { supabase } from "$lib/supabase";
 import type { GroupMemberRole, Plan, PlanBucket, PlanKind } from "$lib/types";
 
@@ -136,7 +137,9 @@ export async function createPlan(input: PlanInput): Promise<Plan> {
     .select()
     .single();
   if (error) throw error;
-  return data as Plan;
+  const plan = data as Plan;
+  trackOnce("first_plan_created", { kind: normalized.kind });
+  return plan;
 }
 
 export async function updatePlan(id: string, input: PlanInput): Promise<Plan> {

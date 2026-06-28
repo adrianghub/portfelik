@@ -44,7 +44,7 @@ SECURITY DEFINER RPCs.
 flowchart LR
   Dashboard[/dashboard<br/>Pulpit]
   Transactions[/transactions<br/>Transakcje]
-  Import[/transactions/import today<br/>/import planned]
+  Import[/import<br/>Import]
   Plans[/plans<br/>Plany]
   Settings[/settings<br/>Ustawienia]
 
@@ -55,9 +55,9 @@ flowchart LR
 ```
 
 User-facing **Plany** live at `/plans` with `save` goals and `debt` loans,
-manual net-worth snapshots (`financial_snapshots`), and settlement via
-`plan_transaction_links`. Bank import remains at `/transactions/import` today;
-product direction treats it as **Import**.
+manual net-worth assets plus derived cash position, and settlement via
+`plan_transaction_links`. Bank import lives at `/import`; the legacy
+`/transactions/import` path is a redirect.
 
 ## Frontend Structure
 
@@ -69,6 +69,7 @@ product direction treats it as **Import**.
 | Import review UI | `apps/web-svelte/src/lib/components/import/` |
 | Transaction UI | `apps/web-svelte/src/lib/components/transactions/` |
 | Plans UI | `apps/web-svelte/src/lib/components/plans/` |
+| Onboarding + glossary | `DashboardOnboardingChecklist`, `GlossarySheet`, `src/lib/content/glossary.ts` |
 | i18n | `apps/web-svelte/messages/pl.json` |
 
 Services wrap Supabase calls. Owner-managed tables use direct PostgREST writes

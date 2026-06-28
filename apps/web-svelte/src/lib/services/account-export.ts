@@ -112,7 +112,7 @@ export function downloadAccountExport(bundle: AccountExportBundle): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `portfelik-export-${bundle.exported_at.slice(0, 10)}.json`;
+  a.download = `jakstoimy-export-${bundle.exported_at.slice(0, 10)}.json`;
   a.click();
   URL.revokeObjectURL(url);
 }

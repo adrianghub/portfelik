@@ -1,4 +1,4 @@
-const CACHE_NAME = 'portfelik-20260608';
+const CACHE_NAME = 'jakstoimy-20260628';
 
 const APP_SHELL = ['/', '/transactions', '/import', '/plans', '/settings'];
 
@@ -72,7 +72,7 @@ function notifyOpenClients(payload) {
 }
 
 self.addEventListener('push', (event) => {
-	let payload = { title: 'Portfelik', body: '', data: {} };
+	let payload = { title: 'JakStoimy', body: '', data: {} };
 	try {
 		payload = event.data?.json() ?? payload;
 	} catch {

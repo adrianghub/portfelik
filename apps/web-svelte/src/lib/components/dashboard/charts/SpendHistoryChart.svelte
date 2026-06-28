@@ -12,10 +12,12 @@
   let {
     buckets,
     onselectperiod,
+    onOpenGlossary,
   }: {
     buckets: PeriodHistoryBucket[];
     /** Confirm drill-down from the bar breakdown panel. */
     onselectperiod?: (bucket: PeriodHistoryBucket) => void;
+    onOpenGlossary?: (entryId: string) => void;
   } = $props();
 
   // Distinct, legible hues; last entry (slate) is reserved for the folded
@@ -336,6 +338,8 @@
             label={m.dashboard_forecast_legend()}
             text={m.dashboard_forecast_info()}
             side="top"
+            glossaryEntryId="prognoza"
+            {onOpenGlossary}
           />
         </span>
       {/if}

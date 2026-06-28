@@ -7,6 +7,8 @@ export default defineConfig({
   resolve: {
     alias: {
       $lib: resolve(cwd, "src/lib"),
+      "$app/environment": resolve(cwd, "tests/mocks/app-environment.ts"),
+      "$env/static/public": resolve(cwd, "tests/mocks/env-static-public.ts"),
     },
   },
   test: {

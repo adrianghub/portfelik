@@ -52,15 +52,12 @@ describe("transaction-cashflow", () => {
   });
 
   it("forecast includes paid, upcoming, and overdue", () => {
-    const forecastRows = [
-      ...rows,
-      tx({ id: "overdue", status: "overdue", amount: 50 }),
-    ];
-    expect(forecastTransactions(forecastRows).map((r) => r.id).sort()).toEqual([
-      "overdue",
-      "paid",
-      "upcoming",
-    ]);
+    const forecastRows = [...rows, tx({ id: "overdue", status: "overdue", amount: 50 })];
+    expect(
+      forecastTransactions(forecastRows)
+        .map((r) => r.id)
+        .sort()
+    ).toEqual(["overdue", "paid", "upcoming"]);
     expect(computeForecastSummary(forecastRows).total_expenses).toBe(550);
   });
 });

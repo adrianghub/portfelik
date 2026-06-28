@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  getBankImportReminder,
-  normalizeImportReminderCadence,
-} from "$lib/profile-settings";
+import { getBankImportReminder, normalizeImportReminderCadence } from "$lib/profile-settings";
 
 describe("profile-settings", () => {
   it("normalizes cadence from json numbers and strings", () => {

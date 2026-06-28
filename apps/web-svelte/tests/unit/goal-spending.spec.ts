@@ -38,7 +38,13 @@ describe("computeGoalSpendingSplit", () => {
     const saveLinked = new Set(["inc-1"]);
     const split = computeGoalSpendingSplit(
       [
-        tx({ id: "inc-1", type: "income", amount: 500, category_id: "inc-cat", category_type: "income" }),
+        tx({
+          id: "inc-1",
+          type: "income",
+          amount: 500,
+          category_id: "inc-cat",
+          category_type: "income",
+        }),
         tx({ id: "e-1", type: "expense", amount: 200, category_id: "cele", category_name: "Cele" }),
         tx({ id: "e-2", type: "expense", amount: 80, category_id: "food" }),
       ],

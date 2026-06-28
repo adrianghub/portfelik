@@ -114,7 +114,8 @@ preview empty.
 Production push commands apply migrations only. `local seed` and `staging seed`
 run `apps/web-svelte/scripts/seed-personas.mjs`, which creates manual
 `admin@portfelik.test` and `user@portfelik.test` personas with password equal to
-login and seeds the shopping-item category vocabulary for every persona.
+login and seeds synthetic transaction, plan, recurring, group, and net-worth
+fixtures for every persona.
 `staging seed` also keeps the smoke/demo personas and synthetic fixture rows
 ready for the configured staging users.
 

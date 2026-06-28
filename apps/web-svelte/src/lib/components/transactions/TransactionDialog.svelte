@@ -17,6 +17,7 @@
   import { dayAfter, removeFutureMaterializedOccurrences } from "$lib/services/recurring-series";
   import { suggestRuleFromRow } from "$lib/import/categorize";
   import type {
+    PlanKind,
     RecurrenceFrequency,
     Transaction,
     TransactionStatus,
@@ -34,6 +35,7 @@
   export interface PlanTransactionContext {
     planId: string;
     type: TransactionType;
+    planKind?: PlanKind;
     groupId?: string | null;
     categoryId?: string | null;
     /** Plan period - a linked transaction must fall within it (RPC rejects otherwise). */
@@ -163,7 +165,9 @@
         ? await updateTransaction(initial!.id, input)
         : await createTransaction(input);
       if (!isEdit && planContext) {
-        await linkPlanTransaction(planContext.planId, tx.id);
+        await linkPlanTransaction(planContext.planId, tx.id, {
+          planKind: planContext.planKind,
+        });
       }
       return tx;
     },

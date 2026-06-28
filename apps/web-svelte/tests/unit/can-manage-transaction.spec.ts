@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  canManageTransaction,
-  isQuickSettleEligible,
-} from "$lib/services/transaction-permissions";
+import { canManageTransaction, isQuickSettleEligible } from "$lib/services/transaction-permissions";
 import type { GroupMemberRole } from "$lib/types";
 
 describe("canManageTransaction", () => {

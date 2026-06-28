@@ -32,7 +32,7 @@ enabled = false
 
 # =============================================================================
 # REALTIME
-# shopping_list_items publication is enabled in the migration.
+# Realtime is available locally; no current app table is subscribed by default.
 # =============================================================================
 [realtime]
 enabled      = true

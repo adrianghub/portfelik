@@ -20,6 +20,7 @@
     showForecastNote = false,
     forecastNet,
     transactionsHref,
+    onOpenGlossary,
     breakdownOpen = $bindable(false),
   }: {
     periodLabel: string;
@@ -30,6 +31,7 @@
     showForecastNote?: boolean;
     forecastNet?: number;
     transactionsHref: (extra?: Record<string, string>) => string;
+    onOpenGlossary?: (entryId: string) => void;
     breakdownOpen?: boolean;
   } = $props();
 
@@ -500,6 +502,8 @@
           label={m.dashboard_balance_with_planned({ amount: formatCurrency(forecastNet) })}
           text={m.dashboard_balance_with_planned_info()}
           side="bottom"
+          glossaryEntryId="prognoza"
+          {onOpenGlossary}
         />
       </p>
     {/if}

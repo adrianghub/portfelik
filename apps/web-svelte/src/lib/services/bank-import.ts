@@ -174,7 +174,7 @@ export async function findExistingSession(input: {
 
 /**
  * Read-only pre-commit probable-dup scan. Calls the SECURITY DEFINER RPC that
- * checks prior imports, shopping-list expenses, and manual/non-list transactions.
+ * checks prior imports, plan-linked expenses, and manual transactions.
  * Result shape mirrors commit-time fingerprint_warnings exactly.
  */
 export async function previewFingerprintWarnings(sessionId: string): Promise<DuplicateWarning[]> {
@@ -402,7 +402,13 @@ export async function commitImportSession(sessionId: string): Promise<CommitResu
     p_session_id: sessionId,
   });
   if (error) throw error;
-  return data as unknown as CommitResult;
+  const result = data as unknown as CommitResult;
+  if (result.inserted > 0) {
+    const { trackOnce } = await import("$lib/analytics");
+    trackOnce("first_import_committed");
+    trackOnce("first_transaction_created", { source: "import" });
+  }
+  return result;
 }
 
 /** Inclusive day span between the earliest and latest row dates (0 when empty).

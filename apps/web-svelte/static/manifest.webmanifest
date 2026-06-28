@@ -1,13 +1,13 @@
 {
-  "name": "Portfelik",
-  "short_name": "Portfelik",
-  "description": "Personal finance tracker",
+  "name": "JakStoimy",
+  "short_name": "JakStoimy",
+  "description": "Domowe finanse pod kontrolą",
   "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "theme_color": "#18181b",
-  "background_color": "#18181b",
+  "theme_color": "#020617",
+  "background_color": "#020617",
   "lang": "pl",
   "icons": [
     {
