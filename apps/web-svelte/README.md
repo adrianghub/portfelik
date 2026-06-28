@@ -1,6 +1,6 @@
-# Portfelik Web App
+# JakStoimy Web App
 
-SvelteKit SPA for Portfelik. Product direction and repository-level setup live
+SvelteKit SPA for JakStoimy. Product direction and repository-level setup live
 in the root [README](../../README.md).
 
 ## Local Development

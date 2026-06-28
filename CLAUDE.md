@@ -138,7 +138,9 @@ the in-app notification row with push as an optional channel.
 
 **Production readiness cleanup (2026-06-28, local):** current cleanup pass removes unused runtime shopping-list i18n, renames login privacy copy away from pre-release wording, refreshes architecture/database/runbook docs for onboarding + glossary, cash positions, action dismissals, recurring skips, and production privacy posture. Gates: Paraglide compile, svelte-check 0/0, lint 0, format clean, unit 341/341, components 17/17, diff check clean, changed-file secret scan reviewed (documented examples/local state only).
 
-**Immediate next step (2026-06-28):** finish this readiness cleanup with Paraglide compile, svelte-check/lint/format/unit gates, changed-file secret scan, and a PR into `dev`; then run staging smoke before starting new product increments. Next increments: newcomer onboarding demo/showcase/tutorial path, dictionary/glossary expansion from real UI terms, and Capacitor/native-support prep. Deferred: Spec 3 group-scope cash position, dashboard slice 2 (`debt_detected`, planning-queue surplus/debt_due), field-scoped search, AI prep.
+**Onboarding + instrumentation (2026-06-28, committed on `dev`):** Spec #1 newcomer path (checklist persistence, demo seed/clear, glossary sheet, empty CTAs), Spec #2 Plausible (`PUBLIC_PLAUSIBLE_DOMAIN`, milestone `trackOnce` hooks, privacy copy), Spec #3 coachmarks (`plans_hub`, `transactions_import`), plus JakStoimy app-visible rebrand (nav/PWA/titles; operator cutover checklist in `docs/specs/2026-06-28-jakstoimy-rebrand-cutover-checklist.md`). Gates: Paraglide compile, svelte-check 0/0, format clean, unit 353/353, changed-file secret scan clean (login password state only).
+
+**Immediate next step (2026-06-28):** operator sets `STAGING_PUBLIC_PLAUSIBLE_DOMAIN` / `PUBLIC_PLAUSIBLE_DOMAIN` GH secrets + Plausible custom-event goals; staging smoke; execute Spec #5 domain/OAuth cutover when ready. Next product increment: Capacitor Phase A (Spec #4). Deferred: group-scope cash position, dashboard slice 2, field-scoped search, AI prep.
 
 **Open backlog:**
 
