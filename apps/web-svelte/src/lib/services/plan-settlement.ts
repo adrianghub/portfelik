@@ -158,6 +158,24 @@ export async function fetchLinkedTransactionIds(): Promise<Set<string>> {
   return new Set((data ?? []).map((r) => r.transaction_id));
 }
 
+/** Transaction ids linked to any active save plan (for goal-spending split on Pulpit). */
+export async function fetchSaveLinkedTransactionIds(): Promise<Set<string>> {
+  const { data: plans, error: plansError } = await supabase
+    .from("plans")
+    .select("id")
+    .eq("kind", "save");
+  if (plansError) throw plansError;
+  const planIds = (plans ?? []).map((p) => p.id);
+  if (planIds.length === 0) return new Set();
+
+  const { data, error } = await supabase
+    .from("plan_transaction_links")
+    .select("transaction_id")
+    .in("plan_id", planIds);
+  if (error) throw error;
+  return new Set((data ?? []).map((r) => r.transaction_id));
+}
+
 async function fetchBlockedTransactionIds(): Promise<Set<string>> {
   return fetchLinkedTransactionIds();
 }

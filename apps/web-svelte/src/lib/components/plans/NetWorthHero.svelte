@@ -54,45 +54,47 @@
     aria-label={m.plans_net_worth_title()}
   >
     <div class="flex items-start justify-between gap-3">
-      <div class="min-w-0">
-        <p class="text-eyebrow text-slate-400">{m.plans_net_worth_title()}</p>
-        <p
-          class={cn(
-            "mt-2 text-4xl font-semibold tabular-nums",
-            summary.netWorth >= 0 ? "text-accent" : "text-rose-400"
-          )}
+      <p class="text-eyebrow text-slate-400">{m.plans_net_worth_title()}</p>
+      {#if onedit}
+        <button
+          type="button"
+          onclick={onedit}
+          class="focus-visible:ring-accent shrink-0 rounded-full border border-white/10 p-2 text-slate-400 hover:bg-white/5 hover:text-slate-100 focus-visible:ring-2 focus-visible:outline-none"
+          aria-label={m.plans_net_worth_edit()}
         >
-          {formatCurrency(summary.netWorth)}
-        </p>
-        {#if summary.asOfDate}
-          <p class="mt-2 text-xs text-slate-500">
-            {m.plans_net_worth_subtitle({ date: formatDate(summary.asOfDate) })}
-          </p>
-        {/if}
-      </div>
-      <div class="flex shrink-0 flex-col items-end gap-3">
-        {#if onedit}
-          <button
-            type="button"
-            onclick={onedit}
-            class="focus-visible:ring-accent rounded-full border border-white/10 p-2 text-slate-400 hover:bg-white/5 hover:text-slate-100 focus-visible:ring-2 focus-visible:outline-none"
-            aria-label={m.plans_net_worth_edit()}
-          >
-            <Pencil size={16} aria-hidden="true" />
-          </button>
-        {/if}
-        <div class="flex flex-col items-end gap-1 text-sm">
-          <span class="text-emerald-300 tabular-nums">
-            {m.plans_net_worth_assets({ amount: formatCurrency(summary.totalAssets) })}
-          </span>
-          {#if summary.totalDebt > 0}
-            <span class="text-rose-300 tabular-nums">
-              {m.plans_net_worth_debt({ amount: formatCurrency(summary.totalDebt) })}
-            </span>
-          {/if}
-        </div>
-      </div>
+          <Pencil size={16} aria-hidden="true" />
+        </button>
+      {/if}
     </div>
+    <p
+      class={cn(
+        "mt-2 text-3xl font-semibold break-words tabular-nums sm:text-4xl",
+        summary.netWorth >= 0 ? "text-accent" : "text-rose-400"
+      )}
+    >
+      {formatCurrency(summary.netWorth)}
+    </p>
+    <dl class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+      <div>
+        <dt class="sr-only">{m.dashboard_net_worth_assets_label()}</dt>
+        <dd class="text-emerald-300 tabular-nums">
+          {m.plans_net_worth_assets({ amount: formatCurrency(summary.totalAssets) })}
+        </dd>
+      </div>
+      {#if summary.totalDebt > 0}
+        <div>
+          <dt class="sr-only">{m.dashboard_net_worth_debt_label()}</dt>
+          <dd class="text-rose-300 tabular-nums">
+            {m.plans_net_worth_debt({ amount: formatCurrency(summary.totalDebt) })}
+          </dd>
+        </div>
+      {/if}
+    </dl>
+    {#if summary.asOfDate}
+      <p class="mt-2 text-xs text-slate-500">
+        {m.plans_net_worth_subtitle({ date: formatDate(summary.asOfDate) })}
+      </p>
+    {/if}
 
     {#if assetSegments.length > 0 && stripTotal > 0}
       <div class="mt-4 flex h-2 overflow-hidden rounded-full bg-slate-800" aria-hidden="true">

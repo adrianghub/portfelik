@@ -11,11 +11,18 @@
     insight,
     period,
     categoryHref,
+    goalSplit = null,
     expanded = $bindable(false),
   }: {
     insight: SpendingInsight;
     period: "week" | "month" | "year";
     categoryHref: (categoryId: string | null) => string;
+    goalSplit?: {
+      goalLinkedIncome: number;
+      celeExpenses: number;
+      otherExpenses: number;
+      hasGoalActivity: boolean;
+    } | null;
     expanded?: boolean;
   } = $props();
 
@@ -36,6 +43,29 @@
   {#if insight.spent === 0 && insight.categories.length === 0}
     <p class="text-sm text-slate-400">{m.dashboard_spending_empty()}</p>
   {:else}
+    {#if goalSplit?.hasGoalActivity}
+      <div
+        class="space-y-1 rounded-xl border border-emerald-500/20 bg-emerald-950/20 px-3 py-2 text-sm"
+      >
+        <p class="font-medium text-emerald-300 tabular-nums">
+          {m.dashboard_spending_goal_slice({
+            amount: formatCurrency(goalSplit.celeExpenses + goalSplit.goalLinkedIncome),
+          })}
+        </p>
+        {#if goalSplit.goalLinkedIncome > 0}
+          <p class="text-xs text-emerald-400/80 tabular-nums">
+            {m.dashboard_spending_goal_income({
+              amount: formatCurrency(goalSplit.goalLinkedIncome),
+            })}
+          </p>
+        {/if}
+        <p class="text-xs text-slate-400 tabular-nums">
+          {m.dashboard_spending_other_expenses({
+            amount: formatCurrency(goalSplit.otherExpenses),
+          })}
+        </p>
+      </div>
+    {/if}
     {#if !insight.isFirstPeriod && isSignificantDeltaPct(insight.spentDeltaPct)}
       <p class={cn("text-sm", insight.spentDeltaPct >= 0 ? "text-rose-400" : "text-emerald-400")}>
         {formatDeltaPct(insight.spentDeltaPct)}

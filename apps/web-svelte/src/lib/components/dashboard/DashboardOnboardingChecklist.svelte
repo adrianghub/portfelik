@@ -1,0 +1,96 @@
+<script lang="ts">
+  import * as m from "$lib/paraglide/messages";
+  import { buildOnboardingSteps, type OnboardingStepId } from "$lib/services/onboarding-progress";
+  import { cn } from "$lib/utils";
+  import { Check, ChevronRight, X } from "lucide-svelte";
+
+  interface Props {
+    steps: ReturnType<typeof buildOnboardingSteps>;
+    onDismiss: () => void;
+    onNavigate: (href: string) => void;
+  }
+
+  let { steps, onDismiss, onNavigate }: Props = $props();
+
+  const complete = $derived(steps.every((s) => s.done));
+
+  const stepMeta: Record<
+    OnboardingStepId,
+    { label: () => string; href: string; cta?: () => string }
+  > = {
+    dashboard: { label: () => m.onboarding_step_dashboard(), href: "/dashboard" },
+    import: {
+      label: () => m.onboarding_step_import(),
+      href: "/import",
+      cta: () => m.onboarding_cta_import(),
+    },
+    transactions: { label: () => m.onboarding_step_transactions(), href: "/transactions" },
+    plans: {
+      label: () => m.onboarding_step_plans(),
+      href: "/plans",
+      cta: () => m.onboarding_cta_plans(),
+    },
+  };
+</script>
+
+<section
+  class="rounded-2xl border border-white/10 bg-slate-900/60 p-4"
+  aria-labelledby="onboarding-checklist-title"
+>
+  <div class="flex items-start justify-between gap-3">
+    <div>
+      <h2 id="onboarding-checklist-title" class="text-sm font-semibold text-slate-100">
+        {m.onboarding_title()}
+      </h2>
+      {#if complete}
+        <p class="mt-1 text-xs text-emerald-400">{m.onboarding_step_done()}</p>
+      {/if}
+    </div>
+    <button
+      type="button"
+      class="shrink-0 rounded-full p-1.5 text-slate-400 hover:bg-white/5 hover:text-slate-200"
+      aria-label={m.onboarding_dismiss()}
+      onclick={onDismiss}
+    >
+      <X size={16} aria-hidden="true" />
+    </button>
+  </div>
+
+  <ul class="mt-3 space-y-2">
+    {#each steps as step (step.id)}
+      {@const meta = stepMeta[step.id]}
+      <li>
+        <button
+          type="button"
+          class={cn(
+            "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors",
+            step.done ? "text-slate-400" : "bg-white/5 text-slate-100 hover:bg-white/10"
+          )}
+          disabled={step.done}
+          onclick={() => onNavigate(meta.href)}
+        >
+          <span
+            class={cn(
+              "flex size-6 shrink-0 items-center justify-center rounded-full border",
+              step.done
+                ? "border-emerald-500/40 bg-emerald-500/20 text-emerald-300"
+                : "border-white/15 text-slate-500"
+            )}
+            aria-hidden="true"
+          >
+            {#if step.done}
+              <Check size={14} />
+            {:else}
+              <span class="size-1.5 rounded-full bg-current"></span>
+            {/if}
+          </span>
+          <span class="min-w-0 flex-1">{meta.label()}</span>
+          {#if !step.done && meta.cta}
+            <span class="shrink-0 text-xs font-semibold text-emerald-400">{meta.cta()}</span>
+            <ChevronRight size={14} class="shrink-0 text-slate-500" aria-hidden="true" />
+          {/if}
+        </button>
+      </li>
+    {/each}
+  </ul>
+</section>

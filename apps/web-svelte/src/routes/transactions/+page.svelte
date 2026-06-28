@@ -454,6 +454,13 @@
     return m.transactions_empty_hint();
   });
 
+  const showTableEmptyActions = $derived(
+    (txQuery.data?.length ?? 0) === 0 &&
+      tableEmptyLabel === emptyLabel &&
+      !searchQuery &&
+      (displayTxs?.length ?? 0) === 0
+  );
+
   const groupsQuery = createQuery(() => ({
     queryKey: ["user_groups"],
     queryFn: fetchUserGroups,
@@ -1063,6 +1070,8 @@
       canManage={txCanManage}
       emptyLabel={tableEmptyLabel}
       emptyHint={tableEmptyHint}
+      showEmptyActions={showTableEmptyActions}
+      onemptyadd={openAdd}
       bind:selectedIds
       stickyHeaderTop={`calc(3.5rem + ${stickyFiltersHeight}px)`}
       onrowclick={(tx) => (sheetTx = tx)}

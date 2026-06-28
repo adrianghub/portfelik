@@ -11,7 +11,17 @@
   import DashboardViewToolbar from "$lib/components/dashboard/DashboardViewToolbar.svelte";
   import SpendHistoryChart from "$lib/components/dashboard/charts/SpendHistoryChart.svelte";
   import * as m from "$lib/paraglide/messages";
-  import { fetchProfile } from "$lib/services/profiles";
+  import DashboardOnboardingChecklist from "$lib/components/dashboard/DashboardOnboardingChecklist.svelte";
+  import { fetchLastCommittedImportSession } from "$lib/services/bank-import";
+  import { fetchPlans } from "$lib/services/plans";
+  import { updateProfile, fetchProfile } from "$lib/services/profiles";
+  import {
+    buildOnboardingSteps,
+    deriveOnboardingFromSignals,
+    isOnboardingComplete,
+    mergeOnboardingProgress,
+    readOnboardingProgress,
+  } from "$lib/services/onboarding-progress";
   import { fetchMyGroupRoles, fetchUserGroups } from "$lib/services/groups";
   import {
     computeForecastSummary,
@@ -25,6 +35,9 @@
   } from "$lib/services/transactions";
   import { buildRecurringSeriesList } from "$lib/services/recurring-series";
   import { computeSpendingInsight } from "$lib/services/spending-insight";
+  import { fetchCategories } from "$lib/services/categories";
+  import { fetchSaveLinkedTransactionIds } from "$lib/services/plan-settlement";
+  import { computeGoalSpendingSplit, resolveCeleCategoryId } from "$lib/services/goal-spending";
   import { fetchRecurringOccurrenceSkips } from "$lib/services/recurring-occurrences";
   import { forwardForecastTransactions } from "$lib/services/transaction-projections";
   import {
@@ -38,6 +51,7 @@
   import QueryError from "$lib/components/ui/QueryError.svelte";
   import { supabase } from "$lib/supabase";
   import type { TransactionStatus, TransactionWithCategory } from "$lib/types";
+  import type { Json } from "$lib/supabase.types";
   import { cn, getDateRangeBounds } from "$lib/utils";
   import { syncListViewUrl } from "$lib/utils/navigation";
   import {
@@ -191,6 +205,64 @@
     enabled: !!userId,
   }));
 
+  const plansQuery = createQuery(() => ({
+    queryKey: ["plans"],
+    queryFn: fetchPlans,
+    enabled: !!userId,
+  }));
+
+  const importHealthQuery = createQuery(() => ({
+    queryKey: ["import-health"],
+    queryFn: fetchLastCommittedImportSession,
+    enabled: !!userId,
+  }));
+
+  const txCountQuery = createQuery(() => ({
+    queryKey: ["transactions", "count-probe"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("transactions")
+        .select("id", { count: "exact", head: true });
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: !!userId,
+  }));
+
+  const onboardingProgress = $derived.by(() => {
+    const base = readOnboardingProgress(profileQuery.data?.settings);
+    return deriveOnboardingFromSignals({
+      progress: base,
+      visitedDashboard: true,
+      hasCommittedImport: !!importHealthQuery.data?.committed_at,
+      transactionCount: txCountQuery.data ?? 0,
+      hasPlanOrNetWorth: (plansQuery.data?.length ?? 0) > 0,
+    });
+  });
+
+  const showOnboarding = $derived(!!profileQuery.data && !isOnboardingComplete(onboardingProgress));
+
+  const onboardingSteps = $derived(buildOnboardingSteps(onboardingProgress));
+
+  const dismissOnboardingMutation = createMutation(() => ({
+    mutationFn: async () => {
+      if (!userId || !profileQuery.data) return;
+      const next = mergeOnboardingProgress(readOnboardingProgress(profileQuery.data.settings), {
+        dismissed: true,
+        completed: onboardingProgress.completed,
+      });
+      await updateProfile(userId, {
+        settings: {
+          ...profileQuery.data.settings,
+          onboarding: next as unknown as Json,
+        },
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["profile"] });
+    },
+  }));
+
   const bounds = $derived.by(() => {
     const now = new Date();
     if (period === "week") {
@@ -219,6 +291,18 @@
   const groupsQuery = createQuery(() => ({
     queryKey: ["user_groups"],
     queryFn: fetchUserGroups,
+    enabled: !!userId,
+  }));
+
+  const categoriesQuery = createQuery(() => ({
+    queryKey: ["categories"],
+    queryFn: fetchCategories,
+    enabled: !!userId,
+  }));
+
+  const saveLinkedQuery = createQuery(() => ({
+    queryKey: ["plan-save-linked-ids"],
+    queryFn: fetchSaveLinkedTransactionIds,
     enabled: !!userId,
   }));
 
@@ -326,6 +410,14 @@
       periodsInRolling: ROLLING_PERIODS,
       budgets: [],
     })
+  );
+
+  const goalSpendingSplit = $derived(
+    computeGoalSpendingSplit(
+      scopedLedgerTxs,
+      saveLinkedQuery.data ?? new Set(),
+      resolveCeleCategoryId(categoriesQuery.data ?? [])
+    )
   );
 
   // Multi-period comparison history: last 6 periods (weeks/months/years per toggle).
@@ -492,6 +584,14 @@
     onScopeChange={setGroupFilter}
   />
 
+  {#if showOnboarding}
+    <DashboardOnboardingChecklist
+      steps={onboardingSteps}
+      onDismiss={() => dismissOnboardingMutation.mutate()}
+      onNavigate={(href) => void goto(href)}
+    />
+  {/if}
+
   <!-- Bilans + spending — side by side from md up -->
   <div class="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 md:items-stretch">
     <DashboardBalanceHero
@@ -509,6 +609,7 @@
     <DashboardSpendingInsight
       insight={spendingInsight}
       {period}
+      goalSplit={goalSpendingSplit}
       bind:expanded={spendingExpanded}
       categoryHref={(id) => (id ? transactionsHref({ categoryId: id }) : transactionsHref())}
     />

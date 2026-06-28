@@ -15,6 +15,7 @@
   import type { Profile, ProfileSettings } from "$lib/types";
   import { getBankImportReminder, type ImportReminderCadence } from "$lib/profile-settings";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
+  import GlossarySheet from "$lib/components/ui/GlossarySheet.svelte";
   import { toast } from "svelte-sonner";
   import { toastError } from "$lib/toast-error";
   import * as m from "$lib/paraglide/messages";
@@ -48,6 +49,7 @@
   }));
 
   let showDeleteConfirm = $state(false);
+  let glossaryOpen = $state(false);
   let deleteError = $state<string | null>(null);
 
   const deleteMutation = createMutation(() => ({
@@ -313,6 +315,24 @@
       class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
     >
       <div class="min-w-0">
+        <p class="text-sm font-medium text-slate-100">{m.glossary_title()}</p>
+        <p class="mt-0.5 text-xs text-slate-400">{m.glossary_open_settings()}</p>
+      </div>
+      <button
+        type="button"
+        onclick={() => (glossaryOpen = true)}
+        class="shrink-0 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-white/5"
+      >
+        {m.glossary_title()}
+      </button>
+    </div>
+  </div>
+
+  <div class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur">
+    <div
+      class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+    >
+      <div class="min-w-0">
         <p class="text-sm font-medium text-slate-100">{m.settings_export_title()}</p>
         <p class="mt-0.5 text-xs text-slate-400">{m.settings_export_body()}</p>
       </div>
@@ -372,3 +392,5 @@
   onclose={() => (showDeleteConfirm = false)}
   pending={deleteMutation.isPending}
 />
+
+<GlossarySheet open={glossaryOpen} onclose={() => (glossaryOpen = false)} />

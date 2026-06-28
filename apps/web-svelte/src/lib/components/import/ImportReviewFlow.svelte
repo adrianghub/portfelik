@@ -19,6 +19,9 @@
     matchCategory,
     suggestRuleText,
   } from "$lib/import/categorize";
+  import { detectCategoryRuleSuggestions } from "$lib/import/category-rule-suggestions";
+  import { fetchPlans } from "$lib/services/plans";
+  import { resolveCeleCategoryId } from "$lib/services/goal-spending";
   import type { CategorizationRule, TransactionType } from "$lib/types";
   import { importAdapterLabel } from "$lib/import/banks/registry";
   import {
@@ -123,6 +126,14 @@
     queryFn: fetchCategorizationRules,
   }));
 
+  const savePlansQuery = createQuery(() => ({
+    queryKey: ["plans", "save-hints"],
+    queryFn: async () => {
+      const plans = await fetchPlans();
+      return plans.filter((p) => p.kind === "save").map((p) => ({ id: p.id, name: p.name }));
+    },
+  }));
+
   const warningsQuery = createQuery(() => ({
     queryKey: ["import_preview_warnings", session.id],
     queryFn: () => previewFingerprintWarnings(session.id),
@@ -213,6 +224,50 @@
 
   const inneRows = $derived(uncategorizedImportRows);
   const needsConfirm = $derived(inneRows.length > 0 || duplicateRows.length > 0);
+
+  const celeCategoryId = $derived(resolveCeleCategoryId(categoriesQuery.data ?? []));
+  const savePlans = $derived(savePlansQuery.data ?? []);
+
+  let dismissedRuleSuggestions = $state<Set<string>>(new Set());
+  const categoryRuleSuggestions = $derived(
+    detectCategoryRuleSuggestions(
+      importRows.map((r) => ({
+        type: r.type,
+        description: r.edited_description ?? r.description,
+        counterparty: r.counterparty,
+        posted_at: r.posted_at,
+        selected_category_id: r.selected_category_id,
+      })),
+      categoriesQuery.data ?? []
+    ).filter((s) => !dismissedRuleSuggestions.has(s.signature))
+  );
+  const topRuleSuggestion = $derived(categoryRuleSuggestions[0] ?? null);
+
+  async function acceptRuleSuggestion(
+    suggestion: (typeof categoryRuleSuggestions)[number]
+  ): Promise<void> {
+    try {
+      await createCategorizationRule({
+        kind: "contains",
+        match_description: suggestion.text,
+        match_counterparty: suggestion.text,
+        match_type: null,
+        category_id: suggestion.categoryId,
+        priority: MANUAL_RULE_PRIORITY,
+      });
+      await refreshRules();
+      toast.success(m.rule_capture_created());
+      dismissedRuleSuggestions = new Set([...dismissedRuleSuggestions, suggestion.signature]);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg === "duplicate_categorization_rule") {
+        toast.info(m.bank_review_rule_already_saved({ rule: suggestion.text }));
+        dismissedRuleSuggestions = new Set([...dismissedRuleSuggestions, suggestion.signature]);
+      } else {
+        toast.error(msg);
+      }
+    }
+  }
 
   // Cadence nudge: when the statement spans more days than the user's import-reminder
   // cadence (default 14), suggest importing on that rhythm. Informational only - a hard
@@ -855,6 +910,41 @@
     onRestoreAll={() => void restoreAllDuplicates()}
   />
 
+  {#if topRuleSuggestion}
+    <div
+      class="flex flex-col gap-3 rounded-xl border border-sky-500/20 bg-sky-950/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+    >
+      <p class="text-sm text-slate-200">
+        {m.bank_review_rule_suggestion_banner({
+          text: topRuleSuggestion.text,
+          count: topRuleSuggestion.count,
+          category: topRuleSuggestion.categoryName,
+        })}
+      </p>
+      <div class="flex shrink-0 gap-2">
+        <Button
+          variant="accent"
+          size="sm"
+          onclick={() => void acceptRuleSuggestion(topRuleSuggestion)}
+        >
+          {m.bank_review_rule_suggestion_save()}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onclick={() => {
+            dismissedRuleSuggestions = new Set([
+              ...dismissedRuleSuggestions,
+              topRuleSuggestion.signature,
+            ]);
+          }}
+        >
+          {m.bank_review_rule_suggestion_dismiss()}
+        </Button>
+      </div>
+    </div>
+  {/if}
+
   <ImportReviewCategorizeStep
     {parseErrorCount}
     {skippedRowCount}
@@ -893,6 +983,8 @@
     onPatchRow={(id, patch) => void patchRow(id, patch)}
     onCategoryChange={(row, id) => void handleRowCategoryChange(row, id)}
     onEditRule={(rule) => openRuleEditor(rule)}
+    {celeCategoryId}
+    {savePlans}
     {decisionControl}
   />
 
