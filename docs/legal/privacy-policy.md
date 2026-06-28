@@ -2,13 +2,13 @@
 
 Ostatnia aktualizacja: 12 czerwca 2026
 
-Portfelik pomaga ogarniać domowe finanse. Żeby działać, musi przechowywać Twoje
+JakStoimy pomaga ogarniać domowe finanse. Żeby działać, musi przechowywać Twoje
 dane finansowe. Poniżej wyjaśniamy bez prawniczego żargonu: co przechowujemy,
 kto to widzi i co możesz z tym zrobić. Treść tej strony jest źródłem dla widoku
 `/privacy` w aplikacji - zmiany utrzymuj w obu miejscach spójnie.
 
 **Administrator danych:** Adrian Zinko (kontakt: adres e-mail widoczny w koncie
-Portfelik / zaproszeniach do aplikacji).
+JakStoimy / zaproszeniach do aplikacji).
 
 ## Co przechowujemy
 
@@ -39,6 +39,13 @@ administracyjne ukrywają kwoty i opisy, a do surowych danych sięgamy tylko
 wtedy, gdy to konieczne - np. żeby naprawić błąd. Nie przeglądamy Twoich
 finansów. Nigdy ich też nikomu nie udostępnimy ani nie sprzedamy.
 
+## Analityka użytkowania
+
+Korzystamy z **Plausible** — zbieramy zagregowane zdarzenia (np. ukończenie
+pierwszego importu, załadowanie danych demo), bez ciasteczek śledzących i bez
+kwot, opisów transakcji ani innych danych finansowych. Adres IP nie jest
+przechowywany.
+
 ## Gdzie są Twoje dane
 
 U dwóch dostawców infrastruktury: **Supabase** (baza danych i logowanie) oraz
@@ -65,4 +72,4 @@ grupę, przed usunięciem konta przekaż ją komuś albo rozwiąż.
 Masz prawo zobaczyć swoje dane (eksport), poprawić je (edycja w aplikacji) i
 usunąć (usunięcie konta) - wszystko zrobisz bezpośrednio w aplikacji. W sprawach
 prywatności napisz do administratora na adres e-mail powiązany z kontem
-Portfelik.
+JakStoimy.

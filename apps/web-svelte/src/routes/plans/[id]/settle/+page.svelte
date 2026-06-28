@@ -46,6 +46,7 @@
     return {
       planId: id,
       type: activeType,
+      planKind: plan.kind ?? "save",
       groupId: plan.group_id,
       categoryId: plan.category_id,
     };
@@ -137,7 +138,8 @@
   }
 
   const linkMutation = createMutation(() => ({
-    mutationFn: (txId: string) => linkPlanTransaction(id, txId),
+    mutationFn: (txId: string) =>
+      linkPlanTransaction(id, txId, { planKind: planQuery.data?.kind ?? "save" }),
     onSuccess: async (_data, txId) => {
       await queryClient.invalidateQueries({ queryKey: ["plan-links", id] });
       await queryClient.invalidateQueries({ queryKey: ["plan-ranked", id] });

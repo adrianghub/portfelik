@@ -150,20 +150,28 @@ describe("rankPlanTransaction", () => {
   });
 
   it("penalises a candidate whose key matches a dismissed key (settlement memory)", () => {
-    const candidate = tx({ category_id: "cat-travel", description: "Booking wakacje hotel", amount: 500 });
+    const candidate = tx({
+      category_id: "cat-travel",
+      description: "Booking wakacje hotel",
+      amount: 500,
+    });
     const baseline = rankPlanTransaction(basePlan, candidate, 0, NO_RECENCY);
     const penalised = rankPlanTransaction(basePlan, candidate, 0, {
       ...NO_RECENCY,
       dismissedKeys: new Set(["booking"]),
     });
     expect(penalised.score).toBe(baseline.score - 40);
-    expect(penalised.reasons.some((r) => r.key === "dismissed_similar" && r.signal === "warn")).toBe(
-      true
-    );
+    expect(
+      penalised.reasons.some((r) => r.key === "dismissed_similar" && r.signal === "warn")
+    ).toBe(true);
   });
 
   it("leaves a candidate untouched when no dismissed key matches", () => {
-    const candidate = tx({ category_id: "cat-travel", description: "Booking wakacje hotel", amount: 500 });
+    const candidate = tx({
+      category_id: "cat-travel",
+      description: "Booking wakacje hotel",
+      amount: 500,
+    });
     const baseline = rankPlanTransaction(basePlan, candidate, 0, NO_RECENCY);
     const unaffected = rankPlanTransaction(basePlan, candidate, 0, {
       ...NO_RECENCY,

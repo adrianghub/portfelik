@@ -185,6 +185,7 @@
     return {
       planId: id,
       type: manualTxType,
+      planKind: plan.kind ?? "save",
       groupId: plan.group_id,
       categoryId: plan.category_id,
       startDate: plan.start_date,
@@ -236,8 +237,8 @@
 
   const confirmPaymentMutation = createMutation(() => ({
     mutationFn: async (txId: string) => {
-      await linkPlanTransaction(id, txId);
       const plan = planQuery.data;
+      await linkPlanTransaction(id, txId, { planKind: plan?.kind ?? "save" });
       const terms = await fetchPlanDebtTerms(id);
       if (plan && terms) {
         const linked = await fetchLinkedTransactions(id);
@@ -359,7 +360,7 @@
 
 <svelte:head>
   {#if planQuery.data}
-    <title>{planQuery.data.name} · Portfelik</title>
+    <title>{planQuery.data.name} · JakStoimy</title>
   {/if}
 </svelte:head>
 

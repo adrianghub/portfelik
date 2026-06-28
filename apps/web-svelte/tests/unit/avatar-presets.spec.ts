@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  AVATAR_PRESET_IDS,
-  avatarSrc,
-  isAvatarPreset,
-} from "../../src/lib/theme/avatar-presets";
+import { AVATAR_PRESET_IDS, avatarSrc, isAvatarPreset } from "../../src/lib/theme/avatar-presets";
 
 describe("avatar-presets", () => {
   it("recognizes known preset ids", () => {

@@ -11,6 +11,7 @@ import {
   monthsRemaining as planMonthsRemaining,
   todayIso,
 } from "$lib/services/plans";
+import { trackOnce } from "$lib/analytics";
 import { supabase } from "$lib/supabase";
 import { suggestRuleText } from "$lib/import/categorize";
 import type { Plan, PlanKind, TransactionType, TransactionWithCategory } from "$lib/types";
@@ -83,13 +84,19 @@ export async function fetchPlanLinks(planId: string): Promise<PlanTransactionLin
 
 export async function linkPlanTransaction(
   planId: string,
-  transactionId: string
+  transactionId: string,
+  opts?: { planKind?: PlanKind }
 ): Promise<PlanTransactionLink> {
   const { data, error } = await supabase.rpc("link_plan_transaction", {
     p_plan_id: planId,
     p_transaction_id: transactionId,
   });
   if (error) throw error;
+  if (opts?.planKind) {
+    trackOnce("first_settlement_linked", { kind: opts.planKind });
+  } else {
+    trackOnce("first_settlement_linked");
+  }
   return data as PlanTransactionLink;
 }
 

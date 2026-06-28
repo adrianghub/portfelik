@@ -25,7 +25,7 @@ jobs:
       - name: Typecheck
         working-directory: apps/web-svelte
         run: |
-          printf 'PUBLIC_SUPABASE_URL=https://placeholder.supabase.co\nPUBLIC_SUPABASE_ANON_KEY=placeholder\nPUBLIC_VAPID_KEY=placeholder\n' > .env
+          printf 'PUBLIC_SUPABASE_URL=https://placeholder.supabase.co\nPUBLIC_SUPABASE_ANON_KEY=placeholder\nPUBLIC_VAPID_KEY=placeholder\nPUBLIC_PLAUSIBLE_DOMAIN=\n' > .env
           pnpm exec svelte-kit sync
           pnpm exec svelte-check --tsconfig ./tsconfig.json
 
@@ -110,6 +110,7 @@ jobs:
           PUBLIC_SUPABASE_URL: https://emqzcygfwcvbmhxhfkcc.supabase.co
           PUBLIC_SUPABASE_ANON_KEY: test-anon-key
           PUBLIC_VAPID_KEY: BHKoiccZwq3Y5Qw5dmFxVLJIA7w9zcSZkchPKWk-vxBeR421yieZW7gGxuluBBa6sRmpIsFXRSuFyRarLcdvqT4
+          PUBLIC_PLAUSIBLE_DOMAIN: ""
         run: pnpm build
 
       - name: Run Playwright tests
@@ -197,6 +198,7 @@ jobs:
           PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_PUBLIC_SUPABASE_URL }}
           PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.STAGING_PUBLIC_SUPABASE_ANON_KEY }}
           PUBLIC_VAPID_KEY: ${{ secrets.STAGING_PUBLIC_VAPID_KEY }}
+          PUBLIC_PLAUSIBLE_DOMAIN: ${{ secrets.STAGING_PUBLIC_PLAUSIBLE_DOMAIN }}
         run: |
           test "$PUBLIC_SUPABASE_URL" != "https://emqzcygfwcvbmhxhfkcc.supabase.co"
           pnpm build

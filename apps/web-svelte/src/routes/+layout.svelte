@@ -7,11 +7,13 @@
     loginUrlForTarget,
     rememberLoginRedirect,
   } from "$lib/auth-redirect";
+  import BrandMark from "$lib/components/BrandMark.svelte";
   import Navigation from "$lib/components/Navigation.svelte";
   import Breadcrumbs from "$lib/components/ui/Breadcrumbs.svelte";
   import OfflineIndicator from "$lib/components/ui/OfflineIndicator.svelte";
   import InstallPrompt from "$lib/components/ui/InstallPrompt.svelte";
   import { motionDuration } from "$lib/motion";
+  import { initPlausible } from "$lib/analytics";
   import * as m from "$lib/paraglide/messages";
   import { fetchProfile } from "$lib/services/profiles";
   import { applyAccent } from "$lib/theme/accent-presets";
@@ -147,6 +149,7 @@
   }
 
   onMount(() => {
+    initPlausible();
     if ("Notification" in window) notifPermission = Notification.permission;
     readPushPromptCooldown();
 
@@ -223,7 +226,7 @@
   {#if !canRenderProtectedRoute}
     <main class="grid min-h-screen place-items-center bg-slate-950 px-4">
       <div class="text-center">
-        <p class="text-base font-semibold tracking-tight text-slate-100">{m.app_name()}</p>
+        <BrandMark class="justify-center" />
         <div class="mx-auto mt-4 h-1 w-24 overflow-hidden rounded-full bg-white/10">
           <div class="bg-accent-gradient h-full w-1/2 animate-pulse rounded-full"></div>
         </div>

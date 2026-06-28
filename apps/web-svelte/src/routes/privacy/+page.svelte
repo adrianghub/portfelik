@@ -6,11 +6,11 @@
 </script>
 
 <svelte:head>
-  <title>{m.privacy_policy_link()} · Portfelik</title>
+  <title>{m.privacy_policy_link()} · JakStoimy</title>
 </svelte:head>
 
 <main class="mx-auto min-h-screen max-w-2xl px-4 py-10 text-slate-200">
-  <a href="/" class="text-accent text-sm hover:underline">← Portfelik</a>
+  <a href="/" class="text-accent text-sm hover:underline">← JakStoimy</a>
 
   <h1 class="mt-4 text-2xl font-semibold tracking-tight text-slate-100">
     {m.privacy_policy_link()}
@@ -18,12 +18,12 @@
   <p class="mt-1 text-xs text-slate-400">Ostatnia aktualizacja: 12 czerwca 2026</p>
 
   <p class="mt-6 text-sm leading-relaxed text-slate-300">
-    Portfelik pomaga ogarniać domowe finanse. Żeby działać, musi przechowywać Twoje dane finansowe.
+    JakStoimy pomaga ogarniać domowe finanse. Żeby działać, musi przechowywać Twoje dane finansowe.
     Poniżej wyjaśniamy bez prawniczego żargonu: co przechowujemy, kto to widzi i co możesz z tym
     zrobić.
   </p>
   <p class="mt-3 text-sm leading-relaxed text-slate-300">
-    <strong>Administrator danych:</strong> Adrian Zinko (kontakt: adres e-mail widoczny w koncie Portfelik
+    <strong>Administrator danych:</strong> Adrian Zinko (kontakt: adres e-mail widoczny w koncie JakStoimy
     / zaproszeniach do aplikacji).
   </p>
 
@@ -72,6 +72,15 @@
   </section>
 
   <section class="mt-8 space-y-2">
+    <h2 class="text-base font-semibold text-slate-100">Analityka użytkowania</h2>
+    <p class="text-sm leading-relaxed text-slate-300">
+      Korzystamy z <strong>Plausible</strong> — zbieramy zagregowane zdarzenia (np. ukończenie pierwszego
+      importu, załadowanie danych demo), bez ciasteczek śledzących i bez kwot, opisów transakcji ani innych
+      danych finansowych. Adres IP nie jest przechowywany.
+    </p>
+  </section>
+
+  <section class="mt-8 space-y-2">
     <h2 class="text-base font-semibold text-slate-100">Gdzie są Twoje dane</h2>
     <p class="text-sm leading-relaxed text-slate-300">
       U dwóch dostawców infrastruktury: <strong>Supabase</strong> (baza danych i logowanie) oraz
@@ -101,7 +110,7 @@
     <p class="text-sm leading-relaxed text-slate-300">
       Masz prawo zobaczyć swoje dane (eksport), poprawić je (edycja w aplikacji) i usunąć (usunięcie
       konta) - wszystko zrobisz bezpośrednio w aplikacji. W sprawach prywatności napisz do
-      administratora na adres e-mail powiązany z kontem Portfelik.
+      administratora na adres e-mail powiązany z kontem JakStoimy.
     </p>
   </section>
 </main>
