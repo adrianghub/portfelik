@@ -1,40 +1,22 @@
-const CACHE_NAME = 'jakstoimy-20260628';
-
-const APP_SHELL = ['/', '/transactions', '/import', '/plans', '/settings'];
-
 const DEFAULT_ICON = '/icon-192x192.png';
 
 /** Must match notification-sync.ts */
 const NOTIFICATION_SYNC_CHANNEL = 'portfelik-notifications';
 const SW_NOTIFICATION_MESSAGE_TYPE = 'portfelik:notification';
 
+// Push-only service worker. No asset/HTML caching: this is a live-data app
+// (online-only by product decision), so we never serve stale content. The SW
+// exists for web-push delivery and to satisfy PWA installability.
 self.addEventListener('install', (event) => {
-	event.waitUntil(
-		caches
-			.open(CACHE_NAME)
-			.then((cache) => cache.addAll(APP_SHELL).catch(() => {}))
-			.then(() => self.skipWaiting())
-	);
+	event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener('activate', (event) => {
 	event.waitUntil(
 		caches
 			.keys()
-			.then((keys) =>
-				Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-			)
+			.then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
 			.then(() => self.clients.claim())
-	);
-});
-
-self.addEventListener('fetch', (event) => {
-	const url = new URL(event.request.url);
-	if (url.origin !== self.location.origin) return;
-	if (!/\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf)$/.test(url.pathname)) return;
-
-	event.respondWith(
-		caches.match(event.request).then((cached) => cached ?? fetch(event.request))
 	);
 });
 

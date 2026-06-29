@@ -145,11 +145,14 @@
         }
       })
       .catch(() => {});
-    registerServiceWorker().then(() => autoSubscribePush(authUser.id).catch(() => {}));
+    autoSubscribePush(authUser.id).catch(() => {});
   }
 
   onMount(() => {
     initPlausible();
+    // Register unconditionally (not auth-gated) so install/standalone is deterministic
+    // for anonymous + login pages. Push subscription still gated in loadAuthenticatedUser.
+    registerServiceWorker();
     if ("Notification" in window) notifPermission = Notification.permission;
     readPushPromptCooldown();
 
