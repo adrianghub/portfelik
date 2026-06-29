@@ -1,7 +1,12 @@
 packages:
   - 'apps/*'
+allowBuilds:
+  esbuild: set this to true or false
+  sharp: set this to true or false
+  workerd: set this to true or false
 onlyBuiltDependencies:
   - esbuild
+  - workerd
 overrides:
   devalue: ^5.8.1
   cookie: ^0.7.0

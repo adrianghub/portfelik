@@ -1,4 +1,7 @@
 {
   "name": "portfelik",
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "wrangler": "^4.54.0"
+  }
 }
