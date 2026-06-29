@@ -132,7 +132,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: Production
-      url: https://portfelik.adrianzinko.com
+      url: https://app.jakstoimy.pl
     permissions:
       contents: read
       deployments: write
@@ -171,7 +171,8 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy apps/web-svelte/build --project-name=portfelik --branch=main --commit-dirty=true
+          wranglerVersion: "4"
+          command: pages deploy apps/web-svelte/build --project-name=jakstoimy --branch=main --commit-dirty=true
 
   smoke:
     # Read-only probe — production gets no smoke personas or written test data
@@ -182,12 +183,12 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: Production
-      url: https://portfelik.adrianzinko.com
+      url: https://app.jakstoimy.pl
     steps:
       - name: App shell responds
         run: |
           for i in 1 2 3; do
-            status=$(curl -s -o /tmp/index.html -w "%{http_code}" https://portfelik.adrianzinko.com/)
+            status=$(curl -s -o /tmp/index.html -w "%{http_code}" https://app.jakstoimy.pl/)
             [ "$status" = "200" ] && break
             sleep 10
           done
