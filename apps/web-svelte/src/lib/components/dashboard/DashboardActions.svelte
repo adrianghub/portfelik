@@ -4,23 +4,13 @@
   import { ChevronRight, X } from "lucide-svelte";
   import { toast } from "svelte-sonner";
   import { toastError } from "$lib/toast-error";
-  import { fetchProfile } from "$lib/services/profiles";
-  import { fetchLastCommittedImportSession } from "$lib/services/bank-import";
-  import {
-    fetchDashboardPlanProgress,
-    fetchLinkedTransactionIds,
-  } from "$lib/services/plan-settlement";
-  import { fetchPlans } from "$lib/services/plans";
-  import { fetchPlanDebtTermsByPlanIds } from "$lib/services/plan-debt";
-  import { detectRecurringDebtPayments } from "$lib/services/debt-payment-detect";
-  import { getBankImportReminder } from "$lib/profile-settings";
-  import type { AttentionPlan } from "$lib/dashboard-attention";
+  import { fetchDashboardPlanProgress } from "$lib/services/plan-settlement";
+  import type { AttentionPlan } from "$lib/services/dashboard-actions";
   import type { SpendingInsight } from "$lib/services/spending-insight";
   import {
     buildDashboardActions,
     type DashboardAction,
     type DashboardActionTone,
-    type DebtDetectedInput,
   } from "$lib/services/dashboard-actions";
   import {
     fetchActiveDismissedKeys,
@@ -30,28 +20,16 @@
   import { cn } from "$lib/utils";
 
   interface Props {
-    userId: string | null;
     overdueCount: number;
     /** Current-period spending insight (anomalies surface as actions). */
     insight: SpendingInsight | null;
     /** Stable id of the current spending period — scopes anomaly dismissals. */
     periodKey: string;
   }
-  let { userId, overdueCount, insight, periodKey }: Props = $props();
+  let { overdueCount, insight, periodKey }: Props = $props();
 
   const queryClient = useQueryClient();
   const DISMISSALS_KEY = ["action-dismissals"] as const;
-
-  const profileQuery = createQuery(() => ({
-    queryKey: ["profile", userId],
-    queryFn: () => fetchProfile(userId!),
-    enabled: !!userId,
-  }));
-
-  const importHealthQuery = createQuery(() => ({
-    queryKey: ["import-health"],
-    queryFn: fetchLastCommittedImportSession,
-  }));
 
   const planProgressQuery = createQuery(() => ({
     queryKey: ["plan-progress"],
@@ -62,15 +40,6 @@
     queryKey: DISMISSALS_KEY,
     queryFn: fetchActiveDismissedKeys,
   }));
-
-  const cadenceDays = $derived(getBankImportReminder(profileQuery.data?.settings).cadenceDays);
-
-  const daysSinceImport = $derived.by(() => {
-    const committed = importHealthQuery.data?.committed_at;
-    if (!committed) return null;
-    const diff = (Date.now() - new Date(committed).getTime()) / (1000 * 60 * 60 * 24);
-    return Math.floor(diff);
-  });
 
   const plans = $derived<AttentionPlan[]>(
     (planProgressQuery.data ?? []).map((p) => ({
@@ -84,8 +53,6 @@
     }))
   );
 
-  // Anomalies are already computed by computeSpendingInsight; only increases (deltaAbs > 0)
-  // are worth a "sprawdź" nudge — a category dropping below trend is not an action.
   const anomalies = $derived(
     (insight?.categories ?? [])
       .filter((c) => c.anomaly && c.deltaAbs > 0)
@@ -97,67 +64,10 @@
       }))
   );
 
-  const settleReady = $derived(
-    (planProgressQuery.data ?? []).map((p) => ({
-      planId: p.planId,
-      planName: p.planName,
-      eligibleCount: p.eligibleCount,
-    }))
-  );
-
-  // Detected recurring debt payments not yet linked to their plan: for each active debt
-  // plan, group the matching expenses (lookback) and suggest the newest unlinked one.
-  // Reuses the same core as the plan-detail detect banner; the global linked-id set
-  // excludes anything already settled so we never re-suggest a linked rata.
-  const plansQuery = createQuery(() => ({ queryKey: ["plans"], queryFn: fetchPlans }));
-  const debtPlans = $derived(
-    (plansQuery.data ?? []).filter((p) => p.kind === "debt" && p.status === "active")
-  );
-  const debtPlanIds = $derived(debtPlans.map((p) => p.id));
-
-  const debtTermsQuery = createQuery(() => ({
-    queryKey: ["plan-debt-terms-list", debtPlanIds],
-    queryFn: () => fetchPlanDebtTermsByPlanIds(debtPlanIds),
-    enabled: debtPlanIds.length > 0,
-  }));
-
-  const linkedIdsQuery = createQuery(() => ({
-    queryKey: ["plan-linked-tx-ids"],
-    queryFn: fetchLinkedTransactionIds,
-    enabled: debtPlanIds.length > 0,
-  }));
-
-  const debtDetectedQuery = createQuery(() => ({
-    queryKey: ["dashboard-debt-detected", debtPlanIds, [...(linkedIdsQuery.data ?? [])].sort()],
-    enabled: debtPlanIds.length > 0 && !!debtTermsQuery.data && !!linkedIdsQuery.data,
-    queryFn: async (): Promise<DebtDetectedInput[]> => {
-      const terms = debtTermsQuery.data ?? {};
-      const excludeTransactionIds = linkedIdsQuery.data ?? new Set<string>();
-      const results = await Promise.all(
-        debtPlans.map(async (plan) => {
-          const monthlyPayment = terms[plan.id] ? Number(terms[plan.id].monthly_payment) : 0;
-          if (!(monthlyPayment > 0)) return null;
-          const detected = await detectRecurringDebtPayments({
-            monthlyPayment,
-            userId: plan.user_id,
-            groupId: plan.group_id,
-            excludeTransactionIds,
-          });
-          return detected[0]
-            ? { planId: plan.id, planName: plan.name, reason: detected[0].reasons[0] }
-            : null;
-        })
-      );
-      return results.filter((r): r is DebtDetectedInput => r !== null);
-    },
-  }));
-
   const actions = $derived(
     buildDashboardActions({
-      attention: { daysSinceImport, cadenceDays, overdueCount, plans },
+      attention: { overdueCount, plans },
       anomalies,
-      settleReady,
-      debtDetected: debtDetectedQuery.data ?? [],
       periodKey,
       dismissedKeys: dismissalsQuery.data ?? new Set<string>(),
     })

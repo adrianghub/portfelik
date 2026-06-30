@@ -1,5 +1,9 @@
 import * as m from "$lib/paraglide/messages";
 import type { MonthlySurplusSummary } from "$lib/services/financial-surplus";
+import {
+  currentMonthSavePace,
+  pickMostUrgentOffTrackSave,
+} from "$lib/services/plan-save-pace";
 import type { PlanDebtTerms, PlanSummary } from "$lib/types";
 import { formatCurrency } from "$lib/utils";
 
@@ -27,23 +31,13 @@ export function buildPlanningQueueActions(input: {
     });
   }
 
-  // Only demonstrated current-month deposits count as keeping pace. A historical-average
-  // estimate (or no deposits this month) must not suppress the warn chip.
-  const currentMonthPace = (p: PlanSummary): number =>
-    p.monthlyActualBasis === "current-month" ? (p.monthlyActual ?? 0) : 0;
-  const offTrackSave = summaries
-    .filter(
-      (p) =>
-        p.kind === "save" &&
-        p.bucket === "active" &&
-        p.monthlyNeeded != null &&
-        p.monthlyNeeded > 0 &&
-        currentMonthPace(p) < p.monthlyNeeded - 0.01
-    )
-    .sort((a, b) => (b.monthlyNeeded ?? 0) - (a.monthlyNeeded ?? 0));
-  if (offTrackSave[0]) {
-    const plan = offTrackSave[0];
-    const paceSoFar = currentMonthPace(plan);
+  const offTrackSave = pickMostUrgentOffTrackSave(
+    summaries,
+    (p) => p.bucket === "active"
+  );
+  if (offTrackSave) {
+    const plan = offTrackSave;
+    const paceSoFar = currentMonthSavePace(plan);
     // A partial deposit this month is progress, not failure - ask only for the rest.
     const label =
       paceSoFar > 0

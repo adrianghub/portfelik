@@ -23,8 +23,7 @@
         p.kind === "debt" ||
         (p.targetAmount != null && p.targetAmount > 0) ||
         p.eligibleCount > 0 ||
-        p.linkedCount > 0 ||
-        (p.budgetAmount != null && p.budgetAmount > 0)
+        p.linkedCount > 0
     )
   );
 
@@ -66,14 +65,7 @@
         label: `${formatCurrency(plan.savedAmount)} / ${formatCurrency(plan.targetAmount)}`,
       };
     }
-    if (plan.budgetAmount != null && plan.budgetAmount > 0) {
-      const pct = Math.round(Math.min(1, plan.spentAmount / plan.budgetAmount) * 100);
-      return {
-        pct,
-        label: `${formatCurrency(plan.spentAmount)} / ${formatCurrency(plan.budgetAmount)}`,
-      };
-    }
-    return { pct: null, label: formatCurrency(plan.spentAmount) };
+    return { pct: null, label: formatCurrency(plan.linkedCount > 0 ? plan.savedAmount : 0) };
   }
 </script>
 
@@ -95,7 +87,7 @@
       </a>
     </div>
     <ul class="space-y-1.5">
-      {#each activePlans.slice(0, 4) as plan (plan.planId)}
+      {#each activePlans.slice(0, 2) as plan (plan.planId)}
         {@const emoji = getPlanEmoji(undefined, plan.planName)}
         {@const terms = plan.kind === "debt" ? debtTermsQuery.data?.[plan.planId] : undefined}
         {@const display = progressDisplay(plan, terms)}
