@@ -723,6 +723,14 @@
   {/if}
 
   <!-- Bilans + spending — side by side from md up -->
+  {#if txQuery.isLoading}
+    <div class="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2">
+      <div class="h-48 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
+      <div class="h-48 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
+    </div>
+  {:else if txQuery.isError}
+    <QueryError error={txQuery.error} onRetry={() => txQuery.refetch()} />
+  {:else}
   <div class="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 md:items-stretch">
     <DashboardBalanceHero
       periodLabel={activePeriodLabel}
@@ -790,13 +798,13 @@
       </div>
     {/if}
   </div>
+  {/if}
 
   <!-- Status band -->
   <section class="mt-4">
     <h2 class="mb-1.5 text-sm font-medium text-slate-400">{m.dashboard_status_band()}</h2>
     <div class="grid min-w-0 grid-cols-1 items-stretch gap-2 sm:grid-cols-2">
       <DashboardActions
-        {userId}
         {overdueCount}
         insight={spendingInsight}
         periodKey={bounds.start}
@@ -810,55 +818,55 @@
   </section>
 
   <!-- Upcoming / overdue -->
-  <div>
-    <div class="mb-2 flex items-center justify-between gap-2">
-      <p class="text-eyebrow text-slate-400">{m.dashboard_upcoming_title()}</p>
-      <div class="flex items-center gap-3">
-        {#if activeRecurringCount > 0}
-          <a
-            href="/recurring"
-            class="hover:text-accent text-xs font-medium text-slate-400 transition-colors"
-          >
-            {m.recurring_entry()} ({activeRecurringCount})
-          </a>
-        {/if}
-        {#if upcomingTxs.length > 0}
-          <a href={upcomingHref} class="text-accent hover:text-accent text-xs font-medium">
-            {m.dashboard_upcoming_see_all()}
-          </a>
-        {/if}
+  {#if !txQuery.isError}
+    <div>
+      <div class="mb-2 flex items-center justify-between gap-2">
+        <p class="text-eyebrow text-slate-400">{m.dashboard_upcoming_title()}</p>
+        <div class="flex items-center gap-3">
+          {#if activeRecurringCount > 0}
+            <a
+              href="/transactions?status=upcoming&forecast=recurring"
+              class="hover:text-accent text-xs font-medium text-slate-400 transition-colors"
+            >
+              {m.recurring_entry()} ({activeRecurringCount})
+            </a>
+          {/if}
+          {#if upcomingTxs.length > 0}
+            <a href={upcomingHref} class="text-accent hover:text-accent text-xs font-medium">
+              {m.dashboard_upcoming_see_all()}
+            </a>
+          {/if}
+        </div>
       </div>
-    </div>
 
-    {#if txQuery.isPending}
-      <div class="space-y-2">
-        {#each Array(3) as _, i (i)}
-          <div class="h-14 animate-pulse rounded-xl border border-white/5 bg-slate-900/60"></div>
-        {/each}
-      </div>
-    {:else if txQuery.isError}
-      <QueryError error={txQuery.error} onRetry={() => txQuery.refetch()} />
-    {:else if upcomingTxs.length === 0}
-      <div class="py-6 text-center">
-        <p class="text-sm text-slate-400">{m.dashboard_empty_upcoming()}</p>
-        <a
-          href={upcomingHref}
-          class="text-accent mt-2 inline-block text-sm font-medium hover:underline"
-        >
-          {m.dashboard_empty_upcoming_cta()}
-        </a>
-      </div>
-    {:else}
-      <TransactionTable
-        transactions={upcomingTxs}
-        selectedIds={new Set()}
-        currentUserId={userId}
-        canManage={dashCanManage}
-        onrowclick={openTransaction}
-        onsettle={quickSettle}
-      />
-    {/if}
-  </div>
+      {#if txQuery.isPending}
+        <div class="space-y-2">
+          {#each Array(3) as _, i (i)}
+            <div class="h-14 animate-pulse rounded-xl border border-white/5 bg-slate-900/60"></div>
+          {/each}
+        </div>
+      {:else if upcomingTxs.length === 0}
+        <div class="py-6 text-center">
+          <p class="text-sm text-slate-400">{m.dashboard_empty_upcoming()}</p>
+          <a
+            href={upcomingHref}
+            class="text-accent mt-2 inline-block text-sm font-medium hover:underline"
+          >
+            {m.dashboard_empty_upcoming_cta()}
+          </a>
+        </div>
+      {:else}
+        <TransactionTable
+          transactions={upcomingTxs}
+          selectedIds={new Set()}
+          currentUserId={userId}
+          canManage={dashCanManage}
+          onrowclick={openTransaction}
+          onsettle={quickSettle}
+        />
+      {/if}
+    </div>
+  {/if}
 </div>
 
 <GlossarySheet

@@ -13,7 +13,6 @@
   import TransactionDialog from "$lib/components/transactions/TransactionDialog.svelte";
   import TransactionTable from "$lib/components/transactions/TransactionTable.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
-  import CoachmarkBanner from "$lib/components/onboarding/CoachmarkBanner.svelte";
   import SearchModal from "$lib/components/ui/SearchModal.svelte";
   import * as m from "$lib/paraglide/messages";
   import {
@@ -26,8 +25,7 @@
   import { fetchMyGroupRoles, fetchUserGroups } from "$lib/services/groups";
   import { fetchLinkedTransactionIds } from "$lib/services/plan-settlement";
   import { computeLedgerSummary } from "$lib/services/transaction-cashflow";
-  import { canManageTransaction } from "$lib/services/transaction-permissions";
-  import { dismissCoachmark, isCoachmarkDismissed } from "$lib/services/coachmarks";
+  import { canManageTransaction, isQuickSettleEligible } from "$lib/services/transaction-permissions";
   import {
     computeSummary,
     deleteTransaction,
@@ -370,33 +368,10 @@
   }
 
   let currentUserId = $state<string | null>(null);
-  let importCoachmarkDismissed = $state(false);
   onMount(async () => {
-    importCoachmarkDismissed = isCoachmarkDismissed("transactions_import");
     const { data } = await supabase.auth.getSession();
     currentUserId = data.session?.user.id ?? null;
   });
-
-  const txCountQuery = createQuery(() => ({
-    queryKey: ["transactions", "count-probe"],
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from("transactions")
-        .select("id", { count: "exact", head: true });
-      if (error) throw error;
-      return count ?? 0;
-    },
-    enabled: !!currentUserId,
-  }));
-
-  const showImportCoachmark = $derived(
-    !importCoachmarkDismissed && txCountQuery.isSuccess && (txCountQuery.data ?? 0) === 0
-  );
-
-  function dismissImportCoachmark() {
-    importCoachmarkDismissed = true;
-    dismissCoachmark("transactions_import");
-  }
 
   const recurringMaterializationWindow = $derived(nearTermRecurringWindow());
   let recurringMaterializationKey = $state("");
@@ -977,7 +952,7 @@
     </div>
     <div class="flex shrink-0 items-center gap-2">
       <a
-        href="/recurring"
+        href="/transactions?status=upcoming&forecast=recurring"
         class="focus-visible:ring-accent inline-flex h-9 items-center gap-1.5 rounded-full border border-white/10 px-3 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none sm:px-3.5"
         title={m.recurring_entry()}
       >
@@ -994,14 +969,6 @@
       <TransactionDataActions exportDisabled={!accountedTxs?.length} onexport={handleExport} />
     </div>
   </div>
-
-  {#if showImportCoachmark}
-    <CoachmarkBanner
-      message={m.transactions_import_coachmark()}
-      dismissLabel={m.coachmark_dismiss()}
-      ondismiss={dismissImportCoachmark}
-    />
-  {/if}
 
   <!-- Sticky filter bar -->
   {#if categoriesQuery.data && selectedIds.size === 0}
@@ -1183,6 +1150,10 @@
   oneditoccurrence={(tx) => void editOccurrence(tx)}
   onskipoccurrence={(tx) => skipSeriesMutation.mutate(tx)}
   onendseries={(tx) => endSeriesMutation.mutate(tx)}
+  onsettle={sheetTx && txCanManage(sheetTx) && isQuickSettleEligible(sheetTx.status)
+    ? quickSettle
+    : undefined}
+  settlePending={settleMutation.isPending}
 />
 
 <ConfirmDialog
