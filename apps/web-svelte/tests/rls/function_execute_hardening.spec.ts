@@ -23,7 +23,7 @@ describe("function execute hardening", () => {
     expect(error).not.toBeNull();
   });
 
-  it("denies anon complete_shopping_list when present", async () => {
+  it("denies anon complete_shopping_list RPC (dropped from schema)", async () => {
     const anon = createAnonClient();
     const { error } = await anon.rpc("complete_shopping_list", {
       p_list_id: "00000000-0000-4000-8000-000000000001",
