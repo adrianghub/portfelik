@@ -142,7 +142,9 @@ the in-app notification row with push as an optional channel.
 
 **Production deploy workflow fix (2026-06-28, local):** push run `28330322328` failed in mocked Playwright build because `deploy-production.yml` omitted `PUBLIC_PLAUSIBLE_DOMAIN` after Plausible landed; production deploy/probe were skipped. Fixed by adding an empty Plausible domain to the mocked build env and updating the read-only production smoke grep from `Portfelik` to `JakStoimy`. Local gates: `pnpm build` in `apps/web-svelte`, `git diff --check`.
 
-**Immediate next step (2026-06-28):** push/merge the production workflow fix to `main`, rerun/monitor Deploy production, then operator sets `STAGING_PUBLIC_PLAUSIBLE_DOMAIN` / `PUBLIC_PLAUSIBLE_DOMAIN` GH secrets + Plausible custom-event goals; staging smoke; execute Spec #5 domain/OAuth cutover when ready. Next product increment: Capacitor Phase A (Spec #4). Deferred: group-scope cash position, dashboard slice 2, field-scoped search, AI prep.
+**Core hardening & YAGNI pass (2026-06-29, local on `dev`):** roadmap execution before first invite. **YAGNI:** removed coachmarks (checklist subsumes), merged `dashboard-attention` into slim `dashboard-actions` (no stale-import/settle/debt/slice-2 duplicate nudges), spend-plan vestiges dropped, `/recurring` redirects to filtered transactions, debt detail simulation/refinance/scenarios UI deferred, push opt-in settings-only, `+error.svelte` boundary. **Trust/UX:** shared `plan-save-pace`, dashboard `QueryError`, plans zero-state dedupe, debt terms cancel+lock, quick-settle from detail sheet, `SurplusCard` estimate note retained. **Tests:** unit 303/303 (+groups, categorization-rules, plan-save-pace), E2E dashboard-actions (overdue), group-invite, recurring redirect. **Docs:** JakStoimy URL sync, historical review banners, `docs/runbooks/first-invite-checklist.md`. Gates: svelte-check 0/0, lint 0, format clean, secret scan clean (login password state only). Awaiting manual commits.
+
+**Immediate next step (2026-06-29):** operator executes `docs/runbooks/first-invite-checklist.md` (JakStoimy cutover on `main`, Plausible goals, prod migration audit, staging smoke), then invite first test couple. Next product increment after invite feedback: Capacitor Phase A (Spec #4). Cancelled pre-invite: dashboard slice 2, coachmarks, Belka/scenarios UI, `/recurring` page.
 
 **Open backlog:**
 
@@ -152,7 +154,7 @@ the in-app notification row with push as an optional channel.
 - Mortgage/debt tracking - **save/debt plan kinds + manual net-worth snapshot shipped**; auto net worth from import still deferred.
 - Prod Supabase advisors: leaked-password protection (dashboard toggle, prod+staging) - ⏳ operator; `pg_net` in public (0014) - ⏳ re-enable via Dashboard on cloud (SET SCHEMA unsupported); extensions-in-public CI gate - ✅ (`scripts/check-security-advisors.sh`, excludes `pg_net`).
 
-**Branch flow:** `main` → prod (`portfelik.adrianzinko.com`); `dev` → staging (`dev.portfelik.pages.dev`). Both branches use one Cloudflare Pages project. Supabase is split: `main` uses production; `dev` must use the dedicated `portfelik-staging` project.
+**Branch flow:** `main` → prod (`app.jakstoimy.pl`); `dev` → staging (`dev.portfelik.pages.dev`). Both branches use one Cloudflare Pages project (`jakstoimy`). Supabase is split: `main` uses production; `dev` must use the dedicated `portfelik-staging` project.
 
 **Staging smoke prerequisites:**
 
@@ -188,7 +190,7 @@ Three-tier env. Full map: `docs/architecture/env-workflow.md`.
 
 - **Local dev:** `pnpm dev` from `apps/web-svelte/` reads `.env.local`, which points at the **local Supabase stack** (`127.0.0.1:54321`). Boot the stack from repo root: `supabase start`. Apply migrations: `supabase db reset`, then seed personas with `pnpm seed:local` from `apps/web-svelte/` or `./scripts/supabase-ops.sh local seed`. Cloud creds stashed in `apps/web-svelte/.env.cloud.local` (gitignored) for opt-in cloud debugging.
 - **Staging:** `https://dev.portfelik.pages.dev` - `dev` branch deploys via GH Actions after `migrate-staging` applies committed migrations, system seed, Edge Functions, and synthetic personas to `portfelik-staging`.
-- **Production:** `portfelik.adrianzinko.com` → Cloudflare Pages project `portfelik`. `main` branch deploys via GH Actions.
+- **Production:** `app.jakstoimy.pl` → Cloudflare Pages project `jakstoimy`. `main` branch deploys via GH Actions.
 - **Supabase Cloud (prod):** `https://emqzcygfwcvbmhxhfkcc.supabase.co` - publishable key from Supabase Dashboard → Settings → API.
 - **Supabase Cloud (staging):** dedicated `portfelik-staging` project. Keep its project ref, anon key, service-role key, DB password, and access token in Staging secrets only.
 - **Supabase MCP:** `.mcp.json` at repo root. Use explicit servers: `supabase-prod` for production, `supabase-account` only for project/account work, and add `supabase-staging` after the staging ref exists.
@@ -197,5 +199,5 @@ Three-tier env. Full map: `docs/architecture/env-workflow.md`.
   PUBLIC_SUPABASE_URL=https://emqzcygfwcvbmhxhfkcc.supabase.co \
   PUBLIC_SUPABASE_ANON_KEY=<key from dashboard> \
   PUBLIC_VAPID_KEY=BHKoiccZwq3Y5Qw5dmFxVLJIA7w9zcSZkchPKWk-vxBeR421yieZW7gGxuluBBa6sRmpIsFXRSuFyRarLcdvqT4 \
-  pnpm build && npx wrangler pages deploy build --project-name portfelik --commit-dirty=true
+  pnpm build && npx wrangler pages deploy build --project-name jakstoimy --commit-dirty=true
   ```

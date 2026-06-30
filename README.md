@@ -4,7 +4,7 @@ Import-first personal finance PWA for understanding everyday money: import bank
 history, organize transactions, plan future spending, and reconcile plans with
 real transactions.
 
-Production: [portfelik.adrianzinko.com](https://portfelik.adrianzinko.com)
+Production: [app.jakstoimy.pl](https://app.jakstoimy.pl)
 
 ## Product Loop
 

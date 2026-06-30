@@ -1,3 +1,5 @@
+> **Historical (2026-06)** — pre-dates spend-plan removal and JakStoimy cutover. See CLAUDE.md for current state.
+
 # Portfelik — Product Review
 
 **Date:** 2026-06-09

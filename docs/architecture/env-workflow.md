@@ -2,7 +2,7 @@
 
 How code and data move from a dev laptop to the live site, and what each tier actually targets.
 
-Last reviewed: **2026-05-22**.
+Last reviewed: **2026-06-29**.
 
 ## TL;DR
 
@@ -10,7 +10,7 @@ Last reviewed: **2026-05-22**.
 | -------------- | ------------------------------------ | --------------------------- | -------------------------------------------------- |
 | **Local**      | `pnpm dev` (from `apps/web-svelte/`) | `127.0.0.1:5173`            | **Local Supabase stack** (`127.0.0.1:54321`)       |
 | **Staging**    | `git push origin dev`                | `dev.portfelik.pages.dev`   | **Dedicated `portfelik-staging` Supabase project** |
-| **Production** | `git push origin main`               | `portfelik.adrianzinko.com` | **Prod Supabase project**                          |
+| **Production** | `git push origin main`               | `app.jakstoimy.pl`          | **Prod Supabase project**                          |
 
 Cloudflare Pages still splits by branch inside one Pages project. Supabase does
 not: staging and production now have separate projects, credentials, Auth users,
@@ -53,7 +53,7 @@ flowchart LR
 
   subgraph prod["Production (main branch)"]
     pushMain["git push origin main"] --> ghaProd["GH Actions<br/>deploy-prod job"]
-    ghaProd -->|wrangler pages deploy<br/>--branch main| cfPagesProd["Cloudflare Pages<br/>portfelik.adrianzinko.com"]
+    ghaProd -->|wrangler pages deploy<br/>--branch main| cfPagesProd["Cloudflare Pages<br/>app.jakstoimy.pl"]
     ghaProd -->|secrets.PUBLIC_SUPABASE_URL| supaProd
   end
 
@@ -111,7 +111,7 @@ the local Supabase. Then log in and explore.
   `STAGING_PUBLIC_SUPABASE_URL`, `STAGING_PUBLIC_SUPABASE_ANON_KEY`, and
   `STAGING_PUBLIC_VAPID_KEY`. Workflow guards fail if the staging project ref or
   URL equals production.
-- `cloudflare/wrangler-action@v3` runs `pages deploy build --branch dev` against project `portfelik`.
+- `cloudflare/wrangler-action@v3` runs `pages deploy build --branch dev` against project `jakstoimy`.
 - Lands at `https://dev.portfelik.pages.dev`.
 - After deploy: real-DB smoke job (`smoke`) runs Playwright against staging URL
   using `STAGING_E2E_SMOKE_EMAIL` / `STAGING_E2E_SMOKE_PASSWORD`. Smoke data is
@@ -127,7 +127,7 @@ the local Supabase. Then log in and explore.
 - Branch: `main`. Push triggers `deploy-prod` job in the same workflow.
 - Production build secrets keep the unprefixed names:
   `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_ANON_KEY`, and `PUBLIC_VAPID_KEY`.
-- `wrangler pages deploy build --branch main`. Lands at `https://portfelik.adrianzinko.com`.
+- `wrangler pages deploy build --branch main`. Lands at `https://app.jakstoimy.pl`.
 - No automatic post-deploy verification - relies on staging smoke having passed.
 
 ## Migrations

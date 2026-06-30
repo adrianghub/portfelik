@@ -1,7 +1,9 @@
 # JakStoimy Web App
 
-SvelteKit SPA for JakStoimy. Product direction and repository-level setup live
-in the root [README](../../README.md).
+SvelteKit SPA for **JakStoimy** — import-first personal finance: bank CSV
+import, transaction ledger, save/debt plans with settlement, and a deterministic
+dashboard. Product direction and repository-level setup live in the root
+[README](../../README.md).
 
 ## Local Development
 
@@ -59,6 +61,5 @@ pnpm exec paraglide-js compile --project ./project.inlang --outdir ./src/lib/par
   runtime.
 - Supabase client singleton in `src/lib/supabase.ts`.
 - Svelte 5 runes and TanStack Query v6 for UI state/server cache.
-- User-facing product language is moving toward **Import**, **Transactions**,
-  and **Plans**. Some internal files still use `shopping-lists` names for
-  compatibility until the data model is renamed.
+- Product spine: **Pulpit**, **Transakcje** (import flow + ledger), **Plany**
+  (save/debt goals only), **Ustawienia**.

@@ -24,7 +24,7 @@ Public launch program (2026-06). Product doctrine lives in
 - Import adapter registry + user-selectable bank adapter.
 - Import reminder alerts (7/14/30-day opt-in).
 - Privacy Layer 1 masked admin diagnostics.
-- Import combobox + `bank-import.ts` service/component tests; bank-import Playwright 19/19.
+- Import combobox + `bank-import.ts` service/component tests; bank-import Playwright 22/22.
 
 ## Public launch gate (Phase 5 - **merged to `main` 2026-06-07**)
 
