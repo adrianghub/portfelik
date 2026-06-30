@@ -176,11 +176,6 @@ export function monthsBetween(startDate: string, endDate: string): number {
   return Math.max(1, months);
 }
 
-/** @deprecated Use calendarMonthsUntil - kept as alias for callers. */
-export function monthsRemaining(endDate: string, today = todayIso()): number {
-  return calendarMonthsUntil(endDate, today);
-}
-
 export function canManagePlan(
   plan: Pick<Plan, "user_id" | "group_id">,
   currentUserId: string,

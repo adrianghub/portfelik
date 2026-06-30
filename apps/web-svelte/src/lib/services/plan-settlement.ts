@@ -8,7 +8,7 @@ import {
 import {
   derivePlanBucket,
   monthsBetween,
-  monthsRemaining as planMonthsRemaining,
+  calendarMonthsUntil,
   todayIso,
 } from "$lib/services/plans";
 import { trackOnce } from "$lib/analytics";
@@ -308,14 +308,7 @@ export function rankPlanTransaction(
     reasons.push({ key: "keyword", label: matchedKeyword, signal: "match" });
   }
 
-  const remaining =
-    plan.budget_amount != null && plan.budget_amount > 0
-      ? Math.max(0, plan.budget_amount - spentAmount)
-      : null;
-  if (tx.type === "expense" && remaining !== null && tx.amount <= remaining) {
-    score += 20;
-    reasons.push({ key: "amount", label: "", signal: "match" });
-  } else if (tx.type === "income" && (plan.kind ?? "save") === "save") {
+  if (tx.type === "income" && (plan.kind ?? "save") === "save") {
     // Income on save plans previously had no path past the baseline, so every deposit
     // showed as a weak match. A deposit that fits the remaining target is a real signal.
     const targetRemaining =
@@ -526,12 +519,10 @@ export function computePlanProgress(input: {
   const savedAmount = incomeAmount;
   const targetAmount = input.targetAmount ?? null;
   const remaining =
-    input.budgetAmount != null && input.budgetAmount > 0
-      ? Math.max(0, input.budgetAmount - spentAmount)
-      : targetAmount != null && targetAmount > 0
-        ? Math.max(0, targetAmount - savedAmount)
-        : null;
-  const monthsRem = input.endDate ? planMonthsRemaining(input.endDate) : null;
+    targetAmount != null && targetAmount > 0
+      ? Math.max(0, targetAmount - savedAmount)
+      : null;
+  const monthsRem = input.endDate ? calendarMonthsUntil(input.endDate) : null;
   const isActive =
     input.startDate && input.endDate
       ? derivePlanBucket({ start_date: input.startDate, end_date: input.endDate }, today) ===

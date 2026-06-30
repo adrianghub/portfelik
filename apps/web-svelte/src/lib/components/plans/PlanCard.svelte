@@ -226,15 +226,6 @@
             </p>
           {/if}
         </div>
-      {:else}
-        <div class="mt-3 flex items-center justify-between gap-2 text-xs">
-          <span class="text-slate-400"
-            >{m.plan_metric_spent()}: {formatCurrency(plan.spentAmount)}</span
-          >
-          <span class="text-slate-400"
-            >{m.plan_metric_income()}: {formatCurrency(plan.incomeAmount)}</span
-          >
-        </div>
       {/if}
     </div>
 

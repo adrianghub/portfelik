@@ -47,11 +47,6 @@ export function isCoreOnboardingComplete(progress: OnboardingProgress): boolean 
   return CORE_ONBOARDING_STEPS.every((id) => completed[id]);
 }
 
-/** @deprecated Use isCoreOnboardingComplete — reminders are optional. */
-export function isOnboardingComplete(progress: OnboardingProgress): boolean {
-  return isCoreOnboardingComplete(progress);
-}
-
 export function countCoreStepsDone(progress: OnboardingProgress): number {
   const completed = progress.completed ?? {};
   return CORE_ONBOARDING_STEPS.filter((id) => completed[id]).length;
