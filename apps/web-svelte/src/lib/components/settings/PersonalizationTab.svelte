@@ -137,39 +137,41 @@
     {/each}
   </div>
 
-  <div class="pt-2">
-    <h2 class="text-sm font-semibold text-slate-100">{m.avatar_heading()}</h2>
-    <p class="mt-1 text-xs text-slate-400">{m.avatar_desc()}</p>
-  </div>
+  {#if false}
+    <div class="pt-2">
+      <h2 class="text-sm font-semibold text-slate-100">{m.avatar_heading()}</h2>
+      <p class="mt-1 text-xs text-slate-400">{m.avatar_desc()}</p>
+    </div>
 
-  <div class="grid grid-cols-4 gap-3 sm:grid-cols-6">
-    <button
-      type="button"
-      onclick={() => chooseAvatar(undefined)}
-      disabled={avatarMutation.isPending}
-      aria-pressed={selectedAvatar === null}
-      class="focus-visible:ring-accent flex aspect-square items-center justify-center rounded-2xl border bg-slate-900/60 px-1 text-center text-xs font-medium text-slate-300 transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-60"
-      style={selectedAvatar === null
-        ? "border-color: rgba(255,255,255,0.4)"
-        : "border-color: rgba(255,255,255,0.05)"}
-    >
-      {m.avatar_default()}
-    </button>
-    {#each AVATAR_PRESET_IDS as id (id)}
-      {@const active = id === selectedAvatar}
+    <div class="grid grid-cols-4 gap-3 sm:grid-cols-6">
       <button
         type="button"
-        onclick={() => chooseAvatar(id)}
+        onclick={() => chooseAvatar(undefined)}
         disabled={avatarMutation.isPending}
-        aria-pressed={active}
-        aria-label={id}
-        class="focus-visible:ring-accent aspect-square overflow-hidden rounded-2xl border bg-slate-800 transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-60"
-        style={active
+        aria-pressed={selectedAvatar === null}
+        class="focus-visible:ring-accent flex aspect-square items-center justify-center rounded-2xl border bg-slate-900/60 px-1 text-center text-xs font-medium text-slate-300 transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-60"
+        style={selectedAvatar === null
           ? "border-color: rgba(255,255,255,0.4)"
           : "border-color: rgba(255,255,255,0.05)"}
       >
-        <img src={avatarSrc(id)} alt="" class="h-full w-full object-cover" />
+        {m.avatar_default()}
       </button>
-    {/each}
-  </div>
+      {#each AVATAR_PRESET_IDS as id (id)}
+        {@const active = id === selectedAvatar}
+        <button
+          type="button"
+          onclick={() => chooseAvatar(id)}
+          disabled={avatarMutation.isPending}
+          aria-pressed={active}
+          aria-label={id}
+          class="focus-visible:ring-accent aspect-square overflow-hidden rounded-2xl border bg-slate-800 transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-60"
+          style={active
+            ? "border-color: rgba(255,255,255,0.4)"
+            : "border-color: rgba(255,255,255,0.05)"}
+        >
+          <img src={avatarSrc(id)} alt="" class="h-full w-full object-cover" />
+        </button>
+      {/each}
+    </div>
+  {/if}
 </div>

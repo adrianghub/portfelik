@@ -19,7 +19,6 @@
   import { applyAccent } from "$lib/theme/accent-presets";
   import { setupNotificationSync } from "$lib/services/notification-sync";
   import {
-    autoSubscribePush,
     registerServiceWorker,
     requestAndSubscribePush,
     unsubscribeFromPush,
@@ -145,7 +144,6 @@
         }
       })
       .catch(() => {});
-    autoSubscribePush(authUser.id).catch(() => {});
   }
 
   onMount(() => {
