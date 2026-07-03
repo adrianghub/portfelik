@@ -11,27 +11,21 @@
   import DashboardViewToolbar from "$lib/components/dashboard/DashboardViewToolbar.svelte";
   import SpendHistoryChart from "$lib/components/dashboard/charts/SpendHistoryChart.svelte";
   import * as m from "$lib/paraglide/messages";
-  import DashboardOnboardingChecklist from "$lib/components/dashboard/DashboardOnboardingChecklist.svelte";
   import DemoShowcaseBanner from "$lib/components/onboarding/DemoShowcaseBanner.svelte";
   import GlossarySheet from "$lib/components/ui/GlossarySheet.svelte";
-  import { track, trackOnce } from "$lib/analytics";
+  import { track } from "$lib/analytics";
   import { fetchLastCommittedImportSession } from "$lib/services/bank-import";
-  import { clearDemoData, canSeedDemo, hasDemoData, seedDemoData } from "$lib/services/demo-data";
+  import { clearDemoData, hasDemoData } from "$lib/services/demo-data";
+  import { resetGuidedTourForReplay } from "$lib/services/guided-tour-actions";
   import { fetchFinancialSnapshot } from "$lib/services/financial-snapshots";
   import { getBankImportReminder } from "$lib/profile-settings";
   import { fetchPlans } from "$lib/services/plans";
   import { updateProfile, fetchProfile } from "$lib/services/profiles";
   import {
-    buildOnboardingSteps,
-    countCoreStepsDone,
-    CORE_ONBOARDING_STEPS,
     deriveOnboardingFromSignals,
-    isCoreOnboardingComplete,
-    mergeOnboardingProgress,
     onboardingCompletionDelta,
-    readOnboardingDismissedLocal,
     readOnboardingProgress,
-    writeOnboardingDismissedLocal,
+    mergeOnboardingProgress,
   } from "$lib/services/onboarding-progress";
   import { fetchMyGroupRoles, fetchUserGroups } from "$lib/services/groups";
   import {
@@ -76,7 +70,7 @@
   import { MediaQuery } from "svelte/reactivity";
   import { untrack } from "svelte";
   import { ChevronDown } from "lucide-svelte";
-  import { dailyGreeting, dailyQuote } from "$lib/dashboard-daily";
+  import { dailyGreeting } from "$lib/dashboard-daily";
 
   const isDesktop = new MediaQuery("(min-width: 640px)");
   let historyExpanded = $state(untrack(() => isDesktop.current));
@@ -84,7 +78,6 @@
   let spendingExpanded = $state(false);
 
   const greeting = dailyGreeting();
-  const quote = dailyQuote();
 
   type Period = DashboardPeriod;
   const period = $derived(parseDashboardPeriod($page.url.searchParams));
@@ -273,25 +266,11 @@
     });
   });
 
-  const showOnboarding = $derived(
-    !!profileQuery.data &&
-      !readOnboardingDismissedLocal() &&
-      !storedOnboarding.dismissed &&
-      !isCoreOnboardingComplete(onboardingProgress)
-  );
-
-  const onboardingSteps = $derived(buildOnboardingSteps(onboardingProgress));
-  const onboardingCoreDone = $derived(countCoreStepsDone(onboardingProgress));
-
   const demoActive = $derived(
     hasDemoData({
       transactions: demoProbeQuery.data ?? [],
       plans: plansQuery.data ?? [],
     })
-  );
-
-  const showDemoSeedCta = $derived(
-    showOnboarding && canSeedDemo(txCountQuery.data ?? 0) && !demoActive
   );
 
   let glossaryOpen = $state(false);
@@ -319,11 +298,6 @@
     },
   }));
 
-  $effect(() => {
-    if (!showOnboarding) return;
-    trackOnce("onboarding_started", { step_count: CORE_ONBOARDING_STEPS.length });
-  });
-
   let onboardingPersistKey = $state("");
 
   $effect(() => {
@@ -336,39 +310,6 @@
     persistOnboardingMutation.mutate(delta);
   });
 
-  const dismissOnboardingMutation = createMutation(() => ({
-    mutationFn: async () => {
-      if (!userId || !profileQuery.data) return;
-      writeOnboardingDismissedLocal();
-      const next = mergeOnboardingProgress(storedOnboarding, {
-        dismissed: true,
-        completed: onboardingProgress.completed,
-      });
-      await updateProfile(userId, {
-        settings: {
-          ...profileQuery.data.settings,
-          onboarding: next as unknown as Json,
-        },
-      });
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["profile"] });
-    },
-  }));
-
-  const seedDemoMutation = createMutation(() => ({
-    mutationFn: seedDemoData,
-    onSuccess: async (result) => {
-      track("demo_loaded", { row_count: result.inserted });
-      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      await queryClient.invalidateQueries({ queryKey: ["plans"] });
-      await queryClient.invalidateQueries({ queryKey: ["transactions", "demo-probe"] });
-      await queryClient.invalidateQueries({ queryKey: ["transactions", "count-probe"] });
-      toast.success(m.demo_loaded_toast());
-    },
-    onError: (err) => toastError(err),
-  }));
-
   const clearDemoMutation = createMutation(() => ({
     mutationFn: clearDemoData,
     onSuccess: async (result) => {
@@ -378,6 +319,18 @@
       await queryClient.invalidateQueries({ queryKey: ["transactions", "demo-probe"] });
       await queryClient.invalidateQueries({ queryKey: ["transactions", "count-probe"] });
       toast.success(m.demo_cleared_toast());
+    },
+    onError: (err) => toastError(err),
+  }));
+
+  const restartTourMutation = createMutation(() => ({
+    mutationFn: async () => {
+      const profile = profileQuery.data;
+      if (!userId || !profile) throw new Error("no_profile");
+      await resetGuidedTourForReplay(queryClient, userId, profile);
+    },
+    onSuccess: () => {
+      toast.success(m.tour_restarted_toast());
     },
     onError: (err) => toastError(err),
   }));
@@ -621,7 +574,7 @@
   const upcomingTxs = $derived.by(() => {
     const real = scopedTxs.filter((tx) => tx.status === "upcoming" || tx.status === "overdue");
     const projected = forwardForecastTxs.filter((tx) => tx.projected);
-    return [...real, ...projected].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 5);
+    return [...real, ...projected].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 3);
   });
 
   const overdueCount = $derived(scopedTxs.filter((tx) => tx.status === "overdue").length);
@@ -664,7 +617,7 @@
 </svelte:head>
 
 <div class="container mx-auto max-w-4xl min-w-0 space-y-4 px-4 py-6 md:max-w-5xl">
-  <!-- Header - mobile (single line greeting + quote underneath) -->
+  <!-- Header - mobile -->
   <div class="md:hidden">
     <p class="truncate text-base font-medium text-slate-100">
       {#if profileQuery.data}
@@ -672,9 +625,6 @@
       {:else}
         &nbsp;
       {/if}
-    </p>
-    <p class="mt-1 line-clamp-2 text-xs text-slate-400 italic">
-      {quote}
     </p>
   </div>
 
@@ -689,7 +639,6 @@
       <h1 class="text-hero font-semibold text-slate-100">
         {m.dashboard_title()}
       </h1>
-      <p class="mt-1 max-w-xl text-sm text-slate-400 italic">{quote}</p>
     </div>
   </div>
 
@@ -706,19 +655,9 @@
   {#if demoActive}
     <DemoShowcaseBanner
       onclear={() => clearDemoMutation.mutate()}
+      onrestart={() => restartTourMutation.mutate()}
       clearing={clearDemoMutation.isPending}
-    />
-  {/if}
-
-  {#if showOnboarding}
-    <DashboardOnboardingChecklist
-      steps={onboardingSteps}
-      coreDone={onboardingCoreDone}
-      onDismiss={() => dismissOnboardingMutation.mutate()}
-      onNavigate={(href) => void goto(href)}
-      showDemoCta={showDemoSeedCta}
-      demoLoading={seedDemoMutation.isPending}
-      onLoadDemo={() => seedDemoMutation.mutate()}
+      restarting={restartTourMutation.isPending}
     />
   {/if}
 
@@ -731,84 +670,80 @@
   {:else if txQuery.isError}
     <QueryError error={txQuery.error} onRetry={() => txQuery.refetch()} />
   {:else}
-  <div class="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 md:items-stretch">
-    <DashboardBalanceHero
-      periodLabel={activePeriodLabel}
-      {summary}
-      {savingsRatio}
-      spent={spendingInsight.spent}
-      categories={spendingInsight.categories}
-      {showForecastNote}
-      forecastNet={forecastSummary?.net}
-      {transactionsHref}
-      onOpenGlossary={openGlossary}
-      bind:breakdownOpen={balanceExpanded}
-    />
-
-    <DashboardSpendingInsight
-      insight={spendingInsight}
-      {period}
-      goalSplit={goalSpendingSplit}
-      bind:expanded={spendingExpanded}
-      categoryHref={(id) => (id ? transactionsHref({ categoryId: id }) : transactionsHref())}
-    />
-  </div>
-
-  <!-- Multi-period spend comparison (last 6 weeks/months/years) -->
-  <div class="mt-4">
-    {#if isDesktop.current}
-      <SpendHistoryChart
-        buckets={combinedHistoryBuckets}
-        onselectperiod={selectHistoryPeriod}
+    <div class="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 md:items-start">
+      <DashboardBalanceHero
+        periodLabel={activePeriodLabel}
+        {summary}
+        {savingsRatio}
+        spent={spendingInsight.spent}
+        categories={spendingInsight.categories}
+        {showForecastNote}
+        forecastNet={forecastSummary?.net}
+        {transactionsHref}
         onOpenGlossary={openGlossary}
+        bind:breakdownOpen={balanceExpanded}
       />
-    {:else}
-      <div class="rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur">
-        <button
-          type="button"
-          class="flex w-full items-center justify-between gap-3 p-4"
-          aria-expanded={historyExpanded}
-          onclick={() => (historyExpanded = !historyExpanded)}
-        >
-          <span class="text-sm font-medium text-slate-300">{m.dashboard_history_title()}</span>
-          <ChevronDown
-            size={17}
-            strokeWidth={1.8}
-            class={cn(
-              "text-slate-400 transition-transform duration-300 ease-out",
-              historyExpanded && "rotate-180"
-            )}
-            aria-hidden="true"
-          />
-        </button>
-        <div
-          class={cn("expand-grid", historyExpanded && "expand-grid--open")}
-          aria-hidden={!historyExpanded}
-        >
-          <div class="expand-grid-inner">
-            <div class="expand-grid-panel px-2 pb-2">
-              <SpendHistoryChart
-                buckets={combinedHistoryBuckets}
-                onselectperiod={selectHistoryPeriod}
-                onOpenGlossary={openGlossary}
-              />
+
+      <DashboardSpendingInsight
+        insight={spendingInsight}
+        {period}
+        goalSplit={goalSpendingSplit}
+        bind:expanded={spendingExpanded}
+        categoryHref={(id) => (id ? transactionsHref({ categoryId: id }) : transactionsHref())}
+      />
+    </div>
+
+    <!-- Multi-period spend comparison (last 6 weeks/months/years) -->
+    <div class="mt-4">
+      {#if isDesktop.current}
+        <SpendHistoryChart
+          buckets={combinedHistoryBuckets}
+          onselectperiod={selectHistoryPeriod}
+          onOpenGlossary={openGlossary}
+        />
+      {:else}
+        <div class="rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur">
+          <button
+            type="button"
+            class="flex w-full items-center justify-between gap-3 p-4"
+            aria-expanded={historyExpanded}
+            onclick={() => (historyExpanded = !historyExpanded)}
+          >
+            <span class="text-sm font-medium text-slate-300">{m.dashboard_history_title()}</span>
+            <ChevronDown
+              size={17}
+              strokeWidth={1.8}
+              class={cn(
+                "text-slate-400 transition-transform duration-300 ease-out",
+                historyExpanded && "rotate-180"
+              )}
+              aria-hidden="true"
+            />
+          </button>
+          <div
+            class={cn("expand-grid", historyExpanded && "expand-grid--open")}
+            aria-hidden={!historyExpanded}
+          >
+            <div class="expand-grid-inner">
+              <div class="expand-grid-panel px-2 pb-2">
+                <SpendHistoryChart
+                  buckets={combinedHistoryBuckets}
+                  onselectperiod={selectHistoryPeriod}
+                  onOpenGlossary={openGlossary}
+                />
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    {/if}
-  </div>
+      {/if}
+    </div>
   {/if}
 
   <!-- Status band -->
   <section class="mt-4">
     <h2 class="mb-1.5 text-sm font-medium text-slate-400">{m.dashboard_status_band()}</h2>
     <div class="grid min-w-0 grid-cols-1 items-stretch gap-2 sm:grid-cols-2">
-      <DashboardActions
-        {overdueCount}
-        insight={spendingInsight}
-        periodKey={bounds.start}
-      />
+      <DashboardActions {overdueCount} insight={spendingInsight} periodKey={bounds.start} />
       <DashboardPlanProgress />
       <div class="grid min-w-0 grid-cols-1 gap-2 sm:col-span-2 sm:grid-cols-2">
         <DashboardImportHealth />

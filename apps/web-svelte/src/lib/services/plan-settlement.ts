@@ -519,9 +519,7 @@ export function computePlanProgress(input: {
   const savedAmount = incomeAmount;
   const targetAmount = input.targetAmount ?? null;
   const remaining =
-    targetAmount != null && targetAmount > 0
-      ? Math.max(0, targetAmount - savedAmount)
-      : null;
+    targetAmount != null && targetAmount > 0 ? Math.max(0, targetAmount - savedAmount) : null;
   const monthsRem = input.endDate ? calendarMonthsUntil(input.endDate) : null;
   const isActive =
     input.startDate && input.endDate

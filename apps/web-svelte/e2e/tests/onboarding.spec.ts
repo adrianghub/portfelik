@@ -6,6 +6,7 @@ test.describe("onboarding hardening", () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
       localStorage.removeItem("onboarding-dismissed");
+      localStorage.removeItem("guided-tour-progress");
     });
     await injectFakeSession(page);
     await mockSupabaseAPI(page);
@@ -77,13 +78,13 @@ test.describe("onboarding hardening", () => {
     });
   });
 
-  test("shows checklist and navigates import CTA", async ({ page }) => {
+  test("shows guided tour welcome on dashboard", async ({ page }) => {
     await page.goto("/dashboard");
-    await expect(page.getByRole("heading", { name: "Pierwsze kroki" })).toBeVisible({
+    await expect(page.getByRole("dialog", { name: "Poznaj aplikację" })).toBeVisible({
       timeout: 10000,
     });
-    await page.getByRole("button", { name: /Zaimportuj wyciąg/ }).click();
-    await expect(page).toHaveURL(/\/import/);
+    await page.getByRole("button", { name: "Wiem co robię." }).click();
+    await expect(page.getByRole("dialog", { name: "Poznaj aplikację" })).toBeHidden();
   });
 
   test("opens glossary from settings", async ({ page }) => {

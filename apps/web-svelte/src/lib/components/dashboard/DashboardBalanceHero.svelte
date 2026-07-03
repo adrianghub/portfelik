@@ -1,12 +1,18 @@
 <script lang="ts">
   import InfoTooltip from "$lib/components/ui/InfoTooltip.svelte";
   import type { CategoryInsight } from "$lib/services/spending-insight";
-  import { categoryRingSegments, categorySharePct } from "$lib/services/spending-category-display";
+  import {
+    categoryRingSegments,
+    categorySharePct,
+    DASHBOARD_PREVIEW_CATEGORIES,
+  } from "$lib/services/spending-category-display";
   import type { MonthlySummary } from "$lib/types";
   import { cn, formatCurrency } from "$lib/utils";
   import * as m from "$lib/paraglide/messages";
   import { MediaQuery } from "svelte/reactivity";
   import { ChevronDown } from "lucide-svelte";
+  import Dialog from "$lib/components/ui/Dialog.svelte";
+  import DashboardSeeMoreButton from "$lib/components/dashboard/DashboardSeeMoreButton.svelte";
 
   const isDesktop = new MediaQuery("(min-width: 640px)");
   const isMdLayout = new MediaQuery("(min-width: 768px)");
@@ -36,6 +42,7 @@
   } = $props();
 
   let ringSlotWidth = $state(0);
+  let ringLegendDialogOpen = $state(false);
 
   function mobileRingSize(width: number): number {
     const basis = width > 0 ? width : 280;
@@ -43,11 +50,11 @@
   }
 
   const ringSize = $derived(
-    isMdLayout.current ? 268 : isDesktop.current ? 228 : mobileRingSize(ringSlotWidth)
+    isMdLayout.current ? 240 : isDesktop.current ? 228 : mobileRingSize(ringSlotWidth)
   );
   const stroke = $derived(
     isMdLayout.current
-      ? 13
+      ? 12
       : isDesktop.current
         ? 11
         : ringSize >= 270
@@ -85,6 +92,7 @@
       };
     })
   );
+  const previewRingLegend = $derived(ringLegend.slice(0, DASHBOARD_PREVIEW_CATEGORIES));
 
   const netPositive = $derived((summary?.net ?? 0) >= 0);
   const showMobileRingStats = $derived(!isDesktop.current && !breakdownOpen);
@@ -256,53 +264,84 @@
   {/if}
 {/snippet}
 
-{#snippet ringLegendBlock(compact = false)}
-  <div
-    class={cn(
-      "rounded-xl border border-white/5 bg-white/[0.02]",
-      compact ? "px-2.5 py-2" : "px-3 py-2.5"
-    )}
-  >
-    <p class="text-eyebrow text-slate-400">{m.dashboard_balance_ring_legend_title()}</p>
-
-    {#if ringLegend.length > 0}
-      <ul class={cn("space-y-1", compact ? "mt-1.5" : "mt-2")}>
-        {#each ringLegend as seg (seg.key)}
-          <li>
-            <a
-              href={seg.href}
-              class="focus-visible:ring-accent flex min-w-0 items-center gap-2 rounded-lg px-1 py-0.5 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
-            >
-              <span
-                class="h-2 w-2 shrink-0 rounded-full ring-1 ring-white/10 sm:h-2.5 sm:w-2.5"
-                style="background-color: {seg.color}"
-                aria-hidden="true"
-              ></span>
-              <span class="min-w-0 flex-1 truncate text-xs text-slate-200 sm:text-sm"
-                >{seg.label}</span
-              >
-              <span class="shrink-0 text-right text-[11px] tabular-nums sm:text-xs">
-                <span class="font-medium text-slate-100">{formatCurrency(seg.amount)}</span>
-                {#if seg.sharePct > 0}
-                  <span class="ml-1 text-slate-400">
-                    {m.dashboard_balance_ring_spent_share({ pct: seg.sharePct })}
-                  </span>
-                {/if}
-              </span>
-            </a>
-          </li>
-        {/each}
-      </ul>
-    {:else if spent <= 0}
-      <p class="mt-1.5 text-[11px] text-slate-400 sm:text-xs">
-        {m.dashboard_balance_ring_no_spending()}
-      </p>
+{#snippet ringLegendBlock(variant: "box" | "footer" = "box", segments = ringLegend)}
+  <div class={cn(variant === "footer" && "mt-4 border-t border-white/5 pt-4")}>
+    {#if variant === "box"}
+      <div class="rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5">
+        {@render ringLegendContent(variant, segments)}
+      </div>
     {:else}
-      <p class="mt-1.5 text-[11px] text-slate-400 sm:text-xs">
-        {m.dashboard_balance_ring_savings_arc()}
-      </p>
+      {@render ringLegendContent(variant, segments)}
+    {/if}
+    {#if variant === "footer" && ringLegend.length > segments.length}
+      <DashboardSeeMoreButton onclick={() => (ringLegendDialogOpen = true)} />
     {/if}
   </div>
+{/snippet}
+
+{#snippet ringLegendContent(variant: "box" | "footer", segments: typeof ringLegend)}
+  <p class="text-eyebrow text-slate-400">{m.dashboard_balance_ring_legend_title()}</p>
+
+  {#if segments.length > 0}
+    <ul class={cn("space-y-1.5", variant === "footer" ? "mt-2" : "mt-2")}>
+      {#each segments as seg (seg.key)}
+        <li>
+          <a
+            href={seg.href}
+            class="focus-visible:ring-accent flex min-w-0 items-center gap-2 rounded-lg px-1 py-0.5 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+          >
+            <span
+              class={cn(
+                "h-2 w-2 shrink-0 rounded-full ring-1 ring-white/10",
+                variant === "box" && "sm:h-2.5 sm:w-2.5"
+              )}
+              style="background-color: {seg.color}"
+              aria-hidden="true"
+            ></span>
+            <span
+              class={cn(
+                "min-w-0 flex-1 truncate text-slate-300",
+                variant === "footer" ? "text-sm" : "text-xs text-slate-200 sm:text-sm"
+              )}>{seg.label}</span
+            >
+            <span
+              class={cn(
+                "shrink-0 tabular-nums",
+                variant === "footer"
+                  ? "text-sm text-slate-400"
+                  : "text-right text-[11px] sm:text-xs"
+              )}
+            >
+              <span class="font-medium text-slate-100">{formatCurrency(seg.amount)}</span>
+              {#if seg.sharePct > 0}
+                <span class="ml-1 text-slate-400">
+                  {m.dashboard_balance_ring_spent_share({ pct: seg.sharePct })}
+                </span>
+              {/if}
+            </span>
+          </a>
+        </li>
+      {/each}
+    </ul>
+  {:else if spent <= 0}
+    <p
+      class={cn(
+        "text-slate-400",
+        variant === "footer" ? "mt-2 text-sm" : "mt-1.5 text-[11px] sm:text-xs"
+      )}
+    >
+      {m.dashboard_balance_ring_no_spending()}
+    </p>
+  {:else}
+    <p
+      class={cn(
+        "text-slate-400",
+        variant === "footer" ? "mt-2 text-sm" : "mt-1.5 text-[11px] sm:text-xs"
+      )}
+    >
+      {m.dashboard_balance_ring_savings_arc()}
+    </p>
+  {/if}
 {/snippet}
 
 {#snippet balanceBreakdown()}
@@ -383,12 +422,13 @@
       </div>
     </div>
 
-    {@render ringLegendBlock(false)}
+    {@render ringLegendBlock("box")}
   {/if}
 {/snippet}
 
 <section
   class="relative flex h-full min-w-0 flex-col overflow-x-clip rounded-3xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur"
+  data-tour-id="tour-balance-ring"
 >
   {#if summary && !netPositive}
     <span
@@ -410,13 +450,13 @@
   </div>
 
   {#if summary}
-    <div class="relative mt-3 flex min-w-0 flex-1 flex-col gap-2 sm:gap-3">
-      <div
-        class="relative flex w-full min-w-0 flex-1 items-center justify-center sm:min-h-[12rem] md:min-h-[14rem]"
-        bind:clientWidth={ringSlotWidth}
-      >
-        <div class="group relative shrink-0" style="width: {ringSize}px; height: {ringSize}px">
-          {#if isDesktop.current}
+    <div class="relative mt-3 flex min-h-0 min-w-0 flex-1 flex-col">
+      {#if isDesktop.current}
+        <div
+          class="flex min-h-0 flex-1 items-center justify-center"
+          bind:clientWidth={ringSlotWidth}
+        >
+          <div class="group relative shrink-0" style="width: {ringSize}px; height: {ringSize}px">
             <div
               class="relative size-full overflow-hidden rounded-full"
               role="img"
@@ -424,13 +464,21 @@
             >
               {@render ringLayers()}
               <div
-                class="pointer-events-none absolute inset-0 z-[3] flex flex-col items-center justify-center px-5 text-center"
+                class="pointer-events-none absolute inset-0 z-[3] flex flex-col items-center justify-center px-4 text-center"
               >
                 {@render ringCenterLabel()}
                 {@render ringCenterStatsDesktop()}
               </div>
             </div>
-          {:else}
+          </div>
+        </div>
+
+        <div class="w-full shrink-0">
+          {@render ringLegendBlock("footer", previewRingLegend)}
+        </div>
+      {:else}
+        <div class="flex justify-center" bind:clientWidth={ringSlotWidth}>
+          <div class="group relative shrink-0" style="width: {ringSize}px; height: {ringSize}px">
             <button
               type="button"
               class="focus-visible:ring-accent relative size-full cursor-pointer overflow-hidden rounded-full focus-visible:ring-2 focus-visible:outline-none"
@@ -470,15 +518,9 @@
                 {/if}
               </div>
             </button>
-          {/if}
+          </div>
         </div>
-      </div>
 
-      {#if isDesktop.current}
-        <div class="w-full min-w-0">
-          {@render ringLegendBlock(true)}
-        </div>
-      {:else}
         <div
           class={cn(
             "expand-grid expand-grid--stagger w-full min-w-0",
@@ -520,3 +562,11 @@
     </div>
   {/if}
 </section>
+
+<Dialog
+  open={ringLegendDialogOpen}
+  onclose={() => (ringLegendDialogOpen = false)}
+  title={m.dashboard_all_categories_title()}
+>
+  {@render ringLegendContent("footer", ringLegend)}
+</Dialog>

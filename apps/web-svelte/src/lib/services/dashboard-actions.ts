@@ -70,6 +70,7 @@ const PRIORITY: Record<DashboardActionKind, number> = {
 };
 
 const DEFAULT_LIMIT = 5;
+export const DASHBOARD_ACTIONS_PREVIEW = 3;
 
 function attentionMeta(id: string): { kind: DashboardActionKind; dismissKey: string } {
   if (id === "overdue") return { kind: "overdue", dismissKey: "overdue" };

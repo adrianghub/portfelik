@@ -192,6 +192,7 @@
   <div
     bind:this={stickyRef}
     class="relative sticky top-14 z-30 -mx-4 border-b border-white/5 bg-slate-950"
+    data-tour-id="tour-transaction-filters"
   >
     <div class="flex items-center gap-2 px-4 py-2">
       <button

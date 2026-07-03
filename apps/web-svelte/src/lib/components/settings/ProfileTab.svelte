@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
+  import { createMutation, useQueryClient } from "@tanstack/svelte-query";
   import { updateProfile } from "$lib/services/profiles";
   import { deleteAccount } from "$lib/services/groups";
   import { buildAccountExport, downloadAccountExport } from "$lib/services/account-export";
@@ -16,9 +16,8 @@
   import { getBankImportReminder, type ImportReminderCadence } from "$lib/profile-settings";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import GlossarySheet from "$lib/components/ui/GlossarySheet.svelte";
-  import { track, trackOnce } from "$lib/analytics";
-  import { canSeedDemo, clearDemoData, hasDemoData, seedDemoData } from "$lib/services/demo-data";
-  import { fetchPlans } from "$lib/services/plans";
+  import DemoWalkthroughPanel from "$lib/components/onboarding/DemoWalkthroughPanel.svelte";
+  import { trackOnce } from "$lib/analytics";
   import { toast } from "svelte-sonner";
   import { toastError } from "$lib/toast-error";
   import * as m from "$lib/paraglide/messages";
@@ -54,73 +53,6 @@
   let showDeleteConfirm = $state(false);
   let glossaryOpen = $state(false);
   let deleteError = $state<string | null>(null);
-
-  const txCountQuery = createQuery(() => ({
-    queryKey: ["transactions", "count-probe"],
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from("transactions")
-        .select("id", { count: "exact", head: true });
-      if (error) throw error;
-      return count ?? 0;
-    },
-    enabled: !!profile,
-  }));
-
-  const demoProbeQuery = createQuery(() => ({
-    queryKey: ["transactions", "demo-probe"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("id, description")
-        .like("description", "Demo:%")
-        .limit(5);
-      if (error) throw error;
-      return data ?? [];
-    },
-    enabled: !!profile,
-  }));
-
-  const plansQuery = createQuery(() => ({
-    queryKey: ["plans"],
-    queryFn: fetchPlans,
-    enabled: !!profile,
-  }));
-
-  const demoActive = $derived(
-    hasDemoData({
-      transactions: demoProbeQuery.data ?? [],
-      plans: plansQuery.data ?? [],
-    })
-  );
-
-  const canLoadDemo = $derived(canSeedDemo(txCountQuery.data ?? 0));
-
-  const seedDemoMutation = createMutation(() => ({
-    mutationFn: seedDemoData,
-    onSuccess: async (result) => {
-      track("demo_loaded", { row_count: result.inserted });
-      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      await queryClient.invalidateQueries({ queryKey: ["plans"] });
-      await queryClient.invalidateQueries({ queryKey: ["transactions", "count-probe"] });
-      await queryClient.invalidateQueries({ queryKey: ["transactions", "demo-probe"] });
-      toast.success(m.demo_loaded_toast());
-    },
-    onError: (err) => toastError(err),
-  }));
-
-  const clearDemoMutation = createMutation(() => ({
-    mutationFn: clearDemoData,
-    onSuccess: async (result) => {
-      track("demo_cleared", { row_count: result.deleted });
-      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      await queryClient.invalidateQueries({ queryKey: ["plans"] });
-      await queryClient.invalidateQueries({ queryKey: ["transactions", "count-probe"] });
-      await queryClient.invalidateQueries({ queryKey: ["transactions", "demo-probe"] });
-      toast.success(m.demo_cleared_toast());
-    },
-    onError: (err) => toastError(err),
-  }));
 
   const deleteMutation = createMutation(() => ({
     mutationFn: deleteAccount,
@@ -346,7 +278,10 @@
     </div>
   {/if}
 
-  <div class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur">
+  <div
+    class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
+    data-tour-id="tour-import-reminders"
+  >
     <div class="space-y-3 px-4 py-3">
       <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
         <div class="min-w-0">
@@ -384,40 +319,12 @@
     </div>
   </div>
 
-  <div class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur">
-    <div
-      class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
-    >
-      <div class="min-w-0">
-        <p class="text-sm font-medium text-slate-100">{m.demo_settings_title()}</p>
-        <p class="mt-0.5 text-xs text-slate-400">{m.demo_settings_body()}</p>
-      </div>
-      <div class="flex flex-wrap gap-2">
-        {#if demoActive}
-          <button
-            type="button"
-            class="shrink-0 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-white/5 disabled:opacity-50"
-            disabled={clearDemoMutation.isPending}
-            onclick={() => clearDemoMutation.mutate()}
-          >
-            {m.demo_settings_clear()}
-          </button>
-        {:else}
-          <button
-            type="button"
-            class="shrink-0 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-white/5 disabled:opacity-50"
-            disabled={!canLoadDemo || seedDemoMutation.isPending}
-            title={!canLoadDemo ? m.demo_seed_blocked() : undefined}
-            onclick={() => seedDemoMutation.mutate()}
-          >
-            {m.demo_settings_load()}
-          </button>
-        {/if}
-      </div>
-    </div>
-  </div>
+  <DemoWalkthroughPanel {profile} />
 
-  <div class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur">
+  <div
+    class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
+    data-tour-id="tour-glossary"
+  >
     <div
       class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
     >

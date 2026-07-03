@@ -25,7 +25,10 @@
   import { fetchMyGroupRoles, fetchUserGroups } from "$lib/services/groups";
   import { fetchLinkedTransactionIds } from "$lib/services/plan-settlement";
   import { computeLedgerSummary } from "$lib/services/transaction-cashflow";
-  import { canManageTransaction, isQuickSettleEligible } from "$lib/services/transaction-permissions";
+  import {
+    canManageTransaction,
+    isQuickSettleEligible,
+  } from "$lib/services/transaction-permissions";
   import {
     computeSummary,
     deleteTransaction,
@@ -1064,20 +1067,22 @@
   {:else if txQuery.isError}
     <QueryError error={txQuery.error} onRetry={() => txQuery.refetch()} />
   {:else if visibleTxs}
-    <TransactionTable
-      transactions={renderedTxs}
-      {currentUserId}
-      canManage={txCanManage}
-      emptyLabel={tableEmptyLabel}
-      emptyHint={tableEmptyHint}
-      showEmptyActions={showTableEmptyActions}
-      onemptyadd={openAdd}
-      bind:selectedIds
-      stickyHeaderTop={`calc(3.5rem + ${stickyFiltersHeight}px)`}
-      onrowclick={(tx) => (sheetTx = tx)}
-      onsettle={quickSettle}
-      ondelete={(id: string) => (deleteTargetId = id)}
-    />
+    <div data-tour-id="tour-transaction-table">
+      <TransactionTable
+        transactions={renderedTxs}
+        {currentUserId}
+        canManage={txCanManage}
+        emptyLabel={tableEmptyLabel}
+        emptyHint={tableEmptyHint}
+        showEmptyActions={showTableEmptyActions}
+        onemptyadd={openAdd}
+        bind:selectedIds
+        stickyHeaderTop={`calc(3.5rem + ${stickyFiltersHeight}px)`}
+        onrowclick={(tx) => (sheetTx = tx)}
+        onsettle={quickSettle}
+        ondelete={(id: string) => (deleteTargetId = id)}
+      />
+    </div>
     {#if renderedTxCount < visibleTxs.length}
       <div use:txSentinel class="h-px" aria-hidden="true"></div>
     {/if}

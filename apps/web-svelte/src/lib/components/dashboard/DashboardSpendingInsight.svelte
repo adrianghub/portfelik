@@ -3,6 +3,7 @@
   import { formatDeltaPct, isSignificantDeltaPct } from "$lib/services/spending-category-display";
   import SpendingCategoryBreakdown from "$lib/components/dashboard/SpendingCategoryBreakdown.svelte";
   import { formatCurrency, cn } from "$lib/utils";
+  import { guidedTourUi } from "$lib/guided-tour/ui.svelte";
   import * as m from "$lib/paraglide/messages";
   import { ChevronDown } from "lucide-svelte";
   import { MediaQuery } from "svelte/reactivity";
@@ -43,53 +44,56 @@
   {#if insight.spent === 0 && insight.categories.length === 0}
     <p class="text-sm text-slate-400">{m.dashboard_spending_empty()}</p>
   {:else}
-    {#if goalSplit?.hasGoalActivity}
-      <div
-        class="space-y-1 rounded-xl border border-emerald-500/20 bg-emerald-950/20 px-3 py-2 text-sm"
-      >
-        <p class="font-medium text-emerald-300 tabular-nums">
-          {m.dashboard_spending_goal_slice({
-            amount: formatCurrency(goalSplit.celeExpenses + goalSplit.goalLinkedIncome),
-          })}
-        </p>
-        {#if goalSplit.goalLinkedIncome > 0}
-          <p class="text-xs text-emerald-400/80 tabular-nums">
-            {m.dashboard_spending_goal_income({
-              amount: formatCurrency(goalSplit.goalLinkedIncome),
+    <div class="flex flex-col gap-2">
+      {#if goalSplit?.hasGoalActivity}
+        <div
+          class="space-y-1 rounded-xl border border-emerald-500/20 bg-emerald-950/20 px-3 py-2 text-sm"
+        >
+          <p class="font-medium text-emerald-300 tabular-nums">
+            {m.dashboard_spending_goal_slice({
+              amount: formatCurrency(goalSplit.celeExpenses + goalSplit.goalLinkedIncome),
             })}
           </p>
-        {/if}
-        <p class="text-xs text-slate-400 tabular-nums">
-          {m.dashboard_spending_other_expenses({
-            amount: formatCurrency(goalSplit.otherExpenses),
-          })}
+          {#if goalSplit.goalLinkedIncome > 0}
+            <p class="text-xs text-emerald-400/80 tabular-nums">
+              {m.dashboard_spending_goal_income({
+                amount: formatCurrency(goalSplit.goalLinkedIncome),
+              })}
+            </p>
+          {/if}
+          <p class="text-xs text-slate-400 tabular-nums">
+            {m.dashboard_spending_other_expenses({
+              amount: formatCurrency(goalSplit.otherExpenses),
+            })}
+          </p>
+        </div>
+      {/if}
+      {#if !insight.isFirstPeriod && isSignificantDeltaPct(insight.spentDeltaPct)}
+        <p class={cn("text-sm", insight.spentDeltaPct >= 0 ? "text-rose-400" : "text-emerald-400")}>
+          {formatDeltaPct(insight.spentDeltaPct)}
+          {vsPrevLabel}
         </p>
-      </div>
-    {/if}
-    {#if !insight.isFirstPeriod && isSignificantDeltaPct(insight.spentDeltaPct)}
-      <p class={cn("text-sm", insight.spentDeltaPct >= 0 ? "text-rose-400" : "text-emerald-400")}>
-        {formatDeltaPct(insight.spentDeltaPct)}
-        {vsPrevLabel}
-      </p>
-    {/if}
+      {/if}
 
-    <SpendingCategoryBreakdown
-      categories={insight.categories}
-      biggestMovers={insight.biggestMovers}
-      spent={insight.spent}
-      isFirstPeriod={insight.isFirstPeriod}
-      categoryHref={(id) => categoryHref(id)}
-    />
+      <SpendingCategoryBreakdown
+        categories={insight.categories}
+        biggestMovers={insight.biggestMovers}
+        spent={insight.spent}
+        isFirstPeriod={insight.isFirstPeriod}
+        categoryHref={(id) => categoryHref(id)}
+      />
 
-    {#if insight.isFirstPeriod}
-      <p class="mt-2 text-xs text-slate-400">{m.dashboard_spending_first_period()}</p>
-    {/if}
+      {#if insight.isFirstPeriod && (insight.spent === 0 || insight.categories.length === 0) && !guidedTourUi.hideFirstPeriodHint}
+        <p class="text-sm text-slate-400">{m.dashboard_spending_first_period()}</p>
+      {/if}
+    </div>
   {/if}
 {/snippet}
 
 <section
   id="dashboard-spending"
-  class="flex h-full min-w-0 flex-col overflow-x-clip rounded-3xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur"
+  data-tour-id="tour-spending-insight"
+  class="flex min-w-0 flex-col overflow-x-clip rounded-3xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur"
 >
   {#if isMdLayout.current}
     <div class="flex items-baseline justify-between gap-3">
@@ -100,7 +104,7 @@
         </span>
       {/if}
     </div>
-    <div class="mt-2 min-w-0 flex-1 space-y-2">
+    <div class="mt-2">
       {@render spendingBody()}
     </div>
   {:else}

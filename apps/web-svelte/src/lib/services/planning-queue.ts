@@ -1,9 +1,6 @@
 import * as m from "$lib/paraglide/messages";
 import type { MonthlySurplusSummary } from "$lib/services/financial-surplus";
-import {
-  currentMonthSavePace,
-  pickMostUrgentOffTrackSave,
-} from "$lib/services/plan-save-pace";
+import { currentMonthSavePace, pickMostUrgentOffTrackSave } from "$lib/services/plan-save-pace";
 import type { PlanDebtTerms, PlanSummary } from "$lib/types";
 import { formatCurrency } from "$lib/utils";
 
@@ -31,10 +28,7 @@ export function buildPlanningQueueActions(input: {
     });
   }
 
-  const offTrackSave = pickMostUrgentOffTrackSave(
-    summaries,
-    (p) => p.bucket === "active"
-  );
+  const offTrackSave = pickMostUrgentOffTrackSave(summaries, (p) => p.bucket === "active");
   if (offTrackSave) {
     const plan = offTrackSave;
     const paceSoFar = currentMonthSavePace(plan);

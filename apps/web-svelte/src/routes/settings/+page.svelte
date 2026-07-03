@@ -59,7 +59,7 @@
       {m.settings_title()}
     </button>
 
-    <div role="tabpanel">
+    <div role="tabpanel" data-tour-id={activeTab === "groups" ? "tour-settings-groups" : undefined}>
       {#if activeTab === "categories"}
         <CategoriesTab />
       {:else if activeTab === "rules"}
@@ -117,7 +117,10 @@
       <div class="space-y-4">
         {#each SETTINGS_SECTIONS as section (section.id)}
           {@const Icon = section.icon}
-          <section class="rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur">
+          <section
+            class="rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
+            data-tour-id={section.id === "finance" ? "tour-settings-finance" : undefined}
+          >
             <div class="flex items-center gap-2 px-4 pt-4 pb-2">
               <Icon size={16} class="text-slate-400" aria-hidden="true" />
               <h2 class="text-eyebrow text-slate-400">{section.label()}</h2>

@@ -1,7 +1,10 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
   import { supabase } from "$lib/supabase";
-  import { canManageTransaction, isQuickSettleEligible } from "$lib/services/transaction-permissions";
+  import {
+    canManageTransaction,
+    isQuickSettleEligible,
+  } from "$lib/services/transaction-permissions";
   import type { GroupMemberRole, TransactionWithCategory } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
   import { recurrenceSummary } from "$lib/recurrence";

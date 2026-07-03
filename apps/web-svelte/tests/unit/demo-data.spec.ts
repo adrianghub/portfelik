@@ -13,9 +13,9 @@ describe("demo-data guards", () => {
     expect(isDemoPlanName("Demo: Cel")).toBe(true);
   });
 
-  it("allows seed only on an empty ledger", () => {
-    expect(canSeedDemo(0)).toBe(true);
-    expect(canSeedDemo(3)).toBe(false);
+  it("allows seed when demo is not active", () => {
+    expect(canSeedDemo({ demoActive: false })).toBe(true);
+    expect(canSeedDemo({ demoActive: true })).toBe(false);
   });
 
   it("detects active demo data", () => {

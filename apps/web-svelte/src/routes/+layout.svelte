@@ -12,6 +12,7 @@
   import Breadcrumbs from "$lib/components/ui/Breadcrumbs.svelte";
   import OfflineIndicator from "$lib/components/ui/OfflineIndicator.svelte";
   import InstallPrompt from "$lib/components/ui/InstallPrompt.svelte";
+  import GuidedTourHost from "$lib/components/onboarding/GuidedTourHost.svelte";
   import { motionDuration } from "$lib/motion";
   import { initPlausible } from "$lib/analytics";
   import * as m from "$lib/paraglide/messages";
@@ -267,6 +268,7 @@
         </div>
       {/key}
     </main>
+    <GuidedTourHost {profile} {userId} />
     <InstallPrompt />
   {:else}
     {@render children()}

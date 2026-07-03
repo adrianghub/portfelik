@@ -11,6 +11,12 @@
   import { formatCurrency } from "$lib/utils";
   import { createQuery } from "@tanstack/svelte-query";
   import { Sparkles } from "lucide-svelte";
+  import Dialog from "$lib/components/ui/Dialog.svelte";
+  import DashboardSeeMoreButton from "$lib/components/dashboard/DashboardSeeMoreButton.svelte";
+
+  const DASHBOARD_PLANS_PREVIEW = 3;
+
+  let plansDialogOpen = $state(false);
 
   const progressQuery = createQuery(() => ({
     queryKey: ["plan-progress"],
@@ -67,7 +73,75 @@
     }
     return { pct: null, label: formatCurrency(plan.linkedCount > 0 ? plan.savedAmount : 0) };
   }
+
+  const previewPlans = $derived(activePlans.slice(0, DASHBOARD_PLANS_PREVIEW));
 </script>
+
+{#snippet planRow(plan: PlanSettlementProgress)}
+  {@const emoji = getPlanEmoji(undefined, plan.planName)}
+  {@const terms = plan.kind === "debt" ? debtTermsQuery.data?.[plan.planId] : undefined}
+  {@const display = progressDisplay(plan, terms)}
+  <li>
+    <a
+      href={plan.eligibleCount > 0 ? `/plans/${plan.planId}/settle` : `/plans/${plan.planId}`}
+      class="block rounded-xl border border-white/5 px-3 py-1.5 transition-colors hover:bg-white/5"
+    >
+      <div class="flex min-w-0 items-center gap-2">
+        <div
+          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-800 text-sm"
+          aria-hidden="true"
+        >
+          {#if emoji}
+            {emoji}
+          {:else}
+            <span class="text-xs font-semibold text-slate-400">
+              {plan.planName.charAt(0).toUpperCase()}
+            </span>
+          {/if}
+        </div>
+        <span class="min-w-0 flex-1 truncate text-sm font-medium text-slate-200">
+          {plan.planName}
+        </span>
+        {#if plan.eligibleCount > 0}
+          <span
+            class="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400"
+          >
+            <Sparkles size={8} strokeWidth={2} aria-hidden="true" />
+            {plan.eligibleCount}
+          </span>
+        {/if}
+      </div>
+      <div class="mt-1 flex min-w-0 items-center justify-between gap-2 text-xs">
+        <span class="min-w-0 truncate text-slate-400 tabular-nums">{display.label}</span>
+        {#if display.pct != null && display.pct > 0}
+          <span class="text-accent shrink-0 font-semibold tabular-nums">{display.pct}%</span>
+        {/if}
+      </div>
+      {#if display.pct != null && display.pct > 0}
+        <div
+          class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-800"
+          role="progressbar"
+          aria-valuenow={display.pct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={m.dashboard_plan_progress_bar({
+            name: plan.planName,
+            pct: display.pct,
+          })}
+        >
+          <div
+            class="bg-accent-gradient h-full rounded-full transition-all"
+            style={`width: ${display.pct}%`}
+          ></div>
+        </div>
+      {:else if plan.linkedCount > 0}
+        <p class="mt-1 text-xs text-slate-400">
+          {m.dashboard_plan_progress_linked_count({ count: plan.linkedCount })}
+        </p>
+      {/if}
+    </a>
+  </li>
+{/snippet}
 
 {#if progressQuery.isPending}
   <div class="h-28 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
@@ -87,71 +161,24 @@
       </a>
     </div>
     <ul class="space-y-1.5">
-      {#each activePlans.slice(0, 2) as plan (plan.planId)}
-        {@const emoji = getPlanEmoji(undefined, plan.planName)}
-        {@const terms = plan.kind === "debt" ? debtTermsQuery.data?.[plan.planId] : undefined}
-        {@const display = progressDisplay(plan, terms)}
-        <li>
-          <a
-            href={plan.eligibleCount > 0 ? `/plans/${plan.planId}/settle` : `/plans/${plan.planId}`}
-            class="block rounded-xl border border-white/5 px-3 py-1.5 transition-colors hover:bg-white/5"
-          >
-            <div class="flex min-w-0 items-center gap-2">
-              <div
-                class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-800 text-sm"
-                aria-hidden="true"
-              >
-                {#if emoji}
-                  {emoji}
-                {:else}
-                  <span class="text-xs font-semibold text-slate-400">
-                    {plan.planName.charAt(0).toUpperCase()}
-                  </span>
-                {/if}
-              </div>
-              <span class="min-w-0 flex-1 truncate text-sm font-medium text-slate-200">
-                {plan.planName}
-              </span>
-              {#if plan.eligibleCount > 0}
-                <span
-                  class="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400"
-                >
-                  <Sparkles size={8} strokeWidth={2} aria-hidden="true" />
-                  {plan.eligibleCount}
-                </span>
-              {/if}
-            </div>
-            <div class="mt-1 flex min-w-0 items-center justify-between gap-2 text-xs">
-              <span class="min-w-0 truncate text-slate-400 tabular-nums">{display.label}</span>
-              {#if display.pct != null && display.pct > 0}
-                <span class="text-accent shrink-0 font-semibold tabular-nums">{display.pct}%</span>
-              {/if}
-            </div>
-            {#if display.pct != null && display.pct > 0}
-              <div
-                class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-800"
-                role="progressbar"
-                aria-valuenow={display.pct}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-label={m.dashboard_plan_progress_bar({
-                  name: plan.planName,
-                  pct: display.pct,
-                })}
-              >
-                <div
-                  class="bg-accent-gradient h-full rounded-full transition-all"
-                  style={`width: ${display.pct}%`}
-                ></div>
-              </div>
-            {:else if plan.linkedCount > 0}
-              <p class="mt-1 text-xs text-slate-400">
-                {m.dashboard_plan_progress_linked_count({ count: plan.linkedCount })}
-              </p>
-            {/if}
-          </a>
-        </li>
+      {#each previewPlans as plan (plan.planId)}
+        {@render planRow(plan)}
       {/each}
     </ul>
+    {#if activePlans.length > previewPlans.length}
+      <DashboardSeeMoreButton onclick={() => (plansDialogOpen = true)} />
+    {/if}
   </section>
 {/if}
+
+<Dialog
+  open={plansDialogOpen}
+  onclose={() => (plansDialogOpen = false)}
+  title={m.dashboard_all_plans_title()}
+>
+  <ul class="space-y-1.5">
+    {#each activePlans as plan (plan.planId)}
+      {@render planRow(plan)}
+    {/each}
+  </ul>
+</Dialog>

@@ -751,14 +751,16 @@
           {m.plans_section_save_empty()}
         </p>
       {:else}
-        {#each savePlans as plan (plan.id)}
-          <PlanCard
-            {plan}
-            categoryName={categoryMap.get(plan.category_id ?? "")}
-            groupName={groupMap.get(plan.group_id ?? "")}
-            onedit={planCanManage(plan) ? resetForm : undefined}
-            ondelete={planCanManage(plan) ? (id) => (deleteTargetId = id) : undefined}
-          />
+        {#each savePlans as plan, i (plan.id)}
+          <div data-tour-id={i === 0 ? "tour-plan-save" : undefined}>
+            <PlanCard
+              {plan}
+              categoryName={categoryMap.get(plan.category_id ?? "")}
+              groupName={groupMap.get(plan.group_id ?? "")}
+              onedit={planCanManage(plan) ? resetForm : undefined}
+              ondelete={planCanManage(plan) ? (id) => (deleteTargetId = id) : undefined}
+            />
+          </div>
         {/each}
       {/if}
     </section>
@@ -774,16 +776,18 @@
           {m.plans_section_debt_empty()}
         </p>
       {:else}
-        {#each debtPlans as plan (plan.id)}
-          <PlanCard
-            {plan}
-            debtTerms={debtTermsQuery.data?.[plan.id]}
-            linkedExpenses={progressQuery.data?.[plan.id]?.linkedExpenses ?? []}
-            categoryName={categoryMap.get(plan.category_id ?? "")}
-            groupName={groupMap.get(plan.group_id ?? "")}
-            onedit={planCanManage(plan) ? resetForm : undefined}
-            ondelete={planCanManage(plan) ? (id) => (deleteTargetId = id) : undefined}
-          />
+        {#each debtPlans as plan, i (plan.id)}
+          <div data-tour-id={i === 0 ? "tour-plan-settle" : undefined}>
+            <PlanCard
+              {plan}
+              debtTerms={debtTermsQuery.data?.[plan.id]}
+              linkedExpenses={progressQuery.data?.[plan.id]?.linkedExpenses ?? []}
+              categoryName={categoryMap.get(plan.category_id ?? "")}
+              groupName={groupMap.get(plan.group_id ?? "")}
+              onedit={planCanManage(plan) ? resetForm : undefined}
+              ondelete={planCanManage(plan) ? (id) => (deleteTargetId = id) : undefined}
+            />
+          </div>
         {/each}
       {/if}
     </section>
