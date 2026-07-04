@@ -146,7 +146,7 @@ The in-app notification list is read straight from `public.notifications` via Ta
 
 1. If any Portfelik tab is **visible** (`WindowClient.visibilityState === 'visible'`):
    - **Skip** `showNotification` (no OS banner while the app is open).
-   - `postMessage` to all open clients + `BroadcastChannel('portfelik-notifications')` with `{ type: 'invalidate' }`.
+   - `postMessage` to all open clients + `BroadcastChannel('jakstoimy-notifications')` with `{ type: 'invalidate' }`.
    - The focused tab may show a subtle in-app toast (`+layout.svelte`); the bell refetches everywhere.
 2. If all tabs are hidden/closed:
    - `showNotification` with `tag: notificationId` so duplicate sends replace rather than stack.

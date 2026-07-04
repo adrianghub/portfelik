@@ -1,6 +1,12 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { trackOnce } from "$lib/analytics";
+  import {
+    isAndroid,
+    isIosSafari,
+    isStandalonePwa,
+    PWA_INSTALL_PROMPT_KEY,
+  } from "$lib/services/pwa";
   import * as m from "$lib/paraglide/messages";
 
   // Not in the TS DOM lib yet - minimal shape of the Chromium install event.
@@ -9,26 +15,21 @@
     userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
   }
 
-  const STORAGE_KEY = "pwa_install_prompted_at";
   const COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
 
   let deferred = $state<BeforeInstallPromptEvent | null>(null);
   let isIOS = $state(false);
+  let isAndroidDevice = $state(false);
   // Hidden until onMount confirms the app is installable and not already installed.
   let dismissed = $state(true);
 
-  const show = $derived(!dismissed && (deferred !== null || isIOS));
-
-  function isStandalone(): boolean {
-    return (
-      window.matchMedia?.("(display-mode: standalone)").matches === true ||
-      (navigator as unknown as { standalone?: boolean }).standalone === true
-    );
-  }
+  const show = $derived(
+    !dismissed && !isStandalonePwa() && (deferred !== null || isIOS || isAndroidDevice)
+  );
 
   function recentlyPrompted(): boolean {
     try {
-      const last = Number(localStorage.getItem(STORAGE_KEY)) || 0;
+      const last = Number(localStorage.getItem(PWA_INSTALL_PROMPT_KEY)) || 0;
       return last > 0 && Date.now() - last < COOLDOWN_MS;
     } catch {
       return false;
@@ -37,7 +38,7 @@
 
   function dismiss(): void {
     try {
-      localStorage.setItem(STORAGE_KEY, String(Date.now()));
+      localStorage.setItem(PWA_INSTALL_PROMPT_KEY, String(Date.now()));
     } catch {
       // localStorage unavailable (private mode) - fall back to in-memory only.
     }
@@ -45,18 +46,16 @@
   }
 
   onMount(() => {
-    // Already installed, or shown recently - stay quiet.
-    if (isStandalone() || recentlyPrompted()) return;
+    if (isStandalonePwa() || recentlyPrompted()) return;
     dismissed = false;
 
-    const ua = navigator.userAgent;
-    // iOS Safari never fires beforeinstallprompt - it needs manual "Add to Home Screen".
-    // Exclude in-app browsers (Chrome/Firefox/Edge on iOS) which cannot install either.
-    isIOS = /iphone|ipad|ipod/i.test(ua) && !/crios|fxios|edgios/i.test(ua);
+    isIOS = isIosSafari();
+    isAndroidDevice = isAndroid();
 
     const onBeforeInstall = (e: Event) => {
       e.preventDefault();
       deferred = e as BeforeInstallPromptEvent;
+      trackOnce("pwa_install_prompt_shown");
     };
     const onInstalled = () => {
       trackOnce("pwa_installed");
@@ -64,6 +63,11 @@
     };
     window.addEventListener("beforeinstallprompt", onBeforeInstall);
     window.addEventListener("appinstalled", onInstalled);
+
+    if (!deferred && (isIOS || isAndroidDevice)) {
+      trackOnce("pwa_install_prompt_shown");
+    }
+
     return () => {
       window.removeEventListener("beforeinstallprompt", onBeforeInstall);
       window.removeEventListener("appinstalled", onInstalled);
@@ -93,6 +97,8 @@
         <p class="text-sm text-slate-100">{m.pwa_install_text()}</p>
         {#if isIOS && !deferred}
           <p class="mt-0.5 text-xs text-slate-400">{m.pwa_install_ios_hint()}</p>
+        {:else if isAndroidDevice && !deferred}
+          <p class="mt-0.5 text-xs text-slate-400">{m.pwa_install_android_hint()}</p>
         {/if}
       </div>
       {#if deferred}

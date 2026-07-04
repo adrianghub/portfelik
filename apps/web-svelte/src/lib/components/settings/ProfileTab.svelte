@@ -4,11 +4,15 @@
   import { deleteAccount } from "$lib/services/groups";
   import { buildAccountExport, downloadAccountExport } from "$lib/services/account-export";
   import {
+    deletePushSubscriptionByEndpoint,
+    fetchPushSubscriptions,
     getPushNotificationState,
     requestAndSubscribePush,
     unsubscribeFromPush,
     type PushNotificationState,
+    type PushSubscriptionRow,
   } from "$lib/services/push";
+  import { clearInstallPromptCooldown, shouldDeferBrowserPush } from "$lib/services/pwa";
   import { supabase } from "$lib/supabase";
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
@@ -78,11 +82,28 @@
 
   let pushState = $state<PushNotificationState>("disabled");
   let notifSupported = $state(true);
+  let pushSubscriptions = $state<PushSubscriptionRow[]>([]);
+  let currentPushEndpoint = $state<string | null>(null);
+  const deferBrowserPush = $derived(shouldDeferBrowserPush());
+
+  async function refreshPushSubscriptions() {
+    if (!notifSupported) return;
+    try {
+      pushSubscriptions = await fetchPushSubscriptions();
+      const registration = await navigator.serviceWorker.ready;
+      const sub = await registration.pushManager.getSubscription();
+      currentPushEndpoint = sub?.endpoint ?? null;
+    } catch {
+      pushSubscriptions = [];
+      currentPushEndpoint = null;
+    }
+  }
 
   async function refreshPushState() {
     notifSupported = "Notification" in window && "serviceWorker" in navigator;
     if (!notifSupported) return;
     pushState = await getPushNotificationState();
+    await refreshPushSubscriptions();
   }
 
   onMount(() => {
@@ -90,9 +111,9 @@
   });
 
   const subMutation = createMutation(() => ({
-    mutationFn: async () => {
+    mutationFn: async (opts?: { allowBrowserOnMobile?: boolean }) => {
       if (!profile) throw new Error("no_profile");
-      const ok = await requestAndSubscribePush(profile.id);
+      const ok = await requestAndSubscribePush(profile.id, opts);
       if (!ok) throw new Error("permission_denied");
     },
     onSuccess: async () => {
@@ -105,6 +126,30 @@
       toastError(err);
     },
   }));
+
+  const deletePushSubMutation = createMutation(() => ({
+    mutationFn: (endpoint: string) => deletePushSubscriptionByEndpoint(endpoint),
+    onSuccess: async () => {
+      await refreshPushState();
+      toast.success(m.toast_push_sub_deleted());
+    },
+    onError: (err) => toastError(err),
+  }));
+
+  function pushDeviceLabel(sub: PushSubscriptionRow): string {
+    const ua = sub.user_agent ?? "";
+    if (/brave/i.test(ua)) return m.profile_push_device_brave();
+    if (/chrome/i.test(ua) && !/edg/i.test(ua)) return m.profile_push_device_chrome();
+    if (/samsungbrowser/i.test(ua)) return m.profile_push_device_samsung();
+    if (/firefox/i.test(ua)) return m.profile_push_device_firefox();
+    if (/mobile/i.test(ua)) return m.profile_push_device_mobile();
+    return m.profile_push_device_desktop();
+  }
+
+  function showInstallPromptAgain(): void {
+    clearInstallPromptCooldown();
+    toast.message(m.profile_pwa_install_prompt_reset());
+  }
 
   const unsubMutation = createMutation(() => ({
     mutationFn: unsubscribeFromPush,
@@ -153,8 +198,8 @@
     // reminder also registers OS push in the same user gesture so the alert actually reaches
     // the phone instead of only the in-app row. Push stays optional - if permission is
     // denied/blocked, the reminder still lands in the in-app notification row.
-    if (enabled && notifSupported && pushState === "disabled") {
-      subMutation.mutate();
+    if (enabled && notifSupported && pushState === "disabled" && !deferBrowserPush) {
+      subMutation.mutate(undefined);
     }
   }
 
@@ -267,16 +312,75 @@
         {:else if pushState !== "blocked"}
           <button
             type="button"
-            onclick={() => subMutation.mutate()}
+            onclick={() =>
+              subMutation.mutate(deferBrowserPush ? { allowBrowserOnMobile: true } : undefined)}
             disabled={subMutation.isPending}
             class="bg-accent-gradient shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-900 transition-transform hover:brightness-110 disabled:opacity-50"
           >
-            {subMutation.isPending ? m.common_saving() : m.profile_notifications_enable()}
+            {subMutation.isPending
+              ? m.common_saving()
+              : deferBrowserPush
+                ? m.profile_notifications_enable_browser()
+                : m.profile_notifications_enable()}
           </button>
         {/if}
       </div>
+      {#if deferBrowserPush}
+        <p class="border-t border-white/5 px-4 py-2 text-xs text-slate-400">
+          {m.profile_push_install_first_hint()}
+        </p>
+      {/if}
+      {#if pushSubscriptions.length > 0}
+        <div class="space-y-2 border-t border-white/5 px-4 py-3">
+          <p class="text-xs font-medium text-slate-300">{m.profile_push_devices_title()}</p>
+          {#if pushSubscriptions.length > 1}
+            <p class="text-xs text-slate-400">{m.profile_push_devices_multi_hint()}</p>
+          {/if}
+          <ul class="space-y-2">
+            {#each pushSubscriptions as sub (sub.endpoint)}
+              <li class="flex items-center justify-between gap-2 text-xs">
+                <div class="min-w-0">
+                  <p class="font-medium text-slate-200">
+                    {pushDeviceLabel(sub)}
+                    {#if sub.endpoint === currentPushEndpoint}
+                      <span class="text-accent ml-1">({m.profile_push_device_current()})</span>
+                    {/if}
+                  </p>
+                  <p class="truncate text-slate-500">{sub.user_agent ?? sub.endpoint}</p>
+                </div>
+                <button
+                  type="button"
+                  onclick={() => deletePushSubMutation.mutate(sub.endpoint)}
+                  disabled={deletePushSubMutation.isPending}
+                  class="shrink-0 rounded-md border border-white/10 px-2 py-1 text-slate-400 hover:text-white disabled:opacity-40"
+                >
+                  {m.admin_push_sub_delete()}
+                </button>
+              </li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
     </div>
   {/if}
+
+  <div class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur">
+    <div
+      class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+    >
+      <div class="min-w-0">
+        <p class="text-sm font-medium text-slate-100">{m.profile_pwa_install_title()}</p>
+        <p class="mt-0.5 text-xs text-slate-400">{m.profile_pwa_install_hint()}</p>
+      </div>
+      <button
+        type="button"
+        onclick={showInstallPromptAgain}
+        class="shrink-0 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:bg-white/5"
+      >
+        {m.profile_pwa_install_show_again()}
+      </button>
+    </div>
+  </div>
 
   <div
     class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"

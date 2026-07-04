@@ -15,6 +15,10 @@
   import { formatDate } from "$lib/utils";
   import type { Notification } from "$lib/types";
   import { notificationTargetHref } from "$lib/notification-targets";
+  import {
+    isActionableNotification,
+    notificationSettleHref,
+  } from "$lib/services/notification-actions";
   import * as m from "$lib/paraglide/messages";
 
   interface Props {
@@ -83,6 +87,15 @@
     const diffH = Math.floor(diffMin / 60);
     if (diffH < 24) return `${diffH}h`;
     return formatDate(dateStr);
+  }
+
+  function handleSettleClick(notification: Notification, event: MouseEvent) {
+    event.stopPropagation();
+    const href = notificationSettleHref(notification);
+    if (!href) return;
+    if (!notification.read_at) markReadMutation.mutate(notification.id);
+    open = false;
+    void goto(href);
   }
 
   function handleNotificationClick(notification: Notification) {
@@ -174,6 +187,17 @@
               </span>
             </div>
             <div class="flex shrink-0 items-start gap-0.5">
+              {#if isActionableNotification(n)}
+                <button
+                  type="button"
+                  onclick={(event) => handleSettleClick(n, event)}
+                  class="{actionBtnClass} text-accent hover:text-accent font-medium"
+                  aria-label={m.transactions_quick_settle()}
+                  title={m.transactions_quick_settle()}
+                >
+                  {m.transactions_quick_settle_short()}
+                </button>
+              {/if}
               <button
                 type="button"
                 onclick={() => toggleRead(n)}

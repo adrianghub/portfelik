@@ -16,6 +16,7 @@ export type AnalyticsEvent =
   | "import_reminder_enabled"
   | "glossary_opened"
   | "pwa_installed"
+  | "pwa_install_prompt_shown"
   | "push_enabled";
 
 export type AnalyticsProps = Record<string, string | number | boolean>;
@@ -35,6 +36,7 @@ const MILESTONE_KEYS: Record<AnalyticsEvent, string> = {
   import_reminder_enabled: "analytics:import_reminder_enabled",
   glossary_opened: "analytics:glossary_opened",
   pwa_installed: "analytics:pwa_installed",
+  pwa_install_prompt_shown: "analytics:pwa_install_prompt_shown",
   push_enabled: "analytics:push_enabled",
 };
 

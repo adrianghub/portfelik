@@ -29,6 +29,7 @@
     canManageTransaction,
     isQuickSettleEligible,
   } from "$lib/services/transaction-permissions";
+  import { markNotificationRead } from "$lib/services/notifications";
   import {
     computeSummary,
     deleteTransaction,
@@ -517,6 +518,9 @@
   let dismissedRequestedTxId = $state<string | null>(null);
 
   const requestedTxId = $derived($page.url.searchParams.get("txId"));
+  const settleAction = $derived($page.url.searchParams.get("action"));
+  const settleNotificationId = $derived($page.url.searchParams.get("notificationId"));
+  let handledSettleKey = $state<string | null>(null);
   const requestedTxFromCurrentPage = $derived.by(() => {
     if (!requestedTxId || !txQuery.data) return null;
     return txQuery.data.find((t) => t.id === requestedTxId) ?? null;
@@ -714,6 +718,29 @@
   function quickSettle(tx: TransactionWithCategory) {
     settleMutation.mutate({ id: tx.id, prev: tx.status });
   }
+
+  $effect(() => {
+    if (settleAction !== "settle" || !requestedTxId) return;
+    const key = `${requestedTxId}:${settleNotificationId ?? ""}`;
+    if (handledSettleKey === key) return;
+    const match = requestedTxFromCurrentPage ?? requestedTxQuery.data;
+    if (!match || match.id !== requestedTxId) return;
+    handledSettleKey = key;
+
+    if (isQuickSettleEligible(match.status)) {
+      settleMutation.mutate({ id: match.id, prev: match.status });
+      if (settleNotificationId) {
+        void markNotificationRead(settleNotificationId);
+      }
+    } else {
+      sheetTx = match;
+    }
+
+    const params = new URLSearchParams($page.url.searchParams);
+    params.delete("action");
+    params.delete("notificationId");
+    void goto(`/transactions?${params.toString()}`, { replaceState: true });
+  });
 
   const bulkCategoryMutation = createMutation(() => ({
     mutationFn: (catId: string) => updateTransactionsCategory(manageableSelectedIds(), catId),
