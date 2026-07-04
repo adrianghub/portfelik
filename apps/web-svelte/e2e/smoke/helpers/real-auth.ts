@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { WELCOME_TOUR_SKIP_BUTTON } from '../../helpers/fixtures';
 
 const SUPABASE_URL = process.env.PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.PUBLIC_SUPABASE_ANON_KEY;
@@ -86,9 +87,67 @@ export async function injectRealSession(
   };
   await page.goto(baseURL);
   await page.evaluate(
-    ({ key, value }) => localStorage.setItem(key, JSON.stringify(value)),
-    { key: storageKey, value: sessionPayload },
+    ({ key, value, tourProgress }) => {
+      localStorage.setItem(key, JSON.stringify(value));
+      localStorage.setItem('guided-tour-progress', tourProgress);
+    },
+    {
+      key: storageKey,
+      value: sessionPayload,
+      tourProgress: JSON.stringify({ dismissed: true }),
+    },
   );
+}
+
+/** Persist tour dismissal on the smoke user's real profile (idempotent). */
+export async function ensureSmokeUserTourDismissed(
+  session: SmokeSession,
+): Promise<void> {
+  const { url, anonKey } = requireEnv();
+  const headers = {
+    apikey: anonKey,
+    Authorization: `Bearer ${session.accessToken}`,
+    'Content-Type': 'application/json',
+    Prefer: 'return=minimal',
+  };
+
+  const getRes = await fetch(
+    `${url}/rest/v1/profiles?id=eq.${session.userId}&select=settings`,
+    { headers: { apikey: anonKey, Authorization: `Bearer ${session.accessToken}` } },
+  );
+  if (!getRes.ok) {
+    throw new Error(
+      `Failed to read smoke profile (${getRes.status}): ${await getRes.text()}`,
+    );
+  }
+  const rows = (await getRes.json()) as Array<{ settings?: Record<string, unknown> }>;
+  const settings = rows[0]?.settings ?? {};
+  const guidedTour = (settings.guidedTour as Record<string, unknown> | undefined) ?? {};
+  if (guidedTour.dismissed === true) return;
+
+  const patchRes = await fetch(`${url}/rest/v1/profiles?id=eq.${session.userId}`, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify({
+      settings: {
+        ...settings,
+        guidedTour: { ...guidedTour, dismissed: true },
+      },
+    }),
+  });
+  if (!patchRes.ok) {
+    throw new Error(
+      `Failed to dismiss guided tour for smoke user (${patchRes.status}): ${await patchRes.text()}`,
+    );
+  }
+}
+
+/** Close the welcome dialog when a fresh profile or stale local state surfaces it. */
+export async function dismissWelcomeTourIfPresent(page: Page): Promise<void> {
+  const dialog = page.getByRole('dialog', { name: 'Poznaj aplikację' });
+  if (!(await dialog.isVisible().catch(() => false))) return;
+  await page.getByRole('button', { name: WELCOME_TOUR_SKIP_BUTTON }).click();
+  await dialog.waitFor({ state: 'hidden', timeout: 10000 });
 }
 
 /**

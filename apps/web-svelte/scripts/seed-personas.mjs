@@ -98,7 +98,7 @@ async function findUser(email) {
   }
 }
 
-async function ensureUser({ email, password, label, role }) {
+async function ensureUser({ email, password, label, role, dismissGuidedTour = false }) {
   const metadata = {
     user_metadata: { portfelik_persona: label, full_name: label },
     app_metadata: { role, portfelik_persona: label },
@@ -127,18 +127,28 @@ async function ensureUser({ email, password, label, role }) {
   const user = response.user;
   if (!user?.id || !user.email) throw new Error(`${label} user has no id/email.`);
 
+  const profileRow = {
+    id: user.id,
+    email: user.email,
+    name: label,
+    role,
+    updated_at: new Date().toISOString(),
+  };
+  if (dismissGuidedTour) {
+    const { data: existingProfile } = await supabase
+      .from("profiles")
+      .select("settings")
+      .eq("id", user.id)
+      .maybeSingle();
+    profileRow.settings = {
+      ...(existingProfile?.settings ?? {}),
+      guidedTour: { dismissed: true },
+    };
+  }
+
   await must(
     `upsert ${label} profile`,
-    supabase.from("profiles").upsert(
-      {
-        id: user.id,
-        email: user.email,
-        name: label,
-        role,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "id" }
-    )
+    supabase.from("profiles").upsert(profileRow, { onConflict: "id" })
   );
 
   return user;
@@ -525,6 +535,7 @@ function stagingPersonas() {
       label: "Portfelik Smoke",
       role: "user",
       withDemoRows: false,
+      dismissGuidedTour: true,
     },
     {
       email: process.env.STAGING_DEMO_EMAIL,
