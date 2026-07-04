@@ -4,7 +4,7 @@ export interface SavePaceFields {
   kind: string;
   monthlyNeeded: number | null;
   monthlyActual: number | null;
-  monthlyActualBasis: string;
+  monthlyActualBasis?: string;
 }
 
 export function currentMonthSavePace(
