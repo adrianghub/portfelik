@@ -1,6 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { MOCK_CATEGORIES, MOCK_PROFILE } from "../helpers/fixtures";
-import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
+import {
+  MOCK_CATEGORIES,
+  MOCK_PROFILE,
+  MOCK_PROFILE_FRESH_TOUR,
+  WELCOME_TOUR_SKIP_BUTTON,
+} from "../helpers/fixtures";
+import { fulfillSupabaseJson, injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
 
 test.describe("onboarding hardening", () => {
   test.beforeEach(async ({ page }) => {
@@ -72,18 +77,24 @@ test.describe("onboarding hardening", () => {
 
     await page.route("**/rest/v1/profiles**", async (route) => {
       if (route.request().method() === "PATCH") {
-        return route.fulfill({ status: 200, json: {} });
+        return fulfillSupabaseJson(route, MOCK_PROFILE);
       }
-      return route.fulfill({ status: 200, json: [MOCK_PROFILE] });
+      return fulfillSupabaseJson(route, MOCK_PROFILE);
     });
   });
 
   test("shows guided tour welcome on dashboard", async ({ page }) => {
+    await page.route("**/rest/v1/profiles**", async (route) => {
+      if (route.request().method() === "PATCH") {
+        return fulfillSupabaseJson(route, MOCK_PROFILE_FRESH_TOUR);
+      }
+      return fulfillSupabaseJson(route, MOCK_PROFILE_FRESH_TOUR);
+    });
     await page.goto("/dashboard");
     await expect(page.getByRole("dialog", { name: "Poznaj aplikację" })).toBeVisible({
       timeout: 10000,
     });
-    await page.getByRole("button", { name: "Wiem co robię." }).click();
+    await page.getByRole("button", { name: WELCOME_TOUR_SKIP_BUTTON }).click();
     await expect(page.getByRole("dialog", { name: "Poznaj aplikację" })).toBeHidden();
   });
 
@@ -96,7 +107,7 @@ test.describe("onboarding hardening", () => {
 
   test("loads demo from settings on empty ledger", async ({ page }) => {
     await page.goto("/settings?tab=profile");
-    await page.getByRole("button", { name: "Załaduj przykład" }).click();
+    await page.getByRole("button", { name: "Załaduj przykład", exact: true }).click();
     await expect(page.getByText("Załadowano dane przykładowe.")).toBeVisible();
   });
 });

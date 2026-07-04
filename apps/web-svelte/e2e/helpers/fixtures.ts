@@ -11,15 +11,25 @@ export const MOCK_USER = {
   updated_at: "2024-01-01T00:00:00Z",
 };
 
+/** Default E2E profile — guided tour dismissed so the welcome dialog does not block other specs. */
 export const MOCK_PROFILE = {
   id: TEST_USER_ID,
   email: "test@portfelik.test",
   name: "Test User",
   role: "user",
-  settings: {},
+  settings: { guidedTour: { dismissed: true } },
   created_at: "2024-01-01T00:00:00Z",
   updated_at: "2024-01-01T00:00:00Z",
 };
+
+/** Profile with no tour progress — use only in specs that assert the welcome dialog. */
+export const MOCK_PROFILE_FRESH_TOUR = {
+  ...MOCK_PROFILE,
+  settings: {},
+};
+
+/** Matches `tour_welcome_import` in messages/pl.json */
+export const WELCOME_TOUR_SKIP_BUTTON = "Świadomie pomijam, wiem co robić.";
 
 export const MOCK_CATEGORIES = [
   { id: "cat-1", name: "Jedzenie", type: "expense", user_id: null },

@@ -1,8 +1,22 @@
 import type { Page, Route } from "@playwright/test";
 import { expect, test } from "@playwright/test";
+import { TEST_USER_ID } from "../helpers/fixtures";
 import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
 
-const OVERDUE_ACTION = /zaległ/i;
+const OVERDUE_ACTION = /po terminie/i;
+
+const OVERDUE_TX = {
+  id: "tx-overdue-1",
+  description: "Zaległa rata",
+  amount: 100,
+  type: "expense",
+  status: "overdue",
+  date: "2026-07-01",
+  category_id: "cat-1",
+  category_name: "Inne wydatki",
+  user_id: TEST_USER_ID,
+  group_id: null,
+};
 
 type DismissRow = { action_key: string; dismissed_until: string | null };
 
@@ -38,29 +52,9 @@ test.beforeEach(async ({ page }) => {
   await mockSupabaseAPI(page);
   await mockDismissals(page);
 
-  await page.route("**/rest/v1/transactions_with_category**", (route) => {
-    const url = route.request().url();
-    if (url.includes("status=eq.overdue")) {
-      return route.fulfill({
-        status: 200,
-        json: [
-          {
-            id: "tx-overdue-1",
-            description: "Zaległa rata",
-            amount: 100,
-            type: "expense",
-            status: "overdue",
-            date: "2026-06-01",
-            category_id: "cat-1",
-            category_name: "Inne wydatki",
-            user_id: "00000000-0000-0000-0000-000000000001",
-            group_id: null,
-          },
-        ],
-      });
-    }
-    return route.fulfill({ status: 200, json: [] });
-  });
+  await page.route("**/rest/v1/transactions_with_category**", (route) =>
+    route.fulfill({ status: 200, json: [OVERDUE_TX] })
+  );
 });
 
 test("surfaces a deterministic action that deep-links to its resolution", async ({ page }) => {

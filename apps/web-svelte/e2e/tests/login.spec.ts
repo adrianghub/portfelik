@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
+import { fulfillSupabaseJson, injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
 import { MOCK_CATEGORIES, MOCK_PROFILE, MOCK_TRANSACTIONS, MOCK_USER } from "../helpers/fixtures";
 
 async function mockPasswordLogin(page: Page) {
@@ -28,7 +28,7 @@ async function mockPasswordLogin(page: Page) {
 
   await page.route("**/rest/v1/**", async (route) => {
     const url = route.request().url();
-    if (url.includes("/profiles")) return route.fulfill({ status: 200, json: [MOCK_PROFILE] });
+    if (url.includes("/profiles")) return fulfillSupabaseJson(route, MOCK_PROFILE);
     if (url.includes("/categories")) return route.fulfill({ status: 200, json: MOCK_CATEGORIES });
     if (url.includes("/transactions_with_category")) {
       return route.fulfill({ status: 200, json: MOCK_TRANSACTIONS });

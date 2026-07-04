@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Page, Route } from "@playwright/test";
 import {
   MOCK_CATEGORIES,
   MOCK_DEBT_TERMS,
@@ -43,6 +43,22 @@ const STORAGE_KEYS = [
   "sb-localhost-auth-token",
 ] as const;
 
+/** Supabase `.single()` sends Accept: application/vnd.pgrst.object+json — must not return an array. */
+function wantsObjectResponse(route: Route): boolean {
+  const accept = route.request().headers()["accept"] ?? "";
+  return accept.includes("application/vnd.pgrst.object+json");
+}
+
+export async function fulfillSupabaseJson(
+  route: Route,
+  rows: unknown | unknown[],
+  status = 200
+): Promise<void> {
+  const list = Array.isArray(rows) ? rows : [rows];
+  const json = wantsObjectResponse(route) ? list[0] : list;
+  await route.fulfill({ status, json });
+}
+
 /**
  * Injects a fake Supabase session into localStorage before the page loads.
  * Must be called before page.goto().
@@ -56,12 +72,47 @@ export async function injectFakeSession(page: Page): Promise<void> {
     refresh_token: "fake-refresh-token",
     user: MOCK_USER,
   };
+  await page.addInitScript(() => {
+    localStorage.setItem("guided-tour-progress", JSON.stringify({ dismissed: true }));
+  });
   await page.addInitScript(
     ({ keys, value }) => {
       for (const key of keys) localStorage.setItem(key, JSON.stringify(value));
     },
     { keys: STORAGE_KEYS, value: session }
   );
+  await stubServiceWorkerForTests(page);
+}
+
+/** Playwright has no real SW — without this, ProfileTab push probes hang on `serviceWorker.ready`. */
+export async function stubServiceWorkerForTests(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    if (!("serviceWorker" in navigator)) return;
+
+    const fakeRegistration = {
+      pushManager: {
+        getSubscription: async () => null,
+        subscribe: async () => ({
+          endpoint: "https://example.com/push",
+          options: { applicationServerKey: null },
+          toJSON: () => ({
+            endpoint: "https://example.com/push",
+            keys: { p256dh: "x", auth: "y" },
+          }),
+          unsubscribe: async () => true,
+        }),
+      },
+      active: { scriptURL: "/sw.js" },
+      unregister: async () => true,
+    };
+
+    Object.defineProperty(navigator.serviceWorker, "ready", {
+      configurable: true,
+      get: () => Promise.resolve(fakeRegistration),
+    });
+
+    navigator.serviceWorker.register = async () => fakeRegistration;
+  });
 }
 
 /**
@@ -84,7 +135,10 @@ export async function mockSupabaseAPI(page: Page): Promise<void> {
 
       // ── Profiles ──────────────────────────────────────────────────────────
       if (url.includes("/profiles")) {
-        return route.fulfill({ status: 200, json: [MOCK_PROFILE] });
+        if (method === "PATCH") {
+          return fulfillSupabaseJson(route, MOCK_PROFILE);
+        }
+        return fulfillSupabaseJson(route, MOCK_PROFILE);
       }
 
       // ── Categories ────────────────────────────────────────────────────────
