@@ -45,53 +45,6 @@ export function topSpendingMovers(
   return movers.filter((c) => c.deltaAbs !== 0).slice(0, n);
 }
 
-export type CategoryRingLegendRow = {
-  key: string;
-  label: string;
-  amount: number;
-  sharePct: number;
-  color: string;
-};
-
-export function categoryRingLegendRows(
-  categories: CategoryInsight[],
-  spent: number,
-  otherLabel: string,
-  maxSegments = 4
-): CategoryRingLegendRow[] {
-  if (spent <= 0) return [];
-
-  const top = topSpendingCategories(categories, maxSegments);
-  if (top.length === 0) return [];
-
-  const rows: CategoryRingLegendRow[] = [];
-  let topSum = 0;
-
-  for (const [i, cat] of top.entries()) {
-    topSum += cat.total;
-    rows.push({
-      key: cat.categoryId,
-      label: cat.name,
-      amount: cat.total,
-      sharePct: categorySharePct(cat.total, spent),
-      color: CATEGORY_RING_COLORS[i % CATEGORY_RING_COLORS.length],
-    });
-  }
-
-  const remainder = spent - topSum;
-  if (remainder > 0.005) {
-    rows.push({
-      key: "__other__",
-      label: otherLabel,
-      amount: remainder,
-      sharePct: categorySharePct(remainder, spent),
-      color: CATEGORY_RING_OTHER_COLOR,
-    });
-  }
-
-  return rows;
-}
-
 export function categoryRingSegments(
   categories: CategoryInsight[],
   spent: number,

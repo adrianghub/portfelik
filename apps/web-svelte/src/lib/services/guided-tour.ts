@@ -118,14 +118,6 @@ export function sceneAt(index: number): GuidedTourScene | null {
   return TOUR_SCENES[index]!;
 }
 
-export function chapterIndex(chapter: TourChapterId): number {
-  return TOUR_CHAPTERS.indexOf(chapter);
-}
-
-export function sceneBodyKey(sceneId: string): string {
-  return `tour_scene_${sceneId.replace(".", "_")}`;
-}
-
 export function sceneRouteParts(route: string): { pathname: string; search: string } {
   const q = route.indexOf("?");
   if (q === -1) return { pathname: route, search: "" };

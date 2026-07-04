@@ -273,16 +273,6 @@ export async function openImportSession(input: {
   return data as ImportSession;
 }
 
-export async function fetchSession(id: string): Promise<ImportSession> {
-  const { data, error } = await supabase
-    .from("transaction_import_sessions")
-    .select("*")
-    .eq("id", id)
-    .single();
-  if (error) throw error;
-  return data as ImportSession;
-}
-
 export async function cancelImportSession(id: string): Promise<void> {
   const { error } = await supabase
     .from("transaction_import_sessions")

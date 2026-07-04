@@ -22,10 +22,6 @@ export function settlementTypesForPlanKind(kind: PlanKind): TransactionType[] {
   }
 }
 
-export function defaultSettlementTransactionType(kind: PlanKind): TransactionType {
-  return kind === "save" ? "income" : "expense";
-}
-
 export function resolveSettlementTypes(
   plan: Pick<Plan, "kind">,
   opts?: { type?: TransactionType | "all" }

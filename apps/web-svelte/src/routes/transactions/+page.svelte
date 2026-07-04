@@ -265,24 +265,27 @@
     )
   );
 
-  // filteredTxs: applies BOTH status filter AND group filter so it's the
-  // canonical "what the user is looking at" set used by summary,
-  // CategoryBreakdown, CSV export, etc.
+  function matchesScope(tx: { group_id: string | null }): boolean {
+    return (
+      groupFilter === "all" ||
+      (groupFilter === "own" ? tx.group_id === null : tx.group_id === groupFilter)
+    );
+  }
+
+  function matchesView(tx: { id: string; category_id: string }): boolean {
+    return viewFilter === "unlinked"
+      ? !linkedIds.has(tx.id)
+      : viewFilter === "inne"
+        ? inneCategoryIds.has(tx.category_id)
+        : true;
+  }
+
   const filteredTxs = $derived.by(() => {
     if (!txQuery.data) return undefined;
     return txQuery.data.filter((tx) => {
       const matchStatus = !statusSet || statusSet.has(tx.status);
       const matchType = !typeFilter || tx.type === typeFilter;
-      const matchGroup =
-        groupFilter === "all" ||
-        (groupFilter === "own" ? tx.group_id === null : tx.group_id === groupFilter);
-      const matchView =
-        viewFilter === "unlinked"
-          ? !linkedIds.has(tx.id)
-          : viewFilter === "inne"
-            ? inneCategoryIds.has(tx.category_id)
-            : true;
-      return matchStatus && matchType && matchGroup && matchView;
+      return matchStatus && matchType && matchesScope(tx) && matchesView(tx);
     });
   });
 
@@ -303,16 +306,7 @@
     const templates = (recurringTemplatesQuery.data ?? []).filter((tx) => {
       const matchType = !typeFilter || tx.type === typeFilter;
       const matchCategory = !categoryId || tx.category_id === categoryId;
-      const matchGroup =
-        groupFilter === "all" ||
-        (groupFilter === "own" ? tx.group_id === null : tx.group_id === groupFilter);
-      const matchView =
-        viewFilter === "unlinked"
-          ? !linkedIds.has(tx.id)
-          : viewFilter === "inne"
-            ? inneCategoryIds.has(tx.category_id)
-            : true;
-      return matchType && matchCategory && matchGroup && matchView;
+      return matchType && matchCategory && matchesScope(tx) && matchesView(tx);
     });
     return recurringProjectionsForTransactionRange({
       templates,
