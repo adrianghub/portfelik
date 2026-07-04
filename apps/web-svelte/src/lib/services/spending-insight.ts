@@ -43,7 +43,9 @@ const TOP_N = 5;
  */
 const ANOMALY_BASELINE_FLOOR = 150;
 const HEADLINE_DELTA_FLOOR = 150;
-const CATEGORY_DELTA_FLOOR = 50;
+// Same floor as the headline: a 55 zł prior week under a 550 zł rent payment
+// otherwise renders as "+898%" — technically true, pure noise.
+const CATEGORY_DELTA_FLOOR = 150;
 
 /** Sum expense amounts per category id; also capture a display name per id. */
 function expenseByCategory(
