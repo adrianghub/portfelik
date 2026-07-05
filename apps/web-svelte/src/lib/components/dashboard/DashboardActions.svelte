@@ -4,54 +4,37 @@
   import { ChevronRight, X } from "lucide-svelte";
   import { toast } from "svelte-sonner";
   import { toastError } from "$lib/toast-error";
-  import { fetchProfile } from "$lib/services/profiles";
-  import { fetchLastCommittedImportSession } from "$lib/services/bank-import";
-  import {
-    fetchDashboardPlanProgress,
-    fetchLinkedTransactionIds,
-  } from "$lib/services/plan-settlement";
-  import { fetchPlans } from "$lib/services/plans";
-  import { fetchPlanDebtTermsByPlanIds } from "$lib/services/plan-debt";
-  import { detectRecurringDebtPayments } from "$lib/services/debt-payment-detect";
-  import { getBankImportReminder } from "$lib/profile-settings";
-  import type { AttentionPlan } from "$lib/dashboard-attention";
+  import { fetchDashboardPlanProgress } from "$lib/services/plan-settlement";
+  import type { AttentionPlan } from "$lib/services/dashboard-actions";
   import type { SpendingInsight } from "$lib/services/spending-insight";
   import {
     buildDashboardActions,
+    DASHBOARD_ACTIONS_PREVIEW,
     type DashboardAction,
     type DashboardActionTone,
-    type DebtDetectedInput,
   } from "$lib/services/dashboard-actions";
   import {
     fetchActiveDismissedKeys,
     dismissAction,
     undismissAction,
   } from "$lib/services/action-dismissals";
+  import Dialog from "$lib/components/ui/Dialog.svelte";
+  import DashboardSeeMoreButton from "$lib/components/dashboard/DashboardSeeMoreButton.svelte";
   import { cn } from "$lib/utils";
 
   interface Props {
-    userId: string | null;
     overdueCount: number;
     /** Current-period spending insight (anomalies surface as actions). */
     insight: SpendingInsight | null;
     /** Stable id of the current spending period — scopes anomaly dismissals. */
     periodKey: string;
   }
-  let { userId, overdueCount, insight, periodKey }: Props = $props();
+  let { overdueCount, insight, periodKey }: Props = $props();
+
+  let actionsDialogOpen = $state(false);
 
   const queryClient = useQueryClient();
   const DISMISSALS_KEY = ["action-dismissals"] as const;
-
-  const profileQuery = createQuery(() => ({
-    queryKey: ["profile", userId],
-    queryFn: () => fetchProfile(userId!),
-    enabled: !!userId,
-  }));
-
-  const importHealthQuery = createQuery(() => ({
-    queryKey: ["import-health"],
-    queryFn: fetchLastCommittedImportSession,
-  }));
 
   const planProgressQuery = createQuery(() => ({
     queryKey: ["plan-progress"],
@@ -62,15 +45,6 @@
     queryKey: DISMISSALS_KEY,
     queryFn: fetchActiveDismissedKeys,
   }));
-
-  const cadenceDays = $derived(getBankImportReminder(profileQuery.data?.settings).cadenceDays);
-
-  const daysSinceImport = $derived.by(() => {
-    const committed = importHealthQuery.data?.committed_at;
-    if (!committed) return null;
-    const diff = (Date.now() - new Date(committed).getTime()) / (1000 * 60 * 60 * 24);
-    return Math.floor(diff);
-  });
 
   const plans = $derived<AttentionPlan[]>(
     (planProgressQuery.data ?? []).map((p) => ({
@@ -84,8 +58,6 @@
     }))
   );
 
-  // Anomalies are already computed by computeSpendingInsight; only increases (deltaAbs > 0)
-  // are worth a "sprawdź" nudge — a category dropping below trend is not an action.
   const anomalies = $derived(
     (insight?.categories ?? [])
       .filter((c) => c.anomaly && c.deltaAbs > 0)
@@ -97,71 +69,15 @@
       }))
   );
 
-  const settleReady = $derived(
-    (planProgressQuery.data ?? []).map((p) => ({
-      planId: p.planId,
-      planName: p.planName,
-      eligibleCount: p.eligibleCount,
-    }))
-  );
-
-  // Detected recurring debt payments not yet linked to their plan: for each active debt
-  // plan, group the matching expenses (lookback) and suggest the newest unlinked one.
-  // Reuses the same core as the plan-detail detect banner; the global linked-id set
-  // excludes anything already settled so we never re-suggest a linked rata.
-  const plansQuery = createQuery(() => ({ queryKey: ["plans"], queryFn: fetchPlans }));
-  const debtPlans = $derived(
-    (plansQuery.data ?? []).filter((p) => p.kind === "debt" && p.status === "active")
-  );
-  const debtPlanIds = $derived(debtPlans.map((p) => p.id));
-
-  const debtTermsQuery = createQuery(() => ({
-    queryKey: ["plan-debt-terms-list", debtPlanIds],
-    queryFn: () => fetchPlanDebtTermsByPlanIds(debtPlanIds),
-    enabled: debtPlanIds.length > 0,
-  }));
-
-  const linkedIdsQuery = createQuery(() => ({
-    queryKey: ["plan-linked-tx-ids"],
-    queryFn: fetchLinkedTransactionIds,
-    enabled: debtPlanIds.length > 0,
-  }));
-
-  const debtDetectedQuery = createQuery(() => ({
-    queryKey: ["dashboard-debt-detected", debtPlanIds, [...(linkedIdsQuery.data ?? [])].sort()],
-    enabled: debtPlanIds.length > 0 && !!debtTermsQuery.data && !!linkedIdsQuery.data,
-    queryFn: async (): Promise<DebtDetectedInput[]> => {
-      const terms = debtTermsQuery.data ?? {};
-      const excludeTransactionIds = linkedIdsQuery.data ?? new Set<string>();
-      const results = await Promise.all(
-        debtPlans.map(async (plan) => {
-          const monthlyPayment = terms[plan.id] ? Number(terms[plan.id].monthly_payment) : 0;
-          if (!(monthlyPayment > 0)) return null;
-          const detected = await detectRecurringDebtPayments({
-            monthlyPayment,
-            userId: plan.user_id,
-            groupId: plan.group_id,
-            excludeTransactionIds,
-          });
-          return detected[0]
-            ? { planId: plan.id, planName: plan.name, reason: detected[0].reasons[0] }
-            : null;
-        })
-      );
-      return results.filter((r): r is DebtDetectedInput => r !== null);
-    },
-  }));
-
   const actions = $derived(
     buildDashboardActions({
-      attention: { daysSinceImport, cadenceDays, overdueCount, plans },
+      attention: { overdueCount, plans },
       anomalies,
-      settleReady,
-      debtDetected: debtDetectedQuery.data ?? [],
       periodKey,
       dismissedKeys: dismissalsQuery.data ?? new Set<string>(),
     })
   );
+  const previewActions = $derived(actions.slice(0, DASHBOARD_ACTIONS_PREVIEW));
 
   const toneClass: Record<DashboardActionTone, string> = {
     warn: "border-amber-500/30 bg-amber-500/10 text-amber-100 hover:bg-amber-500/15",
@@ -217,46 +133,73 @@
   }
 </script>
 
+{#snippet actionRow(action: DashboardAction, rounded: "card" | "dialog" = "card")}
+  <li
+    class={cn(
+      "flex min-w-0 items-stretch gap-1.5 overflow-hidden border",
+      rounded === "card" ? "rounded-xl" : "rounded-lg",
+      toneClass[action.tone]
+    )}
+  >
+    <a
+      href={action.href}
+      class={cn(
+        "focus-visible:ring-accent flex min-w-0 flex-1 items-center gap-2 overflow-hidden px-3 py-2 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none",
+        rounded === "card" ? "rounded-l-xl" : "rounded-l-lg"
+      )}
+      title={action.detail ? `${action.title} — ${action.detail}` : action.title}
+    >
+      <span class="min-w-0 flex-1 overflow-hidden">
+        <span class="block truncate">{action.title}</span>
+        {#if action.detail}
+          <span class="block truncate text-xs opacity-70">{action.detail}</span>
+        {/if}
+      </span>
+      <ChevronRight size={14} class="shrink-0 opacity-70" aria-hidden="true" />
+    </a>
+    <button
+      type="button"
+      onclick={() => handleDismiss(action)}
+      aria-label={m.dashboard_action_dismiss()}
+      class={cn(
+        "focus-visible:ring-accent flex shrink-0 items-center px-2 opacity-60 transition-opacity hover:opacity-100 focus-visible:ring-2 focus-visible:outline-none",
+        rounded === "card" ? "rounded-r-xl" : "rounded-r-lg"
+      )}
+    >
+      <X size={14} aria-hidden="true" />
+    </button>
+  </li>
+{/snippet}
+
 <section
   class="min-w-0 overflow-x-clip rounded-2xl border border-white/5 bg-slate-900/60 bg-[radial-gradient(circle_at_85%_0%,rgba(251,191,36,0.1),transparent_45%)] p-4 sm:p-5"
   aria-labelledby="dashboard-actions-title"
+  data-tour-id="tour-dashboard-actions"
 >
   <p id="dashboard-actions-title" class="text-eyebrow text-slate-400">{m.attention_title()}</p>
 
-  {#if actions.length > 0}
+  {#if previewActions.length > 0}
     <ul class="mt-2.5 min-w-0 space-y-1.5">
-      {#each actions as action (action.id)}
-        <li
-          class={cn(
-            "flex min-w-0 items-stretch gap-1.5 overflow-hidden rounded-xl border",
-            toneClass[action.tone]
-          )}
-        >
-          <a
-            href={action.href}
-            class="focus-visible:ring-accent flex min-w-0 flex-1 items-center gap-2 overflow-hidden rounded-l-xl px-3 py-2 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
-            title={action.detail ? `${action.title} — ${action.detail}` : action.title}
-          >
-            <span class="min-w-0 flex-1 overflow-hidden">
-              <span class="block truncate">{action.title}</span>
-              {#if action.detail}
-                <span class="block truncate text-xs opacity-70">{action.detail}</span>
-              {/if}
-            </span>
-            <ChevronRight size={14} class="shrink-0 opacity-70" aria-hidden="true" />
-          </a>
-          <button
-            type="button"
-            onclick={() => handleDismiss(action)}
-            aria-label={m.dashboard_action_dismiss()}
-            class="focus-visible:ring-accent flex shrink-0 items-center rounded-r-xl px-2 opacity-60 transition-opacity hover:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
-          >
-            <X size={14} aria-hidden="true" />
-          </button>
-        </li>
+      {#each previewActions as action (action.id)}
+        {@render actionRow(action)}
       {/each}
     </ul>
+    {#if actions.length > previewActions.length}
+      <DashboardSeeMoreButton onclick={() => (actionsDialogOpen = true)} />
+    {/if}
   {:else}
     <p class="mt-2 text-sm text-emerald-300/90">{m.attention_empty()}</p>
   {/if}
 </section>
+
+<Dialog
+  open={actionsDialogOpen}
+  onclose={() => (actionsDialogOpen = false)}
+  title={m.dashboard_all_actions_title()}
+>
+  <ul class="space-y-1.5">
+    {#each actions as action (action.id)}
+      {@render actionRow(action, "dialog")}
+    {/each}
+  </ul>
+</Dialog>

@@ -1,10 +1,10 @@
 import type { QueryClient } from "@tanstack/svelte-query";
 
 /** Shared with static/sw.js - keep in sync when renaming. */
-export const NOTIFICATION_SYNC_CHANNEL = "portfelik-notifications";
+export const NOTIFICATION_SYNC_CHANNEL = "jakstoimy-notifications";
 
 /** postMessage type from the service worker to open tabs. */
-export const SW_NOTIFICATION_MESSAGE_TYPE = "portfelik:notification";
+export const SW_NOTIFICATION_MESSAGE_TYPE = "jakstoimy:notification";
 
 export type NotificationSyncPayload = { type: "invalidate" };
 
@@ -12,6 +12,7 @@ export type ForegroundPushPayload = {
   title: string;
   body: string;
   notificationId?: string;
+  data?: Record<string, unknown>;
 };
 
 export function broadcastNotificationSync(payload: NotificationSyncPayload): void {

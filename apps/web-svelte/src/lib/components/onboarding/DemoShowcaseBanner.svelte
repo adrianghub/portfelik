@@ -1,14 +1,60 @@
 <script lang="ts">
-  import * as m from "$lib/paraglide/messages";
+  import {
+    DEMO_BANNER_ACTIONS,
+    demoBannerActionHref,
+    demoBannerActionLabel,
+    demoBannerCopy,
+    type DemoBannerActionId,
+  } from "$lib/content/onboarding";
   import { cn } from "$lib/utils";
 
   interface Props {
     onclear: () => void;
+    onrestart?: () => void;
     clearing?: boolean;
+    restarting?: boolean;
     class?: string;
   }
 
-  let { onclear, clearing = false, class: className = "" }: Props = $props();
+  let {
+    onclear,
+    onrestart,
+    clearing = false,
+    restarting = false,
+    class: className = "",
+  }: Props = $props();
+
+  const banner = demoBannerCopy();
+
+  const visibleActions = $derived(
+    DEMO_BANNER_ACTIONS.filter((id) => id !== "restart_tour" || onrestart)
+  );
+
+  function actionHandler(id: DemoBannerActionId): (() => void) | undefined {
+    switch (id) {
+      case "restart_tour":
+        return onrestart;
+      case "clear":
+        return onclear;
+      default:
+        return undefined;
+    }
+  }
+
+  function actionDisabled(id: DemoBannerActionId): boolean {
+    switch (id) {
+      case "restart_tour":
+        return restarting;
+      case "clear":
+        return clearing;
+      default:
+        return false;
+    }
+  }
+
+  function isLinkAction(id: DemoBannerActionId): boolean {
+    return id === "import" || id === "settings";
+  }
 </script>
 
 <div
@@ -18,21 +64,36 @@
   )}
   role="status"
 >
-  <p class="text-sm font-medium text-amber-100">{m.demo_banner_title()}</p>
+  <p class="text-sm font-medium text-amber-100">{banner.title}</p>
   <div class="flex flex-wrap items-center gap-2">
-    <button
-      type="button"
-      class="rounded-full border border-amber-400/30 px-3 py-1.5 text-xs font-semibold text-amber-100 hover:bg-amber-500/15 disabled:opacity-50"
-      disabled={clearing}
-      onclick={onclear}
-    >
-      {m.demo_banner_clear()}
-    </button>
-    <a
-      href="/import"
-      class="bg-accent-gradient rounded-full px-3 py-1.5 text-xs font-semibold text-slate-900"
-    >
-      {m.demo_banner_import()}
-    </a>
+    {#each visibleActions as actionId (actionId)}
+      {#if isLinkAction(actionId)}
+        {@const href = demoBannerActionHref(actionId)}
+        {#if href}
+          <a
+            {href}
+            class={cn(
+              actionId === "import"
+                ? "bg-accent-gradient rounded-full px-3 py-1.5 text-xs font-semibold text-slate-900"
+                : "rounded-full border border-amber-400/30 px-3 py-1.5 text-xs font-semibold text-amber-100 hover:bg-amber-500/15"
+            )}
+          >
+            {demoBannerActionLabel(actionId)}
+          </a>
+        {/if}
+      {:else}
+        {@const handler = actionHandler(actionId)}
+        {#if handler}
+          <button
+            type="button"
+            class="rounded-full border border-amber-400/30 px-3 py-1.5 text-xs font-semibold text-amber-100 hover:bg-amber-500/15 disabled:opacity-50"
+            disabled={actionDisabled(actionId)}
+            onclick={handler}
+          >
+            {demoBannerActionLabel(actionId)}
+          </button>
+        {/if}
+      {/if}
+    {/each}
   </div>
 </div>

@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 import {
   cleanupSmokeData,
+  dismissWelcomeTourIfPresent,
+  ensureSmokeUserTourDismissed,
   injectRealSession,
   seedSmokeCategory,
   signInRealUser,
@@ -13,6 +15,7 @@ const categoryName = `${SMOKE_SENTINEL} cat`;
 
 test.beforeAll(async () => {
   session = await signInRealUser();
+  await ensureSmokeUserTourDismissed(session);
   await cleanupSmokeData(session);
   await seedSmokeCategory(session);
 });
@@ -29,6 +32,7 @@ test('login + create + read + delete transaction against real Supabase', async (
 
   await page.goto('/transactions');
   await expect(page).toHaveURL(/\/transactions/, { timeout: 15000 });
+  await dismissWelcomeTourIfPresent(page);
 
   // Open the create dialog (desktop manual-add button).
   await page

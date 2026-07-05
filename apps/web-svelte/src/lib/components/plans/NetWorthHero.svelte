@@ -36,6 +36,7 @@
 {#if !summary.hasSnapshot && summary.items.length === 0}
   <section
     class="rounded-2xl border border-dashed border-white/10 bg-slate-900/40 px-4 py-5 text-center"
+    data-tour-id="tour-net-worth"
   >
     <p class="text-sm text-slate-400">{m.plans_net_worth_empty()}</p>
     {#if onedit}
@@ -52,6 +53,7 @@
   <section
     class="rounded-2xl border border-white/5 bg-slate-900/60 bg-[radial-gradient(circle_at_20%_0%,rgba(45,212,191,0.14),transparent_50%)] p-5"
     aria-label={m.plans_net_worth_title()}
+    data-tour-id="tour-net-worth"
   >
     <div class="flex items-start justify-between gap-3">
       <p class="text-eyebrow text-slate-400">{m.plans_net_worth_title()}</p>

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { injectFakeSession } from "../helpers/mock-auth";
+import { injectFakeSession, fulfillSupabaseJson } from "../helpers/mock-auth";
 import {
   MOCK_CATEGORIES,
   MOCK_PROFILE,
@@ -194,7 +194,7 @@ async function mockBankImportAPI(page: Page, options = {}) {
       const method = request.method();
 
       if (pathname.endsWith("/profiles")) {
-        return route.fulfill({ status: 200, json: [MOCK_PROFILE] });
+        return fulfillSupabaseJson(route, MOCK_PROFILE);
       }
 
       if (pathname.endsWith("/categories")) {

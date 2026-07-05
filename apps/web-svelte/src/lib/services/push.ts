@@ -1,5 +1,6 @@
 import { PUBLIC_VAPID_KEY } from "$env/static/public";
 import { supabase } from "$lib/supabase";
+import { isStandalonePwa, shouldDeferBrowserPush } from "$lib/services/pwa";
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -32,6 +33,8 @@ function setPushOptOut(value: boolean): void {
     // localStorage unavailable (private mode / SSR) - opt-out is best-effort.
   }
 }
+
+export { isStandalonePwa, shouldDeferBrowserPush } from "$lib/services/pwa";
 
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (!("serviceWorker" in navigator)) return null;
@@ -84,6 +87,28 @@ async function doSubscribe(userId: string): Promise<void> {
     },
     { onConflict: "user_id,endpoint" }
   );
+
+  if (isStandalonePwa() && /mobile/i.test(navigator.userAgent)) {
+    await pruneOtherMobileBrowserSubscriptions(userId, json.endpoint);
+  }
+}
+
+async function pruneOtherMobileBrowserSubscriptions(
+  userId: string,
+  keepEndpoint: string
+): Promise<void> {
+  const { data, error } = await supabase
+    .from("push_subscriptions")
+    .select("endpoint, user_agent")
+    .eq("user_id", userId)
+    .neq("endpoint", keepEndpoint);
+  if (error || !data?.length) return;
+
+  for (const row of data) {
+    const ua = row.user_agent ?? "";
+    if (!/mobile/i.test(ua)) continue;
+    await supabase.from("push_subscriptions").delete().eq("endpoint", row.endpoint);
+  }
 }
 
 // Call on auth events - subscribes silently if permission already granted.
@@ -97,9 +122,13 @@ export async function autoSubscribePush(userId: string): Promise<void> {
 
 // Call only from a user-gesture handler (button click).
 // Triggers the browser permission prompt then subscribes.
-export async function requestAndSubscribePush(userId: string): Promise<boolean> {
+export async function requestAndSubscribePush(
+  userId: string,
+  opts?: { allowBrowserOnMobile?: boolean }
+): Promise<boolean> {
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
   if (Notification.permission === "denied") return false;
+  if (shouldDeferBrowserPush() && !opts?.allowBrowserOnMobile) return false;
 
   const permission = await Notification.requestPermission();
   if (permission !== "granted") return false;

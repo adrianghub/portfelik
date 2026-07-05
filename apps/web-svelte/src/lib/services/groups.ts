@@ -32,16 +32,6 @@ export async function fetchUserGroups(): Promise<UserGroup[]> {
   return data as UserGroup[];
 }
 
-export async function fetchGroupMembers(groupId: string): Promise<GroupMember[]> {
-  const { data, error } = await supabase
-    .from("group_members")
-    .select("group_id, user_id, joined_at")
-    .eq("group_id", groupId);
-
-  if (error) throw error;
-  return data as GroupMember[];
-}
-
 export async function fetchReceivedInvitations(): Promise<GroupInvitation[]> {
   const {
     data: { user },

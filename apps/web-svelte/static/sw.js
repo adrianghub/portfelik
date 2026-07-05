@@ -1,8 +1,8 @@
 const DEFAULT_ICON = '/icon-192x192.png';
 
 /** Must match notification-sync.ts */
-const NOTIFICATION_SYNC_CHANNEL = 'portfelik-notifications';
-const SW_NOTIFICATION_MESSAGE_TYPE = 'portfelik:notification';
+const NOTIFICATION_SYNC_CHANNEL = 'jakstoimy-notifications';
+const SW_NOTIFICATION_MESSAGE_TYPE = 'jakstoimy:notification';
 
 // Push-only service worker. No asset/HTML caching: this is a live-data app
 // (online-only by product decision), so we never serve stale content. The SW
@@ -20,12 +20,9 @@ self.addEventListener('activate', (event) => {
 	);
 });
 
-async function hasFocusedClient() {
+async function hasVisibleClient() {
 	const windowClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
-	// A visible-but-unfocused client (browser in background, covered PWA window) cannot show
-	// the in-app toast (it requires document.hasFocus()), so only a focused client suppresses
-	// the system notification.
-	return windowClients.some((client) => client.focused);
+	return windowClients.some((client) => client.visibilityState === 'visible');
 }
 
 function broadcastInvalidate() {
@@ -46,11 +43,40 @@ function notifyOpenClients(payload) {
 				payload: {
 					title: payload.title,
 					body: payload.body,
-					notificationId: payload.notificationId
+					notificationId: payload.notificationId,
+					data: payload.data ?? {}
 				}
 			});
 		}
 	});
+}
+
+function obligationTag(data) {
+	if (data?.obligationKey) return data.obligationKey;
+	if (data?.notificationId) return data.notificationId;
+	if (data?.transactionId) return `tx:${data.transactionId}`;
+	return 'jakstoimy';
+}
+
+function buildActions(data) {
+	if (data?.actionable && data?.transactionId) {
+		return [{ action: 'mark-paid', title: 'Zapłacone' }];
+	}
+	return [{ action: 'open', title: 'Otwórz' }];
+}
+
+function resolveUrl(data, action) {
+	const txId = data?.transactionId;
+	if (action === 'mark-paid' && txId) {
+		const params = new URLSearchParams({ txId, action: 'settle' });
+		if (data?.notificationId) params.set('notificationId', data.notificationId);
+		return `/transactions?${params.toString()}`;
+	}
+	if (txId) return `/transactions?txId=${txId}`;
+	if (data?.type === 'group_invitation') return '/settings?tab=groups';
+	if (data?.type === 'bank_import_reminder') return '/import';
+	if (data?.type === 'transaction_summary') return '/transactions';
+	return '/';
 }
 
 self.addEventListener('push', (event) => {
@@ -62,16 +88,18 @@ self.addEventListener('push', (event) => {
 	}
 
 	const data = payload.data ?? {};
-	const notificationId = data.notificationId ?? data.type ?? 'portfelik';
+	const notificationId = data.notificationId ?? data.type ?? 'jakstoimy';
+	const tag = obligationTag(data);
 
 	event.waitUntil(
-		hasFocusedClient().then((focused) => {
+		hasVisibleClient().then((visible) => {
 			broadcastInvalidate();
-			if (focused) {
+			if (visible) {
 				return notifyOpenClients({
 					title: payload.title,
 					body: payload.body,
-					notificationId
+					notificationId,
+					data
 				});
 			}
 
@@ -79,11 +107,11 @@ self.addEventListener('push', (event) => {
 				body: payload.body,
 				icon: DEFAULT_ICON,
 				badge: DEFAULT_ICON,
-				tag: notificationId,
+				tag,
 				renotify: false,
 				vibrate: [100, 50, 100],
 				data,
-				actions: [{ action: 'open', title: 'Otwórz' }]
+				actions: buildActions(data)
 			});
 		})
 	);
@@ -93,10 +121,7 @@ self.addEventListener('notificationclick', (event) => {
 	event.notification.close();
 
 	const data = event.notification.data ?? {};
-	let url = '/';
-	if (data.transactionId) url = `/transactions?txId=${data.transactionId}`;
-	else if (data.type === 'group_invitation') url = '/settings?tab=groups';
-	else if (data.type === 'bank_import_reminder') url = '/import';
+	const url = resolveUrl(data, event.action);
 
 	event.waitUntil(
 		clients
@@ -105,10 +130,13 @@ self.addEventListener('notificationclick', (event) => {
 				const existing = windowClients.find((c) => c.url.includes(self.location.origin));
 				if (existing) {
 					existing.focus();
-					existing.navigate(url);
-				} else {
-					clients.openWindow(url);
+					if (typeof existing.navigate === 'function') {
+						return existing.navigate(url);
+					}
+					existing.postMessage({ type: 'jakstoimy:navigate', url });
+					return undefined;
 				}
+				return clients.openWindow(url);
 			})
 	);
 });

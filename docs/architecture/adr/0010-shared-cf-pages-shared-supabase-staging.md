@@ -15,8 +15,8 @@ a destructive smoke test cannot wipe real users' transactions or plans.
 
 **Share both the Cloudflare Pages project and the Supabase project across prod and staging. Isolate by branch + RLS-tagged data.**
 
-- One Cloudflare Pages project: `portfelik`.
-  - `main` branch deploys to `portfelik.adrianzinko.com`.
+- One Cloudflare Pages project: `jakstoimy`.
+  - `main` branch deploys to `app.jakstoimy.pl`.
   - `dev` branch deploys to `dev.portfelik.pages.dev`.
 - One Supabase Cloud project. Both deployments hit the same database with the same publishable anon key.
 - A **dedicated test user** exists in `auth.users` with an explicitly-enabled email/password credential (the rest of the world signs in via Google OAuth only). The smoke suite signs in as this user.

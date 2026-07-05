@@ -1,12 +1,15 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
   import { supabase } from "$lib/supabase";
-  import { canManageTransaction } from "$lib/services/transaction-permissions";
+  import {
+    canManageTransaction,
+    isQuickSettleEligible,
+  } from "$lib/services/transaction-permissions";
   import type { GroupMemberRole, TransactionWithCategory } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
   import { recurrenceSummary } from "$lib/recurrence";
   import { createQuery } from "@tanstack/svelte-query";
-  import { ClipboardList, Edit, Trash2, X } from "lucide-svelte";
+  import { Check, ClipboardList, Edit, Trash2, X } from "lucide-svelte";
 
   interface Props {
     transaction: TransactionWithCategory | null;
@@ -19,6 +22,8 @@
     oneditoccurrence?: (tx: TransactionWithCategory) => void;
     onskipoccurrence?: (tx: TransactionWithCategory) => void;
     onendseries?: (tx: TransactionWithCategory) => void;
+    onsettle?: (tx: TransactionWithCategory) => void;
+    settlePending?: boolean;
   }
   let {
     transaction,
@@ -31,6 +36,8 @@
     oneditoccurrence,
     onskipoccurrence,
     onendseries,
+    onsettle,
+    settlePending = false,
   }: Props = $props();
 
   const canEdit = $derived(
@@ -56,6 +63,14 @@
       !!currentUserId &&
       transaction.user_id !== currentUserId &&
       !canEdit
+  );
+  const canQuickSettle = $derived(
+    !!transaction &&
+      !!onsettle &&
+      !transaction.projected &&
+      isQuickSettleEligible(transaction.status) &&
+      !!currentUserId &&
+      canManageTransaction(transaction, currentUserId, groupRoles)
   );
 
   const statusClass: Record<string, string> = {
@@ -323,6 +338,20 @@
       <p class="border-t border-white/5 px-5 py-4 text-xs text-slate-500">
         {m.transaction_shared_readonly_hint()}
       </p>
+    {/if}
+
+    {#if canQuickSettle}
+      <div class="border-t border-white/5 px-5 py-4">
+        <button
+          type="button"
+          disabled={settlePending}
+          onclick={() => onsettle?.(transaction!)}
+          class="focus-visible:ring-accent flex w-full items-center justify-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 py-2.5 text-sm font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/20 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+        >
+          <Check size={14} strokeWidth={2.5} aria-hidden="true" />
+          {settlePending ? m.common_saving() : m.transactions_quick_settle()}
+        </button>
+      </div>
     {/if}
 
     {#if canEdit && (onedit || ondelete)}

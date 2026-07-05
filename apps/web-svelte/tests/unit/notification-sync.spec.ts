@@ -21,6 +21,6 @@ describe("notification-sync", () => {
   });
 
   it("exports a stable channel name for sw.js parity", () => {
-    expect(NOTIFICATION_SYNC_CHANNEL).toBe("portfelik-notifications");
+    expect(NOTIFICATION_SYNC_CHANNEL).toBe("jakstoimy-notifications");
   });
 });

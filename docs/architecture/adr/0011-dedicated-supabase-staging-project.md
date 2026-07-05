@@ -21,7 +21,7 @@ Edge Functions, and project-scoped credentials.
 
 Keep one Cloudflare Pages project and split Supabase by environment.
 
-- `main` deploys to `portfelik.adrianzinko.com` and uses the production Supabase
+- `main` deploys to `app.jakstoimy.pl` and uses the production Supabase
   project.
 - `dev` deploys to `dev.portfelik.pages.dev` and uses a dedicated free Supabase
   project named `portfelik-staging`.

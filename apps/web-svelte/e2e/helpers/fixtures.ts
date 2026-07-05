@@ -11,15 +11,25 @@ export const MOCK_USER = {
   updated_at: "2024-01-01T00:00:00Z",
 };
 
+/** Default E2E profile — guided tour dismissed so the welcome dialog does not block other specs. */
 export const MOCK_PROFILE = {
   id: TEST_USER_ID,
   email: "test@portfelik.test",
   name: "Test User",
   role: "user",
-  settings: {},
+  settings: { guidedTour: { dismissed: true } },
   created_at: "2024-01-01T00:00:00Z",
   updated_at: "2024-01-01T00:00:00Z",
 };
+
+/** Profile with no tour progress — use only in specs that assert the welcome dialog. */
+export const MOCK_PROFILE_FRESH_TOUR = {
+  ...MOCK_PROFILE,
+  settings: {},
+};
+
+/** Matches `tour_welcome_import` in messages/pl.json */
+export const WELCOME_TOUR_SKIP_BUTTON = "Świadomie pomijam, wiem co robić.";
 
 export const MOCK_CATEGORIES = [
   { id: "cat-1", name: "Jedzenie", type: "expense", user_id: null },
@@ -27,10 +37,25 @@ export const MOCK_CATEGORIES = [
   { id: "cat-3", name: "Wynagrodzenie", type: "income", user_id: null },
 ];
 
+/**
+ * Local date-only string `offsetDays` from today. Transaction fixtures use
+ * dynamic dates because the dashboard windows rows client-side (current period,
+ * 6-period history, forecast horizon) against the real clock — static dates
+ * silently age out of every window.
+ */
+export function isoDaysFromToday(offsetDays: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export const MOCK_TRANSACTIONS = [
   {
     id: "tx-1",
-    date: "2026-05-01",
+    date: isoDaysFromToday(0),
     description: "Zakupy spożywcze",
     amount: 150.5,
     type: "expense",
@@ -49,7 +74,7 @@ export const MOCK_TRANSACTIONS = [
   },
   {
     id: "tx-2",
-    date: "2026-05-02",
+    date: isoDaysFromToday(0),
     description: "Bilet miesięczny",
     amount: 80,
     type: "expense",
@@ -68,7 +93,7 @@ export const MOCK_TRANSACTIONS = [
   },
   {
     id: "tx-3",
-    date: "2026-05-15",
+    date: isoDaysFromToday(7),
     description: "Rachunek za prąd",
     amount: 220,
     type: "expense",

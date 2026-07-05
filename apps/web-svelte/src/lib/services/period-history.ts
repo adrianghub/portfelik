@@ -202,19 +202,11 @@ export function stackCategoryHistory(
     for (const cat of categories) row[cat] = 0;
     for (const c of b.categories) {
       const key = topSet.has(c.name) ? c.name : hasOther ? otherLabel : null;
-      if (key) row[key] = Math.round(row[key] + c.total);
+      // No rounding here: summed-then-rounded segments drift from the bucket
+      // total (200,39 zł rendered as 200,00). Display formatting rounds.
+      if (key) row[key] = row[key] + c.total;
     }
     return row;
   });
   return { categories, rows };
-}
-
-/** Convenience: windows + bucketing in one call. */
-export function computePeriodHistory(
-  txs: TransactionWithCategory[],
-  kind: PeriodKind,
-  count: number,
-  ref: Date = new Date()
-): PeriodHistoryBucket[] {
-  return bucketPeriodHistory(txs, buildPeriodWindows(kind, count, ref));
 }

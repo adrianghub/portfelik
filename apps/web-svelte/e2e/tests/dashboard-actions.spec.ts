@@ -1,18 +1,25 @@
 import type { Page, Route } from "@playwright/test";
 import { expect, test } from "@playwright/test";
+import { TEST_USER_ID } from "../helpers/fixtures";
 import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
 
-// The deterministic-actions surface ("Co wymaga uwagi") aggregates already-computed
-// dashboard signals. With no committed import session in the mocks, the "import never"
-// action always renders — a zero-seed signal we can assert and dismiss reliably.
-const IMPORT_ACTION = /Zaimportuj pierwszy wyciąg/;
+const OVERDUE_ACTION = /po terminie/i;
+
+const OVERDUE_TX = {
+  id: "tx-overdue-1",
+  description: "Zaległa rata",
+  amount: 100,
+  type: "expense",
+  status: "overdue",
+  date: "2026-07-01",
+  category_id: "cat-1",
+  category_name: "Inne wydatki",
+  user_id: TEST_USER_ID,
+  group_id: null,
+};
 
 type DismissRow = { action_key: string; dismissed_until: string | null };
 
-/**
- * Stateful action_dismissals mock so a dismiss survives reload (the memory contract).
- * Registered AFTER mockSupabaseAPI so Playwright's newest-first matching prefers it.
- */
 async function mockDismissals(page: Page): Promise<void> {
   const dismissed: DismissRow[] = [];
   await page.route("**/rest/v1/action_dismissals**", async (route: Route) => {
@@ -40,32 +47,34 @@ async function mockDismissals(page: Page): Promise<void> {
   });
 }
 
-test("surfaces a deterministic action that deep-links to its resolution", async ({ page }) => {
+test.beforeEach(async ({ page }) => {
   await injectFakeSession(page);
   await mockSupabaseAPI(page);
   await mockDismissals(page);
+
+  await page.route("**/rest/v1/transactions_with_category**", (route) =>
+    route.fulfill({ status: 200, json: [OVERDUE_TX] })
+  );
+});
+
+test("surfaces a deterministic action that deep-links to its resolution", async ({ page }) => {
   await page.goto("/dashboard");
 
-  const action = page.getByRole("link", { name: IMPORT_ACTION });
+  const action = page.getByRole("link", { name: OVERDUE_ACTION });
   await expect(action).toBeVisible();
-  await expect(action).toHaveAttribute("href", "/import");
+  await expect(action).toHaveAttribute("href", "/transactions?status=overdue");
 });
 
 test("dismissing an action persists across reload", async ({ page }) => {
-  await injectFakeSession(page);
-  await mockSupabaseAPI(page);
-  await mockDismissals(page);
   await page.goto("/dashboard");
 
-  const action = page.getByRole("link", { name: IMPORT_ACTION });
+  const action = page.getByRole("link", { name: OVERDUE_ACTION });
   await expect(action).toBeVisible();
 
-  // Dismiss via the row's ✕ button.
-  const row = page.locator("li").filter({ hasText: IMPORT_ACTION });
+  const row = page.locator("li").filter({ hasText: OVERDUE_ACTION });
   await row.getByRole("button", { name: "Pomiń" }).click();
-  await expect(page.getByRole("link", { name: IMPORT_ACTION })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: OVERDUE_ACTION })).toHaveCount(0);
 
-  // Memory: the dismissed action stays gone after a full reload.
   await page.reload();
-  await expect(page.getByRole("link", { name: IMPORT_ACTION })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: OVERDUE_ACTION })).toHaveCount(0);
 });

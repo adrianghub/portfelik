@@ -1,26 +1,16 @@
 // Decision-center aggregator: folds the dashboard's already-computed deterministic
 // signals into ONE ranked, deep-linked, dismissible "what to do next" list. Pure
-// (deterministic, DOM-free) so it unit-tests against fixtures. Labels come from
-// compiled Paraglide messages, like buildAttentionItems / buildPlanningQueueActions.
+// (deterministic, DOM-free) so it unit-tests against fixtures.
 //
-// No new financial math: every source is a value the dashboard already derives
-// (attention signals, spending-insight anomalies, plan settle-ready counts,
-// detected recurring debt payments, and — future — planning-queue surplus cards).
-// Dismissal memory is applied here by filtering out keys the user has hidden/snoozed.
+// Stale-import nudges live on DashboardImportHealth only (not duplicated here).
+// Surplus/debt-due chips stay on /plans via SurplusCard (slice 2 intentionally omitted).
+// Debt-detect and settle-ready use plan detail / plan progress surfaces.
 
 import * as m from "$lib/paraglide/messages";
-import { buildAttentionItems, type AttentionInput } from "$lib/dashboard-attention";
-import type { PlanningQueueAction } from "$lib/services/planning-queue";
+import { pickMostUrgentOffTrackSave } from "$lib/services/plan-save-pace";
+import type { PlanKind } from "$lib/types";
 
-export type DashboardActionKind =
-  | "overdue"
-  | "stale_import"
-  | "save_off_track"
-  | "spending_anomaly"
-  | "settle_ready"
-  | "debt_detected"
-  | "surplus"
-  | "debt_due";
+export type DashboardActionKind = "overdue" | "save_off_track" | "spending_anomaly";
 
 export type DashboardActionTone = "warn" | "default" | "muted";
 
@@ -37,6 +27,21 @@ export interface DashboardAction {
   dismissKey: string;
 }
 
+export interface AttentionPlan {
+  planId: string;
+  planName: string;
+  kind: PlanKind;
+  eligibleCount: number;
+  monthlyNeeded: number | null;
+  monthlyActual: number | null;
+  monthlyActualBasis: string;
+}
+
+export interface AttentionInput {
+  overdueCount: number;
+  plans: AttentionPlan[];
+}
+
 export interface SpendingAnomalyInput {
   categoryId: string;
   name: string;
@@ -45,62 +50,66 @@ export interface SpendingAnomalyInput {
   avgTotal: number;
 }
 
-export interface SettleReadyInput {
-  planId: string;
-  planName: string;
-  eligibleCount: number;
-}
-
-export interface DebtDetectedInput {
-  planId: string;
-  planName: string;
-  /** First human reason from groupDebtPaymentCandidates, e.g. "3× kwota ~1500 zł". */
-  reason: string;
-}
-
 export interface BuildDashboardActionsInput {
   attention: AttentionInput;
   anomalies: SpendingAnomalyInput[];
-  settleReady: SettleReadyInput[];
-  debtDetected: DebtDetectedInput[];
   /**
    * Stable id of the current spending-insight period (e.g. its window start).
    * Scopes anomaly dismissals so a later period's spike re-surfaces instead of
    * being permanently silenced by one "Pomiń".
    */
   periodKey: string;
-  /** Planning-queue surplus/debt-due cards. Empty until wired (slice 2). */
-  planningActions?: PlanningQueueAction[];
   dismissedKeys?: ReadonlySet<string>;
   limit?: number;
 }
 
 const PRIORITY: Record<DashboardActionKind, number> = {
   overdue: 0,
-  debt_detected: 1,
-  stale_import: 2,
-  spending_anomaly: 3,
-  settle_ready: 4,
-  save_off_track: 5,
-  surplus: 6,
-  debt_due: 7,
+  spending_anomaly: 1,
+  save_off_track: 2,
 };
 
 const DEFAULT_LIMIT = 5;
+export const DASHBOARD_ACTIONS_PREVIEW = 3;
 
-/** Map an attention item id (built by buildAttentionItems) to a stable kind + dismiss key. */
 function attentionMeta(id: string): { kind: DashboardActionKind; dismissKey: string } {
   if (id === "overdue") return { kind: "overdue", dismissKey: "overdue" };
-  if (id === "import") return { kind: "stale_import", dismissKey: "stale_import" };
-  // "save-<planId>"
   return { kind: "save_off_track", dismissKey: `save_off_track:${id.replace(/^save-/, "")}` };
 }
 
-/** Map a planning-queue action id to a stable kind + dismiss key. */
-function planningMeta(id: string): { kind: DashboardActionKind; dismissKey: string } {
-  if (id === "no-income") return { kind: "surplus", dismissKey: "surplus:no_income" };
-  if (id.startsWith("debt-")) return { kind: "debt_due", dismissKey: "debt_due" };
-  return { kind: "save_off_track", dismissKey: `save_off_track:${id.replace(/^save-/, "")}` };
+function buildAttentionItems(input: AttentionInput): {
+  id: string;
+  label: string;
+  href: string;
+  tone: DashboardActionTone;
+}[] {
+  const items: {
+    id: string;
+    label: string;
+    href: string;
+    tone: DashboardActionTone;
+  }[] = [];
+
+  if (input.overdueCount > 0) {
+    items.push({
+      id: "overdue",
+      label: m.attention_overdue({ count: input.overdueCount }),
+      href: "/transactions?status=overdue",
+      tone: "warn",
+    });
+  }
+
+  const offTrack = pickMostUrgentOffTrackSave(input.plans);
+  if (offTrack) {
+    items.push({
+      id: `save-${offTrack.planId}`,
+      label: m.attention_save_offtrack({ name: offTrack.planName }),
+      href: `/plans/${offTrack.planId}`,
+      tone: "default",
+    });
+  }
+
+  return items.slice(0, 4);
 }
 
 export function buildDashboardActions(input: BuildDashboardActionsInput): DashboardAction[] {
@@ -108,7 +117,6 @@ export function buildDashboardActions(input: BuildDashboardActionsInput): Dashbo
   const limit = input.limit ?? DEFAULT_LIMIT;
   const out: DashboardAction[] = [];
 
-  // 1. Existing attention signals (overdue / stale import / off-track save).
   for (const item of buildAttentionItems(input.attention)) {
     const { kind, dismissKey } = attentionMeta(item.id);
     out.push({
@@ -122,7 +130,6 @@ export function buildDashboardActions(input: BuildDashboardActionsInput): Dashbo
     });
   }
 
-  // 2. Spending anomalies — computed by computeSpendingInsight but otherwise unsurfaced.
   for (const a of input.anomalies) {
     out.push({
       id: `anomaly-${a.categoryId}`,
@@ -132,54 +139,10 @@ export function buildDashboardActions(input: BuildDashboardActionsInput): Dashbo
       title: m.dashboard_action_anomaly_title({ name: a.name }),
       detail: m.dashboard_action_anomaly_detail(),
       href: `/transactions?categoryId=${a.categoryId}`,
-      // Period-scoped: a fresh spike in a later period gets a new key and re-surfaces.
       dismissKey: `spending_anomaly:${a.categoryId}:${input.periodKey}`,
     });
   }
 
-  // 3. Plans with transactions ready to settle (eligibleCount badge, now actionable).
-  for (const s of input.settleReady) {
-    if (s.eligibleCount <= 0) continue;
-    out.push({
-      id: `settle-${s.planId}`,
-      kind: "settle_ready",
-      priority: PRIORITY.settle_ready,
-      tone: "default",
-      title: m.dashboard_action_settle_title({ name: s.planName, count: s.eligibleCount }),
-      href: `/plans/${s.planId}`,
-      dismissKey: `settle_ready:${s.planId}`,
-    });
-  }
-
-  // 4. Detected recurring debt payments not yet linked to their plan.
-  for (const d of input.debtDetected) {
-    out.push({
-      id: `debt-detected-${d.planId}`,
-      kind: "debt_detected",
-      priority: PRIORITY.debt_detected,
-      tone: "default",
-      title: m.dashboard_action_debt_detected_title({ name: d.planName }),
-      detail: d.reason,
-      href: `/plans/${d.planId}`,
-      dismissKey: `debt_detected:${d.planId}`,
-    });
-  }
-
-  // 5. Planning-queue surplus / debt-due cards (empty until slice 2 wires the inputs).
-  for (const p of input.planningActions ?? []) {
-    const { kind, dismissKey } = planningMeta(p.id);
-    out.push({
-      id: p.id,
-      kind,
-      priority: PRIORITY[kind],
-      tone: p.tone,
-      title: p.label,
-      href: p.href,
-      dismissKey,
-    });
-  }
-
-  // Drop dismissed/snoozed, dedupe by stable key (keep most urgent), sort, cap.
   const byKey = new Map<string, DashboardAction>();
   for (const action of out) {
     if (dismissed.has(action.dismissKey)) continue;

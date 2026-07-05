@@ -8,7 +8,7 @@ import {
 import {
   derivePlanBucket,
   monthsBetween,
-  monthsRemaining as planMonthsRemaining,
+  calendarMonthsUntil,
   todayIso,
 } from "$lib/services/plans";
 import { trackOnce } from "$lib/analytics";
@@ -165,7 +165,7 @@ export async function fetchLinkedTransactionIds(): Promise<Set<string>> {
   return new Set((data ?? []).map((r) => r.transaction_id));
 }
 
-/** Transaction ids linked to any active save plan (for goal-spending split on Pulpit). */
+/** Transaction ids linked to any active save plan (for goal-spending split on Kokpit). */
 export async function fetchSaveLinkedTransactionIds(): Promise<Set<string>> {
   const { data: plans, error: plansError } = await supabase
     .from("plans")
@@ -308,14 +308,7 @@ export function rankPlanTransaction(
     reasons.push({ key: "keyword", label: matchedKeyword, signal: "match" });
   }
 
-  const remaining =
-    plan.budget_amount != null && plan.budget_amount > 0
-      ? Math.max(0, plan.budget_amount - spentAmount)
-      : null;
-  if (tx.type === "expense" && remaining !== null && tx.amount <= remaining) {
-    score += 20;
-    reasons.push({ key: "amount", label: "", signal: "match" });
-  } else if (tx.type === "income" && (plan.kind ?? "save") === "save") {
+  if (tx.type === "income" && (plan.kind ?? "save") === "save") {
     // Income on save plans previously had no path past the baseline, so every deposit
     // showed as a weak match. A deposit that fits the remaining target is a real signal.
     const targetRemaining =
@@ -526,12 +519,8 @@ export function computePlanProgress(input: {
   const savedAmount = incomeAmount;
   const targetAmount = input.targetAmount ?? null;
   const remaining =
-    input.budgetAmount != null && input.budgetAmount > 0
-      ? Math.max(0, input.budgetAmount - spentAmount)
-      : targetAmount != null && targetAmount > 0
-        ? Math.max(0, targetAmount - savedAmount)
-        : null;
-  const monthsRem = input.endDate ? planMonthsRemaining(input.endDate) : null;
+    targetAmount != null && targetAmount > 0 ? Math.max(0, targetAmount - savedAmount) : null;
+  const monthsRem = input.endDate ? calendarMonthsUntil(input.endDate) : null;
   const isActive =
     input.startDate && input.endDate
       ? derivePlanBucket({ start_date: input.startDate, end_date: input.endDate }, today) ===
@@ -778,13 +767,4 @@ async function countEligibleForPlans(plans: Plan[]): Promise<Record<string, numb
   );
 
   return counts;
-}
-
-export async function countEligibleTransactionsByPlanIds(
-  planIds: string[]
-): Promise<Record<string, number>> {
-  if (planIds.length === 0) return {};
-  const { data, error } = await supabase.from("plans").select("*").in("id", planIds);
-  if (error) throw error;
-  return countEligibleForPlans((data ?? []) as Plan[]);
 }

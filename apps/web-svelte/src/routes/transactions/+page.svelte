@@ -13,7 +13,6 @@
   import TransactionDialog from "$lib/components/transactions/TransactionDialog.svelte";
   import TransactionTable from "$lib/components/transactions/TransactionTable.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
-  import CoachmarkBanner from "$lib/components/onboarding/CoachmarkBanner.svelte";
   import SearchModal from "$lib/components/ui/SearchModal.svelte";
   import * as m from "$lib/paraglide/messages";
   import {
@@ -26,8 +25,11 @@
   import { fetchMyGroupRoles, fetchUserGroups } from "$lib/services/groups";
   import { fetchLinkedTransactionIds } from "$lib/services/plan-settlement";
   import { computeLedgerSummary } from "$lib/services/transaction-cashflow";
-  import { canManageTransaction } from "$lib/services/transaction-permissions";
-  import { dismissCoachmark, isCoachmarkDismissed } from "$lib/services/coachmarks";
+  import {
+    canManageTransaction,
+    isQuickSettleEligible,
+  } from "$lib/services/transaction-permissions";
+  import { markNotificationRead } from "$lib/services/notifications";
   import {
     computeSummary,
     deleteTransaction,
@@ -263,24 +265,27 @@
     )
   );
 
-  // filteredTxs: applies BOTH status filter AND group filter so it's the
-  // canonical "what the user is looking at" set used by summary,
-  // CategoryBreakdown, CSV export, etc.
+  function matchesScope(tx: { group_id: string | null }): boolean {
+    return (
+      groupFilter === "all" ||
+      (groupFilter === "own" ? tx.group_id === null : tx.group_id === groupFilter)
+    );
+  }
+
+  function matchesView(tx: { id: string; category_id: string }): boolean {
+    return viewFilter === "unlinked"
+      ? !linkedIds.has(tx.id)
+      : viewFilter === "inne"
+        ? inneCategoryIds.has(tx.category_id)
+        : true;
+  }
+
   const filteredTxs = $derived.by(() => {
     if (!txQuery.data) return undefined;
     return txQuery.data.filter((tx) => {
       const matchStatus = !statusSet || statusSet.has(tx.status);
       const matchType = !typeFilter || tx.type === typeFilter;
-      const matchGroup =
-        groupFilter === "all" ||
-        (groupFilter === "own" ? tx.group_id === null : tx.group_id === groupFilter);
-      const matchView =
-        viewFilter === "unlinked"
-          ? !linkedIds.has(tx.id)
-          : viewFilter === "inne"
-            ? inneCategoryIds.has(tx.category_id)
-            : true;
-      return matchStatus && matchType && matchGroup && matchView;
+      return matchStatus && matchType && matchesScope(tx) && matchesView(tx);
     });
   });
 
@@ -301,16 +306,7 @@
     const templates = (recurringTemplatesQuery.data ?? []).filter((tx) => {
       const matchType = !typeFilter || tx.type === typeFilter;
       const matchCategory = !categoryId || tx.category_id === categoryId;
-      const matchGroup =
-        groupFilter === "all" ||
-        (groupFilter === "own" ? tx.group_id === null : tx.group_id === groupFilter);
-      const matchView =
-        viewFilter === "unlinked"
-          ? !linkedIds.has(tx.id)
-          : viewFilter === "inne"
-            ? inneCategoryIds.has(tx.category_id)
-            : true;
-      return matchType && matchCategory && matchGroup && matchView;
+      return matchType && matchCategory && matchesScope(tx) && matchesView(tx);
     });
     return recurringProjectionsForTransactionRange({
       templates,
@@ -370,33 +366,10 @@
   }
 
   let currentUserId = $state<string | null>(null);
-  let importCoachmarkDismissed = $state(false);
   onMount(async () => {
-    importCoachmarkDismissed = isCoachmarkDismissed("transactions_import");
     const { data } = await supabase.auth.getSession();
     currentUserId = data.session?.user.id ?? null;
   });
-
-  const txCountQuery = createQuery(() => ({
-    queryKey: ["transactions", "count-probe"],
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from("transactions")
-        .select("id", { count: "exact", head: true });
-      if (error) throw error;
-      return count ?? 0;
-    },
-    enabled: !!currentUserId,
-  }));
-
-  const showImportCoachmark = $derived(
-    !importCoachmarkDismissed && txCountQuery.isSuccess && (txCountQuery.data ?? 0) === 0
-  );
-
-  function dismissImportCoachmark() {
-    importCoachmarkDismissed = true;
-    dismissCoachmark("transactions_import");
-  }
 
   const recurringMaterializationWindow = $derived(nearTermRecurringWindow());
   let recurringMaterializationKey = $state("");
@@ -539,6 +512,9 @@
   let dismissedRequestedTxId = $state<string | null>(null);
 
   const requestedTxId = $derived($page.url.searchParams.get("txId"));
+  const settleAction = $derived($page.url.searchParams.get("action"));
+  const settleNotificationId = $derived($page.url.searchParams.get("notificationId"));
+  let handledSettleKey = $state<string | null>(null);
   const requestedTxFromCurrentPage = $derived.by(() => {
     if (!requestedTxId || !txQuery.data) return null;
     return txQuery.data.find((t) => t.id === requestedTxId) ?? null;
@@ -736,6 +712,29 @@
   function quickSettle(tx: TransactionWithCategory) {
     settleMutation.mutate({ id: tx.id, prev: tx.status });
   }
+
+  $effect(() => {
+    if (settleAction !== "settle" || !requestedTxId) return;
+    const key = `${requestedTxId}:${settleNotificationId ?? ""}`;
+    if (handledSettleKey === key) return;
+    const match = requestedTxFromCurrentPage ?? requestedTxQuery.data;
+    if (!match || match.id !== requestedTxId) return;
+    handledSettleKey = key;
+
+    if (isQuickSettleEligible(match.status)) {
+      settleMutation.mutate({ id: match.id, prev: match.status });
+      if (settleNotificationId) {
+        void markNotificationRead(settleNotificationId);
+      }
+    } else {
+      sheetTx = match;
+    }
+
+    const params = new URLSearchParams($page.url.searchParams);
+    params.delete("action");
+    params.delete("notificationId");
+    void goto(`/transactions?${params.toString()}`, { replaceState: true });
+  });
 
   const bulkCategoryMutation = createMutation(() => ({
     mutationFn: (catId: string) => updateTransactionsCategory(manageableSelectedIds(), catId),
@@ -977,7 +976,7 @@
     </div>
     <div class="flex shrink-0 items-center gap-2">
       <a
-        href="/recurring"
+        href="/transactions?status=upcoming&forecast=recurring"
         class="focus-visible:ring-accent inline-flex h-9 items-center gap-1.5 rounded-full border border-white/10 px-3 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none sm:px-3.5"
         title={m.recurring_entry()}
       >
@@ -994,14 +993,6 @@
       <TransactionDataActions exportDisabled={!accountedTxs?.length} onexport={handleExport} />
     </div>
   </div>
-
-  {#if showImportCoachmark}
-    <CoachmarkBanner
-      message={m.transactions_import_coachmark()}
-      dismissLabel={m.coachmark_dismiss()}
-      ondismiss={dismissImportCoachmark}
-    />
-  {/if}
 
   <!-- Sticky filter bar -->
   {#if categoriesQuery.data && selectedIds.size === 0}
@@ -1097,20 +1088,22 @@
   {:else if txQuery.isError}
     <QueryError error={txQuery.error} onRetry={() => txQuery.refetch()} />
   {:else if visibleTxs}
-    <TransactionTable
-      transactions={renderedTxs}
-      {currentUserId}
-      canManage={txCanManage}
-      emptyLabel={tableEmptyLabel}
-      emptyHint={tableEmptyHint}
-      showEmptyActions={showTableEmptyActions}
-      onemptyadd={openAdd}
-      bind:selectedIds
-      stickyHeaderTop={`calc(3.5rem + ${stickyFiltersHeight}px)`}
-      onrowclick={(tx) => (sheetTx = tx)}
-      onsettle={quickSettle}
-      ondelete={(id: string) => (deleteTargetId = id)}
-    />
+    <div data-tour-id="tour-transaction-table">
+      <TransactionTable
+        transactions={renderedTxs}
+        {currentUserId}
+        canManage={txCanManage}
+        emptyLabel={tableEmptyLabel}
+        emptyHint={tableEmptyHint}
+        showEmptyActions={showTableEmptyActions}
+        onemptyadd={openAdd}
+        bind:selectedIds
+        stickyHeaderTop={`calc(3.5rem + ${stickyFiltersHeight}px)`}
+        onrowclick={(tx) => (sheetTx = tx)}
+        onsettle={quickSettle}
+        ondelete={(id: string) => (deleteTargetId = id)}
+      />
+    </div>
     {#if renderedTxCount < visibleTxs.length}
       <div use:txSentinel class="h-px" aria-hidden="true"></div>
     {/if}
@@ -1183,6 +1176,10 @@
   oneditoccurrence={(tx) => void editOccurrence(tx)}
   onskipoccurrence={(tx) => skipSeriesMutation.mutate(tx)}
   onendseries={(tx) => endSeriesMutation.mutate(tx)}
+  onsettle={sheetTx && txCanManage(sheetTx) && isQuickSettleEligible(sheetTx.status)
+    ? quickSettle
+    : undefined}
+  settlePending={settleMutation.isPending}
 />
 
 <ConfirmDialog

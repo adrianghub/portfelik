@@ -3,6 +3,10 @@ import { PUBLIC_PLAUSIBLE_DOMAIN } from "$env/static/public";
 
 export type AnalyticsEvent =
   | "onboarding_started"
+  | "guided_tour_started"
+  | "guided_tour_scene_viewed"
+  | "guided_tour_completed"
+  | "guided_tour_skipped"
   | "first_import_committed"
   | "first_transaction_created"
   | "first_plan_created"
@@ -12,12 +16,17 @@ export type AnalyticsEvent =
   | "import_reminder_enabled"
   | "glossary_opened"
   | "pwa_installed"
+  | "pwa_install_prompt_shown"
   | "push_enabled";
 
 export type AnalyticsProps = Record<string, string | number | boolean>;
 
 const MILESTONE_KEYS: Record<AnalyticsEvent, string> = {
   onboarding_started: "analytics:onboarding_started",
+  guided_tour_started: "analytics:guided_tour_started",
+  guided_tour_scene_viewed: "analytics:guided_tour_scene_viewed",
+  guided_tour_completed: "analytics:guided_tour_completed",
+  guided_tour_skipped: "analytics:guided_tour_skipped",
   first_import_committed: "analytics:first_import_committed",
   first_transaction_created: "analytics:first_transaction_created",
   first_plan_created: "analytics:first_plan_created",
@@ -27,6 +36,7 @@ const MILESTONE_KEYS: Record<AnalyticsEvent, string> = {
   import_reminder_enabled: "analytics:import_reminder_enabled",
   glossary_opened: "analytics:glossary_opened",
   pwa_installed: "analytics:pwa_installed",
+  pwa_install_prompt_shown: "analytics:pwa_install_prompt_shown",
   push_enabled: "analytics:push_enabled",
 };
 

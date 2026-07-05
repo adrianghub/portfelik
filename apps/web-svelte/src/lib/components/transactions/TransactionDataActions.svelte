@@ -19,7 +19,7 @@
     "focus-visible:ring-accent flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-slate-900/60 text-slate-200 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40 sm:hidden";
 </script>
 
-<div class="flex shrink-0 items-center gap-2">
+<div class="flex shrink-0 items-center gap-2" data-tour-id="tour-transaction-import">
   <a
     href="/import"
     class={importIconOnly}

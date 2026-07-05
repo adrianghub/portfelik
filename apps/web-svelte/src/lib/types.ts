@@ -258,12 +258,22 @@ export type NotificationData =
   | { type: "group_invitation"; groupId: string; groupName: string; inviterEmail: string }
   | { type: "transaction_summary"; period: string; totalExpenses: number }
   | {
-      type: "transaction_upcoming" | "transaction_overdue" | "transaction_reminder";
+      type?: "transaction_upcoming" | "transaction_overdue" | "transaction_reminder";
+      actionable?: boolean;
+      settleKind?: "transaction" | "recurring_occurrence";
       transactionId: string;
-      amount: number;
+      templateId?: string;
+      occurrenceDate?: string;
+      obligationKey?: string;
+      amount?: number;
+      description?: string;
+      date?: string;
+      isDueToday?: boolean;
+      notificationId?: string;
     }
   | {
       type: "bank_import_reminder";
+      actionable?: false;
       cadenceDays: 7 | 14 | 30;
       latestImportSessionId: string | null;
       latestImportSessionKey?: string;

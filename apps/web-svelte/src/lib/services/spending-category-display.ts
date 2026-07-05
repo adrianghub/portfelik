@@ -2,6 +2,9 @@ import type { CategoryInsight } from "$lib/services/spending-insight";
 
 export const TOP_SPENDING_CATEGORIES = 6;
 export const TOP_SPENDING_MOVERS = 3;
+/** Dashboard card preview — full lists open in a dialog. */
+export const DASHBOARD_PREVIEW_CATEGORIES = 3;
+export const DASHBOARD_PREVIEW_MOVERS = 3;
 export const CATEGORY_RING_COLORS = ["#34d399", "#a3e635", "#fbbf24", "#fb7185"] as const;
 export const CATEGORY_RING_OTHER_COLOR = "rgba(255,255,255,0.18)";
 

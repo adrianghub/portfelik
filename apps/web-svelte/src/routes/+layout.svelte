@@ -12,6 +12,7 @@
   import Breadcrumbs from "$lib/components/ui/Breadcrumbs.svelte";
   import OfflineIndicator from "$lib/components/ui/OfflineIndicator.svelte";
   import InstallPrompt from "$lib/components/ui/InstallPrompt.svelte";
+  import GuidedTourHost from "$lib/components/onboarding/GuidedTourHost.svelte";
   import { motionDuration } from "$lib/motion";
   import { initPlausible } from "$lib/analytics";
   import * as m from "$lib/paraglide/messages";
@@ -22,6 +23,7 @@
     autoSubscribePush,
     registerServiceWorker,
     requestAndSubscribePush,
+    shouldDeferBrowserPush,
     unsubscribeFromPush,
   } from "$lib/services/push";
   import { supabase } from "$lib/supabase";
@@ -77,7 +79,8 @@
       notifPermission === "default" &&
       typeof window !== "undefined" &&
       "Notification" in window &&
-      !pushPromptedRecently
+      !pushPromptedRecently &&
+      !shouldDeferBrowserPush()
   );
 
   function readPushPromptCooldown() {
@@ -137,6 +140,7 @@
     user = authUser;
     userId = authUser.id;
     authStatus = "authenticated";
+    void autoSubscribePush(authUser.id).catch(() => {});
     fetchProfile(authUser.id)
       .then((p) => {
         if (revision === authRevision) {
@@ -145,7 +149,6 @@
         }
       })
       .catch(() => {});
-    autoSubscribePush(authUser.id).catch(() => {});
   }
 
   onMount(() => {
@@ -156,9 +159,31 @@
     if ("Notification" in window) notifPermission = Notification.permission;
     readPushPromptCooldown();
 
-    const teardownNotificationSync = setupNotificationSync(queryClient, ({ title, body }) => {
-      toast(title, { description: body || undefined });
+    const teardownNotificationSync = setupNotificationSync(queryClient, (payload) => {
+      const data = payload.data;
+      const txId = data?.transactionId;
+      const actionable = data?.actionable === true && typeof txId === "string";
+      toast(payload.title, {
+        description: payload.body || undefined,
+        action: actionable
+          ? {
+              label: m.transactions_quick_settle_short(),
+              onClick: () => {
+                const params = new URLSearchParams({ txId, action: "settle" });
+                if (payload.notificationId) params.set("notificationId", payload.notificationId);
+                void goto(`/transactions?${params.toString()}`);
+              },
+            }
+          : undefined,
+      });
     });
+
+    const onServiceWorkerNavigate = (event: MessageEvent) => {
+      if (event.data?.type === "jakstoimy:navigate" && typeof event.data.url === "string") {
+        void goto(event.data.url);
+      }
+    };
+    navigator.serviceWorker?.addEventListener("message", onServiceWorkerNavigate);
 
     // The header reads `profile` from this one-shot fetch (the layout hosts the
     // QueryClientProvider, so it can't createQuery its own profile). Mirror the
@@ -219,6 +244,7 @@
     return () => {
       teardownNotificationSync();
       unsubscribeProfileCache();
+      navigator.serviceWorker?.removeEventListener("message", onServiceWorkerNavigate);
     };
   });
 </script>
@@ -269,6 +295,7 @@
         </div>
       {/key}
     </main>
+    <GuidedTourHost {profile} {userId} />
     <InstallPrompt />
   {:else}
     {@render children()}

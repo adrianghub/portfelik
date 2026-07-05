@@ -16,7 +16,7 @@ The legacy app was hosted on Firebase Hosting as a CRA-style SPA. Cutover requir
 **Cloudflare Pages with SvelteKit's `adapter-static`.**
 
 - `svelte.config.js` configures `adapter-static({ fallback: 'index.html' })`. The whole app builds to a `build/` directory of static files.
-- Production: `main` branch → `portfelik.adrianzinko.com`.
+- Production: `main` branch → `app.jakstoimy.pl`.
 - Staging: `dev` branch → `dev.portfelik.pages.dev`.
 - No `+server.ts` files. No SSR. Every API call goes from browser to Supabase directly.
 - GitHub Actions builds and uses `wrangler pages deploy` to push.
@@ -29,7 +29,7 @@ The legacy app was hosted on Firebase Hosting as a CRA-style SPA. Cutover requir
 - Edge cache via Cloudflare's network. Free tier, generous limits.
 - Per-branch preview deploys come for free - every PR lands on a preview URL.
 - PWA shape unchanged from the legacy app: same `manifest.json`, same service worker, served from `static/`.
-- Cloudflare DNS already manages the apex; flipping `portfelik.adrianzinko.com` was a CNAME change.
+- Cloudflare DNS already manages the apex; production now serves `app.jakstoimy.pl` (legacy `portfelik.adrianzinko.com` redirects).
 
 **Bad**
 

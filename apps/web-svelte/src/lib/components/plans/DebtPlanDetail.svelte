@@ -1,11 +1,7 @@
 <script lang="ts">
-  import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import {
     approximateDailyInterest,
-    compareLumpSumOverpay,
-    compareOverpay,
-    formatDuration,
     isPaymentBelowMonthlyInterest,
     monthlyInterestAmount,
   } from "$lib/services/debt-amortization";
@@ -18,21 +14,13 @@
     type PlanDebtTermsInput,
   } from "$lib/services/plan-debt";
   import { todayIso } from "$lib/services/plans";
-  import type { RefinanceFormInput } from "$lib/services/plan-refinance";
   import type { PlanDebtTerms } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
-  import {
-    debtSimQueryString,
-    parseDebtSimUrl,
-    scenariosHref,
-    type DebtSimMode,
-  } from "$lib/utils/plan-debt-sim-url";
   import { planSettleHref } from "$lib/utils/plan-routes";
   import PlanForwardNav from "$lib/components/plans/PlanForwardNav.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import DayPicker from "$lib/components/ui/DayPicker.svelte";
   import { ChevronRight } from "lucide-svelte";
-  import { onMount } from "svelte";
   import { toast } from "svelte-sonner";
   import { toastError } from "$lib/toast-error";
   import * as m from "$lib/paraglide/messages";
@@ -48,8 +36,6 @@
     onSyncBalance?: () => void | Promise<void>;
     onTermsSave?: (input: PlanDebtTermsInput) => void | Promise<void>;
     onPlanDatesSave?: (dates: { start_date: string; end_date: string }) => void | Promise<void>;
-    onRefinance?: (input: RefinanceFormInput) => void | Promise<void>;
-    refinancing?: boolean;
     refinancedFromPlanId?: string | null;
     replacedByPlanId?: string | null;
     syncing?: boolean;
@@ -67,8 +53,6 @@
     onSyncBalance,
     onTermsSave,
     onPlanDatesSave,
-    onRefinance,
-    refinancing = false,
     refinancedFromPlanId = null,
     replacedByPlanId = null,
     syncing = false,
@@ -76,60 +60,6 @@
   }: Props = $props();
 
   let showTermsEdit = $state(false);
-  let showRefinance = $state(false);
-  let refiName = $state("");
-  let refiDisbursement = $state("");
-  let refiFirstPayment = $state("");
-  let refiEndDate = $state("");
-  let refiOriginal = $state("");
-  let refiRate = $state("");
-  let refiPayment = $state("");
-  let refiFirstPaymentAmount = $state("");
-
-  function openRefinance() {
-    refiName = "";
-    refiDisbursement = todayIso();
-    refiFirstPayment = "";
-    refiEndDate = planEndDate;
-    refiOriginal = "";
-    refiRate = String(terms.annual_rate);
-    refiPayment = "";
-    refiFirstPaymentAmount = "";
-    showRefinance = true;
-  }
-
-  async function submitRefinance() {
-    const original = Number(refiOriginal);
-    const payment = Number(refiPayment);
-    const rate = Number(refiRate);
-    if (!refiName.trim()) {
-      toast.error(m.plan_debt_refinance_name_required());
-      return;
-    }
-    if (!original || Number.isNaN(original) || !payment || Number.isNaN(payment)) {
-      toast.error(m.plan_debt_payment_required());
-      return;
-    }
-    if (refiEndDate < refiDisbursement) {
-      toast.error(m.plan_form_dates_invalid());
-      return;
-    }
-    try {
-      await onRefinance?.({
-        newName: refiName.trim(),
-        disbursementDate: refiDisbursement,
-        firstPaymentDate: refiFirstPayment || refiDisbursement,
-        endDate: refiEndDate,
-        originalAmount: original,
-        annualRate: rate,
-        monthlyPayment: payment,
-        firstPaymentAmount: refiFirstPaymentAmount !== "" ? Number(refiFirstPaymentAmount) : null,
-      });
-      showRefinance = false;
-    } catch (err) {
-      toastError(err);
-    }
-  }
   let showSyncConfirm = $state(false);
   let showFullReplayConfirm = $state(false);
   let editOriginal = $state("");
@@ -175,29 +105,6 @@
       Number(terms.monthly_payment)
     )
   );
-  const amortInput = $derived({
-    currentBalance: displayBalance,
-    annualRate: Number(terms.annual_rate),
-    monthlyPayment: Number(terms.monthly_payment),
-  });
-  const maxOverpay = $derived(
-    Math.min(
-      Math.max(0, displayBalance),
-      Math.max(10_000, Math.ceil(Number(terms.monthly_payment) * 5))
-    )
-  );
-  const maxLumpSum = $derived(Math.max(0, Math.floor(displayBalance)));
-  const simState = $derived(parseDebtSimUrl($page.url.searchParams));
-  const overpayMode = $derived(simState.mode);
-  const extraPayment = $derived(Math.min(maxOverpay, simState.extra));
-  const lumpSumPayment = $derived(Math.min(maxLumpSum, simState.amount));
-  const comparison = $derived(compareOverpay(amortInput, extraPayment));
-  const lumpComparison = $derived(compareLumpSumOverpay(amortInput, lumpSumPayment));
-  const timelineWithPct = $derived(
-    comparison.baseline.payoffMonths > 0
-      ? Math.round((comparison.withExtra.payoffMonths / comparison.baseline.payoffMonths) * 100)
-      : 100
-  );
   const storedLiveBalance = $derived(Number(terms.current_balance));
   const balanceDrift = $derived(
     hasLinkedPayments && Math.abs(displayBalance - storedLiveBalance) > 1
@@ -214,69 +121,7 @@
       amount: formatCurrency(displayBalance),
     })
   );
-  const overpayChips = $derived([0, 500, 1000, 2000, 5000].filter((chip) => chip <= maxOverpay));
-  const lumpChips = $derived([5_000, 10_000, 20_000, 50_000].filter((chip) => chip <= maxLumpSum));
-  const newInstallment = $derived(Number(terms.monthly_payment) + extraPayment);
   const settleHref = $derived(planSettleHref(planId, $page.url.searchParams));
-  const compareHref = $derived(
-    scenariosHref(planId, {
-      mode: overpayMode,
-      extra: extraPayment,
-      amount: lumpSumPayment,
-      invest: parseDebtSimUrl($page.url.searchParams).invest,
-    })
-  );
-
-  onMount(() => {
-    const params = $page.url.searchParams;
-    if (!params.has("extra")) {
-      goto(`${$page.url.pathname}?${debtSimQueryString(parseDebtSimUrl(params), params)}`, {
-        replaceState: true,
-        noScroll: true,
-      });
-    }
-  });
-
-  function pushSimUrl(patch: Partial<ReturnType<typeof parseDebtSimUrl>>) {
-    const next = { ...parseDebtSimUrl($page.url.searchParams), ...patch };
-    goto(`${$page.url.pathname}?${debtSimQueryString(next, $page.url.searchParams)}`, {
-      replaceState: true,
-      keepFocus: true,
-      noScroll: true,
-    });
-  }
-
-  function setOverpayMode(mode: DebtSimMode) {
-    pushSimUrl({ mode });
-  }
-
-  function setExtraPayment(value: number) {
-    pushSimUrl({ extra: clampOverpay(value) });
-  }
-
-  function setLumpSumPayment(value: number) {
-    pushSimUrl({ amount: clampLumpSum(value) });
-  }
-
-  function clampOverpay(value: number): number {
-    if (!Number.isFinite(value)) return 0;
-    return Math.min(maxOverpay, Math.max(0, Math.round(value)));
-  }
-
-  function onOverpayInput(event: Event) {
-    const raw = (event.currentTarget as HTMLInputElement).value;
-    setExtraPayment(Number(raw));
-  }
-
-  function clampLumpSum(value: number): number {
-    if (!Number.isFinite(value)) return 0;
-    return Math.min(maxLumpSum, Math.max(0, Math.round(value)));
-  }
-
-  function onLumpSumInput(event: Event) {
-    const raw = (event.currentTarget as HTMLInputElement).value;
-    setLumpSumPayment(Number(raw));
-  }
 
   function requestSyncBalance() {
     if (syncIncreasesBalance) {
@@ -308,6 +153,16 @@
     } catch (err) {
       toastError(err);
     }
+  }
+
+  function cancelTermsEdit() {
+    editOriginal = String(terms.original_amount);
+    editBalance = String(terms.current_balance);
+    editRate = String(terms.annual_rate);
+    editPayment = String(terms.monthly_payment);
+    editStartDate = planStartDate;
+    editEndDate = planEndDate;
+    showTermsEdit = false;
   }
 
   async function saveTermsEdit() {
@@ -488,306 +343,13 @@
     </p>
   {/if}
 
-  <div class="rounded-2xl border border-white/5 bg-slate-900/50 p-4">
-    <div class="flex gap-1 rounded-lg border border-white/10 bg-slate-900/60 p-1">
-      <button
-        type="button"
-        onclick={() => setOverpayMode("monthly")}
-        class={cn(
-          "flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
-          overpayMode === "monthly"
-            ? "bg-accent-gradient text-slate-900"
-            : "text-slate-400 hover:text-slate-200"
-        )}
-      >
-        {m.plan_debt_overpay_mode_monthly()}
-      </button>
-      <button
-        type="button"
-        onclick={() => setOverpayMode("lump")}
-        class={cn(
-          "flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
-          overpayMode === "lump"
-            ? "bg-accent-gradient text-slate-900"
-            : "text-slate-400 hover:text-slate-200"
-        )}
-      >
-        {m.plan_debt_overpay_mode_lump()}
-      </button>
-    </div>
-
-    {#if overpayMode === "monthly"}
-      <p class="mt-4 text-sm font-medium text-slate-200">{m.plan_debt_overpay_label()}</p>
-      <p class="text-accent mt-2 text-2xl font-bold tabular-nums">
-        +{formatCurrency(extraPayment)}
-        <span class="text-sm font-normal text-slate-400">/mies</span>
-      </p>
-      <p class="mt-0.5 text-xs text-slate-500">
-        {m.plan_debt_new_installment({ amount: formatCurrency(newInstallment) })}
-      </p>
-      <div class="mt-4 flex items-center gap-3">
-        <input
-          type="range"
-          min="0"
-          max={maxOverpay}
-          step="50"
-          value={extraPayment}
-          oninput={(e) => setExtraPayment(Number(e.currentTarget.value))}
-          class="accent-accent min-w-0 flex-1"
-          aria-valuetext="{extraPayment} zł"
-        />
-        <input
-          type="number"
-          min="0"
-          max={maxOverpay}
-          step="50"
-          value={extraPayment}
-          oninput={onOverpayInput}
-          aria-label={m.plan_debt_overpay_input_aria()}
-          class="w-24 rounded-lg border border-white/10 bg-slate-900/60 px-2 py-1.5 text-right text-sm text-slate-100 tabular-nums"
-        />
-      </div>
-      <div class="mt-2 flex flex-wrap gap-2">
-        {#each overpayChips as chip (chip)}
-          <button
-            type="button"
-            onclick={() => setExtraPayment(chip)}
-            class="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300 hover:bg-white/5"
-          >
-            {chip === 0 ? m.plan_debt_overpay_none() : `+${chip}`}
-          </button>
-        {/each}
-      </div>
-      {#if extraPayment > 0}
-        <div class="mt-4 grid gap-2 sm:grid-cols-2">
-          <div class="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5">
-            <p class="text-xs text-emerald-400">{m.plan_debt_interest_saved()}</p>
-            <p class="mt-1 text-lg font-semibold text-emerald-300 tabular-nums">
-              {formatCurrency(comparison.interestSaved)}
-            </p>
-          </div>
-          <div class="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5">
-            <p class="text-xs text-emerald-400">{m.plan_debt_time_saved()}</p>
-            <p class="mt-1 text-lg font-semibold text-emerald-300">
-              {formatDuration(comparison.monthsSaved)}
-            </p>
-          </div>
-        </div>
-        <div class="mt-4 space-y-2">
-          <div class="flex h-2.5 overflow-hidden rounded-full bg-slate-800">
-            <div
-              class="bg-accent-gradient h-full rounded-l-full transition-all duration-500"
-              style="width: {timelineWithPct}%"
-            ></div>
-          </div>
-          <div class="flex justify-between gap-2 text-xs">
-            <span class="text-accent font-medium">
-              {formatDuration(comparison.withExtra.payoffMonths)}
-            </span>
-            <span class="text-slate-500">
-              {m.plan_debt_timeline_was({
-                duration: formatDuration(comparison.baseline.payoffMonths),
-              })}
-            </span>
-          </div>
-        </div>
-      {/if}
-    {:else}
-      <p class="mt-4 text-sm font-medium text-slate-200">{m.plan_debt_lump_label()}</p>
-      <p class="text-accent mt-2 text-2xl font-bold tabular-nums">
-        {formatCurrency(lumpSumPayment)}
-      </p>
-      <div class="mt-4 flex items-center gap-3">
-        <input
-          type="range"
-          min="0"
-          max={maxLumpSum}
-          step="500"
-          value={lumpSumPayment}
-          oninput={(e) => setLumpSumPayment(Number(e.currentTarget.value))}
-          class="accent-accent min-w-0 flex-1"
-          aria-valuetext="{lumpSumPayment} zł"
-        />
-        <input
-          type="number"
-          min="0"
-          max={maxLumpSum}
-          step="500"
-          value={lumpSumPayment}
-          oninput={onLumpSumInput}
-          aria-label={m.plan_debt_lump_input_aria()}
-          class="w-24 rounded-lg border border-white/10 bg-slate-900/60 px-2 py-1.5 text-right text-sm text-slate-100 tabular-nums"
-        />
-      </div>
-      <div class="mt-2 flex flex-wrap gap-2">
-        {#each lumpChips as chip (chip)}
-          <button
-            type="button"
-            onclick={() => setLumpSumPayment(chip)}
-            class="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300 hover:bg-white/5"
-          >
-            {formatCurrency(chip)}
-          </button>
-        {/each}
-      </div>
-      {#if lumpSumPayment > 0}
-        <div class="mt-4 grid gap-2 sm:grid-cols-3">
-          <div class="rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2.5">
-            <p class="text-xs text-amber-400">{m.plan_debt_stats_daily_interest()}</p>
-            <p class="mt-1 text-sm font-semibold text-amber-200 tabular-nums">
-              {m.plan_debt_daily_interest_change({
-                before: m.plan_debt_daily_interest_value({
-                  amount: formatCurrency(lumpComparison.previousDailyInterest),
-                }),
-                after: m.plan_debt_daily_interest_value({
-                  amount: formatCurrency(lumpComparison.newDailyInterest),
-                }),
-              })}
-            </p>
-          </div>
-          <div class="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5">
-            <p class="text-xs text-emerald-400">{m.plan_debt_interest_saved()}</p>
-            <p class="mt-1 text-lg font-semibold text-emerald-300 tabular-nums">
-              {formatCurrency(lumpComparison.interestSaved)}
-            </p>
-          </div>
-          <div class="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5">
-            <p class="text-xs text-emerald-400">{m.plan_debt_time_saved()}</p>
-            <p class="mt-1 text-lg font-semibold text-emerald-300">
-              {formatDuration(lumpComparison.monthsSaved)}
-            </p>
-          </div>
-        </div>
-        <p class="mt-3 text-xs text-slate-500">{m.plan_debt_lump_disclaimer()}</p>
-      {/if}
-    {/if}
-  </div>
-
-  <a
-    href={compareHref}
-    class="focus-visible:ring-accent flex items-center justify-between rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3 text-sm font-semibold text-slate-200 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
-  >
-    {m.plan_debt_compare_link()}
-    <ChevronRight size={16} aria-hidden="true" />
-  </a>
-
-  {#if onRefinance && !replacedByPlanId}
-    <div class="rounded-2xl border border-white/5 bg-slate-900/40">
-      <button
-        type="button"
-        onclick={() => (showRefinance ? (showRefinance = false) : openRefinance())}
-        class="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-slate-300 hover:text-slate-100"
-      >
-        {m.plan_debt_refinance_action()}
-        <ChevronRight
-          size={16}
-          class={cn("transition-transform", showRefinance && "rotate-90")}
-          aria-hidden="true"
-        />
-      </button>
-      {#if showRefinance}
-        <div class="space-y-3 border-t border-white/5 px-4 py-4">
-          <p class="text-xs text-slate-500">{m.plan_debt_refinance_hint()}</p>
-          <label class="block text-xs text-slate-400">
-            {m.plan_debt_refinance_name()}
-            <input
-              type="text"
-              required
-              bind:value={refiName}
-              class="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
-            />
-          </label>
-          <div class="grid gap-3 sm:grid-cols-2">
-            <DayPicker
-              id="debt-refi-disbursement-{planId}"
-              bind:value={refiDisbursement}
-              label={m.plan_debt_refinance_disbursement()}
-              yearsPast={5}
-              yearsAhead={1}
-              showLabel={true}
-            />
-            <DayPicker
-              id="debt-refi-first-payment-{planId}"
-              bind:value={refiFirstPayment}
-              label={m.plan_debt_refinance_first_payment()}
-              yearsPast={1}
-              yearsAhead={2}
-              showLabel={true}
-            />
-          </div>
-          <DayPicker
-            id="debt-refi-end-{planId}"
-            bind:value={refiEndDate}
-            label={m.plan_form_end_date_debt()}
-            yearsPast={0}
-            yearsAhead={100}
-            showLabel={true}
-          />
-          <div class="grid gap-3 sm:grid-cols-2">
-            <label class="block text-xs text-slate-400">
-              {m.plan_debt_original()}
-              <input
-                type="number"
-                min="0.01"
-                step="0.01"
-                required
-                bind:value={refiOriginal}
-                class="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
-              />
-            </label>
-            <label class="block text-xs text-slate-400">
-              {m.plan_debt_rate()}
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                required
-                bind:value={refiRate}
-                class="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
-              />
-            </label>
-            <label class="block text-xs text-slate-400">
-              {m.plan_debt_payment()}
-              <input
-                type="number"
-                min="0.01"
-                step="0.01"
-                required
-                bind:value={refiPayment}
-                class="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
-              />
-            </label>
-            <label class="block text-xs text-slate-400">
-              {m.plan_debt_first_payment_amount()}
-              <input
-                type="number"
-                min="0.01"
-                step="0.01"
-                bind:value={refiFirstPaymentAmount}
-                class="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
-              />
-            </label>
-          </div>
-          <p class="text-xs text-slate-500">{m.plan_debt_first_payment_hint()}</p>
-          <button
-            type="button"
-            disabled={refinancing}
-            onclick={submitRefinance}
-            class="bg-accent-gradient w-full rounded-xl py-2.5 text-sm font-semibold text-slate-900 disabled:opacity-50"
-          >
-            {refinancing ? m.common_saving() : m.plan_debt_refinance_submit()}
-          </button>
-        </div>
-      {/if}
-    </div>
-  {/if}
-
   {#if onTermsSave}
     <div class="rounded-2xl border border-white/5 bg-slate-900/40">
       <button
         type="button"
+        disabled={termsSaving}
         onclick={() => (showTermsEdit = !showTermsEdit)}
-        class="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-slate-300 hover:text-slate-100"
+        class="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-slate-300 hover:text-slate-100 disabled:opacity-50"
       >
         {m.plan_debt_edit_terms()}
         <ChevronRight
@@ -805,8 +367,9 @@
               min="0.01"
               step="0.01"
               required
+              disabled={termsSaving}
               bind:value={editOriginal}
-              class="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
+              class="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 disabled:opacity-50"
             />
           </label>
           <label class="block text-xs text-slate-400">
@@ -815,8 +378,9 @@
               type="number"
               min="0"
               step="0.01"
+              disabled={termsSaving}
               bind:value={editBalance}
-              class="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
+              class="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 disabled:opacity-50"
             />
             <span class="mt-1 block text-xs text-slate-500">
               {m.plan_debt_balance_today_estimate({ amount: formatCurrency(displayBalance) })}
@@ -829,8 +393,9 @@
               min="0"
               step="0.01"
               required
+              disabled={termsSaving}
               bind:value={editRate}
-              class="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
+              class="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 disabled:opacity-50"
             />
           </label>
           <label class="block text-xs text-slate-400">
@@ -840,8 +405,9 @@
               min="0.01"
               step="0.01"
               required
+              disabled={termsSaving}
               bind:value={editPayment}
-              class="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
+              class="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 disabled:opacity-50"
             />
           </label>
           <div class="grid gap-3 sm:grid-cols-2">
@@ -852,6 +418,7 @@
               yearsPast={50}
               yearsAhead={1}
               showLabel={true}
+              disabled={termsSaving}
             />
             <DayPicker
               id="debt-edit-end-{planId}"
@@ -860,16 +427,27 @@
               yearsPast={0}
               yearsAhead={100}
               showLabel={true}
+              disabled={termsSaving}
             />
           </div>
-          <button
-            type="button"
-            disabled={termsSaving}
-            onclick={saveTermsEdit}
-            class="bg-accent-gradient w-full rounded-xl py-2.5 text-sm font-semibold text-slate-900 disabled:opacity-50"
-          >
-            {m.common_save()}
-          </button>
+          <div class="flex gap-2">
+            <button
+              type="button"
+              disabled={termsSaving}
+              onclick={cancelTermsEdit}
+              class="flex-1 rounded-xl border border-white/10 py-2.5 text-sm font-medium text-slate-300 hover:text-slate-100 disabled:opacity-50"
+            >
+              {m.common_cancel()}
+            </button>
+            <button
+              type="button"
+              disabled={termsSaving}
+              onclick={saveTermsEdit}
+              class="bg-accent-gradient flex-1 rounded-xl py-2.5 text-sm font-semibold text-slate-900 disabled:opacity-50"
+            >
+              {termsSaving ? m.common_saving() : m.common_save()}
+            </button>
+          </div>
           {#if snapshotMode && onSyncBalance}
             <button
               type="button"

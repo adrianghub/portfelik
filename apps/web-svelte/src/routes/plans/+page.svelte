@@ -69,9 +69,8 @@
   import { onMount } from "svelte";
   import { toast } from "svelte-sonner";
   import { toastError } from "$lib/toast-error";
+  import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import QueryError from "$lib/components/ui/QueryError.svelte";
-  import CoachmarkBanner from "$lib/components/onboarding/CoachmarkBanner.svelte";
-  import { dismissCoachmark, isCoachmarkDismissed } from "$lib/services/coachmarks";
   import { computeLedgerSummary } from "$lib/services/transaction-cashflow";
   import { fetchTransactions } from "$lib/services/transactions";
   import {
@@ -110,17 +109,10 @@
   }
 
   let currentUserId = $state<string | null>(null);
-  let hubOnboardingDismissed = $state(false);
   onMount(async () => {
-    hubOnboardingDismissed = isCoachmarkDismissed("plans_hub");
     const { data } = await supabase.auth.getSession();
     currentUserId = data.session?.user.id ?? null;
   });
-
-  function dismissHubOnboarding() {
-    hubOnboardingDismissed = true;
-    dismissCoachmark("plans_hub");
-  }
 
   const plansQuery = createQuery(() => ({
     queryKey: ["plans"],
@@ -341,6 +333,7 @@
   });
 
   const hasActivePlans = $derived((plansQuery.data?.length ?? 0) > 0);
+  const showPlansZeroState = $derived(!hasActivePlans);
 
   const filteredPlans = $derived(
     summaries.filter((p) => {
@@ -658,25 +651,19 @@
 <div class="container mx-auto max-w-3xl space-y-5 px-4 py-6">
   <div class="flex items-center justify-between gap-3">
     <h1 class="text-2xl font-semibold text-slate-900 dark:text-white">{m.nav_plans()}</h1>
-    <button
-      type="button"
-      onclick={() => resetForm()}
-      class="bg-accent-gradient focus-visible:ring-accent hidden items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:outline-none md:inline-flex"
-    >
-      <Plus size={16} aria-hidden="true" />
-      {m.plan_form_title_add()}
-    </button>
+    {#if plansQuery.isLoading || !showPlansZeroState}
+      <button
+        type="button"
+        onclick={() => resetForm()}
+        class="bg-accent-gradient focus-visible:ring-accent hidden items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:outline-none md:inline-flex"
+      >
+        <Plus size={16} aria-hidden="true" />
+        {m.plan_form_title_add()}
+      </button>
+    {/if}
   </div>
 
   <p class="text-sm text-slate-400">{m.plans_tagline()}</p>
-
-  {#if !hubOnboardingDismissed && !hasActivePlans}
-    <CoachmarkBanner
-      message={m.plans_hub_onboarding()}
-      dismissLabel={m.coachmark_dismiss()}
-      ondismiss={dismissHubOnboarding}
-    />
-  {/if}
 
   {#if snapshotQuery.isLoading}
     <div class="h-36 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
@@ -698,6 +685,19 @@
     </div>
   {:else if plansQuery.isError}
     <QueryError error={plansQuery.error} onRetry={() => plansQuery.refetch()} />
+  {:else if showPlansZeroState}
+    <EmptyState title={m.plans_empty_hint()}>
+      {#snippet action()}
+        <button
+          type="button"
+          onclick={() => resetForm()}
+          class="bg-accent-gradient focus-visible:ring-accent inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] focus-visible:ring-2 focus-visible:outline-none"
+        >
+          <Plus size={16} aria-hidden="true" />
+          {m.plan_form_title_add()}
+        </button>
+      {/snippet}
+    </EmptyState>
   {:else}
     {#if filteredPlans.length === 0}
       <p class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-400">
@@ -751,14 +751,16 @@
           {m.plans_section_save_empty()}
         </p>
       {:else}
-        {#each savePlans as plan (plan.id)}
-          <PlanCard
-            {plan}
-            categoryName={categoryMap.get(plan.category_id ?? "")}
-            groupName={groupMap.get(plan.group_id ?? "")}
-            onedit={planCanManage(plan) ? resetForm : undefined}
-            ondelete={planCanManage(plan) ? (id) => (deleteTargetId = id) : undefined}
-          />
+        {#each savePlans as plan, i (plan.id)}
+          <div data-tour-id={i === 0 ? "tour-plan-save" : undefined}>
+            <PlanCard
+              {plan}
+              categoryName={categoryMap.get(plan.category_id ?? "")}
+              groupName={groupMap.get(plan.group_id ?? "")}
+              onedit={planCanManage(plan) ? resetForm : undefined}
+              ondelete={planCanManage(plan) ? (id) => (deleteTargetId = id) : undefined}
+            />
+          </div>
         {/each}
       {/if}
     </section>
@@ -774,23 +776,27 @@
           {m.plans_section_debt_empty()}
         </p>
       {:else}
-        {#each debtPlans as plan (plan.id)}
-          <PlanCard
-            {plan}
-            debtTerms={debtTermsQuery.data?.[plan.id]}
-            linkedExpenses={progressQuery.data?.[plan.id]?.linkedExpenses ?? []}
-            categoryName={categoryMap.get(plan.category_id ?? "")}
-            groupName={groupMap.get(plan.group_id ?? "")}
-            onedit={planCanManage(plan) ? resetForm : undefined}
-            ondelete={planCanManage(plan) ? (id) => (deleteTargetId = id) : undefined}
-          />
+        {#each debtPlans as plan, i (plan.id)}
+          <div data-tour-id={i === 0 ? "tour-plan-settle" : undefined}>
+            <PlanCard
+              {plan}
+              debtTerms={debtTermsQuery.data?.[plan.id]}
+              linkedExpenses={progressQuery.data?.[plan.id]?.linkedExpenses ?? []}
+              categoryName={categoryMap.get(plan.category_id ?? "")}
+              groupName={groupMap.get(plan.group_id ?? "")}
+              onedit={planCanManage(plan) ? resetForm : undefined}
+              ondelete={planCanManage(plan) ? (id) => (deleteTargetId = id) : undefined}
+            />
+          </div>
         {/each}
       {/if}
     </section>
   {/if}
 </div>
 
-<Fab onclick={() => resetForm()} aria-label={m.plan_form_title_add()} />
+{#if !showPlansZeroState}
+  <Fab onclick={() => resetForm()} aria-label={m.plan_form_title_add()} />
+{/if}
 
 <Dialog
   open={showForm}

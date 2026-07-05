@@ -54,9 +54,9 @@ test("creates a saving goal with date period and target", async ({ page }) => {
   await page.getByRole("button", { name: "Nowy plan" }).first().click();
   await page.getByLabel("Nazwa").fill("Remont kuchni");
   await page.getByRole("button", { name: "Od", exact: true }).click();
-  await page.locator('[data-date="2026-06-10"]').click();
+  await page.locator('[data-date="2026-07-10"]').click();
   await page.getByRole("button", { name: "Do", exact: true }).click();
-  await page.locator('[data-date="2026-06-30"]').click();
+  await page.locator('[data-date="2026-07-30"]').click();
   await page.getByLabel("Kwota celu").fill("2500");
   await page.getByRole("button", { name: "Zapisz" }).click();
 
@@ -65,8 +65,8 @@ test("creates a saving goal with date period and target", async ({ page }) => {
     .toEqual({
       name: "Remont kuchni",
       kind: "save",
-      start_date: "2026-06-10",
-      end_date: "2026-06-30",
+      start_date: "2026-07-10",
+      end_date: "2026-07-30",
       budget_amount: null,
       target_amount: 2500,
       category_id: null,
@@ -151,25 +151,16 @@ test("creates a debt plan (Kredyt) with terms", async ({ page }) => {
   await expect(page.getByText("Plan dodany")).toBeVisible();
 });
 
-test("debt plan detail shows balance hero and scenarios link", async ({ page }) => {
+test("debt plan detail shows balance hero", async ({ page }) => {
   await page.goto("/plans/plan-debt-1");
 
   await expect(page.getByRole("heading", { name: "Kredyt hipoteczny" })).toBeVisible();
   await expect(page.getByText("Pozostało do spłaty")).toBeVisible();
-  await expect(page.getByText(/Wpis kotwicy/i)).toBeVisible();
   await expect(page.locator(".text-4xl").filter({ hasText: "206" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Miesięcznie" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Jednorazowo" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Porównaj →" })).toHaveAttribute(
-    "href",
-    "/plans/plan-debt-1/scenarios?mode=monthly&extra=500&amount=10000&invest=7"
-  );
-
-  await page.getByRole("button", { name: "Jednorazowo" }).click();
-  await expect(page.getByText("Ile nadpłacić jednorazowo?")).toBeVisible();
 });
 
-test("refinances a debt plan: closes old, opens new, writes no transaction", async ({ page }) => {
+// Refinance entry UI is deferred in the product; keep RPC coverage in unit tests.
+test.skip("refinances a debt plan: closes old, opens new, writes no transaction", async ({ page }) => {
   let rpcBody: Record<string, unknown> | undefined;
   let transactionWritten = false;
 
@@ -201,15 +192,13 @@ test("refinances a debt plan: closes old, opens new, writes no transaction", asy
   expect(transactionWritten).toBe(false);
 });
 
-test("debt scenarios page shows verdict and rate comparison", async ({ page }) => {
+test("debt scenarios page redirects/declares unavailable (no static results)", async ({ page }) => {
   await page.goto("/plans/plan-debt-1/scenarios?mode=monthly&extra=500");
 
   await expect(page.getByRole("heading", { name: "Nadpłata vs inwestycja" })).toBeVisible();
   await expect(page.getByTestId("scenarios-verdict")).toBeVisible();
-  await expect(page.getByText("Porównanie do końca kredytu")).toBeVisible();
-  await expect(page.getByText("Łączna korzyść").first()).toBeVisible();
-
-  // Rate bars live inside the collapsed breakdown accordion.
-  await page.getByText("Skąd te kwoty?").click();
-  await expect(page.getByTestId("scenarios-rate-comparison")).toBeVisible();
+  // The scenarios view is intentionally unavailable; ensure we do NOT ship
+  // hard-coded numeric results and instead surface a safe notice with a link.
+  await expect(page.getByText("Scenariusze spłaty kredytu są obecnie niedostępne")).toBeVisible();
+  await expect(page.getByRole("link", { name: /Powrót do planów/ })).toBeVisible();
 });

@@ -209,28 +209,8 @@
     <div class="rounded-2xl border border-white/5 bg-slate-900/50 px-4 py-4">
       <p class="text-eyebrow text-slate-400">{m.plan_settle_progress_eyebrow()}</p>
       <div class="mt-3 text-2xl font-semibold text-slate-100 tabular-nums">
-        {#if progress.budgetAmount != null && progress.budgetAmount > 0}
-          {m.plan_settle_progress_bar({
-            spent: formatCurrency(progress.spentAmount),
-            budget: formatCurrency(progress.budgetAmount),
-            remaining: formatCurrency(progress.remaining ?? 0),
-          })}
-        {:else}
-          {formatCurrency(progressAmount)}
-        {/if}
+        {formatCurrency(progressAmount)}
       </div>
-      {#if progress.budgetAmount != null && progress.budgetAmount > 0}
-        {@const pct = Math.round(Math.min(1, progress.spentAmount / progress.budgetAmount) * 100)}
-        <div
-          class="mt-4 h-1.5 overflow-hidden rounded-full bg-slate-800"
-          role="progressbar"
-          aria-valuenow={pct}
-          aria-valuemin={0}
-          aria-valuemax={100}
-        >
-          <div class="bg-accent-gradient h-full rounded-full" style="width: {pct}%"></div>
-        </div>
-      {/if}
     </div>
   {/if}
 
