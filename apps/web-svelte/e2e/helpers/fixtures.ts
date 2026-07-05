@@ -37,6 +37,20 @@ export const MOCK_CATEGORIES = [
   { id: "cat-3", name: "Wynagrodzenie", type: "income", user_id: null },
 ];
 
+/**
+ * Local date-only string `offsetDays` from today. E2E specs use dynamic dates
+ * when the date picker only renders the visible month — hardcoded literals age
+ * out and flake in CI.
+ */
+export function isoDaysFromToday(offsetDays: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export const MOCK_TRANSACTIONS = [
   {
     id: "tx-1",

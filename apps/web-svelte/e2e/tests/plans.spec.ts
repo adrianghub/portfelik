@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { isoDaysFromToday } from "../helpers/fixtures";
 import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
 
 test.beforeEach(async ({ page }) => {
@@ -50,13 +51,16 @@ test("creates a saving goal with date period and target", async ({ page }) => {
     return route.fallback();
   });
 
+  const startDate = isoDaysFromToday(5);
+  const endDate = isoDaysFromToday(25);
+
   await page.goto("/plans");
   await page.getByRole("button", { name: "Nowy plan" }).first().click();
   await page.getByLabel("Nazwa").fill("Remont kuchni");
   await page.getByRole("button", { name: "Od", exact: true }).click();
-  await page.locator('[data-date="2026-07-10"]').click();
+  await page.locator(`[data-date="${startDate}"]`).click();
   await page.getByRole("button", { name: "Do", exact: true }).click();
-  await page.locator('[data-date="2026-07-30"]').click();
+  await page.locator(`[data-date="${endDate}"]`).click();
   await page.getByLabel("Kwota celu").fill("2500");
   await page.getByRole("button", { name: "Zapisz" }).click();
 
@@ -65,8 +69,8 @@ test("creates a saving goal with date period and target", async ({ page }) => {
     .toEqual({
       name: "Remont kuchni",
       kind: "save",
-      start_date: "2026-07-10",
-      end_date: "2026-07-30",
+      start_date: startDate,
+      end_date: endDate,
       budget_amount: null,
       target_amount: 2500,
       category_id: null,
