@@ -38,10 +38,9 @@ export const MOCK_CATEGORIES = [
 ];
 
 /**
- * Local date-only string `offsetDays` from today. Transaction fixtures use
- * dynamic dates because the dashboard windows rows client-side (current period,
- * 6-period history, forecast horizon) against the real clock — static dates
- * silently age out of every window.
+ * Local date-only string `offsetDays` from today. E2E specs use dynamic dates
+ * when the date picker only renders the visible month — hardcoded literals age
+ * out and flake in CI.
  */
 export function isoDaysFromToday(offsetDays: number): string {
   const d = new Date();
