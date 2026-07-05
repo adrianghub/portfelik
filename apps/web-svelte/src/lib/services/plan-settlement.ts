@@ -165,7 +165,7 @@ export async function fetchLinkedTransactionIds(): Promise<Set<string>> {
   return new Set((data ?? []).map((r) => r.transaction_id));
 }
 
-/** Transaction ids linked to any active save plan (for goal-spending split on Pulpit). */
+/** Transaction ids linked to any active save plan (for goal-spending split on Kokpit). */
 export async function fetchSaveLinkedTransactionIds(): Promise<Set<string>> {
   const { data: plans, error: plansError } = await supabase
     .from("plans")
@@ -767,13 +767,4 @@ async function countEligibleForPlans(plans: Plan[]): Promise<Record<string, numb
   );
 
   return counts;
-}
-
-export async function countEligibleTransactionsByPlanIds(
-  planIds: string[]
-): Promise<Record<string, number>> {
-  if (planIds.length === 0) return {};
-  const { data, error } = await supabase.from("plans").select("*").in("id", planIds);
-  if (error) throw error;
-  return countEligibleForPlans((data ?? []) as Plan[]);
 }

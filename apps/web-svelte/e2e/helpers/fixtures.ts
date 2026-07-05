@@ -54,7 +54,7 @@ export function isoDaysFromToday(offsetDays: number): string {
 export const MOCK_TRANSACTIONS = [
   {
     id: "tx-1",
-    date: "2026-05-01",
+    date: isoDaysFromToday(0),
     description: "Zakupy spożywcze",
     amount: 150.5,
     type: "expense",
@@ -73,7 +73,7 @@ export const MOCK_TRANSACTIONS = [
   },
   {
     id: "tx-2",
-    date: "2026-05-02",
+    date: isoDaysFromToday(0),
     description: "Bilet miesięczny",
     amount: 80,
     type: "expense",
@@ -92,7 +92,7 @@ export const MOCK_TRANSACTIONS = [
   },
   {
     id: "tx-3",
-    date: "2026-05-15",
+    date: isoDaysFromToday(7),
     description: "Rachunek za prąd",
     amount: 220,
     type: "expense",

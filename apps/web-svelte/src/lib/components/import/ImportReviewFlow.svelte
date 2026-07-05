@@ -378,6 +378,11 @@
   }
   let undoStack = $state<UndoPatch[][]>([]);
   const UNDO_LIMIT = 50;
+  // Rule capture is async (POST + refresh + apply). If the user hits "Cofnij"
+  // while it is in flight, the late apply would re-categorize the row they just
+  // undid (it matches selected_category_id === previousCategoryId). Undo bumps
+  // this epoch; applies started under an older epoch become no-ops.
+  let ruleApplyEpoch = 0;
 
   function pushUndo(patches: UndoPatch[]): void {
     if (patches.length === 0) return;
@@ -385,10 +390,36 @@
   }
 
   async function undoLastChange(): Promise<void> {
+    ruleApplyEpoch += 1;
     const entry = undoStack.at(-1);
     if (!entry) return;
+
+    // Pop the last entry and apply its patches.
     undoStack = undoStack.slice(0, -1);
     await Promise.all(entry.map((p) => patchRow(p.rowId, p.before)));
+
+    // If the last entry did not include any selected_category_id patches but the
+    // previous entry does (common when a rule-save applied a cascade after the
+    // user's explicit pick), only pop+apply that previous entry when it affects
+    // at least one of the same rows — avoids undoing unrelated prior edits.
+    const prev = undoStack.at(-1);
+    const entryHasCategoryPatch = entry.some((p) =>
+      Object.prototype.hasOwnProperty.call(p.before, "selected_category_id")
+    );
+    const prevHasCategoryPatch = prev
+      ? prev.some((p) => Object.prototype.hasOwnProperty.call(p.before, "selected_category_id"))
+      : false;
+
+    const entryRowIds = new Set(entry.map((p) => p.rowId));
+    const prevRowIds = new Set(prev ? prev.map((p) => p.rowId) : []);
+    const overlap = [...entryRowIds].some((id) => prevRowIds.has(id));
+
+    if (!entryHasCategoryPatch && prevHasCategoryPatch && overlap) {
+      // Pop and apply the previous entry as well.
+      undoStack = undoStack.slice(0, -1);
+      await Promise.all(prev!.map((p) => patchRow(p.rowId, p.before)));
+    }
+
     toast.success(m.bank_review_change_undone());
   }
 
@@ -435,8 +466,10 @@
 
   async function applyRuleCategoryToRows(
     rule: CategorizationRule,
-    previousCategoryId: string | null
+    previousCategoryId: string | null,
+    epoch?: number
   ): Promise<UndoSnapshot[]> {
+    if (epoch !== undefined && epoch !== ruleApplyEpoch) return [];
     const targets = activeRows.filter((r) => {
       if (!rowMatchesRule(r, rule)) return false;
       if (r.selected_category_id === rule.category_id) return false;
@@ -537,6 +570,7 @@
     categoryId: string;
     text: string;
     previousCategoryId?: string | null;
+    epoch?: number;
   }): Promise<CategorizationRule> {
     const text = input.text.trim();
     const candidate = {
@@ -566,7 +600,11 @@
     });
     await refreshRules();
 
-    const snapshots = await applyRuleCategoryToRows(created, input.previousCategoryId ?? null);
+    const snapshots = await applyRuleCategoryToRows(
+      created,
+      input.previousCategoryId ?? null,
+      input.epoch
+    );
 
     const toastMsg =
       snapshots.length > 0
@@ -593,7 +631,8 @@
 
   async function captureRuleForRow(
     row: ImportRow,
-    previousCategoryId: string | null
+    previousCategoryId: string | null,
+    epoch?: number
   ): Promise<boolean> {
     if (!row.selected_category_id) return false;
     const text = suggestRuleText(row);
@@ -614,7 +653,7 @@
     const duplicate = findDuplicateCategorizationRule(rulesQuery.data ?? [], draft);
     if (duplicate) {
       const duplicateLabel = duplicate.match_description ?? duplicate.match_counterparty ?? text;
-      await applyRuleCategoryToRows(duplicate, previousCategoryId);
+      await applyRuleCategoryToRows(duplicate, previousCategoryId, epoch);
       toast.info(m.bank_review_rule_already_saved({ rule: duplicateLabel }));
       return true;
     }
@@ -625,6 +664,7 @@
         categoryId: row.selected_category_id,
         text,
         previousCategoryId,
+        epoch,
       });
       return true;
     } catch (e) {
@@ -687,7 +727,9 @@
     }
 
     // Learn silently from explicit user category picks to reduce manual rule work.
-    await captureRuleForRow(patchedRow, previousCategoryId);
+    // Pass the current ruleApplyEpoch so any rule-apply started after an undo
+    // (which increments the epoch) becomes a no-op — prevents late re-applies.
+    await captureRuleForRow(patchedRow, previousCategoryId, ruleApplyEpoch);
   }
 
   function getImportedDateRange(): ImportedDateRange | undefined {
