@@ -578,7 +578,39 @@
   });
 
   function openTransaction(tx: TransactionWithCategory) {
-    goto(transactionsHref({ status: tx.status }));
+    try {
+      const startMs = new Date(bounds.start).getTime();
+      const endMs = new Date(bounds.end).getTime();
+      const txMs = new Date(tx.date).getTime();
+
+      // If the transaction falls inside the currently selected dashboard window,
+      // open the transactions view for that period so the row is visible.
+      if (txMs >= startMs && txMs < endMs) {
+        goto(transactionsHref({ status: tx.status, txId: tx.id }));
+        return;
+      }
+
+      // Overdue/upcoming rows may live outside the current window (90-day lookback
+      // + forecast horizon). For those, reuse the dashboard's upcoming span so the
+      // target row appears in the list, and include txId so the sheet opens.
+      if (tx.status === "upcoming" || tx.status === "overdue") {
+        const sep = upcomingHref.includes("?") ? "&" : "?";
+        goto(`${upcomingHref}${sep}txId=${encodeURIComponent(tx.id)}`);
+        return;
+      }
+
+      // Fallback: open a one-day window for the transaction date and pass txId.
+      const params = new URLSearchParams();
+      params.set("startDate", toIsoDate(new Date(tx.date)));
+      params.set("endDate", toIsoDate(new Date(tx.date)));
+      params.set("txId", tx.id);
+      params.set("group", groupFilter);
+      goto(`/transactions?${params.toString()}`);
+    } catch (e) {
+      // Best-effort fallback to the period link; include txId so transactions page
+      // can fetch the row by id if needed.
+      goto(transactionsHref({ status: tx.status, txId: tx.id }));
+    }
   }
 
   const periodChips: { value: Period; label: string }[] = $derived([

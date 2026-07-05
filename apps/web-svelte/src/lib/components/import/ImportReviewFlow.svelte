@@ -400,15 +400,19 @@
 
     // If the last entry did not include any selected_category_id patches but the
     // previous entry does (common when a rule-save applied a cascade after the
-    // user's explicit pick), also pop+apply that previous entry so a single
-    // "Cofnij ostatnią zmianę" restores the user's original selection.
+    // user's explicit pick), only pop+apply that previous entry when it affects
+    // at least one of the same rows — avoids undoing unrelated prior edits.
     const prev = undoStack.at(-1);
     const entryHasCategoryPatch = entry.some((p) => Object.prototype.hasOwnProperty.call(p.before, "selected_category_id"));
     const prevHasCategoryPatch = prev
       ? prev.some((p) => Object.prototype.hasOwnProperty.call(p.before, "selected_category_id"))
       : false;
 
-    if (!entryHasCategoryPatch && prevHasCategoryPatch) {
+    const entryRowIds = new Set(entry.map((p) => p.rowId));
+    const prevRowIds = new Set(prev ? prev.map((p) => p.rowId) : []);
+    const overlap = [...entryRowIds].some((id) => prevRowIds.has(id));
+
+    if (!entryHasCategoryPatch && prevHasCategoryPatch && overlap) {
       // Pop and apply the previous entry as well.
       undoStack = undoStack.slice(0, -1);
       await Promise.all(prev!.map((p) => patchRow(p.rowId, p.before)));
