@@ -403,7 +403,9 @@
     // user's explicit pick), only pop+apply that previous entry when it affects
     // at least one of the same rows — avoids undoing unrelated prior edits.
     const prev = undoStack.at(-1);
-    const entryHasCategoryPatch = entry.some((p) => Object.prototype.hasOwnProperty.call(p.before, "selected_category_id"));
+    const entryHasCategoryPatch = entry.some((p) =>
+      Object.prototype.hasOwnProperty.call(p.before, "selected_category_id")
+    );
     const prevHasCategoryPatch = prev
       ? prev.some((p) => Object.prototype.hasOwnProperty.call(p.before, "selected_category_id"))
       : false;
