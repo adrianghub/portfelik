@@ -56,13 +56,3 @@ export function computeLedgerSummary(transactions: TransactionWithCategory[]): M
 export function computeForecastSummary(transactions: TransactionWithCategory[]): MonthlySummary {
   return computeSummary(forecastTransactions(transactions));
 }
-
-/** Default summary for dashboards and planning - paid only. */
-export function computeCashflowSummary(
-  transactions: TransactionWithCategory[],
-  mode: CashflowSummaryMode = "ledger"
-): MonthlySummary {
-  return mode === "forecast"
-    ? computeForecastSummary(transactions)
-    : computeLedgerSummary(transactions);
-}

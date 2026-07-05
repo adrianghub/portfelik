@@ -1,5 +1,6 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
+  import { untrack } from "svelte";
   import type { TransactionWithCategory } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
   import { ArrowDown, ArrowUp, ArrowUpDown, Check, Users, Wallet } from "lucide-svelte";
@@ -26,6 +27,8 @@
     stickyHeaderTop?: string;
     /** responsive: cards on mobile, table on sm+; cards: card list at all breakpoints (e.g. search). */
     layout?: "responsive" | "cards";
+    /** Initial date-sort direction. Upcoming lists want "asc" (soonest first). */
+    initialSortDirection?: "asc" | "desc";
   }
   let {
     transactions,
@@ -41,13 +44,14 @@
     stickyHeaderOffset,
     stickyHeaderTop,
     layout = "responsive",
+    initialSortDirection = "desc",
   }: Props = $props();
 
   type SortKey = "date" | "description" | "category" | "status" | "amount";
   type SortDirection = "asc" | "desc";
 
   let sortKey = $state<SortKey>("date");
-  let sortDirection = $state<SortDirection>("desc");
+  let sortDirection = $state<SortDirection>(untrack(() => initialSortDirection));
 
   const isShared = (tx: TransactionWithCategory) => tx.group_id !== null;
   const isProjected = (tx: TransactionWithCategory) => tx.projected === true;

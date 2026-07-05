@@ -192,15 +192,13 @@ test.skip("refinances a debt plan: closes old, opens new, writes no transaction"
   expect(transactionWritten).toBe(false);
 });
 
-test("debt scenarios page shows verdict and rate comparison", async ({ page }) => {
+test("debt scenarios page redirects/declares unavailable (no static results)", async ({ page }) => {
   await page.goto("/plans/plan-debt-1/scenarios?mode=monthly&extra=500");
 
   await expect(page.getByRole("heading", { name: "Nadpłata vs inwestycja" })).toBeVisible();
   await expect(page.getByTestId("scenarios-verdict")).toBeVisible();
-  await expect(page.getByText("Porównanie do końca kredytu")).toBeVisible();
-  await expect(page.getByText("Łączna korzyść").first()).toBeVisible();
-
-  // Rate bars live inside the collapsed breakdown accordion.
-  await page.getByText("Skąd te kwoty?").click();
-  await expect(page.getByTestId("scenarios-rate-comparison")).toBeVisible();
+  // The scenarios view is intentionally unavailable; ensure we do NOT ship
+  // hard-coded numeric results and instead surface a safe notice with a link.
+  await expect(page.getByText("Scenariusze spłaty kredytu są obecnie niedostępne")).toBeVisible();
+  await expect(page.getByRole("link", { name: /Powrót do planów/ })).toBeVisible();
 });

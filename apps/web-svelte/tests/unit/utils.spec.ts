@@ -3,7 +3,6 @@ import {
   formatCurrency,
   formatDate,
   getDateRangeBounds,
-  getMonthBounds,
   monthName,
   monthYearLabel,
 } from "$lib/utils";
@@ -16,9 +15,6 @@ function normalizeCurrency(value: string): string {
     .trim();
 }
 
-function localMonthStartIso(year: number, month: number): string {
-  return new Date(year, month - 1, 1).toISOString();
-}
 
 describe("utils", () => {
   describe("cn", () => {
@@ -57,31 +53,26 @@ describe("utils", () => {
   });
 
   describe("date range helpers", () => {
-    it("returns month bounds for a mid-year month", () => {
-      expect(getMonthBounds(2026, 5)).toEqual({
-        start: localMonthStartIso(2026, 5),
-        end: localMonthStartIso(2026, 6),
-      });
-    });
-
-    it("rolls December month bounds into January of the next year", () => {
-      expect(getMonthBounds(2026, 12)).toEqual({
-        start: localMonthStartIso(2026, 12),
-        end: localMonthStartIso(2027, 1),
+    it("returns date-only bounds for a single month", () => {
+      // Date-only strings: a local-midnight toISOString() would shift the
+      // boundary by the timezone offset and mis-bucket month-edge rows.
+      expect(getDateRangeBounds(2026, 7, 2026, 7)).toEqual({
+        start: "2026-07-01",
+        end: "2026-08-01",
       });
     });
 
     it("returns a multi-month date range", () => {
       expect(getDateRangeBounds(2026, 3, 2026, 5)).toEqual({
-        start: localMonthStartIso(2026, 3),
-        end: localMonthStartIso(2026, 6),
+        start: "2026-03-01",
+        end: "2026-06-01",
       });
     });
 
     it("rolls an end month of December into January of the next year", () => {
       expect(getDateRangeBounds(2026, 11, 2026, 12)).toEqual({
-        start: localMonthStartIso(2026, 11),
-        end: localMonthStartIso(2027, 1),
+        start: "2026-11-01",
+        end: "2027-01-01",
       });
     });
   });

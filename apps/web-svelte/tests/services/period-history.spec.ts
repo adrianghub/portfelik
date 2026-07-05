@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   buildPeriodWindows,
   bucketPeriodHistory,
-  computePeriodHistory,
   stackCategoryHistory,
 } from "$lib/services/period-history";
 import type { TransactionWithCategory } from "$lib/types";
@@ -82,7 +81,7 @@ describe("bucketPeriodHistory", () => {
   });
 
   it("flags the bucket containing now as current", () => {
-    const buckets = computePeriodHistory([], "month", 6);
+    const buckets = bucketPeriodHistory([], buildPeriodWindows("month", 6));
     expect(buckets.filter((b) => b.isCurrent)).toHaveLength(1);
     expect(buckets[buckets.length - 1].isCurrent).toBe(true);
   });

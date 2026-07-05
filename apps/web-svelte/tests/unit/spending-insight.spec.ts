@@ -105,16 +105,27 @@ describe("computeSpendingInsight", () => {
 
   it("computes delta vs previous, null deltaPct when prevTotal is 0", () => {
     const out = computeSpendingInsight({
-      current: [tx({ id: "a", amount: 140, category_id: "food" })],
-      previous: [tx({ id: "p", amount: 100, category_id: "food" })],
+      current: [tx({ id: "a", amount: 280, category_id: "food" })],
+      previous: [tx({ id: "p", amount: 200, category_id: "food" })],
       rolling: [],
       periodsInRolling: 3,
       budgets: [],
     });
     const food = out.categories.find((c) => c.categoryId === "food")!;
-    expect(food.prevTotal).toBe(100);
-    expect(food.deltaAbs).toBe(40);
+    expect(food.prevTotal).toBe(200);
+    expect(food.deltaAbs).toBe(80);
     expect(food.deltaPct).toBe(40);
+
+    const lowBase = computeSpendingInsight({
+      current: [tx({ id: "a", amount: 548, category_id: "home" })],
+      previous: [tx({ id: "p", amount: 55, category_id: "home" })],
+      rolling: [],
+      periodsInRolling: 3,
+      budgets: [],
+    });
+    // 55 zł → 548 zł is "+898%" — baseline below the floor, so no percentage.
+    expect(lowBase.categories[0].deltaPct).toBeNull();
+    expect(lowBase.categories[0].deltaAbs).toBe(493);
 
     const fresh = computeSpendingInsight({
       current: [tx({ id: "a", amount: 30, category_id: "new" })],

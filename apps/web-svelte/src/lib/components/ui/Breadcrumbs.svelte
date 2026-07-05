@@ -19,7 +19,7 @@
     if (path === "/import" || path === "/transactions/import") {
       return [{ label: m.nav_transactions(), href: "/transactions" }, { label: m.nav_import() }];
     }
-    if ((seg[0] === "plans" || seg[0] === "shopping-lists") && seg.length === 2) {
+    if (seg[0] === "plans" && seg.length === 2) {
       return [{ label: m.nav_plans(), href: "/plans" }, { label: m.breadcrumb_list_detail() }];
     }
     if (path === "/admin/notifications") {
