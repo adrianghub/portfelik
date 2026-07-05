@@ -606,7 +606,7 @@
       params.set("txId", tx.id);
       params.set("group", groupFilter);
       goto(`/transactions?${params.toString()}`);
-    } catch (e) {
+    } catch {
       // Best-effort fallback to the period link; include txId so transactions page
       // can fetch the row by id if needed.
       goto(transactionsHref({ status: tx.status, txId: tx.id }));
