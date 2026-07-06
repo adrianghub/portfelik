@@ -16,9 +16,11 @@ export function canSeedDemo(input: { demoActive: boolean }): boolean {
 export function hasDemoData(input: {
   transactions: { description: string }[];
   plans: { name: string }[];
+  netWorthItems?: { label: string }[];
 }): boolean {
   return (
     input.transactions.some((tx) => isDemoDescription(tx.description)) ||
-    input.plans.some((plan) => isDemoPlanName(plan.name))
+    input.plans.some((plan) => isDemoPlanName(plan.name)) ||
+    (input.netWorthItems ?? []).some((item) => isDemoDescription(item.label))
   );
 }

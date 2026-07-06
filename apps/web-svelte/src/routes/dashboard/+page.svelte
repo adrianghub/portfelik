@@ -14,7 +14,7 @@
   import DemoShowcaseBanner from "$lib/components/onboarding/DemoShowcaseBanner.svelte";
   import GlossarySheet from "$lib/components/ui/GlossarySheet.svelte";
   import { track } from "$lib/analytics";
-  import { clearDemoData, hasDemoData } from "$lib/services/demo-data";
+  import { clearDemoData, fetchDemoProbe, hasDemoData } from "$lib/services/demo-data";
   import { resetGuidedTourForReplay } from "$lib/services/guided-tour-actions";
   import { fetchPlans } from "$lib/services/plans";
   import { fetchProfile } from "$lib/services/profiles";
@@ -211,23 +211,16 @@
 
   const demoProbeQuery = createQuery(() => ({
     queryKey: ["transactions", "demo-probe"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("id, description")
-        .like("description", "Demo:%")
-        .limit(5);
-      if (error) throw error;
-      return data ?? [];
-    },
+    queryFn: fetchDemoProbe,
     enabled: !!userId,
     staleTime: 60_000,
   }));
 
   const demoActive = $derived(
     hasDemoData({
-      transactions: demoProbeQuery.data ?? [],
+      transactions: demoProbeQuery.data?.transactions ?? [],
       plans: plansQuery.data ?? [],
+      netWorthItems: demoProbeQuery.data?.netWorthItems ?? [],
     })
   );
 

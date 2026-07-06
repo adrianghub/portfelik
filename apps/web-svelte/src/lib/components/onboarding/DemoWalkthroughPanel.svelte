@@ -8,11 +8,17 @@
     demoWalkthroughPanelCopy,
     type DemoWalkthroughActionId,
   } from "$lib/content/onboarding";
+  import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import { guidedTourStatus } from "$lib/services/guided-tour";
   import { resetGuidedTourForReplay } from "$lib/services/guided-tour-actions";
-  import { canSeedDemo, clearDemoData, hasDemoData, seedDemoData } from "$lib/services/demo-data";
+  import {
+    canSeedDemo,
+    clearDemoData,
+    fetchDemoProbe,
+    hasDemoData,
+    seedDemoData,
+  } from "$lib/services/demo-data";
   import { fetchPlans } from "$lib/services/plans";
-  import { supabase } from "$lib/supabase";
   import { toastError } from "$lib/toast-error";
   import type { Profile } from "$lib/types";
   import { toast } from "svelte-sonner";
@@ -29,15 +35,7 @@
 
   const demoProbeQuery = createQuery(() => ({
     queryKey: ["transactions", "demo-probe"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("id, description")
-        .like("description", "Demo:%")
-        .limit(5);
-      if (error) throw error;
-      return data ?? [];
-    },
+    queryFn: fetchDemoProbe,
     enabled: !!profile,
   }));
 
@@ -49,8 +47,9 @@
 
   const demoActive = $derived(
     hasDemoData({
-      transactions: demoProbeQuery.data ?? [],
+      transactions: demoProbeQuery.data?.transactions ?? [],
       plans: plansQuery.data ?? [],
+      netWorthItems: demoProbeQuery.data?.netWorthItems ?? [],
     })
   );
 
@@ -138,10 +137,14 @@
     }
   }
 
+  // Same guard as the dashboard banner: clear deletes by "Demo:" prefix,
+  // confirm before firing.
+  let confirmClearOpen = $state(false);
+
   function runAction(id: DemoWalkthroughActionId): void {
     switch (id) {
       case "clear":
-        clearDemoMutation.mutate();
+        confirmClearOpen = true;
         break;
       case "load":
         seedDemoMutation.mutate();
@@ -200,3 +203,14 @@
     </div>
   </div>
 </div>
+
+<ConfirmDialog
+  open={confirmClearOpen}
+  message={m.demo_clear_confirm_message()}
+  pending={clearDemoMutation.isPending}
+  onconfirm={() => {
+    confirmClearOpen = false;
+    clearDemoMutation.mutate();
+  }}
+  onclose={() => (confirmClearOpen = false)}
+/>

@@ -32,4 +32,21 @@ describe("demo-data guards", () => {
       })
     ).toBe(true);
   });
+
+  it("detects demo net worth items even when txs and plans are gone", () => {
+    expect(
+      hasDemoData({
+        transactions: [],
+        plans: [],
+        netWorthItems: [{ label: "Demo: Mieszkanie (nieruchomość)" }],
+      })
+    ).toBe(true);
+    expect(
+      hasDemoData({
+        transactions: [],
+        plans: [],
+        netWorthItems: [{ label: "Mieszkanie" }],
+      })
+    ).toBe(false);
+  });
 });

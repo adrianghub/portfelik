@@ -749,6 +749,7 @@
   "glossary_term_raty": "Raty",
   "glossary_short_raty": "Zaplanowane spłaty kredytu. Możesz je powiązać z wydatkami z historii.",
   "demo_banner_title": "Przeglądasz dane przykładowe",
+  "demo_clear_confirm_message": "Usunąć wszystkie dane przykładowe? Znikną transakcje, plany i aktywa oznaczone „Demo:”.",
   "demo_banner_clear": "Usuń demo",
   "demo_banner_import": "Importuj swoje",
   "demo_banner_restart_tour": "Powtórz przewodnik",

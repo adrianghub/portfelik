@@ -18,6 +18,31 @@ function demoLabel(label: string): string {
   return `${DEMO_PREFIX} ${label}`;
 }
 
+export interface DemoProbe {
+  transactions: { description: string }[];
+  netWorthItems: { label: string }[];
+}
+
+/**
+ * Shared demo-presence probe: one cheap prefix select per demo-marked table
+ * (plans ride on the regular plans query). Every `demoActive` check uses this
+ * same shape under the `["transactions", "demo-probe"]` key, so the cache stays
+ * consistent across dashboard, tour host, and walkthrough panel.
+ */
+export async function fetchDemoProbe(): Promise<DemoProbe> {
+  const [txs, items] = await Promise.all([
+    supabase
+      .from("transactions")
+      .select("id, description")
+      .like("description", `${DEMO_PREFIX}%`)
+      .limit(5),
+    supabase.from("net_worth_items").select("id, label").like("label", `${DEMO_PREFIX}%`).limit(5),
+  ]);
+  if (txs.error) throw txs.error;
+  if (items.error) throw items.error;
+  return { transactions: txs.data ?? [], netWorthItems: items.data ?? [] };
+}
+
 function isoDaysAgo(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() - days);
@@ -244,6 +269,36 @@ export async function seedDemoData(): Promise<{ inserted: number }> {
   });
   inserted += 1;
 
+  // Assets that answer the car loan: without them Majątek netto opens at
+  // -38 500 zł and the demo's first impression is red. Direct insert, not
+  // saveNetWorthItems — that reconciles the whole list and would delete any
+  // items the user already owns. High positions sort demo rows after them.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("not_authenticated");
+  // Idempotency: hasDemoData probes only transactions/plans, so a manually
+  // half-cleared demo could leave items behind — reseed replaces them.
+  await supabase.from("net_worth_items").delete().like("label", `${DEMO_PREFIX}%`);
+  const { error: netWorthError } = await supabase.from("net_worth_items").insert([
+    {
+      user_id: user.id,
+      label: demoLabel("Samochód (wartość rynkowa)"),
+      amount: 61000,
+      currency: "PLN",
+      position: 90,
+    },
+    {
+      user_id: user.id,
+      label: demoLabel("Poduszka finansowa"),
+      amount: 24500,
+      currency: "PLN",
+      position: 91,
+    },
+  ]);
+  if (netWorthError) throw netWorthError;
+  inserted += 2;
+
   return { inserted };
 }
 
@@ -275,6 +330,15 @@ export async function clearDemoData(): Promise<{ deleted: number }> {
     await deleteTransactions(txIds);
     deleted += txIds.length;
   }
+
+  // RLS scopes the delete to the current user's rows.
+  const { data: removedItems, error: itemsError } = await supabase
+    .from("net_worth_items")
+    .delete()
+    .like("label", `${DEMO_PREFIX}%`)
+    .select("id");
+  if (itemsError) throw itemsError;
+  deleted += (removedItems ?? []).length;
 
   return { deleted };
 }

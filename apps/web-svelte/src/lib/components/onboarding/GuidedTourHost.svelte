@@ -7,7 +7,7 @@
   import WelcomeTourDialog from "$lib/components/onboarding/WelcomeTourDialog.svelte";
   import { setGuidedTourContext } from "$lib/guided-tour/context";
   import { guidedTourUi } from "$lib/guided-tour/ui.svelte";
-  import { hasDemoData, seedDemoData } from "$lib/services/demo-data";
+  import { fetchDemoProbe, hasDemoData, seedDemoData } from "$lib/services/demo-data";
   import {
     TOUR_SCENES,
     advanceGuidedTour,
@@ -31,7 +31,6 @@
   import type { Json } from "$lib/supabase.types";
   import { tourSceneBody } from "$lib/content/onboarding";
   import { createQuery, useQueryClient } from "@tanstack/svelte-query";
-  import { supabase } from "$lib/supabase";
   interface Props {
     profile: Profile | null;
     userId: string | null;
@@ -43,15 +42,7 @@
 
   const demoProbeQuery = createQuery(() => ({
     queryKey: ["transactions", "demo-probe"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("id, description")
-        .like("description", "Demo:%")
-        .limit(5);
-      if (error) throw error;
-      return data ?? [];
-    },
+    queryFn: fetchDemoProbe,
     enabled: !!userId,
   }));
 
@@ -63,8 +54,9 @@
 
   const demoActive = $derived(
     hasDemoData({
-      transactions: demoProbeQuery.data ?? [],
+      transactions: demoProbeQuery.data?.transactions ?? [],
       plans: plansQuery.data ?? [],
+      netWorthItems: demoProbeQuery.data?.netWorthItems ?? [],
     })
   );
 
