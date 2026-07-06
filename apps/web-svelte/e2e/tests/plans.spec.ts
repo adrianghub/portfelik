@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { isoDaysFromToday } from "../helpers/fixtures";
 import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
 
 test.beforeEach(async ({ page }) => {
@@ -50,13 +51,16 @@ test("creates a saving goal with date period and target", async ({ page }) => {
     return route.fallback();
   });
 
+  const startDate = isoDaysFromToday(5);
+  const endDate = isoDaysFromToday(25);
+
   await page.goto("/plans");
   await page.getByRole("button", { name: "Nowy plan" }).first().click();
   await page.getByLabel("Nazwa").fill("Remont kuchni");
   await page.getByRole("button", { name: "Od", exact: true }).click();
-  await page.locator('[data-date="2026-07-10"]').click();
+  await page.locator(`[data-date="${startDate}"]`).click();
   await page.getByRole("button", { name: "Do", exact: true }).click();
-  await page.locator('[data-date="2026-07-30"]').click();
+  await page.locator(`[data-date="${endDate}"]`).click();
   await page.getByLabel("Kwota celu").fill("2500");
   await page.getByRole("button", { name: "Zapisz" }).click();
 
@@ -65,8 +69,8 @@ test("creates a saving goal with date period and target", async ({ page }) => {
     .toEqual({
       name: "Remont kuchni",
       kind: "save",
-      start_date: "2026-07-10",
-      end_date: "2026-07-30",
+      start_date: startDate,
+      end_date: endDate,
       budget_amount: null,
       target_amount: 2500,
       category_id: null,
@@ -192,15 +196,13 @@ test.skip("refinances a debt plan: closes old, opens new, writes no transaction"
   expect(transactionWritten).toBe(false);
 });
 
-test("debt scenarios page shows verdict and rate comparison", async ({ page }) => {
+test("debt scenarios page redirects/declares unavailable (no static results)", async ({ page }) => {
   await page.goto("/plans/plan-debt-1/scenarios?mode=monthly&extra=500");
 
   await expect(page.getByRole("heading", { name: "Nadpłata vs inwestycja" })).toBeVisible();
   await expect(page.getByTestId("scenarios-verdict")).toBeVisible();
-  await expect(page.getByText("Porównanie do końca kredytu")).toBeVisible();
-  await expect(page.getByText("Łączna korzyść").first()).toBeVisible();
-
-  // Rate bars live inside the collapsed breakdown accordion.
-  await page.getByText("Skąd te kwoty?").click();
-  await expect(page.getByTestId("scenarios-rate-comparison")).toBeVisible();
+  // The scenarios view is intentionally unavailable; ensure we do NOT ship
+  // hard-coded numeric results and instead surface a safe notice with a link.
+  await expect(page.getByText("Scenariusze spłaty kredytu są obecnie niedostępne")).toBeVisible();
+  await expect(page.getByRole("link", { name: /Powrót do planów/ })).toBeVisible();
 });

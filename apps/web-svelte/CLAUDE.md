@@ -39,7 +39,7 @@ Loaded automatically when working in `apps/web-svelte/`.
 - `plans/` - first-class Plans UI (`PlanCard`, `SavePlanDetail`, `DebtPlanDetail`, `SurplusCard`, `NetWorthHero`, `PlanForwardNav`)
 - `dashboard/` - `DashboardImportHealth`, `DashboardNetWorthStrip`, `DashboardPlanProgress`
 
-**Utils** (`src/lib/utils.ts`): `cn`, `formatCurrency`, `formatDate`, `getMonthBounds`, `getDateRangeBounds`, `monthName`, `monthYearLabel`
+**Utils** (`src/lib/utils.ts`): `cn`, `formatCurrency`, `formatDate`, `getDateRangeBounds` (date-only strings — never local-midnight ISO timestamps), `monthName`, `monthYearLabel`
 
 **Types** (`src/lib/types.ts`): `Transaction`, `TransactionWithCategory`, `TransactionStatus`, `TransactionType`, `MonthlySummary`, `CategorySummary`, `Category`, `Profile`, `UserGroup`, `GroupMember`, `GroupMemberWithProfile`, `GroupInvitation`, `Plan`, `PlanKind`, `PlanBucket`, `PlanSummary`, `PlanDebtTerms`, `FinancialSnapshot`, `Notification`
 

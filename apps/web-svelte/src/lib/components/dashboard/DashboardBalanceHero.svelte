@@ -68,13 +68,14 @@
   const cx = $derived(ringSize / 2);
   const cy = $derived(ringSize / 2);
 
+  // Derived from the page-computed savingsRatio so the arc and the "% przychodów"
+  // label can never disagree (single formula, single floor).
   const savingsArc = $derived.by(() => {
-    if (!summary || summary.total_income <= 0) return null;
-    const ratio = summary.net / summary.total_income;
-    const pct = Math.min(100, Math.abs(ratio * 100));
+    if (savingsRatio === null) return null;
+    const pct = Math.min(100, Math.abs(savingsRatio));
     return {
       arcLen: circumference * (pct / 100),
-      positive: ratio >= 0,
+      positive: savingsRatio >= 0,
     };
   });
 

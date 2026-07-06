@@ -52,19 +52,8 @@ export const ACCENT_PRESETS: AccentPreset[] = [
 
 export const DEFAULT_ACCENT_ID: AccentPresetId = "green";
 
-export function getAccentPreset(id: string | null | undefined): AccentPreset {
+function getAccentPreset(id: string | null | undefined): AccentPreset {
   return ACCENT_PRESETS.find((p) => p.id === id) ?? ACCENT_PRESETS[0];
-}
-
-const CONFETTI_FALLBACK = ["#34d399", "#bef264", "#a7f3d0", "#86efac"];
-
-/** Confetti palette derived from the live accent vars; falls back to greens. */
-export function accentConfettiColors(): string[] {
-  if (typeof document === "undefined") return CONFETTI_FALLBACK;
-  const s = getComputedStyle(document.documentElement);
-  const from = s.getPropertyValue("--color-accent-from").trim();
-  const to = s.getPropertyValue("--color-accent-to").trim();
-  return from && to ? [from, to] : CONFETTI_FALLBACK;
 }
 
 /** Apply an accent preset to the document root. Persistence lives in profiles.settings. */

@@ -14,23 +14,15 @@
   import DemoShowcaseBanner from "$lib/components/onboarding/DemoShowcaseBanner.svelte";
   import GlossarySheet from "$lib/components/ui/GlossarySheet.svelte";
   import { track } from "$lib/analytics";
-  import { fetchLastCommittedImportSession } from "$lib/services/bank-import";
   import { clearDemoData, hasDemoData } from "$lib/services/demo-data";
   import { resetGuidedTourForReplay } from "$lib/services/guided-tour-actions";
-  import { fetchFinancialSnapshot } from "$lib/services/financial-snapshots";
-  import { getBankImportReminder } from "$lib/profile-settings";
   import { fetchPlans } from "$lib/services/plans";
-  import { updateProfile, fetchProfile } from "$lib/services/profiles";
-  import {
-    deriveOnboardingFromSignals,
-    onboardingCompletionDelta,
-    readOnboardingProgress,
-    mergeOnboardingProgress,
-  } from "$lib/services/onboarding-progress";
+  import { fetchProfile } from "$lib/services/profiles";
   import { fetchMyGroupRoles, fetchUserGroups } from "$lib/services/groups";
   import {
     computeForecastSummary,
     computeLedgerSummary,
+    forecastTransactions,
     ledgerTransactions,
   } from "$lib/services/transaction-cashflow";
   import {
@@ -44,7 +36,10 @@
   import { fetchSaveLinkedTransactionIds } from "$lib/services/plan-settlement";
   import { computeGoalSpendingSplit, resolveCeleCategoryId } from "$lib/services/goal-spending";
   import { fetchRecurringOccurrenceSkips } from "$lib/services/recurring-occurrences";
-  import { forwardForecastTransactions } from "$lib/services/transaction-projections";
+  import {
+    forwardForecastTransactions,
+    recurringProjectionsForTransactionRange,
+  } from "$lib/services/transaction-projections";
   import {
     buildPeriodWindows,
     buildForwardPeriodWindows,
@@ -56,7 +51,6 @@
   import QueryError from "$lib/components/ui/QueryError.svelte";
   import { supabase } from "$lib/supabase";
   import type { TransactionStatus, TransactionWithCategory } from "$lib/types";
-  import type { Json } from "$lib/supabase.types";
   import { cn, getDateRangeBounds } from "$lib/utils";
   import { syncListViewUrl } from "$lib/utils/navigation";
   import {
@@ -215,30 +209,6 @@
     enabled: !!userId,
   }));
 
-  const importHealthQuery = createQuery(() => ({
-    queryKey: ["import-health"],
-    queryFn: fetchLastCommittedImportSession,
-    enabled: !!userId,
-  }));
-
-  const snapshotQuery = createQuery(() => ({
-    queryKey: ["financial-snapshot"],
-    queryFn: fetchFinancialSnapshot,
-    enabled: !!userId,
-  }));
-
-  const txCountQuery = createQuery(() => ({
-    queryKey: ["transactions", "count-probe"],
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from("transactions")
-        .select("id", { count: "exact", head: true });
-      if (error) throw error;
-      return count ?? 0;
-    },
-    enabled: !!userId,
-  }));
-
   const demoProbeQuery = createQuery(() => ({
     queryKey: ["transactions", "demo-probe"],
     queryFn: async () => {
@@ -251,20 +221,8 @@
       return data ?? [];
     },
     enabled: !!userId,
+    staleTime: 60_000,
   }));
-
-  const storedOnboarding = $derived(readOnboardingProgress(profileQuery.data?.settings));
-
-  const onboardingProgress = $derived.by(() => {
-    return deriveOnboardingFromSignals({
-      progress: storedOnboarding,
-      visitedDashboard: true,
-      hasCommittedImport: !!importHealthQuery.data?.committed_at,
-      transactionCount: txCountQuery.data ?? 0,
-      hasPlanOrNetWorth: (plansQuery.data?.length ?? 0) > 0 || snapshotQuery.data !== null,
-      importReminderEnabled: getBankImportReminder(profileQuery.data?.settings).enabled,
-    });
-  });
 
   const demoActive = $derived(
     hasDemoData({
@@ -280,35 +238,6 @@
     glossaryFocusId = entryId;
     glossaryOpen = true;
   }
-
-  const persistOnboardingMutation = createMutation(() => ({
-    mutationFn: async (patch: NonNullable<ReturnType<typeof onboardingCompletionDelta>>) => {
-      if (!userId || !profileQuery.data) return;
-      const current = readOnboardingProgress(profileQuery.data.settings);
-      const next = mergeOnboardingProgress(current, { completed: patch });
-      await updateProfile(userId, {
-        settings: {
-          ...profileQuery.data.settings,
-          onboarding: next as unknown as Json,
-        },
-      });
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["profile"] });
-    },
-  }));
-
-  let onboardingPersistKey = $state("");
-
-  $effect(() => {
-    if (!profileQuery.data) return;
-    const delta = onboardingCompletionDelta(storedOnboarding, onboardingProgress);
-    if (!delta || persistOnboardingMutation.isPending) return;
-    const key = JSON.stringify(delta);
-    if (key === onboardingPersistKey) return;
-    onboardingPersistKey = key;
-    persistOnboardingMutation.mutate(delta);
-  });
 
   const clearDemoMutation = createMutation(() => ({
     mutationFn: clearDemoData,
@@ -378,42 +307,18 @@
     enabled: !!userId,
   }));
 
-  const txQuery = createQuery(() => ({
-    queryKey: ["transactions", "dashboard", period, bounds.start, bounds.end] as const,
-    queryFn: () => fetchTransactions(bounds.start, bounds.end),
-  }));
-
-  const scopedTxs = $derived.by(() => {
-    if (!txQuery.data) return [];
-    return txQuery.data.filter((tx) => {
-      return (
-        groupFilter === "all" ||
-        (groupFilter === "own" ? tx.group_id === null : tx.group_id === groupFilter)
-      );
-    });
-  });
-  const scopedLedgerTxs = $derived(ledgerTransactions(scopedTxs));
-
-  const summary = $derived(
-    scopedTxs.length > 0 || txQuery.data ? computeLedgerSummary(scopedTxs) : null
-  );
-  const forecastSummary = $derived(
-    scopedTxs.length > 0 || txQuery.data ? computeForecastSummary(scopedTxs) : null
-  );
-  const showForecastNote = $derived(
-    !!summary &&
-      !!forecastSummary &&
-      (summary.net !== forecastSummary.net ||
-        summary.total_income !== forecastSummary.total_income ||
-        summary.total_expenses !== forecastSummary.total_expenses)
-  );
-
-  // Previous-period bounds: shift the current window back by its own length.
+  // Previous-period-to-date: compare the elapsed part of the current period with
+  // the same elapsed span of the previous one (Jul 1-4 vs Jun 1-4). Comparing a
+  // partial current period against a FULL previous one reads "↓99%" every month
+  // start. Week is already a rolling 7-day window, so it shifts whole.
   const prevBounds = $derived.by(() => {
     const now = new Date();
     const y = now.getFullYear();
     if (period === "year") {
-      return getDateRangeBounds(y - 1, 1, y - 1, 12);
+      const start = getDateRangeBounds(y - 1, 1, y - 1, 12).start;
+      // Same elapsed day-of-year in the previous year, end-exclusive.
+      const end = new Date(y - 1, now.getMonth(), now.getDate() + 1);
+      return { start, end: toIsoDate(end) };
     }
     if (period === "week") {
       // week: previous 7-day window, contiguous with and exclusive of the current week start
@@ -422,9 +327,14 @@
       return { start: toIsoDate(start), end: bounds.start };
     }
     const mo = now.getMonth() + 1;
-    return mo === 1
-      ? getDateRangeBounds(y - 1, 12, y - 1, 12)
-      : getDateRangeBounds(y, mo - 1, y, mo - 1);
+    const prevY = mo === 1 ? y - 1 : y;
+    const prevM = mo === 1 ? 12 : mo - 1;
+    // Same elapsed days in the previous month; date overflow (Mar 30 vs Feb)
+    // clamps to the full previous month.
+    const sameElapsed = new Date(prevY, prevM - 1, 1 + now.getDate());
+    const currentStart = new Date(y, mo - 1, 1);
+    const end = sameElapsed < currentStart ? sameElapsed : currentStart;
+    return { start: getDateRangeBounds(prevY, prevM, prevY, prevM).start, end: toIsoDate(end) };
   });
 
   // Rolling window: last 3 complete periods before the current one (for averages).
@@ -448,19 +358,39 @@
     return getDateRangeBounds(startYear, startMonth, endYear, endMonth);
   });
 
-  const prevTxQuery = createQuery(() => ({
-    queryKey: ["transactions", "dashboard-prev", period, prevBounds.start, prevBounds.end] as const,
-    queryFn: () => fetchTransactions(prevBounds.start, prevBounds.end),
-  }));
-  const rollingTxQuery = createQuery(() => ({
-    queryKey: [
-      "transactions",
-      "dashboard-rolling",
-      period,
-      rollingBounds.start,
-      rollingBounds.end,
-    ] as const,
-    queryFn: () => fetchTransactions(rollingBounds.start, rollingBounds.end),
+  // Multi-period comparison history: last 6 periods (weeks/months/years per toggle).
+  const HISTORY_PERIODS = 6;
+  const historyWindows = $derived(buildPeriodWindows(period, HISTORY_PERIODS));
+
+  // Recurring-template projection: forecast periods appended as isProjected buckets.
+  // Year is clamped — projecting recurring rows three calendar years out is noise.
+  const FORWARD_PERIODS: Record<Period, number> = { week: 3, month: 3, year: 1 };
+  const forwardWindows = $derived(buildForwardPeriodWindows(period, FORWARD_PERIODS[period]));
+  const forwardBounds = $derived({
+    start: forwardWindows[0].start,
+    end: forwardWindows[forwardWindows.length - 1].end,
+  });
+
+  // One spanning fetch [history ∪ 90-day overdue lookback … forecast horizon);
+  // every dashboard window below is a client-side slice of it. Replaces five
+  // overlapping per-window fetches of the same rows.
+  const OVERDUE_LOOKBACK_DAYS = 90;
+  const spanBounds = $derived.by(() => {
+    const lookback = new Date();
+    lookback.setDate(lookback.getDate() - OVERDUE_LOOKBACK_DAYS);
+    const lookbackStart = toIsoDate(lookback);
+    const historyStart = historyWindows[0].start;
+    const start =
+      new Date(historyStart).getTime() < new Date(lookbackStart).getTime()
+        ? historyStart
+        : lookbackStart;
+    return { start, end: forwardBounds.end };
+  });
+
+  const txQuery = createQuery(() => ({
+    queryKey: ["transactions", "dashboard-span", spanBounds.start, spanBounds.end] as const,
+    queryFn: () => fetchTransactions(spanBounds.start, spanBounds.end),
+    staleTime: 60_000,
   }));
 
   function scopeFilter(list: TransactionWithCategory[]) {
@@ -471,8 +401,34 @@
     );
   }
 
-  const previousLedgerTxs = $derived(ledgerTransactions(scopeFilter(prevTxQuery.data ?? [])));
-  const rollingLedgerTxs = $derived(ledgerTransactions(scopeFilter(rollingTxQuery.data ?? [])));
+  /** Rows with `date` inside [start, end); bounds may be date-only or full ISO strings. */
+  function inWindow(
+    list: TransactionWithCategory[],
+    start: string,
+    end: string
+  ): TransactionWithCategory[] {
+    const startMs = new Date(start).getTime();
+    const endMs = new Date(end).getTime();
+    return list.filter((tx) => {
+      const ts = new Date(tx.date).getTime();
+      return ts >= startMs && ts < endMs;
+    });
+  }
+
+  const allScopedTxs = $derived(scopeFilter(txQuery.data ?? []));
+  const scopedTxs = $derived(inWindow(allScopedTxs, bounds.start, bounds.end));
+  const scopedLedgerTxs = $derived(ledgerTransactions(scopedTxs));
+
+  const summary = $derived(
+    scopedTxs.length > 0 || txQuery.data ? computeLedgerSummary(scopedTxs) : null
+  );
+
+  const previousLedgerTxs = $derived(
+    ledgerTransactions(inWindow(allScopedTxs, prevBounds.start, prevBounds.end))
+  );
+  const rollingLedgerTxs = $derived(
+    ledgerTransactions(inWindow(allScopedTxs, rollingBounds.start, rollingBounds.end))
+  );
 
   const spendingInsight = $derived(
     computeSpendingInsight({
@@ -492,56 +448,26 @@
     )
   );
 
-  // Multi-period comparison history: last 6 periods (weeks/months/years per toggle).
-  const HISTORY_PERIODS = 6;
-  const historyWindows = $derived(buildPeriodWindows(period, HISTORY_PERIODS));
-  const historyBounds = $derived({
-    start: historyWindows[0].start,
-    end: historyWindows[historyWindows.length - 1].end,
-  });
-  const historyTxQuery = createQuery(() => ({
-    queryKey: [
-      "transactions",
-      "dashboard-history",
-      period,
-      historyBounds.start,
-      historyBounds.end,
-    ] as const,
-    queryFn: () => fetchTransactions(historyBounds.start, historyBounds.end),
-  }));
   const historyBuckets = $derived(
-    bucketPeriodHistory(ledgerTransactions(scopeFilter(historyTxQuery.data ?? [])), historyWindows)
+    bucketPeriodHistory(ledgerTransactions(allScopedTxs), historyWindows)
   );
 
-  // Recurring-template projection: next 3 periods appended as isProjected buckets.
-  const FORWARD_PERIODS = 3;
   const recurringTemplatesQuery = createQuery(() => ({
     queryKey: ["transactions", "recurring-templates"] as const,
     queryFn: fetchRecurringTemplates,
+    staleTime: 60_000,
   }));
-  const forwardWindows = $derived(buildForwardPeriodWindows(period, FORWARD_PERIODS));
-  const forwardBounds = $derived({
-    start: forwardWindows[0].start,
-    end: forwardWindows[forwardWindows.length - 1].end,
-  });
-  const forwardRealTxQuery = createQuery(() => ({
+  // Skips span current period + forecast horizon: projections are built for
+  // both windows below.
+  const recurringSkipsQuery = createQuery(() => ({
     queryKey: [
       "transactions",
-      "dashboard-forward-real",
-      period,
-      forwardBounds.start,
+      "dashboard-recurring-skips",
+      bounds.start,
       forwardBounds.end,
     ] as const,
-    queryFn: () => fetchTransactions(forwardBounds.start, forwardBounds.end),
-  }));
-  const forwardRecurringSkipsQuery = createQuery(() => ({
-    queryKey: [
-      "transactions",
-      "dashboard-forward-recurring-skips",
-      forwardBounds.start,
-      forwardBounds.end,
-    ] as const,
-    queryFn: () => fetchRecurringOccurrenceSkips(forwardBounds.start, forwardBounds.end),
+    queryFn: () => fetchRecurringOccurrenceSkips(bounds.start, forwardBounds.end),
+    staleTime: 60_000,
   }));
   // Forecast source = scheduled real rows (one-off upcoming + materialized
   // recurring occurrences) UNIONed with deduped projections — so the chart's
@@ -551,8 +477,8 @@
     if (forwardWindows.length === 0) return [];
     return forwardForecastTransactions({
       templates: scopeFilter(recurringTemplatesQuery.data ?? []),
-      existing: scopeFilter(forwardRealTxQuery.data ?? []),
-      skipped: forwardRecurringSkipsQuery.data ?? [],
+      existing: inWindow(allScopedTxs, forwardBounds.start, forwardBounds.end),
+      skipped: recurringSkipsQuery.data ?? [],
       start: forwardWindows[0].start,
       end: forwardWindows[forwardWindows.length - 1].end,
     });
@@ -563,32 +489,83 @@
       isProjected: true,
     }))
   );
-  const combinedHistoryBuckets = $derived([...historyBuckets, ...forwardBuckets]);
 
+  // Read-time projections inside the current period (now → period end). Same
+  // primitive /transactions uses, so "Z zaplanowanymi", the chart's current bar,
+  // and the upcoming list all agree with the transactions list for the window.
+  const currentProjectedTxs = $derived(
+    recurringProjectionsForTransactionRange({
+      templates: scopeFilter(recurringTemplatesQuery.data ?? []),
+      existing: allScopedTxs,
+      skipped: recurringSkipsQuery.data ?? [],
+      start: bounds.start,
+      end: bounds.end,
+    })
+  );
+
+  const forecastSummary = $derived(
+    scopedTxs.length > 0 || txQuery.data
+      ? computeForecastSummary([...scopedTxs, ...currentProjectedTxs])
+      : null
+  );
+  const showForecastNote = $derived(
+    !!summary &&
+      !!forecastSummary &&
+      (summary.net !== forecastSummary.net ||
+        summary.total_income !== forecastSummary.total_income ||
+        summary.total_expenses !== forecastSummary.total_expenses)
+  );
+
+  // Current bucket: paid so far + scheduled/projected remainder — the bar shows
+  // the expected end-of-period spend and joins the forecast band via isProjected.
+  const currentForecastBucket = $derived.by(() => {
+    const window = historyWindows[historyWindows.length - 1];
+    const [bucket] = bucketPeriodHistory(
+      [...forecastTransactions(scopedTxs), ...currentProjectedTxs],
+      [window]
+    );
+    const paidTotal = historyBuckets[historyBuckets.length - 1]?.total ?? 0;
+    return { ...bucket, isProjected: bucket.total - paidTotal > 0.005 };
+  });
+  const combinedHistoryBuckets = $derived([
+    ...historyBuckets.slice(0, -1),
+    currentForecastBucket,
+    ...forwardBuckets,
+  ]);
+
+  // Only meaningful once period income is real: a tiny income row (interest, a
+  // refund) makes net/income explode into ±1000s of %. Clamped to ±100 — beyond
+  // that the number stops communicating anything the red balance doesn't.
+  const SAVINGS_RATIO_MIN_INCOME = 150;
   const savingsRatio = $derived.by(() => {
     if (!summary) return null;
-    if (summary.total_income <= 0) return null;
-    return Math.round((summary.net / summary.total_income) * 100);
+    if (summary.total_income < SAVINGS_RATIO_MIN_INCOME) return null;
+    const pct = Math.round((summary.net / summary.total_income) * 100);
+    return Math.max(-100, Math.min(100, pct));
   });
 
+  // Whole span, not the selected period: overdue rows live in past months (the
+  // 90-day lookback) and scheduled rows in future ones — a week-wide window
+  // would drop both. Real forward rows arrive via the span fetch; projections
+  // are read-time only, so ids never collide.
   const upcomingTxs = $derived.by(() => {
-    const real = scopedTxs.filter((tx) => tx.status === "upcoming" || tx.status === "overdue");
-    const projected = forwardForecastTxs.filter((tx) => tx.projected);
-    return [...real, ...projected].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 3);
+    const real = allScopedTxs.filter((tx) => tx.status === "upcoming" || tx.status === "overdue");
+    const projected = [...currentProjectedTxs, ...forwardForecastTxs.filter((tx) => tx.projected)];
+    return [...real, ...projected].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 5);
   });
 
-  const overdueCount = $derived(scopedTxs.filter((tx) => tx.status === "overdue").length);
+  const overdueCount = $derived(allScopedTxs.filter((tx) => tx.status === "overdue").length);
 
   const activeRecurringCount = $derived(
     buildRecurringSeriesList(recurringTemplatesQuery.data ?? []).length
   );
 
-  // "See all upcoming" must span the whole forecast horizon, not the dashboard's
-  // selected period — upcoming/overdue rows sit in future months and a week-wide
-  // window would land on an empty range.
+  // "See all upcoming" mirrors the table's window: 90-day overdue lookback
+  // through the forecast horizon.
   const upcomingHref = $derived.by(() => {
     const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const start = new Date(now);
+    start.setDate(start.getDate() - OVERDUE_LOOKBACK_DAYS);
     const end = forwardWindows.length
       ? previousDateOnly(forwardWindows[forwardWindows.length - 1].end)
       : toIsoDate(now);
@@ -601,7 +578,39 @@
   });
 
   function openTransaction(tx: TransactionWithCategory) {
-    goto(transactionsHref({ status: tx.status }));
+    try {
+      const startMs = new Date(bounds.start).getTime();
+      const endMs = new Date(bounds.end).getTime();
+      const txMs = new Date(tx.date).getTime();
+
+      // If the transaction falls inside the currently selected dashboard window,
+      // open the transactions view for that period so the row is visible.
+      if (txMs >= startMs && txMs < endMs) {
+        goto(transactionsHref({ status: tx.status, txId: tx.id }));
+        return;
+      }
+
+      // Overdue/upcoming rows may live outside the current window (90-day lookback
+      // + forecast horizon). For those, reuse the dashboard's upcoming span so the
+      // target row appears in the list, and include txId so the sheet opens.
+      if (tx.status === "upcoming" || tx.status === "overdue") {
+        const sep = upcomingHref.includes("?") ? "&" : "?";
+        goto(`${upcomingHref}${sep}txId=${encodeURIComponent(tx.id)}`);
+        return;
+      }
+
+      // Fallback: open a one-day window for the transaction date and pass txId.
+      const params = new URLSearchParams();
+      params.set("startDate", toIsoDate(new Date(tx.date)));
+      params.set("endDate", toIsoDate(new Date(tx.date)));
+      params.set("txId", tx.id);
+      params.set("group", groupFilter);
+      goto(`/transactions?${params.toString()}`);
+    } catch {
+      // Best-effort fallback to the period link; include txId so transactions page
+      // can fetch the row by id if needed.
+      goto(transactionsHref({ status: tx.status, txId: tx.id }));
+    }
   }
 
   const periodChips: { value: Period; label: string }[] = $derived([
@@ -798,6 +807,7 @@
           canManage={dashCanManage}
           onrowclick={openTransaction}
           onsettle={quickSettle}
+          initialSortDirection="asc"
         />
       {/if}
     </div>

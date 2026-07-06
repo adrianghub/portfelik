@@ -17,15 +17,19 @@ export function formatDate(date: string): string {
   }).format(new Date(date));
 }
 
-export function getMonthBounds(year: number, month: number): { start: string; end: string } {
-  const start = new Date(year, month - 1, 1);
-  const end = new Date(year, month, 1);
-  return {
-    start: start.toISOString(),
-    end: end.toISOString(),
-  };
+/**
+ * First day of a month as a date-only ISO string. Date-only on purpose:
+ * `transactions.date` is a SQL `date`, and the previous local-midnight
+ * `toISOString()` shifted by the timezone offset (Poland: July became
+ * `2026-06-30T22:00Z`), dragging the prior month's last day into the range
+ * and dropping this month's last day. `Date.UTC` also normalizes month
+ * overflow (month 13 → January next year).
+ */
+function isoMonthStart(year: number, month: number): string {
+  return new Date(Date.UTC(year, month - 1, 1)).toISOString().slice(0, 10);
 }
 
+/** Inclusive month range as `{ start, end }` date-only strings, `end` exclusive. */
 export function getDateRangeBounds(
   startYear: number,
   startMonth: number,
@@ -33,8 +37,8 @@ export function getDateRangeBounds(
   endMonth: number
 ): { start: string; end: string } {
   return {
-    start: new Date(startYear, startMonth - 1, 1).toISOString(),
-    end: new Date(endYear, endMonth, 1).toISOString(),
+    start: isoMonthStart(startYear, startMonth),
+    end: isoMonthStart(endYear, endMonth + 1),
   };
 }
 
