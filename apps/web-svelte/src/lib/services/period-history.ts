@@ -97,6 +97,68 @@ export function buildPeriodWindows(
   return windows;
 }
 
+function dayLabel(startMs: number): string {
+  const s = new Date(startMs);
+  const dd = s.getUTCDate();
+  const mm = String(s.getUTCMonth() + 1).padStart(2, "0");
+  return `${dd}.${mm}`;
+}
+
+function dateOnlyMs(iso: string): number {
+  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+  return Date.UTC(y, m - 1, d);
+}
+
+/**
+ * Fixed-length day windows tiling backwards from `endExclusive` (date-only ISO),
+ * oldest first — the last window is [endExclusive - lengthDays, endExclusive).
+ * Generalizes the rolling 7-day week to any length: 30-day "month" and custom
+ * picker ranges anchor their history to the selected window's end, not to
+ * calendar boundaries.
+ */
+export function buildDayWindows(
+  lengthDays: number,
+  count: number,
+  endExclusive: string
+): PeriodWindow[] {
+  const endMs = dateOnlyMs(endExclusive);
+  const spanMs = lengthDays * 86_400_000;
+  const windows: PeriodWindow[] = [];
+  for (let i = count - 1; i >= 0; i--) {
+    const startMs = endMs - spanMs * (i + 1);
+    windows.push({
+      label: dayLabel(startMs),
+      start: isoDate(new Date(startMs)),
+      end: isoDate(new Date(startMs + spanMs)),
+    });
+  }
+  return windows;
+}
+
+/**
+ * Fixed-length day windows tiling forwards from `startAt` (date-only ISO),
+ * oldest first — the first window is [startAt, startAt + lengthDays). Mirrors
+ * `buildDayWindows` so past + forward windows tile without gaps/overlap.
+ */
+export function buildForwardDayWindows(
+  lengthDays: number,
+  count: number,
+  startAt: string
+): PeriodWindow[] {
+  const startMs = dateOnlyMs(startAt);
+  const spanMs = lengthDays * 86_400_000;
+  const windows: PeriodWindow[] = [];
+  for (let i = 0; i < count; i++) {
+    const s = startMs + spanMs * i;
+    windows.push({
+      label: dayLabel(s),
+      start: isoDate(new Date(s)),
+      end: isoDate(new Date(s + spanMs)),
+    });
+  }
+  return windows;
+}
+
 /**
  * Build the next `count` period windows strictly AFTER the period containing
  * `ref` (the in-progress current period), oldest-first. Mirrors the window math

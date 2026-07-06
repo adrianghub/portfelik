@@ -2,8 +2,9 @@
   import { ChevronDown } from "lucide-svelte";
   import { MediaQuery } from "svelte/reactivity";
   import Sheet from "$lib/components/ui/Sheet.svelte";
+  import DateRangePicker from "$lib/components/transactions/DateRangePicker.svelte";
   import type { UserGroup } from "$lib/types";
-  import type { DashboardPeriod, ScopeFilter } from "$lib/utils/list-view-url";
+  import type { DashboardPeriod, DashboardRange, ScopeFilter } from "$lib/utils/list-view-url";
   import { cn } from "$lib/utils";
   import * as m from "$lib/paraglide/messages";
 
@@ -12,16 +13,33 @@
     groupFilter,
     groups = [],
     periodChips,
+    customRange = null,
     onPeriodChange,
     onScopeChange,
+    onRangeChange,
+    onRangeClear,
   }: {
     period: DashboardPeriod;
     groupFilter: ScopeFilter;
     groups?: UserGroup[];
     periodChips: { value: DashboardPeriod; label: string }[];
+    customRange?: DashboardRange | null;
     onPeriodChange: (next: DashboardPeriod) => void;
     onScopeChange: (scope: ScopeFilter) => void;
+    onRangeChange: (start: string, end: string) => void;
+    onRangeClear: () => void;
   } = $props();
+
+  function shortDate(iso: string): string {
+    const [, mm, dd] = iso.split("-");
+    return `${dd}.${mm}`;
+  }
+
+  const rangeLabel = $derived(
+    period === "custom" && customRange
+      ? `${shortDate(customRange.start)}–${shortDate(customRange.end)}`
+      : m.dashboard_period_custom()
+  );
 
   const isDesktop = new MediaQuery("(min-width: 640px)");
   let scopeOpen = $state(false);
@@ -99,6 +117,16 @@
       </button>
     {/each}
   </div>
+
+  <DateRangePicker
+    label={rangeLabel}
+    startDate={customRange?.start ?? null}
+    endDate={customRange?.end ?? null}
+    onchange={onRangeChange}
+    clearable={period === "custom"}
+    onclear={onRangeClear}
+    clearLabel={m.dashboard_range_clear()}
+  />
 
   {#if hasGroups}
     {#if isDesktop.current}

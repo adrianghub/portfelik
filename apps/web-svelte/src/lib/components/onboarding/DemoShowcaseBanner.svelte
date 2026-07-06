@@ -6,6 +6,8 @@
     demoBannerCopy,
     type DemoBannerActionId,
   } from "$lib/content/onboarding";
+  import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
+  import * as m from "$lib/paraglide/messages";
   import { cn } from "$lib/utils";
 
   interface Props {
@@ -26,6 +28,10 @@
 
   const banner = demoBannerCopy();
 
+  // Clear matches rows by the "Demo:" prefix, so a stray user row named that
+  // way would be deleted too — never fire it from a single tap.
+  let confirmClearOpen = $state(false);
+
   const visibleActions = $derived(
     DEMO_BANNER_ACTIONS.filter((id) => id !== "restart_tour" || onrestart)
   );
@@ -35,7 +41,7 @@
       case "restart_tour":
         return onrestart;
       case "clear":
-        return onclear;
+        return () => (confirmClearOpen = true);
       default:
         return undefined;
     }
@@ -97,3 +103,14 @@
     {/each}
   </div>
 </div>
+
+<ConfirmDialog
+  open={confirmClearOpen}
+  message={m.demo_clear_confirm_message()}
+  pending={clearing}
+  onconfirm={() => {
+    confirmClearOpen = false;
+    onclear();
+  }}
+  onclose={() => (confirmClearOpen = false)}
+/>

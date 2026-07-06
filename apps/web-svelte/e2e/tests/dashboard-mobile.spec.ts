@@ -49,4 +49,23 @@ test.describe("dashboard mobile layout", () => {
     await toggle.click();
     await expect(page.locator(".overflow-x-hidden.rounded-xl.border")).toBeVisible();
   });
+
+  test("period chips and custom range drive the dashboard window", async ({ page }) => {
+    await page.goto("/dashboard");
+
+    // Rolling 30-day chip writes the period param.
+    await page.getByRole("tab", { name: "30 dni" }).click();
+    await expect(page).toHaveURL(/period=month/);
+
+    // Picking a range via the date picker switches to custom (startDate/endDate,
+    // period param dropped) — presets apply immediately.
+    await page.getByRole("button", { name: /^daty$/i }).click();
+    await page.getByRole("button", { name: /^ten miesiąc$/i }).click();
+    await expect(page).toHaveURL(/startDate=\d{4}-\d{2}-\d{2}/);
+    await expect(page).not.toHaveURL(/period=/);
+
+    // Clearing the range returns to the default 7-day view.
+    await page.getByRole("button", { name: /wróć do widoku 7 dni/i }).click();
+    await expect(page).not.toHaveURL(/startDate=/);
+  });
 });

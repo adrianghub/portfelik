@@ -30,6 +30,24 @@ test.describe("transactions mobile filters", () => {
     await expect(page.getByRole("button", { name: /zastosuj filtry/i })).toBeVisible();
   });
 
+  test("apply footer is pinned inside the viewport without scrolling", async ({ page }) => {
+    // Regression: the sheet body once collapsed its max-height (percentage in a
+    // flex item) and overflow-hidden clipped the footer out of reach. toBeVisible
+    // can't catch clipping, so assert the button's box sits inside the viewport.
+    await page.goto("/transactions");
+    await page.getByRole("button", { name: /^filtry/i }).click();
+    const apply = page.getByRole("button", { name: /zastosuj filtry/i });
+    await expect(apply).toBeVisible();
+    // Poll: the sheet flies in from the bottom, so the box is only meaningful
+    // once the enter transition settles.
+    await expect(async () => {
+      const box = await apply.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.y + box!.height).toBeLessThanOrEqual(812);
+      expect(box!.y).toBeGreaterThanOrEqual(0);
+    }).toPass({ timeout: 3000 });
+  });
+
   test("sheet filters apply only after Zastosuj filtry", async ({ page }) => {
     await page.goto("/transactions");
     const urlBefore = page.url();

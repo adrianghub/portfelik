@@ -163,10 +163,13 @@
         </div>
       {/if}
 
+      <!-- flush children size themselves with flex-1/min-h-0, so the wrapper must be
+           a flex column — percentage heights (e.g. max-h-[…,100%]) can't resolve
+           against a block flex-item here and silently collapse to none on iOS. -->
       <div
         class={flush
-          ? "min-h-0 flex-1 overflow-hidden"
-          : "min-h-0 flex-1 overflow-y-auto px-5 py-4"}
+          ? "flex min-h-0 flex-1 flex-col overflow-hidden"
+          : "min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4"}
       >
         {@render children()}
       </div>

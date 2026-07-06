@@ -14,7 +14,7 @@
   import DemoShowcaseBanner from "$lib/components/onboarding/DemoShowcaseBanner.svelte";
   import GlossarySheet from "$lib/components/ui/GlossarySheet.svelte";
   import { track } from "$lib/analytics";
-  import { clearDemoData, hasDemoData } from "$lib/services/demo-data";
+  import { clearDemoData, fetchDemoProbe, hasDemoData } from "$lib/services/demo-data";
   import { resetGuidedTourForReplay } from "$lib/services/guided-tour-actions";
   import { fetchPlans } from "$lib/services/plans";
   import { fetchProfile } from "$lib/services/profiles";
@@ -43,6 +43,8 @@
   import {
     buildPeriodWindows,
     buildForwardPeriodWindows,
+    buildDayWindows,
+    buildForwardDayWindows,
     bucketPeriodHistory,
   } from "$lib/services/period-history";
   import { canManageTransaction } from "$lib/services/transaction-permissions";
@@ -55,6 +57,7 @@
   import { syncListViewUrl } from "$lib/utils/navigation";
   import {
     parseDashboardPeriod,
+    parseDashboardRange,
     parseScopeFilter,
     type DashboardPeriod,
     type ScopeFilter,
@@ -75,10 +78,15 @@
 
   type Period = DashboardPeriod;
   const period = $derived(parseDashboardPeriod($page.url.searchParams));
+  const customRange = $derived(parseDashboardRange($page.url.searchParams));
   const groupFilter = $derived(parseScopeFilter($page.url.searchParams));
 
   function setPeriod(next: Period) {
     syncListViewUrl("/dashboard", $page.url.searchParams, { period: next });
+  }
+
+  function setCustomRange(start: string, end: string) {
+    syncListViewUrl("/dashboard", $page.url.searchParams, { range: { start, end } });
   }
 
   function setGroupFilter(scope: ScopeFilter) {
@@ -93,27 +101,19 @@
   }
 
   function transactionsHref(extra: Record<string, string> = {}): string {
-    const now = new Date();
     const params = new URLSearchParams();
 
-    if (period === "week") {
-      const start = new Date(now);
-      start.setDate(start.getDate() - 6);
-      params.set("startDate", toIsoDate(start));
-      params.set("endDate", toIsoDate(now));
-    } else if (period === "year") {
-      const year = now.getFullYear();
+    if (period === "year") {
+      const year = new Date().getFullYear();
       params.set("startYear", String(year));
       params.set("startMonth", "1");
       params.set("endYear", String(year));
       params.set("endMonth", "12");
     } else {
-      const year = now.getFullYear();
-      const month = now.getMonth() + 1;
-      params.set("startYear", String(year));
-      params.set("startMonth", String(month));
-      params.set("endYear", String(year));
-      params.set("endMonth", String(month));
+      // week/month/custom are day windows; mirror the exact bounds so the
+      // transactions list shows the same rows the dashboard aggregated.
+      params.set("startDate", bounds.start.slice(0, 10));
+      params.set("endDate", previousDateOnly(bounds.end));
     }
 
     for (const [key, value] of Object.entries(extra)) {
@@ -211,23 +211,16 @@
 
   const demoProbeQuery = createQuery(() => ({
     queryKey: ["transactions", "demo-probe"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("id, description")
-        .like("description", "Demo:%")
-        .limit(5);
-      if (error) throw error;
-      return data ?? [];
-    },
+    queryFn: fetchDemoProbe,
     enabled: !!userId,
     staleTime: 60_000,
   }));
 
   const demoActive = $derived(
     hasDemoData({
-      transactions: demoProbeQuery.data ?? [],
+      transactions: demoProbeQuery.data?.transactions ?? [],
       plans: plansQuery.data ?? [],
+      netWorthItems: demoProbeQuery.data?.netWorthItems ?? [],
     })
   );
 
@@ -264,29 +257,46 @@
     onError: (err) => toastError(err),
   }));
 
+  /** Days in [start, end) for date-only ISO strings. */
+  function windowLengthDays(start: string, endExclusive: string): number {
+    const dayMs = 86_400_000;
+    const s = new Date(start.slice(0, 10)).getTime();
+    const e = new Date(endExclusive.slice(0, 10)).getTime();
+    return Math.max(1, Math.round((e - s) / dayMs));
+  }
+
+  // week/month are rolling day windows ending today ("last 7/30 days"), not
+  // calendar periods — a calendar month viewed on the 2nd tells the user
+  // nothing. custom is the picker's inclusive range. year stays calendar.
   const bounds = $derived.by(() => {
     const now = new Date();
-    if (period === "week") {
+    if (period === "custom" && customRange) {
+      const endEx = new Date(customRange.end);
+      endEx.setDate(endEx.getDate() + 1);
+      const end = toIsoDate(endEx);
+      return {
+        start: customRange.start,
+        end,
+        buckets: windowLengthDays(customRange.start, end),
+      };
+    }
+    if (period === "week" || period === "custom") {
       const end = new Date(now);
       end.setDate(end.getDate() + 1);
       const start = new Date(now);
       start.setDate(start.getDate() - 6);
-      return {
-        start: toIsoDate(start),
-        end: toIsoDate(end),
-        buckets: 7,
-      };
+      return { start: toIsoDate(start), end: toIsoDate(end), buckets: 7 };
     }
     if (period === "year") {
       const y = now.getFullYear();
       const b = getDateRangeBounds(y, 1, y, 12);
       return { start: b.start, end: b.end, buckets: 12 };
     }
-    const y = now.getFullYear();
-    const monthIdx = now.getMonth() + 1;
-    const b = getDateRangeBounds(y, monthIdx, y, monthIdx);
-    const daysInMonth = new Date(y, monthIdx, 0).getDate();
-    return { start: b.start, end: b.end, buckets: daysInMonth };
+    const end = new Date(now);
+    end.setDate(end.getDate() + 1);
+    const start = new Date(now);
+    start.setDate(start.getDate() - 29);
+    return { start: toIsoDate(start), end: toIsoDate(end), buckets: 30 };
   });
 
   const groupsQuery = createQuery(() => ({
@@ -307,74 +317,70 @@
     enabled: !!userId,
   }));
 
-  // Previous-period-to-date: compare the elapsed part of the current period with
-  // the same elapsed span of the previous one (Jul 1-4 vs Jun 1-4). Comparing a
-  // partial current period against a FULL previous one reads "↓99%" every month
-  // start. Week is already a rolling 7-day window, so it shifts whole.
+  // Previous window: day windows (week/month/custom) are always complete, so
+  // the comparison is simply the contiguous window of the same length before
+  // this one. Year is still a partial calendar period, so it compares
+  // year-to-date against the same elapsed span of the previous year.
   const prevBounds = $derived.by(() => {
-    const now = new Date();
-    const y = now.getFullYear();
     if (period === "year") {
+      const now = new Date();
+      const y = now.getFullYear();
       const start = getDateRangeBounds(y - 1, 1, y - 1, 12).start;
       // Same elapsed day-of-year in the previous year, end-exclusive.
       const end = new Date(y - 1, now.getMonth(), now.getDate() + 1);
       return { start, end: toIsoDate(end) };
     }
-    if (period === "week") {
-      // week: previous 7-day window, contiguous with and exclusive of the current week start
-      const start = new Date(bounds.start);
-      start.setDate(start.getDate() - 7);
-      return { start: toIsoDate(start), end: bounds.start };
-    }
-    const mo = now.getMonth() + 1;
-    const prevY = mo === 1 ? y - 1 : y;
-    const prevM = mo === 1 ? 12 : mo - 1;
-    // Same elapsed days in the previous month; date overflow (Mar 30 vs Feb)
-    // clamps to the full previous month.
-    const sameElapsed = new Date(prevY, prevM - 1, 1 + now.getDate());
-    const currentStart = new Date(y, mo - 1, 1);
-    const end = sameElapsed < currentStart ? sameElapsed : currentStart;
-    return { start: getDateRangeBounds(prevY, prevM, prevY, prevM).start, end: toIsoDate(end) };
+    const start = new Date(bounds.start);
+    start.setDate(start.getDate() - bounds.buckets);
+    return { start: toIsoDate(start), end: bounds.start };
   });
 
-  // Rolling window: last 3 complete periods before the current one (for averages).
+  // Rolling window: last 3 complete windows before the current one (for averages).
   const ROLLING_PERIODS = 3;
   const rollingBounds = $derived.by(() => {
-    const now = new Date();
-    const y = now.getFullYear();
-    if (period === "year") return getDateRangeBounds(y - ROLLING_PERIODS, 1, y - 1, 12);
-    if (period === "week") {
-      // rolling: last ROLLING_PERIODS complete weeks, contiguous with current week start
-      const start = new Date(bounds.start);
-      start.setDate(start.getDate() - 7 * ROLLING_PERIODS);
-      return { start: toIsoDate(start), end: bounds.start };
+    if (period === "year") {
+      const y = new Date().getFullYear();
+      return getDateRangeBounds(y - ROLLING_PERIODS, 1, y - 1, 12);
     }
-    const mo = now.getMonth() + 1;
-    const startMonthIdx = mo - ROLLING_PERIODS;
-    const startYear = startMonthIdx > 0 ? y : y - 1;
-    const startMonth = ((startMonthIdx - 1 + 12) % 12) + 1;
-    const endYear = mo === 1 ? y - 1 : y;
-    const endMonth = mo === 1 ? 12 : mo - 1;
-    return getDateRangeBounds(startYear, startMonth, endYear, endMonth);
+    const start = new Date(bounds.start);
+    start.setDate(start.getDate() - bounds.buckets * ROLLING_PERIODS);
+    return { start: toIsoDate(start), end: bounds.start };
   });
 
-  // Multi-period comparison history: last 6 periods (weeks/months/years per toggle).
+  // Multi-period comparison history: last 6 windows of the selected length,
+  // anchored to the current window's end (today for week/month, the picked
+  // end for custom).
   const HISTORY_PERIODS = 6;
-  const historyWindows = $derived(buildPeriodWindows(period, HISTORY_PERIODS));
+  const historyWindows = $derived(
+    period === "year"
+      ? buildPeriodWindows("year", HISTORY_PERIODS)
+      : buildDayWindows(bounds.buckets, HISTORY_PERIODS, bounds.end)
+  );
 
   // Recurring-template projection: forecast periods appended as isProjected buckets.
   // Year is clamped — projecting recurring rows three calendar years out is noise.
-  const FORWARD_PERIODS: Record<Period, number> = { week: 3, month: 3, year: 1 };
-  const forwardWindows = $derived(buildForwardPeriodWindows(period, FORWARD_PERIODS[period]));
-  const forwardBounds = $derived({
-    start: forwardWindows[0].start,
-    end: forwardWindows[forwardWindows.length - 1].end,
+  // Custom ranges get no forecast: they are a backward-looking analysis window.
+  const forwardWindows = $derived.by(() => {
+    if (period === "custom") return [];
+    if (period === "year") return buildForwardPeriodWindows("year", 1);
+    return buildForwardDayWindows(bounds.buckets, 3, bounds.end);
   });
+  const forwardBounds = $derived(
+    forwardWindows.length > 0
+      ? {
+          start: forwardWindows[0].start,
+          end: forwardWindows[forwardWindows.length - 1].end,
+        }
+      : { start: bounds.end, end: bounds.end }
+  );
 
   // One spanning fetch [history ∪ 90-day overdue lookback … forecast horizon);
   // every dashboard window below is a client-side slice of it. Replaces five
   // overlapping per-window fetches of the same rows.
   const OVERDUE_LOOKBACK_DAYS = 90;
+  // The upcoming table keeps looking ahead of today even when the analysis
+  // window is a past custom range with no forecast buckets.
+  const UPCOMING_AHEAD_DAYS = 30;
   const spanBounds = $derived.by(() => {
     const lookback = new Date();
     lookback.setDate(lookback.getDate() - OVERDUE_LOOKBACK_DAYS);
@@ -384,7 +390,14 @@
       new Date(historyStart).getTime() < new Date(lookbackStart).getTime()
         ? historyStart
         : lookbackStart;
-    return { start, end: forwardBounds.end };
+    const ahead = new Date();
+    ahead.setDate(ahead.getDate() + UPCOMING_AHEAD_DAYS);
+    const minEnd = toIsoDate(ahead);
+    const end =
+      new Date(forwardBounds.end).getTime() > new Date(minEnd).getTime()
+        ? forwardBounds.end
+        : minEnd;
+    return { start, end };
   });
 
   const txQuery = createQuery(() => ({
@@ -519,13 +532,16 @@
   // Current bucket: paid so far + scheduled/projected remainder — the bar shows
   // the expected end-of-period spend and joins the forecast band via isProjected.
   const currentForecastBucket = $derived.by(() => {
+    const paidBucket = historyBuckets[historyBuckets.length - 1];
+    // A custom range that ends in the past has nothing left to forecast — its
+    // last bucket is plain history.
+    if (!paidBucket.isCurrent) return paidBucket;
     const window = historyWindows[historyWindows.length - 1];
     const [bucket] = bucketPeriodHistory(
       [...forecastTransactions(scopedTxs), ...currentProjectedTxs],
       [window]
     );
-    const paidTotal = historyBuckets[historyBuckets.length - 1]?.total ?? 0;
-    return { ...bucket, isProjected: bucket.total - paidTotal > 0.005 };
+    return { ...bucket, isProjected: bucket.total - paidBucket.total > 0.005 };
   });
   const combinedHistoryBuckets = $derived([
     ...historyBuckets.slice(0, -1),
@@ -568,7 +584,11 @@
     start.setDate(start.getDate() - OVERDUE_LOOKBACK_DAYS);
     const end = forwardWindows.length
       ? previousDateOnly(forwardWindows[forwardWindows.length - 1].end)
-      : toIsoDate(now);
+      : (() => {
+          const ahead = new Date(now);
+          ahead.setDate(ahead.getDate() + UPCOMING_AHEAD_DAYS);
+          return toIsoDate(ahead);
+        })();
     const p = new URLSearchParams();
     p.set("startDate", toIsoDate(start));
     p.set("endDate", end);
@@ -618,7 +638,17 @@
     { value: "month", label: m.dashboard_period_month() },
     { value: "year", label: m.dashboard_period_year() },
   ]);
-  const activePeriodLabel = $derived(periodChips.find((c) => c.value === period)?.label ?? "");
+
+  function shortDateLabel(iso: string): string {
+    const [, mm, dd] = iso.split("-");
+    return `${dd}.${mm}`;
+  }
+
+  const activePeriodLabel = $derived(
+    period === "custom" && customRange
+      ? `${shortDateLabel(customRange.start)}–${shortDateLabel(customRange.end)}`
+      : (periodChips.find((c) => c.value === period)?.label ?? "")
+  );
 </script>
 
 <svelte:head>
@@ -657,8 +687,11 @@
     {groupFilter}
     groups={groupsQuery.data ?? []}
     {periodChips}
+    {customRange}
     onPeriodChange={setPeriod}
     onScopeChange={setGroupFilter}
+    onRangeChange={setCustomRange}
+    onRangeClear={() => setPeriod("week")}
   />
 
   {#if demoActive}

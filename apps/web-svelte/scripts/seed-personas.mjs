@@ -186,6 +186,10 @@ async function cleanupDemoRows(userId) {
     supabase.from("plans").delete().eq("user_id", userId).like("name", `${DEMO_PREFIX}%`)
   );
   await deleteRows(
+    "demo net worth items",
+    supabase.from("net_worth_items").delete().eq("user_id", userId).like("label", `${DEMO_PREFIX}%`)
+  );
+  await deleteRows(
     "demo categories",
     supabase.from("categories").delete().eq("user_id", userId).like("name", `${DEMO_PREFIX}%`)
   );
@@ -430,6 +434,29 @@ async function seedDemoRows(userId) {
     .filter((row) => row.plan_id && row.transaction_id);
 
   await must("create demo plan links", supabase.from("plan_transaction_links").insert(linkRows));
+
+  // Assets behind the mortgage: the flat it bought (plus a cash cushion) keeps
+  // Majątek netto positive. A 298k mortgage with zero assets reads as -300k on
+  // the dashboard strip — the opposite of an inviting demo.
+  await must(
+    "create demo net worth items",
+    supabase.from("net_worth_items").insert([
+      {
+        user_id: userId,
+        label: `${DEMO_PREFIX} Mieszkanie (nieruchomość)`,
+        amount: 520000,
+        currency: "PLN",
+        position: 0,
+      },
+      {
+        user_id: userId,
+        label: `${DEMO_PREFIX} Poduszka finansowa`,
+        amount: 26500,
+        currency: "PLN",
+        position: 1,
+      },
+    ])
+  );
 
   return group.id;
 }

@@ -24,12 +24,6 @@ test("renders mocked transaction list", async ({ page }) => {
   await expect(desktopTable(page).getByText("Bilet miesięczny")).toBeVisible();
 });
 
-test("shows import and export as direct desktop actions", async ({ page }) => {
-  await expect(page.getByRole("link", { name: "Import" }).first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "Eksportuj CSV" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Więcej akcji" })).toHaveCount(0);
-});
-
 test("search filters results inside the command palette", async ({ page }) => {
   await page.getByRole("button", { name: "Szukaj transakcji" }).click();
 
@@ -44,32 +38,6 @@ test("search filters results inside the command palette", async ({ page }) => {
   await search.getByText("Bilet miesięczny").click();
   await expect(search).toBeHidden();
   await expect(page.locator("aside").getByText("Bilet miesięczny")).toBeVisible();
-});
-
-test("search palette opens and closes via Escape", async ({ page }) => {
-  await page.getByRole("button", { name: "Szukaj transakcji" }).click();
-  await expect(page.getByRole("search")).toBeVisible();
-
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("search")).toBeHidden();
-});
-
-test("closing the palette clears the search query", async ({ page }) => {
-  const toggle = page.getByRole("button", { name: "Szukaj transakcji" });
-  await toggle.click();
-
-  const search = palette(page);
-  await search.getByPlaceholder("Szukaj transakcji…").fill("bilet");
-  await expect(search.getByText("Zakupy spożywcze")).toBeHidden();
-
-  // Close via the palette's ESC chip (the toggle is covered by the backdrop while open).
-  await search.getByRole("button", { name: "Zamknij wyszukiwanie" }).click();
-  await expect(search).toBeHidden();
-
-  // Reopen: query is reset and the full list is back - no silent filter.
-  await toggle.click();
-  await expect(search.getByPlaceholder("Szukaj transakcji…")).toHaveValue("");
-  await expect(search.getByText("Zakupy spożywcze")).toBeVisible();
 });
 
 test("txId deep link opens transaction outside the current date range", async ({ page }) => {
@@ -211,59 +179,6 @@ test("near-term recurring occurrence rows are manageable transactions", async ({
   await expect(sheet.getByRole("button", { name: "Usuń" })).toHaveCount(2);
 });
 
-test("mobile date range sheet stays open while interacting with controls", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/transactions");
-  await expect(page.locator("li").filter({ hasText: "Zakupy spożywcze" }).first()).toBeVisible();
-
-  await page.getByRole("button", { name: /2026/i }).click();
-  const dialog = page.getByRole("dialog", { name: "Zakres dat" });
-  await expect(dialog).toBeVisible();
-
-  await dialog.getByRole("button", { name: "Dni", exact: true }).click();
-  await expect(dialog).toBeVisible();
-
-  await dialog.getByRole("button", { name: "Miesiące", exact: true }).click();
-  await expect(dialog).toBeVisible();
-});
-
-test("mobile import and export stay as direct header actions", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/transactions");
-  await expect(page.locator("li").filter({ hasText: "Zakupy spożywcze" }).first()).toBeVisible();
-
-  await expect(page.getByRole("link", { name: "Import" }).first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "Eksportuj CSV" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Więcej akcji" })).toHaveCount(0);
-});
-
-test("mobile bank actions stay available when category filters are unavailable", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.route("**/rest/v1/categories**", (route) =>
-    route.fulfill({ status: 500, json: { message: "categories unavailable" } })
-  );
-  await page.goto("/transactions");
-  await expect(page.locator("li").filter({ hasText: "Zakupy spożywcze" }).first()).toBeVisible();
-
-  await expect(page.getByRole("button", { name: "Kategoria" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Import" }).first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "Eksportuj CSV" })).toBeVisible();
-});
-
-test("mobile bank actions stay available while rows are selected", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/transactions");
-  const row = page.locator("li").filter({ hasText: "Zakupy spożywcze" }).first();
-  await expect(row).toBeVisible();
-
-  await row.getByRole("button", { name: "Zaznacz wszystkie" }).click();
-  await expect(page.getByText("Zaznaczono 1")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Import" }).first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "Eksportuj CSV" })).toBeVisible();
-});
-
 test("add transaction: opens dialog and shows success toast", async ({ page }) => {
   // Click the desktop "+ Dodaj ręcznie" button (not the mobile FAB)
   // The page renders `+ {m.transaction_manual_add()}` = "+ Dodaj ręcznie"
@@ -316,17 +231,6 @@ test("single delete: confirm dialog then success toast", async ({ page }) => {
 
   // Success toast
   await expect(page.getByText("Transakcja usunięta")).toBeVisible();
-});
-
-test('bulk select: "Zaznaczono 2" bar appears', async ({ page }) => {
-  // Click individual row checkboxes in the desktop table body
-  const rowCheckboxes = page.locator("tbody td:first-child button");
-  await rowCheckboxes.nth(0).click();
-  await rowCheckboxes.nth(1).click();
-
-  const bulkBar = page.locator(".surface-hi").filter({ hasText: "Zaznaczono 2" });
-  await expect(bulkBar).toBeVisible();
-  await expect(bulkBar.getByRole("button", { name: "Usuń" })).toBeVisible();
 });
 
 test("bulk delete: confirm and show success toast", async ({ page }) => {

@@ -1,5 +1,10 @@
 import { goto } from "$app/navigation";
-import { buildListViewUrl, type DashboardPeriod, type ScopeFilter } from "$lib/utils/list-view-url";
+import {
+  buildListViewUrl,
+  type DashboardPeriod,
+  type DashboardRange,
+  type ScopeFilter,
+} from "$lib/utils/list-view-url";
 
 /** Prefer browser back; use fallback when history is empty (direct link, new tab). */
 export function navigateBack(fallbackHref: string): void {
@@ -14,7 +19,7 @@ export function navigateBack(fallbackHref: string): void {
 export function syncListViewUrl(
   pathname: string,
   current: URLSearchParams,
-  patch: { group?: ScopeFilter; period?: DashboardPeriod }
+  patch: { group?: ScopeFilter; period?: DashboardPeriod; range?: DashboardRange }
 ): void {
   void goto(buildListViewUrl(pathname, current, patch), {
     replaceState: true,

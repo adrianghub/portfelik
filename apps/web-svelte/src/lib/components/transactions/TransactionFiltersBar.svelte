@@ -264,8 +264,11 @@
       title={m.transactions_filters_sheet_title()}
       flush
     >
-      <div class="flex max-h-[min(80dvh,100%)] flex-col">
-        <div class="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-4">
+      <!-- Sized by the sheet's flush flex column; a percentage max-h here can't
+           resolve against the flex-item parent and collapses to none, clipping
+           the footer behind overflow-hidden (unscrollable filters on mobile). -->
+      <div class="flex min-h-0 flex-1 flex-col">
+        <div class="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-4">
           <div>
             <p class="text-eyebrow mb-2 text-slate-400">{m.transactions_filter_category()}</p>
             <CategoryFilterControl
