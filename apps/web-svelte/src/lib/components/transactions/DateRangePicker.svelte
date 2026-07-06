@@ -25,9 +25,19 @@
     onchange: (start: string, end: string) => void;
     clearable?: boolean;
     onclear?: () => void;
+    /** Aria-label for the clear (X) button; surfaces clear to different defaults. */
+    clearLabel?: string;
   }
 
-  let { label, startDate, endDate, onchange, clearable = false, onclear }: Props = $props();
+  let {
+    label,
+    startDate,
+    endDate,
+    onchange,
+    clearable = false,
+    onclear,
+    clearLabel = m.transactions_date_clear(),
+  }: Props = $props();
 
   const isDesktop = new MediaQuery("(min-width: 640px)");
   const locale = "pl";
@@ -334,7 +344,7 @@
         type="button"
         onclick={onclear}
         class="focus-visible:ring-accent shrink-0 rounded-full p-0.5 text-slate-400 transition-colors hover:bg-white/10 hover:text-slate-100 focus-visible:ring-2 focus-visible:outline-none"
-        aria-label={m.transactions_date_clear()}
+        aria-label={clearLabel}
       >
         <X size={14} strokeWidth={2} aria-hidden="true" />
       </button>

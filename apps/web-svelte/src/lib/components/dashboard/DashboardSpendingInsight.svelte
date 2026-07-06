@@ -16,7 +16,7 @@
     expanded = $bindable(false),
   }: {
     insight: SpendingInsight;
-    period: "week" | "month" | "year";
+    period: "week" | "month" | "year" | "custom";
     categoryHref: (categoryId: string | null) => string;
     goalSplit?: {
       goalLinkedIncome: number;
@@ -34,7 +34,9 @@
       ? m.dashboard_spending_vs_prev_week()
       : period === "year"
         ? m.dashboard_spending_vs_prev_year()
-        : m.dashboard_spending_vs_prev_month()
+        : period === "custom"
+          ? m.dashboard_spending_vs_prev_period()
+          : m.dashboard_spending_vs_prev_month()
   );
 
   const showContent = $derived(expanded || isMdLayout.current);

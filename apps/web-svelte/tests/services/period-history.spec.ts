@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   buildPeriodWindows,
+  buildDayWindows,
+  buildForwardDayWindows,
   bucketPeriodHistory,
   stackCategoryHistory,
 } from "$lib/services/period-history";
@@ -48,6 +50,47 @@ describe("buildPeriodWindows", () => {
   it("builds calendar-year windows", () => {
     const w = buildPeriodWindows("year", 3, new Date(Date.UTC(2026, 5, 1)));
     expect(w.map((x) => x.label)).toEqual(["2024", "2025", "2026"]);
+  });
+});
+
+describe("buildDayWindows", () => {
+  it("tiles fixed-length windows backwards from the exclusive end", () => {
+    const w = buildDayWindows(30, 3, "2026-07-07");
+    expect(w).toHaveLength(3);
+    // newest window: [end-30d, end)
+    expect(w[2].start).toBe("2026-06-07");
+    expect(w[2].end).toBe("2026-07-07");
+    // windows tile without gaps
+    expect(w[1].end).toBe(w[2].start);
+    expect(w[0].end).toBe(w[1].start);
+    expect(w[0].start).toBe("2026-04-08");
+  });
+
+  it("matches the week windows of buildPeriodWindows for 7-day length", () => {
+    // buildPeriodWindows("week") anchors at ref with end = ref+1d
+    const legacy = buildPeriodWindows("week", 4, new Date(Date.UTC(2026, 5, 15)));
+    const generalized = buildDayWindows(7, 4, "2026-06-16");
+    expect(generalized.map((x) => [x.start, x.end])).toEqual(
+      legacy.map((x) => [x.start, x.end])
+    );
+  });
+
+  it("labels windows by their start day", () => {
+    const w = buildDayWindows(10, 1, "2026-01-05");
+    expect(w[0].start).toBe("2025-12-26");
+    expect(w[0].label).toBe("26.12");
+  });
+});
+
+describe("buildForwardDayWindows", () => {
+  it("tiles forwards from the start and mirrors buildDayWindows", () => {
+    const w = buildForwardDayWindows(30, 2, "2026-07-07");
+    expect(w[0].start).toBe("2026-07-07");
+    expect(w[0].end).toBe("2026-08-06");
+    expect(w[1].start).toBe("2026-08-06");
+    // past + forward windows tile exactly at the anchor
+    const past = buildDayWindows(30, 1, "2026-07-07");
+    expect(past[0].end).toBe(w[0].start);
   });
 });
 
