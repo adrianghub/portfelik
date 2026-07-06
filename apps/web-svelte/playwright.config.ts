@@ -14,8 +14,9 @@ export default defineConfig({
   testDir: './e2e/tests',
   fullyParallel: true,
   forbidOnly: isCI,
-  retries: isCI ? 2 : 0,
-  workers: isCI ? 1 : undefined,
+  retries: isCI ? 1 : 0,
+  // Mocked suite, no shared state — parallel workers cut CI wall time ~4x.
+  workers: isCI ? 4 : undefined,
   reporter: isCI ? [['github'], ['html', { open: 'never' }]] : 'html',
   use: {
     baseURL: `http://localhost:${port}`,

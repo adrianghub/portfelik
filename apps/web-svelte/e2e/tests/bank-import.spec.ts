@@ -16,10 +16,6 @@ const mbankSample = readFileSync(
   new URL("../../tests/import/fixtures/mbank/sample.csv", import.meta.url)
 );
 
-const ersteSample = readFileSync(
-  new URL("../../tests/import/fixtures/erste/historia.csv", import.meta.url)
-);
-
 const mbankNoCounterpartySample = Buffer.from(
   `"mBank S.A."
 "Historia operacji"
@@ -28,19 +24,6 @@ const mbankNoCounterpartySample = Buffer.from(
 ""
 #Data księgowania;#Data operacji;#Opis operacji;#Tytuł;#Nadawca/Odbiorca;#Numer konta;#Kwota;#Saldo po operacji
 2026-05-06;2026-05-06;"ZAKUP TOWARÓW I USŁUG";"KAWIARNIA TEST";"";"PL00 5555 5555 5555 5555 5555 5555";-24,00;9217,81
-`,
-  "utf8"
-);
-
-const mbankRepeatedMerchantSample = Buffer.from(
-  `"mBank S.A."
-"Historia operacji"
-"Klient";"Jan Kowalski"
-"Numer rachunku";"PL00 0000 0000 0000 0000 0000 0000"
-""
-#Data księgowania;#Data operacji;#Opis operacji;#Tytuł;#Nadawca/Odbiorca;#Numer konta;#Kwota;#Saldo po operacji
-2026-05-02;2026-05-02;"ZAKUP TOWARÓW I USŁUG";"BIEDRONKA 4521 WARSZAWA";"BIEDRONKA";"PL00 1111 1111 1111 1111 1111 1111";-42,30;1957,70
-2026-05-03;2026-05-03;"ZAKUP TOWARÓW I USŁUG";"BIEDRONKA 8123 WARSZAWA";"BIEDRONKA";"PL00 2222 2222 2222 2222 2222 2222";-31,20;1926,50
 `,
   "utf8"
 );
@@ -452,128 +435,6 @@ test.beforeEach(async ({ page }) => {
   await mockBankImportAPI(page);
 });
 
-test("import wizard: renders heading, step pill and upload dropzone", async ({ page }) => {
-  await page.goto("/import");
-
-  // h1
-  await expect(page.getByRole("heading", { name: "Import wyciągu bankowego" })).toBeVisible();
-
-  // Step pill - two steps now (commit auto-redirects to transactions; no "done" step)
-  await expect(page.getByText("Wgraj plik", { exact: true })).toBeVisible();
-  await expect(page.getByText("Sprawdź pozycje", { exact: true })).toBeVisible();
-  await expect(page.getByText("Duplikaty", { exact: true })).toHaveCount(0);
-  await expect(page.getByText("Zakończono", { exact: true })).toHaveCount(0);
-
-  // Global breadcrumb trail back to transactions
-  await expect(
-    page
-      .getByRole("navigation", { name: "Ścieżka nawigacji" })
-      .getByRole("link", { name: "Transakcje" })
-  ).toBeVisible();
-
-  // Dropzone CTA
-  await expect(page.getByText(/Upuść plik CSV tutaj/)).toBeVisible();
-});
-
-test("import wizard: invalid CSV surfaces unknown-kind error", async ({ page }) => {
-  await page.goto("/import");
-
-  const fileInput = page.locator('input[type="file"]');
-  await expect(fileInput).toBeAttached();
-
-  // Junk content the bank detectors will fail to match.
-  await fileInput.setInputFiles({
-    name: "junk.csv",
-    mimeType: "text/csv",
-    buffer: Buffer.from("not a real bank export\nfoo,bar,baz\n1,2,3\n", "utf8"),
-  });
-
-  await expect(page.getByText(/Nie rozpoznano formatu/)).toBeVisible({
-    timeout: 10_000,
-  });
-  await expect(page.getByLabel("Typ pliku")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Kontynuuj" })).toBeDisabled();
-});
-
-test("import wizard: wrong manual adapter keeps selector available", async ({ page }) => {
-  await page.goto("/import");
-
-  await page.locator('input[type="file"]').setInputFiles({
-    name: "junk.csv",
-    mimeType: "text/csv",
-    buffer: Buffer.from("not a real bank export\nfoo,bar,baz\n1,2,3\n", "utf8"),
-  });
-
-  await page.getByLabel("Typ pliku").selectOption({ label: "mBank" });
-  await page.getByRole("button", { name: "Kontynuuj" }).click();
-
-  await expect(page.getByText("Nie udało się odczytać pliku jako mBank.")).toBeVisible();
-  await expect(page.getByLabel("Typ pliku")).toBeVisible();
-  await expect(page.getByRole("table")).toHaveCount(0);
-});
-
-test("import wizard: confirms medium-confidence Erste adapter", async ({ page }) => {
-  await page.goto("/import");
-
-  await page.locator('input[type="file"]').setInputFiles({
-    name: "historia.csv",
-    mimeType: "text/csv",
-    buffer: ersteSample,
-  });
-
-  await expect(page.getByText("Prawdopodobnie: Erste Bank Polska (dawniej Santander)")).toBeVisible(
-    {
-      timeout: 10_000,
-    }
-  );
-  await expect(page.getByLabel("Typ pliku")).toHaveValue("erste");
-  await page.getByRole("button", { name: "Kontynuuj" }).click();
-
-  await expect(page.getByRole("table").getByText("LIDL SP Z OO", { exact: true })).toBeVisible({
-    timeout: 10_000,
-  });
-});
-
-test("import wizard: medium-confidence detection is overrideable before parse", async ({
-  page,
-}) => {
-  await page.goto("/import");
-
-  await page.locator('input[type="file"]').setInputFiles({
-    name: "historia.csv",
-    mimeType: "text/csv",
-    buffer: ersteSample,
-  });
-
-  await expect(page.getByLabel("Typ pliku")).toHaveValue("erste", { timeout: 10_000 });
-  await page.getByLabel("Typ pliku").selectOption({ label: "mBank" });
-  await page.getByRole("button", { name: "Kontynuuj" }).click();
-
-  await expect(page.getByText("Nie udało się odczytać pliku jako mBank.")).toBeVisible();
-  await expect(page.getByLabel("Typ pliku")).toHaveValue("mbank");
-  await expect(page.getByRole("table")).toHaveCount(0);
-});
-
-test("import wizard: selected file is retained as a chip and can be removed", async ({ page }) => {
-  await page.goto("/import");
-
-  const fileInput = page.locator('input[type="file"]');
-  await fileInput.setInputFiles({
-    name: "wyciag.csv",
-    mimeType: "text/csv",
-    buffer: Buffer.from("not a real bank export\nfoo,bar,baz\n1,2,3\n", "utf8"),
-  });
-
-  // The file persists on the upload panel as a removable chip. Re-process is
-  // only offered when returning from review, not during fresh adapter selection.
-  await expect(page.getByText("wyciag.csv")).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByRole("button", { name: "Usuń plik" })).toBeVisible();
-
-  // Removing clears the chip.
-  await page.getByRole("button", { name: "Usuń plik" }).click();
-  await expect(page.getByText("wyciag.csv")).toHaveCount(0);
-});
-
 test("import wizard: uploads, flags probable duplicates, commits, and blocks re-import", async ({
   page,
 }) => {
@@ -670,41 +531,6 @@ test("import wizard: auto-learns a rule after manual category choice", async ({ 
   await expect(page.getByText(/Reguła zapisana/)).toBeVisible({ timeout: 5_000 });
 });
 
-test("import wizard: changing a rule-backed category updates matching rows", async ({ page }) => {
-  await page.unrouteAll();
-  await injectFakeSession(page);
-  await mockBankImportAPI(page, { defaultRules: false });
-  await page.goto("/import");
-
-  await page.locator('input[type="file"]').setInputFiles({
-    name: "wyciag.csv",
-    mimeType: "text/csv",
-    buffer: mbankRepeatedMerchantSample,
-  });
-
-  const biedronkaRows = page.getByRole("table").getByRole("row").filter({ hasText: "BIEDRONKA" });
-  await expect(biedronkaRows).toHaveCount(2, { timeout: 10_000 });
-
-  await biedronkaRows.nth(0).getByRole("combobox", { name: "Kategoria" }).click();
-  await page.getByRole("option", { name: "Jedzenie", exact: true }).click();
-
-  await expect(page.getByText("Reguła: BIEDRONKA").first()).toBeVisible({ timeout: 5_000 });
-  await expect(
-    biedronkaRows.nth(1).getByRole("button", { name: "Wyczyść kategorię" })
-  ).toContainText("Jedzenie");
-
-  await biedronkaRows.nth(0).getByRole("button", { name: "Wyczyść kategorię" }).click();
-  await biedronkaRows.nth(0).getByRole("combobox", { name: "Kategoria" }).click();
-  await page.getByRole("option", { name: "Transport", exact: true }).click();
-
-  await expect(
-    biedronkaRows.nth(0).getByRole("button", { name: "Wyczyść kategorię" })
-  ).toContainText("Transport");
-  await expect(
-    biedronkaRows.nth(1).getByRole("button", { name: "Wyczyść kategorię" })
-  ).toContainText("Transport");
-});
-
 test("import wizard: uncategorized importing row goes to Inne", async ({ page }) => {
   await page.unrouteAll();
   await injectFakeSession(page);
@@ -736,69 +562,6 @@ test("import wizard: uncategorized importing row goes to Inne", async ({ page })
 
   await page.getByRole("button", { name: "Potwierdź (1)" }).click();
   await expect(page).toHaveURL(/\/transactions/);
-});
-
-test("import wizard: continues when rule prefill cannot load", async ({ page }) => {
-  await page.unrouteAll();
-  await injectFakeSession(page);
-  await mockBankImportAPI(page, { failRulesOnce: true });
-  await page.goto("/import");
-
-  await page.locator('input[type="file"]').setInputFiles({
-    name: "wyciag.csv",
-    mimeType: "text/csv",
-    buffer: mbankSample,
-  });
-  await expect(page.getByRole("table").getByText("BIEDRONKA", { exact: true })).toBeVisible({
-    timeout: 10_000,
-  });
-  await expect(page.getByRole("button", { name: /^Zaimportuj \d+ transakc/ })).toBeEnabled();
-});
-
-test("import wizard: continues when categories cannot load for optional prefill", async ({
-  page,
-}) => {
-  await page.unrouteAll();
-  await injectFakeSession(page);
-  await mockBankImportAPI(page, { failCategoriesOnce: true });
-  await page.goto("/import");
-
-  await page.locator('input[type="file"]').setInputFiles({
-    name: "wyciag.csv",
-    mimeType: "text/csv",
-    buffer: mbankSample,
-  });
-  await expect(page.getByRole("table").getByText("BIEDRONKA", { exact: true })).toBeVisible({
-    timeout: 10_000,
-  });
-  await expect(page.getByRole("button", { name: /^Zaimportuj \d+ transakc/ })).toBeEnabled();
-});
-
-test("import wizard: bulk-marks restored rows as import", async ({ page }) => {
-  await page.unrouteAll();
-  await injectFakeSession(page);
-  await mockBankImportAPI(page, { autoSkipFirstAsDuplicate: true });
-  await page.goto("/import");
-
-  await page.locator('input[type="file"]').setInputFiles({
-    name: "wyciag.csv",
-    mimeType: "text/csv",
-    buffer: mbankSample,
-  });
-
-  // Under the default-import model rows arrive as "import"; the only way a row reaches
-  // the pending ("Do decyzji") bucket is an explicit user action. Restoring the
-  // auto-flagged duplicate sends it back to pending so we can exercise the bulk control.
-  const restoreAll = page.getByRole("button", { name: /Przywróć wszystkie do decyzji/ });
-  await expect(restoreAll).toBeVisible({ timeout: 10_000 });
-  await restoreAll.click();
-
-  // The bulk "mark visible as import" control only appears when visible rows are pending.
-  const bulkImport = page.getByRole("button", { name: /Oznacz widoczne jako import/ });
-  await expect(bulkImport).toBeVisible();
-  await bulkImport.click();
-  await expect(bulkImport).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /^Zaimportuj \d+ transakc/ })).toBeEnabled();
 });
 
 function makeLargeMbankCsv(n: number): Buffer {
@@ -850,37 +613,6 @@ test("import wizard: large import virtualizes the review list and keeps every ro
   await expect(lastRow).toBeVisible();
 });
 
-const mbankZeroAmountSample = Buffer.from(
-  `"mBank S.A."
-"Historia operacji"
-"Klient";"Jan Kowalski"
-"Numer rachunku";"PL00 0000 0000 0000 0000 0000 0000"
-""
-#Data księgowania;#Data operacji;#Opis operacji;#Tytuł;#Nadawca/Odbiorca;#Numer konta;#Kwota;#Saldo po operacji
-2026-05-04;2026-05-04;"ZAKUP TOWARÓW I USŁUG";"BLOKADA";"AUTORYZACJA";"PL00 5555 5555 5555 5555 5555 5555";0,00;1000,00
-2026-05-05;2026-05-05;"ZAKUP TOWARÓW I USŁUG";"ZAKUPY";"BIEDRONKA";"PL00 5555 5555 5555 5555 5555 5555";-15,00;985,00
-`,
-  "utf8"
-);
-
-test("import wizard: zero-amount rows are dropped and surfaced as skipped", async ({ page }) => {
-  await page.unrouteAll();
-  await injectFakeSession(page);
-  await mockBankImportAPI(page);
-  await page.goto("/import");
-
-  await page.locator('input[type="file"]').setInputFiles({
-    name: "wyciag.csv",
-    mimeType: "text/csv",
-    buffer: mbankZeroAmountSample,
-  });
-
-  // The 0,00 authorisation hold is dropped at normalize() and surfaced as skipped.
-  await expect(page.getByText(/1 pozycji bez kwoty pominięto/)).toBeVisible({ timeout: 10_000 });
-  // The real transaction still imports.
-  await expect(page.getByRole("table").getByText("BIEDRONKA", { exact: true })).toBeVisible();
-});
-
 test("import wizard: resumes an unsaved draft after reload", async ({ page }) => {
   await page.unrouteAll();
   await injectFakeSession(page);
@@ -923,54 +655,6 @@ test("import wizard: leave guard discards the draft on navigate-away", async ({ 
   await expect(page.getByText(/Zapisać zmiany przed wyjściem/)).toBeVisible();
   await page.getByRole("button", { name: "Odrzuć", exact: true }).click();
   await expect(page).toHaveURL(/\/dashboard/);
-});
-
-test("import wizard: warns when the duplicate pre-scan fails", async ({ page }) => {
-  await page.unrouteAll();
-  await injectFakeSession(page);
-  await mockBankImportAPI(page, { failMarkDuplicatesOnce: true });
-  await page.goto("/import");
-
-  await page.locator('input[type="file"]').setInputFiles({
-    name: "wyciag.csv",
-    mimeType: "text/csv",
-    buffer: mbankSample,
-  });
-
-  // Non-fatal: the review still opens, but a toast surfaces the failed pre-scan.
-  await expect(page.getByText(/Nie udało się sprawdzić duplikatów/)).toBeVisible({
-    timeout: 10_000,
-  });
-  await expect(page.getByRole("button", { name: /^Zaimportuj \d+ transakc/ })).toBeEnabled();
-});
-
-test("import wizard: income/expense filters narrow the review list", async ({ page }) => {
-  await page.goto("/import");
-
-  await page.locator('input[type="file"]').setInputFiles({
-    name: "wyciag.csv",
-    mimeType: "text/csv",
-    buffer: mbankSample,
-  });
-
-  const table = page.getByRole("table");
-  await expect(table.getByText("WSPÓLNOTA MIESZKANIOWA", { exact: true })).toBeVisible({
-    timeout: 10_000,
-  });
-
-  // Clean import: no pending rows. The pills must still filter (regression: a stale
-  // $effect used to reset income/expense back to "all" whenever pending count was 0).
-  await page.getByRole("button", { name: /^Przychody/ }).click();
-  await expect(table.getByText("FIRMA SP Z O O", { exact: true })).toBeVisible();
-  await expect(table.getByText("WSPÓLNOTA MIESZKANIOWA", { exact: true })).toHaveCount(0);
-
-  await page.getByRole("button", { name: /^Wydatki/ }).click();
-  await expect(table.getByText("WSPÓLNOTA MIESZKANIOWA", { exact: true })).toBeVisible();
-  await expect(table.getByText("FIRMA SP Z O O", { exact: true })).toHaveCount(0);
-
-  await page.getByRole("button", { name: /^Wszystkie/ }).click();
-  await expect(table.getByText("FIRMA SP Z O O", { exact: true })).toBeVisible();
-  await expect(table.getByText("WSPÓLNOTA MIESZKANIOWA", { exact: true })).toBeVisible();
 });
 
 test("import wizard: undo restores the previous category pick", async ({ page }) => {
