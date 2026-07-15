@@ -23,6 +23,40 @@ The product remembers useful repeat decisions: a merchant maps to a category, a
 transfer belongs to a group, or a future plan should be settled against matching
 transactions.
 
+### Default And Memory Contract
+
+The default hierarchy is:
+
+1. explicit route or workflow context
+2. a still-valid preference confirmed by the user
+3. a deterministic suggestion from current financial state or confirmed history
+4. the safest product default
+
+Defaults are soft when the user may reasonably disagree and locked when workflow
+context defines an invariant. A contribution opened from a plan, for example,
+inherits and displays that plan's scope; it must not silently reuse scope from an
+unrelated transaction.
+
+Use the narrowest durable memory that fits the decision:
+
+- URL state for shareable list and view configuration
+- profile settings for stable cross-device preferences
+- domain tables for learned financial intent such as category rules, skips, and
+  dismissals
+- local storage only for device-local convenience that is safe to lose
+- current form state for drafts that should not survive a completed or cancelled
+  flow
+
+Remember confirmed successful actions, never cancelled attempts. Validate every
+remembered identifier against current permissions and available groups,
+categories, plans, or accounts before using it. Do not remember free-text
+descriptions, recipients, or financial amounts merely because they were typed
+once; prefer a current deterministic calculation or confirmed same-context
+history.
+
+The operating rule is: **default from context and confirmed history, make
+financial scope visible, and ask only for unresolved intent.**
+
 **Decision surface**
 
 The UI asks for decisions only where judgment matters: confirm, correct, undo,
@@ -78,6 +112,8 @@ without deterministic eligibility and user control.
 
 - Start from the user's desired outcome, not the table being edited.
 - Automate repeated decisions when the pattern is stable and reversible.
+- Prefill reversible choices from valid context and confirmed history.
+- Never carry financial scope across unrelated workflows without confirmation.
 - Ask for fewer, higher-value decisions.
 - Explain only when explanation helps trust, correction, or approval.
 - Hide machinery by default, but keep advanced controls reachable.
