@@ -167,7 +167,9 @@ Edge Functions pass `deno check`, and the reviewed secret scan contains no
 credential values. Edgar remained unavailable because its worker API could not
 be reached; source and gate output were verified locally.
 
-**Immediate next step (2026-07-14):** configure the production Supabase GitHub environment secrets plus the Cloudflare Email Service invitation secrets listed in the invite spec (with a staging recipient allowlist), manually promote migrations `20260801000000` through `20260802000000`, then merge so CI deploys the changed Edge Functions and Pages behind the parity gate. Run staging invite-delivery/claim and contribution/net-worth smoke tests before production.
+**Invitation delivery provider correction (2026-07-15, local on `dev`):** Cloudflare Email Sending was rejected because it requires Workers Paid. `send-group-invitation` now uses Resend's REST API and free transactional tier through `RESEND_API_KEY`; the provider remains isolated behind `sendEmail`. The privacy policy now discloses Resend's limited processing of invitation addresses and content. Gates: Deno check clean, svelte-check 0/0, lint and format clean, unit 371/371, diff and reviewed secret scans clean.
+
+**Immediate next step (2026-07-15):** create and verify the Resend sender domain, configure `RESEND_API_KEY` plus the invitation secrets listed in the invite spec (with a staging recipient allowlist), manually promote migrations `20260801000000` through `20260802000000`, then merge so CI deploys the changed Edge Functions and Pages behind the parity gate. Run staging invite-delivery/claim and contribution/net-worth smoke tests before production.
 
 **Open backlog:**
 

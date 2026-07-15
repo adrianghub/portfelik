@@ -53,28 +53,24 @@ async function sendEmail(input: {
   text: string;
   html: string;
 }): Promise<boolean> {
-  const accountId = Deno.env.get("CLOUDFLARE_ACCOUNT_ID");
-  const apiToken = Deno.env.get("CLOUDFLARE_EMAIL_API_TOKEN");
+  const apiToken = Deno.env.get("RESEND_API_KEY");
   const from = Deno.env.get("GROUP_INVITATION_FROM_EMAIL");
-  if (!accountId || !apiToken || !from) return false;
+  if (!apiToken || !from) return false;
   try {
-    const response = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${accountId}/email/sending/send`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiToken}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          to: input.to,
-          from: { address: from, name: "JakStoimy" },
-          subject: input.subject,
-          text: input.text,
-          html: input.html,
-        }),
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiToken}`,
+        "content-type": "application/json",
       },
-    );
+      body: JSON.stringify({
+        to: [input.to],
+        from: `JakStoimy <${from}>`,
+        subject: input.subject,
+        text: input.text,
+        html: input.html,
+      }),
+    });
     return response.ok;
   } catch {
     return false;

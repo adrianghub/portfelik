@@ -79,28 +79,27 @@ settings path cannot bypass the token flow's lifecycle rule.
 
 Keep delivery server-side. The browser calls the Supabase Edge Function with
 the user's JWT; the function calls the RPC, renders plain-text and HTML email,
-and invokes a transactional provider. Cloudflare Email Service supports
-transactional sending and an external REST API, so it can be used from the
-Supabase Edge Function without adding a public Worker endpoint:
-<https://developers.cloudflare.com/email-service/get-started/>.
+and invokes Resend's REST API directly. Resend's free transactional tier is a
+better launch fit than Cloudflare Email Sending, which currently requires a
+Workers Paid plan:
+<https://resend.com/docs/api-reference/emails/send-email>.
 
 Required secrets belong in Supabase Edge Function secrets, never the client:
-Cloudflare account ID, a narrowly scoped email-sending token, sender address,
-and the canonical app origin. Onboard the sender domain and verify SPF, DKIM,
-and DMARC before enabling real delivery. Always send both HTML and text bodies.
+a narrowly scoped Resend API key, sender address, and the canonical app origin.
+Verify the sender domain and its DNS records before enabling real delivery.
+Always send both HTML and text bodies.
 
-Concrete keys: `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_EMAIL_API_TOKEN`,
-`GROUP_INVITATION_FROM_EMAIL`, `PUBLIC_APP_ORIGIN`, optional `APP_ORIGINS`,
-and `GROUP_INVITATION_RECIPIENT_ALLOWLIST` (required on staging).
+Concrete keys: `RESEND_API_KEY`, `GROUP_INVITATION_FROM_EMAIL`,
+`PUBLIC_APP_ORIGIN`, optional `APP_ORIGINS`, and
+`GROUP_INVITATION_RECIPIENT_ALLOWLIST` (required on staging).
 
 Implementation note: token hashes live in a separate table with no
 anon/authenticated Data API grants. Token minting and invite-only Auth link
 generation are service-role-only; the Edge Function validates the caller or
 the exact pending token/email pair before either operation.
 
-If Cloudflare Email Service availability or beta risk is unacceptable, keep a
-small provider interface and substitute the chosen transactional provider; the
-database/token/auth design does not change.
+The provider remains isolated behind `sendEmail`; substituting another REST
+provider later does not change the database, token, or Auth design.
 
 ## Abuse and privacy controls
 

@@ -15,7 +15,7 @@
   <h1 class="mt-4 text-2xl font-semibold tracking-tight text-slate-100">
     {m.privacy_policy_link()}
   </h1>
-  <p class="mt-1 text-xs text-slate-400">Ostatnia aktualizacja: 12 czerwca 2026</p>
+  <p class="mt-1 text-xs text-slate-400">Ostatnia aktualizacja: 15 lipca 2026</p>
 
   <p class="mt-6 text-sm leading-relaxed text-slate-300">
     JakStoimy pomaga ogarniać domowe finanse. Żeby działać, musi przechowywać Twoje dane finansowe.
@@ -83,9 +83,10 @@
   <section class="mt-8 space-y-2">
     <h2 class="text-base font-semibold text-slate-100">Gdzie są Twoje dane</h2>
     <p class="text-sm leading-relaxed text-slate-300">
-      U dwóch dostawców infrastruktury: <strong>Supabase</strong> (baza danych i logowanie) oraz
-      <strong>Cloudflare</strong> (hosting aplikacji). Obaj szyfrują dane na swoich serwerach i mają własne
-      polityki prywatności dla swojej warstwy.
+      U dostawców obsługujących aplikację: <strong>Supabase</strong> (baza danych i logowanie),
+      <strong>Cloudflare</strong> (hosting aplikacji) oraz <strong>Resend</strong> (dostarczenie e-maili
+      z zaproszeniami). Resend otrzymuje tylko adres odbiorcy i treść zaproszenia, bez danych finansowych.
+      Dostawcy mają własne polityki prywatności dla swojej warstwy.
     </p>
   </section>
 

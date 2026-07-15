@@ -1,6 +1,6 @@
 # Polityka prywatności
 
-Ostatnia aktualizacja: 12 czerwca 2026
+Ostatnia aktualizacja: 15 lipca 2026
 
 JakStoimy pomaga ogarniać domowe finanse. Żeby działać, musi przechowywać Twoje
 dane finansowe. Poniżej wyjaśniamy bez prawniczego żargonu: co przechowujemy,
@@ -48,9 +48,11 @@ przechowywany.
 
 ## Gdzie są Twoje dane
 
-U dwóch dostawców infrastruktury: **Supabase** (baza danych i logowanie) oraz
-**Cloudflare** (hosting aplikacji). Obaj szyfrują dane na swoich serwerach i
-mają własne polityki prywatności dla swojej warstwy.
+U dostawców obsługujących aplikację: **Supabase** (baza danych i logowanie),
+**Cloudflare** (hosting aplikacji) oraz **Resend** (dostarczenie e-maili z
+zaproszeniami). Resend otrzymuje tylko adres odbiorcy i treść zaproszenia, bez
+danych finansowych. Dostawcy mają własne polityki prywatności dla swojej
+warstwy.
 
 ## Jak długo je trzymamy
 
