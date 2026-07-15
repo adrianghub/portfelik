@@ -60,7 +60,7 @@
     }
   });
 
-  const PUBLIC_PATHS = ["/login", "/auth/callback", "/privacy"];
+  const PUBLIC_PATHS = ["/login", "/auth/callback", "/privacy", "/invite"];
   const PUSH_PROMPT_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
   const PUSH_PROMPT_STORAGE_KEY = "push_prompted_at";
 
@@ -71,7 +71,9 @@
   let authRevision = 0;
   let notifPermission = $state<NotificationPermission>("default");
   let pushPromptedRecently = $state(false);
-  let isPublicRoute = $derived(PUBLIC_PATHS.includes(page.url.pathname));
+  let isPublicRoute = $derived(
+    PUBLIC_PATHS.includes(page.url.pathname) || page.url.pathname.startsWith("/invite/")
+  );
   let canRenderProtectedRoute = $derived(isPublicRoute || authStatus === "authenticated");
   let showNotifBanner = $derived(
     !!userId &&

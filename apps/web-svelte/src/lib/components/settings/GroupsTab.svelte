@@ -12,6 +12,7 @@
     GroupHasItemsError,
     leaveGroup,
     inviteUser,
+    resendInvitation,
     acceptInvitation,
     rejectInvitation,
     cancelInvitation,
@@ -100,12 +101,13 @@
 
   const inviteMutation = createMutation(() => ({
     mutationFn: () => inviteUser(inviteGroupId!, inviteEmail),
-    onSuccess: async () => {
+    onSuccess: async (invitation) => {
       // Invalidate sent invitations for this group so the panel updates
       await queryClient.invalidateQueries({
         queryKey: ["group_invitations_sent", inviteGroupId],
       });
-      toast.success(m.toast_invitation_sent());
+      if (invitation.delivery_status === "sent") toast.success(m.toast_invitation_sent());
+      else toast.error(m.group_invitation_delivery_failed());
       inviteEmail = "";
       inviteGroupId = null;
     },
@@ -140,8 +142,7 @@
   const leaveMutation = createMutation(() => ({
     mutationFn: () => leaveGroup(leaveGroupId!),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["user_groups"] });
-      await queryClient.invalidateQueries({ queryKey: ["my-group-roles"] });
+      await queryClient.invalidateQueries();
       toast.success(m.toast_group_left());
       leaveGroupId = null;
     },
@@ -152,9 +153,7 @@
   const acceptMutation = createMutation(() => ({
     mutationFn: (id: string) => acceptInvitation(id),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["user_groups"] });
-      await queryClient.invalidateQueries({ queryKey: ["my-group-roles"] });
-      await queryClient.invalidateQueries({ queryKey: ["group_invitations_received"] });
+      await queryClient.invalidateQueries();
       toast.success(m.toast_invitation_accepted());
     },
     onError: (err) => toastError(err),
@@ -185,6 +184,18 @@
         queryKey: ["group_invitations_sent", sentInvGroupId],
       });
       toast.success(m.toast_invitation_cancelled());
+    },
+    onError: (err) => toastError(err),
+  }));
+
+  const resendMutation = createMutation(() => ({
+    mutationFn: (invitation: import("$lib/types").GroupInvitation) => resendInvitation(invitation),
+    onSuccess: async (invitation) => {
+      await queryClient.invalidateQueries({
+        queryKey: ["group_invitations_sent", sentInvGroupId],
+      });
+      if (invitation.delivery_status === "sent") toast.success(m.toast_invitation_sent());
+      else toast.error(m.group_invitation_delivery_failed());
     },
     onError: (err) => toastError(err),
   }));
@@ -386,6 +397,15 @@
                             {statusLabel(inv.status)}
                           </span>
                           {#if inv.status === "pending"}
+                            {#if inv.delivery_status === "failed"}
+                              <button
+                                onclick={() => resendMutation.mutate(inv)}
+                                disabled={resendMutation.isPending}
+                                class="rounded border border-amber-300 px-2 py-0.5 text-xs text-amber-600 transition-colors hover:bg-amber-50 disabled:opacity-50 dark:border-amber-800 dark:text-amber-300"
+                              >
+                                {m.group_invitation_resend()}
+                              </button>
+                            {/if}
                             <button
                               onclick={() => cancelMutation.mutate(inv.id)}
                               disabled={cancelMutation.isPending}

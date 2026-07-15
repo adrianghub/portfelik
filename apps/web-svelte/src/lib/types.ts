@@ -139,6 +139,17 @@ export interface GroupInvitation {
   status: InvitationStatus;
   created_at: string;
   updated_at: string;
+  expires_at: string;
+  sent_at: string | null;
+  delivery_status: "pending" | "sent" | "failed";
+  delivery_attempts: number;
+}
+
+export interface GroupInvitationPreview {
+  groupName: string;
+  inviterName: string;
+  recipientMasked: string;
+  expiresAt: string;
 }
 
 export type PlanKind = "save" | "debt";
@@ -240,6 +251,7 @@ export interface NetWorthSummary {
   cash: number;
   items: NetWorthItemValued[];
   otherAssets: number;
+  goalAssets: number;
   totalAssets: number;
   totalDebt: number;
   netWorth: number;
@@ -256,7 +268,14 @@ export type NotificationType =
 
 export type NotificationData =
   | { type: "group_invitation"; groupId: string; groupName: string; inviterEmail: string }
-  | { type: "transaction_summary"; period: string; totalExpenses: number }
+  | {
+      type?: "transaction_summary";
+      windowStart: string;
+      windowEnd: string;
+      userCount: number;
+      txCount: number;
+      schedule: "manual" | "monday" | "after_import_reminder";
+    }
   | {
       type?: "transaction_upcoming" | "transaction_overdue" | "transaction_reminder";
       actionable?: boolean;

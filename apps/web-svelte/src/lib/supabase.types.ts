@@ -231,33 +231,45 @@ export type Database = {
         Row: {
           created_at: string;
           created_by: string;
+          delivery_attempts: number;
+          delivery_status: string;
+          expires_at: string;
           group_id: string;
           group_name: string;
           id: string;
           invited_user_email: string;
           invited_user_id: string | null;
+          sent_at: string | null;
           status: Database["public"]["Enums"]["invitation_status"];
           updated_at: string;
         };
         Insert: {
           created_at?: string;
           created_by: string;
+          delivery_attempts?: number;
+          delivery_status?: string;
+          expires_at?: string;
           group_id: string;
           group_name: string;
           id?: string;
           invited_user_email: string;
           invited_user_id?: string | null;
+          sent_at?: string | null;
           status?: Database["public"]["Enums"]["invitation_status"];
           updated_at?: string;
         };
         Update: {
           created_at?: string;
           created_by?: string;
+          delivery_attempts?: number;
+          delivery_status?: string;
+          expires_at?: string;
           group_id?: string;
           group_name?: string;
           id?: string;
           invited_user_email?: string;
           invited_user_id?: string | null;
+          sent_at?: string | null;
           status?: Database["public"]["Enums"]["invitation_status"];
           updated_at?: string;
         };
@@ -1272,6 +1284,36 @@ export type Database = {
       };
       get_monthly_summary: {
         Args: { p_month: number; p_year: number };
+        Returns: Json;
+      };
+      get_group_invitation_preview: {
+        Args: { p_token: string };
+        Returns: Json;
+      };
+      verify_group_invitation_recipient: {
+        Args: { p_email: string; p_token: string };
+        Returns: boolean;
+      };
+      claim_group_invitation: {
+        Args: { p_token: string };
+        Returns: Json;
+      };
+      add_plan_contribution: {
+        Args: {
+          p_amount: number;
+          p_date: string;
+          p_description?: string | null;
+          p_plan_id: string;
+        };
+        Returns: string;
+      };
+      create_group_invitation_for_delivery: {
+        Args: {
+          p_actor_id?: string | null;
+          p_email: string;
+          p_group_id: string;
+          p_invitation_id?: string | null;
+        };
         Returns: Json;
       };
       invite_user: {

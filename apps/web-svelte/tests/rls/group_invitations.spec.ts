@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { SENTINEL, cleanupSentinels, provisionTwoUsers, type TestContext } from "./setup";
+import {
+  SENTINEL,
+  cleanupSentinels,
+  createAnonClient,
+  provisionTwoUsers,
+  type TestContext,
+} from "./setup";
 
 describe("RLS: group_invitations (direct writes blocked, visible to invitee/creator/owner)", () => {
   let ctx: TestContext;
@@ -65,6 +71,97 @@ describe("RLS: group_invitations (direct writes blocked, visible to invitee/crea
       .eq("id", inviteId);
     expect(error).toBeNull();
     expect(data?.length).toBe(1);
+  });
+
+  it("keeps token hashes outside authenticated Data API access", async () => {
+    const { data, error } = await ctx.userA.client
+      .from("group_invitation_tokens" as "group_invitations")
+      .select("*");
+    expect(data).toBeNull();
+    expect(error).not.toBeNull();
+  });
+
+  it("keeps token minting behind the service-role delivery boundary", async () => {
+    const result = await ctx.userA.client.rpc("create_group_invitation_for_delivery", {
+      p_group_id: groupId,
+      p_email: `direct-${crypto.randomUUID()}@rls.test`,
+      p_actor_id: ctx.userA.userId,
+    });
+    expect(result.error).not.toBeNull();
+  });
+
+  it("previews anonymously and claims once for the exact authenticated email", async () => {
+    const { data: secondGroup, error: groupError } = await ctx.userA.client.rpc("create_group", {
+      p_name: `${SENTINEL} token-claim`,
+    });
+    if (groupError || !secondGroup) throw groupError ?? new Error("no group");
+    const secondGroupId = (secondGroup as { id: string }).id;
+
+    const { data, error } = await ctx.admin.rpc("create_group_invitation_for_delivery", {
+      p_group_id: secondGroupId,
+      p_email: ctx.userB.email,
+      p_actor_id: ctx.userA.userId,
+    });
+    if (error || !data) throw error ?? new Error("no invitation token");
+    const token = (data as { token: string }).token;
+
+    const preview = await createAnonClient().rpc("get_group_invitation_preview", {
+      p_token: token,
+    });
+    expect(preview.error).toBeNull();
+    expect(preview.data).toMatchObject({ groupName: `${SENTINEL} token-claim` });
+    expect(JSON.stringify(preview.data)).not.toContain(ctx.userB.email);
+
+    const verified = await ctx.admin.rpc("verify_group_invitation_recipient", {
+      p_token: token,
+      p_email: ctx.userB.email,
+    });
+    expect(verified.error).toBeNull();
+    expect(verified.data).toBe(true);
+    const browserVerify = await ctx.userA.client.rpc("verify_group_invitation_recipient", {
+      p_token: token,
+      p_email: ctx.userB.email,
+    });
+    expect(browserVerify.error).not.toBeNull();
+
+    const wrongClaim = await ctx.userA.client.rpc("claim_group_invitation", { p_token: token });
+    expect(wrongClaim.error?.message).toContain("invitation_email_mismatch");
+
+    const claim = await ctx.userB.client.rpc("claim_group_invitation", { p_token: token });
+    expect(claim.error).toBeNull();
+    expect(claim.data).toMatchObject({ groupId: secondGroupId });
+
+    const membership = await ctx.admin
+      .from("group_members")
+      .select("user_id")
+      .eq("group_id", secondGroupId)
+      .eq("user_id", ctx.userB.userId)
+      .single();
+    expect(membership.error).toBeNull();
+
+    const replay = await ctx.userB.client.rpc("claim_group_invitation", { p_token: token });
+    expect(replay.error?.message).toContain("invitation_invalid_or_expired");
+  });
+
+  it("hides expired tokens from preview and claim", async () => {
+    const invitedEmail = `expired-${crypto.randomUUID()}@rls.test`;
+    const { data, error } = await ctx.admin.rpc("create_group_invitation_for_delivery", {
+      p_group_id: groupId,
+      p_email: invitedEmail,
+      p_actor_id: ctx.userA.userId,
+    });
+    if (error || !data) throw error ?? new Error("no invitation token");
+    const result = data as { token: string; invitation: { id: string } };
+    await ctx.admin
+      .from("group_invitations")
+      .update({ expires_at: new Date(Date.now() - 1000).toISOString() })
+      .eq("id", result.invitation.id);
+
+    const preview = await createAnonClient().rpc("get_group_invitation_preview", {
+      p_token: result.token,
+    });
+    expect(preview.error).toBeNull();
+    expect(preview.data).toBeNull();
   });
 
   it("creates a notification when a pending invitee signs up after the invite", async () => {
