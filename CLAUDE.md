@@ -169,6 +169,8 @@ be reached; source and gate output were verified locally.
 
 **Invitation delivery provider correction (2026-07-15, local on `dev`):** Cloudflare Email Sending was rejected because it requires Workers Paid. `send-group-invitation` now uses Resend's REST API and free transactional tier through `RESEND_API_KEY`; the provider remains isolated behind `sendEmail` and sends Resend's required explicit `User-Agent`. The privacy policy now discloses Resend's limited processing of invitation addresses and content. Gates: Deno check clean, svelte-check 0/0, lint and format clean, unit 371/371, diff and reviewed secret scans clean.
 
+**Staging CI net-worth assertion follow-up (2026-07-15, local on `dev`):** staging run `29412905251` correctly rendered the debt-only net-worth summary, but `plans.spec.ts` still expected the retired empty prompt. The test now asserts `Majątek netto`, the fixture's `Kredyty 206 000,00 zł`, and absence of the empty prompt. Gates: focused case 1/1, complete plans E2E 6 passed/1 intentionally skipped, svelte-check 0/0, lint/format/diff clean.
+
 **Immediate next step (2026-07-15):** create and verify the Resend sender domain, configure `RESEND_API_KEY` plus the invitation secrets listed in the invite spec (with a staging recipient allowlist), manually promote migrations `20260801000000` through `20260802000000`, then merge so CI deploys the changed Edge Functions and Pages behind the parity gate. Run staging invite-delivery/claim and contribution/net-worth smoke tests before production.
 
 **Open backlog:**

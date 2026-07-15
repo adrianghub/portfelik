@@ -11,9 +11,11 @@ test("renders sectioned hub with saving goals and debt plans", async ({ page }) 
   await page.goto("/plans");
 
   await expect(page.getByRole("heading", { name: "Plany" })).toBeVisible();
+  await expect(page.getByText("Majątek netto", { exact: true })).toBeVisible();
+  await expect(page.getByText("Kredyty 206 000,00 zł")).toBeVisible();
   await expect(
     page.getByText("Dodaj gotówkę i inwestycje, by zobaczyć majątek netto.")
-  ).toBeVisible();
+  ).toHaveCount(0);
   await expect(page.getByText("Plany obejmują cele oszczędnościowe i kredyty.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Cele oszczędnościowe" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Kredyty" })).toBeVisible();
@@ -164,7 +166,9 @@ test("debt plan detail shows balance hero", async ({ page }) => {
 });
 
 // Refinance entry UI is deferred in the product; keep RPC coverage in unit tests.
-test.skip("refinances a debt plan: closes old, opens new, writes no transaction", async ({ page }) => {
+test.skip("refinances a debt plan: closes old, opens new, writes no transaction", async ({
+  page,
+}) => {
   let rpcBody: Record<string, unknown> | undefined;
   let transactionWritten = false;
 
