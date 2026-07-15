@@ -95,6 +95,14 @@ describe("RLS: transactions", () => {
     expectEmpty({ data, error });
   });
 
+  it("user A does NOT see user B's private tx through the category view", async () => {
+    const { data, error } = await ctx.userA.client
+      .from("transactions_with_category")
+      .select("id")
+      .eq("description", `${SENTINEL} B tx`);
+    expectEmpty({ data, error });
+  });
+
   it("user A cannot insert tx with user_id = B", async () => {
     const result = await ctx.userA.client.from("transactions").insert({
       user_id: ctx.userB.userId,
@@ -160,6 +168,41 @@ describe("RLS: transactions", () => {
       const descs = data?.map((t) => t.description).sort();
       expect(descs).toContain(`${SENTINEL} A tx`);
       expect(descs).toContain(`${SENTINEL} B tx`);
+    });
+
+    it("keeps a shared tx visible through the category view without exposing its private category", async () => {
+      const { data, error } = await ctx.userA.client
+        .from("transactions_with_category")
+        .select("description, category_id, category_name, category_type, group_id")
+        .eq("description", `${SENTINEL} B tx`);
+
+      expect(error).toBeNull();
+      expect(data).toEqual([
+        {
+          description: `${SENTINEL} B tx`,
+          category_id: categoryBId,
+          category_name: "Inna kategoria",
+          category_type: "expense",
+          group_id: groupId,
+        },
+      ]);
+
+      const categoryResult = await ctx.userA.client
+        .from("categories")
+        .select("id")
+        .eq("id", categoryBId);
+      expectEmpty(categoryResult);
+    });
+
+    it("keeps the real category name on the viewer's own transaction", async () => {
+      const { data, error } = await ctx.userA.client
+        .from("transactions_with_category")
+        .select("category_name")
+        .eq("description", `${SENTINEL} A tx`)
+        .single();
+
+      expect(error).toBeNull();
+      expect(data?.category_name).toBe(`${SENTINEL} catA`);
     });
 
     it("group owner (co-owner) can update user B's shared tx", async () => {
