@@ -31,6 +31,7 @@
   import { toast } from "svelte-sonner";
   import { toastError } from "$lib/toast-error";
   import { errorMessage } from "$lib/services/supabase-errors";
+  import { localDateIso } from "$lib/date-local";
 
   export interface PlanTransactionContext {
     planId: string;
@@ -74,19 +75,13 @@
   let amount = $state(untrack(() => (initial ? String(Math.abs(initial.amount)) : "")));
   let counterparty = $state(untrack(() => initial?.counterparty ?? ""));
   let description = $state(untrack(() => initial?.description ?? ""));
-  let date = $state(
-    untrack(() =>
-      initial?.date ? initial.date.slice(0, 10) : new Date().toISOString().slice(0, 10)
-    )
-  );
+  let date = $state(untrack(() => (initial?.date ? initial.date.slice(0, 10) : localDateIso())));
   let category_id = $state(untrack(() => initial?.category_id ?? ""));
   let status = $state<TransactionStatus>(
     untrack(
       () =>
         initial?.status ??
-        suggestStatusForDate(
-          initial?.date ? initial.date.slice(0, 10) : new Date().toISOString().slice(0, 10)
-        )
+        suggestStatusForDate(initial?.date ? initial.date.slice(0, 10) : localDateIso())
     )
   );
   // Soft prefill: while false, status tracks the date; a manual pick locks it.
@@ -121,7 +116,7 @@
       amount = initial ? String(Math.abs(initial.amount)) : "";
       counterparty = initial?.counterparty ?? "";
       description = initial?.description ?? "";
-      date = initial?.date ? initial.date.slice(0, 10) : new Date().toISOString().slice(0, 10);
+      date = initial?.date ? initial.date.slice(0, 10) : localDateIso();
       category_id = initial?.category_id ?? planContext?.categoryId ?? "";
       statusTouched = initial?.status != null;
       status = initial?.status ?? suggestStatusForDate(date);
@@ -152,6 +147,15 @@
     if (category_id && categoriesQuery.data) {
       const cat = categoriesQuery.data.find((c) => c.id === category_id);
       if (cat && cat.type !== type) category_id = "";
+    }
+  });
+
+  $effect(() => {
+    if (!initial && planContext?.planKind === "save" && categoriesQuery.data) {
+      const goalCategory = categoriesQuery.data.find(
+        (category) => category.type === "expense" && category.name === "Cele"
+      );
+      if (goalCategory) category_id = goalCategory.id;
     }
   });
 
@@ -363,18 +367,20 @@
       />
     </div>
 
-    <div class="space-y-1">
-      <label class={labelClass} for="tx-cat">{m.transaction_form_category()}</label>
-      <CategorySelect
-        id="tx-cat"
-        categories={filteredCategories}
-        selectedId={category_id || null}
-        {type}
-        onchange={(id) => (category_id = id ?? "")}
-        oncreate={createCategoryInline}
-        required
-      />
-    </div>
+    {#if !planContext || planContext.planKind !== "save"}
+      <div class="space-y-1">
+        <label class={labelClass} for="tx-cat">{m.transaction_form_category()}</label>
+        <CategorySelect
+          id="tx-cat"
+          categories={filteredCategories}
+          selectedId={category_id || null}
+          {type}
+          onchange={(id) => (category_id = id ?? "")}
+          oncreate={createCategoryInline}
+          required
+        />
+      </div>
+    {/if}
 
     <div class="space-y-1">
       <label class={labelClass} for="tx-status">{m.transaction_form_status()}</label>

@@ -137,13 +137,13 @@ describe("RPC: plan settlement", () => {
     expect(unlinkError).toBeNull();
   });
 
-  it("links income transactions to saving goals", async () => {
-    const planId = await createPlan(ctx.userA.userId, "income plan", null, "save");
+  it("links expense contributions to saving goals", async () => {
+    const planId = await createPlan(ctx.userA.userId, "contribution plan", null, "save");
     const txId = await createTx({
       userId: ctx.userA.userId,
-      description: "income",
-      type: "income",
-      categoryId: incomeCategoryAId,
+      description: "contribution",
+      type: "expense",
+      categoryId: expenseCategoryAId,
     });
 
     const { data, error } = await ctx.userA.client.rpc("link_plan_transaction", {
@@ -154,15 +154,9 @@ describe("RPC: plan settlement", () => {
     expect(data?.transaction_id).toBe(txId);
   });
 
-  it("enforces settlement transaction type by plan kind", async () => {
+  it("rejects income settlement for both plan kinds", async () => {
     const savePlanId = await createPlan(ctx.userA.userId, "save type policy", null, "save");
     const debtPlanId = await createPlan(ctx.userA.userId, "debt type policy", null, "debt");
-    const expenseTxId = await createTx({
-      userId: ctx.userA.userId,
-      description: "save wrong type expense",
-      type: "expense",
-      categoryId: expenseCategoryAId,
-    });
     const incomeTxId = await createTx({
       userId: ctx.userA.userId,
       description: "debt wrong type income",
@@ -172,17 +166,71 @@ describe("RPC: plan settlement", () => {
 
     const saveResult = await ctx.userA.client.rpc("link_plan_transaction", {
       p_plan_id: savePlanId,
-      p_transaction_id: expenseTxId,
+      p_transaction_id: incomeTxId,
     });
     expect(saveResult.error).not.toBeNull();
-    expect(saveResult.error?.message ?? "").toMatch(/transaction_type_not_supported/);
+    expect(saveResult.error?.message ?? "").toMatch(/transaction_must_be_expense/);
 
     const debtResult = await ctx.userA.client.rpc("link_plan_transaction", {
       p_plan_id: debtPlanId,
       p_transaction_id: incomeTxId,
     });
     expect(debtResult.error).not.toBeNull();
-    expect(debtResult.error?.message ?? "").toMatch(/transaction_type_not_supported/);
+    expect(debtResult.error?.message ?? "").toMatch(/transaction_must_be_expense/);
+  });
+
+  it("locks a linked transaction to expense until it is unlinked", async () => {
+    const planId = await createPlan(ctx.userA.userId, "type lock", null, "save");
+    const txId = await createTx({
+      userId: ctx.userA.userId,
+      description: "locked contribution",
+      type: "expense",
+      categoryId: expenseCategoryAId,
+    });
+    const link = await ctx.userA.client.rpc("link_plan_transaction", {
+      p_plan_id: planId,
+      p_transaction_id: txId,
+    });
+    expect(link.error).toBeNull();
+
+    const locked = await ctx.admin.from("transactions").update({ type: "income" }).eq("id", txId);
+    expect(locked.error?.message).toContain("transaction_type_locked_by_plan_link");
+
+    const unlink = await ctx.userA.client.rpc("unlink_plan_transaction", {
+      p_plan_id: planId,
+      p_transaction_id: txId,
+    });
+    expect(unlink.error).toBeNull();
+    const unlocked = await ctx.admin.from("transactions").update({ type: "income" }).eq("id", txId);
+    expect(unlocked.error).toBeNull();
+  });
+
+  it("adds and links a paid Cele contribution atomically", async () => {
+    const planId = await createPlan(ctx.userA.userId, "atomic contribution", null, "save");
+    const result = await ctx.userA.client.rpc("add_plan_contribution", {
+      p_plan_id: planId,
+      p_amount: 275,
+      p_date: "2026-06-12",
+      p_description: "Fundusz wakacyjny",
+    });
+    expect(result.error).toBeNull();
+
+    const tx = await ctx.admin
+      .from("transactions")
+      .select("id, amount, type, status, group_id, category_id, categories(name)")
+      .eq("id", result.data)
+      .single();
+    expect(tx.error).toBeNull();
+    expect(tx.data).toMatchObject({ amount: 275, type: "expense", status: "paid", group_id: null });
+    expect(tx.data?.categories).toMatchObject({ name: "Cele" });
+
+    const link = await ctx.admin
+      .from("plan_transaction_links")
+      .select("plan_id, transaction_id")
+      .eq("plan_id", planId)
+      .eq("transaction_id", result.data)
+      .single();
+    expect(link.error).toBeNull();
   });
 
   it("rejects transactions outside the plan period", async () => {

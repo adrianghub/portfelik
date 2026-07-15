@@ -26,7 +26,7 @@ function tx(
 
 describe("plan-settlement-policy", () => {
   it("maps kinds to settlement types", () => {
-    expect(settlementTypesForPlanKind("save")).toEqual(["income"]);
+    expect(settlementTypesForPlanKind("save")).toEqual(["expense"]);
     expect(settlementTypesForPlanKind("debt")).toEqual(["expense"]);
   });
 
@@ -60,7 +60,7 @@ describe("plan-settlement-policy", () => {
 
   it("ignores type overrides outside the plan kind policy", () => {
     expect(resolveSettlementTypes({ kind: "debt" }, { type: "income" })).toEqual(["expense"]);
-    expect(resolveSettlementTypes({ kind: "save" }, { type: "expense" })).toEqual(["income"]);
+    expect(resolveSettlementTypes({ kind: "save" }, { type: "expense" })).toEqual(["expense"]);
     expect(resolveSettlementTypes({ kind: "debt" }, { type: "all" })).toEqual(["expense"]);
   });
 });

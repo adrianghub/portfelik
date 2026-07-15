@@ -1,10 +1,10 @@
 import { trackOnce } from "$lib/analytics";
+import { localDateIso } from "$lib/date-local";
 import { supabase } from "$lib/supabase";
 import type { GroupMemberRole, Plan, PlanBucket, PlanKind } from "$lib/types";
 
 export function todayIso(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  return localDateIso();
 }
 
 function parseLocalDate(iso: string): Date {

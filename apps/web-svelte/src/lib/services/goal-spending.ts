@@ -3,9 +3,9 @@ import { ledgerTransactions } from "$lib/services/transaction-cashflow";
 import type { TransactionWithCategory } from "$lib/types";
 
 export interface GoalSpendingSplit {
-  /** Income linked to active save plans this period. */
-  goalLinkedIncome: number;
-  /** Expenses in the Cele category. */
+  /** Cele expenses linked to active save plans. */
+  goalContributions: number;
+  /** Unlinked expenses in the Cele category. */
   celeExpenses: number;
   /** All other expenses in the period. */
   otherExpenses: number;
@@ -23,7 +23,7 @@ export function resolveCeleCategoryId(
 
 /**
  * Split period expenses into goal-oriented vs discretionary buckets.
- * Goal activity = save-plan linked income + Cele-category expenses.
+ * Goal activity = linked contributions + unlinked Cele expenses.
  */
 export function computeGoalSpendingSplit(
   txs: TransactionWithCategory[],
@@ -31,16 +31,16 @@ export function computeGoalSpendingSplit(
   celeCategoryId?: string | null
 ): GoalSpendingSplit {
   const ledger = ledgerTransactions(txs);
-  let goalLinkedIncome = 0;
+  let goalContributions = 0;
   let celeExpenses = 0;
   let otherExpenses = 0;
 
   for (const tx of ledger) {
-    if (tx.type === "income" && saveLinkedIds.has(tx.id)) {
-      goalLinkedIncome += tx.amount;
+    if (tx.type !== "expense") continue;
+    if (saveLinkedIds.has(tx.id)) {
+      goalContributions += tx.amount;
       continue;
     }
-    if (tx.type !== "expense") continue;
     if (celeCategoryId && tx.category_id === celeCategoryId) {
       celeExpenses += tx.amount;
     } else {
@@ -49,9 +49,9 @@ export function computeGoalSpendingSplit(
   }
 
   return {
-    goalLinkedIncome,
+    goalContributions,
     celeExpenses,
     otherExpenses,
-    hasGoalActivity: goalLinkedIncome > 0 || celeExpenses > 0,
+    hasGoalActivity: goalContributions > 0 || celeExpenses > 0,
   };
 }

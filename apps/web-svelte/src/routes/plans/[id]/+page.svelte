@@ -4,15 +4,19 @@
   import * as m from "$lib/paraglide/messages";
   import {
     computePlanProgress,
+    addPlanContribution,
     fetchLinkedTransactions,
     fetchSuggestionCount,
     linkPlanTransaction,
     unlinkPlanTransaction,
+    suggestPlanContribution,
   } from "$lib/services/plan-settlement";
   import DebtPlanDetail from "$lib/components/plans/DebtPlanDetail.svelte";
   import PlanForwardNav from "$lib/components/plans/PlanForwardNav.svelte";
   import SavePlanDetail from "$lib/components/plans/SavePlanDetail.svelte";
   import QueryError from "$lib/components/ui/QueryError.svelte";
+  import Dialog from "$lib/components/ui/Dialog.svelte";
+  import DayPicker from "$lib/components/ui/DayPicker.svelte";
   import TransactionDialog, {
     type PlanTransactionContext,
   } from "$lib/components/transactions/TransactionDialog.svelte";
@@ -45,8 +49,9 @@
   } from "$lib/utils/scroll-restore";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { ArrowLeft, CalendarDays, Link2Off, Users } from "lucide-svelte";
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import { toast } from "svelte-sonner";
+  import { localDateIso } from "$lib/date-local";
 
   const queryClient = useQueryClient();
   const id = $derived($page.params.id ?? "");
@@ -198,8 +203,45 @@
   }
 
   function defaultManualTxType(kind: PlanKind): TransactionType {
-    return kind === "save" ? "income" : "expense";
+    void kind;
+    return "expense";
   }
+
+  let contributionOpen = $state(false);
+  let contributionAmount = $state<number | null>(null);
+  let contributionDate = $state(localDateIso());
+  let contributionDescription = $state("");
+  let contributionAmountInput = $state<HTMLInputElement | null>(null);
+
+  function openContribution() {
+    if (!progress) return;
+    contributionAmount = suggestPlanContribution({
+      remaining: progress.remaining,
+      monthlyNeeded: progress.monthlyNeeded,
+      contributedThisMonth: progress.saveContributionsCurrentMonth,
+      recentAmount: expenses[0]?.amount,
+    });
+    contributionDate = localDateIso();
+    contributionDescription = "";
+    contributionOpen = true;
+    void tick().then(() => contributionAmountInput?.focus());
+  }
+
+  const contributionMutation = createMutation(() => ({
+    mutationFn: () =>
+      addPlanContribution({
+        planId: id,
+        amount: contributionAmount ?? 0,
+        date: contributionDate,
+        description: contributionDescription,
+      }),
+    onSuccess: async () => {
+      contributionOpen = false;
+      toast.success(m.plan_contribution_saved());
+      await queryClient.invalidateQueries();
+    },
+    onError: (err) => toastError(err),
+  }));
 
   let unlinkPendingId = $state<string | null>(null);
   const unlinkMutation = createMutation(() => ({
@@ -415,6 +457,7 @@
         {progress}
         onAdjust={canManage ? (patch) => saveAdjustMutation.mutate(patch) : undefined}
         adjusting={saveAdjustMutation.isPending}
+        onContribute={openContribution}
       />
     {:else if plan.kind === "debt" && debtTermsQuery.data}
       {#if plan.group_id && !canManage}
@@ -495,11 +538,12 @@
       </div>
 
       <div class={cn("grid gap-4", plan.kind !== "save" && "lg:grid-cols-2")}>
-        {#if plan.kind !== "save"}
+        {#if plan.kind === "save" || plan.kind === "debt"}
           {@render LinkedSection({
-            title: m.plan_linked_expenses(),
+            title:
+              plan.kind === "save" ? m.plan_detail_linked_header_save() : m.plan_linked_expenses(),
             transactions: expenses,
-            amountClass: "text-rose-300",
+            amountClass: plan.kind === "save" ? "text-emerald-300" : "text-rose-300",
             sign: "−",
             onunlink: (txId) => unlinkMutation.mutate(txId),
             pendingId: unlinkPendingId,
@@ -508,7 +552,7 @@
             onmanualadd: () => openManualTx("expense"),
           })}
         {/if}
-        {#if plan.kind === "save" || incomes.length > 0}
+        {#if incomes.length > 0}
           {@render LinkedSection({
             title: m.plan_linked_income(),
             transactions: incomes,
@@ -518,7 +562,7 @@
             pendingId: unlinkPendingId,
             setpending: (txId) => (unlinkPendingId = txId),
             loading: unlinkMutation.isPending,
-            onmanualadd: () => openManualTx("income"),
+            onmanualadd: () => openManualTx("expense"),
           })}
         {/if}
       </div>
@@ -533,6 +577,65 @@
     planContext={manualPlanContext}
   />
 {/if}
+
+<Dialog
+  open={contributionOpen}
+  onclose={() => (contributionOpen = false)}
+  title={m.plan_contribution_add()}
+>
+  <form
+    onsubmit={(event) => {
+      event.preventDefault();
+      contributionMutation.mutate();
+    }}
+    class="space-y-4"
+  >
+    <p class="text-xs font-medium text-slate-400">
+      {planQuery.data?.group_id
+        ? m.plan_contribution_scope_group()
+        : m.plan_contribution_scope_private()}
+    </p>
+    <div class="space-y-1">
+      <label for="contribution-amount" class="text-xs font-medium text-slate-300"
+        >{m.plan_contribution_amount()}</label
+      >
+      <input
+        bind:this={contributionAmountInput}
+        id="contribution-amount"
+        type="number"
+        min="0.01"
+        step="0.01"
+        required
+        bind:value={contributionAmount}
+        class="focus:border-accent/40 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 outline-none"
+      />
+    </div>
+    <DayPicker
+      id="contribution-date"
+      value={contributionDate}
+      onchange={(value) => (contributionDate = value)}
+      label={m.plan_contribution_date()}
+    />
+    <div class="space-y-1">
+      <label for="contribution-note" class="text-xs font-medium text-slate-300"
+        >{m.plan_contribution_note()}</label
+      >
+      <input
+        id="contribution-note"
+        type="text"
+        bind:value={contributionDescription}
+        class="focus:border-accent/40 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 outline-none"
+      />
+    </div>
+    <button
+      type="submit"
+      disabled={contributionMutation.isPending || !contributionAmount || contributionAmount <= 0}
+      class="bg-accent-gradient w-full rounded-full px-4 py-2.5 text-sm font-semibold text-slate-950 disabled:opacity-50"
+    >
+      {contributionMutation.isPending ? m.common_saving() : m.plan_contribution_add()}
+    </button>
+  </form>
+</Dialog>
 
 {#snippet LinkedSection({
   title,

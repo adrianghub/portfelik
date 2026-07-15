@@ -109,16 +109,16 @@ const TX2 = {
 };
 
 // keyword "wakacje" (25pts) + baseline (25pts) → score=50, rank=medium (clears the 45% cutoff)
-const TX_INCOME = {
+const TX_GOAL = {
   ...TX1,
-  id: "tx-income",
-  description: "Premia na wakacje",
+  id: "tx-goal",
+  description: "Wpłata na wakacje",
   amount: 500,
   date: "2026-07-05",
-  type: "income",
+  type: "expense",
   category_id: "cat-3",
-  category_name: "Wynagrodzenie",
-  category_type: "income",
+  category_name: "Cele",
+  category_type: "expense",
 };
 
 const MOCK_LINK = {
@@ -148,9 +148,6 @@ async function setupSettleMocks(page: Page, plan = SETTLE_PLAN): Promise<void> {
   // Return our eligible transactions (overrides MOCK_TRANSACTIONS from base mock)
   await page.route(/.*\/rest\/v1\/transactions_with_category.*/, (route) => {
     const url = route.request().url();
-    if (url.includes("type=eq.income")) {
-      return route.fulfill({ status: 200, json: [TX_INCOME] });
-    }
     // Honor an id=in.(...) lookup (settlement-memory dismissed-key fetch) so only the
     // dismissed rows come back, mirroring PostgREST instead of returning every tx.
     const idFilter = decodeURIComponent(url).match(/id=in\.\(([^)]*)\)/);
@@ -158,10 +155,10 @@ async function setupSettleMocks(page: Page, plan = SETTLE_PLAN): Promise<void> {
       const ids = idFilter[1].split(",").map((v) => v.replace(/"/g, ""));
       return route.fulfill({
         status: 200,
-        json: [TX1, TX2, TX_INCOME].filter((t) => ids.includes(t.id)),
+        json: [TX1, TX2, TX_GOAL].filter((t) => ids.includes(t.id)),
       });
     }
-    return route.fulfill({ status: 200, json: [TX1, TX2] });
+    return route.fulfill({ status: 200, json: plan.kind === "save" ? [TX_GOAL] : [TX1, TX2] });
   });
 
   // Plan links: empty by default (no linked, no blocked)
@@ -188,11 +185,11 @@ test.describe("plan settle page", () => {
     await expect(page.getByText("✓ kategoria: Jedzenie")).toBeVisible();
   });
 
-  test("renders income suggestions for saving goals", async ({ page }) => {
+  test("renders expense contribution suggestions for saving goals", async ({ page }) => {
     await setupSettleMocks(page, SETTLE_SAVE_PLAN);
     await page.goto(`/plans/${PLAN_ID}/settle`);
 
-    await expect(page.getByText("Premia na wakacje")).toBeVisible();
+    await expect(page.getByText("Wpłata na wakacje")).toBeVisible();
     await expect(page.getByText(/Słabe trafienie|Może pasować|Pasuje świetnie/)).toBeVisible();
   });
 
@@ -268,7 +265,7 @@ test.describe("plan settle page", () => {
       // eligible query - no visible expense suggestions remain after linking
       route.fulfill({
         status: 200,
-        json: url.includes("type=eq.income") ? [TX_INCOME] : linked ? [] : [TX1, TX2],
+        json: linked ? [] : [TX1, TX2],
       });
     });
 
@@ -401,7 +398,7 @@ test.describe("plan settle page", () => {
       }
       route.fulfill({
         status: 200,
-        json: url.includes("type=eq.income") ? [TX_INCOME] : linked ? [] : [TX1, TX2],
+        json: linked ? [] : [TX1, TX2],
       });
     });
 

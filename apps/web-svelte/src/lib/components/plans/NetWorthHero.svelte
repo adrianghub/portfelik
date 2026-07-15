@@ -22,6 +22,12 @@
   const assetSegments = $derived(
     [
       { key: "cash", label: m.plans_net_worth_cash(), amount: summary.cash, class: "bg-sky-500" },
+      {
+        key: "goals",
+        label: m.net_worth_goal_assets(),
+        amount: summary.goalAssets,
+        class: "bg-emerald-400",
+      },
       ...summary.items.map((it, i) => ({
         key: `item-${i}`,
         label: it.currency === "PLN" ? it.label : `${it.label} (${it.currency})`,
@@ -33,7 +39,7 @@
   const stripTotal = $derived(assetSegments.reduce((s, seg) => s + seg.amount, 0));
 </script>
 
-{#if !summary.hasSnapshot && summary.items.length === 0}
+{#if !summary.hasData}
   <section
     class="rounded-2xl border border-dashed border-white/10 bg-slate-900/40 px-4 py-5 text-center"
     data-tour-id="tour-net-worth"
@@ -115,5 +121,8 @@
     {/if}
 
     <p class="mt-3 text-[11px] text-slate-500">{m.plans_net_worth_manual_note()}</p>
+    {#if summary.goalAssets > 0}
+      <p class="mt-1 text-[11px] text-emerald-400/80">{m.net_worth_goal_assets_hint()}</p>
+    {/if}
   </section>
 {/if}

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
+  import { localDateIso } from "$lib/date-local";
   import BulkActionsBar from "$lib/components/transactions/BulkActionsBar.svelte";
   import CashPositionStrip from "$lib/components/transactions/CashPositionStrip.svelte";
   import CategoryBreakdown from "$lib/components/transactions/CategoryBreakdown.svelte";
@@ -615,7 +616,7 @@
       const template = await resolveTemplate(tx);
       const occurrenceDate =
         tx.is_recurring && !tx.recurring_template_id
-          ? new Date().toISOString().slice(0, 10)
+          ? localDateIso()
           : (tx.recurring_occurrence_date ?? tx.date.slice(0, 10));
       await endSeriesFromOccurrence({ template, occurrenceDate });
     },

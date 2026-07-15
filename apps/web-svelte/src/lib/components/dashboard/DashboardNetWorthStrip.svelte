@@ -9,7 +9,7 @@
   import { convertToPln, fetchPlnRates } from "$lib/services/fx";
   import { fetchPlanDebtTermsByPlanIds } from "$lib/services/plan-debt";
   import { fetchPlanProgressForPlans } from "$lib/services/plan-settlement";
-  import { fetchPlans, todayIso } from "$lib/services/plans";
+  import { fetchPlans, isLivePlan, todayIso } from "$lib/services/plans";
   import { fetchPrivateCashPosition, livePosition } from "$lib/services/cash-position";
   import { fetchTransactions } from "$lib/services/transactions";
   import { createQuery } from "@tanstack/svelte-query";
@@ -21,6 +21,7 @@
     queryFn: fetchPlans,
   }));
 
+  const planIds = $derived((plansQuery.data ?? []).map((plan) => plan.id));
   const debtPlanIds = $derived(
     (plansQuery.data ?? []).filter((plan) => plan.kind === "debt").map((plan) => plan.id)
   );
@@ -32,9 +33,9 @@
   }));
 
   const debtProgressQuery = createQuery(() => ({
-    queryKey: ["plan-progress-list", debtPlanIds],
-    queryFn: () => fetchPlanProgressForPlans(debtPlanIds),
-    enabled: debtPlanIds.length > 0,
+    queryKey: ["plan-progress-list", planIds],
+    queryFn: () => fetchPlanProgressForPlans(planIds),
+    enabled: planIds.length > 0,
   }));
 
   const snapshotQuery = createQuery(() => ({
@@ -90,11 +91,18 @@
     )
   );
 
+  const goalAssets = $derived(
+    (plansQuery.data ?? [])
+      .filter((plan) => plan.group_id === null && plan.kind === "save" && isLivePlan(plan))
+      .reduce((sum, plan) => sum + (debtProgressQuery.data?.[plan.id]?.savedAmount ?? 0), 0)
+  );
+
   const netWorth = $derived(
     computeNetWorth({
       asOfDate: snapshotQuery.data?.as_of_date ?? null,
       items: valuedItems,
       derivedCash,
+      goalAssets,
       debtBalances: collectNetWorthDebtBalances(
         plansQuery.data ?? [],
         debtTermsQuery.data ?? {},
@@ -143,6 +151,14 @@
               {formatCurrency(netWorth.totalAssets)}
             </dd>
           </div>
+          {#if netWorth.goalAssets > 0}
+            <div class="flex min-w-0 items-baseline justify-between gap-3">
+              <dt class="shrink-0 text-slate-400">{m.net_worth_goal_assets()}</dt>
+              <dd class="min-w-0 text-right font-medium text-emerald-300 tabular-nums">
+                {formatCurrency(netWorth.goalAssets)}
+              </dd>
+            </div>
+          {/if}
           <div class="flex min-w-0 items-baseline justify-between gap-3">
             <dt class="shrink-0 text-slate-400">{m.dashboard_net_worth_debt_label()}</dt>
             <dd class="min-w-0 text-right font-medium text-slate-300 tabular-nums">

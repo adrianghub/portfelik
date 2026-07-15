@@ -1,6 +1,7 @@
 import { fetchCategories } from "$lib/services/categories";
 import { DEMO_PREFIX } from "$lib/services/demo-data-guards";
 import { upsertPlanDebtTerms } from "$lib/services/plan-debt";
+import { linkPlanTransaction } from "$lib/services/plan-settlement";
 import { addCalendarMonths, createPlan, deletePlan, todayIso } from "$lib/services/plans";
 import { createTransaction, deleteTransactions } from "$lib/services/transactions";
 import { supabase } from "$lib/supabase";
@@ -83,7 +84,6 @@ export async function seedDemoData(): Promise<{ inserted: number }> {
   const income = {
     salary: pickCategory(categories, "income", ["Wynagrodzenie"]),
     freelance: pickCategory(categories, "income", ["Freelance", "Inne przychody"]),
-    goalDeposit: pickCategory(categories, "income", ["Wpłata na cel", "Wynagrodzenie"]),
   };
   const expense = {
     groceries: pickCategory(categories, "expense", ["Jedzenie i zakupy", "Inne wydatki"]),
@@ -176,8 +176,8 @@ export async function seedDemoData(): Promise<{ inserted: number }> {
     {
       daysAgo: 25,
       amount: 400,
-      type: "income",
-      catId: income.goalDeposit,
+      type: "expense",
+      catId: expense.goals,
       label: "Wpłata na wakacje",
     },
     {
@@ -217,9 +217,10 @@ export async function seedDemoData(): Promise<{ inserted: number }> {
     },
   ];
 
+  let goalContributionId: string | null = null;
   for (const seed of txSeeds) {
     const date = seed.daysAgo >= 0 ? isoDaysAgo(seed.daysAgo) : isoDaysFromNow(-seed.daysAgo);
-    await createTransaction({
+    const transaction = await createTransaction({
       amount: seed.amount,
       type: seed.type,
       description: demoLabel(seed.label),
@@ -227,6 +228,7 @@ export async function seedDemoData(): Promise<{ inserted: number }> {
       category_id: seed.catId,
       status: seed.status ?? "paid",
     });
+    if (seed.label === "Wpłata na wakacje") goalContributionId = transaction.id;
     inserted += 1;
   }
 
@@ -244,14 +246,17 @@ export async function seedDemoData(): Promise<{ inserted: number }> {
   });
   inserted += 1;
 
-  await createPlan({
+  const savePlan = await createPlan({
     name: demoLabel("Wakacje nad morzem"),
     kind: "save",
     target_amount: 8000,
     start_date: isoDaysAgo(60),
     end_date: addCalendarMonths(today, 8),
-    category_id: income.goalDeposit,
+    category_id: expense.goals,
   });
+  if (goalContributionId) {
+    await linkPlanTransaction(savePlan.id, goalContributionId, { planKind: "save" });
+  }
   inserted += 1;
 
   const debtPlan = await createPlan({

@@ -230,11 +230,18 @@
     )
   );
 
+  const goalAssets = $derived(
+    (plansQuery.data ?? [])
+      .filter((plan) => plan.group_id === null && plan.kind === "save" && isLivePlan(plan))
+      .reduce((sum, plan) => sum + (progressQuery.data?.[plan.id]?.savedAmount ?? 0), 0)
+  );
+
   const netWorth = $derived(
     computeNetWorth({
       asOfDate: snapshotQuery.data?.as_of_date ?? null,
       items: valuedItems,
       derivedCash,
+      goalAssets,
       debtBalances,
     })
   );
@@ -306,12 +313,15 @@
           .reduce((sum, p) => sum + (progressQuery.data?.[p.id]?.linkedExpenseCurrentMonth ?? 0), 0)
       : 0;
     const debtPaymentsInExpenses = gateObservedDebtCoverage(observedDebtCoverage);
-    // Deposits already made this month (linked income on active save plans) are credited
+    // Contributions already made this month are credited
     // against the monthly pace - saving toward a goal must not read as falling behind.
     const saveContributionsThisMonth = progressQuery.data
       ? scopedSummaries
           .filter((p) => p.kind === "save" && p.bucket === "active")
-          .reduce((sum, p) => sum + (progressQuery.data?.[p.id]?.linkedIncomeCurrentMonth ?? 0), 0)
+          .reduce(
+            (sum, p) => sum + (progressQuery.data?.[p.id]?.saveContributionsCurrentMonth ?? 0),
+            0
+          )
       : 0;
     return computeMonthlySurplus({
       totalIncome: monthSummary.total_income,

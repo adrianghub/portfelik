@@ -36,9 +36,7 @@
     queryFn: () => fetchPlanById(id),
     enabled: !!id,
   }));
-  const activeType = $derived<TransactionType>(
-    planQuery.data?.kind === "save" ? "income" : "expense"
-  );
+  const activeType = $derived<TransactionType>("expense");
 
   const manualPlanContext = $derived.by((): PlanTransactionContext | null => {
     const plan = planQuery.data;
@@ -99,7 +97,7 @@
       : null
   );
   const progressAmount = $derived(
-    progress ? (activeType === "income" ? progress.savedAmount : progress.spentAmount) : 0
+    progress ? (planQuery.data?.kind === "save" ? progress.savedAmount : progress.spentAmount) : 0
   );
 
   const persistedDismissed = $derived(new Set(dismissedQuery.data ?? []));

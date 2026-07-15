@@ -19,7 +19,7 @@
     period: "week" | "month" | "year" | "custom";
     categoryHref: (categoryId: string | null) => string;
     goalSplit?: {
-      goalLinkedIncome: number;
+      goalContributions: number;
       celeExpenses: number;
       otherExpenses: number;
       hasGoalActivity: boolean;
@@ -53,13 +53,13 @@
         >
           <p class="font-medium text-emerald-300 tabular-nums">
             {m.dashboard_spending_goal_slice({
-              amount: formatCurrency(goalSplit.celeExpenses + goalSplit.goalLinkedIncome),
+              amount: formatCurrency(goalSplit.celeExpenses + goalSplit.goalContributions),
             })}
           </p>
-          {#if goalSplit.goalLinkedIncome > 0}
+          {#if goalSplit.goalContributions > 0}
             <p class="text-xs text-emerald-400/80 tabular-nums">
               {m.dashboard_spending_goal_income({
-                amount: formatCurrency(goalSplit.goalLinkedIncome),
+                amount: formatCurrency(goalSplit.goalContributions),
               })}
             </p>
           {/if}

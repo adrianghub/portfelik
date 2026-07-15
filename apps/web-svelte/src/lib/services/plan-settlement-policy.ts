@@ -14,12 +14,8 @@ export function isSettlementStatus(status: TransactionStatus): boolean {
 }
 
 export function settlementTypesForPlanKind(kind: PlanKind): TransactionType[] {
-  switch (kind) {
-    case "save":
-      return ["income"];
-    case "debt":
-      return ["expense"];
-  }
+  void kind;
+  return ["expense"];
 }
 
 export function resolveSettlementTypes(
