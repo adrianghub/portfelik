@@ -26,6 +26,10 @@ operation values there:
 - `STAGING_SUPABASE_PROJECT_REF` and `STAGING_SUPABASE_DB_PASSWORD` link the
   staging project.
 - `PROD_SUPABASE_PROJECT_REF` and `PROD_SUPABASE_DB_PASSWORD` link production.
+- GitHub's `Production` environment also requires `PROD_SUPABASE_ACCESS_TOKEN`,
+  `PROD_SUPABASE_DB_PASSWORD`, and `PROD_SUPABASE_PROJECT_REF`. Production Pages
+  deployment blocks until local and remote migration histories match, then
+  deploys Edge Functions changed by that push.
 - `STAGING_SUPABASE_URL`, `STAGING_SUPABASE_SERVICE_ROLE_KEY`, and the staging
   demo/smoke user variables power the synthetic staging seed. Manual staging
   personas default to `admin@portfelik.test` and `user@portfelik.test` with
@@ -108,7 +112,10 @@ preview empty.
    sequence manually when debugging that path.
 4. Verify Auth/PostgREST/RLS behavior on staging before production promotion.
 5. Preview production, apply the reviewed migrations explicitly, and deploy
-   Edge Functions only when the code changed.
+   Edge Functions only when the code changed. The production workflow verifies
+   both conditions before it deploys Pages; run
+   `bash ./scripts/check-supabase-migration-parity.sh --linked` to reproduce its
+   migration gate locally.
 
 `supabase/seed.sql` is the system seed shared by local reset and staging pushes.
 Production push commands apply migrations only. `local seed` and `staging seed`
