@@ -62,6 +62,7 @@ async function sendEmail(input: {
       headers: {
         Authorization: `Bearer ${apiToken}`,
         "content-type": "application/json",
+        "user-agent": "jakstoimy-invitations/1.0",
       },
       body: JSON.stringify({
         to: [input.to],
