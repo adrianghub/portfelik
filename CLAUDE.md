@@ -171,7 +171,7 @@ be reached; source and gate output were verified locally.
 
 **Staging CI net-worth assertion follow-up (2026-07-15, local on `dev`):** staging run `29412905251` correctly rendered the debt-only net-worth summary, but `plans.spec.ts` still expected the retired empty prompt. The test now asserts `Majątek netto`, the fixture's `Kredyty 206 000,00 zł`, and absence of the empty prompt. Gates: focused case 1/1, complete plans E2E 6 passed/1 intentionally skipped, svelte-check 0/0, lint/format/diff clean.
 
-**Immediate next step (2026-07-16):** P0 audit through **Phase 7** (push + invitations) implemented locally. Gates: svelte-check 0/0, lint, format, unit **409/409**. Durable push retry deferred (YAGNI). Commit Phase 7, push/deploy to staging, then **Phase 8** (UX/observability) per `AUDIT_GAPS_PRIORITY.md` — or pause for staging smoke.
+**Immediate next step (2026-07-16):** P0 audit through **Phase 8** (UX/observability) implemented locally. Gates: svelte-check 0/0, lint, format, unit **410/410**. Audit roadmap complete through P2 recovery feedback. Commit Phase 8, push/deploy to staging, then smoke + invite first users — or pick remaining ops backlog (secret rotation already authored).
 
 **Open backlog:**
 

@@ -180,7 +180,9 @@
         action: {
           label: m.toast_transaction_settle_undo(),
           onClick: () => {
-            void updateTransactionsStatus([vars.id], vars.prev).then(() => invalidateAfterSettle());
+            void updateTransactionsStatus([vars.id], vars.prev)
+              .then(() => invalidateAfterSettle())
+              .catch((err) => toastError(err));
           },
         },
       });

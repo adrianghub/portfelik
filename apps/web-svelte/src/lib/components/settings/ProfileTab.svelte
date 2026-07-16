@@ -485,6 +485,13 @@
         <p class="mt-0.5 text-xs text-slate-400">{m.profile_delete_account_hint()}</p>
         {#if deleteError}
           <p class="mt-1.5 text-xs text-rose-300">{deleteError}</p>
+          <button
+            type="button"
+            class="text-accent mt-1.5 text-xs font-medium hover:underline"
+            onclick={() => goto("/settings?tab=groups")}
+          >
+            {m.profile_delete_account_go_groups()}
+          </button>
         {/if}
       </div>
       <button

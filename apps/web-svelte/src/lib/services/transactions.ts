@@ -147,35 +147,47 @@ export async function updateTransaction(
   return data as Transaction;
 }
 
-export async function deleteTransaction(id: string): Promise<void> {
-  const { error } = await supabase.rpc("bulk_delete_transactions", {
+export async function deleteTransaction(id: string): Promise<number> {
+  const { data, error } = await supabase.rpc("bulk_delete_transactions", {
     p_transaction_ids: [id],
   });
   if (error) throw error;
+  return Number(data ?? 0);
 }
 
-export async function deleteTransactions(ids: string[]): Promise<void> {
-  if (ids.length === 0) return;
-  const { error } = await supabase.rpc("bulk_delete_transactions", {
+export async function deleteTransactions(ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0;
+  const { data, error } = await supabase.rpc("bulk_delete_transactions", {
     p_transaction_ids: ids,
   });
   if (error) throw error;
+  return Number(data ?? 0);
 }
 
 export async function updateTransactionsStatus(
   ids: string[],
   status: TransactionStatus
-): Promise<void> {
-  if (ids.length === 0) return;
-  const { error } = await supabase.from("transactions").update({ status }).in("id", ids);
+): Promise<number> {
+  if (ids.length === 0) return 0;
+  const { data, error } = await supabase
+    .from("transactions")
+    .update({ status })
+    .in("id", ids)
+    .select("id");
   if (error) throw error;
+  return data?.length ?? 0;
 }
 
-export async function updateTransactionsCategory(ids: string[], categoryId: string): Promise<void> {
-  if (ids.length === 0) return;
-  const { error } = await supabase
+export async function updateTransactionsCategory(
+  ids: string[],
+  categoryId: string
+): Promise<number> {
+  if (ids.length === 0) return 0;
+  const { data, error } = await supabase
     .from("transactions")
     .update({ category_id: categoryId })
-    .in("id", ids);
+    .in("id", ids)
+    .select("id");
   if (error) throw error;
+  return data?.length ?? 0;
 }

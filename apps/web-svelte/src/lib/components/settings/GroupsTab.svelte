@@ -21,6 +21,7 @@
     removeGroupMember,
     nominateGroupCoOwner,
     revokeGroupCoOwner,
+    transferGroupOwnership,
   } from "$lib/services/groups";
   import { supabase } from "$lib/supabase";
   import Dialog from "$lib/components/ui/Dialog.svelte";
@@ -136,6 +137,13 @@
       if (err instanceof GroupHasItemsError) {
         toast.error(m.group_disband_blocked_title(), {
           description: m.group_disband_blocked_body(),
+          action: {
+            label: m.group_disband_blocked_action(),
+            onClick: () => {
+              if (disbandGroupId) membersGroupId = disbandGroupId;
+              disbandGroupId = null;
+            },
+          },
         });
         return;
       }
@@ -258,6 +266,24 @@
       });
       toast.success(m.toast_member_removed());
       removeTargetUserId = null;
+    },
+    onError: (err) => toastError(err),
+  }));
+
+  let transferTargetUserId = $state<string | null>(null);
+
+  const transferOwnershipMutation = createMutation(() => ({
+    mutationFn: () => transferGroupOwnership(membersGroupId!, transferTargetUserId!),
+    onSuccess: async () => {
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.userGroups(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.myGroupRoles(u) });
+      await queryClient.invalidateQueries({
+        queryKey: qk.groupMembersProfiles(u, membersGroupId!),
+      });
+      toast.success(m.toast_group_ownership_transferred());
+      transferTargetUserId = null;
+      membersGroupId = null;
     },
     onError: (err) => toastError(err),
   }));
@@ -564,6 +590,7 @@
   onclose={() => {
     membersGroupId = null;
     removeTargetUserId = null;
+    transferTargetUserId = null;
   }}
   title={m.group_members_title()}
 >
@@ -617,6 +644,14 @@
             {/if}
             {#if canManageMemberRoles && member.user_id !== currentUserId}
               <button
+                onclick={() => (transferTargetUserId = member.user_id)}
+                class="rounded-lg border border-white/10 px-2 py-1 text-xs text-slate-300 hover:bg-white/5"
+              >
+                {m.group_transfer_ownership()}
+              </button>
+            {/if}
+            {#if canManageMemberRoles && member.user_id !== currentUserId}
+              <button
                 onclick={() => (removeTargetUserId = member.user_id)}
                 class="rounded-lg border border-rose-200 px-2 py-1 text-xs font-medium text-rose-300 transition-colors hover:bg-rose-50 dark:border-rose-900 dark:text-rose-400 dark:hover:bg-rose-950"
               >
@@ -655,4 +690,13 @@
   onconfirm={() => removeMemberMutation.mutate()}
   onclose={() => (removeTargetUserId = null)}
   pending={removeMemberMutation.isPending}
+/>
+
+<!-- Transfer ownership confirm -->
+<ConfirmDialog
+  open={!!transferTargetUserId}
+  message={m.group_transfer_ownership_confirm()}
+  onconfirm={() => transferOwnershipMutation.mutate()}
+  onclose={() => (transferTargetUserId = null)}
+  pending={transferOwnershipMutation.isPending}
 />

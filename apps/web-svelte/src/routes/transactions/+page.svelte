@@ -666,12 +666,11 @@
 
   const bulkDeleteMutation = createMutation(() => ({
     mutationFn: async () => deleteTransactions(manageableSelectedIds()),
-    onSuccess: async () => {
-      const count = selectedIds.size;
+    onSuccess: async (affected) => {
       const u = requireSessionUserId();
       await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
       await queryClient.invalidateQueries({ queryKey: qk.transactions.list(u, "recurring-skips") });
-      toast.success(m.toast_transactions_bulk_deleted({ count }));
+      toast.success(m.toast_transactions_bulk_deleted({ count: affected }));
       selectedIds = new Set<string>();
       bulkDeleteConfirm = false;
     },
@@ -681,10 +680,9 @@
   const bulkStatusMutation = createMutation(() => ({
     mutationFn: (status: TransactionStatus) =>
       updateTransactionsStatus(manageableSelectedIds(), status),
-    onSuccess: async () => {
-      const count = selectedIds.size;
+    onSuccess: async (affected) => {
       await invalidateAfterSettle();
-      toast.success(m.toast_transactions_bulk_status({ count }));
+      toast.success(m.toast_transactions_bulk_status({ count: affected }));
       selectedIds = new Set<string>();
     },
     onError: (err) => toastError(err),
@@ -714,7 +712,9 @@
         action: {
           label: m.toast_transaction_settle_undo(),
           onClick: () => {
-            void updateTransactionsStatus([vars.id], vars.prev).then(() => invalidateAfterSettle());
+            void updateTransactionsStatus([vars.id], vars.prev)
+              .then(() => invalidateAfterSettle())
+              .catch((err) => toastError(err));
           },
         },
       });
@@ -752,12 +752,11 @@
 
   const bulkCategoryMutation = createMutation(() => ({
     mutationFn: (catId: string) => updateTransactionsCategory(manageableSelectedIds(), catId),
-    onSuccess: async () => {
-      const count = selectedIds.size;
+    onSuccess: async (affected) => {
       await queryClient.invalidateQueries({
         queryKey: qk.transactions.all(requireSessionUserId()),
       });
-      toast.success(m.toast_transactions_bulk_category({ count }));
+      toast.success(m.toast_transactions_bulk_category({ count: affected }));
       selectedIds = new Set<string>();
     },
     onError: (err) => toastError(err),

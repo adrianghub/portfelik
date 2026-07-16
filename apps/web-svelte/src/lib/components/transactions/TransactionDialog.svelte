@@ -172,13 +172,20 @@
 
   const mutation = createMutation(() => ({
     mutationFn: async (input: Parameters<typeof createTransaction>[0]) => {
-      const tx = isEdit
-        ? await updateTransaction(initial!.id, input)
-        : await createTransaction(input);
-      if (!isEdit && planContext) {
-        await linkPlanTransaction(planContext.planId, tx.id, {
-          planKind: planContext.planKind,
-        });
+      if (isEdit) {
+        return updateTransaction(initial!.id, input);
+      }
+      const tx = await createTransaction(input);
+      if (planContext) {
+        try {
+          await linkPlanTransaction(planContext.planId, tx.id, {
+            planKind: planContext.planKind,
+          });
+        } catch (linkErr) {
+          const staged = linkErr instanceof Error ? linkErr : new Error(String(linkErr));
+          (staged as Error & { stage: string }).stage = "link";
+          throw staged;
+        }
       }
       return tx;
     },
@@ -205,16 +212,26 @@
       }
       onclose();
     },
-    onError: (err) => toastError(err),
+    onError: async (err) => {
+      if ((err as { stage?: string } | null)?.stage === "link") {
+        // Create already succeeded — refresh so the orphan is visible, then explain.
+        const u = requireSessionUserId();
+        await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+        toast.error(m.toast_transaction_created_link_failed());
+        onclose();
+        return;
+      }
+      toastError(err);
+    },
   }));
 
   async function applyRuleRetro(categoryId: string, ids: string[]): Promise<void> {
     try {
-      await updateTransactionsCategory(ids, categoryId);
+      const affected = await updateTransactionsCategory(ids, categoryId);
       const u = requireSessionUserId();
       await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
-      toast.success(m.rule_apply_done({ count: ids.length }));
+      toast.success(m.rule_apply_done({ count: affected }));
     } catch (err) {
       toastError(err);
     }

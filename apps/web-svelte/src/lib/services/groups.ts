@@ -192,6 +192,14 @@ export async function removeGroupMember(groupId: string, userId: string): Promis
   if (error) throw error;
 }
 
+export async function transferGroupOwnership(groupId: string, newOwnerId: string): Promise<void> {
+  const { error } = await supabase.rpc("transfer_group_ownership", {
+    p_group_id: groupId,
+    p_new_owner_id: newOwnerId,
+  });
+  if (error) throw error;
+}
+
 export async function deleteAccount(): Promise<void> {
   const { error } = await supabase.rpc("delete_account");
   if (error) throw error;
