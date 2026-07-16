@@ -1340,6 +1340,10 @@ export type Database = {
         Returns: Json;
       };
       clear_demo_data: { Args: Record<string, never>; Returns: Json };
+      cancel_import_session: {
+        Args: { p_session_id: string };
+        Returns: Json;
+      };
       sync_debt_current_balance_from_links: {
         Args: { p_plan_id: string };
         Returns: number;

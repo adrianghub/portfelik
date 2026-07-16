@@ -387,6 +387,7 @@
         );
       }
       toast.error(e instanceof Error ? e.message : String(e));
+      throw e;
     }
   }
 
@@ -418,31 +419,38 @@
 
     // Pop the last entry and apply its patches.
     undoStack = undoStack.slice(0, -1);
-    await Promise.all(entry.map((p) => patchRow(p.rowId, p.before)));
+    let alsoRestoredPrev: UndoPatch[] | null = null;
+    try {
+      await Promise.all(entry.map((p) => patchRow(p.rowId, p.before)));
 
-    // If the last entry did not include any selected_category_id patches but the
-    // previous entry does (common when a rule-save applied a cascade after the
-    // user's explicit pick), only pop+apply that previous entry when it affects
-    // at least one of the same rows — avoids undoing unrelated prior edits.
-    const prev = undoStack.at(-1);
-    const entryHasCategoryPatch = entry.some((p) =>
-      Object.prototype.hasOwnProperty.call(p.before, "selected_category_id")
-    );
-    const prevHasCategoryPatch = prev
-      ? prev.some((p) => Object.prototype.hasOwnProperty.call(p.before, "selected_category_id"))
-      : false;
+      // If the last entry did not include any selected_category_id patches but the
+      // previous entry does (common when a rule-save applied a cascade after the
+      // user's explicit pick), only pop+apply that previous entry when it affects
+      // at least one of the same rows — avoids undoing unrelated prior edits.
+      const prev = undoStack.at(-1);
+      const entryHasCategoryPatch = entry.some((p) =>
+        Object.prototype.hasOwnProperty.call(p.before, "selected_category_id")
+      );
+      const prevHasCategoryPatch = prev
+        ? prev.some((p) => Object.prototype.hasOwnProperty.call(p.before, "selected_category_id"))
+        : false;
 
-    const entryRowIds = new Set(entry.map((p) => p.rowId));
-    const prevRowIds = new Set(prev ? prev.map((p) => p.rowId) : []);
-    const overlap = [...entryRowIds].some((id) => prevRowIds.has(id));
+      const entryRowIds = new Set(entry.map((p) => p.rowId));
+      const prevRowIds = new Set(prev ? prev.map((p) => p.rowId) : []);
+      const overlap = [...entryRowIds].some((id) => prevRowIds.has(id));
 
-    if (!entryHasCategoryPatch && prevHasCategoryPatch && overlap) {
-      // Pop and apply the previous entry as well.
-      undoStack = undoStack.slice(0, -1);
-      await Promise.all(prev!.map((p) => patchRow(p.rowId, p.before)));
+      if (!entryHasCategoryPatch && prevHasCategoryPatch && overlap) {
+        alsoRestoredPrev = prev!;
+        undoStack = undoStack.slice(0, -1);
+        await Promise.all(prev!.map((p) => patchRow(p.rowId, p.before)));
+      }
+
+      toast.success(m.bank_review_change_undone());
+    } catch {
+      // Persistence failed — put the stack back so the user can retry.
+      if (alsoRestoredPrev) undoStack = [...undoStack, alsoRestoredPrev];
+      undoStack = [...undoStack, entry];
     }
-
-    toast.success(m.bank_review_change_undone());
   }
 
   async function setDecision(row: ImportRow, decision: "import" | "skip"): Promise<void> {

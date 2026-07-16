@@ -76,8 +76,11 @@
     if (activeSession) {
       try {
         await cancelImportSession(activeSession.id);
-      } catch {
-        // ignore
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : m.bank_import_cancel_failed());
+        leaveDialogOpen = false;
+        pendingHref = null;
+        return;
       }
     }
     activeSession = null;
@@ -97,8 +100,10 @@
     if (resumeSession && resumeSession.id !== sess.id) {
       try {
         await cancelImportSession(resumeSession.id);
-      } catch {
-        // ignore
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : m.bank_import_prior_cancel_failed());
+        // Keep the previous draft resume card; do not orphan two previews silently.
+        return;
       }
     }
     resumeSession = null;
@@ -121,8 +126,9 @@
     if (!resumeSession) return;
     try {
       await cancelImportSession(resumeSession.id);
-    } catch {
-      // ignore
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : m.bank_import_cancel_failed());
+      return;
     }
     resumeSession = null;
   }
@@ -149,8 +155,9 @@
     }
     try {
       await cancelImportSession(activeSession.id);
-    } catch {
-      // ignore
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : m.bank_import_cancel_failed());
+      return;
     }
     resetToUpload();
   }

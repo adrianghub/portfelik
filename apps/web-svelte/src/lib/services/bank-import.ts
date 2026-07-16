@@ -274,10 +274,7 @@ export async function openImportSession(input: {
 }
 
 export async function cancelImportSession(id: string): Promise<void> {
-  const { error } = await supabase
-    .from("transaction_import_sessions")
-    .update({ status: "cancelled" })
-    .eq("id", id);
+  const { error } = await supabase.rpc("cancel_import_session", { p_session_id: id });
   if (error) throw error;
 }
 

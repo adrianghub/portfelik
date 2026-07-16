@@ -4,7 +4,15 @@ import { fetchUserGroups } from "$lib/services/groups";
 import { fetchPlansForExport } from "$lib/services/plans";
 import { fetchAllTransactionsForExport } from "$lib/services/transactions";
 
+/**
+ * Informational account dump — not a round-trip restore format.
+ * Includes user-owned ledger + balance-sheet basics; omits notifications,
+ * push subscriptions, dismissals, invite tokens, and raw import row payloads.
+ */
+export const ACCOUNT_EXPORT_CONTRACT = "informational_v1" as const;
+
 export interface AccountExportBundle {
+  export_contract: typeof ACCOUNT_EXPORT_CONTRACT;
   exported_at: string;
   transactions: unknown[];
   categories: unknown[];
@@ -15,6 +23,8 @@ export interface AccountExportBundle {
   group_members: unknown[];
   bank_accounts: unknown[];
   import_sessions: unknown[];
+  cash_positions: unknown[];
+  net_worth_items: unknown[];
   financial_snapshot: unknown | null;
   profile: unknown | null;
 }
@@ -48,10 +58,23 @@ export async function buildAccountExport(): Promise<AccountExportBundle> {
   const { data: sessions, error: sessionsError } = await supabase
     .from("transaction_import_sessions")
     .select(
-      "id, status, adapter_kind, source_filename, row_count, committed_at, created_at, updated_at"
+      "id, status, adapter_kind, source_filename, rows_total, committed_at, created_at, updated_at"
     )
     .order("created_at", { ascending: false });
   if (sessionsError) throw sessionsError;
+
+  const { data: cashPositions, error: cashError } = await supabase
+    .from("cash_positions")
+    .select("id, owner_id, group_id, opening_amount, as_of_date, created_at, updated_at")
+    .eq("owner_id", user.id);
+  if (cashError) throw cashError;
+
+  const { data: netWorthItems, error: netWorthError } = await supabase
+    .from("net_worth_items")
+    .select("id, user_id, label, amount, currency, position, created_at, updated_at")
+    .eq("user_id", user.id)
+    .order("position", { ascending: true });
+  if (netWorthError) throw netWorthError;
 
   const groupIds = groups.map((g) => g.id);
   let groupMembers: unknown[] = [];
@@ -90,6 +113,7 @@ export async function buildAccountExport(): Promise<AccountExportBundle> {
   }
 
   return {
+    export_contract: ACCOUNT_EXPORT_CONTRACT,
     exported_at: now.toISOString(),
     transactions,
     categories,
@@ -100,6 +124,8 @@ export async function buildAccountExport(): Promise<AccountExportBundle> {
     group_members: groupMembers,
     bank_accounts: accounts ?? [],
     import_sessions: sessions ?? [],
+    cash_positions: cashPositions ?? [],
+    net_worth_items: netWorthItems ?? [],
     financial_snapshot: snapshot ?? null,
     profile: profile ?? null,
   };
