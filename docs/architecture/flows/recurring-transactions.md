@@ -2,62 +2,84 @@
 
 Two daily SQL jobs keep the ledger consistent without any application code running.
 
-## `process_recurring_transactions` - daily, reminder-only
+## Canonical recurrence math
 
-A row with `is_recurring = true` is a **template**. Since
-`20260703000000_recurring_reminders_only.sql` the job **never creates
-transaction rows**. It computes each template's next occurrence
-(frequency-aware: daily / weekly / monthly / yearly with interval, weekday,
-month, and day-of-month clamping) and, when that occurrence is today or
-tomorrow, inserts a `transaction_reminder` notification. The existing
-after-insert trigger on `notifications` fans the reminder out via web push.
+Shared pure primitive (PR 2A):
 
-Rationale: financial truth comes from bank import or explicit manual entry.
-The previous materializing design cloned templates into `upcoming` rows —
-including a same-day duplicate of an already-recorded payment — which the
-status job then flipped to `overdue` with a phantom alert. Recurrence now
-expresses intent (a reminder), not truth (a ledger row).
+- SQL: `public.recurring_occurrence_dates` / `public.recurring_occurrence_on_date`
+- Client: `apps/web-svelte/src/lib/services/recurrence-dates.ts` (mirrored by
+  `projectRecurringOccurrences`)
+
+Calendar math uses UTC date parts on `YYYY-MM-DD` strings; **due-day “today”**
+for the cron is the product-local calendar date in **Europe/Warsaw** via
+`public.product_local_date()`.
+
+## `process_recurring_transactions` — daily, materialize + remind
+
+A row with `is_recurring = true` is a **template**. The daily job:
+
+1. Evaluates `v_today = product_local_date()` (Warsaw).
+2. For each template, asks `recurring_occurrence_on_date(..., v_today, recurrence_end_date)`.
+3. If due today (and not skipped / already reminded): materializes one
+   `upcoming` occurrence keyed by
+   `unique (recurring_template_id, recurring_occurrence_date)` (logical slot),
+   then inserts an actionable `transaction_reminder` notification.
+
+Client near-term materialization (`materializeRecurringOccurrencesForNearTerm`)
+and series actions (`skip` / `end` / `materialize` RPCs) use the same date
+primitive and uniqueness constraint.
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant Cron as pg_cron<br/>0 23 * * * (UTC)
+    participant Cron as pg_cron<br/>00:05 Europe/Warsaw
     participant Job as process_recurring_transactions()
+    participant Prim as recurring_occurrence_on_date
     participant T as transactions
     participant N as notifications
 
-    Cron->>Job: fire daily at 23:00 UTC
-    Job->>T: SELECT * FROM transactions<br/>WHERE is_recurring = true
-    loop per template
-        Job->>Job: compute next occurrence<br/>from frequency + interval fields
-        alt occurrence is today or tomorrow
-            Job->>N: INSERT transaction_reminder<br/>(templateId + occurrence date)<br/>unless one already exists
+    Cron->>Job: fire daily after Warsaw midnight
+    Job->>Job: v_today := product_local_date()
+    Job->>T: SELECT templates WHERE is_recurring
+    loop per template (exception-isolated)
+        Job->>Prim: due on v_today?
+        alt due and not skipped
+            Job->>T: INSERT occurrence<br/>ON CONFLICT DO NOTHING
+            Job->>N: INSERT transaction_reminder
         end
     end
 ```
 
 Correctness properties:
 
-- **Idempotent per occurrence.** Dedupe is keyed on
-  (`user_id`, `data->>'templateId'`, `data->>'date'`) with a partial index, so
-  re-running the job produces no duplicate reminders.
-- **Frequency-aware.** Daily, weekly, monthly, and yearly templates use their
-  recurrence-specific fields; monthly/yearly clamp day-of-month (a template for
-  day 31 in February reminds on the 28th, 29th in a leap year).
-- **No writes to `transactions`.** The job's only side effect is notification
-  rows.
+- **Product-local due day.** Uses Warsaw calendar date, not raw `current_date`
+  (which follows the DB session timezone and was one local day late vs intent).
+- **End date honored.** `recurrence_end_date` is an inclusive maximum in the
+  shared primitive.
+- **Never before anchor.** Occurrences before the template start date are not
+  emitted.
+- **Phase-aligned intervals.** Monthly/yearly steps keep the template’s
+  month/day phase (and clamp day 31 / Feb 29).
+- **Logical uniqueness.** One row per `(template, occurrence_date)` across
+  group members.
+- **Per-template isolation.** A malformed template raises a WARNING and the
+  loop continues; one bad row cannot abort the cron run.
+- **Idempotent per occurrence.** Dedupe for reminders is keyed on
+  (`user_id`, `data->>'templateId'`, `data->>'date'`); materialization conflicts
+  are no-ops.
 
-Source: `supabase/migrations/20260606000000_recurring_frequency.sql`
-(frequency model + date math) and
-`supabase/migrations/20260703000000_recurring_reminders_only.sql`
-(reminder-only rewrite). The historical materializing design lived in
-`20260425000000` / `20260426000000`; its `recurring_template_id` column was
-dropped in `20260705000000_drop_recurring_template_id.sql`.
+Atomic series mutations (PR 2C): `skip_recurring_occurrence`,
+`end_recurring_series_from_occurrence`, `prune_recurring_occurrences_from`,
+`materialize_recurring_occurrence`, `bulk_delete_transactions`.
+
+Source migrations: `20260803030000` (primitive), `20260803040000` (uniqueness),
+`20260803050000` (series RPCs), `20260803060000` (Warsaw date + isolation +
+schedule).
 
 ## `update_transaction_statuses` - daily
 
-Flips `status` based on `date` vs `now()` for **manually created** `upcoming`
-rows (the recurring job no longer produces any).
+Flips `status` based on `date` vs `now()` for `upcoming` rows and sends
+due-today / overdue reminder notifications.
 
 ```mermaid
 flowchart LR
@@ -67,29 +89,14 @@ flowchart LR
     upcoming -.->|user marks paid| paid
 ```
 
-```mermaid
-sequenceDiagram
-    participant Cron as pg_cron<br/>0 5 * * * (UTC)
-    participant Job as update_transaction_statuses()
-    participant T as transactions
+Status `paid` and `draft` are user-set and never auto-flipped.
 
-    Cron->>Job: fire at 05:00 UTC daily
-    Job->>T: UPDATE transactions<br/>SET status = 'overdue'<br/>WHERE status = 'upcoming'<br/>  AND date < (now()::date)
-```
+## Schedule
 
-Status `paid` and `draft` are user-set and never auto-flipped. The job also
-sends due-today / due-tomorrow reminder notifications for `upcoming` rows.
-
-## DST drift
-
-Both jobs are scheduled in UTC. The local-Warsaw fire time shifts by one hour around DST transitions:
-
-| Period                              | Warsaw offset | Recurring fire (Warsaw) | Status fire (Warsaw) |
-| ----------------------------------- | ------------- | ----------------------- | -------------------- |
-| Winter (UTC+1, late Oct → late Mar) | +1            | daily 00:00             | daily 06:00          |
-| Summer (UTC+2, late Mar → late Oct) | +2            | daily 01:00             | daily 07:00          |
-
-This is acknowledged and accepted; users do not directly observe these times. See [audit](../audit-2026-05-09.md) item G6.
+| Job | Schedule | Local intent |
+|---|---|---|
+| `process-recurring-transactions` | `5 0 * * *` with `timezone = Europe/Warsaw` when supported; else `5 23 * * *` UTC | Shortly after Warsaw midnight; due-day math always uses `product_local_date()` |
+| `update_transaction_statuses` | `0 5 * * *` UTC | Status flips / overdue reminders |
 
 ## Why pg_cron instead of an Edge Function?
 
