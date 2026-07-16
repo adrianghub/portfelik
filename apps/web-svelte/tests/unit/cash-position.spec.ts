@@ -25,15 +25,22 @@ describe("forecastRunningBalances", () => {
     expect(m.get("up2")).toBe(1050); // 1150 - 100
   });
 
-  it("omits rows before the anchor and non-paid/non-upcoming statuses", () => {
+  it("includes overdue rows and omits draft / beyond-horizon upcoming", () => {
     const rows: RunningBalanceTx[] = [
       tx({ id: "old", status: "paid", type: "expense", amount: 500, date: "2026-05-01" }),
       tx({ id: "draft", status: "draft", type: "expense", amount: 10, date: "2026-07-01" }),
+      tx({ id: "over", status: "overdue", type: "expense", amount: 25, date: "2026-06-15" }),
       tx({ id: "up", status: "upcoming", type: "expense", amount: 100, date: "2026-07-02" }),
+      tx({ id: "far", status: "upcoming", type: "expense", amount: 500, date: "2027-01-01" }),
     ];
-    const m = forecastRunningBalances(anchor, rows);
+    const m = forecastRunningBalances(anchor, rows, {
+      today: "2026-06-01",
+      horizonEnd: "2026-09-01",
+    });
     expect(m.has("old")).toBe(false);
     expect(m.has("draft")).toBe(false);
-    expect(m.get("up")).toBe(900); // 1000 - 100
+    expect(m.has("far")).toBe(false);
+    expect(m.get("over")).toBe(975); // 1000 - 25
+    expect(m.get("up")).toBe(875); // 975 - 100
   });
 });

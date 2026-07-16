@@ -30,7 +30,7 @@ const RECURRING_TEMPLATE = {
   updated_at: "2026-01-05T10:00:00Z",
 };
 
-const RECURRING_TX_VIEW = /\/transactions\?.*status=upcoming.*forecast=recurring/;
+const RECURRING_TX_VIEW = /\/transactions\?.*status=upcoming/;
 
 test.describe("recurring entry links", () => {
   test.beforeEach(async ({ page }) => {

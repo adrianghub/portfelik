@@ -69,18 +69,40 @@ describe("RLS: transactions", () => {
   });
 
   it("user A can update own tx including recurrence fields and the end date", async () => {
+    const incomeCat = await ctx.admin
+      .from("categories")
+      .insert({ user_id: ctx.userA.userId, name: `${SENTINEL} catA income`, type: "income" })
+      .select("id")
+      .single();
+    if (incomeCat.error) throw incomeCat.error;
+
+    const dedicated = await ctx.userA.client
+      .from("transactions")
+      .insert({
+        user_id: ctx.userA.userId,
+        category_id: categoryAId,
+        description: `${SENTINEL} A update target`,
+        amount: 10,
+        type: "expense",
+        date: "2026-05-02",
+      })
+      .select("id")
+      .single();
+    expect(dedicated.error).toBeNull();
+
     const result = await ctx.userA.client
       .from("transactions")
       .update({
         amount: 99.5,
         type: "income",
+        category_id: incomeCat.data.id,
         recurrence_frequency: null,
         recurrence_interval: 1,
         recurrence_weekday: null,
         recurrence_month: null,
         recurrence_end_date: "2026-12-31",
       })
-      .eq("description", `${SENTINEL} A tx`)
+      .eq("id", dedicated.data!.id)
       .select();
     expect(result.error).toBeNull();
     expect(result.data?.[0]?.amount).toBe(99.5);
@@ -181,7 +203,7 @@ describe("RLS: transactions", () => {
         {
           description: `${SENTINEL} B tx`,
           category_id: categoryBId,
-          category_name: "Inna kategoria",
+          category_name: "Kategoria niedostępna",
           category_type: "expense",
           group_id: groupId,
         },

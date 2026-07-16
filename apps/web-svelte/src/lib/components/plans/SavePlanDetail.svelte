@@ -41,17 +41,17 @@
     editEndDate = plan.end_date;
   });
 
-  function onTargetInput(event: Event) {
+  async function onTargetInput(event: Event) {
     const raw = Number((event.currentTarget as HTMLInputElement).value);
     if (!Number.isFinite(raw)) return;
     editTarget = Math.min(1_000_000, Math.max(100, Math.round(raw)));
-    onAdjust?.({ target_amount: editTarget });
+    await onAdjust?.({ target_amount: editTarget });
   }
 
-  function onDeadlineChange(value: string) {
+  async function onDeadlineChange(value: string) {
     if (!value) return;
     editEndDate = value;
-    onAdjust?.({ end_date: value });
+    await onAdjust?.({ end_date: value });
   }
 </script>
 

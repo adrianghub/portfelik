@@ -6,19 +6,26 @@
     fetchFinancialSnapshot,
   } from "$lib/services/financial-snapshots";
   import { fetchNetWorthItems } from "$lib/services/net-worth-items";
-  import { convertToPln, fetchPlnRates } from "$lib/services/fx";
+  import { canConvertAllToPln, convertToPln, fetchPlnRates } from "$lib/services/fx";
   import { fetchPlanDebtTermsByPlanIds } from "$lib/services/plan-debt";
   import { fetchPlanProgressForPlans } from "$lib/services/plan-settlement";
   import { fetchPlans, isLivePlan, todayIso } from "$lib/services/plans";
-  import { fetchPrivateCashPosition, livePosition } from "$lib/services/cash-position";
+  import {
+    CASH_FETCH_END_SENTINEL,
+    fetchPrivateCashPosition,
+    livePosition,
+  } from "$lib/services/cash-position";
   import { fetchTransactions } from "$lib/services/transactions";
   import { createQuery } from "@tanstack/svelte-query";
+  import { session } from "$lib/auth/session.svelte";
+  import { qk } from "$lib/query-keys";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
   import { ChevronRight, Wallet } from "lucide-svelte";
 
   const plansQuery = createQuery(() => ({
-    queryKey: ["plans"],
+    queryKey: qk.plans(session.userId!),
     queryFn: fetchPlans,
+    enabled: () => !!session.userId,
   }));
 
   const planIds = $derived((plansQuery.data ?? []).map((plan) => plan.id));
@@ -27,53 +34,67 @@
   );
 
   const debtTermsQuery = createQuery(() => ({
-    queryKey: ["plan-debt-terms-list", debtPlanIds],
+    queryKey: qk.planDebtTermsList(session.userId!, debtPlanIds),
     queryFn: () => fetchPlanDebtTermsByPlanIds(debtPlanIds),
-    enabled: debtPlanIds.length > 0,
+    enabled: () => !!session.userId && debtPlanIds.length > 0,
   }));
 
   const debtProgressQuery = createQuery(() => ({
-    queryKey: ["plan-progress-list", planIds],
+    queryKey: qk.planProgressList(session.userId!, planIds),
     queryFn: () => fetchPlanProgressForPlans(planIds),
-    enabled: planIds.length > 0,
+    enabled: () => !!session.userId && planIds.length > 0,
   }));
 
   const snapshotQuery = createQuery(() => ({
-    queryKey: ["financial-snapshot"],
+    queryKey: qk.financialSnapshot(session.userId!),
     queryFn: fetchFinancialSnapshot,
+    enabled: () => !!session.userId,
   }));
 
   const itemsQuery = createQuery(() => ({
-    queryKey: ["net-worth-items"],
+    queryKey: qk.netWorthItems(session.userId!),
     queryFn: fetchNetWorthItems,
+    enabled: () => !!session.userId,
   }));
 
   const fxQuery = createQuery(() => ({
-    queryKey: ["fx", "nbp-table-a"],
+    queryKey: qk.fx(),
     queryFn: fetchPlnRates,
     staleTime: 12 * 60 * 60 * 1000,
   }));
 
-  const valuedItems = $derived(
-    (itemsQuery.data ?? []).map((it) => ({
-      label: it.label,
-      currency: it.currency,
-      amount: it.amount,
-      amountPln: convertToPln(it.amount, it.currency, fxQuery.data ?? { PLN: 1 }),
-    }))
+  const valuedItems = $derived.by(() => {
+    const rates = fxQuery.data;
+    const items = itemsQuery.data ?? [];
+    if (!rates || !canConvertAllToPln(items, rates)) return null;
+    return items.map((it) => {
+      const amountPln = convertToPln(it.amount, it.currency, rates);
+      return {
+        label: it.label,
+        currency: it.currency,
+        amount: it.amount,
+        amountPln: amountPln!,
+      };
+    });
+  });
+
+  const fxUnavailable = $derived(
+    (itemsQuery.data ?? []).some((it) => it.currency !== "PLN") &&
+      (fxQuery.isError || (fxQuery.isSuccess && valuedItems === null))
   );
 
   const cashPositionQuery = createQuery(() => ({
-    queryKey: ["cash-position"],
+    queryKey: qk.cashPosition(session.userId!),
     queryFn: fetchPrivateCashPosition,
+    enabled: () => !!session.userId,
   }));
 
   const cashRangeStart = $derived(cashPositionQuery.data?.as_of_date ?? "2000-01-01");
-  const CASH_RANGE_END = "9999-12-31";
+  const CASH_RANGE_END = CASH_FETCH_END_SENTINEL;
   const positionTxQuery = createQuery(() => ({
-    queryKey: ["transactions", "cash-position-range", cashRangeStart],
+    queryKey: qk.transactions.list(session.userId!, "cash-position-range", cashRangeStart),
     queryFn: () => fetchTransactions(cashRangeStart, CASH_RANGE_END),
-    enabled: cashPositionQuery.isSuccess,
+    enabled: () => !!session.userId && cashPositionQuery.isSuccess,
   }));
 
   const derivedCash = $derived(
@@ -100,7 +121,7 @@
   const netWorth = $derived(
     computeNetWorth({
       asOfDate: snapshotQuery.data?.as_of_date ?? null,
-      items: valuedItems,
+      items: valuedItems ?? [],
       derivedCash,
       goalAssets,
       debtBalances: collectNetWorthDebtBalances(
@@ -112,7 +133,12 @@
     })
   );
 
-  const loading = $derived(snapshotQuery.isPending || plansQuery.isPending);
+  const loading = $derived(
+    snapshotQuery.isPending ||
+      plansQuery.isPending ||
+      (itemsQuery.isPending && !itemsQuery.data) ||
+      ((itemsQuery.data ?? []).some((it) => it.currency !== "PLN") && fxQuery.isPending)
+  );
 </script>
 
 <section
@@ -126,6 +152,8 @@
       </p>
       {#if loading}
         <div class="mt-2 h-7 w-36 animate-pulse rounded bg-slate-800/60"></div>
+      {:else if fxUnavailable}
+        <p class="mt-1.5 text-sm text-amber-300/90">{m.net_worth_fx_unavailable()}</p>
       {:else if !netWorth.hasData && !cashPositionQuery.data}
         <p class="mt-1.5 text-sm text-slate-400">{m.dashboard_net_worth_empty()}</p>
       {:else}

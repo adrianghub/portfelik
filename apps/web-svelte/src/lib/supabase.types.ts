@@ -1244,6 +1244,10 @@ export type Database = {
       };
       disband_group: { Args: { p_group_id: string }; Returns: undefined };
       edge_functions_base_url: { Args: never; Returns: string };
+      end_recurring_series_from_occurrence: {
+        Args: { p_occurrence_date: string; p_template_id: string };
+        Returns: undefined;
+      };
       fetch_admin_notifications: {
         Args: { p_limit?: number };
         Returns: {
@@ -1307,6 +1311,43 @@ export type Database = {
         };
         Returns: string;
       };
+      save_net_worth_snapshot: {
+        Args: {
+          p_as_of_date: string;
+          p_items: Json;
+          p_opening_amount: number;
+        };
+        Returns: Json;
+      };
+      save_debt_plan: {
+        Args: {
+          p_annual_rate: number;
+          p_category_id: string | null;
+          p_clear_balance_anchor?: boolean;
+          p_current_balance: number;
+          p_end_date: string;
+          p_first_payment_amount: number | null;
+          p_first_payment_date: string | null;
+          p_group_id: string | null;
+          p_monthly_payment: number;
+          p_name: string;
+          p_original_amount: number;
+          p_plan_id: string | null;
+          p_reset_balance_anchor?: boolean;
+          p_start_date: string;
+          p_target_amount: number;
+        };
+        Returns: Json;
+      };
+      clear_demo_data: { Args: Record<string, never>; Returns: Json };
+      sync_debt_current_balance_from_links: {
+        Args: { p_plan_id: string };
+        Returns: number;
+      };
+      bulk_delete_transactions: {
+        Args: { p_transaction_ids: string[] };
+        Returns: number;
+      };
       create_group_invitation_for_delivery: {
         Args: {
           p_actor_id?: string | null;
@@ -1363,6 +1404,10 @@ export type Database = {
         Returns: undefined;
       };
       mark_preview_duplicates: { Args: { p_session_id: string }; Returns: Json };
+      materialize_recurring_occurrence: {
+        Args: { p_occurrence_date: string; p_template_id: string };
+        Returns: string;
+      };
       nominate_group_co_owner: {
         Args: { p_group_id: string; p_user_id: string };
         Returns: undefined;
@@ -1378,7 +1423,12 @@ export type Database = {
       };
       privacy_mask_email: { Args: { p_email: string }; Returns: string };
       privacy_mask_text: { Args: { p_label: string }; Returns: string };
+      product_local_date: { Args: { p_at?: string }; Returns: string };
       process_bank_import_reminders: { Args: never; Returns: undefined };
+      prune_recurring_occurrences_from: {
+        Args: { p_from_date: string; p_template_id: string };
+        Returns: undefined;
+      };
       process_recurring_transactions: { Args: never; Returns: undefined };
       refinance_debt_plan: {
         Args: {
@@ -1411,6 +1461,14 @@ export type Database = {
       };
       seed_default_categories: {
         Args: { p_user_id: string };
+        Returns: undefined;
+      };
+      skip_recurring_occurrence: {
+        Args: {
+          p_occurrence_date: string;
+          p_template_id: string;
+          p_transaction_id?: string | null;
+        };
         Returns: undefined;
       };
       transfer_group_ownership: {

@@ -148,13 +148,17 @@ export async function updateTransaction(
 }
 
 export async function deleteTransaction(id: string): Promise<void> {
-  const { error } = await supabase.from("transactions").delete().eq("id", id);
+  const { error } = await supabase.rpc("bulk_delete_transactions", {
+    p_transaction_ids: [id],
+  });
   if (error) throw error;
 }
 
 export async function deleteTransactions(ids: string[]): Promise<void> {
   if (ids.length === 0) return;
-  const { error } = await supabase.from("transactions").delete().in("id", ids);
+  const { error } = await supabase.rpc("bulk_delete_transactions", {
+    p_transaction_ids: ids,
+  });
   if (error) throw error;
 }
 

@@ -1,5 +1,7 @@
 <script lang="ts">
   import { createMutation, useQueryClient } from "@tanstack/svelte-query";
+  import { requireSessionUserId } from "$lib/auth/session.svelte";
+  import { qk } from "$lib/query-keys";
   import { updateProfile } from "$lib/services/profiles";
   import {
     ACCENT_PRESETS,
@@ -38,8 +40,9 @@
       }),
     onSuccess: async (updated) => {
       applyAccent(updated.settings?.accentColor ?? DEFAULT_ACCENT_ID);
-      queryClient.setQueryData(["profile", updated.id], updated);
-      await queryClient.invalidateQueries({ queryKey: ["profile"] });
+      const u = requireSessionUserId();
+      queryClient.setQueryData(qk.profile(u), updated);
+      await queryClient.invalidateQueries({ queryKey: qk.profile(u) });
     },
     onError: (err) => {
       // Revert to the persisted value on failure.

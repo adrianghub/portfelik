@@ -10,15 +10,12 @@
   import { recurrenceSummary } from "$lib/recurrence";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { Check, ClipboardList, Edit, Link2, Link2Off, Trash2, X } from "lucide-svelte";
-  import { fetchPlans, fetchPlanById } from "$lib/services/plans";
-  import {
-    fetchLinkedTransactions,
-    linkPlanTransaction,
-    unlinkPlanTransaction,
-  } from "$lib/services/plan-settlement";
-  import { applyDebtBalanceFromLinks, fetchPlanDebtTerms } from "$lib/services/plan-debt";
+  import { fetchPlans } from "$lib/services/plans";
+  import { linkPlanTransaction, unlinkPlanTransaction } from "$lib/services/plan-settlement";
   import { toast } from "svelte-sonner";
   import { toastError } from "$lib/toast-error";
+  import { requireSessionUserId, session } from "$lib/auth/session.svelte";
+  import { qk } from "$lib/query-keys";
 
   interface Props {
     transaction: TransactionWithCategory | null;
@@ -49,6 +46,7 @@
     settlePending = false,
   }: Props = $props();
   const queryClient = useQueryClient();
+  const uid = $derived(session.userId);
 
   const canEdit = $derived(
     !!transaction &&
@@ -98,7 +96,9 @@
   };
 
   const planLinkQuery = createQuery(() => ({
-    queryKey: ["transaction-plan-link", transaction?.id],
+    queryKey: uid
+      ? qk.transactions.list(uid, "transaction-plan-link", transaction?.id)
+      : ["user", "", "transactions", "transaction-plan-link", transaction?.id],
     queryFn: async () => {
       if (!transaction) return null;
       const { data, error } = await supabase
@@ -109,13 +109,14 @@
       if (error) throw error;
       return data as { plan_id: string; plans: { name: string; kind?: string } | null } | null;
     },
-    enabled: !!transaction && !transaction.projected,
+    enabled: !!transaction && !transaction.projected && !!uid,
   }));
 
   const plansQuery = createQuery(() => ({
-    queryKey: ["plans"],
+    queryKey: uid ? qk.plans(uid) : ["user", "", "plans"],
     queryFn: fetchPlans,
-    enabled: !!transaction && transaction.type === "expense" && transaction.status === "paid",
+    enabled:
+      !!transaction && transaction.type === "expense" && transaction.status === "paid" && !!uid,
   }));
 
   const eligiblePlans = $derived.by(() => {
@@ -129,33 +130,21 @@
   });
   let selectedPlanId = $state("");
 
-  async function syncDebtPlan(planId: string) {
-    const plan = await fetchPlanById(planId);
-    if (plan.kind !== "debt") return;
-    const terms = await fetchPlanDebtTerms(planId);
-    if (!terms) return;
-    const linked = await fetchLinkedTransactions(planId);
-    await applyDebtBalanceFromLinks(
-      planId,
-      terms,
-      plan.start_date,
-      linked
-        .filter((tx) => tx.type === "expense")
-        .map((tx) => ({ amount: tx.amount, date: tx.date }))
-    );
-  }
-
   const linkMutation = createMutation(() => ({
     mutationFn: async () => {
       if (!transaction || !selectedPlanId) throw new Error("plan_required");
       const plan = eligiblePlans.find((candidate) => candidate.id === selectedPlanId) as Plan;
       await linkPlanTransaction(plan.id, transaction.id, { planKind: plan.kind });
-      await syncDebtPlan(plan.id);
     },
     onSuccess: async () => {
       toast.success(m.plan_settle_linked());
       selectedPlanId = "";
-      await queryClient.invalidateQueries();
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planDebtTermsList(u) });
     },
     onError: (error) => toastError(error),
   }));
@@ -165,11 +154,15 @@
       if (!transaction || !planLinkQuery.data) return;
       const planId = planLinkQuery.data.plan_id;
       await unlinkPlanTransaction(planId, transaction.id);
-      await syncDebtPlan(planId);
     },
     onSuccess: async () => {
       toast.success(m.plan_settle_unlinked());
-      await queryClient.invalidateQueries();
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planDebtTermsList(u) });
     },
     onError: (error) => toastError(error),
   }));

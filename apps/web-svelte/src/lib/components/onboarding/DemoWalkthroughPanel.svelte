@@ -23,6 +23,8 @@
   import type { Profile } from "$lib/types";
   import { toast } from "svelte-sonner";
   import * as m from "$lib/paraglide/messages";
+  import { session, requireSessionUserId } from "$lib/auth/session.svelte";
+  import { qk } from "$lib/query-keys";
 
   interface Props {
     profile: Profile | null;
@@ -32,17 +34,20 @@
 
   const queryClient = useQueryClient();
   const panel = demoWalkthroughPanelCopy();
+  const uid = $derived(session.userId);
 
   const demoProbeQuery = createQuery(() => ({
-    queryKey: ["transactions", "demo-probe"],
+    queryKey: uid
+      ? qk.transactions.list(uid, "demo-probe")
+      : ["user", "", "transactions", "demo-probe"],
     queryFn: fetchDemoProbe,
-    enabled: !!profile,
+    enabled: !!uid,
   }));
 
   const plansQuery = createQuery(() => ({
-    queryKey: ["plans"],
+    queryKey: uid ? qk.plans(uid) : ["user", "", "plans"],
     queryFn: fetchPlans,
-    enabled: !!profile,
+    enabled: !!uid,
   }));
 
   const demoActive = $derived(
@@ -71,10 +76,11 @@
   }
 
   async function invalidateDemoQueries(): Promise<void> {
-    await queryClient.invalidateQueries({ queryKey: ["transactions"] });
-    await queryClient.invalidateQueries({ queryKey: ["plans"] });
-    await queryClient.invalidateQueries({ queryKey: ["transactions", "count-probe"] });
-    await queryClient.invalidateQueries({ queryKey: ["transactions", "demo-probe"] });
+    const u = requireSessionUserId();
+    await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+    await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
+    await queryClient.invalidateQueries({ queryKey: qk.transactions.list(u, "count-probe") });
+    await queryClient.invalidateQueries({ queryKey: qk.transactions.list(u, "demo-probe") });
   }
 
   const seedDemoMutation = createMutation(() => ({
@@ -209,8 +215,9 @@
   message={m.demo_clear_confirm_message()}
   pending={clearDemoMutation.isPending}
   onconfirm={() => {
-    confirmClearOpen = false;
-    clearDemoMutation.mutate();
+    void clearDemoMutation.mutateAsync().then(() => {
+      confirmClearOpen = false;
+    });
   }}
   onclose={() => (confirmClearOpen = false)}
 />

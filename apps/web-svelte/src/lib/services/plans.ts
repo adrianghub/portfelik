@@ -181,8 +181,11 @@ export function canManagePlan(
   currentUserId: string,
   groupRoles: Map<string, GroupMemberRole>
 ): boolean {
-  if (plan.user_id === currentUserId) return true;
-  if (!plan.group_id) return false;
-  const role = groupRoles.get(plan.group_id);
-  return role === "owner" || role === "co_owner";
+  if (plan.group_id) {
+    const role = groupRoles.get(plan.group_id);
+    if (role === "owner" || role === "co_owner") return true;
+    if (plan.user_id === currentUserId) return role !== undefined;
+    return false;
+  }
+  return plan.user_id === currentUserId;
 }

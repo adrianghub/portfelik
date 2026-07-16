@@ -29,12 +29,13 @@ export function resolveSettlementTypes(
 }
 
 export function isTransactionEligibleForPlanSettlement(input: {
-  plan: Pick<Plan, "kind" | "start_date" | "end_date">;
+  plan: Pick<Plan, "kind" | "start_date" | "end_date" | "status">;
   tx: Pick<TransactionWithCategory, "id" | "date" | "type" | "status">;
   blockedIds: ReadonlySet<string>;
   allowedTypes: readonly TransactionType[];
 }): boolean {
   const { plan, tx, blockedIds, allowedTypes } = input;
+  if (plan.status !== "active") return false;
   if (blockedIds.has(tx.id)) return false;
   if (tx.date < plan.start_date || tx.date > plan.end_date) return false;
   if (!isSettlementStatus(tx.status)) return false;

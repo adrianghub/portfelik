@@ -6,10 +6,11 @@
 
   interface Props {
     summary: NetWorthSummary;
+    fxUnavailable?: boolean;
     onedit?: () => void;
   }
 
-  let { summary, onedit }: Props = $props();
+  let { summary, fxUnavailable = false, onedit }: Props = $props();
 
   const itemPalette = [
     "bg-emerald-400",
@@ -39,7 +40,24 @@
   const stripTotal = $derived(assetSegments.reduce((s, seg) => s + seg.amount, 0));
 </script>
 
-{#if !summary.hasData}
+{#if fxUnavailable}
+  <section
+    class="rounded-2xl border border-amber-500/20 bg-slate-900/40 px-4 py-5"
+    data-tour-id="tour-net-worth"
+  >
+    <p class="text-eyebrow text-slate-400">{m.plans_net_worth_title()}</p>
+    <p class="mt-2 text-sm text-amber-300/90">{m.net_worth_fx_unavailable()}</p>
+    {#if onedit}
+      <button
+        type="button"
+        onclick={onedit}
+        class="focus-visible:ring-accent mt-4 inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+      >
+        {m.plans_net_worth_edit()}
+      </button>
+    {/if}
+  </section>
+{:else if !summary.hasData}
   <section
     class="rounded-2xl border border-dashed border-white/10 bg-slate-900/40 px-4 py-5 text-center"
     data-tour-id="tour-net-worth"

@@ -171,7 +171,7 @@ be reached; source and gate output were verified locally.
 
 **Staging CI net-worth assertion follow-up (2026-07-15, local on `dev`):** staging run `29412905251` correctly rendered the debt-only net-worth summary, but `plans.spec.ts` still expected the retired empty prompt. The test now asserts `Majątek netto`, the fixture's `Kredyty 206 000,00 zł`, and absence of the empty prompt. Gates: focused case 1/1, complete plans E2E 6 passed/1 intentionally skipped, svelte-check 0/0, lint/format/diff clean.
 
-**Immediate next step (2026-07-15):** let PR #194's recreated Supabase Preview apply `20260802010000_pin_notification_helper_search_path.sql`, then manually promote that migration to production before merging so the production parity gate remains green. The Resend sender/secrets, migrations through `20260802000000`, Edge Functions, and staging invitation claim smoke are complete.
+**Immediate next step (2026-07-16):** P0 audit through **Phase 5** (display correctness) implemented locally, including Phase 4 leftovers (`clear_demo_data` + mutateAsync confirms). Gates: svelte-check 0/0, lint, format, unit **404/404**, RLS **373/373**, `db reset` through `20260803140000`. Commit manually, deploy to staging, then **Phase 6** (import/export integrity) per `AUDIT_GAPS_PRIORITY.md`.
 
 **Open backlog:**
 

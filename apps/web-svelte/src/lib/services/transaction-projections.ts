@@ -18,9 +18,11 @@ function dayBeforeIso(value: string): string {
 
 function projectionSpanStart(rangeStart: string, now: Date): string {
   const beforeRangeStart = dayBeforeIso(rangeStart);
-  return new Date(beforeRangeStart).getTime() > now.getTime()
+  // Exclusive lower bound: day-before-now so today's occurrence is included.
+  const beforeNow = dayBeforeIso(now.toISOString());
+  return new Date(beforeRangeStart).getTime() > new Date(beforeNow).getTime()
     ? beforeRangeStart
-    : now.toISOString();
+    : beforeNow;
 }
 
 export function shouldShowProjectedRows(statuses: Set<string> | null): boolean {

@@ -2,7 +2,8 @@
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
   import { createQuery } from "@tanstack/svelte-query";
-  import { supabase } from "$lib/supabase";
+  import { requireSessionUserId, session } from "$lib/auth/session.svelte";
+  import { qk } from "$lib/query-keys";
   import { fetchProfile } from "$lib/services/profiles";
   import CategoriesTab from "$lib/components/settings/CategoriesTab.svelte";
   import GroupsTab from "$lib/components/settings/GroupsTab.svelte";
@@ -23,15 +24,10 @@
   let search = $state("");
   const results = $derived(searchSubsections(search));
 
-  let userId = $state<string | undefined>(undefined);
-  supabase.auth.getSession().then(({ data }) => {
-    userId = data.session?.user.id;
-  });
-
   const profileQuery = createQuery(() => ({
-    queryKey: ["profile", userId],
-    queryFn: () => fetchProfile(userId!),
-    enabled: !!userId,
+    queryKey: qk.profile(session.userId!),
+    queryFn: () => fetchProfile(requireSessionUserId()),
+    enabled: () => !!session.userId,
   }));
   const profile = $derived(profileQuery.data ?? null);
 

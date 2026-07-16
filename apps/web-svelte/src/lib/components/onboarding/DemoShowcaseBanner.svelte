@@ -11,7 +11,7 @@
   import { cn } from "$lib/utils";
 
   interface Props {
-    onclear: () => void;
+    onclear: () => void | Promise<void>;
     onrestart?: () => void;
     clearing?: boolean;
     restarting?: boolean;
@@ -109,8 +109,9 @@
   message={m.demo_clear_confirm_message()}
   pending={clearing}
   onconfirm={() => {
-    confirmClearOpen = false;
-    onclear();
+    void Promise.resolve(onclear()).then(() => {
+      confirmClearOpen = false;
+    });
   }}
   onclose={() => (confirmClearOpen = false)}
 />

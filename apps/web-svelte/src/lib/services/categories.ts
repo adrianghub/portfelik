@@ -53,6 +53,23 @@ export async function updateCategory(
   return data as Category;
 }
 
+/** True when any transaction or categorization rule references the category. */
+export async function isCategoryReferenced(id: string): Promise<boolean> {
+  const [txs, rules] = await Promise.all([
+    supabase
+      .from("transactions")
+      .select("id", { count: "exact", head: true })
+      .eq("category_id", id),
+    supabase
+      .from("categorization_rules")
+      .select("id", { count: "exact", head: true })
+      .eq("category_id", id),
+  ]);
+  if (txs.error) throw txs.error;
+  if (rules.error) throw rules.error;
+  return (txs.count ?? 0) > 0 || (rules.count ?? 0) > 0;
+}
+
 export async function deleteCategory(id: string): Promise<void> {
   const { error } = await supabase.from("categories").delete().eq("id", id);
   if (error) throw error;

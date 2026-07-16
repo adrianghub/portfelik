@@ -131,6 +131,69 @@ describe("RLS: categorization_rules", () => {
     expect(upd.data?.match_day_of_month).toBe(15);
   });
 
+  it("rejects kind changes and clearing required match_type", async () => {
+    const kindFlip = await ctx.admin
+      .from("categorization_rules")
+      .update({ kind: "exact" })
+      .eq("id", ruleAId);
+    expect(kindFlip.error).not.toBeNull();
+    expect(kindFlip.error?.message ?? "").toMatch(/rule_kind_immutable/);
+
+    const composite = await ctx.userA.client
+      .from("categorization_rules")
+      .insert({
+        user_id: ctx.userA.userId,
+        kind: "composite",
+        match_description: `${SENTINEL} semantics-lock`,
+        match_type: "expense",
+        category_id: categoryAId,
+        priority: 120,
+      })
+      .select("id")
+      .single();
+    expect(composite.error).toBeNull();
+
+    const clearType = await ctx.userA.client
+      .from("categorization_rules")
+      .update({ match_type: null })
+      .eq("id", composite.data!.id);
+    expect(clearType.error).not.toBeNull();
+    expect(clearType.error?.message ?? "").toMatch(/rule_match_type_required/);
+
+    const typeOnly = await ctx.userA.client
+      .from("categorization_rules")
+      .insert({
+        user_id: ctx.userA.userId,
+        kind: "type",
+        match_type: "expense",
+        category_id: categoryAId,
+        priority: 90,
+      })
+      .select("id")
+      .single();
+    expect(typeOnly.error).toBeNull();
+
+    const catOnly = await ctx.userA.client
+      .from("categories")
+      .insert({ user_id: ctx.userA.userId, name: `${SENTINEL} type-cat`, type: "expense" })
+      .select("id")
+      .single();
+    expect(catOnly.error).toBeNull();
+
+    const keepType = await ctx.userA.client
+      .from("categorization_rules")
+      .update({ category_id: catOnly.data!.id })
+      .eq("id", typeOnly.data!.id)
+      .select("kind, match_type, category_id")
+      .single();
+    expect(keepType.error).toBeNull();
+    expect(keepType.data).toMatchObject({
+      kind: "type",
+      match_type: "expense",
+      category_id: catOnly.data!.id,
+    });
+  });
+
   it("user A can DELETE own rule", async () => {
     const del = await ctx.userA.client.from("categorization_rules").delete().eq("id", ruleAId);
     expect(del.error).toBeNull();

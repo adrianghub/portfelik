@@ -1,5 +1,7 @@
 <script lang="ts">
   import { createMutation, useQueryClient } from "@tanstack/svelte-query";
+  import { requireSessionUserId } from "$lib/auth/session.svelte";
+  import { qk } from "$lib/query-keys";
   import { updateProfile } from "$lib/services/profiles";
   import { deleteAccount } from "$lib/services/groups";
   import { buildAccountExport, downloadAccountExport } from "$lib/services/account-export";
@@ -47,7 +49,7 @@
   const mutation = createMutation(() => ({
     mutationFn: () => updateProfile(profile!.id, { name: nameInput }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["profile"] });
+      await queryClient.invalidateQueries({ queryKey: qk.profile(requireSessionUserId()) });
       toast.success(m.toast_profile_updated());
       editing = false;
     },
@@ -183,7 +185,7 @@
       if (input.enabled) {
         trackOnce("import_reminder_enabled", { cadence_days: input.cadenceDays });
       }
-      await queryClient.invalidateQueries({ queryKey: ["profile"] });
+      await queryClient.invalidateQueries({ queryKey: qk.profile(requireSessionUserId()) });
       toast.success(m.toast_profile_updated());
     },
     onError: (err) => toastError(err),

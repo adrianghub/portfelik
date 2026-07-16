@@ -6,10 +6,12 @@
   import { supabase } from "$lib/supabase";
   import { cn, formatDate } from "$lib/utils";
   import { createQuery } from "@tanstack/svelte-query";
+  import { session } from "$lib/auth/session.svelte";
+  import { qk } from "$lib/query-keys";
   import { ChevronRight, Landmark } from "lucide-svelte";
 
   const profileQuery = createQuery(() => ({
-    queryKey: ["profile"],
+    queryKey: qk.profile(session.userId!),
     queryFn: async () => {
       const {
         data: { user },
@@ -17,11 +19,13 @@
       if (!user) throw new Error("not_authenticated");
       return fetchProfile(user.id);
     },
+    enabled: () => !!session.userId,
   }));
 
   const importHealthQuery = createQuery(() => ({
-    queryKey: ["import-health"],
+    queryKey: qk.importHealth(session.userId!),
     queryFn: fetchLastCommittedImportSession,
+    enabled: () => !!session.userId,
   }));
 
   const cadenceDays = $derived(getBankImportReminder(profileQuery.data?.settings).cadenceDays);

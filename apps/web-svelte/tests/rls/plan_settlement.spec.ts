@@ -201,7 +201,10 @@ describe("RPC: plan settlement", () => {
       p_transaction_id: txId,
     });
     expect(unlink.error).toBeNull();
-    const unlocked = await ctx.admin.from("transactions").update({ type: "income" }).eq("id", txId);
+    const unlocked = await ctx.admin
+      .from("transactions")
+      .update({ type: "income", category_id: incomeCategoryAId })
+      .eq("id", txId);
     expect(unlocked.error).toBeNull();
   });
 
@@ -367,5 +370,119 @@ describe("RPC: plan settlement", () => {
       p_transaction_id: "00000000-0000-4000-8000-000000000002",
     });
     expect(error).not.toBeNull();
+  });
+
+  it("rejects linking and contributions on refinanced/closed plans", async () => {
+    const refinancedId = await createPlan(ctx.userA.userId, "refinanced link");
+    const closedId = await createPlan(ctx.userA.userId, "closed link");
+    const saveClosedId = await createPlan(ctx.userA.userId, "closed save", null, "save");
+    await ctx.admin.from("plans").update({ status: "refinanced" }).eq("id", refinancedId);
+    await ctx.admin.from("plans").update({ status: "closed" }).eq("id", closedId);
+    await ctx.admin.from("plans").update({ status: "closed" }).eq("id", saveClosedId);
+
+    const txId = await createTx({
+      userId: ctx.userA.userId,
+      description: "post-close attempt",
+      type: "expense",
+      categoryId: expenseCategoryAId,
+    });
+
+    const refinanced = await ctx.userA.client.rpc("link_plan_transaction", {
+      p_plan_id: refinancedId,
+      p_transaction_id: txId,
+    });
+    expect(refinanced.error).not.toBeNull();
+    expect(refinanced.error?.message ?? "").toMatch(/plan_not_active/);
+
+    const closed = await ctx.userA.client.rpc("link_plan_transaction", {
+      p_plan_id: closedId,
+      p_transaction_id: txId,
+    });
+    expect(closed.error).not.toBeNull();
+    expect(closed.error?.message ?? "").toMatch(/plan_not_active/);
+
+    const contribution = await ctx.userA.client.rpc("add_plan_contribution", {
+      p_plan_id: saveClosedId,
+      p_amount: 50,
+      p_date: "2026-06-12",
+    });
+    expect(contribution.error).not.toBeNull();
+    expect(contribution.error?.message ?? "").toMatch(/plan_not_active/);
+  });
+
+  it("keeps historical links on closed plans but still allows unlink", async () => {
+    const planId = await createPlan(ctx.userA.userId, "close after link");
+    const txId = await createTx({
+      userId: ctx.userA.userId,
+      description: "linked then closed",
+      type: "expense",
+      categoryId: expenseCategoryAId,
+    });
+
+    const linked = await ctx.userA.client.rpc("link_plan_transaction", {
+      p_plan_id: planId,
+      p_transaction_id: txId,
+    });
+    expect(linked.error).toBeNull();
+
+    await ctx.admin.from("plans").update({ status: "closed" }).eq("id", planId);
+
+    const stillLinked = await ctx.admin
+      .from("plan_transaction_links")
+      .select("transaction_id")
+      .eq("plan_id", planId)
+      .eq("transaction_id", txId)
+      .maybeSingle();
+    expect(stillLinked.error).toBeNull();
+    expect(stillLinked.data?.transaction_id).toBe(txId);
+
+    const unlink = await ctx.userA.client.rpc("unlink_plan_transaction", {
+      p_plan_id: planId,
+      p_transaction_id: txId,
+    });
+    expect(unlink.error).toBeNull();
+  });
+
+  it("rejects post-link date and group_id edits that break plan invariants", async () => {
+    const { data: group, error: groupError } = await ctx.userA.client.rpc("create_group", {
+      p_name: `${SENTINEL} linked-lock-group`,
+    });
+    if (groupError || !group) throw groupError ?? new Error("no group");
+    const groupId = (group as { id: string }).id;
+
+    const planId = await createPlan(ctx.userA.userId, "linked lock");
+    const txId = await createTx({
+      userId: ctx.userA.userId,
+      description: "linked lock tx",
+      type: "expense",
+      categoryId: expenseCategoryAId,
+      date: "2026-06-10",
+    });
+
+    const linked = await ctx.userA.client.rpc("link_plan_transaction", {
+      p_plan_id: planId,
+      p_transaction_id: txId,
+    });
+    expect(linked.error).toBeNull();
+
+    const outsidePeriod = await ctx.userA.client
+      .from("transactions")
+      .update({ date: "2026-07-15" })
+      .eq("id", txId);
+    expect(outsidePeriod.error).not.toBeNull();
+    expect(outsidePeriod.error?.message ?? "").toMatch(/transaction_outside_plan_period/);
+
+    const scopeDrift = await ctx.userA.client
+      .from("transactions")
+      .update({ group_id: groupId })
+      .eq("id", txId);
+    expect(scopeDrift.error).not.toBeNull();
+    expect(scopeDrift.error?.message ?? "").toMatch(/private_scope_mismatch/);
+
+    const okDate = await ctx.userA.client
+      .from("transactions")
+      .update({ date: "2026-06-20" })
+      .eq("id", txId);
+    expect(okDate.error).toBeNull();
   });
 });

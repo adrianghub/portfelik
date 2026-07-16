@@ -6,10 +6,11 @@ import {
 } from "$lib/services/plan-settlement-policy";
 import type { Plan, TransactionWithCategory } from "$lib/types";
 
-const plan: Pick<Plan, "kind" | "start_date" | "end_date"> = {
+const plan: Pick<Plan, "kind" | "start_date" | "end_date" | "status"> = {
   kind: "debt",
   start_date: "2026-01-01",
   end_date: "2026-12-31",
+  status: "active",
 };
 
 function tx(
@@ -56,6 +57,25 @@ describe("plan-settlement-policy", () => {
         allowedTypes: resolveSettlementTypes(plan),
       })
     ).toBe(true);
+  });
+
+  it("rejects settlement against non-active plans", () => {
+    expect(
+      isTransactionEligibleForPlanSettlement({
+        plan: { ...plan, status: "refinanced" },
+        tx: tx({ type: "expense", status: "paid" }),
+        blockedIds: new Set(),
+        allowedTypes: resolveSettlementTypes(plan),
+      })
+    ).toBe(false);
+    expect(
+      isTransactionEligibleForPlanSettlement({
+        plan: { ...plan, status: "closed" },
+        tx: tx({ type: "expense", status: "paid" }),
+        blockedIds: new Set(),
+        allowedTypes: resolveSettlementTypes(plan),
+      })
+    ).toBe(false);
   });
 
   it("ignores type overrides outside the plan kind policy", () => {

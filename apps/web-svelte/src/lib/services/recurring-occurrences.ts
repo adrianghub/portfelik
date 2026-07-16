@@ -93,7 +93,7 @@ export async function materializeRecurringOccurrencesForNearTerm(
   const { data, error } = await supabase
     .from("transactions")
     .upsert(rows, {
-      onConflict: "user_id,recurring_template_id,recurring_occurrence_date",
+      onConflict: "recurring_template_id,recurring_occurrence_date",
       ignoreDuplicates: true,
     })
     .select("id");

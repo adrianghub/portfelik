@@ -1,10 +1,13 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { createMutation, useQueryClient } from "@tanstack/svelte-query";
-  import { createCategory, updateCategory } from "$lib/services/categories";
+  import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
+  import { requireSessionUserId, session } from "$lib/auth/session.svelte";
+  import { qk } from "$lib/query-keys";
+  import { createCategory, isCategoryReferenced, updateCategory } from "$lib/services/categories";
   import type { Category, TransactionType } from "$lib/types";
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import { toast } from "svelte-sonner";
+  import { toastError } from "$lib/toast-error";
   import * as m from "$lib/paraglide/messages";
 
   interface Props {
@@ -29,15 +32,24 @@
   const isEdit = $derived(!!initial);
   const title = $derived(isEdit ? m.category_form_title_edit() : m.category_form_title_add());
 
+  const refsQuery = createQuery(() => ({
+    queryKey: [...qk.categories(session.userId ?? "anon"), "refs", initial?.id ?? "new"] as const,
+    queryFn: () => isCategoryReferenced(initial!.id),
+    enabled: () => open && !!session.userId && !!initial?.id,
+  }));
+  const typeLocked = $derived(isEdit && refsQuery.data === true);
+
   const mutation = createMutation(() => ({
     mutationFn: () =>
-      isEdit ? updateCategory(initial!.id, { name, type }) : createCategory({ name, type }),
+      isEdit
+        ? updateCategory(initial!.id, typeLocked ? { name } : { name, type })
+        : createCategory({ name, type }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["categories"] });
+      await queryClient.invalidateQueries({ queryKey: qk.categories(requireSessionUserId()) });
       toast.success(isEdit ? m.toast_category_updated() : m.toast_category_created());
       onclose();
     },
-    onError: () => toast.error(m.toast_error()),
+    onError: (err) => toastError(err),
   }));
 
   function handleSubmit(e: Event) {
@@ -67,26 +79,32 @@
       >
       <div
         class="flex overflow-hidden rounded-lg border border-slate-200 text-sm dark:border-slate-700"
+        class:opacity-60={typeLocked}
       >
         <button
           type="button"
+          disabled={typeLocked}
           onclick={() => (type = "expense")}
           class="flex-1 py-2 font-medium transition-colors {type === 'expense'
             ? 'bg-rose-600 text-white'
-            : 'bg-white text-slate-400 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800'}"
+            : 'bg-white text-slate-400 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800'} disabled:cursor-not-allowed"
         >
           {m.common_expense()}
         </button>
         <button
           type="button"
+          disabled={typeLocked}
           onclick={() => (type = "income")}
           class="flex-1 py-2 font-medium transition-colors {type === 'income'
             ? 'bg-emerald-600 text-white'
-            : 'bg-white text-slate-400 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800'}"
+            : 'bg-white text-slate-400 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800'} disabled:cursor-not-allowed"
         >
           {m.common_income()}
         </button>
       </div>
+      {#if typeLocked}
+        <p class="text-xs text-slate-400">{m.category_form_type_locked_hint()}</p>
+      {/if}
     </div>
 
     {#if mutation.isError}

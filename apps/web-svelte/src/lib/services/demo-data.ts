@@ -1,11 +1,11 @@
 import { fetchCategories } from "$lib/services/categories";
 import { DEMO_PREFIX } from "$lib/services/demo-data-guards";
-import { upsertPlanDebtTerms } from "$lib/services/plan-debt";
+import { saveDebtPlan } from "$lib/services/plan-debt";
 import { linkPlanTransaction } from "$lib/services/plan-settlement";
-import { addCalendarMonths, createPlan, deletePlan, todayIso } from "$lib/services/plans";
-import { createTransaction, deleteTransactions } from "$lib/services/transactions";
+import { addCalendarMonths, createPlan, todayIso } from "$lib/services/plans";
+import { createTransaction } from "$lib/services/transactions";
 import { supabase } from "$lib/supabase";
-import type { Category, Plan } from "$lib/types";
+import type { Category } from "$lib/types";
 
 export {
   canSeedDemo,
@@ -79,7 +79,17 @@ function pickCategory(
   return first.id;
 }
 
+export async function clearDemoData(): Promise<{ deleted: number }> {
+  const { data, error } = await supabase.rpc("clear_demo_data");
+  if (error) throw error;
+  const deleted = Number((data as { deleted?: number } | null)?.deleted ?? 0);
+  return { deleted };
+}
+
 export async function seedDemoData(): Promise<{ inserted: number }> {
+  // Idempotent reseed: clear any partial/previous Demo: rows first.
+  await clearDemoData();
+
   const categories = await fetchCategories();
   const income = {
     salary: pickCategory(categories, "income", ["Wynagrodzenie"]),
@@ -259,13 +269,10 @@ export async function seedDemoData(): Promise<{ inserted: number }> {
   }
   inserted += 1;
 
-  const debtPlan = await createPlan({
+  await saveDebtPlan({
     name: demoLabel("Kredyt samochodowy"),
-    kind: "debt",
     start_date: isoDaysAgo(180),
     end_date: addCalendarMonths(today, 24),
-  });
-  await upsertPlanDebtTerms(debtPlan.id, {
     original_amount: 42000,
     current_balance: 38500,
     annual_rate: 7.5,
@@ -274,17 +281,10 @@ export async function seedDemoData(): Promise<{ inserted: number }> {
   });
   inserted += 1;
 
-  // Assets that answer the car loan: without them Majątek netto opens at
-  // -38 500 zł and the demo's first impression is red. Direct insert, not
-  // saveNetWorthItems — that reconciles the whole list and would delete any
-  // items the user already owns. High positions sort demo rows after them.
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) throw new Error("not_authenticated");
-  // Idempotency: hasDemoData probes only transactions/plans, so a manually
-  // half-cleared demo could leave items behind — reseed replaces them.
-  await supabase.from("net_worth_items").delete().like("label", `${DEMO_PREFIX}%`);
   const { error: netWorthError } = await supabase.from("net_worth_items").insert([
     {
       user_id: user.id,
@@ -305,45 +305,4 @@ export async function seedDemoData(): Promise<{ inserted: number }> {
   inserted += 2;
 
   return { inserted };
-}
-
-async function fetchDemoTransactionIds(): Promise<string[]> {
-  const { data, error } = await supabase
-    .from("transactions")
-    .select("id, description")
-    .like("description", `${DEMO_PREFIX}%`);
-  if (error) throw error;
-  return (data ?? []).map((row) => row.id);
-}
-
-async function fetchDemoPlans(): Promise<Plan[]> {
-  const { data, error } = await supabase.from("plans").select("*").like("name", `${DEMO_PREFIX}%`);
-  if (error) throw error;
-  return (data ?? []) as Plan[];
-}
-
-export async function clearDemoData(): Promise<{ deleted: number }> {
-  let deleted = 0;
-
-  for (const plan of await fetchDemoPlans()) {
-    await deletePlan(plan.id);
-    deleted += 1;
-  }
-
-  const txIds = await fetchDemoTransactionIds();
-  if (txIds.length > 0) {
-    await deleteTransactions(txIds);
-    deleted += txIds.length;
-  }
-
-  // RLS scopes the delete to the current user's rows.
-  const { data: removedItems, error: itemsError } = await supabase
-    .from("net_worth_items")
-    .delete()
-    .like("label", `${DEMO_PREFIX}%`)
-    .select("id");
-  if (itemsError) throw itemsError;
-  deleted += (removedItems ?? []).length;
-
-  return { deleted };
 }

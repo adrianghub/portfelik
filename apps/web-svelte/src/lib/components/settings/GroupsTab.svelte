@@ -1,5 +1,7 @@
 <script lang="ts">
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
+  import { session, requireSessionUserId } from "$lib/auth/session.svelte";
+  import { qk } from "$lib/query-keys";
   import { page } from "$app/stores";
   import {
     fetchUserGroups,
@@ -35,18 +37,21 @@
   const queryClient = useQueryClient();
 
   const groupsQuery = createQuery(() => ({
-    queryKey: ["user_groups"],
+    queryKey: qk.userGroups(session.userId!),
     queryFn: fetchUserGroups,
+    enabled: () => !!session.userId,
   }));
 
   const groupRolesQuery = createQuery(() => ({
-    queryKey: ["my-group-roles"],
+    queryKey: qk.myGroupRoles(session.userId!),
     queryFn: fetchMyGroupRoles,
+    enabled: () => !!session.userId,
   }));
 
   const invitationsQuery = createQuery(() => ({
-    queryKey: ["group_invitations_received"],
+    queryKey: qk.groupInvitationsReceived(session.userId!),
     queryFn: fetchReceivedInvitations,
+    enabled: () => !!session.userId,
   }));
 
   let currentUserId = $state<string | undefined>(undefined);
@@ -86,8 +91,9 @@
   const createGroupMutation = createMutation(() => ({
     mutationFn: () => createGroup(newGroupName),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["user_groups"] });
-      await queryClient.invalidateQueries({ queryKey: ["my-group-roles"] });
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.userGroups(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.myGroupRoles(u) });
       toast.success(m.toast_group_created());
       newGroupName = "";
       showCreateGroup = false;
@@ -104,7 +110,7 @@
     onSuccess: async (invitation) => {
       // Invalidate sent invitations for this group so the panel updates
       await queryClient.invalidateQueries({
-        queryKey: ["group_invitations_sent", inviteGroupId],
+        queryKey: qk.groupInvitationsSent(requireSessionUserId(), inviteGroupId!),
       });
       if (invitation.delivery_status === "sent") toast.success(m.toast_invitation_sent());
       else toast.error(m.group_invitation_delivery_failed());
@@ -120,8 +126,9 @@
   const disbandMutation = createMutation(() => ({
     mutationFn: () => disbandGroup(disbandGroupId!),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["user_groups"] });
-      await queryClient.invalidateQueries({ queryKey: ["my-group-roles"] });
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.userGroups(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.myGroupRoles(u) });
       toast.success(m.toast_group_disbanded());
       disbandGroupId = null;
     },
@@ -142,7 +149,9 @@
   const leaveMutation = createMutation(() => ({
     mutationFn: () => leaveGroup(leaveGroupId!),
     onSuccess: async () => {
-      await queryClient.invalidateQueries();
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.userGroups(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.myGroupRoles(u) });
       toast.success(m.toast_group_left());
       leaveGroupId = null;
     },
@@ -153,7 +162,10 @@
   const acceptMutation = createMutation(() => ({
     mutationFn: (id: string) => acceptInvitation(id),
     onSuccess: async () => {
-      await queryClient.invalidateQueries();
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.userGroups(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.myGroupRoles(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.groupInvitationsReceived(u) });
       toast.success(m.toast_invitation_accepted());
     },
     onError: (err) => toastError(err),
@@ -162,7 +174,9 @@
   const rejectMutation = createMutation(() => ({
     mutationFn: (id: string) => rejectInvitation(id),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["group_invitations_received"] });
+      await queryClient.invalidateQueries({
+        queryKey: qk.groupInvitationsReceived(requireSessionUserId()),
+      });
       toast.success(m.toast_invitation_rejected());
     },
     onError: (err) => toastError(err),
@@ -172,16 +186,16 @@
   let sentInvGroupId = $state<string | null>(null);
 
   const sentInvQuery = createQuery(() => ({
-    queryKey: ["group_invitations_sent", sentInvGroupId],
+    queryKey: qk.groupInvitationsSent(session.userId!, sentInvGroupId!),
     queryFn: () => fetchSentInvitations(sentInvGroupId!),
-    enabled: !!sentInvGroupId,
+    enabled: () => !!session.userId && !!sentInvGroupId,
   }));
 
   const cancelMutation = createMutation(() => ({
     mutationFn: (id: string) => cancelInvitation(id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: ["group_invitations_sent", sentInvGroupId],
+        queryKey: qk.groupInvitationsSent(requireSessionUserId(), sentInvGroupId!),
       });
       toast.success(m.toast_invitation_cancelled());
     },
@@ -192,7 +206,7 @@
     mutationFn: (invitation: import("$lib/types").GroupInvitation) => resendInvitation(invitation),
     onSuccess: async (invitation) => {
       await queryClient.invalidateQueries({
-        queryKey: ["group_invitations_sent", sentInvGroupId],
+        queryKey: qk.groupInvitationsSent(requireSessionUserId(), sentInvGroupId!),
       });
       if (invitation.delivery_status === "sent") toast.success(m.toast_invitation_sent());
       else toast.error(m.group_invitation_delivery_failed());
@@ -206,9 +220,9 @@
   const canManageMemberRoles = $derived(!!membersGroup && membersGroup.owner_id === currentUserId);
 
   const membersQuery = createQuery(() => ({
-    queryKey: ["group_members_profiles", membersGroupId],
+    queryKey: qk.groupMembersProfiles(session.userId!, membersGroupId!),
     queryFn: () => fetchGroupMembersWithProfiles(membersGroupId!),
-    enabled: !!membersGroupId,
+    enabled: () => !!session.userId && !!membersGroupId,
   }));
 
   let removeTargetUserId = $state<string | null>(null);
@@ -225,7 +239,7 @@
         : revokeGroupCoOwner(membersGroupId!, vars.userId),
     onSuccess: async (_data, vars) => {
       await queryClient.invalidateQueries({
-        queryKey: ["group_members_profiles", membersGroupId],
+        queryKey: qk.groupMembersProfiles(requireSessionUserId(), membersGroupId!),
       });
       toast.success(
         vars.action === "nominate"
@@ -240,7 +254,7 @@
     mutationFn: () => removeGroupMember(membersGroupId!, removeTargetUserId!),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: ["group_members_profiles", membersGroupId],
+        queryKey: qk.groupMembersProfiles(requireSessionUserId(), membersGroupId!),
       });
       toast.success(m.toast_member_removed());
       removeTargetUserId = null;

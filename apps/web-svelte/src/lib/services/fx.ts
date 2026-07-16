@@ -28,11 +28,19 @@ export async function fetchPlnRates(): Promise<FxRates> {
 
 /**
  * Convert an amount in `currency` to PLN using `rates`. Pure.
- * Unknown/missing rate → returns the amount unchanged (best-effort, never throws),
- * so a transient FX gap can't blow up the net-worth total.
+ * Unknown/missing rate → `null` (fail closed — never pretend FX = 1).
  */
-export function convertToPln(amount: number, currency: string, rates: FxRates): number {
+export function convertToPln(amount: number, currency: string, rates: FxRates): number | null {
   if (currency === "PLN") return amount;
   const rate = rates[currency];
-  return rate ? amount * rate : amount;
+  return rate ? amount * rate : null;
+}
+
+/** True when every item has a usable PLN rate (PLN itself always counts). */
+export function canConvertAllToPln(
+  items: ReadonlyArray<{ currency: string }>,
+  rates: FxRates | null | undefined
+): boolean {
+  if (!rates) return false;
+  return items.every((it) => it.currency === "PLN" || !!rates[it.currency]);
 }

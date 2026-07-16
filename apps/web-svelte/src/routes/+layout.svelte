@@ -26,6 +26,7 @@
     shouldDeferBrowserPush,
     unsubscribeFromPush,
   } from "$lib/services/push";
+  import { setSessionUser } from "$lib/auth/session.svelte";
   import { supabase } from "$lib/supabase";
   import type { Profile } from "$lib/types";
   import type { User } from "@supabase/supabase-js";
@@ -69,6 +70,8 @@
   let userId = $state<string | null>(null);
   let authStatus = $state<"checking" | "authenticated" | "anonymous">("checking");
   let authRevision = 0;
+  /** Identity the current query cache belongs to; cleared only at auth boundary. */
+  let loadedUserId: string | null = null;
   let notifPermission = $state<NotificationPermission>("default");
   let pushPromptedRecently = $state(false);
   let isPublicRoute = $derived(
@@ -130,6 +133,9 @@
   });
 
   function clearAuthenticatedUser() {
+    if (loadedUserId !== null) queryClient.clear();
+    loadedUserId = null;
+    setSessionUser(null);
     authRevision += 1;
     profile = null;
     user = null;
@@ -138,6 +144,11 @@
   }
 
   function loadAuthenticatedUser(authUser: User) {
+    if (loadedUserId !== authUser.id) {
+      queryClient.clear();
+      loadedUserId = authUser.id;
+    }
+    setSessionUser(authUser.id);
     const revision = (authRevision += 1);
     user = authUser;
     userId = authUser.id;
@@ -192,10 +203,8 @@
     // profile query cache here so a mutation elsewhere (avatar/name in Settings)
     // reflects in the header immediately instead of only after reload.
     const unsubscribeProfileCache = queryClient.getQueryCache().subscribe((event) => {
-      const key = event.query.queryKey;
-      if (!Array.isArray(key) || key[0] !== "profile") return;
       const data = event.query.state.data as Profile | undefined;
-      if (data && data.id === userId) {
+      if (data && typeof data === "object" && "id" in data && data.id === userId) {
         profile = data;
         applyAccent(data.settings?.accentColor);
       }

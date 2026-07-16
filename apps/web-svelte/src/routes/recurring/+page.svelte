@@ -3,6 +3,6 @@
   import { onMount } from "svelte";
 
   onMount(() => {
-    void goto("/transactions?status=upcoming&forecast=recurring", { replaceState: true });
+    void goto("/transactions?status=upcoming", { replaceState: true });
   });
 </script>

@@ -24,12 +24,13 @@ describe("runningBalances", () => {
     expect(map.has("d")).toBe(false);
   });
 
-  it("orders by date then keeps input order for same-day rows", () => {
+  it("orders same-day rows by id for a stable running balance", () => {
     const sameDay: Tx[] = [
-      { id: "x", type: "income", amount: 100, status: "paid", date: "2026-06-10T08:00:00Z" },
       { id: "y", type: "expense", amount: 40, status: "paid", date: "2026-06-10T20:00:00Z" },
+      { id: "x", type: "income", amount: 100, status: "paid", date: "2026-06-10T08:00:00Z" },
     ];
     const map = runningBalances(anchor, sameDay);
+    // id "x" before "y" regardless of input order / wall-clock time
     expect(map.get("x")).toBe(1100);
     expect(map.get("y")).toBe(1060);
   });

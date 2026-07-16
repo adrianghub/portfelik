@@ -32,6 +32,8 @@
   import { toastError } from "$lib/toast-error";
   import { errorMessage } from "$lib/services/supabase-errors";
   import { localDateIso } from "$lib/date-local";
+  import { session, requireSessionUserId } from "$lib/auth/session.svelte";
+  import { qk } from "$lib/query-keys";
 
   export interface PlanTransactionContext {
     planId: string;
@@ -54,21 +56,26 @@
 
   const queryClient = useQueryClient();
 
+  const uid = $derived(session.userId);
+
   const createCategoryInline = makeCreateCategoryInline({
     createCategory,
-    invalidate: () => queryClient.invalidateQueries({ queryKey: ["categories"] }),
+    invalidate: () =>
+      queryClient.invalidateQueries({ queryKey: qk.categories(requireSessionUserId()) }),
     toastSuccess: () => toast.success(m.toast_category_created()),
     toastError: () => toast.error(m.toast_error()),
   });
 
   const categoriesQuery = createQuery(() => ({
-    queryKey: ["categories"],
+    queryKey: uid ? qk.categories(uid) : ["user", "", "categories"],
     queryFn: fetchCategories,
+    enabled: !!uid,
   }));
 
   const groupsQuery = createQuery(() => ({
-    queryKey: ["user_groups"],
+    queryKey: uid ? qk.userGroups(uid) : ["user", "", "user_groups"],
     queryFn: fetchUserGroups,
+    enabled: !!uid,
   }));
 
   let type = $state<TransactionType>(untrack(() => initial?.type ?? "expense"));
@@ -182,14 +189,15 @@
       if (input.is_recurring) {
         await materializeRecurringOccurrencesForNearTerm();
       }
-      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
       if (planContext) {
-        await queryClient.invalidateQueries({ queryKey: ["plan-links", planContext.planId] });
-        await queryClient.invalidateQueries({ queryKey: ["plan-ranked", planContext.planId] });
-        await queryClient.invalidateQueries({ queryKey: ["plan-eligible", planContext.planId] });
-        await queryClient.invalidateQueries({ queryKey: ["plan-progress"] });
-        await queryClient.invalidateQueries({ queryKey: ["plan-progress-list"] });
-        await queryClient.invalidateQueries({ queryKey: ["plans"] });
+        await queryClient.invalidateQueries({ queryKey: qk.planLinks(u, planContext.planId) });
+        await queryClient.invalidateQueries({ queryKey: qk.planRanked(u, planContext.planId) });
+        await queryClient.invalidateQueries({ queryKey: qk.planEligible(u, planContext.planId) });
+        await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
+        await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
+        await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
         toast.success(m.plan_settle_linked());
       } else {
         toast.success(isEdit ? m.toast_transaction_updated() : m.toast_transaction_created());
@@ -203,8 +211,9 @@
   async function applyRuleRetro(categoryId: string, ids: string[]): Promise<void> {
     try {
       await updateTransactionsCategory(ids, categoryId);
-      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      await queryClient.invalidateQueries({ queryKey: ["plan-progress"] });
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
       toast.success(m.rule_apply_done({ count: ids.length }));
     } catch (err) {
       toastError(err);
@@ -235,7 +244,9 @@
                 category_id: targetCategoryId,
                 priority: 10,
               });
-              await queryClient.invalidateQueries({ queryKey: ["categorization_rules"] });
+              await queryClient.invalidateQueries({
+                queryKey: qk.categorizationRules(requireSessionUserId()),
+              });
               const matchIds = await findRetroMatchIds(created);
               if (matchIds.length > 0) {
                 toast.success(m.rule_capture_created(), {

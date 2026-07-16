@@ -14,6 +14,8 @@
   import { useQueryClient } from "@tanstack/svelte-query";
   import { beforeNavigate, goto } from "$app/navigation";
   import { toast } from "svelte-sonner";
+  import { requireSessionUserId } from "$lib/auth/session.svelte";
+  import { qk } from "$lib/query-keys";
   import { cn, transactionsUrlForRange } from "$lib/utils";
 
   type Step = "upload" | "review";
@@ -126,9 +128,10 @@
   }
 
   function handleCommitted(result: CommitResult, dateRange?: ImportedDateRange): void {
-    queryClient.invalidateQueries({ queryKey: ["transactions"] });
-    queryClient.invalidateQueries({ queryKey: ["summary"] });
-    queryClient.invalidateQueries({ queryKey: ["import-health"] });
+    const u = requireSessionUserId();
+    queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+    queryClient.invalidateQueries({ queryKey: qk.summary(u) });
+    queryClient.invalidateQueries({ queryKey: qk.importHealth(u) });
     toast.success(m.bank_commit_success({ count: result.inserted }), {
       description: m.bank_commit_toast_detail({
         skipped: result.skipped,

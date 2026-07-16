@@ -1,16 +1,31 @@
 import { deriveDebtDisplayBalance } from "$lib/services/plan-debt";
 import { derivePlanBucket, isLivePlan, todayIso } from "$lib/services/plans";
+import { supabase } from "$lib/supabase";
+import type { NetWorthItemInput } from "$lib/services/net-worth-items";
 import type {
+  CashPosition,
   FinancialSnapshot,
+  NetWorthItem,
   NetWorthItemValued,
   NetWorthSummary,
   Plan,
   PlanDebtTerms,
 } from "$lib/types";
-import { supabase } from "$lib/supabase";
 
 export interface FinancialSnapshotInput {
   as_of_date: string;
+}
+
+export interface SaveNetWorthSnapshotInput {
+  as_of_date: string;
+  opening_amount: number;
+  items: NetWorthItemInput[];
+}
+
+export interface SaveNetWorthSnapshotResult {
+  snapshot: FinancialSnapshot;
+  cash_position: CashPosition;
+  items: NetWorthItem[];
 }
 
 export interface ComputeNetWorthArgs {
@@ -145,4 +160,26 @@ export async function upsertFinancialSnapshot(
     .single();
   if (error) throw error;
   return data as FinancialSnapshot;
+}
+
+/** Atomically saves snapshot date, private cash anchor, and net-worth items. */
+export async function saveNetWorthSnapshot(
+  input: SaveNetWorthSnapshotInput
+): Promise<SaveNetWorthSnapshotResult> {
+  const cleaned = input.items
+    .filter((i) => i.label.trim().length > 0)
+    .map((i) => ({
+      ...(i.id ? { id: i.id } : {}),
+      label: i.label.trim().slice(0, 60),
+      amount: Math.max(0, i.amount),
+      currency: i.currency,
+    }));
+
+  const { data, error } = await supabase.rpc("save_net_worth_snapshot", {
+    p_as_of_date: input.as_of_date,
+    p_opening_amount: input.opening_amount,
+    p_items: cleaned,
+  });
+  if (error) throw error;
+  return data as unknown as SaveNetWorthSnapshotResult;
 }
