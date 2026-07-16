@@ -82,6 +82,39 @@ export async function fetchPlanLinks(planId: string): Promise<PlanTransactionLin
   return (data ?? []) as PlanTransactionLink[];
 }
 
+export async function createAndLinkPlanTransaction(input: {
+  planId: string;
+  amount: number;
+  description: string;
+  date: string;
+  categoryId: string;
+  currency?: string;
+  counterparty?: string | null;
+  status?: string;
+  groupId?: string | null;
+  planKind?: PlanKind;
+}): Promise<string> {
+  const { data, error } = await supabase.rpc("create_and_link_plan_transaction", {
+    p_plan_id: input.planId,
+    p_amount: input.amount,
+    p_description: input.description,
+    p_date: input.date,
+    p_category_id: input.categoryId,
+    p_currency: input.currency ?? "PLN",
+    p_counterparty: input.counterparty ?? null,
+    p_status: input.status ?? "paid",
+    p_group_id: input.groupId ?? null,
+  });
+  if (error) throw error;
+  if (input.planKind) {
+    trackOnce("first_settlement_linked", { kind: input.planKind });
+  } else {
+    trackOnce("first_settlement_linked");
+  }
+  trackOnce("first_transaction_created", { source: "manual" });
+  return data as string;
+}
+
 export async function linkPlanTransaction(
   planId: string,
   transactionId: string,

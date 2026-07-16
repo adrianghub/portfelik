@@ -695,7 +695,10 @@
 <!-- Transfer ownership confirm -->
 <ConfirmDialog
   open={!!transferTargetUserId}
+  title={m.group_transfer_ownership()}
   message={m.group_transfer_ownership_confirm()}
+  confirmLabel={m.group_transfer_ownership()}
+  intent="neutral"
   onconfirm={() => transferOwnershipMutation.mutate()}
   onclose={() => (transferTargetUserId = null)}
   pending={transferOwnershipMutation.isPending}

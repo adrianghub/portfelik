@@ -41,6 +41,13 @@ export function canConvertAllToPln(
   items: ReadonlyArray<{ currency: string }>,
   rates: FxRates | null | undefined
 ): boolean {
+  // PLN-only bags never need an FX fetch — show them while rates load or fail.
+  if (items.every((it) => it.currency === "PLN")) return true;
   if (!rates) return false;
   return items.every((it) => it.currency === "PLN" || !!rates[it.currency]);
+}
+
+/** Rates bag for conversion; PLN-only callers may pass null. */
+export function ratesForPlnConversion(rates: FxRates | null | undefined): FxRates {
+  return rates ?? { PLN: 1 };
 }

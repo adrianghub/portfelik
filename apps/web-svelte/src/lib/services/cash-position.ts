@@ -101,7 +101,12 @@ export function forecastPosition(
 ): number {
   const horizonEnd = opts.horizonEnd ?? cashForecastHorizonEnd(opts.today);
   const scheduled = txs
-    .filter((t) => isForecastStatus(t.status) && withinForecastHorizon(t, horizonEnd))
+    .filter(
+      (t) =>
+        isForecastStatus(t.status) &&
+        dateOnly(t.date) >= asOfOf(anchor) &&
+        withinForecastHorizon(t, horizonEnd)
+    )
     .reduce((sum, t) => sum + signed(t), 0);
   return livePosition(anchor, txs) + scheduled;
 }

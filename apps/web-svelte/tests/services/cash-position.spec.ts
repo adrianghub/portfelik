@@ -46,6 +46,17 @@ describe("forecastPosition", () => {
       1550
     );
   });
+
+  it("excludes pre-anchor overdue the same way as forecastRunningBalances", () => {
+    const withPreAnchor = [
+      ...txs,
+      { type: "expense" as const, amount: 400, status: "overdue", date: "2026-05-15" },
+    ];
+    // Pre-anchor overdue must not pull the forecast below live+in-window scheduled.
+    expect(
+      forecastPosition(anchor, withPreAnchor, { today: "2026-06-01", horizonEnd: "2026-06-30" })
+    ).toBe(1550);
+  });
 });
 
 describe("livePosition with timestamptz dates (transactions.date is timestamptz)", () => {

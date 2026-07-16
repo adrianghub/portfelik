@@ -21,10 +21,10 @@
   import { setupNotificationSync } from "$lib/services/notification-sync";
   import {
     autoSubscribePush,
+    detachLocalPushSubscription,
     registerServiceWorker,
     requestAndSubscribePush,
     shouldDeferBrowserPush,
-    unsubscribeFromPush,
   } from "$lib/services/push";
   import { setSessionUser } from "$lib/auth/session.svelte";
   import { supabase } from "$lib/supabase";
@@ -212,10 +212,17 @@
 
     supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
-        unsubscribeFromPush().catch(() => {});
-        clearLoginRedirect();
-        clearAuthenticatedUser();
-        void goto("/login", { replaceState: true });
+        // Detach browser push only — do not persist opt-out (explicit disable does).
+        detachLocalPushSubscription().catch(() => {});
+        const onInvite = page.url.pathname.startsWith("/invite/");
+        if (!onInvite) {
+          clearLoginRedirect();
+          clearAuthenticatedUser();
+          void goto("/login", { replaceState: true });
+        } else {
+          // Invite switch-account: keep remembered redirect; stay on /invite/*.
+          clearAuthenticatedUser();
+        }
       }
       if (event === "SIGNED_IN" && session?.user) {
         loadAuthenticatedUser(session.user);

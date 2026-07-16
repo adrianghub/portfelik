@@ -6,7 +6,7 @@
   import { createCategory, fetchCategories } from "$lib/services/categories";
   import { makeCreateCategoryInline } from "$lib/category-create";
   import { fetchUserGroups } from "$lib/services/groups";
-  import { linkPlanTransaction } from "$lib/services/plan-settlement";
+  import { createAndLinkPlanTransaction } from "$lib/services/plan-settlement";
   import {
     createTransaction,
     updateTransaction,
@@ -175,19 +175,21 @@
       if (isEdit) {
         return updateTransaction(initial!.id, input);
       }
-      const tx = await createTransaction(input);
       if (planContext) {
-        try {
-          await linkPlanTransaction(planContext.planId, tx.id, {
-            planKind: planContext.planKind,
-          });
-        } catch (linkErr) {
-          const staged = linkErr instanceof Error ? linkErr : new Error(String(linkErr));
-          (staged as Error & { stage: string }).stage = "link";
-          throw staged;
-        }
+        const txId = await createAndLinkPlanTransaction({
+          planId: planContext.planId,
+          amount: input.amount,
+          description: input.description,
+          date: input.date,
+          categoryId: input.category_id,
+          counterparty: input.counterparty,
+          status: input.status,
+          groupId: input.group_id,
+          planKind: planContext.planKind,
+        });
+        return { id: txId } as Awaited<ReturnType<typeof createTransaction>>;
       }
-      return tx;
+      return createTransaction(input);
     },
     onSuccess: async (_tx, input) => {
       if (isEdit && input.is_recurring && input.recurrence_end_date) {
@@ -212,15 +214,7 @@
       }
       onclose();
     },
-    onError: async (err) => {
-      if ((err as { stage?: string } | null)?.stage === "link") {
-        // Create already succeeded — refresh so the orphan is visible, then explain.
-        const u = requireSessionUserId();
-        await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
-        toast.error(m.toast_transaction_created_link_failed());
-        onclose();
-        return;
-      }
+    onError: (err) => {
       toastError(err);
     },
   }));

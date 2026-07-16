@@ -20,8 +20,13 @@ describe("convertToPln", () => {
 });
 
 describe("canConvertAllToPln", () => {
-  it("is false without rates", () => {
+  it("is false without rates when any foreign currency is present", () => {
     expect(canConvertAllToPln([{ currency: "EUR" }], null)).toBe(false);
+  });
+
+  it("allows PLN-only bags while rates are still null", () => {
+    expect(canConvertAllToPln([{ currency: "PLN" }], null)).toBe(true);
+    expect(canConvertAllToPln([{ currency: "PLN" }, { currency: "PLN" }], undefined)).toBe(true);
   });
 
   it("allows PLN-only bags without foreign rates present", () => {

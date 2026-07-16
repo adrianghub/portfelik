@@ -6,7 +6,12 @@
     fetchFinancialSnapshot,
   } from "$lib/services/financial-snapshots";
   import { fetchNetWorthItems } from "$lib/services/net-worth-items";
-  import { canConvertAllToPln, convertToPln, fetchPlnRates } from "$lib/services/fx";
+  import {
+    canConvertAllToPln,
+    convertToPln,
+    fetchPlnRates,
+    ratesForPlnConversion,
+  } from "$lib/services/fx";
   import { fetchPlanDebtTermsByPlanIds } from "$lib/services/plan-debt";
   import { fetchPlanProgressForPlans } from "$lib/services/plan-settlement";
   import { fetchPlans, isLivePlan, todayIso } from "$lib/services/plans";
@@ -66,9 +71,10 @@
   const valuedItems = $derived.by(() => {
     const rates = fxQuery.data;
     const items = itemsQuery.data ?? [];
-    if (!rates || !canConvertAllToPln(items, rates)) return null;
+    if (!canConvertAllToPln(items, rates)) return null;
+    const effectiveRates = ratesForPlnConversion(rates);
     return items.map((it) => {
-      const amountPln = convertToPln(it.amount, it.currency, rates);
+      const amountPln = convertToPln(it.amount, it.currency, effectiveRates);
       return {
         label: it.label,
         currency: it.currency,

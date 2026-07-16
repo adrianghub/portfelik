@@ -31,6 +31,7 @@
     canConvertAllToPln,
     convertToPln,
     fetchPlnRates,
+    ratesForPlnConversion,
     SUPPORTED_CURRENCIES,
   } from "$lib/services/fx";
   import {
@@ -194,9 +195,10 @@
   const valuedItems = $derived.by(() => {
     const rates = fxQuery.data;
     const items = itemsQuery.data ?? [];
-    if (!rates || !canConvertAllToPln(items, rates)) return null;
+    if (!canConvertAllToPln(items, rates)) return null;
+    const effectiveRates = ratesForPlnConversion(rates);
     return items.map((it) => {
-      const amountPln = convertToPln(it.amount, it.currency, rates);
+      const amountPln = convertToPln(it.amount, it.currency, effectiveRates);
       return {
         label: it.label,
         currency: it.currency,

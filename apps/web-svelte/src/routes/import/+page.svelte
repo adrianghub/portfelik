@@ -101,8 +101,13 @@
       try {
         await cancelImportSession(resumeSession.id);
       } catch (e) {
+        // New session already exists — cancel it so we do not leave two drafts.
+        try {
+          await cancelImportSession(sess.id);
+        } catch {
+          /* best-effort; prior draft remains the resume target */
+        }
         toast.error(e instanceof Error ? e.message : m.bank_import_prior_cancel_failed());
-        // Keep the previous draft resume card; do not orphan two previews silently.
         return;
       }
     }

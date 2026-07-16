@@ -121,6 +121,16 @@ export async function requestAndSubscribePush(
 
 export async function unsubscribeFromPush(): Promise<void> {
   setPushOptOut(true); // persist the disable so login won't re-subscribe
+  await detachLocalPushSubscription({ deleteServerRow: true });
+}
+
+/**
+ * Sign-out cleanup: drop the browser PushSubscription without persisting opt-out
+ * and without requiring an authenticated server delete (session may already be gone).
+ */
+export async function detachLocalPushSubscription(
+  opts: { deleteServerRow?: boolean } = {}
+): Promise<void> {
   if (!("serviceWorker" in navigator)) return;
 
   const registration = await navigator.serviceWorker.ready;
@@ -128,9 +138,11 @@ export async function unsubscribeFromPush(): Promise<void> {
   if (!subscription) return;
 
   const { endpoint } = subscription;
-  await subscription.unsubscribe();
-  const { error } = await supabase.from("push_subscriptions").delete().eq("endpoint", endpoint);
-  if (error) throw error;
+  await subscription.unsubscribe().catch(() => {});
+  if (opts.deleteServerRow) {
+    const { error } = await supabase.from("push_subscriptions").delete().eq("endpoint", endpoint);
+    if (error) throw error;
+  }
 }
 
 export type PushSubscriptionRow = {
