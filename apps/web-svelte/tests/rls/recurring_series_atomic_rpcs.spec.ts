@@ -248,4 +248,13 @@ describe("RLS: recurring series atomic RPCs", () => {
     expect(second.error).toBeNull();
     expect(second.data).toBe(first.data);
   });
+
+  it("rejects off-cadence materialize dates", async () => {
+    const bad = await ctx.userA.client.rpc("materialize_recurring_occurrence", {
+      p_template_id: templateId,
+      p_occurrence_date: "2026-08-11",
+    });
+    expect(bad.error).not.toBeNull();
+    expect(bad.error?.message ?? "").toMatch(/invalid_occurrence_date/);
+  });
 });

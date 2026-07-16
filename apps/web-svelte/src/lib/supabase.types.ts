@@ -1348,6 +1348,20 @@ export type Database = {
         Args: { p_plan_id: string };
         Returns: number;
       };
+      create_and_link_plan_transaction: {
+        Args: {
+          p_plan_id: string;
+          p_amount: number;
+          p_description: string;
+          p_date: string;
+          p_category_id: string;
+          p_currency?: string;
+          p_counterparty?: string | null;
+          p_status?: string;
+          p_group_id?: string | null;
+        };
+        Returns: string;
+      };
       bulk_delete_transactions: {
         Args: { p_transaction_ids: string[] };
         Returns: number;

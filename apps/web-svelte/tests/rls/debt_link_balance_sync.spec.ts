@@ -218,4 +218,72 @@ describe("RPC: debt link balance sync", () => {
       .single();
     expect(Number(terms.data?.current_balance)).toBe(4500);
   });
+
+  it("denies sync_debt_current_balance_from_links for unrelated caller", async () => {
+    const planId = await createDebtPlan(ctx.userA.userId, "cross-tenant sync");
+    const denied = await ctx.userB.client.rpc("sync_debt_current_balance_from_links", {
+      p_plan_id: planId,
+    });
+    expect(denied.error).not.toBeNull();
+    expect(denied.error?.message ?? "").toMatch(/not_authorized_plan/);
+  });
+
+  it("rejects unpaid debt links and leaves balance unchanged", async () => {
+    const planId = await createDebtPlan(ctx.userA.userId, "unpaid link");
+    const unpaid = await ctx.admin
+      .from("transactions")
+      .insert({
+        amount: 1500,
+        currency: "PLN",
+        description: `${SENTINEL} unpaid debt pay`,
+        date: "2026-06-15",
+        type: "expense",
+        status: "upcoming",
+        category_id: expenseCatA,
+        user_id: ctx.userA.userId,
+        group_id: null,
+      })
+      .select("id")
+      .single();
+    if (unpaid.error) throw unpaid.error;
+
+    const linked = await ctx.userA.client.rpc("link_plan_transaction", {
+      p_plan_id: planId,
+      p_transaction_id: unpaid.data.id,
+    });
+    expect(linked.error).not.toBeNull();
+    expect(linked.error?.message ?? "").toMatch(/debt_link_requires_paid/);
+
+    const terms = await ctx.admin
+      .from("plan_debt_terms")
+      .select("current_balance")
+      .eq("plan_id", planId)
+      .single();
+    expect(Number(terms.data?.current_balance)).toBe(10000);
+  });
+
+  it("resyncs balance when a linked paid expense amount changes", async () => {
+    const planId = await createDebtPlan(ctx.userA.userId, "amount resync");
+    const txId = await createExpense(ctx.userA.userId, 1000, "2026-06-15");
+    const linked = await ctx.userA.client.rpc("link_plan_transaction", {
+      p_plan_id: planId,
+      p_transaction_id: txId,
+    });
+    expect(linked.error).toBeNull();
+
+    const bumped = await ctx.userA.client
+      .from("transactions")
+      .update({ amount: 2500 })
+      .eq("id", txId)
+      .select("id")
+      .single();
+    expect(bumped.error).toBeNull();
+
+    const terms = await ctx.admin
+      .from("plan_debt_terms")
+      .select("current_balance")
+      .eq("plan_id", planId)
+      .single();
+    expect(Number(terms.data?.current_balance)).toBe(7500);
+  });
 });

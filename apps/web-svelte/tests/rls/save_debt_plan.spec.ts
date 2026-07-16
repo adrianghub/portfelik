@@ -200,4 +200,80 @@ describe("RPC: save_debt_plan", () => {
     });
     expect(error).not.toBeNull();
   });
+
+  it("rejects date shrink that would orphan an existing link", async () => {
+    const created = await ctx.userA.client.rpc("save_debt_plan", {
+      p_plan_id: null,
+      p_name: `${SENTINEL} shrink links`,
+      p_group_id: null,
+      p_category_id: null,
+      p_start_date: "2026-01-01",
+      p_end_date: "2027-12-31",
+      p_target_amount: 5000,
+      p_original_amount: 5000,
+      p_current_balance: 5000,
+      p_annual_rate: 0,
+      p_monthly_payment: 200,
+      p_first_payment_date: null,
+      p_first_payment_amount: null,
+      p_reset_balance_anchor: false,
+      p_clear_balance_anchor: false,
+    });
+    expect(created.error).toBeNull();
+    const planId = created.data!.plan.id as string;
+
+    const cat = await ctx.admin
+      .from("categories")
+      .insert({
+        user_id: ctx.userA.userId,
+        name: `${SENTINEL} shrink cat`,
+        type: "expense",
+      })
+      .select("id")
+      .single();
+    if (cat.error) throw cat.error;
+
+    const tx = await ctx.admin
+      .from("transactions")
+      .insert({
+        amount: 100,
+        currency: "PLN",
+        description: `${SENTINEL} linked pay`,
+        date: "2026-06-15",
+        type: "expense",
+        status: "paid",
+        category_id: cat.data.id,
+        user_id: ctx.userA.userId,
+        group_id: null,
+      })
+      .select("id")
+      .single();
+    if (tx.error) throw tx.error;
+
+    const linked = await ctx.userA.client.rpc("link_plan_transaction", {
+      p_plan_id: planId,
+      p_transaction_id: tx.data.id,
+    });
+    expect(linked.error).toBeNull();
+
+    const shrink = await ctx.userA.client.rpc("save_debt_plan", {
+      p_plan_id: planId,
+      p_name: `${SENTINEL} shrink links`,
+      p_group_id: null,
+      p_category_id: null,
+      p_start_date: "2026-01-01",
+      p_end_date: "2026-03-31",
+      p_target_amount: 5000,
+      p_original_amount: 5000,
+      p_current_balance: 5000,
+      p_annual_rate: 0,
+      p_monthly_payment: 200,
+      p_first_payment_date: null,
+      p_first_payment_amount: null,
+      p_reset_balance_anchor: false,
+      p_clear_balance_anchor: false,
+    });
+    expect(shrink.error).not.toBeNull();
+    expect(shrink.error?.message ?? "").toMatch(/linked_transactions_incompatible/);
+  });
 });
