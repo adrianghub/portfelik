@@ -274,6 +274,8 @@
   "invite_preview_error": "Nie udało się odczytać zaproszenia.",
   "invite_claim_error": "Nie udało się dołączyć do grupy.",
   "invite_email_mismatch": "Zaloguj się adresem e-mail, na który wysłano zaproszenie.",
+  "invite_switch_account": "Wyloguj i użyj właściwego konta",
+  "invite_use_other_account": "Użyj innego konta",
   "net_worth_goal_assets": "Cele oszczędnościowe",
   "net_worth_goal_assets_hint": "Wartość jest liczona automatycznie z wpłat. Nie dodawaj jej ponownie ręcznie.",
   "plan_contribution_add": "Dodaj wpłatę",

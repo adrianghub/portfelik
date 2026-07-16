@@ -1,6 +1,6 @@
 import { PUBLIC_VAPID_KEY } from "$env/static/public";
 import { supabase } from "$lib/supabase";
-import { isStandalonePwa, shouldDeferBrowserPush } from "$lib/services/pwa";
+import { shouldDeferBrowserPush } from "$lib/services/pwa";
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -74,9 +74,11 @@ async function doSubscribe(userId: string): Promise<void> {
   }
 
   const json = subscription.toJSON();
-  if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) return;
+  if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
+    throw new Error("push_subscription_incomplete");
+  }
 
-  await supabase.from("push_subscriptions").upsert(
+  const { error } = await supabase.from("push_subscriptions").upsert(
     {
       user_id: userId,
       endpoint: json.endpoint,
@@ -87,28 +89,7 @@ async function doSubscribe(userId: string): Promise<void> {
     },
     { onConflict: "user_id,endpoint" }
   );
-
-  if (isStandalonePwa() && /mobile/i.test(navigator.userAgent)) {
-    await pruneOtherMobileBrowserSubscriptions(userId, json.endpoint);
-  }
-}
-
-async function pruneOtherMobileBrowserSubscriptions(
-  userId: string,
-  keepEndpoint: string
-): Promise<void> {
-  const { data, error } = await supabase
-    .from("push_subscriptions")
-    .select("endpoint, user_agent")
-    .eq("user_id", userId)
-    .neq("endpoint", keepEndpoint);
-  if (error || !data?.length) return;
-
-  for (const row of data) {
-    const ua = row.user_agent ?? "";
-    if (!/mobile/i.test(ua)) continue;
-    await supabase.from("push_subscriptions").delete().eq("endpoint", row.endpoint);
-  }
+  if (error) throw error;
 }
 
 // Call on auth events - subscribes silently if permission already granted.
@@ -148,7 +129,8 @@ export async function unsubscribeFromPush(): Promise<void> {
 
   const { endpoint } = subscription;
   await subscription.unsubscribe();
-  await supabase.from("push_subscriptions").delete().eq("endpoint", endpoint);
+  const { error } = await supabase.from("push_subscriptions").delete().eq("endpoint", endpoint);
+  if (error) throw error;
 }
 
 export type PushSubscriptionRow = {
@@ -190,21 +172,34 @@ export async function deleteAdminPushSubscriptionByEndpoint(endpoint: string): P
 
 export type PushNotificationState = "active" | "disabled" | "blocked";
 
+/**
+ * Active only when the browser has a PushManager subscription **and** a
+ * matching server row exists. A browser-only sub after a failed upsert is
+ * treated as disabled so Settings does not lie about delivery.
+ */
 export async function getPushNotificationState(): Promise<PushNotificationState> {
-  if (!("Notification" in window)) return "disabled";
+  if (typeof Notification === "undefined") return "disabled";
   if (Notification.permission === "denied") return "blocked";
   if (isPushOptedOut()) return "disabled";
 
-  if (!("serviceWorker" in navigator)) {
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) {
     return "disabled";
   }
 
   try {
     const registration = await navigator.serviceWorker.ready;
     const subscription = await registration.pushManager.getSubscription();
-    if (subscription) return "active";
+    if (!subscription) return "disabled";
+
+    const { data, error } = await supabase
+      .from("push_subscriptions")
+      .select("endpoint")
+      .eq("endpoint", subscription.endpoint)
+      .maybeSingle();
+    if (error || !data) return "disabled";
+    return "active";
   } catch {
-    // SW not ready - treat as disabled until subscription is confirmed.
+    // SW not ready / network - treat as disabled until subscription is confirmed.
   }
 
   return "disabled";

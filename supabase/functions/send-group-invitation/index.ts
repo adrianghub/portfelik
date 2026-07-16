@@ -118,13 +118,23 @@ Deno.serve(async (req: Request) => {
     let link = await admin.auth.admin.generateLink({
       type: "invite",
       email,
-      options: { redirectTo: `${appOrigin}/auth/callback` },
+      options: {
+        redirectTo:
+          `${appOrigin}/auth/callback?redirectTo=${
+            encodeURIComponent(`/invite/${body.token}`)
+          }`,
+      },
     });
     if (link.error) {
       link = await admin.auth.admin.generateLink({
         type: "magiclink",
         email,
-        options: { redirectTo: `${appOrigin}/auth/callback` },
+        options: {
+          redirectTo:
+            `${appOrigin}/auth/callback?redirectTo=${
+              encodeURIComponent(`/invite/${body.token}`)
+            }`,
+        },
       });
     }
     const actionLink = link.data?.properties?.action_link;

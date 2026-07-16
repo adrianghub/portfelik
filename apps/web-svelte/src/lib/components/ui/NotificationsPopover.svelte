@@ -98,7 +98,7 @@
     event.stopPropagation();
     const href = notificationSettleHref(notification);
     if (!href) return;
-    if (!notification.read_at) markReadMutation.mutate(notification.id);
+    // Mark read only after settlement succeeds (transactions page onSuccess).
     open = false;
     void goto(href);
   }

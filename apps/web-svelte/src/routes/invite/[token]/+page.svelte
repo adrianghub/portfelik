@@ -3,7 +3,7 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import BrandMark from "$lib/components/BrandMark.svelte";
-  import { rememberLoginRedirect } from "$lib/auth-redirect";
+  import { authCallbackUrlForTarget, rememberLoginRedirect } from "$lib/auth-redirect";
   import { claimInvitation, fetchInvitationPreview } from "$lib/services/groups";
   import { supabase } from "$lib/supabase";
   import type { GroupInvitationPreview } from "$lib/types";
@@ -16,6 +16,7 @@
   let email = $state("");
   let error = $state<string | null>(null);
   let magicLinkSent = $state(false);
+  let emailMismatch = $state(false);
 
   const token = $derived(page.url.pathname.split("/").at(-1) ?? "");
   const target = $derived(`/invite/${token}`);
@@ -35,18 +36,28 @@
   async function claim() {
     submitting = true;
     error = null;
+    emailMismatch = false;
     try {
       const group = await claimInvitation(token);
       await goto(`/settings?tab=groups&group=${encodeURIComponent(group.groupId)}`, {
         replaceState: true,
       });
     } catch (claimError) {
-      error =
-        claimError instanceof Error && claimError.message.includes("email_mismatch")
-          ? m.invite_email_mismatch()
-          : m.invite_claim_error();
+      const mismatch = claimError instanceof Error && claimError.message.includes("email_mismatch");
+      emailMismatch = mismatch;
+      error = mismatch ? m.invite_email_mismatch() : m.invite_claim_error();
       submitting = false;
     }
+  }
+
+  async function switchAccount() {
+    submitting = true;
+    error = null;
+    emailMismatch = false;
+    rememberLoginRedirect(target);
+    await supabase.auth.signOut();
+    authenticated = false;
+    submitting = false;
   }
 
   async function signInWithGoogle() {
@@ -55,7 +66,9 @@
     rememberLoginRedirect(target);
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: {
+        redirectTo: authCallbackUrlForTarget(window.location.origin, target),
+      },
     });
     if (authError) {
       error = m.login_error_generic();
@@ -119,6 +132,14 @@
             class="bg-accent-gradient mt-6 w-full rounded-full px-4 py-2.5 text-sm font-semibold text-slate-950 disabled:opacity-50"
           >
             {submitting ? m.common_saving() : m.invite_join()}
+          </button>
+          <button
+            type="button"
+            onclick={switchAccount}
+            disabled={submitting}
+            class="mt-3 w-full rounded-full border border-white/10 px-4 py-2.5 text-sm font-medium text-slate-300 hover:bg-white/5 disabled:opacity-50"
+          >
+            {emailMismatch ? m.invite_switch_account() : m.invite_use_other_account()}
           </button>
         {:else if magicLinkSent}
           <p class="mt-6 rounded-lg bg-emerald-500/10 px-3 py-3 text-sm text-emerald-300">

@@ -699,9 +699,16 @@
   }
 
   const settleMutation = createMutation(() => ({
-    mutationFn: (vars: { id: string; prev: TransactionStatus }) =>
+    mutationFn: (vars: { id: string; prev: TransactionStatus; notificationId?: string }) =>
       updateTransactionsStatus([vars.id], "paid"),
     onSuccess: async (_data, vars) => {
+      if (vars.notificationId) {
+        try {
+          await markNotificationRead(vars.notificationId);
+        } catch {
+          // Settlement already succeeded — unread bell is recoverable.
+        }
+      }
       await invalidateAfterSettle();
       toast.success(m.toast_transaction_settled(), {
         action: {
@@ -728,10 +735,11 @@
     handledSettleKey = key;
 
     if (isQuickSettleEligible(match.status)) {
-      settleMutation.mutate({ id: match.id, prev: match.status });
-      if (settleNotificationId) {
-        void markNotificationRead(settleNotificationId);
-      }
+      settleMutation.mutate({
+        id: match.id,
+        prev: match.status,
+        notificationId: settleNotificationId ?? undefined,
+      });
     } else {
       sheetTx = match;
     }

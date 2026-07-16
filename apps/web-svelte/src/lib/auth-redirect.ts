@@ -24,6 +24,13 @@ export function loginUrlForTarget(target: string): string {
   return normalized === "/" ? "/login" : `/login?redirectTo=${encodeURIComponent(normalized)}`;
 }
 
+/** Auth callback URL that carries a post-login destination in the query string. */
+export function authCallbackUrlForTarget(origin: string, target: string): string {
+  const normalized = normalizeLoginRedirect(target);
+  if (normalized === "/") return `${origin}/auth/callback`;
+  return `${origin}/auth/callback?redirectTo=${encodeURIComponent(normalized)}`;
+}
+
 export function rememberLoginRedirect(target: string): void {
   if (typeof localStorage === "undefined") return;
   const normalized = normalizeLoginRedirect(target);
