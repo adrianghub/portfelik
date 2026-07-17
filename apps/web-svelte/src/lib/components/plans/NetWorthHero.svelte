@@ -100,7 +100,6 @@
         </button>
       {/if}
     </div>
-    <p class="mt-1 text-[11px] text-slate-400">{m.plans_net_worth_private_hint()}</p>
     <p
       class={cn(
         "mt-2 text-3xl font-semibold break-words tabular-nums sm:text-4xl",
@@ -148,8 +147,5 @@
     {/if}
 
     <p class="mt-3 text-[11px] text-slate-500">{m.plans_net_worth_manual_note()}</p>
-    {#if summary.goalAssets > 0}
-      <p class="mt-1 text-[11px] text-emerald-400/80">{m.net_worth_goal_assets_hint()}</p>
-    {/if}
   </section>
 {/if}
