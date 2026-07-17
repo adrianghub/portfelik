@@ -248,6 +248,66 @@ export async function mockSupabaseAPI(page: Page): Promise<void> {
         return route.fulfill({ status: 200, json: MOCK_PLANS });
       }
 
+      // ── RPCs ─────────────────────────────────────────────────────────────
+      if (url.includes("/rpc/")) {
+        if (url.includes("bulk_delete_transactions")) {
+          const body = route.request().postDataJSON() as {
+            p_transaction_ids?: string[];
+          };
+          return route.fulfill({
+            status: 200,
+            json: body.p_transaction_ids?.length ?? 0,
+          });
+        }
+        if (url.includes("save_debt_plan")) {
+          const body = route.request().postDataJSON() as Record<string, unknown>;
+          const planId =
+            (body.p_plan_id as string | null) ??
+            `plan-debt-${String(body.p_name ?? "new").slice(0, 8)}`;
+          return route.fulfill({
+            status: 200,
+            json: {
+              plan: {
+                id: planId,
+                name: body.p_name,
+                kind: "debt",
+                status: "active",
+                user_id: "00000000-0000-0000-0000-000000000001",
+                group_id: body.p_group_id ?? null,
+                category_id: body.p_category_id ?? null,
+                budget_amount: null,
+                target_amount: body.p_target_amount ?? body.p_original_amount,
+                start_date: body.p_start_date,
+                end_date: body.p_end_date,
+                created_at: "2026-06-01T10:00:00Z",
+                updated_at: "2026-06-01T10:00:00Z",
+              },
+              terms: {
+                plan_id: planId,
+                original_amount: body.p_original_amount,
+                current_balance: body.p_current_balance,
+                annual_rate: body.p_annual_rate,
+                monthly_payment: body.p_monthly_payment,
+                anchor_balance: body.p_current_balance,
+                balance_anchor_date: "2026-06-01",
+                first_payment_date: body.p_first_payment_date ?? null,
+                first_payment_amount: body.p_first_payment_amount ?? null,
+                created_at: "2026-06-01T10:00:00Z",
+                updated_at: "2026-06-01T10:00:00Z",
+              },
+            },
+          });
+        }
+        if (url.includes("create_and_link_plan_transaction")) {
+          return route.fulfill({ status: 200, json: "tx-created-linked" });
+        }
+        if (url.includes("sync_debt_current_balance_from_links")) {
+          return route.fulfill({ status: 200, json: null });
+        }
+        // Unknown RPC — succeed with null so pages don't hang on network errors.
+        return route.fulfill({ status: 200, json: null });
+      }
+
       // ── Groups / invitations / notifications / other ──────────────────────
       return route.fulfill({ status: 200, json: [] });
     });

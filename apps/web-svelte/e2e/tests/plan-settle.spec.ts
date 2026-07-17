@@ -22,6 +22,7 @@ const SETTLE_PLAN = {
   id: PLAN_ID,
   name: "Wakacje",
   kind: "debt",
+  status: "active",
   budget_amount: null,
   target_amount: 1000,
   start_date: "2026-07-01",
@@ -355,6 +356,12 @@ test.describe("plan settle page", () => {
       return route.fulfill({ status: 200, json: [] });
     });
 
+    await page.route(/.*\/rpc\/create_and_link_plan_transaction.*/, (route) => {
+      linked = true;
+      route.fulfill({ status: 200, json: createdTxId });
+    });
+
+    // Legacy path kept for older builds; create-and-link is the primary settle dialog path.
     await page.route(/.*\/rpc\/link_plan_transaction.*/, (route) => {
       linked = true;
       route.fulfill({ status: 200, json: { ...MOCK_LINK, transaction_id: createdTxId } });

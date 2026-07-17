@@ -1,6 +1,19 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { isoDaysFromToday } from "../helpers/fixtures";
 import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
+
+/** Click a DayPicker cell, advancing months when the date is off-screen. */
+async function pickCalendarDate(page: Page, isoDate: string): Promise<void> {
+  const cell = page.locator(`[data-date="${isoDate}"]`);
+  for (let i = 0; i < 18; i++) {
+    if (await cell.isVisible()) {
+      await cell.click();
+      return;
+    }
+    await page.getByRole("button", { name: "Następny miesiąc" }).click();
+  }
+  await cell.click();
+}
 
 test.beforeEach(async ({ page }) => {
   await injectFakeSession(page);
@@ -60,9 +73,9 @@ test("creates a saving goal with date period and target", async ({ page }) => {
   await page.getByRole("button", { name: "Nowy plan" }).first().click();
   await page.getByLabel("Nazwa").fill("Remont kuchni");
   await page.getByRole("button", { name: "Od", exact: true }).click();
-  await page.locator(`[data-date="${startDate}"]`).click();
+  await pickCalendarDate(page, startDate);
   await page.getByRole("button", { name: "Do", exact: true }).click();
-  await page.locator(`[data-date="${endDate}"]`).click();
+  await pickCalendarDate(page, endDate);
   await page.getByLabel("Kwota celu").fill("2500");
   await page.getByRole("button", { name: "Zapisz" }).click();
 
@@ -93,54 +106,41 @@ test("save plan detail shows progress and link CTA", async ({ page }) => {
 });
 
 test("creates a debt plan (Kredyt) with terms", async ({ page }) => {
-  let planBody: Record<string, unknown> | undefined;
-  let debtBody: Record<string, unknown> | undefined;
+  let rpcBody: Record<string, unknown> | undefined;
 
-  await page.route(/.*\/rest\/v1\/plans.*/, async (route) => {
-    const request = route.request();
-    if (request.method() === "POST") {
-      planBody = request.postDataJSON() as Record<string, unknown>;
-      return route.fulfill({
-        status: 201,
-        json: {
+  await page.route(/.*\/rpc\/save_debt_plan.*/, async (route) => {
+    rpcBody = route.request().postDataJSON() as Record<string, unknown>;
+    return route.fulfill({
+      status: 200,
+      json: {
+        plan: {
           id: "plan-debt-new",
-          name: planBody.name,
-          kind: planBody.kind ?? "debt",
+          name: rpcBody.p_name,
+          kind: "debt",
+          status: "active",
           user_id: "00000000-0000-0000-0000-000000000001",
           group_id: null,
           category_id: null,
           budget_amount: null,
-          target_amount: planBody.target_amount ?? null,
-          start_date: planBody.start_date,
-          end_date: planBody.end_date,
+          target_amount: rpcBody.p_target_amount ?? rpcBody.p_original_amount,
+          start_date: rpcBody.p_start_date,
+          end_date: rpcBody.p_end_date,
           created_at: "2026-06-01T10:00:00Z",
           updated_at: "2026-06-01T10:00:00Z",
         },
-      });
-    }
-    return route.fallback();
-  });
-
-  await page.route(/.*\/rest\/v1\/plan_debt_terms.*/, async (route) => {
-    const request = route.request();
-    if (request.method() === "POST") {
-      debtBody = request.postDataJSON() as Record<string, unknown>;
-      return route.fulfill({
-        status: 201,
-        json: {
-          plan_id: debtBody.plan_id,
-          original_amount: debtBody.original_amount,
-          current_balance: debtBody.current_balance,
-          annual_rate: debtBody.annual_rate,
-          monthly_payment: debtBody.monthly_payment,
-          anchor_balance: debtBody.current_balance,
+        terms: {
+          plan_id: "plan-debt-new",
+          original_amount: rpcBody.p_original_amount,
+          current_balance: rpcBody.p_current_balance,
+          annual_rate: rpcBody.p_annual_rate,
+          monthly_payment: rpcBody.p_monthly_payment,
+          anchor_balance: rpcBody.p_current_balance,
           balance_anchor_date: "2026-06-01",
           created_at: "2026-06-01T10:00:00Z",
           updated_at: "2026-06-01T10:00:00Z",
         },
-      });
-    }
-    return route.fallback();
+      },
+    });
   });
 
   await page.goto("/plans");
@@ -152,8 +152,9 @@ test("creates a debt plan (Kredyt) with terms", async ({ page }) => {
   await page.getByLabel("Oprocentowanie (% rocznie)").fill("7.18");
   await page.getByRole("button", { name: "Zapisz" }).click();
 
-  await expect.poll(() => planBody?.kind).toBe("debt");
-  await expect.poll(() => debtBody?.monthly_payment).toBe(2500);
+  await expect.poll(() => rpcBody?.p_name).toBe("Kredyt hipoteczny test");
+  await expect.poll(() => Number(rpcBody?.p_monthly_payment)).toBe(2500);
+  await expect.poll(() => Number(rpcBody?.p_original_amount)).toBe(400000);
   await expect(page.getByText("Plan dodany")).toBeVisible();
 });
 
