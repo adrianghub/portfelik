@@ -483,9 +483,7 @@
   const allocationByLabel = $derived.by(() => {
     const hist = bucketPeriodHistory(chartAllocationTxs, historyWindows);
     const fwd =
-      forwardWindows.length > 0
-        ? bucketPeriodHistory(chartAllocationTxs, forwardWindows)
-        : [];
+      forwardWindows.length > 0 ? bucketPeriodHistory(chartAllocationTxs, forwardWindows) : [];
     return new Map([...hist, ...fwd].map((b) => [b.label, b.total]));
   });
 

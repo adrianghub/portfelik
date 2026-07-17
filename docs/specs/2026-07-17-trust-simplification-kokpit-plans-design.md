@@ -1,7 +1,7 @@
 # Trust simplification — Kokpit, Plany, cash strip, goal detail
 
 Date: 2026-07-17
-Status: Approved (design); plan at `docs/plans/2026-07-17-trust-simplification-kokpit-plans.md`
+Status: Implemented (local); plan at `docs/plans/2026-07-17-trust-simplification-kokpit-plans.md`
 Branch base: `dev`
 Approach: **Trust + allocation pass** (UI honesty; engines keep ledger truth)
 

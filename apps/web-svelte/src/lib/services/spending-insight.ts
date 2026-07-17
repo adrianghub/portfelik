@@ -82,9 +82,7 @@ export function computeSpendingInsight(input: {
   const { periodsInRolling, budgets, saveLinkedIds, celeCategoryId } = input;
   const exclude = (list: TransactionWithCategory[]) =>
     saveLinkedIds != null || celeCategoryId != null
-      ? list.filter(
-          (t) => !isAllocationExpense(t, saveLinkedIds ?? new Set(), celeCategoryId)
-        )
+      ? list.filter((t) => !isAllocationExpense(t, saveLinkedIds ?? new Set(), celeCategoryId))
       : list;
   const current = exclude(ledgerTransactions(input.current));
   const previous = exclude(ledgerTransactions(input.previous));

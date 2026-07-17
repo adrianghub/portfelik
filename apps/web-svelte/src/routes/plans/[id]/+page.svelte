@@ -541,7 +541,7 @@
             pendingId: unlinkPendingId,
             setpending: (txId) => (unlinkPendingId = txId),
             loading: unlinkMutation.isPending,
-            onmanualadd: () => openManualTx("expense"),
+            onmanualadd: plan.kind === "save" ? undefined : () => openManualTx("expense"),
           })}
         {/if}
         {#if incomes.length > 0}
@@ -648,7 +648,7 @@
   pendingId: string | null;
   setpending: (txId: string) => void;
   loading: boolean;
-  onmanualadd: () => void;
+  onmanualadd?: () => void;
 })}
   <section class="min-w-0 space-y-2">
     {#if title}
@@ -659,13 +659,15 @@
         class="space-y-2 rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-400"
       >
         <p>{m.plan_linked_empty()}</p>
-        <button
-          type="button"
-          onclick={onmanualadd}
-          class="focus-visible:ring-accent text-xs font-medium text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:outline-none"
-        >
-          {m.plan_detail_manual_add()}
-        </button>
+        {#if onmanualadd}
+          <button
+            type="button"
+            onclick={onmanualadd}
+            class="focus-visible:ring-accent text-xs font-medium text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+          >
+            {m.plan_detail_manual_add()}
+          </button>
+        {/if}
       </div>
     {:else}
       <ul class="space-y-1">
