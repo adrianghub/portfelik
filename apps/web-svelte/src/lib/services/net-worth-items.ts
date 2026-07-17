@@ -35,43 +35,6 @@ export async function fetchNetWorthItems(): Promise<NetWorthItem[]> {
 }
 
 /**
- * Reconcile the user's items to exactly `items`: delete removed rows, upsert the
- * rest. Blank-labelled rows are dropped. `position` follows array order.
- *
  * Prefer `saveNetWorthSnapshot` for the /plans form — it atomically writes
- * snapshot + cash anchor + items. This helper remains for legacy/direct callers.
+ * snapshot + cash anchor + items.
  */
-export async function saveNetWorthItems(items: NetWorthItemInput[]): Promise<void> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("not_authenticated");
-
-  const cleaned = items.filter((i) => i.label.trim().length > 0);
-
-  const existing = await fetchNetWorthItems();
-  const toDelete = diffRemovedItemIds(existing, cleaned);
-  if (toDelete.length > 0) {
-    const { error } = await supabase.from("net_worth_items").delete().in("id", toDelete);
-    if (error) throw error;
-  }
-
-  if (cleaned.length === 0) return;
-
-  // Generate ids client-side for new rows so every payload row has the same
-  // columns. A mixed bulk upsert (some rows with id, some without) makes PostgREST
-  // send `id: null` for the id-less rows instead of applying the column default,
-  // which violates the NOT NULL primary key. Uniform columns avoid that; existing
-  // rows still update on their id, new rows insert with a fresh uuid.
-  const payload = cleaned.map((i, idx) => ({
-    id: i.id ?? crypto.randomUUID(),
-    user_id: user.id,
-    label: i.label.trim().slice(0, 60),
-    amount: Math.max(0, i.amount),
-    currency: i.currency,
-    position: idx,
-  }));
-
-  const { error } = await supabase.from("net_worth_items").upsert(payload);
-  if (error) throw error;
-}

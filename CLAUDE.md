@@ -7,24 +7,26 @@ Apply to every task regardless of phase.
 ### After every change
 
 1. **Sanity check** - `pnpm exec svelte-check --tsconfig ./tsconfig.json` (from `apps/web-svelte/`). 0 errors, 0 warnings.
-   **E2E (optional pre-PR)** - `pnpm test:e2e` from `apps/web-svelte/` (Chromium via `postinstall`; `pnpm test:e2e:install` if missing).
 2. **Lint** - `pnpm lint` (from `apps/web-svelte/`). 0 errors.
 3. **Format** - `pnpm format:check`; if fails run `pnpm format` then re-check.
-4. **Security** - `grep -rE "(eyJ[a-zA-Z0-9_-]{20,}|sb_secret_|PRIVATE|password\s*=)" <changed files>`. Flag anything before proceeding. Real cloud creds belong in `apps/web-svelte/.env.cloud.local` (gitignored). Local RLS JWTs belong in `apps/web-svelte/.env.test` (gitignored), never in `.env.test.example`.
-5. **Schema validation** - new tables: RLS enabled? Migrations: idempotent naming?
+4. **Unit** - `pnpm test:unit`. Green.
+5. **E2E (mandatory when UI/copy/routes/e2e change)** - `pnpm test:e2e` from `apps/web-svelte/`. Same mocked Playwright suite CI runs. **Do not claim PR-ready or ship invite-day UI without a fresh green run.** `scripts/pr-gates.sh` / `./scripts/open-pr.sh` fail the PR if this gate is skipped or red. Chromium via `postinstall`; `pnpm test:e2e:install` if missing.
+6. **Security** - `grep -rE "(eyJ[a-zA-Z0-9_-]{20,}|sb_secret_|PRIVATE|password\s*=)" <changed files>`. Flag anything before proceeding. Real cloud creds belong in `apps/web-svelte/.env.cloud.local` (gitignored). Local RLS JWTs belong in `apps/web-svelte/.env.test` (gitignored), never in `.env.test.example`.
+7. **Schema validation** - new tables: RLS enabled? Migrations: idempotent naming?
+8. **RLS** - when migrations/SQL change: `pnpm test:rls` with local Supabase up.
 
 ### Before finalising
 
-6. **Paraglide recompile** if `messages/pl.json` touched: `pnpm exec paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide` (from `apps/web-svelte/`).
-7. **Commit list** - MANDATORY after every increment. Output:
+9. **Paraglide recompile** if `messages/pl.json` touched: `pnpm exec paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide` (from `apps/web-svelte/`).
+10. **Commit list** - MANDATORY after every increment. Output:
    - (a) Ordered list of Conventional Commit messages (feat/fix/chore/refactor + scope + body explaining WHY)
    - (b) Exact file list per commit
    - User commits manually. Do not skip this step even if changes seem minor.
 
 ### After each increment
 
-8. **Update CLAUDE.md** phase table + "Immediate next step". Update `~/.claude/projects/.../memory/project_state.md`. Stale docs are worse than none.
-9. **Handoff notes** - next agent must cold-start from CLAUDE.md alone.
+11. **Update CLAUDE.md** phase table + "Immediate next step". Update `~/.claude/projects/.../memory/project_state.md`. Stale docs are worse than none.
+12. **Handoff notes** - next agent must cold-start from CLAUDE.md alone.
 
 ### Increment discipline
 
@@ -65,10 +67,10 @@ Apply to every task regardless of phase.
 Current product direction lives in `docs/product/product-direction.md`; UI
 doctrine lives in `docs/product/intent-oriented-ui.md`.
 
-**Product spine:** Pulpit, Transakcje, Import, Plany, Ustawienia. Main nav
-intentionally shows only Pulpit / Transakcje / Plany (+ Ustawienia in the
+**Product spine:** Kokpit, Transakcje, Import, Plany, Ustawienia. Main nav
+intentionally shows only Kokpit / Transakcje / Plany (+ Ustawienia in the
 avatar menu); Import is a flow, not a nav destination — entered from the
-Transakcje header, the Pulpit import-health card, and import reminders.
+Transakcje header, the Kokpit import-health card, and import reminders.
 Import is the preferred source of real transaction data. Manual transactions stay as
 fallback/corrections. Plans express future intent and should be settled by
 linking to existing transactions, not by creating financial truth by default.
@@ -171,7 +173,9 @@ be reached; source and gate output were verified locally.
 
 **Staging CI net-worth assertion follow-up (2026-07-15, local on `dev`):** staging run `29412905251` correctly rendered the debt-only net-worth summary, but `plans.spec.ts` still expected the retired empty prompt. The test now asserts `Majątek netto`, the fixture's `Kredyty 206 000,00 zł`, and absence of the empty prompt. Gates: focused case 1/1, complete plans E2E 6 passed/1 intentionally skipped, svelte-check 0/0, lint/format/diff clean.
 
-**Immediate next step (2026-07-16):** Follow-up **audit blocker remediation** in progress locally (`20260803160000`): debt-sync authz + paid-only + locks, plan link invariants, materialize slot validation, atomic create-and-link, PLN-without-rates, invite/push/import/cash mediums. **Do not treat Phases 1–8 as closed** until adversarial RLS + concurrency gates pass. After gates: commit manually, deploy staging, then residual coverage (concurrent debt links E2E, invite switch E2E).
+**Usability + residual security (2026-07-17, local on `dev`):** bank-app predictability pass — settle Cele copy, private net-worth labels, rolling “Ostatnie N dni”, cash strip scope+90d forecast, Nadchodzące, scoped empty plans; invite hardening migrations `20260804*`–`20260805000000` + Edge Functions; avatar picker restored; dead writers removed; RLS fixtures use service-role `createTestInvitation`. Gates: svelte-check 0/0, lint/format clean, unit 409/409, RLS 386/386.
+
+**Immediate next step (2026-07-17):** Manual commits → push `dev` → staging migrate + deploy `send-group-invitation` / `sync-user-role` → optionally set `SYNC_USER_ROLE_SECRET`. Dogfood private NW labels + settle copy with first invite cohort.
 
 **Open backlog:**
 

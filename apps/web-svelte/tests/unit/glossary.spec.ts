@@ -8,8 +8,9 @@ describe("glossary", () => {
     const ids = entries.map((e) => e.id);
     expect(ids).toContain("import");
     expect(ids).toContain("majatek_netto");
-    expect(ids).toContain("refinansowanie");
-    expect(entries.length).toBeGreaterThanOrEqual(15);
+    expect(ids).toContain("rozliczenie");
+    expect(ids).not.toContain("refinansowanie");
+    expect(entries.length).toBeGreaterThanOrEqual(14);
   });
 
   it("finds entries by id and search query", () => {

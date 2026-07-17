@@ -55,10 +55,12 @@ export interface BuildDashboardActionsInput {
   anomalies: SpendingAnomalyInput[];
   /**
    * Stable id of the current spending-insight period (e.g. its window start).
-   * Scopes anomaly dismissals so a later period's spike re-surfaces instead of
+   * Scopes anomaly and overdue dismissals so a later period re-surfaces instead of
    * being permanently silenced by one "Pomiń".
    */
   periodKey: string;
+  /** Inclusive end of the current period — used in anomaly deep links. */
+  periodEnd: string;
   dismissedKeys?: ReadonlySet<string>;
   limit?: number;
 }
@@ -72,8 +74,11 @@ const PRIORITY: Record<DashboardActionKind, number> = {
 const DEFAULT_LIMIT = 5;
 export const DASHBOARD_ACTIONS_PREVIEW = 3;
 
-function attentionMeta(id: string): { kind: DashboardActionKind; dismissKey: string } {
-  if (id === "overdue") return { kind: "overdue", dismissKey: "overdue" };
+function attentionMeta(
+  id: string,
+  periodKey: string
+): { kind: DashboardActionKind; dismissKey: string } {
+  if (id === "overdue") return { kind: "overdue", dismissKey: `overdue:${periodKey}` };
   return { kind: "save_off_track", dismissKey: `save_off_track:${id.replace(/^save-/, "")}` };
 }
 
@@ -118,7 +123,7 @@ export function buildDashboardActions(input: BuildDashboardActionsInput): Dashbo
   const out: DashboardAction[] = [];
 
   for (const item of buildAttentionItems(input.attention)) {
-    const { kind, dismissKey } = attentionMeta(item.id);
+    const { kind, dismissKey } = attentionMeta(item.id, input.periodKey);
     out.push({
       id: item.id,
       kind,
@@ -138,7 +143,7 @@ export function buildDashboardActions(input: BuildDashboardActionsInput): Dashbo
       tone: "warn",
       title: m.dashboard_action_anomaly_title({ name: a.name }),
       detail: m.dashboard_action_anomaly_detail(),
-      href: `/transactions?categoryId=${a.categoryId}`,
+      href: `/transactions?categoryId=${a.categoryId}&startDate=${input.periodKey}&endDate=${input.periodEnd}`,
       dismissKey: `spending_anomaly:${a.categoryId}:${input.periodKey}`,
     });
   }

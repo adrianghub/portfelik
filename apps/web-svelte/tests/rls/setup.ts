@@ -174,6 +174,26 @@ export function expectEmpty<T>(result: { data: T[] | null; error: unknown }): vo
 }
 
 /**
+ * Create a pending invitation the way production does (service-role delivery
+ * RPC). Authenticated clients no longer have EXECUTE on invite_user.
+ */
+export async function createTestInvitation(
+  admin: SupabaseClient,
+  groupId: string,
+  email: string,
+  actorId: string
+): Promise<{ id: string; token: string }> {
+  const { data, error } = await admin.rpc("create_group_invitation_for_delivery", {
+    p_group_id: groupId,
+    p_email: email,
+    p_actor_id: actorId,
+  });
+  if (error) throw error;
+  const result = data as { invitation: { id: string }; token: string };
+  return { id: result.invitation.id, token: result.token };
+}
+
+/**
  * Expects an unauthorized write (insert/update/delete) to fail OR affect 0 rows.
  * PostgREST returns error for blocked INSERT (with check), or 0 affected rows
  * for blocked UPDATE/DELETE (using clause filters them out).

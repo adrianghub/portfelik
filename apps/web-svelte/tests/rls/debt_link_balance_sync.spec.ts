@@ -286,4 +286,39 @@ describe("RPC: debt link balance sync", () => {
       .single();
     expect(Number(terms.data?.current_balance)).toBe(7500);
   });
+
+  it("concurrent links of different expenses both apply without lost sync", async () => {
+    const planId = await createDebtPlan(ctx.userA.userId, "concurrent links");
+    const txA = await createExpense(ctx.userA.userId, 1000, "2026-06-10");
+    const txB = await createExpense(ctx.userA.userId, 500, "2026-06-20");
+
+    const [a, b] = await Promise.all([
+      ctx.userA.client.rpc("link_plan_transaction", {
+        p_plan_id: planId,
+        p_transaction_id: txA,
+      }),
+      ctx.userA.client.rpc("link_plan_transaction", {
+        p_plan_id: planId,
+        p_transaction_id: txB,
+      }),
+    ]);
+    expect(a.error).toBeNull();
+    expect(b.error).toBeNull();
+
+    const terms = await ctx.admin
+      .from("plan_debt_terms")
+      .select("current_balance")
+      .eq("plan_id", planId)
+      .single();
+    expect(Number(terms.data?.current_balance)).toBe(8500);
+
+    const links = await ctx.admin
+      .from("plan_transaction_links")
+      .select("transaction_id")
+      .eq("plan_id", planId);
+    expect(links.error).toBeNull();
+    expect(new Set((links.data ?? []).map((r) => r.transaction_id))).toEqual(
+      new Set([txA, txB])
+    );
+  });
 });

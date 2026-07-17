@@ -78,6 +78,26 @@ describe("RLS: former member loses group write access", () => {
     await cleanupSentinels(ctx.admin);
   });
 
+  it("former member cannot select their own group transaction", async () => {
+    const result = await ctx.userB.client
+      .from("transactions")
+      .select("id")
+      .eq("id", groupTxId)
+      .maybeSingle();
+    expect(result.error).toBeNull();
+    expect(result.data).toBeNull();
+  });
+
+  it("former member cannot select their own group plan", async () => {
+    const result = await ctx.userB.client
+      .from("plans")
+      .select("id")
+      .eq("id", groupPlanId)
+      .maybeSingle();
+    expect(result.error).toBeNull();
+    expect(result.data).toBeNull();
+  });
+
   it("former member cannot update their own group transaction", async () => {
     const result = await ctx.userB.client
       .from("transactions")

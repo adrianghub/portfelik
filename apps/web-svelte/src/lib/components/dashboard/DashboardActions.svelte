@@ -28,10 +28,12 @@
     overdueCount: number;
     /** Current-period spending insight (anomalies surface as actions). */
     insight: SpendingInsight | null;
-    /** Stable id of the current spending period — scopes anomaly dismissals. */
+    /** Stable id of the current spending period — scopes dismissals. */
     periodKey: string;
+    /** Inclusive end of the current period — anomaly deep links. */
+    periodEnd: string;
   }
-  let { overdueCount, insight, periodKey }: Props = $props();
+  let { overdueCount, insight, periodKey, periodEnd }: Props = $props();
 
   let actionsDialogOpen = $state(false);
 
@@ -81,6 +83,7 @@
       attention: { overdueCount, plans },
       anomalies,
       periodKey,
+      periodEnd,
       dismissedKeys: dismissalsQuery.data ?? new Set<string>(),
     })
   );

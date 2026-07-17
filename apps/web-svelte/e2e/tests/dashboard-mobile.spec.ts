@@ -54,12 +54,12 @@ test.describe("dashboard mobile layout", () => {
     await page.goto("/dashboard");
 
     // Rolling 30-day chip writes the period param.
-    await page.getByRole("tab", { name: "30 dni" }).click();
+    await page.getByRole("tab", { name: /ostatnie 30 dni/i }).click();
     await expect(page).toHaveURL(/period=month/);
 
     // Picking a range via the date picker switches to custom (startDate/endDate,
     // period param dropped) — presets apply immediately.
-    await page.getByRole("button", { name: /^daty$/i }).click();
+    await page.getByRole("button", { name: /zakres dat/i }).click();
     await page.getByRole("button", { name: /^ten miesiąc$/i }).click();
     await expect(page).toHaveURL(/startDate=\d{4}-\d{2}-\d{2}/);
     await expect(page).not.toHaveURL(/period=/);

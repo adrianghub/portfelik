@@ -12,10 +12,6 @@ import type {
   PlanDebtTerms,
 } from "$lib/types";
 
-export interface FinancialSnapshotInput {
-  as_of_date: string;
-}
-
 export interface SaveNetWorthSnapshotInput {
   as_of_date: string;
   opening_amount: number;
@@ -133,33 +129,6 @@ export async function fetchFinancialSnapshot(): Promise<FinancialSnapshot | null
     .maybeSingle();
   if (error) throw error;
   return (data as FinancialSnapshot | null) ?? null;
-}
-
-export async function upsertFinancialSnapshot(
-  input: FinancialSnapshotInput
-): Promise<FinancialSnapshot> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("not_authenticated");
-
-  // Assets now live in net_worth_items; the snapshot row only carries the "as of"
-  // date for the net-worth display. Legacy amount columns are kept at 0.
-  const payload = {
-    user_id: user.id,
-    as_of_date: input.as_of_date,
-    cash_amount: 0,
-    investments_amount: 0,
-    real_estate_amount: 0,
-  };
-
-  const { data, error } = await supabase
-    .from("financial_snapshots")
-    .upsert(payload, { onConflict: "user_id" })
-    .select()
-    .single();
-  if (error) throw error;
-  return data as FinancialSnapshot;
 }
 
 /** Atomically saves snapshot date, private cash anchor, and net-worth items. */

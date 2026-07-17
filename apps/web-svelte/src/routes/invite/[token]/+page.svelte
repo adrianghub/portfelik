@@ -43,7 +43,16 @@
         replaceState: true,
       });
     } catch (claimError) {
-      const mismatch = claimError instanceof Error && claimError.message.includes("email_mismatch");
+      const claimMessage =
+        claimError instanceof Error
+          ? claimError.message
+          : typeof claimError === "object" &&
+              claimError !== null &&
+              "message" in claimError &&
+              typeof (claimError as { message: unknown }).message === "string"
+            ? (claimError as { message: string }).message
+            : String(claimError ?? "");
+      const mismatch = claimMessage.includes("email_mismatch");
       emailMismatch = mismatch;
       error = mismatch ? m.invite_email_mismatch() : m.invite_claim_error();
       submitting = false;

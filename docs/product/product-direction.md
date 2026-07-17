@@ -1,14 +1,15 @@
 # Product Direction
 
-Last updated: 2026-06-26
+Last updated: 2026-07-17
 
-Portfelik is an import-first personal finance PWA. It is not trying to become a
-manual bookkeeping spreadsheet with charts. The product should connect what
-actually happened in the user's finances with what the user intended to do.
+JakStoimy (repo: Portfelik) is an import-first personal finance PWA. It is not
+trying to become a manual bookkeeping spreadsheet with charts. The product
+should connect what actually happened in the user's finances with what the user
+intended to do.
 
 ## Product Thesis
 
-Portfelik helps users understand everyday finances by importing bank history,
+JakStoimy helps users understand everyday finances by importing bank history,
 organizing transactions, seeing the month clearly, and reconciling plans with
 real spending.
 
@@ -21,7 +22,7 @@ flowchart LR
   Alerts[Alert importu] --> Import
   Transactions --> Settlement[Zrealizuj plan]
   Plans[Plany] --> Settlement
-  Transactions --> Dashboard[Pulpit]
+  Transactions --> Dashboard[Kokpit]
   Settlement --> Dashboard
 ```
 
@@ -31,7 +32,7 @@ The product has five first-class modules:
 
 | Module         | Role                                                                                                         |
 | -------------- | ------------------------------------------------------------------------------------------------------------ |
-| **Pulpit**     | Shows the health of the current month: income, expenses, balance, largest categories, plan progress, and deterministic action prompts. |
+| **Kokpit**     | Shows period health: income, expenses, balance, largest categories, plan progress, and deterministic action prompts. |
 | **Transakcje** | The confirmed ledger of financial history, upcoming obligations, recurring occurrences, and private cash-position context. |
 | **Import**     | Structured intake from bank files: parse, preview, categorize, handle duplicates, confirm, and commit.       |
 | **Plany**      | Future intent for `save` goals and `debt` loans; manual net-worth hero; settle by linking history transactions. |
@@ -40,7 +41,7 @@ The product has five first-class modules:
 This is the product contract:
 
 > Import shows what happened. Transactions organize history. Plans express
-> intent. Settlement connects reality to intent. Dashboard shows financial
+> intent. Settlement connects reality to intent. Kokpit shows financial
 > condition.
 
 ## Import Posture
@@ -77,7 +78,7 @@ cash spend, missing bank rows, corrections, or exceptional records.
 ## Alerts
 
 Alerts should reinforce the product loop instead of becoming a generic task
-system. The first alert is an import reminder: the user can ask Portfelik to
+system. The first alert is an import reminder: the user can ask JakStoimy to
 remind them after 7, 14, or 30 days without a committed bank import.
 
 This matches the import-first posture:
@@ -93,9 +94,10 @@ transactions, plans, groups, or settlement current, and they must be explainable
 from deterministic product state.
 
 Dashboard action cards follow the same rule. They are deterministic prompts over
-already-computed product state: overdue or stale-import attention, off-track save
-goals, spending anomalies, and settlement-ready plans. Dismissals are memory for
-attention surfaces, not financial truth.
+already-computed product state: overdue attention, off-track save goals, and
+spending anomalies. Import health and settle-ready progress live on dedicated
+Kokpit/Plany surfaces rather than duplicating every signal in the action list.
+Dismissals are memory for attention surfaces, not financial truth.
 
 ## Recurring Entries And Cash Position
 
@@ -121,13 +123,15 @@ truth by default. The primary settlement flow is:
 flowchart LR
   Plan[Plan<br/>Cel oszczędzania albo kredyt] --> Link[Zrealizuj plan]
   Tx1[Imported expense<br/>Rata] --> Link
-  Tx2[Imported income<br/>Wpłata na cel] --> Link
+  Tx2[Cele expense<br/>Wpłata na cel] --> Link
   Link --> Progress[Progress<br/>wpłacono / spłacono / pozostało]
 ```
 
 Current settlement direction:
 
-- Saving goals link income transactions; loans link expense transactions.
+- Both saving goals and loans settle with **paid expense** transactions.
+  Save contributions use the Cele category (via `add_plan_contribution` or
+  linking an eligible expense); loans link installment expenses.
 - A transaction belongs to at most one plan until split allocation is explicitly
   designed.
 - Use the dedicated `plans` + `plan_transaction_links` model for settlement.
@@ -138,7 +142,7 @@ Current settlement direction:
 
 ## Groups And Invitations
 
-Portfelik is personal finance, but not always single-player. Groups and
+JakStoimy is personal finance, but not always single-player. Groups and
 invitations are a first-class collaboration layer for couples, friends,
 housemates, and other trusted small groups who share financial reality.
 
@@ -198,7 +202,7 @@ by plan kind.
 
 | Stage     | Product scope                                                                                                                                                                              |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **MVP**   | Pulpit, Transakcje, Import CSV, first-class Plany, Ustawienia, groups/invites, categories, rules, privacy/regulatory basics.                                                               |
+| **MVP**   | Kokpit, Transakcje, Import CSV, first-class Plany, Ustawienia, groups/invites, categories, rules, privacy/regulatory basics.                                                               |
 | **MVP+**  | Manual plan-to-transaction linking, plan progress, import as first-class module, manual transactions clearly secondary, shared plan settlement scope rules, group co-owner role direction, save/debt plan kinds, derived cash position, and actionable recurring occurrences. |
 | **V1**    | Deterministic plan matching and attention surfaces: suggestions, score, reasons, accepted/rejected/dismissed memory.                                                                       |
 | **Later** | Future product paths after the deterministic trust fixes: deeper automation, quiet gamification, split allocations, durable offline write outbox, AI explanations/proposals, net-worth snapshot hub, Belka in invest compare, deeper observability. |

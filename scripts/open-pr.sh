@@ -66,6 +66,12 @@ else
   RLS_LINE="- $(ck "$(gateval test:rls)") RLS suite is green"
 fi
 
+if [ "$(gateval test:e2e)" = NA ]; then
+  E2E_LINE="- [x] Mocked E2E - not applicable (no UI/copy/e2e change)"
+else
+  E2E_LINE="- $(ck "$(gateval test:e2e)") \`pnpm test:e2e\` (mocked Playwright) is green"
+fi
+
 BODY="$(cat <<EOF
 <!-- Auto-filled by scripts/open-pr.sh - do not hand-edit. -->
 ## Summary
@@ -82,6 +88,7 @@ $WHY
 - $(ck "$(gateval lint)") \`pnpm lint\` is clean
 - $(ck "$(gateval format)") \`pnpm format:check\` is clean
 - $(ck "$(gateval test:unit)") \`pnpm test:unit\` is green
+$E2E_LINE
 $RLS_LINE
 - $(ck "$(gateval secret-scan)") Secret scan is clean
 

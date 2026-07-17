@@ -29,7 +29,7 @@ export const MOCK_PROFILE_FRESH_TOUR = {
 };
 
 /** Matches `tour_welcome_import` in messages/pl.json */
-export const WELCOME_TOUR_SKIP_BUTTON = "Pomiń przewodnik";
+export const WELCOME_TOUR_SKIP_BUTTON = "Przejdź do importu";
 
 export const MOCK_CATEGORIES = [
   { id: "cat-1", name: "Jedzenie", type: "expense", user_id: null },

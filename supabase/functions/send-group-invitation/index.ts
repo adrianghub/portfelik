@@ -108,13 +108,22 @@ Deno.serve(async (req: Request) => {
 
   if (body.action === "access") {
     if (!body.token) return json(req, { error: "invalid_request" }, 400);
+    const rate = await admin.rpc("record_group_invitation_access_attempt", {
+      p_token: body.token,
+      p_email: email,
+    });
+    if (rate.error) {
+      return json(req, { error: "access_rate_check_failed" }, 500);
+    }
+    // Uniform denial: rate-limit and verify failures share the same status/body so
+    // callers cannot distinguish unknown tokens from wrong-email on valid tokens.
+    const denied = json(req, { error: "invitation_access_denied" }, 403);
+    if (rate.data !== true) return denied;
     const verified = await admin.rpc("verify_group_invitation_recipient", {
       p_token: body.token,
       p_email: email,
     });
-    if (verified.error || verified.data !== true) {
-      return json(req, { error: "invitation_email_mismatch" }, 403);
-    }
+    if (verified.error || verified.data !== true) return denied;
     let link = await admin.auth.admin.generateLink({
       type: "invite",
       email,
@@ -172,7 +181,7 @@ Deno.serve(async (req: Request) => {
       p_actor_id: authData.user.id,
     },
   );
-  if (error) return json(req, { error: error.message }, 400);
+  if (error) return json(req, { error: "invitation_create_failed" }, 400);
 
   const result = data as {
     invitation: { id: string; group_name: string };

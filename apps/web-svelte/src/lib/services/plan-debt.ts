@@ -244,37 +244,6 @@ export async function saveDebtPlan(input: SaveDebtPlanInput): Promise<SaveDebtPl
   return data as unknown as SaveDebtPlanResult;
 }
 
-export async function updatePlanDebtBalance(planId: string, currentBalance: number): Promise<void> {
-  const { error } = await supabase
-    .from("plan_debt_terms")
-    .update({ current_balance: currentBalance })
-    .eq("plan_id", planId);
-  if (error) throw error;
-}
-
-/**
- * Persist the derived live balance into the current_balance cache (does not mutate the snapshot anchor).
- * Prefer relying on link/unlink RPCs (they sync automatically). Kept for the manual "sync from links" button.
- */
-export async function applyDebtBalanceFromLinks(
-  planId: string,
-  terms: Pick<
-    PlanDebtTerms,
-    | "original_amount"
-    | "annual_rate"
-    | "monthly_payment"
-    | "anchor_balance"
-    | "balance_anchor_date"
-    | "first_payment_date"
-    | "first_payment_amount"
-  >,
-  planStartDate: string,
-  linkedExpenses: DebtLinkedPayment[]
-): Promise<void> {
-  const derived = deriveDebtDisplayBalance(terms, planStartDate, linkedExpenses, todayIso());
-  await updatePlanDebtBalance(planId, derived);
-}
-
 /** Server-side liveBalance sync (same math as link/unlink RPCs). */
 export async function syncDebtBalanceFromLinks(planId: string): Promise<number | null> {
   const { data, error } = await supabase.rpc("sync_debt_current_balance_from_links", {

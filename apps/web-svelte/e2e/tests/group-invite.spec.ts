@@ -199,4 +199,44 @@ test.describe("group invite", () => {
     await expect(page.getByRole("button", { name: "Akceptuj" })).not.toBeVisible();
     await expect(page.getByText("Od znajomego")).toBeVisible();
   });
+
+  test("email mismatch offers switch-account recovery", async ({ page }) => {
+    await injectFakeSession(page);
+    await mockSupabaseAPI(page);
+    await page.route(/.*\/rest\/v1\/rpc\/get_group_invitation_preview/, (route) => {
+      route.fulfill({
+        status: 200,
+        json: {
+          groupName: "Rodzina",
+          inviterName: "Ada",
+          recipientMasked: "p***@portfelik.test",
+          expiresAt: "2099-06-08T00:00:00Z",
+        },
+      });
+    });
+    await page.route(/.*\/rest\/v1\/rpc\/claim_group_invitation/, (route) => {
+      route.fulfill({
+        status: 400,
+        contentType: "application/json",
+        json: {
+          code: "P0001",
+          message: "email_mismatch",
+          details: null,
+          hint: null,
+        },
+      });
+    });
+    await page.route(/.*\/auth\/v1\/logout.*/, (route) => {
+      route.fulfill({ status: 204, body: "" });
+    });
+
+    await page.goto("/invite/a".padEnd(72, "b"));
+    await expect(page.getByRole("heading", { name: "Rodzina" })).toBeVisible();
+    await page.getByRole("button", { name: "Dołącz do grupy" }).click();
+    await expect(page.getByRole("alert")).toContainText(
+      "Zaloguj się adresem e-mail, na który wysłano zaproszenie."
+    );
+    await page.getByRole("button", { name: "Wyloguj i użyj właściwego konta" }).click();
+    await expect(page.getByRole("button", { name: "Dołącz do grupy" })).toHaveCount(0);
+  });
 });

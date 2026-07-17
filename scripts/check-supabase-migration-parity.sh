@@ -24,6 +24,8 @@ parity_report="$(
   printf '%s\n' "$output" | awk -F '|' '
     function trim(value) {
       gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+      # Newer Supabase CLI wraps versions in markdown backticks.
+      gsub(/`/, "", value)
       return value
     }
 
