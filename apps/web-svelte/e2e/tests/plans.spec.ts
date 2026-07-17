@@ -1,18 +1,17 @@
-import { expect, test, type Page } from "@playwright/test";
-import { isoDaysFromToday } from "../helpers/fixtures";
+import { expect, test } from "@playwright/test";
 import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
 
-/** Click a DayPicker cell, advancing months when the date is off-screen. */
-async function pickCalendarDate(page: Page, isoDate: string): Promise<void> {
-  const cell = page.locator(`[data-date="${isoDate}"]`);
-  for (let i = 0; i < 18; i++) {
-    if (await cell.isVisible()) {
-      await cell.click();
-      return;
-    }
-    await page.getByRole("button", { name: "Następny miesiąc" }).click();
-  }
-  await cell.click();
+/** Two ISO dates in the currently open calendar month (always on-grid). */
+function datesInCurrentMonth(): { startDate: string; endDate: string } {
+  const now = new Date();
+  const y = now.getFullYear();
+  const month = now.getMonth();
+  const lastDay = new Date(y, month + 1, 0).getDate();
+  const startDay = Math.min(8, lastDay - 3);
+  const endDay = Math.min(22, lastDay);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const ym = `${y}-${pad(month + 1)}`;
+  return { startDate: `${ym}-${pad(startDay)}`, endDate: `${ym}-${pad(endDay)}` };
 }
 
 test.beforeEach(async ({ page }) => {
@@ -66,16 +65,15 @@ test("creates a saving goal with date period and target", async ({ page }) => {
     return route.fallback();
   });
 
-  const startDate = isoDaysFromToday(5);
-  const endDate = isoDaysFromToday(25);
+  const { startDate, endDate } = datesInCurrentMonth();
 
   await page.goto("/plans");
   await page.getByRole("button", { name: "Nowy plan" }).first().click();
   await page.getByLabel("Nazwa").fill("Remont kuchni");
   await page.getByRole("button", { name: "Od", exact: true }).click();
-  await pickCalendarDate(page, startDate);
+  await page.locator(`[data-date="${startDate}"]`).click();
   await page.getByRole("button", { name: "Do", exact: true }).click();
-  await pickCalendarDate(page, endDate);
+  await page.locator(`[data-date="${endDate}"]`).click();
   await page.getByLabel("Kwota celu").fill("2500");
   await page.getByRole("button", { name: "Zapisz" }).click();
 
