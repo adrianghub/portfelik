@@ -99,6 +99,19 @@ else
   gate test:rls NA "no schema/policy changes"
 fi
 
+# --- E2E mocked suite (required when UI, copy, routes, or e2e specs change) ---
+# Skipping this is what caused invite-day PR ping-pong. Always run the same suite
+# CI runs when the surface can break Playwright locators or a11y.
+if changed_match '(^|/)(apps/web-svelte/(src|e2e|messages)/|messages/pl\.json)'; then
+  if (cd "$WEB" && pnpm test:e2e >/tmp/pr-e2e.log 2>&1); then
+    gate test:e2e PASS "green"
+  else
+    gate test:e2e FAIL "see /tmp/pr-e2e.log (run: cd apps/web-svelte && pnpm test:e2e)"
+  fi
+else
+  gate test:e2e NA "no UI/copy/e2e changes"
+fi
+
 # --- detection flags ---
 mig="$(printf '%s\n' "$CHANGED" | grep -E '^supabase/migrations/' || true)"
 if [ -n "$mig" ]; then

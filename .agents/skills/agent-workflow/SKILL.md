@@ -32,4 +32,9 @@ Use parallel delegation when the workstreams are independent. Chain delegation w
 
 ## Verification
 
-Run the smallest relevant check first, then the required gates from `CLAUDE.md` before PR creation. For UI changes, verify actual rendered behavior. For database changes, verify migrations are idempotent, RLS remains enabled, and production/staging scopes are explicit.
+Run the smallest relevant check first, then the required gates from `CLAUDE.md`
+before PR creation — including **mocked Playwright E2E** whenever UI, copy,
+routes, or e2e specs change (`scripts/pr-gates.sh` enforces this). For UI
+changes, verify actual rendered behavior. For database changes, verify
+migrations are idempotent, RLS remains enabled, and production/staging scopes
+are explicit.

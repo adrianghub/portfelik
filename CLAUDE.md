@@ -7,24 +7,26 @@ Apply to every task regardless of phase.
 ### After every change
 
 1. **Sanity check** - `pnpm exec svelte-check --tsconfig ./tsconfig.json` (from `apps/web-svelte/`). 0 errors, 0 warnings.
-   **E2E (optional pre-PR)** - `pnpm test:e2e` from `apps/web-svelte/` (Chromium via `postinstall`; `pnpm test:e2e:install` if missing).
 2. **Lint** - `pnpm lint` (from `apps/web-svelte/`). 0 errors.
 3. **Format** - `pnpm format:check`; if fails run `pnpm format` then re-check.
-4. **Security** - `grep -rE "(eyJ[a-zA-Z0-9_-]{20,}|sb_secret_|PRIVATE|password\s*=)" <changed files>`. Flag anything before proceeding. Real cloud creds belong in `apps/web-svelte/.env.cloud.local` (gitignored). Local RLS JWTs belong in `apps/web-svelte/.env.test` (gitignored), never in `.env.test.example`.
-5. **Schema validation** - new tables: RLS enabled? Migrations: idempotent naming?
+4. **Unit** - `pnpm test:unit`. Green.
+5. **E2E (mandatory when UI/copy/routes/e2e change)** - `pnpm test:e2e` from `apps/web-svelte/`. Same mocked Playwright suite CI runs. **Do not claim PR-ready or ship invite-day UI without a fresh green run.** `scripts/pr-gates.sh` / `./scripts/open-pr.sh` fail the PR if this gate is skipped or red. Chromium via `postinstall`; `pnpm test:e2e:install` if missing.
+6. **Security** - `grep -rE "(eyJ[a-zA-Z0-9_-]{20,}|sb_secret_|PRIVATE|password\s*=)" <changed files>`. Flag anything before proceeding. Real cloud creds belong in `apps/web-svelte/.env.cloud.local` (gitignored). Local RLS JWTs belong in `apps/web-svelte/.env.test` (gitignored), never in `.env.test.example`.
+7. **Schema validation** - new tables: RLS enabled? Migrations: idempotent naming?
+8. **RLS** - when migrations/SQL change: `pnpm test:rls` with local Supabase up.
 
 ### Before finalising
 
-6. **Paraglide recompile** if `messages/pl.json` touched: `pnpm exec paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide` (from `apps/web-svelte/`).
-7. **Commit list** - MANDATORY after every increment. Output:
+9. **Paraglide recompile** if `messages/pl.json` touched: `pnpm exec paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide` (from `apps/web-svelte/`).
+10. **Commit list** - MANDATORY after every increment. Output:
    - (a) Ordered list of Conventional Commit messages (feat/fix/chore/refactor + scope + body explaining WHY)
    - (b) Exact file list per commit
    - User commits manually. Do not skip this step even if changes seem minor.
 
 ### After each increment
 
-8. **Update CLAUDE.md** phase table + "Immediate next step". Update `~/.claude/projects/.../memory/project_state.md`. Stale docs are worse than none.
-9. **Handoff notes** - next agent must cold-start from CLAUDE.md alone.
+11. **Update CLAUDE.md** phase table + "Immediate next step". Update `~/.claude/projects/.../memory/project_state.md`. Stale docs are worse than none.
+12. **Handoff notes** - next agent must cold-start from CLAUDE.md alone.
 
 ### Increment discipline
 

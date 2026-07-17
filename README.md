@@ -97,7 +97,7 @@ pnpm dev
 | `pnpm lint` / `pnpm format` | ESLint / Prettier |
 | `pnpm test:unit` | Unit tests |
 | `pnpm test:rls` | RLS + RPC integration (needs local Supabase + `.env.test`) |
-| `pnpm test:e2e` | Playwright (Chromium installed via `postinstall`) |
+| `pnpm test:e2e` | Mocked Playwright suite (mandatory for UI/copy/e2e PRs via `pr-gates.sh`) |
 | `pnpm build` | Static production build → `build/` |
 
 ## Branch and deploy flow
