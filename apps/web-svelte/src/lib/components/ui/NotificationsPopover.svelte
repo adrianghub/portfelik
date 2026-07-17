@@ -21,6 +21,7 @@
     isActionableNotification,
     notificationSettleHref,
   } from "$lib/services/notification-actions";
+  import { toastError } from "$lib/toast-error";
   import * as m from "$lib/paraglide/messages";
 
   interface Props {
@@ -53,21 +54,25 @@
   const markReadMutation = createMutation(() => ({
     mutationFn: (id: string) => markNotificationRead(id),
     onSuccess: () => notifyNotificationsChanged(queryClient),
+    onError: (err) => toastError(err),
   }));
 
   const markUnreadMutation = createMutation(() => ({
     mutationFn: (id: string) => markNotificationUnread(id),
     onSuccess: () => notifyNotificationsChanged(queryClient),
+    onError: (err) => toastError(err),
   }));
 
   const markAllMutation = createMutation(() => ({
     mutationFn: markAllNotificationsRead,
     onSuccess: () => notifyNotificationsChanged(queryClient),
+    onError: (err) => toastError(err),
   }));
 
   const deleteMutation = createMutation(() => ({
     mutationFn: (id: string) => deleteNotification(id),
     onSuccess: () => notifyNotificationsChanged(queryClient),
+    onError: (err) => toastError(err),
   }));
 
   function handleOpen() {
