@@ -1,6 +1,7 @@
+import { trackOnce } from "$lib/analytics";
 import { todayIso } from "$lib/services/plans";
 import { supabase } from "$lib/supabase";
-import type { PlanDebtTerms } from "$lib/types";
+import type { Plan, PlanDebtTerms } from "$lib/types";
 import {
   interestPaidThrough,
   liveBalance,
@@ -95,6 +96,29 @@ export type PlanDebtTermsInput = {
   clear_balance_anchor?: boolean;
 };
 
+export interface SaveDebtPlanInput {
+  plan_id?: string | null;
+  name: string;
+  group_id?: string | null;
+  category_id?: string | null;
+  start_date: string;
+  end_date: string;
+  target_amount?: number | null;
+  original_amount: number;
+  current_balance: number;
+  annual_rate: number;
+  monthly_payment: number;
+  first_payment_date?: string | null;
+  first_payment_amount?: number | null;
+  reset_balance_anchor?: boolean;
+  clear_balance_anchor?: boolean;
+}
+
+export interface SaveDebtPlanResult {
+  plan: Plan;
+  terms: PlanDebtTerms;
+}
+
 export function normalizeDebtTermsInput(input: PlanDebtTermsInput): PlanDebtTermsInput {
   const original = Math.abs(Number(input.original_amount));
   const balanceProvided =
@@ -183,6 +207,43 @@ export async function upsertPlanDebtTerms(
   return data as PlanDebtTerms;
 }
 
+/** Atomically creates or updates a debt plan and its terms. */
+export async function saveDebtPlan(input: SaveDebtPlanInput): Promise<SaveDebtPlanResult> {
+  const terms = normalizeDebtTermsInput(input);
+  const name = input.name.trim();
+  if (!name) throw new Error("name_required");
+  if (!input.start_date || !input.end_date) throw new Error("date_required");
+  if (input.end_date < input.start_date) throw new Error("date_order");
+
+  const target =
+    input.target_amount != null && !Number.isNaN(input.target_amount) && input.target_amount > 0
+      ? Math.abs(input.target_amount)
+      : terms.original_amount;
+
+  const { data, error } = await supabase.rpc("save_debt_plan", {
+    p_plan_id: input.plan_id ?? null,
+    p_name: name,
+    p_group_id: input.group_id ?? null,
+    p_category_id: input.category_id ?? null,
+    p_start_date: input.start_date,
+    p_end_date: input.end_date,
+    p_target_amount: target,
+    p_original_amount: terms.original_amount,
+    p_current_balance: terms.current_balance,
+    p_annual_rate: terms.annual_rate,
+    p_monthly_payment: terms.monthly_payment,
+    p_first_payment_date: input.first_payment_date ?? null,
+    p_first_payment_amount: input.first_payment_amount ?? null,
+    p_reset_balance_anchor: input.reset_balance_anchor ?? false,
+    p_clear_balance_anchor: input.clear_balance_anchor ?? false,
+  });
+  if (error) throw error;
+  if (!input.plan_id) {
+    trackOnce("first_plan_created", { kind: "debt" });
+  }
+  return data as unknown as SaveDebtPlanResult;
+}
+
 export async function updatePlanDebtBalance(planId: string, currentBalance: number): Promise<void> {
   const { error } = await supabase
     .from("plan_debt_terms")
@@ -191,7 +252,10 @@ export async function updatePlanDebtBalance(planId: string, currentBalance: numb
   if (error) throw error;
 }
 
-/** Persist the derived live balance into the current_balance cache (does not mutate the snapshot anchor). */
+/**
+ * Persist the derived live balance into the current_balance cache (does not mutate the snapshot anchor).
+ * Prefer relying on link/unlink RPCs (they sync automatically). Kept for the manual "sync from links" button.
+ */
 export async function applyDebtBalanceFromLinks(
   planId: string,
   terms: Pick<
@@ -209,6 +273,15 @@ export async function applyDebtBalanceFromLinks(
 ): Promise<void> {
   const derived = deriveDebtDisplayBalance(terms, planStartDate, linkedExpenses, todayIso());
   await updatePlanDebtBalance(planId, derived);
+}
+
+/** Server-side liveBalance sync (same math as link/unlink RPCs). */
+export async function syncDebtBalanceFromLinks(planId: string): Promise<number | null> {
+  const { data, error } = await supabase.rpc("sync_debt_current_balance_from_links", {
+    p_plan_id: planId,
+  });
+  if (error) throw error;
+  return data == null ? null : Number(data);
 }
 
 export async function fetchPlanDebtTermsByPlanIds(

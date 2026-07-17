@@ -20,9 +20,11 @@ self.addEventListener('activate', (event) => {
 	);
 });
 
-async function hasVisibleClient() {
+async function hasFocusedClient() {
 	const windowClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
-	return windowClients.some((client) => client.visibilityState === 'visible');
+	// visibility alone is not enough: a visible but unfocused tab would otherwise
+	// suppress the OS banner while the client also skips the toast (no focus).
+	return windowClients.some((client) => client.focused);
 }
 
 function broadcastInvalidate() {
@@ -92,9 +94,9 @@ self.addEventListener('push', (event) => {
 	const tag = obligationTag(data);
 
 	event.waitUntil(
-		hasVisibleClient().then((visible) => {
+		hasFocusedClient().then((focused) => {
 			broadcastInvalidate();
-			if (visible) {
+			if (focused) {
 				return notifyOpenClients({
 					title: payload.title,
 					body: payload.body,

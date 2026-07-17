@@ -9,6 +9,7 @@
   import { createCategory, fetchCategories } from "$lib/services/categories";
   import { fetchUserGroups } from "$lib/services/groups";
   import {
+    buildCategorizationRuleEditPatch,
     createCategorizationRule,
     deleteCategorizationRule,
     fetchCategorizationRules,
@@ -44,11 +45,12 @@
     type RowDecision,
   } from "$lib/services/bank-import";
   import { fetchProfile } from "$lib/services/profiles";
-  import { supabase } from "$lib/supabase";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { toast } from "svelte-sonner";
   import { cn, formatCurrency } from "$lib/utils";
   import { Check, X } from "lucide-svelte";
+  import { session as authSession, requireSessionUserId } from "$lib/auth/session.svelte";
+  import { qk } from "$lib/query-keys";
 
   interface Props {
     session: ImportSession;
@@ -76,7 +78,13 @@
   const MANUAL_RULE_PRIORITY = 10;
 
   const queryClient = useQueryClient();
-  const rowsKey = $derived(["import_session_rows", session.id]);
+  const uid = $derived(authSession.userId);
+  const rowsKey = $derived(
+    uid ? qk.importRows(uid, session.id) : ["user", "", "import-rows", session.id]
+  );
+  const rulesKey = $derived(
+    uid ? qk.categorizationRules(uid) : ["user", "", "categorization_rules"]
+  );
 
   let filter = $state<FilterKind>("all");
   let advancedFilter = $state<ImportRowFilter>({ ...EMPTY_IMPORT_ROW_FILTER });
@@ -95,6 +103,15 @@
   let editDayOfMonth = $state("1");
   let showAdvancedRuleOptions = $state(false);
   let editRuleSaving = $state(false);
+
+  const editRuleShowsText = $derived(editingRule?.kind !== "type");
+  const editRuleTypeLabel = $derived(
+    editingRule?.match_type === "income"
+      ? m.common_income()
+      : editingRule?.match_type === "expense"
+        ? m.common_expense()
+        : null
+  );
   let queueInitialized = $state(false);
   let pendingCategoryReplacement = $state<
     Record<
@@ -112,47 +129,52 @@
   }));
 
   const categoriesQuery = createQuery(() => ({
-    queryKey: ["categories"],
+    queryKey: uid ? qk.categories(uid) : ["user", "", "categories"],
     queryFn: fetchCategories,
+    enabled: !!uid,
   }));
 
   const groupsQuery = createQuery(() => ({
-    queryKey: ["user_groups"],
+    queryKey: uid ? qk.userGroups(uid) : ["user", "", "user_groups"],
     queryFn: fetchUserGroups,
+    enabled: !!uid,
   }));
 
   const rulesQuery = createQuery(() => ({
-    queryKey: ["categorization_rules"],
+    queryKey: rulesKey,
     queryFn: fetchCategorizationRules,
+    enabled: !!uid,
   }));
 
   const savePlansQuery = createQuery(() => ({
-    queryKey: ["plans", "save-hints"],
+    queryKey: uid ? [...qk.plans(uid), "save-hints"] : ["user", "", "plans", "save-hints"],
     queryFn: async () => {
       const plans = await fetchPlans();
       return plans.filter((p) => p.kind === "save").map((p) => ({ id: p.id, name: p.name }));
     },
+    enabled: !!uid,
   }));
 
   const warningsQuery = createQuery(() => ({
-    queryKey: ["import_preview_warnings", session.id],
+    queryKey: uid
+      ? qk.importPreviewWarnings(uid, session.id)
+      : ["user", "", "import_preview_warnings", session.id],
     queryFn: () => previewFingerprintWarnings(session.id),
+    enabled: !!uid,
   }));
 
   const accountQuery = createQuery(() => ({
-    queryKey: ["bank_account", session.bank_account_id],
+    queryKey: uid
+      ? qk.bankAccount(uid, session.bank_account_id)
+      : ["user", "", "bank_account", session.bank_account_id],
     queryFn: () => fetchBankAccount(session.bank_account_id),
+    enabled: !!uid,
   }));
 
   const profileQuery = createQuery(() => ({
-    queryKey: ["profile"],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error("not_authenticated");
-      return fetchProfile(user.id);
-    },
+    queryKey: uid ? qk.profile(uid) : ["user", "", "profile"],
+    queryFn: () => fetchProfile(requireSessionUserId()),
+    enabled: !!uid,
   }));
 
   const warningsByRow = $derived(new Map((warningsQuery.data ?? []).map((w) => [w.row_id, w])));
@@ -315,7 +337,7 @@
     if (trimmed === "") return null;
     try {
       const created = await createCategory({ name: trimmed, type });
-      await queryClient.invalidateQueries({ queryKey: ["categories"] });
+      await queryClient.invalidateQueries({ queryKey: qk.categories(requireSessionUserId()) });
       toast.success(m.toast_category_created());
       return created.id;
     } catch (e) {
@@ -365,6 +387,7 @@
         );
       }
       toast.error(e instanceof Error ? e.message : String(e));
+      throw e;
     }
   }
 
@@ -396,31 +419,38 @@
 
     // Pop the last entry and apply its patches.
     undoStack = undoStack.slice(0, -1);
-    await Promise.all(entry.map((p) => patchRow(p.rowId, p.before)));
+    let alsoRestoredPrev: UndoPatch[] | null = null;
+    try {
+      await Promise.all(entry.map((p) => patchRow(p.rowId, p.before)));
 
-    // If the last entry did not include any selected_category_id patches but the
-    // previous entry does (common when a rule-save applied a cascade after the
-    // user's explicit pick), only pop+apply that previous entry when it affects
-    // at least one of the same rows — avoids undoing unrelated prior edits.
-    const prev = undoStack.at(-1);
-    const entryHasCategoryPatch = entry.some((p) =>
-      Object.prototype.hasOwnProperty.call(p.before, "selected_category_id")
-    );
-    const prevHasCategoryPatch = prev
-      ? prev.some((p) => Object.prototype.hasOwnProperty.call(p.before, "selected_category_id"))
-      : false;
+      // If the last entry did not include any selected_category_id patches but the
+      // previous entry does (common when a rule-save applied a cascade after the
+      // user's explicit pick), only pop+apply that previous entry when it affects
+      // at least one of the same rows — avoids undoing unrelated prior edits.
+      const prev = undoStack.at(-1);
+      const entryHasCategoryPatch = entry.some((p) =>
+        Object.prototype.hasOwnProperty.call(p.before, "selected_category_id")
+      );
+      const prevHasCategoryPatch = prev
+        ? prev.some((p) => Object.prototype.hasOwnProperty.call(p.before, "selected_category_id"))
+        : false;
 
-    const entryRowIds = new Set(entry.map((p) => p.rowId));
-    const prevRowIds = new Set(prev ? prev.map((p) => p.rowId) : []);
-    const overlap = [...entryRowIds].some((id) => prevRowIds.has(id));
+      const entryRowIds = new Set(entry.map((p) => p.rowId));
+      const prevRowIds = new Set(prev ? prev.map((p) => p.rowId) : []);
+      const overlap = [...entryRowIds].some((id) => prevRowIds.has(id));
 
-    if (!entryHasCategoryPatch && prevHasCategoryPatch && overlap) {
-      // Pop and apply the previous entry as well.
-      undoStack = undoStack.slice(0, -1);
-      await Promise.all(prev!.map((p) => patchRow(p.rowId, p.before)));
+      if (!entryHasCategoryPatch && prevHasCategoryPatch && overlap) {
+        alsoRestoredPrev = prev!;
+        undoStack = undoStack.slice(0, -1);
+        await Promise.all(prev!.map((p) => patchRow(p.rowId, p.before)));
+      }
+
+      toast.success(m.bank_review_change_undone());
+    } catch {
+      // Persistence failed — put the stack back so the user can retry.
+      if (alsoRestoredPrev) undoStack = [...undoStack, alsoRestoredPrev];
+      undoStack = [...undoStack, entry];
     }
-
-    toast.success(m.bank_review_change_undone());
   }
 
   async function setDecision(row: ImportRow, decision: "import" | "skip"): Promise<void> {
@@ -460,7 +490,7 @@
 
   async function refreshRules(): Promise<CategorizationRule[]> {
     const rules = await fetchCategorizationRules();
-    queryClient.setQueryData(["categorization_rules"], rules);
+    queryClient.setQueryData(rulesKey, rules);
     return rules;
   }
 
@@ -558,7 +588,9 @@
             })
           )
       );
-      await queryClient.invalidateQueries({ queryKey: ["categorization_rules"] });
+      await queryClient.invalidateQueries({
+        queryKey: qk.categorizationRules(requireSessionUserId()),
+      });
       toast.success(m.bank_review_rule_undone());
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
@@ -726,7 +758,7 @@
       }
     }
 
-    // Learn silently from explicit user category picks to reduce manual rule work.
+    // P0-5C: category picks currently auto-capture rules; requires explicit consent.
     // Pass the current ruleApplyEpoch so any rule-apply started after an undo
     // (which increments the epoch) becomes a no-op — prevents late re-applies.
     await captureRuleForRow(patchedRow, previousCategoryId, ruleApplyEpoch);
@@ -793,42 +825,30 @@
   async function saveRuleEditor(): Promise<void> {
     if (!editingRule) return;
 
-    const hasTextConstraint = editDescEnabled || editCounterpartyEnabled;
-    if (!hasTextConstraint) {
-      toast.error(m.bank_review_rule_edit_require_condition());
-      return;
-    }
-
-    const nextDesc = editDescEnabled ? editDesc.trim() : null;
-    const nextCounterparty = editCounterpartyEnabled ? editCounterparty.trim() : null;
-    if (hasTextConstraint && !nextDesc && !nextCounterparty) {
-      toast.error(m.bank_review_rule_edit_require_text());
-      return;
-    }
-
-    const nextKind: "contains" | "exact" = editingRule.kind === "exact" ? "exact" : "contains";
-    const nextDayOfMonth: number | null = editDateEnabled ? Number(editDayOfMonth) : null;
-    if (
-      editDateEnabled &&
-      (nextDayOfMonth === null ||
-        !Number.isInteger(nextDayOfMonth) ||
-        nextDayOfMonth < 1 ||
-        nextDayOfMonth > 31)
-    ) {
-      toast.error(m.bank_review_rule_edit_require_date());
+    const built = buildCategorizationRuleEditPatch(editingRule, {
+      categoryId: editingRule.category_id,
+      descEnabled: editDescEnabled,
+      desc: editDesc,
+      counterpartyEnabled: editCounterpartyEnabled,
+      counterparty: editCounterparty,
+      dateEnabled: editDateEnabled,
+      dayOfMonth: editDayOfMonth,
+    });
+    if (!built.ok) {
+      if (built.issue === "require_condition") {
+        toast.error(m.bank_review_rule_edit_require_condition());
+      } else if (built.issue === "require_text") {
+        toast.error(m.bank_review_rule_edit_require_text());
+      } else {
+        toast.error(m.bank_review_rule_edit_require_date());
+      }
       return;
     }
 
     editRuleSaving = true;
     try {
       const previousRule = editingRule;
-      await updateCategorizationRule(previousRule.id, {
-        kind: nextKind,
-        match_description: nextDesc,
-        match_counterparty: nextCounterparty,
-        match_type: null,
-        match_day_of_month: nextDayOfMonth,
-      });
+      await updateCategorizationRule(previousRule.id, built.patch);
       const nextRules = await refreshRules();
       const nextRule = nextRules.find((rule) => rule.id === previousRule.id);
       if (nextRule) {
@@ -878,8 +898,9 @@
   }
 
   function confirmCommit(): void {
-    confirmOpen = false;
-    commitMut.mutate();
+    void commitMut.mutateAsync().then(() => {
+      confirmOpen = false;
+    });
   }
 
   // "Inne" escape hatch: park every still-uncategorized row as skipped and commit the
@@ -1081,27 +1102,38 @@
 
 <Dialog open={editRuleOpen} onclose={closeRuleEditor} title={m.bank_review_rule_edit()}>
   <div class="space-y-3">
-    <label class="flex items-center gap-2 text-sm text-slate-200">
-      <input type="checkbox" bind:checked={editDescEnabled} />
-      <span>{m.bank_review_rule_if_description()}</span>
-    </label>
-    <Input
-      value={editDesc}
-      disabled={!editDescEnabled}
-      placeholder={m.bank_review_save_rule_field_description()}
-      onchange={(e) => (editDesc = (e.target as HTMLInputElement).value)}
-    />
+    {#if editRuleTypeLabel}
+      <p class="rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-300">
+        {m.rules_field_type()}: {editRuleTypeLabel}
+        {#if editingRule?.kind === "type"}
+          <span class="text-slate-500"> · {m.rules_kind_locked_hint()}</span>
+        {/if}
+      </p>
+    {/if}
 
-    <label class="flex items-center gap-2 text-sm text-slate-200">
-      <input type="checkbox" bind:checked={editCounterpartyEnabled} />
-      <span>{m.bank_review_rule_if_counterparty()}</span>
-    </label>
-    <Input
-      value={editCounterparty}
-      disabled={!editCounterpartyEnabled}
-      placeholder={m.bank_review_save_rule_field_counterparty()}
-      onchange={(e) => (editCounterparty = (e.target as HTMLInputElement).value)}
-    />
+    {#if editRuleShowsText}
+      <label class="flex items-center gap-2 text-sm text-slate-200">
+        <input type="checkbox" bind:checked={editDescEnabled} />
+        <span>{m.bank_review_rule_if_description()}</span>
+      </label>
+      <Input
+        value={editDesc}
+        disabled={!editDescEnabled}
+        placeholder={m.bank_review_save_rule_field_description()}
+        onchange={(e) => (editDesc = (e.target as HTMLInputElement).value)}
+      />
+
+      <label class="flex items-center gap-2 text-sm text-slate-200">
+        <input type="checkbox" bind:checked={editCounterpartyEnabled} />
+        <span>{m.bank_review_rule_if_counterparty()}</span>
+      </label>
+      <Input
+        value={editCounterparty}
+        disabled={!editCounterpartyEnabled}
+        placeholder={m.bank_review_save_rule_field_counterparty()}
+        onchange={(e) => (editCounterparty = (e.target as HTMLInputElement).value)}
+      />
+    {/if}
 
     <div class="rounded-xl border border-white/10 bg-slate-900/60 p-3">
       <button

@@ -65,21 +65,14 @@ describe("transaction projections", () => {
     expect(out.map((r) => r.date)).toEqual([]);
   });
 
-  it("dedupes against a real recurring occurrence already in the range", () => {
+  it("includes today's occurrence when the range starts today", () => {
     const out = recurringProjectionsForTransactionRange({
-      templates: [tx()],
-      existing: [
-        tx({
-          id: "real-july",
-          date: "2026-07-01",
-          recurring_template_id: "tmpl-1",
-          recurring_occurrence_date: "2026-07-01",
-        }),
-      ],
-      start: "2026-07-01",
-      end: "2026-08-01",
-      now: new Date("2026-06-24T12:00:00Z"),
+      templates: [tx({ date: "2026-01-15", recurring_day: 15 })],
+      existing: [],
+      start: "2026-06-15",
+      end: "2026-07-15",
+      now: new Date("2026-06-15T12:00:00Z"),
     });
-    expect(out).toHaveLength(0);
+    expect(out.map((r) => r.date)).toEqual(["2026-06-15"]);
   });
 });

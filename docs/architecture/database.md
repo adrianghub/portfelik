@@ -495,7 +495,7 @@ Per-user deterministic categorization rules consumed by the import review step. 
 - **CHECK**: kind-specific match-field presence - `exact`/`contains` require `match_description` or `match_counterparty`; `type` requires `match_type`; `composite` requires both a text match field AND `match_type`.
 - **Index**: `categorization_rules_user_priority_idx` on `(user_id, priority DESC)`.
 - **RLS read/insert/update/delete**: own.
-- **Column GRANTs (UPDATE)**: `kind`, `match_description`, `match_counterparty`, `match_type`, `category_id`, `priority`.
+- **Column GRANTs (UPDATE)**: `match_description`, `match_counterparty`, `match_type`, `match_day_of_month`, `category_id`, `priority`. `kind` is immutable from the client (change mode via delete+create); trigger blocks kind flips and clearing kind-required fields.
 
 ### `action_dismissals`
 

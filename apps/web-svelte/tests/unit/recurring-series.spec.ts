@@ -1,21 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getUser, upsert, single } = vi.hoisted(() => ({
-  getUser: vi.fn(),
-  upsert: vi.fn(),
+const { rpc, single, eq } = vi.hoisted(() => ({
+  rpc: vi.fn(),
   single: vi.fn(),
+  eq: vi.fn(),
 }));
 
 vi.mock("$lib/supabase", () => {
   const builder: Record<string, unknown> = {};
-  builder.upsert = (payload: unknown, opts: unknown) => {
-    upsert(payload, opts);
+  builder.select = () => builder;
+  builder.eq = (...args: unknown[]) => {
+    eq(...args);
     return builder;
   };
-  builder.select = () => builder;
-  builder.eq = () => builder;
   builder.single = single;
-  return { supabase: { auth: { getUser }, from: () => builder } };
+  return { supabase: { rpc, from: () => builder } };
 });
 
 import { dayAfter, dayBefore, materializeOccurrence } from "$lib/services/recurring-series";
@@ -69,30 +68,23 @@ function template(over: Partial<TransactionWithCategory> = {}): TransactionWithC
 
 describe("materializeOccurrence", () => {
   beforeEach(() => {
-    getUser.mockResolvedValue({ data: { user: { id: "actor-id" } } });
-    single
-      .mockReset()
-      .mockResolvedValueOnce({ data: { id: "new-row" }, error: null })
-      .mockResolvedValueOnce({ data: { id: "new-row" }, error: null });
-    upsert.mockClear();
+    rpc.mockResolvedValue({ data: "new-row", error: null });
+    single.mockResolvedValue({ data: { id: "new-row", description: "Najem" }, error: null });
+    eq.mockClear();
+    rpc.mockClear();
   });
 
-  it("inserts the materialized row owned by the acting user, not the template owner", async () => {
-    // A co-owner materializes an occurrence of another member's shared template.
-    await materializeOccurrence({
+  it("materializes via RPC and re-fetches the row", async () => {
+    const row = await materializeOccurrence({
       template: template({ user_id: "owner-id", group_id: "group-1" }),
       occurrenceDate: "2026-08-05",
     });
 
-    expect(upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        user_id: "actor-id",
-        group_id: "group-1",
-        recurring_template_id: "tmpl-1",
-        recurring_occurrence_date: "2026-08-05",
-      }),
-      expect.anything()
-    );
+    expect(rpc).toHaveBeenCalledWith("materialize_recurring_occurrence", {
+      p_template_id: "tmpl-1",
+      p_occurrence_date: "2026-08-05",
+    });
+    expect(row.id).toBe("new-row");
   });
 });
 
@@ -164,7 +156,7 @@ describe("summarizeRecurringSeries", () => {
     expect(s.startDate).toBe("2026-01-10");
     expect(s.endDate).toBeNull();
     expect(s.cadence.length).toBeGreaterThan(0);
-    expect(s.nextDate).toBe("2026-07-10"); // monthly on the 10th, next after 2026-06-26
+    expect(s.nextDate).toBe("2026-07-10");
   });
   it("falls back to description when counterparty is empty", () => {
     expect(summarizeRecurringSeries(tmpl({ counterparty: null }), NOW).title).toBe("Czynsz");

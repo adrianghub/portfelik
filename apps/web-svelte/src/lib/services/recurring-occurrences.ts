@@ -69,37 +69,26 @@ export async function materializeRecurringOccurrencesForNearTerm(
 
   if (projected.length === 0) return 0;
 
-  const rows = projected.map((tx) => ({
-    amount: Math.abs(Number(tx.amount)),
-    currency: tx.currency,
-    counterparty: tx.counterparty,
-    description: tx.description,
-    date: tx.date,
-    type: tx.type,
-    status: "upcoming" as const,
-    category_id: tx.category_id,
-    user_id: tx.user_id,
-    group_id: tx.group_id,
-    is_recurring: false,
-    recurring_day: null,
-    recurrence_frequency: null,
-    recurrence_interval: 1,
-    recurrence_weekday: null,
-    recurrence_month: null,
-    recurring_template_id: tx.recurring_template_id,
-    recurring_occurrence_date: tx.recurring_occurrence_date,
-  }));
-
-  const { data, error } = await supabase
-    .from("transactions")
-    .upsert(rows, {
-      onConflict: "user_id,recurring_template_id,recurring_occurrence_date",
-      ignoreDuplicates: true,
-    })
-    .select("id");
-
-  if (error) throw error;
-  return data?.length ?? 0;
+  // Per-slot RPC with isolation: one template RLS/validation failure must not
+  // abort the whole near-term batch (group templates under member identity).
+  let created = 0;
+  const failuresByTemplate = new Set<string>();
+  for (const tx of projected) {
+    const templateId = tx.recurring_template_id;
+    const occurrenceDate = tx.recurring_occurrence_date;
+    if (!templateId || !occurrenceDate) continue;
+    if (failuresByTemplate.has(templateId)) continue;
+    const { error } = await supabase.rpc("materialize_recurring_occurrence", {
+      p_template_id: templateId,
+      p_occurrence_date: occurrenceDate,
+    });
+    if (error) {
+      failuresByTemplate.add(templateId);
+      continue;
+    }
+    created += 1;
+  }
+  return created;
 }
 
 export async function rememberRecurringOccurrenceSkip(tx: TransactionWithCategory): Promise<void> {

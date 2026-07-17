@@ -126,9 +126,77 @@ jobs:
           path: apps/web-svelte/playwright-report/
           retention-days: 7
 
+  backend:
+    name: Supabase production parity and functions
+    needs: [quality, rls, e2e]
+    runs-on: ubuntu-latest
+    environment:
+      name: Production
+      url: https://app.jakstoimy.pl
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link production Supabase
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.PROD_SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.PROD_SUPABASE_DB_PASSWORD }}
+          PROD_SUPABASE_PROJECT_REF: ${{ secrets.PROD_SUPABASE_PROJECT_REF }}
+        run: |
+          test -n "$SUPABASE_ACCESS_TOKEN"
+          test -n "$SUPABASE_DB_PASSWORD"
+          test "$PROD_SUPABASE_PROJECT_REF" = "emqzcygfwcvbmhxhfkcc"
+          supabase link \
+            --project-ref "$PROD_SUPABASE_PROJECT_REF" \
+            --password "$SUPABASE_DB_PASSWORD"
+
+      - name: Require production migration parity
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.PROD_SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.PROD_SUPABASE_DB_PASSWORD }}
+        run: bash ./scripts/check-supabase-migration-parity.sh --linked
+
+      - name: Deploy changed production Edge Functions
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.PROD_SUPABASE_ACCESS_TOKEN }}
+          PROD_SUPABASE_PROJECT_REF: ${{ secrets.PROD_SUPABASE_PROJECT_REF }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          if [[ "$BEFORE_SHA" =~ ^0+$ ]]; then
+            BEFORE_SHA="$(git rev-parse "$GITHUB_SHA^")"
+          fi
+
+          if git diff --quiet "$BEFORE_SHA" "$GITHUB_SHA" -- supabase/config.toml; then
+            mapfile -t changed_functions < <(
+              git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- 'supabase/functions/*' \
+                | awk -F/ 'NF >= 3 { print $3 }' \
+                | sort -u
+            )
+          else
+            changed_functions=(send-push send-admin-summary send-group-invitation sync-user-role)
+          fi
+
+          for function_name in "${changed_functions[@]}"; do
+            case "$function_name" in
+              send-push|send-admin-summary|send-group-invitation|sync-user-role) ;;
+              *)
+                echo "::error::Changed Edge Function is not managed by production deploy: $function_name"
+                exit 1
+                ;;
+            esac
+            test -f "supabase/functions/$function_name/index.ts"
+            supabase functions deploy "$function_name" \
+              --project-ref "$PROD_SUPABASE_PROJECT_REF"
+          done
+
   deploy:
     name: Cloudflare Pages production
-    needs: [quality, rls, e2e]
+    needs: backend
     runs-on: ubuntu-latest
     environment:
       name: Production
@@ -212,14 +280,11 @@ jobs:
             "$PUBLIC_SUPABASE_URL/auth/v1/health")
           test "$auth_status" = "200"
 
-          # /rest/v1/ OpenAPI root requires secret keys since 2026-03; probe a real table route.
+          # Probe a real RLS-protected table route with the publishable key.
           data_status=$(curl -s -o /dev/null -w "%{http_code}" \
             -H "apikey: $PUBLIC_SUPABASE_ANON_KEY" \
             "$PUBLIC_SUPABASE_URL/rest/v1/categories?select=id&limit=0")
-          case "$data_status" in
-            200|401) ;;
-            *)
-              echo "::error::Data API returned HTTP $data_status (expected 200 or 401 with publishable key)"
-              exit 1
-              ;;
-          esac
+          if [ "$data_status" != "200" ]; then
+            echo "::error::Data API returned HTTP $data_status (expected 200 with the production publishable key)"
+            exit 1
+          fi

@@ -14,6 +14,21 @@ const fromHandlers: Record<string, () => unknown> = {
     select: vi.fn().mockReturnThis(),
     order: vi.fn(async () => ({ data: [], error: null })),
   }),
+  cash_positions: () => ({
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn(async () => ({
+      data: [{ owner_id: "user-1", opening_amount: 500 }],
+      error: null,
+    })),
+  }),
+  net_worth_items: () => ({
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    order: vi.fn(async () => ({
+      data: [{ label: "ETF", amount: 1000, currency: "PLN" }],
+      error: null,
+    })),
+  }),
   profiles: () => ({
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
@@ -66,18 +81,21 @@ vi.mock("$lib/services/groups", () => ({
   fetchUserGroups: vi.fn(async () => [{ id: "g1" }]),
 }));
 
-import { buildAccountExport } from "$lib/services/account-export";
+import { ACCOUNT_EXPORT_CONTRACT, buildAccountExport } from "$lib/services/account-export";
 
 describe("buildAccountExport", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("includes debt terms and financial snapshot keys", async () => {
+  it("includes balance-sheet keys under the informational contract", async () => {
     const bundle = await buildAccountExport();
+    expect(bundle.export_contract).toBe(ACCOUNT_EXPORT_CONTRACT);
     expect(bundle.transactions).toHaveLength(1);
     expect(bundle.plans).toHaveLength(1);
     expect(bundle.plan_debt_terms).toHaveLength(1);
+    expect(bundle.cash_positions).toHaveLength(1);
+    expect(bundle.net_worth_items).toHaveLength(1);
     expect(bundle.financial_snapshot).toMatchObject({ cash_amount: 100 });
     expect(bundle.group_members).toHaveLength(1);
     expect(bundle.exported_at).toBeTruthy();

@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="$ROOT_DIR/supabase/.env"
 TYPES_FILE="$ROOT_DIR/apps/web-svelte/src/lib/supabase.types.ts"
-EDGE_FUNCTIONS=(send-push send-admin-summary sync-user-role)
+EDGE_FUNCTIONS=(send-push send-admin-summary send-group-invitation sync-user-role)
 
 # shellcheck source=load-local-env.sh
 source "$ROOT_DIR/scripts/load-local-env.sh"

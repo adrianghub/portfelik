@@ -16,6 +16,10 @@ const MOCK_OWNED_GROUP = {
   owner_id: TEST_USER_ID,
   created_at: "2026-06-01T00:00:00Z",
   updated_at: "2026-06-01T00:00:00Z",
+  expires_at: "2099-06-08T00:00:00Z",
+  sent_at: "2026-06-01T00:00:00Z",
+  delivery_status: "sent" as const,
+  delivery_attempts: 1,
 };
 
 const PENDING_SENT_INVITE = {
@@ -30,11 +34,13 @@ const PENDING_SENT_INVITE = {
   updated_at: "2026-06-01T00:00:00Z",
 };
 
-async function setupOwnedGroup(page: Page): Promise<{ sentInvitations: typeof PENDING_SENT_INVITE[] }> {
+async function setupOwnedGroup(
+  page: Page
+): Promise<{ sentInvitations: (typeof PENDING_SENT_INVITE)[] }> {
   await injectFakeSession(page);
   await mockSupabaseAPI(page);
 
-  const sentInvitations: typeof PENDING_SENT_INVITE[] = [];
+  const sentInvitations: (typeof PENDING_SENT_INVITE)[] = [];
 
   await page.route(/.*\/rest\/v1\/user_groups.*/, (route) => {
     route.fulfill({ status: 200, json: [MOCK_OWNED_GROUP] });
@@ -66,15 +72,39 @@ async function setupOwnedGroup(page: Page): Promise<{ sentInvitations: typeof PE
     route.fulfill({ status: 200, json: [] });
   });
 
-  await page.route(/.*\/rest\/v1\/rpc\/invite_user/, async (route) => {
+  await page.route(/.*\/functions\/v1\/send-group-invitation/, async (route) => {
     sentInvitations.push(PENDING_SENT_INVITE);
-    await route.fulfill({ status: 200, json: PENDING_SENT_INVITE });
+    await route.fulfill({ status: 200, json: { invitation: PENDING_SENT_INVITE } });
   });
 
   return { sentInvitations };
 }
 
 test.describe("group invite", () => {
+  test("authenticated invite link previews and claims the group", async ({ page }) => {
+    await injectFakeSession(page);
+    await mockSupabaseAPI(page);
+    await page.route(/.*\/rest\/v1\/rpc\/get_group_invitation_preview/, (route) => {
+      route.fulfill({
+        status: 200,
+        json: {
+          groupName: "Rodzina",
+          inviterName: "Ada",
+          recipientMasked: "t***@portfelik.test",
+          expiresAt: "2099-06-08T00:00:00Z",
+        },
+      });
+    });
+    await page.route(/.*\/rest\/v1\/rpc\/claim_group_invitation/, (route) => {
+      route.fulfill({ status: 200, json: { groupId: GROUP_ID, groupName: "Rodzina" } });
+    });
+
+    await page.goto("/invite/a".padEnd(72, "b"));
+    await expect(page.getByRole("heading", { name: "Rodzina" })).toBeVisible();
+    await page.getByRole("button", { name: "Dołącz do grupy" }).click();
+    await expect(page).toHaveURL(new RegExp(`/settings\\?tab=groups&group=${GROUP_ID}`));
+  });
+
   test("owner invite surfaces pending invitation in sent panel", async ({ page }) => {
     await setupOwnedGroup(page);
     await page.goto("/settings?tab=groups");
@@ -102,6 +132,10 @@ test.describe("group invite", () => {
       status: "pending",
       created_at: "2026-06-01T00:00:00Z",
       updated_at: "2026-06-01T00:00:00Z",
+      expires_at: "2099-06-08T00:00:00Z",
+      sent_at: "2026-06-01T00:00:00Z",
+      delivery_status: "sent",
+      delivery_attempts: 1,
     };
 
     let accepted = false;

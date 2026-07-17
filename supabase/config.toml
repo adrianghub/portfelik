@@ -141,5 +141,8 @@ verify_jwt = false
 [functions.send-admin-summary]
 verify_jwt = false
 
+[functions.send-group-invitation]
+verify_jwt = false
+
 [functions.sync-user-role]
 verify_jwt = false

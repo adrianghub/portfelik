@@ -51,7 +51,7 @@ const h = vi.hoisted(() => {
 
 vi.mock("$lib/supabase", () => ({ supabase: h.supabase }));
 
-import { acceptInvitation, createGroup, fetchMyGroupRoles } from "$lib/services/groups";
+import { acceptInvitation, createGroup, fetchMyGroupRoles, transferGroupOwnership } from "$lib/services/groups";
 
 beforeEach(() => {
   h.state.results = [];
@@ -133,5 +133,20 @@ describe("acceptInvitation", () => {
     h.state.results = [{ data: null, error: rpcError }];
 
     await expect(acceptInvitation("inv-missing")).rejects.toEqual(rpcError);
+  });
+});
+
+describe("transferGroupOwnership", () => {
+  it("calls transfer_group_ownership with group and new owner", async () => {
+    h.state.results = [{ data: null, error: null }];
+
+    await transferGroupOwnership("g1", "user-2");
+
+    expect(h.state.log.rpc).toEqual([
+      {
+        name: "transfer_group_ownership",
+        args: { p_group_id: "g1", p_new_owner_id: "user-2" },
+      },
+    ]);
   });
 });

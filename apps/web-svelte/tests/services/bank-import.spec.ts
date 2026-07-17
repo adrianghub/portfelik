@@ -227,13 +227,12 @@ describe("updateRowDecision", () => {
 });
 
 describe("cancelImportSession", () => {
-  it("soft-cancels by setting status=cancelled", async () => {
-    h.state.results = [{ data: null, error: null }];
+  it("calls cancel_import_session RPC", async () => {
+    h.state.results = [{ data: { status: "cancelled", already: false }, error: null }];
 
     await cancelImportSession("s1");
 
-    expect(h.state.log.update[0]).toEqual({ status: "cancelled" });
-    expect(h.state.log.chain).toContainEqual(["eq", "id", "s1"]);
+    expect(h.state.log.rpc).toEqual([{ name: "cancel_import_session", args: { p_session_id: "s1" } }]);
   });
 
   it("throws on error", async () => {

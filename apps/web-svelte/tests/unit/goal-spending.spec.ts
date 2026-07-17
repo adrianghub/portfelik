@@ -34,16 +34,16 @@ function tx(over: Partial<TransactionWithCategory> = {}): TransactionWithCategor
 }
 
 describe("computeGoalSpendingSplit", () => {
-  it("splits cele expenses and save-linked income from other expenses", () => {
-    const saveLinked = new Set(["inc-1"]);
+  it("splits linked contributions and unlinked Cele expenses from other expenses", () => {
+    const saveLinked = new Set(["goal-1"]);
     const split = computeGoalSpendingSplit(
       [
         tx({
-          id: "inc-1",
-          type: "income",
+          id: "goal-1",
+          type: "expense",
           amount: 500,
-          category_id: "inc-cat",
-          category_type: "income",
+          category_id: "cele",
+          category_name: "Cele",
         }),
         tx({ id: "e-1", type: "expense", amount: 200, category_id: "cele", category_name: "Cele" }),
         tx({ id: "e-2", type: "expense", amount: 80, category_id: "food" }),
@@ -51,7 +51,7 @@ describe("computeGoalSpendingSplit", () => {
       saveLinked,
       "cele"
     );
-    expect(split.goalLinkedIncome).toBe(500);
+    expect(split.goalContributions).toBe(500);
     expect(split.celeExpenses).toBe(200);
     expect(split.otherExpenses).toBe(80);
     expect(split.hasGoalActivity).toBe(true);

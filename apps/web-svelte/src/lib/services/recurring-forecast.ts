@@ -1,7 +1,9 @@
 import type { TransactionWithCategory } from "$lib/types";
-
-/** Safety cap so a daily template across a multi-year span can't explode. */
-const MAX_OCCURRENCES_PER_TEMPLATE = 400;
+import {
+  MAX_RECURRENCE_OCCURRENCES,
+  recurringOccurrenceDates,
+  type RecurrenceDateParams,
+} from "$lib/services/recurrence-dates";
 
 function isoDate(d: Date): string {
   const y = d.getUTCFullYear();
@@ -10,116 +12,47 @@ function isoDate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-/** Last calendar day of the given year/monthIndex (UTC). */
-function lastDayOfMonth(year: number, monthIdx: number): number {
-  return new Date(Date.UTC(year, monthIdx + 1, 0)).getUTCDate();
+export function recurrenceParamsFromTemplate(
+  t: TransactionWithCategory
+): RecurrenceDateParams | null {
+  const freq = t.recurrence_frequency;
+  if (!t.is_recurring || !freq) return null;
+  return {
+    anchorDate: t.date.slice(0, 10),
+    frequency: freq,
+    interval: t.recurrence_interval,
+    weekday: t.recurrence_weekday,
+    day: t.recurring_day,
+    month: t.recurrence_month,
+    endDate: t.recurrence_end_date,
+  };
 }
 
 /** Dedup key for an existing real row vs a generated occurrence. */
 export function recurringPeriodKey(freq: string, d: Date): string {
   if (freq === "monthly") return `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
   if (freq === "yearly") return String(d.getUTCFullYear());
-  return isoDate(d); // daily/weekly: exact day
+  return isoDate(d);
 }
 
 /**
  * Build the ordered list of occurrence dates for one template within
- * (afterMs, beforeMs) — both exclusive. Returns [] for non-recurring or
- * unsupported templates. Pure; no Date mutation leaks out. All calendar math
- * runs in UTC so cursor dates compare apples-to-apples with the span bounds,
- * which `new Date("YYYY-MM-DD")` parses as UTC midnight regardless of host TZ.
+ * (afterExclusive, beforeExclusive) — both exclusive.
  */
 export function occurrenceDates(
   t: TransactionWithCategory,
   afterMs: number,
   beforeMs: number
 ): Date[] {
-  const freq = t.recurrence_frequency;
-  if (!t.is_recurring || !freq) return [];
-  const interval = Math.max(1, t.recurrence_interval || 1);
-  const anchor = new Date(t.date);
-  const out: Date[] = [];
-
-  // Seed `cursor` at the first phase-aligned candidate, then step by cadence.
-  let cursor: Date;
-  if (freq === "daily") {
-    cursor = new Date(anchor);
-  } else if (freq === "weekly") {
-    cursor = new Date(anchor);
-    const targetDow = t.recurrence_weekday ?? anchor.getUTCDay();
-    const delta = (targetDow - cursor.getUTCDay() + 7) % 7;
-    cursor.setUTCDate(cursor.getUTCDate() + delta);
-  } else if (freq === "monthly") {
-    const day = t.recurring_day ?? anchor.getUTCDate();
-    const y = anchor.getUTCFullYear();
-    const mi = anchor.getUTCMonth();
-    cursor = new Date(Date.UTC(y, mi, Math.min(day, lastDayOfMonth(y, mi))));
-  } else {
-    // yearly
-    const monthIdx = t.recurrence_month != null ? t.recurrence_month - 1 : anchor.getUTCMonth();
-    const day = t.recurring_day ?? anchor.getUTCDate();
-    const y = anchor.getUTCFullYear();
-    cursor = new Date(Date.UTC(y, monthIdx, Math.min(day, lastDayOfMonth(y, monthIdx))));
-  }
-
-  const step = (d: Date): Date => {
-    if (freq === "daily") {
-      const next = new Date(d);
-      next.setUTCDate(next.getUTCDate() + interval);
-      return next;
-    }
-    if (freq === "weekly") {
-      const next = new Date(d);
-      next.setUTCDate(next.getUTCDate() + 7 * interval);
-      return next;
-    }
-    if (freq === "monthly") {
-      const day = t.recurring_day ?? anchor.getUTCDate();
-      const m = d.getUTCMonth() + interval;
-      const y = d.getUTCFullYear() + Math.floor(m / 12);
-      const mi = ((m % 12) + 12) % 12;
-      return new Date(Date.UTC(y, mi, Math.min(day, lastDayOfMonth(y, mi))));
-    }
-    // yearly
-    const monthIdx = t.recurrence_month != null ? t.recurrence_month - 1 : anchor.getUTCMonth();
-    const day = t.recurring_day ?? anchor.getUTCDate();
-    const y = d.getUTCFullYear() + interval;
-    return new Date(Date.UTC(y, monthIdx, Math.min(day, lastDayOfMonth(y, monthIdx))));
-  };
-
-  // Fast-forward to the first occurrence strictly after `afterMs`.
-  // For daily/weekly, compute the first in-span occurrence arithmetically
-  // to avoid exhausting iterations on stale anchors (e.g. daily template
-  // anchored >400 days before spanStart).
-  if (cursor.getTime() <= afterMs) {
-    if (freq === "daily") {
-      const anchorMs = cursor.getTime();
-      const gapDays = Math.ceil((afterMs - anchorMs) / 86_400_000 / interval);
-      cursor = new Date(anchorMs + gapDays * interval * 86_400_000);
-      // Ensure strictly after afterMs.
-      while (cursor.getTime() <= afterMs) cursor = step(cursor);
-    } else if (freq === "weekly") {
-      const anchorMs = cursor.getTime();
-      const stepMs = 7 * interval * 86_400_000;
-      const gapWeeks = Math.ceil((afterMs - anchorMs) / stepMs);
-      cursor = new Date(anchorMs + gapWeeks * stepMs);
-      while (cursor.getTime() <= afterMs) cursor = step(cursor);
-    } else {
-      // monthly/yearly: step count is bounded by span years, safe to iterate.
-      const FF_LIMIT = 5000;
-      let ffGuard = 0;
-      while (cursor.getTime() <= afterMs && ffGuard++ < FF_LIMIT) {
-        cursor = step(cursor);
-      }
-    }
-  }
-  // Collect while strictly before `beforeMs`, capped at MAX_OCCURRENCES_PER_TEMPLATE.
-  let collected = 0;
-  while (cursor.getTime() < beforeMs && collected++ < MAX_OCCURRENCES_PER_TEMPLATE) {
-    out.push(new Date(cursor));
-    cursor = step(cursor);
-  }
-  return out;
+  const params = recurrenceParamsFromTemplate(t);
+  if (!params) return [];
+  const dates = recurringOccurrenceDates(
+    params,
+    isoDate(new Date(afterMs)),
+    isoDate(new Date(beforeMs)),
+    MAX_RECURRENCE_OCCURRENCES
+  );
+  return dates.map((date) => new Date(`${date}T00:00:00.000Z`));
 }
 
 /**
@@ -139,7 +72,6 @@ export function projectRecurringOccurrences(
   const afterMs = new Date(spanStart).getTime();
   const beforeMs = new Date(spanEnd).getTime();
 
-  // Pre-index existing real rows by template id + period key.
   const taken = new Set<string>();
   for (const r of existing) {
     if (!r.recurring_template_id) continue;
@@ -161,14 +93,9 @@ export function projectRecurringOccurrences(
     const freq = t.recurrence_frequency;
     if (!freq) continue;
     const templateDate = t.date.slice(0, 10);
-    // Inclusive last day the template may generate; null = open-ended.
-    const endMs = t.recurrence_end_date
-      ? new Date(t.recurrence_end_date).getTime()
-      : Number.POSITIVE_INFINITY;
     for (const d of occurrenceDates(t, afterMs, beforeMs)) {
       const date = isoDate(d);
       if (date === templateDate) continue;
-      if (d.getTime() > endMs) continue;
       if (taken.has(`${t.id}|${recurringPeriodKey(freq, d)}`)) continue;
       out.push({
         ...t,

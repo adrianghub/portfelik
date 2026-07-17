@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
+  import { localDateIso } from "$lib/date-local";
   import BulkActionsBar from "$lib/components/transactions/BulkActionsBar.svelte";
   import CashPositionStrip from "$lib/components/transactions/CashPositionStrip.svelte";
   import CategoryBreakdown from "$lib/components/transactions/CategoryBreakdown.svelte";
@@ -16,6 +17,9 @@
   import SearchModal from "$lib/components/ui/SearchModal.svelte";
   import * as m from "$lib/paraglide/messages";
   import {
+    CASH_FETCH_END_SENTINEL,
+    cashForecastHorizonEnd,
+    cashForecastProjectionEnd,
     fetchPrivateCashPosition,
     forecastPosition,
     livePosition,
@@ -48,14 +52,14 @@
     fetchRecurringOccurrenceSkips,
     materializeRecurringOccurrencesForNearTerm,
     nearTermRecurringWindow,
-    rememberRecurringOccurrenceSkip,
   } from "$lib/services/recurring-occurrences";
   import {
     endSeriesFromOccurrence,
     materializeOccurrence,
     skipOccurrence,
   } from "$lib/services/recurring-series";
-  import { supabase } from "$lib/supabase";
+  import { session, requireSessionUserId } from "$lib/auth/session.svelte";
+  import { qk } from "$lib/query-keys";
   import { parseScopeFilter, type ScopeFilter } from "$lib/utils/list-view-url";
   import { syncListViewUrl } from "$lib/utils/navigation";
   import type { TransactionStatus, TransactionType, TransactionWithCategory } from "$lib/types";
@@ -67,7 +71,6 @@
     monthYearLabel,
   } from "$lib/utils";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
-  import { onMount } from "svelte";
   import { Plus, Repeat, Search, X } from "lucide-svelte";
   import { toast } from "svelte-sonner";
   import { toastError } from "$lib/toast-error";
@@ -77,7 +80,8 @@
 
   const createCategoryInline = makeCreateCategoryInline({
     createCategory,
-    invalidate: () => queryClient.invalidateQueries({ queryKey: ["categories"] }),
+    invalidate: () =>
+      queryClient.invalidateQueries({ queryKey: qk.categories(requireSessionUserId()) }),
     toastSuccess: () => toast.success(m.toast_category_created()),
     toastError: () => toast.error(m.toast_error()),
   });
@@ -190,17 +194,18 @@
   });
 
   const txQuery = createQuery(() => ({
-    queryKey: [
-      "transactions",
+    queryKey: qk.transactions.list(
+      session.userId!,
       startYear,
       startMonth,
       endYear,
       endMonth,
       explicitStartDate,
       explicitEndDate,
-      categoryId,
-    ],
+      categoryId
+    ),
     queryFn: () => fetchTransactions(bounds.start, bounds.end, categoryId),
+    enabled: () => !!session.userId,
   }));
 
   const statusSet = $derived(statusFilter ? new Set(statusFilter.split(",")) : null);
@@ -212,19 +217,21 @@
   // independent of the visible month/category filters. `showCashView` (defined
   // after groupsQuery) widens this to solo users whose only scope is "all".
   const isPrivateScope = $derived(groupFilter === "own");
-  const CASH_END = "9999-12-31"; // sentinel for fetchTransactions' exclusive .lt() upper bound
+  // Open upper bound for paid history: exclusive `.lt` must not clip future-dated paid rows.
+  const CASH_END = CASH_FETCH_END_SENTINEL;
 
   const cashAnchorQuery = createQuery(() => ({
-    queryKey: ["cash-position"],
+    queryKey: qk.cashPosition(session.userId!),
     queryFn: fetchPrivateCashPosition,
+    enabled: () => !!session.userId,
   }));
 
   const anchorStart = $derived(cashAnchorQuery.data?.as_of_date ?? "2000-01-01");
 
   const paidHistoryQuery = createQuery(() => ({
-    queryKey: ["transactions", "cash-history", anchorStart],
+    queryKey: qk.transactions.list(session.userId!, "cash-history", anchorStart),
     queryFn: () => fetchTransactions(anchorStart, CASH_END),
-    enabled: cashAnchorQuery.isSuccess,
+    enabled: () => !!session.userId && cashAnchorQuery.isSuccess,
   }));
 
   // Private (non-group) rows only — the pool is a personal balance.
@@ -243,15 +250,16 @@
   const viewFilter = $derived($page.url.searchParams.get("view") ?? undefined);
 
   const linkedIdsQuery = createQuery(() => ({
-    queryKey: ["plan-links", "all"],
+    queryKey: qk.planLinks(session.userId!),
     queryFn: fetchLinkedTransactionIds,
-    enabled: viewFilter === "unlinked",
+    enabled: () => !!session.userId && viewFilter === "unlinked",
   }));
   const linkedIds = $derived(linkedIdsQuery.data ?? new Set<string>());
 
   const categoriesQuery = createQuery(() => ({
-    queryKey: ["categories"],
+    queryKey: qk.categories(session.userId!),
     queryFn: fetchCategories,
+    enabled: () => !!session.userId,
   }));
 
   // "Inne" quick-view = the two per-user fallback categories import assigns to
@@ -292,13 +300,15 @@
   const showProjectedRows = $derived(shouldShowProjectedRows(statusSet));
 
   const recurringTemplatesQuery = createQuery(() => ({
-    queryKey: ["transactions", "recurring-templates"] as const,
+    queryKey: qk.transactions.list(session.userId!, "recurring-templates"),
     queryFn: fetchRecurringTemplates,
+    enabled: () => !!session.userId,
   }));
 
   const recurringSkipsQuery = createQuery(() => ({
-    queryKey: ["transactions", "recurring-skips", bounds.start, bounds.end] as const,
+    queryKey: qk.transactions.list(session.userId!, "recurring-skips", bounds.start, bounds.end),
     queryFn: () => fetchRecurringOccurrenceSkips(bounds.start, bounds.end),
+    enabled: () => !!session.userId,
   }));
 
   const projectedTxs = $derived.by(() => {
@@ -365,24 +375,20 @@
     return { destroy: () => observer.disconnect() };
   }
 
-  let currentUserId = $state<string | null>(null);
-  onMount(async () => {
-    const { data } = await supabase.auth.getSession();
-    currentUserId = data.session?.user.id ?? null;
-  });
-
   const recurringMaterializationWindow = $derived(nearTermRecurringWindow());
   let recurringMaterializationKey = $state("");
 
   $effect(() => {
-    if (!currentUserId) return;
-    const key = `${currentUserId}:${recurringMaterializationWindow.start}:${recurringMaterializationWindow.end}`;
+    if (!session.userId) return;
+    const key = `${session.userId}:${recurringMaterializationWindow.start}:${recurringMaterializationWindow.end}`;
     if (key === recurringMaterializationKey) return;
     recurringMaterializationKey = key;
     void materializeRecurringOccurrencesForNearTerm()
       .then((count) => {
         if (count > 0) {
-          void queryClient.invalidateQueries({ queryKey: ["transactions"] });
+          void queryClient.invalidateQueries({
+            queryKey: qk.transactions.all(requireSessionUserId()),
+          });
         }
       })
       .catch((err) => toastError(err));
@@ -391,15 +397,15 @@
   let selectedIds = $state(new Set<string>());
 
   const groupRolesQuery = createQuery(() => ({
-    queryKey: ["my-group-roles"],
+    queryKey: qk.myGroupRoles(session.userId!),
     queryFn: fetchMyGroupRoles,
-    enabled: !!currentUserId,
+    enabled: () => !!session.userId,
   }));
 
   function txCanManage(tx: TransactionWithCategory): boolean {
     if (tx.projected) return false;
-    if (!currentUserId) return false;
-    return canManageTransaction(tx, currentUserId, groupRolesQuery.data ?? new Map());
+    if (!session.userId) return false;
+    return canManageTransaction(tx, session.userId, groupRolesQuery.data ?? new Map());
   }
 
   function manageableSelectedIds(): string[] {
@@ -460,9 +466,9 @@
   );
 
   const groupsQuery = createQuery(() => ({
-    queryKey: ["user_groups"],
+    queryKey: qk.userGroups(session.userId!),
     queryFn: fetchUserGroups,
-    enabled: !!currentUserId,
+    enabled: () => !!session.userId,
   }));
 
   // Solo users (no groups) never get the own/all tabs and stay in the default
@@ -474,11 +480,11 @@
   );
   const showCashView = $derived(isPrivateScope || soloAllScope);
 
-  // Filter-independent private projection for the cash forecast: the full
-  // private template set over the window, deduped against the full private cash
-  // history. Using the table-filtered projectedTxs would make the personal
-  // balance shift with category/type/quick-view filters and omit hidden
-  // recurring obligations before a displayed projected row.
+  // Filter-independent private projection for the cash forecast: fixed horizon
+  // from today (not the visible month), so browsing months cannot change the
+  // personal forecast without a financial change.
+  const cashForecastToday = $derived(localDateIso());
+  const cashForecastHorizon = $derived(cashForecastHorizonEnd(cashForecastToday));
   const privateForecastProjectedTxs = $derived.by(() => {
     if (!showCashView) return [];
     const templates = (recurringTemplatesQuery.data ?? []).filter(
@@ -490,8 +496,8 @@
       templates,
       existing: privateReal,
       skipped: recurringSkipsQuery.data ?? [],
-      start: bounds.start,
-      end: bounds.end,
+      start: cashForecastToday,
+      end: cashForecastProjectionEnd(cashForecastToday),
     }).map((tx) => ({
       id: tx.id,
       type: tx.type,
@@ -501,7 +507,10 @@
     }));
   });
   const cashForecast = $derived(
-    forecastPosition(cashAnchor, [...privatePaidTxs, ...privateForecastProjectedTxs])
+    forecastPosition(cashAnchor, [...privatePaidTxs, ...privateForecastProjectedTxs], {
+      today: cashForecastToday,
+      horizonEnd: cashForecastHorizon,
+    })
   );
 
   // Dialog state
@@ -520,9 +529,9 @@
     return txQuery.data.find((t) => t.id === requestedTxId) ?? null;
   });
   const requestedTxQuery = createQuery(() => ({
-    queryKey: ["transactions", "by-id", requestedTxId],
+    queryKey: qk.transactions.list(session.userId!, "by-id", requestedTxId),
     queryFn: () => fetchTransactionById(requestedTxId!),
-    enabled: !!requestedTxId && !requestedTxFromCurrentPage,
+    enabled: () => !!session.userId && !!requestedTxId && !requestedTxFromCurrentPage,
   }));
 
   $effect(() => {
@@ -573,13 +582,14 @@
 
   const deleteMutation = createMutation(() => ({
     mutationFn: async () => {
-      const tx = txQuery.data?.find((row) => row.id === deleteTargetId);
-      if (tx) await rememberRecurringOccurrenceSkip(tx);
       await deleteTransaction(deleteTargetId!);
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      await queryClient.invalidateQueries({ queryKey: ["transactions", "recurring-skips"] });
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+      await queryClient.invalidateQueries({
+        queryKey: qk.transactions.list(u, "recurring-skips"),
+      });
       toast.success(m.toast_transaction_deleted());
       deleteTargetId = null;
     },
@@ -587,12 +597,13 @@
   }));
 
   async function invalidateAfterSeriesMutation() {
-    await queryClient.invalidateQueries({ queryKey: ["transactions"] });
-    await queryClient.invalidateQueries({ queryKey: ["transactions", "recurring-skips"] });
-    await queryClient.invalidateQueries({ queryKey: ["plans"] });
-    await queryClient.invalidateQueries({ queryKey: ["plan-links"] });
-    await queryClient.invalidateQueries({ queryKey: ["plan-progress"] });
-    await queryClient.invalidateQueries({ queryKey: ["plan-progress-list"] });
+    const u = requireSessionUserId();
+    await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+    await queryClient.invalidateQueries({ queryKey: qk.transactions.list(u, "recurring-skips") });
+    await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
+    await queryClient.invalidateQueries({ queryKey: qk.planLinks(u) });
+    await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
+    await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
   }
 
   async function resolveTemplate(tx: TransactionWithCategory): Promise<TransactionWithCategory> {
@@ -615,7 +626,7 @@
       const template = await resolveTemplate(tx);
       const occurrenceDate =
         tx.is_recurring && !tx.recurring_template_id
-          ? new Date().toISOString().slice(0, 10)
+          ? localDateIso()
           : (tx.recurring_occurrence_date ?? tx.date.slice(0, 10));
       await endSeriesFromOccurrence({ template, occurrenceDate });
     },
@@ -643,7 +654,9 @@
             occurrenceDate: tx.recurring_occurrence_date ?? tx.date.slice(0, 10),
           })
         : tx;
-      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      await queryClient.invalidateQueries({
+        queryKey: qk.transactions.all(requireSessionUserId()),
+      });
       editTarget = row;
       dialogOpen = true;
     } catch (err) {
@@ -652,21 +665,12 @@
   }
 
   const bulkDeleteMutation = createMutation(() => ({
-    mutationFn: async () => {
-      const ids = manageableSelectedIds();
-      const byId = new Map((txQuery.data ?? []).map((tx) => [tx.id, tx]));
-      await Promise.all(
-        ids
-          .map((id) => byId.get(id))
-          .map((tx) => (tx ? rememberRecurringOccurrenceSkip(tx) : undefined))
-      );
-      await deleteTransactions(ids);
-    },
-    onSuccess: async () => {
-      const count = selectedIds.size;
-      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      await queryClient.invalidateQueries({ queryKey: ["transactions", "recurring-skips"] });
-      toast.success(m.toast_transactions_bulk_deleted({ count }));
+    mutationFn: async () => deleteTransactions(manageableSelectedIds()),
+    onSuccess: async (affected) => {
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.transactions.list(u, "recurring-skips") });
+      toast.success(m.toast_transactions_bulk_deleted({ count: affected }));
       selectedIds = new Set<string>();
       bulkDeleteConfirm = false;
     },
@@ -676,10 +680,9 @@
   const bulkStatusMutation = createMutation(() => ({
     mutationFn: (status: TransactionStatus) =>
       updateTransactionsStatus(manageableSelectedIds(), status),
-    onSuccess: async () => {
-      const count = selectedIds.size;
+    onSuccess: async (affected) => {
       await invalidateAfterSettle();
-      toast.success(m.toast_transactions_bulk_status({ count }));
+      toast.success(m.toast_transactions_bulk_status({ count: affected }));
       selectedIds = new Set<string>();
     },
     onError: (err) => toastError(err),
@@ -687,21 +690,31 @@
 
   // Settling can flip a plan-linked transaction to paid, so plan progress must refresh too.
   async function invalidateAfterSettle() {
-    await queryClient.invalidateQueries({ queryKey: ["transactions"] });
-    await queryClient.invalidateQueries({ queryKey: ["plan-progress"] });
-    await queryClient.invalidateQueries({ queryKey: ["plan-progress-list"] });
+    const u = requireSessionUserId();
+    await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+    await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
+    await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
   }
 
   const settleMutation = createMutation(() => ({
-    mutationFn: (vars: { id: string; prev: TransactionStatus }) =>
+    mutationFn: (vars: { id: string; prev: TransactionStatus; notificationId?: string }) =>
       updateTransactionsStatus([vars.id], "paid"),
     onSuccess: async (_data, vars) => {
+      if (vars.notificationId) {
+        try {
+          await markNotificationRead(vars.notificationId);
+        } catch {
+          // Settlement already succeeded — unread bell is recoverable.
+        }
+      }
       await invalidateAfterSettle();
       toast.success(m.toast_transaction_settled(), {
         action: {
           label: m.toast_transaction_settle_undo(),
           onClick: () => {
-            void updateTransactionsStatus([vars.id], vars.prev).then(() => invalidateAfterSettle());
+            void updateTransactionsStatus([vars.id], vars.prev)
+              .then(() => invalidateAfterSettle())
+              .catch((err) => toastError(err));
           },
         },
       });
@@ -722,10 +735,11 @@
     handledSettleKey = key;
 
     if (isQuickSettleEligible(match.status)) {
-      settleMutation.mutate({ id: match.id, prev: match.status });
-      if (settleNotificationId) {
-        void markNotificationRead(settleNotificationId);
-      }
+      settleMutation.mutate({
+        id: match.id,
+        prev: match.status,
+        notificationId: settleNotificationId ?? undefined,
+      });
     } else {
       sheetTx = match;
     }
@@ -738,10 +752,11 @@
 
   const bulkCategoryMutation = createMutation(() => ({
     mutationFn: (catId: string) => updateTransactionsCategory(manageableSelectedIds(), catId),
-    onSuccess: async () => {
-      const count = selectedIds.size;
-      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      toast.success(m.toast_transactions_bulk_category({ count }));
+    onSuccess: async (affected) => {
+      await queryClient.invalidateQueries({
+        queryKey: qk.transactions.all(requireSessionUserId()),
+      });
+      toast.success(m.toast_transactions_bulk_category({ count: affected }));
       selectedIds = new Set<string>();
     },
     onError: (err) => toastError(err),
@@ -976,7 +991,7 @@
     </div>
     <div class="flex shrink-0 items-center gap-2">
       <a
-        href="/transactions?status=upcoming&forecast=recurring"
+        href="/transactions?status=upcoming"
         class="focus-visible:ring-accent inline-flex h-9 items-center gap-1.5 rounded-full border border-white/10 px-3 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none sm:px-3.5"
         title={m.recurring_entry()}
       >
@@ -1091,7 +1106,7 @@
     <div data-tour-id="tour-transaction-table">
       <TransactionTable
         transactions={renderedTxs}
-        {currentUserId}
+        currentUserId={session.userId}
         canManage={txCanManage}
         emptyLabel={tableEmptyLabel}
         emptyHint={tableEmptyHint}
@@ -1142,7 +1157,7 @@
   <TransactionTable
     layout="cards"
     transactions={visibleTxs ?? []}
-    {currentUserId}
+    currentUserId={session.userId}
     emptyLabel={tableEmptyLabel}
     emptyHint={tableEmptyHint}
     onrowclick={(tx) => {
@@ -1156,7 +1171,7 @@
 
 <TransactionDetailSheet
   transaction={sheetTx}
-  {currentUserId}
+  currentUserId={session.userId}
   groupRoles={groupRolesQuery.data ?? new Map()}
   onclose={closeTransactionSheet}
   onedit={sheetTx && txCanManage(sheetTx)

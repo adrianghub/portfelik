@@ -6,10 +6,11 @@ import {
 } from "$lib/services/plan-settlement-policy";
 import type { Plan, TransactionWithCategory } from "$lib/types";
 
-const plan: Pick<Plan, "kind" | "start_date" | "end_date"> = {
+const plan: Pick<Plan, "kind" | "start_date" | "end_date" | "status"> = {
   kind: "debt",
   start_date: "2026-01-01",
   end_date: "2026-12-31",
+  status: "active",
 };
 
 function tx(
@@ -26,7 +27,7 @@ function tx(
 
 describe("plan-settlement-policy", () => {
   it("maps kinds to settlement types", () => {
-    expect(settlementTypesForPlanKind("save")).toEqual(["income"]);
+    expect(settlementTypesForPlanKind("save")).toEqual(["expense"]);
     expect(settlementTypesForPlanKind("debt")).toEqual(["expense"]);
   });
 
@@ -58,9 +59,28 @@ describe("plan-settlement-policy", () => {
     ).toBe(true);
   });
 
+  it("rejects settlement against non-active plans", () => {
+    expect(
+      isTransactionEligibleForPlanSettlement({
+        plan: { ...plan, status: "refinanced" },
+        tx: tx({ type: "expense", status: "paid" }),
+        blockedIds: new Set(),
+        allowedTypes: resolveSettlementTypes(plan),
+      })
+    ).toBe(false);
+    expect(
+      isTransactionEligibleForPlanSettlement({
+        plan: { ...plan, status: "closed" },
+        tx: tx({ type: "expense", status: "paid" }),
+        blockedIds: new Set(),
+        allowedTypes: resolveSettlementTypes(plan),
+      })
+    ).toBe(false);
+  });
+
   it("ignores type overrides outside the plan kind policy", () => {
     expect(resolveSettlementTypes({ kind: "debt" }, { type: "income" })).toEqual(["expense"]);
-    expect(resolveSettlementTypes({ kind: "save" }, { type: "expense" })).toEqual(["income"]);
+    expect(resolveSettlementTypes({ kind: "save" }, { type: "expense" })).toEqual(["expense"]);
     expect(resolveSettlementTypes({ kind: "debt" }, { type: "all" })).toEqual(["expense"]);
   });
 });

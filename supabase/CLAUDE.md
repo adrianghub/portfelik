@@ -67,17 +67,20 @@ ignored per-machine state, not project truth.
 
 ## Scheduled jobs (pg_cron)
 
-All cron expressions are evaluated in **UTC**. Europe/Warsaw is UTC+1 in winter (CET, late Oct – late Mar) and UTC+2 in summer (CEST). For each job the table shows the UTC schedule and the resulting local fire window.
+Most expressions are stored in UTC. The recurring materialization job prefers
+`timezone = Europe/Warsaw` on `cron.job` when that column exists
+(`20260803060000`). Due-day math always uses `product_local_date()` (Warsaw),
+never raw `current_date`.
 
-| Job                              | UTC schedule                           | Local (winter / summer)            | Source migration                                      |
-| -------------------------------- | -------------------------------------- | ---------------------------------- | ----------------------------------------------------- |
-| `process-recurring-transactions` | `0 23 * * *` (23:00 UTC daily)         | 00:00 CET / 01:00 CEST             | `20260703000000_recurring_reminders_only.sql` (reminder-only; no transaction inserts) |
-| `update-transaction-statuses`    | `0 5 * * *` (05:00 UTC daily)          | 06:00 CET / 07:00 CEST             | `20260425000000_phase5_notifications_push.sql:461`    |
-| `send-admin-summary`             | `0 7 * * *` (07:00 UTC daily)          | 08:00 CET / 09:00 CEST             | `20260630000000_weekly_summary_daily_schedule.sql` (sends on Warsaw Mon or day after import reminder) |
+| Job                              | Schedule                                              | Local intent                         | Source migration                                      |
+| -------------------------------- | ----------------------------------------------------- | ------------------------------------ | ----------------------------------------------------- |
+| `process-recurring-transactions` | `5 0 * * *` + `Europe/Warsaw` (else `5 23 * * *` UTC) | Shortly after Warsaw midnight        | `20260803060000_recurring_cron_warsaw_isolation.sql`  |
+| `update-transaction-statuses`    | `0 5 * * *` (05:00 UTC daily)                         | 06:00 CET / 07:00 CEST               | `20260425000000_phase5_notifications_push.sql:461`    |
+| `send-admin-summary`             | `0 7 * * *` (07:00 UTC daily)                         | 08:00 CET / 09:00 CEST               | `20260630000000_weekly_summary_daily_schedule.sql` (sends on Warsaw Mon or day after import reminder) |
 
-If exact local-time firing becomes important (e.g. always 09:00 Warsaw regardless of DST), switch to `cron.schedule_in_database(...)` with a timezone argument - this requires the `pg_cron.timezone` GUC set per database.
-
-The 1-hour DST drift is acceptable for these jobs (none are user-facing in a sub-hour way). On-call: if a Sunday morning incident reports "the recurring transaction job fired an hour earlier/later than usual," check DST transition dates rather than chasing scheduler bugs.
+`process_recurring_transactions` materializes due-day occurrences + reminders
+(see `docs/architecture/flows/recurring-transactions.md`). One malformed
+template is WARNING-isolated and does not abort the run.
 
 ## Migration tracking
 

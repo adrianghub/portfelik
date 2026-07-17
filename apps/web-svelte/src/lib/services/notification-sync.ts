@@ -1,3 +1,5 @@
+import { session } from "$lib/auth/session.svelte";
+import { qk } from "$lib/query-keys";
 import type { QueryClient } from "@tanstack/svelte-query";
 
 /** Shared with static/sw.js - keep in sync when renaming. */
@@ -26,9 +28,15 @@ export function broadcastNotificationSync(payload: NotificationSyncPayload): voi
   }
 }
 
+function invalidateNotifications(queryClient: QueryClient): void {
+  const u = session.userId;
+  if (!u) return;
+  void queryClient.invalidateQueries({ queryKey: qk.notifications(u) });
+}
+
 /** Invalidate the bell in this tab and notify other open tabs. */
 export function notifyNotificationsChanged(queryClient: QueryClient): void {
-  void queryClient.invalidateQueries({ queryKey: ["notifications"] });
+  invalidateNotifications(queryClient);
   broadcastNotificationSync({ type: "invalidate" });
 }
 
@@ -45,7 +53,7 @@ export function setupNotificationSync(
 
   const onChannelMessage = (event: MessageEvent<NotificationSyncPayload>) => {
     if (event.data?.type === "invalidate") {
-      void queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      invalidateNotifications(queryClient);
     }
   };
 
@@ -55,7 +63,7 @@ export function setupNotificationSync(
     const data = event.data;
     if (!data || data.type !== SW_NOTIFICATION_MESSAGE_TYPE) return;
 
-    void queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    invalidateNotifications(queryClient);
 
     const payload = data.payload as ForegroundPushPayload | undefined;
     if (payload?.title && document.hasFocus() && onForegroundPush) {

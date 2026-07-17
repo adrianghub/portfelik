@@ -9,8 +9,26 @@
     onconfirm: () => void;
     onclose: () => void;
     pending?: boolean;
+    /** Dialog title; defaults to delete confirmation. */
+    title?: string;
+    /** Confirm button label; defaults to Delete. */
+    confirmLabel?: string;
+    /** Visual intent for the confirm button. */
+    intent?: "danger" | "neutral";
   }
-  let { open, message, onconfirm, onclose, pending = false }: Props = $props();
+  let {
+    open,
+    message,
+    onconfirm,
+    onclose,
+    pending = false,
+    title = m.common_confirm_delete(),
+    confirmLabel = m.common_delete(),
+    intent = "danger",
+  }: Props = $props();
+
+  const titleId = "confirm-dialog-title";
+  const descId = "confirm-dialog-desc";
 
   function onkeydown(e: KeyboardEvent) {
     if (e.key === "Escape") onclose();
@@ -18,6 +36,16 @@
 
   function onbackdrop(e: MouseEvent) {
     if (e.target === e.currentTarget) onclose();
+  }
+
+  const confirmClass = $derived(
+    intent === "neutral"
+      ? "flex-1 rounded-full border border-accent/30 bg-accent/15 py-2 text-sm font-semibold text-accent shadow-[0_0_18px_rgba(56,189,248,0.2)] backdrop-blur transition-colors hover:bg-accent/25 disabled:opacity-50"
+      : "flex-1 rounded-full border border-rose-400/20 bg-rose-500/15 py-2 text-sm font-semibold text-rose-200 shadow-[0_0_18px_rgba(244,63,94,0.25)] backdrop-blur transition-colors hover:bg-rose-500/25 disabled:opacity-50"
+  );
+
+  function focusConfirm(node: HTMLButtonElement) {
+    node.focus();
   }
 </script>
 
@@ -35,25 +63,30 @@
       class="w-full max-w-sm space-y-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/95 p-5 shadow-[0_0_60px_rgba(244,63,94,0.12)] backdrop-blur"
       role="alertdialog"
       aria-modal="true"
+      aria-labelledby={titleId}
+      aria-describedby={descId}
       transition:scale={{ duration: motionDuration(180), start: 0.95, opacity: 0 }}
     >
-      <h2 class="text-base font-semibold text-slate-100">
-        {m.common_confirm_delete()}
+      <h2 id={titleId} class="text-base font-semibold text-slate-100">
+        {title}
       </h2>
-      <p class="text-sm text-slate-400">{message}</p>
+      <p id={descId} class="text-sm text-slate-400">{message}</p>
       <div class="flex gap-2">
         <button
+          type="button"
           onclick={onclose}
           class="flex-1 rounded-full border border-white/10 bg-slate-900/60 py-2 text-sm font-medium text-slate-200 backdrop-blur transition-colors hover:bg-white/5"
         >
           {m.common_cancel()}
         </button>
         <button
+          type="button"
           onclick={onconfirm}
           disabled={pending}
-          class="flex-1 rounded-full border border-rose-400/20 bg-rose-500/15 py-2 text-sm font-semibold text-rose-200 shadow-[0_0_18px_rgba(244,63,94,0.25)] backdrop-blur transition-colors hover:bg-rose-500/25 disabled:opacity-50"
+          use:focusConfirm
+          class={confirmClass}
         >
-          {pending ? m.common_saving() : m.common_delete()}
+          {pending ? m.common_saving() : confirmLabel}
         </button>
       </div>
     </div>

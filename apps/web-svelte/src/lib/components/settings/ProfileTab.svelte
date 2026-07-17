@@ -1,5 +1,7 @@
 <script lang="ts">
   import { createMutation, useQueryClient } from "@tanstack/svelte-query";
+  import { requireSessionUserId } from "$lib/auth/session.svelte";
+  import { qk } from "$lib/query-keys";
   import { updateProfile } from "$lib/services/profiles";
   import { deleteAccount } from "$lib/services/groups";
   import { buildAccountExport, downloadAccountExport } from "$lib/services/account-export";
@@ -47,7 +49,7 @@
   const mutation = createMutation(() => ({
     mutationFn: () => updateProfile(profile!.id, { name: nameInput }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["profile"] });
+      await queryClient.invalidateQueries({ queryKey: qk.profile(requireSessionUserId()) });
       toast.success(m.toast_profile_updated());
       editing = false;
     },
@@ -183,7 +185,7 @@
       if (input.enabled) {
         trackOnce("import_reminder_enabled", { cadence_days: input.cadenceDays });
       }
-      await queryClient.invalidateQueries({ queryKey: ["profile"] });
+      await queryClient.invalidateQueries({ queryKey: qk.profile(requireSessionUserId()) });
       toast.success(m.toast_profile_updated());
     },
     onError: (err) => toastError(err),
@@ -483,6 +485,13 @@
         <p class="mt-0.5 text-xs text-slate-400">{m.profile_delete_account_hint()}</p>
         {#if deleteError}
           <p class="mt-1.5 text-xs text-rose-300">{deleteError}</p>
+          <button
+            type="button"
+            class="text-accent mt-1.5 text-xs font-medium hover:underline"
+            onclick={() => goto("/settings?tab=groups")}
+          >
+            {m.profile_delete_account_go_groups()}
+          </button>
         {/if}
       </div>
       <button

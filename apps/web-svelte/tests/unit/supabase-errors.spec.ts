@@ -56,6 +56,15 @@ describe("errorMessage — P0001 mapping", () => {
     expect(msg).not.toContain("Linked transactions");
   });
 
+  it("maps category type invariant P0001 codes", () => {
+    expect(errorMessage({ code: "P0001", message: "category_type_mismatch" })).toBe(
+      m.error_category_type_mismatch()
+    );
+    expect(errorMessage({ code: "P0001", message: "category_type_in_use" })).toBe(
+      m.error_category_type_in_use()
+    );
+  });
+
   it("maps the not_authorized family to the permission message", () => {
     expect(errorMessage({ code: "P0001", message: "not_authorized_plan" })).toBe(
       m.error_permission()

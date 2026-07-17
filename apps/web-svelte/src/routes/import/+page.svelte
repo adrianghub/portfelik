@@ -14,6 +14,8 @@
   import { useQueryClient } from "@tanstack/svelte-query";
   import { beforeNavigate, goto } from "$app/navigation";
   import { toast } from "svelte-sonner";
+  import { requireSessionUserId } from "$lib/auth/session.svelte";
+  import { qk } from "$lib/query-keys";
   import { cn, transactionsUrlForRange } from "$lib/utils";
 
   type Step = "upload" | "review";
@@ -74,8 +76,11 @@
     if (activeSession) {
       try {
         await cancelImportSession(activeSession.id);
-      } catch {
-        // ignore
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : m.bank_import_cancel_failed());
+        leaveDialogOpen = false;
+        pendingHref = null;
+        return;
       }
     }
     activeSession = null;
@@ -95,8 +100,15 @@
     if (resumeSession && resumeSession.id !== sess.id) {
       try {
         await cancelImportSession(resumeSession.id);
-      } catch {
-        // ignore
+      } catch (e) {
+        // New session already exists — cancel it so we do not leave two drafts.
+        try {
+          await cancelImportSession(sess.id);
+        } catch {
+          /* best-effort; prior draft remains the resume target */
+        }
+        toast.error(e instanceof Error ? e.message : m.bank_import_prior_cancel_failed());
+        return;
       }
     }
     resumeSession = null;
@@ -119,16 +131,18 @@
     if (!resumeSession) return;
     try {
       await cancelImportSession(resumeSession.id);
-    } catch {
-      // ignore
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : m.bank_import_cancel_failed());
+      return;
     }
     resumeSession = null;
   }
 
   function handleCommitted(result: CommitResult, dateRange?: ImportedDateRange): void {
-    queryClient.invalidateQueries({ queryKey: ["transactions"] });
-    queryClient.invalidateQueries({ queryKey: ["summary"] });
-    queryClient.invalidateQueries({ queryKey: ["import-health"] });
+    const u = requireSessionUserId();
+    queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+    queryClient.invalidateQueries({ queryKey: qk.summary(u) });
+    queryClient.invalidateQueries({ queryKey: qk.importHealth(u) });
     toast.success(m.bank_commit_success({ count: result.inserted }), {
       description: m.bank_commit_toast_detail({
         skipped: result.skipped,
@@ -146,8 +160,9 @@
     }
     try {
       await cancelImportSession(activeSession.id);
-    } catch {
-      // ignore
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : m.bank_import_cancel_failed());
+      return;
     }
     resetToUpload();
   }

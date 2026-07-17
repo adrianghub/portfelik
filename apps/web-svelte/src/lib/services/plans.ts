@@ -1,10 +1,10 @@
 import { trackOnce } from "$lib/analytics";
+import { localDateIso } from "$lib/date-local";
 import { supabase } from "$lib/supabase";
 import type { GroupMemberRole, Plan, PlanBucket, PlanKind } from "$lib/types";
 
 export function todayIso(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  return localDateIso();
 }
 
 function parseLocalDate(iso: string): Date {
@@ -181,8 +181,11 @@ export function canManagePlan(
   currentUserId: string,
   groupRoles: Map<string, GroupMemberRole>
 ): boolean {
-  if (plan.user_id === currentUserId) return true;
-  if (!plan.group_id) return false;
-  const role = groupRoles.get(plan.group_id);
-  return role === "owner" || role === "co_owner";
+  if (plan.group_id) {
+    const role = groupRoles.get(plan.group_id);
+    if (role === "owner" || role === "co_owner") return true;
+    if (plan.user_id === currentUserId) return role !== undefined;
+    return false;
+  }
+  return plan.user_id === currentUserId;
 }

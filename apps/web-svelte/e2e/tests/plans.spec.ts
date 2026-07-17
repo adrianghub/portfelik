@@ -1,6 +1,18 @@
 import { expect, test } from "@playwright/test";
-import { isoDaysFromToday } from "../helpers/fixtures";
 import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
+
+/** Two ISO dates in the currently open calendar month (always on-grid). */
+function datesInCurrentMonth(): { startDate: string; endDate: string } {
+  const now = new Date();
+  const y = now.getFullYear();
+  const month = now.getMonth();
+  const lastDay = new Date(y, month + 1, 0).getDate();
+  const startDay = Math.min(8, lastDay - 3);
+  const endDay = Math.min(22, lastDay);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const ym = `${y}-${pad(month + 1)}`;
+  return { startDate: `${ym}-${pad(startDay)}`, endDate: `${ym}-${pad(endDay)}` };
+}
 
 test.beforeEach(async ({ page }) => {
   await injectFakeSession(page);
@@ -11,9 +23,11 @@ test("renders sectioned hub with saving goals and debt plans", async ({ page }) 
   await page.goto("/plans");
 
   await expect(page.getByRole("heading", { name: "Plany" })).toBeVisible();
+  await expect(page.getByText("Majątek netto", { exact: true })).toBeVisible();
+  await expect(page.getByText("Kredyty 206 000,00 zł")).toBeVisible();
   await expect(
     page.getByText("Dodaj gotówkę i inwestycje, by zobaczyć majątek netto.")
-  ).toBeVisible();
+  ).toHaveCount(0);
   await expect(page.getByText("Plany obejmują cele oszczędnościowe i kredyty.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Cele oszczędnościowe" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Kredyty" })).toBeVisible();
@@ -51,8 +65,7 @@ test("creates a saving goal with date period and target", async ({ page }) => {
     return route.fallback();
   });
 
-  const startDate = isoDaysFromToday(5);
-  const endDate = isoDaysFromToday(25);
+  const { startDate, endDate } = datesInCurrentMonth();
 
   await page.goto("/plans");
   await page.getByRole("button", { name: "Nowy plan" }).first().click();
@@ -91,54 +104,41 @@ test("save plan detail shows progress and link CTA", async ({ page }) => {
 });
 
 test("creates a debt plan (Kredyt) with terms", async ({ page }) => {
-  let planBody: Record<string, unknown> | undefined;
-  let debtBody: Record<string, unknown> | undefined;
+  let rpcBody: Record<string, unknown> | undefined;
 
-  await page.route(/.*\/rest\/v1\/plans.*/, async (route) => {
-    const request = route.request();
-    if (request.method() === "POST") {
-      planBody = request.postDataJSON() as Record<string, unknown>;
-      return route.fulfill({
-        status: 201,
-        json: {
+  await page.route(/.*\/rpc\/save_debt_plan.*/, async (route) => {
+    rpcBody = route.request().postDataJSON() as Record<string, unknown>;
+    return route.fulfill({
+      status: 200,
+      json: {
+        plan: {
           id: "plan-debt-new",
-          name: planBody.name,
-          kind: planBody.kind ?? "debt",
+          name: rpcBody.p_name,
+          kind: "debt",
+          status: "active",
           user_id: "00000000-0000-0000-0000-000000000001",
           group_id: null,
           category_id: null,
           budget_amount: null,
-          target_amount: planBody.target_amount ?? null,
-          start_date: planBody.start_date,
-          end_date: planBody.end_date,
+          target_amount: rpcBody.p_target_amount ?? rpcBody.p_original_amount,
+          start_date: rpcBody.p_start_date,
+          end_date: rpcBody.p_end_date,
           created_at: "2026-06-01T10:00:00Z",
           updated_at: "2026-06-01T10:00:00Z",
         },
-      });
-    }
-    return route.fallback();
-  });
-
-  await page.route(/.*\/rest\/v1\/plan_debt_terms.*/, async (route) => {
-    const request = route.request();
-    if (request.method() === "POST") {
-      debtBody = request.postDataJSON() as Record<string, unknown>;
-      return route.fulfill({
-        status: 201,
-        json: {
-          plan_id: debtBody.plan_id,
-          original_amount: debtBody.original_amount,
-          current_balance: debtBody.current_balance,
-          annual_rate: debtBody.annual_rate,
-          monthly_payment: debtBody.monthly_payment,
-          anchor_balance: debtBody.current_balance,
+        terms: {
+          plan_id: "plan-debt-new",
+          original_amount: rpcBody.p_original_amount,
+          current_balance: rpcBody.p_current_balance,
+          annual_rate: rpcBody.p_annual_rate,
+          monthly_payment: rpcBody.p_monthly_payment,
+          anchor_balance: rpcBody.p_current_balance,
           balance_anchor_date: "2026-06-01",
           created_at: "2026-06-01T10:00:00Z",
           updated_at: "2026-06-01T10:00:00Z",
         },
-      });
-    }
-    return route.fallback();
+      },
+    });
   });
 
   await page.goto("/plans");
@@ -150,8 +150,9 @@ test("creates a debt plan (Kredyt) with terms", async ({ page }) => {
   await page.getByLabel("Oprocentowanie (% rocznie)").fill("7.18");
   await page.getByRole("button", { name: "Zapisz" }).click();
 
-  await expect.poll(() => planBody?.kind).toBe("debt");
-  await expect.poll(() => debtBody?.monthly_payment).toBe(2500);
+  await expect.poll(() => rpcBody?.p_name).toBe("Kredyt hipoteczny test");
+  await expect.poll(() => Number(rpcBody?.p_monthly_payment)).toBe(2500);
+  await expect.poll(() => Number(rpcBody?.p_original_amount)).toBe(400000);
   await expect(page.getByText("Plan dodany")).toBeVisible();
 });
 
@@ -164,7 +165,9 @@ test("debt plan detail shows balance hero", async ({ page }) => {
 });
 
 // Refinance entry UI is deferred in the product; keep RPC coverage in unit tests.
-test.skip("refinances a debt plan: closes old, opens new, writes no transaction", async ({ page }) => {
+test.skip("refinances a debt plan: closes old, opens new, writes no transaction", async ({
+  page,
+}) => {
   let rpcBody: Record<string, unknown> | undefined;
   let transactionWritten = false;
 

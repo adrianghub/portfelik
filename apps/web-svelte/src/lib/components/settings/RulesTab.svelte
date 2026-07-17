@@ -1,5 +1,7 @@
 <script lang="ts">
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
+  import { session, requireSessionUserId } from "$lib/auth/session.svelte";
+  import { qk } from "$lib/query-keys";
   import {
     fetchCategorizationRules,
     deleteCategorizationRule,
@@ -22,13 +24,15 @@
   const queryClient = useQueryClient();
 
   const rulesQuery = createQuery(() => ({
-    queryKey: ["categorization_rules"],
+    queryKey: qk.categorizationRules(session.userId!),
     queryFn: fetchCategorizationRules,
+    enabled: () => !!session.userId,
   }));
 
   const categoriesQuery = createQuery(() => ({
-    queryKey: ["categories"],
+    queryKey: qk.categories(session.userId!),
     queryFn: fetchCategories,
+    enabled: () => !!session.userId,
   }));
 
   let deleteTargetId = $state<string | null>(null);
@@ -46,10 +50,23 @@
     return type === "income" ? m.common_income() : m.common_expense();
   }
 
+  function kindLabel(kind: CategorizationRule["kind"]): string {
+    switch (kind) {
+      case "exact":
+        return m.rules_kind_exact();
+      case "contains":
+        return m.rules_kind_contains();
+      case "type":
+        return m.rules_kind_type();
+      case "composite":
+        return m.rules_kind_composite();
+    }
+  }
+
   // Human-readable summary of what a rule matches on, e.g.
-  // 'Opis zawiera "biedronka"' or 'Typ: Wydatek'.
+  // 'Zawiera · Opis: "biedronka"' or 'Typ transakcji · Typ: Wydatek'.
   function matchSummary(rule: CategorizationRule): string {
-    const parts: string[] = [];
+    const parts: string[] = [kindLabel(rule.kind)];
     if (rule.match_description) {
       parts.push(`${m.bank_review_save_rule_field_description()}: "${rule.match_description}"`);
     }
@@ -95,7 +112,9 @@
   const deleteMutation = createMutation(() => ({
     mutationFn: () => deleteCategorizationRule(deleteTargetId!),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["categorization_rules"] });
+      await queryClient.invalidateQueries({
+        queryKey: qk.categorizationRules(requireSessionUserId()),
+      });
       toast.success(m.rules_deleted());
       deleteTargetId = null;
     },

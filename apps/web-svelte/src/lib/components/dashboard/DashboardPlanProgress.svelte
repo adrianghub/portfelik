@@ -10,6 +10,8 @@
   import { getPlanEmoji } from "$lib/utils/plan-emoji";
   import { formatCurrency } from "$lib/utils";
   import { createQuery } from "@tanstack/svelte-query";
+  import { session } from "$lib/auth/session.svelte";
+  import { qk } from "$lib/query-keys";
   import { Sparkles } from "lucide-svelte";
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import DashboardSeeMoreButton from "$lib/components/dashboard/DashboardSeeMoreButton.svelte";
@@ -19,8 +21,9 @@
   let plansDialogOpen = $state(false);
 
   const progressQuery = createQuery(() => ({
-    queryKey: ["plan-progress"],
+    queryKey: qk.planProgress(session.userId!),
     queryFn: () => fetchDashboardPlanProgress(),
+    enabled: () => !!session.userId,
   }));
 
   const activePlans = $derived(
@@ -38,9 +41,9 @@
   );
 
   const debtTermsQuery = createQuery(() => ({
-    queryKey: ["plan-debt-terms-list", debtPlanIds],
+    queryKey: qk.planDebtTermsList(session.userId!, debtPlanIds),
     queryFn: () => fetchPlanDebtTermsByPlanIds(debtPlanIds),
-    enabled: debtPlanIds.length > 0,
+    enabled: () => !!session.userId && debtPlanIds.length > 0,
   }));
 
   // Kind-aware display matching PlanCard on /plans: debt uses the canonical display balance,

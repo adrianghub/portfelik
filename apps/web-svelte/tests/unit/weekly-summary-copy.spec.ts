@@ -1,27 +1,15 @@
 import { describe, expect, it } from "vitest";
-
-/** Mirrors supabase/functions/send-admin-summary/index.ts copy helpers. */
-function activeUsersPhrase(count: number): string {
-  if (count === 0) return "Na razie nikt nie dodał transakcji";
-  if (count === 1) return "1 aktywna osoba";
-  const lastTwo = count % 100;
-  const last = count % 10;
-  if (last >= 2 && last <= 4 && !(lastTwo >= 12 && lastTwo <= 14)) {
-    return `${count} aktywne osoby`;
-  }
-  return `${count} aktywnych osób`;
-}
-
-function buildSummaryBody(income: number, expense: number, userCount: number): string {
-  const users = activeUsersPhrase(userCount);
-  return `Ostatnie 7 dni: wpływy ${income.toFixed(2)} PLN, wydatki ${expense.toFixed(2)} PLN - ${users}.`;
-}
+import {
+  activeUsersPhrase,
+  buildSummaryBody,
+  buildSummaryNotificationData,
+  transactionsPhrase,
+} from "../../../../supabase/functions/send-admin-summary/summary-copy";
 
 describe("weekly summary notification copy", () => {
   it("uses singular for one active user", () => {
     expect(activeUsersPhrase(1)).toBe("1 aktywna osoba");
-    expect(buildSummaryBody(2797.37, 3169.7, 1)).toContain("1 aktywna osoba");
-    expect(buildSummaryBody(2797.37, 3169.7, 1)).not.toContain("użytkowników");
+    expect(buildSummaryBody(3, 1)).toBe("Ostatnie 7 dni: 3 transakcje - 1 aktywna osoba.");
   });
 
   it("uses few plural for 2-4 users", () => {
@@ -36,5 +24,33 @@ describe("weekly summary notification copy", () => {
 
   it("handles zero active users", () => {
     expect(activeUsersPhrase(0)).toBe("Na razie nikt nie dodał transakcji");
+  });
+
+  it("uses Polish transaction plurals", () => {
+    expect(transactionsPhrase(1)).toBe("1 transakcja");
+    expect(transactionsPhrase(2)).toBe("2 transakcje");
+    expect(transactionsPhrase(12)).toBe("12 transakcji");
+    expect(transactionsPhrase(22)).toBe("22 transakcje");
+  });
+
+  it("does not include financial amounts in the notification body or data", () => {
+    const body = buildSummaryBody(12, 2);
+    const data = buildSummaryNotificationData({
+      windowStart: "2026-07-06T00:00:00.000Z",
+      windowEnd: "2026-07-13T23:59:59.999Z",
+      userCount: 2,
+      txCount: 12,
+      schedule: "monday",
+    });
+
+    expect(body).not.toMatch(/PLN|zł|wpływ|wydatk/i);
+    expect(Object.keys(data).sort()).toEqual([
+      "schedule",
+      "txCount",
+      "userCount",
+      "windowEnd",
+      "windowStart",
+    ]);
+    expect(JSON.stringify(data)).not.toMatch(/amount|income|expense|perUser/i);
   });
 });

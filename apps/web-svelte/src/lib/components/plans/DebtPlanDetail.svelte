@@ -35,6 +35,12 @@
     linkedExpenses?: DebtLinkedPayment[];
     onSyncBalance?: () => void | Promise<void>;
     onTermsSave?: (input: PlanDebtTermsInput) => void | Promise<void>;
+    /** Atomic plan + terms save (preferred over onTermsSave + onPlanDatesSave). */
+    onDebtPlanSave?: (patch: {
+      terms: PlanDebtTermsInput;
+      start_date: string;
+      end_date: string;
+    }) => void | Promise<void>;
     onPlanDatesSave?: (dates: { start_date: string; end_date: string }) => void | Promise<void>;
     refinancedFromPlanId?: string | null;
     replacedByPlanId?: string | null;
@@ -52,6 +58,7 @@
     linkedExpenses = [],
     onSyncBalance,
     onTermsSave,
+    onDebtPlanSave,
     onPlanDatesSave,
     refinancedFromPlanId = null,
     replacedByPlanId = null,
@@ -131,9 +138,13 @@
     void onSyncBalance?.();
   }
 
-  function confirmSyncBalance() {
-    showSyncConfirm = false;
-    void onSyncBalance?.();
+  async function confirmSyncBalance() {
+    try {
+      await onSyncBalance?.();
+      showSyncConfirm = false;
+    } catch {
+      /* parent toastError */
+    }
   }
 
   async function confirmFullReplay() {
@@ -148,8 +159,16 @@
         }),
         clear_balance_anchor: true,
       };
-      await onTermsSave?.(input);
-      await onSyncBalance?.();
+      if (onDebtPlanSave) {
+        await onDebtPlanSave({
+          terms: input,
+          start_date: planStartDate,
+          end_date: planEndDate,
+        });
+      } else {
+        await onTermsSave?.(input);
+        await onSyncBalance?.();
+      }
     } catch (err) {
       toastError(err);
     }
@@ -181,9 +200,13 @@
         }),
         ...(balanceChanged ? { reset_balance_anchor: true } : {}),
       };
-      await onTermsSave?.(input);
-      if (onPlanDatesSave && (editStartDate !== planStartDate || editEndDate !== planEndDate)) {
-        await onPlanDatesSave({ start_date: editStartDate, end_date: editEndDate });
+      if (onDebtPlanSave) {
+        await onDebtPlanSave({ terms: input, start_date: editStartDate, end_date: editEndDate });
+      } else {
+        await onTermsSave?.(input);
+        if (onPlanDatesSave && (editStartDate !== planStartDate || editEndDate !== planEndDate)) {
+          await onPlanDatesSave({ start_date: editStartDate, end_date: editEndDate });
+        }
       }
       showTermsEdit = false;
     } catch (err) {

@@ -47,10 +47,10 @@ export interface PlanSettlementProgress {
   /** Sum of paid linked EXPENSE transactions dated in the current calendar month
       (debt-payment coverage actually present in this month's tracked expenses). */
   linkedExpenseCurrentMonth: number;
-  /** Sum of paid linked INCOME transactions dated in the current calendar month
-      (save-goal deposits already made this month - credited against the monthly
+  /** Sum of paid linked save-goal EXPENSE contributions in the current calendar month
+      (credited against the monthly
       pace so a deposit is never counted as both an expense and an unmet goal). */
-  linkedIncomeCurrentMonth: number;
+  saveContributionsCurrentMonth: number;
   /** Paid linked expense payments (amount + date) — lets hub/net-worth surfaces run the
       same flat-accrual debt balance as the plan detail instead of a stored-balance
       heuristic. */
@@ -82,6 +82,39 @@ export async function fetchPlanLinks(planId: string): Promise<PlanTransactionLin
   return (data ?? []) as PlanTransactionLink[];
 }
 
+export async function createAndLinkPlanTransaction(input: {
+  planId: string;
+  amount: number;
+  description: string;
+  date: string;
+  categoryId: string;
+  currency?: string;
+  counterparty?: string | null;
+  status?: string;
+  groupId?: string | null;
+  planKind?: PlanKind;
+}): Promise<string> {
+  const { data, error } = await supabase.rpc("create_and_link_plan_transaction", {
+    p_plan_id: input.planId,
+    p_amount: input.amount,
+    p_description: input.description,
+    p_date: input.date,
+    p_category_id: input.categoryId,
+    p_currency: input.currency ?? "PLN",
+    p_counterparty: input.counterparty ?? null,
+    p_status: input.status ?? "paid",
+    p_group_id: input.groupId ?? null,
+  });
+  if (error) throw error;
+  if (input.planKind) {
+    trackOnce("first_settlement_linked", { kind: input.planKind });
+  } else {
+    trackOnce("first_settlement_linked");
+  }
+  trackOnce("first_transaction_created", { source: "manual" });
+  return data as string;
+}
+
 export async function linkPlanTransaction(
   planId: string,
   transactionId: string,
@@ -106,6 +139,43 @@ export async function unlinkPlanTransaction(planId: string, transactionId: strin
     p_transaction_id: transactionId,
   });
   if (error) throw error;
+}
+
+export async function addPlanContribution(input: {
+  planId: string;
+  amount: number;
+  date: string;
+  description?: string;
+}): Promise<string> {
+  const { data, error } = await supabase.rpc("add_plan_contribution", {
+    p_plan_id: input.planId,
+    p_amount: input.amount,
+    p_date: input.date,
+    p_description: input.description?.trim() || null,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+export function suggestPlanContribution(input: {
+  remaining: number | null;
+  monthlyNeeded: number | null;
+  contributedThisMonth: number;
+  recentAmount?: number | null;
+  explicitAmount?: number | null;
+}): number | null {
+  const candidates = [
+    input.explicitAmount,
+    input.monthlyNeeded == null
+      ? null
+      : Math.max(0, input.monthlyNeeded - input.contributedThisMonth),
+    input.recentAmount,
+  ];
+  const suggestion = candidates.find(
+    (amount) => amount != null && Number.isFinite(amount) && amount > 0
+  );
+  if (suggestion == null) return null;
+  return input.remaining == null ? suggestion : Math.min(suggestion, input.remaining);
 }
 
 export async function fetchDismissedTransactionIds(planId: string): Promise<string[]> {
@@ -308,9 +378,7 @@ export function rankPlanTransaction(
     reasons.push({ key: "keyword", label: matchedKeyword, signal: "match" });
   }
 
-  if (tx.type === "income" && (plan.kind ?? "save") === "save") {
-    // Income on save plans previously had no path past the baseline, so every deposit
-    // showed as a weak match. A deposit that fits the remaining target is a real signal.
+  if (tx.type === "expense" && (plan.kind ?? "save") === "save") {
     const targetRemaining =
       plan.target_amount != null && plan.target_amount > 0
         ? Math.max(0, plan.target_amount - (opts?.savedAmount ?? 0))
@@ -318,6 +386,10 @@ export function rankPlanTransaction(
     if (targetRemaining !== null && tx.amount > 0 && tx.amount <= targetRemaining) {
       score += 20;
       reasons.push({ key: "amount", label: "", signal: "match" });
+    }
+    if (tx.category_name === "Cele") {
+      score += 20;
+      reasons.push({ key: "category", label: tx.category_name, signal: "match" });
     }
   }
 
@@ -357,7 +429,7 @@ export function countRankedSuggestions(
     .filter((t) => t.type === "expense")
     .reduce((s, t) => s + t.amount, 0);
   const savedAmount = linkedTransactions
-    .filter((t) => t.type === "income")
+    .filter((t) => t.type === "expense")
     .reduce((s, t) => s + t.amount, 0);
   return eligible
     .filter((tx) => !dismissedIds.has(tx.id))
@@ -408,7 +480,7 @@ export async function fetchRankedEligibleTransactions(
     fetchDismissedKeys(planId),
   ]);
   const spentAmount = linked.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
-  const savedAmount = linked.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
+  const savedAmount = linked.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
 
   return eligible
     .map((tx) => rankPlanTransaction(plan, tx, spentAmount, { savedAmount, dismissedKeys }))
@@ -416,12 +488,12 @@ export async function fetchRankedEligibleTransactions(
     .sort((a, b) => b.score - a.score);
 }
 
-function sumLinkedIncomeInMonth(
-  incomes: TransactionWithCategory[],
+function sumSaveContributionsInMonth(
+  contributions: TransactionWithCategory[],
   monthStart: string,
   monthEnd: string
 ): number {
-  return incomes
+  return contributions
     .filter((t) => {
       const d = t.date.slice(0, 10);
       return d >= monthStart && d <= monthEnd;
@@ -449,7 +521,7 @@ export function computeSaveMonthlyActualDetail(input: {
   startDate?: string;
   endDate?: string;
   savedAmount: number;
-  linkedIncomes: TransactionWithCategory[];
+  linkedContributions: TransactionWithCategory[];
   today?: string;
 }): SaveMonthlyActualDetail {
   if (input.kind !== "save") return { amount: null, basis: "none" };
@@ -462,8 +534,8 @@ export function computeSaveMonthlyActualDetail(input: {
     return { amount: 0, basis: "none" };
   }
   const bounds = currentCalendarMonthBounds(new Date(today));
-  const currentMonthDeposits = sumLinkedIncomeInMonth(
-    input.linkedIncomes,
+  const currentMonthDeposits = sumSaveContributionsInMonth(
+    input.linkedContributions,
     bounds.start,
     bounds.end
   );
@@ -481,7 +553,7 @@ export function computeSaveMonthlyActual(input: {
   startDate?: string;
   endDate?: string;
   savedAmount: number;
-  linkedIncomes: TransactionWithCategory[];
+  linkedContributions: TransactionWithCategory[];
   today?: string;
 }): number | null {
   return computeSaveMonthlyActualDetail(input).amount;
@@ -513,10 +585,8 @@ export function computePlanProgress(input: {
   const linkedExpenseCurrentMonth = expenses
     .filter(inCurrentMonth)
     .reduce((sum, t) => sum + t.amount, 0);
-  const linkedIncomeCurrentMonth = incomes
-    .filter(inCurrentMonth)
-    .reduce((sum, t) => sum + t.amount, 0);
-  const savedAmount = incomeAmount;
+  const saveContributionsCurrentMonth = input.kind === "save" ? linkedExpenseCurrentMonth : 0;
+  const savedAmount = input.kind === "save" ? spentAmount : 0;
   const targetAmount = input.targetAmount ?? null;
   const remaining =
     targetAmount != null && targetAmount > 0 ? Math.max(0, targetAmount - savedAmount) : null;
@@ -535,7 +605,7 @@ export function computePlanProgress(input: {
     startDate: input.startDate,
     endDate: input.endDate,
     savedAmount,
-    linkedIncomes: incomes,
+    linkedContributions: input.kind === "save" ? expenses : [],
     today,
   });
   const monthlyActual = monthlyActualDetail.amount;
@@ -559,7 +629,7 @@ export function computePlanProgress(input: {
     monthlyActual,
     monthlyActualBasis: monthlyActualDetail.basis,
     linkedExpenseCurrentMonth,
-    linkedIncomeCurrentMonth,
+    saveContributionsCurrentMonth,
     linkedExpenses: expenses.map((t) => ({ amount: t.amount, date: t.date })),
     monthsRemaining: monthsRem,
   };

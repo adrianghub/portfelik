@@ -5,14 +5,17 @@ export function isQuickSettleEligible(status: TransactionStatus): boolean {
   return status === "upcoming" || status === "overdue";
 }
 
-/** Mirrors transaction RLS: creator or group owner/co-owner may write. */
+/** Mirrors transaction RLS: private creator; group creator while member; owner/co-owner. */
 export function canManageTransaction(
   tx: Pick<TransactionWithCategory, "user_id" | "group_id">,
   currentUserId: string,
   groupRoles: Map<string, GroupMemberRole>
 ): boolean {
-  if (tx.user_id === currentUserId) return true;
-  if (!tx.group_id) return false;
-  const role = groupRoles.get(tx.group_id);
-  return role === "owner" || role === "co_owner";
+  if (tx.group_id) {
+    const role = groupRoles.get(tx.group_id);
+    if (role === "owner" || role === "co_owner") return true;
+    if (tx.user_id === currentUserId) return role !== undefined;
+    return false;
+  }
+  return tx.user_id === currentUserId;
 }

@@ -1,3 +1,4 @@
+import { qk } from "$lib/query-keys";
 import { requestGuidedTourRestart } from "$lib/guided-tour/ui.svelte";
 import { writeGuidedTourProgressLocal } from "$lib/services/guided-tour";
 import { updateProfile } from "$lib/services/profiles";
@@ -12,10 +13,10 @@ export async function resetGuidedTourForReplay(
 ): Promise<void> {
   writeGuidedTourProgressLocal({});
   const nextSettings = { ...profile.settings, guidedTour: {} as Json };
-  queryClient.setQueryData<Profile>(["profile", userId], (old) =>
+  queryClient.setQueryData<Profile>(qk.profile(userId), (old) =>
     old ? { ...old, settings: nextSettings } : old
   );
   await updateProfile(userId, { settings: nextSettings });
-  await queryClient.invalidateQueries({ queryKey: ["profile"] });
+  await queryClient.invalidateQueries({ queryKey: qk.profile(userId) });
   requestGuidedTourRestart();
 }

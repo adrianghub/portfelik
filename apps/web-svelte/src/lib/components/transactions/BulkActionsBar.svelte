@@ -12,7 +12,7 @@
     onsetstatus: (status: TransactionStatus) => void;
     onsetcategory: (categoryId: string) => void;
     oncreatecategory?: (name: string, type: TransactionType) => Promise<string | null>;
-    /** Common type of the selection; null when mixed/unknown. Gates inline create. */
+    /** Homogeneous type of the selection; null when mixed. Required to change category. */
     createType?: TransactionType | null;
     ondelete: () => void;
   }
@@ -46,6 +46,11 @@
 
   const selectClass =
     "h-9 rounded-full border border-white/10 bg-slate-900/60 px-3 text-sm text-slate-200 backdrop-blur focus:border-accent/40 focus:ring-2 focus:ring-accent/30 focus:outline-none disabled:opacity-50";
+
+  const typedCategories = $derived(
+    createType ? categories.filter((c) => c.type === createType) : []
+  );
+  const categoryDisabled = $derived(pending || !createType);
 </script>
 
 <div
@@ -77,18 +82,28 @@
       {/each}
     </select>
 
-    <CategorySelect
-      {categories}
-      selectedId={null}
-      type={createType ?? "expense"}
-      onchange={(id) => {
-        if (id) onsetcategory(id);
-      }}
-      oncreate={createType ? oncreatecategory : undefined}
-      disabled={pending}
-      placeholder={m.transactions_bulk_set_category()}
-      class="min-w-48"
-    />
+    {#if createType}
+      <CategorySelect
+        categories={typedCategories}
+        selectedId={null}
+        type={createType}
+        onchange={(id) => {
+          if (id) onsetcategory(id);
+        }}
+        oncreate={oncreatecategory}
+        disabled={categoryDisabled}
+        placeholder={m.transactions_bulk_set_category()}
+        class="min-w-48"
+      />
+    {:else}
+      <span
+        class="text-xs text-slate-400"
+        title={m.transactions_bulk_category_mixed()}
+        aria-label={m.transactions_bulk_category_mixed()}
+      >
+        {m.transactions_bulk_category_mixed()}
+      </span>
+    {/if}
 
     <button
       type="button"

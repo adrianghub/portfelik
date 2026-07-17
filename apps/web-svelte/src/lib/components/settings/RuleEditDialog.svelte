@@ -1,6 +1,11 @@
 <script lang="ts">
   import { createMutation, useQueryClient } from "@tanstack/svelte-query";
-  import { updateCategorizationRule } from "$lib/services/categorization-rules";
+  import { requireSessionUserId } from "$lib/auth/session.svelte";
+  import { qk } from "$lib/query-keys";
+  import {
+    buildCategorizationRuleEditPatch,
+    updateCategorizationRule,
+  } from "$lib/services/categorization-rules";
   import type { CategorizationRule, Category } from "$lib/types";
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import Input from "$lib/components/ui/Input.svelte";
@@ -29,6 +34,15 @@
   let editDayOfMonth = $state("1");
   let showAdvanced = $state(false);
 
+  const editsText = $derived(rule?.kind !== "type");
+  const typeLabel = $derived(
+    rule?.match_type === "income"
+      ? m.common_income()
+      : rule?.match_type === "expense"
+        ? m.common_expense()
+        : null
+  );
+
   $effect(() => {
     if (!open || !rule) return;
     categoryId = rule.category_id;
@@ -48,38 +62,28 @@
   const mutation = createMutation(() => ({
     mutationFn: async () => {
       if (!rule) throw new Error("no_rule");
-      const hasTextConstraint = editDescEnabled || editCounterpartyEnabled;
-      if (!hasTextConstraint)
-        throw new ValidationError(m.bank_review_rule_edit_require_condition());
-
-      const nextDesc = editDescEnabled ? editDesc.trim() : null;
-      const nextCounterparty = editCounterpartyEnabled ? editCounterparty.trim() : null;
-      if (hasTextConstraint && !nextDesc && !nextCounterparty) {
-        throw new ValidationError(m.bank_review_rule_edit_require_text());
-      }
-
-      const nextDayOfMonth: number | null = editDateEnabled ? Number(editDayOfMonth) : null;
-      if (
-        editDateEnabled &&
-        (nextDayOfMonth === null ||
-          !Number.isInteger(nextDayOfMonth) ||
-          nextDayOfMonth < 1 ||
-          nextDayOfMonth > 31)
-      ) {
+      const built = buildCategorizationRuleEditPatch(rule, {
+        categoryId,
+        descEnabled: editDescEnabled,
+        desc: editDesc,
+        counterpartyEnabled: editCounterpartyEnabled,
+        counterparty: editCounterparty,
+        dateEnabled: editDateEnabled,
+        dayOfMonth: editDayOfMonth,
+      });
+      if (!built.ok) {
+        if (built.issue === "require_condition")
+          throw new ValidationError(m.bank_review_rule_edit_require_condition());
+        if (built.issue === "require_text")
+          throw new ValidationError(m.bank_review_rule_edit_require_text());
         throw new ValidationError(m.bank_review_rule_edit_require_date());
       }
-
-      return updateCategorizationRule(rule.id, {
-        kind: rule.kind === "exact" ? "exact" : "contains",
-        category_id: categoryId,
-        match_description: nextDesc,
-        match_counterparty: nextCounterparty,
-        match_type: rule.match_type,
-        match_day_of_month: nextDayOfMonth,
-      });
+      return updateCategorizationRule(rule.id, built.patch);
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["categorization_rules"] });
+      await queryClient.invalidateQueries({
+        queryKey: qk.categorizationRules(requireSessionUserId()),
+      });
       toast.success(m.bank_review_rule_updated());
       onclose();
     },
@@ -89,6 +93,15 @@
 
 <Dialog {open} {onclose} title={m.bank_review_rule_edit()}>
   <div class="space-y-3">
+    {#if typeLabel}
+      <p class="rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-300">
+        {m.rules_field_type()}: {typeLabel}
+        {#if rule?.kind === "type"}
+          <span class="text-slate-500"> · {m.rules_kind_locked_hint()}</span>
+        {/if}
+      </p>
+    {/if}
+
     <div class="space-y-1">
       <label class="text-xs font-medium text-slate-300" for="rule-edit-category">
         {m.transaction_form_category()}
@@ -104,27 +117,29 @@
       </select>
     </div>
 
-    <label class="flex items-center gap-2 text-sm text-slate-200">
-      <input type="checkbox" bind:checked={editDescEnabled} />
-      <span>{m.bank_review_rule_if_description()}</span>
-    </label>
-    <Input
-      value={editDesc}
-      disabled={!editDescEnabled}
-      placeholder={m.bank_review_save_rule_field_description()}
-      onchange={(e) => (editDesc = (e.target as HTMLInputElement).value)}
-    />
+    {#if editsText}
+      <label class="flex items-center gap-2 text-sm text-slate-200">
+        <input type="checkbox" bind:checked={editDescEnabled} />
+        <span>{m.bank_review_rule_if_description()}</span>
+      </label>
+      <Input
+        value={editDesc}
+        disabled={!editDescEnabled}
+        placeholder={m.bank_review_save_rule_field_description()}
+        onchange={(e) => (editDesc = (e.target as HTMLInputElement).value)}
+      />
 
-    <label class="flex items-center gap-2 text-sm text-slate-200">
-      <input type="checkbox" bind:checked={editCounterpartyEnabled} />
-      <span>{m.bank_review_rule_if_counterparty()}</span>
-    </label>
-    <Input
-      value={editCounterparty}
-      disabled={!editCounterpartyEnabled}
-      placeholder={m.bank_review_save_rule_field_counterparty()}
-      onchange={(e) => (editCounterparty = (e.target as HTMLInputElement).value)}
-    />
+      <label class="flex items-center gap-2 text-sm text-slate-200">
+        <input type="checkbox" bind:checked={editCounterpartyEnabled} />
+        <span>{m.bank_review_rule_if_counterparty()}</span>
+      </label>
+      <Input
+        value={editCounterparty}
+        disabled={!editCounterpartyEnabled}
+        placeholder={m.bank_review_save_rule_field_counterparty()}
+        onchange={(e) => (editCounterparty = (e.target as HTMLInputElement).value)}
+      />
+    {/if}
 
     <div class="rounded-xl border border-white/10 bg-slate-900/60 p-3">
       <button

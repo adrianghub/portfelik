@@ -16,22 +16,24 @@
   import { fetchUserGroups, fetchMyGroupRoles } from "$lib/services/groups";
   import { fetchPlanProgressForPlans } from "$lib/services/plan-settlement";
   import {
-    upsertPlanDebtTerms,
     fetchPlanDebtTermsByPlanIds,
     normalizeDebtTermsInput,
+    saveDebtPlan,
   } from "$lib/services/plan-debt";
   import {
     collectNetWorthDebtBalances,
     computeNetWorth,
     fetchFinancialSnapshot,
-    upsertFinancialSnapshot,
+    saveNetWorthSnapshot,
   } from "$lib/services/financial-snapshots";
+  import { fetchNetWorthItems, type NetWorthItemInput } from "$lib/services/net-worth-items";
   import {
-    fetchNetWorthItems,
-    saveNetWorthItems,
-    type NetWorthItemInput,
-  } from "$lib/services/net-worth-items";
-  import { convertToPln, fetchPlnRates, SUPPORTED_CURRENCIES } from "$lib/services/fx";
+    canConvertAllToPln,
+    convertToPln,
+    fetchPlnRates,
+    ratesForPlnConversion,
+    SUPPORTED_CURRENCIES,
+  } from "$lib/services/fx";
   import {
     computeMonthlySurplus,
     currentCalendarMonthBounds,
@@ -50,7 +52,8 @@
     isLivePlan,
     updatePlan,
   } from "$lib/services/plans";
-  import { supabase } from "$lib/supabase";
+  import { session, requireSessionUserId } from "$lib/auth/session.svelte";
+  import { qk } from "$lib/query-keys";
   import type { Plan, PlanKind, PlanSummary } from "$lib/types";
   import { cn, formatCurrency } from "$lib/utils";
   import { syncListViewUrl } from "$lib/utils/navigation";
@@ -66,7 +69,6 @@
     useQueryClient,
   } from "@tanstack/svelte-query";
   import { Plus, Trash2 } from "lucide-svelte";
-  import { onMount } from "svelte";
   import { toast } from "svelte-sonner";
   import { toastError } from "$lib/toast-error";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
@@ -74,9 +76,9 @@
   import { computeLedgerSummary } from "$lib/services/transaction-cashflow";
   import { fetchTransactions } from "$lib/services/transactions";
   import {
+    CASH_FETCH_END_SENTINEL,
     fetchPrivateCashPosition,
     livePosition,
-    upsertPrivateCashPosition,
   } from "$lib/services/cash-position";
 
   const queryClient = useQueryClient();
@@ -84,7 +86,8 @@
 
   const createCategoryInline = makeCreateCategoryInline({
     createCategory,
-    invalidate: () => queryClient.invalidateQueries({ queryKey: ["categories"] }),
+    invalidate: () =>
+      queryClient.invalidateQueries({ queryKey: qk.categories(requireSessionUserId()) }),
     toastSuccess: () => toast.success(m.toast_category_created()),
     toastError: () => toast.error(m.toast_error()),
   });
@@ -108,37 +111,41 @@
     syncListViewUrl(plansHubPath, $page.url.searchParams, { group: scope });
   }
 
-  let currentUserId = $state<string | null>(null);
-  onMount(async () => {
-    const { data } = await supabase.auth.getSession();
-    currentUserId = data.session?.user.id ?? null;
-  });
-
   const plansQuery = createQuery(() => ({
-    queryKey: ["plans"],
+    queryKey: qk.plans(session.userId!),
     queryFn: fetchPlans,
+    enabled: () => !!session.userId,
   }));
 
   const groupsQuery = createQuery(() => ({
-    queryKey: ["user_groups"],
+    queryKey: qk.userGroups(session.userId!),
     queryFn: fetchUserGroups,
+    enabled: () => !!session.userId,
   }));
 
   const groupRolesQuery = createQuery(() => ({
-    queryKey: ["my-group-roles"],
+    queryKey: qk.myGroupRoles(session.userId!),
     queryFn: fetchMyGroupRoles,
+    enabled: () => !!session.userId,
   }));
 
   const monthBounds = $derived(currentCalendarMonthBounds());
 
   const monthTxQuery = createQuery(() => ({
-    queryKey: ["transactions", "plans-surplus", monthBounds.start, monthBounds.end],
+    queryKey: qk.transactions.list(
+      session.userId!,
+      "plans-surplus",
+      monthBounds.start,
+      monthBounds.end
+    ),
     queryFn: () => fetchTransactions(monthBounds.start, monthBounds.end),
+    enabled: () => !!session.userId,
   }));
 
   const categoriesQuery = createQuery(() => ({
-    queryKey: ["categories"],
+    queryKey: qk.categories(session.userId!),
     queryFn: fetchCategories,
+    enabled: () => !!session.userId,
   }));
 
   const categoryMap = $derived(new Map((categoriesQuery.data ?? []).map((c) => [c.id, c.name])));
@@ -146,9 +153,9 @@
   const planIds = $derived((plansQuery.data ?? []).map((p) => p.id));
 
   const progressQuery = createQuery(() => ({
-    queryKey: ["plan-progress-list", planIds],
+    queryKey: qk.planProgressList(session.userId!, planIds),
     queryFn: () => fetchPlanProgressForPlans(planIds),
-    enabled: planIds.length > 0,
+    enabled: () => !!session.userId && planIds.length > 0,
   }));
 
   const debtPlanIds = $derived(
@@ -156,52 +163,67 @@
   );
 
   const debtTermsQuery = createQuery(() => ({
-    queryKey: ["plan-debt-terms-list", debtPlanIds],
+    queryKey: qk.planDebtTermsList(session.userId!, debtPlanIds),
     queryFn: () => fetchPlanDebtTermsByPlanIds(debtPlanIds),
-    enabled: debtPlanIds.length > 0,
+    enabled: () => !!session.userId && debtPlanIds.length > 0,
   }));
 
   const snapshotQuery = createQuery(() => ({
-    queryKey: ["financial-snapshot"],
+    queryKey: qk.financialSnapshot(session.userId!),
     queryFn: fetchFinancialSnapshot,
+    enabled: () => !!session.userId,
   }));
 
   const cashPositionQuery = createQuery(() => ({
-    queryKey: ["cash-position"],
+    queryKey: qk.cashPosition(session.userId!),
     queryFn: fetchPrivateCashPosition,
+    enabled: () => !!session.userId,
   }));
 
   const itemsQuery = createQuery(() => ({
-    queryKey: ["net-worth-items"],
+    queryKey: qk.netWorthItems(session.userId!),
     queryFn: fetchNetWorthItems,
+    enabled: () => !!session.userId,
   }));
 
   const fxQuery = createQuery(() => ({
-    queryKey: ["fx", "nbp-table-a"],
+    queryKey: qk.fx(),
     queryFn: fetchPlnRates,
     staleTime: 12 * 60 * 60 * 1000,
   }));
 
-  const valuedItems = $derived(
-    (itemsQuery.data ?? []).map((it) => ({
-      label: it.label,
-      currency: it.currency,
-      amount: it.amount,
-      amountPln: convertToPln(it.amount, it.currency, fxQuery.data ?? { PLN: 1 }),
-    }))
+  const valuedItems = $derived.by(() => {
+    const rates = fxQuery.data;
+    const items = itemsQuery.data ?? [];
+    if (!canConvertAllToPln(items, rates)) return null;
+    const effectiveRates = ratesForPlnConversion(rates);
+    return items.map((it) => {
+      const amountPln = convertToPln(it.amount, it.currency, effectiveRates);
+      return {
+        label: it.label,
+        currency: it.currency,
+        amount: it.amount,
+        amountPln: amountPln!,
+      };
+    });
+  });
+
+  const fxUnavailable = $derived(
+    (itemsQuery.data ?? []).some((it) => it.currency !== "PLN") &&
+      (fxQuery.isError || (fxQuery.isSuccess && valuedItems === null))
   );
 
   const cashRangeStart = $derived(cashPositionQuery.data?.as_of_date ?? "2000-01-01");
   // Open upper bound: fetchTransactions uses an exclusive `.lt("date", end)`, so a real
   // current date would drop today's (and any future-dated) paid rows. The live position
   // has no upper bound — the engine filters to paid. Use a far-future sentinel.
-  const CASH_RANGE_END = "9999-12-31";
+  const CASH_RANGE_END = CASH_FETCH_END_SENTINEL;
   const positionTxQuery = createQuery(() => ({
-    queryKey: ["transactions", "cash-position-range", cashRangeStart],
+    queryKey: qk.transactions.list(session.userId!, "cash-position-range", cashRangeStart),
     queryFn: () => fetchTransactions(cashRangeStart, CASH_RANGE_END),
     // isSuccess (not !isLoading): on an anchor-query error we must NOT fall back to the
     // "2000-01-01" default range with a null anchor and render a confidently wrong figure.
-    enabled: cashPositionQuery.isSuccess,
+    enabled: () => !!session.userId && cashPositionQuery.isSuccess,
   }));
 
   const derivedCash = $derived(
@@ -230,18 +252,25 @@
     )
   );
 
+  const goalAssets = $derived(
+    (plansQuery.data ?? [])
+      .filter((plan) => plan.group_id === null && plan.kind === "save" && isLivePlan(plan))
+      .reduce((sum, plan) => sum + (progressQuery.data?.[plan.id]?.savedAmount ?? 0), 0)
+  );
+
   const netWorth = $derived(
     computeNetWorth({
       asOfDate: snapshotQuery.data?.as_of_date ?? null,
-      items: valuedItems,
+      items: valuedItems ?? [],
       derivedCash,
+      goalAssets,
       debtBalances,
     })
   );
 
   function planCanManage(plan: PlanSummary): boolean {
-    if (!currentUserId) return false;
-    return canManagePlan(plan, currentUserId, groupRolesQuery.data ?? new Map());
+    if (!session.userId) return false;
+    return canManagePlan(plan, session.userId, groupRolesQuery.data ?? new Map());
   }
 
   const summaries = $derived(
@@ -306,12 +335,15 @@
           .reduce((sum, p) => sum + (progressQuery.data?.[p.id]?.linkedExpenseCurrentMonth ?? 0), 0)
       : 0;
     const debtPaymentsInExpenses = gateObservedDebtCoverage(observedDebtCoverage);
-    // Deposits already made this month (linked income on active save plans) are credited
+    // Contributions already made this month are credited
     // against the monthly pace - saving toward a goal must not read as falling behind.
     const saveContributionsThisMonth = progressQuery.data
       ? scopedSummaries
           .filter((p) => p.kind === "save" && p.bucket === "active")
-          .reduce((sum, p) => sum + (progressQuery.data?.[p.id]?.linkedIncomeCurrentMonth ?? 0), 0)
+          .reduce(
+            (sum, p) => sum + (progressQuery.data?.[p.id]?.saveContributionsCurrentMonth ?? 0),
+            0
+          )
       : 0;
     return computeMonthlySurplus({
       totalIncome: monthSummary.total_income,
@@ -401,26 +433,26 @@
 
   const snapshotMutation = createSvelteMutation(() => ({
     mutationFn: async () => {
-      await upsertFinancialSnapshot({ as_of_date: snapshotDate });
-      await upsertPrivateCashPosition({
-        opening_amount: openingAmount === "" ? 0 : Number(openingAmount),
-        as_of_date: snapshotDate,
-      });
       const items: NetWorthItemInput[] = netWorthItems.map((it) => ({
         id: it.id,
         label: it.label,
         amount: it.amount === "" ? 0 : Number(it.amount),
         currency: it.currency,
       }));
-      await saveNetWorthItems(items);
+      await saveNetWorthSnapshot({
+        as_of_date: snapshotDate,
+        opening_amount: openingAmount === "" ? 0 : Number(openingAmount),
+        items,
+      });
     },
     onSuccess: async () => {
       showNetWorthForm = false;
       toast.success(m.plans_net_worth_toast_saved());
-      await queryClient.invalidateQueries({ queryKey: ["financial-snapshot"] });
-      await queryClient.invalidateQueries({ queryKey: ["cash-position"] });
-      await queryClient.invalidateQueries({ queryKey: ["net-worth-items"] });
-      await queryClient.invalidateQueries({ queryKey: ["fx"] });
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.financialSnapshot(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.cashPosition(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.netWorthItems(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.fx() });
     },
     onError: (err) => toastError(err),
   }));
@@ -563,30 +595,40 @@
     return normalizeDebtTermsInput(debtTermsPayload());
   }
 
+  function debtSavePayload(planId?: string) {
+    const payload = formPayload();
+    const debtTerms = validatedDebtTerms();
+    return {
+      plan_id: planId ?? null,
+      name: payload.name,
+      group_id: payload.group_id,
+      category_id: payload.category_id,
+      start_date: payload.start_date,
+      end_date: payload.end_date,
+      target_amount: payload.target_amount,
+      original_amount: debtTerms.original_amount,
+      current_balance: debtTerms.current_balance,
+      annual_rate: debtTerms.annual_rate,
+      monthly_payment: debtTerms.monthly_payment,
+      first_payment_date: debtTerms.first_payment_date ?? null,
+      first_payment_amount: debtTerms.first_payment_amount ?? null,
+    };
+  }
+
   const createMutation = createSvelteMutation(() => ({
     mutationFn: async () => {
-      const debtTerms = planKind === "debt" ? validatedDebtTerms() : null;
-      const plan = await createPlan(formPayload());
-      if (planKind === "debt" && debtTerms) {
-        try {
-          await upsertPlanDebtTerms(plan.id, debtTerms);
-        } catch (err) {
-          console.error("[plans] plan_debt_terms upsert failed", err);
-          try {
-            await deletePlan(plan.id);
-          } catch (rollbackErr) {
-            console.error("[plans] debt plan rollback failed", rollbackErr);
-          }
-          throw new Error("debt_terms_save_failed", { cause: err });
-        }
+      if (planKind === "debt") {
+        const { plan } = await saveDebtPlan(debtSavePayload());
+        return plan;
       }
-      return plan;
+      return createPlan(formPayload());
     },
     onSuccess: async () => {
       showForm = false;
       toast.success(m.plan_toast_created());
-      await queryClient.invalidateQueries({ queryKey: ["plans"] });
-      await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms-list"] });
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planDebtTermsList(u) });
     },
     onError: (err) => toastPlanError(err),
   }));
@@ -594,22 +636,23 @@
   const updateMutation = createSvelteMutation(() => ({
     mutationFn: async () => {
       const id = editing!.id;
-      const plan = await updatePlan(id, formPayload());
       if (planKind === "debt") {
-        await upsertPlanDebtTerms(id, validatedDebtTerms());
+        const { plan } = await saveDebtPlan(debtSavePayload(id));
+        return plan;
       }
-      return plan;
+      return updatePlan(id, formPayload());
     },
     onSuccess: async () => {
       const id = editing?.id;
       showForm = false;
       editing = null;
       toast.success(m.plan_toast_updated());
-      await queryClient.invalidateQueries({ queryKey: ["plans"] });
-      await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms-list"] });
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planDebtTermsList(u) });
       if (id) {
-        await queryClient.invalidateQueries({ queryKey: ["plan", id] });
-        await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms", id] });
+        await queryClient.invalidateQueries({ queryKey: qk.plan(u, id) });
+        await queryClient.invalidateQueries({ queryKey: qk.planDebtTerms(u, id) });
       }
     },
     onError: (err) => toastPlanError(err),
@@ -634,10 +677,11 @@
     mutationFn: (id: string) => deletePlan(id),
     onSuccess: async () => {
       toast.success(m.plan_toast_deleted());
-      await queryClient.invalidateQueries({ queryKey: ["plans"] });
-      await queryClient.invalidateQueries({ queryKey: ["plan-progress"] });
-      await queryClient.invalidateQueries({ queryKey: ["plan-progress-list"] });
-      await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms-list"] });
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planDebtTermsList(u) });
     },
     onError: (err) => toastError(err),
     onSettled: () => (deleteTargetId = null),
@@ -668,7 +712,7 @@
   {#if snapshotQuery.isLoading}
     <div class="h-36 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
   {:else}
-    <NetWorthHero summary={netWorth} onedit={openNetWorthForm} />
+    <NetWorthHero summary={netWorth} {fxUnavailable} onedit={openNetWorthForm} />
   {/if}
 
   {#if monthTxQuery.isLoading}

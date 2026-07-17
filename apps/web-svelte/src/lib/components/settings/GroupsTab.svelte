@@ -1,5 +1,7 @@
 <script lang="ts">
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
+  import { session, requireSessionUserId } from "$lib/auth/session.svelte";
+  import { qk } from "$lib/query-keys";
   import { page } from "$app/stores";
   import {
     fetchUserGroups,
@@ -12,12 +14,14 @@
     GroupHasItemsError,
     leaveGroup,
     inviteUser,
+    resendInvitation,
     acceptInvitation,
     rejectInvitation,
     cancelInvitation,
     removeGroupMember,
     nominateGroupCoOwner,
     revokeGroupCoOwner,
+    transferGroupOwnership,
   } from "$lib/services/groups";
   import { supabase } from "$lib/supabase";
   import Dialog from "$lib/components/ui/Dialog.svelte";
@@ -34,18 +38,21 @@
   const queryClient = useQueryClient();
 
   const groupsQuery = createQuery(() => ({
-    queryKey: ["user_groups"],
+    queryKey: qk.userGroups(session.userId!),
     queryFn: fetchUserGroups,
+    enabled: () => !!session.userId,
   }));
 
   const groupRolesQuery = createQuery(() => ({
-    queryKey: ["my-group-roles"],
+    queryKey: qk.myGroupRoles(session.userId!),
     queryFn: fetchMyGroupRoles,
+    enabled: () => !!session.userId,
   }));
 
   const invitationsQuery = createQuery(() => ({
-    queryKey: ["group_invitations_received"],
+    queryKey: qk.groupInvitationsReceived(session.userId!),
     queryFn: fetchReceivedInvitations,
+    enabled: () => !!session.userId,
   }));
 
   let currentUserId = $state<string | undefined>(undefined);
@@ -85,8 +92,9 @@
   const createGroupMutation = createMutation(() => ({
     mutationFn: () => createGroup(newGroupName),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["user_groups"] });
-      await queryClient.invalidateQueries({ queryKey: ["my-group-roles"] });
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.userGroups(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.myGroupRoles(u) });
       toast.success(m.toast_group_created());
       newGroupName = "";
       showCreateGroup = false;
@@ -100,12 +108,13 @@
 
   const inviteMutation = createMutation(() => ({
     mutationFn: () => inviteUser(inviteGroupId!, inviteEmail),
-    onSuccess: async () => {
+    onSuccess: async (invitation) => {
       // Invalidate sent invitations for this group so the panel updates
       await queryClient.invalidateQueries({
-        queryKey: ["group_invitations_sent", inviteGroupId],
+        queryKey: qk.groupInvitationsSent(requireSessionUserId(), inviteGroupId!),
       });
-      toast.success(m.toast_invitation_sent());
+      if (invitation.delivery_status === "sent") toast.success(m.toast_invitation_sent());
+      else toast.error(m.group_invitation_delivery_failed());
       inviteEmail = "";
       inviteGroupId = null;
     },
@@ -118,8 +127,9 @@
   const disbandMutation = createMutation(() => ({
     mutationFn: () => disbandGroup(disbandGroupId!),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["user_groups"] });
-      await queryClient.invalidateQueries({ queryKey: ["my-group-roles"] });
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.userGroups(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.myGroupRoles(u) });
       toast.success(m.toast_group_disbanded());
       disbandGroupId = null;
     },
@@ -127,6 +137,13 @@
       if (err instanceof GroupHasItemsError) {
         toast.error(m.group_disband_blocked_title(), {
           description: m.group_disband_blocked_body(),
+          action: {
+            label: m.group_disband_blocked_action(),
+            onClick: () => {
+              if (disbandGroupId) membersGroupId = disbandGroupId;
+              disbandGroupId = null;
+            },
+          },
         });
         return;
       }
@@ -140,8 +157,9 @@
   const leaveMutation = createMutation(() => ({
     mutationFn: () => leaveGroup(leaveGroupId!),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["user_groups"] });
-      await queryClient.invalidateQueries({ queryKey: ["my-group-roles"] });
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.userGroups(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.myGroupRoles(u) });
       toast.success(m.toast_group_left());
       leaveGroupId = null;
     },
@@ -152,9 +170,10 @@
   const acceptMutation = createMutation(() => ({
     mutationFn: (id: string) => acceptInvitation(id),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["user_groups"] });
-      await queryClient.invalidateQueries({ queryKey: ["my-group-roles"] });
-      await queryClient.invalidateQueries({ queryKey: ["group_invitations_received"] });
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.userGroups(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.myGroupRoles(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.groupInvitationsReceived(u) });
       toast.success(m.toast_invitation_accepted());
     },
     onError: (err) => toastError(err),
@@ -163,7 +182,9 @@
   const rejectMutation = createMutation(() => ({
     mutationFn: (id: string) => rejectInvitation(id),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["group_invitations_received"] });
+      await queryClient.invalidateQueries({
+        queryKey: qk.groupInvitationsReceived(requireSessionUserId()),
+      });
       toast.success(m.toast_invitation_rejected());
     },
     onError: (err) => toastError(err),
@@ -173,18 +194,30 @@
   let sentInvGroupId = $state<string | null>(null);
 
   const sentInvQuery = createQuery(() => ({
-    queryKey: ["group_invitations_sent", sentInvGroupId],
+    queryKey: qk.groupInvitationsSent(session.userId!, sentInvGroupId!),
     queryFn: () => fetchSentInvitations(sentInvGroupId!),
-    enabled: !!sentInvGroupId,
+    enabled: () => !!session.userId && !!sentInvGroupId,
   }));
 
   const cancelMutation = createMutation(() => ({
     mutationFn: (id: string) => cancelInvitation(id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: ["group_invitations_sent", sentInvGroupId],
+        queryKey: qk.groupInvitationsSent(requireSessionUserId(), sentInvGroupId!),
       });
       toast.success(m.toast_invitation_cancelled());
+    },
+    onError: (err) => toastError(err),
+  }));
+
+  const resendMutation = createMutation(() => ({
+    mutationFn: (invitation: import("$lib/types").GroupInvitation) => resendInvitation(invitation),
+    onSuccess: async (invitation) => {
+      await queryClient.invalidateQueries({
+        queryKey: qk.groupInvitationsSent(requireSessionUserId(), sentInvGroupId!),
+      });
+      if (invitation.delivery_status === "sent") toast.success(m.toast_invitation_sent());
+      else toast.error(m.group_invitation_delivery_failed());
     },
     onError: (err) => toastError(err),
   }));
@@ -195,9 +228,9 @@
   const canManageMemberRoles = $derived(!!membersGroup && membersGroup.owner_id === currentUserId);
 
   const membersQuery = createQuery(() => ({
-    queryKey: ["group_members_profiles", membersGroupId],
+    queryKey: qk.groupMembersProfiles(session.userId!, membersGroupId!),
     queryFn: () => fetchGroupMembersWithProfiles(membersGroupId!),
-    enabled: !!membersGroupId,
+    enabled: () => !!session.userId && !!membersGroupId,
   }));
 
   let removeTargetUserId = $state<string | null>(null);
@@ -214,7 +247,7 @@
         : revokeGroupCoOwner(membersGroupId!, vars.userId),
     onSuccess: async (_data, vars) => {
       await queryClient.invalidateQueries({
-        queryKey: ["group_members_profiles", membersGroupId],
+        queryKey: qk.groupMembersProfiles(requireSessionUserId(), membersGroupId!),
       });
       toast.success(
         vars.action === "nominate"
@@ -229,10 +262,28 @@
     mutationFn: () => removeGroupMember(membersGroupId!, removeTargetUserId!),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: ["group_members_profiles", membersGroupId],
+        queryKey: qk.groupMembersProfiles(requireSessionUserId(), membersGroupId!),
       });
       toast.success(m.toast_member_removed());
       removeTargetUserId = null;
+    },
+    onError: (err) => toastError(err),
+  }));
+
+  let transferTargetUserId = $state<string | null>(null);
+
+  const transferOwnershipMutation = createMutation(() => ({
+    mutationFn: () => transferGroupOwnership(membersGroupId!, transferTargetUserId!),
+    onSuccess: async () => {
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.userGroups(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.myGroupRoles(u) });
+      await queryClient.invalidateQueries({
+        queryKey: qk.groupMembersProfiles(u, membersGroupId!),
+      });
+      toast.success(m.toast_group_ownership_transferred());
+      transferTargetUserId = null;
+      membersGroupId = null;
     },
     onError: (err) => toastError(err),
   }));
@@ -386,6 +437,15 @@
                             {statusLabel(inv.status)}
                           </span>
                           {#if inv.status === "pending"}
+                            {#if inv.delivery_status === "failed"}
+                              <button
+                                onclick={() => resendMutation.mutate(inv)}
+                                disabled={resendMutation.isPending}
+                                class="rounded border border-amber-300 px-2 py-0.5 text-xs text-amber-600 transition-colors hover:bg-amber-50 disabled:opacity-50 dark:border-amber-800 dark:text-amber-300"
+                              >
+                                {m.group_invitation_resend()}
+                              </button>
+                            {/if}
                             <button
                               onclick={() => cancelMutation.mutate(inv.id)}
                               disabled={cancelMutation.isPending}
@@ -530,6 +590,7 @@
   onclose={() => {
     membersGroupId = null;
     removeTargetUserId = null;
+    transferTargetUserId = null;
   }}
   title={m.group_members_title()}
 >
@@ -583,6 +644,14 @@
             {/if}
             {#if canManageMemberRoles && member.user_id !== currentUserId}
               <button
+                onclick={() => (transferTargetUserId = member.user_id)}
+                class="rounded-lg border border-white/10 px-2 py-1 text-xs text-slate-300 hover:bg-white/5"
+              >
+                {m.group_transfer_ownership()}
+              </button>
+            {/if}
+            {#if canManageMemberRoles && member.user_id !== currentUserId}
+              <button
                 onclick={() => (removeTargetUserId = member.user_id)}
                 class="rounded-lg border border-rose-200 px-2 py-1 text-xs font-medium text-rose-300 transition-colors hover:bg-rose-50 dark:border-rose-900 dark:text-rose-400 dark:hover:bg-rose-950"
               >
@@ -621,4 +690,16 @@
   onconfirm={() => removeMemberMutation.mutate()}
   onclose={() => (removeTargetUserId = null)}
   pending={removeMemberMutation.isPending}
+/>
+
+<!-- Transfer ownership confirm -->
+<ConfirmDialog
+  open={!!transferTargetUserId}
+  title={m.group_transfer_ownership()}
+  message={m.group_transfer_ownership_confirm()}
+  confirmLabel={m.group_transfer_ownership()}
+  intent="neutral"
+  onconfirm={() => transferOwnershipMutation.mutate()}
+  onclose={() => (transferTargetUserId = null)}
+  pending={transferOwnershipMutation.isPending}
 />

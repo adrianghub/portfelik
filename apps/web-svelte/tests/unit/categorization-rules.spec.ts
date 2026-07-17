@@ -50,7 +50,10 @@ const h = vi.hoisted(() => {
 
 vi.mock("$lib/supabase", () => ({ supabase: h.supabase }));
 
-import { createCategorizationRule } from "$lib/services/categorization-rules";
+import {
+  buildCategorizationRuleEditPatch,
+  createCategorizationRule,
+} from "$lib/services/categorization-rules";
 
 beforeEach(() => {
   h.state.results = [];
@@ -123,5 +126,57 @@ describe("createCategorizationRule", () => {
       category_id: "cat-2",
       priority: 0,
     });
+  });
+});
+
+describe("buildCategorizationRuleEditPatch", () => {
+  const form = {
+    categoryId: "cat-9",
+    descEnabled: true,
+    desc: "  lidl  ",
+    counterpartyEnabled: false,
+    counterparty: "",
+    dateEnabled: false,
+    dayOfMonth: "1",
+  };
+
+  it("never includes kind and preserves composite match_type", () => {
+    const built = buildCategorizationRuleEditPatch(
+      { kind: "composite", match_type: "expense" },
+      form
+    );
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.patch).toEqual({
+      category_id: "cat-9",
+      match_description: "lidl",
+      match_counterparty: null,
+      match_day_of_month: null,
+      match_type: "expense",
+    });
+    expect(built.patch).not.toHaveProperty("kind");
+  });
+
+  it("allows type rules without text fields", () => {
+    const built = buildCategorizationRuleEditPatch(
+      { kind: "type", match_type: "income" },
+      { ...form, descEnabled: false, categoryId: "cat-income" }
+    );
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.patch).toEqual({
+      category_id: "cat-income",
+      match_type: "income",
+      match_day_of_month: null,
+    });
+  });
+
+  it("rejects clearing text on contains rules", () => {
+    expect(
+      buildCategorizationRuleEditPatch(
+        { kind: "contains", match_type: null },
+        { ...form, descEnabled: false, counterpartyEnabled: false }
+      )
+    ).toEqual({ ok: false, issue: "require_condition" });
   });
 });

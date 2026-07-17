@@ -69,18 +69,40 @@ describe("RLS: transactions", () => {
   });
 
   it("user A can update own tx including recurrence fields and the end date", async () => {
+    const incomeCat = await ctx.admin
+      .from("categories")
+      .insert({ user_id: ctx.userA.userId, name: `${SENTINEL} catA income`, type: "income" })
+      .select("id")
+      .single();
+    if (incomeCat.error) throw incomeCat.error;
+
+    const dedicated = await ctx.userA.client
+      .from("transactions")
+      .insert({
+        user_id: ctx.userA.userId,
+        category_id: categoryAId,
+        description: `${SENTINEL} A update target`,
+        amount: 10,
+        type: "expense",
+        date: "2026-05-02",
+      })
+      .select("id")
+      .single();
+    expect(dedicated.error).toBeNull();
+
     const result = await ctx.userA.client
       .from("transactions")
       .update({
         amount: 99.5,
         type: "income",
+        category_id: incomeCat.data.id,
         recurrence_frequency: null,
         recurrence_interval: 1,
         recurrence_weekday: null,
         recurrence_month: null,
         recurrence_end_date: "2026-12-31",
       })
-      .eq("description", `${SENTINEL} A tx`)
+      .eq("id", dedicated.data!.id)
       .select();
     expect(result.error).toBeNull();
     expect(result.data?.[0]?.amount).toBe(99.5);
@@ -90,6 +112,14 @@ describe("RLS: transactions", () => {
   it("user A does NOT see user B's tx", async () => {
     const { data, error } = await ctx.userA.client
       .from("transactions")
+      .select("id")
+      .eq("description", `${SENTINEL} B tx`);
+    expectEmpty({ data, error });
+  });
+
+  it("user A does NOT see user B's private tx through the category view", async () => {
+    const { data, error } = await ctx.userA.client
+      .from("transactions_with_category")
       .select("id")
       .eq("description", `${SENTINEL} B tx`);
     expectEmpty({ data, error });
@@ -160,6 +190,41 @@ describe("RLS: transactions", () => {
       const descs = data?.map((t) => t.description).sort();
       expect(descs).toContain(`${SENTINEL} A tx`);
       expect(descs).toContain(`${SENTINEL} B tx`);
+    });
+
+    it("keeps a shared tx visible through the category view without exposing its private category", async () => {
+      const { data, error } = await ctx.userA.client
+        .from("transactions_with_category")
+        .select("description, category_id, category_name, category_type, group_id")
+        .eq("description", `${SENTINEL} B tx`);
+
+      expect(error).toBeNull();
+      expect(data).toEqual([
+        {
+          description: `${SENTINEL} B tx`,
+          category_id: categoryBId,
+          category_name: "Kategoria niedostępna",
+          category_type: "expense",
+          group_id: groupId,
+        },
+      ]);
+
+      const categoryResult = await ctx.userA.client
+        .from("categories")
+        .select("id")
+        .eq("id", categoryBId);
+      expectEmpty(categoryResult);
+    });
+
+    it("keeps the real category name on the viewer's own transaction", async () => {
+      const { data, error } = await ctx.userA.client
+        .from("transactions_with_category")
+        .select("category_name")
+        .eq("description", `${SENTINEL} A tx`)
+        .single();
+
+      expect(error).toBeNull();
+      expect(data?.category_name).toBe(`${SENTINEL} catA`);
     });
 
     it("group owner (co-owner) can update user B's shared tx", async () => {

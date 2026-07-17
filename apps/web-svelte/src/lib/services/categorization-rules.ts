@@ -23,6 +23,70 @@ export interface CategorizationRuleInput {
   priority?: number;
 }
 
+/** Client updates never change `kind` — matching mode is delete+create. */
+export type CategorizationRuleUpdate = Omit<Partial<CategorizationRuleInput>, "kind">;
+
+export interface RuleEditFormState {
+  categoryId: string;
+  descEnabled: boolean;
+  desc: string;
+  counterpartyEnabled: boolean;
+  counterparty: string;
+  dateEnabled: boolean;
+  dayOfMonth: string;
+}
+
+export type RuleEditIssue = "require_condition" | "require_text" | "require_date";
+
+/**
+ * Build a kind-preserving patch for rule editors.
+ * `type` skips text constraints; `composite` keeps `match_type`; never includes `kind`.
+ */
+export function buildCategorizationRuleEditPatch(
+  rule: Pick<CategorizationRule, "kind" | "match_type">,
+  form: RuleEditFormState
+): { ok: true; patch: CategorizationRuleUpdate } | { ok: false; issue: RuleEditIssue } {
+  const nextDayOfMonth: number | null = form.dateEnabled ? Number(form.dayOfMonth) : null;
+  if (
+    form.dateEnabled &&
+    (nextDayOfMonth === null ||
+      !Number.isInteger(nextDayOfMonth) ||
+      nextDayOfMonth < 1 ||
+      nextDayOfMonth > 31)
+  ) {
+    return { ok: false, issue: "require_date" };
+  }
+
+  if (rule.kind === "type") {
+    return {
+      ok: true,
+      patch: {
+        category_id: form.categoryId,
+        match_type: rule.match_type,
+        match_day_of_month: nextDayOfMonth,
+      },
+    };
+  }
+
+  const hasTextConstraint = form.descEnabled || form.counterpartyEnabled;
+  if (!hasTextConstraint) return { ok: false, issue: "require_condition" };
+
+  const nextDesc = form.descEnabled ? form.desc.trim() : null;
+  const nextCounterparty = form.counterpartyEnabled ? form.counterparty.trim() : null;
+  if (!nextDesc && !nextCounterparty) return { ok: false, issue: "require_text" };
+
+  const patch: CategorizationRuleUpdate = {
+    category_id: form.categoryId,
+    match_description: nextDesc,
+    match_counterparty: nextCounterparty,
+    match_day_of_month: nextDayOfMonth,
+  };
+  if (rule.kind === "composite") {
+    patch.match_type = rule.match_type;
+  }
+  return { ok: true, patch };
+}
+
 export async function fetchCategorizationRules(): Promise<CategorizationRule[]> {
   const { data, error } = await supabase
     .from("categorization_rules")
@@ -80,7 +144,7 @@ export async function createCategorizationRule(
 
 export async function updateCategorizationRule(
   id: string,
-  patch: Partial<CategorizationRuleInput>
+  patch: CategorizationRuleUpdate
 ): Promise<CategorizationRule> {
   const { data, error } = await supabase
     .from("categorization_rules")

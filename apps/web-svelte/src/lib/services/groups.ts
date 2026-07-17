@@ -46,6 +46,7 @@ export async function fetchReceivedInvitations(): Promise<GroupInvitation[]> {
     .select("*")
     .eq("status", "pending")
     .eq("invited_user_email", email)
+    .gt("expires_at", new Date().toISOString())
     .order("created_at", { ascending: false });
 
   if (error) throw error;
@@ -92,12 +93,37 @@ export async function leaveGroup(groupId: string): Promise<void> {
 }
 
 export async function inviteUser(groupId: string, email: string): Promise<GroupInvitation> {
-  const { data, error } = await supabase.rpc("invite_user", {
-    p_group_id: groupId,
-    p_email: email.trim().toLowerCase(),
+  const { data, error } = await supabase.functions.invoke("send-group-invitation", {
+    body: { groupId, email: email.trim().toLowerCase() },
   });
   if (error) throw error;
-  return data as GroupInvitation;
+  return data.invitation as GroupInvitation;
+}
+
+export async function resendInvitation(invitation: GroupInvitation): Promise<GroupInvitation> {
+  const { data, error } = await supabase.functions.invoke("send-group-invitation", {
+    body: {
+      groupId: invitation.group_id,
+      email: invitation.invited_user_email,
+      invitationId: invitation.id,
+    },
+  });
+  if (error) throw error;
+  return data.invitation as GroupInvitation;
+}
+
+export async function fetchInvitationPreview(token: string) {
+  const { data, error } = await supabase.rpc("get_group_invitation_preview", { p_token: token });
+  if (error) throw error;
+  return data;
+}
+
+export async function claimInvitation(
+  token: string
+): Promise<{ groupId: string; groupName: string }> {
+  const { data, error } = await supabase.rpc("claim_group_invitation", { p_token: token });
+  if (error) throw error;
+  return data as { groupId: string; groupName: string };
 }
 
 export async function acceptInvitation(invitationId: string): Promise<void> {
@@ -162,6 +188,14 @@ export async function removeGroupMember(groupId: string, userId: string): Promis
   const { error } = await supabase.rpc("remove_group_member", {
     p_group_id: groupId,
     p_user_id: userId,
+  });
+  if (error) throw error;
+}
+
+export async function transferGroupOwnership(groupId: string, newOwnerId: string): Promise<void> {
+  const { error } = await supabase.rpc("transfer_group_ownership", {
+    p_group_id: groupId,
+    p_new_owner_id: newOwnerId,
   });
   if (error) throw error;
 }

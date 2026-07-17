@@ -164,6 +164,7 @@ jobs:
         run: |
           supabase functions deploy send-push --project-ref "$STAGING_SUPABASE_PROJECT_REF"
           supabase functions deploy send-admin-summary --project-ref "$STAGING_SUPABASE_PROJECT_REF"
+          supabase functions deploy send-group-invitation --project-ref "$STAGING_SUPABASE_PROJECT_REF"
           supabase functions deploy sync-user-role --project-ref "$STAGING_SUPABASE_PROJECT_REF"
 
       - name: Seed staging personas and synthetic fixtures

@@ -29,7 +29,7 @@ describe("computeNetWorth", () => {
     expect(result.hasSnapshot).toBe(true);
   });
 
-  it("returns empty state when no snapshot and no items", () => {
+  it("treats debt-only net worth as financial data", () => {
     const result = computeNetWorth({
       asOfDate: null,
       items: [],
@@ -37,7 +37,7 @@ describe("computeNetWorth", () => {
       debtBalances: [100_000],
     });
     expect(result.hasSnapshot).toBe(false);
-    expect(result.hasData).toBe(false);
+    expect(result.hasData).toBe(true);
     expect(result.totalAssets).toBe(0);
     expect(result.netWorth).toBe(-100_000);
   });
@@ -51,6 +51,25 @@ describe("computeNetWorth", () => {
     });
     expect(result.hasData).toBe(true);
     expect(result.totalAssets).toBe(1000);
+  });
+
+  it("keeps net worth neutral when cash moves into a private goal asset", () => {
+    const before = computeNetWorth({
+      asOfDate: null,
+      items: [],
+      derivedCash: 10_000,
+      goalAssets: 0,
+      debtBalances: [],
+    });
+    const after = computeNetWorth({
+      asOfDate: null,
+      items: [],
+      derivedCash: 9_000,
+      goalAssets: 1_000,
+      debtBalances: [],
+    });
+    expect(after.goalAssets).toBe(1_000);
+    expect(after.netWorth).toBe(before.netWorth);
   });
 });
 
@@ -223,5 +242,34 @@ describe("collectNetWorthDebtBalances", () => {
     const balances = collectNetWorthDebtBalances(plans, terms, "2026-06-08");
     expect(balances).toHaveLength(1);
     expect(balances[0]).toBe(207_000);
+  });
+
+  it("excludes group-scoped debt plans from private net worth", () => {
+    const plans = [
+      debtPlan({ id: "private", start_date: "2025-01-01", end_date: "2030-01-01" }),
+      debtPlan({
+        id: "group",
+        user_id: "u1",
+        group_id: "g1",
+        start_date: "2025-01-01",
+        end_date: "2030-01-01",
+      }),
+    ];
+    const terms = {
+      private: debtTerms({
+        plan_id: "private",
+        current_balance: 120_000,
+        anchor_balance: 120_000,
+        balance_anchor_date: "2026-06-08",
+      }),
+      group: debtTerms({
+        plan_id: "group",
+        current_balance: 80_000,
+        anchor_balance: 80_000,
+        balance_anchor_date: "2026-06-08",
+      }),
+    };
+
+    expect(collectNetWorthDebtBalances(plans, terms, "2026-06-08")).toEqual([120_000]);
   });
 });

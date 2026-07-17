@@ -4,25 +4,29 @@
   import * as m from "$lib/paraglide/messages";
   import {
     computePlanProgress,
+    addPlanContribution,
     fetchLinkedTransactions,
     fetchSuggestionCount,
     linkPlanTransaction,
     unlinkPlanTransaction,
+    suggestPlanContribution,
   } from "$lib/services/plan-settlement";
   import DebtPlanDetail from "$lib/components/plans/DebtPlanDetail.svelte";
   import PlanForwardNav from "$lib/components/plans/PlanForwardNav.svelte";
   import SavePlanDetail from "$lib/components/plans/SavePlanDetail.svelte";
   import QueryError from "$lib/components/ui/QueryError.svelte";
+  import Dialog from "$lib/components/ui/Dialog.svelte";
+  import DayPicker from "$lib/components/ui/DayPicker.svelte";
   import TransactionDialog, {
     type PlanTransactionContext,
   } from "$lib/components/transactions/TransactionDialog.svelte";
   import { detectRecurringDebtPayments } from "$lib/services/debt-payment-detect";
   import {
-    applyDebtBalanceFromLinks,
     deriveDebtDisplayBalance,
     fetchPlanDebtTerms,
-    updatePlanDebtBalance,
-    upsertPlanDebtTerms,
+    saveDebtPlan,
+    syncDebtBalanceFromLinks,
+    type PlanDebtTermsInput,
   } from "$lib/services/plan-debt";
   import {
     derivePlanBucket,
@@ -32,7 +36,8 @@
     canManagePlan,
   } from "$lib/services/plans";
   import { fetchMyGroupRoles } from "$lib/services/groups";
-  import { supabase } from "$lib/supabase";
+  import { session, requireSessionUserId } from "$lib/auth/session.svelte";
+  import { qk } from "$lib/query-keys";
   import type { GroupMemberRole, PlanKind, TransactionType } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
   import { navigateBack } from "$lib/utils/navigation";
@@ -45,8 +50,9 @@
   } from "$lib/utils/scroll-restore";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { ArrowLeft, CalendarDays, Link2Off, Users } from "lucide-svelte";
-  import { onMount } from "svelte";
+  import { tick } from "svelte";
   import { toast } from "svelte-sonner";
+  import { localDateIso } from "$lib/date-local";
 
   const queryClient = useQueryClient();
   const id = $derived($page.params.id ?? "");
@@ -65,45 +71,40 @@
     }
   });
 
-  let currentUserId = $state<string | null>(null);
-  onMount(async () => {
-    const { data } = await supabase.auth.getSession();
-    currentUserId = data.session?.user.id ?? null;
-  });
-
   const groupRolesQuery = createQuery(() => ({
-    queryKey: ["my-group-roles"],
+    queryKey: qk.myGroupRoles(session.userId!),
     queryFn: fetchMyGroupRoles,
+    enabled: () => !!session.userId,
   }));
 
   const planQuery = createQuery(() => ({
-    queryKey: ["plan", id],
+    queryKey: qk.plan(session.userId!, id),
     queryFn: () => fetchPlanById(id),
-    enabled: !!id,
+    enabled: () => !!session.userId && !!id,
   }));
 
   const linkedQuery = createQuery(() => ({
-    queryKey: ["plan-links", id],
+    queryKey: qk.planLinks(session.userId!, id),
     queryFn: () => fetchLinkedTransactions(id),
-    enabled: !!id,
+    enabled: () => !!session.userId && !!id,
   }));
 
   const suggestionCountQuery = createQuery(() => ({
-    queryKey: ["plan-suggestion-count", id],
+    queryKey: qk.planSuggestionCount(session.userId!, id),
     queryFn: () => fetchSuggestionCount(id),
-    enabled: !!id,
+    enabled: () => !!session.userId && !!id,
   }));
 
   const debtTermsQuery = createQuery(() => ({
-    queryKey: ["plan-debt-terms", id],
+    queryKey: qk.planDebtTerms(session.userId!, id),
     queryFn: () => fetchPlanDebtTerms(id),
-    enabled: !!id && planQuery.data?.kind === "debt",
+    enabled: () => !!session.userId && !!id && planQuery.data?.kind === "debt",
   }));
 
   const linkedTxIds = $derived(new Set((linkedQuery.data ?? []).map((tx) => tx.id)));
 
   const paymentDetectQuery = createQuery(() => ({
-    queryKey: ["plan-debt-detect", id, [...linkedTxIds].sort().join(",")],
+    queryKey: qk.planDebtDetect(session.userId!, id, [...linkedTxIds].sort().join(",")),
     queryFn: async () => {
       const plan = planQuery.data!;
       const terms = debtTermsQuery.data!;
@@ -114,7 +115,8 @@
         excludeTransactionIds: linkedTxIds,
       });
     },
-    enabled:
+    enabled: () =>
+      !!session.userId &&
       !!planQuery.data &&
       planQuery.data.kind === "debt" &&
       !!debtTermsQuery.data &&
@@ -159,8 +161,8 @@
 
   const canManage = $derived.by(() => {
     const plan = planQuery.data;
-    if (!plan || !currentUserId) return false;
-    return canManagePlan(plan, currentUserId, groupRolesQuery.data ?? new Map());
+    if (!plan || !session.userId) return false;
+    return canManagePlan(plan, session.userId, groupRolesQuery.data ?? new Map());
   });
 
   function groupRoleLabel(role: GroupMemberRole | undefined): string {
@@ -198,37 +200,65 @@
   }
 
   function defaultManualTxType(kind: PlanKind): TransactionType {
-    return kind === "save" ? "income" : "expense";
+    void kind;
+    return "expense";
   }
+
+  let contributionOpen = $state(false);
+  let contributionAmount = $state<number | null>(null);
+  let contributionDate = $state(localDateIso());
+  let contributionDescription = $state("");
+  let contributionAmountInput = $state<HTMLInputElement | null>(null);
+
+  function openContribution() {
+    if (!progress) return;
+    contributionAmount = suggestPlanContribution({
+      remaining: progress.remaining,
+      monthlyNeeded: progress.monthlyNeeded,
+      contributedThisMonth: progress.saveContributionsCurrentMonth,
+      recentAmount: expenses[0]?.amount,
+    });
+    contributionDate = localDateIso();
+    contributionDescription = "";
+    contributionOpen = true;
+    void tick().then(() => contributionAmountInput?.focus());
+  }
+
+  const contributionMutation = createMutation(() => ({
+    mutationFn: () =>
+      addPlanContribution({
+        planId: id,
+        amount: contributionAmount ?? 0,
+        date: contributionDate,
+        description: contributionDescription,
+      }),
+    onSuccess: async () => {
+      contributionOpen = false;
+      toast.success(m.plan_contribution_saved());
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planLinks(u, id) });
+      await queryClient.invalidateQueries({ queryKey: qk.planEligible(u, id) });
+      await queryClient.invalidateQueries({ queryKey: qk.planSuggestionCount(u, id) });
+      await queryClient.invalidateQueries({ queryKey: qk.planDebtTerms(u, id) });
+      await queryClient.invalidateQueries({ queryKey: qk.planDebtDetect(u, id) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
+    },
+    onError: (err) => toastError(err),
+  }));
 
   let unlinkPendingId = $state<string | null>(null);
   const unlinkMutation = createMutation(() => ({
     mutationFn: (txId: string) => unlinkPlanTransaction(id, txId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["plan-links", id] });
-      await queryClient.invalidateQueries({ queryKey: ["plan-eligible", id] });
-      await queryClient.invalidateQueries({ queryKey: ["plan-progress"] });
-      await queryClient.invalidateQueries({ queryKey: ["plan-progress-list"] });
-      const plan = planQuery.data;
-      if (plan?.kind === "debt") {
-        const terms = await fetchPlanDebtTerms(id);
-        const linked = await fetchLinkedTransactions(id);
-        const expenses = linked.filter((tx) => tx.type === "expense");
-        if (terms) {
-          try {
-            await applyDebtBalanceFromLinks(
-              id,
-              terms,
-              plan.start_date,
-              expenses.map((tx) => ({ amount: tx.amount, date: tx.date }))
-            );
-            await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms", id] });
-          } catch (err) {
-            toastError(err);
-            return;
-          }
-        }
-      }
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.planLinks(u, id) });
+      await queryClient.invalidateQueries({ queryKey: qk.planEligible(u, id) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planDebtTerms(u, id) });
       toast.success(m.plan_settle_unlinked());
     },
     onError: (err) => toastError(err),
@@ -238,32 +268,18 @@
     mutationFn: async (txId: string) => {
       const plan = planQuery.data;
       await linkPlanTransaction(id, txId, { planKind: plan?.kind ?? "save" });
-      const terms = await fetchPlanDebtTerms(id);
-      if (plan && terms) {
-        const linked = await fetchLinkedTransactions(id);
-        await applyDebtBalanceFromLinks(
-          id,
-          terms,
-          plan.start_date,
-          linked
-            .filter((tx) => tx.type === "expense")
-            .map((tx) => ({
-              amount: tx.amount,
-              date: tx.date,
-            }))
-        );
-      }
     },
     onSuccess: async () => {
       toast.success(m.plan_settle_linked());
-      await queryClient.invalidateQueries({ queryKey: ["plan-links", id] });
-      await queryClient.invalidateQueries({ queryKey: ["plan-eligible", id] });
-      await queryClient.invalidateQueries({ queryKey: ["plan-suggestion-count", id] });
-      await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms", id] });
-      await queryClient.invalidateQueries({ queryKey: ["plan-debt-detect", id] });
-      await queryClient.invalidateQueries({ queryKey: ["plan-progress"] });
-      await queryClient.invalidateQueries({ queryKey: ["plan-progress-list"] });
-      await queryClient.invalidateQueries({ queryKey: ["plans"] });
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.planLinks(u, id) });
+      await queryClient.invalidateQueries({ queryKey: qk.planEligible(u, id) });
+      await queryClient.invalidateQueries({ queryKey: qk.planSuggestionCount(u, id) });
+      await queryClient.invalidateQueries({ queryKey: qk.planDebtTerms(u, id) });
+      await queryClient.invalidateQueries({ queryKey: qk.planDebtDetect(u, id) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
     },
     onError: (err) => toastError(err),
   }));
@@ -282,52 +298,66 @@
       });
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["plan", id] });
-      await queryClient.invalidateQueries({ queryKey: ["plans"] });
-      await queryClient.invalidateQueries({ queryKey: ["plan-progress-list"] });
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.plan(u, id) });
+      await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
     },
     onError: (err) => toastError(err),
   }));
 
   const debtTermsMutation = createMutation(() => ({
-    mutationFn: (input: Parameters<typeof upsertPlanDebtTerms>[1]) =>
-      upsertPlanDebtTerms(id, input),
-    onSuccess: async () => {
-      toast.success(m.plan_toast_updated());
-      await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms", id] });
-    },
-    onError: (err) => toastError(err),
-  }));
-
-  const debtPlanDatesMutation = createMutation(() => ({
-    mutationFn: (dates: { start_date: string; end_date: string }) => {
+    mutationFn: async (patch: {
+      terms: PlanDebtTermsInput;
+      start_date: string;
+      end_date: string;
+    }) => {
       const plan = planQuery.data!;
-      return updatePlan(id, {
+      const existing = debtTermsQuery.data;
+      return saveDebtPlan({
+        plan_id: id,
         name: plan.name,
-        kind: "debt",
-        start_date: dates.start_date,
-        end_date: dates.end_date,
-        target_amount: plan.target_amount,
-        category_id: plan.category_id,
         group_id: plan.group_id,
+        category_id: plan.category_id,
+        start_date: patch.start_date,
+        end_date: patch.end_date,
+        target_amount: plan.target_amount,
+        original_amount: patch.terms.original_amount,
+        current_balance: patch.terms.current_balance,
+        annual_rate: patch.terms.annual_rate,
+        monthly_payment: patch.terms.monthly_payment,
+        first_payment_date:
+          patch.terms.first_payment_date !== undefined
+            ? patch.terms.first_payment_date
+            : (existing?.first_payment_date ?? null),
+        first_payment_amount:
+          patch.terms.first_payment_amount !== undefined
+            ? patch.terms.first_payment_amount
+            : (existing?.first_payment_amount ?? null),
+        reset_balance_anchor: patch.terms.reset_balance_anchor,
+        clear_balance_anchor: patch.terms.clear_balance_anchor,
       });
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["plan", id] });
-      await queryClient.invalidateQueries({ queryKey: ["plans"] });
-      await queryClient.invalidateQueries({ queryKey: ["plan-progress-list"] });
+      toast.success(m.plan_toast_updated());
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.planDebtTerms(u, id) });
+      await queryClient.invalidateQueries({ queryKey: qk.plan(u, id) });
+      await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
     },
     onError: (err) => toastError(err),
   }));
 
   const syncBalanceMutation = createMutation(() => ({
     mutationFn: async () => {
-      if (derivedDebtBalance == null) return;
-      await updatePlanDebtBalance(id, derivedDebtBalance);
+      await syncDebtBalanceFromLinks(id);
     },
     onSuccess: async () => {
       toast.success(m.plan_debt_sync_done());
-      await queryClient.invalidateQueries({ queryKey: ["plan-debt-terms", id] });
+      await queryClient.invalidateQueries({
+        queryKey: qk.planDebtTerms(requireSessionUserId(), id),
+      });
     },
     onError: (err) => toastError(err),
   }));
@@ -413,8 +443,13 @@
       <SavePlanDetail
         {plan}
         {progress}
-        onAdjust={canManage ? (patch) => saveAdjustMutation.mutate(patch) : undefined}
+        onAdjust={canManage
+          ? async (patch) => {
+              await saveAdjustMutation.mutateAsync(patch);
+            }
+          : undefined}
         adjusting={saveAdjustMutation.isPending}
+        onContribute={openContribution}
       />
     {:else if plan.kind === "debt" && debtTermsQuery.data}
       {#if plan.group_id && !canManage}
@@ -452,17 +487,16 @@
         derivedBalance={derivedDebtBalance}
         {linkedExpenseTotal}
         linkedExpenses={expenses.map((tx) => ({ amount: tx.amount, date: tx.date }))}
-        onSyncBalance={canManage ? () => syncBalanceMutation.mutate() : undefined}
-        onTermsSave={canManage
-          ? async (input) => {
-              await debtTermsMutation.mutateAsync(input);
+        onSyncBalance={canManage ? () => syncBalanceMutation.mutateAsync() : undefined}
+        onDebtPlanSave={canManage
+          ? async (patch) => {
+              await debtTermsMutation.mutateAsync(patch);
             }
           : undefined}
-        onPlanDatesSave={canManage ? (dates) => debtPlanDatesMutation.mutate(dates) : undefined}
         refinancedFromPlanId={plan.refinanced_from_plan_id}
         replacedByPlanId={plan.replaced_by_plan_id}
         syncing={syncBalanceMutation.isPending}
-        termsSaving={debtTermsMutation.isPending || debtPlanDatesMutation.isPending}
+        termsSaving={debtTermsMutation.isPending}
       />
       <PlanForwardNav href={settleHref} title={m.plan_debt_link_payments()} variant="action" />
     {/if}
@@ -495,11 +529,12 @@
       </div>
 
       <div class={cn("grid gap-4", plan.kind !== "save" && "lg:grid-cols-2")}>
-        {#if plan.kind !== "save"}
+        {#if plan.kind === "save" || plan.kind === "debt"}
           {@render LinkedSection({
-            title: m.plan_linked_expenses(),
+            title:
+              plan.kind === "save" ? m.plan_detail_linked_header_save() : m.plan_linked_expenses(),
             transactions: expenses,
-            amountClass: "text-rose-300",
+            amountClass: plan.kind === "save" ? "text-emerald-300" : "text-rose-300",
             sign: "−",
             onunlink: (txId) => unlinkMutation.mutate(txId),
             pendingId: unlinkPendingId,
@@ -508,7 +543,7 @@
             onmanualadd: () => openManualTx("expense"),
           })}
         {/if}
-        {#if plan.kind === "save" || incomes.length > 0}
+        {#if incomes.length > 0}
           {@render LinkedSection({
             title: m.plan_linked_income(),
             transactions: incomes,
@@ -518,7 +553,7 @@
             pendingId: unlinkPendingId,
             setpending: (txId) => (unlinkPendingId = txId),
             loading: unlinkMutation.isPending,
-            onmanualadd: () => openManualTx("income"),
+            onmanualadd: () => openManualTx("expense"),
           })}
         {/if}
       </div>
@@ -533,6 +568,65 @@
     planContext={manualPlanContext}
   />
 {/if}
+
+<Dialog
+  open={contributionOpen}
+  onclose={() => (contributionOpen = false)}
+  title={m.plan_contribution_add()}
+>
+  <form
+    onsubmit={(event) => {
+      event.preventDefault();
+      contributionMutation.mutate();
+    }}
+    class="space-y-4"
+  >
+    <p class="text-xs font-medium text-slate-400">
+      {planQuery.data?.group_id
+        ? m.plan_contribution_scope_group()
+        : m.plan_contribution_scope_private()}
+    </p>
+    <div class="space-y-1">
+      <label for="contribution-amount" class="text-xs font-medium text-slate-300"
+        >{m.plan_contribution_amount()}</label
+      >
+      <input
+        bind:this={contributionAmountInput}
+        id="contribution-amount"
+        type="number"
+        min="0.01"
+        step="0.01"
+        required
+        bind:value={contributionAmount}
+        class="focus:border-accent/40 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 outline-none"
+      />
+    </div>
+    <DayPicker
+      id="contribution-date"
+      value={contributionDate}
+      onchange={(value) => (contributionDate = value)}
+      label={m.plan_contribution_date()}
+    />
+    <div class="space-y-1">
+      <label for="contribution-note" class="text-xs font-medium text-slate-300"
+        >{m.plan_contribution_note()}</label
+      >
+      <input
+        id="contribution-note"
+        type="text"
+        bind:value={contributionDescription}
+        class="focus:border-accent/40 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 outline-none"
+      />
+    </div>
+    <button
+      type="submit"
+      disabled={contributionMutation.isPending || !contributionAmount || contributionAmount <= 0}
+      class="bg-accent-gradient w-full rounded-full px-4 py-2.5 text-sm font-semibold text-slate-950 disabled:opacity-50"
+    >
+      {contributionMutation.isPending ? m.common_saving() : m.plan_contribution_add()}
+    </button>
+  </form>
+</Dialog>
 
 {#snippet LinkedSection({
   title,

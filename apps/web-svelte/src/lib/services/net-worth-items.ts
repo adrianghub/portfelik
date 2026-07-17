@@ -37,6 +37,9 @@ export async function fetchNetWorthItems(): Promise<NetWorthItem[]> {
 /**
  * Reconcile the user's items to exactly `items`: delete removed rows, upsert the
  * rest. Blank-labelled rows are dropped. `position` follows array order.
+ *
+ * Prefer `saveNetWorthSnapshot` for the /plans form — it atomically writes
+ * snapshot + cash anchor + items. This helper remains for legacy/direct callers.
  */
 export async function saveNetWorthItems(items: NetWorthItemInput[]): Promise<void> {
   const {

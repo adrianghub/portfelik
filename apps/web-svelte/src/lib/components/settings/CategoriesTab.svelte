@@ -1,5 +1,7 @@
 <script lang="ts">
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
+  import { session, requireSessionUserId } from "$lib/auth/session.svelte";
+  import { qk } from "$lib/query-keys";
   import { fetchCategories, deleteCategory } from "$lib/services/categories";
   import type { Category } from "$lib/types";
   import { cn } from "$lib/utils";
@@ -16,8 +18,9 @@
   const queryClient = useQueryClient();
 
   const query = createQuery(() => ({
-    queryKey: ["categories"],
+    queryKey: qk.categories(session.userId!),
     queryFn: fetchCategories,
+    enabled: () => !!session.userId,
   }));
 
   let dialogOpen = $state(false);
@@ -27,7 +30,7 @@
   const deleteMutation = createMutation(() => ({
     mutationFn: () => deleteCategory(deleteTargetId!),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["categories"] });
+      await queryClient.invalidateQueries({ queryKey: qk.categories(requireSessionUserId()) });
       toast.success(m.toast_category_deleted());
       deleteTargetId = null;
     },

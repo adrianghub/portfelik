@@ -12,6 +12,14 @@ describe("canManageTransaction", () => {
     expect(canManageTransaction({ user_id: "u1", group_id: null }, "u1", roles)).toBe(true);
   });
 
+  it("allows creator on shared row while still a member", () => {
+    expect(canManageTransaction({ user_id: "u1", group_id: "g1" }, "u1", roles)).toBe(true);
+  });
+
+  it("denies creator on shared row after leaving group", () => {
+    expect(canManageTransaction({ user_id: "u1", group_id: "g1" }, "u1", new Map())).toBe(false);
+  });
+
   it("denies peer member on shared row", () => {
     expect(canManageTransaction({ user_id: "u2", group_id: "g1" }, "u1", roles)).toBe(false);
   });

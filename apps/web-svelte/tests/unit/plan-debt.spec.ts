@@ -120,6 +120,14 @@ describe("canManagePlan", () => {
     expect(canManagePlan({ user_id: "u1", group_id: null }, "u1", roles)).toBe(true);
   });
 
+  it("allows plan creator on shared plan while still a member", () => {
+    expect(canManagePlan({ user_id: "u1", group_id: "g1" }, "u1", roles)).toBe(true);
+  });
+
+  it("denies plan creator on shared plan after leaving group", () => {
+    expect(canManagePlan({ user_id: "u1", group_id: "g1" }, "u1", new Map())).toBe(false);
+  });
+
   it("blocks non-owner on another users private plan", () => {
     expect(canManagePlan({ user_id: "u1", group_id: null }, "u2", roles)).toBe(false);
   });

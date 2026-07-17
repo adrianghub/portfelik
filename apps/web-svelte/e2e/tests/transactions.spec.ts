@@ -112,7 +112,7 @@ test("far-future recurring forecast rows expose only scoped series actions", asy
   });
 
   await page.goto(
-    "/transactions?startDate=2026-09-01&endDate=2026-09-30&status=upcoming&forecast=recurring"
+    "/transactions?startDate=2026-09-01&endDate=2026-09-30&status=upcoming"
   );
 
   const row = desktopTable(page).locator("tbody tr").filter({ hasText: "Czynsz" });

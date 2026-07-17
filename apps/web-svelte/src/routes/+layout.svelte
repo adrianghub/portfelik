@@ -21,11 +21,12 @@
   import { setupNotificationSync } from "$lib/services/notification-sync";
   import {
     autoSubscribePush,
+    detachLocalPushSubscription,
     registerServiceWorker,
     requestAndSubscribePush,
     shouldDeferBrowserPush,
-    unsubscribeFromPush,
   } from "$lib/services/push";
+  import { setSessionUser } from "$lib/auth/session.svelte";
   import { supabase } from "$lib/supabase";
   import type { Profile } from "$lib/types";
   import type { User } from "@supabase/supabase-js";
@@ -60,7 +61,7 @@
     }
   });
 
-  const PUBLIC_PATHS = ["/login", "/auth/callback", "/privacy"];
+  const PUBLIC_PATHS = ["/login", "/auth/callback", "/privacy", "/invite"];
   const PUSH_PROMPT_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
   const PUSH_PROMPT_STORAGE_KEY = "push_prompted_at";
 
@@ -69,9 +70,13 @@
   let userId = $state<string | null>(null);
   let authStatus = $state<"checking" | "authenticated" | "anonymous">("checking");
   let authRevision = 0;
+  /** Identity the current query cache belongs to; cleared only at auth boundary. */
+  let loadedUserId: string | null = null;
   let notifPermission = $state<NotificationPermission>("default");
   let pushPromptedRecently = $state(false);
-  let isPublicRoute = $derived(PUBLIC_PATHS.includes(page.url.pathname));
+  let isPublicRoute = $derived(
+    PUBLIC_PATHS.includes(page.url.pathname) || page.url.pathname.startsWith("/invite/")
+  );
   let canRenderProtectedRoute = $derived(isPublicRoute || authStatus === "authenticated");
   let showNotifBanner = $derived(
     !!userId &&
@@ -128,6 +133,9 @@
   });
 
   function clearAuthenticatedUser() {
+    if (loadedUserId !== null) queryClient.clear();
+    loadedUserId = null;
+    setSessionUser(null);
     authRevision += 1;
     profile = null;
     user = null;
@@ -136,6 +144,11 @@
   }
 
   function loadAuthenticatedUser(authUser: User) {
+    if (loadedUserId !== authUser.id) {
+      queryClient.clear();
+      loadedUserId = authUser.id;
+    }
+    setSessionUser(authUser.id);
     const revision = (authRevision += 1);
     user = authUser;
     userId = authUser.id;
@@ -190,10 +203,8 @@
     // profile query cache here so a mutation elsewhere (avatar/name in Settings)
     // reflects in the header immediately instead of only after reload.
     const unsubscribeProfileCache = queryClient.getQueryCache().subscribe((event) => {
-      const key = event.query.queryKey;
-      if (!Array.isArray(key) || key[0] !== "profile") return;
       const data = event.query.state.data as Profile | undefined;
-      if (data && data.id === userId) {
+      if (data && typeof data === "object" && "id" in data && data.id === userId) {
         profile = data;
         applyAccent(data.settings?.accentColor);
       }
@@ -201,10 +212,17 @@
 
     supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
-        unsubscribeFromPush().catch(() => {});
-        clearLoginRedirect();
-        clearAuthenticatedUser();
-        void goto("/login", { replaceState: true });
+        // Detach browser push only — do not persist opt-out (explicit disable does).
+        detachLocalPushSubscription().catch(() => {});
+        const onInvite = page.url.pathname.startsWith("/invite/");
+        if (!onInvite) {
+          clearLoginRedirect();
+          clearAuthenticatedUser();
+          void goto("/login", { replaceState: true });
+        } else {
+          // Invite switch-account: keep remembered redirect; stay on /invite/*.
+          clearAuthenticatedUser();
+        }
       }
       if (event === "SIGNED_IN" && session?.user) {
         loadAuthenticatedUser(session.user);

@@ -1,6 +1,8 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
   import { createQuery, createMutation, useQueryClient } from "@tanstack/svelte-query";
+  import { session } from "$lib/auth/session.svelte";
+  import { qk } from "$lib/query-keys";
   import { ChevronRight, X } from "lucide-svelte";
   import { toast } from "svelte-sonner";
   import { toastError } from "$lib/toast-error";
@@ -34,16 +36,21 @@
   let actionsDialogOpen = $state(false);
 
   const queryClient = useQueryClient();
-  const DISMISSALS_KEY = ["action-dismissals"] as const;
+  const uid = $derived(session.userId);
+  const dismissalsKey = $derived(
+    uid ? qk.actionDismissals(uid) : (["user", "", "action-dismissals"] as const)
+  );
 
   const planProgressQuery = createQuery(() => ({
-    queryKey: ["plan-progress"],
+    queryKey: uid ? qk.planProgress(uid) : ["user", "", "plan-progress"],
     queryFn: () => fetchDashboardPlanProgress(),
+    enabled: !!uid,
   }));
 
   const dismissalsQuery = createQuery(() => ({
-    queryKey: DISMISSALS_KEY,
+    queryKey: dismissalsKey,
     queryFn: fetchActiveDismissedKeys,
+    enabled: !!uid,
   }));
 
   const plans = $derived<AttentionPlan[]>(
@@ -60,7 +67,7 @@
 
   const anomalies = $derived(
     (insight?.categories ?? [])
-      .filter((c) => c.anomaly && c.deltaAbs > 0)
+      .filter((c) => c.name !== "Cele" && c.anomaly && c.deltaAbs > 0)
       .map((c) => ({
         categoryId: c.categoryId,
         name: c.name,
@@ -86,10 +93,10 @@
   };
 
   function optimisticRemove(key: string) {
-    queryClient.setQueryData<Set<string>>(DISMISSALS_KEY, (old) => new Set(old).add(key));
+    queryClient.setQueryData<Set<string>>(dismissalsKey, (old) => new Set(old).add(key));
   }
   function optimisticRestore(key: string) {
-    queryClient.setQueryData<Set<string>>(DISMISSALS_KEY, (old) => {
+    queryClient.setQueryData<Set<string>>(dismissalsKey, (old) => {
       const next = new Set(old);
       next.delete(key);
       return next;
@@ -99,15 +106,15 @@
   const dismissMutation = createMutation(() => ({
     mutationFn: (key: string) => dismissAction(key),
     onMutate: (key: string) => {
-      const prev = queryClient.getQueryData<Set<string>>(DISMISSALS_KEY);
+      const prev = queryClient.getQueryData<Set<string>>(dismissalsKey);
       optimisticRemove(key);
       return { prev };
     },
     onError: (e: unknown, _key: string, ctx) => {
-      if (ctx?.prev) queryClient.setQueryData(DISMISSALS_KEY, ctx.prev);
+      if (ctx?.prev) queryClient.setQueryData(dismissalsKey, ctx.prev);
       toastError(e);
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: DISMISSALS_KEY }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: dismissalsKey }),
   }));
 
   const undoMutation = createMutation(() => ({
@@ -117,9 +124,9 @@
     },
     onError: (e: unknown) => {
       toastError(e);
-      void queryClient.invalidateQueries({ queryKey: DISMISSALS_KEY });
+      void queryClient.invalidateQueries({ queryKey: dismissalsKey });
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: DISMISSALS_KEY }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: dismissalsKey }),
   }));
 
   function handleDismiss(action: DashboardAction) {

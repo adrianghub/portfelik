@@ -6,6 +6,7 @@
   import type { Profile } from "$lib/types";
   import { formatDate } from "$lib/utils";
   import { createMutation, useQueryClient } from "@tanstack/svelte-query";
+  import { qk } from "$lib/query-keys";
   import { toast } from "svelte-sonner";
   import * as m from "$lib/paraglide/messages";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
@@ -74,7 +75,7 @@
       const wasAdmin = profile.role === "admin";
       toast.success(wasAdmin ? m.admin_role_changed_to_user() : m.admin_role_changed_to_admin());
       await loadProfiles();
-      await queryClient.invalidateQueries({ queryKey: ["profile"] });
+      await queryClient.invalidateQueries({ queryKey: qk.profile(profile.id) });
     },
     onError: (err: Error) => {
       const msg = err.message.includes("cannot_revoke_own_admin")

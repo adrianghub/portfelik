@@ -3,6 +3,8 @@
   import { Bell, X, CheckCheck, Check, RotateCcw } from "lucide-svelte";
   import { MediaQuery } from "svelte/reactivity";
   import { createQuery, createMutation, useQueryClient } from "@tanstack/svelte-query";
+  import { session } from "$lib/auth/session.svelte";
+  import { qk } from "$lib/query-keys";
   import Sheet from "$lib/components/ui/Sheet.svelte";
   import {
     fetchNotifications,
@@ -39,9 +41,10 @@
   let open = $state(false);
 
   const query = createQuery(() => ({
-    queryKey: ["notifications"],
+    queryKey: qk.notifications(session.userId!),
     queryFn: fetchNotifications,
     staleTime: 30_000,
+    enabled: () => !!session.userId,
   }));
 
   const notifications = $derived(query.data ?? []);
@@ -69,7 +72,9 @@
 
   function handleOpen() {
     open = !open;
-    if (open) queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    if (open && session.userId) {
+      queryClient.invalidateQueries({ queryKey: qk.notifications(session.userId) });
+    }
   }
 
   function handleClickOutside(e: MouseEvent) {
@@ -93,7 +98,7 @@
     event.stopPropagation();
     const href = notificationSettleHref(notification);
     if (!href) return;
-    if (!notification.read_at) markReadMutation.mutate(notification.id);
+    // Mark read only after settlement succeeds (transactions page onSuccess).
     open = false;
     void goto(href);
   }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  authCallbackUrlForTarget,
   loginUrlForTarget,
   normalizeLoginRedirect,
   redirectTargetFromUrl,
@@ -29,5 +30,15 @@ describe("auth redirect helpers", () => {
     const url = new URL("https://portfelik.local/login?redirectTo=%2Fshopping-lists%2Flist-1");
 
     expect(redirectTargetFromUrl(url)).toBe("/shopping-lists/list-1");
+  });
+
+  it("builds an auth callback that preserves invite continuation across devices", () => {
+    expect(authCallbackUrlForTarget("https://app.jakstoimy.pl", "/invite/tok-1")).toBe(
+      "https://app.jakstoimy.pl/auth/callback?redirectTo=%2Finvite%2Ftok-1"
+    );
+    const callback = new URL(
+      authCallbackUrlForTarget("https://app.jakstoimy.pl", "/invite/tok-1")
+    );
+    expect(redirectTargetFromUrl(callback)).toBe("/invite/tok-1");
   });
 });

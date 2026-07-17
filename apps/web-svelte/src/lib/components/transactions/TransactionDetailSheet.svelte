@@ -5,11 +5,17 @@
     canManageTransaction,
     isQuickSettleEligible,
   } from "$lib/services/transaction-permissions";
-  import type { GroupMemberRole, TransactionWithCategory } from "$lib/types";
+  import type { GroupMemberRole, Plan, TransactionWithCategory } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
   import { recurrenceSummary } from "$lib/recurrence";
-  import { createQuery } from "@tanstack/svelte-query";
-  import { Check, ClipboardList, Edit, Trash2, X } from "lucide-svelte";
+  import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
+  import { Check, ClipboardList, Edit, Link2, Link2Off, Trash2, X } from "lucide-svelte";
+  import { fetchPlans } from "$lib/services/plans";
+  import { linkPlanTransaction, unlinkPlanTransaction } from "$lib/services/plan-settlement";
+  import { toast } from "svelte-sonner";
+  import { toastError } from "$lib/toast-error";
+  import { requireSessionUserId, session } from "$lib/auth/session.svelte";
+  import { qk } from "$lib/query-keys";
 
   interface Props {
     transaction: TransactionWithCategory | null;
@@ -39,6 +45,8 @@
     onsettle,
     settlePending = false,
   }: Props = $props();
+  const queryClient = useQueryClient();
+  const uid = $derived(session.userId);
 
   const canEdit = $derived(
     !!transaction &&
@@ -88,7 +96,9 @@
   };
 
   const planLinkQuery = createQuery(() => ({
-    queryKey: ["transaction-plan-link", transaction?.id],
+    queryKey: uid
+      ? qk.transactions.list(uid, "transaction-plan-link", transaction?.id)
+      : ["user", "", "transactions", "transaction-plan-link", transaction?.id],
     queryFn: async () => {
       if (!transaction) return null;
       const { data, error } = await supabase
@@ -97,9 +107,64 @@
         .eq("transaction_id", transaction.id)
         .maybeSingle();
       if (error) throw error;
-      return data as { plan_id: string; plans: { name: string } | null } | null;
+      return data as { plan_id: string; plans: { name: string; kind?: string } | null } | null;
     },
-    enabled: !!transaction && !transaction.projected,
+    enabled: !!transaction && !transaction.projected && !!uid,
+  }));
+
+  const plansQuery = createQuery(() => ({
+    queryKey: uid ? qk.plans(uid) : ["user", "", "plans"],
+    queryFn: fetchPlans,
+    enabled:
+      !!transaction && transaction.type === "expense" && transaction.status === "paid" && !!uid,
+  }));
+
+  const eligiblePlans = $derived.by(() => {
+    if (!transaction || !currentUserId || planLinkQuery.data) return [];
+    const txDate = transaction.date.slice(0, 10);
+    return (plansQuery.data ?? []).filter((plan) => {
+      if (txDate < plan.start_date || txDate > plan.end_date) return false;
+      if (transaction.group_id) return plan.group_id === transaction.group_id;
+      return plan.group_id === null && plan.user_id === currentUserId;
+    });
+  });
+  let selectedPlanId = $state("");
+
+  const linkMutation = createMutation(() => ({
+    mutationFn: async () => {
+      if (!transaction || !selectedPlanId) throw new Error("plan_required");
+      const plan = eligiblePlans.find((candidate) => candidate.id === selectedPlanId) as Plan;
+      await linkPlanTransaction(plan.id, transaction.id, { planKind: plan.kind });
+    },
+    onSuccess: async () => {
+      toast.success(m.plan_settle_linked());
+      selectedPlanId = "";
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planDebtTermsList(u) });
+    },
+    onError: (error) => toastError(error),
+  }));
+
+  const unlinkPlanMutation = createMutation(() => ({
+    mutationFn: async () => {
+      if (!transaction || !planLinkQuery.data) return;
+      const planId = planLinkQuery.data.plan_id;
+      await unlinkPlanTransaction(planId, transaction.id);
+    },
+    onSuccess: async () => {
+      toast.success(m.plan_settle_unlinked());
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planDebtTermsList(u) });
+    },
+    onError: (error) => toastError(error),
   }));
 
   function handleKeydown(e: KeyboardEvent) {
@@ -109,6 +174,7 @@
   $effect(() => {
     void transaction?.id;
     openScope = null;
+    selectedPlanId = "";
   });
 </script>
 
@@ -330,6 +396,42 @@
             <ClipboardList size={14} />
             {planLinkQuery.data.plans?.name ?? m.transaction_detail_show_plan()}
           </a>
+          <button
+            type="button"
+            onclick={() => unlinkPlanMutation.mutate()}
+            disabled={unlinkPlanMutation.isPending}
+            class="mt-2 flex items-center gap-1.5 text-xs font-medium text-rose-300 hover:underline disabled:opacity-50"
+          >
+            <Link2Off size={13} />
+            {m.transaction_plan_unlink()}
+          </button>
+        </div>
+      {:else if transaction.type === "expense" && transaction.status === "paid" && eligiblePlans.length > 0}
+        <div class="space-y-2">
+          <label for="transaction-plan" class="text-eyebrow block text-slate-400">
+            {m.transaction_plan_link()}
+          </label>
+          <div class="flex gap-2">
+            <select
+              id="transaction-plan"
+              bind:value={selectedPlanId}
+              class="focus:border-accent/40 min-w-0 flex-1 rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none"
+            >
+              <option value="">{m.transaction_plan_choose()}</option>
+              {#each eligiblePlans as plan (plan.id)}
+                <option value={plan.id}>{plan.name}</option>
+              {/each}
+            </select>
+            <button
+              type="button"
+              onclick={() => linkMutation.mutate()}
+              disabled={!selectedPlanId || linkMutation.isPending}
+              class="bg-accent-gradient flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-950 disabled:opacity-50"
+              aria-label={m.transaction_plan_link()}
+            >
+              <Link2 size={16} />
+            </button>
+          </div>
         </div>
       {/if}
     </div>

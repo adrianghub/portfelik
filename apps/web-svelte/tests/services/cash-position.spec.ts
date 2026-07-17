@@ -30,8 +30,32 @@ describe("livePosition", () => {
 });
 
 describe("forecastPosition", () => {
-  it("adds upcoming income/expense on top of live", () => {
-    expect(forecastPosition(anchor, txs)).toBe(1600); // 1300 + 300
+  it("adds upcoming and overdue on top of live within the horizon", () => {
+    // live 1300 + upcoming 300 − overdue 50 = 1550
+    expect(forecastPosition(anchor, txs, { today: "2026-06-01", horizonEnd: "2026-06-30" })).toBe(
+      1550
+    );
+  });
+
+  it("ignores upcoming beyond the horizon", () => {
+    const far = [
+      ...txs,
+      { type: "expense" as const, amount: 999, status: "upcoming", date: "2027-01-01" },
+    ];
+    expect(forecastPosition(anchor, far, { today: "2026-06-01", horizonEnd: "2026-06-30" })).toBe(
+      1550
+    );
+  });
+
+  it("excludes pre-anchor overdue the same way as forecastRunningBalances", () => {
+    const withPreAnchor = [
+      ...txs,
+      { type: "expense" as const, amount: 400, status: "overdue", date: "2026-05-15" },
+    ];
+    // Pre-anchor overdue must not pull the forecast below live+in-window scheduled.
+    expect(
+      forecastPosition(anchor, withPreAnchor, { today: "2026-06-01", horizonEnd: "2026-06-30" })
+    ).toBe(1550);
   });
 });
 

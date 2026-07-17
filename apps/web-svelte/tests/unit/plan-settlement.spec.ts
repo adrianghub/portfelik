@@ -9,6 +9,7 @@ import {
   countRankedSuggestions,
   MIN_SUGGESTION_RANK_PCT,
   rankPlanTransaction,
+  suggestPlanContribution,
 } from "$lib/services/plan-settlement";
 import type { TransactionWithCategory } from "$lib/types";
 
@@ -42,6 +43,36 @@ function tx(overrides: Partial<TransactionWithCategory> = {}): TransactionWithCa
     ...overrides,
   };
 }
+
+describe("suggestPlanContribution", () => {
+  it("uses explicit context, then unmet monthly pace, then same-plan history and caps remainder", () => {
+    expect(
+      suggestPlanContribution({
+        explicitAmount: 900,
+        monthlyNeeded: 500,
+        contributedThisMonth: 100,
+        recentAmount: 300,
+        remaining: 700,
+      })
+    ).toBe(700);
+    expect(
+      suggestPlanContribution({
+        monthlyNeeded: 500,
+        contributedThisMonth: 125,
+        recentAmount: 300,
+        remaining: 1000,
+      })
+    ).toBe(375);
+    expect(
+      suggestPlanContribution({
+        monthlyNeeded: null,
+        contributedThisMonth: 0,
+        recentAmount: 300,
+        remaining: 200,
+      })
+    ).toBe(200);
+  });
+});
 
 const basePlan = {
   category_id: "cat-travel",
@@ -94,7 +125,7 @@ describe("rankPlanTransaction", () => {
     );
   });
 
-  it("grants the amount bonus to income that fits the remaining save target", () => {
+  it("grants the amount bonus to an expense contribution that fits the remaining save target", () => {
     const savePlan = {
       category_id: null,
       budget_amount: null,
@@ -102,7 +133,7 @@ describe("rankPlanTransaction", () => {
       kind: "save" as const,
       target_amount: 10000,
     };
-    const deposit = tx({ type: "income" as const, amount: 1000, description: "Przelew własny" });
+    const deposit = tx({ type: "expense" as const, amount: 1000, description: "Przelew własny" });
 
     // saved 8000 → remaining 2000, deposit 1000 fits → baseline(25) + amount(20) = 45 → medium
     const fits = rankPlanTransaction(savePlan, deposit, 0, {
@@ -215,9 +246,9 @@ describe("computeSaveMonthlyActual", () => {
       kind: "save",
       startDate: "2026-01-01",
       savedAmount: 12_000,
-      linkedIncomes: [
-        tx({ type: "income", amount: 500, date: "2026-06-08" }),
-        tx({ type: "income", amount: 300, date: "2026-01-15" }),
+      linkedContributions: [
+        tx({ type: "expense", amount: 500, date: "2026-06-08" }),
+        tx({ type: "expense", amount: 300, date: "2026-01-15" }),
       ],
       today: "2026-06-08",
     });
@@ -229,7 +260,7 @@ describe("computeSaveMonthlyActual", () => {
       kind: "save",
       startDate: "2026-01-01",
       savedAmount: 6000,
-      linkedIncomes: [tx({ type: "income", amount: 6000, date: "2026-03-10" })],
+      linkedContributions: [tx({ type: "expense", amount: 6000, date: "2026-03-10" })],
       today: "2026-04-10",
     });
     expect(actual).toBe(2000);
@@ -241,7 +272,7 @@ describe("computeSaveMonthlyActual", () => {
       startDate: "2026-12-01",
       endDate: "2027-12-01",
       savedAmount: 0,
-      linkedIncomes: [],
+      linkedContributions: [],
       today: "2026-06-08",
     });
     expect(actual).toBe(0);
@@ -254,9 +285,9 @@ describe("computeSaveMonthlyActualDetail", () => {
       kind: "save",
       startDate: "2026-01-01",
       savedAmount: 12_000,
-      linkedIncomes: [
-        tx({ type: "income", amount: 500, date: "2026-06-08" }),
-        tx({ type: "income", amount: 300, date: "2026-01-15" }),
+      linkedContributions: [
+        tx({ type: "expense", amount: 500, date: "2026-06-08" }),
+        tx({ type: "expense", amount: 300, date: "2026-01-15" }),
       ],
       today: "2026-06-08",
     });
@@ -269,7 +300,7 @@ describe("computeSaveMonthlyActualDetail", () => {
       kind: "save",
       startDate: "2026-01-01",
       savedAmount: 6000,
-      linkedIncomes: [tx({ type: "income", amount: 6000, date: "2026-03-10" })],
+      linkedContributions: [tx({ type: "expense", amount: 6000, date: "2026-03-10" })],
       today: "2026-04-10",
     });
     expect(detail.amount).toBe(2000);
@@ -281,7 +312,7 @@ describe("computeSaveMonthlyActualDetail", () => {
       kind: "save",
       startDate: "2026-01-01",
       savedAmount: 0,
-      linkedIncomes: [],
+      linkedContributions: [],
       today: "2026-06-08",
     });
     expect(detail.amount).toBe(0);
@@ -292,7 +323,7 @@ describe("computeSaveMonthlyActualDetail", () => {
     const detail = computeSaveMonthlyActualDetail({
       kind: "debt",
       savedAmount: 1000,
-      linkedIncomes: [],
+      linkedContributions: [],
       today: "2026-06-08",
     });
     expect(detail.amount).toBeNull();
@@ -304,7 +335,7 @@ describe("computeSaveMonthlyActualDetail", () => {
       kind: "save" as const,
       startDate: "2026-01-01",
       savedAmount: 6000,
-      linkedIncomes: [tx({ type: "income", amount: 6000, date: "2026-03-10" })],
+      linkedContributions: [tx({ type: "expense", amount: 6000, date: "2026-03-10" })],
       today: "2026-04-10",
     };
     expect(computeSaveMonthlyActualDetail(args).amount).toBe(computeSaveMonthlyActual(args));
@@ -312,7 +343,7 @@ describe("computeSaveMonthlyActualDetail", () => {
 });
 
 describe("computePlanProgress", () => {
-  it("computes save goal monthly needed and actual from linked income", () => {
+  it("computes save goal monthly needed and actual from linked contributions", () => {
     const end = new Date();
     end.setMonth(end.getMonth() + 6);
     const endDate = end.toISOString().slice(0, 10);
@@ -327,8 +358,8 @@ describe("computePlanProgress", () => {
       endDate,
       today: "2026-06-08",
       linkedTransactions: [
-        tx({ type: "income", amount: 6000, description: "Wpłata na cel", date: "2026-06-05" }),
-        tx({ type: "income", amount: 6000, description: "Druga wpłata", date: "2026-03-10" }),
+        tx({ type: "expense", amount: 6000, description: "Wpłata na cel", date: "2026-06-05" }),
+        tx({ type: "expense", amount: 6000, description: "Druga wpłata", date: "2026-03-10" }),
       ],
     });
 
@@ -351,7 +382,7 @@ describe("computePlanProgress", () => {
       budgetAmount: null,
       targetAmount: 12000,
       endDate,
-      linkedTransactions: [tx({ type: "income", amount: 1000 })],
+      linkedTransactions: [tx({ type: "expense", amount: 1000 })],
     });
 
     expect(progress.monthlyNeeded).toBeGreaterThan(progress.monthlyActual ?? 0);
@@ -377,7 +408,7 @@ describe("computePlanProgress linkedExpenseCurrentMonth", () => {
     expect(progress.linkedExpenseCurrentMonth).toBe(2370);
   });
 
-  it("sums current-month paid linked incomes (save deposit coverage)", () => {
+  it("sums current-month paid save contributions", () => {
     const progress = computePlanProgress({
       planId: "save-1",
       planName: "Wakacje",
@@ -387,13 +418,13 @@ describe("computePlanProgress linkedExpenseCurrentMonth", () => {
       startDate: "2026-06-01",
       endDate: "2028-06-01",
       linkedTransactions: [
-        tx({ id: "a", type: "income", amount: 1000, date: "2026-06-05", status: "paid" }),
-        tx({ id: "b", type: "income", amount: 800, date: "2026-05-20", status: "paid" }),
-        tx({ id: "c", type: "income", amount: 500, date: "2026-06-07", status: "upcoming" }),
+        tx({ id: "a", type: "expense", amount: 1000, date: "2026-06-05", status: "paid" }),
+        tx({ id: "b", type: "expense", amount: 800, date: "2026-05-20", status: "paid" }),
+        tx({ id: "c", type: "expense", amount: 500, date: "2026-06-07", status: "upcoming" }),
       ],
       today: "2026-06-08",
     });
-    expect(progress.linkedIncomeCurrentMonth).toBe(1000);
+    expect(progress.saveContributionsCurrentMonth).toBe(1000);
   });
 
   it("excludes non-current-month and non-paid linked expenses", () => {

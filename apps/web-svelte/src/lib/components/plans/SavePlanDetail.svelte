@@ -15,9 +15,10 @@
       patch: Partial<{ target_amount: number; end_date: string }>
     ) => void | Promise<void>;
     adjusting?: boolean;
+    onContribute?: () => void;
   }
 
-  let { plan, progress, onAdjust, adjusting = false }: Props = $props();
+  let { plan, progress, onAdjust, adjusting = false, onContribute }: Props = $props();
 
   const target = $derived(plan.target_amount ?? 0);
   const saved = $derived(progress.savedAmount);
@@ -40,17 +41,17 @@
     editEndDate = plan.end_date;
   });
 
-  function onTargetInput(event: Event) {
+  async function onTargetInput(event: Event) {
     const raw = Number((event.currentTarget as HTMLInputElement).value);
     if (!Number.isFinite(raw)) return;
     editTarget = Math.min(1_000_000, Math.max(100, Math.round(raw)));
-    onAdjust?.({ target_amount: editTarget });
+    await onAdjust?.({ target_amount: editTarget });
   }
 
-  function onDeadlineChange(value: string) {
+  async function onDeadlineChange(value: string) {
     if (!value) return;
     editEndDate = value;
-    onAdjust?.({ end_date: value });
+    await onAdjust?.({ end_date: value });
   }
 </script>
 
@@ -175,6 +176,15 @@
   {/if}
 
   <div class="mt-5">
+    {#if onContribute}
+      <button
+        type="button"
+        onclick={onContribute}
+        class="bg-accent-gradient focus-visible:ring-accent mb-2 w-full rounded-full px-4 py-2.5 text-sm font-semibold text-slate-950 focus-visible:ring-2 focus-visible:outline-none"
+      >
+        {m.plan_contribution_add()}
+      </button>
+    {/if}
     <PlanForwardNav href={settleHref} title={m.plan_save_link_cta()} variant="action" />
   </div>
 </section>

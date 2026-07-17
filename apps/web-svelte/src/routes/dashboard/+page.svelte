@@ -51,7 +51,8 @@
   import { toast } from "svelte-sonner";
   import { toastError } from "$lib/toast-error";
   import QueryError from "$lib/components/ui/QueryError.svelte";
-  import { supabase } from "$lib/supabase";
+  import { session, requireSessionUserId } from "$lib/auth/session.svelte";
+  import { qk } from "$lib/query-keys";
   import type { TransactionStatus, TransactionWithCategory } from "$lib/types";
   import { cn, getDateRangeBounds } from "$lib/utils";
   import { syncListViewUrl } from "$lib/utils/navigation";
@@ -63,7 +64,6 @@
     type ScopeFilter,
   } from "$lib/utils/list-view-url";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
-  import { onMount } from "svelte";
   import { MediaQuery } from "svelte/reactivity";
   import { untrack } from "svelte";
   import { ChevronDown } from "lucide-svelte";
@@ -150,30 +150,25 @@
     goto(`/transactions?${params.toString()}`);
   }
 
-  let userId = $state<string | null>(null);
-  onMount(async () => {
-    const { data } = await supabase.auth.getSession();
-    userId = data.session?.user.id ?? null;
-  });
-
   const queryClient = useQueryClient();
 
   const groupRolesQuery = createQuery(() => ({
-    queryKey: ["my-group-roles"],
+    queryKey: qk.myGroupRoles(session.userId!),
     queryFn: fetchMyGroupRoles,
-    enabled: !!userId,
+    enabled: () => !!session.userId,
   }));
 
   function dashCanManage(tx: TransactionWithCategory): boolean {
-    if (!userId) return false;
-    return canManageTransaction(tx, userId, groupRolesQuery.data ?? new Map());
+    if (!session.userId) return false;
+    return canManageTransaction(tx, session.userId, groupRolesQuery.data ?? new Map());
   }
 
   // Settling can flip a plan-linked transaction to paid, so plan progress must refresh too.
   async function invalidateAfterSettle() {
-    await queryClient.invalidateQueries({ queryKey: ["transactions"] });
-    await queryClient.invalidateQueries({ queryKey: ["plan-progress"] });
-    await queryClient.invalidateQueries({ queryKey: ["plan-progress-list"] });
+    const u = requireSessionUserId();
+    await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+    await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
+    await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
   }
 
   const settleMutation = createMutation(() => ({
@@ -185,7 +180,9 @@
         action: {
           label: m.toast_transaction_settle_undo(),
           onClick: () => {
-            void updateTransactionsStatus([vars.id], vars.prev).then(() => invalidateAfterSettle());
+            void updateTransactionsStatus([vars.id], vars.prev)
+              .then(() => invalidateAfterSettle())
+              .catch((err) => toastError(err));
           },
         },
       });
@@ -198,21 +195,21 @@
   }
 
   const profileQuery = createQuery(() => ({
-    queryKey: ["profile", userId],
-    queryFn: () => fetchProfile(userId!),
-    enabled: !!userId,
+    queryKey: qk.profile(session.userId!),
+    queryFn: () => fetchProfile(session.userId!),
+    enabled: () => !!session.userId,
   }));
 
   const plansQuery = createQuery(() => ({
-    queryKey: ["plans"],
+    queryKey: qk.plans(session.userId!),
     queryFn: fetchPlans,
-    enabled: !!userId,
+    enabled: () => !!session.userId,
   }));
 
   const demoProbeQuery = createQuery(() => ({
-    queryKey: ["transactions", "demo-probe"],
+    queryKey: qk.transactions.list(session.userId!, "demo-probe"),
     queryFn: fetchDemoProbe,
-    enabled: !!userId,
+    enabled: () => !!session.userId,
     staleTime: 60_000,
   }));
 
@@ -235,11 +232,12 @@
   const clearDemoMutation = createMutation(() => ({
     mutationFn: clearDemoData,
     onSuccess: async (result) => {
+      const u = requireSessionUserId();
       track("demo_cleared", { row_count: result.deleted });
-      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      await queryClient.invalidateQueries({ queryKey: ["plans"] });
-      await queryClient.invalidateQueries({ queryKey: ["transactions", "demo-probe"] });
-      await queryClient.invalidateQueries({ queryKey: ["transactions", "count-probe"] });
+      await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.transactions.list(u, "demo-probe") });
+      await queryClient.invalidateQueries({ queryKey: qk.transactions.list(u, "count-probe") });
       toast.success(m.demo_cleared_toast());
     },
     onError: (err) => toastError(err),
@@ -248,8 +246,9 @@
   const restartTourMutation = createMutation(() => ({
     mutationFn: async () => {
       const profile = profileQuery.data;
-      if (!userId || !profile) throw new Error("no_profile");
-      await resetGuidedTourForReplay(queryClient, userId, profile);
+      const u = session.userId;
+      if (!u || !profile) throw new Error("no_profile");
+      await resetGuidedTourForReplay(queryClient, u, profile);
     },
     onSuccess: () => {
       toast.success(m.tour_restarted_toast());
@@ -300,21 +299,21 @@
   });
 
   const groupsQuery = createQuery(() => ({
-    queryKey: ["user_groups"],
+    queryKey: qk.userGroups(session.userId!),
     queryFn: fetchUserGroups,
-    enabled: !!userId,
+    enabled: () => !!session.userId,
   }));
 
   const categoriesQuery = createQuery(() => ({
-    queryKey: ["categories"],
+    queryKey: qk.categories(session.userId!),
     queryFn: fetchCategories,
-    enabled: !!userId,
+    enabled: () => !!session.userId,
   }));
 
   const saveLinkedQuery = createQuery(() => ({
-    queryKey: ["plan-save-linked-ids"],
+    queryKey: qk.saveLinkedIds(session.userId!),
     queryFn: fetchSaveLinkedTransactionIds,
-    enabled: !!userId,
+    enabled: () => !!session.userId,
   }));
 
   // Previous window: day windows (week/month/custom) are always complete, so
@@ -401,8 +400,14 @@
   });
 
   const txQuery = createQuery(() => ({
-    queryKey: ["transactions", "dashboard-span", spanBounds.start, spanBounds.end] as const,
+    queryKey: qk.transactions.list(
+      session.userId!,
+      "dashboard-span",
+      spanBounds.start,
+      spanBounds.end
+    ),
     queryFn: () => fetchTransactions(spanBounds.start, spanBounds.end),
+    enabled: () => !!session.userId,
     staleTime: 60_000,
   }));
 
@@ -466,20 +471,22 @@
   );
 
   const recurringTemplatesQuery = createQuery(() => ({
-    queryKey: ["transactions", "recurring-templates"] as const,
+    queryKey: qk.transactions.list(session.userId!, "recurring-templates"),
     queryFn: fetchRecurringTemplates,
+    enabled: () => !!session.userId,
     staleTime: 60_000,
   }));
   // Skips span current period + forecast horizon: projections are built for
   // both windows below.
   const recurringSkipsQuery = createQuery(() => ({
-    queryKey: [
-      "transactions",
+    queryKey: qk.transactions.list(
+      session.userId!,
       "dashboard-recurring-skips",
       bounds.start,
-      forwardBounds.end,
-    ] as const,
+      forwardBounds.end
+    ),
     queryFn: () => fetchRecurringOccurrenceSkips(bounds.start, forwardBounds.end),
+    enabled: () => !!session.userId,
     staleTime: 60_000,
   }));
   // Forecast source = scheduled real rows (one-off upcoming + materialized
@@ -573,7 +580,7 @@
   const overdueCount = $derived(allScopedTxs.filter((tx) => tx.status === "overdue").length);
 
   const activeRecurringCount = $derived(
-    buildRecurringSeriesList(recurringTemplatesQuery.data ?? []).length
+    buildRecurringSeriesList(scopeFilter(recurringTemplatesQuery.data ?? [])).length
   );
 
   // "See all upcoming" mirrors the table's window: 90-day overdue lookback
@@ -696,7 +703,9 @@
 
   {#if demoActive}
     <DemoShowcaseBanner
-      onclear={() => clearDemoMutation.mutate()}
+      onclear={async () => {
+        await clearDemoMutation.mutateAsync();
+      }}
       onrestart={() => restartTourMutation.mutate()}
       clearing={clearDemoMutation.isPending}
       restarting={restartTourMutation.isPending}
@@ -802,7 +811,7 @@
         <div class="flex items-center gap-3">
           {#if activeRecurringCount > 0}
             <a
-              href="/transactions?status=upcoming&forecast=recurring"
+              href="/transactions?status=upcoming"
               class="hover:text-accent text-xs font-medium text-slate-400 transition-colors"
             >
               {m.recurring_entry()} ({activeRecurringCount})
@@ -836,7 +845,7 @@
         <TransactionTable
           transactions={upcomingTxs}
           selectedIds={new Set()}
-          currentUserId={userId}
+          currentUserId={session.userId}
           canManage={dashCanManage}
           onrowclick={openTransaction}
           onsettle={quickSettle}

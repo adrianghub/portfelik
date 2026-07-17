@@ -1,7 +1,11 @@
 // supabase/functions/send-admin-summary/index.ts
 //
-// Weekly admin digest: aggregates paid transactions from the last 7 days and
-// inserts one notification per eligible admin.
+// Weekly admin digest: counts paid transactions and active users from the
+// last 7 days and inserts one notification per eligible admin.
+//
+// Privacy: counts only. Amounts (global or per-user) must never enter the
+// notification body or payload - the privacy policy promises administrative
+// tooling hides them (docs/legal/privacy-policy.md).
 //
 // Schedule (pg_cron daily 07:00 UTC):
 //   - every Monday (Europe/Warsaw), or
@@ -12,6 +16,11 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  buildSummaryBody,
+  buildSummaryNotificationData,
+  type SummarySchedule,
+} from "./summary-copy.ts";
 
 const TRIGGER_SECRET = Deno.env.get("INTERNAL_TRIGGER_SECRET");
 const WARSAW_TZ = "Europe/Warsaw";
@@ -21,12 +30,6 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 
-interface UserTotals {
-  income: number;
-  expense: number;
-  txnCount: number;
-}
-
 interface ProfileRow {
   id: string;
   settings: Record<string, unknown> | null;
@@ -34,10 +37,6 @@ interface ProfileRow {
 
 interface TriggerPayload {
   triggered_by?: string;
-}
-
-function fmtPLN(n: number): string {
-  return new Intl.NumberFormat("pl-PL", { style: "currency", currency: "PLN" }).format(n);
 }
 
 function warsawYmd(date: Date): string {
@@ -92,27 +91,15 @@ function addCalendarDaysYmd(ymd: string, delta: number): string {
   return warsawYmd(new Date(noonUtc));
 }
 
-function activeUsersPhrase(count: number): string {
-  if (count === 0) return "Na razie nikt nie dodał transakcji";
-  if (count === 1) return "1 aktywna osoba";
-  const lastTwo = count % 100;
-  const last = count % 10;
-  if (last >= 2 && last <= 4 && !(lastTwo >= 12 && lastTwo <= 14)) {
-    return `${count} aktywne osoby`;
-  }
-  return `${count} aktywnych osób`;
-}
-
-function buildSummaryBody(income: number, expense: number, userCount: number): string {
-  const users = activeUsersPhrase(userCount);
-  return `Ostatnie 7 dni: wpływy ${fmtPLN(income)}, wydatki ${fmtPLN(expense)} - ${users}.`;
-}
-
-function isImportReminderEnabled(settings: Record<string, unknown> | null): boolean {
+function isImportReminderEnabled(
+  settings: Record<string, unknown> | null,
+): boolean {
   const alerts = settings?.alerts;
   if (!alerts || typeof alerts !== "object") return false;
-  const bankImportReminder = (alerts as Record<string, unknown>).bankImportReminder;
-  if (!bankImportReminder || typeof bankImportReminder !== "object") return false;
+  const bankImportReminder = (alerts as Record<string, unknown>)
+    .bankImportReminder;
+  if (!bankImportReminder || typeof bankImportReminder !== "object")
+    return false;
   const enabled = (bankImportReminder as Record<string, unknown>).enabled;
   if (typeof enabled === "boolean") return enabled;
   if (typeof enabled === "string") return enabled.toLowerCase() === "true";
@@ -132,7 +119,10 @@ async function wasSummarySentRecently(adminId: string): Promise<boolean> {
   return (data?.length ?? 0) > 0;
 }
 
-async function hadImportReminderYesterday(adminId: string, now = new Date()): Promise<boolean> {
+async function hadImportReminderYesterday(
+  adminId: string,
+  now = new Date(),
+): Promise<boolean> {
   const todayYmd = warsawYmd(now);
   const yesterdayYmd = addCalendarDaysYmd(todayYmd, -1);
   const start = warsawDayStartUtc(yesterdayYmd).toISOString();
@@ -150,7 +140,10 @@ async function hadImportReminderYesterday(adminId: string, now = new Date()): Pr
   return (data?.length ?? 0) > 0;
 }
 
-async function shouldSendScheduledSummary(admin: ProfileRow, now = new Date()): Promise<boolean> {
+async function shouldSendScheduledSummary(
+  admin: ProfileRow,
+  now = new Date(),
+): Promise<boolean> {
   if (await wasSummarySentRecently(admin.id)) return false;
 
   if (isMondayInWarsaw(now)) return true;
@@ -199,9 +192,12 @@ Deno.serve(async (req: Request) => {
   }
 
   if (eligibleAdmins.length === 0) {
-    return new Response(JSON.stringify({ inserted: 0, reason: "not scheduled today" }), {
-      headers: { "content-type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ inserted: 0, reason: "not scheduled today" }),
+      {
+        headers: { "content-type": "application/json" },
+      },
+    );
   }
 
   const end = new Date();
@@ -212,42 +208,38 @@ Deno.serve(async (req: Request) => {
 
   const { data: txns, error: txErr } = await supabase
     .from("transactions")
-    .select("user_id, amount, type, status")
+    .select("user_id")
     .gte("date", start.toISOString())
     .lte("date", end.toISOString())
     .eq("status", "paid");
 
   if (txErr) {
-    return new Response(`Transactions query failed: ${txErr.message}`, { status: 500 });
+    return new Response(`Transactions query failed: ${txErr.message}`, {
+      status: 500,
+    });
   }
 
-  const totals: Record<string, UserTotals> = {};
-  for (const t of txns ?? []) {
-    totals[t.user_id] ??= { income: 0, expense: 0, txnCount: 0 };
-    if (t.type === "income") totals[t.user_id].income += Number(t.amount);
-    else totals[t.user_id].expense += Number(t.amount);
-    totals[t.user_id].txnCount += 1;
-  }
-
-  const totalIncome = Object.values(totals).reduce((s, v) => s + v.income, 0);
-  const totalExpense = Object.values(totals).reduce((s, v) => s + v.expense, 0);
-  const userCount = Object.keys(totals).length;
-  const body = buildSummaryBody(totalIncome, totalExpense, userCount);
+  const txCount = (txns ?? []).length;
+  const userCount = new Set((txns ?? []).map((t) => t.user_id)).size;
+  const body = buildSummaryBody(txCount, userCount);
+  const schedule: SummarySchedule = forced
+    ? "manual"
+    : isMondayInWarsaw(now)
+      ? "monday"
+      : "after_import_reminder";
 
   const rows = eligibleAdmins.map((admin) => ({
     user_id: admin.id,
     type: "transaction_summary",
     title: "Podsumowanie tygodnia",
     body,
-    data: {
+    data: buildSummaryNotificationData({
       windowStart: start.toISOString(),
       windowEnd: end.toISOString(),
       userCount,
-      totalIncome,
-      totalExpense,
-      perUser: totals,
-      schedule: forced ? "manual" : isMondayInWarsaw(now) ? "monday" : "after_import_reminder",
-    },
+      txCount,
+      schedule,
+    }),
   }));
 
   const { error: iErr } = await supabase.from("notifications").insert(rows);
@@ -259,8 +251,7 @@ Deno.serve(async (req: Request) => {
     JSON.stringify({
       inserted: rows.length,
       userCount,
-      totalIncome,
-      totalExpense,
+      txCount,
       forced,
     }),
     { headers: { "content-type": "application/json" } },

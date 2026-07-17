@@ -6,7 +6,7 @@
   import { createCategory, fetchCategories } from "$lib/services/categories";
   import { makeCreateCategoryInline } from "$lib/category-create";
   import { fetchUserGroups } from "$lib/services/groups";
-  import { linkPlanTransaction } from "$lib/services/plan-settlement";
+  import { createAndLinkPlanTransaction } from "$lib/services/plan-settlement";
   import {
     createTransaction,
     updateTransaction,
@@ -31,6 +31,9 @@
   import { toast } from "svelte-sonner";
   import { toastError } from "$lib/toast-error";
   import { errorMessage } from "$lib/services/supabase-errors";
+  import { localDateIso } from "$lib/date-local";
+  import { session, requireSessionUserId } from "$lib/auth/session.svelte";
+  import { qk } from "$lib/query-keys";
 
   export interface PlanTransactionContext {
     planId: string;
@@ -53,40 +56,39 @@
 
   const queryClient = useQueryClient();
 
+  const uid = $derived(session.userId);
+
   const createCategoryInline = makeCreateCategoryInline({
     createCategory,
-    invalidate: () => queryClient.invalidateQueries({ queryKey: ["categories"] }),
+    invalidate: () =>
+      queryClient.invalidateQueries({ queryKey: qk.categories(requireSessionUserId()) }),
     toastSuccess: () => toast.success(m.toast_category_created()),
     toastError: () => toast.error(m.toast_error()),
   });
 
   const categoriesQuery = createQuery(() => ({
-    queryKey: ["categories"],
+    queryKey: uid ? qk.categories(uid) : ["user", "", "categories"],
     queryFn: fetchCategories,
+    enabled: !!uid,
   }));
 
   const groupsQuery = createQuery(() => ({
-    queryKey: ["user_groups"],
+    queryKey: uid ? qk.userGroups(uid) : ["user", "", "user_groups"],
     queryFn: fetchUserGroups,
+    enabled: !!uid,
   }));
 
   let type = $state<TransactionType>(untrack(() => initial?.type ?? "expense"));
   let amount = $state(untrack(() => (initial ? String(Math.abs(initial.amount)) : "")));
   let counterparty = $state(untrack(() => initial?.counterparty ?? ""));
   let description = $state(untrack(() => initial?.description ?? ""));
-  let date = $state(
-    untrack(() =>
-      initial?.date ? initial.date.slice(0, 10) : new Date().toISOString().slice(0, 10)
-    )
-  );
+  let date = $state(untrack(() => (initial?.date ? initial.date.slice(0, 10) : localDateIso())));
   let category_id = $state(untrack(() => initial?.category_id ?? ""));
   let status = $state<TransactionStatus>(
     untrack(
       () =>
         initial?.status ??
-        suggestStatusForDate(
-          initial?.date ? initial.date.slice(0, 10) : new Date().toISOString().slice(0, 10)
-        )
+        suggestStatusForDate(initial?.date ? initial.date.slice(0, 10) : localDateIso())
     )
   );
   // Soft prefill: while false, status tracks the date; a manual pick locks it.
@@ -121,7 +123,7 @@
       amount = initial ? String(Math.abs(initial.amount)) : "";
       counterparty = initial?.counterparty ?? "";
       description = initial?.description ?? "";
-      date = initial?.date ? initial.date.slice(0, 10) : new Date().toISOString().slice(0, 10);
+      date = initial?.date ? initial.date.slice(0, 10) : localDateIso();
       category_id = initial?.category_id ?? planContext?.categoryId ?? "";
       statusTouched = initial?.status != null;
       status = initial?.status ?? suggestStatusForDate(date);
@@ -155,21 +157,39 @@
     }
   });
 
+  $effect(() => {
+    if (!initial && planContext?.planKind === "save" && categoriesQuery.data) {
+      const goalCategory = categoriesQuery.data.find(
+        (category) => category.type === "expense" && category.name === "Cele"
+      );
+      if (goalCategory) category_id = goalCategory.id;
+    }
+  });
+
   const isEdit = $derived(!!initial);
   const isRecurringOccurrenceEdit = $derived(!!initial?.recurring_template_id);
   const title = $derived(isEdit ? m.transaction_form_title_edit() : m.transaction_form_title_add());
 
   const mutation = createMutation(() => ({
     mutationFn: async (input: Parameters<typeof createTransaction>[0]) => {
-      const tx = isEdit
-        ? await updateTransaction(initial!.id, input)
-        : await createTransaction(input);
-      if (!isEdit && planContext) {
-        await linkPlanTransaction(planContext.planId, tx.id, {
+      if (isEdit) {
+        return updateTransaction(initial!.id, input);
+      }
+      if (planContext) {
+        const txId = await createAndLinkPlanTransaction({
+          planId: planContext.planId,
+          amount: input.amount,
+          description: input.description,
+          date: input.date,
+          categoryId: input.category_id,
+          counterparty: input.counterparty,
+          status: input.status,
+          groupId: input.group_id,
           planKind: planContext.planKind,
         });
+        return { id: txId } as Awaited<ReturnType<typeof createTransaction>>;
       }
-      return tx;
+      return createTransaction(input);
     },
     onSuccess: async (_tx, input) => {
       if (isEdit && input.is_recurring && input.recurrence_end_date) {
@@ -178,14 +198,15 @@
       if (input.is_recurring) {
         await materializeRecurringOccurrencesForNearTerm();
       }
-      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
       if (planContext) {
-        await queryClient.invalidateQueries({ queryKey: ["plan-links", planContext.planId] });
-        await queryClient.invalidateQueries({ queryKey: ["plan-ranked", planContext.planId] });
-        await queryClient.invalidateQueries({ queryKey: ["plan-eligible", planContext.planId] });
-        await queryClient.invalidateQueries({ queryKey: ["plan-progress"] });
-        await queryClient.invalidateQueries({ queryKey: ["plan-progress-list"] });
-        await queryClient.invalidateQueries({ queryKey: ["plans"] });
+        await queryClient.invalidateQueries({ queryKey: qk.planLinks(u, planContext.planId) });
+        await queryClient.invalidateQueries({ queryKey: qk.planRanked(u, planContext.planId) });
+        await queryClient.invalidateQueries({ queryKey: qk.planEligible(u, planContext.planId) });
+        await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
+        await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
+        await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
         toast.success(m.plan_settle_linked());
       } else {
         toast.success(isEdit ? m.toast_transaction_updated() : m.toast_transaction_created());
@@ -193,15 +214,18 @@
       }
       onclose();
     },
-    onError: (err) => toastError(err),
+    onError: (err) => {
+      toastError(err);
+    },
   }));
 
   async function applyRuleRetro(categoryId: string, ids: string[]): Promise<void> {
     try {
-      await updateTransactionsCategory(ids, categoryId);
-      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      await queryClient.invalidateQueries({ queryKey: ["plan-progress"] });
-      toast.success(m.rule_apply_done({ count: ids.length }));
+      const affected = await updateTransactionsCategory(ids, categoryId);
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
+      toast.success(m.rule_apply_done({ count: affected }));
     } catch (err) {
       toastError(err);
     }
@@ -231,7 +255,9 @@
                 category_id: targetCategoryId,
                 priority: 10,
               });
-              await queryClient.invalidateQueries({ queryKey: ["categorization_rules"] });
+              await queryClient.invalidateQueries({
+                queryKey: qk.categorizationRules(requireSessionUserId()),
+              });
               const matchIds = await findRetroMatchIds(created);
               if (matchIds.length > 0) {
                 toast.success(m.rule_capture_created(), {
@@ -363,18 +389,20 @@
       />
     </div>
 
-    <div class="space-y-1">
-      <label class={labelClass} for="tx-cat">{m.transaction_form_category()}</label>
-      <CategorySelect
-        id="tx-cat"
-        categories={filteredCategories}
-        selectedId={category_id || null}
-        {type}
-        onchange={(id) => (category_id = id ?? "")}
-        oncreate={createCategoryInline}
-        required
-      />
-    </div>
+    {#if !planContext || planContext.planKind !== "save"}
+      <div class="space-y-1">
+        <label class={labelClass} for="tx-cat">{m.transaction_form_category()}</label>
+        <CategorySelect
+          id="tx-cat"
+          categories={filteredCategories}
+          selectedId={category_id || null}
+          {type}
+          onchange={(id) => (category_id = id ?? "")}
+          oncreate={createCategoryInline}
+          required
+        />
+      </div>
+    {/if}
 
     <div class="space-y-1">
       <label class={labelClass} for="tx-status">{m.transaction_form_status()}</label>
