@@ -17,7 +17,7 @@ export function buildPlanningQueueActions(input: {
   debtTerms: Record<string, PlanDebtTerms>;
 }): PlanningQueueAction[] {
   const actions: PlanningQueueAction[] = [];
-  const { summaries, monthlySurplus, debtTerms } = input;
+  const { summaries, monthlySurplus } = input;
 
   if (monthlySurplus.totalIncome <= 0 && monthlySurplus.hasSaveGoals) {
     actions.push({
@@ -50,27 +50,6 @@ export function buildPlanningQueueActions(input: {
       // Save-goal nudge is an opportunity, not a failure - keep it neutral, not alarm tone.
       tone: "default",
     });
-  }
-
-  const activeDebtPlans = summaries.filter(
-    (p) => p.kind === "debt" && p.bucket === "active" && p.status === "active"
-  );
-  if (activeDebtPlans.length > 0) {
-    const totalDebtPayment = activeDebtPlans.reduce((sum, p) => {
-      const terms = debtTerms[p.id];
-      return sum + (terms ? Number(terms.monthly_payment) : 0);
-    }, 0);
-    if (totalDebtPayment > 0) {
-      const first = activeDebtPlans[0];
-      actions.push({
-        id: `debt-${first.id}`,
-        href: `/plans/${first.id}`,
-        label: m.plans_queue_debt_payment({
-          amount: formatCurrency(totalDebtPayment),
-        }),
-        tone: "muted",
-      });
-    }
   }
 
   return actions.slice(0, 3);

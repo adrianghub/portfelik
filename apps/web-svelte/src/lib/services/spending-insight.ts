@@ -1,3 +1,4 @@
+import { isAllocationExpense } from "$lib/services/goal-spending";
 import { ledgerTransactions } from "$lib/services/transaction-cashflow";
 import type { TransactionWithCategory } from "$lib/types";
 
@@ -75,11 +76,17 @@ export function computeSpendingInsight(input: {
   rolling: TransactionWithCategory[];
   periodsInRolling: number;
   budgets: SpendingBudget[];
+  saveLinkedIds?: ReadonlySet<string>;
+  celeCategoryId?: string | null;
 }): SpendingInsight {
-  const { periodsInRolling, budgets } = input;
-  const current = ledgerTransactions(input.current);
-  const previous = ledgerTransactions(input.previous);
-  const rolling = ledgerTransactions(input.rolling);
+  const { periodsInRolling, budgets, saveLinkedIds, celeCategoryId } = input;
+  const exclude = (list: TransactionWithCategory[]) =>
+    saveLinkedIds != null || celeCategoryId != null
+      ? list.filter((t) => !isAllocationExpense(t, saveLinkedIds ?? new Set(), celeCategoryId))
+      : list;
+  const current = exclude(ledgerTransactions(input.current));
+  const previous = exclude(ledgerTransactions(input.previous));
+  const rolling = exclude(ledgerTransactions(input.rolling));
 
   const curByCat = expenseByCategory(current);
   const prevByCat = expenseByCategory(previous);

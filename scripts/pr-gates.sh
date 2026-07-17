@@ -102,11 +102,24 @@ fi
 # --- E2E mocked suite (required when UI, copy, routes, or e2e specs change) ---
 # Skipping this is what caused invite-day PR ping-pong. Always run the same suite
 # CI runs when the surface can break Playwright locators or a11y.
+#
+# Match CI: build → CI=true playwright (preview on :4173, html open:never).
+# Without CI=true, Playwright's default HTML reporter opens a blocking server on
+# failure ("Serving HTML report… Press Ctrl+C") and open-pr.sh looks hung.
+# Without a fresh build + CI, reuseExistingServer can attach to a stale `pnpm
+# dev` on :5173 from another branch and flake.
 if changed_match '(^|/)(apps/web-svelte/(src|e2e|messages)/|messages/pl\.json)'; then
-  if (cd "$WEB" && pnpm test:e2e >/tmp/pr-e2e.log 2>&1); then
+  printf '  […]  %-13s building + mocked Playwright (this can take ~1–2 min)\n' "test:e2e" >&2
+  if (cd "$WEB" && \
+      PUBLIC_SUPABASE_URL=https://emqzcygfwcvbmhxhfkcc.supabase.co \
+      PUBLIC_SUPABASE_ANON_KEY=test-anon-key \
+      PUBLIC_VAPID_KEY=BHKoiccZwq3Y5Qw5dmFxVLJIA7w9zcSZkchPKWk-vxBeR421yieZW7gGxuluBBa6sRmpIsFXRSuFyRarLcdvqT4 \
+      PUBLIC_PLAUSIBLE_DOMAIN= \
+      pnpm build >/tmp/pr-e2e-build.log 2>&1 && \
+      CI=true pnpm test:e2e >/tmp/pr-e2e.log 2>&1); then
     gate test:e2e PASS "green"
   else
-    gate test:e2e FAIL "see /tmp/pr-e2e.log (run: cd apps/web-svelte && pnpm test:e2e)"
+    gate test:e2e FAIL "see /tmp/pr-e2e.log (build: /tmp/pr-e2e-build.log)"
   fi
 else
   gate test:e2e NA "no UI/copy/e2e changes"

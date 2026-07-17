@@ -80,7 +80,7 @@ describe("buildPlanningQueueActions", () => {
     expect(actions.some((a) => a.id === "save-save-upcoming")).toBe(false);
   });
 
-  it("debt chip uses active loans only", () => {
+  it("does not surface a debt chip for active loans", () => {
     const debtTerms: Record<string, PlanDebtTerms> = {
       "debt-active": {
         plan_id: "debt-active",
@@ -134,13 +134,10 @@ describe("buildPlanningQueueActions", () => {
       }),
       debtTerms,
     });
-    const debtAction = actions.find((a) => a.id.startsWith("debt-"));
-    expect(debtAction).toBeDefined();
-    expect(debtAction?.label).not.toContain("2242");
-    expect(debtAction?.label).not.toContain("3 442");
+    expect(actions.find((a) => a.id.startsWith("debt-"))).toBeUndefined();
   });
 
-  it("ignores refinanced debt plans for the debt chip", () => {
+  it("does not surface a debt chip for refinanced loans", () => {
     const debtTerms: Record<string, PlanDebtTerms> = {
       "debt-refi": {
         plan_id: "debt-refi",

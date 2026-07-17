@@ -12,7 +12,6 @@
   import { createQuery } from "@tanstack/svelte-query";
   import { session } from "$lib/auth/session.svelte";
   import { qk } from "$lib/query-keys";
-  import { Sparkles } from "lucide-svelte";
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import DashboardSeeMoreButton from "$lib/components/dashboard/DashboardSeeMoreButton.svelte";
 
@@ -112,10 +111,12 @@
         </span>
         {#if plan.eligibleCount > 0}
           <span
-            class="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400"
+            class="inline-flex shrink-0 items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400"
+            aria-label={m.dashboard_plan_settle_ready_aria({ count: plan.eligibleCount })}
           >
-            <Sparkles size={8} strokeWidth={2} aria-hidden="true" />
-            {plan.eligibleCount}
+            {m.dashboard_plan_settle_ready({
+              count: plan.eligibleCount > 9 ? "9+" : String(plan.eligibleCount),
+            })}
           </span>
         {/if}
       </div>

@@ -1060,7 +1060,13 @@
   {/if}
 
   {#if showCashView}
-    <CashPositionStrip live={cashLive} forecast={cashForecast} hasAnchor={!!cashAnchorQuery.data} />
+    <CashPositionStrip
+      live={cashLive}
+      forecast={cashForecast}
+      hasAnchor={!!cashAnchorQuery.data}
+      anchor={cashAnchor}
+      anchorReady={cashAnchorQuery.isSuccess}
+    />
   {/if}
 
   {#if summary}

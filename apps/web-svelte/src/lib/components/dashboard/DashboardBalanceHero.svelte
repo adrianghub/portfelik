@@ -231,8 +231,6 @@
       <p class="mt-1.5 text-[11px] text-slate-400 sm:text-xs">
         {m.dashboard_savings_kept_pct({ pct: savingsRatio })}
       </p>
-    {:else}
-      <p class="mt-1.5 text-[11px] text-slate-400 sm:text-xs">{m.dashboard_savings_na()}</p>
     {/if}
   {/if}
 {/snippet}
@@ -380,47 +378,39 @@
         </span>
       </a>
 
-      <div
-        class="flex items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] px-2.5 py-2 sm:gap-2.5 sm:px-3"
-      >
-        <span
-          class={cn(
-            "h-2 w-2 shrink-0 rounded-full",
-            savingsRatio === null
-              ? "bg-slate-600"
-              : savingsRatio >= 0
-                ? "bg-emerald-400/80 shadow-[0_0_8px_rgba(52,211,153,0.35)]"
-                : "bg-rose-400/80 shadow-[0_0_8px_rgba(251,113,133,0.35)]"
-          )}
-          aria-hidden="true"
-        ></span>
-        <span class="min-w-0 flex-1">
-          <span class="text-eyebrow flex items-center gap-1 text-slate-400">
-            {m.dashboard_savings_short()}
-            <InfoTooltip
-              label={m.summary_savings_ratio()}
-              text={m.summary_savings_ratio_info()}
-              side="bottom"
-            />
-          </span>
+      {#if savingsRatio !== null}
+        <div
+          class="flex items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] px-2.5 py-2 sm:gap-2.5 sm:px-3"
+        >
           <span
             class={cn(
-              "mt-0.5 block text-sm font-semibold tabular-nums",
-              savingsRatio === null
-                ? "text-slate-400"
-                : savingsRatio >= 0
-                  ? "text-emerald-300"
-                  : "text-rose-300"
+              "h-2 w-2 shrink-0 rounded-full",
+              savingsRatio >= 0
+                ? "bg-emerald-400/80 shadow-[0_0_8px_rgba(52,211,153,0.35)]"
+                : "bg-rose-400/80 shadow-[0_0_8px_rgba(251,113,133,0.35)]"
             )}
-          >
-            {#if savingsRatio === null}
-              {m.dashboard_savings_na()}
-            {:else}
+            aria-hidden="true"
+          ></span>
+          <span class="min-w-0 flex-1">
+            <span class="text-eyebrow flex items-center gap-1 text-slate-400">
+              {m.dashboard_savings_short()}
+              <InfoTooltip
+                label={m.summary_savings_ratio()}
+                text={m.summary_savings_ratio_info()}
+                side="bottom"
+              />
+            </span>
+            <span
+              class={cn(
+                "mt-0.5 block text-sm font-semibold tabular-nums",
+                savingsRatio >= 0 ? "text-emerald-300" : "text-rose-300"
+              )}
+            >
               {m.dashboard_savings_kept_pct({ pct: savingsRatio })}
-            {/if}
+            </span>
           </span>
-        </span>
-      </div>
+        </div>
+      {/if}
     </div>
 
     {@render ringLegendBlock("box")}

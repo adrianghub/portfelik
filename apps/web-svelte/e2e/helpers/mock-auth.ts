@@ -197,6 +197,16 @@ export async function mockSupabaseAPI(page: Page): Promise<void> {
         return route.fulfill({ status: 200, json: filterMockDebtTerms(url) });
       }
 
+      // ── Private cash pool ────────────────────────────────────────────────
+      if (url.includes("/cash_positions")) {
+        return fulfillSupabaseJson(route, null);
+      }
+
+      // ── Groups (solo default: no memberships) ────────────────────────────
+      if (url.includes("/user_groups")) {
+        return route.fulfill({ status: 200, json: [] });
+      }
+
       // ── Financial snapshots ──────────────────────────────────────────────
       if (url.includes("/financial_snapshots")) {
         if (method === "POST" || method === "PATCH") {
