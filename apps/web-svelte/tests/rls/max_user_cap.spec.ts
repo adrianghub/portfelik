@@ -1,6 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
-import { createAdminClient, provisionTwoUsers, type TestContext } from "./setup";
+import {
+  createAdminClient,
+  createTestInvitation,
+  provisionTwoUsers,
+  type TestContext,
+} from "./setup";
 
 const CAP_SECRET_NAME = "max_user_cap";
 const EMAIL_PREFIX = "cap-";
@@ -88,11 +93,12 @@ describe("Auth: max_user_cap", { timeout: 30_000 }, () => {
       if (groupErr || !groupData) throw groupErr ?? new Error("no group");
 
       const invitedEmail = `${INVITED_EMAIL_PREFIX}${crypto.randomUUID()}@rls.test`;
-      const { error: inviteErr } = await ctx.userA.client.rpc("invite_user", {
-        p_group_id: (groupData as { id: string }).id,
-        p_email: invitedEmail,
-      });
-      if (inviteErr) throw inviteErr;
+      await createTestInvitation(
+        ctx.admin,
+        (groupData as { id: string }).id,
+        invitedEmail,
+        ctx.userA.userId
+      );
 
       const { data } = await ctx.admin.auth.admin.listUsers({ page: 1, perPage: 200 });
       await setCapSecret(String(data.users.length));

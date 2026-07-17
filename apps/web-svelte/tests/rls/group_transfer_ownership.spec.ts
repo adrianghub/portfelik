@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { SENTINEL, cleanupSentinels, provisionTwoUsers, type TestContext } from "./setup";
+import {
+  SENTINEL,
+  cleanupSentinels,
+  createTestInvitation,
+  provisionTwoUsers,
+  type TestContext,
+} from "./setup";
 
 describe("RPC: transfer_group_ownership syncs group_members.role", () => {
   let ctx: TestContext;
@@ -16,12 +22,13 @@ describe("RPC: transfer_group_ownership syncs group_members.role", () => {
     if (groupErr || !group) throw groupErr ?? new Error("no group");
     groupId = (group as { id: string }).id;
 
-    const { data: invite, error: inviteErr } = await ctx.userA.client.rpc("invite_user", {
-      p_group_id: groupId,
-      p_email: ctx.userB.email,
-    });
-    if (inviteErr || !invite) throw inviteErr ?? new Error("no invitation");
-    inviteId = (invite as { id: string }).id;
+    const invite = await createTestInvitation(
+      ctx.admin,
+      groupId,
+      ctx.userB.email,
+      ctx.userA.userId
+    );
+    inviteId = invite.id;
 
     const { error: acceptErr } = await ctx.userB.client.rpc("accept_invitation", {
       p_invitation_id: inviteId,

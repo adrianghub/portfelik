@@ -3,6 +3,7 @@ import {
   SENTINEL,
   cleanupSentinels,
   createAnonClient,
+  createTestInvitation,
   provisionTwoUsers,
   type TestContext,
 } from "./setup";
@@ -24,13 +25,14 @@ describe("RLS: group_invitations (direct writes blocked, visible to invitee/crea
     if (groupErr || !groupData) throw groupErr ?? new Error("no group");
     groupId = (groupData as { id: string }).id;
 
-    // Invite via RPC so we have a row to test reads against.
-    const { data: invData, error: invErr } = await ctx.userA.client.rpc("invite_user", {
-      p_group_id: groupId,
-      p_email: ctx.userB.email,
-    });
-    if (invErr || !invData) throw invErr ?? new Error("no invitation");
-    inviteId = (invData as { id: string }).id;
+    // Invite via service-role delivery RPC (authenticated invite_user is revoked).
+    const invitation = await createTestInvitation(
+      ctx.admin,
+      groupId,
+      ctx.userB.email,
+      ctx.userA.userId
+    );
+    inviteId = invitation.id;
   });
 
   afterAll(async () => {
@@ -164,17 +166,23 @@ describe("RLS: group_invitations (direct writes blocked, visible to invitee/crea
     expect(preview.data).toBeNull();
   });
 
+  it("denies authenticated clients the legacy invite_user RPC", async () => {
+    const { error } = await ctx.userA.client.rpc("invite_user", {
+      p_group_id: groupId,
+      p_email: `legacy-denied-${crypto.randomUUID()}@rls.test`,
+    });
+    expect(error).not.toBeNull();
+  });
+
   it("creates a notification when a pending invitee signs up after the invite", async () => {
     const invitedEmail = `pending-invite-${crypto.randomUUID()}@rls.test`;
-    const { data: futureInvite, error: futureInviteErr } = await ctx.userA.client.rpc(
-      "invite_user",
-      {
-        p_group_id: groupId,
-        p_email: invitedEmail,
-      }
+    const futureInvite = await createTestInvitation(
+      ctx.admin,
+      groupId,
+      invitedEmail,
+      ctx.userA.userId
     );
-    if (futureInviteErr || !futureInvite) throw futureInviteErr ?? new Error("no future invite");
-    const futureInviteId = (futureInvite as { id: string }).id;
+    const futureInviteId = futureInvite.id;
 
     const { data: before } = await ctx.admin
       .from("notifications")
@@ -213,15 +221,13 @@ describe("RLS: group_invitations (direct writes blocked, visible to invitee/crea
     const movedEmail = `pending-reused-moved-${crypto.randomUUID()}@rls.test`;
     const testPassword = process.env.RLS_TEST_PASSWORD ?? "local-password";
 
-    const { data: futureInvite, error: futureInviteErr } = await ctx.userA.client.rpc(
-      "invite_user",
-      {
-        p_group_id: groupId,
-        p_email: invitedEmail,
-      }
+    const futureInvite = await createTestInvitation(
+      ctx.admin,
+      groupId,
+      invitedEmail,
+      ctx.userA.userId
     );
-    if (futureInviteErr || !futureInvite) throw futureInviteErr ?? new Error("no future invite");
-    const futureInviteId = (futureInvite as { id: string }).id;
+    const futureInviteId = futureInvite.id;
 
     const { data: firstUser, error: firstUserErr } = await ctx.admin.auth.admin.createUser({
       email: invitedEmail,
