@@ -70,7 +70,7 @@ const CASH_TXS = [
 ];
 
 const desktopTable = (page: Page) => page.locator("table");
-const strip = (page: Page) => page.getByRole("region", { name: "Gotówka" });
+const strip = (page: Page) => page.getByRole("button", { name: "Gotówka (prywatna)" });
 
 const MOCK_GROUP = {
   id: "group-1",
@@ -145,5 +145,19 @@ test("private scope without an anchor: strip prompts to set a balance", async ({
 
   await expect(desktopTable(page).getByText("Wydatek gotówkowy")).toBeVisible();
   // Strip still renders, but as a prompt — no fabricated total.
-  await expect(strip(page).getByText(/Ustaw saldo początkowe/)).toBeVisible();
+  await expect(strip(page).getByText(/Kliknij, aby ustawić saldo początkowe/)).toBeVisible();
+});
+
+test("private scope: strip opens edit sheet with anchor fields", async ({ page }) => {
+  await mockCash(page);
+  await page.goto("/transactions?group=own");
+
+  await expect(strip(page)).toBeVisible();
+  await strip(page).click();
+
+  const sheet = page.getByRole("dialog", { name: "Gotówka (prywatna)" });
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByLabel("Stan na dzień")).toBeVisible();
+  await expect(sheet.locator("#cash-opening-amount")).toHaveValue("1000");
+  await expect(sheet.getByLabel("Saldo początkowe gotówki")).toBeVisible();
 });

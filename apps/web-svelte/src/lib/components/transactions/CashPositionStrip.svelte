@@ -17,8 +17,10 @@
     forecast: number;
     hasAnchor: boolean;
     anchor: CashPosition | null;
+    /** Wait until the anchor query has settled before opening the edit sheet. */
+    anchorReady?: boolean;
   }
-  let { live, forecast, hasAnchor, anchor }: Props = $props();
+  let { live, forecast, hasAnchor, anchor, anchorReady = true }: Props = $props();
 
   const queryClient = useQueryClient();
   const showForecast = $derived(Math.abs(forecast - live) >= 0.01);
@@ -28,6 +30,7 @@
   let asOfDate = $state("");
 
   function openEdit() {
+    if (!anchorReady) return;
     openingAmount = anchor ? String(anchor.opening_amount) : "";
     asOfDate = anchor?.as_of_date ?? localDateIso();
     editOpen = true;

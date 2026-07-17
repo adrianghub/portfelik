@@ -1065,6 +1065,7 @@
       forecast={cashForecast}
       hasAnchor={!!cashAnchorQuery.data}
       anchor={cashAnchor}
+      anchorReady={cashAnchorQuery.isSuccess}
     />
   {/if}
 
