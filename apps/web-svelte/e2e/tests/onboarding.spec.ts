@@ -96,6 +96,7 @@ test.describe("onboarding hardening", () => {
     });
     await page.getByRole("button", { name: WELCOME_TOUR_SKIP_BUTTON }).click();
     await expect(page.getByRole("dialog", { name: "Poznaj aplikację" })).toBeHidden();
+    await expect.poll(() => page.url()).toContain("/import");
   });
 
   test("opens glossary from settings", async ({ page }) => {

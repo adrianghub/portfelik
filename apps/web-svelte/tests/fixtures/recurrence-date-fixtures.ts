@@ -8,7 +8,9 @@ export interface RecurrenceDateFixture {
   expected: string[];
 }
 
-/** Shared fixtures for SQL + client recurrence parity. */
+/** Shared fixtures for SQL (`tests/rls/recurring_occurrence_dates.spec.ts`) and
+ *  client (`tests/unit/recurrence-dates.spec.ts`) recurrence parity. Keep both
+ *  suites green against the same expected dates. */
 export const RECURRENCE_DATE_FIXTURES: RecurrenceDateFixture[] = [
   {
     name: "monthly on recurring_day",

@@ -199,13 +199,8 @@ test.skip("refinances a debt plan: closes old, opens new, writes no transaction"
   expect(transactionWritten).toBe(false);
 });
 
-test("debt scenarios page redirects/declares unavailable (no static results)", async ({ page }) => {
+test("debt scenarios route redirects to plan detail", async ({ page }) => {
   await page.goto("/plans/plan-debt-1/scenarios?mode=monthly&extra=500");
-
-  await expect(page.getByRole("heading", { name: "Nadpłata vs inwestycja" })).toBeVisible();
-  await expect(page.getByTestId("scenarios-verdict")).toBeVisible();
-  // The scenarios view is intentionally unavailable; ensure we do NOT ship
-  // hard-coded numeric results and instead surface a safe notice with a link.
-  await expect(page.getByText("Scenariusze spłaty kredytu są obecnie niedostępne")).toBeVisible();
-  await expect(page.getByRole("link", { name: /Powrót do planów/ })).toBeVisible();
+  await expect.poll(() => page.url()).toMatch(/\/plans\/plan-debt-1\/?$/);
+  await expect(page.getByTestId("scenarios-verdict")).toHaveCount(0);
 });

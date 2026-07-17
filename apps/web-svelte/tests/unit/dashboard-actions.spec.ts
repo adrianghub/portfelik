@@ -27,6 +27,7 @@ const base: BuildDashboardActionsInput = {
   attention: healthyAttention,
   anomalies: [],
   periodKey: "2026-06-22",
+  periodEnd: "2026-06-28",
 };
 
 describe("buildDashboardActions", () => {
@@ -34,14 +35,14 @@ describe("buildDashboardActions", () => {
     expect(buildDashboardActions(base)).toEqual([]);
   });
 
-  it("folds overdue with stable dismiss key", () => {
+  it("folds overdue with period-scoped dismiss key", () => {
     const actions = buildDashboardActions({
       ...base,
       attention: { ...healthyAttention, overdueCount: 2 },
     });
     const overdue = actions.find((a) => a.kind === "overdue");
     expect(overdue?.tone).toBe("warn");
-    expect(overdue?.dismissKey).toBe("overdue");
+    expect(overdue?.dismissKey).toBe("overdue:2026-06-22");
     expect(overdue?.href).toBe("/transactions?status=overdue");
   });
 
@@ -83,14 +84,16 @@ describe("buildDashboardActions", () => {
     expect(actions.some((a) => a.kind === "save_off_track")).toBe(false);
   });
 
-  it("surfaces spending anomalies with a period-scoped dismiss key", () => {
+  it("surfaces spending anomalies with a period-scoped dismiss key and date range", () => {
     const actions = buildDashboardActions({
       ...base,
       anomalies: [{ categoryId: "c1", name: "Restauracje", total: 300, avgTotal: 100 }],
     });
     const anomaly = actions.find((a) => a.kind === "spending_anomaly");
     expect(anomaly?.dismissKey).toBe("spending_anomaly:c1:2026-06-22");
-    expect(anomaly?.href).toBe("/transactions?categoryId=c1");
+    expect(anomaly?.href).toBe(
+      "/transactions?categoryId=c1&startDate=2026-06-22&endDate=2026-06-28"
+    );
     expect(anomaly?.title).toContain("Restauracje");
     expect(anomaly?.detail).toBeTruthy();
     expect(anomaly?.tone).toBe("warn");
@@ -125,7 +128,7 @@ describe("buildDashboardActions", () => {
       ...base,
       attention: { ...healthyAttention, overdueCount: 1 },
       anomalies: [{ categoryId: "c1", name: "X", total: 300, avgTotal: 100 }],
-      dismissedKeys: new Set(["overdue"]),
+      dismissedKeys: new Set(["overdue:2026-06-22"]),
     });
     expect(actions.some((a) => a.kind === "overdue")).toBe(false);
     expect(actions.some((a) => a.kind === "spending_anomaly")).toBe(true);

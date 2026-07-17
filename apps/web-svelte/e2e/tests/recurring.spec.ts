@@ -53,11 +53,11 @@ test.describe("recurring entry links", () => {
     await expect(page.getByRole("heading", { name: "Transakcje" })).toBeVisible();
   });
 
-  test("transactions header Cykliczne link opens recurring transactions view", async ({ page }) => {
+  test("transactions header Nadchodzące link opens upcoming transactions view", async ({ page }) => {
     await page.goto("/transactions");
     await expect(page.getByRole("heading", { name: "Transakcje" })).toBeVisible();
 
-    const recurringLink = page.getByRole("link", { name: "Cykliczne" });
+    const recurringLink = page.getByRole("link", { name: "Nadchodzące" });
     await expect(recurringLink.first()).toBeVisible();
     await recurringLink.first().click();
 
@@ -65,10 +65,10 @@ test.describe("recurring entry links", () => {
     await expect(page.getByRole("heading", { name: "Transakcje" })).toBeVisible();
   });
 
-  test("dashboard Cykliczne link opens recurring transactions view", async ({ page }) => {
+  test("dashboard Nadchodzące link opens upcoming transactions view", async ({ page }) => {
     await page.goto("/dashboard");
 
-    const recurringLink = page.getByRole("link", { name: /Cykliczne \(\d+\)/ });
+    const recurringLink = page.getByRole("link", { name: /Nadchodzące \(\d+\)/ });
     await expect(recurringLink).toBeVisible({ timeout: 10000 });
     await recurringLink.click();
 

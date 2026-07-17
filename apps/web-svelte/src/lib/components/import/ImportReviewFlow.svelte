@@ -450,6 +450,7 @@
       // Persistence failed — put the stack back so the user can retry.
       if (alsoRestoredPrev) undoStack = [...undoStack, alsoRestoredPrev];
       undoStack = [...undoStack, entry];
+      toast.error(m.bank_review_undo_failed());
     }
   }
 

@@ -658,7 +658,7 @@
     onError: (err) => toastPlanError(err),
   }));
 
-  function submitForm(e: SubmitEvent) {
+  async function submitForm(e: SubmitEvent) {
     e.preventDefault();
     if (planKind === "debt") {
       try {
@@ -668,8 +668,12 @@
         return;
       }
     }
-    if (editing) updateMutation.mutate();
-    else createMutation.mutate();
+    try {
+      if (editing) await updateMutation.mutateAsync();
+      else await createMutation.mutateAsync();
+    } catch {
+      // onError already toasted
+    }
   }
 
   let deleteTargetId = $state<string | null>(null);
@@ -745,7 +749,7 @@
   {:else}
     {#if filteredPlans.length === 0}
       <p class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-400">
-        {m.plans_empty_hint()}
+        {m.plans_empty_filtered()}
       </p>
     {/if}
 
@@ -1016,7 +1020,7 @@
         id="plan-category"
         categories={categoriesQuery.data ?? []}
         selectedId={categoryId || null}
-        type={planKind === "save" ? "income" : "expense"}
+        type="expense"
         onchange={(id) => (categoryId = id ?? "")}
         oncreate={createCategoryInline}
         placeholder={m.plan_form_no_category()}
@@ -1072,7 +1076,9 @@
     class="space-y-4"
     onsubmit={(e) => {
       e.preventDefault();
-      snapshotMutation.mutate();
+      void snapshotMutation.mutateAsync().catch(() => {
+        // onError already toasted
+      });
     }}
   >
     <p class="text-xs text-slate-400">{m.plans_net_worth_manual_note()}</p>

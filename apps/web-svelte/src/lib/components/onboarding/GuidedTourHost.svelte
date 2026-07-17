@@ -219,6 +219,7 @@
     progress = next;
     await persistProgress(next);
     welcomeOpen = false;
+    await goto("/import");
   }
 
   async function handleSkip(): Promise<void> {

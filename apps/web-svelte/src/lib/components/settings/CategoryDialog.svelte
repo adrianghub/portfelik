@@ -54,7 +54,9 @@
 
   function handleSubmit(e: Event) {
     e.preventDefault();
-    mutation.mutate();
+    void mutation.mutateAsync().catch(() => {
+      // onError already toasted
+    });
   }
 </script>
 

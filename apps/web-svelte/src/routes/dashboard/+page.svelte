@@ -794,7 +794,12 @@
   <section class="mt-4">
     <h2 class="mb-1.5 text-sm font-medium text-slate-400">{m.dashboard_status_band()}</h2>
     <div class="grid min-w-0 grid-cols-1 items-stretch gap-2 sm:grid-cols-2">
-      <DashboardActions {overdueCount} insight={spendingInsight} periodKey={bounds.start} />
+      <DashboardActions
+        {overdueCount}
+        insight={spendingInsight}
+        periodKey={bounds.start}
+        periodEnd={bounds.end}
+      />
       <DashboardPlanProgress />
       <div class="grid min-w-0 grid-cols-1 gap-2 sm:col-span-2 sm:grid-cols-2">
         <DashboardImportHealth />

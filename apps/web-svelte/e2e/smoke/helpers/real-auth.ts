@@ -1,5 +1,4 @@
 import type { Page } from '@playwright/test';
-import { WELCOME_TOUR_SKIP_BUTTON } from '../../helpers/fixtures';
 
 const SUPABASE_URL = process.env.PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.PUBLIC_SUPABASE_ANON_KEY;
@@ -146,7 +145,9 @@ export async function ensureSmokeUserTourDismissed(
 export async function dismissWelcomeTourIfPresent(page: Page): Promise<void> {
   const dialog = page.getByRole('dialog', { name: 'Poznaj aplikację' });
   if (!(await dialog.isVisible().catch(() => false))) return;
-  await page.getByRole('button', { name: WELCOME_TOUR_SKIP_BUTTON }).click();
+  // Prefer the dialog close control so smoke suites stay on the current route
+  // (the secondary CTA navigates to /import by product design).
+  await dialog.getByRole('button', { name: 'Zamknij' }).click();
   await dialog.waitFor({ state: 'hidden', timeout: 10000 });
 }
 

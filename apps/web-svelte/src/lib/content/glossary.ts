@@ -28,7 +28,6 @@ export const GLOSSARY_META: GlossaryMeta[] = [
   { id: "cykliczne", seeAlso: ["prognoza", "transakcje"] },
   { id: "inne", seeAlso: ["import", "regula"] },
   { id: "regula", seeAlso: ["import", "inne"] },
-  { id: "refinansowanie", seeAlso: ["plany", "raty"] },
   { id: "grupa", seeAlso: ["wspolwlasciciel", "plany"] },
   { id: "wspolwlasciciel", seeAlso: ["grupa", "plany"] },
   { id: "odsetki", seeAlso: ["raty", "plany"] },
@@ -85,10 +84,6 @@ const GLOSSARY_MESSAGES: Record<string, GlossaryMessageFns> = {
   },
   inne: { term: m.glossary_term_inne, short: m.glossary_short_inne },
   regula: { term: m.glossary_term_regula, short: m.glossary_short_regula },
-  refinansowanie: {
-    term: m.glossary_term_refinansowanie,
-    short: m.glossary_short_refinansowanie,
-  },
   grupa: { term: m.glossary_term_grupa, short: m.glossary_short_grupa },
   wspolwlasciciel: {
     term: m.glossary_term_wspolwlasciciel,

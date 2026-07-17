@@ -295,25 +295,29 @@
     const saveAsRecurring = is_recurring && !isRecurringOccurrenceEdit;
     const usesDay =
       saveAsRecurring && (recurrence_frequency === "monthly" || recurrence_frequency === "yearly");
-    mutation.mutate({
-      amount: parseFloat(amount),
-      type,
-      counterparty: counterparty.trim() || null,
-      description,
-      date,
-      category_id,
-      status,
-      is_recurring: saveAsRecurring,
-      recurrence_frequency: saveAsRecurring ? recurrence_frequency : null,
-      recurrence_interval: saveAsRecurring ? Math.max(recurrence_interval, 1) : 1,
-      recurring_day: usesDay ? recurring_day : null,
-      recurrence_weekday:
-        saveAsRecurring && recurrence_frequency === "weekly" ? recurrence_weekday : null,
-      recurrence_month:
-        saveAsRecurring && recurrence_frequency === "yearly" ? recurrence_month : null,
-      recurrence_end_date: saveAsRecurring ? recurrenceEndDate || null : null,
-      group_id: group_id || null,
-    });
+    void mutation
+      .mutateAsync({
+        amount: parseFloat(amount),
+        type,
+        counterparty: counterparty.trim() || null,
+        description,
+        date,
+        category_id,
+        status,
+        is_recurring: saveAsRecurring,
+        recurrence_frequency: saveAsRecurring ? recurrence_frequency : null,
+        recurrence_interval: saveAsRecurring ? Math.max(recurrence_interval, 1) : 1,
+        recurring_day: usesDay ? recurring_day : null,
+        recurrence_weekday:
+          saveAsRecurring && recurrence_frequency === "weekly" ? recurrence_weekday : null,
+        recurrence_month:
+          saveAsRecurring && recurrence_frequency === "yearly" ? recurrence_month : null,
+        recurrence_end_date: saveAsRecurring ? recurrenceEndDate || null : null,
+        group_id: group_id || null,
+      })
+      .catch(() => {
+        // onError already toasted
+      });
   }
 
   const inputClass =
