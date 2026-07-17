@@ -25,7 +25,7 @@ Loaded automatically when working in `apps/web-svelte/`.
 - `plans.ts` - first-class Plans storage + lifecycle; `fetchPlans`, `fetchPlanById`, `createPlan`, `updatePlan`, `deletePlan`, `derivePlanBucket`, `canManagePlan`, save/debt date helpers
 - `plan-settlement.ts` - link/unlink transactions, `rankPlanTransaction`, `computePlanProgress`, `computeSaveMonthlyActual` / `computeSaveMonthlyActualDetail` (returns pace `basis`)
 - `plan-settlement-policy.ts` - settlement write-policy gates
-- `plan-debt.ts` - debt terms normalize/CRUD, `consolidateDebtLinkedPayments`, `deriveDebtBalanceFromLinks`; `debt-amortization.ts` - payoff/Belka scenarios
+- `plan-debt.ts` - debt terms normalize/CRUD, `consolidateDebtLinkedPayments`, `deriveDebtBalanceFromLinks`; `debt-schedule.ts` - live amortization engine; `debt-amortization.ts` - small interest display helpers (scenarios UI deferred)
 - `planning-queue.ts` - surplus action cards; `financial-surplus.ts` - `computeMonthlySurplus` (`unreflectedDebt` / `debtAssumptionVerified`); `financial-snapshots.ts` - net-worth snapshots
 - `profiles.ts` - `fetchProfile`, `updateProfile`, `assignAdminRole`, `revokeAdminRole`
 - `notifications.ts` - `fetchNotifications`, `markNotificationRead`, `markAllNotificationsRead`, `deleteNotification`
