@@ -76,7 +76,7 @@
     </div>
     <div class="min-w-0 flex-1">
       <div class="flex flex-wrap items-center gap-2">
-        <p class="text-eyebrow text-slate-400">{m.plan_kind_save()}</p>
+        <p class="text-eyebrow text-slate-400">{m.plan_save_saved_label()}</p>
         {#if onTrack && saved > 0}
           <span
             class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 uppercase"
@@ -171,8 +171,6 @@
     >
       {m.plan_save_gap_warning({ amount: formatCurrency(gap) })}
     </p>
-  {:else if onTrack && saved > 0}
-    <p class="text-accent mt-4 text-sm font-medium">{m.plan_save_on_track()}</p>
   {/if}
 
   <div class="mt-5">
