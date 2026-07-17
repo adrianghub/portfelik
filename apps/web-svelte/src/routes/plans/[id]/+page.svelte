@@ -501,13 +501,15 @@
       <PlanForwardNav href={settleHref} title={m.plan_debt_link_payments()} variant="action" />
     {/if}
 
-    <button
-      type="button"
-      onclick={() => openManualTx(defaultManualTxType(plan.kind ?? "save"))}
-      class="focus-visible:ring-accent w-full rounded-xl border border-dashed border-white/10 px-4 py-2.5 text-sm text-slate-300 transition-colors hover:border-white/20 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
-    >
-      {m.plan_detail_manual_add()}
-    </button>
+    {#if plan.kind !== "save"}
+      <button
+        type="button"
+        onclick={() => openManualTx(defaultManualTxType(plan.kind ?? "save"))}
+        class="focus-visible:ring-accent w-full rounded-xl border border-dashed border-white/10 px-4 py-2.5 text-sm text-slate-300 transition-colors hover:border-white/20 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+      >
+        {m.plan_detail_manual_add()}
+      </button>
+    {/if}
 
     {#if plan.kind !== "debt" || linkedQuery.data?.length}
       <div class="flex items-center justify-between gap-2">
@@ -531,16 +533,15 @@
       <div class={cn("grid gap-4", plan.kind !== "save" && "lg:grid-cols-2")}>
         {#if plan.kind === "save" || plan.kind === "debt"}
           {@render LinkedSection({
-            title:
-              plan.kind === "save" ? m.plan_detail_linked_header_save() : m.plan_linked_expenses(),
+            title: plan.kind === "save" ? null : m.plan_linked_expenses(),
             transactions: expenses,
             amountClass: plan.kind === "save" ? "text-emerald-300" : "text-rose-300",
-            sign: "−",
+            sign: plan.kind === "save" ? "" : "−",
             onunlink: (txId) => unlinkMutation.mutate(txId),
             pendingId: unlinkPendingId,
             setpending: (txId) => (unlinkPendingId = txId),
             loading: unlinkMutation.isPending,
-            onmanualadd: () => openManualTx("expense"),
+            onmanualadd: plan.kind === "save" ? undefined : () => openManualTx("expense"),
           })}
         {/if}
         {#if incomes.length > 0}
@@ -639,7 +640,7 @@
   loading,
   onmanualadd,
 }: {
-  title: string;
+  title: string | null;
   transactions: import("$lib/types").TransactionWithCategory[];
   amountClass: string;
   sign: string;
@@ -647,39 +648,43 @@
   pendingId: string | null;
   setpending: (txId: string) => void;
   loading: boolean;
-  onmanualadd: () => void;
+  onmanualadd?: () => void;
 })}
-  <section class="space-y-2">
-    <h2 class="text-eyebrow text-slate-400">{title}</h2>
+  <section class="min-w-0 space-y-2">
+    {#if title}
+      <h2 class="text-eyebrow text-slate-400">{title}</h2>
+    {/if}
     {#if transactions.length === 0}
       <div
         class="space-y-2 rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-400"
       >
         <p>{m.plan_linked_empty()}</p>
-        <button
-          type="button"
-          onclick={onmanualadd}
-          class="focus-visible:ring-accent text-xs font-medium text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:outline-none"
-        >
-          {m.plan_detail_manual_add()}
-        </button>
+        {#if onmanualadd}
+          <button
+            type="button"
+            onclick={onmanualadd}
+            class="focus-visible:ring-accent text-xs font-medium text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+          >
+            {m.plan_detail_manual_add()}
+          </button>
+        {/if}
       </div>
     {:else}
       <ul class="space-y-1">
         {#each transactions as tx (tx.id)}
           <li
-            class="flex items-center justify-between gap-2 rounded-xl border border-white/5 bg-slate-900/40 px-3 py-2 text-xs"
+            class="flex min-w-0 items-center justify-between gap-2 rounded-xl border border-white/5 bg-slate-900/40 px-3 py-2 text-xs"
           >
             <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-2">
+              <div class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
                 <p class="truncate font-medium text-slate-200">{tx.description}</p>
                 <span
-                  class="shrink-0 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400"
+                  class="w-fit shrink-0 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400"
                 >
                   {m.plan_linked_badge()}
                 </span>
               </div>
-              <p class="mt-0.5 text-slate-400">
+              <p class="mt-0.5 truncate text-slate-400">
                 {formatDate(tx.date)}{tx.category_name ? ` · ${tx.category_name}` : ""}
               </p>
             </div>

@@ -21,6 +21,32 @@ export function resolveCeleCategoryId(
   );
 }
 
+export function isAllocationExpense(
+  tx: Pick<TransactionWithCategory, "id" | "type" | "category_id">,
+  saveLinkedIds: ReadonlySet<string>,
+  celeCategoryId?: string | null
+): boolean {
+  if (tx.type !== "expense") return false;
+  if (saveLinkedIds.has(tx.id)) return true;
+  return Boolean(celeCategoryId && tx.category_id === celeCategoryId);
+}
+
+export function partitionLedgerExpenses(
+  txs: TransactionWithCategory[],
+  saveLinkedIds: ReadonlySet<string>,
+  celeCategoryId?: string | null
+): { consumption: TransactionWithCategory[]; allocation: TransactionWithCategory[] } {
+  const ledger = ledgerTransactions(txs);
+  const consumption: TransactionWithCategory[] = [];
+  const allocation: TransactionWithCategory[] = [];
+  for (const tx of ledger) {
+    if (tx.type !== "expense") continue;
+    if (isAllocationExpense(tx, saveLinkedIds, celeCategoryId)) allocation.push(tx);
+    else consumption.push(tx);
+  }
+  return { consumption, allocation };
+}
+
 /**
  * Split period expenses into goal-oriented vs discretionary buckets.
  * Goal activity = linked contributions + unlinked Cele expenses.
@@ -37,15 +63,15 @@ export function computeGoalSpendingSplit(
 
   for (const tx of ledger) {
     if (tx.type !== "expense") continue;
-    if (saveLinkedIds.has(tx.id)) {
-      goalContributions += tx.amount;
+    if (isAllocationExpense(tx, saveLinkedIds, celeCategoryId)) {
+      if (saveLinkedIds.has(tx.id)) {
+        goalContributions += tx.amount;
+      } else {
+        celeExpenses += tx.amount;
+      }
       continue;
     }
-    if (celeCategoryId && tx.category_id === celeCategoryId) {
-      celeExpenses += tx.amount;
-    } else {
-      otherExpenses += tx.amount;
-    }
+    otherExpenses += tx.amount;
   }
 
   return {

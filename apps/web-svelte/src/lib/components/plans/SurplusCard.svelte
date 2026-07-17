@@ -12,9 +12,7 @@
 
   let { summary, actions = [] }: Props = $props();
 
-  // Headline = free money after debt obligations. Aspirational save goals never push it
-  // negative; only an actual deficit (cashflow can't cover obligations) shows alarm framing.
-  const headlineAmount = $derived(summary.availableForGoals);
+  const headlineAmount = $derived(summary.surplus);
   const headlinePositive = $derived(headlineAmount >= 0);
 </script>
 
@@ -27,25 +25,13 @@
   <p
     class={cn(
       "mt-3 text-2xl font-semibold tabular-nums",
-      headlinePositive ? "text-emerald-300" : "text-amber-300"
+      headlinePositive ? "text-emerald-300" : "text-rose-300"
     )}
   >
-    {#if summary.hasSaveGoals}
-      {headlinePositive
-        ? m.plans_surplus_headline_positive({ amount: formatCurrency(headlineAmount) })
-        : m.plans_surplus_headline_negative({ amount: formatCurrency(Math.abs(headlineAmount)) })}
-    {:else}
-      {headlinePositive
-        ? m.plans_surplus_headline_free_positive({ amount: formatCurrency(headlineAmount) })
-        : m.plans_surplus_headline_free_negative({
-            amount: formatCurrency(Math.abs(headlineAmount)),
-          })}
-    {/if}
+    {headlinePositive
+      ? m.plans_surplus_headline_positive({ amount: formatCurrency(headlineAmount) })
+      : m.plans_surplus_headline_negative({ amount: formatCurrency(Math.abs(headlineAmount)) })}
   </p>
-
-  {#if summary.hasDebtPlans && !summary.debtAssumptionVerified}
-    <p class="mt-1 text-[11px] text-slate-500">{m.plans_surplus_estimate_note()}</p>
-  {/if}
 
   {#if actions.length > 0}
     <ul class="mt-4 space-y-2">
@@ -68,8 +54,6 @@
         </li>
       {/each}
     </ul>
-  {:else}
-    <p class="mt-3 text-xs text-slate-500">{m.plans_surplus_no_actions()}</p>
   {/if}
 
   <details class="group mt-4">
@@ -102,34 +86,13 @@
         <p
           class={cn(
             "mt-1 text-sm font-semibold tabular-nums",
-            summary.surplus >= 0 ? "text-sky-300" : "text-amber-300"
+            summary.surplus >= 0 ? "text-emerald-300" : "text-rose-300"
           )}
         >
           {summary.surplus >= 0 ? "+" : "−"}{formatCurrency(Math.abs(summary.surplus))}
         </p>
       </div>
     </div>
-    {#if summary.hasSaveGoals}
-      <p class="mt-2 text-xs text-slate-500">
-        {m.plans_surplus_after_save({
-          save: formatCurrency(summary.saveMonthlyNeeded),
-          amount: formatCurrency(summary.afterSaveGoals),
-        })}
-      </p>
-      {#if summary.saveContributionsThisMonth > 0}
-        <p class="mt-1 text-xs text-emerald-400/90">
-          {m.plans_surplus_saved_this_month({
-            saved: formatCurrency(summary.saveContributionsThisMonth),
-            need: formatCurrency(summary.saveMonthlyNeeded),
-          })}
-        </p>
-      {/if}
-    {/if}
-    {#if summary.hasDebtPlans}
-      <p class="mt-2 text-xs text-slate-500">
-        {m.plans_surplus_debt_note({ debt: formatCurrency(summary.debtMonthlyPayments) })}
-      </p>
-    {/if}
     <a
       href="/transactions"
       class="focus-visible:ring-accent mt-3 inline-block text-xs font-medium text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:outline-none"

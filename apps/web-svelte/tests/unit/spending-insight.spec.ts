@@ -235,4 +235,24 @@ describe("computeSpendingInsight", () => {
     });
     expect(out.isFirstPeriod).toBe(true);
   });
+
+  it("excludes Cele and save-linked expenses from spent and category breakdown", () => {
+    const celeCategoryId = "cele";
+    const out = computeSpendingInsight({
+      current: [
+        tx({ id: "cele-1", amount: 4000, category_id: celeCategoryId, category_name: "Cele" }),
+        tx({ id: "food-1", amount: 200, category_id: "food", category_name: "Jedzenie" }),
+      ],
+      previous: [tx({ id: "food-prev", amount: 200, category_id: "food", category_name: "Jedzenie" })],
+      rolling: [],
+      periodsInRolling: 3,
+      budgets: [],
+      celeCategoryId,
+    });
+    expect(out.spent).toBe(200);
+    expect(out.prevSpent).toBe(200);
+    expect(out.spentDeltaPct).toBe(0);
+    expect(out.categories.map((c) => c.categoryId)).toEqual(["food"]);
+    expect(out.biggestExpenses.map((e) => e.id)).toEqual(["food-1"]);
+  });
 });

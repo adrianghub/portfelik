@@ -79,7 +79,6 @@
 
       <SpendingCategoryBreakdown
         categories={insight.categories}
-        biggestMovers={insight.biggestMovers}
         spent={insight.spent}
         isFirstPeriod={insight.isFirstPeriod}
         categoryHref={(id) => categoryHref(id)}

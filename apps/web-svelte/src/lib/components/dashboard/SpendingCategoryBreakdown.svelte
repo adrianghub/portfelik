@@ -3,44 +3,32 @@
   import {
     categorySharePct,
     DASHBOARD_PREVIEW_CATEGORIES,
-    DASHBOARD_PREVIEW_MOVERS,
     formatDeltaPct,
     isSignificantDeltaPct,
     topSpendingCategories,
-    topSpendingMovers,
   } from "$lib/services/spending-category-display";
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import DashboardSeeMoreButton from "$lib/components/dashboard/DashboardSeeMoreButton.svelte";
   import { cn, formatCurrency } from "$lib/utils";
-  import { guidedTourUi } from "$lib/guided-tour/ui.svelte";
   import * as m from "$lib/paraglide/messages";
 
   let {
     categories,
-    biggestMovers,
     spent,
     isFirstPeriod,
     categoryHref,
   }: {
     categories: CategoryInsight[];
-    biggestMovers: CategoryInsight[];
     spent: number;
     isFirstPeriod: boolean;
     categoryHref: (categoryId: string) => string;
   } = $props();
 
   let categoriesDialogOpen = $state(false);
-  let moversDialogOpen = $state(false);
 
   const allCategories = $derived(topSpendingCategories(categories, categories.length));
   const previewCategories = $derived(
     topSpendingCategories(categories, DASHBOARD_PREVIEW_CATEGORIES)
-  );
-  const allMovers = $derived(
-    isFirstPeriod ? [] : topSpendingMovers(biggestMovers, biggestMovers.length)
-  );
-  const previewMovers = $derived(
-    isFirstPeriod ? [] : topSpendingMovers(biggestMovers, DASHBOARD_PREVIEW_MOVERS)
   );
 </script>
 
@@ -85,28 +73,6 @@
   </li>
 {/snippet}
 
-{#snippet moverRow(cat: CategoryInsight)}
-  <li>
-    <a
-      href={categoryHref(cat.categoryId)}
-      class="focus-visible:ring-accent flex min-w-0 items-baseline justify-between gap-2 rounded-lg px-1 py-0.5 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
-    >
-      <span class="min-w-0 truncate text-sm text-slate-300">{cat.name}</span>
-      <span class="shrink-0 text-sm text-slate-400 tabular-nums">
-        {#if cat.deltaAbs >= 0}
-          {m.dashboard_spending_delta_more({
-            amount: formatCurrency(Math.abs(cat.deltaAbs)),
-          })}
-        {:else}
-          {m.dashboard_spending_delta_less({
-            amount: formatCurrency(Math.abs(cat.deltaAbs)),
-          })}
-        {/if}
-      </span>
-    </a>
-  </li>
-{/snippet}
-
 <div>
   {#if previewCategories.length > 0}
     <div class="mt-4">
@@ -121,24 +87,6 @@
       {/if}
     </div>
   {/if}
-
-  {#if previewMovers.length > 0}
-    <div class="mt-4 border-t border-white/5 pt-4">
-      <p class="text-eyebrow text-slate-400">{m.dashboard_spending_category_details()}</p>
-      <ul class="mt-2 space-y-1.5">
-        {#each previewMovers as cat (cat.categoryId)}
-          {@render moverRow(cat)}
-        {/each}
-      </ul>
-      {#if allMovers.length > previewMovers.length}
-        <DashboardSeeMoreButton onclick={() => (moversDialogOpen = true)} />
-      {/if}
-    </div>
-  {:else if isFirstPeriod && previewCategories.length > 0 && !guidedTourUi.hideFirstPeriodHint}
-    <div class="mt-3 rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-3 py-2.5">
-      <p class="text-xs leading-relaxed text-slate-400">{m.dashboard_spending_first_period()}</p>
-    </div>
-  {/if}
 </div>
 
 <Dialog
@@ -149,18 +97,6 @@
   <ul class="space-y-2">
     {#each allCategories as cat (cat.categoryId)}
       {@render categoryRow(cat)}
-    {/each}
-  </ul>
-</Dialog>
-
-<Dialog
-  open={moversDialogOpen}
-  onclose={() => (moversDialogOpen = false)}
-  title={m.dashboard_all_movers_title()}
->
-  <ul class="space-y-1.5">
-    {#each allMovers as cat (cat.categoryId)}
-      {@render moverRow(cat)}
     {/each}
   </ul>
 </Dialog>
