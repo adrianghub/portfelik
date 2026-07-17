@@ -217,7 +217,13 @@ test.describe("group invite", () => {
     await page.route(/.*\/rest\/v1\/rpc\/claim_group_invitation/, (route) => {
       route.fulfill({
         status: 400,
-        json: { message: "email_mismatch", code: "P0001" },
+        contentType: "application/json",
+        json: {
+          code: "P0001",
+          message: "email_mismatch",
+          details: null,
+          hint: null,
+        },
       });
     });
     await page.route(/.*\/auth\/v1\/logout.*/, (route) => {
@@ -227,7 +233,9 @@ test.describe("group invite", () => {
     await page.goto("/invite/a".padEnd(72, "b"));
     await expect(page.getByRole("heading", { name: "Rodzina" })).toBeVisible();
     await page.getByRole("button", { name: "Dołącz do grupy" }).click();
-    await expect(page.getByText("Zaloguj się adresem e-mail, na który wysłano zaproszenie.")).toBeVisible();
+    await expect(page.getByRole("alert")).toContainText(
+      "Zaloguj się adresem e-mail, na który wysłano zaproszenie."
+    );
     await page.getByRole("button", { name: "Wyloguj i użyj właściwego konta" }).click();
     await expect(page.getByRole("button", { name: "Dołącz do grupy" })).toHaveCount(0);
   });

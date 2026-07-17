@@ -156,7 +156,7 @@
       <p id="dashboard-net-worth-title" class="text-eyebrow text-slate-400">
         {m.dashboard_net_worth_title()}
       </p>
-      <p class="mt-0.5 text-[11px] font-medium tracking-wide text-slate-500 uppercase">
+      <p class="mt-0.5 text-[11px] font-medium tracking-wide text-slate-400 uppercase">
         {m.plans_net_worth_private_badge()}
       </p>
       {#if loading}

@@ -122,7 +122,11 @@ export async function claimInvitation(
   token: string
 ): Promise<{ groupId: string; groupName: string }> {
   const { data, error } = await supabase.rpc("claim_group_invitation", { p_token: token });
-  if (error) throw error;
+  if (error) {
+    // Normalize to Error so UI can match message substrings (e.g. email_mismatch)
+    // regardless of PostgrestError prototype quirks across bundles.
+    throw new Error(error.message || error.code || "claim_failed");
+  }
   return data as { groupId: string; groupName: string };
 }
 

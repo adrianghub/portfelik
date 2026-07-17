@@ -250,6 +250,14 @@ export async function mockSupabaseAPI(page: Page): Promise<void> {
 
       // ── RPCs ─────────────────────────────────────────────────────────────
       if (url.includes("/rpc/")) {
+        if (url.includes("claim_group_invitation")) {
+          // Default success shape for happy-path invite tests. Specs that need
+          // a failure override this route after mockSupabaseAPI().
+          return route.fulfill({
+            status: 200,
+            json: { groupId: "group-owned-1", groupName: "Rodzina" },
+          });
+        }
         if (url.includes("bulk_delete_transactions")) {
           const body = route.request().postDataJSON() as {
             p_transaction_ids?: string[];

@@ -46,7 +46,7 @@
     data-tour-id="tour-net-worth"
   >
     <p class="text-eyebrow text-slate-400">{m.plans_net_worth_title()}</p>
-    <p class="mt-1 text-[11px] font-medium tracking-wide text-slate-500 uppercase">
+    <p class="mt-1 text-[11px] font-medium tracking-wide text-slate-400 uppercase">
       {m.plans_net_worth_private_badge()}
     </p>
     <p class="mt-2 text-sm text-amber-300/90">{m.net_worth_fx_unavailable()}</p>
@@ -85,7 +85,7 @@
     <div class="flex items-start justify-between gap-3">
       <div class="min-w-0">
         <p class="text-eyebrow text-slate-400">{m.plans_net_worth_title()}</p>
-        <p class="mt-1 text-[11px] font-medium tracking-wide text-slate-500 uppercase">
+        <p class="mt-1 text-[11px] font-medium tracking-wide text-slate-400 uppercase">
           {m.plans_net_worth_private_badge()}
         </p>
       </div>
@@ -100,7 +100,7 @@
         </button>
       {/if}
     </div>
-    <p class="mt-1 text-[11px] text-slate-500">{m.plans_net_worth_private_hint()}</p>
+    <p class="mt-1 text-[11px] text-slate-400">{m.plans_net_worth_private_hint()}</p>
     <p
       class={cn(
         "mt-2 text-3xl font-semibold break-words tabular-nums sm:text-4xl",
