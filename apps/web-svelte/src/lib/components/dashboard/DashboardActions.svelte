@@ -69,7 +69,7 @@
 
   const anomalies = $derived(
     (insight?.categories ?? [])
-      .filter((c) => c.name !== "Cele" && c.anomaly && c.deltaAbs > 0)
+      .filter((c) => c.anomaly && c.deltaAbs > 0)
       .map((c) => ({
         categoryId: c.categoryId,
         name: c.name,

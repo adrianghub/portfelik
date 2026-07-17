@@ -27,6 +27,9 @@
     onclear?: () => void;
     /** Aria-label for the clear (X) button; surfaces clear to different defaults. */
     clearLabel?: string;
+    variant?: "default" | "chip";
+    /** When variant is chip, styles the trigger like an active period chip. */
+    active?: boolean;
   }
 
   let {
@@ -37,6 +40,8 @@
     clearable = false,
     onclear,
     clearLabel = m.transactions_date_clear(),
+    variant = "default",
+    active = false,
   }: Props = $props();
 
   const isDesktop = new MediaQuery("(min-width: 640px)");
@@ -307,14 +312,27 @@
 <div class="relative inline-flex max-w-full shrink-0" data-date-range-picker>
   <div
     class={cn(
-      "inline-flex h-9 max-w-full items-center gap-1 rounded-full border border-white/10 bg-slate-900/60 pl-3.5 text-sm text-slate-200 backdrop-blur",
-      clearable && onclear ? "pr-1" : "pr-3.5"
+      variant === "chip"
+        ? cn(
+            "inline-flex h-auto max-w-full items-center gap-1 rounded-full py-1.5 pl-3.5 text-xs font-medium transition-colors",
+            active
+              ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
+              : "border border-white/5 text-slate-300 hover:bg-white/5",
+            clearable && onclear ? "pr-1" : "pr-3.5"
+          )
+        : cn(
+            "inline-flex h-9 max-w-full items-center gap-1 rounded-full border border-white/10 bg-slate-900/60 pl-3.5 text-sm text-slate-200 backdrop-blur",
+            clearable && onclear ? "pr-1" : "pr-3.5"
+          )
     )}
   >
     <button
       type="button"
       onclick={() => (open = !open)}
-      class="focus-visible:ring-accent inline-flex max-w-full items-center gap-2 rounded-full py-1.5 transition-colors hover:text-white focus-visible:ring-2 focus-visible:outline-none"
+      class={cn(
+        "focus-visible:ring-accent inline-flex max-w-full items-center gap-2 rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none",
+        variant === "chip" ? "py-0 hover:text-white" : "py-1.5 hover:text-white"
+      )}
       aria-haspopup="dialog"
       aria-expanded={open}
     >

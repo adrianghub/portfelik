@@ -119,6 +119,8 @@
   </div>
 
   <DateRangePicker
+    variant="chip"
+    active={period === "custom"}
     label={rangeLabel}
     startDate={customRange?.start ?? null}
     endDate={customRange?.end ?? null}

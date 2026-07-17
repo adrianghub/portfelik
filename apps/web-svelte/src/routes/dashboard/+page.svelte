@@ -34,7 +34,11 @@
   import { computeSpendingInsight } from "$lib/services/spending-insight";
   import { fetchCategories } from "$lib/services/categories";
   import { fetchSaveLinkedTransactionIds } from "$lib/services/plan-settlement";
-  import { computeGoalSpendingSplit, resolveCeleCategoryId } from "$lib/services/goal-spending";
+  import {
+    computeGoalSpendingSplit,
+    partitionLedgerExpenses,
+    resolveCeleCategoryId,
+  } from "$lib/services/goal-spending";
   import { fetchRecurringOccurrenceSkips } from "$lib/services/recurring-occurrences";
   import {
     forwardForecastTransactions,
@@ -448,6 +452,9 @@
     ledgerTransactions(inWindow(allScopedTxs, rollingBounds.start, rollingBounds.end))
   );
 
+  const saveLinkedIds = $derived(saveLinkedQuery.data ?? new Set<string>());
+  const celeCategoryId = $derived(resolveCeleCategoryId(categoriesQuery.data ?? []));
+
   const spendingInsight = $derived(
     computeSpendingInsight({
       current: scopedLedgerTxs,
@@ -455,20 +462,32 @@
       rolling: rollingLedgerTxs,
       periodsInRolling: ROLLING_PERIODS,
       budgets: [],
+      saveLinkedIds,
+      celeCategoryId,
     })
   );
 
   const goalSpendingSplit = $derived(
-    computeGoalSpendingSplit(
-      scopedLedgerTxs,
-      saveLinkedQuery.data ?? new Set(),
-      resolveCeleCategoryId(categoriesQuery.data ?? [])
-    )
+    computeGoalSpendingSplit(scopedLedgerTxs, saveLinkedIds, celeCategoryId)
   );
 
-  const historyBuckets = $derived(
-    bucketPeriodHistory(ledgerTransactions(allScopedTxs), historyWindows)
+  const chartConsumptionTxs = $derived(
+    partitionLedgerExpenses(allScopedTxs, saveLinkedIds, celeCategoryId).consumption
   );
+  const chartAllocationTxs = $derived(
+    partitionLedgerExpenses(allScopedTxs, saveLinkedIds, celeCategoryId).allocation
+  );
+
+  const historyBuckets = $derived(bucketPeriodHistory(chartConsumptionTxs, historyWindows));
+
+  const allocationByLabel = $derived.by(() => {
+    const hist = bucketPeriodHistory(chartAllocationTxs, historyWindows);
+    const fwd =
+      forwardWindows.length > 0
+        ? bucketPeriodHistory(chartAllocationTxs, forwardWindows)
+        : [];
+    return new Map([...hist, ...fwd].map((b) => [b.label, b.total]));
+  });
 
   const recurringTemplatesQuery = createQuery(() => ({
     queryKey: qk.transactions.list(session.userId!, "recurring-templates"),
@@ -504,7 +523,10 @@
     });
   });
   const forwardBuckets = $derived(
-    bucketPeriodHistory(forwardForecastTxs, forwardWindows).map((b) => ({
+    bucketPeriodHistory(
+      partitionLedgerExpenses(forwardForecastTxs, saveLinkedIds, celeCategoryId).consumption,
+      forwardWindows
+    ).map((b) => ({
       ...b,
       isProjected: true,
     }))
@@ -545,7 +567,11 @@
     if (!paidBucket.isCurrent) return paidBucket;
     const window = historyWindows[historyWindows.length - 1];
     const [bucket] = bucketPeriodHistory(
-      [...forecastTransactions(scopedTxs), ...currentProjectedTxs],
+      partitionLedgerExpenses(
+        [...forecastTransactions(scopedTxs), ...currentProjectedTxs],
+        saveLinkedIds,
+        celeCategoryId
+      ).consumption,
       [window]
     );
     return { ...bucket, isProjected: bucket.total - paidBucket.total > 0.005 };
@@ -565,6 +591,14 @@
     if (summary.total_income < SAVINGS_RATIO_MIN_INCOME) return null;
     const pct = Math.round((summary.net / summary.total_income) * 100);
     return Math.max(-100, Math.min(100, pct));
+  });
+
+  const savingsRatioDisplay = $derived.by(() => {
+    if (savingsRatio === null || !summary) return null;
+    if (Math.abs(savingsRatio) === 100 && Math.abs(summary.net) > summary.total_income) {
+      return null;
+    }
+    return savingsRatio;
   });
 
   // Whole span, not the selected period: overdue rows live in past months (the
@@ -725,7 +759,7 @@
       <DashboardBalanceHero
         periodLabel={activePeriodLabel}
         {summary}
-        {savingsRatio}
+        savingsRatio={savingsRatioDisplay}
         spent={spendingInsight.spent}
         categories={spendingInsight.categories}
         {showForecastNote}
@@ -749,6 +783,7 @@
       {#if isDesktop.current}
         <SpendHistoryChart
           buckets={combinedHistoryBuckets}
+          {allocationByLabel}
           onselectperiod={selectHistoryPeriod}
           onOpenGlossary={openGlossary}
         />
@@ -779,6 +814,7 @@
               <div class="expand-grid-panel px-2 pb-2">
                 <SpendHistoryChart
                   buckets={combinedHistoryBuckets}
+                  {allocationByLabel}
                   onselectperiod={selectHistoryPeriod}
                   onOpenGlossary={openGlossary}
                 />

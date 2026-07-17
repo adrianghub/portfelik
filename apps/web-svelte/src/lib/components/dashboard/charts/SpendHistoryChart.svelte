@@ -11,10 +11,13 @@
 
   let {
     buckets,
+    allocationByLabel,
     onselectperiod,
     onOpenGlossary,
   }: {
     buckets: PeriodHistoryBucket[];
+    /** Goal allocation totals by bucket label — shown aside from consumption Razem. */
+    allocationByLabel?: ReadonlyMap<string, number>;
     /** Confirm drill-down from the bar breakdown panel. */
     onselectperiod?: (bucket: PeriodHistoryBucket) => void;
     onOpenGlossary?: (entryId: string) => void;
@@ -301,6 +304,15 @@
             </li>
           {/each}
         </ul>
+
+        {#if (allocationByLabel?.get(selectedBucket.label) ?? 0) > 0}
+          <div class="mt-3 border-t border-slate-800 pt-3">
+            <p class="text-eyebrow text-slate-400">{m.dashboard_history_allocation_group()}</p>
+            <p class="mt-1 text-sm font-semibold text-slate-200 tabular-nums">
+              {formatCurrency(allocationByLabel?.get(selectedBucket.label) ?? 0)}
+            </p>
+          </div>
+        {/if}
 
         <div class="mt-3 flex items-center justify-between gap-3 border-t border-slate-800 pt-3">
           <span class="text-xs text-slate-400">
