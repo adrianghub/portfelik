@@ -178,6 +178,19 @@ export async function updateTransactionsStatus(
   return data?.length ?? 0;
 }
 
+/**
+ * Update one transaction and fail when RLS, a stale id, or a concurrent delete
+ * means that no row was changed. Single-item UI actions must never present a
+ * zero-row update as a success.
+ */
+export async function updateTransactionStatus(
+  id: string,
+  status: TransactionStatus
+): Promise<void> {
+  const affected = await updateTransactionsStatus([id], status);
+  if (affected === 0) throw new Error("transaction_status_not_updated");
+}
+
 export async function updateTransactionsCategory(
   ids: string[],
   categoryId: string

@@ -28,7 +28,7 @@
   import {
     fetchRecurringTemplates,
     fetchTransactions,
-    updateTransactionsStatus,
+    updateTransactionStatus,
   } from "$lib/services/transactions";
   import { buildRecurringSeriesList } from "$lib/services/recurring-series";
   import { computeSpendingInsight } from "$lib/services/spending-insight";
@@ -36,6 +36,7 @@
   import { fetchSaveLinkedTransactionIds } from "$lib/services/plan-settlement";
   import {
     computeGoalSpendingSplit,
+    partitionForecastExpenses,
     partitionLedgerExpenses,
     resolveCeleCategoryId,
   } from "$lib/services/goal-spending";
@@ -177,14 +178,14 @@
 
   const settleMutation = createMutation(() => ({
     mutationFn: (vars: { id: string; prev: TransactionStatus }) =>
-      updateTransactionsStatus([vars.id], "paid"),
+      updateTransactionStatus(vars.id, "paid"),
     onSuccess: async (_data, vars) => {
       await invalidateAfterSettle();
       toast.success(m.toast_transaction_settled(), {
         action: {
           label: m.toast_transaction_settle_undo(),
           onClick: () => {
-            void updateTransactionsStatus([vars.id], vars.prev)
+            void updateTransactionStatus(vars.id, vars.prev)
               .then(() => invalidateAfterSettle())
               .catch((err) => toastError(err));
           },
@@ -480,13 +481,6 @@
 
   const historyBuckets = $derived(bucketPeriodHistory(chartConsumptionTxs, historyWindows));
 
-  const allocationByLabel = $derived.by(() => {
-    const hist = bucketPeriodHistory(chartAllocationTxs, historyWindows);
-    const fwd =
-      forwardWindows.length > 0 ? bucketPeriodHistory(chartAllocationTxs, forwardWindows) : [];
-    return new Map([...hist, ...fwd].map((b) => [b.label, b.total]));
-  });
-
   const recurringTemplatesQuery = createQuery(() => ({
     queryKey: qk.transactions.list(session.userId!, "recurring-templates"),
     queryFn: fetchRecurringTemplates,
@@ -522,7 +516,7 @@
   });
   const forwardBuckets = $derived(
     bucketPeriodHistory(
-      partitionLedgerExpenses(forwardForecastTxs, saveLinkedIds, celeCategoryId).consumption,
+      partitionForecastExpenses(forwardForecastTxs, saveLinkedIds, celeCategoryId).consumption,
       forwardWindows
     ).map((b) => ({
       ...b,
@@ -565,7 +559,7 @@
     if (!paidBucket.isCurrent) return paidBucket;
     const window = historyWindows[historyWindows.length - 1];
     const [bucket] = bucketPeriodHistory(
-      partitionLedgerExpenses(
+      partitionForecastExpenses(
         [...forecastTransactions(scopedTxs), ...currentProjectedTxs],
         saveLinkedIds,
         celeCategoryId
@@ -574,6 +568,37 @@
     );
     return { ...bucket, isProjected: bucket.total - paidBucket.total > 0.005 };
   });
+
+  // Goal allocations follow the same realized/current/future semantics as the
+  // consumption bars. In particular, scheduled contributions must remain
+  // visible in forecast tooltips instead of disappearing until they are paid.
+  const allocationByLabel = $derived.by(() => {
+    const historical = bucketPeriodHistory(chartAllocationTxs, historyWindows);
+    const totals = new Map(historical.map((bucket) => [bucket.label, bucket.total]));
+    const currentWindow = historyWindows[historyWindows.length - 1];
+    const currentBucket = historical[historical.length - 1];
+
+    if (currentBucket?.isCurrent) {
+      const [forecastAllocation] = bucketPeriodHistory(
+        partitionForecastExpenses(
+          [...forecastTransactions(scopedTxs), ...currentProjectedTxs],
+          saveLinkedIds,
+          celeCategoryId
+        ).allocation,
+        [currentWindow]
+      );
+      totals.set(forecastAllocation.label, forecastAllocation.total);
+    }
+
+    const forwardAllocations = bucketPeriodHistory(
+      partitionForecastExpenses(forwardForecastTxs, saveLinkedIds, celeCategoryId).allocation,
+      forwardWindows
+    );
+    for (const bucket of forwardAllocations) totals.set(bucket.label, bucket.total);
+
+    return totals;
+  });
+
   const combinedHistoryBuckets = $derived([
     ...historyBuckets.slice(0, -1),
     currentForecastBucket,
