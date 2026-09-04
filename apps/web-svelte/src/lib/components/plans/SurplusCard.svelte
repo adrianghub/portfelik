@@ -8,9 +8,10 @@
   interface Props {
     summary: MonthlySurplusSummary;
     actions?: PlanningQueueAction[];
+    transactionsHref?: string;
   }
 
-  let { summary, actions = [] }: Props = $props();
+  let { summary, actions = [], transactionsHref = "/transactions" }: Props = $props();
 
   const headlineAmount = $derived(summary.surplus);
   const headlinePositive = $derived(headlineAmount >= 0);
@@ -94,7 +95,7 @@
       </div>
     </div>
     <a
-      href="/transactions"
+      href={transactionsHref}
       class="focus-visible:ring-accent mt-3 inline-block text-xs font-medium text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:outline-none"
     >
       {m.plans_surplus_transactions_link()}

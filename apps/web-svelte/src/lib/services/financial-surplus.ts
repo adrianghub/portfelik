@@ -143,3 +143,16 @@ export function currentCalendarMonthBounds(today = new Date()): { start: string;
   const end = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
   return { start, end };
 }
+
+/** Query-safe calendar-month bounds matching fetchTransactions' exclusive upper bound. */
+export function currentCalendarMonthQueryBounds(today = new Date()): {
+  start: string;
+  endExclusive: string;
+} {
+  const year = today.getFullYear();
+  const month = today.getMonth() + 1;
+  const start = `${year}-${String(month).padStart(2, "0")}-01`;
+  const nextMonth = new Date(year, month, 1);
+  const endExclusive = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, "0")}-01`;
+  return { start, endExclusive };
+}

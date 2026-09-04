@@ -37,6 +37,27 @@ export async function fetchTransactions(
   return all;
 }
 
+/** All rows with one lifecycle status, paginated and still protected by RLS. */
+export async function fetchTransactionsByStatus(
+  status: TransactionStatus
+): Promise<TransactionWithCategory[]> {
+  const all: TransactionWithCategory[] = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from("transactions_with_category")
+      .select("*")
+      .eq("status", status)
+      .order("date", { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    all.push(...((data ?? []) as TransactionWithCategory[]));
+    if ((data ?? []).length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  return all;
+}
+
 /** Export path: paginate the full visible ledger without a date window. */
 export async function fetchAllTransactionsForExport(): Promise<TransactionWithCategory[]> {
   const all: TransactionWithCategory[] = [];

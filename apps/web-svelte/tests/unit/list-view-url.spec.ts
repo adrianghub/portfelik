@@ -21,11 +21,12 @@ describe("parseScopeFilter", () => {
 });
 
 describe("parseDashboardPeriod", () => {
-  it("defaults to week", () => {
-    expect(parseDashboardPeriod(new URLSearchParams())).toBe("week");
+  it("defaults to calendar month", () => {
+    expect(parseDashboardPeriod(new URLSearchParams())).toBe("month");
   });
 
-  it("parses month and year", () => {
+  it("parses explicit week and year", () => {
+    expect(parseDashboardPeriod(new URLSearchParams("period=week"))).toBe("week");
     expect(parseDashboardPeriod(new URLSearchParams("period=month"))).toBe("month");
     expect(parseDashboardPeriod(new URLSearchParams("period=year"))).toBe("year");
   });
@@ -54,16 +55,22 @@ describe("parseDashboardRange", () => {
 
 describe("write helpers", () => {
   it("omits default values from query", () => {
-    const params = new URLSearchParams("group=all&period=month");
+    const params = new URLSearchParams("group=all&period=week");
     writeScopeFilter(params, "own");
-    writeDashboardPeriod(params, "week");
+    writeDashboardPeriod(params, "month");
     expect(params.toString()).toBe("");
+  });
+
+  it("writes week explicitly", () => {
+    const params = new URLSearchParams();
+    writeDashboardPeriod(params, "week");
+    expect(params.toString()).toBe("period=week");
   });
 
   it("selecting a period chip clears a custom range", () => {
     const params = new URLSearchParams("startDate=2026-05-01&endDate=2026-05-31");
     writeDashboardPeriod(params, "month");
-    expect(params.toString()).toBe("period=month");
+    expect(params.toString()).toBe("");
   });
 
   it("writing a range clears the period chip", () => {
@@ -79,7 +86,7 @@ describe("buildListViewUrl", () => {
   it("builds dashboard url with scope and period", () => {
     expect(
       buildListViewUrl("/dashboard", new URLSearchParams(), { group: "all", period: "month" })
-    ).toBe("/dashboard?group=all&period=month");
+    ).toBe("/dashboard?group=all");
   });
 
   it("range patch wins over period patch", () => {

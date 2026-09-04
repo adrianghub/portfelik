@@ -28,8 +28,10 @@ export interface PlanSettlementProgress {
   planId: string;
   planName: string;
   kind: PlanKind;
+  groupId: string | null;
   /** Plan start date (debt disbursement anchor for the amortization schedule). */
   startDate: string | null;
+  endDate: string | null;
   budgetAmount: number | null;
   targetAmount: number | null;
   spentAmount: number;
@@ -563,6 +565,7 @@ export function computePlanProgress(input: {
   planId: string;
   planName: string;
   kind?: import("$lib/types").PlanKind;
+  groupId?: string | null;
   budgetAmount: number | null;
   targetAmount?: number | null;
   startDate?: string;
@@ -613,7 +616,9 @@ export function computePlanProgress(input: {
     planId: input.planId,
     planName: input.planName,
     kind: input.kind ?? "save",
+    groupId: input.groupId ?? null,
     startDate: input.startDate ?? null,
+    endDate: input.endDate ?? null,
     budgetAmount: input.budgetAmount,
     targetAmount,
     spentAmount,
@@ -652,7 +657,7 @@ async function fetchTransactionsByLinkedIds(
   return txById;
 }
 
-export async function fetchDashboardPlanProgress(limit = 8): Promise<PlanSettlementProgress[]> {
+export async function fetchDashboardPlanProgress(): Promise<PlanSettlementProgress[]> {
   const { data: plans, error } = await supabase
     .from("plans")
     .select("*")
@@ -662,8 +667,7 @@ export async function fetchDashboardPlanProgress(limit = 8): Promise<PlanSettlem
     // net-worth and obligation surfaces.
     .eq("status", "active")
     .gte("end_date", new Date().toISOString().slice(0, 10))
-    .order("start_date", { ascending: true })
-    .limit(limit);
+    .order("start_date", { ascending: true });
   if (error) throw error;
   if (!plans?.length) return [];
 
@@ -689,6 +693,7 @@ export async function fetchDashboardPlanProgress(limit = 8): Promise<PlanSettlem
       planId: plan.id,
       planName: plan.name,
       kind: plan.kind,
+      groupId: plan.group_id,
       budgetAmount: plan.budget_amount,
       targetAmount: plan.target_amount,
       startDate: plan.start_date,
@@ -731,6 +736,7 @@ export async function fetchPlanProgressForPlans(
       planId: plan.id,
       planName: plan.name,
       kind: plan.kind,
+      groupId: plan.group_id,
       budgetAmount: plan.budget_amount,
       targetAmount: plan.target_amount,
       startDate: plan.start_date,
@@ -798,23 +804,32 @@ async function countEligibleForPlans(plans: Plan[]): Promise<Record<string, numb
         scopePlans[0].end_date
       );
 
-      let query = supabase
-        .from("transactions_with_category")
-        .select("*")
-        .gte("date", minStart)
-        .lte("date", maxEnd)
-        .in("status", [...SETTLEMENT_STATUSES])
-        .limit(500);
+      const txs: TransactionWithCategory[] = [];
+      const pageSize = 1000;
+      let from = 0;
+      while (true) {
+        let query = supabase
+          .from("transactions_with_category")
+          .select("*")
+          .gte("date", minStart)
+          .lte("date", maxEnd)
+          .in("status", [...SETTLEMENT_STATUSES])
+          .order("date", { ascending: true })
+          .order("id", { ascending: true });
 
-      if (sample.group_id) {
-        query = query.eq("group_id", sample.group_id);
-      } else {
-        query = query.eq("user_id", sample.user_id).is("group_id", null);
+        if (sample.group_id) {
+          query = query.eq("group_id", sample.group_id);
+        } else {
+          query = query.eq("user_id", sample.user_id).is("group_id", null);
+        }
+
+        const { data, error } = await query.range(from, from + pageSize - 1);
+        if (error) throw error;
+        const page = (data ?? []) as TransactionWithCategory[];
+        txs.push(...page);
+        if (page.length < pageSize) break;
+        from += pageSize;
       }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      const txs = (data ?? []) as TransactionWithCategory[];
 
       for (const plan of scopePlans) {
         const allowedTypes = resolveSettlementTypes(plan);

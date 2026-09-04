@@ -8,14 +8,17 @@
   import { todayIso } from "$lib/services/plans";
   import type { PlanDebtTerms } from "$lib/types";
   import { getPlanEmoji } from "$lib/utils/plan-emoji";
-  import { formatCurrency } from "$lib/utils";
+  import { formatCurrency, formatDate } from "$lib/utils";
   import { createQuery } from "@tanstack/svelte-query";
   import { session } from "$lib/auth/session.svelte";
   import { qk } from "$lib/query-keys";
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import DashboardSeeMoreButton from "$lib/components/dashboard/DashboardSeeMoreButton.svelte";
+  import type { ScopeFilter } from "$lib/utils/list-view-url";
 
   const DASHBOARD_PLANS_PREVIEW = 3;
+
+  let { groupFilter = "all" }: { groupFilter?: ScopeFilter } = $props();
 
   let plansDialogOpen = $state(false);
 
@@ -28,16 +31,23 @@
   const activePlans = $derived(
     (progressQuery.data ?? []).filter(
       (p) =>
-        p.kind === "debt" ||
-        (p.targetAmount != null && p.targetAmount > 0) ||
-        p.eligibleCount > 0 ||
-        p.linkedCount > 0
+        (groupFilter === "all" ||
+          (groupFilter === "own" ? p.groupId === null : p.groupId === groupFilter)) &&
+        (p.kind === "debt" ||
+          (p.targetAmount != null && p.targetAmount > 0) ||
+          p.eligibleCount > 0 ||
+          p.linkedCount > 0)
     )
   );
 
-  const debtPlanIds = $derived(
-    (progressQuery.data ?? []).filter((p) => p.kind === "debt").map((p) => p.planId)
-  );
+  const debtPlanIds = $derived(activePlans.filter((p) => p.kind === "debt").map((p) => p.planId));
+
+  const plansHref = $derived(`/plans?group=${encodeURIComponent(groupFilter)}`);
+
+  function planHref(plan: PlanSettlementProgress): string {
+    const suffix = plan.eligibleCount > 0 ? "/settle" : "";
+    return `/plans/${plan.planId}${suffix}?group=${encodeURIComponent(groupFilter)}`;
+  }
 
   const debtTermsQuery = createQuery(() => ({
     queryKey: qk.planDebtTermsList(session.userId!, debtPlanIds),
@@ -90,7 +100,7 @@
   {@const display = progressDisplay(plan, terms)}
   <li>
     <a
-      href={plan.eligibleCount > 0 ? `/plans/${plan.planId}/settle` : `/plans/${plan.planId}`}
+      href={planHref(plan)}
       class="block rounded-xl border border-white/5 px-3 py-1.5 transition-colors hover:bg-white/5"
     >
       <div class="flex min-w-0 items-center gap-2">
@@ -126,6 +136,11 @@
           <span class="text-accent shrink-0 font-semibold tabular-nums">{display.pct}%</span>
         {/if}
       </div>
+      {#if plan.endDate}
+        <p class="mt-1 text-xs text-slate-400">
+          {m.plan_card_planned_until({ date: formatDate(plan.endDate) })}
+        </p>
+      {/if}
       {#if display.pct != null && display.pct > 0}
         <div
           class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-800"
@@ -165,7 +180,7 @@
       <p id="dashboard-plan-progress-title" class="text-eyebrow text-slate-400">
         {m.dashboard_plan_progress_title()}
       </p>
-      <a href="/plans" class="text-accent shrink-0 text-xs font-semibold hover:underline">
+      <a href={plansHref} class="text-accent shrink-0 text-xs font-semibold hover:underline">
         {m.dashboard_plan_progress_all()}
       </a>
     </div>

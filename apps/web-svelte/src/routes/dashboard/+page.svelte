@@ -28,6 +28,7 @@
   import {
     fetchRecurringTemplates,
     fetchTransactions,
+    fetchTransactionsByStatus,
     updateTransactionStatus,
   } from "$lib/services/transactions";
   import { buildRecurringSeriesList } from "$lib/services/recurring-series";
@@ -107,19 +108,10 @@
 
   function transactionsHref(extra: Record<string, string> = {}): string {
     const params = new URLSearchParams();
-
-    if (period === "year") {
-      const year = new Date().getFullYear();
-      params.set("startYear", String(year));
-      params.set("startMonth", "1");
-      params.set("endYear", String(year));
-      params.set("endMonth", "12");
-    } else {
-      // week/month/custom are day windows; mirror the exact bounds so the
-      // transactions list shows the same rows the dashboard aggregated.
-      params.set("startDate", bounds.start.slice(0, 10));
-      params.set("endDate", previousDateOnly(bounds.end));
-    }
+    // Mirror the dashboard's exact [start, end) window as an inclusive list range.
+    params.set("startDate", bounds.start.slice(0, 10));
+    params.set("endDate", previousDateOnly(bounds.end));
+    params.set("group", groupFilter);
 
     for (const [key, value] of Object.entries(extra)) {
       params.set(key, value);
@@ -269,9 +261,8 @@
     return Math.max(1, Math.round((e - s) / dayMs));
   }
 
-  // week/month are rolling day windows ending today ("last 7/30 days"), not
-  // calendar periods — a calendar month viewed on the 2nd tells the user
-  // nothing. custom is the picker's inclusive range. year stays calendar.
+  // Month and year use calendar boundaries. Week remains a trailing seven-day
+  // window; custom preserves the picker's inclusive range.
   const bounds = $derived.by(() => {
     const now = new Date();
     if (period === "custom" && customRange) {
@@ -296,11 +287,13 @@
       const b = getDateRangeBounds(y, 1, y, 12);
       return { start: b.start, end: b.end, buckets: 12 };
     }
-    const end = new Date(now);
-    end.setDate(end.getDate() + 1);
-    const start = new Date(now);
-    start.setDate(start.getDate() - 29);
-    return { start: toIsoDate(start), end: toIsoDate(end), buckets: 30 };
+    const b = getDateRangeBounds(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      now.getFullYear(),
+      now.getMonth() + 1
+    );
+    return { start: b.start, end: b.end, buckets: windowLengthDays(b.start, b.end) };
   });
 
   const groupsQuery = createQuery(() => ({
@@ -321,10 +314,8 @@
     enabled: () => !!session.userId,
   }));
 
-  // Previous window: day windows (week/month/custom) are always complete, so
-  // the comparison is simply the contiguous window of the same length before
-  // this one. Year is still a partial calendar period, so it compares
-  // year-to-date against the same elapsed span of the previous year.
+  // Previous month remains a calendar month; week/custom use a contiguous
+  // window of the same length. Year compares year-to-date with last year.
   const prevBounds = $derived.by(() => {
     if (period === "year") {
       const now = new Date();
@@ -333,6 +324,29 @@
       // Same elapsed day-of-year in the previous year, end-exclusive.
       const end = new Date(y - 1, now.getMonth(), now.getDate() + 1);
       return { start, end: toIsoDate(end) };
+    }
+    if (period === "month") {
+      const now = new Date();
+      const previousMonth = new Date(now);
+      previousMonth.setDate(1);
+      previousMonth.setMonth(previousMonth.getMonth() - 1);
+      const fullPreviousMonth = getDateRangeBounds(
+        previousMonth.getFullYear(),
+        previousMonth.getMonth() + 1,
+        previousMonth.getFullYear(),
+        previousMonth.getMonth() + 1
+      );
+      const lastDay = new Date(
+        previousMonth.getFullYear(),
+        previousMonth.getMonth() + 1,
+        0
+      ).getDate();
+      const comparedThrough = new Date(
+        previousMonth.getFullYear(),
+        previousMonth.getMonth(),
+        Math.min(now.getDate(), lastDay) + 1
+      );
+      return { start: fullPreviousMonth.start, end: toIsoDate(comparedThrough) };
     }
     const start = new Date(bounds.start);
     start.setDate(start.getDate() - bounds.buckets);
@@ -346,18 +360,23 @@
       const y = new Date().getFullYear();
       return getDateRangeBounds(y - ROLLING_PERIODS, 1, y - 1, 12);
     }
+    if (period === "month") {
+      const start = new Date();
+      start.setDate(1);
+      start.setMonth(start.getMonth() - ROLLING_PERIODS);
+      return { start: toIsoDate(start), end: bounds.start };
+    }
     const start = new Date(bounds.start);
     start.setDate(start.getDate() - bounds.buckets * ROLLING_PERIODS);
     return { start: toIsoDate(start), end: bounds.start };
   });
 
-  // Multi-period comparison history: last 6 windows of the selected length,
-  // anchored to the current window's end (today for week/month, the picked
-  // end for custom).
+  // Multi-period comparison history: calendar periods for month/year, fixed
+  // trailing windows for week/custom.
   const HISTORY_PERIODS = 6;
   const historyWindows = $derived(
-    period === "year"
-      ? buildPeriodWindows("year", HISTORY_PERIODS)
+    period === "year" || period === "month"
+      ? buildPeriodWindows(period, HISTORY_PERIODS)
       : buildDayWindows(bounds.buckets, HISTORY_PERIODS, bounds.end)
   );
 
@@ -367,6 +386,7 @@
   const forwardWindows = $derived.by(() => {
     if (period === "custom") return [];
     if (period === "year") return buildForwardPeriodWindows("year", 1);
+    if (period === "month") return buildForwardPeriodWindows("month", 3);
     return buildForwardDayWindows(bounds.buckets, 3, bounds.end);
   });
   const forwardBounds = $derived(
@@ -412,6 +432,15 @@
       spanBounds.end
     ),
     queryFn: () => fetchTransactions(spanBounds.start, spanBounds.end),
+    enabled: () => !!session.userId,
+    staleTime: 60_000,
+  }));
+
+  // Actionable overdue debt is not bounded by the chart history. Keep this
+  // separate so an old unpaid row cannot silently disappear from the action panel.
+  const overdueQuery = createQuery(() => ({
+    queryKey: qk.transactions.list(session.userId!, "dashboard-overdue"),
+    queryFn: () => fetchTransactionsByStatus("overdue"),
     enabled: () => !!session.userId,
     staleTime: 60_000,
   }));
@@ -634,7 +663,33 @@
     return [...real, ...projected].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 5);
   });
 
-  const overdueCount = $derived(allScopedTxs.filter((tx) => tx.status === "overdue").length);
+  const overdueSummary = $derived.by(() => {
+    const overdue = scopeFilter(overdueQuery.data ?? []);
+    if (overdue.length === 0) return null;
+
+    const dates = overdue.map((tx) => tx.date.slice(0, 10)).sort();
+    const oldestDate = dates[0];
+    const newestDate = dates[dates.length - 1];
+    const today = toIsoDate(new Date());
+    const oldestDays = Math.max(
+      0,
+      Math.floor(
+        (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${oldestDate}T00:00:00Z`)) / 86_400_000
+      )
+    );
+
+    return {
+      count: overdue.length,
+      total: overdue.reduce((sum, tx) => sum + Math.abs(Number(tx.amount)), 0),
+      oldestDays,
+      startDate: oldestDate,
+      endDate: newestDate,
+    };
+  });
+
+  const overdueState = $derived(
+    overdueQuery.isPending ? "pending" : overdueQuery.isError ? "error" : "success"
+  );
 
   const activeRecurringCount = $derived(
     buildRecurringSeriesList(scopeFilter(recurringTemplatesQuery.data ?? [])).length
@@ -651,7 +706,7 @@
       : (() => {
           const ahead = new Date(now);
           ahead.setDate(ahead.getDate() + UPCOMING_AHEAD_DAYS);
-          return toIsoDate(ahead);
+          return previousDateOnly(toIsoDate(ahead));
         })();
     const p = new URLSearchParams();
     p.set("startDate", toIsoDate(start));
@@ -755,7 +810,7 @@
     onPeriodChange={setPeriod}
     onScopeChange={setGroupFilter}
     onRangeChange={setCustomRange}
-    onRangeClear={() => setPeriod("week")}
+    onRangeClear={() => setPeriod("month")}
   />
 
   {#if demoActive}
@@ -853,13 +908,8 @@
   <section class="mt-4">
     <h2 class="mb-1.5 text-sm font-medium text-slate-400">{m.dashboard_status_band()}</h2>
     <div class="grid min-w-0 grid-cols-1 items-stretch gap-2 sm:grid-cols-2">
-      <DashboardActions
-        {overdueCount}
-        insight={spendingInsight}
-        periodKey={bounds.start}
-        periodEnd={bounds.end}
-      />
-      <DashboardPlanProgress />
+      <DashboardActions {groupFilter} overdue={overdueSummary} {overdueState} />
+      <DashboardPlanProgress {groupFilter} />
       <div class="grid min-w-0 grid-cols-1 gap-2 sm:col-span-2 sm:grid-cols-2">
         <DashboardImportHealth />
         <DashboardNetWorthStrip />
@@ -875,7 +925,7 @@
         <div class="flex items-center gap-3">
           {#if activeRecurringCount > 0}
             <a
-              href="/transactions?status=upcoming"
+              href={upcomingHref}
               class="hover:text-accent text-xs font-medium text-slate-400 transition-colors"
             >
               {m.recurring_entry()} ({activeRecurringCount})

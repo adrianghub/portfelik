@@ -180,8 +180,8 @@
               {/if}
             </div>
           {/if}
-          <p class="mt-0.5 flex items-center gap-1 truncate text-xs text-slate-400">
-            <CalendarDays size={11} strokeWidth={1.8} aria-hidden="true" />
+          <p class="mt-0.5 flex items-start gap-1 text-xs text-slate-400">
+            <CalendarDays size={11} strokeWidth={1.8} class="mt-0.5 shrink-0" aria-hidden="true" />
             {#if categoryName}{categoryName} ·
             {/if}{periodLabel}
           </p>
