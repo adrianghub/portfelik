@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeMonthlySurplus,
   currentCalendarMonthBounds,
+  currentCalendarMonthQueryBounds,
   gateObservedDebtCoverage,
   sumDebtMonthlyPayments,
   sumSaveMonthlyNeeded,
@@ -256,6 +257,22 @@ describe("currentCalendarMonthBounds", () => {
     expect(currentCalendarMonthBounds(new Date("2026-06-15"))).toEqual({
       start: "2026-06-01",
       end: "2026-06-30",
+    });
+  });
+});
+
+describe("currentCalendarMonthQueryBounds", () => {
+  it("uses an exclusive upper bound after leap-year February", () => {
+    expect(currentCalendarMonthQueryBounds(new Date(2024, 1, 15))).toEqual({
+      start: "2024-02-01",
+      endExclusive: "2024-03-01",
+    });
+  });
+
+  it("rolls December's exclusive upper bound into the next year", () => {
+    expect(currentCalendarMonthQueryBounds(new Date(2026, 11, 15))).toEqual({
+      start: "2026-12-01",
+      endExclusive: "2027-01-01",
     });
   });
 });

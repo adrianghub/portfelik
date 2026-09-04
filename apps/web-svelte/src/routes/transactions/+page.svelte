@@ -34,6 +34,7 @@
     isQuickSettleEligible,
   } from "$lib/services/transaction-permissions";
   import { markNotificationRead } from "$lib/services/notifications";
+  import { notifyNotificationsChanged } from "$lib/services/notification-sync";
   import {
     computeSummary,
     deleteTransaction,
@@ -42,6 +43,7 @@
     fetchRecurringTemplates,
     fetchTransactions,
     updateTransactionsCategory,
+    updateTransactionStatus,
     updateTransactionsStatus,
   } from "$lib/services/transactions";
   import {
@@ -517,7 +519,9 @@
   let dialogOpen = $state(false);
   let editTarget = $state<TransactionWithCategory | null>(null);
   let deleteTargetId = $state<string | null>(null);
-  let sheetTx = $state<TransactionWithCategory | null>(null);
+  // Rows are immutable query snapshots; raw state preserves identity so a
+  // refreshed same-id snapshot can replace the open sheet without proxy loops.
+  let sheetTx = $state.raw<TransactionWithCategory | null>(null);
   let dismissedRequestedTxId = $state<string | null>(null);
 
   const requestedTxId = $derived($page.url.searchParams.get("txId"));
@@ -541,7 +545,16 @@
     }
     if (requestedTxId === dismissedRequestedTxId) return;
     const match = requestedTxFromCurrentPage ?? requestedTxQuery.data;
-    if (match && sheetTx?.id !== match.id) sheetTx = match;
+    if (match && sheetTx !== match) sheetTx = match;
+  });
+
+  // The detail sheet owns a row snapshot. Replace it after a list refetch even
+  // when the id stays the same, so status/category edits are visible in-place.
+  $effect(() => {
+    const openTransaction = sheetTx;
+    if (!openTransaction) return;
+    const refreshed = txQuery.data?.find((transaction) => transaction.id === openTransaction.id);
+    if (refreshed && refreshed !== openTransaction) sheetTx = refreshed;
   });
   let bulkDeleteConfirm = $state(false);
   let searchModalOpen = $state(false);
@@ -696,34 +709,71 @@
     await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
   }
 
+  async function acknowledgeSettleNotification(notificationId?: string) {
+    if (!notificationId) return;
+    try {
+      await markNotificationRead(notificationId);
+      notifyNotificationsChanged(queryClient);
+    } catch {
+      // Transaction state is authoritative; an unread bell can be retried later.
+    }
+  }
+
   const settleMutation = createMutation(() => ({
-    mutationFn: (vars: { id: string; prev: TransactionStatus; notificationId?: string }) =>
-      updateTransactionsStatus([vars.id], "paid"),
+    mutationFn: (vars: {
+      id: string;
+      prev: TransactionStatus;
+      notificationId?: string;
+      actionKey?: string;
+    }) => updateTransactionStatus(vars.id, "paid"),
     onSuccess: async (_data, vars) => {
-      if (vars.notificationId) {
-        try {
-          await markNotificationRead(vars.notificationId);
-        } catch {
-          // Settlement already succeeded — unread bell is recoverable.
-        }
-      }
+      await acknowledgeSettleNotification(vars.notificationId);
       await invalidateAfterSettle();
+      if (vars.actionKey) consumeSettleAction(vars.actionKey);
       toast.success(m.toast_transaction_settled(), {
         action: {
           label: m.toast_transaction_settle_undo(),
           onClick: () => {
-            void updateTransactionsStatus([vars.id], vars.prev)
+            void updateTransactionStatus(vars.id, vars.prev)
               .then(() => invalidateAfterSettle())
               .catch((err) => toastError(err));
           },
         },
       });
     },
-    onError: (err) => toastError(err),
+    onError: (err, vars) => {
+      if (vars.actionKey) {
+        const match = requestedTxFromCurrentPage ?? requestedTxQuery.data;
+        if (match?.id === vars.id) sheetTx = match;
+      }
+      toastError(err);
+    },
   }));
 
   function quickSettle(tx: TransactionWithCategory) {
-    settleMutation.mutate({ id: tx.id, prev: tx.status });
+    const actionKey =
+      settleAction === "settle" && requestedTxId === tx.id
+        ? `${tx.id}:${settleNotificationId ?? ""}`
+        : undefined;
+    settleMutation.mutate({
+      id: tx.id,
+      prev: tx.status,
+      notificationId: actionKey ? (settleNotificationId ?? undefined) : undefined,
+      actionKey,
+    });
+  }
+
+  function consumeSettleAction(key: string) {
+    if (handledSettleKey !== key) return;
+    const params = new URLSearchParams($page.url.searchParams);
+    params.delete("action");
+    params.delete("notificationId");
+    const query = params.toString();
+    void goto(query ? `/transactions?${query}` : "/transactions", {
+      replaceState: true,
+      noScroll: true,
+      keepFocus: true,
+    });
   }
 
   $effect(() => {
@@ -739,15 +789,13 @@
         id: match.id,
         prev: match.status,
         notificationId: settleNotificationId ?? undefined,
+        actionKey: key,
       });
     } else {
       sheetTx = match;
+      void acknowledgeSettleNotification(settleNotificationId ?? undefined);
+      consumeSettleAction(key);
     }
-
-    const params = new URLSearchParams($page.url.searchParams);
-    params.delete("action");
-    params.delete("notificationId");
-    void goto(`/transactions?${params.toString()}`, { replaceState: true });
   });
 
   const bulkCategoryMutation = createMutation(() => ({

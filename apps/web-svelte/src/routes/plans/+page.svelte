@@ -36,7 +36,7 @@
   } from "$lib/services/fx";
   import {
     computeMonthlySurplus,
-    currentCalendarMonthBounds,
+    currentCalendarMonthQueryBounds,
     gateObservedDebtCoverage,
     sumDebtMonthlyPayments,
     sumSaveMonthlyNeeded,
@@ -129,16 +129,28 @@
     enabled: () => !!session.userId,
   }));
 
-  const monthBounds = $derived(currentCalendarMonthBounds());
+  const monthBounds = $derived(currentCalendarMonthQueryBounds());
+
+  const surplusTransactionsHref = $derived.by(() => {
+    const inclusiveEnd = new Date(`${monthBounds.endExclusive}T00:00:00`);
+    inclusiveEnd.setDate(inclusiveEnd.getDate() - 1);
+    const end = `${inclusiveEnd.getFullYear()}-${String(inclusiveEnd.getMonth() + 1).padStart(2, "0")}-${String(inclusiveEnd.getDate()).padStart(2, "0")}`;
+    const params = new URLSearchParams({
+      startDate: monthBounds.start,
+      endDate: end,
+      group: groupFilter,
+    });
+    return `/transactions?${params.toString()}`;
+  });
 
   const monthTxQuery = createQuery(() => ({
     queryKey: qk.transactions.list(
       session.userId!,
       "plans-surplus",
       monthBounds.start,
-      monthBounds.end
+      monthBounds.endExclusive
     ),
-    queryFn: () => fetchTransactions(monthBounds.start, monthBounds.end),
+    queryFn: () => fetchTransactions(monthBounds.start, monthBounds.endExclusive),
     enabled: () => !!session.userId,
   }));
 
@@ -722,7 +734,11 @@
   {#if monthTxQuery.isLoading}
     <div class="h-28 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
   {:else if monthlySurplus}
-    <SurplusCard summary={monthlySurplus} actions={planningActions} />
+    <SurplusCard
+      summary={monthlySurplus}
+      actions={planningActions}
+      transactionsHref={surplusTransactionsHref}
+    />
   {/if}
 
   {#if plansQuery.isLoading}

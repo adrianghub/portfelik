@@ -14,6 +14,18 @@ function datesInCurrentMonth(): { startDate: string; endDate: string } {
   return { startDate: `${ym}-${pad(startDay)}`, endDate: `${ym}-${pad(endDay)}` };
 }
 
+function currentMonthRange(): { startDate: string; endDate: string } {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const lastDay = new Date(year, month, 0).getDate();
+  const prefix = `${year}-${String(month).padStart(2, "0")}`;
+  return {
+    startDate: `${prefix}-01`,
+    endDate: `${prefix}-${String(lastDay).padStart(2, "0")}`,
+  };
+}
+
 test.beforeEach(async ({ page }) => {
   await injectFakeSession(page);
   await mockSupabaseAPI(page);
@@ -36,6 +48,32 @@ test("renders sectioned hub with saving goals and debt plans", async ({ page }) 
   await expect(page.getByRole("link", { name: /Kredyt hipoteczny/ })).toBeVisible();
   await expect(page.getByText("Odłożono 0,00 zł z 1000,00 zł")).toBeVisible();
   await expect(page.getByText("Odłożono 0,00 zł z 60 000,00 zł")).toBeVisible();
+});
+
+test("surplus drill-down preserves the calendar month and selected scope", async ({ page }) => {
+  await page.goto("/plans?group=all");
+  await page.getByText("Szczegóły bilansu").click();
+
+  const range = currentMonthRange();
+  await expect(page.getByRole("link", { name: "Zobacz transakcje" })).toHaveAttribute(
+    "href",
+    `/transactions?startDate=${range.startDate}&endDate=${range.endDate}&group=all`
+  );
+});
+
+test.describe("plans mobile period visibility", () => {
+  test.use({ viewport: { width: 375, height: 812 } });
+
+  test("shows the complete plan deadline without horizontal overflow", async ({ page }) => {
+    await page.goto("/plans");
+
+    const planLink = page.getByRole("link", { name: /Nowy samochód/ });
+    await expect(planLink).toContainText("30.06.2027");
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth
+    );
+    expect(overflow).toBeLessThanOrEqual(1);
+  });
 });
 
 test("creates a saving goal with date period and target", async ({ page }) => {
