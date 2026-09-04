@@ -8,14 +8,22 @@ import type {
   ParsedRow,
 } from "./types";
 
-const HEADER_HINTS = ["#data operacji", "data operacji", "kwota"];
-
 function findIndex(headers: string[], candidates: string[]): number {
   for (const cand of candidates) {
     const i = headers.findIndex((h) => h.trim().toLowerCase() === cand.toLowerCase());
     if (i !== -1) return i;
   }
   return -1;
+}
+
+function findHeaderRowIndex(rows: string[][]): number {
+  return rows.findIndex((row) => {
+    const date = findIndex(row, ["Data operacji", "Data księgowania", "#Data operacji"]);
+    const amount = findIndex(row, ["Kwota", "Kwota operacji", "#Kwota"]);
+    const description = findIndex(row, ["Opis operacji", "Tytuł", "Opis"]);
+    const counterparty = findIndex(row, ["Kontrahent", "Nadawca/Odbiorca", "Odbiorca"]);
+    return date >= 0 && amount >= 0 && (description >= 0 || counterparty >= 0);
+  });
 }
 
 function parsePlnAmount(raw: string): number | null {
@@ -43,45 +51,59 @@ export const pkoBpAdapter: ImportAdapter = {
   label: "PKO BP",
   aliases: ["pko", "ipko"],
   detect(input: AdapterDetectionInput): DetectionResult {
-    const header = (input.rows[0] ?? []).join(";").toLowerCase();
-    const hits = HEADER_HINTS.filter((h) => header.includes(h)).length;
-    if (hits >= 2) return { kind: "pko_bp", confidence: "medium", reason: "pko_header_match" };
-    if (header.includes("pko") || header.includes("ipko")) {
-      return { kind: "pko_bp", confidence: "low", reason: "pko_name_hint" };
-    }
-    return null;
+    const hasBrand = input.rows.some((row) =>
+      row.some((cell) => /(^|\W)(pko bp|ipko)(\W|$)/i.test(cell))
+    );
+    if (!hasBrand) return null;
+    return {
+      kind: "pko_bp",
+      confidence: findHeaderRowIndex(input.rows) >= 0 ? "medium" : "low",
+      reason: "pko_brand_hint",
+    };
   },
   parse(text: string): ParsedImportFile {
-    const { rows } = parseCsv(text);
-    const headers = rows[0] ?? [];
+    const csv = parseCsv(text);
+    const headerRowIdx = findHeaderRowIndex(csv.rows);
+    if (headerRowIdx === -1) {
+      return {
+        kind: "pko_bp",
+        rows: [],
+        errors: [{ row_index: -1, reason: "pko_bp_required_columns_missing" }],
+      };
+    }
+    const headers = csv.rows[headerRowIdx];
     const idx = {
       date: findIndex(headers, ["Data operacji", "Data księgowania", "#Data operacji"]),
       desc: findIndex(headers, ["Opis operacji", "Tytuł", "Opis"]),
       counterparty: findIndex(headers, ["Kontrahent", "Nadawca/Odbiorca", "Odbiorca"]),
       amount: findIndex(headers, ["Kwota", "Kwota operacji", "#Kwota"]),
+      currency: findIndex(headers, ["Waluta", "Waluta operacji"]),
     };
     const parsed: ParsedRow[] = [];
     const errors: ParseError[] = [];
-    for (let i = 1; i < rows.length; i++) {
-      const cells = rows[i];
+    for (let i = headerRowIdx + 1; i < csv.rows.length; i++) {
+      const cells = csv.rows[i];
       if (!cells?.length || cells.every((c) => !c?.trim())) continue;
       const posted = parseDate(cells[idx.date] ?? "");
       const amountRaw = parsePlnAmount(cells[idx.amount] ?? "");
       if (!posted || amountRaw === null) {
-        errors.push({ row_index: i, reason: "invalid_row" });
+        errors.push({ row_index: i - headerRowIdx - 1, reason: "pko_bp_invalid_row" });
         continue;
       }
       const type = amountRaw < 0 ? "expense" : "income";
-      const description = collapseWs(cells[idx.desc] ?? cells[idx.counterparty] ?? "");
+      const description =
+        collapseWs(idx.desc >= 0 ? (cells[idx.desc] ?? "") : "") ||
+        collapseWs(idx.counterparty >= 0 ? (cells[idx.counterparty] ?? "") : "");
       parsed.push({
         posted_at: posted,
         amount: Math.abs(amountRaw),
         type,
         description: description || "Operacja bankowa",
         counterparty: idx.counterparty >= 0 ? collapseWs(cells[idx.counterparty] ?? "") : undefined,
-        currency: "PLN",
-        source_row_text: cells.join(";"),
-        row_index: i - 1,
+        currency:
+          idx.currency >= 0 ? (cells[idx.currency] ?? "").trim().toUpperCase() || "PLN" : "PLN",
+        source_row_text: csv.rowTexts[i],
+        row_index: i - headerRowIdx - 1,
       });
     }
     return { kind: "pko_bp", rows: parsed, errors };

@@ -95,19 +95,24 @@ export const ingAdapter: ImportAdapter = {
   label: "ING Bank Śląski",
 
   detect({ rows }: AdapterDetectionInput): DetectionResult {
-    const hit = rows.some((row) =>
-      row.some((cell) => {
-        const c = cell.trim().toLowerCase();
-        return c === "data transakcji" || c.startsWith("kwota transakcji") || c === "nr transakcji";
-      })
+    const hasBrand = rows.some((row) =>
+      row.some((cell) => /(^|\W)ing bank(\W|$)/i.test(cell) || /ing bank śląski/i.test(cell))
     );
-    return hit
-      ? {
-          kind: "ing",
-          confidence: "high",
-          reason: "ING 'Data transakcji'/'Kwota transakcji'/'Nr transakcji' header",
-        }
-      : null;
+    const hasIngHeader = rows.some((row) => {
+      const normalized = row.map((cell) => cell.trim().toLowerCase());
+      const distinctiveSignals = [
+        normalized.includes("dane kontrahenta"),
+        normalized.includes("nr transakcji"),
+        normalized.some((cell) => cell.startsWith("kwota transakcji")),
+      ].filter(Boolean).length;
+      return normalized.includes("data transakcji") && distinctiveSignals >= 2;
+    });
+    if (!hasIngHeader) return null;
+    return {
+      kind: "ing",
+      confidence: hasBrand ? "high" : "medium",
+      reason: hasBrand ? "ing_brand_and_header" : "ing_distinctive_header",
+    };
   },
 
   parse(text: string): ParsedImportFile {
