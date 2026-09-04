@@ -4,14 +4,24 @@ import { describe, expect, it } from "vitest";
 import { ingAdapter } from "$lib/import/banks/ing";
 import { detectImportAdapter } from "$lib/import/banks/registry";
 
-const fixture = readFileSync(
-  resolve(__dirname, "fixtures/ing/sample.csv"),
-  "utf-8"
-);
+const fixture = readFileSync(resolve(__dirname, "fixtures/ing/sample.csv"), "utf-8");
 
 describe("ing adapter - synthetic fixture", () => {
   it("detect() returns true for ING-shaped headers", () => {
     expect(detectImportAdapter(fixture)?.kind).toBe("ing");
+  });
+
+  it("does not claim a generic Data transakcji header as ING", () => {
+    const generic = '"Data transakcji";"Opis transakcji";"Kwota"\n"01.09.2026";"Test";"-10,00"';
+    expect(
+      ingAdapter.detect({
+        text: generic,
+        rows: [
+          ["Data transakcji", "Opis transakcji", "Kwota"],
+          ["01.09.2026", "Test", "-10,00"],
+        ],
+      })
+    ).toBeNull();
   });
 
   it("parses 4 data rows, 0 errors", () => {
@@ -44,7 +54,7 @@ describe("ing adapter - synthetic fixture", () => {
     const withFooterRows = [
       '"Data transakcji";"Dane kontrahenta";"Tytuł";"Nr transakcji";"Kwota transakcji (waluta rachunku)";"Waluta"',
       '"2026-01-01";"SHOP A";"Zakup";"EXT-001";"-10,00";"PLN"',
-      ';;;;;',
+      ";;;;;",
       '"Wygenerowano dnia";;;;;',
     ].join("\n");
 
