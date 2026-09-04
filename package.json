@@ -2,6 +2,6 @@
   "name": "portfelik",
   "private": true,
   "devDependencies": {
-    "wrangler": "^4.126.0"
+    "wrangler": "^4.128.0"
   }
 }
