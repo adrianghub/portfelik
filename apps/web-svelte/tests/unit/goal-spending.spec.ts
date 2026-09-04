@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeGoalSpendingSplit,
   isAllocationExpense,
+  partitionForecastExpenses,
   partitionLedgerExpenses,
 } from "$lib/services/goal-spending";
 import type { TransactionWithCategory } from "$lib/types";
@@ -66,25 +67,13 @@ describe("isAllocationExpense", () => {
   it("treats save-linked and Cele category expenses as allocation", () => {
     const linked = new Set(["a"]);
     expect(
-      isAllocationExpense(
-        { id: "a", type: "expense", category_id: "other" },
-        linked,
-        "cele"
-      )
+      isAllocationExpense({ id: "a", type: "expense", category_id: "other" }, linked, "cele")
     ).toBe(true);
     expect(
-      isAllocationExpense(
-        { id: "b", type: "expense", category_id: "cele" },
-        linked,
-        "cele"
-      )
+      isAllocationExpense({ id: "b", type: "expense", category_id: "cele" }, linked, "cele")
     ).toBe(true);
     expect(
-      isAllocationExpense(
-        { id: "c", type: "expense", category_id: "food" },
-        linked,
-        "cele"
-      )
+      isAllocationExpense({ id: "c", type: "expense", category_id: "food" }, linked, "cele")
     ).toBe(false);
   });
 });
@@ -98,5 +87,23 @@ describe("partitionLedgerExpenses", () => {
     const { consumption, allocation } = partitionLedgerExpenses(txs, new Set(), "cele");
     expect(allocation.map((t) => t.id)).toEqual(["1"]);
     expect(consumption.map((t) => t.id)).toEqual(["2"]);
+  });
+
+  it("keeps history paid-only while forecast partitioning preserves scheduled rows", () => {
+    const rows = [
+      tx({ id: "paid", status: "paid", category_id: "food" }),
+      tx({ id: "upcoming", status: "upcoming", category_id: "food" }),
+      tx({ id: "overdue-allocation", status: "overdue", category_id: "cele" }),
+      tx({ id: "projected", status: "upcoming", category_id: "food", projected: true }),
+      tx({ id: "draft", status: "draft", category_id: "food" }),
+    ];
+
+    const ledger = partitionLedgerExpenses(rows, new Set(), "cele");
+    expect(ledger.consumption.map((row) => row.id)).toEqual(["paid"]);
+    expect(ledger.allocation).toEqual([]);
+
+    const forecast = partitionForecastExpenses(rows, new Set(), "cele");
+    expect(forecast.consumption.map((row) => row.id)).toEqual(["paid", "upcoming", "projected"]);
+    expect(forecast.allocation.map((row) => row.id)).toEqual(["overdue-allocation"]);
   });
 });

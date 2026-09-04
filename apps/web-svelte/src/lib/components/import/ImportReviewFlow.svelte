@@ -123,6 +123,11 @@
     >
   >({});
 
+  interface RowCategoryAction {
+    kind: "save" | "update";
+    similarCount: number;
+  }
+
   const rowsQuery = createQuery(() => ({
     queryKey: rowsKey,
     queryFn: () => fetchSessionRows(session.id),
@@ -489,6 +494,100 @@
     );
   }
 
+  function draftRuleForRow(row: ImportRow): CategorizationRule | null {
+    if (!row.selected_category_id) return null;
+    const text = suggestRuleText(row);
+    if (text === "") return null;
+    return {
+      id: "__draft__",
+      user_id: "__draft__",
+      kind: "contains",
+      match_description: text,
+      match_counterparty: text,
+      match_type: null,
+      match_day_of_month: null,
+      category_id: row.selected_category_id,
+      priority: MANUAL_RULE_PRIORITY,
+      created_at: "",
+    };
+  }
+
+  function categoryActionFor(row: ImportRow): RowCategoryAction | null {
+    const context = pendingCategoryReplacement[row.id];
+    const draft = draftRuleForRow(row);
+    if (!context || !draft || matchedRuleFor(row)) return null;
+
+    const similarCount = activeRows.filter(
+      (candidate) =>
+        candidate.id !== row.id &&
+        rowMatchesRule(candidate, draft) &&
+        (candidate.selected_category_id == null ||
+          candidate.selected_category_id === context.previousCategoryId)
+    ).length;
+    const canUpdatePreviousRule =
+      context.previousRule != null &&
+      context.previousRule.category_id !== row.selected_category_id &&
+      ruleHasTextScope(context.previousRule);
+
+    return { kind: canUpdatePreviousRule ? "update" : "save", similarCount };
+  }
+
+  async function applyCategoryToSimilarRows(row: ImportRow): Promise<void> {
+    const context = pendingCategoryReplacement[row.id];
+    const draft = draftRuleForRow(row);
+    if (!context || !draft || !row.selected_category_id) return;
+
+    const targets = activeRows.filter((candidate) => {
+      if (candidate.id === row.id || !rowMatchesRule(candidate, draft)) return false;
+      return (
+        candidate.selected_category_id == null ||
+        candidate.selected_category_id === context.previousCategoryId
+      );
+    });
+    pushUndo(
+      targets.map((candidate) => ({
+        rowId: candidate.id,
+        before: { selected_category_id: candidate.selected_category_id },
+      }))
+    );
+    const results = await Promise.allSettled(
+      targets.map((candidate) =>
+        patchRow(candidate.id, { selected_category_id: row.selected_category_id })
+      )
+    );
+    const changed = results.filter((result) => result.status === "fulfilled").length;
+    const failed = results.length - changed;
+    if (changed > 0) toast.success(m.bank_review_similar_applied({ count: changed }));
+    if (failed > 0) toast.error(m.toast_error());
+  }
+
+  async function saveOrUpdateRuleForRow(row: ImportRow): Promise<void> {
+    const context = pendingCategoryReplacement[row.id];
+    if (!context || !row.selected_category_id) return;
+
+    const previousRule = context.previousRule;
+    if (
+      previousRule &&
+      previousRule.category_id !== row.selected_category_id &&
+      ruleHasTextScope(previousRule)
+    ) {
+      try {
+        const updated = await updateCategorizationRule(previousRule.id, {
+          category_id: row.selected_category_id,
+        });
+        const nextRules = await refreshRules();
+        const nextRule = nextRules.find((rule) => rule.id === updated.id) ?? updated;
+        await applyRuleCategoryToRows(nextRule, context.previousCategoryId);
+        toast.success(m.bank_review_rule_updated());
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : String(e));
+      }
+      return;
+    }
+
+    await captureRuleForRow(row, context.previousCategoryId, ruleApplyEpoch);
+  }
+
   async function refreshRules(): Promise<CategorizationRule[]> {
     const rules = await fetchCategorizationRules();
     queryClient.setQueryData(rulesKey, rules);
@@ -730,39 +829,10 @@
     pushUndo([{ rowId: row.id, before: { selected_category_id: row.selected_category_id } }]);
     await patchRow(row.id, { selected_category_id: selectedCategoryId });
     if (!selectedCategoryId) return;
-    if (pendingReplacement) {
-      const nextPending = { ...pendingCategoryReplacement };
-      delete nextPending[row.id];
-      pendingCategoryReplacement = nextPending;
-    }
-
-    const patchedRow: ImportRow = { ...row, selected_category_id: selectedCategoryId };
-    if (matchedRuleFor(patchedRow)) return;
-
-    if (
-      previousRule &&
-      previousRule.category_id !== selectedCategoryId &&
-      ruleHasTextScope(previousRule)
-    ) {
-      try {
-        const updated = await updateCategorizationRule(previousRule.id, {
-          category_id: selectedCategoryId,
-        });
-        const nextRules = await refreshRules();
-        const nextRule = nextRules.find((rule) => rule.id === updated.id) ?? updated;
-        await applyRuleCategoryToRows(nextRule, previousCategoryId);
-        toast.success(m.bank_review_rule_updated());
-        return;
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : String(e));
-        return;
-      }
-    }
-
-    // P0-5C: category picks currently auto-capture rules; requires explicit consent.
-    // Pass the current ruleApplyEpoch so any rule-apply started after an undo
-    // (which increments the epoch) becomes a no-op — prevents late re-applies.
-    await captureRuleForRow(patchedRow, previousCategoryId, ruleApplyEpoch);
+    pendingCategoryReplacement = {
+      ...pendingCategoryReplacement,
+      [row.id]: { previousCategoryId, previousRule },
+    };
   }
 
   function getImportedDateRange(): ImportedDateRange | undefined {
@@ -1028,6 +1098,7 @@
     {categoriesFor}
     {createCategoryInline}
     {matchedRuleFor}
+    {categoryActionFor}
     {spanNudge}
     {inspectedRule}
     inspectedRuleCount={inspectedRuleRows.length}
@@ -1046,6 +1117,8 @@
     onBulkRestoreVisible={() => void bulkRestoreVisible()}
     onPatchRow={(id, patch) => void patchRow(id, patch)}
     onCategoryChange={(row, id) => void handleRowCategoryChange(row, id)}
+    onApplySimilar={(row) => void applyCategoryToSimilarRows(row)}
+    onSaveRule={(row) => void saveOrUpdateRuleForRow(row)}
     onEditRule={(rule) => openRuleEditor(rule)}
     {celeCategoryId}
     {savePlans}

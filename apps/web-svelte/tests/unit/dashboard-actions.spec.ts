@@ -1,161 +1,141 @@
 import { describe, expect, it } from "vitest";
 import {
   buildDashboardActions,
-  type AttentionInput,
+  type AttentionPlan,
   type BuildDashboardActionsInput,
 } from "$lib/services/dashboard-actions";
+import { formatCurrency } from "$lib/utils";
 
-const plan = (
-  o: Partial<AttentionInput["plans"][number]> = {}
-): AttentionInput["plans"][number] => ({
+const plan = (overrides: Partial<AttentionPlan> = {}): AttentionPlan => ({
   planId: "p1",
-  planName: "Plan",
+  planName: "Poduszka",
   kind: "save",
+  groupId: null,
   eligibleCount: 0,
   monthlyNeeded: null,
   monthlyActual: null,
   monthlyActualBasis: "none",
-  ...o,
+  ...overrides,
 });
 
-const healthyAttention: AttentionInput = {
-  overdueCount: 0,
-  plans: [],
-};
-
 const base: BuildDashboardActionsInput = {
-  attention: healthyAttention,
-  anomalies: [],
-  periodKey: "2026-06-22",
-  periodEnd: "2026-06-28",
+  overdue: null,
+  plans: [],
+  groupFilter: "own",
 };
 
 describe("buildDashboardActions", () => {
-  it("returns nothing when every signal is healthy", () => {
+  it("returns no action when there is nothing concrete to resolve", () => {
     expect(buildDashboardActions(base)).toEqual([]);
   });
 
-  it("folds overdue with period-scoped dismiss key", () => {
-    const actions = buildDashboardActions({
+  it("describes overdue scale and deep-links to the exact scope and date range", () => {
+    const [action] = buildDashboardActions({
       ...base,
-      attention: { ...healthyAttention, overdueCount: 2 },
-    });
-    const overdue = actions.find((a) => a.kind === "overdue");
-    expect(overdue?.tone).toBe("warn");
-    expect(overdue?.dismissKey).toBe("overdue:2026-06-22");
-    expect(overdue?.href).toBe("/transactions?status=overdue");
-  });
-
-  it("surfaces save off-track from current-month pace", () => {
-    const actions = buildDashboardActions({
-      ...base,
-      attention: {
-        plans: [
-          plan({
-            planId: "s",
-            kind: "save",
-            monthlyNeeded: 1000,
-            monthlyActual: 0,
-            monthlyActualBasis: "none",
-          }),
-        ],
-        overdueCount: 0,
+      groupFilter: "group-1",
+      overdue: {
+        count: 2,
+        total: 1250,
+        oldestDays: 18,
+        startDate: "2026-06-01",
+        endDate: "2026-08-31",
       },
     });
-    expect(actions.some((a) => a.dismissKey === "save_off_track:s")).toBe(true);
-  });
 
-  it("does not flag on-pace save plans", () => {
-    const actions = buildDashboardActions({
-      ...base,
-      attention: {
-        plans: [
-          plan({
-            planId: "s",
-            kind: "save",
-            monthlyNeeded: 1000,
-            monthlyActual: 1000,
-            monthlyActualBasis: "current-month",
-          }),
-        ],
-        overdueCount: 0,
-      },
-    });
-    expect(actions.some((a) => a.kind === "save_off_track")).toBe(false);
-  });
-
-  it("surfaces spending anomalies with a period-scoped dismiss key and date range", () => {
-    const actions = buildDashboardActions({
-      ...base,
-      anomalies: [{ categoryId: "c1", name: "Restauracje", total: 300, avgTotal: 100 }],
-    });
-    const anomaly = actions.find((a) => a.kind === "spending_anomaly");
-    expect(anomaly?.dismissKey).toBe("spending_anomaly:c1:2026-06-22");
-    expect(anomaly?.href).toBe(
-      "/transactions?categoryId=c1&startDate=2026-06-22&endDate=2026-06-28"
+    expect(action.kind).toBe("overdue");
+    expect(action.title).toContain("2");
+    expect(action.title).toContain(formatCurrency(1250));
+    expect(action.detail).toContain("18");
+    expect(action.href).toBe(
+      "/transactions?startDate=2026-06-01&endDate=2026-08-31&group=group-1&status=overdue"
     );
-    expect(anomaly?.title).toContain("Restauracje");
-    expect(anomaly?.detail).toBeTruthy();
-    expect(anomaly?.tone).toBe("warn");
+    expect(action).not.toHaveProperty("dismissKey");
   });
 
-  it("orders by urgency: overdue before anomaly before save off-track", () => {
+  it("keeps an overdue action even when its total is zero", () => {
     const actions = buildDashboardActions({
       ...base,
-      attention: {
-        overdueCount: 1,
-        plans: [
-          plan({
-            planId: "s1",
-            kind: "save",
-            monthlyNeeded: 500,
-            monthlyActual: 0,
-            monthlyActualBasis: "none",
-          }),
-        ],
+      overdue: {
+        count: 1,
+        total: 0,
+        oldestDays: 1,
+        startDate: "2026-08-01",
+        endDate: "2026-08-31",
       },
-      anomalies: [{ categoryId: "c1", name: "X", total: 300, avgTotal: 100 }],
     });
-    expect(actions.map((a) => a.kind)).toEqual([
-      "overdue",
-      "spending_anomaly",
-      "save_off_track",
-    ]);
+
+    expect(actions.map((action) => action.kind)).toEqual(["overdue"]);
   });
 
-  it("filters out dismissed keys", () => {
-    const actions = buildDashboardActions({
+  it("shows the largest monthly goal shortfall with the amount and scope", () => {
+    const [action] = buildDashboardActions({
       ...base,
-      attention: { ...healthyAttention, overdueCount: 1 },
-      anomalies: [{ categoryId: "c1", name: "X", total: 300, avgTotal: 100 }],
-      dismissedKeys: new Set(["overdue:2026-06-22"]),
-    });
-    expect(actions.some((a) => a.kind === "overdue")).toBe(false);
-    expect(actions.some((a) => a.kind === "spending_anomaly")).toBe(true);
-  });
-
-  it("caps the list at the limit", () => {
-    const actions = buildDashboardActions({
-      ...base,
-      attention: {
-        overdueCount: 1,
-        plans: [
-          plan({
-            planId: "s1",
-            kind: "save",
-            monthlyNeeded: 500,
-            monthlyActual: 0,
-            monthlyActualBasis: "none",
-          }),
-        ],
-      },
-      anomalies: [
-        { categoryId: "c1", name: "A", total: 300, avgTotal: 100 },
-        { categoryId: "c2", name: "B", total: 300, avgTotal: 100 },
+      plans: [
+        plan({
+          planId: "smaller",
+          monthlyNeeded: 600,
+          monthlyActual: 400,
+          monthlyActualBasis: "current-month",
+        }),
+        plan({
+          planId: "larger",
+          monthlyNeeded: 1500,
+          monthlyActual: 250,
+          monthlyActualBasis: "current-month",
+        }),
       ],
-      limit: 2,
     });
-    expect(actions).toHaveLength(2);
-    expect(actions[0].kind).toBe("overdue");
+
+    expect(action.kind).toBe("save_shortfall");
+    expect(action.id).toBe("save-larger");
+    expect(action.title).toContain(formatCurrency(1250));
+    expect(action.href).toBe("/plans/larger/settle?group=own");
+  });
+
+  it("does not surface on-pace or non-saving plans", () => {
+    const actions = buildDashboardActions({
+      ...base,
+      plans: [
+        plan({ monthlyNeeded: 1000, monthlyActual: 1000, monthlyActualBasis: "current-month" }),
+        plan({ planId: "debt", kind: "debt", monthlyNeeded: 1000, monthlyActual: 0 }),
+      ],
+    });
+
+    expect(actions).toEqual([]);
+  });
+
+  it.each([
+    { scope: "own", expectedId: "private" },
+    { scope: "all", expectedId: "other" },
+    { scope: "g1", expectedId: "group" },
+  ] as const)("filters goal candidates for the $scope scope", ({ scope, expectedId }) => {
+    const actions = buildDashboardActions({
+      ...base,
+      groupFilter: scope,
+      plans: [
+        plan({ planId: "private", groupId: null, monthlyNeeded: 500, monthlyActual: 0 }),
+        plan({ planId: "group", groupId: "g1", monthlyNeeded: 1000, monthlyActual: 0 }),
+        plan({ planId: "other", groupId: "g2", monthlyNeeded: 1500, monthlyActual: 0 }),
+      ],
+    });
+
+    expect(actions[0]?.id).toBe(`save-${expectedId}`);
+    expect(actions[0]?.href).toContain(`group=${scope}`);
+  });
+
+  it("returns at most the two supported action types in urgency order", () => {
+    const actions = buildDashboardActions({
+      groupFilter: "own",
+      overdue: {
+        count: 1,
+        total: 100,
+        oldestDays: 3,
+        startDate: "2026-08-01",
+        endDate: "2026-08-31",
+      },
+      plans: [plan({ monthlyNeeded: 1000, monthlyActual: 0 })],
+    });
+
+    expect(actions.map((action) => action.kind)).toEqual(["overdue", "save_shortfall"]);
   });
 });

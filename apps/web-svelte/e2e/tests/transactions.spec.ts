@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-import { TEST_USER_ID } from "../helpers/fixtures";
+import { MOCK_TRANSACTIONS, TEST_USER_ID } from "../helpers/fixtures";
 import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
 
 // Desktop table locator helper - use this for all desktop-table assertions.
@@ -111,9 +111,7 @@ test("far-future recurring forecast rows expose only scoped series actions", asy
     return route.fulfill({ status: 200, json: [] });
   });
 
-  await page.goto(
-    "/transactions?startDate=2026-09-01&endDate=2026-09-30&status=upcoming"
-  );
+  await page.goto("/transactions?startDate=2026-09-01&endDate=2026-09-30&status=upcoming");
 
   const row = desktopTable(page).locator("tbody tr").filter({ hasText: "Czynsz" });
   await expect(row).toBeVisible();
@@ -253,11 +251,87 @@ test("bulk delete: confirm and show success toast", async ({ page }) => {
 });
 
 test("quick-settle marks an upcoming transaction paid", async ({ page }) => {
+  let transactionStatus = "upcoming";
+  await page.route(/\/rest\/v1\/transactions(?:_with_category)?(?:\?|$)/, async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    if (url.pathname.endsWith("/transactions_with_category")) {
+      return route.fulfill({
+        status: 200,
+        json: MOCK_TRANSACTIONS.map((tx) =>
+          tx.id === "tx-3" ? { ...tx, status: transactionStatus } : tx
+        ),
+      });
+    }
+    if (request.method() === "PATCH") {
+      transactionStatus = "paid";
+      return route.fulfill({ status: 200, json: [{ id: "tx-3" }] });
+    }
+    return route.fulfill({ status: 200, json: [] });
+  });
+  await page.reload();
+
   // tx-3 ("Rachunek za prąd") is seeded with status "upcoming" → eligible for quick-settle.
-  await expect(desktopTable(page).getByText("Rachunek za prąd")).toBeVisible();
-  const settle = page.getByRole("button", { name: "Oznacz jako zapłacone" }).first();
+  const row = desktopTable(page).locator("tbody tr").filter({ hasText: "Rachunek za prąd" });
+  await expect(row).toBeVisible();
+  await row.click();
+  const sheet = page.locator("aside");
+  const settle = sheet.getByRole("button", { name: "Oznacz jako zapłacone" });
   await expect(settle).toBeVisible();
   await settle.click();
-  // Success toast confirms the mark-paid mutation fired with an undo affordance.
+
   await expect(page.getByText("Oznaczono jako zapłacone")).toBeVisible();
+  await expect(sheet.getByText("Opłacone", { exact: true })).toBeVisible();
+  await expect(settle).toHaveCount(0);
+});
+
+test("push settle keeps a failed action retryable and never shows false success", async ({
+  page,
+}) => {
+  let patchCount = 0;
+  await page.route(/\/rest\/v1\/transactions(?:_with_category)?(?:\?|$)/, async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    if (url.pathname.endsWith("/transactions_with_category")) {
+      return route.fulfill({ status: 200, json: MOCK_TRANSACTIONS });
+    }
+    if (request.method() === "PATCH") {
+      patchCount += 1;
+      return route.fulfill({ status: 200, json: [] });
+    }
+    return route.fulfill({ status: 200, json: [] });
+  });
+
+  await page.goto("/transactions?txId=tx-3&action=settle&notificationId=notif-1");
+
+  await expect.poll(() => patchCount).toBe(1);
+  await expect(page).toHaveURL(/action=settle/);
+  await expect(page.getByText("Oznaczono jako zapłacone")).toHaveCount(0);
+
+  const retry = page.locator("aside").getByRole("button", { name: "Oznacz jako zapłacone" });
+  await expect(retry).toBeVisible();
+  await retry.click();
+  await expect.poll(() => patchCount).toBe(2);
+  await expect(page).toHaveURL(/action=settle/);
+});
+
+test("stale push is acknowledged when the transaction is already paid", async ({ page }) => {
+  let notificationAckCount = 0;
+  await page.route("**/rest/v1/rpc/mark_notification_read", async (route) => {
+    notificationAckCount += 1;
+    return route.fulfill({ status: 200, json: [] });
+  });
+  await page.route(/\/rest\/v1\/transactions_with_category(?:\?|$)/, (route) =>
+    route.fulfill({
+      status: 200,
+      json: MOCK_TRANSACTIONS.map((tx) => (tx.id === "tx-3" ? { ...tx, status: "paid" } : tx)),
+    })
+  );
+
+  await page.goto("/transactions?txId=tx-3&action=settle&notificationId=notif-paid");
+
+  await expect.poll(() => notificationAckCount).toBe(1);
+  await expect(page).not.toHaveURL(/action=settle/);
+  await expect(page.locator("aside").getByText("Opłacone", { exact: true })).toBeVisible();
+  await expect(page.getByText("Oznaczono jako zapłacone")).toHaveCount(0);
 });

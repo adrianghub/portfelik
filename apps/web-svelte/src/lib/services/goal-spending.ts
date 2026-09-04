@@ -1,5 +1,5 @@
 import { GOAL_EXPENSE_CATEGORY_NAME } from "$lib/constants/categories";
-import { ledgerTransactions } from "$lib/services/transaction-cashflow";
+import { forecastTransactions, ledgerTransactions } from "$lib/services/transaction-cashflow";
 import type { TransactionWithCategory } from "$lib/types";
 
 export interface GoalSpendingSplit {
@@ -31,20 +31,37 @@ export function isAllocationExpense(
   return Boolean(celeCategoryId && tx.category_id === celeCategoryId);
 }
 
-export function partitionLedgerExpenses(
+function partitionExpenses(
   txs: TransactionWithCategory[],
   saveLinkedIds: ReadonlySet<string>,
   celeCategoryId?: string | null
 ): { consumption: TransactionWithCategory[]; allocation: TransactionWithCategory[] } {
-  const ledger = ledgerTransactions(txs);
   const consumption: TransactionWithCategory[] = [];
   const allocation: TransactionWithCategory[] = [];
-  for (const tx of ledger) {
+  for (const tx of txs) {
     if (tx.type !== "expense") continue;
     if (isAllocationExpense(tx, saveLinkedIds, celeCategoryId)) allocation.push(tx);
     else consumption.push(tx);
   }
   return { consumption, allocation };
+}
+
+/** Partition realized expenses for historical reporting. */
+export function partitionLedgerExpenses(
+  txs: TransactionWithCategory[],
+  saveLinkedIds: ReadonlySet<string>,
+  celeCategoryId?: string | null
+): { consumption: TransactionWithCategory[]; allocation: TransactionWithCategory[] } {
+  return partitionExpenses(ledgerTransactions(txs), saveLinkedIds, celeCategoryId);
+}
+
+/** Partition realized and scheduled expenses for forecast reporting. */
+export function partitionForecastExpenses(
+  txs: TransactionWithCategory[],
+  saveLinkedIds: ReadonlySet<string>,
+  celeCategoryId?: string | null
+): { consumption: TransactionWithCategory[]; allocation: TransactionWithCategory[] } {
+  return partitionExpenses(forecastTransactions(txs), saveLinkedIds, celeCategoryId);
 }
 
 /**

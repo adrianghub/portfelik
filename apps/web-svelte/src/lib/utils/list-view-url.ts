@@ -33,15 +33,15 @@ export function parseDashboardPeriod(params: URLSearchParams): DashboardPeriod {
   // An explicit date range wins over the period chip — same params as /transactions.
   if (parseDashboardRange(params)) return "custom";
   const raw = params.get("period");
-  if (raw === "month" || raw === "year") return raw;
-  return "week";
+  if (raw === "week" || raw === "year") return raw;
+  return "month";
 }
 
 export function writeDashboardPeriod(params: URLSearchParams, period: DashboardPeriod): void {
   params.delete("startDate");
   params.delete("endDate");
-  // "week" is the default; "custom" only exists through an explicit range.
-  if (period === "week" || period === "custom") params.delete("period");
+  // Calendar month is the default; custom only exists through an explicit range.
+  if (period === "month" || period === "custom") params.delete("period");
   else params.set("period", period);
 }
 
