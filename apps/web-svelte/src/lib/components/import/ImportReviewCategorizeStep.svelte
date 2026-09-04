@@ -23,6 +23,11 @@
   type FilterKind = "pending" | "all" | "uncategorized" | "income" | "expense";
   type SortKind = "original" | "date_desc" | "date_asc" | "amount_desc" | "amount_asc";
 
+  interface RowCategoryAction {
+    kind: "save" | "update";
+    similarCount: number;
+  }
+
   interface Props {
     parseErrorCount: number;
     skippedRowCount: number;
@@ -42,6 +47,7 @@
     categoriesFor: (type: "income" | "expense") => Category[];
     createCategoryInline: (name: string, type: "income" | "expense") => Promise<string | null>;
     matchedRuleFor: (row: ImportRow) => CategorizationRule | null;
+    categoryActionFor: (row: ImportRow) => RowCategoryAction | null;
     spanNudge: { spanDays: number; cadenceDays: number } | null;
     inspectedRule: CategorizationRule | null;
     inspectedRuleCount: number;
@@ -54,6 +60,8 @@
     onBulkRestoreVisible: () => void;
     onPatchRow: (rowId: string, patch: Partial<ImportRow>) => void;
     onCategoryChange: (row: ImportRow, selectedCategoryId: string | null) => void;
+    onApplySimilar: (row: ImportRow) => void;
+    onSaveRule: (row: ImportRow) => void;
     onEditRule: (rule: CategorizationRule) => void;
     celeCategoryId?: string | null;
     savePlans?: { id: string; name: string }[];
@@ -79,6 +87,7 @@
     categoriesFor,
     createCategoryInline,
     matchedRuleFor,
+    categoryActionFor,
     spanNudge,
     inspectedRule,
     inspectedRuleCount,
@@ -91,6 +100,8 @@
     onBulkRestoreVisible,
     onPatchRow,
     onCategoryChange,
+    onApplySimilar,
+    onSaveRule,
     onEditRule,
     celeCategoryId = null,
     savePlans = [],
@@ -419,6 +430,7 @@
         <tbody class="divide-y divide-white/5 bg-slate-950/40">
           {#each renderedRows as row (row.id)}
             {@const rule = matchedRuleFor(row)}
+            {@const categoryAction = categoryActionFor(row)}
             {@const groupName = groups.find((g) => g.id === row.selected_group_id)?.name}
             <tr>
               <td class="px-3 py-2 align-top whitespace-nowrap text-slate-300">{row.posted_at}</td>
@@ -511,6 +523,26 @@
                     >
                       {m.bank_review_rule_edit()}
                     </button>
+                  {:else if categoryAction}
+                    <span class="text-xs text-slate-500">{m.bank_review_category_one_off()}</span>
+                    {#if categoryAction.similarCount > 0}
+                      <button
+                        type="button"
+                        class="rounded-md px-2 py-0.5 text-xs text-sky-300 underline-offset-2 hover:bg-sky-950/40 hover:underline"
+                        onclick={() => onApplySimilar(row)}
+                      >
+                        {m.bank_review_apply_similar({ count: categoryAction.similarCount })}
+                      </button>
+                    {/if}
+                    <button
+                      type="button"
+                      class="rounded-md px-2 py-0.5 text-xs text-slate-300 underline-offset-2 hover:bg-white/5 hover:underline"
+                      onclick={() => onSaveRule(row)}
+                    >
+                      {categoryAction.kind === "update"
+                        ? m.bank_review_update_rule_explicit()
+                        : m.bank_review_save_rule_explicit()}
+                    </button>
                   {/if}
                   <button
                     type="button"
@@ -543,6 +575,7 @@
     <ul class="space-y-1.5 md:hidden">
       {#each renderedRows as row (row.id)}
         {@const rule = matchedRuleFor(row)}
+        {@const categoryAction = categoryActionFor(row)}
         {@const groupName = groups.find((g) => g.id === row.selected_group_id)?.name}
         <li class="space-y-2 rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3">
           <div class="flex items-start justify-between gap-3">
@@ -630,6 +663,26 @@
                 onclick={() => onEditRule(rule)}
               >
                 {m.bank_review_rule_edit()}
+              </button>
+            {:else if categoryAction}
+              <span class="text-xs text-slate-500">{m.bank_review_category_one_off()}</span>
+              {#if categoryAction.similarCount > 0}
+                <button
+                  type="button"
+                  class="text-xs text-sky-300 underline-offset-2 hover:underline"
+                  onclick={() => onApplySimilar(row)}
+                >
+                  {m.bank_review_apply_similar({ count: categoryAction.similarCount })}
+                </button>
+              {/if}
+              <button
+                type="button"
+                class="text-xs text-slate-300 underline-offset-2 hover:underline"
+                onclick={() => onSaveRule(row)}
+              >
+                {categoryAction.kind === "update"
+                  ? m.bank_review_update_rule_explicit()
+                  : m.bank_review_save_rule_explicit()}
               </button>
             {/if}
             <button

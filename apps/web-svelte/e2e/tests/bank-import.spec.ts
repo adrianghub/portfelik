@@ -108,6 +108,7 @@ type BankImportMockOptions = {
   failCategoriesOnce?: boolean;
   failRulePost?: boolean;
   defaultRules?: boolean;
+  initialRules?: CategorizationRule[];
   autoSkipFirstAsDuplicate?: boolean;
   failMarkDuplicatesOnce?: boolean;
 };
@@ -129,7 +130,8 @@ async function mockBankImportAPI(page: Page, options = {}) {
   const sessions: ImportSession[] = [];
   let rows: ImportRow[] = [];
   let rules: CategorizationRule[] =
-    (opts.defaultRules ?? true)
+    opts.initialRules ??
+    ((opts.defaultRules ?? true)
       ? [
           {
             id: "rule-expense",
@@ -154,7 +156,7 @@ async function mockBankImportAPI(page: Page, options = {}) {
             created_at: "2026-05-01T00:00:01Z",
           },
         ]
-      : [];
+      : []);
   let failRulesOnce = opts.failRulesOnce ?? false;
   const failRulePost = opts.failRulePost ?? false;
   let failCategoriesOnce = opts.failCategoriesOnce ?? false;
@@ -248,8 +250,7 @@ async function mockBankImportAPI(page: Page, options = {}) {
 
       if (pathname.endsWith("/bank_accounts")) {
         const kind = url.searchParams.get("kind")?.replace("eq.", "") as
-          | ImportAdapterKind
-          | undefined;
+          ImportAdapterKind | undefined;
         if (method === "POST") {
           const body = request.postDataJSON() as Partial<BankAccount>;
           const account: BankAccount = {
@@ -502,11 +503,19 @@ test("import wizard: commits a fully-categorized statement in one click (no per-
   await expect(page).toHaveURL(/\/transactions\?startYear=2026&startMonth=5/);
 });
 
-test("import wizard: auto-learns a rule after manual category choice", async ({ page }) => {
+test("import wizard: category choice is one-off until the user explicitly saves a rule", async ({
+  page,
+}) => {
   await page.unrouteAll();
   await injectFakeSession(page);
-  // No prefill rules so a manual pick triggers automatic rule learning.
+  // No prefill rules: choosing a category must not silently persist automation.
   await mockBankImportAPI(page, { defaultRules: false });
+  let rulePostCount = 0;
+  page.on("request", (request) => {
+    if (request.method() === "POST" && request.url().includes("/categorization_rules")) {
+      rulePostCount += 1;
+    }
+  });
   await page.goto("/import");
 
   await page.locator('input[type="file"]').setInputFiles({
@@ -528,7 +537,111 @@ test("import wizard: auto-learns a rule after manual category choice", async ({ 
   await page.getByRole("option", { name: "Jedzenie", exact: true }).click();
 
   await expect(page.getByRole("dialog")).toHaveCount(0);
+  const reviewTable = page.getByRole("table");
+  await expect(reviewTable.getByText("Tylko ta pozycja")).toBeVisible();
+  await expect(reviewTable.getByRole("button", { name: "Zapisz regułę" })).toBeVisible();
+  await expect(page.getByText(/Reguła zapisana/)).toHaveCount(0);
+  expect(rulePostCount).toBe(0);
+
+  await reviewTable.getByRole("button", { name: "Zapisz regułę" }).click();
   await expect(page.getByText(/Reguła zapisana/)).toBeVisible({ timeout: 5_000 });
+  expect(rulePostCount).toBe(1);
+});
+
+test("import wizard: correcting a rule-derived category does not mutate the rule without consent", async ({
+  page,
+}) => {
+  await page.unrouteAll();
+  await injectFakeSession(page);
+  await mockBankImportAPI(page, {
+    initialRules: [
+      {
+        id: "rule-cafe",
+        user_id: TEST_USER_ID,
+        kind: "contains",
+        match_description: "KAWIARNIA TEST",
+        match_counterparty: null,
+        match_type: null,
+        category_id: "cat-1",
+        priority: 10,
+        created_at: "2026-05-01T00:00:00Z",
+      },
+    ],
+  });
+  let rulePatchCount = 0;
+  page.on("request", (request) => {
+    if (request.method() === "PATCH" && request.url().includes("/categorization_rules")) {
+      rulePatchCount += 1;
+    }
+  });
+  await page.goto("/import");
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "wyciag.csv",
+    mimeType: "text/csv",
+    buffer: mbankNoCounterpartySample,
+  });
+
+  const reviewTable = page.getByRole("table");
+  const selectedCategory = reviewTable.getByRole("button", { name: "Wyczyść kategorię" });
+  await expect(selectedCategory).toContainText("Jedzenie", { timeout: 10_000 });
+  await selectedCategory.click();
+  await reviewTable.getByRole("combobox", { name: "Kategoria" }).click();
+  await page.getByRole("option", { name: "Transport", exact: true }).click();
+
+  await expect(reviewTable.getByText("Tylko ta pozycja")).toBeVisible();
+  await expect(reviewTable.getByRole("button", { name: "Zmień regułę" })).toBeVisible();
+  expect(rulePatchCount).toBe(0);
+
+  await reviewTable.getByRole("button", { name: "Zmień regułę" }).click();
+  await expect(page.getByText("Reguła zaktualizowana")).toBeVisible();
+  expect(rulePatchCount).toBe(1);
+});
+
+test("import wizard: applies a one-off category to similar rows without saving a rule", async ({
+  page,
+}) => {
+  await page.unrouteAll();
+  await injectFakeSession(page);
+  await mockBankImportAPI(page, { defaultRules: false });
+  let rulePostCount = 0;
+  page.on("request", (request) => {
+    if (request.method() === "POST" && request.url().includes("/categorization_rules")) {
+      rulePostCount += 1;
+    }
+  });
+  await page.goto("/import");
+
+  const similarRowsSample = Buffer.from(
+    `"mBank S.A."
+"Historia operacji"
+"Klient";"Jan Kowalski"
+"Numer rachunku";"PL00 0000 0000 0000 0000 0000 0000"
+""
+#Data księgowania;#Data operacji;#Opis operacji;#Tytuł;#Nadawca/Odbiorca;#Numer konta;#Kwota;#Saldo po operacji
+2026-05-06;2026-05-06;"ZAKUP TOWARÓW I USŁUG";"KAWA";"KAWIARNIA CENTRUM";"PL00 5555 5555 5555 5555 5555 5555";-24,00;9217,81
+2026-05-07;2026-05-07;"ZAKUP TOWARÓW I USŁUG";"HERBATA";"KAWIARNIA MOKOTÓW";"PL00 6666 6666 6666 6666 6666 6666";-18,00;9199,81
+`,
+    "utf8"
+  );
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "wyciag.csv",
+    mimeType: "text/csv",
+    buffer: similarRowsSample,
+  });
+
+  const reviewTable = page.getByRole("table");
+  const firstRow = reviewTable.getByRole("row").filter({ hasText: "KAWIARNIA CENTRUM" });
+  await firstRow.getByRole("combobox", { name: "Kategoria" }).click();
+  await page.getByRole("option", { name: "Jedzenie", exact: true }).click();
+
+  await reviewTable.getByRole("button", { name: "Zastosuj do podobnych (1)" }).click();
+  await expect(reviewTable.getByRole("button", { name: "Wyczyść kategorię" })).toHaveCount(2);
+  expect(rulePostCount).toBe(0);
+
+  await page.getByRole("button", { name: "Cofnij ostatnią zmianę" }).click();
+  await expect(reviewTable.getByRole("button", { name: "Wyczyść kategorię" })).toHaveCount(1);
+  expect(rulePostCount).toBe(0);
 });
 
 test("import wizard: uncategorized importing row goes to Inne", async ({ page }) => {
