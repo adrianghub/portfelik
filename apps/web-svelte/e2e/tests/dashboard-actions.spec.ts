@@ -114,7 +114,21 @@ test("plan progress respects the dashboard group scope", async ({ page }) => {
 
 test("does not render an attention panel when there is no concrete action", async ({ page }) => {
   await mockTransactions(page, []);
+  await page.route("**/rest/v1/plans**", (route) => route.fulfill({ status: 200, json: [] }));
+
+  const overdueLoaded = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      url.pathname.endsWith("/rest/v1/transactions_with_category") &&
+      url.searchParams.get("status") === "eq.overdue"
+    );
+  });
+  const plansLoaded = page.waitForResponse((response) =>
+    new URL(response.url()).pathname.endsWith("/rest/v1/plans")
+  );
+
   await page.goto("/dashboard");
+  await Promise.all([overdueLoaded, plansLoaded]);
 
   await expect(page.getByRole("region", { name: "Do zrobienia teraz" })).toHaveCount(0);
   await expect(page.getByText("Nic nie wymaga uwagi")).toHaveCount(0);
