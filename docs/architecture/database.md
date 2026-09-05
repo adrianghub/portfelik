@@ -323,12 +323,16 @@ Tracks the invitation workflow. Email is the join key (the invitee may not yet h
 
 ### `categories`
 
-Owner-scoped; `user_id IS NULL` denotes a **system category**, visible to every authenticated user. System categories are seeded from `supabase/seed.sql` (14 expense + 7 income).
+Strictly owner-scoped. The default set is copied for each account and remains
+fully editable by that user; categories are not shared through groups.
 
-- **PK**: `id`. **FK**: `user_id` → `auth.users.id` (nullable, ON DELETE CASCADE).
-- **RLS read**: system, own, or group-shared (via the standard pair-of-`group_members` self-join).
-- **RLS write own**: by owner. **RLS write system**: by admin only.
-- **Indexes**: `idx_categories_user_name`, `idx_categories_type_name`.
+- **PK**: `id`. **FK**: `user_id` → `auth.users.id` (nullable in the physical
+  schema for migration compatibility, but non-null by product convention;
+  ON DELETE CASCADE).
+- **RLS read/write**: owner only.
+- **Uniqueness**: case-insensitive `(user_id, lower(name), type)`.
+- **Indexes**: `idx_categories_user_name`, `idx_categories_type_name`,
+  `categories_user_name_type_unique`.
 
 ### `transactions`
 
@@ -346,6 +350,10 @@ the name).
 - **RLS read**: own + group-shared. **RLS write**: creator for own rows; group
   owner/co-owner (`is_group_co_owner`) for group-scoped peer rows. Migration:
   `20260622000000_transaction_co_owner_writes.sql`.
+- **Account deletion**: private rows are erased. Group-scoped rows become
+  household history and are reassigned to the current group owner as technical
+  custodian. Their category is cloned/reused in that owner's private category
+  set; bank-import provenance is erased instead of transferred.
 - **Indexes**: `idx_transactions_user_date_asc`, `idx_transactions_category_user_date`, `idx_transactions_status_date`, `idx_transactions_recurring` (redundant `idx_transactions_user_date_desc` dropped in `20260530000000`; `idx_transactions_recurring_template` dropped with its column in `20260705000000`).
 
 A view `transactions_with_category` joins to `categories` for display; the SvelteKit app reads this view in `fetchTransactions`.
@@ -374,6 +382,9 @@ history rows through `plan_transaction_links`.
   group-scoped updates/deletes; any group member may still insert their own group plan.
   Settlement RPCs allow any group member to link/unlink when scopes match.
   Migration: `20260620000000_plan_co_owner_writes.sql`.
+- **Account deletion**: private plans are erased; group-scoped plans remain and
+  are reassigned to the current group owner as technical custodian. Child debt
+  terms, settlement links, and progress snapshots remain with the plan.
 - **Indexes**: `idx_plans_user_updated`, `idx_plans_group_user_updated`,
   `idx_plans_start_end`, `idx_plans_user_kind`.
 
@@ -533,11 +544,26 @@ or projected occurrence records the template/date slot so sync and forecast do
 not recreate it.
 
 - **FKs**: `user_id`, optional `group_id`, and recurring template id.
+- nullable `created_by`; attribution becomes `NULL` after account deletion
 - **RLS read/insert**: owner or group co-owner for group-scoped skips; no client
   update/delete path is exposed.
 - **Product rule**: a skip is scoped to one occurrence date. Ending or editing a
   whole series changes the template (`recurrence_end_date` / recurrence fields)
   instead.
+
+## Group financial-data lifecycle
+
+Group-scoped transactions, plans, settlement history, progress snapshots, and
+recurring skips are household history. `user_id` is the current technical
+custodian; action-level `created_by` is attribution and may be cleared.
+
+| Event                       | Shared financial rows                                                             | Identity / access outcome                                                                                                                   |
+| --------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Member leaves or is removed | Remain in the group under their existing custodian                                | Former member loses access; current owner/co-owners retain management access. The still-existing account id remains as attribution/custody. |
+| Group ownership transfers   | Remain in the same group                                                          | New group owner becomes the fallback custodian for future account deletion.                                                                 |
+| Non-owner deletes account   | Transactions, plans, linked history, progress anchors, and recurring skips remain | Custody moves to the current group owner; departing `created_by` values become `NULL`; private rows and bank provenance are erased.         |
+| Group owner deletes account | Blocked                                                                           | Owner must transfer ownership or disband first.                                                                                             |
+| Group is disbanded          | Blocked while shared financial rows reference it                                  | Owner must explicitly resolve those rows first; no silent conversion to private data.                                                       |
 
 ## RLS strategy
 
@@ -659,9 +685,9 @@ for the full model and threat scope.
 
 **Account**
 
-| RPC                | Auth | Behavior                                                                                                                          |
-| ------------------ | ---- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `delete_account()` | self | Errors if caller still owns any group. Shared plan history created by the departing member remains, with its attribution cleared. |
+| RPC                | Auth | Behavior                                                                                                                                                                                                                               |
+| ------------------ | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `delete_account()` | self | Errors if caller still owns a group. Erases private rows and import provenance; transfers group-scoped transactions, plans, and recurring skips to the current group owner; clears departing-user attribution on surviving audit rows. |
 
 **Bank import (2)**
 

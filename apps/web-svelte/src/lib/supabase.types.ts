@@ -757,7 +757,7 @@ export type Database = {
       recurring_occurrence_skips: {
         Row: {
           created_at: string;
-          created_by: string;
+          created_by: string | null;
           group_id: string | null;
           id: string;
           occurrence_date: string;
@@ -767,7 +767,7 @@ export type Database = {
         };
         Insert: {
           created_at?: string;
-          created_by: string;
+          created_by?: string | null;
           group_id?: string | null;
           id?: string;
           occurrence_date: string;
@@ -777,7 +777,7 @@ export type Database = {
         };
         Update: {
           created_at?: string;
-          created_by?: string;
+          created_by?: string | null;
           group_id?: string | null;
           id?: string;
           occurrence_date?: string;

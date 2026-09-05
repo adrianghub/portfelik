@@ -16,6 +16,7 @@ database encryption and NOT operational access lockdown. Frame it accurately:
 
 Do **not** market this as "database data is encrypted from admins." Anyone with
 Supabase project-owner access or direct DB credentials can still read raw tables
+
 - that is Layer 2/3 territory (below).
 
 ## Three privacy layers
@@ -118,7 +119,7 @@ User-facing wording to use (do not overpromise "no one can ever see your data"):
 
 - [x] RLS suite green (account-level isolation).
 - [x] Admin UI shows no raw financial details (Layer 1, this work).
-- [x] Users can delete their account/data (`delete_account()` RPC + Settings → Profile); shared plan audit rows survive without personal attribution.
+- [x] Users can delete their account/data (`delete_account()` RPC + Settings → Profile); private/import data is erased, while household financial history transfers to the current group owner without departing-user attribution.
 - [x] Production Supabase access limited to owner / essential operators (Layer 2). Runbook authored (`docs/runbooks/ops-access-lockdown.md`); roster §1 stamped 2026-06-08.
 - [x] Service-role keys not exposed anywhere client-side. Audited 2026-06-05 - clean (no `service_role` in client `src`, no `PUBLIC_`-prefixed secret, example envs placeholder-only, CI passes keys via `${{ secrets.* }}`, no secret echoed to logs). Re-run procedure in the Layer-2 runbook §3.
 - [x] Privacy policy states what is stored and who can access it (`docs/legal/privacy-policy.md` + in-app `/privacy` route).
