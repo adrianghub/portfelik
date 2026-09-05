@@ -236,6 +236,123 @@ describe("RPC: plan settlement", () => {
     expect(link.error).toBeNull();
   });
 
+  it("corrects save progress without creating a cash transaction", async () => {
+    const planId = await createPlan(ctx.userA.userId, "manual progress correction", null, "save");
+    const before = await ctx.admin
+      .from("transactions")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", ctx.userA.userId);
+
+    const first = await ctx.userA.client.rpc("set_save_plan_progress", {
+      p_plan_id: planId,
+      p_saved_amount: 250,
+      p_effective_date: "2026-06-12",
+      p_note: "Stan początkowy",
+    });
+    expect(first.error).toBeNull();
+
+    const second = await ctx.userA.client.rpc("set_save_plan_progress", {
+      p_plan_id: planId,
+      p_saved_amount: 100,
+      p_effective_date: "2026-06-13",
+      p_note: "Korekta",
+    });
+    expect(second.error).toBeNull();
+
+    const snapshots = await ctx.userA.client
+      .from("plan_progress_snapshots")
+      .select("saved_amount, note")
+      .eq("plan_id", planId)
+      .order("created_at");
+    expect(snapshots.error).toBeNull();
+    expect(snapshots.data?.map((row) => row.saved_amount)).toEqual([250, 100]);
+
+    const after = await ctx.admin
+      .from("transactions")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", ctx.userA.userId);
+    expect(after.count).toBe(before.count);
+
+    const directWrite = await ctx.userA.client.from("plan_progress_snapshots").insert({
+      plan_id: planId,
+      saved_amount: 999,
+      effective_date: "2026-06-14",
+    });
+    expect(directWrite.error).not.toBeNull();
+  });
+
+  it("hides and rejects private progress corrections from another user", async () => {
+    const planId = await createPlan(ctx.userA.userId, "private progress correction", null, "save");
+    const ownerResult = await ctx.userA.client.rpc("set_save_plan_progress", {
+      p_plan_id: planId,
+      p_saved_amount: 300,
+      p_effective_date: "2026-06-12",
+    });
+    expect(ownerResult.error).toBeNull();
+
+    const visibleToOther = await ctx.userB.client
+      .from("plan_progress_snapshots")
+      .select("id")
+      .eq("plan_id", planId);
+    expect(visibleToOther.error).toBeNull();
+    expect(visibleToOther.data).toEqual([]);
+
+    const forbidden = await ctx.userB.client.rpc("set_save_plan_progress", {
+      p_plan_id: planId,
+      p_saved_amount: 500,
+      p_effective_date: "2026-06-12",
+    });
+    expect(forbidden.error).not.toBeNull();
+    expect(forbidden.error?.message ?? "").toMatch(/not_authorized_plan/);
+  });
+
+  it("allows shared progress correction only after a member becomes co-owner", async () => {
+    const { data: group, error: groupError } = await ctx.userA.client.rpc("create_group", {
+      p_name: `${SENTINEL} progress-correction-group`,
+    });
+    if (groupError || !group) throw groupError ?? new Error("no group");
+    const groupId = (group as { id: string }).id;
+
+    const member = await ctx.admin.from("group_members").insert({
+      group_id: groupId,
+      user_id: ctx.userB.userId,
+    });
+    if (member.error) throw member.error;
+
+    const planId = await createPlan(
+      ctx.userA.userId,
+      "shared progress correction",
+      groupId,
+      "save"
+    );
+    const forbidden = await ctx.userB.client.rpc("set_save_plan_progress", {
+      p_plan_id: planId,
+      p_saved_amount: 400,
+      p_effective_date: "2026-06-12",
+    });
+    expect(forbidden.error?.message ?? "").toMatch(/not_authorized_plan/);
+
+    const nominate = await ctx.userA.client.rpc("nominate_group_co_owner", {
+      p_group_id: groupId,
+      p_user_id: ctx.userB.userId,
+    });
+    expect(nominate.error).toBeNull();
+
+    const allowed = await ctx.userB.client.rpc("set_save_plan_progress", {
+      p_plan_id: planId,
+      p_saved_amount: 400,
+      p_effective_date: "2026-06-12",
+    });
+    expect(allowed.error).toBeNull();
+
+    const visible = await ctx.userB.client
+      .from("plan_progress_snapshots")
+      .select("saved_amount")
+      .eq("plan_id", planId);
+    expect(visible.error).toBeNull();
+    expect(visible.data?.map((row) => row.saved_amount)).toEqual([400]);
+  });
+
   it("rejects transactions outside the plan period", async () => {
     const planId = await createPlan(ctx.userA.userId, "period plan");
     const txId = await createTx({

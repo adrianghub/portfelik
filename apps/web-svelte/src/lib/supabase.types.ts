@@ -428,6 +428,44 @@ export type Database = {
           },
         ];
       };
+      plan_progress_snapshots: {
+        Row: {
+          created_at: string;
+          created_by: string;
+          effective_date: string;
+          id: string;
+          note: string | null;
+          plan_id: string;
+          saved_amount: number;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string;
+          effective_date: string;
+          id?: string;
+          note?: string | null;
+          plan_id: string;
+          saved_amount: number;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string;
+          effective_date?: string;
+          id?: string;
+          note?: string | null;
+          plan_id?: string;
+          saved_amount?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "plan_progress_snapshots_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "plans";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       plan_settlement_dismissals: {
         Row: {
           dismissed_at: string;
@@ -1308,6 +1346,15 @@ export type Database = {
           p_date: string;
           p_description?: string | null;
           p_plan_id: string;
+        };
+        Returns: string;
+      };
+      set_save_plan_progress: {
+        Args: {
+          p_effective_date: string;
+          p_note?: string;
+          p_plan_id: string;
+          p_saved_amount: number;
         };
         Returns: string;
       };

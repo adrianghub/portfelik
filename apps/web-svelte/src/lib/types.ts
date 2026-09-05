@@ -200,7 +200,7 @@ export interface PlanSummary extends Plan {
   eligibleCount: number;
   monthlyNeeded: number | null;
   monthlyActual: number | null;
-  /** How monthlyActual was derived - "historical-average" is an estimate, not demonstrated pace. */
+  /** Historical values are tolerated defensively but never satisfy current-month pace. */
   monthlyActualBasis?: "none" | "current-month" | "historical-average";
   bucket: PlanBucket;
 }

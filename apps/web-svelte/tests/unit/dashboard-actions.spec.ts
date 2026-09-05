@@ -89,7 +89,7 @@ describe("buildDashboardActions", () => {
     expect(action.kind).toBe("save_shortfall");
     expect(action.id).toBe("save-larger");
     expect(action.title).toContain(formatCurrency(1250));
-    expect(action.href).toBe("/plans/larger/settle?group=own");
+    expect(action.href).toBe("/plans/larger?group=own");
   });
 
   it("does not surface on-pace or non-saving plans", () => {

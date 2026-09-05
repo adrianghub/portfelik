@@ -5,10 +5,10 @@ User-facing **Plany** covers goals and loans on one spine module-no separate
 
 ## Plan kinds
 
-| Kind | Polish UI section | Purpose |
-| ---- | ----------------- | ------- |
-| `save` | Cele oszczędnościowe | Accumulation goals (np. Nowy samochód). Progress from linked **income**. |
-| `debt` | Kredyty | Loan repayment (hipoteka, auto, consumer). Terms in `plan_debt_terms`. |
+| Kind   | Polish UI section    | Purpose                                                                                                                   |
+| ------ | -------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `save` | Cele oszczędnościowe | Accumulation goals (np. Nowy samochód). Progress from linked paid goal-allocation **expenses** plus non-cash corrections. |
+| `debt` | Kredyty              | Loan repayment (hipoteka, auto, consumer). Terms in `plan_debt_terms`.                                                    |
 
 Copy is casual PL: **Powiąż wpłaty** (save), **Powiąż raty** / **Spłać /
 nadpłać** (debt).
@@ -16,10 +16,20 @@ nadpłać** (debt).
 ## Save goals
 
 - `plans.target_amount` is required for `kind=save`.
-- `savedAmount` = sum of linked income transactions.
+- `savedAmount` = latest absolute balance from `plan_progress_snapshots` plus paid
+  linked expense transactions dated after that snapshot. Without a snapshot, all
+  paid linked expenses count. This prevents a later import of older history from
+  double-counting money already covered by a correction.
+- **Zapisz nową wpłatę** creates and links a paid `Cele` expense because it
+  represents a real cash movement. The dialog warns not to use it when the same
+  movement already exists or will arrive through bank import.
+- **Powiąż istniejącą transakcję** reuses a paid expense already present in the ledger.
+- **Skoryguj stan celu** appends a non-cash adjustment. It changes total progress only;
+  it never changes cash, spending, or current-month contribution pace.
 - Detail shows odłożono/target, potrzebujesz vs odkładasz, amber gap banner when
   monthly pace lags.
-- Settlement links **wpływy** from transaction history (same `plan_transaction_links`).
+- Settlement links paid goal-allocation **expenses** from transaction history (same
+  `plan_transaction_links`).
 
 ## Debt plans
 
@@ -39,7 +49,9 @@ nadpłać** (debt).
 ## Save goals (detail polish)
 
 - Sliders adjust target amount and deadline (updates plan, recalculates tempo).
-- **na dobrej drodze** badge on list cards when monthly pace keeps up.
+- **ten miesiąc: gotowe** badge on list cards only when real contributions linked in
+  the current calendar month meet the required monthly amount. Historical averages
+  never satisfy or label the current month.
 
 ## Manual net worth (D1)
 
