@@ -15,7 +15,7 @@ export interface PlanTransactionLink {
   id: string;
   plan_id: string;
   transaction_id: string;
-  created_by: string;
+  created_by: string | null;
   created_at: string;
 }
 

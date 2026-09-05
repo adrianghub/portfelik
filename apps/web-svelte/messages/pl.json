@@ -583,7 +583,7 @@
   "group_nominate_co_owner": "Mianuj współwłaścicielem",
   "group_revoke_co_owner": "Cofnij współwłaściciela",
   "settings_export_title": "Eksport danych",
-  "settings_export_body": "Pobierz eksport JSON (informacyjny, bez przywracania): transakcje, kategorie, reguły, plany z linkami, warunki kredytów, grupy, konta bankowe, sesje importu, saldo gotówki, pozycje majątku i profil. Nie obejmuje powiadomień, subskrypcji push, odrzuceń ani surowych wierszy importu.",
+  "settings_export_body": "Pobierz eksport JSON (informacyjny, bez przywracania): transakcje, kategorie, reguły, plany z linkami i korektami postępu, warunki kredytów, grupy, konta bankowe, sesje importu, saldo gotówki, pozycje majątku i profil. Nie obejmuje powiadomień, subskrypcji push, odrzuceń ani surowych wierszy importu.",
   "settings_export_action": "Eksportuj konto",
   "settings_export_success": "Eksport pobrany.",
   "bank_confirm_inne_why": "Te wiersze trafią do kategorii Inne, bo nie mają przypisanej kategorii.",

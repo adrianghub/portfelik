@@ -118,10 +118,10 @@ User-facing wording to use (do not overpromise "no one can ever see your data"):
 
 - [x] RLS suite green (account-level isolation).
 - [x] Admin UI shows no raw financial details (Layer 1, this work).
-- [x] Users can delete their account/data (`delete_account()` RPC + Settings → Profile).
+- [x] Users can delete their account/data (`delete_account()` RPC + Settings → Profile); shared plan audit rows survive without personal attribution.
 - [x] Production Supabase access limited to owner / essential operators (Layer 2). Runbook authored (`docs/runbooks/ops-access-lockdown.md`); roster §1 stamped 2026-06-08.
 - [x] Service-role keys not exposed anywhere client-side. Audited 2026-06-05 - clean (no `service_role` in client `src`, no `PUBLIC_`-prefixed secret, example envs placeholder-only, CI passes keys via `${{ secrets.* }}`, no secret echoed to logs). Re-run procedure in the Layer-2 runbook §3.
 - [x] Privacy policy states what is stored and who can access it (`docs/legal/privacy-policy.md` + in-app `/privacy` route).
-- [x] Full account-data export - JSON bundle in Settings → Profil (transactions, categories, rules, plans+links, debt terms, groups, import sessions, financial snapshot, profile).
+- [x] Full account-data export - JSON bundle in Settings → Profil (transactions, categories, rules, plans+links+progress corrections, debt terms, groups, import sessions, financial snapshot, profile).
 - [x] Login and `/privacy` avoid overpromising encryption; account export/delete live in Settings → Profile.
 - [x] First-run checklist guides users through Pulpit, Import, Transakcje, and Plany without asking them to upload excessive history.

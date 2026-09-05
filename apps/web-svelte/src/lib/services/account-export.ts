@@ -19,6 +19,7 @@ export interface AccountExportBundle {
   categorization_rules: unknown[];
   plans: unknown[];
   plan_debt_terms: unknown[];
+  plan_progress_snapshots: unknown[];
   groups: unknown[];
   group_members: unknown[];
   bank_accounts: unknown[];
@@ -103,13 +104,20 @@ export async function buildAccountExport(): Promise<AccountExportBundle> {
 
   const planIds = (plans as { id: string }[]).map((p) => p.id);
   let planDebtTerms: unknown[] = [];
+  let planProgressSnapshots: unknown[] = [];
   if (planIds.length > 0) {
-    const { data, error } = await supabase
-      .from("plan_debt_terms")
-      .select("*")
-      .in("plan_id", planIds);
-    if (error) throw error;
-    planDebtTerms = data ?? [];
+    const [debtTermsResult, progressSnapshotsResult] = await Promise.all([
+      supabase.from("plan_debt_terms").select("*").in("plan_id", planIds),
+      supabase
+        .from("plan_progress_snapshots")
+        .select("id, plan_id, saved_amount, effective_date, note, created_by, created_at")
+        .in("plan_id", planIds)
+        .order("effective_date", { ascending: false }),
+    ]);
+    if (debtTermsResult.error) throw debtTermsResult.error;
+    if (progressSnapshotsResult.error) throw progressSnapshotsResult.error;
+    planDebtTerms = debtTermsResult.data ?? [];
+    planProgressSnapshots = progressSnapshotsResult.data ?? [];
   }
 
   return {
@@ -120,6 +128,7 @@ export async function buildAccountExport(): Promise<AccountExportBundle> {
     categorization_rules: rules ?? [],
     plans,
     plan_debt_terms: planDebtTerms,
+    plan_progress_snapshots: planProgressSnapshots,
     groups,
     group_members: groupMembers,
     bank_accounts: accounts ?? [],

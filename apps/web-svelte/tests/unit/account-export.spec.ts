@@ -49,6 +49,14 @@ const fromHandlers: Record<string, () => unknown> = {
     select: vi.fn().mockReturnThis(),
     in: vi.fn(async () => ({ data: [{ plan_id: "p1" }], error: null })),
   }),
+  plan_progress_snapshots: () => ({
+    select: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
+    order: vi.fn(async () => ({
+      data: [{ id: "ps1", plan_id: "p1", saved_amount: 250 }],
+      error: null,
+    })),
+  }),
   group_members: () => ({
     select: vi.fn().mockReturnThis(),
     in: vi.fn(async () => ({ data: [{ group_id: "g1", user_id: "user-1" }], error: null })),
@@ -94,6 +102,9 @@ describe("buildAccountExport", () => {
     expect(bundle.transactions).toHaveLength(1);
     expect(bundle.plans).toHaveLength(1);
     expect(bundle.plan_debt_terms).toHaveLength(1);
+    expect(bundle.plan_progress_snapshots).toEqual([
+      expect.objectContaining({ id: "ps1", plan_id: "p1", saved_amount: 250 }),
+    ]);
     expect(bundle.cash_positions).toHaveLength(1);
     expect(bundle.net_worth_items).toHaveLength(1);
     expect(bundle.financial_snapshot).toMatchObject({ cash_amount: 100 });

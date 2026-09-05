@@ -3,6 +3,7 @@ import {
   SENTINEL,
   cleanupSentinels,
   createAnonClient,
+  createUserClient,
   provisionTwoUsers,
   type TestContext,
 } from "./setup";
@@ -351,6 +352,98 @@ describe("RPC: plan settlement", () => {
       .eq("plan_id", planId);
     expect(visible.error).toBeNull();
     expect(visible.data?.map((row) => row.saved_amount)).toEqual([400]);
+  });
+
+  it("lets a contributing group member delete their account without erasing shared audit rows", async () => {
+    const password = process.env.RLS_TEST_PASSWORD;
+    if (!password) throw new Error("RLS_TEST_PASSWORD is required");
+
+    const email = `rls-delete-${crypto.randomUUID()}@rls.test`;
+    const createdUser = await ctx.admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+    });
+    if (createdUser.error || !createdUser.data.user) {
+      throw createdUser.error ?? new Error("temporary user was not created");
+    }
+    const temporaryUserId = createdUser.data.user.id;
+    let groupId: string | null = null;
+
+    try {
+      const signedIn = await createAnonClient().auth.signInWithPassword({ email, password });
+      if (signedIn.error || !signedIn.data.session) {
+        throw signedIn.error ?? new Error("temporary user did not receive a session");
+      }
+      const temporaryClient = createUserClient(signedIn.data.session.access_token);
+
+      const groupResult = await ctx.userA.client.rpc("create_group", {
+        p_name: `${SENTINEL} account-deletion-group`,
+      });
+      if (groupResult.error || !groupResult.data) {
+        throw groupResult.error ?? new Error("group was not created");
+      }
+      groupId = (groupResult.data as { id: string }).id;
+
+      const membership = await ctx.admin.from("group_members").insert({
+        group_id: groupId,
+        user_id: temporaryUserId,
+      });
+      if (membership.error) throw membership.error;
+
+      const coOwner = await ctx.userA.client.rpc("nominate_group_co_owner", {
+        p_group_id: groupId,
+        p_user_id: temporaryUserId,
+      });
+      if (coOwner.error) throw coOwner.error;
+
+      const planId = await createPlan(ctx.userA.userId, "surviving shared plan", groupId, "save");
+      const transactionId = await createTx({
+        userId: ctx.userA.userId,
+        description: "surviving shared contribution",
+        type: "expense",
+        categoryId: expenseCategoryAId,
+        groupId,
+      });
+
+      const link = await temporaryClient.rpc("link_plan_transaction", {
+        p_plan_id: planId,
+        p_transaction_id: transactionId,
+      });
+      expect(link.error).toBeNull();
+
+      const snapshot = await temporaryClient.rpc("set_save_plan_progress", {
+        p_plan_id: planId,
+        p_saved_amount: 250,
+        p_effective_date: "2026-06-12",
+      });
+      expect(snapshot.error).toBeNull();
+
+      const deletion = await temporaryClient.rpc("delete_account");
+      expect(deletion.error).toBeNull();
+
+      const survivingLink = await ctx.admin
+        .from("plan_transaction_links")
+        .select("created_by")
+        .eq("plan_id", planId)
+        .single();
+      expect(survivingLink.error).toBeNull();
+      expect(survivingLink.data?.created_by).toBeNull();
+
+      const survivingSnapshot = await ctx.admin
+        .from("plan_progress_snapshots")
+        .select("created_by")
+        .eq("plan_id", planId)
+        .single();
+      expect(survivingSnapshot.error).toBeNull();
+      expect(survivingSnapshot.data?.created_by).toBeNull();
+
+      const deletedUser = await ctx.admin.auth.admin.getUserById(temporaryUserId);
+      expect(deletedUser.data.user).toBeNull();
+    } finally {
+      if (groupId) await ctx.admin.from("user_groups").delete().eq("id", groupId);
+      await ctx.admin.auth.admin.deleteUser(temporaryUserId);
+    }
   });
 
   it("rejects transactions outside the plan period", async () => {
