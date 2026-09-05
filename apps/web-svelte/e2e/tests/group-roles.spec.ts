@@ -52,6 +52,7 @@ const SHARED_SAVE_PLAN = {
   category_id: null,
   budget_amount: null,
   target_amount: 12000,
+  status: "active",
   start_date: "2026-01-01",
   end_date: "2026-12-31",
   created_at: "2026-06-01T00:00:00Z",
@@ -71,7 +72,9 @@ async function setupGroupRoleMocks(page: Page, role: "member" | "co_owner"): Pro
     if (url.includes(`user_id=eq.${TEST_USER_ID}`)) {
       return route.fulfill({
         status: 200,
-        json: [{ group_id: GROUP_ID, user_id: TEST_USER_ID, role, joined_at: "2026-06-01T00:00:00Z" }],
+        json: [
+          { group_id: GROUP_ID, user_id: TEST_USER_ID, role, joined_at: "2026-06-01T00:00:00Z" },
+        ],
       });
     }
     route.fulfill({ status: 200, json: [] });
@@ -126,6 +129,7 @@ test.describe("group roles", () => {
     await page.goto(`/plans/${SHARED_PLAN_ID}`);
 
     await expect(page.getByText(/Edycja tylko dla właściciela planu/)).toBeVisible();
-    await expect(page.getByRole("link", { name: "Powiąż wpłaty" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Powiąż istniejącą transakcję" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Skoryguj stan celu" })).toHaveCount(0);
   });
 });

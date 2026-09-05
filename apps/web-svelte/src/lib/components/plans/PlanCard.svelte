@@ -64,14 +64,9 @@
       plan.monthlyNeeded != null &&
       plan.monthlyNeeded > 0 &&
       plan.monthlyActual != null &&
+      plan.monthlyActualBasis === "current-month" &&
       plan.monthlyActual >= plan.monthlyNeeded - 0.01
   );
-  // "historical-average" pace is an estimate from past deposits, not a demonstrated
-  // current-month rate - don't assert on-track confidently from it.
-  const saveOnTrackEstimate = $derived(
-    saveOnTrack && plan.monthlyActualBasis === "historical-average"
-  );
-  const saveOnTrackConfident = $derived(saveOnTrack && !saveOnTrackEstimate);
   const hasActions = $derived(!!onedit || !!ondelete);
 
   let menuOpen = $state(false);
@@ -156,18 +151,11 @@
                   {m.plan_card_upcoming_badge()}
                 </span>
               {/if}
-              {#if saveOnTrackConfident}
+              {#if saveOnTrack}
                 <span
                   class="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 uppercase"
                 >
                   {m.plan_save_on_track_badge()}
-                </span>
-              {:else if saveOnTrackEstimate}
-                <span
-                  class="shrink-0 rounded-full border border-slate-500/30 bg-slate-500/10 px-2 py-0.5 text-[10px] font-medium text-slate-300 normal-case"
-                  title={m.plan_save_on_track_estimate_badge()}
-                >
-                  {m.plan_save_on_track_badge()} · {m.plan_save_on_track_estimate_badge()}
                 </span>
               {/if}
               {#if plan.group_id && groupName}

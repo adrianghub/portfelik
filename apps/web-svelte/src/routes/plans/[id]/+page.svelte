@@ -6,10 +6,12 @@
     computePlanProgress,
     addPlanContribution,
     fetchLinkedTransactions,
+    fetchPlanProgressSnapshot,
     fetchSuggestionCount,
     linkPlanTransaction,
     unlinkPlanTransaction,
     suggestPlanContribution,
+    setSavePlanProgress,
   } from "$lib/services/plan-settlement";
   import DebtPlanDetail from "$lib/components/plans/DebtPlanDetail.svelte";
   import PlanForwardNav from "$lib/components/plans/PlanForwardNav.svelte";
@@ -95,6 +97,12 @@
     enabled: () => !!session.userId && !!id,
   }));
 
+  const progressSnapshotQuery = createQuery(() => ({
+    queryKey: qk.planProgressList(session.userId!, id, "snapshot"),
+    queryFn: () => fetchPlanProgressSnapshot(id),
+    enabled: () => !!session.userId && !!id && planQuery.data?.kind === "save",
+  }));
+
   const debtTermsQuery = createQuery(() => ({
     queryKey: qk.planDebtTerms(session.userId!, id),
     queryFn: () => fetchPlanDebtTerms(id),
@@ -134,6 +142,7 @@
           startDate: planQuery.data.start_date,
           endDate: planQuery.data.end_date,
           linkedTransactions: linkedQuery.data ?? [],
+          progressSnapshot: progressSnapshotQuery.data ?? null,
           eligibleCount: suggestionCountQuery.data ?? 0,
         })
       : null
@@ -155,8 +164,10 @@
       : null
   );
 
-  const planIsUpcoming = $derived(
-    planQuery.data ? derivePlanBucket(planQuery.data) === "upcoming" : false
+  const planBucket = $derived(planQuery.data ? derivePlanBucket(planQuery.data) : null);
+  const planIsUpcoming = $derived(planBucket === "upcoming");
+  const canRecordProgress = $derived(
+    planBucket === "active" && planQuery.data?.status === "active"
   );
 
   const canManage = $derived.by(() => {
@@ -242,6 +253,42 @@
       await queryClient.invalidateQueries({ queryKey: qk.planSuggestionCount(u, id) });
       await queryClient.invalidateQueries({ queryKey: qk.planDebtTerms(u, id) });
       await queryClient.invalidateQueries({ queryKey: qk.planDebtDetect(u, id) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
+    },
+    onError: (err) => toastError(err),
+  }));
+
+  let correctionOpen = $state(false);
+  let correctedSavedAmount = $state<number | null>(null);
+  let correctionDate = $state(localDateIso());
+  let correctionNote = $state("");
+
+  function openCorrection() {
+    if (!progress) return;
+    correctedSavedAmount = progress.savedAmount;
+    correctionDate = localDateIso();
+    correctionNote = "";
+    correctionOpen = true;
+  }
+
+  const correctionMutation = createMutation(() => ({
+    mutationFn: () =>
+      setSavePlanProgress({
+        planId: id,
+        savedAmount: correctedSavedAmount ?? 0,
+        effectiveDate: correctionDate,
+        note: correctionNote,
+      }),
+    onSuccess: async () => {
+      correctionOpen = false;
+      toast.success(m.plan_progress_correction_saved());
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({
+        queryKey: qk.planProgressList(u, id, "snapshot"),
+      });
+      await queryClient.invalidateQueries({ queryKey: qk.planSuggestionCount(u, id) });
       await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
       await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
@@ -449,7 +496,8 @@
             }
           : undefined}
         adjusting={saveAdjustMutation.isPending}
-        onContribute={openContribution}
+        onContribute={canRecordProgress ? openContribution : undefined}
+        onCorrect={canManage && canRecordProgress ? openCorrection : undefined}
       />
     {:else if plan.kind === "debt" && debtTermsQuery.data}
       {#if plan.group_id && !canManage}
@@ -582,6 +630,11 @@
     }}
     class="space-y-4"
   >
+    <p
+      class="rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 py-2.5 text-xs leading-relaxed text-sky-100"
+    >
+      {m.plan_contribution_transaction_notice()}
+    </p>
     <p class="text-xs font-medium text-slate-400">
       {planQuery.data?.group_id
         ? m.plan_contribution_scope_group()
@@ -625,6 +678,67 @@
       class="bg-accent-gradient w-full rounded-full px-4 py-2.5 text-sm font-semibold text-slate-950 disabled:opacity-50"
     >
       {contributionMutation.isPending ? m.common_saving() : m.plan_contribution_add()}
+    </button>
+  </form>
+</Dialog>
+
+<Dialog
+  open={correctionOpen}
+  onclose={() => (correctionOpen = false)}
+  title={m.plan_progress_correction_title()}
+>
+  <form
+    onsubmit={(event) => {
+      event.preventDefault();
+      correctionMutation.mutate();
+    }}
+    class="space-y-4"
+  >
+    <p
+      class="rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2.5 text-xs leading-relaxed text-slate-300"
+    >
+      {m.plan_progress_correction_notice()}
+    </p>
+    <div class="space-y-1">
+      <label for="progress-correction-amount" class="text-xs font-medium text-slate-300">
+        {m.plan_progress_correction_amount()}
+      </label>
+      <input
+        id="progress-correction-amount"
+        type="number"
+        min="0"
+        step="0.01"
+        required
+        bind:value={correctedSavedAmount}
+        class="focus:border-accent/40 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 outline-none"
+      />
+    </div>
+    <DayPicker
+      id="progress-correction-date"
+      value={correctionDate}
+      onchange={(value) => (correctionDate = value)}
+      label={m.plan_progress_correction_date()}
+    />
+    <div class="space-y-1">
+      <label for="progress-correction-note" class="text-xs font-medium text-slate-300">
+        {m.plan_progress_correction_note()}
+      </label>
+      <input
+        id="progress-correction-note"
+        type="text"
+        maxlength="240"
+        bind:value={correctionNote}
+        class="focus:border-accent/40 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 outline-none"
+      />
+    </div>
+    <button
+      type="submit"
+      disabled={correctionMutation.isPending ||
+        correctedSavedAmount == null ||
+        correctedSavedAmount < 0}
+      class="bg-accent-gradient w-full rounded-full px-4 py-2.5 text-sm font-semibold text-slate-950 disabled:opacity-50"
+    >
+      {correctionMutation.isPending ? m.common_saving() : m.plan_progress_correction_save()}
     </button>
   </form>
 </Dialog>
