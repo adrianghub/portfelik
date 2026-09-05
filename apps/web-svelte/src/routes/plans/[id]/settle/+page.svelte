@@ -228,6 +228,7 @@
 
   <section class="space-y-3">
     <h2 class="text-eyebrow text-slate-400">{m.plan_settle_candidates()}</h2>
+    <p class="text-xs text-slate-400">{m.plan_settle_whole_transaction_notice()}</p>
 
     {#if rankedQuery.isPending}
       {#each [0, 1, 2] as _, i (i)}

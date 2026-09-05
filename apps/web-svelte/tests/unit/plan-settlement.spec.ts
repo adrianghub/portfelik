@@ -366,6 +366,66 @@ describe("computePlanProgress", () => {
     expect(progress.monthlyActual).toBe(1000);
   });
 
+  it("treats a correction as the end-of-day balance regardless of same-day action order", () => {
+    const contribution = tx({
+      id: "same-day",
+      type: "expense",
+      amount: 1000,
+      date: "2026-06-12T12:00:00Z",
+      status: "paid",
+    });
+    const laterContribution = tx({
+      id: "next-day",
+      type: "expense",
+      amount: 250,
+      date: "2026-06-13T12:00:00Z",
+      status: "paid",
+    });
+    const input = {
+      planId: "save-same-day",
+      planName: "Poduszka",
+      kind: "save" as const,
+      budgetAmount: null,
+      targetAmount: 10_000,
+      startDate: "2026-01-01",
+      endDate: "2027-01-01",
+      today: "2026-06-13",
+      progressSnapshot: { savedAmount: 4000, effectiveDate: "2026-06-12" },
+    };
+
+    const correctionAfterPayment = computePlanProgress({
+      ...input,
+      linkedTransactions: [contribution, laterContribution],
+    });
+    const correctionBeforePayment = computePlanProgress({
+      ...input,
+      linkedTransactions: [laterContribution, contribution],
+    });
+
+    expect(correctionAfterPayment.savedAmount).toBe(4250);
+    expect(correctionBeforePayment.savedAmount).toBe(4250);
+  });
+
+  it("compares contribution days in Europe/Warsaw rather than by UTC date", () => {
+    const progress = computePlanProgress({
+      planId: "save-timezone",
+      planName: "Wakacje",
+      kind: "save",
+      budgetAmount: null,
+      targetAmount: 10_000,
+      startDate: "2026-01-01",
+      endDate: "2027-01-01",
+      today: "2026-06-13",
+      linkedTransactions: [
+        tx({ id: "before-midnight", amount: 100, date: "2026-06-12T21:59:59Z" }),
+        tx({ id: "after-midnight", amount: 250, date: "2026-06-12T22:00:00Z" }),
+      ],
+      progressSnapshot: { savedAmount: 4000, effectiveDate: "2026-06-12" },
+    });
+
+    expect(progress.savedAmount).toBe(4250);
+  });
+
   it("computes save goal monthly needed and actual from linked contributions", () => {
     const end = new Date();
     end.setMonth(end.getMonth() + 6);

@@ -47,15 +47,15 @@ describe("computeMonthlySurplus", () => {
     expect(result.cashflowNet).toBe(3500);
     expect(result.surplus).toBe(3500);
     // Headline = free money after obligations; aspirational goals do not reduce it.
-    expect(result.availableForGoals).toBe(3500);
-    expect(result.afterSaveGoals).toBe(2700);
+    expect(result.cashflowAfterDebtEstimate).toBe(3500);
+    expect(result.cashflowAfterSavePaceScenario).toBe(2700);
     expect(result.hasSaveGoals).toBe(true);
     expect(result.hasDebtPlans).toBe(true);
   });
 
-  it("does NOT let unfunded save goals reduce the headline (availableForGoals)", () => {
+  it("does NOT let unfunded save goals alter the debt-adjusted cashflow scenario", () => {
     // Goals are aspirational allocation, not an obligation. A large unfunded pace
-    // must keep the headline positive - only the informational afterSaveGoals dips.
+    // must keep the debt-adjusted cashflow unchanged; only the save-pace scenario dips.
     const result = computeMonthlySurplus({
       totalIncome: 5000,
       totalExpenses: 4800,
@@ -63,11 +63,11 @@ describe("computeMonthlySurplus", () => {
       saveMonthlyNeeded: 2000,
     });
     expect(result.cashflowNet).toBe(200);
-    expect(result.availableForGoals).toBe(200); // headline stays positive
-    expect(result.afterSaveGoals).toBe(-1800); // breakdown-only "what would remain"
+    expect(result.cashflowAfterDebtEstimate).toBe(200);
+    expect(result.cashflowAfterSavePaceScenario).toBe(-1800);
   });
 
-  it("availableForGoals subtracts only unreflected debt obligations", () => {
+  it("debt-adjusted cashflow subtracts only unreflected debt obligations", () => {
     // A genuine deficit: cashflow cannot cover the debt obligation not yet in expenses.
     const result = computeMonthlySurplus({
       totalIncome: 5000,
@@ -77,8 +77,8 @@ describe("computeMonthlySurplus", () => {
       saveMonthlyNeeded: 1000,
     });
     expect(result.unreflectedDebt).toBe(1000);
-    expect(result.availableForGoals).toBe(-800); // 200 − 1000 obligation shortfall
-    expect(result.afterSaveGoals).toBe(-1800); // − 1000 unmet save pace (info only)
+    expect(result.cashflowAfterDebtEstimate).toBe(-800);
+    expect(result.cashflowAfterSavePaceScenario).toBe(-1800);
   });
 
   it("does not subtract debt payments again from cashflow", () => {
@@ -89,7 +89,7 @@ describe("computeMonthlySurplus", () => {
       saveMonthlyNeeded: 500,
     });
     expect(result.surplus).toBe(200);
-    expect(result.afterSaveGoals).toBe(-300);
+    expect(result.cashflowAfterSavePaceScenario).toBe(-300);
   });
 
   it("flags the debt assumption unverified when coverage is not supplied", () => {
@@ -102,7 +102,7 @@ describe("computeMonthlySurplus", () => {
     expect(result.debtAssumptionVerified).toBe(false);
     expect(result.unreflectedDebt).toBe(0);
     // unchanged math: full payment assumed already inside expenses
-    expect(result.afterSaveGoals).toBe(200);
+    expect(result.cashflowAfterSavePaceScenario).toBe(200);
   });
 
   it("subtracts the unreflected debt shortfall when coverage is partial", () => {
@@ -116,7 +116,7 @@ describe("computeMonthlySurplus", () => {
     expect(result.debtAssumptionVerified).toBe(true);
     expect(result.unreflectedDebt).toBe(1000);
     // cashflow 200 − save 0 − unreflected 1000
-    expect(result.afterSaveGoals).toBe(-800);
+    expect(result.cashflowAfterSavePaceScenario).toBe(-800);
   });
 
   it("does not double-count when debt payments are fully reflected in expenses", () => {
@@ -129,7 +129,7 @@ describe("computeMonthlySurplus", () => {
     });
     expect(result.debtAssumptionVerified).toBe(true);
     expect(result.unreflectedDebt).toBe(0);
-    expect(result.afterSaveGoals).toBe(2700);
+    expect(result.cashflowAfterSavePaceScenario).toBe(2700);
   });
 
   it("keeps the estimate (no double-count) when loaded coverage is zero and gets gated", () => {
@@ -144,7 +144,7 @@ describe("computeMonthlySurplus", () => {
     });
     expect(result.debtAssumptionVerified).toBe(false);
     expect(result.unreflectedDebt).toBe(0);
-    expect(result.afterSaveGoals).toBe(200);
+    expect(result.cashflowAfterSavePaceScenario).toBe(200);
   });
 
   it("credits this month's save deposits against the monthly pace", () => {
@@ -159,7 +159,7 @@ describe("computeMonthlySurplus", () => {
     });
     expect(result.saveContributionsThisMonth).toBe(1000);
     expect(result.unmetSaveNeed).toBe(667);
-    expect(result.afterSaveGoals).toBe(3000 - 667);
+    expect(result.cashflowAfterSavePaceScenario).toBe(3000 - 667);
   });
 
   it("does not punish deposits beyond the monthly pace", () => {
@@ -171,7 +171,7 @@ describe("computeMonthlySurplus", () => {
       saveContributionsThisMonth: 2500,
     });
     expect(result.unmetSaveNeed).toBe(0);
-    expect(result.afterSaveGoals).toBe(3000);
+    expect(result.cashflowAfterSavePaceScenario).toBe(3000);
   });
 
   it("keeps legacy behaviour when no deposits are observed", () => {
@@ -183,7 +183,7 @@ describe("computeMonthlySurplus", () => {
     });
     expect(result.saveContributionsThisMonth).toBe(0);
     expect(result.unmetSaveNeed).toBe(1667);
-    expect(result.afterSaveGoals).toBe(3000 - 1667);
+    expect(result.cashflowAfterSavePaceScenario).toBe(3000 - 1667);
   });
 
   it("clamps unreflected debt at zero when expenses over-report the payment", () => {
@@ -195,7 +195,7 @@ describe("computeMonthlySurplus", () => {
       saveMonthlyNeeded: 0,
     });
     expect(result.unreflectedDebt).toBe(0);
-    expect(result.afterSaveGoals).toBe(200);
+    expect(result.cashflowAfterSavePaceScenario).toBe(200);
   });
 });
 

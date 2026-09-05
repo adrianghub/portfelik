@@ -1,4 +1,5 @@
 import { currentCalendarMonthBounds } from "$lib/services/financial-surplus";
+import { productDateIso } from "$lib/date-local";
 import {
   isSettlementStatus,
   isTransactionEligibleForPlanSettlement,
@@ -166,10 +167,11 @@ export async function fetchPlanProgressSnapshot(
 ): Promise<PlanProgressSnapshot | null> {
   const { data, error } = await supabase
     .from("plan_progress_snapshots")
-    .select("saved_amount, effective_date")
+    .select("id, saved_amount, effective_date")
     .eq("plan_id", planId)
     .order("effective_date", { ascending: false })
     .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(1)
     .maybeSingle();
   if (error) throw error;
@@ -431,7 +433,7 @@ export function rankPlanTransaction(
   }
 
   const today = opts?.today ?? todayIso();
-  const txDate = tx.date.slice(0, 10);
+  const txDate = productDateIso(tx.date);
   const ageDays = (Date.parse(today) - Date.parse(txDate)) / 86_400_000;
   if (ageDays >= 0 && ageDays <= 30) {
     score += 10;
@@ -464,7 +466,7 @@ function saveProgressBalance(
     (tx) =>
       tx.type === "expense" &&
       isSettlementStatus(tx.status) &&
-      (!snapshot || tx.date.slice(0, 10) > snapshot.effectiveDate)
+      (!snapshot || productDateIso(tx.date) > snapshot.effectiveDate)
   );
   return (snapshot?.savedAmount ?? 0) + laterPaidExpenses.reduce((sum, tx) => sum + tx.amount, 0);
 }
@@ -546,7 +548,7 @@ function sumSaveContributionsInMonth(
 ): number {
   return contributions
     .filter((t) => {
-      const d = t.date.slice(0, 10);
+      const d = productDateIso(t.date);
       return d >= monthStart && d <= monthEnd;
     })
     .reduce((sum, t) => sum + t.amount, 0);
@@ -624,7 +626,7 @@ export function computePlanProgress(input: {
   const incomeAmount = incomes.reduce((s, t) => s + t.amount, 0);
   const monthBounds = currentCalendarMonthBounds(new Date(today));
   const inCurrentMonth = (t: TransactionWithCategory) => {
-    const d = t.date.slice(0, 10);
+    const d = productDateIso(t.date);
     return d >= monthBounds.start && d <= monthBounds.end;
   };
   const linkedExpenseCurrentMonth = expenses
@@ -707,10 +709,11 @@ async function fetchProgressSnapshots(
   if (planIds.length === 0) return {};
   const { data, error } = await supabase
     .from("plan_progress_snapshots")
-    .select("plan_id, saved_amount, effective_date, created_at")
+    .select("id, plan_id, saved_amount, effective_date, created_at")
     .in("plan_id", planIds)
     .order("effective_date", { ascending: false })
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false });
   if (error) throw error;
   const snapshots: Record<string, PlanProgressSnapshot | null> = Object.fromEntries(
     planIds.map((id) => [id, null])

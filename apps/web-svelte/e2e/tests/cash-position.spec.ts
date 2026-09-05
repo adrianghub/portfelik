@@ -157,7 +157,8 @@ test("private scope: strip opens edit sheet with anchor fields", async ({ page }
 
   const sheet = page.getByRole("dialog", { name: "Gotówka (prywatna)" });
   await expect(sheet).toBeVisible();
-  await expect(sheet.getByLabel("Stan na dzień")).toBeVisible();
+  await expect(sheet.getByLabel("Dzień salda początkowego")).toBeVisible();
   await expect(sheet.locator("#cash-opening-amount")).toHaveValue("1000");
   await expect(sheet.getByLabel("Saldo początkowe gotówki")).toBeVisible();
+  await expect(sheet.getByText(/przed pierwszą transakcją z wybranego dnia/)).toBeVisible();
 });
