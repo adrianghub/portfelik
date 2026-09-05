@@ -2,6 +2,7 @@
   import { goto } from "$app/navigation";
   import Button from "$lib/components/ui/Button.svelte";
   import {
+    canAutoProceedImportAdapter,
     detectImportAdapter,
     getImportAdapter,
     importAdapterLabel,
@@ -151,11 +152,12 @@
       detection = result;
       selectedKind = result?.kind ?? null;
 
-      // High-confidence detection: proceed straight through (one-click path).
-      if (result && result.confidence === "high") {
+      // Structural confidence is not enough for an unattended import. Only
+      // adapters certified against real exports may use the one-click path.
+      if (result && result.confidence === "high" && canAutoProceedImportAdapter(result.kind)) {
         await proceedWithAdapter(result.kind);
       }
-      // medium/low/null: render the selector and wait for confirmAdapter().
+      // Uncertified high and all medium/low/null results wait for confirmation.
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       error = msg;
@@ -303,11 +305,11 @@
   {/if}
 
   {#if pending && !committedConflict && !busy}
-    {#if detection?.confidence === "high" && !error}
+    {#if detection?.confidence === "high" && canAutoProceedImportAdapter(detection.kind) && !error}
       <p class="border-accent/30 bg-accent/10 text-accent rounded-xl border px-4 py-3 text-sm">
         {m.bank_upload_recognized({ bank: importAdapterLabel(detection.kind) })}
       </p>
-    {:else if detection?.confidence !== "high"}
+    {:else}
       <div class="space-y-3 rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
         <p class="text-sm text-slate-300">
           {#if detection}

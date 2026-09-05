@@ -227,6 +227,53 @@ export type Database = {
         };
         Relationships: [];
       };
+      group_invitation_access_attempts: {
+        Row: {
+          created_at: string;
+          email: string;
+          id: string;
+          token_hash: string;
+        };
+        Insert: {
+          created_at?: string;
+          email: string;
+          id?: string;
+          token_hash: string;
+        };
+        Update: {
+          created_at?: string;
+          email?: string;
+          id?: string;
+          token_hash?: string;
+        };
+        Relationships: [];
+      };
+      group_invitation_tokens: {
+        Row: {
+          created_at: string;
+          invitation_id: string;
+          token_hash: string;
+        };
+        Insert: {
+          created_at?: string;
+          invitation_id: string;
+          token_hash: string;
+        };
+        Update: {
+          created_at?: string;
+          invitation_id?: string;
+          token_hash?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "group_invitation_tokens_invitation_id_fkey";
+            columns: ["invitation_id"];
+            isOneToOne: true;
+            referencedRelation: "group_invitations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       group_invitations: {
         Row: {
           created_at: string;
@@ -428,6 +475,44 @@ export type Database = {
           },
         ];
       };
+      plan_progress_snapshots: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          effective_date: string;
+          id: string;
+          note: string | null;
+          plan_id: string;
+          saved_amount: number;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          effective_date: string;
+          id?: string;
+          note?: string | null;
+          plan_id: string;
+          saved_amount: number;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          effective_date?: string;
+          id?: string;
+          note?: string | null;
+          plan_id?: string;
+          saved_amount?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "plan_progress_snapshots_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "plans";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       plan_settlement_dismissals: {
         Row: {
           dismissed_at: string;
@@ -477,21 +562,21 @@ export type Database = {
       plan_transaction_links: {
         Row: {
           created_at: string;
-          created_by: string;
+          created_by: string | null;
           id: string;
           plan_id: string;
           transaction_id: string;
         };
         Insert: {
           created_at?: string;
-          created_by?: string;
+          created_by?: string | null;
           id?: string;
           plan_id: string;
           transaction_id: string;
         };
         Update: {
           created_at?: string;
-          created_by?: string;
+          created_by?: string | null;
           id?: string;
           plan_id?: string;
           transaction_id?: string;
@@ -672,7 +757,7 @@ export type Database = {
       recurring_occurrence_skips: {
         Row: {
           created_at: string;
-          created_by: string;
+          created_by: string | null;
           group_id: string | null;
           id: string;
           occurrence_date: string;
@@ -682,7 +767,7 @@ export type Database = {
         };
         Insert: {
           created_at?: string;
-          created_by: string;
+          created_by?: string | null;
           group_id?: string | null;
           id?: string;
           occurrence_date: string;
@@ -692,7 +777,7 @@ export type Database = {
         };
         Update: {
           created_at?: string;
-          created_by?: string;
+          created_by?: string | null;
           group_id?: string | null;
           id?: string;
           occurrence_date?: string;
@@ -1198,10 +1283,27 @@ export type Database = {
       };
     };
     Functions: {
+      _prune_recurring_occurrences_from: {
+        Args: { p_from_date: string; p_template_id: string };
+        Returns: undefined;
+      };
       _setting: { Args: { p_name: string }; Returns: string };
+      _sync_debt_current_balance_from_links: {
+        Args: { p_plan_id: string };
+        Returns: number;
+      };
       accept_invitation: {
         Args: { p_invitation_id: string };
         Returns: undefined;
+      };
+      add_plan_contribution: {
+        Args: {
+          p_amount: number;
+          p_date: string;
+          p_description?: string | null;
+          p_plan_id: string;
+        };
+        Returns: string;
       };
       admin_masked_import_session_by_id: {
         Args: { p_session_id: string };
@@ -1216,11 +1318,44 @@ export type Database = {
         Returns: Json;
       };
       assign_admin_role: { Args: { p_user_id: string }; Returns: undefined };
+      bulk_delete_transactions: {
+        Args: { p_transaction_ids: string[] };
+        Returns: number;
+      };
+      can_access_plan_for_settlement: {
+        Args: { p_plan: Database["public"]["Tables"]["plans"]["Row"] };
+        Returns: boolean;
+      };
+      can_access_transaction_for_settlement: {
+        Args: { p_tx: Database["public"]["Tables"]["transactions"]["Row"] };
+        Returns: boolean;
+      };
+      can_manage_transaction_actor: {
+        Args: { p_group_id: string; p_owner_id: string };
+        Returns: boolean;
+      };
+      cancel_import_session: { Args: { p_session_id: string }; Returns: Json };
       cancel_invitation: {
         Args: { p_invitation_id: string };
         Returns: undefined;
       };
+      claim_group_invitation: { Args: { p_token: string }; Returns: Json };
+      clear_demo_data: { Args: never; Returns: Json };
       commit_import_session: { Args: { p_session_id: string }; Returns: Json };
+      create_and_link_plan_transaction: {
+        Args: {
+          p_amount: number;
+          p_category_id: string;
+          p_counterparty?: string | null;
+          p_currency?: string;
+          p_date: string;
+          p_description: string;
+          p_group_id?: string | null;
+          p_plan_id: string;
+          p_status?: string;
+        };
+        Returns: string;
+      };
       create_group: {
         Args: { p_name: string };
         Returns: {
@@ -1236,6 +1371,15 @@ export type Database = {
           isOneToOne: true;
           isSetofReturn: false;
         };
+      };
+      create_group_invitation_for_delivery: {
+        Args: {
+          p_actor_id?: string;
+          p_email: string;
+          p_group_id: string;
+          p_invitation_id?: string;
+        };
+        Returns: Json;
       };
       delete_account: { Args: never; Returns: undefined };
       delete_admin_push_subscription: {
@@ -1286,93 +1430,9 @@ export type Database = {
           duplicate_of_transaction_id: string;
         }[];
       };
+      get_group_invitation_preview: { Args: { p_token: string }; Returns: Json };
       get_monthly_summary: {
         Args: { p_month: number; p_year: number };
-        Returns: Json;
-      };
-      get_group_invitation_preview: {
-        Args: { p_token: string };
-        Returns: Json;
-      };
-      verify_group_invitation_recipient: {
-        Args: { p_email: string; p_token: string };
-        Returns: boolean;
-      };
-      claim_group_invitation: {
-        Args: { p_token: string };
-        Returns: Json;
-      };
-      add_plan_contribution: {
-        Args: {
-          p_amount: number;
-          p_date: string;
-          p_description?: string | null;
-          p_plan_id: string;
-        };
-        Returns: string;
-      };
-      save_net_worth_snapshot: {
-        Args: {
-          p_as_of_date: string;
-          p_items: Json;
-          p_opening_amount: number;
-        };
-        Returns: Json;
-      };
-      save_debt_plan: {
-        Args: {
-          p_annual_rate: number;
-          p_category_id: string | null;
-          p_clear_balance_anchor?: boolean;
-          p_current_balance: number;
-          p_end_date: string;
-          p_first_payment_amount: number | null;
-          p_first_payment_date: string | null;
-          p_group_id: string | null;
-          p_monthly_payment: number;
-          p_name: string;
-          p_original_amount: number;
-          p_plan_id: string | null;
-          p_reset_balance_anchor?: boolean;
-          p_start_date: string;
-          p_target_amount: number;
-        };
-        Returns: Json;
-      };
-      clear_demo_data: { Args: Record<string, never>; Returns: Json };
-      cancel_import_session: {
-        Args: { p_session_id: string };
-        Returns: Json;
-      };
-      sync_debt_current_balance_from_links: {
-        Args: { p_plan_id: string };
-        Returns: number;
-      };
-      create_and_link_plan_transaction: {
-        Args: {
-          p_plan_id: string;
-          p_amount: number;
-          p_description: string;
-          p_date: string;
-          p_category_id: string;
-          p_currency?: string;
-          p_counterparty?: string | null;
-          p_status?: string;
-          p_group_id?: string | null;
-        };
-        Returns: string;
-      };
-      bulk_delete_transactions: {
-        Args: { p_transaction_ids: string[] };
-        Returns: number;
-      };
-      create_group_invitation_for_delivery: {
-        Args: {
-          p_actor_id?: string | null;
-          p_email: string;
-          p_group_id: string;
-          p_invitation_id?: string | null;
-        };
         Returns: Json;
       };
       invite_user: {
@@ -1380,11 +1440,15 @@ export type Database = {
         Returns: {
           created_at: string;
           created_by: string;
+          delivery_attempts: number;
+          delivery_status: string;
+          expires_at: string;
           group_id: string;
           group_name: string;
           id: string;
           invited_user_email: string;
           invited_user_id: string | null;
+          sent_at: string | null;
           status: Database["public"]["Enums"]["invitation_status"];
           updated_at: string;
         };
@@ -1404,7 +1468,7 @@ export type Database = {
         Args: { p_plan_id: string; p_transaction_id: string };
         Returns: {
           created_at: string;
-          created_by: string;
+          created_by: string | null;
           id: string;
           plan_id: string;
           transaction_id: string;
@@ -1430,6 +1494,25 @@ export type Database = {
         Args: { p_group_id: string; p_user_id: string };
         Returns: undefined;
       };
+      notification_tx_body_due_today: { Args: never; Returns: string };
+      notification_tx_body_overdue: {
+        Args: { p_date: string };
+        Returns: string;
+      };
+      notification_tx_title: {
+        Args: { p_amount: number; p_currency: string; p_description: string };
+        Returns: string;
+      };
+      plan_links_compatible_with: {
+        Args: {
+          p_end_date: string;
+          p_group_id: string;
+          p_plan_id: string;
+          p_start_date: string;
+          p_user_id: string;
+        };
+        Returns: boolean;
+      };
       preview_fingerprint_warnings: {
         Args: { p_session_id: string };
         Returns: Json;
@@ -1441,13 +1524,57 @@ export type Database = {
       };
       privacy_mask_email: { Args: { p_email: string }; Returns: string };
       privacy_mask_text: { Args: { p_label: string }; Returns: string };
-      product_local_date: { Args: { p_at?: string }; Returns: string };
       process_bank_import_reminders: { Args: never; Returns: undefined };
+      process_recurring_transactions: { Args: never; Returns: undefined };
+      product_local_date: { Args: { p_at?: string }; Returns: string };
       prune_recurring_occurrences_from: {
         Args: { p_from_date: string; p_template_id: string };
         Returns: undefined;
       };
-      process_recurring_transactions: { Args: never; Returns: undefined };
+      record_group_invitation_access_attempt: {
+        Args: { p_email: string; p_token: string };
+        Returns: boolean;
+      };
+      record_group_invitation_delivery: {
+        Args: { p_invitation_id: string; p_outcome: string };
+        Returns: undefined;
+      };
+      recurring_clamp_dom: {
+        Args: { p_day: number; p_month: number; p_year: number };
+        Returns: number;
+      };
+      recurring_last_dom: {
+        Args: { p_month: number; p_year: number };
+        Returns: number;
+      };
+      recurring_occurrence_dates: {
+        Args: {
+          p_after_exclusive?: string;
+          p_anchor_date: string;
+          p_before_exclusive?: string;
+          p_day?: number;
+          p_end_date_inclusive?: string;
+          p_frequency: Database["public"]["Enums"]["recurrence_frequency"];
+          p_interval?: number;
+          p_max_count?: number;
+          p_month?: number;
+          p_weekday?: number;
+        };
+        Returns: string[];
+      };
+      recurring_occurrence_on_date: {
+        Args: {
+          p_anchor_date: string;
+          p_day?: number;
+          p_end_date_inclusive?: string;
+          p_frequency: Database["public"]["Enums"]["recurrence_frequency"];
+          p_interval?: number;
+          p_month?: number;
+          p_reference_date?: string;
+          p_weekday?: number;
+        };
+        Returns: boolean;
+      };
       refinance_debt_plan: {
         Args: {
           p_annual_rate: number;
@@ -1477,9 +1604,42 @@ export type Database = {
         Args: { p_group_id: string; p_user_id: string };
         Returns: undefined;
       };
+      save_debt_plan: {
+        Args: {
+          p_annual_rate: number;
+          p_category_id: string | null;
+          p_clear_balance_anchor?: boolean;
+          p_current_balance: number;
+          p_end_date: string;
+          p_first_payment_amount: number | null;
+          p_first_payment_date: string | null;
+          p_group_id: string | null;
+          p_monthly_payment: number;
+          p_name: string;
+          p_original_amount: number;
+          p_plan_id: string | null;
+          p_reset_balance_anchor?: boolean;
+          p_start_date: string;
+          p_target_amount: number;
+        };
+        Returns: Json;
+      };
+      save_net_worth_snapshot: {
+        Args: { p_as_of_date: string; p_items: Json; p_opening_amount: number };
+        Returns: Json;
+      };
       seed_default_categories: {
         Args: { p_user_id: string };
         Returns: undefined;
+      };
+      set_save_plan_progress: {
+        Args: {
+          p_effective_date: string;
+          p_note?: string | null;
+          p_plan_id: string;
+          p_saved_amount: number;
+        };
+        Returns: string;
       };
       skip_recurring_occurrence: {
         Args: {
@@ -1488,6 +1648,17 @@ export type Database = {
           p_transaction_id?: string | null;
         };
         Returns: undefined;
+      };
+      sync_debt_current_balance_from_links: {
+        Args: { p_plan_id: string };
+        Returns: number;
+      };
+      transaction_matches_plan_scope: {
+        Args: {
+          p_plan: Database["public"]["Tables"]["plans"]["Row"];
+          p_tx: Database["public"]["Tables"]["transactions"]["Row"];
+        };
+        Returns: boolean;
       };
       transfer_group_ownership: {
         Args: { p_group_id: string; p_new_owner_id: string };
@@ -1500,6 +1671,10 @@ export type Database = {
         Returns: undefined;
       };
       update_transaction_statuses: { Args: never; Returns: undefined };
+      verify_group_invitation_recipient: {
+        Args: { p_email: string; p_token: string };
+        Returns: boolean;
+      };
     };
     Enums: {
       categorization_rule_kind: "exact" | "contains" | "type" | "composite";

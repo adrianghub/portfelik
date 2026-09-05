@@ -16,9 +16,10 @@
     ) => void | Promise<void>;
     adjusting?: boolean;
     onContribute?: () => void;
+    onCorrect?: () => void;
   }
 
-  let { plan, progress, onAdjust, adjusting = false, onContribute }: Props = $props();
+  let { plan, progress, onAdjust, adjusting = false, onContribute, onCorrect }: Props = $props();
 
   const target = $derived(plan.target_amount ?? 0);
   const saved = $derived(progress.savedAmount);
@@ -28,7 +29,7 @@
       ? progress.monthlyNeeded - progress.monthlyActual
       : null
   );
-  const onTrack = $derived(gap == null || gap <= 0);
+  const onTrack = $derived(gap != null && gap <= 0);
   const settleHref = $derived(planSettleHref(plan.id, $page.url.searchParams));
 
   // Inline adjust mirrors the plan creation form: a currency input for the target and a
@@ -152,9 +153,6 @@
         <p class="mt-1 text-sm font-semibold text-emerald-300 tabular-nums">
           {m.plan_save_monthly_actual({ amount: formatCurrency(progress.monthlyActual) })}
         </p>
-        {#if progress.monthlyActualBasis === "historical-average"}
-          <p class="mt-1 text-[11px] text-slate-500">{m.plan_save_on_track_estimate_badge()}</p>
-        {/if}
       </div>
     {/if}
   </div>
@@ -180,9 +178,18 @@
         onclick={onContribute}
         class="bg-accent-gradient focus-visible:ring-accent mb-2 w-full rounded-full px-4 py-2.5 text-sm font-semibold text-slate-950 focus-visible:ring-2 focus-visible:outline-none"
       >
-        {m.plan_contribution_add()}
+        {m.plan_contribution_create()}
+      </button>
+      <PlanForwardNav href={settleHref} title={m.plan_save_link_existing_cta()} variant="action" />
+    {/if}
+    {#if onCorrect}
+      <button
+        type="button"
+        onclick={onCorrect}
+        class="focus-visible:ring-accent mt-2 w-full rounded-full px-4 py-2 text-xs font-medium text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
+      >
+        {m.plan_progress_correction_title()}
       </button>
     {/if}
-    <PlanForwardNav href={settleHref} title={m.plan_save_link_cta()} variant="action" />
   </div>
 </section>

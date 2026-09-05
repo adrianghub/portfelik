@@ -130,15 +130,37 @@ test("creates a saving goal with date period and target", async ({ page }) => {
     });
 });
 
-test("save plan detail shows progress and link CTA", async ({ page }) => {
+test("save plan detail separates new payment, existing transaction and balance correction", async ({
+  page,
+}) => {
+  let correctionBody: Record<string, unknown> | undefined;
+  await page.route(/.*\/rpc\/set_save_plan_progress.*/, async (route) => {
+    correctionBody = route.request().postDataJSON() as Record<string, unknown>;
+    return route.fulfill({ status: 200, json: "adjustment-1" });
+  });
+
   await page.goto("/plans/plan-save-1");
 
   await expect(page.getByRole("heading", { name: "Nowy samochód" })).toBeVisible();
   await expect(page.getByText("Odłożono 0,00 zł z 60 000,00 zł")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Powiąż wpłaty" })).toHaveAttribute(
+  await expect(page.getByRole("button", { name: "Zapisz nową wpłatę" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Powiąż istniejącą transakcję" })).toHaveAttribute(
     "href",
     "/plans/plan-save-1/settle"
   );
+
+  await page.getByRole("button", { name: "Zapisz nową wpłatę" }).click();
+  await expect(page.getByText(/Ta opcja utworzy opłaconą transakcję/)).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("button", { name: "Skoryguj stan celu" }).click();
+  await expect(page.getByText(/obejmujący wszystkie wpłaty z wybranego dnia/i)).toBeVisible();
+  await expect(page.getByText("Stan na koniec dnia")).toBeVisible();
+  await expect(page.getByText(/Korekta zmienia tylko postęp celu/)).toBeVisible();
+  await page.getByLabel("Aktualnie odłożona kwota").fill("12500");
+  await page.getByRole("button", { name: "Zapisz stan celu" }).click();
+
+  await expect.poll(() => correctionBody?.p_saved_amount).toBe(12500);
 });
 
 test("creates a debt plan (Kredyt) with terms", async ({ page }) => {

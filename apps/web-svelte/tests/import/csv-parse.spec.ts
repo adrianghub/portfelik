@@ -35,6 +35,35 @@ describe("csv/parse - tokenizer", () => {
     expect(csv.rowTexts).toEqual(["a;b", "1;2", "3;4"]);
   });
 
+  it("detects a comma table after a delimiter-free metadata preamble", () => {
+    const csv = parseCsv(
+      '"Bank export"\n"Date","Description","Amount"\n"2026-09-01","Test","10.00"'
+    );
+    expect(csv.separator).toBe(",");
+    expect(csv.rows[1]).toEqual(["Date", "Description", "Amount"]);
+  });
+
+  it("ignores delimiter characters inside quoted fields during detection", () => {
+    const csv = parseCsv(
+      '"Metadata, with, commas"\n"Data";"Opis";"Kwota"\n"2026-09-01";"Sklep, Warszawa";"10,00"'
+    );
+    expect(csv.separator).toBe(";");
+  });
+
+  it("keeps a quoted multiline field in one logical record", () => {
+    const csv = parseCsv(
+      'date;description;amount\r\n2026-09-01;"first line\r\nsecond line";-10,00\r\n'
+    );
+    expect(csv.rows).toHaveLength(2);
+    expect(csv.rows[1]).toEqual(["2026-09-01", "first line\r\nsecond line", "-10,00"]);
+    expect(csv.rowTexts[1]).toBe('2026-09-01;"first line\r\nsecond line";-10,00');
+  });
+
+  it("handles escaped quotes inside a multiline field", () => {
+    const csv = parseCsv('a,b\n1,"first ""quoted"" line\nsecond line"');
+    expect(csv.rows[1]).toEqual(["1", 'first "quoted" line\nsecond line']);
+  });
+
   it("skips empty lines in row tokens but keeps file structure", () => {
     const csv = parseCsv("a;b\n\n1;2");
     expect(csv.rows).toEqual([

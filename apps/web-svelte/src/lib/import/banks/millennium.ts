@@ -16,6 +16,22 @@ function findIndex(headers: string[], candidates: string[]): number {
   return -1;
 }
 
+function findHeaderRowIndex(rows: string[][]): number {
+  return rows.findIndex((row) => {
+    const date = findIndex(row, ["Data transakcji", "Data operacji", "Data księgowania"]);
+    const description = findIndex(row, ["Opis transakcji", "Opis", "Tytuł"]);
+    const counterparty = findIndex(row, ["Kontrahent", "Nadawca/Odbiorca"]);
+    const signedAmount = findIndex(row, ["Kwota", "Kwota transakcji"]);
+    const debit = findIndex(row, ["Obciążenia", "Kwota obciążenia"]);
+    const credit = findIndex(row, ["Uznania", "Kwota uznania"]);
+    return (
+      date >= 0 &&
+      (description >= 0 || counterparty >= 0) &&
+      (signedAmount >= 0 || debit >= 0 || credit >= 0)
+    );
+  });
+}
+
 function parsePlnAmount(raw: string): number | null {
   const cleaned = raw.replace(/[\s\u00A0\u2009\u202F]/g, "").replace(",", ".");
   if (cleaned === "" || !/^-?\d+(\.\d+)?$/.test(cleaned)) return null;
@@ -41,21 +57,27 @@ export const millenniumAdapter: ImportAdapter = {
   label: "Millennium",
   aliases: ["bank millennium"],
   detect(input: AdapterDetectionInput): DetectionResult {
-    const header = (input.rows[0] ?? []).join(";").toLowerCase();
-    if (header.includes("millennium") || header.includes("bank millennium")) {
-      return { kind: "millennium", confidence: "high", reason: "millennium_brand" };
-    }
-    const hasDate = header.includes("data transakcji") || header.includes("data operacji");
-    const hasAmount =
-      header.includes("kwota") || header.includes("obciążenia") || header.includes("uznania");
-    if (hasDate && hasAmount) {
-      return { kind: "millennium", confidence: "medium", reason: "millennium_layout" };
-    }
-    return null;
+    const hasBrand = input.rows.some((row) =>
+      row.some((cell) => /(^|\W)(bank millennium|millennium)(\W|$)/i.test(cell))
+    );
+    if (!hasBrand) return null;
+    return {
+      kind: "millennium",
+      confidence: findHeaderRowIndex(input.rows) >= 0 ? "medium" : "low",
+      reason: "millennium_brand_hint",
+    };
   },
   parse(text: string): ParsedImportFile {
-    const { rows } = parseCsv(text);
-    const headers = rows[0] ?? [];
+    const csv = parseCsv(text);
+    const headerRowIdx = findHeaderRowIndex(csv.rows);
+    if (headerRowIdx === -1) {
+      return {
+        kind: "millennium",
+        rows: [],
+        errors: [{ row_index: -1, reason: "millennium_required_columns_missing" }],
+      };
+    }
+    const headers = csv.rows[headerRowIdx];
     const idx = {
       date: findIndex(headers, ["Data transakcji", "Data operacji", "Data księgowania"]),
       desc: findIndex(headers, ["Opis transakcji", "Opis", "Tytuł"]),
@@ -63,11 +85,12 @@ export const millenniumAdapter: ImportAdapter = {
       debit: findIndex(headers, ["Obciążenia", "Kwota obciążenia"]),
       credit: findIndex(headers, ["Uznania", "Kwota uznania"]),
       amount: findIndex(headers, ["Kwota", "Kwota transakcji"]),
+      currency: findIndex(headers, ["Waluta", "Waluta transakcji"]),
     };
     const parsed: ParsedRow[] = [];
     const errors: ParseError[] = [];
-    for (let i = 1; i < rows.length; i++) {
-      const cells = rows[i];
+    for (let i = headerRowIdx + 1; i < csv.rows.length; i++) {
+      const cells = csv.rows[i];
       if (!cells?.length || cells.every((c) => !c?.trim())) continue;
       const posted = parseDate(cells[idx.date] ?? "");
       let amountRaw: number | null = null;
@@ -75,14 +98,15 @@ export const millenniumAdapter: ImportAdapter = {
       if (idx.debit >= 0 || idx.credit >= 0) {
         const debit = parsePlnAmount(cells[idx.debit] ?? "");
         const credit = parsePlnAmount(cells[idx.credit] ?? "");
-        if (debit && debit > 0) {
-          amountRaw = debit;
+        if (debit !== null && debit !== 0) {
+          amountRaw = Math.abs(debit);
           type = "expense";
-        } else if (credit && credit > 0) {
-          amountRaw = credit;
+        } else if (credit !== null && credit !== 0) {
+          amountRaw = Math.abs(credit);
           type = "income";
         }
-      } else {
+      }
+      if (amountRaw === null && idx.amount >= 0) {
         const signed = parsePlnAmount(cells[idx.amount] ?? "");
         if (signed !== null) {
           amountRaw = Math.abs(signed);
@@ -90,7 +114,7 @@ export const millenniumAdapter: ImportAdapter = {
         }
       }
       if (!posted || amountRaw === null) {
-        errors.push({ row_index: i, reason: "invalid_row" });
+        errors.push({ row_index: i - headerRowIdx - 1, reason: "millennium_invalid_row" });
         continue;
       }
       const description = collapseWs(cells[idx.desc] ?? "");
@@ -100,9 +124,10 @@ export const millenniumAdapter: ImportAdapter = {
         type,
         description: description || "Operacja bankowa",
         counterparty: idx.counterparty >= 0 ? collapseWs(cells[idx.counterparty] ?? "") : undefined,
-        currency: "PLN",
-        source_row_text: cells.join(";"),
-        row_index: i - 1,
+        currency:
+          idx.currency >= 0 ? (cells[idx.currency] ?? "").trim().toUpperCase() || "PLN" : "PLN",
+        source_row_text: csv.rowTexts[i],
+        row_index: i - headerRowIdx - 1,
       });
     }
     return { kind: "millennium", rows: parsed, errors };

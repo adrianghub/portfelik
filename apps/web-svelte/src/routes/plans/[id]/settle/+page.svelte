@@ -8,6 +8,7 @@
     dismissPlanSuggestion,
     fetchDismissedTransactionIds,
     fetchLinkedTransactions,
+    fetchPlanProgressSnapshot,
     fetchRankedEligibleTransactions,
     linkPlanTransaction,
     type RankedTransaction,
@@ -64,6 +65,12 @@
     enabled: () => !!session.userId && !!id,
   }));
 
+  const progressSnapshotQuery = createQuery(() => ({
+    queryKey: qk.planProgressList(session.userId!, id, "snapshot"),
+    queryFn: () => fetchPlanProgressSnapshot(id),
+    enabled: () => !!session.userId && !!id && planQuery.data?.kind === "save",
+  }));
+
   const dismissedQuery = createQuery(() => ({
     queryKey: qk.planDismissed(session.userId!, id),
     queryFn: () => fetchDismissedTransactionIds(id),
@@ -97,6 +104,7 @@
           startDate: planQuery.data.start_date,
           endDate: planQuery.data.end_date,
           linkedTransactions: linkedQuery.data ?? [],
+          progressSnapshot: progressSnapshotQuery.data ?? null,
         })
       : null
   );
@@ -220,6 +228,7 @@
 
   <section class="space-y-3">
     <h2 class="text-eyebrow text-slate-400">{m.plan_settle_candidates()}</h2>
+    <p class="text-xs text-slate-400">{m.plan_settle_whole_transaction_notice()}</p>
 
     {#if rankedQuery.isPending}
       {#each [0, 1, 2] as _, i (i)}

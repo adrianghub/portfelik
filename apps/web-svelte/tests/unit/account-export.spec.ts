@@ -1,3 +1,6 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const mockUser = { id: "user-1" };
@@ -49,9 +52,25 @@ const fromHandlers: Record<string, () => unknown> = {
     select: vi.fn().mockReturnThis(),
     in: vi.fn(async () => ({ data: [{ plan_id: "p1" }], error: null })),
   }),
+  plan_transaction_links: () => ({
+    select: vi.fn().mockReturnThis(),
+    in: vi.fn(async () => ({ data: [{ id: "link-1", plan_id: "p1" }], error: null })),
+  }),
+  plan_progress_snapshots: () => ({
+    select: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
+    order: vi.fn(async () => ({
+      data: [{ id: "ps1", plan_id: "p1", saved_amount: 250 }],
+      error: null,
+    })),
+  }),
   group_members: () => ({
     select: vi.fn().mockReturnThis(),
     in: vi.fn(async () => ({ data: [{ group_id: "g1", user_id: "user-1" }], error: null })),
+  }),
+  recurring_occurrence_skips: () => ({
+    select: vi.fn().mockReturnThis(),
+    order: vi.fn(async () => ({ data: [{ id: "skip-1" }], error: null })),
   }),
 };
 
@@ -81,7 +100,31 @@ vi.mock("$lib/services/groups", () => ({
   fetchUserGroups: vi.fn(async () => [{ id: "g1" }]),
 }));
 
-import { ACCOUNT_EXPORT_CONTRACT, buildAccountExport } from "$lib/services/account-export";
+import {
+  ACCOUNT_EXPORT_CONTRACT,
+  ACCOUNT_EXPORT_TABLE_INVENTORY,
+  buildAccountExport,
+} from "$lib/services/account-export";
+
+function finalPublicTablesFromMigrations(): string[] {
+  const migrationsDir = resolve(
+    fileURLToPath(new URL(".", import.meta.url)),
+    "../../../../supabase/migrations"
+  );
+  const tables = new Set<string>();
+  for (const filename of readdirSync(migrationsDir)
+    .filter((name) => name.endsWith(".sql"))
+    .sort()) {
+    const sql = readFileSync(resolve(migrationsDir, filename), "utf8");
+    for (const match of sql.matchAll(
+      /\b(create|drop)\s+table\s+(?:(?:if\s+not\s+exists|if\s+exists)\s+)?(?:public\.)?"?([a-z_][a-z0-9_]*)"?/gi
+    )) {
+      if (match[1].toLowerCase() === "create") tables.add(match[2]);
+      else tables.delete(match[2]);
+    }
+  }
+  return [...tables].sort();
+}
 
 describe("buildAccountExport", () => {
   beforeEach(() => {
@@ -93,11 +136,22 @@ describe("buildAccountExport", () => {
     expect(bundle.export_contract).toBe(ACCOUNT_EXPORT_CONTRACT);
     expect(bundle.transactions).toHaveLength(1);
     expect(bundle.plans).toHaveLength(1);
+    expect(bundle.plan_transaction_links).toHaveLength(1);
     expect(bundle.plan_debt_terms).toHaveLength(1);
+    expect(bundle.plan_progress_snapshots).toEqual([
+      expect.objectContaining({ id: "ps1", plan_id: "p1", saved_amount: 250 }),
+    ]);
     expect(bundle.cash_positions).toHaveLength(1);
     expect(bundle.net_worth_items).toHaveLength(1);
     expect(bundle.financial_snapshot).toMatchObject({ cash_amount: 100 });
     expect(bundle.group_members).toHaveLength(1);
+    expect(bundle.recurring_occurrence_skips).toHaveLength(1);
     expect(bundle.exported_at).toBeTruthy();
+  });
+
+  it("classifies every app-owned public table from the final migration schema", () => {
+    expect(Object.keys(ACCOUNT_EXPORT_TABLE_INVENTORY).sort()).toEqual(
+      finalPublicTablesFromMigrations()
+    );
   });
 });

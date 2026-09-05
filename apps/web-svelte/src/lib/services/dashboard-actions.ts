@@ -63,7 +63,7 @@ function overdueHref(summary: OverdueAttentionSummary, scope: ScopeFilter): stri
 
 function planHref(planId: string, scope: ScopeFilter): string {
   const params = new URLSearchParams({ group: scope });
-  return `/plans/${encodeURIComponent(planId)}/settle?${params.toString()}`;
+  return `/plans/${encodeURIComponent(planId)}?${params.toString()}`;
 }
 
 export function buildDashboardActions(input: BuildDashboardActionsInput): DashboardAction[] {

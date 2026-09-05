@@ -32,8 +32,16 @@ function dateOnly(d: string): string {
   return d.slice(0, 10);
 }
 
-function openingOf(anchor: Anchor): number {
-  return anchor ? anchor.opening_amount : 0;
+function toCents(amount: number): number {
+  return Math.round(amount * 100);
+}
+
+function fromCents(amount: number): number {
+  return amount / 100;
+}
+
+function openingCents(anchor: Anchor): number {
+  return toCents(anchor ? anchor.opening_amount : 0);
 }
 
 function asOfOf(anchor: Anchor): string {
@@ -41,8 +49,9 @@ function asOfOf(anchor: Anchor): string {
   return anchor ? anchor.as_of_date : "0000-01-01";
 }
 
-function signed(tx: PositionTx): number {
-  return tx.type === "income" ? tx.amount : -tx.amount;
+function signedCents(tx: PositionTx): number {
+  const amount = toCents(tx.amount);
+  return tx.type === "income" ? amount : -amount;
 }
 
 export function cashForecastHorizonEnd(today: string = localDateIso()): string {
@@ -77,9 +86,10 @@ function compareDateThenId(
  */
 export function livePosition(anchor: Anchor, txs: PositionTx[]): number {
   const asOf = asOfOf(anchor);
-  return txs
+  const balanceCents = txs
     .filter((t) => t.status === "paid" && dateOnly(t.date) >= asOf)
-    .reduce((sum, t) => sum + signed(t), openingOf(anchor));
+    .reduce((sum, t) => sum + signedCents(t), openingCents(anchor));
+  return fromCents(balanceCents);
 }
 
 export interface ForecastPositionOpts {
@@ -100,15 +110,15 @@ export function forecastPosition(
   opts: ForecastPositionOpts = {}
 ): number {
   const horizonEnd = opts.horizonEnd ?? cashForecastHorizonEnd(opts.today);
-  const scheduled = txs
+  const scheduledCents = txs
     .filter(
       (t) =>
         isForecastStatus(t.status) &&
         dateOnly(t.date) >= asOfOf(anchor) &&
         withinForecastHorizon(t, horizonEnd)
     )
-    .reduce((sum, t) => sum + signed(t), 0);
-  return livePosition(anchor, txs) + scheduled;
+    .reduce((sum, t) => sum + signedCents(t), 0);
+  return fromCents(toCents(livePosition(anchor, txs)) + scheduledCents);
 }
 
 /** Fetch the private cash position for the signed-in user (null if not set yet). */
@@ -138,10 +148,10 @@ export function runningBalances(anchor: Anchor, txs: RunningBalanceTx[]): Map<st
     .filter((t) => t.status === "paid" && dateOnly(t.date) >= asOf)
     .sort(compareDateThenId);
   const result = new Map<string, number>();
-  let balance = openingOf(anchor);
+  let balanceCents = openingCents(anchor);
   for (const t of paid) {
-    balance += signed(t);
-    result.set(t.id, balance);
+    balanceCents += signedCents(t);
+    result.set(t.id, fromCents(balanceCents));
   }
   return result;
 }
@@ -167,10 +177,10 @@ export function forecastRunningBalances(
     )
     .sort(compareDateThenId);
   const result = new Map<string, number>();
-  let balance = openingOf(anchor);
+  let balanceCents = openingCents(anchor);
   for (const t of rows) {
-    balance += signed(t);
-    result.set(t.id, balance);
+    balanceCents += signedCents(t);
+    result.set(t.id, fromCents(balanceCents));
   }
   return result;
 }

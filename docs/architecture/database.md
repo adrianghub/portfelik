@@ -323,12 +323,16 @@ Tracks the invitation workflow. Email is the join key (the invitee may not yet h
 
 ### `categories`
 
-Owner-scoped; `user_id IS NULL` denotes a **system category**, visible to every authenticated user. System categories are seeded from `supabase/seed.sql` (14 expense + 7 income).
+Strictly owner-scoped. The default set is copied for each account and remains
+fully editable by that user; categories are not shared through groups.
 
-- **PK**: `id`. **FK**: `user_id` → `auth.users.id` (nullable, ON DELETE CASCADE).
-- **RLS read**: system, own, or group-shared (via the standard pair-of-`group_members` self-join).
-- **RLS write own**: by owner. **RLS write system**: by admin only.
-- **Indexes**: `idx_categories_user_name`, `idx_categories_type_name`.
+- **PK**: `id`. **FK**: `user_id` → `auth.users.id` (nullable in the physical
+  schema for migration compatibility, but non-null by product convention;
+  ON DELETE CASCADE).
+- **RLS read/write**: owner only.
+- **Uniqueness**: case-insensitive `(user_id, lower(name), type)`.
+- **Indexes**: `idx_categories_user_name`, `idx_categories_type_name`,
+  `categories_user_name_type_unique`.
 
 ### `transactions`
 
@@ -346,6 +350,10 @@ the name).
 - **RLS read**: own + group-shared. **RLS write**: creator for own rows; group
   owner/co-owner (`is_group_co_owner`) for group-scoped peer rows. Migration:
   `20260622000000_transaction_co_owner_writes.sql`.
+- **Account deletion**: private rows are erased. Group-scoped rows become
+  household history and are reassigned to the current group owner as technical
+  custodian. Their category is cloned/reused in that owner's private category
+  set; bank-import provenance is erased instead of transferred.
 - **Indexes**: `idx_transactions_user_date_asc`, `idx_transactions_category_user_date`, `idx_transactions_status_date`, `idx_transactions_recurring` (redundant `idx_transactions_user_date_desc` dropped in `20260530000000`; `idx_transactions_recurring_template` dropped with its column in `20260705000000`).
 
 A view `transactions_with_category` joins to `categories` for display; the SvelteKit app reads this view in `fetchTransactions`.
@@ -374,6 +382,9 @@ history rows through `plan_transaction_links`.
   group-scoped updates/deletes; any group member may still insert their own group plan.
   Settlement RPCs allow any group member to link/unlink when scopes match.
   Migration: `20260620000000_plan_co_owner_writes.sql`.
+- **Account deletion**: private plans are erased; group-scoped plans remain and
+  are reassigned to the current group owner as technical custodian. Child debt
+  terms, settlement links, and progress snapshots remain with the plan.
 - **Indexes**: `idx_plans_user_updated`, `idx_plans_group_user_updated`,
   `idx_plans_start_end`, `idx_plans_user_kind`.
 
@@ -476,7 +487,8 @@ history rows. This is the only current plan-to-transaction relation.
 
 - `plan_id` referencing `plans(id)` (CASCADE)
 - `transaction_id` referencing `transactions(id)`
-- `created_by`
+- nullable `created_by`; attribution becomes `NULL` if that user deletes their
+  account, while a group-shared link remains part of the plan history
 - `created_at`
 - unique `(plan_id, transaction_id)`
 - unique `transaction_id` so one transaction can settle at most one plan in this
@@ -486,6 +498,23 @@ Clients call `link_plan_transaction` / `unlink_plan_transaction`; direct writes
 are revoked. The RPCs authorize both sides, reject non-expense/income rows,
 enforce private/group scope compatibility, and require the transaction date to
 fall inside the plan period.
+
+### `plan_progress_snapshots`
+
+Auditable absolute balance anchors for saving goals. A snapshot changes only
+the displayed goal progress; it is not a transaction and never changes cash or
+spending totals.
+
+- `plan_id` referencing `plans(id)` (CASCADE)
+- `saved_amount` as a non-negative `numeric(12,2)`
+- `effective_date` within the plan period and not in the future
+- optional `note`
+- nullable `created_by`; attribution becomes `NULL` after account deletion so
+  a shared plan can retain its history
+- `created_at`
+
+Clients can read visible-plan snapshots. All writes go through
+`set_save_plan_progress`; direct table writes are revoked.
 
 ### `categorization_rules`
 
@@ -515,11 +544,26 @@ or projected occurrence records the template/date slot so sync and forecast do
 not recreate it.
 
 - **FKs**: `user_id`, optional `group_id`, and recurring template id.
+- nullable `created_by`; attribution becomes `NULL` after account deletion
 - **RLS read/insert**: owner or group co-owner for group-scoped skips; no client
   update/delete path is exposed.
 - **Product rule**: a skip is scoped to one occurrence date. Ending or editing a
   whole series changes the template (`recurrence_end_date` / recurrence fields)
   instead.
+
+## Group financial-data lifecycle
+
+Group-scoped transactions, plans, settlement history, progress snapshots, and
+recurring skips are household history. `user_id` is the current technical
+custodian; action-level `created_by` is attribution and may be cleared.
+
+| Event                       | Shared financial rows                                                             | Identity / access outcome                                                                                                                   |
+| --------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Member leaves or is removed | Remain in the group under their existing custodian                                | Former member loses access; current owner/co-owners retain management access. The still-existing account id remains as attribution/custody. |
+| Group ownership transfers   | Remain in the same group                                                          | New group owner becomes the fallback custodian for future account deletion.                                                                 |
+| Non-owner deletes account   | Transactions, plans, linked history, progress anchors, and recurring skips remain | Custody moves to the current group owner; departing `created_by` values become `NULL`; private rows and bank provenance are erased.         |
+| Group owner deletes account | Blocked                                                                           | Owner must transfer ownership or disband first.                                                                                             |
+| Group is disbanded          | Blocked while shared financial rows reference it                                  | Owner must explicitly resolve those rows first; no silent conversion to private data.                                                       |
 
 ## RLS strategy
 
@@ -601,10 +645,10 @@ All SECURITY DEFINER (bypass RLS) unless marked SECURITY INVOKER. Defined in `20
 
 **Plans (2)**
 
-| RPC                                             | Auth                              | Behavior                                                                                                                                          |
-| ----------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `link_plan_transaction(p_plan_id, p_tx_id)`     | visible plan + visible tx         | Links one expense or income transaction to one plan. Enforces private/group scope, one-plan-per-transaction, and the plan date period.             |
-| `unlink_plan_transaction(p_plan_id, p_tx_id)`   | visible plan + visible linked tx  | Removes a settlement link after the same visibility/scope checks.                                                                                 |
+| RPC                                           | Auth                             | Behavior                                                                                                                               |
+| --------------------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `link_plan_transaction(p_plan_id, p_tx_id)`   | visible plan + visible tx        | Links one expense or income transaction to one plan. Enforces private/group scope, one-plan-per-transaction, and the plan date period. |
+| `unlink_plan_transaction(p_plan_id, p_tx_id)` | visible plan + visible linked tx | Removes a settlement link after the same visibility/scope checks.                                                                      |
 
 **Notifications (2 - both SECURITY INVOKER)**
 
@@ -641,16 +685,16 @@ for the full model and threat scope.
 
 **Account**
 
-| RPC                | Auth | Behavior                               |
-| ------------------ | ---- | -------------------------------------- |
-| `delete_account()` | self | Errors if caller still owns any group. |
+| RPC                | Auth | Behavior                                                                                                                                                                                                                               |
+| ------------------ | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `delete_account()` | self | Errors if caller still owns a group. Erases private rows and import provenance; transfers group-scoped transactions, plans, and recurring skips to the current group owner; clears departing-user attribution on surviving audit rows. |
 
 **Bank import (2)**
 
-| RPC                                          | Auth          | Behavior                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| -------------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| RPC                                          | Auth          | Behavior                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| -------------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `commit_import_session(p_session_id)`        | session owner | SECURITY DEFINER. Rejects unless `status='preview'` and `rows_pending=0`. Validates ownership/account/category visibility/group membership/type-match. Per-row savepoint catches `unique_violation` from the hard-dedupe indexes and marks the row `duplicate` (with `duplicate_of`) without aborting the loop. Returns jsonb `{inserted, duplicates_preview, duplicates_commit, skipped, fingerprint_warnings:[{row_id, duplicate_of_transaction_id}]}`. Warning candidates include prior imported-link fingerprint matches and visible plan-linked transactions with exact amount/currency within ±3 days. Only writer of `transaction_import_links`. |
-| `preview_fingerprint_warnings(p_session_id)` | session owner | SECURITY DEFINER, read-only. Pre-commit scan returning probable-duplicate warnings for the review UI (shape matches `commit_import_session.fingerprint_warnings`). Path A scans the caller's existing import-link fingerprints. Path B scans visible plan-linked transactions with exact amount/currency and tx date within posted date ±3 days.                                                                                                                                                                                                                                                                                                              |
+| `preview_fingerprint_warnings(p_session_id)` | session owner | SECURITY DEFINER, read-only. Pre-commit scan returning probable-duplicate warnings for the review UI (shape matches `commit_import_session.fingerprint_warnings`). Path A scans the caller's existing import-link fingerprints. Path B scans visible plan-linked transactions with exact amount/currency and tx date within posted date ±3 days.                                                                                                                                                                                                                                                                                                        |
 
 **Reporting (1 - SECURITY INVOKER)**
 
@@ -660,26 +704,26 @@ for the full model and threat scope.
 
 ## Triggers (summary)
 
-| Trigger                             | Table                                                                                                   | Event                 | Action                                                |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------- | --------------------- | ----------------------------------------------------- |
-| `enforce_max_user_cap_trigger`      | `auth.users`                                                                                            | BEFORE INSERT         | `enforce_max_user_cap()`                              |
-| `on_auth_user_created`              | `auth.users`                                                                                            | AFTER INSERT          | `handle_new_user()`                                   |
-| `on_auth_user_email_updated`        | `auth.users`                                                                                            | AFTER UPDATE OF email | `handle_user_email_update()`                          |
-| `set_updated_at`                    | profiles, user_groups, group_invitations, categories, plans, transactions                              | BEFORE UPDATE         | `handle_updated_at()`                                 |
-| `group_invitations_notify`          | group_invitations                                                                                       | AFTER INSERT          | `notify_on_group_invitation()`                        |
-| `profiles_role_change_notify`       | profiles                                                                                                | AFTER UPDATE OF role  | `notify_on_role_change()`                             |
-| `push_subscriptions_bump_last_used` | push_subscriptions                                                                                      | BEFORE UPDATE         | `bump_last_used_at()`                                 |
-| `notifications_send_push`           | notifications                                                                                           | AFTER INSERT          | `trigger_send_push()` (calls `pg_net.http_post`)      |
-| `profiles_role_change_sync`         | profiles                                                                                                | AFTER UPDATE OF role  | `trigger_sync_user_role()` (calls `pg_net.http_post`) |
+| Trigger                             | Table                                                                     | Event                 | Action                                                |
+| ----------------------------------- | ------------------------------------------------------------------------- | --------------------- | ----------------------------------------------------- |
+| `enforce_max_user_cap_trigger`      | `auth.users`                                                              | BEFORE INSERT         | `enforce_max_user_cap()`                              |
+| `on_auth_user_created`              | `auth.users`                                                              | AFTER INSERT          | `handle_new_user()`                                   |
+| `on_auth_user_email_updated`        | `auth.users`                                                              | AFTER UPDATE OF email | `handle_user_email_update()`                          |
+| `set_updated_at`                    | profiles, user_groups, group_invitations, categories, plans, transactions | BEFORE UPDATE         | `handle_updated_at()`                                 |
+| `group_invitations_notify`          | group_invitations                                                         | AFTER INSERT          | `notify_on_group_invitation()`                        |
+| `profiles_role_change_notify`       | profiles                                                                  | AFTER UPDATE OF role  | `notify_on_role_change()`                             |
+| `push_subscriptions_bump_last_used` | push_subscriptions                                                        | BEFORE UPDATE         | `bump_last_used_at()`                                 |
+| `notifications_send_push`           | notifications                                                             | AFTER INSERT          | `trigger_send_push()` (calls `pg_net.http_post`)      |
+| `profiles_role_change_sync`         | profiles                                                                  | AFTER UPDATE OF role  | `trigger_sync_user_role()` (calls `pg_net.http_post`) |
 
 ## Scheduled jobs (`pg_cron`)
 
-| Job                              | Cron (UTC)                                          | Action                                                                                                            |
-| -------------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `process-recurring-transactions` | `0 23 * * *` (daily 23:00 UTC)                      | Reminder-only since `20260703000000`: sends `transaction_reminder` notifications for templates due today/tomorrow; never inserts transaction rows. Dedup keyed on template id + occurrence date. |
-| `update_transaction_statuses`    | `0 5 * * *` (daily 05:00 UTC)                       | Flips `status` based on `date` vs `now()`.                                                                        |
-| `process-bank-import-reminders`  | `0 8 * * *` (daily 08:00 UTC)                       | Creates user-enabled reminders to upload a fresh bank CSV when the latest committed import is older than cadence. |
-| `send-admin-summary` dispatch    | `0 7 * * *` (daily 07:00 UTC; sends on Warsaw Mon or day after import reminder) | `pg_net.http_post` → `send-admin-summary` Edge Function with Vault Bearer. |
+| Job                              | Cron (UTC)                                                                      | Action                                                                                                                                                                                           |
+| -------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `process-recurring-transactions` | `0 23 * * *` (daily 23:00 UTC)                                                  | Reminder-only since `20260703000000`: sends `transaction_reminder` notifications for templates due today/tomorrow; never inserts transaction rows. Dedup keyed on template id + occurrence date. |
+| `update_transaction_statuses`    | `0 5 * * *` (daily 05:00 UTC)                                                   | Flips `status` based on `date` vs `now()`.                                                                                                                                                       |
+| `process-bank-import-reminders`  | `0 8 * * *` (daily 08:00 UTC)                                                   | Creates user-enabled reminders to upload a fresh bank CSV when the latest committed import is older than cadence.                                                                                |
+| `send-admin-summary` dispatch    | `0 7 * * *` (daily 07:00 UTC; sends on Warsaw Mon or day after import reminder) | `pg_net.http_post` → `send-admin-summary` Edge Function with Vault Bearer.                                                                                                                       |
 
 DST drift is acknowledged: pg_cron runs on UTC, so the local-Warsaw fire time shifts by one hour around DST transitions.
 

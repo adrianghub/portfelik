@@ -19,12 +19,12 @@ not treat allocations as “you overspent.”
 
 ## User decisions
 
-| Topic | Choice |
-| --- | --- |
-| Nadwyżka card | **A** — slim honest bilans; drop essay |
-| Cash strip | **C** — sheet on Transakcje + link to `/plans` Majątek netto |
+| Topic            | Choice                                                                                  |
+| ---------------- | --------------------------------------------------------------------------------------- |
+| Nadwyżka card    | **A** — slim honest bilans; drop essay                                                  |
+| Cash strip       | **C** — sheet on Transakcje + link to `/plans` Majątek netto                            |
 | Cele in spending | **C** — exclude from insight/trend/anomaly/chart stack math; keep visible as allocation |
-| Delivery shape | Approach 2 (trust + allocation), not polish-only or full rewrite |
+| Delivery shape   | Approach 2 (trust + allocation), not polish-only or full rewrite                        |
 
 ## Problems (verified against UI + source)
 
@@ -55,11 +55,11 @@ not treat allocations as “you overspent.”
 
 ### Principle
 
-| Layer | Rule |
-| --- | --- |
-| Ledger | Income − all paid expenses (incl. Cele) may still appear in Bilans totals / ring |
+| Layer   | Rule                                                                                                                                          |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ledger  | Income − all paid expenses (incl. Cele) may still appear in Bilans totals / ring                                                              |
 | Insight | Trends, ↑%, anomalies, spend-history stack height use **consumption** = expenses excluding save-linked + `Cele` category (`goal-spending.ts`) |
-| Copy | One honest number + one useful action; no engine footnotes by default |
+| Copy    | One honest number + one useful action; no engine footnotes by default                                                                         |
 
 ### 1. Kokpit
 
@@ -101,8 +101,11 @@ not treat allocations as “you overspent.”
 
 - Hero: label saved amount as **Odłożono** (not `CEL` as if target); keep “Odłożono X z Y” subline; ring % unchanged.
 - One on-track signal (prefer badge **or** sentence, not both; hub card may keep its own badge).
-- Monthly actual: when basis is current-month lump, copy must say **w tym miesiącu**; show estimate badge when `monthlyActualBasis === "historical-average"`.
-- CTAs: primary **Dodaj wpłatę**; secondary **Powiąż wpłaty**; remove dashed **Dodaj ręcznie** when contribute exists (settle page keeps its own manual footer if needed).
+- Monthly actual always means real linked contributions in the current calendar month.
+  Historical averages must not drive a success badge or satisfy the current-month action.
+- CTAs: primary **Zapisz nową wpłatę** creates a cash transaction; secondary
+  **Powiąż istniejącą transakcję** reuses ledger history; tertiary **Skoryguj stan celu**
+  stores a non-cash balance snapshot. Hide progress actions outside the active plan period.
 - Wpłaty list: single section header (page summary **or** `LinkedSection` title, not both); mobile row `min-w-0`, truncate description, amount+unlink not overflowing viewport; prefer amount without confusing `−` in emerald for save contributions (show absolute + emerald, or “wpłata” framing).
 
 ## Known residuals (accepted this pass)
@@ -122,16 +125,16 @@ not treat allocations as “you overspent.”
 
 ## Key files
 
-| Area | Files |
-| --- | --- |
-| Toolbar | `DashboardViewToolbar.svelte`, `DateRangePicker.svelte` |
-| Bilans / ratio | `DashboardBalanceHero.svelte`, `dashboard/+page.svelte`, `messages/pl.json` |
-| Insight | `spending-insight.ts`, `goal-spending.ts`, `DashboardSpendingInsight.svelte`, `SpendingCategoryBreakdown.svelte`, `DashboardActions.svelte` |
-| Chart | `SpendHistoryChart.svelte`, `period-history.ts` (stack helper) |
-| Plans | `SurplusCard.svelte`, `NetWorthHero.svelte`, `plans/+page.svelte` |
-| Cash | `CashPositionStrip.svelte`, `transactions/+page.svelte`, `cash-position.ts` |
-| Goal | `SavePlanDetail.svelte`, `plans/[id]/+page.svelte` |
-| Progress badge | `DashboardPlanProgress.svelte` |
+| Area           | Files                                                                                                                                       |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Toolbar        | `DashboardViewToolbar.svelte`, `DateRangePicker.svelte`                                                                                     |
+| Bilans / ratio | `DashboardBalanceHero.svelte`, `dashboard/+page.svelte`, `messages/pl.json`                                                                 |
+| Insight        | `spending-insight.ts`, `goal-spending.ts`, `DashboardSpendingInsight.svelte`, `SpendingCategoryBreakdown.svelte`, `DashboardActions.svelte` |
+| Chart          | `SpendHistoryChart.svelte`, `period-history.ts` (stack helper)                                                                              |
+| Plans          | `SurplusCard.svelte`, `NetWorthHero.svelte`, `plans/+page.svelte`                                                                           |
+| Cash           | `CashPositionStrip.svelte`, `transactions/+page.svelte`, `cash-position.ts`                                                                 |
+| Goal           | `SavePlanDetail.svelte`, `plans/[id]/+page.svelte`                                                                                          |
+| Progress badge | `DashboardPlanProgress.svelte`                                                                                                              |
 
 ## Verification
 

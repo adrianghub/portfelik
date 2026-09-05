@@ -1,16 +1,12 @@
 import { currentCalendarMonthBounds } from "$lib/services/financial-surplus";
+import { productDateIso } from "$lib/date-local";
 import {
   isSettlementStatus,
   isTransactionEligibleForPlanSettlement,
   resolveSettlementTypes,
   SETTLEMENT_STATUSES,
 } from "$lib/services/plan-settlement-policy";
-import {
-  derivePlanBucket,
-  monthsBetween,
-  calendarMonthsUntil,
-  todayIso,
-} from "$lib/services/plans";
+import { derivePlanBucket, calendarMonthsUntil, todayIso } from "$lib/services/plans";
 import { trackOnce } from "$lib/analytics";
 import { supabase } from "$lib/supabase";
 import { suggestRuleText } from "$lib/import/categorize";
@@ -20,8 +16,13 @@ export interface PlanTransactionLink {
   id: string;
   plan_id: string;
   transaction_id: string;
-  created_by: string;
+  created_by: string | null;
   created_at: string;
+}
+
+export interface PlanProgressSnapshot {
+  savedAmount: number;
+  effectiveDate: string;
 }
 
 export interface PlanSettlementProgress {
@@ -37,6 +38,8 @@ export interface PlanSettlementProgress {
   spentAmount: number;
   incomeAmount: number;
   savedAmount: number;
+  /** Latest non-cash balance anchor included in savedAmount. */
+  progressSnapshot: PlanProgressSnapshot | null;
   expenseCount: number;
   incomeCount: number;
   linkedCount: number;
@@ -157,6 +160,40 @@ export async function addPlanContribution(input: {
   });
   if (error) throw error;
   return data as string;
+}
+
+export async function fetchPlanProgressSnapshot(
+  planId: string
+): Promise<PlanProgressSnapshot | null> {
+  const { data, error } = await supabase
+    .from("plan_progress_snapshots")
+    .select("id, saved_amount, effective_date")
+    .eq("plan_id", planId)
+    .order("effective_date", { ascending: false })
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data
+    ? { savedAmount: Number(data.saved_amount), effectiveDate: data.effective_date }
+    : null;
+}
+
+export async function setSavePlanProgress(input: {
+  planId: string;
+  savedAmount: number;
+  effectiveDate: string;
+  note?: string;
+}): Promise<string> {
+  const { data, error } = await supabase.rpc("set_save_plan_progress", {
+    p_plan_id: input.planId,
+    p_saved_amount: input.savedAmount,
+    p_effective_date: input.effectiveDate,
+    p_note: input.note?.trim() || "",
+  });
+  if (error) throw error;
+  return data;
 }
 
 export function suggestPlanContribution(input: {
@@ -396,7 +433,7 @@ export function rankPlanTransaction(
   }
 
   const today = opts?.today ?? todayIso();
-  const txDate = tx.date.slice(0, 10);
+  const txDate = productDateIso(tx.date);
   const ageDays = (Date.parse(today) - Date.parse(txDate)) / 86_400_000;
   if (ageDays >= 0 && ageDays <= 30) {
     score += 10;
@@ -421,18 +458,30 @@ export function rankPlanTransaction(
 }
 
 /** Count suggestions that would appear on the settle screen (rank ≥ cutoff, not dismissed). */
+function saveProgressBalance(
+  transactions: TransactionWithCategory[],
+  snapshot: PlanProgressSnapshot | null = null
+): number {
+  const laterPaidExpenses = transactions.filter(
+    (tx) =>
+      tx.type === "expense" &&
+      isSettlementStatus(tx.status) &&
+      (!snapshot || productDateIso(tx.date) > snapshot.effectiveDate)
+  );
+  return (snapshot?.savedAmount ?? 0) + laterPaidExpenses.reduce((sum, tx) => sum + tx.amount, 0);
+}
+
 export function countRankedSuggestions(
   plan: Pick<Plan, "category_id" | "name" | "budget_amount" | "kind" | "target_amount">,
   eligible: TransactionWithCategory[],
   linkedTransactions: TransactionWithCategory[],
-  dismissedIds: ReadonlySet<string> = new Set()
+  dismissedIds: ReadonlySet<string> = new Set(),
+  progressSnapshot: PlanProgressSnapshot | null = null
 ): number {
   const spentAmount = linkedTransactions
     .filter((t) => t.type === "expense")
     .reduce((s, t) => s + t.amount, 0);
-  const savedAmount = linkedTransactions
-    .filter((t) => t.type === "expense")
-    .reduce((s, t) => s + t.amount, 0);
+  const savedAmount = saveProgressBalance(linkedTransactions, progressSnapshot);
   return eligible
     .filter((tx) => !dismissedIds.has(tx.id))
     .map((tx) => rankPlanTransaction(plan, tx, spentAmount, { savedAmount }))
@@ -442,12 +491,13 @@ export function countRankedSuggestions(
 export async function fetchSuggestionCount(planId: string): Promise<number> {
   const plan = await fetchPlanForSettlement(planId);
   const blockedIds = await fetchBlockedTransactionIds();
-  const [eligible, linked, dismissed] = await Promise.all([
+  const [eligible, linked, dismissed, progressSnapshot] = await Promise.all([
     fetchEligibleSettlementTransactions(planId, undefined, { plan, blockedIds }),
     fetchLinkedTransactions(planId),
     fetchDismissedTransactionIds(planId),
+    fetchPlanProgressSnapshot(planId),
   ]);
-  return countRankedSuggestions(plan, eligible, linked, new Set(dismissed));
+  return countRankedSuggestions(plan, eligible, linked, new Set(dismissed), progressSnapshot);
 }
 
 /** Similarity keys of transactions previously dismissed on this plan (settlement memory). */
@@ -476,13 +526,14 @@ export async function fetchRankedEligibleTransactions(
 ): Promise<RankedTransaction[]> {
   const plan = await fetchPlanForSettlement(planId);
   const blockedIds = await fetchBlockedTransactionIds();
-  const [eligible, linked, dismissedKeys] = await Promise.all([
+  const [eligible, linked, dismissedKeys, progressSnapshot] = await Promise.all([
     fetchEligibleSettlementTransactions(planId, opts, { plan, blockedIds }),
     fetchLinkedTransactions(planId),
     fetchDismissedKeys(planId),
+    fetchPlanProgressSnapshot(planId),
   ]);
   const spentAmount = linked.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
-  const savedAmount = linked.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
+  const savedAmount = saveProgressBalance(linked, progressSnapshot);
 
   return eligible
     .map((tx) => rankPlanTransaction(plan, tx, spentAmount, { savedAmount, dismissedKeys }))
@@ -497,7 +548,7 @@ function sumSaveContributionsInMonth(
 ): number {
   return contributions
     .filter((t) => {
-      const d = t.date.slice(0, 10);
+      const d = productDateIso(t.date);
       return d >= monthStart && d <= monthEnd;
     })
     .reduce((sum, t) => sum + t.amount, 0);
@@ -511,9 +562,7 @@ export interface SaveMonthlyActualDetail {
   /**
    * How `amount` was derived:
    * - "current-month": real deposits linked this calendar month (demonstrated pace),
-   * - "historical-average": savedAmount averaged over elapsed months (an estimate - a single
-   *   upfront lump sum inflates this and must not be presented as sustained ongoing pace),
-   * - "none": not a save plan, not active, or nothing saved yet.
+   * - "none": not a save plan or not active.
    */
   basis: SavePaceBasis;
 }
@@ -541,13 +590,7 @@ export function computeSaveMonthlyActualDetail(input: {
     bounds.start,
     bounds.end
   );
-  if (currentMonthDeposits > 0) return { amount: currentMonthDeposits, basis: "current-month" };
-  if (input.savedAmount <= 0) return { amount: 0, basis: "none" };
-  const elapsedMonths = input.startDate ? monthsBetween(input.startDate, today) : 1;
-  return {
-    amount: input.savedAmount / Math.max(1, elapsedMonths),
-    basis: "historical-average",
-  };
+  return { amount: currentMonthDeposits, basis: "current-month" };
 }
 
 export function computeSaveMonthlyActual(input: {
@@ -571,6 +614,7 @@ export function computePlanProgress(input: {
   startDate?: string;
   endDate?: string;
   linkedTransactions: TransactionWithCategory[];
+  progressSnapshot?: PlanProgressSnapshot | null;
   eligibleCount?: number;
   today?: string;
 }): PlanSettlementProgress {
@@ -582,14 +626,15 @@ export function computePlanProgress(input: {
   const incomeAmount = incomes.reduce((s, t) => s + t.amount, 0);
   const monthBounds = currentCalendarMonthBounds(new Date(today));
   const inCurrentMonth = (t: TransactionWithCategory) => {
-    const d = t.date.slice(0, 10);
+    const d = productDateIso(t.date);
     return d >= monthBounds.start && d <= monthBounds.end;
   };
   const linkedExpenseCurrentMonth = expenses
     .filter(inCurrentMonth)
     .reduce((sum, t) => sum + t.amount, 0);
   const saveContributionsCurrentMonth = input.kind === "save" ? linkedExpenseCurrentMonth : 0;
-  const savedAmount = input.kind === "save" ? spentAmount : 0;
+  const progressSnapshot = input.kind === "save" ? (input.progressSnapshot ?? null) : null;
+  const savedAmount = input.kind === "save" ? saveProgressBalance(expenses, progressSnapshot) : 0;
   const targetAmount = input.targetAmount ?? null;
   const remaining =
     targetAmount != null && targetAmount > 0 ? Math.max(0, targetAmount - savedAmount) : null;
@@ -624,6 +669,7 @@ export function computePlanProgress(input: {
     spentAmount,
     incomeAmount,
     savedAmount,
+    progressSnapshot,
     expenseCount: expenses.length,
     incomeCount: incomes.length,
     linkedCount: input.linkedTransactions.length,
@@ -657,6 +703,31 @@ async function fetchTransactionsByLinkedIds(
   return txById;
 }
 
+async function fetchProgressSnapshots(
+  planIds: string[]
+): Promise<Record<string, PlanProgressSnapshot | null>> {
+  if (planIds.length === 0) return {};
+  const { data, error } = await supabase
+    .from("plan_progress_snapshots")
+    .select("id, plan_id, saved_amount, effective_date, created_at")
+    .in("plan_id", planIds)
+    .order("effective_date", { ascending: false })
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false });
+  if (error) throw error;
+  const snapshots: Record<string, PlanProgressSnapshot | null> = Object.fromEntries(
+    planIds.map((id) => [id, null])
+  );
+  for (const row of data ?? []) {
+    if (snapshots[row.plan_id]) continue;
+    snapshots[row.plan_id] = {
+      savedAmount: Number(row.saved_amount),
+      effectiveDate: row.effective_date,
+    };
+  }
+  return snapshots;
+}
+
 export async function fetchDashboardPlanProgress(): Promise<PlanSettlementProgress[]> {
   const { data: plans, error } = await supabase
     .from("plans")
@@ -672,12 +743,13 @@ export async function fetchDashboardPlanProgress(): Promise<PlanSettlementProgre
   if (!plans?.length) return [];
 
   const planIds = plans.map((p) => p.id);
-  const [linksRes, eligibleCounts] = await Promise.all([
+  const [linksRes, eligibleCounts, progressSnapshots] = await Promise.all([
     supabase
       .from("plan_transaction_links")
       .select("plan_id, transaction_id")
       .in("plan_id", planIds),
     countEligibleForPlans(plans as Plan[]),
+    fetchProgressSnapshots(planIds),
   ]);
   if (linksRes.error) throw linksRes.error;
 
@@ -699,6 +771,7 @@ export async function fetchDashboardPlanProgress(): Promise<PlanSettlementProgre
       startDate: plan.start_date,
       endDate: plan.end_date,
       linkedTransactions: linkedTxs,
+      progressSnapshot: progressSnapshots[plan.id] ?? null,
       eligibleCount: eligibleCounts[plan.id] ?? 0,
     });
   });
@@ -709,12 +782,13 @@ export async function fetchPlanProgressForPlans(
 ): Promise<Record<string, PlanSettlementProgress>> {
   if (planIds.length === 0) return {};
 
-  const [plansRes, linksRes] = await Promise.all([
+  const [plansRes, linksRes, progressSnapshots] = await Promise.all([
     supabase.from("plans").select("*").in("id", planIds),
     supabase
       .from("plan_transaction_links")
       .select("plan_id, transaction_id")
       .in("plan_id", planIds),
+    fetchProgressSnapshots(planIds),
   ]);
 
   if (plansRes.error) throw plansRes.error;
@@ -742,6 +816,7 @@ export async function fetchPlanProgressForPlans(
       startDate: plan.start_date,
       endDate: plan.end_date,
       linkedTransactions: linkedTxs,
+      progressSnapshot: progressSnapshots[plan.id] ?? null,
       eligibleCount: eligibleCounts[plan.id] ?? 0,
     });
   }
@@ -752,7 +827,7 @@ async function countEligibleForPlans(plans: Plan[]): Promise<Record<string, numb
   if (plans.length === 0) return {};
 
   const planIds = plans.map((p) => p.id);
-  const [linkedIds, linksRes, dismissRes] = await Promise.all([
+  const [linkedIds, linksRes, dismissRes, progressSnapshots] = await Promise.all([
     fetchLinkedTransactionIds(),
     supabase
       .from("plan_transaction_links")
@@ -762,6 +837,7 @@ async function countEligibleForPlans(plans: Plan[]): Promise<Record<string, numb
       .from("plan_settlement_dismissals")
       .select("plan_id, transaction_id")
       .in("plan_id", planIds),
+    fetchProgressSnapshots(planIds),
   ]);
   if (linksRes.error) throw linksRes.error;
   if (dismissRes.error) throw dismissRes.error;
@@ -845,7 +921,8 @@ async function countEligibleForPlans(plans: Plan[]): Promise<Record<string, numb
           plan,
           eligible,
           linkedByPlan.get(plan.id) ?? [],
-          dismissedByPlan.get(plan.id) ?? new Set()
+          dismissedByPlan.get(plan.id) ?? new Set(),
+          progressSnapshots[plan.id] ?? null
         );
       }
     })

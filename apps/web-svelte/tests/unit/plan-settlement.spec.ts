@@ -255,7 +255,7 @@ describe("computeSaveMonthlyActual", () => {
     expect(actual).toBe(500);
   });
 
-  it("falls back to elapsed-month average without current-month deposits", () => {
+  it("returns zero without current-month deposits instead of a historical estimate", () => {
     const actual = computeSaveMonthlyActual({
       kind: "save",
       startDate: "2026-01-01",
@@ -263,7 +263,7 @@ describe("computeSaveMonthlyActual", () => {
       linkedContributions: [tx({ type: "expense", amount: 6000, date: "2026-03-10" })],
       today: "2026-04-10",
     });
-    expect(actual).toBe(2000);
+    expect(actual).toBe(0);
   });
 
   it("returns zero for upcoming save goals", () => {
@@ -295,7 +295,7 @@ describe("computeSaveMonthlyActualDetail", () => {
     expect(detail.basis).toBe("current-month");
   });
 
-  it("flags the elapsed-average fallback as a historical estimate", () => {
+  it("keeps the current-month basis when prior deposits exist", () => {
     const detail = computeSaveMonthlyActualDetail({
       kind: "save",
       startDate: "2026-01-01",
@@ -303,11 +303,11 @@ describe("computeSaveMonthlyActualDetail", () => {
       linkedContributions: [tx({ type: "expense", amount: 6000, date: "2026-03-10" })],
       today: "2026-04-10",
     });
-    expect(detail.amount).toBe(2000);
-    expect(detail.basis).toBe("historical-average");
+    expect(detail.amount).toBe(0);
+    expect(detail.basis).toBe("current-month");
   });
 
-  it("reports no basis when nothing has been saved yet", () => {
+  it("reports current-month zero when nothing has been saved yet", () => {
     const detail = computeSaveMonthlyActualDetail({
       kind: "save",
       startDate: "2026-01-01",
@@ -316,7 +316,7 @@ describe("computeSaveMonthlyActualDetail", () => {
       today: "2026-06-08",
     });
     expect(detail.amount).toBe(0);
-    expect(detail.basis).toBe("none");
+    expect(detail.basis).toBe("current-month");
   });
 
   it("returns a null amount and no basis for loan plans", () => {
@@ -343,6 +343,89 @@ describe("computeSaveMonthlyActualDetail", () => {
 });
 
 describe("computePlanProgress", () => {
+  it("uses a non-cash snapshot plus later payments without changing monthly contributions", () => {
+    const progress = computePlanProgress({
+      planId: "save-adjusted",
+      planName: "Poduszka",
+      kind: "save",
+      budgetAmount: null,
+      targetAmount: 20_000,
+      startDate: "2026-01-01",
+      endDate: "2027-01-01",
+      today: "2026-06-08",
+      linkedTransactions: [
+        tx({ type: "expense", amount: 2000, date: "2026-05-05", status: "paid" }),
+        tx({ type: "expense", amount: 1000, date: "2026-06-05", status: "paid" }),
+      ],
+      progressSnapshot: { savedAmount: 4000, effectiveDate: "2026-05-31" },
+    });
+
+    expect(progress.savedAmount).toBe(5000);
+    expect(progress.progressSnapshot).toEqual({ savedAmount: 4000, effectiveDate: "2026-05-31" });
+    expect(progress.saveContributionsCurrentMonth).toBe(1000);
+    expect(progress.monthlyActual).toBe(1000);
+  });
+
+  it("treats a correction as the end-of-day balance regardless of same-day action order", () => {
+    const contribution = tx({
+      id: "same-day",
+      type: "expense",
+      amount: 1000,
+      date: "2026-06-12T12:00:00Z",
+      status: "paid",
+    });
+    const laterContribution = tx({
+      id: "next-day",
+      type: "expense",
+      amount: 250,
+      date: "2026-06-13T12:00:00Z",
+      status: "paid",
+    });
+    const input = {
+      planId: "save-same-day",
+      planName: "Poduszka",
+      kind: "save" as const,
+      budgetAmount: null,
+      targetAmount: 10_000,
+      startDate: "2026-01-01",
+      endDate: "2027-01-01",
+      today: "2026-06-13",
+      progressSnapshot: { savedAmount: 4000, effectiveDate: "2026-06-12" },
+    };
+
+    const correctionAfterPayment = computePlanProgress({
+      ...input,
+      linkedTransactions: [contribution, laterContribution],
+    });
+    const correctionBeforePayment = computePlanProgress({
+      ...input,
+      linkedTransactions: [laterContribution, contribution],
+    });
+
+    expect(correctionAfterPayment.savedAmount).toBe(4250);
+    expect(correctionBeforePayment.savedAmount).toBe(4250);
+  });
+
+  it("compares contribution days in Europe/Warsaw rather than by UTC date", () => {
+    const progress = computePlanProgress({
+      planId: "save-timezone",
+      planName: "Wakacje",
+      kind: "save",
+      budgetAmount: null,
+      targetAmount: 10_000,
+      startDate: "2026-01-01",
+      endDate: "2027-01-01",
+      today: "2026-06-13",
+      linkedTransactions: [
+        tx({ id: "before-midnight", amount: 100, date: "2026-06-12T21:59:59Z" }),
+        tx({ id: "after-midnight", amount: 250, date: "2026-06-12T22:00:00Z" }),
+      ],
+      progressSnapshot: { savedAmount: 4000, effectiveDate: "2026-06-12" },
+    });
+
+    expect(progress.savedAmount).toBe(4250);
+  });
+
   it("computes save goal monthly needed and actual from linked contributions", () => {
     const end = new Date();
     end.setMonth(end.getMonth() + 6);

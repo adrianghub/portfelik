@@ -27,6 +27,14 @@ describe("livePosition", () => {
   it("treats a null anchor as zero opening on as_of epoch (counts all paid)", () => {
     expect(livePosition(null, txs)).toBe(-699); // 0 + 500 − 200 − 999
   });
+
+  it("accumulates in integer grosze instead of leaking floating-point fractions", () => {
+    expect(
+      livePosition({ opening_amount: 0.1, as_of_date: "2026-06-01" }, [
+        { type: "income", amount: 0.2, status: "paid", date: "2026-06-01" },
+      ])
+    ).toBe(0.3);
+  });
 });
 
 describe("forecastPosition", () => {

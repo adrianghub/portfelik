@@ -61,16 +61,16 @@ manual net-worth assets plus derived cash position, and settlement via
 
 ## Frontend Structure
 
-| Area | Current files |
-| --- | --- |
-| Routes | `apps/web-svelte/src/routes/` |
-| Services | `apps/web-svelte/src/lib/services/` |
-| Import parsing | `apps/web-svelte/src/lib/import/` |
-| Import review UI | `apps/web-svelte/src/lib/components/import/` |
-| Transaction UI | `apps/web-svelte/src/lib/components/transactions/` |
-| Plans UI | `apps/web-svelte/src/lib/components/plans/` |
+| Area                  | Current files                                                                  |
+| --------------------- | ------------------------------------------------------------------------------ |
+| Routes                | `apps/web-svelte/src/routes/`                                                  |
+| Services              | `apps/web-svelte/src/lib/services/`                                            |
+| Import parsing        | `apps/web-svelte/src/lib/import/`                                              |
+| Import review UI      | `apps/web-svelte/src/lib/components/import/`                                   |
+| Transaction UI        | `apps/web-svelte/src/lib/components/transactions/`                             |
+| Plans UI              | `apps/web-svelte/src/lib/components/plans/`                                    |
 | Onboarding + glossary | `DashboardOnboardingChecklist`, `GlossarySheet`, `src/lib/content/glossary.ts` |
-| i18n | `apps/web-svelte/messages/pl.json` |
+| i18n                  | `apps/web-svelte/messages/pl.json`                                             |
 
 Services wrap Supabase calls. Owner-managed tables use direct PostgREST writes
 with explicit `user_id`; group-sensitive and multi-row operations use RPCs.
@@ -109,8 +109,9 @@ flowchart LR
 ```
 
 Current implementation stores plans in `plans` and settlement links in
-`plan_transaction_links`. Progress is derived from linked income/expense
-transactions, not from checklist state or plan-created ledger rows.
+`plan_transaction_links`. Saving progress uses linked paid `Cele` expenses plus
+optional absolute corrections; debt progress uses linked paid expenses and debt
+terms. It is never derived from checklist state or hidden plan-created history.
 
 ## Runtime Patterns
 
