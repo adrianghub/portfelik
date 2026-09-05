@@ -4,17 +4,21 @@ This matrix separates parser coverage from validation against real bank exports.
 Synthetic fixtures prove the adapter contract, but they do not certify that a
 bank's current export format is supported.
 
-| Adapter           | Automatic detection                                                                      | Contract tests                               | Real-export certification |
-| ----------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------- | ------------------------- |
-| mBank             | High for the `#Opis operacji` layout                                                     | Synthetic fixture and 2026 layout case       | Not recorded              |
-| ING Bank Śląski   | High only with the ING brand and distinctive headers; otherwise confirmation is required | Synthetic transaction and card-hold fixtures | Not recorded              |
-| Erste Bank Polska | Medium; confirmation is required for the headerless layout                               | Committed headerless fixture                 | Not recorded              |
-| PKO BP            | Medium only when a PKO/iPKO brand signal accompanies compatible headers                  | Provisional synthetic contract fixture       | Not certified             |
-| Millennium        | Medium only when a Millennium brand signal accompanies compatible headers                | Provisional synthetic contract fixture       | Not certified             |
+| Adapter           | Automatic detection                                                                    | Contract tests                               | Real-export certification |
+| ----------------- | -------------------------------------------------------------------------------------- | -------------------------------------------- | ------------------------- |
+| mBank             | Structurally high for the `#Opis operacji` layout; user confirmation is required       | Synthetic fixture and 2026 layout case       | Not recorded              |
+| ING Bank Śląski   | Structurally high with the ING brand and distinctive headers; confirmation is required | Synthetic transaction and card-hold fixtures | Not recorded              |
+| Erste Bank Polska | Medium; confirmation is required for the headerless layout                             | Committed headerless fixture                 | Not recorded              |
+| PKO BP            | Medium only when a PKO/iPKO brand signal accompanies compatible headers                | Provisional synthetic contract fixture       | Not certified             |
+| Millennium        | Medium only when a Millennium brand signal accompanies compatible headers              | Provisional synthetic contract fixture       | Not certified             |
 
 Generic `Data transakcji` / `Kwota` headers must not select a bank. When the
 brand or layout is ambiguous, the import flow requires the user to choose the
 adapter before parsing.
+
+Structural detection confidence and real-export certification are separate.
+Only adapters that pass the checklist below may bypass explicit bank
+confirmation. At present no registered adapter is allowed to auto-proceed.
 
 ## Certification checklist
 

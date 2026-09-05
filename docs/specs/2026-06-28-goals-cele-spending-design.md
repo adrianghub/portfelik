@@ -1,4 +1,8 @@
-# Goals, Cele category & motivational spending framing
+# Goals, Cele category & motivational spending framing (superseded)
+
+> Historical only. Income-based saving settlement in this document was replaced
+> by paid `Cele` expense contributions. See the canonical
+> [`debt-and-savings-goals.md`](../product/debt-and-savings-goals.md) contract.
 
 Date: 2026-06-28
 Status: Implemented (slice 1)
@@ -12,14 +16,14 @@ discretionary spend and money that advances a save goal. Save-plan settlement al
 
 ## Decisions
 
-| Decision | Choice |
-| --- | --- |
-| Route | Save goals live on `/plans` (`kind=save`); no `/goals` route |
-| Save settlement | Income-only (DB constraint `save→income`); unchanged |
+| Decision               | Choice                                                                     |
+| ---------------------- | -------------------------------------------------------------------------- |
+| Route                  | Save goals live on `/plans` (`kind=save`); no `/goals` route               |
+| Save settlement        | Income-only (DB constraint `save→income`); unchanged                       |
 | Goal-oriented expenses | New seeded category **`Cele`** (expense) for purchases that advance a goal |
-| Savings transfers | New seeded category **`Wpłata na cel`** (income) for explicit deposits |
-| Dashboard framing | Split period spending: goal-linked income + `Cele` vs other expenses |
-| Copy tone | Goal slice uses neutral/emerald framing; discretionary stays factual |
+| Savings transfers      | New seeded category **`Wpłata na cel`** (income) for explicit deposits     |
+| Dashboard framing      | Split period spending: goal-linked income + `Cele` vs other expenses       |
+| Copy tone              | Goal slice uses neutral/emerald framing; discretionary stays factual       |
 
 ## Schema
 

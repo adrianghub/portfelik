@@ -154,6 +154,8 @@ test("save plan detail separates new payment, existing transaction and balance c
   await page.keyboard.press("Escape");
 
   await page.getByRole("button", { name: "Skoryguj stan celu" }).click();
+  await expect(page.getByText(/obejmujący wszystkie wpłaty z wybranego dnia/i)).toBeVisible();
+  await expect(page.getByText("Stan na koniec dnia")).toBeVisible();
   await expect(page.getByText(/Korekta zmienia tylko postęp celu/)).toBeVisible();
   await page.getByLabel("Aktualnie odłożona kwota").fill("12500");
   await page.getByRole("button", { name: "Zapisz stan celu" }).click();

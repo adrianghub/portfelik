@@ -98,12 +98,12 @@
   >
     <div class="space-y-1">
       <label class="text-xs font-medium text-slate-300" for="cash-as-of-date">
-        {m.plans_net_worth_as_of_label()}
+        {m.cash_position_as_of_label()}
       </label>
       <DayPicker
         id="cash-as-of-date"
         bind:value={asOfDate}
-        label={m.plans_net_worth_as_of_label()}
+        label={m.cash_position_as_of_label()}
         showLabel={false}
       />
     </div>

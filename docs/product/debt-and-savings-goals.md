@@ -20,6 +20,13 @@ nadpłać** (debt).
   linked expense transactions dated after that snapshot. Without a snapshot, all
   paid linked expenses count. This prevents a later import of older history from
   double-counting money already covered by a correction.
+- A correction dated D is the authoritative balance **at the end of D** in the
+  `Europe/Warsaw` product calendar. A linked payment from D is already covered by
+  that balance regardless of whether it was recorded before or after the correction;
+  only payments from D+1 and later add to it.
+- Corrections remain an audit trail. If several corrections have the same effective
+  date, the last-created row wins; UUID is the deterministic tie-breaker if their
+  creation timestamps are equal.
 - **Zapisz nową wpłatę** creates and links a paid `Cele` expense because it
   represents a real cash movement. The dialog warns not to use it when the same
   movement already exists or will arrive through bank import.
@@ -30,6 +37,10 @@ nadpłać** (debt).
   monthly pace lags.
 - Settlement links paid goal-allocation **expenses** from transaction history (same
   `plan_transaction_links`).
+- Settlement is whole-transaction and exclusive: one transaction may be linked to
+  one plan, and its full amount counts. Split settlement is intentionally deferred;
+  the settle UI states this before the user confirms a link. Money-job assignments
+  must use their own amount-bearing records rather than overloading plan links.
 
 ## Debt plans
 
@@ -71,13 +82,12 @@ bilans hero:
 
 ```
 bilans = wpływy − wydatki   (ten miesiąc, z importu / wpisów)
-po celach = bilans − suma monthlyNeeded aktywnych celów save
+scenariusz po tempie celów = bilans − niezrealizowane tempo aktywnych celów save
 ```
 
 - Compact three-column strip: przychody · wydatki · bilans miesiąca (small).
-- **Primary highlight:** **Po celach** (`afterSaveGoals`) when user tracks active save
-  goals; green/red card with tempo context.
-- Without save goals: informational copy that free surplus equals month cashflow.
+- Bilans i scenariusz po tempie celu opisują przepływ miesiąca. Nie są saldem
+  gotówki ani kwotą dostępną do przypisania.
 - Raty kredytów **nie** odejmujemy ponownie - przy import-first wydatków rata jest
   już w wydatkach; karta pokazuje raty **aktywnych** planów kredytowych tylko jako informację.
 - Save pace from `computePlanProgress().monthlyNeeded` on active save plans
@@ -99,6 +109,6 @@ po celach = bilans − suma monthlyNeeded aktywnych celów save
 
 ## Lifecycle example
 
-1. `save` „Nowy samochód” - odkładasz via linked wpływy.
+1. `save` „Nowy samochód” - odkładasz przez powiązane, opłacone wydatki `Cele`.
 2. After purchase on credit - new `debt` „Kredyt na auto” under **Kredyty**.
 3. Mortgage runs as parallel `debt` „Kredyt hipoteczny”.

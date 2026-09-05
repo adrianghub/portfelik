@@ -64,9 +64,9 @@ jobs:
 
       - uses: ./.github/actions/setup-web
 
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v3
         with:
-          version: latest
+          version: 2.105.0
 
       - name: Start local Supabase stack
         run: supabase start

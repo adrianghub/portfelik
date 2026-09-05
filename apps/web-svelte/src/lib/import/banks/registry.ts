@@ -7,6 +7,12 @@ import { millenniumAdapter } from "./millennium";
 import { pkoBpAdapter } from "./pko_bp";
 import type { DetectionResult, ImportAdapter, ImportAdapterKind, ImportSourceKind } from "./types";
 
+export type ImportAdapterCertification = "synthetic_only" | "real_export";
+
+// Auto-proceed is a product trust decision, not a parser-confidence shortcut.
+// Add an adapter only after the evidence in bank-import-compatibility.md is met.
+const REAL_EXPORT_CERTIFIED_ADAPTERS: ReadonlySet<ImportAdapterKind> = new Set([]);
+
 // Only implemented adapters are registered. The full ImportAdapterKind union is
 // accepted by the DB so follow-up adapters slot in without another migration.
 export const IMPORT_ADAPTERS: readonly ImportAdapter[] = Object.freeze([
@@ -49,4 +55,12 @@ export function listImportAdapters(filter?: { sourceKind?: ImportSourceKind }): 
 
 export function importAdapterLabel(kind: ImportAdapterKind): string {
   return IMPORT_ADAPTERS.find((a) => a.kind === kind)?.label ?? kind;
+}
+
+export function importAdapterCertification(kind: ImportAdapterKind): ImportAdapterCertification {
+  return REAL_EXPORT_CERTIFIED_ADAPTERS.has(kind) ? "real_export" : "synthetic_only";
+}
+
+export function canAutoProceedImportAdapter(kind: ImportAdapterKind): boolean {
+  return importAdapterCertification(kind) === "real_export";
 }

@@ -2,9 +2,11 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
+  canAutoProceedImportAdapter,
   detectImportAdapter,
   getImportAdapter,
   importAdapterLabel,
+  importAdapterCertification,
   listImportAdapters,
 } from "../../src/lib/import/banks/registry";
 
@@ -20,6 +22,13 @@ describe("import adapter registry", () => {
   it("detects ING with high confidence", () => {
     const result = detectImportAdapter(fx("ing/sample.csv"));
     expect(result).toMatchObject({ kind: "ing", confidence: "high" });
+  });
+
+  it("keeps structurally recognized adapters behind confirmation until real-export certified", () => {
+    for (const adapter of listImportAdapters({ sourceKind: "bank_statement" })) {
+      expect(importAdapterCertification(adapter.kind)).toBe("synthetic_only");
+      expect(canAutoProceedImportAdapter(adapter.kind)).toBe(false);
+    }
   });
 
   it("returns null for an unrecognized CSV", () => {

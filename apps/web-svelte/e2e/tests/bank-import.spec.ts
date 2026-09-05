@@ -28,6 +28,20 @@ const mbankNoCounterpartySample = Buffer.from(
   "utf8"
 );
 
+async function uploadUncertifiedStatement(
+  page: Page,
+  file: { name: string; buffer: Buffer }
+): Promise<void> {
+  await page.locator('input[type="file"]').setInputFiles({
+    name: file.name,
+    mimeType: "text/csv",
+    buffer: file.buffer,
+  });
+  const confirmation = page.getByRole("button", { name: "Kontynuuj" });
+  await expect(confirmation).toBeVisible({ timeout: 10_000 });
+  await confirmation.click();
+}
+
 type ImportRow = {
   id: string;
   session_id: string;
@@ -444,11 +458,7 @@ test("import wizard: uploads, flags probable duplicates, commits, and blocks re-
   await mockBankImportAPI(page, { autoSkipFirstAsDuplicate: true });
   await page.goto("/import");
 
-  await page.locator('input[type="file"]').setInputFiles({
-    name: "wyciag.csv",
-    mimeType: "text/csv",
-    buffer: mbankSample,
-  });
+  await uploadUncertifiedStatement(page, { name: "wyciag.csv", buffer: mbankSample });
 
   await expect(page.getByRole("button", { name: /Przywróć wszystkie do decyzji/ })).toBeVisible({
     timeout: 10_000,
@@ -470,11 +480,7 @@ test("import wizard: uploads, flags probable duplicates, commits, and blocks re-
   await expect(page).toHaveURL(/\/transactions\?startYear=2026&startMonth=5/);
 
   await page.goto("/import");
-  await page.locator('input[type="file"]').setInputFiles({
-    name: "wyciag.csv",
-    mimeType: "text/csv",
-    buffer: mbankSample,
-  });
+  await uploadUncertifiedStatement(page, { name: "wyciag.csv", buffer: mbankSample });
   await expect(page.getByText("Ten plik został już zaimportowany")).toBeVisible({
     timeout: 10_000,
   });
@@ -485,11 +491,7 @@ test("import wizard: commits a fully-categorized statement in one click (no per-
 }) => {
   await page.goto("/import");
 
-  await page.locator('input[type="file"]').setInputFiles({
-    name: "wyciag.csv",
-    mimeType: "text/csv",
-    buffer: mbankSample,
-  });
+  await uploadUncertifiedStatement(page, { name: "wyciag.csv", buffer: mbankSample });
 
   const sortSelect = page.getByLabel("Sortowanie pozycji importu");
   await expect(sortSelect).toHaveValue("original", { timeout: 10_000 });
@@ -518,9 +520,8 @@ test("import wizard: category choice is one-off until the user explicitly saves 
   });
   await page.goto("/import");
 
-  await page.locator('input[type="file"]').setInputFiles({
+  await uploadUncertifiedStatement(page, {
     name: "wyciag.csv",
-    mimeType: "text/csv",
     buffer: mbankNoCounterpartySample,
   });
 
@@ -576,9 +577,8 @@ test("import wizard: correcting a rule-derived category does not mutate the rule
   });
   await page.goto("/import");
 
-  await page.locator('input[type="file"]').setInputFiles({
+  await uploadUncertifiedStatement(page, {
     name: "wyciag.csv",
-    mimeType: "text/csv",
     buffer: mbankNoCounterpartySample,
   });
 
@@ -624,11 +624,7 @@ test("import wizard: applies a one-off category to similar rows without saving a
 `,
     "utf8"
   );
-  await page.locator('input[type="file"]').setInputFiles({
-    name: "wyciag.csv",
-    mimeType: "text/csv",
-    buffer: similarRowsSample,
-  });
+  await uploadUncertifiedStatement(page, { name: "wyciag.csv", buffer: similarRowsSample });
 
   const reviewTable = page.getByRole("table");
   const firstRow = reviewTable.getByRole("row").filter({ hasText: "KAWIARNIA CENTRUM" });
@@ -651,9 +647,8 @@ test("import wizard: uncategorized importing row goes to Inne", async ({ page })
   await mockBankImportAPI(page, { defaultRules: false });
   await page.goto("/import");
 
-  await page.locator('input[type="file"]').setInputFiles({
+  await uploadUncertifiedStatement(page, {
     name: "wyciag.csv",
-    mimeType: "text/csv",
     buffer: mbankNoCounterpartySample,
   });
   const restoreAllDuplicates = page.getByRole("button", {
@@ -695,9 +690,8 @@ test("import wizard: large import virtualizes the review list and keeps every ro
   await mockBankImportAPI(page);
   await page.goto("/import");
 
-  await page.locator('input[type="file"]').setInputFiles({
+  await uploadUncertifiedStatement(page, {
     name: "duzy-wyciag.csv",
-    mimeType: "text/csv",
     buffer: makeLargeMbankCsv(500),
   });
 
@@ -732,11 +726,7 @@ test("import wizard: resumes an unsaved draft after reload", async ({ page }) =>
   await mockBankImportAPI(page);
   await page.goto("/import");
 
-  await page.locator('input[type="file"]').setInputFiles({
-    name: "wyciag.csv",
-    mimeType: "text/csv",
-    buffer: mbankSample,
-  });
+  await uploadUncertifiedStatement(page, { name: "wyciag.csv", buffer: mbankSample });
   await expect(page.getByRole("button", { name: /^Zaimportuj \d+ transakc/ })).toBeEnabled({
     timeout: 10_000,
   });
@@ -754,11 +744,7 @@ test("import wizard: leave guard discards the draft on navigate-away", async ({ 
   await mockBankImportAPI(page);
   await page.goto("/import");
 
-  await page.locator('input[type="file"]').setInputFiles({
-    name: "wyciag.csv",
-    mimeType: "text/csv",
-    buffer: mbankSample,
-  });
+  await uploadUncertifiedStatement(page, { name: "wyciag.csv", buffer: mbankSample });
   await expect(page.getByRole("button", { name: /^Zaimportuj \d+ transakc/ })).toBeEnabled({
     timeout: 10_000,
   });
@@ -776,9 +762,8 @@ test("import wizard: undo restores the previous category pick", async ({ page })
   await mockBankImportAPI(page, { defaultRules: false });
   await page.goto("/import");
 
-  await page.locator('input[type="file"]').setInputFiles({
+  await uploadUncertifiedStatement(page, {
     name: "wyciag.csv",
-    mimeType: "text/csv",
     buffer: mbankNoCounterpartySample,
   });
 
@@ -820,11 +805,7 @@ test("import wizard: confirm sheet skips uncategorized rows and imports the rest
     "utf8"
   );
 
-  await page.locator('input[type="file"]').setInputFiles({
-    name: "wyciag.csv",
-    mimeType: "text/csv",
-    buffer: twoMerchantsSample,
-  });
+  await uploadUncertifiedStatement(page, { name: "wyciag.csv", buffer: twoMerchantsSample });
 
   const rows = page.getByRole("table").getByRole("row").filter({ hasText: "KAWIARNIA" });
   await expect(rows).toHaveCount(1, { timeout: 10_000 });
