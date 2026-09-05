@@ -162,7 +162,7 @@ export async function deletePlan(id: string): Promise<void> {
 export async function fetchPlansForExport(): Promise<unknown[]> {
   const { data, error } = await supabase
     .from("plans")
-    .select("*, plan_transaction_links(id, transaction_id, created_by, created_at)")
+    .select("*")
     .order("created_at", { ascending: false });
   if (error) throw error;
   return data ?? [];
