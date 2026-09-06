@@ -78,6 +78,8 @@ test("txId deep link opens transaction outside the current date range", async ({
 });
 
 test("far-future recurring forecast rows expose only scoped series actions", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-06-01T12:00:00Z"));
+
   const recurringTemplate = {
     id: "tmpl-rent",
     date: "2026-01-05",
