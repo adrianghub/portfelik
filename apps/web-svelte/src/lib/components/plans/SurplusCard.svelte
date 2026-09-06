@@ -18,7 +18,7 @@
 </script>
 
 <section
-  class="rounded-2xl border border-white/5 bg-slate-900/60 bg-[radial-gradient(circle_at_80%_0%,rgba(56,189,248,0.12),transparent_45%)] p-5"
+  class="h-full rounded-2xl border border-white/5 bg-slate-900/60 bg-[radial-gradient(circle_at_80%_0%,rgba(56,189,248,0.12),transparent_45%)] p-5"
   aria-labelledby="plans-surplus-title"
 >
   <p id="plans-surplus-title" class="text-eyebrow text-slate-400">{m.plans_surplus_title()}</p>

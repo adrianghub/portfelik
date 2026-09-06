@@ -14,8 +14,8 @@ Apply these rules to every task.
   `.claude/rules/svelte-gotchas.md`; for Supabase work, read
   `supabase/CLAUDE.md`.
 - Keep unrelated user changes intact. Do not clean or rewrite a dirty worktree.
-- On `dev`, sync from `origin/main` before starting new feature work. Feature
-  branches start from current `dev`.
+- Start feature branches with `./scripts/start-work.sh <branch-name>`; after a
+  production promotion, reconcile `dev` with `./scripts/sync-dev.sh --push`.
 - Use `/Users/adrianzinko/.local/bin/edgar` for broad context, three or more
   files, files over roughly 400 lines, noisy output, and large diffs. Verify
   important findings against source.
