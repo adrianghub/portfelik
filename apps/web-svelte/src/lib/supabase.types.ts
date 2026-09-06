@@ -365,6 +365,7 @@ export type Database = {
           created_at: string;
           currency: string;
           id: string;
+          is_demo: boolean;
           label: string;
           position: number;
           updated_at: string;
@@ -375,6 +376,7 @@ export type Database = {
           created_at?: string;
           currency?: string;
           id?: string;
+          is_demo?: boolean;
           label: string;
           position?: number;
           updated_at?: string;
@@ -385,6 +387,7 @@ export type Database = {
           created_at?: string;
           currency?: string;
           id?: string;
+          is_demo?: boolean;
           label?: string;
           position?: number;
           updated_at?: string;
@@ -613,6 +616,7 @@ export type Database = {
           end_date: string;
           group_id: string | null;
           id: string;
+          is_demo: boolean;
           kind: string;
           name: string;
           refinanced_from_plan_id: string | null;
@@ -630,6 +634,7 @@ export type Database = {
           end_date: string;
           group_id?: string | null;
           id?: string;
+          is_demo?: boolean;
           kind: string;
           name: string;
           refinanced_from_plan_id?: string | null;
@@ -647,6 +652,7 @@ export type Database = {
           end_date?: string;
           group_id?: string | null;
           id?: string;
+          is_demo?: boolean;
           kind?: string;
           name?: string;
           refinanced_from_plan_id?: string | null;
@@ -1103,6 +1109,7 @@ export type Database = {
           description: string;
           group_id: string | null;
           id: string;
+          is_demo: boolean;
           is_recurring: boolean;
           recurrence_end_date: string | null;
           recurrence_frequency: Database["public"]["Enums"]["recurrence_frequency"] | null;
@@ -1127,6 +1134,7 @@ export type Database = {
           description: string;
           group_id?: string | null;
           id?: string;
+          is_demo?: boolean;
           is_recurring?: boolean;
           recurrence_end_date?: string | null;
           recurrence_frequency?: Database["public"]["Enums"]["recurrence_frequency"] | null;
@@ -1151,6 +1159,7 @@ export type Database = {
           description?: string;
           group_id?: string | null;
           id?: string;
+          is_demo?: boolean;
           is_recurring?: boolean;
           recurrence_end_date?: string | null;
           recurrence_frequency?: Database["public"]["Enums"]["recurrence_frequency"] | null;
@@ -1235,6 +1244,7 @@ export type Database = {
           description: string | null;
           group_id: string | null;
           id: string | null;
+          is_demo: boolean | null;
           is_hold: boolean | null;
           is_recurring: boolean | null;
           recurrence_end_date: string | null;

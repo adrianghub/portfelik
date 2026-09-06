@@ -123,7 +123,7 @@ export async function buildAccountExport(): Promise<AccountExportBundle> {
 
   const { data: netWorthItems, error: netWorthError } = await supabase
     .from("net_worth_items")
-    .select("id, user_id, label, amount, currency, position, created_at, updated_at")
+    .select("id, user_id, label, amount, currency, position, is_demo, created_at, updated_at")
     .eq("user_id", user.id)
     .order("position", { ascending: true });
   if (netWorthError) throw netWorthError;

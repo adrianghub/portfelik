@@ -15,6 +15,7 @@
   import GlossarySheet from "$lib/components/ui/GlossarySheet.svelte";
   import { track } from "$lib/analytics";
   import { clearDemoData, fetchDemoProbe, hasDemoData } from "$lib/services/demo-data";
+  import { refreshDemoState } from "$lib/services/demo-query-state";
   import { resetGuidedTourForReplay } from "$lib/services/guided-tour-actions";
   import { fetchPlans } from "$lib/services/plans";
   import { fetchProfile } from "$lib/services/profiles";
@@ -231,10 +232,7 @@
     onSuccess: async (result) => {
       const u = requireSessionUserId();
       track("demo_cleared", { row_count: result.deleted });
-      await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
-      await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
-      await queryClient.invalidateQueries({ queryKey: qk.transactions.list(u, "demo-probe") });
-      await queryClient.invalidateQueries({ queryKey: qk.transactions.list(u, "count-probe") });
+      await refreshDemoState(queryClient, u);
       toast.success(m.demo_cleared_toast());
     },
     onError: (err) => toastError(err),
@@ -914,15 +912,11 @@
   <!-- Status band -->
   <section class="mt-4">
     <h2 class="mb-1.5 text-sm font-medium text-slate-400">{m.dashboard_status_band()}</h2>
-    <div class="grid min-w-0 grid-cols-1 items-start gap-2 sm:grid-cols-2">
-      <div class="grid min-w-0 gap-2">
-        <DashboardActions {groupFilter} overdue={overdueSummary} {overdueState} />
-        <DashboardImportHealth />
-      </div>
-      <div class="grid min-w-0 gap-2">
-        <DashboardPlanProgress {groupFilter} />
-        <DashboardNetWorthStrip />
-      </div>
+    <div class="grid min-w-0 grid-cols-1 items-stretch gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <DashboardActions {groupFilter} overdue={overdueSummary} {overdueState} />
+      <DashboardPlanProgress {groupFilter} />
+      <DashboardImportHealth />
+      <DashboardNetWorthStrip />
     </div>
   </section>
 
