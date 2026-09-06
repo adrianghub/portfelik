@@ -67,17 +67,43 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Detect RLS-relevant changes
+        id: rls-scope
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if ! git cat-file -e "$BASE_SHA^{commit}" || ! git cat-file -e "$HEAD_SHA^{commit}"; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "Incomplete comparison history; running the full RLS job."
+            exit 0
+          fi
+
+          changed=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          if printf '%s\n' "$changed" | grep -Eq '^(\.github/(actions/setup-web/|workflows/(ci|deploy-staging|deploy-production)\.yml$)|supabase/(migrations/|seed\.sql$|config\.toml$)|apps/web-svelte/tests/rls/|scripts/(check-security-advisors|load-local-env)\.sh$)'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "No RLS-relevant changes; expensive database job skipped."
+          fi
 
       - uses: ./.github/actions/setup-web
+        if: steps.rls-scope.outputs.run == 'true'
 
       - uses: supabase/setup-cli@v3
+        if: steps.rls-scope.outputs.run == 'true'
         with:
           version: 2.105.0
 
       - name: Start local Supabase stack
+        if: steps.rls-scope.outputs.run == 'true'
         run: supabase start
 
       - name: Capture local Supabase env
+        if: steps.rls-scope.outputs.run == 'true'
         run: |
           eval "$(supabase status -o env | sed -E 's/^([A-Z_]+)="?([^"]+)"?$/export \1=\2/')"
           {
@@ -88,17 +114,20 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Generate ephemeral RLS test password
+        if: steps.rls-scope.outputs.run == 'true'
         run: echo "RLS_TEST_PASSWORD=$(openssl rand -hex 24)" >> "$GITHUB_ENV"
 
       - name: Run RLS suite
+        if: steps.rls-scope.outputs.run == 'true'
         working-directory: apps/web-svelte
         run: pnpm test:rls
 
       - name: Security advisors (fail on extensions in public)
+        if: steps.rls-scope.outputs.run == 'true'
         run: bash scripts/check-security-advisors.sh
 
       - name: Stop local Supabase stack
-        if: always()
+        if: always() && steps.rls-scope.outputs.run == 'true'
         run: supabase stop --no-backup
 
   e2e:
@@ -107,14 +136,39 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Detect E2E-relevant changes
+        id: e2e-scope
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if ! git cat-file -e "$BASE_SHA^{commit}" || ! git cat-file -e "$HEAD_SHA^{commit}"; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "Incomplete comparison history; running the full E2E job."
+            exit 0
+          fi
+
+          changed=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          if printf '%s\n' "$changed" | grep -Eq '^(\.github/(actions/setup-web/|workflows/(ci|deploy-staging|deploy-production)\.yml$)|apps/web-svelte/(src/|e2e/|messages/|static/|package\.json$|playwright\.config\.ts$|vite\.config\.ts$|svelte\.config\.js$)|pnpm-lock\.yaml$|pnpm-workspace\.yaml$)'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "No UI, route, copy, Playwright, or web dependency changes; E2E skipped."
+          fi
 
       - uses: ./.github/actions/setup-web
+        if: steps.e2e-scope.outputs.run == 'true'
 
       - name: Install Playwright browsers
+        if: steps.e2e-scope.outputs.run == 'true'
         working-directory: apps/web-svelte
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Build app
+        if: steps.e2e-scope.outputs.run == 'true'
         working-directory: apps/web-svelte
         env:
           PUBLIC_SUPABASE_URL: https://emqzcygfwcvbmhxhfkcc.supabase.co
@@ -124,13 +178,14 @@ jobs:
         run: pnpm build
 
       - name: Run Playwright tests
+        if: steps.e2e-scope.outputs.run == 'true'
         working-directory: apps/web-svelte
         env:
           CI: true
         run: pnpm exec playwright test
 
       - uses: actions/upload-artifact@v4
-        if: failure()
+        if: failure() && steps.e2e-scope.outputs.run == 'true'
         with:
           name: playwright-report
           path: apps/web-svelte/playwright-report/

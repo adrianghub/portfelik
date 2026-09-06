@@ -5,9 +5,9 @@
 - Working branch: `codex/ui-density-pass`.
 - Base: `32d7fe6`, shared by remote `main` and `dev` after a verified
   fast-forward sync.
-- Delivery target: a draft PR from `codex/ui-density-pass` to `dev`. Resolve its
-  current URL from the branch because the PR is created after this document is
-  committed.
+- Delivery target: draft PR
+  [#220](https://github.com/adrianghub/portfelik/pull/220) from
+  `codex/ui-density-pass` to `dev`.
 - Production and staging still contain the trust/readiness package merged
   earlier. The UI-density and workflow commits described here are not yet in
   `dev` or `main` at this snapshot.
@@ -17,6 +17,7 @@ Commits, oldest first:
 1. `3000c08 feat(ui): tighten desktop financial layouts`
 2. `08a96f7 test(transactions): freeze recurring forecast clock`
 3. `06c2857 chore(workflow): enforce safe branch flow`
+4. `01cd7ef docs(handover): record ui and branch-flow state`
 
 ## What changed
 
@@ -62,6 +63,22 @@ Commits, oldest first:
   operation was ancestry-checked before the push and triggered the full staging
   workflow.
 
+### CI scope and production probe
+
+- Quality remains mandatory and always runs.
+- Required `RLS regression` and `Playwright E2E mocked` jobs now start their
+  expensive toolchain only when the diff can affect that area. Their status
+  contexts remain present and successful as fast no-ops for unrelated changes.
+- The same scope rules apply to pull requests and pushes to `dev`/`main`.
+  Unknown initial-push history falls back to running the full job.
+- Production run
+  [33989006040](https://github.com/adrianghub/portfelik/actions/runs/33989006040)
+  was not a production outage. Auth health returned 200, while the probe
+  incorrectly expected an anonymous read of the user-owned `categories` table
+  to return 200. The publishable key has the `anon` role without a user session,
+  so 401 is the intended boundary. The probe now validates auth/key health with
+  200 and Data API reachability plus access isolation with the expected 401.
+
 ## Verification evidence
 
 - Svelte check: 0 errors, 0 warnings.
@@ -72,6 +89,10 @@ Commits, oldest first:
 - Production build: passed.
 - Targeted accessibility spine: passed for dashboard, transactions, plans,
   import, and settings.
+- Draft PR #220 completed its pre-optimization GitHub run successfully: quality,
+  RLS, mocked E2E, and secret scan all passed. Its next run intentionally runs
+  both heavy jobs once because it changes their workflow definitions; later
+  unrelated PRs/deploys should exercise the fast no-op paths.
 - Branch scripts: `bash -n`, positive/negative direction checks, and a temporary
   bare-remote integration test covering feature start plus `main -> dev`
   fast-forward all passed.
@@ -84,10 +105,11 @@ Commits, oldest first:
 
 ## Exact next steps
 
-1. If the branch has no open PR yet, run `./scripts/open-pr.sh dev`. This reruns
-   the canonical gates, pushes the branch, and opens the draft PR.
+1. Update draft PR #220 with `./scripts/open-pr.sh dev` after any final commit.
 2. Confirm the feature PR's required checks are green; its deterministic test
    fix is expected to clear the failure from the sync-triggered run above.
+   Confirm that RLS and Playwright execute normally because this PR changes
+   their workflow definitions.
 3. Review the desktop dashboard and Plans page on the PR/staging build, then
    merge to `dev` only after required checks pass.
 4. Validate staging with both seeded personas and record concrete evidence for
@@ -134,6 +156,8 @@ real assignment storage and atomic/idempotent transitions first.
 - `sync-dev.sh --push` deliberately uses the repository owner's existing bypass
   for a verified fast-forward. If ownership or ruleset bypass changes, replace
   this with a reviewed `main -> dev` sync PR rather than weakening protection.
+- The corrected production probe is locally verified against the live Supabase
+  endpoint, but its end-to-end GitHub evidence requires the next `main` deploy.
 
 ## Operating commands for the next agent
 

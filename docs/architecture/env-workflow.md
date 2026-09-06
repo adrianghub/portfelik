@@ -58,6 +58,23 @@ Never solve long-lived branch divergence with a force-push, rebase, or squash
 between `dev` and `main`. Production promotion must preserve `dev` ancestry so
 the sync back to `dev` remains a fast-forward.
 
+## CI scope
+
+The quality job always runs. The required RLS and Playwright job names also
+remain present for every PR and deploy, but their expensive setup is scoped to
+relevant changes:
+
+- RLS runs for migrations, Supabase seed/config, RLS tests, their helper
+  scripts, or relevant CI workflow/setup changes.
+- Playwright runs for application source, routes/components, messages, E2E
+  tests/config, static assets, web dependencies, or relevant CI workflow/setup
+  changes.
+- For unrelated changes, the job performs only change detection and succeeds as
+  a no-op. This preserves protected-branch status contexts without starting
+  Supabase or installing browsers unnecessarily.
+- An initial push without a usable previous SHA runs the full job as the safe
+  fallback.
+
 ## Flow diagram
 
 ```mermaid
@@ -129,7 +146,7 @@ the local Supabase. Then log in and explore.
 
 - Branch: `dev`. Push triggers `.github/workflows/cloudflare-deploy.yml`.
 - `migrate-staging` links the `portfelik-staging` project, runs
-  `supabase db push --linked --include-seed`, deploys the three Edge Functions,
+  `supabase db push --linked --include-seed`, deploys the four Edge Functions,
   then runs `pnpm seed:staging`.
 - Staging build env vars come only from `STAGING_*` secrets:
   `STAGING_PUBLIC_SUPABASE_URL`, `STAGING_PUBLIC_SUPABASE_ANON_KEY`, and
@@ -152,7 +169,9 @@ the local Supabase. Then log in and explore.
 - Production build secrets keep the unprefixed names:
   `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_ANON_KEY`, and `PUBLIC_VAPID_KEY`.
 - `wrangler pages deploy build --branch main`. Lands at `https://app.jakstoimy.pl`.
-- No automatic post-deploy verification - relies on staging smoke having passed.
+- A read-only production probe verifies the app shell, authenticated Supabase
+  gateway health, and that the user-owned `categories` table still rejects an
+  anonymous request.
 
 ## Migrations
 
