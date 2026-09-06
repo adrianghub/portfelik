@@ -708,7 +708,7 @@
   <title>{m.nav_plans()} · JakStoimy</title>
 </svelte:head>
 
-<div class="container mx-auto max-w-3xl space-y-5 px-4 py-6">
+<div class="container mx-auto max-w-5xl space-y-5 px-4 py-6">
   <div class="flex items-center justify-between gap-3">
     <h1 class="text-2xl font-semibold text-slate-900 dark:text-white">{m.nav_plans()}</h1>
     {#if plansQuery.isLoading || !showPlansZeroState}
@@ -725,21 +725,27 @@
 
   <p class="text-sm text-slate-400">{m.plans_tagline()}</p>
 
-  {#if snapshotQuery.isLoading}
-    <div class="h-36 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
-  {:else}
-    <NetWorthHero summary={netWorth} {fxUnavailable} onedit={openNetWorthForm} />
-  {/if}
+  <div class="grid items-stretch gap-3 lg:grid-cols-12">
+    <div class="min-w-0 lg:col-span-7">
+      {#if snapshotQuery.isLoading}
+        <div class="h-36 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
+      {:else}
+        <NetWorthHero summary={netWorth} {fxUnavailable} onedit={openNetWorthForm} />
+      {/if}
+    </div>
 
-  {#if monthTxQuery.isLoading}
-    <div class="h-28 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
-  {:else if monthlySurplus}
-    <SurplusCard
-      summary={monthlySurplus}
-      actions={planningActions}
-      transactionsHref={surplusTransactionsHref}
-    />
-  {/if}
+    <div class="min-w-0 lg:col-span-5">
+      {#if monthTxQuery.isLoading}
+        <div class="h-28 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
+      {:else if monthlySurplus}
+        <SurplusCard
+          summary={monthlySurplus}
+          actions={planningActions}
+          transactionsHref={surplusTransactionsHref}
+        />
+      {/if}
+    </div>
+  </div>
 
   {#if plansQuery.isLoading}
     <div class="grid gap-3 sm:grid-cols-2">
@@ -804,57 +810,59 @@
       {/each}
     </div>
 
-    <section class="space-y-2">
-      <h2 class="text-xs font-medium tracking-wide text-slate-400 uppercase">
-        {m.plans_section_save()}
-      </h2>
-      {#if savePlans.length === 0}
-        <p
-          class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-400"
-        >
-          {m.plans_section_save_empty()}
-        </p>
-      {:else}
-        {#each savePlans as plan, i (plan.id)}
-          <div data-tour-id={i === 0 ? "tour-plan-save" : undefined}>
-            <PlanCard
-              {plan}
-              categoryName={categoryMap.get(plan.category_id ?? "")}
-              groupName={groupMap.get(plan.group_id ?? "")}
-              onedit={planCanManage(plan) ? resetForm : undefined}
-              ondelete={planCanManage(plan) ? (id) => (deleteTargetId = id) : undefined}
-            />
-          </div>
-        {/each}
-      {/if}
-    </section>
+    <div class="grid items-start gap-5 lg:grid-cols-2">
+      <section class="min-w-0 space-y-2">
+        <h2 class="text-xs font-medium tracking-wide text-slate-400 uppercase">
+          {m.plans_section_save()}
+        </h2>
+        {#if savePlans.length === 0}
+          <p
+            class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-400"
+          >
+            {m.plans_section_save_empty()}
+          </p>
+        {:else}
+          {#each savePlans as plan, i (plan.id)}
+            <div data-tour-id={i === 0 ? "tour-plan-save" : undefined}>
+              <PlanCard
+                {plan}
+                categoryName={categoryMap.get(plan.category_id ?? "")}
+                groupName={groupMap.get(plan.group_id ?? "")}
+                onedit={planCanManage(plan) ? resetForm : undefined}
+                ondelete={planCanManage(plan) ? (id) => (deleteTargetId = id) : undefined}
+              />
+            </div>
+          {/each}
+        {/if}
+      </section>
 
-    <section class="space-y-2">
-      <h2 class="text-xs font-medium tracking-wide text-slate-400 uppercase">
-        {m.plans_section_debt()}
-      </h2>
-      {#if debtPlans.length === 0}
-        <p
-          class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-400"
-        >
-          {m.plans_section_debt_empty()}
-        </p>
-      {:else}
-        {#each debtPlans as plan, i (plan.id)}
-          <div data-tour-id={i === 0 ? "tour-plan-settle" : undefined}>
-            <PlanCard
-              {plan}
-              debtTerms={debtTermsQuery.data?.[plan.id]}
-              linkedExpenses={progressQuery.data?.[plan.id]?.linkedExpenses ?? []}
-              categoryName={categoryMap.get(plan.category_id ?? "")}
-              groupName={groupMap.get(plan.group_id ?? "")}
-              onedit={planCanManage(plan) ? resetForm : undefined}
-              ondelete={planCanManage(plan) ? (id) => (deleteTargetId = id) : undefined}
-            />
-          </div>
-        {/each}
-      {/if}
-    </section>
+      <section class="min-w-0 space-y-2">
+        <h2 class="text-xs font-medium tracking-wide text-slate-400 uppercase">
+          {m.plans_section_debt()}
+        </h2>
+        {#if debtPlans.length === 0}
+          <p
+            class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-400"
+          >
+            {m.plans_section_debt_empty()}
+          </p>
+        {:else}
+          {#each debtPlans as plan, i (plan.id)}
+            <div data-tour-id={i === 0 ? "tour-plan-settle" : undefined}>
+              <PlanCard
+                {plan}
+                debtTerms={debtTermsQuery.data?.[plan.id]}
+                linkedExpenses={progressQuery.data?.[plan.id]?.linkedExpenses ?? []}
+                categoryName={categoryMap.get(plan.category_id ?? "")}
+                groupName={groupMap.get(plan.group_id ?? "")}
+                onedit={planCanManage(plan) ? resetForm : undefined}
+                ondelete={planCanManage(plan) ? (id) => (deleteTargetId = id) : undefined}
+              />
+            </div>
+          {/each}
+        {/if}
+      </section>
+    </div>
   {/if}
 </div>
 

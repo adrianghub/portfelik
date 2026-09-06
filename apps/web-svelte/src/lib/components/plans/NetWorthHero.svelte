@@ -42,7 +42,7 @@
 
 {#if fxUnavailable}
   <section
-    class="rounded-2xl border border-amber-500/20 bg-slate-900/40 px-4 py-5"
+    class="h-full rounded-2xl border border-amber-500/20 bg-slate-900/40 px-4 py-5"
     data-tour-id="tour-net-worth"
   >
     <p class="text-eyebrow text-slate-400">{m.plans_net_worth_title()}</p>
@@ -62,7 +62,7 @@
   </section>
 {:else if !summary.hasData}
   <section
-    class="rounded-2xl border border-dashed border-white/10 bg-slate-900/40 px-4 py-5 text-center"
+    class="h-full rounded-2xl border border-dashed border-white/10 bg-slate-900/40 px-4 py-5 text-center"
     data-tour-id="tour-net-worth"
   >
     <p class="text-sm text-slate-400">{m.plans_net_worth_empty()}</p>
@@ -78,7 +78,7 @@
   </section>
 {:else}
   <section
-    class="rounded-2xl border border-white/5 bg-slate-900/60 bg-[radial-gradient(circle_at_20%_0%,rgba(45,212,191,0.14),transparent_50%)] p-5"
+    class="h-full rounded-2xl border border-white/5 bg-slate-900/60 bg-[radial-gradient(circle_at_20%_0%,rgba(45,212,191,0.14),transparent_50%)] p-5"
     aria-label={m.plans_net_worth_title()}
     data-tour-id="tour-net-worth"
   >

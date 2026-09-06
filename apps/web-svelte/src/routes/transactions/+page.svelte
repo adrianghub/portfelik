@@ -1025,7 +1025,7 @@
 
 <svelte:window onkeydown={onWindowKeydown} />
 
-<div class="container mx-auto max-w-4xl space-y-4 px-4 py-6">
+<div class="container mx-auto max-w-5xl space-y-4 px-4 py-6">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
       <h1 class="text-hero font-semibold text-slate-100">{m.transactions_title()}</h1>
