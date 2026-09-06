@@ -22,13 +22,21 @@ if [ -n "$BASE_ARG" ]; then BASE="$BASE_ARG"
 elif [ "$BRANCH" = dev ]; then BASE=main
 else BASE=dev; fi
 
+if ! bash "$SCRIPT_DIR/check-branch-flow.sh" "$BASE" "$BRANCH"; then
+  echo "PR blocked - unsupported branch direction." >&2
+  exit 1
+fi
+
 # Dirty tree blocks a real PR (body is built from commits); a dry-run still previews.
 if [ $DRY -eq 0 ] && [ -n "$(git status --porcelain)" ]; then
   echo "Working tree is dirty - commit before opening a PR (the body is built from commits)." >&2
   exit 1
 fi
 
-git fetch -q origin "$BASE" 2>/dev/null || true
+if ! git fetch -q origin "$BASE"; then
+  echo "PR blocked - could not refresh origin/$BASE." >&2
+  exit 1
+fi
 
 GATES_OUT="$(bash "$SCRIPT_DIR/pr-gates.sh" "origin/$BASE")"; GATES_RC=$?
 if [ $GATES_RC -ne 0 ]; then

@@ -20,6 +20,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Validate branch flow
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: bash scripts/check-branch-flow.sh "$BASE_REF" "$HEAD_REF"
+
       - uses: ./.github/actions/setup-web
 
       - name: Typecheck

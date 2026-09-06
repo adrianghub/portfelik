@@ -6,11 +6,11 @@ Last reviewed: **2026-06-29**.
 
 ## TL;DR
 
-| Tier           | Trigger                              | Hosts on                    | DB target                                          |
-| -------------- | ------------------------------------ | --------------------------- | -------------------------------------------------- |
-| **Local**      | `pnpm dev` (from `apps/web-svelte/`) | `127.0.0.1:5173`            | **Local Supabase stack** (`127.0.0.1:54321`)       |
-| **Staging**    | `git push origin dev`                | `dev.portfelik.pages.dev`   | **Dedicated `portfelik-staging` Supabase project** |
-| **Production** | `git push origin main`               | `app.jakstoimy.pl`          | **Prod Supabase project**                          |
+| Tier           | Trigger                              | Hosts on                  | DB target                                          |
+| -------------- | ------------------------------------ | ------------------------- | -------------------------------------------------- |
+| **Local**      | `pnpm dev` (from `apps/web-svelte/`) | `127.0.0.1:5173`          | **Local Supabase stack** (`127.0.0.1:54321`)       |
+| **Staging**    | `git push origin dev`                | `dev.portfelik.pages.dev` | **Dedicated `portfelik-staging` Supabase project** |
+| **Production** | `git push origin main`               | `app.jakstoimy.pl`        | **Prod Supabase project**                          |
 
 Cloudflare Pages still splits by branch inside one Pages project. Supabase does
 not: staging and production now have separate projects, credentials, Auth users,
@@ -21,18 +21,42 @@ and migration targets.
 - `main` is production truth.
 - `dev` is staging/integration and must be kept synced from `main`; it is not a
   second long-running source of truth.
-- Before work on `dev`: fetch remotes, confirm a clean worktree, merge
-  `origin/main` into `dev`, resolve conflicts immediately, and run the relevant
-  gates.
-- After anything lands on `main`: sync `dev` from `origin/main` and push `dev`
-  before continuing feature work.
-- Feature branches start from current `dev`; before pushing a feature branch,
-  merge the latest `origin/dev` and re-run relevant gates.
+- Start feature work with `./scripts/start-work.sh <branch-name>`. It refuses a
+  dirty worktree, stale `dev`, diverged long-lived branches, or a reused branch
+  name, then creates the branch from the current remote `dev`.
+- After anything lands on `main`, run `./scripts/sync-dev.sh --push`. It updates
+  `dev` only when the operation is a safe fast-forward; divergence is never
+  resolved automatically.
+- Before opening a PR, `./scripts/open-pr.sh` refreshes the real remote base,
+  validates the PR direction, verifies ancestry, and runs all relevant gates.
+- Feature PRs target `dev`. Only `dev` may target `main`; CI rejects every other
+  production promotion path.
 - Production promotion flows `dev` → `main`; after merge, sync `dev` from
   `origin/main` again.
 - Hot files must not evolve independently on both branches: `CLAUDE.md`,
   plan/list pages/components, seed scripts, Supabase docs/runbooks, and E2E
   specs.
+
+### Daily commands
+
+```bash
+# Begin a task. A name without a slash gets the codex/ prefix.
+./scripts/start-work.sh ui-density-pass
+
+# Open or update the feature PR after committing.
+./scripts/open-pr.sh
+
+# Promote the integration branch from dev to main.
+git switch dev
+./scripts/open-pr.sh main
+
+# Immediately after the production PR lands.
+./scripts/sync-dev.sh --push
+```
+
+Never solve long-lived branch divergence with a force-push, rebase, or squash
+between `dev` and `main`. Production promotion must preserve `dev` ancestry so
+the sync back to `dev` remains a fast-forward.
 
 ## Flow diagram
 
