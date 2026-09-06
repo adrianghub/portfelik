@@ -1,5 +1,6 @@
 import { fetchCategories } from "$lib/services/categories";
 import { DEMO_PREFIX } from "$lib/services/demo-data-guards";
+import { buildDemoTransactionSeeds } from "$lib/services/demo-scenario";
 import { saveDebtPlan } from "$lib/services/plan-debt";
 import { linkPlanTransaction } from "$lib/services/plan-settlement";
 import { addCalendarMonths, createPlan, todayIso } from "$lib/services/plans";
@@ -20,24 +21,20 @@ function demoLabel(label: string): string {
 }
 
 export interface DemoProbe {
-  transactions: { description: string }[];
-  netWorthItems: { label: string }[];
+  transactions: { description: string; is_demo: boolean }[];
+  netWorthItems: { label: string; is_demo: boolean }[];
 }
 
 /**
- * Shared demo-presence probe: one cheap prefix select per demo-marked table
+ * Shared demo-presence probe: one cheap tagged-row select per demo-owned table
  * (plans ride on the regular plans query). Every `demoActive` check uses this
  * same shape under the `["transactions", "demo-probe"]` key, so the cache stays
  * consistent across dashboard, tour host, and walkthrough panel.
  */
 export async function fetchDemoProbe(): Promise<DemoProbe> {
   const [txs, items] = await Promise.all([
-    supabase
-      .from("transactions")
-      .select("id, description")
-      .like("description", `${DEMO_PREFIX}%`)
-      .limit(5),
-    supabase.from("net_worth_items").select("id, label").like("label", `${DEMO_PREFIX}%`).limit(5),
+    supabase.from("transactions").select("id, description, is_demo").eq("is_demo", true).limit(5),
+    supabase.from("net_worth_items").select("id, label, is_demo").eq("is_demo", true).limit(5),
   ]);
   if (txs.error) throw txs.error;
   if (items.error) throw items.error;
@@ -47,15 +44,6 @@ export async function fetchDemoProbe(): Promise<DemoProbe> {
 function isoDaysAgo(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() - days);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function isoDaysFromNow(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
@@ -87,7 +75,7 @@ export async function clearDemoData(): Promise<{ deleted: number }> {
 }
 
 export async function seedDemoData(): Promise<{ inserted: number }> {
-  // Idempotent reseed: clear any partial/previous Demo: rows first.
+  // Idempotent reseed: clear any partial or previous showcase rows first.
   await clearDemoData();
 
   const categories = await fetchCategories();
@@ -113,163 +101,57 @@ export async function seedDemoData(): Promise<{ inserted: number }> {
   const today = todayIso();
   let inserted = 0;
 
-  const txSeeds: {
-    daysAgo: number;
-    amount: number;
-    type: "expense" | "income";
-    catId: string;
-    label: string;
-    status?: "paid" | "upcoming";
-  }[] = [
-    { daysAgo: 92, amount: 6150, type: "income", catId: income.salary, label: "Wynagrodzenie" },
-    {
-      daysAgo: 88,
-      amount: 380,
-      type: "expense",
-      catId: expense.groceries,
-      label: "Zakupy spożywcze",
-    },
-    { daysAgo: 86, amount: 95, type: "expense", catId: expense.transport, label: "Paliwo" },
-    { daysAgo: 84, amount: 129, type: "expense", catId: expense.dining, label: "Restauracja" },
-    {
-      daysAgo: 82,
-      amount: 210,
-      type: "expense",
-      catId: expense.housing,
-      label: "Rachunek za prąd",
-    },
-    { daysAgo: 78, amount: 6080, type: "income", catId: income.salary, label: "Wynagrodzenie" },
-    { daysAgo: 74, amount: 62, type: "expense", catId: expense.health, label: "Apteka" },
-    {
-      daysAgo: 70,
-      amount: 49,
-      type: "expense",
-      catId: expense.subs,
-      label: "Subskrypcja streaming",
-    },
-    {
-      daysAgo: 65,
-      amount: 1200,
-      type: "expense",
-      catId: expense.insurance,
-      label: "Ubezpieczenie OC",
-    },
-    { daysAgo: 62, amount: 6200, type: "income", catId: income.salary, label: "Wynagrodzenie" },
-    {
-      daysAgo: 58,
-      amount: 420,
-      type: "expense",
-      catId: expense.groceries,
-      label: "Zakupy spożywcze",
-    },
-    { daysAgo: 55, amount: 180, type: "expense", catId: expense.fun, label: "Kino" },
-    { daysAgo: 52, amount: 350, type: "expense", catId: expense.electronics, label: "Słuchawki" },
-    {
-      daysAgo: 48,
-      amount: 850,
-      type: "income",
-      catId: income.freelance,
-      label: "Projekt na zlecenie",
-    },
-    { daysAgo: 45, amount: 6100, type: "income", catId: income.salary, label: "Wynagrodzenie" },
-    { daysAgo: 41, amount: 89, type: "expense", catId: expense.transport, label: "Paliwo" },
-    { daysAgo: 38, amount: 156, type: "expense", catId: expense.dining, label: "Restauracja" },
-    { daysAgo: 35, amount: 2400, type: "expense", catId: expense.housing, label: "Czynsz" },
-    {
-      daysAgo: 32,
-      amount: 500,
-      type: "expense",
-      catId: expense.travel,
-      label: "Rezerwacja noclegu",
-    },
-    { daysAgo: 28, amount: 6050, type: "income", catId: income.salary, label: "Wynagrodzenie" },
-    {
-      daysAgo: 25,
-      amount: 400,
-      type: "expense",
-      catId: expense.goals,
-      label: "Wpłata na wakacje",
-    },
-    {
-      daysAgo: 22,
-      amount: 240,
-      type: "expense",
-      catId: expense.housing,
-      label: "Rachunek za prąd",
-    },
-    { daysAgo: 18, amount: 72, type: "expense", catId: expense.health, label: "Apteka" },
-    { daysAgo: 14, amount: 5980, type: "income", catId: income.salary, label: "Wynagrodzenie" },
-    { daysAgo: 10, amount: 310, type: "expense", catId: expense.groceries, label: "Supermarket" },
-    { daysAgo: 7, amount: 45, type: "expense", catId: expense.dining, label: "Kawa na mieście" },
-    {
-      daysAgo: 5,
-      amount: 980,
-      type: "expense",
-      catId: expense.goals,
-      label: "Rata kredytu samochodowego",
-    },
-    { daysAgo: 3, amount: 180, type: "expense", catId: expense.sport, label: "Siłownia" },
-    {
-      daysAgo: -5,
-      amount: 220,
-      type: "expense",
-      catId: expense.subs,
-      label: "Abonament telefonu",
-      status: "upcoming",
-    },
-    {
-      daysAgo: -12,
-      amount: 2500,
-      type: "expense",
-      catId: expense.housing,
-      label: "Czynsz",
-      status: "upcoming",
-    },
-  ];
-
-  let goalContributionId: string | null = null;
-  for (const seed of txSeeds) {
-    const date = seed.daysAgo >= 0 ? isoDaysAgo(seed.daysAgo) : isoDaysFromNow(-seed.daysAgo);
+  const categoryIds = { ...income, ...expense };
+  const goalContributionIds = new Map<string, string>();
+  for (const seed of buildDemoTransactionSeeds()) {
     const transaction = await createTransaction({
       amount: seed.amount,
       type: seed.type,
-      description: demoLabel(seed.label),
-      date,
-      category_id: seed.catId,
+      description: seed.label,
+      date: seed.date,
+      category_id: categoryIds[seed.category],
       status: seed.status ?? "paid",
+      is_demo: true,
+      is_recurring: seed.recurring ?? false,
+      recurrence_frequency: seed.recurring ? "monthly" : undefined,
+      recurrence_interval: seed.recurring ? 1 : undefined,
+      recurring_day: seed.recurring ? Number(seed.date.slice(-2)) : undefined,
     });
-    if (seed.label === "Wpłata na wakacje") goalContributionId = transaction.id;
+    if (seed.category === "goals") goalContributionIds.set(seed.label, transaction.id);
     inserted += 1;
   }
 
-  await createTransaction({
-    amount: 49,
-    type: "expense",
-    description: demoLabel("Subskrypcja streaming (cykliczna)"),
-    date: isoDaysAgo(30),
-    category_id: expense.subs,
-    status: "paid",
-    is_recurring: true,
-    recurrence_frequency: "monthly",
-    recurrence_interval: 1,
-    recurring_day: 15,
-  });
-  inserted += 1;
-
   const savePlan = await createPlan({
-    name: demoLabel("Wakacje nad morzem"),
+    name: "Portugalia bez kredytu",
     kind: "save",
-    target_amount: 8000,
+    target_amount: 9000,
     start_date: isoDaysAgo(60),
-    end_date: addCalendarMonths(today, 8),
+    end_date: addCalendarMonths(today, 9),
     category_id: expense.goals,
+    is_demo: true,
   });
-  if (goalContributionId) {
-    await linkPlanTransaction(savePlan.id, goalContributionId, { planKind: "save" });
+  const holidayContributionId = goalContributionIds.get("Odkładam na Portugalię");
+  if (holidayContributionId) {
+    await linkPlanTransaction(savePlan.id, holidayContributionId, { planKind: "save" });
   }
   inserted += 1;
 
-  await saveDebtPlan({
+  const sofaPlan = await createPlan({
+    name: "Kanapa do salonu",
+    kind: "save",
+    target_amount: 6000,
+    start_date: isoDaysAgo(30),
+    end_date: addCalendarMonths(today, 5),
+    category_id: expense.goals,
+    is_demo: true,
+  });
+  const sofaContributionId = goalContributionIds.get("Odkładam na kanapę");
+  if (sofaContributionId) {
+    await linkPlanTransaction(sofaPlan.id, sofaContributionId, { planKind: "save" });
+  }
+  inserted += 1;
+
+  const debtPlan = await saveDebtPlan({
     name: demoLabel("Kredyt samochodowy"),
     start_date: isoDaysAgo(180),
     end_date: addCalendarMonths(today, 24),
@@ -279,6 +161,11 @@ export async function seedDemoData(): Promise<{ inserted: number }> {
     monthly_payment: 980,
     first_payment_date: isoDaysAgo(180),
   });
+  const { error: debtTagError } = await supabase
+    .from("plans")
+    .update({ name: "Kredyt samochodowy", is_demo: true })
+    .eq("id", debtPlan.plan.id);
+  if (debtTagError) throw debtTagError;
   inserted += 1;
 
   const {
@@ -288,17 +175,19 @@ export async function seedDemoData(): Promise<{ inserted: number }> {
   const { error: netWorthError } = await supabase.from("net_worth_items").insert([
     {
       user_id: user.id,
-      label: demoLabel("Samochód (wartość rynkowa)"),
+      label: "Samochód (wartość rynkowa)",
       amount: 61000,
       currency: "PLN",
       position: 90,
+      is_demo: true,
     },
     {
       user_id: user.id,
-      label: demoLabel("Poduszka finansowa"),
+      label: "Poduszka finansowa",
       amount: 24500,
       currency: "PLN",
       position: 91,
+      is_demo: true,
     },
   ]);
   if (netWorthError) throw netWorthError;

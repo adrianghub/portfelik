@@ -28,8 +28,8 @@
 
   const banner = demoBannerCopy();
 
-  // Clear matches rows by the "Demo:" prefix, so a stray user row named that
-  // way would be deleted too — never fire it from a single tap.
+  // Clearing a complete showcase is destructive enough to require confirmation.
+  // The database scopes tagged rows to the authenticated owner.
   let confirmClearOpen = $state(false);
 
   const visibleActions = $derived(
@@ -70,7 +70,10 @@
   )}
   role="status"
 >
-  <p class="text-sm font-medium text-amber-100">{banner.title}</p>
+  <div class="min-w-0">
+    <p class="text-sm font-semibold text-amber-100">{banner.title}</p>
+    <p class="mt-0.5 text-xs leading-relaxed text-amber-100/70">{banner.body}</p>
+  </div>
   <div class="flex flex-wrap items-center gap-2">
     {#each visibleActions as actionId (actionId)}
       {#if isLinkAction(actionId)}

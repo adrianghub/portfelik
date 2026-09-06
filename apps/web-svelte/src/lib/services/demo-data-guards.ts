@@ -14,13 +14,13 @@ export function canSeedDemo(input: { demoActive: boolean }): boolean {
 }
 
 export function hasDemoData(input: {
-  transactions: { description: string }[];
-  plans: { name: string }[];
-  netWorthItems?: { label: string }[];
+  transactions: { description: string; is_demo?: boolean }[];
+  plans: { name: string; is_demo?: boolean }[];
+  netWorthItems?: { label: string; is_demo?: boolean }[];
 }): boolean {
   return (
-    input.transactions.some((tx) => isDemoDescription(tx.description)) ||
-    input.plans.some((plan) => isDemoPlanName(plan.name)) ||
-    (input.netWorthItems ?? []).some((item) => isDemoDescription(item.label))
+    input.transactions.some((tx) => tx.is_demo || isDemoDescription(tx.description)) ||
+    input.plans.some((plan) => plan.is_demo || isDemoPlanName(plan.name)) ||
+    (input.netWorthItems ?? []).some((item) => item.is_demo || isDemoDescription(item.label))
   );
 }
