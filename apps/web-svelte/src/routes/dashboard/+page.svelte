@@ -824,94 +824,103 @@
     />
   {/if}
 
-  <!-- Bilans + spending — side by side from md up -->
+  <!-- Financial overview: balance beside spending and history on wide screens -->
   {#if txQuery.isLoading}
-    <div class="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2">
-      <div class="h-48 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
-      <div class="h-48 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
+    <div class="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-12">
+      <div
+        class="h-96 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60 lg:col-span-5 lg:h-auto"
+      ></div>
+      <div class="grid min-w-0 gap-3 lg:col-span-7">
+        <div class="h-40 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
+        <div class="h-64 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
+      </div>
     </div>
   {:else if txQuery.isError}
     <QueryError error={txQuery.error} onRetry={() => txQuery.refetch()} />
   {:else}
-    <div class="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 md:items-start">
-      <DashboardBalanceHero
-        periodLabel={activePeriodLabel}
-        {summary}
-        savingsRatio={savingsRatioDisplay}
-        spent={spendingInsight.spent}
-        categories={spendingInsight.categories}
-        {showForecastNote}
-        forecastNet={forecastSummary?.net}
-        {transactionsHref}
-        onOpenGlossary={openGlossary}
-        bind:breakdownOpen={balanceExpanded}
-      />
-
-      <DashboardSpendingInsight
-        insight={spendingInsight}
-        {period}
-        goalSplit={goalSpendingSplit}
-        bind:expanded={spendingExpanded}
-        categoryHref={(id) => (id ? transactionsHref({ categoryId: id }) : transactionsHref())}
-      />
-    </div>
-
-    <!-- Multi-period spend comparison (last 6 weeks/months/years) -->
-    <div class="mt-4">
-      {#if isDesktop.current}
-        <SpendHistoryChart
-          buckets={combinedHistoryBuckets}
-          {allocationByLabel}
-          onselectperiod={selectHistoryPeriod}
+    <div class="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-12 lg:items-stretch">
+      <div class="min-w-0 lg:col-span-5">
+        <DashboardBalanceHero
+          periodLabel={activePeriodLabel}
+          {summary}
+          savingsRatio={savingsRatioDisplay}
+          spent={spendingInsight.spent}
+          categories={spendingInsight.categories}
+          {showForecastNote}
+          forecastNet={forecastSummary?.net}
+          {transactionsHref}
           onOpenGlossary={openGlossary}
+          bind:breakdownOpen={balanceExpanded}
         />
-      {:else}
-        <div class="rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur">
-          <button
-            type="button"
-            class="flex w-full items-center justify-between gap-3 p-4"
-            aria-expanded={historyExpanded}
-            onclick={() => (historyExpanded = !historyExpanded)}
-          >
-            <span class="text-sm font-medium text-slate-300">{m.dashboard_history_title()}</span>
-            <ChevronDown
-              size={17}
-              strokeWidth={1.8}
-              class={cn(
-                "text-slate-400 transition-transform duration-300 ease-out",
-                historyExpanded && "rotate-180"
-              )}
-              aria-hidden="true"
-            />
-          </button>
-          <div
-            class={cn("expand-grid", historyExpanded && "expand-grid--open")}
-            aria-hidden={!historyExpanded}
-          >
-            <div class="expand-grid-inner">
-              <div class="expand-grid-panel px-2 pb-2">
-                <SpendHistoryChart
-                  buckets={combinedHistoryBuckets}
-                  {allocationByLabel}
-                  onselectperiod={selectHistoryPeriod}
-                  onOpenGlossary={openGlossary}
-                />
+      </div>
+
+      <div class="grid min-w-0 content-start gap-3 lg:col-span-7">
+        <DashboardSpendingInsight
+          insight={spendingInsight}
+          {period}
+          goalSplit={goalSpendingSplit}
+          bind:expanded={spendingExpanded}
+          categoryHref={(id) => (id ? transactionsHref({ categoryId: id }) : transactionsHref())}
+        />
+
+        <!-- Multi-period spend comparison (last 6 weeks/months/years) -->
+        {#if isDesktop.current}
+          <SpendHistoryChart
+            buckets={combinedHistoryBuckets}
+            {allocationByLabel}
+            onselectperiod={selectHistoryPeriod}
+            onOpenGlossary={openGlossary}
+          />
+        {:else}
+          <div class="rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur">
+            <button
+              type="button"
+              class="flex w-full items-center justify-between gap-3 p-4"
+              aria-expanded={historyExpanded}
+              onclick={() => (historyExpanded = !historyExpanded)}
+            >
+              <span class="text-sm font-medium text-slate-300">{m.dashboard_history_title()}</span>
+              <ChevronDown
+                size={17}
+                strokeWidth={1.8}
+                class={cn(
+                  "text-slate-400 transition-transform duration-300 ease-out",
+                  historyExpanded && "rotate-180"
+                )}
+                aria-hidden="true"
+              />
+            </button>
+            <div
+              class={cn("expand-grid", historyExpanded && "expand-grid--open")}
+              aria-hidden={!historyExpanded}
+            >
+              <div class="expand-grid-inner">
+                <div class="expand-grid-panel px-2 pb-2">
+                  <SpendHistoryChart
+                    buckets={combinedHistoryBuckets}
+                    {allocationByLabel}
+                    onselectperiod={selectHistoryPeriod}
+                    onOpenGlossary={openGlossary}
+                  />
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      {/if}
+        {/if}
+      </div>
     </div>
   {/if}
 
   <!-- Status band -->
   <section class="mt-4">
     <h2 class="mb-1.5 text-sm font-medium text-slate-400">{m.dashboard_status_band()}</h2>
-    <div class="grid min-w-0 grid-cols-1 items-stretch gap-2 sm:grid-cols-2">
-      <DashboardActions {groupFilter} overdue={overdueSummary} {overdueState} />
-      <DashboardPlanProgress {groupFilter} />
-      <div class="grid min-w-0 grid-cols-1 gap-2 sm:col-span-2 sm:grid-cols-2">
+    <div class="grid min-w-0 grid-cols-1 items-start gap-2 sm:grid-cols-2">
+      <div class="grid min-w-0 gap-2">
+        <DashboardActions {groupFilter} overdue={overdueSummary} {overdueState} />
         <DashboardImportHealth />
+      </div>
+      <div class="grid min-w-0 gap-2">
+        <DashboardPlanProgress {groupFilter} />
         <DashboardNetWorthStrip />
       </div>
     </div>
