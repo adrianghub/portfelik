@@ -27,6 +27,12 @@ describe("demo-data guards", () => {
     ).toBe(true);
     expect(
       hasDemoData({
+        transactions: [{ description: "Pensja", is_demo: true }],
+        plans: [],
+      })
+    ).toBe(true);
+    expect(
+      hasDemoData({
         transactions: [],
         plans: [{ name: "Demo: Cel" }],
       })

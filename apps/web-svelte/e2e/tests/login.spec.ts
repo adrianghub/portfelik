@@ -44,6 +44,10 @@ test("unauthenticated: /transactions redirects to /login with return path", asyn
 
 test("login page renders Google sign-in button", async ({ page }) => {
   await page.goto("/login");
+  await expect(
+    page.getByRole("heading", { name: "Daj każdej złotówce konkretne zadanie." })
+  ).toBeVisible();
+  await expect(page.getByText("🏠 Czynsz")).toBeVisible();
   await expect(page.getByRole("button", { name: "Zaloguj się z Google" })).toBeVisible();
 });
 

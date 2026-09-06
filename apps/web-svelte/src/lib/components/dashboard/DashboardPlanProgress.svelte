@@ -173,7 +173,7 @@
   <p class="text-sm text-rose-400">{m.dashboard_plan_progress_error()}</p>
 {:else if activePlans.length > 0}
   <section
-    class="min-w-0 overflow-x-clip rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur"
+    class="h-full min-w-0 overflow-x-clip rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur"
     aria-labelledby="dashboard-plan-progress-title"
   >
     <div class="mb-2 flex items-center justify-between gap-2">

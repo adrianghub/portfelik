@@ -18,6 +18,7 @@
     hasDemoData,
     seedDemoData,
   } from "$lib/services/demo-data";
+  import { refreshDemoState } from "$lib/services/demo-query-state";
   import { fetchPlans } from "$lib/services/plans";
   import { toastError } from "$lib/toast-error";
   import type { Profile } from "$lib/types";
@@ -76,11 +77,7 @@
   }
 
   async function invalidateDemoQueries(): Promise<void> {
-    const u = requireSessionUserId();
-    await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
-    await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
-    await queryClient.invalidateQueries({ queryKey: qk.transactions.list(u, "count-probe") });
-    await queryClient.invalidateQueries({ queryKey: qk.transactions.list(u, "demo-probe") });
+    await refreshDemoState(queryClient, requireSessionUserId());
   }
 
   const seedDemoMutation = createMutation(() => ({
@@ -143,8 +140,7 @@
     }
   }
 
-  // Same guard as the dashboard banner: clear deletes by "Demo:" prefix,
-  // confirm before firing.
+  // Same guard as the dashboard banner: confirm before clearing the showcase.
   let confirmClearOpen = $state(false);
 
   function runAction(id: DemoWalkthroughActionId): void {
