@@ -8,6 +8,7 @@
   import { setGuidedTourContext } from "$lib/guided-tour/context";
   import { guidedTourUi } from "$lib/guided-tour/ui.svelte";
   import { fetchDemoProbe, hasDemoData, seedDemoData } from "$lib/services/demo-data";
+  import { refreshDemoState } from "$lib/services/demo-query-state";
   import {
     TOUR_SCENES,
     advanceGuidedTour,
@@ -203,10 +204,7 @@
       if (!demoActive) {
         await seedDemoData();
         const u = requireSessionUserId();
-        await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
-        await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
-        await queryClient.invalidateQueries({ queryKey: qk.transactions.list(u, "demo-probe") });
-        await queryClient.invalidateQueries({ queryKey: qk.transactions.list(u, "count-probe") });
+        await refreshDemoState(queryClient, u);
       }
       await startTour("demo", 0);
     } finally {
@@ -290,6 +288,8 @@
     {showExit}
     canGoBack={!showExit && sceneIndex > 0}
     isLastScene={!showExit && sceneIndex >= TOUR_SCENES.length - 1}
+    step={sceneIndex + 1}
+    totalSteps={TOUR_SCENES.length}
     onback={() => void handleBack()}
     onnext={() => void handleNext()}
     onskip={() => void handleSkip()}

@@ -55,7 +55,7 @@
 
 {#if actions.length > 0 || isPending || isError}
   <section
-    class="min-w-0 overflow-x-clip rounded-2xl border border-white/5 bg-slate-900/60 bg-[radial-gradient(circle_at_85%_0%,rgba(251,191,36,0.1),transparent_45%)] p-4 sm:p-5"
+    class="h-full min-w-0 overflow-x-clip rounded-2xl border border-white/5 bg-slate-900/60 bg-[radial-gradient(circle_at_85%_0%,rgba(251,191,36,0.1),transparent_45%)] p-4"
     aria-labelledby="dashboard-actions-title"
     aria-busy={isPending}
     data-tour-id="tour-dashboard-actions"

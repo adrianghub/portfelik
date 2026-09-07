@@ -81,6 +81,7 @@ export interface PlanInput {
   target_amount?: number | null;
   start_date: string;
   end_date: string;
+  is_demo?: boolean;
 }
 
 type NormalizedPlanInput = Omit<PlanInput, "kind"> & { kind: PlanKind };
@@ -105,6 +106,7 @@ function normalizePlanInput(input: PlanInput): NormalizedPlanInput {
     target_amount: kind === "save" ? target : target && target > 0 ? target : null,
     start_date: input.start_date,
     end_date: input.end_date,
+    ...(input.is_demo ? { is_demo: true } : {}),
   };
 }
 

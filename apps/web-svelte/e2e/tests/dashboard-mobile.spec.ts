@@ -30,7 +30,7 @@ test.describe("dashboard mobile layout", () => {
     });
     expect(overflowAtTop).toBe(false);
 
-    await page.getByRole("heading", { name: /status/i }).scrollIntoViewIfNeeded();
+    await page.getByRole("heading", { name: "Ten miesiąc" }).scrollIntoViewIfNeeded();
     const overflowAtStatus = await page.evaluate(() => {
       const doc = document.documentElement;
       return doc.scrollWidth > doc.clientWidth + 1;

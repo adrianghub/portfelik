@@ -2,7 +2,7 @@
   import { browser } from "$app/environment";
   import { BarChart, Tooltip } from "layerchart";
   import { scaleBand } from "d3-scale";
-  import { Check, X } from "lucide-svelte";
+  import { X } from "lucide-svelte";
   import type { PeriodHistoryBucket } from "$lib/services/period-history";
   import { stackCategoryHistory } from "$lib/services/period-history";
   import InfoTooltip from "$lib/components/ui/InfoTooltip.svelte";
@@ -324,10 +324,9 @@
           {#if onselectperiod}
             <button
               type="button"
-              class="focus-visible:ring-accent inline-flex items-center gap-1.5 rounded-full bg-emerald-600/90 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-500 focus-visible:ring-2 focus-visible:outline-none"
+              class="focus-visible:ring-accent border-accent/30 bg-accent/10 text-accent hover:bg-accent/20 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none"
               onclick={confirmSelection}
             >
-              <Check size={14} aria-hidden="true" />
               {m.dashboard_history_bar_details()}
             </button>
           {/if}

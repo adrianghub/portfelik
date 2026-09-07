@@ -32,25 +32,10 @@ export const ONBOARDING_SCENES: OnboardingSceneManifest[] = [
   { id: "1.2", chapter: "dashboard", route: "/dashboard", target: "tour-dashboard-actions" },
   { id: "1.3", chapter: "dashboard", route: "/dashboard", target: "tour-spending-insight" },
   { id: "2.1", chapter: "transactions", route: "/transactions", target: "tour-transaction-table" },
-  {
-    id: "2.2",
-    chapter: "transactions",
-    route: "/transactions",
-    target: "tour-transaction-filters",
-  },
   { id: "2.3", chapter: "transactions", route: "/transactions", target: "tour-transaction-import" },
   { id: "3.1", chapter: "plans", route: "/plans", target: "tour-net-worth" },
   { id: "3.2", chapter: "plans", route: "/plans", target: "tour-plan-save" },
-  { id: "3.3", chapter: "plans", route: "/plans", target: "tour-plan-settle" },
-  {
-    id: "4.1",
-    chapter: "settings",
-    route: "/settings?tab=profile",
-    target: "tour-import-reminders",
-  },
-  { id: "4.2", chapter: "settings", route: "/settings?tab=profile", target: "tour-glossary" },
   { id: "4.3", chapter: "settings", route: "/settings", target: "tour-settings-finance" },
-  { id: "4.4", chapter: "settings", route: "/settings?tab=groups", target: "tour-settings-groups" },
 ];
 
 export type DemoWalkthroughActionId = "clear" | "load" | "load_and_tour" | "restart_tour";
@@ -86,15 +71,10 @@ const ONBOARDING_SCENE_COPY: Record<string, () => string> = {
   "1.2": m.tour_scene_1_2,
   "1.3": m.tour_scene_1_3,
   "2.1": m.tour_scene_2_1,
-  "2.2": m.tour_scene_2_2,
   "2.3": m.tour_scene_2_3,
   "3.1": m.tour_scene_3_1,
   "3.2": m.tour_scene_3_2,
-  "3.3": m.tour_scene_3_3,
-  "4.1": m.tour_scene_4_1,
-  "4.2": m.tour_scene_4_2,
   "4.3": m.tour_scene_4_3,
-  "4.4": m.tour_scene_4_4,
 };
 
 const ONBOARDING_CHAPTER_COPY: Record<TourChapterId, () => string> = {
@@ -118,6 +98,11 @@ export function onboardingWelcomeCopy() {
     body: m.tour_welcome_body(),
     demo: m.tour_welcome_demo(),
     skip: m.tour_welcome_import(),
+    points: [
+      m.tour_welcome_point_control(),
+      m.tour_welcome_point_plans(),
+      m.tour_welcome_point_calm(),
+    ],
   };
 }
 
@@ -151,6 +136,7 @@ export function demoWalkthroughPanelCopy() {
 export function demoBannerCopy() {
   return {
     title: m.demo_banner_title(),
+    body: m.demo_banner_body(),
   };
 }
 

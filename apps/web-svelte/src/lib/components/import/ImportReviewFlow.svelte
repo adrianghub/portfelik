@@ -1,5 +1,6 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
+  import { importActionLabel } from "$lib/content/import-copy";
   import DuplicateBanner from "$lib/components/import/DuplicateBanner.svelte";
   import ImportReviewCategorizeStep from "$lib/components/import/ImportReviewCategorizeStep.svelte";
   import ImportConfirmSheet from "$lib/components/import/ImportConfirmSheet.svelte";
@@ -48,7 +49,6 @@
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { toast } from "svelte-sonner";
   import { cn, formatCurrency } from "$lib/utils";
-  import { Check, X } from "lucide-svelte";
   import { session as authSession, requireSessionUserId } from "$lib/auth/session.svelte";
   import { qk } from "$lib/query-keys";
 
@@ -1005,8 +1005,7 @@
       aria-pressed={row.decision === "import"}
       onclick={() => void setDecision(row, "import")}
     >
-      <Check size={14} aria-hidden="true" />
-      <span class="hidden md:inline">{m.bank_review_decision_import()}</span>
+      <span>{m.bank_review_decision_import()}</span>
     </button>
     <button
       type="button"
@@ -1021,8 +1020,7 @@
       aria-pressed={row.decision === "skip"}
       onclick={() => void setDecision(row, "skip")}
     >
-      <X size={14} aria-hidden="true" />
-      <span class="hidden md:inline">{m.bank_review_decision_skip()}</span>
+      <span>{m.bank_review_decision_skip()}</span>
     </button>
   </div>
 {/snippet}
@@ -1156,7 +1154,7 @@
         loading={commitMut.isPending}
         onclick={commitOrConfirm}
       >
-        {m.bank_review_commit_action({ count: importRows.length })}
+        {importActionLabel(importRows.length)}
       </Button>
     </div>
   </div>

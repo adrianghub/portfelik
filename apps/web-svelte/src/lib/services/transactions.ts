@@ -116,6 +116,7 @@ export interface CreateTransactionInput {
   recurrence_month?: number | null;
   recurrence_end_date?: string | null;
   group_id?: string | null;
+  is_demo?: boolean;
 }
 
 export async function createTransaction(input: CreateTransactionInput): Promise<Transaction> {
@@ -142,7 +143,7 @@ export async function createTransaction(input: CreateTransactionInput): Promise<
   if (error) throw error;
   const tx = data as Transaction;
   trackOnce("first_transaction_created", {
-    source: isDemoDescription(input.description) ? "demo" : "manual",
+    source: input.is_demo || isDemoDescription(input.description) ? "demo" : "manual",
   });
   return tx;
 }

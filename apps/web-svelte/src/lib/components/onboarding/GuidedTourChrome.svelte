@@ -7,6 +7,7 @@
     tourChapterLabel,
   } from "$lib/content/onboarding";
   import { cn } from "$lib/utils";
+  import * as m from "$lib/paraglide/messages";
 
   interface Props {
     chapter: TourChapterId;
@@ -14,6 +15,8 @@
     showExit: boolean;
     canGoBack: boolean;
     isLastScene: boolean;
+    step: number;
+    totalSteps: number;
     onback: () => void;
     onnext: () => void;
     onskip: () => void;
@@ -27,6 +30,8 @@
     showExit,
     canGoBack,
     isLastScene,
+    step,
+    totalSteps,
     onback,
     onnext,
     onskip,
@@ -41,6 +46,7 @@
 <div
   class="pointer-events-none fixed inset-x-0 bottom-0 z-[60] flex justify-center px-4 pb-[calc(1rem+env(safe-area-inset-bottom))]"
   role="presentation"
+  data-guided-tour-chrome
 >
   <div
     class="pointer-events-auto w-full max-w-lg overflow-hidden rounded-2xl border border-white/10 bg-slate-900/95 shadow-[0_0_40px_rgba(16,185,129,0.12)] backdrop-blur"
@@ -88,9 +94,13 @@
             ></span>
           {/each}
         </div>
-        <p class="mt-2 text-center text-[11px] font-medium tracking-wide text-slate-400 uppercase">
-          {tourChapterLabel(chapter)}
-        </p>
+        <div
+          class="mt-2 flex items-center justify-center gap-2 text-[11px] font-medium tracking-wide text-slate-400 uppercase"
+        >
+          <span>{tourChapterLabel(chapter)}</span>
+          <span aria-hidden="true">·</span>
+          <span>{m.tour_step({ step, total: totalSteps })}</span>
+        </div>
       </div>
 
       <div class="space-y-4 p-4">

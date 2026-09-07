@@ -3,6 +3,7 @@ type Id = string;
 const userNs = (userId: Id) => ["user", userId] as const;
 
 export const qk = {
+  user: (u: Id) => userNs(u),
   transactions: {
     all: (u: Id) => [...userNs(u), "transactions"] as const,
     list: (u: Id, ...parts: unknown[]) => [...userNs(u), "transactions", ...parts] as const,

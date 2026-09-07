@@ -91,12 +91,42 @@ test.describe("onboarding hardening", () => {
       return fulfillSupabaseJson(route, MOCK_PROFILE_FRESH_TOUR);
     });
     await page.goto("/dashboard");
-    await expect(page.getByRole("dialog", { name: "Poznaj aplikację" })).toBeVisible({
-      timeout: 10000,
+    const welcome = page.getByRole("dialog", {
+      name: "Zobacz, jak pieniądze dostają kierunek",
     });
+    await expect(welcome).toBeVisible({ timeout: 10000 });
     await page.getByRole("button", { name: WELCOME_TOUR_SKIP_BUTTON }).click();
-    await expect(page.getByRole("dialog", { name: "Poznaj aplikację" })).toBeHidden();
+    await expect(welcome).toBeHidden();
     await expect.poll(() => page.url()).toContain("/import");
+  });
+
+  test("mobile tour keeps manual scroll and advances across routes", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.route("**/rest/v1/profiles**", async (route) => {
+      if (route.request().method() === "PATCH") {
+        return fulfillSupabaseJson(route, MOCK_PROFILE_FRESH_TOUR);
+      }
+      return fulfillSupabaseJson(route, MOCK_PROFILE_FRESH_TOUR);
+    });
+
+    await page.goto("/dashboard");
+    await page.getByRole("button", { name: "Uruchom przykładowy miesiąc" }).click();
+
+    const tour = page.locator("[data-guided-tour-chrome]");
+    await expect(tour).toContainText("1 z 8", { timeout: 15_000 });
+    await page.waitForTimeout(800);
+    const before = await page.evaluate(() => window.scrollY);
+    await page.evaluate(() => window.scrollBy(0, 120));
+    await page.waitForTimeout(200);
+    expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(before);
+
+    await tour.getByRole("button", { name: "Dalej" }).click();
+    await expect(tour).toContainText("2 z 8");
+    await tour.getByRole("button", { name: "Dalej" }).click();
+    await expect(tour).toContainText("3 z 8");
+    await tour.getByRole("button", { name: "Dalej" }).click();
+    await expect(page).toHaveURL("/transactions", { timeout: 10_000 });
+    await expect(tour).toContainText("4 z 8");
   });
 
   test("opens glossary from settings", async ({ page }) => {
@@ -108,7 +138,7 @@ test.describe("onboarding hardening", () => {
 
   test("loads demo from settings on empty ledger", async ({ page }) => {
     await page.goto("/settings?tab=profile");
-    await page.getByRole("button", { name: "Załaduj przykład", exact: true }).click();
-    await expect(page.getByText("Załadowano dane przykładowe.")).toBeVisible();
+    await page.getByRole("button", { name: "Wczytaj przykładowy miesiąc" }).click();
+    await expect(page.getByText("Przykładowy miesiąc jest gotowy.")).toBeVisible();
   });
 });

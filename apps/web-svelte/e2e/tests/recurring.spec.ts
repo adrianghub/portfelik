@@ -53,7 +53,9 @@ test.describe("recurring entry links", () => {
     await expect(page.getByRole("heading", { name: "Transakcje" })).toBeVisible();
   });
 
-  test("transactions header Nadchodzące link opens upcoming transactions view", async ({ page }) => {
+  test("transactions header Nadchodzące link opens upcoming transactions view", async ({
+    page,
+  }) => {
     await page.goto("/transactions");
     await expect(page.getByRole("heading", { name: "Transakcje" })).toBeVisible();
 
@@ -65,12 +67,14 @@ test.describe("recurring entry links", () => {
     await expect(page.getByRole("heading", { name: "Transakcje" })).toBeVisible();
   });
 
-  test("dashboard Nadchodzące link opens upcoming transactions view", async ({ page }) => {
+  test("dashboard keeps recurring count and one link to upcoming transactions", async ({
+    page,
+  }) => {
     await page.goto("/dashboard");
 
-    const recurringLink = page.getByRole("link", { name: /Nadchodzące \(\d+\)/ });
-    await expect(recurringLink).toBeVisible({ timeout: 10000 });
-    await recurringLink.click();
+    await expect(page.getByText(/Nadchodzące \(\d+\)/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("link", { name: /Nadchodzące \(\d+\)/ })).toHaveCount(0);
+    await page.getByRole("link", { name: "Zobacz wszystko →", exact: true }).click();
 
     await expect(page).toHaveURL(RECURRING_TX_VIEW);
     await expect(page.getByRole("heading", { name: "Transakcje" })).toBeVisible();

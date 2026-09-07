@@ -73,7 +73,7 @@
     monthYearLabel,
   } from "$lib/utils";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
-  import { Plus, Repeat, Search, X } from "lucide-svelte";
+  import { Plus, Repeat, X } from "lucide-svelte";
   import { toast } from "svelte-sonner";
   import { toastError } from "$lib/toast-error";
   import QueryError from "$lib/components/ui/QueryError.svelte";
@@ -1025,8 +1025,8 @@
 
 <svelte:window onkeydown={onWindowKeydown} />
 
-<div class="container mx-auto max-w-5xl space-y-4 px-4 py-6">
-  <div class="flex flex-wrap items-center justify-between gap-3">
+<div class="container mx-auto max-w-5xl space-y-4 px-4 pt-6 pb-20 md:pb-6">
+  <div class="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
     <div>
       <h1 class="text-hero font-semibold text-slate-100">{m.transactions_title()}</h1>
       {#if groupsQuery.data}
@@ -1040,11 +1040,11 @@
     <div class="flex shrink-0 items-center gap-2">
       <a
         href="/transactions?status=upcoming"
-        class="focus-visible:ring-accent inline-flex h-9 items-center gap-1.5 rounded-full border border-white/10 px-3 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none sm:px-3.5"
+        class="focus-visible:ring-accent inline-flex h-11 items-center gap-1.5 rounded-full border border-white/10 px-3 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none sm:h-9 sm:px-3.5"
         title={m.recurring_entry()}
       >
         <Repeat size={16} aria-hidden="true" />
-        <span class="hidden sm:inline">{m.recurring_entry()}</span>
+        <span>{m.recurring_entry()}</span>
       </a>
       <button
         onclick={openAdd}
@@ -1186,20 +1186,6 @@
   class="mobile-floating-action bg-accent-gradient fixed right-4 bottom-(--mobile-action-bottom) z-40 flex h-14 w-14 items-center justify-center rounded-full text-slate-900 shadow-[0_0_24px_var(--color-accent-glow)] transition-all active:scale-95 md:hidden"
 >
   <Plus size={24} strokeWidth={2.3} aria-hidden="true" />
-</button>
-
-<button
-  onclick={toggleSearch}
-  aria-label={searchModalOpen ? m.transactions_search_close() : m.transactions_search_open()}
-  aria-pressed={searchModalOpen}
-  class="mobile-floating-action fixed bottom-(--mobile-action-bottom) left-4 z-40 flex h-14 w-14 items-center justify-center rounded-full border shadow-[0_0_24px_rgba(15,23,42,0.55)] transition-all active:scale-95 md:hidden {searchModalOpen
-    ? 'border-accent/40 bg-accent/20 text-accent'
-    : 'border-white/10 bg-slate-900/90 text-slate-100'}"
->
-  <Search size={23} strokeWidth={2.1} aria-hidden="true" />
-  {#if searchQuery}
-    <span class="bg-accent-gradient absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full"></span>
-  {/if}
 </button>
 
 <SearchModal
