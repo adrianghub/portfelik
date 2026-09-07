@@ -385,10 +385,9 @@
                       e.stopPropagation();
                       onsettle?.(tx);
                     }}
-                    class="focus-visible:ring-accent inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-300 transition-colors hover:bg-emerald-500/20 focus-visible:ring-2 focus-visible:outline-none"
+                    class="focus-visible:ring-accent border-accent/30 bg-accent/10 text-accent hover:bg-accent/20 inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none"
                     aria-label={m.transactions_quick_settle()}
                   >
-                    <Check size={11} strokeWidth={2.5} aria-hidden="true" />
                     {m.transactions_quick_settle_short()}
                   </button>
                 {/if}
@@ -591,10 +590,9 @@
                       e.stopPropagation();
                       onsettle?.(tx);
                     }}
-                    class="focus-visible:ring-accent inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-300 transition-colors hover:bg-emerald-500/20 focus-visible:ring-2 focus-visible:outline-none"
+                    class="focus-visible:ring-accent border-accent/30 bg-accent/10 text-accent hover:bg-accent/20 inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none"
                     aria-label={m.transactions_quick_settle()}
                   >
-                    <Check size={11} strokeWidth={2.5} aria-hidden="true" />
                     {m.transactions_quick_settle_short()}
                   </button>
                 {/if}

@@ -9,7 +9,7 @@
   import { cn, formatCurrency, formatDate } from "$lib/utils";
   import { recurrenceSummary } from "$lib/recurrence";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
-  import { Check, ClipboardList, Edit, Link2, Link2Off, Trash2, X } from "lucide-svelte";
+  import { ClipboardList, Edit, Link2, Link2Off, Trash2, X } from "lucide-svelte";
   import { fetchPlans } from "$lib/services/plans";
   import { linkPlanTransaction, unlinkPlanTransaction } from "$lib/services/plan-settlement";
   import { toast } from "svelte-sonner";
@@ -448,9 +448,8 @@
           type="button"
           disabled={settlePending}
           onclick={() => onsettle?.(transaction!)}
-          class="focus-visible:ring-accent flex w-full items-center justify-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 py-2.5 text-sm font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/20 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+          class="focus-visible:ring-accent border-accent/30 bg-accent/10 text-accent hover:bg-accent/20 flex w-full items-center justify-center gap-1.5 rounded-full border py-2.5 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
         >
-          <Check size={14} strokeWidth={2.5} aria-hidden="true" />
           {settlePending ? m.common_saving() : m.transactions_quick_settle()}
         </button>
       </div>

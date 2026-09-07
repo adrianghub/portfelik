@@ -1,5 +1,6 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
+  import { importSuccessLabel } from "$lib/content/import-copy";
   import { onMount } from "svelte";
   import FileUpload from "$lib/components/import/FileUpload.svelte";
   import ImportReviewFlow from "$lib/components/import/ImportReviewFlow.svelte";
@@ -143,7 +144,7 @@
     queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
     queryClient.invalidateQueries({ queryKey: qk.summary(u) });
     queryClient.invalidateQueries({ queryKey: qk.importHealth(u) });
-    toast.success(m.bank_commit_success({ count: result.inserted }), {
+    toast.success(importSuccessLabel(result.inserted), {
       description: m.bank_commit_toast_detail({
         skipped: result.skipped,
         duplicates: result.duplicates_preview + result.duplicates_commit,

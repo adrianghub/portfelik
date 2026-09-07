@@ -253,14 +253,19 @@
         href={item.href}
         aria-current={active ? "page" : undefined}
         aria-label={item.label}
-        class={cn(
-          "relative flex h-11 w-11 items-center justify-center rounded-full transition-all",
-          active
-            ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
-            : "text-slate-300 hover:text-slate-100"
-        )}
+        class="focus-visible:ring-accent flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl text-slate-300 focus-visible:ring-2 focus-visible:outline-none"
       >
-        <Icon size={20} aria-hidden="true" strokeWidth={active ? 2.3 : 1.7} />
+        <span
+          class={cn(
+            "flex h-11 w-11 items-center justify-center rounded-full transition-all",
+            active
+              ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
+              : "text-slate-300 hover:text-slate-100"
+          )}
+        >
+          <Icon size={20} aria-hidden="true" strokeWidth={active ? 2.3 : 1.7} />
+        </span>
+        <span class="text-[11px] leading-4">{item.label}</span>
       </a>
     {/each}
 
@@ -270,14 +275,19 @@
         href="/admin"
         aria-current={active ? "page" : undefined}
         aria-label={m.nav_admin()}
-        class={cn(
-          "relative flex h-11 w-11 items-center justify-center rounded-full transition-all",
-          active
-            ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
-            : "text-slate-300 hover:text-slate-100"
-        )}
+        class="focus-visible:ring-accent flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl text-slate-300 focus-visible:ring-2 focus-visible:outline-none"
       >
-        <ShieldCheck size={20} aria-hidden="true" strokeWidth={active ? 2.3 : 1.7} />
+        <span
+          class={cn(
+            "flex h-11 w-11 items-center justify-center rounded-full transition-all",
+            active
+              ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
+              : "text-slate-300 hover:text-slate-100"
+          )}
+        >
+          <ShieldCheck size={20} aria-hidden="true" strokeWidth={active ? 2.3 : 1.7} />
+        </span>
+        <span class="text-[11px] leading-4">{m.nav_admin()}</span>
       </a>
     {/if}
   </div>

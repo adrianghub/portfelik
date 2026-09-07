@@ -73,7 +73,7 @@ begin
   with deleted as (
     delete from public.plans
     where user_id = v_uid
-      and (is_demo or name like 'Demo:%')
+      and is_demo
     returning id
   )
   select count(*)::int into v_plans from deleted;
@@ -81,7 +81,7 @@ begin
   with deleted as (
     delete from public.transactions
     where user_id = v_uid
-      and (is_demo or description like 'Demo:%')
+      and is_demo
     returning id
   )
   select count(*)::int into v_txs from deleted;
@@ -89,7 +89,7 @@ begin
   with deleted as (
     delete from public.net_worth_items
     where user_id = v_uid
-      and (is_demo or label like 'Demo:%')
+      and is_demo
     returning id
   )
   select count(*)::int into v_items from deleted;
