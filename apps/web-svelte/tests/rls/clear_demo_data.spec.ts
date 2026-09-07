@@ -127,21 +127,27 @@ describe("RPC: clear_demo_data", () => {
       category_id: expenseCatB,
       user_id: ctx.userB.userId,
       is_demo: true,
-    });
+    }).select("id").single();
     if (insertB.error) throw insertB.error;
 
-    await ctx.userA.client.rpc("clear_demo_data");
+    const txId = insertB.data.id;
 
-    const remaining = await ctx.admin
-      .from("transactions")
-      .select("id")
-      .eq("user_id", ctx.userB.userId)
-      .eq("is_demo", true);
-    expect(remaining.data?.length).toBe(1);
+    try {
+      await ctx.userA.client.rpc("clear_demo_data");
+
+      const remaining = await ctx.admin
+        .from("transactions")
+        .select("id")
+        .eq("user_id", ctx.userB.userId)
+        .eq("is_demo", true);
+      expect(remaining.data?.length).toBe(1);
+    } finally {
+      await ctx.admin.from("transactions").delete().eq("id", txId);
+    }
   });
 
-  it("keeps real rows and still removes legacy Demo: labels", async () => {
-    const [real, legacy] = await Promise.all([
+  it("keeps untagged real rows even when their description starts with Demo:", async () => {
+    const [real, prefixed] = await Promise.all([
       ctx.admin
         .from("transactions")
         .insert({
@@ -161,26 +167,32 @@ describe("RPC: clear_demo_data", () => {
         .insert({
           amount: 20,
           currency: "PLN",
-          description: "Demo: stary format",
+          description: `Demo: ${SENTINEL} moje dane`,
           date: "2026-06-02",
           type: "expense",
           status: "paid",
           category_id: expenseCatA,
           user_id: ctx.userA.userId,
+          is_demo: false,
         })
         .select("id")
         .single(),
     ]);
     if (real.error) throw real.error;
-    if (legacy.error) throw legacy.error;
+    if (prefixed.error) throw prefixed.error;
 
-    await ctx.userA.client.rpc("clear_demo_data");
+    const ids = [real.data.id, prefixed.data.id];
+    try {
+      const { data, error } = await ctx.userA.client.rpc("clear_demo_data");
+      expect(error).toBeNull();
+      expect(Number(data?.deleted)).toBe(3);
 
-    const remaining = await ctx.admin
-      .from("transactions")
-      .select("id")
-      .in("id", [real.data.id, legacy.data.id]);
-    expect(remaining.data?.map((row) => row.id)).toEqual([real.data.id]);
+      const remaining = await ctx.admin.from("transactions").select("id").in("id", ids);
+      expect(remaining.error).toBeNull();
+      expect(remaining.data?.map((row) => row.id).sort()).toEqual([...ids].sort());
+    } finally {
+      await ctx.admin.from("transactions").delete().in("id", ids);
+    }
   });
 
   it("denies anon", async () => {

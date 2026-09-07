@@ -22,6 +22,46 @@ test.describe("transactions mobile filters", () => {
     expect(overflow).toBe(false);
   });
 
+  test("import and navigation remain labelled at 320px", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 740 });
+    await page.goto("/transactions");
+    const importLink = page.getByRole("link", { name: "Import", exact: true });
+    await expect(importLink).toHaveText("Import");
+    const importBox = await importLink.boundingBox();
+    expect(importBox!.height).toBeGreaterThanOrEqual(44);
+
+    const nav = page.locator(".mobile-bottom-nav");
+    for (const label of ["Kokpit", "Transakcje", "Plany"]) {
+      await expect(nav.getByRole("link", { name: label, exact: true })).toHaveText(label);
+    }
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+    ).toBeLessThanOrEqual(1);
+  });
+
+  test("search is reachable from the filter bar without a floating overlay", async ({ page }) => {
+    await page.goto("/transactions");
+    const search = page.getByRole("button", { name: "Szukaj transakcji", exact: true });
+    await expect(search).toBeVisible();
+    await expect(search).not.toHaveClass(/mobile-floating-action/);
+    expect((await search.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await search.click();
+    await expect(page.getByRole("search", { name: "Szukaj transakcji" })).toBeVisible();
+  });
+
+  test("sheet close target stays usable on a short mobile viewport", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 568 });
+    await page.goto("/transactions");
+    await page.getByRole("button", { name: /^filtry/i }).click();
+    const close = page.getByRole("dialog").getByRole("button", { name: "Zamknij", exact: true });
+    await expect(close).toBeVisible();
+    const box = await close.boundingBox();
+    expect(box!.width).toBeGreaterThanOrEqual(44);
+    expect(box!.height).toBeGreaterThanOrEqual(44);
+    await close.click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+  });
+
   test("mobile filters sheet opens with consolidated controls", async ({ page }) => {
     await page.goto("/transactions");
     await page.getByRole("button", { name: /^filtry/i }).click();
@@ -53,7 +93,10 @@ test.describe("transactions mobile filters", () => {
     const urlBefore = page.url();
 
     await page.getByRole("button", { name: /^filtry/i }).click();
-    await page.getByRole("button", { name: /transport/i }).first().click();
+    await page
+      .getByRole("button", { name: /transport/i })
+      .first()
+      .click();
     expect(page.url()).toBe(urlBefore);
 
     await page.getByRole("button", { name: /zastosuj filtry/i }).click();

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import { Bell, X, CheckCheck, Check, RotateCcw } from "lucide-svelte";
+  import { Bell, X, MailOpen, Mail } from "lucide-svelte";
   import { MediaQuery } from "svelte/reactivity";
   import { createQuery, createMutation, useQueryClient } from "@tanstack/svelte-query";
   import { session } from "$lib/auth/session.svelte";
@@ -142,7 +142,6 @@
           disabled={markAllMutation.isPending}
           class="text-accent hover:text-accent flex items-center gap-1 text-xs transition-colors disabled:opacity-40"
         >
-          <CheckCheck size={12} />
           {m.notifications_mark_all_read()}
         </button>
       {/if}
@@ -217,9 +216,9 @@
                 title={isUnread ? m.notifications_mark_read() : m.notifications_mark_unread()}
               >
                 {#if isUnread}
-                  <Check size={isDesktop.current ? 13 : 16} />
+                  <MailOpen size={isDesktop.current ? 13 : 16} aria-hidden="true" />
                 {:else}
-                  <RotateCcw size={isDesktop.current ? 13 : 16} />
+                  <Mail size={isDesktop.current ? 13 : 16} aria-hidden="true" />
                 {/if}
               </button>
               <button

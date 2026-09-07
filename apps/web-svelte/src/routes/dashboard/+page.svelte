@@ -927,14 +927,11 @@
         <p class="text-eyebrow text-slate-400">{m.dashboard_upcoming_title()}</p>
         <div class="flex items-center gap-3">
           {#if activeRecurringCount > 0}
-            <a
-              href={upcomingHref}
-              class="hover:text-accent text-xs font-medium text-slate-400 transition-colors"
-            >
+            <span class="text-xs text-slate-400">
               {m.recurring_entry()} ({activeRecurringCount})
-            </a>
+            </span>
           {/if}
-          {#if upcomingTxs.length > 0}
+          {#if upcomingTxs.length > 0 || activeRecurringCount > 0}
             <a href={upcomingHref} class="text-accent hover:text-accent text-xs font-medium">
               {m.dashboard_upcoming_see_all()}
             </a>
