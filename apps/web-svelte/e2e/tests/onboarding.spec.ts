@@ -92,7 +92,7 @@ test.describe("onboarding hardening", () => {
     });
     await page.goto("/dashboard");
     const welcome = page.getByRole("dialog", {
-      name: "Zobacz, jak pieniądze dostają kierunek",
+      name: "Zacznij od przykładowego miesiąca",
     });
     await expect(welcome).toBeVisible({ timeout: 10000 });
     await page.getByRole("button", { name: WELCOME_TOUR_SKIP_BUTTON }).click();
@@ -110,7 +110,7 @@ test.describe("onboarding hardening", () => {
     });
 
     await page.goto("/dashboard");
-    await page.getByRole("button", { name: "Uruchom przykładowy miesiąc" }).click();
+    await page.getByRole("button", { name: "Wczytaj przykładowy miesiąc" }).click();
 
     const tour = page.locator("[data-guided-tour-chrome]");
     await expect(tour).toContainText("1 z 8", { timeout: 15_000 });

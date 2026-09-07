@@ -18,7 +18,7 @@ test("landing lists the three sections and their subsections", async ({ page }) 
   for (const section of ["Konto", "Finanse", "Inne"]) {
     await expect(page.getByRole("heading", { name: section, exact: true })).toBeVisible();
   }
-  for (const sub of ["Profil", "Personalizacja", "Kategorie", "Reguły", "Grupy"]) {
+  for (const sub of ["Profil", "Wygląd", "Kategorie", "Reguły", "Grupy"]) {
     await expect(page.getByRole("button", { name: sub, exact: true })).toBeVisible();
   }
 });
@@ -26,7 +26,7 @@ test("landing lists the three sections and their subsections", async ({ page }) 
 test("drill into a subsection then back to the landing", async ({ page }) => {
   await gotoSettings(page);
 
-  await page.getByRole("button", { name: "Personalizacja", exact: true }).click();
+  await page.getByRole("button", { name: "Wygląd", exact: true }).click();
   await expect(page).toHaveURL(/tab=personalization/);
   // Back link returns to the settings landing.
   const back = page.getByRole("button", { name: "Ustawienia" });

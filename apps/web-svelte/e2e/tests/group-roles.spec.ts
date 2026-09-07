@@ -99,7 +99,7 @@ test.describe("group roles", () => {
     await page.goto("/transactions?group=all");
 
     await page.locator("tbody tr").first().click();
-    await expect(page.getByText(/Tylko do odczytu/)).toBeVisible();
+    await expect(page.getByText(/Tylko podgląd/)).toBeVisible();
     await expect(page.getByRole("button", { name: "Edytuj" })).not.toBeVisible();
     await expect(page.getByRole("button", { name: "Usuń" })).not.toBeVisible();
   });

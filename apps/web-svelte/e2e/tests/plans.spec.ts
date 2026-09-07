@@ -38,9 +38,9 @@ test("renders sectioned hub with saving goals and debt plans", async ({ page }) 
   await expect(page.getByText("Majątek netto", { exact: true })).toBeVisible();
   await expect(page.getByText("Kredyty 206 000,00 zł")).toBeVisible();
   await expect(
-    page.getByText("Dodaj gotówkę i inwestycje, by zobaczyć majątek netto.")
+    page.getByText("Dodaj gotówkę i inwestycje, żeby zobaczyć majątek netto.")
   ).toHaveCount(0);
-  await expect(page.getByText("Plany obejmują cele oszczędnościowe i kredyty.")).toBeVisible();
+  await expect(page.getByText("Tu cele oszczędnościowe i kredyty.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Cele oszczędnościowe" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Kredyty" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Wakacje/ })).toBeVisible();
@@ -150,11 +150,11 @@ test("save plan detail separates new payment, existing transaction and balance c
   );
 
   await page.getByRole("button", { name: "Zapisz nową wpłatę" }).click();
-  await expect(page.getByText(/Ta opcja utworzy opłaconą transakcję/)).toBeVisible();
+  await expect(page.getByText(/To doda opłaconą transakcję/)).toBeVisible();
   await page.keyboard.press("Escape");
 
   await page.getByRole("button", { name: "Skoryguj stan celu" }).click();
-  await expect(page.getByText(/obejmujący wszystkie wpłaty z wybranego dnia/i)).toBeVisible();
+  await expect(page.getByText(/z wszystkimi wpłatami z tego dnia/i)).toBeVisible();
   await expect(page.getByText("Stan na koniec dnia")).toBeVisible();
   await expect(page.getByText(/Korekta zmienia tylko postęp celu/)).toBeVisible();
   await page.getByLabel("Aktualnie odłożona kwota").fill("12500");

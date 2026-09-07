@@ -125,4 +125,4 @@ User-facing wording to use (do not overpromise "no one can ever see your data"):
 - [x] Privacy policy states what is stored and who can access it (`docs/legal/privacy-policy.md` + in-app `/privacy` route).
 - [x] Full account-data export - JSON bundle in Settings → Profil (transactions, categories, rules, plans+links+progress corrections, debt terms, groups, import sessions, financial snapshot, profile).
 - [x] Login and `/privacy` avoid overpromising encryption; account export/delete live in Settings → Profile.
-- [x] First-run checklist guides users through Pulpit, Import, Transakcje, and Plany without asking them to upload excessive history.
+- [x] First-run checklist guides users through Kokpit, Import, Transakcje, and Plany without asking them to upload excessive history.

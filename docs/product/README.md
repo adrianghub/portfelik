@@ -1,26 +1,19 @@
 # Product Docs
 
-Canonical product direction lives here. Read these docs before planning new
-features or changing user-facing workflows.
+Canonical product direction. Prefer the running app + migrations over prose
+when behavior and docs disagree.
 
-## Reading Order
+## Reading order
 
-1. [Product direction](./product-direction.md) - what Portfelik is becoming and
-   how the main modules fit together.
-2. [Intent-oriented UI](./intent-oriented-ui.md) - interaction doctrine:
-   deterministic engines, compact decisions, explainable exceptions, AI as an
-   assistive layer only.
-3. [Future product paths](./future-paths.md) - post-production paths such as
-   AI, gamification, deeper automation, split allocations, and offline writes,
-   plus the deterministic prerequisites before each should ship.
-4. [MVP hardening](./mvp-hardening.md) - current stabilization checklist.
-5. [Monthly money availability](./monthly-money-availability.md) - canonical
-   live/assigned/unassigned cash equation and its trust gate.
-6. [Monthly money jobs](./monthly-money-jobs.md) - glossary, lifecycle,
-   carry-over, overspending, audit, and online-only write contract.
-7. [Informational account export](./account-export.md) - exhaustive table
-   classification and the boundary between exported truth and omitted internals.
+1. [Product direction](./product-direction.md) — what JakStoimy is and how
+   modules fit together
+2. [Intent-oriented UI](./intent-oriented-ui.md) — decision-light UX contract
+3. [Debt and savings goals](./debt-and-savings-goals.md) — plan kinds and
+   settlement rules
+4. [Polish voice](./polish-voice.md) — how we write in the product
+5. [Bank import compatibility](./bank-import-compatibility.md) — supported
+   statement formats
+6. [Account export](./account-export.md) — what export includes / omits
 
-Historical implementation plans are intentionally not kept here. Once a plan is
-implemented or superseded, the current product and architecture docs become the
-source of truth.
+Shipped implementation plans and one-off design dumps are not kept here.
+Git history + PRs hold that trail.
