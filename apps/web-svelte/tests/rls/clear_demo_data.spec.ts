@@ -127,17 +127,23 @@ describe("RPC: clear_demo_data", () => {
       category_id: expenseCatB,
       user_id: ctx.userB.userId,
       is_demo: true,
-    });
+    }).select("id").single();
     if (insertB.error) throw insertB.error;
 
-    await ctx.userA.client.rpc("clear_demo_data");
+    const txId = insertB.data.id;
 
-    const remaining = await ctx.admin
-      .from("transactions")
-      .select("id")
-      .eq("user_id", ctx.userB.userId)
-      .eq("is_demo", true);
-    expect(remaining.data?.length).toBe(1);
+    try {
+      await ctx.userA.client.rpc("clear_demo_data");
+
+      const remaining = await ctx.admin
+        .from("transactions")
+        .select("id")
+        .eq("user_id", ctx.userB.userId)
+        .eq("is_demo", true);
+      expect(remaining.data?.length).toBe(1);
+    } finally {
+      await ctx.admin.from("transactions").delete().eq("id", txId);
+    }
   });
 
   it("keeps untagged real rows even when their description starts with Demo:", async () => {
