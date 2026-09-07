@@ -740,10 +740,4 @@ normal path that mutates remote schema.
 
 `plpgsql`, `pgcrypto`, `uuid-ossp`, `pg_stat_statements`, **`pg_cron`**, **`pg_net`**, **`supabase_vault`**.
 
-## Open issues
-
-See the **[audit report](./audit-2026-05-09.md)** for the prioritised list (function `search_path` warnings, two unwrapped `auth.jwt()` calls in RLS policies, four unindexed FKs, several unused indexes, multiple permissive policies, and the offline-write-queue parity gap).
-
 ---
-
-_Last reviewed: 2026-05-25 (see [`PRODUCT_REVIEW_2026-05-25.md`](../PRODUCT_REVIEW_2026-05-25.md))._

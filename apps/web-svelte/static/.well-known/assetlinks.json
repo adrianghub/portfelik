@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "pl.jakstoimy.app",
+      "sha256_cert_fingerprints": ["B9:41:15:E1:86:CB:C6:9C:99:BB:80:F1:47:2C:66:E5:B8:4B:36:95:F0:3B:32:55:D7:C0:16:BD:A6:6A:A4:79"]
+    }
+  }
+]

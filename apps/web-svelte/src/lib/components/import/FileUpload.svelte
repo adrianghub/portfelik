@@ -11,6 +11,12 @@
   import type { DetectionResult, ImportAdapterKind } from "$lib/import/banks/types";
   import { matchCategory } from "$lib/import/categorize";
   import { decodeBankCsv } from "$lib/import/csv/decode";
+  import {
+    checkImportFileSize,
+    checkImportRowCount,
+    IMPORT_MAX_FILE_BYTES,
+    IMPORT_MAX_ROWS,
+  } from "$lib/import/import-limits";
   import { normalize } from "$lib/import/normalize";
   import * as m from "$lib/paraglide/messages";
   import {
@@ -56,6 +62,15 @@
 
   const bankAdapters = listImportAdapters({ sourceKind: "bank_statement" });
 
+  function limitErrorMessage(violation: "file_too_large" | "too_many_rows"): string {
+    if (violation === "file_too_large") {
+      return m.bank_upload_file_too_large({
+        maxMb: String(Math.floor(IMPORT_MAX_FILE_BYTES / (1024 * 1024))),
+      });
+    }
+    return m.bank_upload_too_many_rows({ maxRows: String(IMPORT_MAX_ROWS) });
+  }
+
   async function proceedWithAdapter(kind: ImportAdapterKind): Promise<void> {
     if (!pending) return;
     const { file, bytes, text } = pending;
@@ -66,6 +81,12 @@
     parseErrorCount = parsed.errors.length;
     if (parsed.rows.length === 0 && parsed.errors.length > 0) {
       error = m.bank_upload_parse_failed({ bank: label });
+      return;
+    }
+
+    const rowLimit = checkImportRowCount(parsed.rows.length);
+    if (rowLimit) {
+      error = limitErrorMessage(rowLimit);
       return;
     }
 
@@ -146,6 +167,12 @@
     busy = true;
     try {
       const bytes = await file.arrayBuffer();
+      const sizeLimit = checkImportFileSize(bytes.byteLength);
+      if (sizeLimit) {
+        error = limitErrorMessage(sizeLimit);
+        toast.error(error);
+        return;
+      }
       const text = decodeBankCsv(bytes);
       const result = detectImportAdapter(text);
       pending = { file, bytes, text };
