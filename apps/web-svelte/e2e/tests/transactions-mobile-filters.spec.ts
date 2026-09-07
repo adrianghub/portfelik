@@ -46,7 +46,7 @@ test.describe("transactions mobile filters", () => {
     await expect(search).not.toHaveClass(/mobile-floating-action/);
     expect((await search.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     await search.click();
-    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.getByRole("search", { name: "Szukaj transakcji" })).toBeVisible();
   });
 
   test("sheet close target stays usable on a short mobile viewport", async ({ page }) => {
