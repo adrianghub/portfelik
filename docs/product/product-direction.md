@@ -204,12 +204,12 @@ keywords, or clustering unknown rows. AI must not directly mutate financial
 truth. The deterministic engine decides what is allowed; the user confirms
 exceptions.
 
-The broader post-production paths - AI, gamification, deeper automation, split
-allocations, and a durable offline write outbox - are tracked in
-[future product paths](./future-paths.md). They are useful only after the
-deterministic money model is trustworthy: paid-vs-forecast semantics are clear,
-shared-write permissions match RLS, and plan settlement eligibility is correct
-by plan kind.
+The broader post-production paths (AI explanations, deeper automation, split
+allocations, durable offline writes, quiet gamification) stay out of scope
+until the deterministic money model is trustworthy: paid-vs-forecast semantics
+are clear, shared-write permissions match RLS, and plan settlement eligibility
+is correct by plan kind. Track those ideas in GitHub issues when they earn a
+slot — not as competing product docs.
 
 ## Roadmap
 
@@ -218,7 +218,7 @@ by plan kind.
 | **MVP**   | Kokpit, Transakcje, Import CSV, first-class Plany, Ustawienia, groups/invites, categories, rules, privacy/regulatory basics.                                                               |
 | **MVP+**  | Manual plan-to-transaction linking, plan progress, import as first-class module, manual transactions clearly secondary, shared plan settlement scope rules, group co-owner role direction, save/debt plan kinds, derived cash position, and actionable recurring occurrences. |
 | **V1**    | Deterministic plan matching and attention surfaces: suggestions, score, reasons, accepted/rejected/dismissed memory.                                                                       |
-| **Later** | Future product paths after the deterministic trust fixes: deeper automation, quiet gamification, split allocations, durable offline write outbox, AI explanations/proposals, net-worth snapshot hub, Belka in invest compare, deeper observability. |
+| **Later** | Deeper automation, quiet gamification, split allocations, durable offline write outbox, AI explanations/proposals — only after trust gates above. |
 
 ## Design Bar
 

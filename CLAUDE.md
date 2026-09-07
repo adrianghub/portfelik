@@ -56,9 +56,10 @@ gate suite.
   commit plans, or immediate-next-step notes to this file.
 - Update `CLAUDE.md` only when durable agent rules, architecture entry points,
   branch policy, or product invariants change.
-- Record product decisions in `docs/product/`, architecture in
-  `docs/architecture/`, operational procedures in `docs/runbooks/`, and scoped
-  implementation designs in `docs/specs/`.
+- Record durable product decisions in `docs/product/`, architecture in
+  `docs/architecture/`, and operational procedures in `docs/runbooks/`.
+  Do not park shipped implementation plans or status diaries in the repo —
+  code, migrations, PRs, and GitHub issues are the source of truth.
 - Track unfinished work in GitHub issues/projects, not in this file.
 
 ## Product invariants
@@ -69,6 +70,7 @@ Supabase. Canonical direction lives in:
 - `docs/product/product-direction.md`
 - `docs/product/intent-oriented-ui.md`
 - `docs/product/debt-and-savings-goals.md`
+- `docs/product/polish-voice.md`
 
 The product spine is Kokpit, Transakcje, Import, Plany, and Ustawienia. Main
 navigation intentionally exposes Kokpit, Transakcje, and Plany; Import is a
@@ -105,10 +107,9 @@ flow entered from transaction and reminder surfaces.
 ```text
 apps/web-svelte/   Active SvelteKit application
 supabase/          Migrations, Edge Functions, RLS, and Supabase configuration
-docs/product/      Product direction and domain rules
+docs/product/      Product direction + Polish voice
 docs/architecture/ System architecture and environment model
 docs/runbooks/     Operational procedures
-docs/specs/        Scoped implementation designs
 .agents/skills/    Reusable cross-agent workflows
 ```
 
