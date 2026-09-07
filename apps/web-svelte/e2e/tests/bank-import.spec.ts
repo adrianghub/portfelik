@@ -481,7 +481,7 @@ test("import wizard: uploads, flags probable duplicates, commits, and blocks re-
 
   await page.goto("/import");
   await uploadUncertifiedStatement(page, { name: "wyciag.csv", buffer: mbankSample });
-  await expect(page.getByText("Ten plik został już zaimportowany")).toBeVisible({
+  await expect(page.getByText("Ten plik był już importowany")).toBeVisible({
     timeout: 10_000,
   });
 });
@@ -751,7 +751,7 @@ test("import wizard: leave guard discards the draft on navigate-away", async ({ 
 
   // Client-side navigation mid-review triggers the unsaved-changes guard.
   await page.locator('a[href="/dashboard"]').first().click();
-  await expect(page.getByText(/Zapisać zmiany przed wyjściem/)).toBeVisible();
+  await expect(page.getByText(/Wyjść z importu/)).toBeVisible();
   await page.getByRole("button", { name: "Odrzuć", exact: true }).click();
   await expect(page).toHaveURL(/\/dashboard/);
 });

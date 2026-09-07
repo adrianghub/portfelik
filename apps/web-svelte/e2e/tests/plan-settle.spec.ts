@@ -177,7 +177,7 @@ test.describe("plan settle page", () => {
 
     // Suggestions visible
     await expect(
-      page.getByText(/Powiązanie przypisuje całą kwotę do jednego planu/i)
+      page.getByText(/Powiązanie bierze całą kwotę do jednego planu/i)
     ).toBeVisible();
     await expect(page.getByText("Zakupy spożywcze na wakacje")).toBeVisible();
     await expect(page.getByText("Transport na lotnisko")).not.toBeVisible();
