@@ -1,17 +1,18 @@
 import { fireEvent, render, screen } from "@testing-library/svelte";
 import { describe, expect, it, vi } from "vitest";
 import QueryError from "$lib/components/ui/QueryError.svelte";
+import * as m from "$lib/paraglide/messages";
 
 describe("QueryError", () => {
   it("renders the mapped message for a permission error", () => {
     render(QueryError, { error: { code: "42501" } });
-    expect(screen.getByText("Brak uprawnień do tej operacji.")).toBeTruthy();
+    expect(screen.getByText(m.error_permission())).toBeTruthy();
   });
 
   it("shows a retry button only when onRetry is given and fires it", async () => {
     const onRetry = vi.fn();
     render(QueryError, { error: { code: "99999" }, onRetry });
-    await fireEvent.click(screen.getByRole("button", { name: "Spróbuj ponownie" }));
+    await fireEvent.click(screen.getByRole("button", { name: m.common_retry() }));
     expect(onRetry).toHaveBeenCalledOnce();
   });
 
