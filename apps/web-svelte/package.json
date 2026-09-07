@@ -26,7 +26,8 @@
 		"cap:sync": "cap sync android",
 		"android:sync": "pnpm build && cap sync android",
 		"android:open": "cap open android",
-		"android:bundle": "cd android && ./gradlew bundleRelease"
+		"android:bundle": "cd android && ./gradlew bundleRelease",
+		"android:release": "bash ./scripts/android-release.sh"
 	},
 	"devDependencies": {
 		"@axe-core/playwright": "^4.13.0",
