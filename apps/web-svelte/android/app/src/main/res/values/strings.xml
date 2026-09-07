@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">JakStoimy</string>
+    <string name="title_activity_main">JakStoimy</string>
+    <string name="package_name">pl.jakstoimy.app</string>
+    <string name="custom_url_scheme">pl.jakstoimy.app</string>
+</resources>

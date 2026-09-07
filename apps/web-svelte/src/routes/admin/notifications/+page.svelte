@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
+  import { requireAuthUser } from "$lib/auth/require-user";
   import { supabase } from "$lib/supabase";
   import { fetchProfile } from "$lib/services/profiles";
   import { fetchAdminNotifications } from "$lib/services/notifications";
@@ -32,12 +33,12 @@
   let pendingDelete = $state<string | null>(null);
 
   onMount(async () => {
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (!sessionData.session) {
+    const user = await requireAuthUser();
+    if (!user) {
       goto("/login");
       return;
     }
-    const profile = await fetchProfile(sessionData.session.user.id).catch(() => null);
+    const profile = await fetchProfile(user.id).catch(() => null);
     if (profile?.role !== "admin") {
       toast.error(m.admin_required());
       goto("/transactions");

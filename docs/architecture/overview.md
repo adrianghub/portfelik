@@ -42,7 +42,7 @@ SECURITY DEFINER RPCs.
 
 ```mermaid
 flowchart LR
-  Dashboard[/dashboard<br/>Pulpit]
+  Dashboard[/dashboard<br/>Kokpit]
   Transactions[/transactions<br/>Transakcje]
   Import[/import<br/>Import]
   Plans[/plans<br/>Plany]

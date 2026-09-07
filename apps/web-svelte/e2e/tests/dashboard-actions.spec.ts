@@ -154,7 +154,7 @@ test("shows an explicit error instead of a healthy empty state", async ({ page }
   const panel = page.getByRole("region", { name: "Do zrobienia teraz" });
   // Global query policy retries failed reads twice. Under the full six-worker
   // suite that retry window can exceed Playwright's 5 s assertion default.
-  await expect(panel).toContainText("Nie udało się sprawdzić wszystkich działań.", {
+  await expect(panel).toContainText("Nie udało się sprawdzić wszystkich rzeczy do zrobienia.", {
     timeout: 15_000,
   });
 });

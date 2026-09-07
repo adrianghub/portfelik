@@ -123,7 +123,7 @@ test("far-future recurring forecast rows expose only scoped series actions", asy
   await row.click();
   const sheet = page.locator("aside");
   await expect(sheet.getByText("Płatność cykliczna")).toBeVisible();
-  await expect(sheet.getByText("Jeszcze nie ma w historii")).toBeVisible();
+  await expect(sheet.getByText("Jeszcze nie ma jej w historii")).toBeVisible();
   await expect(sheet.getByText("Seria cykliczna")).toBeVisible();
   await sheet.getByRole("button", { name: "Edytuj" }).click();
   await expect(sheet.getByRole("button", { name: "To wystąpienie" })).toBeVisible();

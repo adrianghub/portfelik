@@ -1,0 +1,63 @@
+JakStoimy — Play Console paste draft (Internal testing)
+Updated: 2026-09-07
+
+== App identity ==
+Name: JakStoimy
+Package: pl.jakstoimy.app
+Default language: pl-PL
+Free
+
+== Short description (max ~80 chars) ==
+Domowy budżet z kierunkiem: import z banku, transakcje i plany w jednym miejscu.
+
+== Full description ==
+JakStoimy pomaga ogarnąć domowe finanse bez arkuszy i chaosu.
+
+• Import wyciągów bankowych (CSV) — bank jako źródło prawdy
+• Transakcje z kategoriami i jasnym podziałem tego, co już się wydarzyło
+• Plany: cele oszczędnościowe i spłaty, powiązane z prawdziwymi transakcjami
+• Kokpit: szybki obraz miesiąca i tego, co wymaga decyzji
+• Logowanie Google; dane finansowe zostają w Twoim koncie (RLS)
+
+Aplikacja jest import-first: najpierw bank, ręczny wpis tylko jako poprawka.
+Powiadomienia push są opcjonalne — nie są źródłem stanu finansów.
+
+== Privacy policy ==
+https://app.jakstoimy.pl/privacy
+(Staging mirror: https://dev.portfelik.pages.dev/privacy)
+
+== Data safety (draft answers) ==
+- Collects: email (Google Auth), financial info (transactions, plans), app activity (optional analytics via Plausible — no cookies, no amounts)
+- Purpose: app functionality; analytics aggregated only
+- Sharing: not sold; not shared for advertising
+- Security: data in transit encrypted (HTTPS); encryption at rest via Supabase/Postgres hosting
+- Deletion: user can request deletion via account contact / support email on privacy page
+- Optional: push token only if user enables notifications
+
+== Content rating ==
+Likely “Everyone” / no violence; personal finance utility. Complete IARC questionnaire in Console.
+
+== Screenshots (local, gitignored) ==
+apps/web-svelte/android/smoke-artifacts/02-after-load.png — login / brand
+apps/web-svelte/android/smoke-artifacts/05-prod-cold.png — prod build login
+Capture Kokpit / Transakcje / Plany on a signed-in device before public listing.
+
+== Smoke results (emulator, 2026-09-07) ==
+PASS cold start + JakStoimy branding (not Capacitor defaults)
+PASS Google button opens Chrome Custom Tabs
+PASS prod build hits https://…supabase.co (not localhost)
+PASS native redirect scheme pl.jakstoimy.app in OAuth URL
+BLOCKED full Google account completion / nav / CSV on emulator without signed-in Google identity — re-check on physical phones after Play Internal install
+
+== Upload binary ==
+Build: pnpm android:release   (from apps/web-svelte; uses .env.cloud.local PUBLIC_*)
+APK: android/app/build/outputs/apk/release/app-release.apk
+AAB: android/app/build/outputs/bundle/release/app-release.aab
+
+== When identity verification finishes ==
+1. Finish phone verification in Play Console
+2. Create application JakStoimy / pl.jakstoimy.app
+3. Paste listing fields above
+4. Internal testing → upload AAB
+5. Add tester Google accounts (you + fiancée) → opt-in link → install from Play
+6. After Play App Signing: add Play signing cert SHA-256 to static/.well-known/assetlinks.json and redeploy

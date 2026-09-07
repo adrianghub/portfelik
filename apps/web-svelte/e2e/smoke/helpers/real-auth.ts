@@ -143,7 +143,7 @@ export async function ensureSmokeUserTourDismissed(
 
 /** Close the welcome dialog when a fresh profile or stale local state surfaces it. */
 export async function dismissWelcomeTourIfPresent(page: Page): Promise<void> {
-  const dialog = page.getByRole('dialog', { name: 'Zobacz, jak pieniądze dostają kierunek' });
+  const dialog = page.getByRole('dialog', { name: 'Zacznij od przykładowego miesiąca' });
   if (!(await dialog.isVisible().catch(() => false))) return;
   // Prefer the dialog close control so smoke suites stay on the current route
   // (the secondary CTA navigates to /import by product design).

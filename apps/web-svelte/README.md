@@ -1,65 +1,26 @@
-# JakStoimy Web App
+# JakStoimy — web app
 
-SvelteKit SPA for **JakStoimy** — import-first personal finance: bank CSV
-import, transaction ledger, save/debt plans with settlement, and a deterministic
-dashboard. Product direction and repository-level setup live in the root
-[README](../../README.md).
-
-## Local Development
+SvelteKit SPA for JakStoimy. Repo setup and product pitch:
+[root README](../../README.md).
 
 ```bash
-pnpm install
-pnpm dev
+pnpm install && pnpm dev
 ```
 
-The app reads `.env.local`, which normally points at the local Supabase stack.
-From the repository root:
+Local stack from repo root: `supabase start && supabase db reset`, then
+`pnpm seed:local` here.
 
-```bash
-supabase start
-supabase db reset
-cd apps/web-svelte
-pnpm seed:local
-```
+| | |
+| --- | --- |
+| `pnpm check` | svelte-check |
+| `pnpm lint` / `pnpm format` | ESLint / Prettier |
+| `pnpm test:unit` | unit |
+| `pnpm test:e2e` | Playwright (mocked) |
+| `pnpm test:e2e:install` | browsers if missing after upgrade |
 
-## Checks
+After `messages/pl.json`: recompile Paraglide
+(`pnpm exec paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide`).
 
-```bash
-pnpm exec svelte-check --tsconfig ./tsconfig.json
-pnpm lint
-pnpm format:check
-pnpm test:unit
-pnpm test:components
-```
-
-### E2E (Playwright, mocked Supabase)
-
-Chromium is installed automatically on `pnpm install` (`postinstall`). If browsers
-are missing after an upgrade, run:
-
-```bash
-pnpm test:e2e:install
-```
-
-Run headless locally (starts dev server on port 5173):
-
-```bash
-pnpm test:e2e
-```
-
-On Linux CI, system deps are installed separately via `test:e2e:install:deps`.
-
-After editing `messages/pl.json`, recompile Paraglide:
-
-```bash
-pnpm exec paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide
-```
-
-## Architecture Notes
-
-- Static SvelteKit build via `adapter-static`; no SSR and no `+server.ts`
-  runtime.
-- Supabase client singleton in `src/lib/supabase.ts`.
-- Svelte 5 runes and TanStack Query v6 for UI state/server cache.
-- Product spine: **Pulpit**, **Transakcje** (import flow + ledger), **Plany**
-  (save/debt goals only), **Ustawienia**.
+Static `adapter-static` build, Supabase client in `src/lib/supabase.ts`,
+Svelte 5 + TanStack Query. Spine: **Kokpit**, **Transakcje**, **Plany**,
+**Ustawienia**.

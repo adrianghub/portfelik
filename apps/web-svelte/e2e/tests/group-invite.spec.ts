@@ -234,7 +234,7 @@ test.describe("group invite", () => {
     await expect(page.getByRole("heading", { name: "Rodzina" })).toBeVisible();
     await page.getByRole("button", { name: "Dołącz do grupy" }).click();
     await expect(page.getByRole("alert")).toContainText(
-      "Zaloguj się adresem e-mail, na który wysłano zaproszenie."
+      "Zaloguj się na e-mail, na który poszło zaproszenie."
     );
     await page.getByRole("button", { name: "Wyloguj i użyj właściwego konta" }).click();
     await expect(page.getByRole("button", { name: "Dołącz do grupy" })).toHaveCount(0);

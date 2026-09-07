@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
+  import { requireAuthUser } from "$lib/auth/require-user";
   import { supabase } from "$lib/supabase";
   import { fetchProfile, assignAdminRole, revokeAdminRole } from "$lib/services/profiles";
   import type { Profile } from "$lib/types";
@@ -31,13 +32,13 @@
   );
 
   onMount(async () => {
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (!sessionData.session) {
+    const user = await requireAuthUser();
+    if (!user) {
       goto("/login");
       return;
     }
 
-    const currentProfile = await fetchProfile(sessionData.session.user.id).catch(() => null);
+    const currentProfile = await fetchProfile(user.id).catch(() => null);
     if (currentProfile?.role !== "admin") {
       toast.error(m.admin_required());
       goto("/transactions");

@@ -145,7 +145,7 @@ test("private scope without an anchor: strip prompts to set a balance", async ({
 
   await expect(desktopTable(page).getByText("Wydatek gotówkowy")).toBeVisible();
   // Strip still renders, but as a prompt — no fabricated total.
-  await expect(strip(page).getByText(/Kliknij, aby ustawić saldo początkowe/)).toBeVisible();
+  await expect(strip(page).getByText(/Kliknij, żeby ustawić saldo początkowe/)).toBeVisible();
 });
 
 test("private scope: strip opens edit sheet with anchor fields", async ({ page }) => {
@@ -160,5 +160,5 @@ test("private scope: strip opens edit sheet with anchor fields", async ({ page }
   await expect(sheet.getByLabel("Dzień salda początkowego")).toBeVisible();
   await expect(sheet.locator("#cash-opening-amount")).toHaveValue("1000");
   await expect(sheet.getByLabel("Saldo początkowe gotówki")).toBeVisible();
-  await expect(sheet.getByText(/przed pierwszą transakcją z wybranego dnia/)).toBeVisible();
+  await expect(sheet.getByText(/sprzed pierwszej transakcji z wybranego dnia/)).toBeVisible();
 });

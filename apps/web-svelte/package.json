@@ -22,10 +22,17 @@
 		"test:unit": "vitest run --config vitest.unit.config.ts",
 		"test:components": "vitest run --config vitest.components.config.ts",
 		"test:rls": "vitest run",
-		"test:rls:watch": "vitest"
+		"test:rls:watch": "vitest",
+		"cap:sync": "cap sync android",
+		"android:sync": "pnpm build && cap sync android",
+		"android:open": "cap open android",
+		"android:bundle": "cd android && ./gradlew bundleRelease",
+		"android:release": "bash ./scripts/android-release.sh"
 	},
 	"devDependencies": {
 		"@axe-core/playwright": "^4.13.0",
+		"@capacitor/android": "^8.5.1",
+		"@capacitor/cli": "^8.5.1",
 		"@eslint/js": "^9.39.4",
 		"@inlang/paraglide-js": "^2.24.1",
 		"@playwright/test": "^1.62.1",
@@ -56,6 +63,11 @@
 		"vitest": "^4.1.11"
 	},
 	"dependencies": {
+		"@capacitor/app": "^8.1.1",
+		"@capacitor/browser": "^8.0.4",
+		"@capacitor/core": "^8.5.1",
+		"@capacitor/splash-screen": "^8.0.2",
+		"@capacitor/status-bar": "^8.0.3",
 		"@internationalized/date": "^3.12.3",
 		"@supabase/supabase-js": "^2.112.4",
 		"@tanstack/svelte-query": "^6.1.43",

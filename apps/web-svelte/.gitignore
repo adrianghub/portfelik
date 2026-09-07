@@ -25,3 +25,16 @@ vite.config.ts.timestamp-*
 # Playwright
 playwright-report/
 test-results/
+
+# Capacitor / Android local
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/captures/
+android/*.keystore
+android/*.jks
+android/keystore.properties
+*.keystore
+*.jks
+android/smoke-artifacts/

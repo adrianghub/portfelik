@@ -50,6 +50,7 @@ export default tseslint.config(
       "build/",
       ".svelte-kit/",
       "dist/",
+      "android/",
       "src/lib/paraglide/",
       "playwright-report/",
       "test-results/",
