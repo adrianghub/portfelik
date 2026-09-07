@@ -3,8 +3,9 @@
   import { trackOnce } from "$lib/analytics";
   import {
     isAndroid,
+    isInstalledClient,
     isIosSafari,
-    isStandalonePwa,
+    isNativeCapacitor,
     PWA_INSTALL_PROMPT_KEY,
   } from "$lib/services/pwa";
   import * as m from "$lib/paraglide/messages";
@@ -24,7 +25,7 @@
   let dismissed = $state(true);
 
   const show = $derived(
-    !dismissed && !isStandalonePwa() && (deferred !== null || isIOS || isAndroidDevice)
+    !dismissed && !isInstalledClient() && (deferred !== null || isIOS || isAndroidDevice)
   );
 
   function recentlyPrompted(): boolean {
@@ -46,7 +47,7 @@
   }
 
   onMount(() => {
-    if (isStandalonePwa() || recentlyPrompted()) return;
+    if (isNativeCapacitor() || isInstalledClient() || recentlyPrompted()) return;
     dismissed = false;
 
     isIOS = isIosSafari();

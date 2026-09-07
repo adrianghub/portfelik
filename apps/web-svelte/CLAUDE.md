@@ -11,7 +11,8 @@ Loaded automatically when working in `apps/web-svelte/`.
 | TanStack Query v6   | Options as functions (runes API). `createQuery`, `createMutation` from `@tanstack/svelte-query`.                           |
 | Paraglide v2        | Vite plugin only - no adapter. Compile-time i18n. Recompile after `messages/pl.json` edits.                                |
 | Supabase client     | Singleton at `src/lib/supabase.ts`. Query client provided in `+layout.svelte`.                                             |
-| Auth                | Google OAuth for real users. Email/password sign-up stays disabled; local/staging use seeded email/password personas only. |
+| Auth                | Google OAuth for real users. Email/password sign-up stays disabled; local/staging use seeded email/password personas only. Native Android uses Capacitor Custom Tabs + `pl.jakstoimy.app://auth/callback`. |
+| Capacitor Android   | `pl.jakstoimy.app` under `android/`. Build web then sync: `pnpm android:sync`. Upload keystore: `android/create-upload-keystore.sh` (local only). |
 | Group writes        | All via SECURITY DEFINER RPCs in `services/groups.ts`. Direct table writes blocked by RLS.                                 |
 | Summary computation | `computeSummary(transactions)` in `services/transactions.ts` - derived client-side, no RPC round-trip.                     |
 

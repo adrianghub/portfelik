@@ -3,8 +3,9 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import BrandMark from "$lib/components/BrandMark.svelte";
-  import { authCallbackUrlForTarget, rememberLoginRedirect } from "$lib/auth-redirect";
+  import { rememberLoginRedirect } from "$lib/auth-redirect";
   import { claimInvitation, fetchInvitationPreview } from "$lib/services/groups";
+  import { oauthCallbackUrl, signInWithGoogleOAuth } from "$lib/services/oauth";
   import { supabase } from "$lib/supabase";
   import type { GroupInvitationPreview } from "$lib/types";
   import * as m from "$lib/paraglide/messages";
@@ -73,12 +74,7 @@
     submitting = true;
     error = null;
     rememberLoginRedirect(target);
-    const { error: authError } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: authCallbackUrlForTarget(window.location.origin, target),
-      },
-    });
+    const { error: authError } = await signInWithGoogleOAuth(oauthCallbackUrl(target));
     if (authError) {
       error = m.login_error_generic();
       submitting = false;

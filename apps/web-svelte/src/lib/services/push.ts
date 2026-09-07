@@ -34,7 +34,12 @@ function setPushOptOut(value: boolean): void {
   }
 }
 
-export { isStandalonePwa, shouldDeferBrowserPush } from "$lib/services/pwa";
+export {
+  isInstalledClient,
+  isNativeCapacitor,
+  isStandalonePwa,
+  shouldDeferBrowserPush,
+} from "$lib/services/pwa";
 
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (!("serviceWorker" in navigator)) return null;

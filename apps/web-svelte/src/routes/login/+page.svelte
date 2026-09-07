@@ -8,6 +8,7 @@
     rememberLoginRedirect,
   } from "$lib/auth-redirect";
   import BrandMark from "$lib/components/BrandMark.svelte";
+  import { oauthCallbackUrl, signInWithGoogleOAuth } from "$lib/services/oauth";
   import * as m from "$lib/paraglide/messages";
   import { Check } from "lucide-svelte";
 
@@ -57,11 +58,9 @@
   async function signInWithGoogle() {
     loading = true;
     error = null;
-    rememberLoginRedirect(redirectTargetFromUrl(page.url));
-    const { error: authError } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    });
+    const redirectTarget = redirectTargetFromUrl(page.url);
+    rememberLoginRedirect(redirectTarget);
+    const { error: authError } = await signInWithGoogleOAuth(oauthCallbackUrl(redirectTarget));
     if (authError) {
       error = m.login_error_generic();
       loading = false;

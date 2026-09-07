@@ -26,6 +26,8 @@
     requestAndSubscribePush,
     shouldDeferBrowserPush,
   } from "$lib/services/push";
+  import { registerNativeAuthDeepLinkHandler } from "$lib/services/native-auth";
+  import { requireAuthUser } from "$lib/auth/require-user";
   import { setSessionUser } from "$lib/auth/session.svelte";
   import { supabase } from "$lib/supabase";
   import type { Profile } from "$lib/types";
@@ -172,6 +174,11 @@
     if ("Notification" in window) notifPermission = Notification.permission;
     readPushPromptCooldown();
 
+    let removeNativeAuthDeepLink: (() => void) | undefined;
+    void registerNativeAuthDeepLinkHandler().then((remove) => {
+      removeNativeAuthDeepLink = remove;
+    });
+
     const teardownNotificationSync = setupNotificationSync(queryClient, (payload) => {
       const data = payload.data;
       const txId = data?.transactionId;
@@ -234,24 +241,31 @@
 
     void (async () => {
       const bootstrapRevision = authRevision;
-      // getSession() reads the persisted token locally (instant for a valid token; only
-      // hits the network to refresh an expired one), so the splash clears immediately
-      // instead of blocking on a getUser() round-trip every cold start. Authorization is
-      // still enforced by RLS on every data call, and onAuthStateChange handles changes.
+      // Fast local session for splash, then verify with Auth server so a stale
+      // localStorage token cannot keep privileged UI alive.
       const {
         data: { session },
         error: sessionError,
       } = await supabase.auth.getSession();
       const authUser = session?.user ?? null;
 
-      // A sign-in (or sign-out) landed while getSession() was in flight - its result
-      // is authoritative, so discard this now-stale bootstrap snapshot.
       if (bootstrapRevision !== authRevision) return;
 
       if (sessionError || !authUser) {
         clearAuthenticatedUser();
       } else {
         loadAuthenticatedUser(authUser);
+        void requireAuthUser().then((verified) => {
+          if (bootstrapRevision !== authRevision) return;
+          if (!verified) {
+            clearAuthenticatedUser();
+            if (!isPublicRoute) redirectToLogin();
+            return;
+          }
+          if (verified.id !== authUser.id) {
+            loadAuthenticatedUser(verified);
+          }
+        });
       }
 
       if (!authUser && !isPublicRoute) {
@@ -260,6 +274,7 @@
     })();
 
     return () => {
+      removeNativeAuthDeepLink?.();
       teardownNotificationSync();
       unsubscribeProfileCache();
       navigator.serviceWorker?.removeEventListener("message", onServiceWorkerNavigate);
