@@ -2,23 +2,23 @@
 
 Ostatnia aktualizacja: 15 lipca 2026
 
-JakStoimy pomaga ogarniać domowe finanse. Żeby działać, musi przechowywać Twoje
+JakStoimy pomaga prowadzić domowe finanse. Żeby działać, musi przechowywać Twoje
 dane finansowe. Poniżej wyjaśniamy bez prawniczego żargonu: co przechowujemy,
 kto to widzi i co możesz z tym zrobić. Treść tej strony jest źródłem dla widoku
-`/privacy` w aplikacji - zmiany utrzymuj w obu miejscach spójnie.
+`/privacy` w aplikacji. Zmiany utrzymuj w obu miejscach spójnie.
 
 **Administrator danych:** Adrian Zinko (kontakt: adres e-mail widoczny w koncie
 JakStoimy / zaproszeniach do aplikacji).
 
 ## Co przechowujemy
 
-- **Twoje transakcje** - kwoty, daty, opisy, kategorie.
-- **Twoje plany** - budżety, cele oszczędnościowe, kredyty i ich powiązania z
+- **Twoje transakcje**: kwoty, daty, opisy, kategorie.
+- **Twoje plany**: budżety, cele oszczędnościowe, kredyty i ich powiązania z
   transakcjami.
-- **Opcjonalny wpis majątku** - jeśli go dodasz.
-- **Twój profil** - e-mail logowania i ustawienia.
-- **Grupy** - do których należysz, wraz z e-mailami zapraszanych osób.
-- **Powiadomienia** - ich treść oraz, jeśli włączysz push, techniczny token
+- **Opcjonalny wpis majątku**: jeśli go dodasz.
+- **Twój profil**: e-mail logowania i ustawienia.
+- **Grupy**: do których należysz, wraz z e-mailami zapraszanych osób.
+- **Powiadomienia**: ich treść oraz, jeśli włączysz push, techniczny token
   urządzenia (służy wyłącznie do dostarczania powiadomień).
 
 Pliki z banku po imporcie zamieniamy w transakcje. Samego pliku nie
@@ -27,7 +27,7 @@ przechowujemy.
 ## Kto widzi Twoje dane
 
 - **Ty.** Domyślnie wszystko jest prywatne.
-- **Osoby z Twojej grupy** - ale tylko to, co sam(a) oznaczysz jako wspólne.
+- **Osoby z Twojej grupy**: ale tylko to, co sam(a) oznaczysz jako wspólne.
   Szczegóły Twoich importów z banku zawsze zostają tylko u Ciebie.
 - **Nikt inny.** Inni użytkownicy aplikacji nie mają dostępu do Twoich danych.
 
@@ -36,12 +36,12 @@ przechowujemy.
 Mówiąc szczerze: dane nie są szyfrowane end-to-end, więc osoba utrzymująca
 aplikację technicznie ma dostęp do bazy danych. W praktyce narzędzia
 administracyjne ukrywają kwoty i opisy, a do surowych danych sięgamy tylko
-wtedy, gdy to konieczne - np. żeby naprawić błąd. Nie przeglądamy Twoich
+wtedy, gdy to konieczne, np. żeby naprawić błąd. Nie przeglądamy Twoich
 finansów. Nigdy ich też nikomu nie udostępnimy ani nie sprzedamy.
 
 ## Analityka użytkowania
 
-Korzystamy z **Plausible** — zbieramy zagregowane zdarzenia (np. ukończenie
+Korzystamy z **Plausible**. Zbieramy zagregowane zdarzenia (np. ukończenie
 pierwszego importu, załadowanie danych demo), bez ciasteczek śledzących i bez
 kwot, opisów transakcji ani innych danych finansowych. Adres IP nie jest
 przechowywany.
