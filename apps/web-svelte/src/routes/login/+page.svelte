@@ -69,7 +69,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.app_name()} – {m.login_sign_in()}</title>
+  <title>{m.app_name()} | {m.login_sign_in()}</title>
 </svelte:head>
 
 <div

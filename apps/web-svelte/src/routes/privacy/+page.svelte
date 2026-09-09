@@ -18,7 +18,7 @@
   <p class="mt-1 text-xs text-slate-400">Ostatnia aktualizacja: 15 lipca 2026</p>
 
   <p class="mt-6 text-sm leading-relaxed text-slate-300">
-    JakStoimy pomaga ogarniać domowe finanse. Żeby działać, musi przechowywać Twoje dane finansowe.
+    JakStoimy pomaga prowadzić domowe finanse. Żeby działać, musi przechowywać Twoje dane finansowe.
     Poniżej wyjaśniamy bez prawniczego żargonu: co przechowujemy, kto to widzi i co możesz z tym
     zrobić.
   </p>
@@ -30,16 +30,17 @@
   <section class="mt-8 space-y-2">
     <h2 class="text-base font-semibold text-slate-100">Co przechowujemy</h2>
     <ul class="list-disc space-y-1 pl-5 text-sm text-slate-300">
-      <li><strong>Twoje transakcje</strong> - kwoty, daty, opisy, kategorie.</li>
+      <li><strong>Twoje transakcje</strong>: kwoty, daty, opisy, kategorie.</li>
       <li>
-        <strong>Twoje plany</strong> - budżety, cele oszczędnościowe, kredyty i ich powiązania z transakcjami.
+        <strong>Twoje plany</strong>: budżety, cele oszczędnościowe, kredyty i ich powiązania z
+        transakcjami.
       </li>
-      <li><strong>Opcjonalny wpis majątku</strong> - jeśli go dodasz.</li>
-      <li><strong>Twój profil</strong> - e-mail logowania i ustawienia.</li>
-      <li><strong>Grupy</strong> - do których należysz, wraz z e-mailami zapraszanych osób.</li>
+      <li><strong>Opcjonalny wpis majątku</strong>: jeśli go dodasz.</li>
+      <li><strong>Twój profil</strong>: e-mail logowania i ustawienia.</li>
+      <li><strong>Grupy</strong>: do których należysz, wraz z e-mailami zapraszanych osób.</li>
       <li>
-        <strong>Powiadomienia</strong> - ich treść oraz, jeśli włączysz push, techniczny token urządzenia
-        (służy wyłącznie do dostarczania powiadomień).
+        <strong>Powiadomienia</strong>: ich treść oraz, jeśli włączysz push, techniczny token
+        urządzenia (służy wyłącznie do dostarczania powiadomień).
       </li>
     </ul>
     <p class="text-sm leading-relaxed text-slate-300">
@@ -52,8 +53,8 @@
     <ul class="list-disc space-y-1 pl-5 text-sm text-slate-300">
       <li><strong>Ty.</strong> Domyślnie wszystko jest prywatne.</li>
       <li>
-        <strong>Osoby z Twojej grupy</strong> - ale tylko to, co sam(a) oznaczysz jako wspólne. Szczegóły
-        Twoich importów z banku zawsze zostają tylko u Ciebie.
+        <strong>Osoby z Twojej grupy</strong>: ale tylko to, co sam(a) oznaczysz jako wspólne.
+        Szczegóły Twoich importów z banku zawsze zostają tylko u Ciebie.
       </li>
       <li>
         <strong>Nikt inny.</strong> Inni użytkownicy aplikacji nie mają dostępu do Twoich danych.
@@ -66,17 +67,17 @@
     <p class="text-sm leading-relaxed text-slate-300">
       Mówiąc szczerze: dane nie są szyfrowane end-to-end, więc osoba utrzymująca aplikację
       technicznie ma dostęp do bazy danych. W praktyce narzędzia administracyjne ukrywają kwoty i
-      opisy, a do surowych danych sięgamy tylko wtedy, gdy to konieczne - np. żeby naprawić błąd.
-      Nie przeglądamy Twoich finansów. Nigdy ich też nikomu nie udostępnimy ani nie sprzedamy.
+      opisy, a do surowych danych sięgamy tylko wtedy, gdy to konieczne, np. żeby naprawić błąd. Nie
+      przeglądamy Twoich finansów. Nigdy ich też nikomu nie udostępnimy ani nie sprzedamy.
     </p>
   </section>
 
   <section class="mt-8 space-y-2">
     <h2 class="text-base font-semibold text-slate-100">Analityka użytkowania</h2>
     <p class="text-sm leading-relaxed text-slate-300">
-      Korzystamy z <strong>Plausible</strong> — zbieramy zagregowane zdarzenia (np. ukończenie pierwszego
-      importu, załadowanie danych demo), bez ciasteczek śledzących i bez kwot, opisów transakcji ani innych
-      danych finansowych. Adres IP nie jest przechowywany.
+      Korzystamy z <strong>Plausible</strong>. Zbieramy zagregowane zdarzenia (np. ukończenie
+      pierwszego importu, załadowanie danych demo), bez ciasteczek śledzących i bez kwot, opisów
+      transakcji ani innych danych finansowych. Adres IP nie jest przechowywany.
     </p>
   </section>
 

@@ -5,20 +5,22 @@ How we write user-facing Polish. Source of truth for wording is also
 
 ## Who we sound like
 
-A helpful person who respects your time. Clear, calm, human.
-
-Not a coach. Not a bank brochure. Not ChatGPT marketing.
+A calm product partner who respects your time. Clear, professional, human.
 
 Inspired by Polish bank *prosty język* (mBank mKanon, ING „Po prostu”, PKO
 Prosto, Pekao / Santander–Erste) — especially **logged-in product UI**, not
 campaign slogans.
 
+Not a coach. Not ChatGPT marketing. Not slangy chat.
+
 ## Two registers
 
 | Register | Where | Tone |
 |---|---|---|
-| Warm neighbor | Login, tour, empty states, demos | *ty*, short, lightly human |
-| Calm partner | Money context, errors, security, permissions | *ty*, no jokes, no pep-talk |
+| Warm and clear | Login, tour, empty states, demos | *ty*, short, lightly human |
+| Calm and precise | Money context, errors, security, permissions | *ty*, no jokes, no pep-talk |
+
+Both registers stay professional. Warm does not mean chatty.
 
 ## Rules
 
@@ -32,6 +34,11 @@ campaign slogans.
 7. Stay truthful — never promise behavior the product does not do.
 8. Do not “refresh” already-plain chrome (*Zaloguj się*, *Dalej*, *Gotowe*)
    just to change wording.
+9. **No pause dashes** in UI copy. Prefer a full stop or a comma, not `—`,
+   `–`, or ` - ` as a dramatic break. Keep technical forms: *e-mail*, ranges
+   like *1-31*, and intentional placeholders.
+10. Prefer *aplikacja* over *apka*. Prefer precise verbs over slang
+    (*ogarnąć*, *zerknij*).
 
 ## Do / don’t
 
@@ -42,6 +49,8 @@ campaign slogans.
 | Importuj wyciąg | Uruchom ścieżkę importu bankowego |
 | Nie udało się zalogować. Sprawdź e-mail i hasło. | Wystąpił nieoczekiwany błąd w procesie uwierzytelniania. |
 | Brak transakcji w tym miesiącu | Twój miesiąc jeszcze czeka, aż nadasz mu kierunek |
+| Nie można usunąć. Kategoria jest już używana. | Nie da się usunąć — coś z tego korzysta. |
+| Sprawdź je ręcznie przed zatwierdzeniem. | Zerknij na nie ręcznie |
 
 ## Banned / avoid (soft surfaces especially)
 
@@ -53,11 +62,14 @@ campaign slogans.
 - Therapy / guilt / empowerment slogans
 - English jargon when a Polish everyday word exists
 - Long metaphor stacks
+- Pause dashes used as sentence glue
+- Chat slang: *apka*, *ogarnąć*, *zerknij*
 
 ## Checklist before merging copy
 
-- [ ] Right register (warm vs calm)
-- [ ] No banned slogan phrases
+- [ ] Right register (warm vs calm), still professional
+- [ ] No pause dashes in user-facing strings
+- [ ] No banned slogan phrases or chat slang
 - [ ] Still truthful vs product behavior
 - [ ] E2E assertions for changed strings updated
 - [ ] Paraglide recompiled after `messages/pl.json`
