@@ -10,8 +10,12 @@ if [[ ! -f .env.cloud.local ]]; then
   exit 1
 fi
 
+# Ignore any pre-exported PUBLIC_* from the shell / direnv / .env.local.
+unset PUBLIC_SUPABASE_URL PUBLIC_SUPABASE_ANON_KEY PUBLIC_VAPID_KEY PUBLIC_PLAUSIBLE_DOMAIN || true
+
 # Load PUBLIC_* safely: strip UTF-8 BOM + CRLF, ignore blank/comment lines,
 # trim surrounding whitespace/quotes so local editors do not break the check.
+loaded_keys=0
 while IFS= read -r line || [[ -n "$line" ]]; do
   line="${line#$'\xEF\xBB\xBF'}"
   line="${line%$'\r'}"
@@ -30,10 +34,16 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   fi
   printf -v "$key" '%s' "$val"
   export "$key"
+  loaded_keys=$((loaded_keys + 1))
 done < .env.cloud.local
 
+if [[ "$loaded_keys" -eq 0 ]]; then
+  echo "No PUBLIC_* keys loaded from $(pwd)/.env.cloud.local" >&2
+  exit 1
+fi
+
 if [[ -z "${PUBLIC_SUPABASE_URL:-}" ]]; then
-  echo "PUBLIC_SUPABASE_URL is empty after reading .env.cloud.local" >&2
+  echo "PUBLIC_SUPABASE_URL is empty after reading .env.cloud.local (${loaded_keys} PUBLIC_* keys loaded)" >&2
   echo "Check the file has a line: PUBLIC_SUPABASE_URL=https://….supabase.co" >&2
   exit 1
 fi
@@ -42,7 +52,7 @@ if [[ ! "${PUBLIC_SUPABASE_URL}" =~ ^https://[A-Za-z0-9.-]+\.supabase\.co/?$ ]];
   # Show only host shape — never the full secret-bearing file.
   host="${PUBLIC_SUPABASE_URL#https://}"
   host="${host%%/*}"
-  echo "PUBLIC_SUPABASE_URL must be an https://….supabase.co URL (got host: ${host:-<unparseable>})" >&2
+  echo "PUBLIC_SUPABASE_URL must be an https://….supabase.co URL (got host: ${host:-<unparseable>}, len=${#PUBLIC_SUPABASE_URL})" >&2
   exit 1
 fi
 
