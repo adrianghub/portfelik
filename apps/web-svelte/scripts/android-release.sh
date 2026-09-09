@@ -10,18 +10,44 @@ if [[ ! -f .env.cloud.local ]]; then
   exit 1
 fi
 
-set -a
-# shellcheck disable=SC1091
-source <(grep -E '^PUBLIC_' .env.cloud.local)
-set +a
+# Load PUBLIC_* safely: strip UTF-8 BOM + CRLF, ignore blank/comment lines,
+# trim surrounding whitespace/quotes so local editors do not break the check.
+while IFS= read -r line || [[ -n "$line" ]]; do
+  line="${line#$'\xEF\xBB\xBF'}"
+  line="${line%$'\r'}"
+  [[ -z "$line" || "$line" == \#* ]] && continue
+  [[ "$line" == PUBLIC_*=* ]] || continue
+  key="${line%%=*}"
+  val="${line#*=}"
+  val="${val#"${val%%[![:space:]]*}"}"
+  val="${val%"${val##*[![:space:]]}"}"
+  if [[ ${#val} -ge 2 ]]; then
+    first="${val:0:1}"
+    last="${val: -1}"
+    if [[ ( "$first" == '"' && "$last" == '"' ) || ( "$first" == "'" && "$last" == "'" ) ]]; then
+      val="${val:1:${#val}-2}"
+    fi
+  fi
+  printf -v "$key" '%s' "$val"
+  export "$key"
+done < .env.cloud.local
 
-if [[ ! "${PUBLIC_SUPABASE_URL:-}" =~ ^https://.+supabase\.co ]]; then
-  echo "PUBLIC_SUPABASE_URL must be an https://…supabase.co URL" >&2
+if [[ -z "${PUBLIC_SUPABASE_URL:-}" ]]; then
+  echo "PUBLIC_SUPABASE_URL is empty after reading .env.cloud.local" >&2
+  echo "Check the file has a line: PUBLIC_SUPABASE_URL=https://….supabase.co" >&2
+  exit 1
+fi
+
+if [[ ! "${PUBLIC_SUPABASE_URL}" =~ ^https://[A-Za-z0-9.-]+\.supabase\.co/?$ ]]; then
+  # Show only host shape — never the full secret-bearing file.
+  host="${PUBLIC_SUPABASE_URL#https://}"
+  host="${host%%/*}"
+  echo "PUBLIC_SUPABASE_URL must be an https://….supabase.co URL (got host: ${host:-<unparseable>})" >&2
   exit 1
 fi
 
 if [[ -z "${PUBLIC_SUPABASE_ANON_KEY:-}" || -z "${PUBLIC_VAPID_KEY:-}" ]]; then
-  echo "PUBLIC_SUPABASE_ANON_KEY and PUBLIC_VAPID_KEY are required" >&2
+  echo "PUBLIC_SUPABASE_ANON_KEY and PUBLIC_VAPID_KEY are required in .env.cloud.local" >&2
   exit 1
 fi
 
