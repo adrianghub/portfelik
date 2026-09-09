@@ -183,7 +183,7 @@ test.describe("plan settle page", () => {
     await expect(page.getByText("Transport na lotnisko")).not.toBeVisible();
 
     // TX1 → high rank badge
-    await expect(page.getByText(/Pasuje świetnie/)).toBeVisible();
+    await expect(page.getByText(/Bardzo dobre dopasowanie/)).toBeVisible();
 
     // At least one reason chip visible (category, keyword, or amount)
     await expect(page.getByText("✓ kategoria: Jedzenie")).toBeVisible();
@@ -194,7 +194,9 @@ test.describe("plan settle page", () => {
     await page.goto(`/plans/${PLAN_ID}/settle`);
 
     await expect(page.getByText("Wpłata na wakacje")).toBeVisible();
-    await expect(page.getByText(/Słabe trafienie|Może pasować|Pasuje świetnie/)).toBeVisible();
+    await expect(
+      page.getByText(/Słabe trafienie|Może pasować|Bardzo dobre dopasowanie/),
+    ).toBeVisible();
   });
 
   test("Pomiń persists the dismissal and keeps it hidden after reload", async ({ page }) => {
