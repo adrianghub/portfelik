@@ -298,7 +298,7 @@
     <Navigation {profile} {user} />
     {#if showNotifBanner}
       <div
-        class="fixed inset-x-0 top-14 z-40 flex items-center justify-between gap-3 border-b border-white/5 bg-slate-900/90 px-4 py-2 text-sm text-white backdrop-blur"
+        class="fixed inset-x-0 top-(--app-header-offset) z-40 flex items-center justify-between gap-3 border-b border-white/5 bg-slate-900/90 px-4 py-2 text-sm text-white backdrop-blur"
       >
         <span class="text-slate-300">{m.push_banner_text()}</span>
         <div class="flex shrink-0 items-center gap-2">
@@ -320,7 +320,9 @@
         </div>
       </div>
     {/if}
-    <main class="mobile-page-bottom min-h-screen overflow-x-clip bg-slate-950 pt-14 md:pb-6">
+    <main
+      class="mobile-page-bottom min-h-screen overflow-x-clip bg-slate-950 pt-(--app-header-offset) md:pb-6"
+    >
       <Breadcrumbs />
       {#key page.url.pathname}
         <div in:fade={{ duration: motionDuration(140) }}>
@@ -331,6 +333,8 @@
     <GuidedTourHost {profile} {userId} />
     <InstallPrompt />
   {:else}
-    {@render children()}
+    <div class="pt-(--safe-top)">
+      {@render children()}
+    </div>
   {/if}
 </QueryClientProvider>

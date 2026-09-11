@@ -41,6 +41,7 @@ Source: `apps/web-svelte/src/routes/+layout.svelte` (session bootstrap), `apps/w
 Notes:
 
 - Email/password sign-up is **disabled** in `config.toml`; Google is the only enabled provider for production. The smoke-test user uses email/password explicitly enabled for the staging instance via the Supabase dashboard.
+- Native Android does not send the user through Custom Tabs. It uses Google Credential Manager, then `supabase.auth.signInWithIdToken` with the Google ID token. The web/PWA path still uses `signInWithOAuth`.
 - Production may set Vault key `max_user_cap` to a non-negative integer. The `auth.users` `BEFORE INSERT` cap trigger blocks first-time Google OAuth auto-provisioning once the cap is reached. Missing key leaves local/staging unrestricted; an invalid present value blocks signup as a configuration error.
 - The session lives in `localStorage` (default Supabase behaviour). `onAuthStateChange()` keeps the SPA's reactive `userId` and `profile` in sync.
 - `autoSubscribePush` never prompts; the prompt only fires from the user-gesture banner button (`requestAndSubscribePush`).
