@@ -103,7 +103,7 @@
 
 <!-- Desktop top bar -->
 <header
-  class="fixed inset-x-0 top-0 z-50 hidden h-14 items-center gap-4 border-b border-white/5 bg-slate-950/80 px-6 backdrop-blur md:flex"
+  class="fixed inset-x-0 top-0 z-50 hidden h-(--app-header-offset) items-center gap-4 border-b border-white/5 bg-slate-950/80 px-6 pt-(--safe-top) backdrop-blur md:flex"
 >
   <a href="/" class="mr-2 shrink-0 transition-opacity hover:opacity-90" aria-label={m.app_name()}>
     <BrandMark size="sm" />
@@ -175,7 +175,7 @@
 
 <!-- Mobile top bar -->
 <header
-  class="fixed inset-x-0 top-0 z-50 flex h-14 items-center gap-3 border-b border-white/5 bg-slate-950/80 px-4 backdrop-blur md:hidden"
+  class="fixed inset-x-0 top-0 z-50 flex h-(--app-header-offset) items-center gap-3 border-b border-white/5 bg-slate-950/80 px-4 pt-(--safe-top) backdrop-blur md:hidden"
 >
   <a href="/" class="shrink-0 transition-opacity hover:opacity-90" aria-label={m.app_name()}>
     <BrandMark size="sm" />
@@ -207,7 +207,7 @@
   <div
     id="nav-avatar-popover"
     role="menu"
-    class="fixed top-14 right-3 z-50 mt-1 w-56 overflow-hidden rounded-xl border border-white/10 bg-slate-900/95 shadow-lg backdrop-blur"
+    class="fixed top-(--app-header-offset) right-3 z-50 mt-1 w-56 overflow-hidden rounded-xl border border-white/10 bg-slate-900/95 shadow-lg backdrop-blur"
   >
     <div class="border-b border-white/5 px-3 py-2.5">
       <p class="truncate text-xs text-slate-400">{email}</p>
@@ -241,7 +241,7 @@
   aria-label={m.nav_main()}
   class="mobile-bottom-nav fixed inset-x-0 bottom-0 z-50 transition-transform duration-200 ease-out md:hidden"
   class:translate-y-full={mobileNavHidden}
-  style="padding-bottom: env(safe-area-inset-bottom)"
+  style="padding-bottom: var(--safe-bottom)"
 >
   <div
     class="mx-3 mb-3 flex items-center justify-around rounded-2xl border border-white/10 bg-slate-900/80 px-2 py-2 shadow-lg backdrop-blur"
