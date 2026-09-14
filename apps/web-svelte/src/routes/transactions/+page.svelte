@@ -1167,7 +1167,7 @@
         showEmptyActions={showTableEmptyActions}
         onemptyadd={openAdd}
         bind:selectedIds
-        stickyHeaderTop={`calc(3.5rem + ${stickyFiltersHeight}px)`}
+        stickyHeaderTop={`calc(var(--app-header-offset) + ${stickyFiltersHeight}px)`}
         onrowclick={(tx) => (sheetTx = tx)}
         onsettle={quickSettle}
         ondelete={(id: string) => (deleteTargetId = id)}

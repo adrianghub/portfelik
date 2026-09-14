@@ -8,14 +8,22 @@ const config: CapacitorConfig = {
     androidScheme: "https",
   },
   plugins: {
+    SocialLogin: {
+      providers: {
+        google: true,
+        facebook: false,
+        apple: false,
+        twitter: false,
+      },
+    },
     SplashScreen: {
       launchAutoHide: true,
       backgroundColor: "#020617",
       showSpinner: false,
     },
-    StatusBar: {
+    SystemBars: {
+      insetsHandling: "css",
       style: "DARK",
-      backgroundColor: "#020617",
     },
   },
   android: {

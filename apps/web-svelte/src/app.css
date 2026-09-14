@@ -59,20 +59,25 @@
   html {
     scroll-behavior: smooth;
     color-scheme: dark;
+    /* Status bar / notch. Capacitor SystemBars injects --safe-area-inset-* on
+       Android WebView; env() is the CSS fallback (iOS / modern WebView). */
+    --safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+    --safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+    --app-header-offset: calc(3.5rem + var(--safe-top));
     /* Distance from viewport bottom to FAB / sticky action controls. */
-    --mobile-action-bottom: calc(6rem + env(safe-area-inset-bottom));
+    --mobile-action-bottom: calc(6rem + var(--safe-bottom));
     /* Scrollable page padding - shrinks when the pill nav hides on scroll. */
-    --mobile-page-bottom: calc(6rem + env(safe-area-inset-bottom));
+    --mobile-page-bottom: calc(6rem + var(--safe-bottom));
   }
 
   html.mobile-nav-hidden {
-    --mobile-action-bottom: calc(1rem + env(safe-area-inset-bottom));
-    --mobile-page-bottom: calc(5rem + env(safe-area-inset-bottom));
+    --mobile-action-bottom: calc(1rem + var(--safe-bottom));
+    --mobile-page-bottom: calc(5rem + var(--safe-bottom));
   }
 
   html.mobile-overlay-open {
-    --mobile-action-bottom: calc(1rem + env(safe-area-inset-bottom));
-    --mobile-page-bottom: calc(5rem + env(safe-area-inset-bottom));
+    --mobile-action-bottom: calc(1rem + var(--safe-bottom));
+    --mobile-page-bottom: calc(5rem + var(--safe-bottom));
   }
 
   body {

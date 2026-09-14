@@ -1,9 +1,18 @@
 #!/usr/bin/env bash
-# Build Capacitor Android release artifacts against production PUBLIC_* env.
+# Build Capacitor Android artifacts against production PUBLIC_* env.
 # Reads apps/web-svelte/.env.cloud.local (gitignored). Never prints secret values.
+# Usage: android-release.sh [--sync-only]
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+
+SYNC_ONLY=0
+if [[ "${1:-}" == "--sync-only" ]]; then
+  SYNC_ONLY=1
+elif [[ $# -gt 0 ]]; then
+  echo "usage: android-release.sh [--sync-only]" >&2
+  exit 2
+fi
 
 if [[ ! -f .env.cloud.local ]]; then
   echo "Missing .env.cloud.local with PUBLIC_SUPABASE_URL / ANON_KEY / VAPID_KEY" >&2
@@ -11,7 +20,7 @@ if [[ ! -f .env.cloud.local ]]; then
 fi
 
 # Ignore any pre-exported PUBLIC_* from the shell / direnv / .env.local.
-unset PUBLIC_SUPABASE_URL PUBLIC_SUPABASE_ANON_KEY PUBLIC_VAPID_KEY PUBLIC_PLAUSIBLE_DOMAIN || true
+unset PUBLIC_SUPABASE_URL PUBLIC_SUPABASE_ANON_KEY PUBLIC_VAPID_KEY PUBLIC_PLAUSIBLE_DOMAIN PUBLIC_GOOGLE_WEB_CLIENT_ID || true
 
 # Load PUBLIC_* safely: strip UTF-8 BOM + CRLF, ignore blank/comment lines,
 # trim surrounding whitespace/quotes so local editors do not break the check.
@@ -61,9 +70,19 @@ if [[ -z "${PUBLIC_SUPABASE_ANON_KEY:-}" || -z "${PUBLIC_VAPID_KEY:-}" ]]; then
   exit 1
 fi
 
-echo "Building web + Android release for production Supabase host…"
+if [[ -z "${PUBLIC_GOOGLE_WEB_CLIENT_ID:-}" ]]; then
+  echo "PUBLIC_GOOGLE_WEB_CLIENT_ID is required in .env.cloud.local (Google Cloud Web client ID, not the Android client)" >&2
+  exit 1
+fi
+
+echo "Building web + Android assets for production Supabase host…"
 pnpm exec vite build --mode production
 pnpm exec cap sync android
+
+if [[ "$SYNC_ONLY" -eq 1 ]]; then
+  echo "Synced production web assets into android/. Install with: cd android && ./gradlew installDebug"
+  exit 0
+fi
 
 export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
 export JAVA_HOME="${JAVA_HOME:-/opt/homebrew/Cellar/openjdk@21/21.0.8/libexec/openjdk.jdk/Contents/Home}"

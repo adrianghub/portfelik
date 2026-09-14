@@ -54,7 +54,7 @@
 </script>
 
 <div
-  class="surface-hi border-accent/20 sticky top-14 z-30 flex flex-wrap items-center gap-2 rounded-2xl border px-4 py-2.5 backdrop-blur"
+  class="surface-hi border-accent/20 sticky top-(--app-header-offset) z-30 flex flex-wrap items-center gap-2 rounded-2xl border px-4 py-2.5 backdrop-blur"
 >
   <span class="text-sm font-semibold text-slate-100">
     {m.transactions_bulk_selected({ count })}
