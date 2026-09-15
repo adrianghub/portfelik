@@ -44,7 +44,11 @@ test("hides an overdue action and can undo from the toast", async ({ page }) => 
   const action = panel.getByRole("link", { name: /Zaległe płatności/ });
   await expect(action).toBeVisible();
 
-  await panel.getByRole("button", { name: "Ukryj" }).click();
+  await panel
+    .getByRole("listitem")
+    .filter({ hasText: /Zaległe płatności/ })
+    .getByRole("button", { name: "Ukryj" })
+    .click();
   await expect(action).toHaveCount(0);
 
   await page.getByRole("button", { name: "Cofnij" }).click();
