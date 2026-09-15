@@ -50,17 +50,27 @@ describe("native overlay stack", () => {
 
   it("closes the most recently registered overlay first", () => {
     const closed: string[] = [];
-    const removeA = registerNativeOverlayCloser(() => closed.push("a"));
-    const removeB = registerNativeOverlayCloser(() => closed.push("b"));
+    registerNativeOverlayCloser(() => closed.push("a"));
+    registerNativeOverlayCloser(() => closed.push("b"));
 
     expect(nativeOverlayCount()).toBe(2);
     expect(closeTopNativeOverlay()).toBe(true);
     expect(closed).toEqual(["b"]);
-    removeB();
+    expect(nativeOverlayCount()).toBe(1);
     expect(closeTopNativeOverlay()).toBe(true);
     expect(closed).toEqual(["b", "a"]);
-    removeA();
+    expect(nativeOverlayCount()).toBe(0);
     expect(closeTopNativeOverlay()).toBe(false);
+  });
+
+  it("does not retrigger a closer after it has been popped", () => {
+    let calls = 0;
+    registerNativeOverlayCloser(() => {
+      calls += 1;
+    });
+    expect(closeTopNativeOverlay()).toBe(true);
+    expect(closeTopNativeOverlay()).toBe(false);
+    expect(calls).toBe(1);
   });
 
   it("lets a page handler consume back before routing", () => {
@@ -68,5 +78,18 @@ describe("native overlay stack", () => {
     expect(runNativeBackPageHandler()).toBe(true);
     remove();
     expect(runNativeBackPageHandler()).toBe(false);
+  });
+
+  it("keeps a page handler unused while an overlay is open", () => {
+    let pageRan = false;
+    const remove = registerNativeBackPageHandler(() => {
+      pageRan = true;
+      return true;
+    });
+    registerNativeOverlayCloser(() => {});
+    expect(closeTopNativeOverlay()).toBe(true);
+    expect(pageRan).toBe(false);
+    expect(runNativeBackPageHandler()).toBe(true);
+    remove();
   });
 });

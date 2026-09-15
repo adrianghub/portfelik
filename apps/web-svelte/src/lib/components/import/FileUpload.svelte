@@ -257,7 +257,18 @@
     input.value = "";
   }
 
+  function allowDesktopDrag(): boolean {
+    return typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches;
+  }
+
+  function onDragOver(e: DragEvent): void {
+    if (!allowDesktopDrag()) return;
+    e.preventDefault();
+    dragOver = true;
+  }
+
   function onDrop(e: DragEvent): void {
+    if (!allowDesktopDrag()) return;
     e.preventDefault();
     dragOver = false;
     const file = e.dataTransfer?.files?.[0];
@@ -291,10 +302,7 @@
       "flex min-h-44 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors",
       dragOver ? "border-accent bg-accent/5" : "border-white/10"
     )}
-    ondragover={(e) => {
-      e.preventDefault();
-      dragOver = true;
-    }}
+    ondragover={onDragOver}
     ondragleave={() => (dragOver = false)}
     ondrop={onDrop}
   >

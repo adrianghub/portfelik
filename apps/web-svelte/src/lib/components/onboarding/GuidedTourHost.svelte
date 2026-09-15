@@ -267,14 +267,18 @@
     showExit = false;
   }
 
+  let tourBackGen = $state(0);
+
   $effect(() => {
     if (!running) return;
+    void tourBackGen;
     return registerNativeOverlayCloser(() => {
       if (showExit || sceneIndex <= 0) {
         void handleSkip();
         return;
       }
       void handleBack();
+      tourBackGen += 1;
     });
   });
 </script>

@@ -24,7 +24,7 @@
   $effect(() => {
     if (!open) return;
     tick().then(() => inputRef?.focus());
-    return registerNativeOverlayCloser(onclose);
+    return registerNativeOverlayCloser(() => onclose());
   });
 </script>
 

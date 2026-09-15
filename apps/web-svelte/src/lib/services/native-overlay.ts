@@ -14,7 +14,7 @@ export function registerNativeOverlayCloser(close: () => void): () => void {
 }
 
 export function closeTopNativeOverlay(): boolean {
-  const close = overlayClosers.at(-1);
+  const close = overlayClosers.pop();
   if (!close) return false;
   close();
   return true;

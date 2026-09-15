@@ -94,7 +94,7 @@
     if (!open || typeof document === "undefined") return;
     openSheetCount += 1;
     syncMobileOverlayClass();
-    const unregister = registerNativeOverlayCloser(onclose);
+    const unregister = registerNativeOverlayCloser(() => onclose());
     return () => {
       unregister();
       openSheetCount = Math.max(0, openSheetCount - 1);

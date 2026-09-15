@@ -154,9 +154,7 @@
     return sorted;
   });
 
-  const collapseCleanOnMobile = $derived(
-    filter === "all" && !advancedActive && !inspectedRule && !mobileShowAll
-  );
+  const collapseCleanOnMobile = $derived(!advancedActive && !inspectedRule && !mobileShowAll);
   const mobileSortedRows = $derived(
     collapseCleanOnMobile ? sortedRows.filter(isImportExceptionRow) : sortedRows
   );
@@ -733,7 +731,7 @@
         <li use:sentinel aria-hidden="true" class="h-px"></li>
       {/if}
     </ul>
-    {#if filter === "all" && !advancedActive && !inspectedRule && visibleRows.length > 0}
+    {#if !advancedActive && !inspectedRule && visibleRows.length > 0}
       {#if !mobileShowAll && mobileSortedRows.length < sortedRows.length}
         <button
           type="button"

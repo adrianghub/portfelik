@@ -57,16 +57,21 @@
     }))
   );
 
-  const actions = $derived(
-    buildDashboardActions({
-      overdue,
-      plans,
-      groupFilter,
-      dismissedKeys: dismissalsQuery.data,
-    })
+  const isPending = $derived(
+    overdueState === "pending" || planProgressQuery.isPending || dismissalsQuery.isPending
   );
-  const isPending = $derived(overdueState === "pending" || planProgressQuery.isPending);
   const isError = $derived(overdueState === "error" || planProgressQuery.isError);
+
+  const actions = $derived(
+    dismissalsQuery.isPending
+      ? []
+      : buildDashboardActions({
+          overdue,
+          plans,
+          groupFilter,
+          dismissedKeys: dismissalsQuery.data,
+        })
+  );
 
   function snoozeUntilIso(): string {
     const until = new Date();

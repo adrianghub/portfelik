@@ -23,6 +23,7 @@
   } from "$lib/services/notification-actions";
   import { toastError } from "$lib/toast-error";
   import * as m from "$lib/paraglide/messages";
+  import { registerNativeOverlayCloser } from "$lib/services/native-overlay";
 
   interface Props {
     /** "top" = popover opens downward (desktop header); "bottom" = opens upward (mobile nav) */
@@ -87,6 +88,13 @@
     const target = e.target as HTMLElement;
     if (!target.closest("[data-notif-popover]")) open = false;
   }
+
+  $effect(() => {
+    if (!open || !isDesktop.current) return;
+    return registerNativeOverlayCloser(() => {
+      open = false;
+    });
+  });
 
   function formatRelativeDate(dateStr: string): string {
     const date = new Date(dateStr);

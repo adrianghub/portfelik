@@ -41,7 +41,7 @@
 
   $effect(() => {
     if (!open) return;
-    return registerNativeOverlayCloser(onclose);
+    return registerNativeOverlayCloser(() => onclose());
   });
 
   const confirmClass = $derived(
