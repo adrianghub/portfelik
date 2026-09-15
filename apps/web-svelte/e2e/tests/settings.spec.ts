@@ -45,6 +45,15 @@ test("deep link to a tab renders that panel directly", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Ustawienia" })).toBeVisible();
 });
 
+test("rules tab says they are learned at import", async ({ page }) => {
+  await gotoSettings(page, "?tab=rules");
+  await expect(
+    page.getByText(
+      "Reguły uczą się przy imporcie. Ta lista to zaawansowana edycja już zapisanych nawyków."
+    )
+  ).toBeVisible();
+});
+
 test("search filters subsections and navigates", async ({ page }) => {
   await gotoSettings(page);
 

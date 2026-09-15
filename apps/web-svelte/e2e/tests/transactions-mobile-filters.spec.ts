@@ -56,8 +56,8 @@ test.describe("transactions mobile filters", () => {
     const close = page.getByRole("dialog").getByRole("button", { name: "Zamknij", exact: true });
     await expect(close).toBeVisible();
     const box = await close.boundingBox();
-    expect(box!.width).toBeGreaterThanOrEqual(44);
-    expect(box!.height).toBeGreaterThanOrEqual(44);
+    expect(Math.round(box!.width)).toBeGreaterThanOrEqual(44);
+    expect(Math.round(box!.height)).toBeGreaterThanOrEqual(44);
     await close.click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
   });

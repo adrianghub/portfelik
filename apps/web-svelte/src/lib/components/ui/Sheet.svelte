@@ -13,6 +13,7 @@
   import { fade, fly } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
   import { motionDuration } from "$lib/motion";
+  import { registerNativeOverlayCloser } from "$lib/services/native-overlay";
 
   interface Props {
     open: boolean;
@@ -93,7 +94,9 @@
     if (!open || typeof document === "undefined") return;
     openSheetCount += 1;
     syncMobileOverlayClass();
+    const unregister = registerNativeOverlayCloser(() => onclose());
     return () => {
+      unregister();
       openSheetCount = Math.max(0, openSheetCount - 1);
       syncMobileOverlayClass();
     };

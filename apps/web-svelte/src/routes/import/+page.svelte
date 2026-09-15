@@ -18,6 +18,7 @@
   import { requireSessionUserId } from "$lib/auth/session.svelte";
   import { qk } from "$lib/query-keys";
   import { cn, transactionsUrlForRange } from "$lib/utils";
+  import { registerNativeBackPageHandler } from "$lib/services/native-overlay";
 
   type Step = "upload" | "review";
   interface ImportedDateRange {
@@ -41,13 +42,25 @@
 
   const queryClient = useQueryClient();
 
-  onMount(async () => {
-    if (step === "review") return;
-    try {
-      resumeSession = await fetchActivePreviewSession();
-    } catch {
-      resumeSession = null;
+  onMount(() => {
+    const unregisterBack = registerNativeBackPageHandler(() => {
+      if (step !== "review" || !activeSession || leaveDialogOpen) return false;
+      pendingHref = "/transactions";
+      leaveDialogOpen = true;
+      return true;
+    });
+
+    if (step !== "review") {
+      void fetchActivePreviewSession()
+        .then((session) => {
+          resumeSession = session;
+        })
+        .catch(() => {
+          resumeSession = null;
+        });
     }
+
+    return unregisterBack;
   });
 
   beforeNavigate((nav) => {

@@ -32,6 +32,7 @@
     EMPTY_IMPORT_ROW_FILTER,
     type ImportRowFilter,
   } from "$lib/import/filter-rows";
+  import { summarizeImportReview } from "$lib/import/exception-rows";
   import type { ImportAdapterKind } from "$lib/import/banks/types";
   import {
     commitImportSession,
@@ -112,7 +113,6 @@
         ? m.common_expense()
         : null
   );
-  let queueInitialized = $state(false);
   let pendingCategoryReplacement = $state<
     Record<
       string,
@@ -309,6 +309,13 @@
       : null
   );
   const pendingRows = $derived(rows.filter((r) => r.decision === "pending"));
+  const reviewSummary = $derived(
+    summarizeImportReview({
+      importRows,
+      pendingCount: pendingRows.length,
+      duplicateCount: duplicateRows.length,
+    })
+  );
 
   const filterOptions: { kind: FilterKind; label: string }[] = $derived.by(() => {
     const base = [
@@ -879,20 +886,6 @@
     editingRule = null;
   }
 
-  // Exception-review surface (issue #66 + #73): rows arrive already decided by the
-  // deterministic engine (import / duplicate). Do NOT flip them to "pending" - clean
-  // imports stay one-click committable, and uncategorized rows flow to the user's
-  // "Inne" default via the confirm sheet. "pending" is reserved for rows a user
-  // explicitly defers (skip / duplicate restore actions). On first load just pick a
-  // sensible filter: lead with the exception bucket only when something awaits a
-  // decision, otherwise show everything (avoids an empty "Do decyzji" first screen).
-  $effect(() => {
-    if (queueInitialized) return;
-    if (rows.length === 0) return;
-    queueInitialized = true;
-    filter = pendingRows.length > 0 ? "pending" : "all";
-  });
-
   async function saveRuleEditor(): Promise<void> {
     if (!editingRule) return;
 
@@ -1098,6 +1091,7 @@
     {matchedRuleFor}
     {categoryActionFor}
     {spanNudge}
+    {reviewSummary}
     {inspectedRule}
     inspectedRuleCount={inspectedRuleRows.length}
     onClearInspectedRule={() => (inspectedRuleId = null)}

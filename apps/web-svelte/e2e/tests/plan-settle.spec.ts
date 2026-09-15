@@ -176,9 +176,7 @@ test.describe("plan settle page", () => {
     await page.goto(`/plans/${PLAN_ID}/settle`);
 
     // Suggestions visible
-    await expect(
-      page.getByText(/Powiązanie bierze całą kwotę do jednego planu/i)
-    ).toBeVisible();
+    await expect(page.getByText(/Powiązanie bierze całą kwotę do jednego planu/i)).toBeVisible();
     await expect(page.getByText("Zakupy spożywcze na wakacje")).toBeVisible();
     await expect(page.getByText("Transport na lotnisko")).not.toBeVisible();
 
@@ -187,6 +185,9 @@ test.describe("plan settle page", () => {
 
     // At least one reason chip visible (category, keyword, or amount)
     await expect(page.getByText("✓ kategoria: Jedzenie")).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Ścieżka nawigacji" })).toContainText(
+      "Rozliczenie"
+    );
   });
 
   test("renders expense contribution suggestions for saving goals", async ({ page }) => {
@@ -195,7 +196,7 @@ test.describe("plan settle page", () => {
 
     await expect(page.getByText("Wpłata na wakacje")).toBeVisible();
     await expect(
-      page.getByText(/Słabe trafienie|Może pasować|Bardzo dobre dopasowanie/),
+      page.getByText(/Słabe trafienie|Może pasować|Bardzo dobre dopasowanie/)
     ).toBeVisible();
   });
 
