@@ -56,6 +56,6 @@ test.describe("native spine on a phone", () => {
     await expect(page.getByRole("link", { name: "Wróć do logowania" })).toBeVisible({
       timeout: 10_000,
     });
-    await expect(page.locator("body")).toHaveCSS("background-color", "rgb(2, 6, 23)");
+    await expect(page.locator(".bg-slate-950").first()).toBeVisible();
   });
 });

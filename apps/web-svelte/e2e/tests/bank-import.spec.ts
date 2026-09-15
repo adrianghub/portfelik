@@ -837,10 +837,10 @@ test.describe("import review on a phone", () => {
     await expect(summary).toContainText(/wejdzie bez pytania/);
     await expect(page.getByRole("button", { name: /Pokaż wszystkie/ })).toBeVisible();
     await expect(page.getByRole("table")).toHaveCount(0);
-    await expect(page.getByText("BIEDRONKA")).toHaveCount(0);
+    await expect(page.locator("ul").getByText("BIEDRONKA")).toHaveCount(0);
 
     await page.getByRole("button", { name: /Pokaż wszystkie/ }).click();
-    await expect(page.getByText("BIEDRONKA")).toBeVisible();
+    await expect(page.locator("ul").getByText("BIEDRONKA")).toBeVisible();
     await expect(page.getByRole("button", { name: "Pokaż tylko wyjątki" })).toBeVisible();
   });
 
@@ -855,7 +855,7 @@ test.describe("import review on a phone", () => {
     const summary = page.getByTestId("import-review-summary");
     await expect(summary).toBeVisible({ timeout: 10_000 });
     await expect(summary).toContainText(/trafi do „Inne”/);
-    await expect(page.getByText("BIEDRONKA")).toBeVisible();
+    await expect(page.locator("ul").getByText("BIEDRONKA")).toBeVisible();
     await expect(page.getByRole("button", { name: /Pokaż wszystkie/ })).toHaveCount(0);
   });
 });
