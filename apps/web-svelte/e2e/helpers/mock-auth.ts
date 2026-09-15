@@ -120,6 +120,7 @@ export async function stubServiceWorkerForTests(page: Page): Promise<void> {
  * Must be called before page.goto().
  */
 export async function mockSupabaseAPI(page: Page): Promise<void> {
+  const actionDismissals: { action_key: string; dismissed_until: string | null }[] = [];
   // Auth endpoints (getUser, token refresh, etc.)
   for (const url of SUPABASE_URLS) {
     await page.route(`${url}/auth/v1/**`, async (route) => {
@@ -160,6 +161,29 @@ export async function mockSupabaseAPI(page: Page): Promise<void> {
           return route.fulfill({ status: 204, body: "" });
         }
         return route.fulfill({ status: 200, json: MOCK_TRANSACTIONS });
+      }
+
+      // ── Dashboard action dismissals ───────────────────────────────────────
+      if (url.includes("/action_dismissals")) {
+        if (method === "POST") {
+          const body = route.request().postDataJSON() as {
+            action_key?: string;
+            dismissed_until?: string | null;
+          };
+          const key = body.action_key ?? "";
+          const row = { action_key: key, dismissed_until: body.dismissed_until ?? null };
+          const index = actionDismissals.findIndex((item) => item.action_key === key);
+          if (index >= 0) actionDismissals[index] = row;
+          else actionDismissals.push(row);
+          return route.fulfill({ status: 201, json: row });
+        }
+        if (method === "DELETE") {
+          const key = new URL(url).searchParams.get("action_key")?.replace("eq.", "");
+          const index = actionDismissals.findIndex((item) => item.action_key === key);
+          if (index >= 0) actionDismissals.splice(index, 1);
+          return route.fulfill({ status: 204, body: "" });
+        }
+        return route.fulfill({ status: 200, json: actionDismissals });
       }
 
       // ── Plan transaction links ───────────────────────────────────────────

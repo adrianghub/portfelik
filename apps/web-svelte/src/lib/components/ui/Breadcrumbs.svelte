@@ -19,6 +19,14 @@
     if (path === "/import" || path === "/transactions/import") {
       return [{ label: m.nav_transactions(), href: "/transactions" }, { label: m.nav_import() }];
     }
+    if (seg[0] === "plans" && seg[2] === "settle" && seg[1]) {
+      const qs = $page.url.search;
+      return [
+        { label: m.nav_plans(), href: "/plans" },
+        { label: m.breadcrumb_list_detail(), href: `/plans/${seg[1]}${qs}` },
+        { label: m.breadcrumb_list_settle() },
+      ];
+    }
     if (seg[0] === "plans" && seg.length === 2) {
       return [{ label: m.nav_plans(), href: "/plans" }, { label: m.breadcrumb_list_detail() }];
     }

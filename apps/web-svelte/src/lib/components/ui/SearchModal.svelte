@@ -4,6 +4,7 @@
   import { fade, fly } from "svelte/transition";
   import { motionDuration } from "$lib/motion";
   import * as m from "$lib/paraglide/messages";
+  import { registerNativeOverlayCloser } from "$lib/services/native-overlay";
 
   interface Props {
     open: boolean;
@@ -23,6 +24,7 @@
   $effect(() => {
     if (!open) return;
     tick().then(() => inputRef?.focus());
+    return registerNativeOverlayCloser(onclose);
   });
 </script>
 

@@ -2,6 +2,7 @@
   import type { Snippet } from "svelte";
   import { X } from "lucide-svelte";
   import * as m from "$lib/paraglide/messages";
+  import { registerNativeOverlayCloser } from "$lib/services/native-overlay";
 
   interface Props {
     open: boolean;
@@ -18,6 +19,11 @@
   function onkeydown(e: KeyboardEvent) {
     if (e.key === "Escape") onclose();
   }
+
+  $effect(() => {
+    if (!open) return;
+    return registerNativeOverlayCloser(onclose);
+  });
 </script>
 
 <svelte:window {onkeydown} />

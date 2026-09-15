@@ -9,6 +9,7 @@
   import CategorySelect from "$lib/components/transactions/CategorySelect.svelte";
   import type { ImportRow } from "$lib/services/bank-import";
   import type { ImportRowFilter } from "$lib/import/filter-rows";
+  import { isImportExceptionRow, type ImportReviewSummary } from "$lib/import/exception-rows";
   import { matchSavePlanHint } from "$lib/import/plan-category-hints";
   import type { Category, CategorizationRule, UserGroup } from "$lib/types";
   import { cn, formatCurrency } from "$lib/utils";
@@ -49,6 +50,7 @@
     matchedRuleFor: (row: ImportRow) => CategorizationRule | null;
     categoryActionFor: (row: ImportRow) => RowCategoryAction | null;
     spanNudge: { spanDays: number; cadenceDays: number } | null;
+    reviewSummary: ImportReviewSummary;
     inspectedRule: CategorizationRule | null;
     inspectedRuleCount: number;
     onClearInspectedRule: () => void;
@@ -89,6 +91,7 @@
     matchedRuleFor,
     categoryActionFor,
     spanNudge,
+    reviewSummary,
     inspectedRule,
     inspectedRuleCount,
     onClearInspectedRule,
@@ -109,6 +112,7 @@
   }: Props = $props();
 
   let groupSheetRowId = $state<string | null>(null);
+  let mobileShowAll = $state(false);
 
   const groupSheetRow = $derived(
     groupSheetRowId ? visibleRows.find((r) => r.id === groupSheetRowId) : null
@@ -150,6 +154,13 @@
     return sorted;
   });
 
+  const collapseCleanOnMobile = $derived(
+    filter === "all" && !advancedActive && !inspectedRule && !mobileShowAll
+  );
+  const mobileSortedRows = $derived(
+    collapseCleanOnMobile ? sortedRows.filter(isImportExceptionRow) : sortedRows
+  );
+
   // Infinite render (chunked): keep every rendered row mounted (no unmount-on-scroll,
   // so focus / sticky bars / portal'd combobox dropdowns can't regress) while paying a
   // cheap initial paint on large statements. The window grows as a sentinel scrolls into
@@ -158,11 +169,13 @@
   const CHUNK_SIZE = 60;
   let shown = $state(CHUNK_SIZE);
   const renderedRows = $derived(sortedRows.slice(0, shown));
+  const mobileRenderedRows = $derived(mobileSortedRows.slice(0, shown));
 
   $effect(() => {
     void filter;
     void sortKind;
     shown = CHUNK_SIZE;
+    mobileShowAll = false;
   });
 
   function loadMore(): void {
@@ -267,6 +280,24 @@
       {m.bank_review_large_warning({ count: largeRowCount })}
     </p>
   {/if}
+
+  <div
+    class="space-y-1 rounded-2xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-slate-300 md:hidden"
+    data-testid="import-review-summary"
+  >
+    <p>{m.bank_review_summary_ready({ count: reviewSummary.ready })}</p>
+    {#if reviewSummary.pending > 0}
+      <p class="text-amber-200">
+        {m.bank_review_summary_pending({ count: reviewSummary.pending })}
+      </p>
+    {/if}
+    {#if reviewSummary.inne > 0}
+      <p>{m.bank_review_summary_inne({ count: reviewSummary.inne })}</p>
+    {/if}
+    {#if reviewSummary.duplicates > 0}
+      <p>{m.bank_review_summary_duplicates({ count: reviewSummary.duplicates })}</p>
+    {/if}
+  </div>
 
   <div
     bind:this={stickyToolbarRef}
@@ -573,7 +604,7 @@
     </div>
 
     <ul class="space-y-1.5 md:hidden">
-      {#each renderedRows as row (row.id)}
+      {#each mobileRenderedRows as row (row.id)}
         {@const rule = matchedRuleFor(row)}
         {@const categoryAction = categoryActionFor(row)}
         {@const groupName = groups.find((g) => g.id === row.selected_group_id)?.name}
@@ -698,10 +729,29 @@
           </div>
         </li>
       {/each}
-      {#if shown < sortedRows.length}
+      {#if shown < mobileSortedRows.length}
         <li use:sentinel aria-hidden="true" class="h-px"></li>
       {/if}
     </ul>
+    {#if filter === "all" && !advancedActive && !inspectedRule && visibleRows.length > 0}
+      {#if !mobileShowAll && mobileSortedRows.length < sortedRows.length}
+        <button
+          type="button"
+          class="w-full rounded-full border border-white/10 px-3 py-2 text-sm text-slate-300 md:hidden"
+          onclick={() => (mobileShowAll = true)}
+        >
+          {m.bank_review_show_all({ count: visibleRows.length })}
+        </button>
+      {:else if mobileShowAll}
+        <button
+          type="button"
+          class="w-full rounded-full border border-white/10 px-3 py-2 text-sm text-slate-300 md:hidden"
+          onclick={() => (mobileShowAll = false)}
+        >
+          {m.bank_review_show_exceptions()}
+        </button>
+      {/if}
+    {/if}
   {/if}
 </div>
 

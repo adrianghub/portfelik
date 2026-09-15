@@ -14,7 +14,12 @@
     type PushNotificationState,
     type PushSubscriptionRow,
   } from "$lib/services/push";
-  import { clearInstallPromptCooldown, shouldDeferBrowserPush } from "$lib/services/pwa";
+  import {
+    clearInstallPromptCooldown,
+    canUseWebPush,
+    isNativeCapacitor,
+    shouldDeferBrowserPush,
+  } from "$lib/services/pwa";
   import { supabase } from "$lib/supabase";
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
@@ -87,6 +92,7 @@
   let pushSubscriptions = $state<PushSubscriptionRow[]>([]);
   let currentPushEndpoint = $state<string | null>(null);
   const deferBrowserPush = $derived(shouldDeferBrowserPush());
+  const nativeShell = $derived(isNativeCapacitor());
 
   async function refreshPushSubscriptions() {
     if (!notifSupported) return;
@@ -102,7 +108,7 @@
   }
 
   async function refreshPushState() {
-    notifSupported = "Notification" in window && "serviceWorker" in navigator;
+    notifSupported = canUseWebPush();
     if (!notifSupported) return;
     pushState = await getPushNotificationState();
     await refreshPushSubscriptions();
@@ -286,7 +292,13 @@
     </div>
   </div>
 
-  {#if notifSupported}
+  {#if nativeShell}
+    <div
+      class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
+    >
+      <p class="px-4 py-3 text-sm text-slate-300">{m.profile_push_native_inbox_only()}</p>
+    </div>
+  {:else if notifSupported}
     <div
       class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
     >
@@ -366,23 +378,27 @@
     </div>
   {/if}
 
-  <div class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur">
+  {#if !nativeShell}
     <div
-      class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+      class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
     >
-      <div class="min-w-0">
-        <p class="text-sm font-medium text-slate-100">{m.profile_pwa_install_title()}</p>
-        <p class="mt-0.5 text-xs text-slate-400">{m.profile_pwa_install_hint()}</p>
-      </div>
-      <button
-        type="button"
-        onclick={showInstallPromptAgain}
-        class="shrink-0 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:bg-white/5"
+      <div
+        class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
       >
-        {m.profile_pwa_install_show_again()}
-      </button>
+        <div class="min-w-0">
+          <p class="text-sm font-medium text-slate-100">{m.profile_pwa_install_title()}</p>
+          <p class="mt-0.5 text-xs text-slate-400">{m.profile_pwa_install_hint()}</p>
+        </div>
+        <button
+          type="button"
+          onclick={showInstallPromptAgain}
+          class="shrink-0 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:bg-white/5"
+        >
+          {m.profile_pwa_install_show_again()}
+        </button>
+      </div>
     </div>
-  </div>
+  {/if}
 
   <div
     class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"

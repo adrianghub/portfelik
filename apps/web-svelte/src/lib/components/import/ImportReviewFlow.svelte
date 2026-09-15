@@ -32,6 +32,7 @@
     EMPTY_IMPORT_ROW_FILTER,
     type ImportRowFilter,
   } from "$lib/import/filter-rows";
+  import { summarizeImportReview } from "$lib/import/exception-rows";
   import type { ImportAdapterKind } from "$lib/import/banks/types";
   import {
     commitImportSession,
@@ -309,6 +310,13 @@
       : null
   );
   const pendingRows = $derived(rows.filter((r) => r.decision === "pending"));
+  const reviewSummary = $derived(
+    summarizeImportReview({
+      importRows,
+      pendingCount: pendingRows.length,
+      duplicateCount: duplicateRows.length,
+    })
+  );
 
   const filterOptions: { kind: FilterKind; label: string }[] = $derived.by(() => {
     const base = [
@@ -1098,6 +1106,7 @@
     {matchedRuleFor}
     {categoryActionFor}
     {spanNudge}
+    {reviewSummary}
     {inspectedRule}
     inspectedRuleCount={inspectedRuleRows.length}
     onClearInspectedRule={() => (inspectedRuleId = null)}

@@ -2,6 +2,7 @@
   import * as m from "$lib/paraglide/messages";
   import { fade, scale } from "svelte/transition";
   import { motionDuration } from "$lib/motion";
+  import { registerNativeOverlayCloser } from "$lib/services/native-overlay";
 
   interface Props {
     open: boolean;
@@ -37,6 +38,11 @@
   function onbackdrop(e: MouseEvent) {
     if (e.target === e.currentTarget) onclose();
   }
+
+  $effect(() => {
+    if (!open) return;
+    return registerNativeOverlayCloser(onclose);
+  });
 
   const confirmClass = $derived(
     intent === "neutral"
