@@ -8,6 +8,7 @@
     fetchLinkedTransactions,
     fetchPlanProgressSnapshot,
     fetchSuggestionCount,
+    fetchRankedEligibleTransactions,
     linkPlanTransaction,
     unlinkPlanTransaction,
     suggestPlanContribution,
@@ -15,6 +16,7 @@
   } from "$lib/services/plan-settlement";
   import DebtPlanDetail from "$lib/components/plans/DebtPlanDetail.svelte";
   import PlanForwardNav from "$lib/components/plans/PlanForwardNav.svelte";
+  import PlanMatchList from "$lib/components/plans/PlanMatchList.svelte";
   import SavePlanDetail from "$lib/components/plans/SavePlanDetail.svelte";
   import QueryError from "$lib/components/ui/QueryError.svelte";
   import Dialog from "$lib/components/ui/Dialog.svelte";
@@ -44,6 +46,10 @@
   import { cn, formatCurrency, formatDate } from "$lib/utils";
   import { navigateBack } from "$lib/utils/navigation";
   import { planSettleHref } from "$lib/utils/plan-routes";
+  import {
+    PLAN_DETAIL_MATCH_LIMIT,
+    pickTopPlanMatches,
+  } from "$lib/services/plan-match-suggestions";
   import { toastError } from "$lib/toast-error";
   import {
     restoreScrollPosition,
@@ -94,6 +100,12 @@
   const suggestionCountQuery = createQuery(() => ({
     queryKey: qk.planSuggestionCount(session.userId!, id),
     queryFn: () => fetchSuggestionCount(id),
+    enabled: () => !!session.userId && !!id,
+  }));
+
+  const rankedQuery = createQuery(() => ({
+    queryKey: qk.planRanked(session.userId!, id, "expense"),
+    queryFn: () => fetchRankedEligibleTransactions(id),
     enabled: () => !!session.userId && !!id,
   }));
 
@@ -175,6 +187,27 @@
     if (!plan || !session.userId) return false;
     return canManagePlan(plan, session.userId, groupRolesQuery.data ?? new Map());
   });
+
+  const previewMatches = $derived(
+    planQuery.data
+      ? pickTopPlanMatches(
+          [
+            {
+              planId: id,
+              planName: planQuery.data.name,
+              kind: planQuery.data.kind ?? "save",
+              groupId: planQuery.data.group_id,
+              ranked: rankedQuery.data ?? [],
+            },
+          ],
+          {
+            limit: PLAN_DETAIL_MATCH_LIMIT,
+            maxPerPlan: PLAN_DETAIL_MATCH_LIMIT,
+            minRank: "medium",
+          }
+        )
+      : []
+  );
 
   function groupRoleLabel(role: GroupMemberRole | undefined): string {
     if (role === "owner") return m.groups_role_owner();
@@ -478,6 +511,15 @@
         {/if}
       </div>
     </div>
+
+    {#if previewMatches.length > 0}
+      <section class="space-y-2" aria-labelledby="plan-matches-heading">
+        <p id="plan-matches-heading" class="text-eyebrow text-slate-400">
+          {m.dashboard_plan_matches_title()}
+        </p>
+        <PlanMatchList matches={previewMatches} showPlanName={false} />
+      </section>
+    {/if}
 
     {#if plan.kind === "save" && progress}
       {#if plan.group_id && !canManage}

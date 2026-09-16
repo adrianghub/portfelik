@@ -563,6 +563,7 @@
   "dashboard_plan_progress_bar": "Postęp planu {name}: {pct}%",
   "dashboard_plan_progress_linked_count": "{count} powiązanych transakcji",
   "dashboard_plan_settle_ready": "{count} do powiązania",
+  "dashboard_plan_matches_title": "Do powiązania",
   "dashboard_plan_settle_ready_aria": "{count} transakcji do powiązania z planem",
   "dashboard_categories_title": "Top kategorie",
   "dashboard_see_more": "Zobacz więcej",
