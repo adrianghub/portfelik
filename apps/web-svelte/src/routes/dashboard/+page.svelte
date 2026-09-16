@@ -23,6 +23,7 @@
   } from "$lib/services/demo-data";
   import { refreshDemoState } from "$lib/services/demo-query-state";
   import { resetGuidedTourForReplay } from "$lib/services/guided-tour-actions";
+  import { guidedTourUi } from "$lib/guided-tour/ui.svelte";
   import { fetchPlans } from "$lib/services/plans";
   import { fetchProfile } from "$lib/services/profiles";
   import { fetchMyGroupRoles, fetchUserGroups } from "$lib/services/groups";
@@ -239,7 +240,8 @@
   const discovery = $derived(
     ledgerReady &&
       typeof txCountQuery.data === "number" &&
-      isDiscoveryLedger({ demoActive, transactionCount: txCountQuery.data })
+      isDiscoveryLedger({ demoActive, transactionCount: txCountQuery.data }) &&
+      !guidedTourUi.running
   );
 
   let glossaryOpen = $state(false);

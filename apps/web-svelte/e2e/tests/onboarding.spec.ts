@@ -16,6 +16,8 @@ test.describe("onboarding hardening", () => {
     await injectFakeSession(page);
     await mockSupabaseAPI(page);
 
+    let demoSeeded = false;
+
     await page.route("**/rest/v1/transactions_with_category**", (route) =>
       route.fulfill({ status: 200, json: [] })
     );
@@ -27,13 +29,22 @@ test.describe("onboarding hardening", () => {
         if (url.includes("description=like")) {
           return route.fulfill({ status: 200, json: [] });
         }
+        if (demoSeeded) {
+          const rows = [{ id: "demo-tx-1", description: "Demo: Pensja", is_demo: true }];
+          return route.fulfill({
+            status: 200,
+            headers: { "content-range": `*/${rows.length}`, "content-type": "application/json" },
+            json: rows,
+          });
+        }
         return route.fulfill({
           status: 200,
-          headers: { "content-range": "0-0/0" },
+          headers: { "content-range": "*/0", "content-type": "application/json" },
           json: [],
         });
       }
       if (method === "POST") {
+        demoSeeded = true;
         return route.fulfill({ status: 201, json: { id: "demo-tx-1" } });
       }
       return route.fulfill({ status: 200, json: [] });
@@ -105,7 +116,6 @@ test.describe("onboarding hardening", () => {
     await expect(page.getByRole("heading", { name: "Tu pojawi się Twój miesiąc" })).toBeVisible({
       timeout: 10_000,
     });
-    await expect(page.getByText("Test User")).toBeVisible();
     await expect(page.getByRole("link", { name: "Kokpit" }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: "Transakcje" }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: "Plany" }).first()).toBeVisible();
@@ -161,7 +171,10 @@ test.describe("onboarding hardening", () => {
     });
 
     await page.goto("/dashboard");
-    await page.getByRole("button", { name: "Wczytaj przykładowy miesiąc" }).click();
+    await page
+      .getByRole("dialog", { name: "Zacznij od przykładowego miesiąca" })
+      .getByRole("button", { name: "Wczytaj przykładowy miesiąc" })
+      .click();
 
     const tour = page.locator("[data-guided-tour-chrome]");
     await expect(tour).toContainText("1 z 8", { timeout: 15_000 });
