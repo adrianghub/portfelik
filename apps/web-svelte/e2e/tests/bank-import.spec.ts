@@ -595,6 +595,9 @@ test("import wizard: correcting a rule-derived category does not mutate the rule
     buffer: mbankNoCounterpartySample,
   });
 
+  await expect(page.getByRole("button", { name: /Pokaż wszystkie/ })).toBeVisible({
+    timeout: 10_000,
+  });
   await revealAllImportRows(page);
 
   const reviewTable = page.getByRole("table");
