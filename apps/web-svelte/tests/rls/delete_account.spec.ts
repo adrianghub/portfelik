@@ -242,6 +242,53 @@ describe("RPC: delete_account", () => {
     }
   });
 
+  it("keeps invitations addressed to someone else and wipes access-attempt emails", async () => {
+    const temporary = await createTemporaryUser(ctx, "invitee-isolation");
+    let groupId: string | null = null;
+    const keptEmail = `rls-keep-${crypto.randomUUID()}@rls.test`;
+
+    try {
+      const group = await ctx.userA.client.rpc("create_group", {
+        p_name: `${SENTINEL} invite-isolation`,
+      });
+      if (group.error || !group.data) {
+        throw group.error ?? new Error("group was not created");
+      }
+      groupId = (group.data as { id: string }).id;
+
+      await createTestInvitation(ctx.admin, groupId, temporary.email, ctx.userA.userId);
+      await createTestInvitation(ctx.admin, groupId, keptEmail, ctx.userA.userId);
+
+      const attempt = await ctx.admin.from("group_invitation_access_attempts").insert({
+        token_hash: "\\x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        email: temporary.email,
+      });
+      if (attempt.error) throw attempt.error;
+
+      const deletion = await temporary.client.rpc("delete_account");
+      expect(deletion.error).toBeNull();
+
+      const leftoverInvites = await ctx.admin
+        .from("group_invitations")
+        .select("invited_user_email")
+        .eq("group_id", groupId);
+      expect(leftoverInvites.error).toBeNull();
+      expect(leftoverInvites.data?.map((row) => row.invited_user_email)).toEqual([keptEmail]);
+
+      const leftoverAttempts = await ctx.admin
+        .from("group_invitation_access_attempts")
+        .select("id")
+        .eq("email", temporary.email);
+      expect(leftoverAttempts.data ?? []).toEqual([]);
+    } finally {
+      await ctx.admin.from("group_invitation_access_attempts").delete().eq("email", keptEmail);
+      if (groupId) {
+        await ctx.admin.from("user_groups").delete().eq("id", groupId);
+      }
+      await ctx.admin.auth.admin.deleteUser(temporary.userId);
+    }
+  });
+
   it("does not transfer another user's private rows when deleting", async () => {
     const temporary = await createTemporaryUser(ctx, "isolation");
 

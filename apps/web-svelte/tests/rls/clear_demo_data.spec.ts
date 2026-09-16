@@ -342,4 +342,79 @@ describe("RPC: clear_demo_data", () => {
       await ctx.admin.from("transactions").delete().in("id", ids);
     }
   });
+
+  it("tags occurrences of a demo template as is_demo on insert", async () => {
+    const template = await ctx.admin
+      .from("transactions")
+      .insert({
+        amount: 120,
+        currency: "PLN",
+        description: "Muzyka",
+        date: "2026-01-10",
+        type: "expense",
+        status: "paid",
+        category_id: expenseCatA,
+        user_id: ctx.userA.userId,
+        is_demo: true,
+        is_recurring: true,
+        recurring_day: 10,
+        recurrence_frequency: "monthly",
+        recurrence_interval: 1,
+      })
+      .select("id")
+      .single();
+    if (template.error) throw template.error;
+
+    const occurrence = await ctx.admin
+      .from("transactions")
+      .insert({
+        amount: 120,
+        currency: "PLN",
+        description: "Muzyka",
+        date: "2026-09-10",
+        type: "expense",
+        status: "upcoming",
+        category_id: expenseCatA,
+        user_id: ctx.userA.userId,
+        is_demo: false,
+        recurring_template_id: template.data.id,
+        recurring_occurrence_date: "2026-09-10",
+      })
+      .select("id, is_demo")
+      .single();
+    if (occurrence.error) throw occurrence.error;
+
+    try {
+      expect(occurrence.data?.is_demo).toBe(true);
+    } finally {
+      await ctx.admin
+        .from("transactions")
+        .delete()
+        .in("id", [occurrence.data.id, template.data.id]);
+    }
+  });
+
+  it("drops an orphaned financial snapshot when no net-worth items remain", async () => {
+    const snapshot = await ctx.admin.from("financial_snapshots").upsert({
+      user_id: ctx.userA.userId,
+      as_of_date: "2026-09-01",
+      cash_amount: 0,
+      investments_amount: 0,
+      real_estate_amount: 24500,
+    });
+    if (snapshot.error) throw snapshot.error;
+
+    try {
+      const { error } = await ctx.userA.client.rpc("clear_demo_data");
+      expect(error).toBeNull();
+
+      const leftover = await ctx.admin
+        .from("financial_snapshots")
+        .select("user_id")
+        .eq("user_id", ctx.userA.userId);
+      expect(leftover.data ?? []).toEqual([]);
+    } finally {
+      await ctx.admin.from("financial_snapshots").delete().eq("user_id", ctx.userA.userId);
+    }
+  });
 });

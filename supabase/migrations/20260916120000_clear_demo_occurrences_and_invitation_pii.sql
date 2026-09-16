@@ -39,8 +39,7 @@ create trigger inherit_demo_flag_from_template
 comment on function public.inherit_demo_flag_from_template() is
   'Occurrences inherit is_demo from their template so cron rows stay showcase-tagged.';
 
-revoke all on function public.inherit_demo_flag_from_template() from public, anon;
-grant execute on function public.inherit_demo_flag_from_template() to authenticated;
+revoke all on function public.inherit_demo_flag_from_template() from public, anon, authenticated;
 
 create or replace function public.clear_demo_data()
 returns jsonb
@@ -119,6 +118,14 @@ begin
   )
   select count(*)::int into v_items from deleted;
 
+  if not exists (
+    select 1
+    from public.net_worth_items
+    where user_id = v_uid
+  ) then
+    delete from public.financial_snapshots where user_id = v_uid;
+  end if;
+
   return jsonb_build_object(
     'plans', v_plans,
     'transactions', v_txs,
@@ -129,7 +136,7 @@ end;
 $$;
 
 comment on function public.clear_demo_data() is
-  'Atomically deletes every tagged showcase row owned by the caller, plus untagged occurrences and reminders spawned from those templates.';
+  'Atomically deletes every tagged showcase row owned by the caller, plus untagged occurrences, matching reminders, and an orphaned net-worth snapshot when no items remain.';
 
 revoke all on function public.clear_demo_data() from public, anon;
 grant execute on function public.clear_demo_data() to authenticated;
@@ -166,6 +173,16 @@ begin
   delete from public.group_invitations
   where invited_user_id = v_uid
      or (v_email is not null and lower(invited_user_email) = lower(v_email));
+
+  if v_email is not null then
+    delete from public.group_invitation_access_attempts
+    where lower(email) = lower(v_email);
+  end if;
+
+  update public.notifications
+  set body = 'Ktoś zaprosił Cię do grupy "' || coalesce(data ->> 'groupName', '') || '"'
+  where type = 'group_invitation'
+    and data ->> 'invitedBy' = v_uid::text;
 
   -- Categories are private and transactions require one. Create/reuse an
   -- equivalent category for each destination custodian before transferring
@@ -310,7 +327,7 @@ end;
 $$;
 
 comment on function public.delete_account() is
-  'Deletes the caller account and private data, including invitations addressed to them. Shared transactions, plans, and recurring skips remain household history under the group owner, with departing-user attribution removed.';
+  'Deletes the caller account and private data, including invitations and access-attempt emails addressed to them. Shared transactions, plans, and recurring skips remain household history under the group owner, with departing-user attribution and inviter email removed from remaining notifications.';
 
 revoke all on function public.delete_account() from public, anon;
 grant execute on function public.delete_account() to authenticated;
