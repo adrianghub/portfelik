@@ -1,6 +1,6 @@
 <script lang="ts">
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
-  import { requestDemoSeedAndTour } from "$lib/guided-tour/ui.svelte";
+  import { guidedTourUi, requestDemoSeedAndTour } from "$lib/guided-tour/ui.svelte";
   import * as m from "$lib/paraglide/messages";
   import { LayoutDashboard, Sparkles, Upload } from "lucide-svelte";
 
@@ -26,11 +26,13 @@
       <button
         type="button"
         class="bg-accent-gradient focus-visible:ring-accent inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-slate-900 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-        disabled={loading || pending}
+        disabled={loading || pending || guidedTourUi.demoBusy}
         onclick={startDemo}
       >
         <Sparkles size={16} aria-hidden="true" />
-        {loading || pending ? m.tour_welcome_loading() : m.tour_welcome_demo()}
+        {loading || pending || guidedTourUi.demoBusy
+          ? m.tour_welcome_loading()
+          : m.tour_welcome_demo()}
       </button>
       <a
         href="/import"

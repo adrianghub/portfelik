@@ -394,27 +394,51 @@ describe("RPC: clear_demo_data", () => {
     }
   });
 
-  it("drops an orphaned financial snapshot when no net-worth items remain", async () => {
+  it("keeps a cash-only financial snapshot after demo items are removed", async () => {
     const snapshot = await ctx.admin.from("financial_snapshots").upsert({
       user_id: ctx.userA.userId,
       as_of_date: "2026-09-01",
       cash_amount: 0,
       investments_amount: 0,
-      real_estate_amount: 24500,
+      real_estate_amount: 0,
     });
     if (snapshot.error) throw snapshot.error;
+
+    const cash = await ctx.admin.from("cash_positions").upsert(
+      {
+        owner_id: ctx.userA.userId,
+        opening_amount: 1200,
+        as_of_date: "2026-09-01",
+      },
+      { onConflict: "owner_id" }
+    );
+    if (cash.error) throw cash.error;
 
     try {
       const { error } = await ctx.userA.client.rpc("clear_demo_data");
       expect(error).toBeNull();
 
-      const leftover = await ctx.admin
+      const leftoverSnapshot = await ctx.admin
         .from("financial_snapshots")
-        .select("user_id")
-        .eq("user_id", ctx.userA.userId);
-      expect(leftover.data ?? []).toEqual([]);
+        .select("user_id, as_of_date")
+        .eq("user_id", ctx.userA.userId)
+        .maybeSingle();
+      expect(leftoverSnapshot.error).toBeNull();
+      expect(leftoverSnapshot.data).toEqual({
+        user_id: ctx.userA.userId,
+        as_of_date: "2026-09-01",
+      });
+
+      const leftoverCash = await ctx.admin
+        .from("cash_positions")
+        .select("opening_amount")
+        .eq("owner_id", ctx.userA.userId)
+        .maybeSingle();
+      expect(leftoverCash.error).toBeNull();
+      expect(Number(leftoverCash.data?.opening_amount)).toBe(1200);
     } finally {
       await ctx.admin.from("financial_snapshots").delete().eq("user_id", ctx.userA.userId);
+      await ctx.admin.from("cash_positions").delete().eq("owner_id", ctx.userA.userId);
     }
   });
 });

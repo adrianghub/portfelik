@@ -6,7 +6,12 @@
   import TourSpotlight from "$lib/components/onboarding/TourSpotlight.svelte";
   import WelcomeTourDialog from "$lib/components/onboarding/WelcomeTourDialog.svelte";
   import { setGuidedTourContext } from "$lib/guided-tour/context";
-  import { guidedTourUi } from "$lib/guided-tour/ui.svelte";
+  import {
+    finishDemoSeedRequest,
+    guidedTourUi,
+    takeDemoSeedRequest,
+    takeGuidedTourRestart,
+  } from "$lib/guided-tour/ui.svelte";
   import {
     fetchDemoProbe,
     hasDemoData,
@@ -93,8 +98,6 @@
   let demoLoading = $state(false);
   let bootstrapped = $state(false);
   let progress = $state<GuidedTourProgress>({});
-  let lastRestartNonce = $state(0);
-  let lastDemoNonce = $state(0);
   let suppressProfileSync = $state(false);
 
   $effect(() => {
@@ -170,9 +173,8 @@
   });
 
   $effect(() => {
-    const nonce = guidedTourUi.restartNonce;
-    if (nonce === 0 || nonce === lastRestartNonce) return;
-    lastRestartNonce = nonce;
+    void guidedTourUi.restartNonce;
+    if (!takeGuidedTourRestart()) return;
     void applyTourRestart();
   });
 
@@ -221,7 +223,9 @@
   });
 
   async function handleWelcomeDemo(): Promise<void> {
+    if (demoLoading) return;
     demoLoading = true;
+    guidedTourUi.demoBusy = true;
     try {
       if (!demoActive) {
         await seedDemoData();
@@ -231,13 +235,14 @@
       await startTour("demo", 0);
     } finally {
       demoLoading = false;
+      finishDemoSeedRequest();
     }
   }
 
   $effect(() => {
-    const nonce = guidedTourUi.demoNonce;
-    if (nonce === 0 || nonce === lastDemoNonce) return;
-    lastDemoNonce = nonce;
+    void guidedTourUi.demoNonce;
+    void userId;
+    if (!takeDemoSeedRequest(userId)) return;
     void handleWelcomeDemo();
   });
 
@@ -313,7 +318,7 @@
 
 <WelcomeTourDialog
   open={welcomeOpen}
-  loading={demoLoading}
+  loading={demoLoading || guidedTourUi.demoBusy}
   onclose={() => {
     welcomeOpen = false;
     const next = dismissGuidedTour(progress);
