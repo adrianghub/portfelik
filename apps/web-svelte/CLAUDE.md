@@ -12,7 +12,7 @@ Loaded automatically when working in `apps/web-svelte/`.
 | Paraglide v2        | Vite plugin only - no adapter. Compile-time i18n. Recompile after `messages/pl.json` edits.                                |
 | Supabase client     | Singleton at `src/lib/supabase.ts`. Query client provided in `+layout.svelte`.                                             |
 | Auth                | Google OAuth for real users. Email/password sign-up stays disabled; local/staging use seeded email/password personas only. Native Android uses Google Credential Manager (`@capgo/capacitor-social-login`) then `supabase.auth.signInWithIdToken`. Web still uses `signInWithOAuth`. |
-| Capacitor Android   | `pl.jakstoimy.app` under `android/`. Build web then sync: `pnpm android:sync`. Upload keystore: `android/create-upload-keystore.sh` (local only). |
+| Capacitor Android   | `pl.jakstoimy.app` under `android/`. Build web then sync: `pnpm android:sync`. Upload keystore: `android/create-upload-keystore.sh` (local only). Play Internal AAB is CI after production: `.github/workflows/deploy-play-internal.yml` (secrets in `docs/runbooks/play-internal.md`). |
 | Group writes        | All via SECURITY DEFINER RPCs in `services/groups.ts`. Direct table writes blocked by RLS.                                 |
 | Summary computation | `computeSummary(transactions)` in `services/transactions.ts` - derived client-side, no RPC round-trip.                     |
 

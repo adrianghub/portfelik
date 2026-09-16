@@ -99,6 +99,8 @@ flowchart LR
     pushMain["git push origin main"] --> ghaProd["GH Actions<br/>deploy-prod job"]
     ghaProd -->|wrangler pages deploy<br/>--branch main| cfPagesProd["Cloudflare Pages<br/>app.jakstoimy.pl"]
     ghaProd -->|secrets.PUBLIC_SUPABASE_URL| supaProd
+    ghaProd --> ghaPlay["GH Actions<br/>deploy-play-internal"]
+    ghaPlay -->|signed AAB<br/>Play Publisher API| playInternal["Play Internal<br/>pl.jakstoimy.app"]
   end
 
   supaStage["Supabase Cloud<br/>portfelik-staging"]
@@ -175,6 +177,9 @@ the local Supabase. Then log in and explore.
 - A read-only production probe verifies the app shell, authenticated Supabase
   gateway health, and that the user-owned `categories` table still rejects an
   anonymous request.
+- After that probe succeeds, `deploy-play-internal.yml` builds a signed AAB and
+  uploads it to Play Internal testing. One-time API/keystore secrets:
+  `docs/runbooks/play-internal.md`. A Play failure does not roll back web.
 
 ## Migrations
 

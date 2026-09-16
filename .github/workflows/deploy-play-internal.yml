@@ -1,0 +1,109 @@
+name: Deploy Play Internal
+
+on:
+  workflow_run:
+    workflows: ["Deploy production"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-play-internal
+  cancel-in-progress: false
+
+jobs:
+  play-internal:
+    name: Bundle and upload Internal AAB
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment:
+      name: Production
+      url: https://play.google.com/console
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Require Play upload secrets
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ secrets.PUBLIC_GOOGLE_WEB_CLIENT_ID }}
+        run: |
+          missing=0
+          for name in PLAY_SERVICE_ACCOUNT_JSON ANDROID_UPLOAD_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD PUBLIC_GOOGLE_WEB_CLIENT_ID; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing Production secret $name. One-time setup: docs/runbooks/play-internal.md"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - uses: ./.github/actions/setup-web
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Write upload keystore
+        working-directory: apps/web-svelte
+        env:
+          ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          printf '%s' "$ANDROID_UPLOAD_KEYSTORE_BASE64" | base64 -d > android/upload-keystore.jks
+          umask 077
+          {
+            printf 'storeFile=upload-keystore.jks\n'
+            printf 'storePassword=%s\n' "$ANDROID_KEYSTORE_PASSWORD"
+            printf 'keyAlias=%s\n' "$ANDROID_KEY_ALIAS"
+            printf 'keyPassword=%s\n' "$ANDROID_KEY_PASSWORD"
+          } > android/keystore.properties
+          chmod 600 android/upload-keystore.jks android/keystore.properties
+
+      - name: Build signed AAB
+        working-directory: apps/web-svelte
+        env:
+          PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
+          PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
+          PUBLIC_VAPID_KEY: BHKoiccZwq3Y5Qw5dmFxVLJIA7w9zcSZkchPKWk-vxBeR421yieZW7gGxuluBBa6sRmpIsFXRSuFyRarLcdvqT4
+          PUBLIC_PLAUSIBLE_DOMAIN: ${{ secrets.PUBLIC_PLAUSIBLE_DOMAIN }}
+          PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ secrets.PUBLIC_GOOGLE_WEB_CLIENT_ID }}
+        run: |
+          test "$PUBLIC_SUPABASE_URL" = "https://emqzcygfwcvbmhxhfkcc.supabase.co"
+          test -n "$PUBLIC_SUPABASE_ANON_KEY"
+          case "$PUBLIC_SUPABASE_ANON_KEY" in
+            sb_secret_*)
+              echo "::error::PUBLIC_SUPABASE_ANON_KEY must be sb_publishable_ or legacy anon, not sb_secret_"
+              exit 1
+              ;;
+          esac
+          bash ./scripts/android-bundle.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: play-internal-aab
+          path: apps/web-svelte/android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload to Play Internal
+        uses: r0adkll/upload-google-play@v1.1.3
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: pl.jakstoimy.app
+          releaseFiles: apps/web-svelte/android/app/build/outputs/bundle/release/app-release.aab
+          track: internal
+          status: completed
+          changesNotSentForReview: true
