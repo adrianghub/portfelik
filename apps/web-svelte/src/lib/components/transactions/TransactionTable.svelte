@@ -3,7 +3,7 @@
   import { untrack } from "svelte";
   import type { TransactionWithCategory } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
-  import { ArrowDown, ArrowUp, ArrowUpDown, Check, Sparkles, Users, Wallet } from "lucide-svelte";
+  import { ArrowDown, ArrowUp, ArrowUpDown, Check, Users, Wallet } from "lucide-svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import { isQuickSettleEligible } from "$lib/services/transaction-permissions";
 
@@ -250,7 +250,6 @@
               disabled={emptyDemoDisabled}
               onclick={onemptydemo}
             >
-              <Sparkles size={16} aria-hidden="true" />
               {m.tour_welcome_demo()}
             </button>
           {/if}

@@ -64,22 +64,36 @@ Use the existing upload key (`android/upload-keystore.jks`), not a new one.
 Play App Signing will reject a different upload certificate.
 
 ```bash
-cd apps/web-svelte
-base64 -w0 android/upload-keystore.jks
+cd apps/web-svelte/android
+# macOS (single line, no wrap):
+base64 -i upload-keystore.jks | tr -d '\n' | pbcopy
+# Linux:
+base64 -w0 upload-keystore.jks
 ```
 
-Paste the single line into `ANDROID_UPLOAD_KEYSTORE_BASE64`. Never commit the
-`.jks` or `keystore.properties`.
+Paste the single line into `ANDROID_UPLOAD_KEYSTORE_BASE64`. Copy `storePassword`
+and `keyPassword` from `keystore.properties` without quotes or a trailing
+newline. Alias is `upload` unless you created a different one.
+
+Never commit the `.jks` or `keystore.properties`.
 
 ## If the workflow fails
 
 - **Missing secret** — the job lists the name. Add it on Production and re-run
   **Deploy Play Internal**.
+- **Keystore password / decode** — `:app:signReleaseBundle` with “keystore
+  password was incorrect” usually means the JKS and `ANDROID_KEYSTORE_PASSWORD`
+  do not match (or the base64 was truncated). Re-copy both from the laptop that
+  holds `upload-keystore.jks`, then re-run **Deploy Play Internal** from `main`.
+  CI now checks this with `keytool` before Gradle.
 - **Version code already used** — bump `versionCode` / `versionName` and
   promote `dev` → `main` again, or run the workflow after that commit is on
   `main`.
 - **Service account 403** — the Play user invite is pending or lacks the
   testing-track permission.
+- **Android SDK / licenses** — the job uses the hosted runner SDK. If
+  `ANDROID_HOME` is missing, the runner image changed; restore it rather than
+  reintroducing `android-actions/setup-android`.
 
 Web production is independent: a Play failure does not roll back
 `app.jakstoimy.pl`.

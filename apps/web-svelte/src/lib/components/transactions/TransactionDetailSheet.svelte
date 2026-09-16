@@ -145,6 +145,7 @@
       await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planDebtTermsList(u) });
     },
     onError: (error) => toastError(error),
@@ -163,6 +164,7 @@
       await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planDebtTermsList(u) });
     },
     onError: (error) => toastError(error),

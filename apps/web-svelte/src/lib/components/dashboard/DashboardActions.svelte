@@ -16,6 +16,8 @@
     type DashboardActionTone,
     type OverdueAttentionSummary,
   } from "$lib/services/dashboard-actions";
+  import PlanMatchList from "$lib/components/plans/PlanMatchList.svelte";
+  import { fetchDashboardPlanMatches } from "$lib/services/plan-match-suggestions";
   import type { ScopeFilter } from "$lib/utils/list-view-url";
   import { cn } from "$lib/utils";
   import { toast } from "svelte-sonner";
@@ -44,6 +46,12 @@
     enabled: !!uid,
   }));
 
+  const matchesQuery = createQuery(() => ({
+    queryKey: uid ? qk.planMatches(uid, groupFilter) : ["user", "", "plan-matches", groupFilter],
+    queryFn: () => fetchDashboardPlanMatches(groupFilter),
+    enabled: !!uid,
+  }));
+
   const plans = $derived<AttentionPlan[]>(
     (planProgressQuery.data ?? []).map((plan) => ({
       planId: plan.planId,
@@ -58,9 +66,14 @@
   );
 
   const isPending = $derived(
-    overdueState === "pending" || planProgressQuery.isPending || dismissalsQuery.isPending
+    overdueState === "pending" ||
+      planProgressQuery.isPending ||
+      dismissalsQuery.isPending ||
+      matchesQuery.isPending
   );
-  const isError = $derived(overdueState === "error" || planProgressQuery.isError);
+  const isError = $derived(
+    overdueState === "error" || planProgressQuery.isError || matchesQuery.isError
+  );
 
   const actions = $derived(
     dismissalsQuery.isPending
@@ -72,6 +85,8 @@
           dismissedKeys: dismissalsQuery.data,
         })
   );
+
+  const matches = $derived(matchesQuery.data ?? []);
 
   function snoozeUntilIso(): string {
     const until = new Date();
@@ -109,7 +124,7 @@
   };
 </script>
 
-{#if actions.length > 0 || isPending || isError}
+{#if actions.length > 0 || matches.length > 0 || isPending || isError}
   <section
     class="h-full min-w-0 overflow-x-clip rounded-2xl border border-white/5 bg-slate-900/60 bg-[radial-gradient(circle_at_85%_0%,rgba(251,191,36,0.1),transparent_45%)] p-4"
     aria-labelledby="dashboard-actions-title"
@@ -146,6 +161,13 @@
           </li>
         {/each}
       </ul>
+    {/if}
+
+    {#if matches.length > 0}
+      <p class="text-eyebrow mt-3 text-slate-400">{m.dashboard_plan_matches_title()}</p>
+      <div class="mt-2.5">
+        <PlanMatchList {matches} />
+      </div>
     {/if}
 
     {#if isPending}
