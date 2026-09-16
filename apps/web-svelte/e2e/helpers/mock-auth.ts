@@ -160,7 +160,15 @@ export async function mockSupabaseAPI(page: Page): Promise<void> {
         if (method === "DELETE") {
           return route.fulfill({ status: 204, body: "" });
         }
-        return route.fulfill({ status: 200, json: MOCK_TRANSACTIONS });
+        const count = MOCK_TRANSACTIONS.length;
+        return route.fulfill({
+          status: 200,
+          headers: {
+            "content-range": `*/${count}`,
+            "content-type": "application/json",
+          },
+          body: method === "HEAD" ? "" : JSON.stringify(MOCK_TRANSACTIONS),
+        });
       }
 
       // ── Dashboard action dismissals ───────────────────────────────────────

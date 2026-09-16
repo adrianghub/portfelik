@@ -58,6 +58,17 @@ export async function fetchTransactionsByStatus(
   return all;
 }
 
+/** All-time presence used as 0 vs >0. Period-empty Kokpit views must not use this. */
+export async function fetchTransactionCount(): Promise<number> {
+  const { count, data, error } = await supabase
+    .from("transactions")
+    .select("id", { count: "exact" })
+    .limit(1);
+  if (error) throw error;
+  if (typeof count === "number") return count;
+  return data?.length ?? 0;
+}
+
 /** Export path: paginate the full visible ledger without a date window. */
 export async function fetchAllTransactionsForExport(): Promise<TransactionWithCategory[]> {
   const all: TransactionWithCategory[] = [];

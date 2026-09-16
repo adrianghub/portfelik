@@ -107,6 +107,15 @@ export function shouldResumeGuidedTour(settings: ProfileSettings | undefined): b
   return (tour.completedSceneIds?.length ?? 0) > 0;
 }
 
+/** Resume only when the ledger has demo or committed transactions to spotlight. */
+export function shouldStartGuidedTourOnLoad(input: {
+  settings: ProfileSettings | undefined;
+  discovery: boolean;
+}): boolean {
+  if (input.discovery) return false;
+  return shouldResumeGuidedTour(input.settings);
+}
+
 export function firstIncompleteSceneIndex(progress: GuidedTourProgress): number {
   const done = new Set(progress.completedSceneIds ?? []);
   const idx = TOUR_SCENES.findIndex((scene) => !done.has(scene.id));

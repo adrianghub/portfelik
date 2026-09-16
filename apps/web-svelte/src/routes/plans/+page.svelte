@@ -9,6 +9,7 @@
   import DayPicker from "$lib/components/ui/DayPicker.svelte";
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import Fab from "$lib/components/ui/Fab.svelte";
+  import DemoShowcaseBanner from "$lib/components/onboarding/DemoShowcaseBanner.svelte";
   import * as m from "$lib/paraglide/messages";
   import CategorySelect from "$lib/components/transactions/CategorySelect.svelte";
   import { createCategory, fetchCategories } from "$lib/services/categories";
@@ -68,13 +69,22 @@
     createQuery,
     useQueryClient,
   } from "@tanstack/svelte-query";
-  import { Plus, Trash2 } from "lucide-svelte";
+  import { Plus, Sparkles, Trash2, Upload } from "lucide-svelte";
   import { toast } from "svelte-sonner";
   import { toastError } from "$lib/toast-error";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import QueryError from "$lib/components/ui/QueryError.svelte";
   import { computeLedgerSummary } from "$lib/services/transaction-cashflow";
-  import { fetchTransactions } from "$lib/services/transactions";
+  import { fetchTransactions, fetchTransactionCount } from "$lib/services/transactions";
+  import {
+    fetchDemoProbe,
+    hasDemoData,
+    isDiscoveryLedger,
+    clearDemoData,
+  } from "$lib/services/demo-data";
+  import { refreshDemoState } from "$lib/services/demo-query-state";
+  import { track } from "$lib/analytics";
+  import { requestDemoSeedAndTour } from "$lib/guided-tour/ui.svelte";
   import {
     CASH_FETCH_END_SENTINEL,
     fetchPrivateCashPosition,
@@ -115,6 +125,47 @@
     queryKey: qk.plans(session.userId!),
     queryFn: fetchPlans,
     enabled: () => !!session.userId,
+  }));
+
+  const demoProbeQuery = createQuery(() => ({
+    queryKey: qk.transactions.list(session.userId!, "demo-probe"),
+    queryFn: fetchDemoProbe,
+    enabled: () => !!session.userId,
+    staleTime: 60_000,
+  }));
+
+  const txCountQuery = createQuery(() => ({
+    queryKey: qk.transactions.list(session.userId!, "all-time-count"),
+    queryFn: fetchTransactionCount,
+    enabled: () => !!session.userId,
+    staleTime: 60_000,
+  }));
+
+  const demoActive = $derived(
+    hasDemoData({
+      transactions: demoProbeQuery.data?.transactions ?? [],
+      plans: plansQuery.data ?? [],
+      netWorthItems: demoProbeQuery.data?.netWorthItems ?? [],
+    })
+  );
+
+  const discovery = $derived(
+    txCountQuery.isFetched &&
+      demoProbeQuery.isFetched &&
+      plansQuery.isFetched &&
+      typeof txCountQuery.data === "number" &&
+      isDiscoveryLedger({ demoActive, transactionCount: txCountQuery.data })
+  );
+
+  const clearDemoMutation = createSvelteMutation(() => ({
+    mutationFn: clearDemoData,
+    onSuccess: async (result) => {
+      const u = requireSessionUserId();
+      track("demo_cleared", { row_count: result.deleted });
+      await refreshDemoState(queryClient, u);
+      toast.success(m.demo_cleared_toast());
+    },
+    onError: (err) => toastError(err),
   }));
 
   const groupsQuery = createQuery(() => ({
@@ -725,27 +776,38 @@
 
   <p class="text-sm text-slate-400">{m.plans_tagline()}</p>
 
-  <div class="grid items-stretch gap-3 lg:grid-cols-12">
-    <div class="min-w-0 lg:col-span-7">
-      {#if snapshotQuery.isLoading}
-        <div class="h-36 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
-      {:else}
-        <NetWorthHero summary={netWorth} {fxUnavailable} onedit={openNetWorthForm} />
-      {/if}
-    </div>
+  {#if demoActive}
+    <DemoShowcaseBanner
+      onclear={async () => {
+        await clearDemoMutation.mutateAsync();
+      }}
+      clearing={clearDemoMutation.isPending}
+    />
+  {/if}
 
-    <div class="min-w-0 lg:col-span-5">
-      {#if monthTxQuery.isLoading}
-        <div class="h-28 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
-      {:else if monthlySurplus}
-        <SurplusCard
-          summary={monthlySurplus}
-          actions={planningActions}
-          transactionsHref={surplusTransactionsHref}
-        />
-      {/if}
+  {#if !discovery}
+    <div class="grid items-stretch gap-3 lg:grid-cols-12">
+      <div class="min-w-0 lg:col-span-7">
+        {#if snapshotQuery.isLoading}
+          <div class="h-36 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
+        {:else}
+          <NetWorthHero summary={netWorth} {fxUnavailable} onedit={openNetWorthForm} />
+        {/if}
+      </div>
+
+      <div class="min-w-0 lg:col-span-5">
+        {#if monthTxQuery.isLoading}
+          <div class="h-28 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
+        {:else if monthlySurplus}
+          <SurplusCard
+            summary={monthlySurplus}
+            actions={planningActions}
+            transactionsHref={surplusTransactionsHref}
+          />
+        {/if}
+      </div>
     </div>
-  </div>
+  {/if}
 
   {#if plansQuery.isLoading}
     <div class="grid gap-3 sm:grid-cols-2">
@@ -756,16 +818,37 @@
   {:else if plansQuery.isError}
     <QueryError error={plansQuery.error} onRetry={() => plansQuery.refetch()} />
   {:else if showPlansZeroState}
-    <EmptyState title={m.plans_empty_hint()}>
+    <EmptyState title={discovery ? m.plans_empty_ledger_hint() : m.plans_empty_hint()}>
       {#snippet action()}
-        <button
-          type="button"
-          onclick={() => resetForm()}
-          class="bg-accent-gradient focus-visible:ring-accent inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] focus-visible:ring-2 focus-visible:outline-none"
-        >
-          <Plus size={16} aria-hidden="true" />
-          {m.plan_form_title_add()}
-        </button>
+        <div class="flex flex-wrap items-center justify-center gap-2">
+          {#if discovery}
+            <a
+              href="/import"
+              class="bg-accent-gradient focus-visible:ring-accent inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-slate-900 focus-visible:ring-2 focus-visible:outline-none"
+            >
+              <Upload size={16} aria-hidden="true" />
+              {m.transactions_empty_import_cta()}
+            </a>
+            <button
+              type="button"
+              class="focus-visible:ring-accent inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+              onclick={() => requestDemoSeedAndTour()}
+            >
+              <Sparkles size={16} aria-hidden="true" />
+              {m.tour_welcome_demo()}
+            </button>
+          {/if}
+          <button
+            type="button"
+            onclick={() => resetForm()}
+            class={discovery
+              ? "focus-visible:ring-accent inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+              : "bg-accent-gradient focus-visible:ring-accent inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] focus-visible:ring-2 focus-visible:outline-none"}
+          >
+            <Plus size={16} aria-hidden="true" />
+            {m.plan_form_title_add()}
+          </button>
+        </div>
       {/snippet}
     </EmptyState>
   {:else}
