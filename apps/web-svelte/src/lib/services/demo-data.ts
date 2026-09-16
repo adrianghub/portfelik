@@ -1,3 +1,4 @@
+import { createExclusiveQueue } from "$lib/concurrency";
 import { fetchCategories } from "$lib/services/categories";
 import { DEMO_PREFIX } from "$lib/services/demo-data-guards";
 import { buildDemoTransactionSeeds } from "$lib/services/demo-scenario";
@@ -75,7 +76,13 @@ export async function clearDemoData(): Promise<{ deleted: number }> {
   return { deleted };
 }
 
+const seedQueue = createExclusiveQueue<{ inserted: number }>();
+
 export async function seedDemoData(): Promise<{ inserted: number }> {
+  return seedQueue.run(seedDemoDataUnlocked);
+}
+
+async function seedDemoDataUnlocked(): Promise<{ inserted: number }> {
   // Idempotent reseed: clear any partial or previous showcase rows first.
   await clearDemoData();
 

@@ -71,7 +71,7 @@
   import { refreshDemoState } from "$lib/services/demo-query-state";
   import { track } from "$lib/analytics";
   import { fetchPlans } from "$lib/services/plans";
-  import { requestDemoSeedAndTour } from "$lib/guided-tour/ui.svelte";
+  import { guidedTourUi, requestDemoSeedAndTour } from "$lib/guided-tour/ui.svelte";
   import { session, requireSessionUserId } from "$lib/auth/session.svelte";
   import { qk } from "$lib/query-keys";
   import { parseScopeFilter, type ScopeFilter } from "$lib/utils/list-view-url";
@@ -1237,6 +1237,7 @@
         showEmptyActions={showTableEmptyActions}
         onemptyadd={openAdd}
         onemptydemo={discovery ? requestDemoSeedAndTour : undefined}
+        emptyDemoDisabled={guidedTourUi.demoBusy}
         bind:selectedIds
         stickyHeaderTop={`calc(var(--app-header-offset) + ${stickyFiltersHeight}px)`}
         onrowclick={(tx) => (sheetTx = tx)}

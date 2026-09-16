@@ -11,6 +11,7 @@
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import { guidedTourStatus } from "$lib/services/guided-tour";
   import { resetGuidedTourForReplay } from "$lib/services/guided-tour-actions";
+  import { guidedTourUi } from "$lib/guided-tour/ui.svelte";
   import {
     canSeedDemo,
     clearDemoData,
@@ -132,9 +133,9 @@
       case "clear":
         return clearDemoMutation.isPending;
       case "load":
-        return !canLoadDemo || seedDemoMutation.isPending;
+        return !canLoadDemo || seedDemoMutation.isPending || guidedTourUi.demoBusy;
       case "load_and_tour":
-        return !canLoadDemo || loadAndTourMutation.isPending;
+        return !canLoadDemo || loadAndTourMutation.isPending || guidedTourUi.demoBusy;
       case "restart_tour":
         return restartTourMutation.isPending;
     }
