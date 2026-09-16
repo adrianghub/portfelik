@@ -9,7 +9,7 @@ import {
 describe("weekly summary notification copy", () => {
   it("uses singular for one active user", () => {
     expect(activeUsersPhrase(1)).toBe("1 aktywna osoba");
-    expect(buildSummaryBody(3, 1)).toBe("Ostatnie 7 dni: 3 transakcje - 1 aktywna osoba.");
+    expect(buildSummaryBody(3, 1)).toBe("Ostatnie 7 dni: 3 transakcje. 1 aktywna osoba.");
   });
 
   it("uses few plural for 2-4 users", () => {

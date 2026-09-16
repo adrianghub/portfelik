@@ -31,7 +31,7 @@ export function transactionsPhrase(count: number): string {
 
 export function buildSummaryBody(txCount: number, userCount: number): string {
   const users = activeUsersPhrase(userCount);
-  return `Ostatnie 7 dni: ${transactionsPhrase(txCount)} - ${users}.`;
+  return `Ostatnie 7 dni: ${transactionsPhrase(txCount)}. ${users}.`;
 }
 
 export function buildSummaryNotificationData({
