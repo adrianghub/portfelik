@@ -1,6 +1,6 @@
 # Polityka prywatności
 
-Ostatnia aktualizacja: 15 lipca 2026
+Ostatnia aktualizacja: 16 września 2026
 
 JakStoimy pomaga prowadzić domowe finanse. Żeby działać, musi przechowywać Twoje
 dane finansowe. Poniżej wyjaśniamy bez prawniczego żargonu: co przechowujemy,
@@ -56,15 +56,17 @@ warstwy.
 
 ## Jak długo je trzymamy
 
-Tak długo, jak masz konto. Gdy usuniesz konto, wszystkie Twoje dane są trwale
-kasowane.
+Tak długo, jak masz konto. Gdy usuniesz konto, kasujemy Twoje prywatne dane
+(transakcje, plany, import, powiadomienia, profil). Wspólne wpisy grupy zostają
+u jej właściciela, już bez Twojego e-maila i nazwy.
 
 ## Twoje dane są Twoje
 
 W **Ustawienia → Profil** możesz w każdej chwili:
 
 - pobrać komplet swoich danych (plik JSON),
-- usunąć konto razem ze wszystkimi danymi.
+- usunąć konto. Prywatne dane znikają. Wspólna historia grupy zostaje u
+  właściciela.
 
 Eksport transakcji do CSV znajdziesz na ekranie Transakcje. Jeśli prowadzisz
 grupę, przed usunięciem konta przekaż ją komuś albo rozwiąż.

@@ -685,9 +685,10 @@ for the full model and threat scope.
 
 **Account**
 
-| RPC                | Auth | Behavior                                                                                                                                                                                                                               |
-| ------------------ | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `delete_account()` | self | Errors if caller still owns a group. Erases private rows and import provenance; transfers group-scoped transactions, plans, and recurring skips to the current group owner; clears departing-user attribution on surviving audit rows. |
+| RPC                 | Auth | Behavior |
+| ------------------- | ---- | -------- |
+| `clear_demo_data()` | self | Deletes tagged showcase rows owned by the caller, untagged occurrences spawned from those templates, and matching reminder notifications. |
+| `delete_account()`  | self | Errors if caller still owns a group. Erases private rows, import provenance, and invitations addressed to the departing user; transfers group-scoped transactions, plans, and recurring skips to the current group owner; clears departing-user attribution on surviving audit rows. |
 
 **Bank import (2)**
 
@@ -714,6 +715,7 @@ for the full model and threat scope.
 | `profiles_role_change_notify`       | profiles                                                                  | AFTER UPDATE OF role  | `notify_on_role_change()`                             |
 | `push_subscriptions_bump_last_used` | push_subscriptions                                                        | BEFORE UPDATE         | `bump_last_used_at()`                                 |
 | `notifications_send_push`           | notifications                                                             | AFTER INSERT          | `trigger_send_push()` (calls `pg_net.http_post`)      |
+| `inherit_demo_flag_from_template`   | `transactions`                                                            | BEFORE INSERT         | Occurrences copy `is_demo` from their template.       |
 | `profiles_role_change_sync`         | profiles                                                                  | AFTER UPDATE OF role  | `trigger_sync_user_role()` (calls `pg_net.http_post`) |
 
 ## Scheduled jobs (`pg_cron`)

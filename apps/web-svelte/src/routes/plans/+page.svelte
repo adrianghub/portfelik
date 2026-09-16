@@ -9,6 +9,7 @@
   import DayPicker from "$lib/components/ui/DayPicker.svelte";
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import Fab from "$lib/components/ui/Fab.svelte";
+  import DemoShowcaseBanner from "$lib/components/onboarding/DemoShowcaseBanner.svelte";
   import * as m from "$lib/paraglide/messages";
   import CategorySelect from "$lib/components/transactions/CategorySelect.svelte";
   import { createCategory, fetchCategories } from "$lib/services/categories";
@@ -75,7 +76,14 @@
   import QueryError from "$lib/components/ui/QueryError.svelte";
   import { computeLedgerSummary } from "$lib/services/transaction-cashflow";
   import { fetchTransactions, fetchTransactionCount } from "$lib/services/transactions";
-  import { fetchDemoProbe, hasDemoData, isDiscoveryLedger } from "$lib/services/demo-data";
+  import {
+    fetchDemoProbe,
+    hasDemoData,
+    isDiscoveryLedger,
+    clearDemoData,
+  } from "$lib/services/demo-data";
+  import { refreshDemoState } from "$lib/services/demo-query-state";
+  import { track } from "$lib/analytics";
   import { requestDemoSeedAndTour } from "$lib/guided-tour/ui.svelte";
   import {
     CASH_FETCH_END_SENTINEL,
@@ -148,6 +156,17 @@
       typeof txCountQuery.data === "number" &&
       isDiscoveryLedger({ demoActive, transactionCount: txCountQuery.data })
   );
+
+  const clearDemoMutation = createSvelteMutation(() => ({
+    mutationFn: clearDemoData,
+    onSuccess: async (result) => {
+      const u = requireSessionUserId();
+      track("demo_cleared", { row_count: result.deleted });
+      await refreshDemoState(queryClient, u);
+      toast.success(m.demo_cleared_toast());
+    },
+    onError: (err) => toastError(err),
+  }));
 
   const groupsQuery = createQuery(() => ({
     queryKey: qk.userGroups(session.userId!),
@@ -756,6 +775,15 @@
   </div>
 
   <p class="text-sm text-slate-400">{m.plans_tagline()}</p>
+
+  {#if demoActive}
+    <DemoShowcaseBanner
+      onclear={async () => {
+        await clearDemoMutation.mutateAsync();
+      }}
+      clearing={clearDemoMutation.isPending}
+    />
+  {/if}
 
   {#if !discovery}
     <div class="grid items-stretch gap-3 lg:grid-cols-12">

@@ -15,6 +15,7 @@
   import TransactionTable from "$lib/components/transactions/TransactionTable.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import SearchModal from "$lib/components/ui/SearchModal.svelte";
+  import DemoShowcaseBanner from "$lib/components/onboarding/DemoShowcaseBanner.svelte";
   import * as m from "$lib/paraglide/messages";
   import {
     CASH_FETCH_END_SENTINEL,
@@ -61,7 +62,14 @@
     materializeOccurrence,
     skipOccurrence,
   } from "$lib/services/recurring-series";
-  import { fetchDemoProbe, hasDemoData, isDiscoveryLedger } from "$lib/services/demo-data";
+  import {
+    fetchDemoProbe,
+    hasDemoData,
+    isDiscoveryLedger,
+    clearDemoData,
+  } from "$lib/services/demo-data";
+  import { refreshDemoState } from "$lib/services/demo-query-state";
+  import { track } from "$lib/analytics";
   import { fetchPlans } from "$lib/services/plans";
   import { requestDemoSeedAndTour } from "$lib/guided-tour/ui.svelte";
   import { session, requireSessionUserId } from "$lib/auth/session.svelte";
@@ -249,6 +257,17 @@
       typeof txCountQuery.data === "number" &&
       isDiscoveryLedger({ demoActive, transactionCount: txCountQuery.data })
   );
+
+  const clearDemoMutation = createMutation(() => ({
+    mutationFn: clearDemoData,
+    onSuccess: async (result) => {
+      const u = requireSessionUserId();
+      track("demo_cleared", { row_count: result.deleted });
+      await refreshDemoState(queryClient, u);
+      toast.success(m.demo_cleared_toast());
+    },
+    onError: (err) => toastError(err),
+  }));
 
   const statusSet = $derived(statusFilter ? new Set(statusFilter.split(",")) : null);
 
@@ -1098,6 +1117,15 @@
       <TransactionDataActions exportDisabled={!accountedTxs?.length} onexport={handleExport} />
     </div>
   </div>
+
+  {#if demoActive}
+    <DemoShowcaseBanner
+      onclear={async () => {
+        await clearDemoMutation.mutateAsync();
+      }}
+      clearing={clearDemoMutation.isPending}
+    />
+  {/if}
 
   <!-- Sticky filter bar -->
   {#if categoriesQuery.data && selectedIds.size === 0}

@@ -78,6 +78,14 @@ test.describe("onboarding hardening", () => {
       route.fulfill({ status: 201, json: { plan_id: "demo-plan-1" } })
     );
 
+    await page.route("**/rest/v1/rpc/clear_demo_data**", (route) => {
+      demoSeeded = false;
+      return route.fulfill({
+        status: 200,
+        json: { deleted: 3, plans: 1, transactions: 1, net_worth_items: 1 },
+      });
+    });
+
     await page.route("**/rest/v1/import_sessions**", (route) =>
       route.fulfill({ status: 200, json: [] })
     );
@@ -204,5 +212,33 @@ test.describe("onboarding hardening", () => {
     await page.goto("/settings?tab=profile");
     await page.getByRole("button", { name: "Wczytaj przykładowy miesiąc" }).click();
     await expect(page.getByText("Przykładowy miesiąc jest gotowy.")).toBeVisible();
+  });
+
+  test("demo banner is on kokpit, transactions, and plans, and clearing it works", async ({
+    page,
+  }) => {
+    await page.goto("/settings?tab=profile");
+    await page.getByRole("button", { name: "Wczytaj przykładowy miesiąc" }).click();
+    await expect(page.getByText("Przykładowy miesiąc jest gotowy.")).toBeVisible();
+
+    await page.goto("/dashboard");
+    await expect(page.getByText("To przykładowy miesiąc. Możesz swobodnie klikać.")).toBeVisible({
+      timeout: 10_000,
+    });
+
+    await page.goto("/transactions");
+    await expect(page.getByText("To przykładowy miesiąc. Możesz swobodnie klikać.")).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByRole("button", { name: "Usuń przykład" })).toBeVisible();
+
+    await page.goto("/plans");
+    await expect(page.getByText("To przykładowy miesiąc. Możesz swobodnie klikać.")).toBeVisible({
+      timeout: 10_000,
+    });
+
+    await page.getByRole("button", { name: "Usuń przykład" }).click();
+    await page.getByRole("button", { name: "Usuń" }).click();
+    await expect(page.getByText("To przykładowy miesiąc. Możesz swobodnie klikać.")).toHaveCount(0);
   });
 });
