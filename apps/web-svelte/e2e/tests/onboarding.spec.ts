@@ -221,23 +221,23 @@ test.describe("onboarding hardening", () => {
     await expect(page.getByText("Przykładowy miesiąc jest gotowy.")).toBeVisible();
 
     await page.goto("/dashboard");
-    await expect(page.getByText("To przykładowy miesiąc. Możesz swobodnie klikać.")).toBeVisible({
+    await expect(page.getByText("To przykładowy miesiąc.")).toBeVisible({
       timeout: 10_000,
     });
 
     await page.goto("/transactions");
-    await expect(page.getByText("To przykładowy miesiąc. Możesz swobodnie klikać.")).toBeVisible({
+    await expect(page.getByText("To przykładowy miesiąc.")).toBeVisible({
       timeout: 10_000,
     });
     await expect(page.getByRole("button", { name: "Usuń przykład" })).toBeVisible();
 
     await page.goto("/plans");
-    await expect(page.getByText("To przykładowy miesiąc. Możesz swobodnie klikać.")).toBeVisible({
+    await expect(page.getByText("To przykładowy miesiąc.")).toBeVisible({
       timeout: 10_000,
     });
 
     await page.getByRole("button", { name: "Usuń przykład" }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Usuń", exact: true }).click();
-    await expect(page.getByText("To przykładowy miesiąc. Możesz swobodnie klikać.")).toHaveCount(0);
+    await expect(page.getByText("To przykładowy miesiąc.")).toHaveCount(0);
   });
 });
