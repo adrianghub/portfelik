@@ -47,8 +47,8 @@
   }));
 
   const matchesQuery = createQuery(() => ({
-    queryKey: uid ? qk.planMatches(uid) : ["user", "", "plan-matches"],
-    queryFn: fetchDashboardPlanMatches,
+    queryKey: uid ? qk.planMatches(uid, groupFilter) : ["user", "", "plan-matches", groupFilter],
+    queryFn: () => fetchDashboardPlanMatches(groupFilter),
     enabled: !!uid,
   }));
 
@@ -81,13 +81,7 @@
         })
   );
 
-  const matches = $derived(
-    (matchesQuery.data ?? []).filter((match) => {
-      if (groupFilter === "all") return true;
-      if (groupFilter === "own") return match.groupId === null;
-      return match.groupId === groupFilter;
-    })
-  );
+  const matches = $derived(matchesQuery.data ?? []);
 
   function snoozeUntilIso(): string {
     const until = new Date();

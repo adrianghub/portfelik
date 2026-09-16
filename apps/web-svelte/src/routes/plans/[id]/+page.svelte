@@ -9,6 +9,7 @@
     fetchPlanProgressSnapshot,
     fetchSuggestionCount,
     fetchRankedEligibleTransactions,
+    fetchDismissedTransactionIds,
     linkPlanTransaction,
     unlinkPlanTransaction,
     suggestPlanContribution,
@@ -109,6 +110,12 @@
     enabled: () => !!session.userId && !!id,
   }));
 
+  const dismissedQuery = createQuery(() => ({
+    queryKey: qk.planDismissed(session.userId!, id),
+    queryFn: () => fetchDismissedTransactionIds(id),
+    enabled: () => !!session.userId && !!id,
+  }));
+
   const progressSnapshotQuery = createQuery(() => ({
     queryKey: qk.planProgressList(session.userId!, id, "snapshot"),
     queryFn: () => fetchPlanProgressSnapshot(id),
@@ -204,6 +211,7 @@
             limit: PLAN_DETAIL_MATCH_LIMIT,
             maxPerPlan: PLAN_DETAIL_MATCH_LIMIT,
             minRank: "medium",
+            excludeTxIds: dismissedQuery.data ?? [],
           }
         )
       : []

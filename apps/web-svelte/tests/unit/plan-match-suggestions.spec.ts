@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   pickTopPlanMatches,
+  planMatchesGroupFilter,
   type RankedPlanBucket,
 } from "$lib/services/plan-match-suggestions";
 import type { RankedTransaction } from "$lib/services/plan-settlement";
@@ -125,5 +126,74 @@ describe("pickTopPlanMatches", () => {
     );
 
     expect(picked.map((row) => row.tx.id)).toEqual(["hi", "med"]);
+  });
+
+  it("selects each transaction at most once across plans", () => {
+    const shared = tx({ id: "shared", description: "Biedronka" });
+    const picked = pickTopPlanMatches(
+      [
+        bucket({
+          planId: "p1",
+          planName: "A",
+          ranked: [ranked({ rankLabel: "high", score: 90, tx: shared })],
+        }),
+        bucket({
+          planId: "p2",
+          planName: "B",
+          ranked: [
+            ranked({ rankLabel: "high", score: 88, tx: shared }),
+            ranked({ rankLabel: "high", score: 80, tx: tx({ id: "other" }) }),
+          ],
+        }),
+      ],
+      { limit: 2, maxPerPlan: 1 }
+    );
+
+    expect(picked.map((row) => `${row.planId}:${row.tx.id}`)).toEqual(["p1:shared", "p2:other"]);
+  });
+
+  it("drops persisted dismissals before ranking the preview", () => {
+    const picked = pickTopPlanMatches(
+      [
+        bucket({
+          ranked: [
+            ranked({ rankLabel: "high", score: 90, tx: tx({ id: "dismissed" }) }),
+            ranked({ rankLabel: "medium", score: 50, tx: tx({ id: "next" }) }),
+          ],
+        }),
+      ],
+      { limit: 2, maxPerPlan: 2, minRank: "medium", excludeTxIds: ["dismissed"] }
+    );
+
+    expect(picked.map((row) => row.tx.id)).toEqual(["next"]);
+  });
+});
+
+describe("planMatchesGroupFilter", () => {
+  it("keeps own-scope candidates before the dashboard cap", () => {
+    const own = bucket({
+      planId: "own",
+      groupId: null,
+      ranked: [ranked({ rankLabel: "high", score: 80, tx: tx({ id: "own-tx" }) })],
+    });
+    const groupA = bucket({
+      planId: "g1",
+      groupId: "group-1",
+      ranked: [ranked({ rankLabel: "high", score: 99, tx: tx({ id: "g1-tx" }) })],
+    });
+    const groupB = bucket({
+      planId: "g2",
+      groupId: "group-1",
+      ranked: [ranked({ rankLabel: "high", score: 98, tx: tx({ id: "g2-tx" }) })],
+    });
+
+    const global = pickTopPlanMatches([own, groupA, groupB], { limit: 2, maxPerPlan: 1 });
+    expect(global.map((row) => row.planId)).toEqual(["g1", "g2"]);
+
+    const scoped = pickTopPlanMatches(
+      [own, groupA, groupB].filter((plan) => planMatchesGroupFilter(plan, "own")),
+      { limit: 2, maxPerPlan: 1 }
+    );
+    expect(scoped.map((row) => row.planId)).toEqual(["own"]);
   });
 });

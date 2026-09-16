@@ -28,6 +28,7 @@
       queryClient.invalidateQueries({ queryKey: qk.planDismissed(userId, planId) }),
       queryClient.invalidateQueries({ queryKey: qk.planSuggestionCount(userId, planId) }),
       queryClient.invalidateQueries({ queryKey: qk.planProgress(userId) }),
+      queryClient.invalidateQueries({ queryKey: qk.planProgressList(userId) }),
       queryClient.invalidateQueries({ queryKey: qk.planMatches(userId) }),
       queryClient.invalidateQueries({ queryKey: qk.plans(userId) }),
     ]);
@@ -57,7 +58,7 @@
 </script>
 
 <ul class="space-y-1.5">
-  {#each matches as match (match.tx.id)}
+  {#each matches as match (`${match.planId}:${match.tx.id}`)}
     <li class="rounded-xl border border-white/5 bg-slate-950/40 px-3 py-2.5">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
