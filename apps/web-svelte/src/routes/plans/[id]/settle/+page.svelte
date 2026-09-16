@@ -82,9 +82,11 @@
       dismissed.add(txId);
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: qk.planDismissed(requireSessionUserId(), id),
-      });
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.planDismissed(u, id) });
+      await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planSuggestionCount(u, id) });
     },
     onError: (_err, txId) => {
       dismissed.delete(txId);
@@ -149,6 +151,7 @@
       await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
       await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planDebtTerms(u, id) });
+      await queryClient.invalidateQueries({ queryKey: qk.planDebtTermsList(u) });
       try {
         await warnIfPreAnchorLink(txId);
       } catch {

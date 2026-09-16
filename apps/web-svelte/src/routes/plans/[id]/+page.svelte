@@ -345,7 +345,9 @@
     onSuccess: async () => {
       const u = requireSessionUserId();
       await queryClient.invalidateQueries({ queryKey: qk.planLinks(u, id) });
+      await queryClient.invalidateQueries({ queryKey: qk.planRanked(u, id) });
       await queryClient.invalidateQueries({ queryKey: qk.planEligible(u, id) });
+      await queryClient.invalidateQueries({ queryKey: qk.planSuggestionCount(u, id) });
       await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });

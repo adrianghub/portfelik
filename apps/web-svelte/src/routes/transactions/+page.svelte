@@ -667,6 +667,8 @@
         queryKey: qk.transactions.list(u, "recurring-skips"),
       });
       await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
       toast.success(m.toast_transaction_deleted());
       deleteTargetId = null;
     },
@@ -749,6 +751,8 @@
       await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
       await queryClient.invalidateQueries({ queryKey: qk.transactions.list(u, "recurring-skips") });
       await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
       toast.success(m.toast_transactions_bulk_deleted({ count: affected }));
       selectedIds = new Set<string>();
       bulkDeleteConfirm = false;

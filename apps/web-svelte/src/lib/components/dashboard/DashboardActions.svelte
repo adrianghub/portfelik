@@ -66,9 +66,14 @@
   );
 
   const isPending = $derived(
-    overdueState === "pending" || planProgressQuery.isPending || dismissalsQuery.isPending
+    overdueState === "pending" ||
+      planProgressQuery.isPending ||
+      dismissalsQuery.isPending ||
+      matchesQuery.isPending
   );
-  const isError = $derived(overdueState === "error" || planProgressQuery.isError);
+  const isError = $derived(
+    overdueState === "error" || planProgressQuery.isError || matchesQuery.isError
+  );
 
   const actions = $derived(
     dismissalsQuery.isPending
