@@ -15,7 +15,12 @@ CI is the path testers should get after a production promotion.
    keystore, and calls the Play Android Publisher API (`track: internal`).
 3. The AAB is also stored as a GitHub Actions artifact for 14 days.
 
-Re-run without a web deploy: Actions → **Deploy Play Internal** → Run workflow.
+Re-run without a web deploy: Actions → **Deploy Play Internal** → Run workflow
+from `main` only. A dispatch from `dev` or a feature branch is rejected so
+Production secrets never sign an unpromoted snapshot.
+
+The upload commits the Play edit (`changesNotSentForReview: false`) so Internal
+testers receive the new `versionCode` without a manual Console submit.
 
 Play still requires a **new `versionCode`** for every upload. Bump
 `apps/web-svelte/android/app/build.gradle` in the PR that should reach testers.

@@ -21,8 +21,9 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          token: ${{ secrets.SYNC_DEV_TOKEN || github.token }}
 
       - name: Reconcile origin/dev
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.SYNC_DEV_TOKEN || github.token }}
         run: bash ./scripts/sync-dev.sh --push
