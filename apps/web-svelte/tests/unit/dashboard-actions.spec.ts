@@ -138,4 +138,21 @@ describe("buildDashboardActions", () => {
 
     expect(actions.map((action) => action.kind)).toEqual(["overdue", "save_shortfall"]);
   });
+
+  it("hides actions whose ids are in dismissedKeys", () => {
+    const actions = buildDashboardActions({
+      groupFilter: "own",
+      dismissedKeys: ["overdue"],
+      overdue: {
+        count: 1,
+        total: 100,
+        oldestDays: 3,
+        startDate: "2026-08-01",
+        endDate: "2026-08-31",
+      },
+      plans: [plan({ monthlyNeeded: 1000, monthlyActual: 0 })],
+    });
+
+    expect(actions.map((action) => action.id)).toEqual(["save-p1"]);
+  });
 });

@@ -37,6 +37,24 @@ test.beforeEach(async ({ page }) => {
   await mockTransactions(page, [OVERDUE_TX]);
 });
 
+test("hides an overdue action and can undo from the toast", async ({ page }) => {
+  await page.goto("/dashboard");
+
+  const panel = page.getByRole("region", { name: "Do zrobienia teraz" });
+  const action = panel.getByRole("link", { name: /Zaległe płatności/ });
+  await expect(action).toBeVisible();
+
+  await panel
+    .getByRole("listitem")
+    .filter({ hasText: /Zaległe płatności/ })
+    .getByRole("button", { name: "Ukryj" })
+    .click();
+  await expect(action).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Cofnij" }).click();
+  await expect(panel.getByRole("link", { name: /Zaległe płatności/ })).toBeVisible();
+});
+
 test("shows overdue scale and deep-links to the exact resolution view", async ({ page }) => {
   await page.goto("/dashboard");
 

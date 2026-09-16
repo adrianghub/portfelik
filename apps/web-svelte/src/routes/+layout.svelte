@@ -21,12 +21,14 @@
   import { setupNotificationSync } from "$lib/services/notification-sync";
   import {
     autoSubscribePush,
+    canUseWebPush,
     detachLocalPushSubscription,
     registerServiceWorker,
     requestAndSubscribePush,
     shouldDeferBrowserPush,
   } from "$lib/services/push";
   import { registerNativeAuthDeepLinkHandler } from "$lib/services/native-auth";
+  import { registerNativeBackButtonHandler } from "$lib/services/native-back";
   import { requireAuthUser } from "$lib/auth/require-user";
   import { setSessionUser } from "$lib/auth/session.svelte";
   import { supabase } from "$lib/supabase";
@@ -87,6 +89,7 @@
       typeof window !== "undefined" &&
       "Notification" in window &&
       !pushPromptedRecently &&
+      canUseWebPush() &&
       !shouldDeferBrowserPush()
   );
 
@@ -175,8 +178,12 @@
     readPushPromptCooldown();
 
     let removeNativeAuthDeepLink: (() => void) | undefined;
+    let removeNativeBack: (() => void) | undefined;
     void registerNativeAuthDeepLinkHandler().then((remove) => {
       removeNativeAuthDeepLink = remove;
+    });
+    void registerNativeBackButtonHandler().then((remove) => {
+      removeNativeBack = remove;
     });
 
     const teardownNotificationSync = setupNotificationSync(queryClient, (payload) => {
@@ -275,6 +282,7 @@
 
     return () => {
       removeNativeAuthDeepLink?.();
+      removeNativeBack?.();
       teardownNotificationSync();
       unsubscribeProfileCache();
       navigator.serviceWorker?.removeEventListener("message", onServiceWorkerNavigate);

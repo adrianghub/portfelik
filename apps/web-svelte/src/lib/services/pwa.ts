@@ -44,6 +44,16 @@ export function shouldDeferBrowserPush(): boolean {
   return isMobileUserAgent() && !isInstalledClient();
 }
 
+/**
+ * Web Push / VAPID is for browsers and installed PWAs. Android WebView does not
+ * deliver OS banners this way — native stays on the in-app notification inbox.
+ */
+export function canUseWebPush(): boolean {
+  if (typeof window === "undefined") return false;
+  if (isNativeCapacitor()) return false;
+  return "PushManager" in window && "serviceWorker" in navigator;
+}
+
 export const PWA_INSTALL_PROMPT_KEY = "pwa_install_prompted_at";
 
 export function clearInstallPromptCooldown(): void {

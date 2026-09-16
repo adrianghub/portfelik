@@ -16,6 +16,7 @@
   import { toastError } from "$lib/toast-error";
   import { requireSessionUserId, session } from "$lib/auth/session.svelte";
   import { qk } from "$lib/query-keys";
+  import { registerNativeOverlayCloser } from "$lib/services/native-overlay";
 
   interface Props {
     transaction: TransactionWithCategory | null;
@@ -175,6 +176,11 @@
     void transaction?.id;
     openScope = null;
     selectedPlanId = "";
+  });
+
+  $effect(() => {
+    if (!transaction) return;
+    return registerNativeOverlayCloser(() => onclose());
   });
 </script>
 

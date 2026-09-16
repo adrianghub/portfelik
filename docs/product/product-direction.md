@@ -57,6 +57,10 @@ This is the product contract:
 > intent. Settlement connects reality to intent. Kokpit shows financial
 > condition.
 
+Web, the installed PWA, and Android (Capacitor, `pl.jakstoimy.app`) share this
+spine. Public V1 stays invite-only (`max_user_cap`). Native is the same product
+in a WebView, not a second information architecture.
+
 ## Import Posture
 
 Bank data is the preferred source of transaction truth. Import must be fast by

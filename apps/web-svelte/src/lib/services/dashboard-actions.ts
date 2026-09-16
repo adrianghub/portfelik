@@ -44,6 +44,8 @@ export interface BuildDashboardActionsInput {
   overdue: OverdueAttentionSummary | null;
   plans: AttentionPlan[];
   groupFilter: ScopeFilter;
+  /** Stable action ids currently hidden (permanent dismiss or active snooze). */
+  dismissedKeys?: Iterable<string>;
 }
 
 function matchesScope(plan: AttentionPlan, scope: ScopeFilter): boolean {
@@ -67,6 +69,7 @@ function planHref(planId: string, scope: ScopeFilter): string {
 }
 
 export function buildDashboardActions(input: BuildDashboardActionsInput): DashboardAction[] {
+  const dismissed = new Set(input.dismissedKeys ?? []);
   const actions: DashboardAction[] = [];
 
   if (input.overdue && input.overdue.count > 0) {
@@ -100,5 +103,5 @@ export function buildDashboardActions(input: BuildDashboardActionsInput): Dashbo
     });
   }
 
-  return actions;
+  return actions.filter((action) => !dismissed.has(action.id));
 }

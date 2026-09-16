@@ -1,10 +1,15 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
-  import { createQuery } from "@tanstack/svelte-query";
+  import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { session } from "$lib/auth/session.svelte";
   import { qk } from "$lib/query-keys";
-  import { ChevronRight } from "lucide-svelte";
+  import { ChevronRight, X } from "lucide-svelte";
   import { fetchDashboardPlanProgress } from "$lib/services/plan-settlement";
+  import {
+    dismissAction,
+    fetchActiveDismissedKeys,
+    undismissAction,
+  } from "$lib/services/action-dismissals";
   import {
     buildDashboardActions,
     type AttentionPlan,
@@ -13,6 +18,7 @@
   } from "$lib/services/dashboard-actions";
   import type { ScopeFilter } from "$lib/utils/list-view-url";
   import { cn } from "$lib/utils";
+  import { toast } from "svelte-sonner";
 
   type LoadState = "pending" | "error" | "success";
 
@@ -23,10 +29,18 @@
   }
   let { groupFilter, overdue, overdueState }: Props = $props();
 
+  const queryClient = useQueryClient();
   const uid = $derived(session.userId);
+
   const planProgressQuery = createQuery(() => ({
     queryKey: uid ? qk.planProgress(uid) : ["user", "", "plan-progress"],
     queryFn: () => fetchDashboardPlanProgress(),
+    enabled: !!uid,
+  }));
+
+  const dismissalsQuery = createQuery(() => ({
+    queryKey: uid ? qk.actionDismissals(uid) : ["user", "", "action-dismissals"],
+    queryFn: fetchActiveDismissedKeys,
     enabled: !!uid,
   }));
 
@@ -43,9 +57,51 @@
     }))
   );
 
-  const actions = $derived(buildDashboardActions({ overdue, plans, groupFilter }));
-  const isPending = $derived(overdueState === "pending" || planProgressQuery.isPending);
+  const isPending = $derived(
+    overdueState === "pending" || planProgressQuery.isPending || dismissalsQuery.isPending
+  );
   const isError = $derived(overdueState === "error" || planProgressQuery.isError);
+
+  const actions = $derived(
+    dismissalsQuery.isPending
+      ? []
+      : buildDashboardActions({
+          overdue,
+          plans,
+          groupFilter,
+          dismissedKeys: dismissalsQuery.data,
+        })
+  );
+
+  function snoozeUntilIso(): string {
+    const until = new Date();
+    until.setDate(until.getDate() + 7);
+    return until.toISOString();
+  }
+
+  const hideMutation = createMutation(() => ({
+    mutationFn: (actionId: string) => dismissAction(actionId, snoozeUntilIso()),
+    onSuccess: async (_data, actionId) => {
+      if (uid) {
+        await queryClient.invalidateQueries({ queryKey: qk.actionDismissals(uid) });
+      }
+      toast.success(m.dashboard_task_hidden(), {
+        action: {
+          label: m.common_undo(),
+          onClick: () => undoMutation.mutate(actionId),
+        },
+      });
+    },
+  }));
+
+  const undoMutation = createMutation(() => ({
+    mutationFn: (actionId: string) => undismissAction(actionId),
+    onSuccess: async () => {
+      if (uid) {
+        await queryClient.invalidateQueries({ queryKey: qk.actionDismissals(uid) });
+      }
+    },
+  }));
 
   const toneClass: Record<DashboardActionTone, string> = {
     warn: "border-amber-500/30 bg-amber-500/10 text-amber-100 hover:bg-amber-500/15",
@@ -67,10 +123,10 @@
     {#if actions.length > 0}
       <ul class="mt-2.5 min-w-0 space-y-1.5">
         {#each actions as action (action.id)}
-          <li class={cn("min-w-0 overflow-hidden rounded-xl border", toneClass[action.tone])}>
+          <li class={cn("flex min-w-0 overflow-hidden rounded-xl border", toneClass[action.tone])}>
             <a
               href={action.href}
-              class="focus-visible:ring-accent flex min-w-0 items-center gap-3 px-3 py-2.5 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
+              class="focus-visible:ring-accent flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
             >
               <span class="min-w-0 flex-1">
                 <span class="block font-medium">{action.title}</span>
@@ -78,6 +134,15 @@
               </span>
               <ChevronRight size={16} class="shrink-0 opacity-70" aria-hidden="true" />
             </a>
+            <button
+              type="button"
+              class="focus-visible:ring-accent shrink-0 px-3 text-current/70 transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:outline-none"
+              aria-label={m.dashboard_task_hide()}
+              disabled={hideMutation.isPending}
+              onclick={() => hideMutation.mutate(action.id)}
+            >
+              <X size={16} aria-hidden="true" />
+            </button>
           </li>
         {/each}
       </ul>

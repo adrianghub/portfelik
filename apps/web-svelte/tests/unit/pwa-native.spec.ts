@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  canUseWebPush,
   isInstalledClient,
   isNativeCapacitor,
   shouldDeferBrowserPush,
@@ -31,5 +32,15 @@ describe("pwa native detection", () => {
       userAgent: "Mozilla/5.0 (Linux; Android 14) Mobile",
     });
     expect(shouldDeferBrowserPush()).toBe(false);
+  });
+
+  it("does not offer Web Push inside the native WebView", () => {
+    stubWindow({ isNativePlatform: () => true });
+    vi.stubGlobal("navigator", {
+      userAgent: "Mozilla/5.0 (Linux; Android 14) Mobile",
+      serviceWorker: {},
+    });
+    vi.stubGlobal("PushManager", function PushManager() {});
+    expect(canUseWebPush()).toBe(false);
   });
 });

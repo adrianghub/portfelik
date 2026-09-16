@@ -34,6 +34,7 @@
   import { createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { session, requireSessionUserId } from "$lib/auth/session.svelte";
   import { qk } from "$lib/query-keys";
+  import { registerNativeOverlayCloser } from "$lib/services/native-overlay";
   interface Props {
     profile: Profile | null;
     userId: string | null;
@@ -265,6 +266,21 @@
     running = false;
     showExit = false;
   }
+
+  let tourBackGen = $state(0);
+
+  $effect(() => {
+    if (!running) return;
+    void tourBackGen;
+    return registerNativeOverlayCloser(() => {
+      if (showExit || sceneIndex <= 0) {
+        void handleSkip();
+        return;
+      }
+      void handleBack();
+      tourBackGen += 1;
+    });
+  });
 </script>
 
 <WelcomeTourDialog

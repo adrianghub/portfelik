@@ -1,6 +1,7 @@
 # System Overview
 
-Portfelik is a static SvelteKit PWA backed by Supabase. The product direction is
+Portfelik is a static SvelteKit PWA backed by Supabase. Android wraps that same
+build in a Capacitor WebView (`pl.jakstoimy.app`). The product direction is
 import-first: bank files feed the transaction ledger, plans describe future
 intent, and settlement connects plans with real transactions.
 
@@ -8,7 +9,7 @@ intent, and settlement connects plans with real transactions.
 
 ```mermaid
 flowchart LR
-  user([User browser / PWA])
+  user([Browser / PWA / Android])
 
   subgraph cf[Cloudflare]
     pages[Cloudflare Pages]
@@ -34,9 +35,9 @@ flowchart LR
   vault --> ef
 ```
 
-There is no application server. The SvelteKit build is static; browser code
-uses Supabase directly. Authorization is enforced in Postgres RLS and
-SECURITY DEFINER RPCs.
+There is no application server. The SvelteKit build is static; browser and
+native WebView code uses Supabase directly. Authorization is enforced in
+Postgres RLS and SECURITY DEFINER RPCs.
 
 ## Product Modules
 
