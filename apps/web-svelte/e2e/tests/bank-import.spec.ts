@@ -503,7 +503,7 @@ test("import wizard: commits a fully-categorized statement in one click (no per-
 
   const summary = page.getByTestId("import-review-summary");
   await expect(summary).toBeVisible({ timeout: 10_000 });
-  await expect(summary).toContainText(/wejdzie bez pytania/);
+  await expect(summary).toContainText(/gotowych/);
   await expect(page.getByRole("button", { name: /Pokaż wszystkie/ })).toBeVisible();
   await expect(page.getByRole("table")).toHaveCount(0);
 
@@ -854,7 +854,7 @@ test.describe("import review on a phone", () => {
 
     const summary = page.getByTestId("import-review-summary");
     await expect(summary).toBeVisible({ timeout: 10_000 });
-    await expect(summary).toContainText(/wejdzie bez pytania/);
+    await expect(summary).toContainText(/gotowych/);
     await expect(page.getByRole("button", { name: /Pokaż wszystkie/ })).toBeVisible();
     await expect(page.getByRole("table")).toHaveCount(0);
     await expect(page.locator("ul").getByText("BIEDRONKA")).toHaveCount(0);

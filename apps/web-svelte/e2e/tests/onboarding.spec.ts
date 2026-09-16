@@ -121,7 +121,7 @@ test.describe("onboarding hardening", () => {
 
   test("empty dashboard hides the financial grid until demo or import", async ({ page }) => {
     await page.goto("/dashboard");
-    await expect(page.getByRole("heading", { name: "Tu pojawi się Twój miesiąc" })).toBeVisible({
+    await expect(page.getByRole("heading", { name: "Brak transakcji" })).toBeVisible({
       timeout: 10_000,
     });
     await expect(page.getByRole("link", { name: "Kokpit" }).first()).toBeVisible();
@@ -147,7 +147,7 @@ test.describe("onboarding hardening", () => {
     await welcome.getByRole("button", { name: "Zamknij" }).click();
     await expect(welcome).toBeHidden();
     await expect(page).toHaveURL(/dashboard/);
-    await expect(page.getByRole("heading", { name: "Tu pojawi się Twój miesiąc" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Brak transakcji" })).toBeVisible();
     await expect(page.locator("[data-tour-id=tour-balance-ring]")).toHaveCount(0);
   });
 
@@ -160,11 +160,10 @@ test.describe("onboarding hardening", () => {
     await expect(page.getByRole("button", { name: "Wczytaj przykładowy miesiąc" })).toBeVisible();
 
     await page.goto("/plans");
-    await expect(
-      page.getByRole("heading", {
-        name: "Najpierw wgraj wyciąg albo wczytaj przykład. Potem dodasz cel albo kredyt.",
-      })
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("heading", { name: "Brak planów" })).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByText("Najpierw importuj wyciąg albo wczytaj przykład.")).toBeVisible();
     await expect(page.getByRole("link", { name: "Importuj wyciąg" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Wczytaj przykładowy miesiąc" })).toBeVisible();
   });
@@ -222,23 +221,23 @@ test.describe("onboarding hardening", () => {
     await expect(page.getByText("Przykładowy miesiąc jest gotowy.")).toBeVisible();
 
     await page.goto("/dashboard");
-    await expect(page.getByText("To przykładowy miesiąc. Możesz swobodnie klikać.")).toBeVisible({
+    await expect(page.getByText("To przykładowy miesiąc.")).toBeVisible({
       timeout: 10_000,
     });
 
     await page.goto("/transactions");
-    await expect(page.getByText("To przykładowy miesiąc. Możesz swobodnie klikać.")).toBeVisible({
+    await expect(page.getByText("To przykładowy miesiąc.")).toBeVisible({
       timeout: 10_000,
     });
     await expect(page.getByRole("button", { name: "Usuń przykład" })).toBeVisible();
 
     await page.goto("/plans");
-    await expect(page.getByText("To przykładowy miesiąc. Możesz swobodnie klikać.")).toBeVisible({
+    await expect(page.getByText("To przykładowy miesiąc.")).toBeVisible({
       timeout: 10_000,
     });
 
     await page.getByRole("button", { name: "Usuń przykład" }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Usuń", exact: true }).click();
-    await expect(page.getByText("To przykładowy miesiąc. Możesz swobodnie klikać.")).toHaveCount(0);
+    await expect(page.getByText("To przykładowy miesiąc.")).toHaveCount(0);
   });
 });
