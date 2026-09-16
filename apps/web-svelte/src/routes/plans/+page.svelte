@@ -69,7 +69,7 @@
     createQuery,
     useQueryClient,
   } from "@tanstack/svelte-query";
-  import { Plus, Sparkles, Trash2, Upload } from "lucide-svelte";
+  import { Plus, Trash2, Upload } from "lucide-svelte";
   import { toast } from "svelte-sonner";
   import { toastError } from "$lib/toast-error";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
@@ -818,7 +818,10 @@
   {:else if plansQuery.isError}
     <QueryError error={plansQuery.error} onRetry={() => plansQuery.refetch()} />
   {:else if showPlansZeroState}
-    <EmptyState title={discovery ? m.plans_empty_ledger_hint() : m.plans_empty_hint()}>
+    <EmptyState
+      title={discovery ? m.plans_empty_title() : m.plans_empty_hint()}
+      body={discovery ? m.plans_empty_ledger_hint() : undefined}
+    >
       {#snippet action()}
         <div class="flex flex-wrap items-center justify-center gap-2">
           {#if discovery}
@@ -835,7 +838,6 @@
               disabled={guidedTourUi.demoBusy}
               onclick={() => requestDemoSeedAndTour()}
             >
-              <Sparkles size={16} aria-hidden="true" />
               {m.tour_welcome_demo()}
             </button>
           {/if}

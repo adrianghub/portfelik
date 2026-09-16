@@ -40,7 +40,7 @@ test.beforeEach(async ({ page }) => {
 test("hides an overdue action and can undo from the toast", async ({ page }) => {
   await page.goto("/dashboard");
 
-  const panel = page.getByRole("region", { name: "Do zrobienia teraz" });
+  const panel = page.getByRole("region", { name: "Do sprawdzenia" });
   const action = panel.getByRole("link", { name: /Zaległe płatności/ });
   await expect(action).toBeVisible();
 
@@ -58,7 +58,7 @@ test("hides an overdue action and can undo from the toast", async ({ page }) => 
 test("shows overdue scale and deep-links to the exact resolution view", async ({ page }) => {
   await page.goto("/dashboard");
 
-  const panel = page.getByRole("region", { name: "Do zrobienia teraz" });
+  const panel = page.getByRole("region", { name: "Do sprawdzenia" });
   const action = panel.getByRole("link", { name: /Zaległe płatności/ });
   await expect(action).toBeVisible();
   await expect(action).toContainText("100,00 zł");
@@ -88,7 +88,7 @@ test("keeps an old overdue payment actionable outside the chart history", async 
   await page.goto("/dashboard");
 
   const action = page
-    .getByRole("region", { name: "Do zrobienia teraz" })
+    .getByRole("region", { name: "Do sprawdzenia" })
     .getByRole("link", { name: /Zaległe płatności/ });
   await expect(action).toBeVisible();
   await expect(action).toContainText(/Najstarsza od 240 dni/);
@@ -148,7 +148,7 @@ test("does not render an attention panel when there is no concrete action", asyn
   await page.goto("/dashboard");
   await Promise.all([overdueLoaded, plansLoaded]);
 
-  await expect(page.getByRole("region", { name: "Do zrobienia teraz" })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Do sprawdzenia" })).toHaveCount(0);
   await expect(page.getByText("Nic nie wymaga uwagi")).toHaveCount(0);
 });
 
@@ -156,7 +156,7 @@ test("preserves the selected scope in an overdue deep link", async ({ page }) =>
   await page.goto("/dashboard?group=all");
 
   const action = page
-    .getByRole("region", { name: "Do zrobienia teraz" })
+    .getByRole("region", { name: "Do sprawdzenia" })
     .getByRole("link", { name: /Zaległe płatności/ });
   const href = await action.getAttribute("href");
   expect(new URL(href!, "http://localhost").searchParams.get("group")).toBe("all");
@@ -169,7 +169,7 @@ test("shows an explicit error instead of a healthy empty state", async ({ page }
   );
   await page.goto("/dashboard");
 
-  const panel = page.getByRole("region", { name: "Do zrobienia teraz" });
+  const panel = page.getByRole("region", { name: "Do sprawdzenia" });
   // Global query policy retries failed reads twice. Under the full six-worker
   // suite that retry window can exceed Playwright's 5 s assertion default.
   await expect(panel).toContainText("Nie udało się sprawdzić wszystkich rzeczy do zrobienia.", {

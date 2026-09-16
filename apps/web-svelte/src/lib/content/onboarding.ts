@@ -98,11 +98,6 @@ export function onboardingWelcomeCopy() {
     body: m.tour_welcome_body(),
     demo: m.tour_welcome_demo(),
     skip: m.tour_welcome_import(),
-    points: [
-      m.tour_welcome_point_control(),
-      m.tour_welcome_point_plans(),
-      m.tour_welcome_point_calm(),
-    ],
   };
 }
 

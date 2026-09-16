@@ -145,7 +145,7 @@ test("private scope without an anchor: strip prompts to set a balance", async ({
 
   await expect(desktopTable(page).getByText("Wydatek gotówkowy")).toBeVisible();
   // Strip still renders, but as a prompt — no fabricated total.
-  await expect(strip(page).getByText(/Kliknij, żeby ustawić saldo początkowe/)).toBeVisible();
+  await expect(strip(page).getByText(/Ustaw saldo początkowe/)).toBeVisible();
 });
 
 test("private scope: strip opens edit sheet with anchor fields", async ({ page }) => {
