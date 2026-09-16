@@ -74,16 +74,7 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: |
-          printf '%s' "$ANDROID_UPLOAD_KEYSTORE_BASE64" | base64 -d > android/upload-keystore.jks
-          umask 077
-          {
-            printf 'storeFile=upload-keystore.jks\n'
-            printf 'storePassword=%s\n' "$ANDROID_KEYSTORE_PASSWORD"
-            printf 'keyAlias=%s\n' "$ANDROID_KEY_ALIAS"
-            printf 'keyPassword=%s\n' "$ANDROID_KEY_PASSWORD"
-          } > android/keystore.properties
-          chmod 600 android/upload-keystore.jks android/keystore.properties
+        run: bash ./scripts/write-ci-keystore.sh
 
       - name: Build signed AAB
         working-directory: apps/web-svelte
