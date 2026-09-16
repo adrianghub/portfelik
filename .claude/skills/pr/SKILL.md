@@ -20,4 +20,7 @@ bash scripts/open-pr.sh $ARGUMENTS
 - Existing open PRs for the branch are updated in place.
 - On success, report the PR URL.
 - On gate failure, report the failing gate and detail.
+- After a `dev` → `main` production PR merges, do not open a hand-rolled sync PR.
+  `.github/workflows/sync-dev.yml` fast-forwards `dev`. If it failed, run
+  `./scripts/sync-dev.sh --push`.
 - Do not hand-fill `.github/pull_request_template.md`, hand-write the PR body, or bypass gates.

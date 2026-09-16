@@ -30,7 +30,7 @@ git fetch origin main dev
 if ! git merge-base --is-ancestor origin/main origin/dev; then
   if git merge-base --is-ancestor origin/dev origin/main; then
     echo "Refuse: dev is behind main." >&2
-    echo "Run ./scripts/sync-dev.sh --push, then start work again." >&2
+    echo "Wait for the Sync dev from main workflow, or run ./scripts/sync-dev.sh --push, then start work again." >&2
   else
     echo "Refuse: origin/main and origin/dev diverged. Resolve them through a reviewed PR." >&2
   fi
