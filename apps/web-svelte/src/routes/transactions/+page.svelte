@@ -40,6 +40,7 @@
     deleteTransaction,
     deleteTransactions,
     fetchTransactionById,
+    fetchTransactionCount,
     fetchRecurringTemplates,
     fetchTransactions,
     updateTransactionsCategory,
@@ -60,6 +61,9 @@
     materializeOccurrence,
     skipOccurrence,
   } from "$lib/services/recurring-series";
+  import { fetchDemoProbe, hasDemoData, isDiscoveryLedger } from "$lib/services/demo-data";
+  import { fetchPlans } from "$lib/services/plans";
+  import { requestDemoSeedAndTour } from "$lib/guided-tour/ui.svelte";
   import { session, requireSessionUserId } from "$lib/auth/session.svelte";
   import { qk } from "$lib/query-keys";
   import { parseScopeFilter, type ScopeFilter } from "$lib/utils/list-view-url";
@@ -209,6 +213,42 @@
     queryFn: () => fetchTransactions(bounds.start, bounds.end, categoryId),
     enabled: () => !!session.userId,
   }));
+
+  const demoProbeQuery = createQuery(() => ({
+    queryKey: qk.transactions.list(session.userId!, "demo-probe"),
+    queryFn: fetchDemoProbe,
+    enabled: () => !!session.userId,
+    staleTime: 60_000,
+  }));
+
+  const plansQuery = createQuery(() => ({
+    queryKey: qk.plans(session.userId!),
+    queryFn: fetchPlans,
+    enabled: () => !!session.userId,
+  }));
+
+  const txCountQuery = createQuery(() => ({
+    queryKey: qk.transactions.list(session.userId!, "all-time-count"),
+    queryFn: fetchTransactionCount,
+    enabled: () => !!session.userId,
+    staleTime: 60_000,
+  }));
+
+  const demoActive = $derived(
+    hasDemoData({
+      transactions: demoProbeQuery.data?.transactions ?? [],
+      plans: plansQuery.data ?? [],
+      netWorthItems: demoProbeQuery.data?.netWorthItems ?? [],
+    })
+  );
+
+  const discovery = $derived(
+    txCountQuery.isFetched &&
+      demoProbeQuery.isFetched &&
+      plansQuery.isFetched &&
+      typeof txCountQuery.data === "number" &&
+      isDiscoveryLedger({ demoActive, transactionCount: txCountQuery.data })
+  );
 
   const statusSet = $derived(statusFilter ? new Set(statusFilter.split(",")) : null);
 
@@ -447,6 +487,7 @@
     if ((displayTxs?.length ?? 0) === 0 && base.length > 0) {
       return m.transactions_empty_filtered();
     }
+    if (discovery) return m.transactions_empty_ledger();
     return emptyLabel;
   });
 
@@ -457,12 +498,13 @@
     if ((displayTxs?.length ?? 0) === 0 && (txQuery.data?.length ?? 0) > 0) {
       return m.transactions_empty_filtered_hint();
     }
+    if (discovery) return m.transactions_empty_ledger_hint();
     return m.transactions_empty_hint();
   });
 
   const showTableEmptyActions = $derived(
     (txQuery.data?.length ?? 0) === 0 &&
-      tableEmptyLabel === emptyLabel &&
+      (tableEmptyLabel === emptyLabel || tableEmptyLabel === m.transactions_empty_ledger()) &&
       !searchQuery &&
       (displayTxs?.length ?? 0) === 0
   );
@@ -1166,6 +1208,7 @@
         emptyHint={tableEmptyHint}
         showEmptyActions={showTableEmptyActions}
         onemptyadd={openAdd}
+        onemptydemo={discovery ? requestDemoSeedAndTour : undefined}
         bind:selectedIds
         stickyHeaderTop={`calc(var(--app-header-offset) + ${stickyFiltersHeight}px)`}
         onrowclick={(tx) => (sheetTx = tx)}

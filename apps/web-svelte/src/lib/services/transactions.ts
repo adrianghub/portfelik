@@ -58,6 +58,15 @@ export async function fetchTransactionsByStatus(
   return all;
 }
 
+/** All-time committed row count. Period-empty Kokpit views must not use this. */
+export async function fetchTransactionCount(): Promise<number> {
+  const { count, error } = await supabase
+    .from("transactions")
+    .select("id", { count: "exact", head: true });
+  if (error) throw error;
+  return count ?? 0;
+}
+
 /** Export path: paginate the full visible ledger without a date window. */
 export async function fetchAllTransactionsForExport(): Promise<TransactionWithCategory[]> {
   const all: TransactionWithCategory[] = [];

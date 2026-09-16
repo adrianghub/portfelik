@@ -3,7 +3,7 @@
   import { untrack } from "svelte";
   import type { TransactionWithCategory } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
-  import { ArrowDown, ArrowUp, ArrowUpDown, Check, Users, Wallet } from "lucide-svelte";
+  import { ArrowDown, ArrowUp, ArrowUpDown, Check, Sparkles, Users, Wallet } from "lucide-svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import { isQuickSettleEligible } from "$lib/services/transaction-permissions";
 
@@ -18,6 +18,8 @@
     /** When true and the list is empty, show import + manual-add CTAs (base empty state only). */
     showEmptyActions?: boolean;
     onemptyadd?: () => void;
+    /** Optional demo seed from an all-time-empty ledger. */
+    onemptydemo?: () => void;
     selectedIds?: Set<string>;
     canManage?: (tx: TransactionWithCategory) => boolean;
     /** When set, the header row sticks at this CSS top offset (e.g. "top-[6.75rem]").
@@ -39,6 +41,7 @@
     emptyHint,
     showEmptyActions = false,
     onemptyadd,
+    onemptydemo,
     selectedIds = $bindable(new Set<string>()),
     canManage = () => true,
     stickyHeaderOffset,
@@ -238,6 +241,16 @@
           >
             {m.transactions_empty_import_cta()}
           </a>
+          {#if onemptydemo}
+            <button
+              type="button"
+              class="focus-visible:ring-accent inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+              onclick={onemptydemo}
+            >
+              <Sparkles size={16} aria-hidden="true" />
+              {m.tour_welcome_demo()}
+            </button>
+          {/if}
           {#if onemptyadd}
             <button
               type="button"

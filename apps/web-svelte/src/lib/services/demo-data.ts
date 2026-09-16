@@ -14,6 +14,7 @@ export {
   hasDemoData,
   isDemoDescription,
   isDemoPlanName,
+  isDiscoveryLedger,
 } from "$lib/services/demo-data-guards";
 
 function demoLabel(label: string): string {
