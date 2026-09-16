@@ -1,28 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { dailyGreeting, dailyQuote } from "$lib/dashboard-daily";
 
-const greetings = [
-  "Cześć",
-  "Hej",
-  "Witaj",
-  "Yo",
-  "Siemka",
-  "Salut",
-  "Hola",
-  "Hello",
-  "Bonjour",
-  "Ciao",
-  "Olá",
-  "Hallo",
-  "Konnichiwa",
-  "Privet",
-  "Annyeong",
-  "Namaste",
-  "Shalom",
-  "Marhaba",
-  "Aloha",
-  "Sawubona",
-];
+const greetings = ["Cześć", "Hej", "Witaj", "Dzień dobry"];
 
 const quotes = [
   "Najlepszy moment, żeby zacząć oszczędzać, był wczoraj. Drugi najlepszy - dziś.",

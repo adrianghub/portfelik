@@ -47,13 +47,17 @@
   });
 </script>
 
-<div class="flex min-h-screen flex-col items-center justify-center bg-gray-50">
+<div
+  class="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4 pt-(--safe-top)"
+>
   {#if error}
-    <div class="rounded-lg bg-red-50 px-6 py-4 text-sm text-red-700">
+    <div
+      class="rounded-xl border border-rose-500/20 bg-rose-500/10 px-6 py-4 text-sm text-rose-300"
+    >
       {error}
-      <a href="/login" class="ml-2 underline">Wróć do logowania</a>
+      <a href="/login" class="ml-2 underline">{m.auth_callback_back_to_login()}</a>
     </div>
   {:else}
-    <p class="text-sm text-gray-500">{m.common_loading()}</p>
+    <p class="text-sm text-slate-400">{m.common_loading()}</p>
   {/if}
 </div>

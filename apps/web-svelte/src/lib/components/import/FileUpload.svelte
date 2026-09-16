@@ -257,7 +257,18 @@
     input.value = "";
   }
 
+  function allowDesktopDrag(): boolean {
+    return typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches;
+  }
+
+  function onDragOver(e: DragEvent): void {
+    if (!allowDesktopDrag()) return;
+    e.preventDefault();
+    dragOver = true;
+  }
+
   function onDrop(e: DragEvent): void {
+    if (!allowDesktopDrag()) return;
     e.preventDefault();
     dragOver = false;
     const file = e.dataTransfer?.files?.[0];
@@ -288,18 +299,17 @@
 <div class="space-y-3 rounded-2xl border border-white/10 bg-slate-900/60 p-6 backdrop-blur">
   <label
     class={cn(
-      "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors",
+      "flex min-h-44 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors",
       dragOver ? "border-accent bg-accent/5" : "border-white/10"
     )}
-    ondragover={(e) => {
-      e.preventDefault();
-      dragOver = true;
-    }}
+    ondragover={onDragOver}
     ondragleave={() => (dragOver = false)}
     ondrop={onDrop}
   >
     <Upload class="text-slate-400" size={28} aria-hidden="true" />
-    <p class="text-sm text-slate-300">{m.bank_upload_drop()}</p>
+    <p class="text-base font-medium text-slate-100 md:hidden">{m.bank_upload_choose()}</p>
+    <p class="text-xs text-slate-400 md:hidden">{m.bank_upload_choose_hint()}</p>
+    <p class="hidden text-sm text-slate-300 md:block">{m.bank_upload_drop()}</p>
     <input type="file" accept=".csv,text/csv" class="hidden" disabled={busy} onchange={onSelect} />
   </label>
 

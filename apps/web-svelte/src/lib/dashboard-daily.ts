@@ -6,28 +6,7 @@
  * arrays keep the dashboard render synchronous and offline-friendly.
  */
 
-const greetings: string[] = [
-  "Cześć",
-  "Hej",
-  "Witaj",
-  "Yo",
-  "Siemka",
-  "Salut",
-  "Hola",
-  "Hello",
-  "Bonjour",
-  "Ciao",
-  "Olá",
-  "Hallo",
-  "Konnichiwa",
-  "Privet",
-  "Annyeong",
-  "Namaste",
-  "Shalom",
-  "Marhaba",
-  "Aloha",
-  "Sawubona",
-];
+const greetings: string[] = ["Cześć", "Hej", "Witaj", "Dzień dobry"];
 
 const quotes: string[] = [
   "Najlepszy moment, żeby zacząć oszczędzać, był wczoraj. Drugi najlepszy - dziś.",

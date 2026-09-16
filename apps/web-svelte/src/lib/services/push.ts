@@ -1,6 +1,6 @@
 import { PUBLIC_VAPID_KEY } from "$env/static/public";
 import { supabase } from "$lib/supabase";
-import { shouldDeferBrowserPush } from "$lib/services/pwa";
+import { canUseWebPush, shouldDeferBrowserPush } from "$lib/services/pwa";
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -35,6 +35,7 @@ function setPushOptOut(value: boolean): void {
 }
 
 export {
+  canUseWebPush,
   isInstalledClient,
   isNativeCapacitor,
   isStandalonePwa,
@@ -100,6 +101,7 @@ async function doSubscribe(userId: string): Promise<void> {
 // Call on auth events - subscribes silently if permission already granted.
 // Never triggers the browser permission prompt.
 export async function autoSubscribePush(userId: string): Promise<void> {
+  if (!canUseWebPush()) return;
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
   if (Notification.permission !== "granted") return;
   if (isPushOptedOut()) return; // respect a prior disable on this device
@@ -112,6 +114,7 @@ export async function requestAndSubscribePush(
   userId: string,
   opts?: { allowBrowserOnMobile?: boolean }
 ): Promise<boolean> {
+  if (!canUseWebPush()) return false;
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
   if (Notification.permission === "denied") return false;
   if (shouldDeferBrowserPush() && !opts?.allowBrowserOnMobile) return false;

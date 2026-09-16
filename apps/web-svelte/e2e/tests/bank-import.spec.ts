@@ -818,3 +818,44 @@ test("import wizard: confirm sheet skips uncategorized rows and imports the rest
   await page.getByRole("button", { name: "Pomiń bez kategorii (1)" }).click();
   await expect(page).toHaveURL(/\/transactions/);
 });
+
+test.describe("import review on a phone", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test("summarizes clean rows and hides them behind show all", async ({ page }) => {
+    await page.unrouteAll();
+    await injectFakeSession(page);
+    await mockBankImportAPI(page);
+    await page.goto("/import");
+
+    await expect(page.getByText("Wybierz wyciąg")).toBeVisible();
+
+    await uploadUncertifiedStatement(page, { name: "wyciag.csv", buffer: mbankSample });
+
+    const summary = page.getByTestId("import-review-summary");
+    await expect(summary).toBeVisible({ timeout: 10_000 });
+    await expect(summary).toContainText(/wejdzie bez pytania/);
+    await expect(page.getByRole("button", { name: /Pokaż wszystkie/ })).toBeVisible();
+    await expect(page.getByRole("table")).toHaveCount(0);
+    await expect(page.locator("ul").getByText("BIEDRONKA")).toHaveCount(0);
+
+    await page.getByRole("button", { name: /Pokaż wszystkie/ }).click();
+    await expect(page.locator("ul").getByText("BIEDRONKA")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Pokaż tylko wyjątki" })).toBeVisible();
+  });
+
+  test("keeps uncategorized rows on the exception list", async ({ page }) => {
+    await page.unrouteAll();
+    await injectFakeSession(page);
+    await mockBankImportAPI(page, { defaultRules: false });
+    await page.goto("/import");
+
+    await uploadUncertifiedStatement(page, { name: "wyciag.csv", buffer: mbankSample });
+
+    const summary = page.getByTestId("import-review-summary");
+    await expect(summary).toBeVisible({ timeout: 10_000 });
+    await expect(summary).toContainText(/trafi do „Inne”/);
+    await expect(page.locator("ul").getByText("BIEDRONKA")).toBeVisible();
+    await expect(page.getByRole("button", { name: /Pokaż wszystkie/ })).toHaveCount(0);
+  });
+});
