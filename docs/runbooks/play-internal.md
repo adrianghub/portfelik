@@ -13,6 +13,8 @@ CI is the path testers should get after a production promotion.
 2. `Deploy Play Internal` checks out the same commit, rebuilds the Capacitor
    web assets against production `PUBLIC_*`, signs the AAB with the upload
    keystore, and calls the Play Android Publisher API (`track: internal`).
+   The job uses the GitHub-hosted runner Android SDK (`ANDROID_HOME`); it does
+   not install cmdline-tools.
 3. The AAB is also stored as a GitHub Actions artifact for 14 days.
 
 Re-run without a web deploy: Actions → **Deploy Play Internal** → Run workflow

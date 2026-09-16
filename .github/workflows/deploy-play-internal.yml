@@ -60,7 +60,12 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - uses: android-actions/setup-android@v3
+      # ubuntu-latest already has ANDROID_HOME. android-actions/setup-android@v3
+      # downloads cmdline-tools 16 and then hangs on an interactive license prompt.
+      - name: Require runner Android SDK
+        run: |
+          echo "ANDROID_HOME=${ANDROID_HOME:?missing ANDROID_HOME on runner}"
+          test -x "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
 
       - name: Write upload keystore
         working-directory: apps/web-svelte
