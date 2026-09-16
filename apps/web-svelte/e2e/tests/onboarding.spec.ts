@@ -238,7 +238,7 @@ test.describe("onboarding hardening", () => {
     });
 
     await page.getByRole("button", { name: "Usuń przykład" }).click();
-    await page.getByRole("button", { name: "Usuń" }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Usuń", exact: true }).click();
     await expect(page.getByText("To przykładowy miesiąc. Możesz swobodnie klikać.")).toHaveCount(0);
   });
 });
