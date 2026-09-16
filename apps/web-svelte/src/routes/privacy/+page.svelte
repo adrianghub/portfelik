@@ -114,7 +114,7 @@
     <h2 class="text-base font-semibold text-slate-100">Pytania i Twoje prawa</h2>
     <p class="text-sm leading-relaxed text-slate-300">
       Masz prawo zobaczyć swoje dane (eksport), poprawić je (edycja w aplikacji) i usunąć (usunięcie
-      konta) - wszystko zrobisz bezpośrednio w aplikacji. W sprawach prywatności napisz do
+      konta). Wszystko zrobisz bezpośrednio w aplikacji. W sprawach prywatności napisz do
       administratora na adres e-mail powiązany z kontem JakStoimy.
     </p>
   </section>
