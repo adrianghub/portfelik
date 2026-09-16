@@ -22,6 +22,9 @@ Use this skill to open or update a pull request for this repository.
 5. Relay the important script output to the user:
    - On gate failure, report the failing gate and the detail the script printed.
    - On success, report the PR URL.
+6. After a `dev` → `main` production PR merges, do **not** open a hand-rolled
+   `main` → `dev` sync PR. `.github/workflows/sync-dev.yml` fast-forwards `dev`.
+   If that workflow failed, run `./scripts/sync-dev.sh --push`.
 
 ## Guardrails
 

@@ -117,17 +117,21 @@ describe("RPC: clear_demo_data", () => {
   });
 
   it("does not clear another user's showcase rows", async () => {
-    const insertB = await ctx.admin.from("transactions").insert({
-      amount: 20,
-      currency: "PLN",
-      description: "B only",
-      date: "2026-06-02",
-      type: "expense",
-      status: "paid",
-      category_id: expenseCatB,
-      user_id: ctx.userB.userId,
-      is_demo: true,
-    }).select("id").single();
+    const insertB = await ctx.admin
+      .from("transactions")
+      .insert({
+        amount: 20,
+        currency: "PLN",
+        description: "B only",
+        date: "2026-06-02",
+        type: "expense",
+        status: "paid",
+        category_id: expenseCatB,
+        user_id: ctx.userB.userId,
+        is_demo: true,
+      })
+      .select("id")
+      .single();
     if (insertB.error) throw insertB.error;
 
     const txId = insertB.data.id;
@@ -199,5 +203,218 @@ describe("RPC: clear_demo_data", () => {
     const anon = createAnonClient();
     const { error } = await anon.rpc("clear_demo_data");
     expect(error).not.toBeNull();
+  });
+
+  it("clears untagged occurrences and reminders spawned from a demo template", async () => {
+    const template = await ctx.admin
+      .from("transactions")
+      .insert({
+        amount: 980,
+        currency: "PLN",
+        description: "Czynsz",
+        date: "2026-01-15",
+        type: "expense",
+        status: "paid",
+        category_id: expenseCatA,
+        user_id: ctx.userA.userId,
+        is_demo: true,
+        is_recurring: true,
+        recurring_day: 15,
+        recurrence_frequency: "monthly",
+        recurrence_interval: 1,
+      })
+      .select("id")
+      .single();
+    if (template.error) throw template.error;
+
+    const occurrence = await ctx.admin
+      .from("transactions")
+      .insert({
+        amount: 980,
+        currency: "PLN",
+        description: "Czynsz",
+        date: "2026-09-15",
+        type: "expense",
+        status: "upcoming",
+        category_id: expenseCatA,
+        user_id: ctx.userA.userId,
+        is_demo: false,
+        recurring_template_id: template.data.id,
+        recurring_occurrence_date: "2026-09-15",
+      })
+      .select("id")
+      .single();
+    if (occurrence.error) throw occurrence.error;
+
+    const reminder = await ctx.admin
+      .from("notifications")
+      .insert({
+        user_id: ctx.userA.userId,
+        type: "transaction_reminder",
+        title: `${SENTINEL} demo reminder`,
+        body: "due",
+        data: {
+          templateId: template.data.id,
+          transactionId: occurrence.data.id,
+          settleKind: "recurring_occurrence",
+        },
+      })
+      .select("id")
+      .single();
+    if (reminder.error) throw reminder.error;
+
+    try {
+      const { error } = await ctx.userA.client.rpc("clear_demo_data");
+      expect(error).toBeNull();
+
+      const leftoverTxs = await ctx.admin
+        .from("transactions")
+        .select("id")
+        .in("id", [template.data.id, occurrence.data.id]);
+      expect(leftoverTxs.error).toBeNull();
+      expect(leftoverTxs.data ?? []).toEqual([]);
+
+      const leftoverNotes = await ctx.admin
+        .from("notifications")
+        .select("id")
+        .eq("id", reminder.data.id);
+      expect(leftoverNotes.error).toBeNull();
+      expect(leftoverNotes.data ?? []).toEqual([]);
+    } finally {
+      await ctx.admin.from("notifications").delete().eq("id", reminder.data.id);
+      await ctx.admin
+        .from("transactions")
+        .delete()
+        .in("id", [occurrence.data.id, template.data.id]);
+    }
+  });
+
+  it("keeps real recurring occurrences whose template is not demo", async () => {
+    const template = await ctx.admin
+      .from("transactions")
+      .insert({
+        amount: 40,
+        currency: "PLN",
+        description: `${SENTINEL} real rent`,
+        date: "2026-01-01",
+        type: "expense",
+        status: "paid",
+        category_id: expenseCatA,
+        user_id: ctx.userA.userId,
+        is_demo: false,
+        is_recurring: true,
+        recurring_day: 1,
+        recurrence_frequency: "monthly",
+        recurrence_interval: 1,
+      })
+      .select("id")
+      .single();
+    if (template.error) throw template.error;
+
+    const occurrence = await ctx.admin
+      .from("transactions")
+      .insert({
+        amount: 40,
+        currency: "PLN",
+        description: `${SENTINEL} real rent occurrence`,
+        date: "2026-09-01",
+        type: "expense",
+        status: "upcoming",
+        category_id: expenseCatA,
+        user_id: ctx.userA.userId,
+        is_demo: false,
+        recurring_template_id: template.data.id,
+        recurring_occurrence_date: "2026-09-01",
+      })
+      .select("id")
+      .single();
+    if (occurrence.error) throw occurrence.error;
+
+    const ids = [template.data.id, occurrence.data.id];
+    try {
+      const { error } = await ctx.userA.client.rpc("clear_demo_data");
+      expect(error).toBeNull();
+
+      const remaining = await ctx.admin.from("transactions").select("id").in("id", ids);
+      expect(remaining.error).toBeNull();
+      expect(remaining.data?.map((row) => row.id).sort()).toEqual([...ids].sort());
+    } finally {
+      await ctx.admin.from("transactions").delete().in("id", ids);
+    }
+  });
+
+  it("tags occurrences of a demo template as is_demo on insert", async () => {
+    const template = await ctx.admin
+      .from("transactions")
+      .insert({
+        amount: 120,
+        currency: "PLN",
+        description: "Muzyka",
+        date: "2026-01-10",
+        type: "expense",
+        status: "paid",
+        category_id: expenseCatA,
+        user_id: ctx.userA.userId,
+        is_demo: true,
+        is_recurring: true,
+        recurring_day: 10,
+        recurrence_frequency: "monthly",
+        recurrence_interval: 1,
+      })
+      .select("id")
+      .single();
+    if (template.error) throw template.error;
+
+    const occurrence = await ctx.admin
+      .from("transactions")
+      .insert({
+        amount: 120,
+        currency: "PLN",
+        description: "Muzyka",
+        date: "2026-09-10",
+        type: "expense",
+        status: "upcoming",
+        category_id: expenseCatA,
+        user_id: ctx.userA.userId,
+        is_demo: false,
+        recurring_template_id: template.data.id,
+        recurring_occurrence_date: "2026-09-10",
+      })
+      .select("id, is_demo")
+      .single();
+    if (occurrence.error) throw occurrence.error;
+
+    try {
+      expect(occurrence.data?.is_demo).toBe(true);
+    } finally {
+      await ctx.admin
+        .from("transactions")
+        .delete()
+        .in("id", [occurrence.data.id, template.data.id]);
+    }
+  });
+
+  it("drops an orphaned financial snapshot when no net-worth items remain", async () => {
+    const snapshot = await ctx.admin.from("financial_snapshots").upsert({
+      user_id: ctx.userA.userId,
+      as_of_date: "2026-09-01",
+      cash_amount: 0,
+      investments_amount: 0,
+      real_estate_amount: 24500,
+    });
+    if (snapshot.error) throw snapshot.error;
+
+    try {
+      const { error } = await ctx.userA.client.rpc("clear_demo_data");
+      expect(error).toBeNull();
+
+      const leftover = await ctx.admin
+        .from("financial_snapshots")
+        .select("user_id")
+        .eq("user_id", ctx.userA.userId);
+      expect(leftover.data ?? []).toEqual([]);
+    } finally {
+      await ctx.admin.from("financial_snapshots").delete().eq("user_id", ctx.userA.userId);
+    }
   });
 });

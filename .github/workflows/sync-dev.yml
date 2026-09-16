@@ -1,0 +1,28 @@
+name: Sync dev from main
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-dev
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Fast-forward dev
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Reconcile origin/dev
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash ./scripts/sync-dev.sh --push
