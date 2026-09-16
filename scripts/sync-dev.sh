@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Keep the protected integration branch on the production branch's ancestry.
+# Fast-forward origin/dev to origin/main. If branch protection rejects a direct
+# push, open (or reuse) a main → dev PR and request a merge-commit auto-merge.
 set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
@@ -12,6 +14,60 @@ elif [[ $# -gt 0 ]]; then
   echo "usage: ./scripts/sync-dev.sh [--push]" >&2
   exit 2
 fi
+
+SYNC_PR_MARKER="<!-- sync-dev-from-main -->"
+
+gh_pr() {
+  local cmd="$1"
+  shift
+  if [[ -n "${GITHUB_REPOSITORY:-}" ]]; then
+    gh pr "$cmd" --repo "$GITHUB_REPOSITORY" "$@"
+  else
+    gh pr "$cmd" "$@"
+  fi
+}
+
+open_or_reuse_sync_pr() {
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "Refuse: origin/dev is behind origin/main, direct push was rejected, and gh is not available." >&2
+    exit 1
+  fi
+
+  local number url
+  number="$(gh_pr list --base dev --head main --state open --json number --jq '.[0].number // empty')"
+  url="$(gh_pr list --base dev --head main --state open --json url --jq '.[0].url // empty')"
+
+  if [[ -n "$number" ]]; then
+    echo "Sync PR already open: #$number $url"
+  else
+    url="$(
+      gh_pr create \
+        --base dev \
+        --head main \
+        --title "chore: sync dev from main" \
+        --body "$(
+          cat <<EOF
+$SYNC_PR_MARKER
+
+Fast-forward \`dev\` onto current \`main\` after a production promotion. Trees
+should already match; this restores ancestry so \`start-work.sh\` can branch
+from \`dev\`.
+
+Merge as a **merge commit** (or a GitHub fast-forward). Do not squash or rebase
+in a way that rewrites \`main\` commits.
+EOF
+        )"
+    )"
+    echo "Opened sync PR: $url"
+    number="$(gh_pr view "$url" --json number --jq '.number')"
+  fi
+
+  if gh_pr merge "$number" --auto --merge; then
+    echo "Auto-merge requested for #$number (merge commit)."
+  else
+    echo "Could not enable auto-merge for #$number. Merge the PR as a merge commit, not squash."
+  fi
+}
 
 git fetch origin main dev
 
@@ -31,5 +87,20 @@ if [[ $PUSH -eq 0 ]]; then
   exit 1
 fi
 
-git push origin refs/remotes/origin/main:refs/heads/dev
-echo "dev fast-forwarded to origin/main."
+set +e
+push_out="$(git push origin refs/remotes/origin/main:refs/heads/dev 2>&1)"
+push_rc=$?
+set -e
+printf '%s\n' "$push_out"
+
+if [[ $push_rc -eq 0 ]]; then
+  echo "dev fast-forwarded to origin/main."
+  exit 0
+fi
+
+if printf '%s\n' "$push_out" | grep -Eq 'GH013|pull request|protected branch|rule violations'; then
+  open_or_reuse_sync_pr
+  exit 0
+fi
+
+exit "$push_rc"

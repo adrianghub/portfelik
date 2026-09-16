@@ -24,9 +24,12 @@ and migration targets.
 - Start feature work with `./scripts/start-work.sh <branch-name>`. It refuses a
   dirty worktree, stale `dev`, diverged long-lived branches, or a reused branch
   name, then creates the branch from the current remote `dev`.
-- After anything lands on `main`, run `./scripts/sync-dev.sh --push`. It updates
-  `dev` only when the operation is a safe fast-forward; divergence is never
-  resolved automatically.
+- After anything lands on `main`, `.github/workflows/sync-dev.yml` fast-forwards
+  `dev` to `main`. Direct push is preferred; if `dev` branch protection rejects
+  it, the workflow opens a `main` → `dev` PR and requests a merge-commit
+  auto-merge (never squash). Local fallback: `./scripts/sync-dev.sh --push`.
+  Divergence is never resolved automatically. To skip the PR fallback, allow
+  GitHub Actions to bypass the `dev` “require a pull request” ruleset.
 - Before opening a PR, `./scripts/open-pr.sh` refreshes the real remote base,
   validates the PR direction, verifies ancestry, and runs all relevant gates.
 - Feature PRs target `dev`. Only `dev` may target `main`; CI rejects every other
@@ -50,7 +53,7 @@ and migration targets.
 git switch dev
 ./scripts/open-pr.sh main
 
-# Immediately after the production PR lands.
+# Immediately after the production PR lands (CI also does this).
 ./scripts/sync-dev.sh --push
 ```
 
