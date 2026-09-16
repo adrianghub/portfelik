@@ -447,9 +447,11 @@
     void materializeRecurringOccurrencesForNearTerm()
       .then((count) => {
         if (count > 0) {
+          const u = requireSessionUserId();
           void queryClient.invalidateQueries({
-            queryKey: qk.transactions.all(requireSessionUserId()),
+            queryKey: qk.transactions.all(u),
           });
+          void queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
         }
       })
       .catch((err) => toastError(err));
@@ -664,6 +666,7 @@
       await queryClient.invalidateQueries({
         queryKey: qk.transactions.list(u, "recurring-skips"),
       });
+      await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
       toast.success(m.toast_transaction_deleted());
       deleteTargetId = null;
     },
@@ -678,6 +681,7 @@
     await queryClient.invalidateQueries({ queryKey: qk.planLinks(u) });
     await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
     await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
+    await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
   }
 
   async function resolveTemplate(tx: TransactionWithCategory): Promise<TransactionWithCategory> {
@@ -744,6 +748,7 @@
       const u = requireSessionUserId();
       await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
       await queryClient.invalidateQueries({ queryKey: qk.transactions.list(u, "recurring-skips") });
+      await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
       toast.success(m.toast_transactions_bulk_deleted({ count: affected }));
       selectedIds = new Set<string>();
       bulkDeleteConfirm = false;
@@ -768,6 +773,7 @@
     await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
     await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
     await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
+    await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
   }
 
   async function acknowledgeSettleNotification(notificationId?: string) {
@@ -862,9 +868,11 @@
   const bulkCategoryMutation = createMutation(() => ({
     mutationFn: (catId: string) => updateTransactionsCategory(manageableSelectedIds(), catId),
     onSuccess: async (affected) => {
+      const u = requireSessionUserId();
       await queryClient.invalidateQueries({
-        queryKey: qk.transactions.all(requireSessionUserId()),
+        queryKey: qk.transactions.all(u),
       });
+      await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
       toast.success(m.toast_transactions_bulk_category({ count: affected }));
       selectedIds = new Set<string>();
     },

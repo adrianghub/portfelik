@@ -146,6 +146,7 @@
       await queryClient.invalidateQueries({ queryKey: qk.planEligible(u, id) });
       await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
       await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planDebtTerms(u, id) });
       try {
