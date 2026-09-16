@@ -84,7 +84,7 @@
   } from "$lib/services/demo-data";
   import { refreshDemoState } from "$lib/services/demo-query-state";
   import { track } from "$lib/analytics";
-  import { requestDemoSeedAndTour } from "$lib/guided-tour/ui.svelte";
+  import { guidedTourUi, requestDemoSeedAndTour } from "$lib/guided-tour/ui.svelte";
   import {
     CASH_FETCH_END_SENTINEL,
     fetchPrivateCashPosition,
@@ -831,7 +831,8 @@
             </a>
             <button
               type="button"
-              class="focus-visible:ring-accent inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+              class="focus-visible:ring-accent inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+              disabled={guidedTourUi.demoBusy}
               onclick={() => requestDemoSeedAndTour()}
             >
               <Sparkles size={16} aria-hidden="true" />

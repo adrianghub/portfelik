@@ -29,7 +29,10 @@ and migration targets.
   it, the workflow opens a `main` → `dev` PR and requests a merge-commit
   auto-merge (never squash). Local fallback: `./scripts/sync-dev.sh --push`.
   Divergence is never resolved automatically. To skip the PR fallback, allow
-  GitHub Actions to bypass the `dev` “require a pull request” ruleset.
+  GitHub Actions to bypass the `dev` “require a pull request” ruleset, or set
+  repository secret `SYNC_DEV_TOKEN` to a PAT that can push `dev`. The default
+  `GITHUB_TOKEN` cannot open the fallback PR unless the repo enables **Allow
+  GitHub Actions to create and approve pull requests**.
 - Before opening a PR, `./scripts/open-pr.sh` refreshes the real remote base,
   validates the PR direction, verifies ancestry, and runs all relevant gates.
 - Feature PRs target `dev`. Only `dev` may target `main`; CI rejects every other

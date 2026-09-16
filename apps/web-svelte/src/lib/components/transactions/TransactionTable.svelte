@@ -20,6 +20,7 @@
     onemptyadd?: () => void;
     /** Optional demo seed from an all-time-empty ledger. */
     onemptydemo?: () => void;
+    emptyDemoDisabled?: boolean;
     selectedIds?: Set<string>;
     canManage?: (tx: TransactionWithCategory) => boolean;
     /** When set, the header row sticks at this CSS top offset (e.g. "top-[6.75rem]").
@@ -42,6 +43,7 @@
     showEmptyActions = false,
     onemptyadd,
     onemptydemo,
+    emptyDemoDisabled = false,
     selectedIds = $bindable(new Set<string>()),
     canManage = () => true,
     stickyHeaderOffset,
@@ -244,7 +246,8 @@
           {#if onemptydemo}
             <button
               type="button"
-              class="focus-visible:ring-accent inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+              class="focus-visible:ring-accent inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+              disabled={emptyDemoDisabled}
               onclick={onemptydemo}
             >
               <Sparkles size={16} aria-hidden="true" />
