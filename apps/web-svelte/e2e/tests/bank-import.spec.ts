@@ -28,6 +28,13 @@ const mbankNoCounterpartySample = Buffer.from(
   "utf8"
 );
 
+async function revealAllImportRows(page: Page): Promise<void> {
+  const showAll = page.getByRole("button", { name: /Pokaż wszystkie/ });
+  if (await showAll.isVisible().catch(() => false)) {
+    await showAll.click();
+  }
+}
+
 async function uploadUncertifiedStatement(
   page: Page,
   file: { name: string; buffer: Buffer }
@@ -464,6 +471,7 @@ test("import wizard: uploads, flags probable duplicates, commits, and blocks re-
     timeout: 10_000,
   });
   await expect(page.getByRole("button", { name: "Pokaż", exact: true })).toBeVisible();
+  await revealAllImportRows(page);
   await expect(page.getByRole("table").getByText("BIEDRONKA", { exact: true })).toHaveCount(0);
   await expect(
     page.getByRole("table").getByText("WSPÓLNOTA MIESZKANIOWA", { exact: true })
@@ -493,11 +501,16 @@ test("import wizard: commits a fully-categorized statement in one click (no per-
 
   await uploadUncertifiedStatement(page, { name: "wyciag.csv", buffer: mbankSample });
 
+  const summary = page.getByTestId("import-review-summary");
+  await expect(summary).toBeVisible({ timeout: 10_000 });
+  await expect(summary).toContainText(/wejdzie bez pytania/);
+  await expect(page.getByRole("button", { name: /Pokaż wszystkie/ })).toBeVisible();
+  await expect(page.getByRole("table")).toHaveCount(0);
+
   const sortSelect = page.getByLabel("Sortowanie pozycji importu");
-  await expect(sortSelect).toHaveValue("original", { timeout: 10_000 });
+  await expect(sortSelect).toHaveValue("original");
   await sortSelect.selectOption("amount_asc");
   await expect(sortSelect).toHaveValue("amount_asc");
-  await expect(page.getByText("Reguła: Typ: Wydatek").first()).toBeVisible();
 
   await expect(page.getByRole("button", { name: /^Zaimportuj \d+ transakc/ })).toBeEnabled();
   await page.getByRole("button", { name: /^Zaimportuj \d+ transakc/ }).click();
@@ -581,6 +594,8 @@ test("import wizard: correcting a rule-derived category does not mutate the rule
     name: "wyciag.csv",
     buffer: mbankNoCounterpartySample,
   });
+
+  await revealAllImportRows(page);
 
   const reviewTable = page.getByRole("table");
   const selectedCategory = reviewTable.getByRole("button", { name: "Wyczyść kategorię" });
@@ -698,6 +713,8 @@ test("import wizard: large import virtualizes the review list and keeps every ro
   // The full set is tracked even though only a window is painted (no lost rows in data).
   const commit = page.getByRole("button", { name: /^Zaimportuj 500 transakc/ });
   await expect(commit).toBeEnabled({ timeout: 15_000 });
+
+  await revealAllImportRows(page);
 
   // Windowing is active: far fewer than 500 rows are in the DOM on first paint.
   const tableRows = page.locator("table tbody tr");

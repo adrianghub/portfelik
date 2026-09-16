@@ -112,7 +112,7 @@
   }: Props = $props();
 
   let groupSheetRowId = $state<string | null>(null);
-  let mobileShowAll = $state(false);
+  let showAllRows = $state(false);
 
   const groupSheetRow = $derived(
     groupSheetRowId ? visibleRows.find((r) => r.id === groupSheetRowId) : null
@@ -154,9 +154,9 @@
     return sorted;
   });
 
-  const collapseCleanOnMobile = $derived(!advancedActive && !inspectedRule && !mobileShowAll);
-  const mobileSortedRows = $derived(
-    collapseCleanOnMobile ? sortedRows.filter(isImportExceptionRow) : sortedRows
+  const collapseCleanRows = $derived(!advancedActive && !inspectedRule && !showAllRows);
+  const reviewRows = $derived(
+    collapseCleanRows ? sortedRows.filter(isImportExceptionRow) : sortedRows
   );
 
   // Infinite render (chunked): keep every rendered row mounted (no unmount-on-scroll,
@@ -166,19 +166,18 @@
   // filter counts run on the full visibleRows in the parent, so they stay accurate.
   const CHUNK_SIZE = 60;
   let shown = $state(CHUNK_SIZE);
-  const renderedRows = $derived(sortedRows.slice(0, shown));
-  const mobileRenderedRows = $derived(mobileSortedRows.slice(0, shown));
+  const reviewRenderedRows = $derived(reviewRows.slice(0, shown));
 
   $effect(() => {
     void filter;
     void sortKind;
     shown = CHUNK_SIZE;
-    mobileShowAll = false;
+    showAllRows = false;
   });
 
   function loadMore(): void {
-    if (shown < sortedRows.length) {
-      shown = Math.min(shown + CHUNK_SIZE, sortedRows.length);
+    if (shown < reviewRows.length) {
+      shown = Math.min(shown + CHUNK_SIZE, reviewRows.length);
     }
   }
 
@@ -280,7 +279,7 @@
   {/if}
 
   <div
-    class="space-y-1 rounded-2xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-slate-300 md:hidden"
+    class="space-y-1 rounded-2xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-slate-300"
     data-testid="import-review-summary"
   >
     <p>{m.bank_review_summary_ready({ count: reviewSummary.ready })}</p>
@@ -442,167 +441,170 @@
       {/snippet}
     </EmptyState>
   {:else}
-    <div class="hidden rounded-2xl border border-white/10 md:block">
-      <table class="min-w-full divide-y divide-white/5 text-sm">
-        <thead
-          class="sticky z-40 bg-slate-900/95 text-xs text-slate-400 uppercase backdrop-blur"
-          style={`top: calc(var(--app-header-offset) + ${stickyToolbarHeight}px)`}
-        >
-          <tr>
-            <th class="px-3 py-2 text-left">{m.bank_review_header_date()}</th>
-            <th class="px-3 py-2 text-right">{m.bank_review_header_amount()}</th>
-            <th class="px-3 py-2 text-left">{m.bank_review_header_description()}</th>
-            <th class="min-w-48 px-3 py-2 text-left">{m.bank_review_header_category()}</th>
-            <th class="px-3 py-2 text-left">{m.bank_review_import_header_label()}</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-white/5 bg-slate-950/40">
-          {#each renderedRows as row (row.id)}
-            {@const rule = matchedRuleFor(row)}
-            {@const categoryAction = categoryActionFor(row)}
-            {@const groupName = groups.find((g) => g.id === row.selected_group_id)?.name}
+    {#if reviewRows.length > 0}
+      <div class="hidden rounded-2xl border border-white/10 md:block">
+        <table class="min-w-full divide-y divide-white/5 text-sm">
+          <thead
+            class="sticky z-40 bg-slate-900/95 text-xs text-slate-400 uppercase backdrop-blur"
+            style={`top: calc(var(--app-header-offset) + ${stickyToolbarHeight}px)`}
+          >
             <tr>
-              <td class="px-3 py-2 align-top whitespace-nowrap text-slate-300">{row.posted_at}</td>
-              <td
-                class="px-3 py-2 text-right align-top tabular-nums"
-                class:text-rose-300={row.type === "expense"}
-                class:text-emerald-300={row.type === "income"}
-              >
-                {row.type === "expense" ? "-" : "+"}{formatCurrency(row.amount, row.currency)}
-              </td>
-              <td class="max-w-xs px-3 py-2 align-top">
-                {#if row.counterparty}
-                  <p class="text-sm font-medium text-slate-100">
-                    {row.counterparty}
-                    {#if row.is_hold}
-                      <span
-                        class="ml-2 text-[10px] font-normal text-slate-400"
-                        title={m.bank_review_hold_hint()}
-                      >
-                        {m.bank_review_hold_badge()}
-                      </span>
-                    {/if}
-                  </p>
-                {:else if row.is_hold}
-                  <span
-                    class="text-[10px] font-normal text-slate-400"
-                    title={m.bank_review_hold_hint()}
-                  >
-                    {m.bank_review_hold_badge()}
-                  </span>
-                {/if}
-                <Input
-                  class={row.counterparty ? "mt-1" : undefined}
-                  value={row.edited_description ?? row.description}
-                  onchange={(e) => {
-                    const v = (e.target as HTMLInputElement).value.trim();
-                    onPatchRow(row.id, {
-                      edited_description: v === "" || v === row.description ? null : v,
-                    });
-                  }}
-                />
-                {#if groupName}
-                  <Badge variant="shared" class="mt-1">{groupName}</Badge>
-                {/if}
-              </td>
-              <td class="min-w-48 px-3 py-2 align-top">
-                <CategorySelect
-                  class="min-w-40"
-                  categories={categoriesFor(row.type)}
-                  type={row.type}
-                  selectedId={row.selected_category_id}
-                  placeholder={m.bank_review_header_category()}
-                  onchange={(id) => onCategoryChange(row, id)}
-                  oncreate={createCategoryInline}
-                  pillMode
-                />
-                <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
-                  {#if celeCategoryId && row.type === "expense"}
-                    {@const planHint = matchSavePlanHint(
-                      {
-                        type: row.type,
-                        description: row.edited_description ?? row.description,
-                        counterparty: row.counterparty,
-                      },
-                      savePlans
-                    )}
-                    {#if planHint && row.selected_category_id !== celeCategoryId}
-                      <button
-                        type="button"
-                        class="rounded-md bg-emerald-950/50 px-2 py-0.5 text-xs text-emerald-300 hover:bg-emerald-900/50"
-                        title={m.bank_review_cele_hint({ plan: planHint.planName })}
-                        onclick={() => onCategoryChange(row, celeCategoryId)}
-                      >
-                        {m.bank_review_cele_apply()}
-                      </button>
-                    {/if}
-                  {/if}
-                  {#if rule}
+              <th class="px-3 py-2 text-left">{m.bank_review_header_date()}</th>
+              <th class="px-3 py-2 text-right">{m.bank_review_header_amount()}</th>
+              <th class="px-3 py-2 text-left">{m.bank_review_header_description()}</th>
+              <th class="min-w-48 px-3 py-2 text-left">{m.bank_review_header_category()}</th>
+              <th class="px-3 py-2 text-left">{m.bank_review_import_header_label()}</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-white/5 bg-slate-950/40">
+            {#each reviewRenderedRows as row (row.id)}
+              {@const rule = matchedRuleFor(row)}
+              {@const categoryAction = categoryActionFor(row)}
+              {@const groupName = groups.find((g) => g.id === row.selected_group_id)?.name}
+              <tr>
+                <td class="px-3 py-2 align-top whitespace-nowrap text-slate-300">{row.posted_at}</td
+                >
+                <td
+                  class="px-3 py-2 text-right align-top tabular-nums"
+                  class:text-rose-300={row.type === "expense"}
+                  class:text-emerald-300={row.type === "income"}
+                >
+                  {row.type === "expense" ? "-" : "+"}{formatCurrency(row.amount, row.currency)}
+                </td>
+                <td class="max-w-xs px-3 py-2 align-top">
+                  {#if row.counterparty}
+                    <p class="text-sm font-medium text-slate-100">
+                      {row.counterparty}
+                      {#if row.is_hold}
+                        <span
+                          class="ml-2 text-[10px] font-normal text-slate-400"
+                          title={m.bank_review_hold_hint()}
+                        >
+                          {m.bank_review_hold_badge()}
+                        </span>
+                      {/if}
+                    </p>
+                  {:else if row.is_hold}
                     <span
-                      class="rounded-md bg-slate-800/80 px-2 py-0.5 text-xs text-slate-300"
-                      title={m.bank_review_row_rule_attribution({ text: ruleMatchText(rule) })}
+                      class="text-[10px] font-normal text-slate-400"
+                      title={m.bank_review_hold_hint()}
                     >
-                      {m.bank_review_rule_pill({ rule: ruleMatchText(rule) })}
+                      {m.bank_review_hold_badge()}
                     </span>
-                    <button
-                      type="button"
-                      class="rounded-md px-2 py-0.5 text-xs text-slate-400 underline-offset-2 hover:bg-white/5 hover:text-slate-200 hover:underline"
-                      title={m.bank_review_row_rule_attribution_title()}
-                      onclick={() => onEditRule(rule)}
-                    >
-                      {m.bank_review_rule_edit()}
-                    </button>
-                  {:else if categoryAction}
-                    <span class="text-xs text-slate-500">{m.bank_review_category_one_off()}</span>
-                    {#if categoryAction.similarCount > 0}
+                  {/if}
+                  <Input
+                    class={row.counterparty ? "mt-1" : undefined}
+                    value={row.edited_description ?? row.description}
+                    onchange={(e) => {
+                      const v = (e.target as HTMLInputElement).value.trim();
+                      onPatchRow(row.id, {
+                        edited_description: v === "" || v === row.description ? null : v,
+                      });
+                    }}
+                  />
+                  {#if groupName}
+                    <Badge variant="shared" class="mt-1">{groupName}</Badge>
+                  {/if}
+                </td>
+                <td class="min-w-48 px-3 py-2 align-top">
+                  <CategorySelect
+                    class="min-w-40"
+                    categories={categoriesFor(row.type)}
+                    type={row.type}
+                    selectedId={row.selected_category_id}
+                    placeholder={m.bank_review_header_category()}
+                    onchange={(id) => onCategoryChange(row, id)}
+                    oncreate={createCategoryInline}
+                    pillMode
+                  />
+                  <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    {#if celeCategoryId && row.type === "expense"}
+                      {@const planHint = matchSavePlanHint(
+                        {
+                          type: row.type,
+                          description: row.edited_description ?? row.description,
+                          counterparty: row.counterparty,
+                        },
+                        savePlans
+                      )}
+                      {#if planHint && row.selected_category_id !== celeCategoryId}
+                        <button
+                          type="button"
+                          class="rounded-md bg-emerald-950/50 px-2 py-0.5 text-xs text-emerald-300 hover:bg-emerald-900/50"
+                          title={m.bank_review_cele_hint({ plan: planHint.planName })}
+                          onclick={() => onCategoryChange(row, celeCategoryId)}
+                        >
+                          {m.bank_review_cele_apply()}
+                        </button>
+                      {/if}
+                    {/if}
+                    {#if rule}
+                      <span
+                        class="rounded-md bg-slate-800/80 px-2 py-0.5 text-xs text-slate-300"
+                        title={m.bank_review_row_rule_attribution({ text: ruleMatchText(rule) })}
+                      >
+                        {m.bank_review_rule_pill({ rule: ruleMatchText(rule) })}
+                      </span>
                       <button
                         type="button"
-                        class="rounded-md px-2 py-0.5 text-xs text-sky-300 underline-offset-2 hover:bg-sky-950/40 hover:underline"
-                        onclick={() => onApplySimilar(row)}
+                        class="rounded-md px-2 py-0.5 text-xs text-slate-400 underline-offset-2 hover:bg-white/5 hover:text-slate-200 hover:underline"
+                        title={m.bank_review_row_rule_attribution_title()}
+                        onclick={() => onEditRule(rule)}
                       >
-                        {m.bank_review_apply_similar({ count: categoryAction.similarCount })}
+                        {m.bank_review_rule_edit()}
+                      </button>
+                    {:else if categoryAction}
+                      <span class="text-xs text-slate-500">{m.bank_review_category_one_off()}</span>
+                      {#if categoryAction.similarCount > 0}
+                        <button
+                          type="button"
+                          class="rounded-md px-2 py-0.5 text-xs text-sky-300 underline-offset-2 hover:bg-sky-950/40 hover:underline"
+                          onclick={() => onApplySimilar(row)}
+                        >
+                          {m.bank_review_apply_similar({ count: categoryAction.similarCount })}
+                        </button>
+                      {/if}
+                      <button
+                        type="button"
+                        class="rounded-md px-2 py-0.5 text-xs text-slate-300 underline-offset-2 hover:bg-white/5 hover:underline"
+                        onclick={() => onSaveRule(row)}
+                      >
+                        {categoryAction.kind === "update"
+                          ? m.bank_review_update_rule_explicit()
+                          : m.bank_review_save_rule_explicit()}
                       </button>
                     {/if}
                     <button
                       type="button"
-                      class="rounded-md px-2 py-0.5 text-xs text-slate-300 underline-offset-2 hover:bg-white/5 hover:underline"
-                      onclick={() => onSaveRule(row)}
+                      class="inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-xs text-slate-400 hover:bg-white/5 hover:text-slate-300"
+                      onclick={() => (groupSheetRowId = row.id)}
                     >
-                      {categoryAction.kind === "update"
-                        ? m.bank_review_update_rule_explicit()
-                        : m.bank_review_save_rule_explicit()}
+                      <Users size={12} aria-hidden="true" />
+                      {row.selected_group_id
+                        ? m.bank_review_group_change()
+                        : m.bank_review_group_add()}
                     </button>
-                  {/if}
-                  <button
-                    type="button"
-                    class="inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-xs text-slate-400 hover:bg-white/5 hover:text-slate-300"
-                    onclick={() => (groupSheetRowId = row.id)}
-                  >
-                    <Users size={12} aria-hidden="true" />
-                    {row.selected_group_id
-                      ? m.bank_review_group_change()
-                      : m.bank_review_group_add()}
-                  </button>
-                </div>
-              </td>
-              <td class="px-3 py-2 align-top">
-                <div class="flex flex-col items-start gap-1">
-                  {@render decisionControl(row)}
-                </div>
-              </td>
-            </tr>
-          {/each}
-          {#if shown < sortedRows.length}
-            <tr aria-hidden="true">
-              <td colspan="5" class="p-0"><div use:sentinel class="h-px"></div></td>
-            </tr>
-          {/if}
-        </tbody>
-      </table>
-    </div>
+                  </div>
+                </td>
+                <td class="px-3 py-2 align-top">
+                  <div class="flex flex-col items-start gap-1">
+                    {@render decisionControl(row)}
+                  </div>
+                </td>
+              </tr>
+            {/each}
+            {#if shown < reviewRows.length}
+              <tr aria-hidden="true">
+                <td colspan="5" class="p-0"><div use:sentinel class="h-px"></div></td>
+              </tr>
+            {/if}
+          </tbody>
+        </table>
+      </div>
+    {/if}
 
     <ul class="space-y-1.5 md:hidden">
-      {#each mobileRenderedRows as row (row.id)}
+      {#each reviewRenderedRows as row (row.id)}
         {@const rule = matchedRuleFor(row)}
         {@const categoryAction = categoryActionFor(row)}
         {@const groupName = groups.find((g) => g.id === row.selected_group_id)?.name}
@@ -727,24 +729,24 @@
           </div>
         </li>
       {/each}
-      {#if shown < mobileSortedRows.length}
+      {#if shown < reviewRows.length}
         <li use:sentinel aria-hidden="true" class="h-px"></li>
       {/if}
     </ul>
     {#if !advancedActive && !inspectedRule && visibleRows.length > 0}
-      {#if !mobileShowAll && mobileSortedRows.length < sortedRows.length}
+      {#if !showAllRows && reviewRows.length < sortedRows.length}
         <button
           type="button"
-          class="w-full rounded-full border border-white/10 px-3 py-2 text-sm text-slate-300 md:hidden"
-          onclick={() => (mobileShowAll = true)}
+          class="w-full rounded-full border border-white/10 px-3 py-2 text-sm text-slate-300"
+          onclick={() => (showAllRows = true)}
         >
           {m.bank_review_show_all({ count: visibleRows.length })}
         </button>
-      {:else if mobileShowAll}
+      {:else if showAllRows}
         <button
           type="button"
-          class="w-full rounded-full border border-white/10 px-3 py-2 text-sm text-slate-300 md:hidden"
-          onclick={() => (mobileShowAll = false)}
+          class="w-full rounded-full border border-white/10 px-3 py-2 text-sm text-slate-300"
+          onclick={() => (showAllRows = false)}
         >
           {m.bank_review_show_exceptions()}
         </button>
