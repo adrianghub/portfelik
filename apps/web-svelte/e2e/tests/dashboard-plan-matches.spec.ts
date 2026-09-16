@@ -35,7 +35,10 @@ const TX = {
   updated_at: "2026-09-10T10:00:00Z",
 };
 
-test("kokpit offers Powiąż and Pomiń for a high-rank plan match", async ({ page }) => {
+async function mockPlanMatchLedger(
+  page: Parameters<typeof injectFakeSession>[0],
+  state: { dismissed: boolean } = { dismissed: false }
+) {
   await injectFakeSession(page);
   await mockSupabaseAPI(page);
 
@@ -52,9 +55,23 @@ test("kokpit offers Powiąż and Pomiń for a high-rank plan match", async ({ pa
   await page.route("**/rest/v1/plan_transaction_links**", (route) =>
     route.fulfill({ status: 200, json: [] })
   );
-  await page.route("**/rest/v1/plan_settlement_dismissals**", (route) =>
-    route.fulfill({ status: 200, json: [] })
-  );
+  await page.route("**/rest/v1/plan_settlement_dismissals**", (route) => {
+    if (route.request().method() === "POST") {
+      state.dismissed = true;
+      return route.fulfill({
+        status: 201,
+        json: [{ plan_id: PLAN.id, transaction_id: TX.id }],
+      });
+    }
+    return route.fulfill({
+      status: 200,
+      json: state.dismissed ? [{ transaction_id: TX.id }] : [],
+    });
+  });
+}
+
+test("kokpit offers Powiąż and Pomiń for a high-rank plan match", async ({ page }) => {
+  await mockPlanMatchLedger(page);
 
   await page.goto("/dashboard");
 
@@ -64,4 +81,22 @@ test("kokpit offers Powiąż and Pomiń for a high-rank plan match", async ({ pa
   await expect(panel.getByRole("button", { name: "Powiąż" })).toBeVisible();
   await expect(panel.getByRole("button", { name: "Pomiń" })).toBeVisible();
   await expect(panel.getByText(/dopasowanie|Może pasować|Słabe trafienie/)).toHaveCount(0);
+});
+
+test("Pomiń on settle keeps the kokpit match hidden after going back", async ({ page }) => {
+  await mockPlanMatchLedger(page);
+
+  await page.goto("/dashboard");
+  const panel = page.getByRole("region", { name: "Do sprawdzenia" });
+  await expect(panel.getByText("Hotel wakacje")).toBeVisible({ timeout: 10_000 });
+  await panel.getByRole("link", { name: "Wakacje", exact: true }).click();
+
+  await expect(page.getByRole("heading", { name: "Powiąż wpłaty" })).toBeVisible();
+  await page.getByRole("button", { name: "Pomiń" }).click();
+  await expect(page.getByText("Hotel wakacje")).not.toBeVisible();
+
+  await page.goto("/dashboard");
+  await expect(
+    page.getByRole("region", { name: "Do sprawdzenia" }).getByText("Hotel wakacje")
+  ).toHaveCount(0);
 });

@@ -157,6 +157,9 @@
     queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
     queryClient.invalidateQueries({ queryKey: qk.summary(u) });
     queryClient.invalidateQueries({ queryKey: qk.importHealth(u) });
+    queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
+    queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
+    queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
     toast.success(importSuccessLabel(result.inserted), {
       description: m.bank_commit_toast_detail({
         skipped: result.skipped,

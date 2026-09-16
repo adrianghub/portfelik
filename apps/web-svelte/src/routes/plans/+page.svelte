@@ -691,6 +691,9 @@
       toast.success(m.plan_toast_created());
       const u = requireSessionUserId();
       await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planDebtTermsList(u) });
     },
     onError: (err) => toastPlanError(err),
@@ -712,6 +715,9 @@
       toast.success(m.plan_toast_updated());
       const u = requireSessionUserId();
       await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planDebtTermsList(u) });
       if (id) {
         await queryClient.invalidateQueries({ queryKey: qk.plan(u, id) });
@@ -748,6 +754,7 @@
       await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planDebtTermsList(u) });
     },
     onError: (err) => toastError(err),

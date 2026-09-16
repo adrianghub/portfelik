@@ -200,12 +200,16 @@
       }
       const u = requireSessionUserId();
       await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
       if (planContext) {
         await queryClient.invalidateQueries({ queryKey: qk.planLinks(u, planContext.planId) });
         await queryClient.invalidateQueries({ queryKey: qk.planRanked(u, planContext.planId) });
         await queryClient.invalidateQueries({ queryKey: qk.planEligible(u, planContext.planId) });
         await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
         await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
+        await queryClient.invalidateQueries({ queryKey: qk.planDebtTerms(u, planContext.planId) });
+        await queryClient.invalidateQueries({ queryKey: qk.planDebtTermsList(u) });
+        await queryClient.invalidateQueries({ queryKey: qk.planDebtDetect(u, planContext.planId) });
         await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
         toast.success(m.plan_settle_linked());
       } else {
@@ -225,6 +229,7 @@
       const u = requireSessionUserId();
       await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
       toast.success(m.rule_apply_done({ count: affected }));
     } catch (err) {
       toastError(err);

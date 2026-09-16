@@ -30,6 +30,9 @@
       queryClient.invalidateQueries({ queryKey: qk.planProgress(userId) }),
       queryClient.invalidateQueries({ queryKey: qk.planProgressList(userId) }),
       queryClient.invalidateQueries({ queryKey: qk.planMatches(userId) }),
+      queryClient.invalidateQueries({ queryKey: qk.planDebtTerms(userId, planId) }),
+      queryClient.invalidateQueries({ queryKey: qk.planDebtTermsList(userId) }),
+      queryClient.invalidateQueries({ queryKey: qk.planDebtDetect(userId, planId) }),
       queryClient.invalidateQueries({ queryKey: qk.plans(userId) }),
     ]);
   }

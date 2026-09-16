@@ -175,6 +175,7 @@
     await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
     await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
     await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
+    await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
   }
 
   const settleMutation = createMutation(() => ({
