@@ -4,6 +4,23 @@ export type NativeBackPageHandler = () => boolean;
 
 const overlayClosers: Array<() => void> = [];
 let pageHandler: NativeBackPageHandler | null = null;
+let chromeHides = 0;
+
+/** Hide the mobile bottom nav while a full-screen overlay is open. */
+export function hideMobileChrome(): () => void {
+  if (typeof document === "undefined") return () => {};
+  chromeHides += 1;
+  document.documentElement.classList.add("mobile-overlay-open");
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    chromeHides = Math.max(0, chromeHides - 1);
+    if (chromeHides === 0) {
+      document.documentElement.classList.remove("mobile-overlay-open");
+    }
+  };
+}
 
 export function registerNativeOverlayCloser(close: () => void): () => void {
   overlayClosers.push(close);
@@ -39,4 +56,8 @@ export function runNativeBackPageHandler(): boolean {
 export function resetNativeBackStateForTests(): void {
   overlayClosers.length = 0;
   pageHandler = null;
+  chromeHides = 0;
+  if (typeof document !== "undefined") {
+    document.documentElement.classList.remove("mobile-overlay-open");
+  }
 }

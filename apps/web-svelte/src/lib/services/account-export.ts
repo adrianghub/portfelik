@@ -3,6 +3,7 @@ import { fetchCategories } from "$lib/services/categories";
 import { fetchUserGroups } from "$lib/services/groups";
 import { fetchPlansForExport } from "$lib/services/plans";
 import { fetchAllTransactionsForExport } from "$lib/services/transactions";
+import { saveTextFile } from "$lib/services/save-text-file";
 
 /**
  * Informational account dump — not a round-trip restore format.
@@ -206,14 +207,10 @@ export async function buildAccountExport(): Promise<AccountExportBundle> {
   };
 }
 
-export function downloadAccountExport(bundle: AccountExportBundle): void {
-  const blob = new Blob([JSON.stringify(bundle, null, 2)], {
-    type: "application/json;charset=utf-8",
-  });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `jakstoimy-export-${bundle.exported_at.slice(0, 10)}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
+export async function downloadAccountExport(bundle: AccountExportBundle): Promise<boolean> {
+  return saveTextFile(
+    `jakstoimy-export-${bundle.exported_at.slice(0, 10)}.json`,
+    JSON.stringify(bundle, null, 2),
+    "application/json;charset=utf-8"
+  );
 }

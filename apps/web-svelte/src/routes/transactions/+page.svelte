@@ -88,6 +88,8 @@
   import { Plus, Repeat, X } from "lucide-svelte";
   import { toast } from "svelte-sonner";
   import { toastError } from "$lib/toast-error";
+  import { isNativeCapacitor } from "$lib/services/pwa";
+  import { saveTextFile } from "$lib/services/save-text-file";
   import QueryError from "$lib/components/ui/QueryError.svelte";
 
   const queryClient = useQueryClient();
@@ -1054,7 +1056,7 @@
     return val;
   }
 
-  function handleExport() {
+  async function handleExport() {
     const rows = accountedTxs;
     if (!rows?.length) return;
     const headers = [
@@ -1082,13 +1084,16 @@
         .join(",")
     );
     const csv = [headers.join(","), ...csvRows].join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `jakstoimy-transakcje-${new Date().toISOString().slice(0, 7)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      const saved = await saveTextFile(
+        `jakstoimy-transakcje-${new Date().toISOString().slice(0, 7)}.csv`,
+        "\uFEFF" + csv,
+        "text/csv;charset=utf-8"
+      );
+      if (saved && isNativeCapacitor()) toast.success(m.csv_export_ready());
+    } catch (err) {
+      toastError(err);
+    }
   }
 </script>
 

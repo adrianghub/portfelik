@@ -27,6 +27,17 @@ test.describe("native spine on a phone", () => {
     await expect(page).toHaveURL(/\/transactions/);
     await expect(page.getByRole("heading", { name: /transakcje/i })).toBeVisible();
 
+    await page.getByRole("button", { name: "Szukaj transakcji" }).click();
+    const search = page.getByRole("search", { name: "Szukaj transakcji" });
+    await expect(search).toBeVisible();
+    await expect(search.getByRole("button", { name: "Zamknij wyszukiwanie" })).toBeVisible();
+    const box = await search.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.y).toBeGreaterThanOrEqual(0);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(844);
+    await search.getByRole("button", { name: "Zamknij wyszukiwanie" }).click();
+    await expect(search).toHaveCount(0);
+
     await page.getByRole("button", { name: /^filtry/i }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await page.getByRole("dialog").getByRole("button", { name: "Zamknij", exact: true }).click();

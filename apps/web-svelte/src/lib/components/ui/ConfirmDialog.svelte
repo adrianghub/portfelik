@@ -2,7 +2,7 @@
   import * as m from "$lib/paraglide/messages";
   import { fade, scale } from "svelte/transition";
   import { motionDuration } from "$lib/motion";
-  import { registerNativeOverlayCloser } from "$lib/services/native-overlay";
+  import { hideMobileChrome, registerNativeOverlayCloser } from "$lib/services/native-overlay";
 
   interface Props {
     open: boolean;
@@ -41,7 +41,12 @@
 
   $effect(() => {
     if (!open) return;
-    return registerNativeOverlayCloser(() => onclose());
+    const releaseChrome = hideMobileChrome();
+    const unregister = registerNativeOverlayCloser(() => onclose());
+    return () => {
+      unregister();
+      releaseChrome();
+    };
   });
 
   const confirmClass = $derived(
@@ -59,7 +64,7 @@
 
 {#if open}
   <div
-    class="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/70 px-4 pb-4 backdrop-blur-sm sm:items-center sm:pb-0"
+    class="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/70 px-4 pb-[max(1rem,var(--safe-bottom))] backdrop-blur-sm sm:items-center sm:pb-0"
     role="presentation"
     onclick={onbackdrop}
     onkeydown={null}
