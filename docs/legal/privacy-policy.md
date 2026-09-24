@@ -1,6 +1,6 @@
 # Polityka prywatności
 
-Ostatnia aktualizacja: 16 września 2026
+Ostatnia aktualizacja: 24 września 2026
 
 JakStoimy pomaga prowadzić domowe finanse. Żeby działać, musi przechowywać Twoje
 dane finansowe. Poniżej wyjaśniamy bez prawniczego żargonu: co przechowujemy,
@@ -67,6 +67,9 @@ W **Ustawienia → Profil** możesz w każdej chwili:
 - pobrać komplet swoich danych (plik JSON),
 - usunąć konto. Prywatne dane znikają. Wspólna historia grupy zostaje u
   właściciela.
+
+Na telefonie plik eksportu idzie przez udostępnianie systemu i nie zostaje w
+aplikacji.
 
 Eksport transakcji do CSV znajdziesz na ekranie Transakcje. Jeśli prowadzisz
 grupę, przed usunięciem konta przekaż ją komuś albo rozwiąż.

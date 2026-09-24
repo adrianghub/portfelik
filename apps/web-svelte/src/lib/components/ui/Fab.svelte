@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Plus } from "lucide-svelte";
   import type { Snippet } from "svelte";
+  import { holdMobileFabClearance } from "$lib/services/native-overlay";
 
   interface Props {
     onclick: () => void;
@@ -9,6 +10,8 @@
   }
 
   let { onclick, "aria-label": ariaLabel, icon }: Props = $props();
+
+  $effect(() => holdMobileFabClearance());
 </script>
 
 <button

@@ -11,5 +11,11 @@ project(':capacitor-browser').projectDir = new File('../../../node_modules/.pnpm
 include ':capacitor-splash-screen'
 project(':capacitor-splash-screen').projectDir = new File('../../../node_modules/.pnpm/@capacitor+splash-screen@8.0.2_@capacitor+core@8.5.1/node_modules/@capacitor/splash-screen/android')
 
+include ':capacitor-filesystem'
+project(':capacitor-filesystem').projectDir = new File('../../../node_modules/.pnpm/@capacitor+filesystem@8.1.3_@capacitor+core@8.5.1/node_modules/@capacitor/filesystem/android')
+
+include ':capacitor-share'
+project(':capacitor-share').projectDir = new File('../../../node_modules/.pnpm/@capacitor+share@8.0.2_@capacitor+core@8.5.1/node_modules/@capacitor/share/android')
+
 include ':capgo-capacitor-social-login'
 project(':capgo-capacitor-social-login').projectDir = new File('../../../node_modules/.pnpm/@capgo+capacitor-social-login@8.5.7_@capacitor+core@8.5.1/node_modules/@capgo/capacitor-social-login/android')

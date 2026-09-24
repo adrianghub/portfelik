@@ -4,7 +4,7 @@
   import { fade, fly } from "svelte/transition";
   import { motionDuration } from "$lib/motion";
   import * as m from "$lib/paraglide/messages";
-  import { registerNativeOverlayCloser } from "$lib/services/native-overlay";
+  import { hideMobileChrome, registerNativeOverlayCloser } from "$lib/services/native-overlay";
 
   interface Props {
     open: boolean;
@@ -24,7 +24,12 @@
   $effect(() => {
     if (!open) return;
     tick().then(() => inputRef?.focus());
-    return registerNativeOverlayCloser(() => onclose());
+    const releaseChrome = hideMobileChrome();
+    const unregister = registerNativeOverlayCloser(() => onclose());
+    return () => {
+      unregister();
+      releaseChrome();
+    };
   });
 </script>
 
@@ -34,7 +39,7 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <div
-    class="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto px-4 py-[10vh]"
+    class="fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto px-3 pt-[calc(var(--safe-top)+0.75rem)] pb-[max(0.75rem,var(--safe-bottom))]"
     role="presentation"
     onclick={onclose}
   >
@@ -43,7 +48,7 @@
       transition:fade={{ duration: motionDuration(160) }}
     ></div>
     <div
-      class="relative flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-900/95 shadow-[0_0_60px_rgba(15,23,42,0.65)]"
+      class="relative flex max-h-[calc(100dvh-var(--safe-top)-var(--safe-bottom)-1.5rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-900/95 shadow-[0_0_60px_rgba(15,23,42,0.65)]"
       role="search"
       aria-label={m.transactions_search_open()}
       transition:fly={{ duration: motionDuration(160), y: -8 }}
@@ -77,7 +82,8 @@
           class="shrink-0 rounded-md border border-white/10 px-2 py-1 text-xs font-medium text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-200"
           aria-label={m.transactions_search_close()}
         >
-          {m.transactions_search_esc()}
+          <span class="md:hidden">{m.common_close()}</span>
+          <span class="hidden md:inline">{m.transactions_search_esc()}</span>
         </button>
       </div>
       <div class="min-h-0 flex-1 overflow-y-auto p-3">
