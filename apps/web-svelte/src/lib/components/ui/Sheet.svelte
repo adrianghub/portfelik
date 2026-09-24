@@ -112,7 +112,7 @@
     transition:fade={{ duration: motionDuration(180), easing: cubicOut }}
   >
     <div
-      class="sheet-panel flex max-h-[min(90dvh,100%)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-white/5 bg-slate-900/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-12px_40px_rgba(0,0,0,0.4)] backdrop-blur"
+      class="sheet-panel flex max-h-[min(90dvh,100%)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-white/5 bg-slate-900/95 pb-(--safe-bottom) shadow-[0_-12px_40px_rgba(0,0,0,0.4)] backdrop-blur"
       class:sheet-panel--dragging={dragging}
       style:transform={dragY > 0 ? `translateY(${dragY}px)` : undefined}
       role="dialog"

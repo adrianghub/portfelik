@@ -80,6 +80,20 @@
     --mobile-page-bottom: calc(5rem + var(--safe-bottom));
   }
 
+  /* FAB is 3.5rem above the nav. Page padding must clear both, or the last
+     action on Transakcje, Plany, and Kategorie sits under the plus button. */
+  html.mobile-fab-present {
+    --mobile-page-bottom: calc(10.5rem + var(--safe-bottom));
+  }
+
+  html.mobile-nav-hidden.mobile-fab-present {
+    --mobile-page-bottom: calc(5.5rem + var(--safe-bottom));
+  }
+
+  html.mobile-overlay-open.mobile-fab-present {
+    --mobile-page-bottom: calc(5rem + var(--safe-bottom));
+  }
+
   body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

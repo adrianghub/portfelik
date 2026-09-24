@@ -39,12 +39,33 @@ export async function saveTextFile(
     directory: Directory.Cache,
     encoding: Encoding.UTF8,
   });
-  const { uri } = await Filesystem.getUri({ directory: Directory.Cache, path: filename });
   try {
-    await Share.share({ title: filename, files: [uri], dialogTitle: filename });
-  } catch (err) {
-    if (isShareCancel(err)) return false;
-    throw err;
+    const { uri } = await Filesystem.getUri({ directory: Directory.Cache, path: filename });
+    try {
+      await Share.share({ title: filename, files: [uri], dialogTitle: filename });
+    } catch (err) {
+      if (isShareCancel(err)) return false;
+      throw err;
+    }
+    return true;
+  } finally {
+    await Filesystem.deleteFile({ path: filename, directory: Directory.Cache }).catch(() => {});
   }
-  return true;
+}
+
+/** Drop leftover statement/account exports from the native cache. */
+export async function clearNativeExportCache(): Promise<void> {
+  if (!isNativeCapacitor()) return;
+  try {
+    const listed = await Filesystem.readdir({ path: ".", directory: Directory.Cache });
+    await Promise.all(
+      listed.files
+        .filter((file) => file.name.startsWith("jakstoimy-"))
+        .map((file) =>
+          Filesystem.deleteFile({ path: file.name, directory: Directory.Cache }).catch(() => {})
+        )
+    );
+  } catch {
+    // Cache directory may be missing.
+  }
 }

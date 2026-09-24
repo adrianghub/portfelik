@@ -1,7 +1,8 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { nativeBackDestination } from "$lib/services/native-back-policy";
 import {
   closeTopNativeOverlay,
+  holdMobileFabClearance,
   nativeOverlayCount,
   registerNativeBackPageHandler,
   registerNativeOverlayCloser,
@@ -78,6 +79,23 @@ describe("native overlay stack", () => {
     expect(runNativeBackPageHandler()).toBe(true);
     remove();
     expect(runNativeBackPageHandler()).toBe(false);
+  });
+
+  it("pads the page while a mobile plus button is mounted", () => {
+    const classes = new Set<string>();
+    vi.stubGlobal("document", {
+      documentElement: {
+        classList: {
+          add: (name: string) => classes.add(name),
+          remove: (name: string) => classes.delete(name),
+        },
+      },
+    });
+    const release = holdMobileFabClearance();
+    expect(classes.has("mobile-fab-present")).toBe(true);
+    release();
+    expect(classes.has("mobile-fab-present")).toBe(false);
+    vi.unstubAllGlobals();
   });
 
   it("keeps a page handler unused while an overlay is open", () => {

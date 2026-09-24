@@ -2,6 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const writeFile = vi.fn(async (_options: unknown) => undefined);
 const getUri = vi.fn(async (_options: unknown) => ({ uri: "file:///cache/export.json" }));
+const deleteFile = vi.fn(async (_options: unknown) => undefined);
+const readdir = vi.fn(async (_options: unknown) => ({
+  files: [{ name: "jakstoimy-export.json" }, { name: "other.txt" }],
+}));
 const share = vi.fn(async (_options: unknown) => undefined);
 const isNativeCapacitor = vi.fn(() => false);
 
@@ -11,6 +15,8 @@ vi.mock("@capacitor/filesystem", () => ({
   Filesystem: {
     writeFile: (options: unknown) => writeFile(options),
     getUri: (options: unknown) => getUri(options),
+    deleteFile: (options: unknown) => deleteFile(options),
+    readdir: (options: unknown) => readdir(options),
   },
 }));
 
@@ -22,12 +28,14 @@ vi.mock("$lib/services/pwa", () => ({
   isNativeCapacitor: () => isNativeCapacitor(),
 }));
 
-import { saveTextFile } from "$lib/services/save-text-file";
+import { clearNativeExportCache, saveTextFile } from "$lib/services/save-text-file";
 
 describe("saveTextFile", () => {
   beforeEach(() => {
     writeFile.mockReset();
     getUri.mockClear();
+    deleteFile.mockReset();
+    readdir.mockClear();
     share.mockReset();
     isNativeCapacitor.mockReset();
     isNativeCapacitor.mockReturnValue(false);
@@ -57,6 +65,18 @@ describe("saveTextFile", () => {
     );
     expect(share).toHaveBeenCalledWith(
       expect.objectContaining({ files: ["file:///cache/export.json"] })
+    );
+    expect(deleteFile).toHaveBeenCalledWith(
+      expect.objectContaining({ path: "a.json", directory: "CACHE" })
+    );
+  });
+
+  it("removes leftover JakStoimy exports from the native cache", async () => {
+    isNativeCapacitor.mockReturnValue(true);
+    await clearNativeExportCache();
+    expect(deleteFile).toHaveBeenCalledTimes(1);
+    expect(deleteFile).toHaveBeenCalledWith(
+      expect.objectContaining({ path: "jakstoimy-export.json", directory: "CACHE" })
     );
   });
 });

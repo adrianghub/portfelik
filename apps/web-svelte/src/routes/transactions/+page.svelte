@@ -15,6 +15,7 @@
   import TransactionTable from "$lib/components/transactions/TransactionTable.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import SearchModal from "$lib/components/ui/SearchModal.svelte";
+  import { holdMobileFabClearance } from "$lib/services/native-overlay";
   import DemoShowcaseBanner from "$lib/components/onboarding/DemoShowcaseBanner.svelte";
   import * as m from "$lib/paraglide/messages";
   import {
@@ -419,6 +420,8 @@
   const TX_CHUNK_SIZE = 80;
   let renderedTxCount = $state(TX_CHUNK_SIZE);
   const renderedTxs = $derived((visibleTxs ?? []).slice(0, renderedTxCount));
+
+  $effect(() => holdMobileFabClearance());
 
   $effect(() => {
     void visibleTxs;
