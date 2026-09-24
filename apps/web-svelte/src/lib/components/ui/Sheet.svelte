@@ -1,19 +1,10 @@
-<script module lang="ts">
-  let openSheetCount = 0;
-
-  function syncMobileOverlayClass() {
-    if (typeof document === "undefined") return;
-    document.documentElement.classList.toggle("mobile-overlay-open", openSheetCount > 0);
-  }
-</script>
-
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { X } from "lucide-svelte";
   import { fade, fly } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
   import { motionDuration } from "$lib/motion";
-  import { registerNativeOverlayCloser } from "$lib/services/native-overlay";
+  import { hideMobileChrome, registerNativeOverlayCloser } from "$lib/services/native-overlay";
 
   interface Props {
     open: boolean;
@@ -92,13 +83,11 @@
 
   $effect(() => {
     if (!open || typeof document === "undefined") return;
-    openSheetCount += 1;
-    syncMobileOverlayClass();
+    const releaseChrome = hideMobileChrome();
     const unregister = registerNativeOverlayCloser(() => onclose());
     return () => {
       unregister();
-      openSheetCount = Math.max(0, openSheetCount - 1);
-      syncMobileOverlayClass();
+      releaseChrome();
     };
   });
 
@@ -123,7 +112,7 @@
     transition:fade={{ duration: motionDuration(180), easing: cubicOut }}
   >
     <div
-      class="sheet-panel flex max-h-[min(90dvh,100%)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-white/5 bg-slate-900/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-12px_40px_rgba(0,0,0,0.4)] backdrop-blur"
+      class="sheet-panel flex max-h-[min(90dvh,100%)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-white/5 bg-slate-900/95 pb-(--safe-bottom) shadow-[0_-12px_40px_rgba(0,0,0,0.4)] backdrop-blur"
       class:sheet-panel--dragging={dragging}
       style:transform={dragY > 0 ? `translateY(${dragY}px)` : undefined}
       role="dialog"

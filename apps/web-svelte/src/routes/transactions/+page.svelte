@@ -15,6 +15,7 @@
   import TransactionTable from "$lib/components/transactions/TransactionTable.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import SearchModal from "$lib/components/ui/SearchModal.svelte";
+  import { holdMobileFabClearance } from "$lib/services/native-overlay";
   import DemoShowcaseBanner from "$lib/components/onboarding/DemoShowcaseBanner.svelte";
   import * as m from "$lib/paraglide/messages";
   import {
@@ -88,6 +89,8 @@
   import { Plus, Repeat, X } from "lucide-svelte";
   import { toast } from "svelte-sonner";
   import { toastError } from "$lib/toast-error";
+  import { isNativeCapacitor } from "$lib/services/pwa";
+  import { saveTextFile } from "$lib/services/save-text-file";
   import QueryError from "$lib/components/ui/QueryError.svelte";
 
   const queryClient = useQueryClient();
@@ -417,6 +420,8 @@
   const TX_CHUNK_SIZE = 80;
   let renderedTxCount = $state(TX_CHUNK_SIZE);
   const renderedTxs = $derived((visibleTxs ?? []).slice(0, renderedTxCount));
+
+  $effect(() => holdMobileFabClearance());
 
   $effect(() => {
     void visibleTxs;
@@ -1054,7 +1059,7 @@
     return val;
   }
 
-  function handleExport() {
+  async function handleExport() {
     const rows = accountedTxs;
     if (!rows?.length) return;
     const headers = [
@@ -1082,13 +1087,16 @@
         .join(",")
     );
     const csv = [headers.join(","), ...csvRows].join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `jakstoimy-transakcje-${new Date().toISOString().slice(0, 7)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      const saved = await saveTextFile(
+        `jakstoimy-transakcje-${new Date().toISOString().slice(0, 7)}.csv`,
+        "\uFEFF" + csv,
+        "text/csv;charset=utf-8"
+      );
+      if (saved && isNativeCapacitor()) toast.success(m.csv_export_ready());
+    } catch (err) {
+      toastError(err);
+    }
   }
 </script>
 

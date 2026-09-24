@@ -479,8 +479,8 @@
         onclick={async () => {
           try {
             const bundle = await buildAccountExport();
-            downloadAccountExport(bundle);
-            toast.success(m.settings_export_success());
+            const saved = await downloadAccountExport(bundle);
+            if (saved) toast.success(m.settings_export_success());
           } catch (err) {
             toastError(err);
           }

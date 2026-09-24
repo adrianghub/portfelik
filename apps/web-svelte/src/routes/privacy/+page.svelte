@@ -9,13 +9,15 @@
   <title>{m.privacy_policy_link()} · JakStoimy</title>
 </svelte:head>
 
-<main class="mx-auto min-h-screen max-w-2xl px-4 py-10 text-slate-200">
+<main
+  class="mx-auto min-h-screen max-w-2xl px-4 pt-10 pb-[max(2.5rem,var(--safe-bottom))] text-slate-200"
+>
   <a href="/" class="text-accent text-sm hover:underline">← JakStoimy</a>
 
   <h1 class="mt-4 text-2xl font-semibold tracking-tight text-slate-100">
     {m.privacy_policy_link()}
   </h1>
-  <p class="mt-1 text-xs text-slate-400">Ostatnia aktualizacja: 16 września 2026</p>
+  <p class="mt-1 text-xs text-slate-400">Ostatnia aktualizacja: 24 września 2026</p>
 
   <p class="mt-6 text-sm leading-relaxed text-slate-300">
     JakStoimy pomaga prowadzić domowe finanse. Żeby działać, musi przechowywać Twoje dane finansowe.
@@ -104,9 +106,10 @@
     <h2 class="text-base font-semibold text-slate-100">Twoje dane są Twoje</h2>
     <p class="text-sm leading-relaxed text-slate-300">
       W <strong>Ustawienia → Profil</strong> możesz w każdej chwili pobrać komplet swoich danych (plik
-      JSON) lub usunąć konto. Prywatne dane znikają. Wspólna historia grupy zostaje u właściciela. Eksport
-      transakcji do CSV znajdziesz na ekranie Transakcje. Jeśli prowadzisz grupę, przed usunięciem konta
-      przekaż ją komuś albo rozwiąż.
+      JSON) lub usunąć konto. Na telefonie ten plik idzie przez udostępnianie systemu i nie zostaje w
+      aplikacji. Prywatne dane znikają. Wspólna historia grupy zostaje u właściciela. Eksport transakcji
+      do CSV znajdziesz na ekranie Transakcje. Jeśli prowadzisz grupę, przed usunięciem konta przekaż
+      ją komuś albo rozwiąż.
     </p>
   </section>
 
