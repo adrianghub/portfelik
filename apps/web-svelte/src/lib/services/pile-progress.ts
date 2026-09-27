@@ -9,7 +9,10 @@ export interface PileSpendRow {
 }
 
 /** Inclusive start, exclusive end, as YYYY-MM-DD. */
-export function pileWindow(period: CategoryCapPeriod, today: string): { start: string; end: string } {
+export function pileWindow(
+  period: CategoryCapPeriod,
+  today: string
+): { start: string; end: string } {
   const [yearText, monthText] = today.split("-");
   const year = Number(yearText);
   const month = Number(monthText);

@@ -52,12 +52,7 @@
 
   const rows = $derived(
     piles.map((pile) => {
-      const spent = spentInPile(
-        txQuery.data ?? [],
-        pile.id,
-        pile.cap_period!,
-        today
-      );
+      const spent = spentInPile(txQuery.data ?? [], pile.id, pile.cap_period!, today);
       const cap = pile.cap_amount!;
       const pct = Math.min(100, Math.round((spent / cap) * 100));
       return { pile, spent, cap, pct, over: spent > cap };

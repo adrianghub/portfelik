@@ -21,7 +21,9 @@
 
   let name = $state(untrack(() => initial?.name ?? ""));
   let type = $state<TransactionType>(untrack(() => initial?.type ?? "expense"));
-  let capAmount = $state(untrack(() => (initial?.cap_amount != null ? String(initial.cap_amount) : "")));
+  let capAmount = $state(
+    untrack(() => (initial?.cap_amount != null ? String(initial.cap_amount) : ""))
+  );
   let capPeriod = $state<CategoryCapPeriod>(untrack(() => initial?.cap_period ?? "month"));
 
   $effect(() => {

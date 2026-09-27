@@ -1,1715 +1,1701 @@
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[]
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
   graphql_public: {
     Tables: {
-      [_ in never]: never
-    }
+      [_ in never]: never;
+    };
     Views: {
-      [_ in never]: never
-    }
+      [_ in never]: never;
+    };
     Functions: {
       graphql: {
         Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
+          extensions?: Json;
+          operationName?: string;
+          query?: string;
+          variables?: Json;
+        };
+        Returns: Json;
+      };
+    };
     Enums: {
-      [_ in never]: never
-    }
+      [_ in never]: never;
+    };
     CompositeTypes: {
-      [_ in never]: never
-    }
-  }
+      [_ in never]: never;
+    };
+  };
   public: {
     Tables: {
       action_dismissals: {
         Row: {
-          action_key: string
-          created_at: string
-          dismissed_until: string | null
-          id: string
-          user_id: string
-        }
+          action_key: string;
+          created_at: string;
+          dismissed_until: string | null;
+          id: string;
+          user_id: string;
+        };
         Insert: {
-          action_key: string
-          created_at?: string
-          dismissed_until?: string | null
-          id?: string
-          user_id?: string
-        }
+          action_key: string;
+          created_at?: string;
+          dismissed_until?: string | null;
+          id?: string;
+          user_id?: string;
+        };
         Update: {
-          action_key?: string
-          created_at?: string
-          dismissed_until?: string | null
-          id?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
+          action_key?: string;
+          created_at?: string;
+          dismissed_until?: string | null;
+          id?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       bank_accounts: {
         Row: {
-          archived_at: string | null
-          created_at: string
-          currency: string
-          id: string
-          kind: string
-          label: string
-          updated_at: string
-          user_id: string
-        }
+          archived_at: string | null;
+          created_at: string;
+          currency: string;
+          id: string;
+          kind: string;
+          label: string;
+          updated_at: string;
+          user_id: string;
+        };
         Insert: {
-          archived_at?: string | null
-          created_at?: string
-          currency?: string
-          id?: string
-          kind: string
-          label: string
-          updated_at?: string
-          user_id: string
-        }
+          archived_at?: string | null;
+          created_at?: string;
+          currency?: string;
+          id?: string;
+          kind: string;
+          label: string;
+          updated_at?: string;
+          user_id: string;
+        };
         Update: {
-          archived_at?: string | null
-          created_at?: string
-          currency?: string
-          id?: string
-          kind?: string
-          label?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
+          archived_at?: string | null;
+          created_at?: string;
+          currency?: string;
+          id?: string;
+          kind?: string;
+          label?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       cash_positions: {
         Row: {
-          as_of_date: string
-          created_at: string
-          group_id: string | null
-          id: string
-          opening_amount: number
-          owner_id: string | null
-          updated_at: string
-        }
+          as_of_date: string;
+          created_at: string;
+          group_id: string | null;
+          id: string;
+          opening_amount: number;
+          owner_id: string | null;
+          updated_at: string;
+        };
         Insert: {
-          as_of_date?: string
-          created_at?: string
-          group_id?: string | null
-          id?: string
-          opening_amount?: number
-          owner_id?: string | null
-          updated_at?: string
-        }
+          as_of_date?: string;
+          created_at?: string;
+          group_id?: string | null;
+          id?: string;
+          opening_amount?: number;
+          owner_id?: string | null;
+          updated_at?: string;
+        };
         Update: {
-          as_of_date?: string
-          created_at?: string
-          group_id?: string | null
-          id?: string
-          opening_amount?: number
-          owner_id?: string | null
-          updated_at?: string
-        }
+          as_of_date?: string;
+          created_at?: string;
+          group_id?: string | null;
+          id?: string;
+          opening_amount?: number;
+          owner_id?: string | null;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "cash_positions_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "user_groups"
-            referencedColumns: ["id"]
+            foreignKeyName: "cash_positions_group_id_fkey";
+            columns: ["group_id"];
+            isOneToOne: false;
+            referencedRelation: "user_groups";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       categories: {
         Row: {
-          cap_amount: number | null
-          cap_period: string | null
-          created_at: string
-          id: string
-          name: string
-          type: Database["public"]["Enums"]["transaction_type"]
-          updated_at: string
-          user_id: string | null
-        }
+          cap_amount: number | null;
+          cap_period: string | null;
+          created_at: string;
+          id: string;
+          name: string;
+          type: Database["public"]["Enums"]["transaction_type"];
+          updated_at: string;
+          user_id: string | null;
+        };
         Insert: {
-          cap_amount?: number | null
-          cap_period?: string | null
-          created_at?: string
-          id?: string
-          name: string
-          type: Database["public"]["Enums"]["transaction_type"]
-          updated_at?: string
-          user_id?: string | null
-        }
+          cap_amount?: number | null;
+          cap_period?: string | null;
+          created_at?: string;
+          id?: string;
+          name: string;
+          type: Database["public"]["Enums"]["transaction_type"];
+          updated_at?: string;
+          user_id?: string | null;
+        };
         Update: {
-          cap_amount?: number | null
-          cap_period?: string | null
-          created_at?: string
-          id?: string
-          name?: string
-          type?: Database["public"]["Enums"]["transaction_type"]
-          updated_at?: string
-          user_id?: string | null
-        }
-        Relationships: []
-      }
+          cap_amount?: number | null;
+          cap_period?: string | null;
+          created_at?: string;
+          id?: string;
+          name?: string;
+          type?: Database["public"]["Enums"]["transaction_type"];
+          updated_at?: string;
+          user_id?: string | null;
+        };
+        Relationships: [];
+      };
       categorization_rules: {
         Row: {
-          category_id: string
-          created_at: string
-          id: string
-          kind: Database["public"]["Enums"]["categorization_rule_kind"]
-          match_counterparty: string | null
-          match_day_of_month: number | null
-          match_description: string | null
-          match_type: Database["public"]["Enums"]["transaction_type"] | null
-          priority: number
-          user_id: string
-        }
+          category_id: string;
+          created_at: string;
+          id: string;
+          kind: Database["public"]["Enums"]["categorization_rule_kind"];
+          match_counterparty: string | null;
+          match_day_of_month: number | null;
+          match_description: string | null;
+          match_type: Database["public"]["Enums"]["transaction_type"] | null;
+          priority: number;
+          user_id: string;
+        };
         Insert: {
-          category_id: string
-          created_at?: string
-          id?: string
-          kind: Database["public"]["Enums"]["categorization_rule_kind"]
-          match_counterparty?: string | null
-          match_day_of_month?: number | null
-          match_description?: string | null
-          match_type?: Database["public"]["Enums"]["transaction_type"] | null
-          priority?: number
-          user_id: string
-        }
+          category_id: string;
+          created_at?: string;
+          id?: string;
+          kind: Database["public"]["Enums"]["categorization_rule_kind"];
+          match_counterparty?: string | null;
+          match_day_of_month?: number | null;
+          match_description?: string | null;
+          match_type?: Database["public"]["Enums"]["transaction_type"] | null;
+          priority?: number;
+          user_id: string;
+        };
         Update: {
-          category_id?: string
-          created_at?: string
-          id?: string
-          kind?: Database["public"]["Enums"]["categorization_rule_kind"]
-          match_counterparty?: string | null
-          match_day_of_month?: number | null
-          match_description?: string | null
-          match_type?: Database["public"]["Enums"]["transaction_type"] | null
-          priority?: number
-          user_id?: string
-        }
+          category_id?: string;
+          created_at?: string;
+          id?: string;
+          kind?: Database["public"]["Enums"]["categorization_rule_kind"];
+          match_counterparty?: string | null;
+          match_day_of_month?: number | null;
+          match_description?: string | null;
+          match_type?: Database["public"]["Enums"]["transaction_type"] | null;
+          priority?: number;
+          user_id?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "categorization_rules_category_id_fkey"
-            columns: ["category_id"]
-            isOneToOne: false
-            referencedRelation: "categories"
-            referencedColumns: ["id"]
+            foreignKeyName: "categorization_rules_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       financial_snapshots: {
         Row: {
-          as_of_date: string
-          cash_amount: number
-          created_at: string
-          investments_amount: number
-          real_estate_amount: number
-          updated_at: string
-          user_id: string
-        }
+          as_of_date: string;
+          cash_amount: number;
+          created_at: string;
+          investments_amount: number;
+          real_estate_amount: number;
+          updated_at: string;
+          user_id: string;
+        };
         Insert: {
-          as_of_date?: string
-          cash_amount?: number
-          created_at?: string
-          investments_amount?: number
-          real_estate_amount?: number
-          updated_at?: string
-          user_id: string
-        }
+          as_of_date?: string;
+          cash_amount?: number;
+          created_at?: string;
+          investments_amount?: number;
+          real_estate_amount?: number;
+          updated_at?: string;
+          user_id: string;
+        };
         Update: {
-          as_of_date?: string
-          cash_amount?: number
-          created_at?: string
-          investments_amount?: number
-          real_estate_amount?: number
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
+          as_of_date?: string;
+          cash_amount?: number;
+          created_at?: string;
+          investments_amount?: number;
+          real_estate_amount?: number;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       group_invitation_access_attempts: {
         Row: {
-          created_at: string
-          email: string
-          id: string
-          token_hash: string
-        }
+          created_at: string;
+          email: string;
+          id: string;
+          token_hash: string;
+        };
         Insert: {
-          created_at?: string
-          email: string
-          id?: string
-          token_hash: string
-        }
+          created_at?: string;
+          email: string;
+          id?: string;
+          token_hash: string;
+        };
         Update: {
-          created_at?: string
-          email?: string
-          id?: string
-          token_hash?: string
-        }
-        Relationships: []
-      }
+          created_at?: string;
+          email?: string;
+          id?: string;
+          token_hash?: string;
+        };
+        Relationships: [];
+      };
       group_invitation_tokens: {
         Row: {
-          created_at: string
-          invitation_id: string
-          token_hash: string
-        }
+          created_at: string;
+          invitation_id: string;
+          token_hash: string;
+        };
         Insert: {
-          created_at?: string
-          invitation_id: string
-          token_hash: string
-        }
+          created_at?: string;
+          invitation_id: string;
+          token_hash: string;
+        };
         Update: {
-          created_at?: string
-          invitation_id?: string
-          token_hash?: string
-        }
+          created_at?: string;
+          invitation_id?: string;
+          token_hash?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "group_invitation_tokens_invitation_id_fkey"
-            columns: ["invitation_id"]
-            isOneToOne: true
-            referencedRelation: "group_invitations"
-            referencedColumns: ["id"]
+            foreignKeyName: "group_invitation_tokens_invitation_id_fkey";
+            columns: ["invitation_id"];
+            isOneToOne: true;
+            referencedRelation: "group_invitations";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       group_invitations: {
         Row: {
-          created_at: string
-          created_by: string
-          delivery_attempts: number
-          delivery_status: string
-          expires_at: string
-          group_id: string
-          group_name: string
-          id: string
-          invited_user_email: string
-          invited_user_id: string | null
-          sent_at: string | null
-          status: Database["public"]["Enums"]["invitation_status"]
-          updated_at: string
-        }
+          created_at: string;
+          created_by: string;
+          delivery_attempts: number;
+          delivery_status: string;
+          expires_at: string;
+          group_id: string;
+          group_name: string;
+          id: string;
+          invited_user_email: string;
+          invited_user_id: string | null;
+          sent_at: string | null;
+          status: Database["public"]["Enums"]["invitation_status"];
+          updated_at: string;
+        };
         Insert: {
-          created_at?: string
-          created_by: string
-          delivery_attempts?: number
-          delivery_status?: string
-          expires_at?: string
-          group_id: string
-          group_name: string
-          id?: string
-          invited_user_email: string
-          invited_user_id?: string | null
-          sent_at?: string | null
-          status?: Database["public"]["Enums"]["invitation_status"]
-          updated_at?: string
-        }
+          created_at?: string;
+          created_by: string;
+          delivery_attempts?: number;
+          delivery_status?: string;
+          expires_at?: string;
+          group_id: string;
+          group_name: string;
+          id?: string;
+          invited_user_email: string;
+          invited_user_id?: string | null;
+          sent_at?: string | null;
+          status?: Database["public"]["Enums"]["invitation_status"];
+          updated_at?: string;
+        };
         Update: {
-          created_at?: string
-          created_by?: string
-          delivery_attempts?: number
-          delivery_status?: string
-          expires_at?: string
-          group_id?: string
-          group_name?: string
-          id?: string
-          invited_user_email?: string
-          invited_user_id?: string | null
-          sent_at?: string | null
-          status?: Database["public"]["Enums"]["invitation_status"]
-          updated_at?: string
-        }
+          created_at?: string;
+          created_by?: string;
+          delivery_attempts?: number;
+          delivery_status?: string;
+          expires_at?: string;
+          group_id?: string;
+          group_name?: string;
+          id?: string;
+          invited_user_email?: string;
+          invited_user_id?: string | null;
+          sent_at?: string | null;
+          status?: Database["public"]["Enums"]["invitation_status"];
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "group_invitations_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "user_groups"
-            referencedColumns: ["id"]
+            foreignKeyName: "group_invitations_group_id_fkey";
+            columns: ["group_id"];
+            isOneToOne: false;
+            referencedRelation: "user_groups";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       group_members: {
         Row: {
-          group_id: string
-          joined_at: string
-          role: Database["public"]["Enums"]["group_member_role"]
-          user_id: string
-        }
+          group_id: string;
+          joined_at: string;
+          role: Database["public"]["Enums"]["group_member_role"];
+          user_id: string;
+        };
         Insert: {
-          group_id: string
-          joined_at?: string
-          role?: Database["public"]["Enums"]["group_member_role"]
-          user_id: string
-        }
+          group_id: string;
+          joined_at?: string;
+          role?: Database["public"]["Enums"]["group_member_role"];
+          user_id: string;
+        };
         Update: {
-          group_id?: string
-          joined_at?: string
-          role?: Database["public"]["Enums"]["group_member_role"]
-          user_id?: string
-        }
+          group_id?: string;
+          joined_at?: string;
+          role?: Database["public"]["Enums"]["group_member_role"];
+          user_id?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "group_members_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "user_groups"
-            referencedColumns: ["id"]
+            foreignKeyName: "group_members_group_id_fkey";
+            columns: ["group_id"];
+            isOneToOne: false;
+            referencedRelation: "user_groups";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       net_worth_items: {
         Row: {
-          amount: number
-          created_at: string
-          currency: string
-          id: string
-          is_demo: boolean
-          label: string
-          position: number
-          updated_at: string
-          user_id: string
-        }
+          amount: number;
+          created_at: string;
+          currency: string;
+          id: string;
+          is_demo: boolean;
+          label: string;
+          position: number;
+          updated_at: string;
+          user_id: string;
+        };
         Insert: {
-          amount?: number
-          created_at?: string
-          currency?: string
-          id?: string
-          is_demo?: boolean
-          label: string
-          position?: number
-          updated_at?: string
-          user_id: string
-        }
+          amount?: number;
+          created_at?: string;
+          currency?: string;
+          id?: string;
+          is_demo?: boolean;
+          label: string;
+          position?: number;
+          updated_at?: string;
+          user_id: string;
+        };
         Update: {
-          amount?: number
-          created_at?: string
-          currency?: string
-          id?: string
-          is_demo?: boolean
-          label?: string
-          position?: number
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
+          amount?: number;
+          created_at?: string;
+          currency?: string;
+          id?: string;
+          is_demo?: boolean;
+          label?: string;
+          position?: number;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       notifications: {
         Row: {
-          body: string
-          created_at: string
-          data: Json | null
-          id: string
-          read_at: string | null
-          title: string
-          type: Database["public"]["Enums"]["notification_type"]
-          user_id: string
-        }
+          body: string;
+          created_at: string;
+          data: Json | null;
+          id: string;
+          read_at: string | null;
+          title: string;
+          type: Database["public"]["Enums"]["notification_type"];
+          user_id: string;
+        };
         Insert: {
-          body: string
-          created_at?: string
-          data?: Json | null
-          id?: string
-          read_at?: string | null
-          title: string
-          type: Database["public"]["Enums"]["notification_type"]
-          user_id: string
-        }
+          body: string;
+          created_at?: string;
+          data?: Json | null;
+          id?: string;
+          read_at?: string | null;
+          title: string;
+          type: Database["public"]["Enums"]["notification_type"];
+          user_id: string;
+        };
         Update: {
-          body?: string
-          created_at?: string
-          data?: Json | null
-          id?: string
-          read_at?: string | null
-          title?: string
-          type?: Database["public"]["Enums"]["notification_type"]
-          user_id?: string
-        }
-        Relationships: []
-      }
+          body?: string;
+          created_at?: string;
+          data?: Json | null;
+          id?: string;
+          read_at?: string | null;
+          title?: string;
+          type?: Database["public"]["Enums"]["notification_type"];
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       plan_debt_terms: {
         Row: {
-          anchor_balance: number | null
-          annual_rate: number
-          balance_anchor_date: string | null
-          created_at: string
-          current_balance: number
-          first_payment_amount: number | null
-          first_payment_date: string | null
-          monthly_payment: number
-          original_amount: number
-          plan_id: string
-          updated_at: string
-        }
+          anchor_balance: number | null;
+          annual_rate: number;
+          balance_anchor_date: string | null;
+          created_at: string;
+          current_balance: number;
+          first_payment_amount: number | null;
+          first_payment_date: string | null;
+          monthly_payment: number;
+          original_amount: number;
+          plan_id: string;
+          updated_at: string;
+        };
         Insert: {
-          anchor_balance?: number | null
-          annual_rate: number
-          balance_anchor_date?: string | null
-          created_at?: string
-          current_balance: number
-          first_payment_amount?: number | null
-          first_payment_date?: string | null
-          monthly_payment: number
-          original_amount: number
-          plan_id: string
-          updated_at?: string
-        }
+          anchor_balance?: number | null;
+          annual_rate: number;
+          balance_anchor_date?: string | null;
+          created_at?: string;
+          current_balance: number;
+          first_payment_amount?: number | null;
+          first_payment_date?: string | null;
+          monthly_payment: number;
+          original_amount: number;
+          plan_id: string;
+          updated_at?: string;
+        };
         Update: {
-          anchor_balance?: number | null
-          annual_rate?: number
-          balance_anchor_date?: string | null
-          created_at?: string
-          current_balance?: number
-          first_payment_amount?: number | null
-          first_payment_date?: string | null
-          monthly_payment?: number
-          original_amount?: number
-          plan_id?: string
-          updated_at?: string
-        }
+          anchor_balance?: number | null;
+          annual_rate?: number;
+          balance_anchor_date?: string | null;
+          created_at?: string;
+          current_balance?: number;
+          first_payment_amount?: number | null;
+          first_payment_date?: string | null;
+          monthly_payment?: number;
+          original_amount?: number;
+          plan_id?: string;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "plan_debt_terms_plan_id_fkey"
-            columns: ["plan_id"]
-            isOneToOne: true
-            referencedRelation: "plans"
-            referencedColumns: ["id"]
+            foreignKeyName: "plan_debt_terms_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: true;
+            referencedRelation: "plans";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       plan_progress_snapshots: {
         Row: {
-          created_at: string
-          created_by: string | null
-          effective_date: string
-          id: string
-          note: string | null
-          plan_id: string
-          saved_amount: number
-        }
+          created_at: string;
+          created_by: string | null;
+          effective_date: string;
+          id: string;
+          note: string | null;
+          plan_id: string;
+          saved_amount: number;
+        };
         Insert: {
-          created_at?: string
-          created_by?: string | null
-          effective_date: string
-          id?: string
-          note?: string | null
-          plan_id: string
-          saved_amount: number
-        }
+          created_at?: string;
+          created_by?: string | null;
+          effective_date: string;
+          id?: string;
+          note?: string | null;
+          plan_id: string;
+          saved_amount: number;
+        };
         Update: {
-          created_at?: string
-          created_by?: string | null
-          effective_date?: string
-          id?: string
-          note?: string | null
-          plan_id?: string
-          saved_amount?: number
-        }
+          created_at?: string;
+          created_by?: string | null;
+          effective_date?: string;
+          id?: string;
+          note?: string | null;
+          plan_id?: string;
+          saved_amount?: number;
+        };
         Relationships: [
           {
-            foreignKeyName: "plan_progress_snapshots_plan_id_fkey"
-            columns: ["plan_id"]
-            isOneToOne: false
-            referencedRelation: "plans"
-            referencedColumns: ["id"]
+            foreignKeyName: "plan_progress_snapshots_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "plans";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       plan_settlement_dismissals: {
         Row: {
-          dismissed_at: string
-          dismissed_by: string
-          id: string
-          plan_id: string
-          transaction_id: string
-        }
+          dismissed_at: string;
+          dismissed_by: string;
+          id: string;
+          plan_id: string;
+          transaction_id: string;
+        };
         Insert: {
-          dismissed_at?: string
-          dismissed_by?: string
-          id?: string
-          plan_id: string
-          transaction_id: string
-        }
+          dismissed_at?: string;
+          dismissed_by?: string;
+          id?: string;
+          plan_id: string;
+          transaction_id: string;
+        };
         Update: {
-          dismissed_at?: string
-          dismissed_by?: string
-          id?: string
-          plan_id?: string
-          transaction_id?: string
-        }
+          dismissed_at?: string;
+          dismissed_by?: string;
+          id?: string;
+          plan_id?: string;
+          transaction_id?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "plan_settlement_dismissals_plan_id_fkey"
-            columns: ["plan_id"]
-            isOneToOne: false
-            referencedRelation: "plans"
-            referencedColumns: ["id"]
+            foreignKeyName: "plan_settlement_dismissals_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "plans";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "plan_settlement_dismissals_transaction_id_fkey"
-            columns: ["transaction_id"]
-            isOneToOne: false
-            referencedRelation: "transactions"
-            referencedColumns: ["id"]
+            foreignKeyName: "plan_settlement_dismissals_transaction_id_fkey";
+            columns: ["transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "plan_settlement_dismissals_transaction_id_fkey"
-            columns: ["transaction_id"]
-            isOneToOne: false
-            referencedRelation: "transactions_with_category"
-            referencedColumns: ["id"]
+            foreignKeyName: "plan_settlement_dismissals_transaction_id_fkey";
+            columns: ["transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions_with_category";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       plan_transaction_links: {
         Row: {
-          created_at: string
-          created_by: string | null
-          id: string
-          plan_id: string
-          transaction_id: string
-        }
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          plan_id: string;
+          transaction_id: string;
+        };
         Insert: {
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          plan_id: string
-          transaction_id: string
-        }
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          plan_id: string;
+          transaction_id: string;
+        };
         Update: {
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          plan_id?: string
-          transaction_id?: string
-        }
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          plan_id?: string;
+          transaction_id?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "plan_transaction_links_plan_id_fkey"
-            columns: ["plan_id"]
-            isOneToOne: false
-            referencedRelation: "plans"
-            referencedColumns: ["id"]
+            foreignKeyName: "plan_transaction_links_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "plans";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "plan_transaction_links_transaction_id_fkey"
-            columns: ["transaction_id"]
-            isOneToOne: true
-            referencedRelation: "transactions"
-            referencedColumns: ["id"]
+            foreignKeyName: "plan_transaction_links_transaction_id_fkey";
+            columns: ["transaction_id"];
+            isOneToOne: true;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "plan_transaction_links_transaction_id_fkey"
-            columns: ["transaction_id"]
-            isOneToOne: true
-            referencedRelation: "transactions_with_category"
-            referencedColumns: ["id"]
+            foreignKeyName: "plan_transaction_links_transaction_id_fkey";
+            columns: ["transaction_id"];
+            isOneToOne: true;
+            referencedRelation: "transactions_with_category";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       plans: {
         Row: {
-          budget_amount: number | null
-          category_id: string | null
-          created_at: string
-          end_date: string
-          group_id: string | null
-          id: string
-          is_demo: boolean
-          kind: string
-          name: string
-          refinanced_from_plan_id: string | null
-          replaced_by_plan_id: string | null
-          start_date: string
-          status: string
-          target_amount: number | null
-          updated_at: string
-          user_id: string
-        }
+          budget_amount: number | null;
+          category_id: string | null;
+          created_at: string;
+          end_date: string;
+          group_id: string | null;
+          id: string;
+          is_demo: boolean;
+          kind: string;
+          name: string;
+          refinanced_from_plan_id: string | null;
+          replaced_by_plan_id: string | null;
+          start_date: string;
+          status: string;
+          target_amount: number | null;
+          updated_at: string;
+          user_id: string;
+        };
         Insert: {
-          budget_amount?: number | null
-          category_id?: string | null
-          created_at?: string
-          end_date: string
-          group_id?: string | null
-          id?: string
-          is_demo?: boolean
-          kind: string
-          name: string
-          refinanced_from_plan_id?: string | null
-          replaced_by_plan_id?: string | null
-          start_date: string
-          status?: string
-          target_amount?: number | null
-          updated_at?: string
-          user_id: string
-        }
+          budget_amount?: number | null;
+          category_id?: string | null;
+          created_at?: string;
+          end_date: string;
+          group_id?: string | null;
+          id?: string;
+          is_demo?: boolean;
+          kind: string;
+          name: string;
+          refinanced_from_plan_id?: string | null;
+          replaced_by_plan_id?: string | null;
+          start_date: string;
+          status?: string;
+          target_amount?: number | null;
+          updated_at?: string;
+          user_id: string;
+        };
         Update: {
-          budget_amount?: number | null
-          category_id?: string | null
-          created_at?: string
-          end_date?: string
-          group_id?: string | null
-          id?: string
-          is_demo?: boolean
-          kind?: string
-          name?: string
-          refinanced_from_plan_id?: string | null
-          replaced_by_plan_id?: string | null
-          start_date?: string
-          status?: string
-          target_amount?: number | null
-          updated_at?: string
-          user_id?: string
-        }
+          budget_amount?: number | null;
+          category_id?: string | null;
+          created_at?: string;
+          end_date?: string;
+          group_id?: string | null;
+          id?: string;
+          is_demo?: boolean;
+          kind?: string;
+          name?: string;
+          refinanced_from_plan_id?: string | null;
+          replaced_by_plan_id?: string | null;
+          start_date?: string;
+          status?: string;
+          target_amount?: number | null;
+          updated_at?: string;
+          user_id?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "plans_category_id_fkey"
-            columns: ["category_id"]
-            isOneToOne: false
-            referencedRelation: "categories"
-            referencedColumns: ["id"]
+            foreignKeyName: "plans_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "plans_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "user_groups"
-            referencedColumns: ["id"]
+            foreignKeyName: "plans_group_id_fkey";
+            columns: ["group_id"];
+            isOneToOne: false;
+            referencedRelation: "user_groups";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "plans_refinanced_from_plan_id_fkey"
-            columns: ["refinanced_from_plan_id"]
-            isOneToOne: false
-            referencedRelation: "plans"
-            referencedColumns: ["id"]
+            foreignKeyName: "plans_refinanced_from_plan_id_fkey";
+            columns: ["refinanced_from_plan_id"];
+            isOneToOne: false;
+            referencedRelation: "plans";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "plans_replaced_by_plan_id_fkey"
-            columns: ["replaced_by_plan_id"]
-            isOneToOne: false
-            referencedRelation: "plans"
-            referencedColumns: ["id"]
+            foreignKeyName: "plans_replaced_by_plan_id_fkey";
+            columns: ["replaced_by_plan_id"];
+            isOneToOne: false;
+            referencedRelation: "plans";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       profiles: {
         Row: {
-          created_at: string
-          email: string
-          id: string
-          last_login_at: string
-          name: string | null
-          role: Database["public"]["Enums"]["user_role"]
-          settings: Json
-          updated_at: string
-        }
+          created_at: string;
+          email: string;
+          id: string;
+          last_login_at: string;
+          name: string | null;
+          role: Database["public"]["Enums"]["user_role"];
+          settings: Json;
+          updated_at: string;
+        };
         Insert: {
-          created_at?: string
-          email: string
-          id: string
-          last_login_at?: string
-          name?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
-          settings?: Json
-          updated_at?: string
-        }
+          created_at?: string;
+          email: string;
+          id: string;
+          last_login_at?: string;
+          name?: string | null;
+          role?: Database["public"]["Enums"]["user_role"];
+          settings?: Json;
+          updated_at?: string;
+        };
         Update: {
-          created_at?: string
-          email?: string
-          id?: string
-          last_login_at?: string
-          name?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
-          settings?: Json
-          updated_at?: string
-        }
-        Relationships: []
-      }
+          created_at?: string;
+          email?: string;
+          id?: string;
+          last_login_at?: string;
+          name?: string | null;
+          role?: Database["public"]["Enums"]["user_role"];
+          settings?: Json;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       push_subscriptions: {
         Row: {
-          auth: string
-          created_at: string
-          device_type: string | null
-          endpoint: string
-          last_used_at: string
-          p256dh: string
-          user_agent: string | null
-          user_id: string
-        }
+          auth: string;
+          created_at: string;
+          device_type: string | null;
+          endpoint: string;
+          last_used_at: string;
+          p256dh: string;
+          user_agent: string | null;
+          user_id: string;
+        };
         Insert: {
-          auth: string
-          created_at?: string
-          device_type?: string | null
-          endpoint: string
-          last_used_at?: string
-          p256dh: string
-          user_agent?: string | null
-          user_id: string
-        }
+          auth: string;
+          created_at?: string;
+          device_type?: string | null;
+          endpoint: string;
+          last_used_at?: string;
+          p256dh: string;
+          user_agent?: string | null;
+          user_id: string;
+        };
         Update: {
-          auth?: string
-          created_at?: string
-          device_type?: string | null
-          endpoint?: string
-          last_used_at?: string
-          p256dh?: string
-          user_agent?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
+          auth?: string;
+          created_at?: string;
+          device_type?: string | null;
+          endpoint?: string;
+          last_used_at?: string;
+          p256dh?: string;
+          user_agent?: string | null;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       recurring_occurrence_skips: {
         Row: {
-          created_at: string
-          created_by: string | null
-          group_id: string | null
-          id: string
-          occurrence_date: string
-          recurring_template_id: string
-          skipped_transaction_id: string | null
-          user_id: string
-        }
+          created_at: string;
+          created_by: string | null;
+          group_id: string | null;
+          id: string;
+          occurrence_date: string;
+          recurring_template_id: string;
+          skipped_transaction_id: string | null;
+          user_id: string;
+        };
         Insert: {
-          created_at?: string
-          created_by?: string | null
-          group_id?: string | null
-          id?: string
-          occurrence_date: string
-          recurring_template_id: string
-          skipped_transaction_id?: string | null
-          user_id: string
-        }
+          created_at?: string;
+          created_by?: string | null;
+          group_id?: string | null;
+          id?: string;
+          occurrence_date: string;
+          recurring_template_id: string;
+          skipped_transaction_id?: string | null;
+          user_id: string;
+        };
         Update: {
-          created_at?: string
-          created_by?: string | null
-          group_id?: string | null
-          id?: string
-          occurrence_date?: string
-          recurring_template_id?: string
-          skipped_transaction_id?: string | null
-          user_id?: string
-        }
+          created_at?: string;
+          created_by?: string | null;
+          group_id?: string | null;
+          id?: string;
+          occurrence_date?: string;
+          recurring_template_id?: string;
+          skipped_transaction_id?: string | null;
+          user_id?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "recurring_occurrence_skips_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "user_groups"
-            referencedColumns: ["id"]
+            foreignKeyName: "recurring_occurrence_skips_group_id_fkey";
+            columns: ["group_id"];
+            isOneToOne: false;
+            referencedRelation: "user_groups";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "recurring_occurrence_skips_recurring_template_id_fkey"
-            columns: ["recurring_template_id"]
-            isOneToOne: false
-            referencedRelation: "transactions"
-            referencedColumns: ["id"]
+            foreignKeyName: "recurring_occurrence_skips_recurring_template_id_fkey";
+            columns: ["recurring_template_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "recurring_occurrence_skips_recurring_template_id_fkey"
-            columns: ["recurring_template_id"]
-            isOneToOne: false
-            referencedRelation: "transactions_with_category"
-            referencedColumns: ["id"]
+            foreignKeyName: "recurring_occurrence_skips_recurring_template_id_fkey";
+            columns: ["recurring_template_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions_with_category";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "recurring_occurrence_skips_skipped_transaction_id_fkey"
-            columns: ["skipped_transaction_id"]
-            isOneToOne: false
-            referencedRelation: "transactions"
-            referencedColumns: ["id"]
+            foreignKeyName: "recurring_occurrence_skips_skipped_transaction_id_fkey";
+            columns: ["skipped_transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "recurring_occurrence_skips_skipped_transaction_id_fkey"
-            columns: ["skipped_transaction_id"]
-            isOneToOne: false
-            referencedRelation: "transactions_with_category"
-            referencedColumns: ["id"]
+            foreignKeyName: "recurring_occurrence_skips_skipped_transaction_id_fkey";
+            columns: ["skipped_transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions_with_category";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       transaction_import_links: {
         Row: {
-          bank_account_id: string
-          counterparty: string | null
-          created_at: string
-          external_transaction_id: string | null
-          fingerprint: string
-          is_hold: boolean
-          row_id: string
-          session_id: string
-          source_file_hash: string
-          source_row_index: number
-          transaction_id: string
-          user_id: string
-        }
+          bank_account_id: string;
+          counterparty: string | null;
+          created_at: string;
+          external_transaction_id: string | null;
+          fingerprint: string;
+          is_hold: boolean;
+          row_id: string;
+          session_id: string;
+          source_file_hash: string;
+          source_row_index: number;
+          transaction_id: string;
+          user_id: string;
+        };
         Insert: {
-          bank_account_id: string
-          counterparty?: string | null
-          created_at?: string
-          external_transaction_id?: string | null
-          fingerprint: string
-          is_hold?: boolean
-          row_id: string
-          session_id: string
-          source_file_hash: string
-          source_row_index: number
-          transaction_id: string
-          user_id: string
-        }
+          bank_account_id: string;
+          counterparty?: string | null;
+          created_at?: string;
+          external_transaction_id?: string | null;
+          fingerprint: string;
+          is_hold?: boolean;
+          row_id: string;
+          session_id: string;
+          source_file_hash: string;
+          source_row_index: number;
+          transaction_id: string;
+          user_id: string;
+        };
         Update: {
-          bank_account_id?: string
-          counterparty?: string | null
-          created_at?: string
-          external_transaction_id?: string | null
-          fingerprint?: string
-          is_hold?: boolean
-          row_id?: string
-          session_id?: string
-          source_file_hash?: string
-          source_row_index?: number
-          transaction_id?: string
-          user_id?: string
-        }
+          bank_account_id?: string;
+          counterparty?: string | null;
+          created_at?: string;
+          external_transaction_id?: string | null;
+          fingerprint?: string;
+          is_hold?: boolean;
+          row_id?: string;
+          session_id?: string;
+          source_file_hash?: string;
+          source_row_index?: number;
+          transaction_id?: string;
+          user_id?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "transaction_import_links_bank_account_id_fkey"
-            columns: ["bank_account_id"]
-            isOneToOne: false
-            referencedRelation: "bank_accounts"
-            referencedColumns: ["id"]
+            foreignKeyName: "transaction_import_links_bank_account_id_fkey";
+            columns: ["bank_account_id"];
+            isOneToOne: false;
+            referencedRelation: "bank_accounts";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "transaction_import_links_row_id_fkey"
-            columns: ["row_id"]
-            isOneToOne: false
-            referencedRelation: "transaction_import_rows"
-            referencedColumns: ["id"]
+            foreignKeyName: "transaction_import_links_row_id_fkey";
+            columns: ["row_id"];
+            isOneToOne: false;
+            referencedRelation: "transaction_import_rows";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "transaction_import_links_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "transaction_import_sessions"
-            referencedColumns: ["id"]
+            foreignKeyName: "transaction_import_links_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "transaction_import_sessions";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "transaction_import_links_transaction_id_fkey"
-            columns: ["transaction_id"]
-            isOneToOne: true
-            referencedRelation: "transactions"
-            referencedColumns: ["id"]
+            foreignKeyName: "transaction_import_links_transaction_id_fkey";
+            columns: ["transaction_id"];
+            isOneToOne: true;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "transaction_import_links_transaction_id_fkey"
-            columns: ["transaction_id"]
-            isOneToOne: true
-            referencedRelation: "transactions_with_category"
-            referencedColumns: ["id"]
+            foreignKeyName: "transaction_import_links_transaction_id_fkey";
+            columns: ["transaction_id"];
+            isOneToOne: true;
+            referencedRelation: "transactions_with_category";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       transaction_import_rows: {
         Row: {
-          amount: number
-          counterparty: string | null
-          created_at: string
-          currency: string
-          decision: string
-          description: string
-          duplicate_of: string | null
-          edited_description: string | null
-          external_id: string | null
-          id: string
-          is_hold: boolean
-          posted_at: string
-          raw_row_hash: string
-          row_index: number
-          selected_category_id: string | null
-          selected_group_id: string | null
-          session_id: string
-          suggested_category_id: string | null
-          transaction_id: string | null
-          type: Database["public"]["Enums"]["transaction_type"]
-        }
+          amount: number;
+          counterparty: string | null;
+          created_at: string;
+          currency: string;
+          decision: string;
+          description: string;
+          duplicate_of: string | null;
+          edited_description: string | null;
+          external_id: string | null;
+          id: string;
+          is_hold: boolean;
+          posted_at: string;
+          raw_row_hash: string;
+          row_index: number;
+          selected_category_id: string | null;
+          selected_group_id: string | null;
+          session_id: string;
+          suggested_category_id: string | null;
+          transaction_id: string | null;
+          type: Database["public"]["Enums"]["transaction_type"];
+        };
         Insert: {
-          amount: number
-          counterparty?: string | null
-          created_at?: string
-          currency: string
-          decision?: string
-          description: string
-          duplicate_of?: string | null
-          edited_description?: string | null
-          external_id?: string | null
-          id?: string
-          is_hold?: boolean
-          posted_at: string
-          raw_row_hash: string
-          row_index: number
-          selected_category_id?: string | null
-          selected_group_id?: string | null
-          session_id: string
-          suggested_category_id?: string | null
-          transaction_id?: string | null
-          type: Database["public"]["Enums"]["transaction_type"]
-        }
+          amount: number;
+          counterparty?: string | null;
+          created_at?: string;
+          currency: string;
+          decision?: string;
+          description: string;
+          duplicate_of?: string | null;
+          edited_description?: string | null;
+          external_id?: string | null;
+          id?: string;
+          is_hold?: boolean;
+          posted_at: string;
+          raw_row_hash: string;
+          row_index: number;
+          selected_category_id?: string | null;
+          selected_group_id?: string | null;
+          session_id: string;
+          suggested_category_id?: string | null;
+          transaction_id?: string | null;
+          type: Database["public"]["Enums"]["transaction_type"];
+        };
         Update: {
-          amount?: number
-          counterparty?: string | null
-          created_at?: string
-          currency?: string
-          decision?: string
-          description?: string
-          duplicate_of?: string | null
-          edited_description?: string | null
-          external_id?: string | null
-          id?: string
-          is_hold?: boolean
-          posted_at?: string
-          raw_row_hash?: string
-          row_index?: number
-          selected_category_id?: string | null
-          selected_group_id?: string | null
-          session_id?: string
-          suggested_category_id?: string | null
-          transaction_id?: string | null
-          type?: Database["public"]["Enums"]["transaction_type"]
-        }
+          amount?: number;
+          counterparty?: string | null;
+          created_at?: string;
+          currency?: string;
+          decision?: string;
+          description?: string;
+          duplicate_of?: string | null;
+          edited_description?: string | null;
+          external_id?: string | null;
+          id?: string;
+          is_hold?: boolean;
+          posted_at?: string;
+          raw_row_hash?: string;
+          row_index?: number;
+          selected_category_id?: string | null;
+          selected_group_id?: string | null;
+          session_id?: string;
+          suggested_category_id?: string | null;
+          transaction_id?: string | null;
+          type?: Database["public"]["Enums"]["transaction_type"];
+        };
         Relationships: [
           {
-            foreignKeyName: "transaction_import_rows_duplicate_of_fkey"
-            columns: ["duplicate_of"]
-            isOneToOne: false
-            referencedRelation: "transactions"
-            referencedColumns: ["id"]
+            foreignKeyName: "transaction_import_rows_duplicate_of_fkey";
+            columns: ["duplicate_of"];
+            isOneToOne: false;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "transaction_import_rows_duplicate_of_fkey"
-            columns: ["duplicate_of"]
-            isOneToOne: false
-            referencedRelation: "transactions_with_category"
-            referencedColumns: ["id"]
+            foreignKeyName: "transaction_import_rows_duplicate_of_fkey";
+            columns: ["duplicate_of"];
+            isOneToOne: false;
+            referencedRelation: "transactions_with_category";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "transaction_import_rows_selected_category_id_fkey"
-            columns: ["selected_category_id"]
-            isOneToOne: false
-            referencedRelation: "categories"
-            referencedColumns: ["id"]
+            foreignKeyName: "transaction_import_rows_selected_category_id_fkey";
+            columns: ["selected_category_id"];
+            isOneToOne: false;
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "transaction_import_rows_selected_group_id_fkey"
-            columns: ["selected_group_id"]
-            isOneToOne: false
-            referencedRelation: "user_groups"
-            referencedColumns: ["id"]
+            foreignKeyName: "transaction_import_rows_selected_group_id_fkey";
+            columns: ["selected_group_id"];
+            isOneToOne: false;
+            referencedRelation: "user_groups";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "transaction_import_rows_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "transaction_import_sessions"
-            referencedColumns: ["id"]
+            foreignKeyName: "transaction_import_rows_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "transaction_import_sessions";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "transaction_import_rows_suggested_category_id_fkey"
-            columns: ["suggested_category_id"]
-            isOneToOne: false
-            referencedRelation: "categories"
-            referencedColumns: ["id"]
+            foreignKeyName: "transaction_import_rows_suggested_category_id_fkey";
+            columns: ["suggested_category_id"];
+            isOneToOne: false;
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "transaction_import_rows_transaction_id_fkey"
-            columns: ["transaction_id"]
-            isOneToOne: false
-            referencedRelation: "transactions"
-            referencedColumns: ["id"]
+            foreignKeyName: "transaction_import_rows_transaction_id_fkey";
+            columns: ["transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "transaction_import_rows_transaction_id_fkey"
-            columns: ["transaction_id"]
-            isOneToOne: false
-            referencedRelation: "transactions_with_category"
-            referencedColumns: ["id"]
+            foreignKeyName: "transaction_import_rows_transaction_id_fkey";
+            columns: ["transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions_with_category";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       transaction_import_sessions: {
         Row: {
-          adapter_kind: string | null
-          bank_account_id: string
-          committed_at: string | null
-          created_at: string
-          detected_kind: string
-          id: string
-          rows_committed: number
-          rows_duplicate: number
-          rows_skipped: number
-          rows_total: number
-          source_file_hash: string
-          source_filename: string | null
-          source_kind: string
-          status: string
-          user_id: string
-        }
+          adapter_kind: string | null;
+          bank_account_id: string;
+          committed_at: string | null;
+          created_at: string;
+          detected_kind: string;
+          id: string;
+          rows_committed: number;
+          rows_duplicate: number;
+          rows_skipped: number;
+          rows_total: number;
+          source_file_hash: string;
+          source_filename: string | null;
+          source_kind: string;
+          status: string;
+          user_id: string;
+        };
         Insert: {
-          adapter_kind?: string | null
-          bank_account_id: string
-          committed_at?: string | null
-          created_at?: string
-          detected_kind: string
-          id?: string
-          rows_committed?: number
-          rows_duplicate?: number
-          rows_skipped?: number
-          rows_total?: number
-          source_file_hash: string
-          source_filename?: string | null
-          source_kind?: string
-          status?: string
-          user_id: string
-        }
+          adapter_kind?: string | null;
+          bank_account_id: string;
+          committed_at?: string | null;
+          created_at?: string;
+          detected_kind: string;
+          id?: string;
+          rows_committed?: number;
+          rows_duplicate?: number;
+          rows_skipped?: number;
+          rows_total?: number;
+          source_file_hash: string;
+          source_filename?: string | null;
+          source_kind?: string;
+          status?: string;
+          user_id: string;
+        };
         Update: {
-          adapter_kind?: string | null
-          bank_account_id?: string
-          committed_at?: string | null
-          created_at?: string
-          detected_kind?: string
-          id?: string
-          rows_committed?: number
-          rows_duplicate?: number
-          rows_skipped?: number
-          rows_total?: number
-          source_file_hash?: string
-          source_filename?: string | null
-          source_kind?: string
-          status?: string
-          user_id?: string
-        }
+          adapter_kind?: string | null;
+          bank_account_id?: string;
+          committed_at?: string | null;
+          created_at?: string;
+          detected_kind?: string;
+          id?: string;
+          rows_committed?: number;
+          rows_duplicate?: number;
+          rows_skipped?: number;
+          rows_total?: number;
+          source_file_hash?: string;
+          source_filename?: string | null;
+          source_kind?: string;
+          status?: string;
+          user_id?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "transaction_import_sessions_bank_account_id_fkey"
-            columns: ["bank_account_id"]
-            isOneToOne: false
-            referencedRelation: "bank_accounts"
-            referencedColumns: ["id"]
+            foreignKeyName: "transaction_import_sessions_bank_account_id_fkey";
+            columns: ["bank_account_id"];
+            isOneToOne: false;
+            referencedRelation: "bank_accounts";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       transactions: {
         Row: {
-          amount: number
-          category_id: string
-          counterparty: string | null
-          created_at: string
-          currency: string
-          date: string
-          description: string
-          group_id: string | null
-          id: string
-          is_demo: boolean
-          is_recurring: boolean
-          recurrence_end_date: string | null
-          recurrence_frequency:
-            | Database["public"]["Enums"]["recurrence_frequency"]
-            | null
-          recurrence_interval: number
-          recurrence_month: number | null
-          recurrence_weekday: number | null
-          recurring_day: number | null
-          recurring_occurrence_date: string | null
-          recurring_template_id: string | null
-          status: Database["public"]["Enums"]["transaction_status"]
-          type: Database["public"]["Enums"]["transaction_type"]
-          updated_at: string
-          user_id: string
-        }
+          amount: number;
+          category_id: string;
+          counterparty: string | null;
+          created_at: string;
+          currency: string;
+          date: string;
+          description: string;
+          group_id: string | null;
+          id: string;
+          is_demo: boolean;
+          is_recurring: boolean;
+          recurrence_end_date: string | null;
+          recurrence_frequency: Database["public"]["Enums"]["recurrence_frequency"] | null;
+          recurrence_interval: number;
+          recurrence_month: number | null;
+          recurrence_weekday: number | null;
+          recurring_day: number | null;
+          recurring_occurrence_date: string | null;
+          recurring_template_id: string | null;
+          status: Database["public"]["Enums"]["transaction_status"];
+          type: Database["public"]["Enums"]["transaction_type"];
+          updated_at: string;
+          user_id: string;
+        };
         Insert: {
-          amount: number
-          category_id: string
-          counterparty?: string | null
-          created_at?: string
-          currency?: string
-          date: string
-          description: string
-          group_id?: string | null
-          id?: string
-          is_demo?: boolean
-          is_recurring?: boolean
-          recurrence_end_date?: string | null
-          recurrence_frequency?:
-            | Database["public"]["Enums"]["recurrence_frequency"]
-            | null
-          recurrence_interval?: number
-          recurrence_month?: number | null
-          recurrence_weekday?: number | null
-          recurring_day?: number | null
-          recurring_occurrence_date?: string | null
-          recurring_template_id?: string | null
-          status?: Database["public"]["Enums"]["transaction_status"]
-          type: Database["public"]["Enums"]["transaction_type"]
-          updated_at?: string
-          user_id: string
-        }
+          amount: number;
+          category_id: string;
+          counterparty?: string | null;
+          created_at?: string;
+          currency?: string;
+          date: string;
+          description: string;
+          group_id?: string | null;
+          id?: string;
+          is_demo?: boolean;
+          is_recurring?: boolean;
+          recurrence_end_date?: string | null;
+          recurrence_frequency?: Database["public"]["Enums"]["recurrence_frequency"] | null;
+          recurrence_interval?: number;
+          recurrence_month?: number | null;
+          recurrence_weekday?: number | null;
+          recurring_day?: number | null;
+          recurring_occurrence_date?: string | null;
+          recurring_template_id?: string | null;
+          status?: Database["public"]["Enums"]["transaction_status"];
+          type: Database["public"]["Enums"]["transaction_type"];
+          updated_at?: string;
+          user_id: string;
+        };
         Update: {
-          amount?: number
-          category_id?: string
-          counterparty?: string | null
-          created_at?: string
-          currency?: string
-          date?: string
-          description?: string
-          group_id?: string | null
-          id?: string
-          is_demo?: boolean
-          is_recurring?: boolean
-          recurrence_end_date?: string | null
-          recurrence_frequency?:
-            | Database["public"]["Enums"]["recurrence_frequency"]
-            | null
-          recurrence_interval?: number
-          recurrence_month?: number | null
-          recurrence_weekday?: number | null
-          recurring_day?: number | null
-          recurring_occurrence_date?: string | null
-          recurring_template_id?: string | null
-          status?: Database["public"]["Enums"]["transaction_status"]
-          type?: Database["public"]["Enums"]["transaction_type"]
-          updated_at?: string
-          user_id?: string
-        }
+          amount?: number;
+          category_id?: string;
+          counterparty?: string | null;
+          created_at?: string;
+          currency?: string;
+          date?: string;
+          description?: string;
+          group_id?: string | null;
+          id?: string;
+          is_demo?: boolean;
+          is_recurring?: boolean;
+          recurrence_end_date?: string | null;
+          recurrence_frequency?: Database["public"]["Enums"]["recurrence_frequency"] | null;
+          recurrence_interval?: number;
+          recurrence_month?: number | null;
+          recurrence_weekday?: number | null;
+          recurring_day?: number | null;
+          recurring_occurrence_date?: string | null;
+          recurring_template_id?: string | null;
+          status?: Database["public"]["Enums"]["transaction_status"];
+          type?: Database["public"]["Enums"]["transaction_type"];
+          updated_at?: string;
+          user_id?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "transactions_category_id_fkey"
-            columns: ["category_id"]
-            isOneToOne: false
-            referencedRelation: "categories"
-            referencedColumns: ["id"]
+            foreignKeyName: "transactions_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "transactions_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "user_groups"
-            referencedColumns: ["id"]
+            foreignKeyName: "transactions_group_id_fkey";
+            columns: ["group_id"];
+            isOneToOne: false;
+            referencedRelation: "user_groups";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "transactions_recurring_template_id_fkey"
-            columns: ["recurring_template_id"]
-            isOneToOne: false
-            referencedRelation: "transactions"
-            referencedColumns: ["id"]
+            foreignKeyName: "transactions_recurring_template_id_fkey";
+            columns: ["recurring_template_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "transactions_recurring_template_id_fkey"
-            columns: ["recurring_template_id"]
-            isOneToOne: false
-            referencedRelation: "transactions_with_category"
-            referencedColumns: ["id"]
+            foreignKeyName: "transactions_recurring_template_id_fkey";
+            columns: ["recurring_template_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions_with_category";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       user_groups: {
         Row: {
-          created_at: string
-          id: string
-          name: string
-          owner_id: string
-          updated_at: string
-        }
+          created_at: string;
+          id: string;
+          name: string;
+          owner_id: string;
+          updated_at: string;
+        };
         Insert: {
-          created_at?: string
-          id?: string
-          name: string
-          owner_id: string
-          updated_at?: string
-        }
+          created_at?: string;
+          id?: string;
+          name: string;
+          owner_id: string;
+          updated_at?: string;
+        };
         Update: {
-          created_at?: string
-          id?: string
-          name?: string
-          owner_id?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-    }
+          created_at?: string;
+          id?: string;
+          name?: string;
+          owner_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+    };
     Views: {
       transactions_with_category: {
         Row: {
-          amount: number | null
-          category_id: string | null
-          category_name: string | null
-          category_type: Database["public"]["Enums"]["transaction_type"] | null
-          counterparty: string | null
-          created_at: string | null
-          currency: string | null
-          date: string | null
-          description: string | null
-          group_id: string | null
-          id: string | null
-          is_demo: boolean | null
-          is_hold: boolean | null
-          is_recurring: boolean | null
-          recurrence_end_date: string | null
-          recurrence_frequency:
-            | Database["public"]["Enums"]["recurrence_frequency"]
-            | null
-          recurrence_interval: number | null
-          recurrence_month: number | null
-          recurrence_weekday: number | null
-          recurring_day: number | null
-          recurring_occurrence_date: string | null
-          recurring_template_id: string | null
-          status: Database["public"]["Enums"]["transaction_status"] | null
-          type: Database["public"]["Enums"]["transaction_type"] | null
-          updated_at: string | null
-          user_id: string | null
-        }
+          amount: number | null;
+          category_id: string | null;
+          category_name: string | null;
+          category_type: Database["public"]["Enums"]["transaction_type"] | null;
+          counterparty: string | null;
+          created_at: string | null;
+          currency: string | null;
+          date: string | null;
+          description: string | null;
+          group_id: string | null;
+          id: string | null;
+          is_demo: boolean | null;
+          is_hold: boolean | null;
+          is_recurring: boolean | null;
+          recurrence_end_date: string | null;
+          recurrence_frequency: Database["public"]["Enums"]["recurrence_frequency"] | null;
+          recurrence_interval: number | null;
+          recurrence_month: number | null;
+          recurrence_weekday: number | null;
+          recurring_day: number | null;
+          recurring_occurrence_date: string | null;
+          recurring_template_id: string | null;
+          status: Database["public"]["Enums"]["transaction_status"] | null;
+          type: Database["public"]["Enums"]["transaction_type"] | null;
+          updated_at: string | null;
+          user_id: string | null;
+        };
         Relationships: [
           {
-            foreignKeyName: "transactions_category_id_fkey"
-            columns: ["category_id"]
-            isOneToOne: false
-            referencedRelation: "categories"
-            referencedColumns: ["id"]
+            foreignKeyName: "transactions_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "transactions_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "user_groups"
-            referencedColumns: ["id"]
+            foreignKeyName: "transactions_group_id_fkey";
+            columns: ["group_id"];
+            isOneToOne: false;
+            referencedRelation: "user_groups";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "transactions_recurring_template_id_fkey"
-            columns: ["recurring_template_id"]
-            isOneToOne: false
-            referencedRelation: "transactions"
-            referencedColumns: ["id"]
+            foreignKeyName: "transactions_recurring_template_id_fkey";
+            columns: ["recurring_template_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "transactions_recurring_template_id_fkey"
-            columns: ["recurring_template_id"]
-            isOneToOne: false
-            referencedRelation: "transactions_with_category"
-            referencedColumns: ["id"]
+            foreignKeyName: "transactions_recurring_template_id_fkey";
+            columns: ["recurring_template_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions_with_category";
+            referencedColumns: ["id"];
           },
-        ]
-      }
-    }
+        ];
+      };
+    };
     Functions: {
       _prune_recurring_occurrences_from: {
-        Args: { p_from_date: string; p_template_id: string }
-        Returns: undefined
-      }
-      _setting: { Args: { p_name: string }; Returns: string }
+        Args: { p_from_date: string; p_template_id: string };
+        Returns: undefined;
+      };
+      _setting: { Args: { p_name: string }; Returns: string };
       _sync_debt_current_balance_from_links: {
-        Args: { p_plan_id: string }
-        Returns: number
-      }
+        Args: { p_plan_id: string };
+        Returns: number;
+      };
       accept_invitation: {
-        Args: { p_invitation_id: string }
-        Returns: undefined
-      }
+        Args: { p_invitation_id: string };
+        Returns: undefined;
+      };
       add_plan_contribution: {
         Args: {
-          p_amount: number
-          p_date: string
-          p_description?: string
-          p_plan_id: string
-        }
-        Returns: string
-      }
+          p_amount: number;
+          p_date: string;
+          p_description?: string | null;
+          p_plan_id: string;
+        };
+        Returns: string;
+      };
       admin_masked_import_session_by_id: {
-        Args: { p_session_id: string }
-        Returns: Json
-      }
+        Args: { p_session_id: string };
+        Returns: Json;
+      };
       admin_masked_transaction_by_id: {
-        Args: { p_transaction_id: string }
-        Returns: Json
-      }
+        Args: { p_transaction_id: string };
+        Returns: Json;
+      };
       admin_masked_user_context_by_id: {
-        Args: { p_user_id: string }
-        Returns: Json
-      }
-      assign_admin_role: { Args: { p_user_id: string }; Returns: undefined }
+        Args: { p_user_id: string };
+        Returns: Json;
+      };
+      assign_admin_role: { Args: { p_user_id: string }; Returns: undefined };
       bulk_delete_transactions: {
-        Args: { p_transaction_ids: string[] }
-        Returns: number
-      }
+        Args: { p_transaction_ids: string[] };
+        Returns: number;
+      };
       can_access_plan_for_settlement: {
-        Args: { p_plan: Database["public"]["Tables"]["plans"]["Row"] }
-        Returns: boolean
-      }
+        Args: { p_plan: Database["public"]["Tables"]["plans"]["Row"] };
+        Returns: boolean;
+      };
       can_access_transaction_for_settlement: {
-        Args: { p_tx: Database["public"]["Tables"]["transactions"]["Row"] }
-        Returns: boolean
-      }
+        Args: { p_tx: Database["public"]["Tables"]["transactions"]["Row"] };
+        Returns: boolean;
+      };
       can_manage_transaction_actor: {
-        Args: { p_group_id: string; p_owner_id: string }
-        Returns: boolean
-      }
-      cancel_import_session: { Args: { p_session_id: string }; Returns: Json }
+        Args: { p_group_id: string; p_owner_id: string };
+        Returns: boolean;
+      };
+      cancel_import_session: { Args: { p_session_id: string }; Returns: Json };
       cancel_invitation: {
-        Args: { p_invitation_id: string }
-        Returns: undefined
-      }
-      claim_group_invitation: { Args: { p_token: string }; Returns: Json }
-      clear_demo_data: { Args: never; Returns: Json }
-      commit_import_session: { Args: { p_session_id: string }; Returns: Json }
+        Args: { p_invitation_id: string };
+        Returns: undefined;
+      };
+      claim_group_invitation: { Args: { p_token: string }; Returns: Json };
+      clear_demo_data: { Args: never; Returns: Json };
+      commit_import_session: { Args: { p_session_id: string }; Returns: Json };
       create_and_link_plan_transaction: {
         Args: {
-          p_amount: number
-          p_category_id: string
-          p_counterparty?: string
-          p_currency?: string
-          p_date: string
-          p_description: string
-          p_group_id?: string
-          p_plan_id: string
-          p_status?: string
-        }
-        Returns: string
-      }
+          p_amount: number;
+          p_category_id: string;
+          p_counterparty?: string | null;
+          p_currency?: string;
+          p_date: string;
+          p_description: string;
+          p_group_id?: string | null;
+          p_plan_id: string;
+          p_status?: string;
+        };
+        Returns: string;
+      };
       create_group: {
-        Args: { p_name: string }
+        Args: { p_name: string };
         Returns: {
-          created_at: string
-          id: string
-          name: string
-          owner_id: string
-          updated_at: string
-        }
+          created_at: string;
+          id: string;
+          name: string;
+          owner_id: string;
+          updated_at: string;
+        };
         SetofOptions: {
-          from: "*"
-          to: "user_groups"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
+          from: "*";
+          to: "user_groups";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       create_group_invitation_for_delivery: {
         Args: {
-          p_actor_id?: string
-          p_email: string
-          p_group_id: string
-          p_invitation_id?: string
-        }
-        Returns: Json
-      }
-      delete_account: { Args: never; Returns: undefined }
+          p_actor_id?: string;
+          p_email: string;
+          p_group_id: string;
+          p_invitation_id?: string;
+        };
+        Returns: Json;
+      };
+      delete_account: { Args: never; Returns: undefined };
       delete_admin_push_subscription: {
-        Args: { p_endpoint: string }
-        Returns: undefined
-      }
-      disband_group: { Args: { p_group_id: string }; Returns: undefined }
-      edge_functions_base_url: { Args: never; Returns: string }
+        Args: { p_endpoint: string };
+        Returns: undefined;
+      };
+      disband_group: { Args: { p_group_id: string }; Returns: undefined };
+      edge_functions_base_url: { Args: never; Returns: string };
       end_recurring_series_from_occurrence: {
-        Args: { p_occurrence_date: string; p_template_id: string }
-        Returns: undefined
-      }
+        Args: { p_occurrence_date: string; p_template_id: string };
+        Returns: undefined;
+      };
       fetch_admin_notifications: {
-        Args: { p_limit?: number }
+        Args: { p_limit?: number };
         Returns: {
-          body: string
-          created_at: string
-          id: string
-          read_at: string
-          title: string
-          type: string
-          user_token: string
-        }[]
-      }
+          body: string;
+          created_at: string;
+          id: string;
+          read_at: string;
+          title: string;
+          type: string;
+          user_token: string;
+        }[];
+      };
       fetch_admin_push_subscriptions: {
-        Args: never
+        Args: never;
         Returns: {
-          created_at: string
-          device_type: string
-          endpoint: string
-          last_used_at: string
-          user_agent: string
-          user_id: string
-        }[]
-      }
+          created_at: string;
+          device_type: string;
+          endpoint: string;
+          last_used_at: string;
+          user_agent: string;
+          user_id: string;
+        }[];
+      };
       find_import_duplicate_warning: {
         Args: {
-          p_exclude_tx_id?: string
-          p_fingerprint: string
-          p_row: Database["public"]["Tables"]["transaction_import_rows"]["Row"]
-          p_uid: string
-        }
+          p_exclude_tx_id?: string;
+          p_fingerprint: string;
+          p_row: Database["public"]["Tables"]["transaction_import_rows"]["Row"];
+          p_uid: string;
+        };
         Returns: {
-          duplicate_of_amount: number
-          duplicate_of_currency: string
-          duplicate_of_date: string
-          duplicate_of_description: string
-          duplicate_of_transaction_id: string
-        }[]
-      }
-      get_group_invitation_preview: { Args: { p_token: string }; Returns: Json }
+          duplicate_of_amount: number;
+          duplicate_of_currency: string;
+          duplicate_of_date: string;
+          duplicate_of_description: string;
+          duplicate_of_transaction_id: string;
+        }[];
+      };
+      get_group_invitation_preview: { Args: { p_token: string }; Returns: Json };
       get_monthly_summary: {
-        Args: { p_month: number; p_year: number }
-        Returns: Json
-      }
+        Args: { p_month: number; p_year: number };
+        Returns: Json;
+      };
       invite_user: {
-        Args: { p_email: string; p_group_id: string }
+        Args: { p_email: string; p_group_id: string };
         Returns: {
-          created_at: string
-          created_by: string
-          delivery_attempts: number
-          delivery_status: string
-          expires_at: string
-          group_id: string
-          group_name: string
-          id: string
-          invited_user_email: string
-          invited_user_id: string | null
-          sent_at: string | null
-          status: Database["public"]["Enums"]["invitation_status"]
-          updated_at: string
-        }
+          created_at: string;
+          created_by: string;
+          delivery_attempts: number;
+          delivery_status: string;
+          expires_at: string;
+          group_id: string;
+          group_name: string;
+          id: string;
+          invited_user_email: string;
+          invited_user_id: string | null;
+          sent_at: string | null;
+          status: Database["public"]["Enums"]["invitation_status"];
+          updated_at: string;
+        };
         SetofOptions: {
-          from: "*"
-          to: "group_invitations"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      is_admin: { Args: never; Returns: boolean }
-      is_group_co_owner: { Args: { p_group_id: string }; Returns: boolean }
-      is_group_member: { Args: { p_group_id: string }; Returns: boolean }
-      is_group_owner: { Args: { p_group_id: string }; Returns: boolean }
-      leave_group: { Args: { p_group_id: string }; Returns: undefined }
+          from: "*";
+          to: "group_invitations";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
+      is_admin: { Args: never; Returns: boolean };
+      is_group_co_owner: { Args: { p_group_id: string }; Returns: boolean };
+      is_group_member: { Args: { p_group_id: string }; Returns: boolean };
+      is_group_owner: { Args: { p_group_id: string }; Returns: boolean };
+      leave_group: { Args: { p_group_id: string }; Returns: undefined };
       link_plan_transaction: {
-        Args: { p_plan_id: string; p_transaction_id: string }
+        Args: { p_plan_id: string; p_transaction_id: string };
         Returns: {
-          created_at: string
-          created_by: string | null
-          id: string
-          plan_id: string
-          transaction_id: string
-        }
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          plan_id: string;
+          transaction_id: string;
+        };
         SetofOptions: {
-          from: "*"
-          to: "plan_transaction_links"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      mark_all_notifications_read: { Args: never; Returns: undefined }
+          from: "*";
+          to: "plan_transaction_links";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
+      mark_all_notifications_read: { Args: never; Returns: undefined };
       mark_notification_read: {
-        Args: { p_notification_id: string }
-        Returns: undefined
-      }
-      mark_preview_duplicates: { Args: { p_session_id: string }; Returns: Json }
+        Args: { p_notification_id: string };
+        Returns: undefined;
+      };
+      mark_preview_duplicates: { Args: { p_session_id: string }; Returns: Json };
       materialize_recurring_occurrence: {
-        Args: { p_occurrence_date: string; p_template_id: string }
-        Returns: string
-      }
+        Args: { p_occurrence_date: string; p_template_id: string };
+        Returns: string;
+      };
       nominate_group_co_owner: {
-        Args: { p_group_id: string; p_user_id: string }
-        Returns: undefined
-      }
-      notification_tx_body_due_today: { Args: never; Returns: string }
+        Args: { p_group_id: string; p_user_id: string };
+        Returns: undefined;
+      };
+      notification_tx_body_due_today: { Args: never; Returns: string };
       notification_tx_body_overdue: {
-        Args: { p_date: string }
-        Returns: string
-      }
+        Args: { p_date: string };
+        Returns: string;
+      };
       notification_tx_title: {
-        Args: { p_amount: number; p_currency: string; p_description: string }
-        Returns: string
-      }
+        Args: { p_amount: number; p_currency: string; p_description: string };
+        Returns: string;
+      };
       plan_links_compatible_with: {
         Args: {
-          p_end_date: string
-          p_group_id: string
-          p_plan_id: string
-          p_start_date: string
-          p_user_id: string
-        }
-        Returns: boolean
-      }
+          p_end_date: string;
+          p_group_id: string;
+          p_plan_id: string;
+          p_start_date: string;
+          p_user_id: string;
+        };
+        Returns: boolean;
+      };
       preview_fingerprint_warnings: {
-        Args: { p_session_id: string }
-        Returns: Json
-      }
-      privacy_amount_bucket: { Args: { p_amount: number }; Returns: string }
+        Args: { p_session_id: string };
+        Returns: Json;
+      };
+      privacy_amount_bucket: { Args: { p_amount: number }; Returns: string };
       privacy_hmac_token: {
-        Args: { p_context: string; p_value: string }
-        Returns: string
-      }
-      privacy_mask_email: { Args: { p_email: string }; Returns: string }
-      privacy_mask_text: { Args: { p_label: string }; Returns: string }
-      process_bank_import_reminders: { Args: never; Returns: undefined }
-      process_recurring_transactions: { Args: never; Returns: undefined }
-      product_local_date: { Args: { p_at?: string }; Returns: string }
+        Args: { p_context: string; p_value: string };
+        Returns: string;
+      };
+      privacy_mask_email: { Args: { p_email: string }; Returns: string };
+      privacy_mask_text: { Args: { p_label: string }; Returns: string };
+      process_bank_import_reminders: { Args: never; Returns: undefined };
+      process_recurring_transactions: { Args: never; Returns: undefined };
+      product_local_date: { Args: { p_at?: string }; Returns: string };
       prune_recurring_occurrences_from: {
-        Args: { p_from_date: string; p_template_id: string }
-        Returns: undefined
-      }
+        Args: { p_from_date: string; p_template_id: string };
+        Returns: undefined;
+      };
       record_group_invitation_access_attempt: {
-        Args: { p_email: string; p_token: string }
-        Returns: boolean
-      }
+        Args: { p_email: string; p_token: string };
+        Returns: boolean;
+      };
       record_group_invitation_delivery: {
-        Args: { p_invitation_id: string; p_outcome: string }
-        Returns: undefined
-      }
+        Args: { p_invitation_id: string; p_outcome: string };
+        Returns: undefined;
+      };
       recurring_clamp_dom: {
-        Args: { p_day: number; p_month: number; p_year: number }
-        Returns: number
-      }
+        Args: { p_day: number; p_month: number; p_year: number };
+        Returns: number;
+      };
       recurring_last_dom: {
-        Args: { p_month: number; p_year: number }
-        Returns: number
-      }
+        Args: { p_month: number; p_year: number };
+        Returns: number;
+      };
       recurring_occurrence_dates: {
         Args: {
-          p_after_exclusive?: string
-          p_anchor_date: string
-          p_before_exclusive?: string
-          p_day?: number
-          p_end_date_inclusive?: string
-          p_frequency: Database["public"]["Enums"]["recurrence_frequency"]
-          p_interval?: number
-          p_max_count?: number
-          p_month?: number
-          p_weekday?: number
-        }
-        Returns: string[]
-      }
+          p_after_exclusive?: string;
+          p_anchor_date: string;
+          p_before_exclusive?: string;
+          p_day?: number;
+          p_end_date_inclusive?: string;
+          p_frequency: Database["public"]["Enums"]["recurrence_frequency"];
+          p_interval?: number;
+          p_max_count?: number;
+          p_month?: number;
+          p_weekday?: number;
+        };
+        Returns: string[];
+      };
       recurring_occurrence_on_date: {
         Args: {
-          p_anchor_date: string
-          p_day?: number
-          p_end_date_inclusive?: string
-          p_frequency: Database["public"]["Enums"]["recurrence_frequency"]
-          p_interval?: number
-          p_month?: number
-          p_reference_date?: string
-          p_weekday?: number
-        }
-        Returns: boolean
-      }
+          p_anchor_date: string;
+          p_day?: number;
+          p_end_date_inclusive?: string;
+          p_frequency: Database["public"]["Enums"]["recurrence_frequency"];
+          p_interval?: number;
+          p_month?: number;
+          p_reference_date?: string;
+          p_weekday?: number;
+        };
+        Returns: boolean;
+      };
       refinance_debt_plan: {
         Args: {
-          p_annual_rate: number
-          p_category_id: string
-          p_end_date: string
-          p_first_payment_amount: number
-          p_first_payment_date: string
-          p_group_id: string
-          p_monthly_payment: number
-          p_name: string
-          p_old_plan_id: string
-          p_start_date: string
-          p_target_amount: number
-        }
-        Returns: string
-      }
+          p_annual_rate: number;
+          p_category_id: string;
+          p_end_date: string;
+          p_first_payment_amount: number;
+          p_first_payment_date: string;
+          p_group_id: string;
+          p_monthly_payment: number;
+          p_name: string;
+          p_old_plan_id: string;
+          p_start_date: string;
+          p_target_amount: number;
+        };
+        Returns: string;
+      };
       reject_invitation: {
-        Args: { p_invitation_id: string }
-        Returns: undefined
-      }
+        Args: { p_invitation_id: string };
+        Returns: undefined;
+      };
       remove_group_member: {
-        Args: { p_group_id: string; p_user_id: string }
-        Returns: undefined
-      }
-      revoke_admin_role: { Args: { p_user_id: string }; Returns: undefined }
+        Args: { p_group_id: string; p_user_id: string };
+        Returns: undefined;
+      };
+      revoke_admin_role: { Args: { p_user_id: string }; Returns: undefined };
       revoke_group_co_owner: {
-        Args: { p_group_id: string; p_user_id: string }
-        Returns: undefined
-      }
+        Args: { p_group_id: string; p_user_id: string };
+        Returns: undefined;
+      };
       save_debt_plan: {
         Args: {
-          p_annual_rate: number
-          p_category_id: string
-          p_clear_balance_anchor?: boolean
-          p_current_balance: number
-          p_end_date: string
-          p_first_payment_amount: number
-          p_first_payment_date: string
-          p_group_id: string
-          p_monthly_payment: number
-          p_name: string
-          p_original_amount: number
-          p_plan_id: string
-          p_reset_balance_anchor?: boolean
-          p_start_date: string
-          p_target_amount: number
-        }
-        Returns: Json
-      }
+          p_annual_rate: number;
+          p_category_id: string | null;
+          p_clear_balance_anchor?: boolean;
+          p_current_balance: number;
+          p_end_date: string;
+          p_first_payment_amount: number | null;
+          p_first_payment_date: string | null;
+          p_group_id: string | null;
+          p_monthly_payment: number;
+          p_name: string;
+          p_original_amount: number;
+          p_plan_id: string | null;
+          p_reset_balance_anchor?: boolean;
+          p_start_date: string;
+          p_target_amount: number;
+        };
+        Returns: Json;
+      };
       save_net_worth_snapshot: {
-        Args: { p_as_of_date: string; p_items: Json; p_opening_amount: number }
-        Returns: Json
-      }
+        Args: { p_as_of_date: string; p_items: Json; p_opening_amount: number };
+        Returns: Json;
+      };
       seed_default_categories: {
-        Args: { p_user_id: string }
-        Returns: undefined
-      }
+        Args: { p_user_id: string };
+        Returns: undefined;
+      };
       set_save_plan_progress: {
         Args: {
-          p_effective_date: string
-          p_note?: string
-          p_plan_id: string
-          p_saved_amount: number
-        }
-        Returns: string
-      }
+          p_effective_date: string;
+          p_note?: string | null;
+          p_plan_id: string;
+          p_saved_amount: number;
+        };
+        Returns: string;
+      };
       skip_recurring_occurrence: {
         Args: {
-          p_occurrence_date: string
-          p_template_id: string
-          p_transaction_id?: string
-        }
-        Returns: undefined
-      }
+          p_occurrence_date: string;
+          p_template_id: string;
+          p_transaction_id?: string | null;
+        };
+        Returns: undefined;
+      };
       sync_debt_current_balance_from_links: {
-        Args: { p_plan_id: string }
-        Returns: number
-      }
+        Args: { p_plan_id: string };
+        Returns: number;
+      };
       transaction_matches_plan_scope: {
         Args: {
-          p_plan: Database["public"]["Tables"]["plans"]["Row"]
-          p_tx: Database["public"]["Tables"]["transactions"]["Row"]
-        }
-        Returns: boolean
-      }
+          p_plan: Database["public"]["Tables"]["plans"]["Row"];
+          p_tx: Database["public"]["Tables"]["transactions"]["Row"];
+        };
+        Returns: boolean;
+      };
       transfer_group_ownership: {
-        Args: { p_group_id: string; p_new_owner_id: string }
-        Returns: undefined
-      }
-      trigger_admin_summary: { Args: never; Returns: Json }
-      trigger_send_admin_summary: { Args: never; Returns: undefined }
+        Args: { p_group_id: string; p_new_owner_id: string };
+        Returns: undefined;
+      };
+      trigger_admin_summary: { Args: never; Returns: Json };
+      trigger_send_admin_summary: { Args: never; Returns: undefined };
       unlink_plan_transaction: {
-        Args: { p_plan_id: string; p_transaction_id: string }
-        Returns: undefined
-      }
-      update_transaction_statuses: { Args: never; Returns: undefined }
+        Args: { p_plan_id: string; p_transaction_id: string };
+        Returns: undefined;
+      };
+      update_transaction_statuses: { Args: never; Returns: undefined };
       verify_group_invitation_recipient: {
-        Args: { p_email: string; p_token: string }
-        Returns: boolean
-      }
-    }
+        Args: { p_email: string; p_token: string };
+        Returns: boolean;
+      };
+    };
     Enums: {
-      categorization_rule_kind: "exact" | "contains" | "type" | "composite"
-      group_member_role: "owner" | "co_owner" | "member"
-      invitation_status: "pending" | "accepted" | "rejected" | "cancelled"
+      categorization_rule_kind: "exact" | "contains" | "type" | "composite";
+      group_member_role: "owner" | "co_owner" | "member";
+      invitation_status: "pending" | "accepted" | "rejected" | "cancelled";
       notification_type:
         | "transaction_summary"
         | "transaction_upcoming"
@@ -1717,134 +1703,128 @@ export type Database = {
         | "transaction_reminder"
         | "group_invitation"
         | "system_notification"
-        | "bank_import_reminder"
-      recurrence_frequency: "daily" | "weekly" | "monthly" | "yearly"
-      transaction_status: "draft" | "upcoming" | "overdue" | "paid"
-      transaction_type: "income" | "expense"
-      user_role: "user" | "admin"
-    }
+        | "bank_import_reminder";
+      recurrence_frequency: "daily" | "weekly" | "monthly" | "yearly";
+      transaction_status: "draft" | "upcoming" | "overdue" | "paid";
+      transaction_type: "income" | "expense";
+      user_role: "user" | "admin";
+    };
     CompositeTypes: {
-      [_ in never]: never
-    }
-  }
-}
+      [_ in never]: never;
+    };
+  };
+};
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">;
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">];
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
       DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
-      Row: infer R
+      Row: infer R;
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] & DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R;
       }
       ? R
       : never
-    : never
+    : never;
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Insert: infer I
+      Insert: infer I;
     }
     ? I
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
     ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I
+        Insert: infer I;
       }
       ? I
       : never
-    : never
+    : never;
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U
+      Update: infer U;
     }
     ? U
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
     ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U
+        Update: infer U;
       }
       ? U
       : never
-    : never
+    : never;
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-    : never
+    : never;
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    keyof DefaultSchema["CompositeTypes"] | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
+    : never;
 
 export const Constants = {
   graphql_public: {
@@ -1870,5 +1850,4 @@ export const Constants = {
       user_role: ["user", "admin"],
     },
   },
-} as const
-
+} as const;
