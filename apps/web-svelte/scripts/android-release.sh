@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Build Capacitor Android artifacts against production PUBLIC_* env.
-# Reads apps/web-svelte/.env.cloud.local (gitignored). Never prints secret values.
+# Local production Android bundle. CI uses the same android-bundle.sh after
+# writing keystore.properties from GitHub secrets (see docs/runbooks/play-internal.md).
 # Usage: android-release.sh [--sync-only]
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -75,18 +75,12 @@ if [[ -z "${PUBLIC_GOOGLE_WEB_CLIENT_ID:-}" ]]; then
   exit 1
 fi
 
-echo "Building web + Android assets for production Supabase host…"
-pnpm exec vite build --mode production
-pnpm exec cap sync android
-
 if [[ "$SYNC_ONLY" -eq 1 ]]; then
+  echo "Building web assets and syncing into android/…"
+  pnpm exec vite build --mode production
+  pnpm exec cap sync android
   echo "Synced production web assets into android/. Install with: cd android && ./gradlew installDebug"
   exit 0
 fi
 
-export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
-export JAVA_HOME="${JAVA_HOME:-/opt/homebrew/Cellar/openjdk@21/21.0.8/libexec/openjdk.jdk/Contents/Home}"
-cd android
-./gradlew assembleRelease bundleRelease --no-daemon
-echo "APK: android/app/build/outputs/apk/release/app-release.apk"
-echo "AAB: android/app/build/outputs/bundle/release/app-release.aab"
+exec bash "$ROOT/scripts/android-bundle.sh"

@@ -40,6 +40,7 @@ open_or_reuse_sync_pr() {
   if [[ -n "$number" ]]; then
     echo "Sync PR already open: #$number $url"
   else
+    set +e
     url="$(
       gh_pr create \
         --base dev \
@@ -57,7 +58,17 @@ Merge as a **merge commit** (or a GitHub fast-forward). Do not squash or rebase
 in a way that rewrites \`main\` commits.
 EOF
         )"
+      2>&1
     )"
+    create_rc=$?
+    set -e
+    if [[ $create_rc -ne 0 ]]; then
+      printf '%s\n' "$url" >&2
+      echo "Refuse: could not open a main → dev PR." >&2
+      echo "Enable Settings → Actions → Workflow permissions → Allow GitHub Actions to create and approve pull requests, or add repository secret SYNC_DEV_TOKEN (a PAT that can push to dev / open PRs)." >&2
+      echo "Local fallback: ./scripts/sync-dev.sh --push" >&2
+      exit 1
+    fi
     echo "Opened sync PR: $url"
     number="$(gh_pr view "$url" --json number --jq '.number')"
   fi

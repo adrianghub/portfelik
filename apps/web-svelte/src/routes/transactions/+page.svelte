@@ -15,6 +15,8 @@
   import TransactionTable from "$lib/components/transactions/TransactionTable.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import SearchModal from "$lib/components/ui/SearchModal.svelte";
+  import { holdMobileFabClearance } from "$lib/services/native-overlay";
+  import DemoShowcaseBanner from "$lib/components/onboarding/DemoShowcaseBanner.svelte";
   import * as m from "$lib/paraglide/messages";
   import {
     CASH_FETCH_END_SENTINEL,
@@ -40,6 +42,7 @@
     deleteTransaction,
     deleteTransactions,
     fetchTransactionById,
+    fetchTransactionCount,
     fetchRecurringTemplates,
     fetchTransactions,
     updateTransactionsCategory,
@@ -60,6 +63,16 @@
     materializeOccurrence,
     skipOccurrence,
   } from "$lib/services/recurring-series";
+  import {
+    fetchDemoProbe,
+    hasDemoData,
+    isDiscoveryLedger,
+    clearDemoData,
+  } from "$lib/services/demo-data";
+  import { refreshDemoState } from "$lib/services/demo-query-state";
+  import { track } from "$lib/analytics";
+  import { fetchPlans } from "$lib/services/plans";
+  import { guidedTourUi, requestDemoSeedAndTour } from "$lib/guided-tour/ui.svelte";
   import { session, requireSessionUserId } from "$lib/auth/session.svelte";
   import { qk } from "$lib/query-keys";
   import { parseScopeFilter, type ScopeFilter } from "$lib/utils/list-view-url";
@@ -76,6 +89,8 @@
   import { Plus, Repeat, X } from "lucide-svelte";
   import { toast } from "svelte-sonner";
   import { toastError } from "$lib/toast-error";
+  import { isNativeCapacitor } from "$lib/services/pwa";
+  import { saveTextFile } from "$lib/services/save-text-file";
   import QueryError from "$lib/components/ui/QueryError.svelte";
 
   const queryClient = useQueryClient();
@@ -208,6 +223,53 @@
     ),
     queryFn: () => fetchTransactions(bounds.start, bounds.end, categoryId),
     enabled: () => !!session.userId,
+  }));
+
+  const demoProbeQuery = createQuery(() => ({
+    queryKey: qk.transactions.list(session.userId!, "demo-probe"),
+    queryFn: fetchDemoProbe,
+    enabled: () => !!session.userId,
+    staleTime: 60_000,
+  }));
+
+  const plansQuery = createQuery(() => ({
+    queryKey: qk.plans(session.userId!),
+    queryFn: fetchPlans,
+    enabled: () => !!session.userId,
+  }));
+
+  const txCountQuery = createQuery(() => ({
+    queryKey: qk.transactions.list(session.userId!, "all-time-count"),
+    queryFn: fetchTransactionCount,
+    enabled: () => !!session.userId,
+    staleTime: 60_000,
+  }));
+
+  const demoActive = $derived(
+    hasDemoData({
+      transactions: demoProbeQuery.data?.transactions ?? [],
+      plans: plansQuery.data ?? [],
+      netWorthItems: demoProbeQuery.data?.netWorthItems ?? [],
+    })
+  );
+
+  const discovery = $derived(
+    txCountQuery.isFetched &&
+      demoProbeQuery.isFetched &&
+      plansQuery.isFetched &&
+      typeof txCountQuery.data === "number" &&
+      isDiscoveryLedger({ demoActive, transactionCount: txCountQuery.data })
+  );
+
+  const clearDemoMutation = createMutation(() => ({
+    mutationFn: clearDemoData,
+    onSuccess: async (result) => {
+      const u = requireSessionUserId();
+      track("demo_cleared", { row_count: result.deleted });
+      await refreshDemoState(queryClient, u);
+      toast.success(m.demo_cleared_toast());
+    },
+    onError: (err) => toastError(err),
   }));
 
   const statusSet = $derived(statusFilter ? new Set(statusFilter.split(",")) : null);
@@ -359,6 +421,8 @@
   let renderedTxCount = $state(TX_CHUNK_SIZE);
   const renderedTxs = $derived((visibleTxs ?? []).slice(0, renderedTxCount));
 
+  $effect(() => holdMobileFabClearance());
+
   $effect(() => {
     void visibleTxs;
     renderedTxCount = TX_CHUNK_SIZE;
@@ -388,9 +452,11 @@
     void materializeRecurringOccurrencesForNearTerm()
       .then((count) => {
         if (count > 0) {
+          const u = requireSessionUserId();
           void queryClient.invalidateQueries({
-            queryKey: qk.transactions.all(requireSessionUserId()),
+            queryKey: qk.transactions.all(u),
           });
+          void queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
         }
       })
       .catch((err) => toastError(err));
@@ -447,6 +513,7 @@
     if ((displayTxs?.length ?? 0) === 0 && base.length > 0) {
       return m.transactions_empty_filtered();
     }
+    if (discovery) return m.transactions_empty_ledger();
     return emptyLabel;
   });
 
@@ -457,12 +524,13 @@
     if ((displayTxs?.length ?? 0) === 0 && (txQuery.data?.length ?? 0) > 0) {
       return m.transactions_empty_filtered_hint();
     }
+    if (discovery) return m.transactions_empty_ledger_hint();
     return m.transactions_empty_hint();
   });
 
   const showTableEmptyActions = $derived(
     (txQuery.data?.length ?? 0) === 0 &&
-      tableEmptyLabel === emptyLabel &&
+      (tableEmptyLabel === emptyLabel || tableEmptyLabel === m.transactions_empty_ledger()) &&
       !searchQuery &&
       (displayTxs?.length ?? 0) === 0
   );
@@ -603,6 +671,9 @@
       await queryClient.invalidateQueries({
         queryKey: qk.transactions.list(u, "recurring-skips"),
       });
+      await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
       toast.success(m.toast_transaction_deleted());
       deleteTargetId = null;
     },
@@ -617,6 +688,7 @@
     await queryClient.invalidateQueries({ queryKey: qk.planLinks(u) });
     await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
     await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
+    await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
   }
 
   async function resolveTemplate(tx: TransactionWithCategory): Promise<TransactionWithCategory> {
@@ -683,6 +755,9 @@
       const u = requireSessionUserId();
       await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
       await queryClient.invalidateQueries({ queryKey: qk.transactions.list(u, "recurring-skips") });
+      await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
       toast.success(m.toast_transactions_bulk_deleted({ count: affected }));
       selectedIds = new Set<string>();
       bulkDeleteConfirm = false;
@@ -707,6 +782,7 @@
     await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
     await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
     await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
+    await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
   }
 
   async function acknowledgeSettleNotification(notificationId?: string) {
@@ -801,9 +877,11 @@
   const bulkCategoryMutation = createMutation(() => ({
     mutationFn: (catId: string) => updateTransactionsCategory(manageableSelectedIds(), catId),
     onSuccess: async (affected) => {
+      const u = requireSessionUserId();
       await queryClient.invalidateQueries({
-        queryKey: qk.transactions.all(requireSessionUserId()),
+        queryKey: qk.transactions.all(u),
       });
+      await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
       toast.success(m.toast_transactions_bulk_category({ count: affected }));
       selectedIds = new Set<string>();
     },
@@ -981,7 +1059,7 @@
     return val;
   }
 
-  function handleExport() {
+  async function handleExport() {
     const rows = accountedTxs;
     if (!rows?.length) return;
     const headers = [
@@ -1009,13 +1087,16 @@
         .join(",")
     );
     const csv = [headers.join(","), ...csvRows].join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `jakstoimy-transakcje-${new Date().toISOString().slice(0, 7)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      const saved = await saveTextFile(
+        `jakstoimy-transakcje-${new Date().toISOString().slice(0, 7)}.csv`,
+        "\uFEFF" + csv,
+        "text/csv;charset=utf-8"
+      );
+      if (saved && isNativeCapacitor()) toast.success(m.csv_export_ready());
+    } catch (err) {
+      toastError(err);
+    }
   }
 </script>
 
@@ -1056,6 +1137,15 @@
       <TransactionDataActions exportDisabled={!accountedTxs?.length} onexport={handleExport} />
     </div>
   </div>
+
+  {#if demoActive}
+    <DemoShowcaseBanner
+      onclear={async () => {
+        await clearDemoMutation.mutateAsync();
+      }}
+      clearing={clearDemoMutation.isPending}
+    />
+  {/if}
 
   <!-- Sticky filter bar -->
   {#if categoriesQuery.data && selectedIds.size === 0}
@@ -1166,6 +1256,8 @@
         emptyHint={tableEmptyHint}
         showEmptyActions={showTableEmptyActions}
         onemptyadd={openAdd}
+        onemptydemo={discovery ? requestDemoSeedAndTour : undefined}
+        emptyDemoDisabled={guidedTourUi.demoBusy}
         bind:selectedIds
         stickyHeaderTop={`calc(var(--app-header-offset) + ${stickyFiltersHeight}px)`}
         onrowclick={(tx) => (sheetTx = tx)}

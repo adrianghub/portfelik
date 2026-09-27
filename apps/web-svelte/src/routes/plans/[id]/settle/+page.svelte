@@ -11,7 +11,6 @@
     fetchPlanProgressSnapshot,
     fetchRankedEligibleTransactions,
     linkPlanTransaction,
-    type RankedTransaction,
   } from "$lib/services/plan-settlement";
   import TransactionDialog, {
     type PlanTransactionContext,
@@ -23,7 +22,7 @@
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { requireSessionUserId, session } from "$lib/auth/session.svelte";
   import { qk } from "$lib/query-keys";
-  import { ArrowLeft, Link2, Sparkles } from "lucide-svelte";
+  import { ArrowLeft, Link2 } from "lucide-svelte";
   import { SvelteSet } from "svelte/reactivity";
   import { toast } from "svelte-sonner";
 
@@ -83,9 +82,11 @@
       dismissed.add(txId);
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: qk.planDismissed(requireSessionUserId(), id),
-      });
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.planDismissed(u, id) });
+      await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planSuggestionCount(u, id) });
     },
     onError: (_err, txId) => {
       dismissed.delete(txId);
@@ -147,8 +148,10 @@
       await queryClient.invalidateQueries({ queryKey: qk.planEligible(u, id) });
       await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
       await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planDebtTerms(u, id) });
+      await queryClient.invalidateQueries({ queryKey: qk.planDebtTermsList(u) });
       try {
         await warnIfPreAnchorLink(txId);
       } catch {
@@ -159,29 +162,9 @@
     onError: () => toast.error(m.toast_error()),
   }));
 
-  function rankBadgeClass(label: RankedTransaction["rankLabel"]): string {
-    if (label === "high") return "bg-emerald-500/15 text-emerald-400 border-emerald-500/20";
-    if (label === "medium") return "bg-amber-500/15 text-amber-400 border-amber-500/20";
-    return "bg-slate-700/50 text-slate-400 border-white/10";
-  }
-
-  function rankLabel(r: RankedTransaction): string {
-    if (r.rankLabel === "high") return m.plan_settle_high_rank({ pct: r.rankPct });
-    if (r.rankLabel === "medium") return m.plan_settle_medium_rank({ pct: r.rankPct });
-    return m.plan_settle_low_rank({ pct: r.rankPct });
-  }
-
-  function reasonLabel(key: string, label: string): string {
-    if (key === "date_in_range") return m.plan_settle_reason_date_in_range();
-    if (key === "not_linked") return m.plan_settle_reason_not_linked();
-    if (key === "category") return m.plan_settle_reason_category({ name: label });
-    if (key === "keyword") return m.plan_settle_reason_keyword({ word: label });
-    if (key === "amount") return m.plan_settle_reason_amount();
-    if (key === "recent") return m.plan_settle_reason_recent();
-    if (key === "other_category") return m.plan_settle_reason_other_category({ name: label });
-    if (key === "dismissed_similar") return m.plan_settle_reason_dismissed_similar();
-    return label;
-  }
+  const settleTitle = $derived(
+    planQuery.data?.kind === "save" ? m.plan_save_link_cta() : m.plan_debt_link_payments()
+  );
 
   function amountSign(type: TransactionType): string {
     return type === "income" ? "+" : "−";
@@ -199,7 +182,7 @@
       <ArrowLeft size={16} strokeWidth={1.8} aria-hidden="true" />
     </button>
     <div class="min-w-0">
-      <h1 class="text-2xl font-semibold text-white">{m.plan_settle_title()}</h1>
+      <h1 class="text-2xl font-semibold text-white">{settleTitle}</h1>
       {#if planQuery.data}
         <p class="mt-0.5 truncate text-sm text-slate-400">{planQuery.data.name}</p>
       {/if}
@@ -215,20 +198,12 @@
     </div>
   {/if}
 
-  <p class="text-sm leading-relaxed text-slate-400">
-    {#if planQuery.data?.kind === "save"}
-      {m.plan_settle_tagline_income()}
-      <span class="mt-1 block text-xs text-emerald-400/90"
-        >{m.plan_settle_tagline_save_progress()}</span
-      >
-    {:else}
-      {m.plan_settle_tagline()}
-    {/if}
-  </p>
+  <p class="text-sm text-slate-400">{m.plan_settle_whole_transaction_notice()}</p>
 
-  <section class="space-y-3">
-    <h2 class="text-eyebrow text-slate-400">{m.plan_settle_candidates()}</h2>
-    <p class="text-xs text-slate-400">{m.plan_settle_whole_transaction_notice()}</p>
+  <section class="space-y-3" aria-labelledby="settle-suggestions-heading">
+    <h2 id="settle-suggestions-heading" class="text-eyebrow text-slate-400">
+      {m.plan_settle_candidates()}
+    </h2>
 
     {#if rankedQuery.isPending}
       {#each [0, 1, 2] as _, i (i)}
@@ -259,32 +234,6 @@
             >
               {amountSign(ranked.tx.type)}{formatCurrency(ranked.tx.amount)}
             </span>
-          </div>
-
-          <div class="mt-2.5 flex flex-wrap items-center gap-2">
-            <span
-              class={cn(
-                "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium",
-                rankBadgeClass(ranked.rankLabel)
-              )}
-            >
-              <Sparkles size={9} strokeWidth={2} aria-hidden="true" />
-              {rankLabel(ranked)}
-            </span>
-
-            {#each ranked.reasons as reason (reason.key)}
-              <span
-                class={cn(
-                  "rounded-full border px-1.5 py-0.5 text-[10px]",
-                  reason.signal === "match"
-                    ? "border-white/10 text-slate-400"
-                    : "border-amber-500/30 text-amber-400"
-                )}
-              >
-                {reason.signal === "match" ? "✓" : "ⓘ"}
-                {reasonLabel(reason.key, reason.label)}
-              </span>
-            {/each}
           </div>
 
           <div class="mt-3 flex gap-2">
@@ -341,7 +290,7 @@
     onclick={() => (showManualTxDialog = true)}
     class="focus-visible:ring-accent mx-auto block text-sm text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:outline-none"
   >
-    {activeType === "income" ? m.plan_settle_manual_add() : m.plan_settle_manual_footer()}
+    {m.plan_settle_manual_add()}
   </button>
 </div>
 

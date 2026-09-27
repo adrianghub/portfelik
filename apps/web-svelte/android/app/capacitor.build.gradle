@@ -12,6 +12,8 @@ dependencies {
     implementation project(':capacitor-app')
     implementation project(':capacitor-browser')
     implementation project(':capacitor-splash-screen')
+    implementation project(':capacitor-filesystem')
+    implementation project(':capacitor-share')
     implementation project(':capgo-capacitor-social-login')
 
 }

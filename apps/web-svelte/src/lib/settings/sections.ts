@@ -29,7 +29,18 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
       {
         tab: "profile",
         label: () => m.settings_tab_profile(),
-        keywords: ["profil", "imię", "email", "konto", "powiadomienia", "usuń konto", "eksport"],
+        keywords: [
+          "profil",
+          "imię",
+          "email",
+          "konto",
+          "powiadomienia",
+          "usuń konto",
+          "usuń dane",
+          "przykład",
+          "demo",
+          "eksport",
+        ],
       },
       {
         tab: "personalization",

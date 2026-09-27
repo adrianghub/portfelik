@@ -138,7 +138,10 @@
   });
 
   function clearAuthenticatedUser() {
-    if (loadedUserId !== null) queryClient.clear();
+    if (loadedUserId !== null) {
+      queryClient.clear();
+      void import("$lib/services/save-text-file").then((mod) => mod.clearNativeExportCache());
+    }
     loadedUserId = null;
     setSessionUser(null);
     authRevision += 1;
@@ -290,7 +293,11 @@
   });
 </script>
 
-<Toaster richColors position="bottom-right" />
+<Toaster
+  richColors
+  position="bottom-right"
+  mobileOffset={{ bottom: "var(--mobile-action-bottom)" }}
+/>
 <OfflineIndicator />
 <QueryClientProvider client={queryClient}>
   {#if !canRenderProtectedRoute}

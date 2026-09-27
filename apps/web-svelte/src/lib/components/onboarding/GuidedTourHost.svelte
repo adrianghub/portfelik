@@ -6,8 +6,19 @@
   import TourSpotlight from "$lib/components/onboarding/TourSpotlight.svelte";
   import WelcomeTourDialog from "$lib/components/onboarding/WelcomeTourDialog.svelte";
   import { setGuidedTourContext } from "$lib/guided-tour/context";
-  import { guidedTourUi } from "$lib/guided-tour/ui.svelte";
-  import { fetchDemoProbe, hasDemoData, seedDemoData } from "$lib/services/demo-data";
+  import {
+    finishDemoSeedRequest,
+    guidedTourUi,
+    takeDemoSeedRequest,
+    takeGuidedTourRestart,
+  } from "$lib/guided-tour/ui.svelte";
+  import {
+    fetchDemoProbe,
+    hasDemoData,
+    isDiscoveryLedger,
+    seedDemoData,
+  } from "$lib/services/demo-data";
+  import { fetchTransactionCount } from "$lib/services/transactions";
   import { refreshDemoState } from "$lib/services/demo-query-state";
   import {
     TOUR_SCENES,
@@ -21,7 +32,7 @@
     sceneAt,
     sceneRouteParts,
     shouldOfferWelcomeTour,
-    shouldResumeGuidedTour,
+    shouldStartGuidedTourOnLoad,
     writeGuidedTourProgressLocal,
     type GuidedTourPath,
     type GuidedTourProgress,
@@ -59,12 +70,25 @@
     enabled: !!uid,
   }));
 
+  const txCountQuery = createQuery(() => ({
+    queryKey: uid
+      ? qk.transactions.list(uid, "all-time-count")
+      : ["user", "", "transactions", "all-time-count"],
+    queryFn: fetchTransactionCount,
+    enabled: !!uid,
+  }));
+
   const demoActive = $derived(
     hasDemoData({
       transactions: demoProbeQuery.data?.transactions ?? [],
       plans: plansQuery.data ?? [],
       netWorthItems: demoProbeQuery.data?.netWorthItems ?? [],
     })
+  );
+
+  const discovery = $derived(
+    typeof txCountQuery.data === "number" &&
+      isDiscoveryLedger({ demoActive, transactionCount: txCountQuery.data })
   );
 
   let welcomeOpen = $state(false);
@@ -74,7 +98,6 @@
   let demoLoading = $state(false);
   let bootstrapped = $state(false);
   let progress = $state<GuidedTourProgress>({});
-  let lastRestartNonce = $state(0);
   let suppressProfileSync = $state(false);
 
   $effect(() => {
@@ -150,9 +173,8 @@
   });
 
   $effect(() => {
-    const nonce = guidedTourUi.restartNonce;
-    if (nonce === 0 || nonce === lastRestartNonce) return;
-    lastRestartNonce = nonce;
+    void guidedTourUi.restartNonce;
+    if (!takeGuidedTourRestart()) return;
     void applyTourRestart();
   });
 
@@ -168,8 +190,9 @@
 
   $effect(() => {
     if (!userId || !profile || bootstrapped) return;
+    if (!demoProbeQuery.isFetched || !plansQuery.isFetched || !txCountQuery.isFetched) return;
     bootstrapped = true;
-    if (shouldResumeGuidedTour(profile.settings)) {
+    if (shouldStartGuidedTourOnLoad({ settings: profile.settings, discovery })) {
       const idx = firstIncompleteSceneIndex(progress);
       void startTour(progress.path ?? "demo", idx);
       return;
@@ -200,7 +223,9 @@
   });
 
   async function handleWelcomeDemo(): Promise<void> {
+    if (demoLoading) return;
     demoLoading = true;
+    guidedTourUi.demoBusy = true;
     try {
       if (!demoActive) {
         await seedDemoData();
@@ -210,8 +235,16 @@
       await startTour("demo", 0);
     } finally {
       demoLoading = false;
+      finishDemoSeedRequest();
     }
   }
+
+  $effect(() => {
+    void guidedTourUi.demoNonce;
+    void userId;
+    if (!takeDemoSeedRequest(userId)) return;
+    void handleWelcomeDemo();
+  });
 
   async function handleWelcomeImport(): Promise<void> {
     const next = mergeGuidedTourProgress(dismissGuidedTour(progress), { path: "import" });
@@ -285,7 +318,7 @@
 
 <WelcomeTourDialog
   open={welcomeOpen}
-  loading={demoLoading}
+  loading={demoLoading || guidedTourUi.demoBusy}
   onclose={() => {
     welcomeOpen = false;
     const next = dismissGuidedTour(progress);

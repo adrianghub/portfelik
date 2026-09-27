@@ -86,6 +86,23 @@
     menuOpen = false;
   }
 
+  function menuBottomLimit(menuLeft: number, menuRight: number): number {
+    if (window.innerWidth >= 768) return window.innerHeight;
+    let limit = window.innerHeight;
+    const nav = document.querySelector(".mobile-bottom-nav");
+    if (nav instanceof HTMLElement) {
+      const top = nav.getBoundingClientRect().top;
+      if (top > 0 && top < limit) limit = top;
+    }
+    const fab = document.querySelector(".mobile-floating-action");
+    if (fab instanceof HTMLElement) {
+      const box = fab.getBoundingClientRect();
+      const overlaps = menuRight > box.left && menuLeft < box.right;
+      if (overlaps && box.top > 0 && box.top < limit) limit = box.top;
+    }
+    return limit;
+  }
+
   function toggleMenu() {
     if (menuOpen) {
       menuOpen = false;
@@ -98,8 +115,9 @@
     const estHeight = 44 * count + 8;
     const left = Math.max(8, r.right - menuWidth);
     const below = r.bottom + 4;
-    const openUp = below + estHeight > window.innerHeight && r.top - estHeight > 8;
-    const top = openUp ? r.top - estHeight - 4 : below;
+    const limit = menuBottomLimit(left, left + menuWidth);
+    const openUp = below + estHeight > limit - 8 && r.top - estHeight > 8;
+    const top = openUp ? Math.max(8, r.top - estHeight - 4) : below;
     menuStyle = `position:fixed; top:${top}px; left:${left}px; min-width:${menuWidth}px;`;
     menuOpen = true;
   }

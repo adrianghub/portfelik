@@ -61,6 +61,11 @@ Web, the installed PWA, and Android (Capacitor, `pl.jakstoimy.app`) share this
 spine. Public V1 stays invite-only (`max_user_cap`). Native is the same product
 in a WebView, not a second information architecture.
 
+Until the ledger has a committed transaction or an active demo, Kokpit stays a
+discovery surface: greeting, navigation, and import-or-demo choices. The
+financial grid appears after that. Empty Transakcje and Plany keep the same
+spine and point quietly to import or demo.
+
 ## Import Posture
 
 Bank data is the preferred source of transaction truth. Import must be fast by

@@ -11,7 +11,6 @@
   import { oauthCallbackUrl, signInWithGoogleOAuth } from "$lib/services/oauth";
   import { isNativeCapacitor } from "$lib/services/pwa";
   import * as m from "$lib/paraglide/messages";
-  import { Check } from "lucide-svelte";
 
   let email = $state("");
   let password = $state("");
@@ -98,48 +97,13 @@
       <p class="mt-5 max-w-lg text-base leading-relaxed text-slate-300 sm:text-lg">
         {m.login_intro_body()}
       </p>
-
-      <div class="mt-7 rounded-2xl border border-white/8 bg-white/3 p-4 backdrop-blur">
-        <p class="text-xs font-semibold tracking-wide text-slate-400 uppercase">
-          {m.login_jobs_label()}
-        </p>
-        <div class="mt-3 flex flex-wrap gap-2">
-          {#each [m.login_job_rent(), m.login_job_weekend(), m.login_job_holiday(), m.login_job_sofa()] as job (job)}
-            <span
-              class="rounded-full border border-white/8 bg-slate-900/70 px-3 py-1.5 text-sm text-slate-200"
-            >
-              {job}
-            </span>
-          {/each}
-        </div>
-      </div>
-
-      <ul
-        class="mt-6 grid gap-3 text-sm text-slate-300 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3"
-      >
-        {#each [m.login_benefit_control(), m.login_benefit_lifestyle(), m.login_benefit_guilt()] as benefit (benefit)}
-          <li class="flex items-start gap-2">
-            <span
-              class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-400/10 text-emerald-300"
-            >
-              <Check size={13} strokeWidth={2.4} aria-hidden="true" />
-            </span>
-            <span class="leading-snug">{benefit}</span>
-          </li>
-        {/each}
-      </ul>
-      <p class="mt-5 text-xs leading-relaxed text-slate-500">{m.login_demo_note()}</p>
+      <p class="mt-6 text-xs leading-relaxed text-slate-500">{m.login_demo_note()}</p>
     </section>
 
     <section
       class="relative mx-auto w-full max-w-md overflow-hidden rounded-3xl border border-white/8 bg-slate-900/65 p-6 shadow-[0_0_70px_rgba(16,185,129,0.1)] backdrop-blur sm:p-8"
-      aria-labelledby="login-form-title"
+      aria-label={m.login_sign_in()}
     >
-      <h2 id="login-form-title" class="text-2xl font-semibold text-slate-100">
-        {m.login_form_title()}
-      </h2>
-      <p class="mt-1.5 mb-6 text-sm text-slate-400">{m.login_form_body()}</p>
-
       {#if error}
         <div
           class="mb-4 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-300"

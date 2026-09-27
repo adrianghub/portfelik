@@ -2,7 +2,7 @@
   import type { Snippet } from "svelte";
   import { X } from "lucide-svelte";
   import * as m from "$lib/paraglide/messages";
-  import { registerNativeOverlayCloser } from "$lib/services/native-overlay";
+  import { hideMobileChrome, registerNativeOverlayCloser } from "$lib/services/native-overlay";
 
   interface Props {
     open: boolean;
@@ -22,7 +22,12 @@
 
   $effect(() => {
     if (!open) return;
-    return registerNativeOverlayCloser(() => onclose());
+    const releaseChrome = hideMobileChrome();
+    const unregister = registerNativeOverlayCloser(() => onclose());
+    return () => {
+      unregister();
+      releaseChrome();
+    };
   });
 </script>
 
@@ -30,7 +35,7 @@
 
 {#if open}
   <div
-    class="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/70 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:items-center sm:pb-0"
+    class="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/70 px-4 pb-[max(1rem,var(--safe-bottom))] backdrop-blur-sm sm:items-center sm:pb-0"
     role="presentation"
     onclick={onbackdrop}
     onkeydown={null}

@@ -16,7 +16,7 @@
   import { toastError } from "$lib/toast-error";
   import { requireSessionUserId, session } from "$lib/auth/session.svelte";
   import { qk } from "$lib/query-keys";
-  import { registerNativeOverlayCloser } from "$lib/services/native-overlay";
+  import { hideMobileChrome, registerNativeOverlayCloser } from "$lib/services/native-overlay";
 
   interface Props {
     transaction: TransactionWithCategory | null;
@@ -145,6 +145,7 @@
       await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planDebtTermsList(u) });
     },
     onError: (error) => toastError(error),
@@ -163,6 +164,7 @@
       await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planDebtTermsList(u) });
     },
     onError: (error) => toastError(error),
@@ -180,7 +182,12 @@
 
   $effect(() => {
     if (!transaction) return;
-    return registerNativeOverlayCloser(() => onclose());
+    const releaseChrome = hideMobileChrome();
+    const unregister = registerNativeOverlayCloser(() => onclose());
+    return () => {
+      unregister();
+      releaseChrome();
+    };
   });
 </script>
 
@@ -189,7 +196,7 @@
 {#if transaction}
   <!-- Backdrop -->
   <div
-    class="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm"
+    class="fixed inset-0 z-[80] bg-slate-950/60 backdrop-blur-sm"
     role="presentation"
     onclick={onclose}
     aria-hidden="true"
@@ -197,7 +204,7 @@
 
   <!-- Sheet -->
   <aside
-    class="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col border-l border-white/5 bg-slate-950/95 shadow-[0_0_60px_rgba(16,185,129,0.08)] backdrop-blur"
+    class="fixed inset-y-0 right-0 z-[81] flex w-full max-w-sm flex-col border-l border-white/5 bg-slate-950/95 pt-(--safe-top) pb-(--safe-bottom) shadow-[0_0_60px_rgba(16,185,129,0.08)] backdrop-blur"
     aria-label={m.transaction_detail_title()}
   >
     <div class="flex items-center justify-between border-b border-white/5 px-5 py-4">

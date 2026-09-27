@@ -28,6 +28,7 @@ export const qk = {
   planDebtDetect: (u: Id, id?: string, ...p: unknown[]) =>
     [...userNs(u), "plan-debt-detect", ...(id ? [id] : []), ...p] as const,
   planSuggestionCount: (u: Id, id: string) => [...userNs(u), "plan-suggestion-count", id] as const,
+  planMatches: (u: Id, ...p: unknown[]) => [...userNs(u), "plan-matches", ...p] as const,
   cashPosition: (u: Id) => [...userNs(u), "cash-position"] as const,
   userGroups: (u: Id) => [...userNs(u), "user_groups"] as const,
   myGroupRoles: (u: Id) => [...userNs(u), "my-group-roles"] as const,

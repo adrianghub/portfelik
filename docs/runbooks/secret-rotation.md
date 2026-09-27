@@ -2,8 +2,8 @@
 
 Last updated: 2026-06-04
 
-Covers rotation of the four secrets that gate push notifications and internal
-Edge Function calls in Portfelik.
+Covers rotation of secrets that gate push notifications, internal Edge Function
+calls, and Play Internal AAB uploads.
 
 | Secret                    | Where it lives                                                                            | Used by                                                                                                            | Rotation impact                                                                                                                                                  |
 | ------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -12,6 +12,8 @@ Edge Function calls in Portfelik.
 | `VAPID_PRIVATE_KEY`       | Edge Function secrets (`send-push`)                                                       | Signs web-push messages                                                                                            | Existing browser subscriptions stay valid only if the _public_ key did not change. Pair with public-key rotation only when subscriptions need to be invalidated. |
 | `VAPID_PUBLIC_KEY`        | Edge Function secrets + `apps/web-svelte/.env.production` (build-time `PUBLIC_VAPID_KEY`) | Browser `pushManager.subscribe({ applicationServerKey })`; passed to `urlBase64ToUint8Array` in `services/push.ts` | All existing `push_subscriptions` rows become invalid. Browsers re-subscribe on next visit; users who never return are silently dropped.                         |
 | `VAPID_SUBJECT`           | Edge Function secrets                                                                     | `web-push` library header (`mailto:` or HTTPS URL identifying the sender)                                          | None on existing subscriptions; only future sends use the new value. Safe to rotate any time.                                                                    |
+| `PLAY_SERVICE_ACCOUNT_JSON` | GitHub Production environment | Play Android Publisher API (Internal AAB upload) | New Internal builds fail until replaced. Rotate the GCP key and Play Console user together. See `docs/runbooks/play-internal.md`. |
+| `ANDROID_UPLOAD_KEYSTORE_BASE64` / keystore passwords | GitHub Production environment | Signs the Play upload AAB | Must stay the original upload certificate. Replacing it requires a Play key reset. |
 
 ## When to rotate
 

@@ -19,6 +19,16 @@ describe("isImportExceptionRow", () => {
     ).toBe(true);
   });
 
+  it("keeps a one-off category without a matching suggestion as an exception", () => {
+    expect(
+      isImportExceptionRow({
+        decision: "import",
+        selected_category_id: "cat-1",
+        suggested_category_id: null,
+      })
+    ).toBe(true);
+  });
+
   it("treats a category correction as an exception", () => {
     expect(
       isImportExceptionRow({

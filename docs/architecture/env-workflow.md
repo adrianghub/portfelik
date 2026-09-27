@@ -29,7 +29,10 @@ and migration targets.
   it, the workflow opens a `main` → `dev` PR and requests a merge-commit
   auto-merge (never squash). Local fallback: `./scripts/sync-dev.sh --push`.
   Divergence is never resolved automatically. To skip the PR fallback, allow
-  GitHub Actions to bypass the `dev` “require a pull request” ruleset.
+  GitHub Actions to bypass the `dev` “require a pull request” ruleset, or set
+  repository secret `SYNC_DEV_TOKEN` to a PAT that can push `dev`. The default
+  `GITHUB_TOKEN` cannot open the fallback PR unless the repo enables **Allow
+  GitHub Actions to create and approve pull requests**.
 - Before opening a PR, `./scripts/open-pr.sh` refreshes the real remote base,
   validates the PR direction, verifies ancestry, and runs all relevant gates.
 - Feature PRs target `dev`. Only `dev` may target `main`; CI rejects every other
@@ -99,6 +102,8 @@ flowchart LR
     pushMain["git push origin main"] --> ghaProd["GH Actions<br/>deploy-prod job"]
     ghaProd -->|wrangler pages deploy<br/>--branch main| cfPagesProd["Cloudflare Pages<br/>app.jakstoimy.pl"]
     ghaProd -->|secrets.PUBLIC_SUPABASE_URL| supaProd
+    ghaProd --> ghaPlay["GH Actions<br/>deploy-play-internal"]
+    ghaPlay -->|signed AAB<br/>Play Publisher API| playInternal["Play Internal<br/>pl.jakstoimy.app"]
   end
 
   supaStage["Supabase Cloud<br/>portfelik-staging"]
@@ -175,6 +180,9 @@ the local Supabase. Then log in and explore.
 - A read-only production probe verifies the app shell, authenticated Supabase
   gateway health, and that the user-owned `categories` table still rejects an
   anonymous request.
+- After that probe succeeds, `deploy-play-internal.yml` builds a signed AAB and
+  uploads it to Play Internal testing. One-time API/keystore secrets:
+  `docs/runbooks/play-internal.md`. A Play failure does not roll back web.
 
 ## Migrations
 

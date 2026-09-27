@@ -13,6 +13,14 @@ export function canSeedDemo(input: { demoActive: boolean }): boolean {
   return !input.demoActive;
 }
 
+/** True when Kokpit should stay empty until demo seed or a committed transaction. */
+export function isDiscoveryLedger(input: {
+  demoActive: boolean;
+  transactionCount: number;
+}): boolean {
+  return !input.demoActive && input.transactionCount === 0;
+}
+
 export function hasDemoData(input: {
   transactions: { description: string; is_demo?: boolean }[];
   plans: { name: string; is_demo?: boolean }[];

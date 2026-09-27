@@ -44,7 +44,7 @@
 </script>
 
 <div
-  class="pointer-events-none fixed inset-x-0 bottom-0 z-[60] flex justify-center px-4 pb-[calc(1rem+env(safe-area-inset-bottom))]"
+  class="pointer-events-none fixed inset-x-0 bottom-(--mobile-action-bottom) z-[60] flex justify-center px-4 pb-3 md:bottom-0 md:pb-[max(1rem,var(--safe-bottom))]"
   role="presentation"
   data-guided-tour-chrome
 >

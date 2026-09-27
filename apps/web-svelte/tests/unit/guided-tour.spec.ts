@@ -11,6 +11,8 @@ import {
   routesMatch,
   sceneRouteParts,
   shouldOfferWelcomeTour,
+  shouldResumeGuidedTour,
+  shouldStartGuidedTourOnLoad,
 } from "$lib/services/guided-tour";
 
 describe("guided-tour", () => {
@@ -64,6 +66,29 @@ describe("guided-tour", () => {
 
   it("shouldOfferWelcomeTour is false when profile tour was dismissed", () => {
     expect(shouldOfferWelcomeTour({ guidedTour: { dismissed: true } })).toBe(false);
+  });
+
+  it("shouldResumeGuidedTour is true only for in-progress tours", () => {
+    expect(shouldResumeGuidedTour({ guidedTour: { completedSceneIds: ["1.1"] } })).toBe(true);
+    expect(
+      shouldResumeGuidedTour({ guidedTour: { dismissed: true, completedSceneIds: ["1.1"] } })
+    ).toBe(false);
+    expect(shouldResumeGuidedTour({})).toBe(false);
+  });
+
+  it("does not start or resume the tour on an empty discovery ledger", () => {
+    expect(
+      shouldStartGuidedTourOnLoad({
+        settings: { guidedTour: { completedSceneIds: ["1.1"] } },
+        discovery: true,
+      })
+    ).toBe(false);
+    expect(
+      shouldStartGuidedTourOnLoad({
+        settings: { guidedTour: { completedSceneIds: ["1.1"] } },
+        discovery: false,
+      })
+    ).toBe(true);
   });
 
   it("guidedTourStatus reflects progress phase", () => {

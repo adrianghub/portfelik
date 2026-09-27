@@ -4,6 +4,7 @@ import {
   hasDemoData,
   isDemoDescription,
   isDemoPlanName,
+  isDiscoveryLedger,
 } from "$lib/services/demo-data-guards";
 
 describe("demo-data guards", () => {
@@ -54,5 +55,17 @@ describe("demo-data guards", () => {
         netWorthItems: [{ label: "Mieszkanie" }],
       })
     ).toBe(false);
+  });
+
+  it("treats an empty non-demo ledger as discovery", () => {
+    expect(isDiscoveryLedger({ demoActive: false, transactionCount: 0 })).toBe(true);
+  });
+
+  it("leaves discovery once any committed transaction exists", () => {
+    expect(isDiscoveryLedger({ demoActive: false, transactionCount: 1 })).toBe(false);
+  });
+
+  it("leaves discovery while demo data is active even with zero transactions", () => {
+    expect(isDiscoveryLedger({ demoActive: true, transactionCount: 0 })).toBe(false);
   });
 });

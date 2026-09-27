@@ -2,7 +2,7 @@
  * Playwright spec - plan settlement surface.
  *
  * Covers:
- *  - /plans/[id]/settle renders ranked suggestions with rank badge + reason chips
+ *  - /plans/[id]/settle renders ranked suggestions (score stays in the engine, not on the card)
  *  - Pomiń persists the dismissal (plan_settlement_dismissals) and survives reload
  *  - Powiąż calls link RPC, shows toast, removes tx from suggestions
  *  - After linking, navigating back to detail reflects updated linked amount
@@ -171,20 +171,15 @@ async function setupSettleMocks(page: Page, plan = SETTLE_PLAN): Promise<void> {
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 test.describe("plan settle page", () => {
-  test("renders suggestion cards with rank badge and reason chips", async ({ page }) => {
+  test("renders suggestion cards without rank badges", async ({ page }) => {
     await setupSettleMocks(page);
     await page.goto(`/plans/${PLAN_ID}/settle`);
 
-    // Suggestions visible
-    await expect(page.getByText(/Powiązanie bierze całą kwotę do jednego planu/i)).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Powiąż raty" })).toBeVisible();
+    await expect(page.getByText("Cała kwota idzie do tego planu.")).toBeVisible();
     await expect(page.getByText("Zakupy spożywcze na wakacje")).toBeVisible();
     await expect(page.getByText("Transport na lotnisko")).not.toBeVisible();
-
-    // TX1 → high rank badge
-    await expect(page.getByText(/Bardzo dobre dopasowanie/)).toBeVisible();
-
-    // At least one reason chip visible (category, keyword, or amount)
-    await expect(page.getByText("✓ kategoria: Jedzenie")).toBeVisible();
+    await expect(page.getByText(/dopasowanie|Może pasować|Słabe trafienie/)).toHaveCount(0);
     await expect(page.getByRole("navigation", { name: "Ścieżka nawigacji" })).toContainText(
       "Rozliczenie"
     );
@@ -194,10 +189,9 @@ test.describe("plan settle page", () => {
     await setupSettleMocks(page, SETTLE_SAVE_PLAN);
     await page.goto(`/plans/${PLAN_ID}/settle`);
 
+    await expect(page.getByRole("heading", { name: "Powiąż wpłaty" })).toBeVisible();
     await expect(page.getByText("Wpłata na wakacje")).toBeVisible();
-    await expect(
-      page.getByText(/Słabe trafienie|Może pasować|Bardzo dobre dopasowanie/)
-    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Powiąż" })).toBeVisible();
   });
 
   test("Pomiń persists the dismissal and keeps it hidden after reload", async ({ page }) => {
@@ -305,7 +299,7 @@ test.describe("plan settle page", () => {
     // TX1 removed from suggestions; it may still be visible in the linked section.
     const suggestionsSection = page
       .locator("section")
-      .filter({ has: page.getByRole("heading", { name: "Pasujące transakcje" }) });
+      .filter({ has: page.getByRole("heading", { name: "Do powiązania" }) });
     await expect(suggestionsSection.getByText("Zakupy spożywcze na wakacje")).not.toBeVisible();
     await expect(suggestionsSection.getByText("Transport na lotnisko")).not.toBeVisible();
   });
