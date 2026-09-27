@@ -1,5 +1,5 @@
 import { supabase } from "$lib/supabase";
-import type { Category, TransactionType } from "$lib/types";
+import type { Category, CategoryCapPeriod, TransactionType } from "$lib/types";
 
 export async function fetchCategories(): Promise<Category[]> {
   const {
@@ -10,7 +10,7 @@ export async function fetchCategories(): Promise<Category[]> {
 
   const { data, error } = await supabase
     .from("categories")
-    .select("id, name, type, user_id, created_at, updated_at")
+    .select("id, name, type, user_id, cap_amount, cap_period, created_at, updated_at")
     .eq("user_id", user.id)
     .order("name");
 
@@ -21,6 +21,8 @@ export async function fetchCategories(): Promise<Category[]> {
 export async function createCategory(input: {
   name: string;
   type: TransactionType;
+  cap_amount?: number | null;
+  cap_period?: CategoryCapPeriod | null;
 }): Promise<Category> {
   const {
     data: { user },
@@ -40,7 +42,12 @@ export async function createCategory(input: {
 
 export async function updateCategory(
   id: string,
-  updates: Partial<{ name: string; type: TransactionType }>
+  updates: Partial<{
+    name: string;
+    type: TransactionType;
+    cap_amount: number | null;
+    cap_period: CategoryCapPeriod | null;
+  }>
 ): Promise<Category> {
   const { data, error } = await supabase
     .from("categories")

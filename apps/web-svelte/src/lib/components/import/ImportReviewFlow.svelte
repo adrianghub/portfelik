@@ -49,6 +49,7 @@
   import { fetchProfile } from "$lib/services/profiles";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { toast } from "svelte-sonner";
+  import { describeImportedMoney } from "$lib/content/import-story";
   import { cn, formatCurrency } from "$lib/utils";
   import { session as authSession, requireSessionUserId } from "$lib/auth/session.svelte";
   import { qk } from "$lib/query-keys";
@@ -57,7 +58,11 @@
     session: ImportSession;
     parseErrorCount?: number;
     skippedRowCount?: number;
-    onCommitted: (result: CommitResult, dateRange?: ImportedDateRange) => void;
+    onCommitted: (
+      result: CommitResult,
+      dateRange?: ImportedDateRange,
+      story?: string | null
+    ) => void;
     onCancel: () => Promise<void> | void;
   }
   let {
@@ -188,6 +193,17 @@
   // activeRows = rows the user is deciding on (not auto-skipped duplicates).
   const activeRows = $derived(rows.filter((r) => r.decision !== "duplicate"));
   const importRows = $derived(rows.filter((r) => r.decision === "import"));
+
+  function storyForImportedRows(): string | null {
+    const categories = categoriesQuery.data ?? [];
+    return describeImportedMoney(
+      importRows.map((row) => ({
+        type: row.type,
+        amount: row.amount,
+        categoryName: categories.find((c) => c.id === row.selected_category_id)?.name ?? null,
+      }))
+    );
+  }
   const skippedRows = $derived(rows.filter((r) => r.decision === "skip"));
   const duplicateRows = $derived(rows.filter((r) => r.decision === "duplicate"));
   const uncategorizedImportRows = $derived(
@@ -941,7 +957,7 @@
   const commitMut = createMutation(() => ({
     mutationFn: () => commitImportSession(session.id),
     onSuccess: (result) => {
-      onCommitted(result, getImportedDateRange());
+      onCommitted(result, getImportedDateRange(), storyForImportedRows());
     },
     onError: (err: { message: string; details?: string | null }) => {
       const msg = err.message ?? "";

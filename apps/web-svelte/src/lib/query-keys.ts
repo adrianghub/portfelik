@@ -28,9 +28,7 @@ export const qk = {
   planDebtDetect: (u: Id, id?: string, ...p: unknown[]) =>
     [...userNs(u), "plan-debt-detect", ...(id ? [id] : []), ...p] as const,
   planSuggestionCount: (u: Id, id: string) => [...userNs(u), "plan-suggestion-count", id] as const,
-  financialSnapshot: (u: Id) => [...userNs(u), "financial-snapshot"] as const,
   cashPosition: (u: Id) => [...userNs(u), "cash-position"] as const,
-  netWorthItems: (u: Id) => [...userNs(u), "net-worth-items"] as const,
   userGroups: (u: Id) => [...userNs(u), "user_groups"] as const,
   myGroupRoles: (u: Id) => [...userNs(u), "my-group-roles"] as const,
   groupInvitationsReceived: (u: Id) => [...userNs(u), "group_invitations_received"] as const,
@@ -47,7 +45,4 @@ export const qk = {
   importPreviewWarnings: (u: Id, sessionId: string) =>
     [...userNs(u), "import_preview_warnings", sessionId] as const,
   bankAccount: (u: Id, accountId: string) => [...userNs(u), "bank_account", accountId] as const,
-
-  /** Public — not user-scoped; safe to share across identities. */
-  fx: () => ["fx", "nbp-table-a"] as const,
 } as const;

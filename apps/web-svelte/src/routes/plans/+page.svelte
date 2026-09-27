@@ -2,9 +2,6 @@
   import { afterNavigate, beforeNavigate } from "$app/navigation";
   import { page } from "$app/stores";
   import PlanCard from "$lib/components/plans/PlanCard.svelte";
-  import NetWorthHero from "$lib/components/plans/NetWorthHero.svelte";
-  import SurplusCard from "$lib/components/plans/SurplusCard.svelte";
-  import { buildPlanningQueueActions } from "$lib/services/planning-queue";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import DayPicker from "$lib/components/ui/DayPicker.svelte";
   import Dialog from "$lib/components/ui/Dialog.svelte";
@@ -20,27 +17,6 @@
     normalizeDebtTermsInput,
     saveDebtPlan,
   } from "$lib/services/plan-debt";
-  import {
-    collectNetWorthDebtBalances,
-    computeNetWorth,
-    fetchFinancialSnapshot,
-    saveNetWorthSnapshot,
-  } from "$lib/services/financial-snapshots";
-  import { fetchNetWorthItems, type NetWorthItemInput } from "$lib/services/net-worth-items";
-  import {
-    canConvertAllToPln,
-    convertToPln,
-    fetchPlnRates,
-    ratesForPlnConversion,
-    SUPPORTED_CURRENCIES,
-  } from "$lib/services/fx";
-  import {
-    computeMonthlySurplus,
-    currentCalendarMonthQueryBounds,
-    gateObservedDebtCoverage,
-    sumDebtMonthlyPayments,
-    sumSaveMonthlyNeeded,
-  } from "$lib/services/financial-surplus";
   import { extractPostgrestError, postgrestErrorCode } from "$lib/services/supabase-errors";
   import {
     createPlan,
@@ -55,7 +31,7 @@
   import { session, requireSessionUserId } from "$lib/auth/session.svelte";
   import { qk } from "$lib/query-keys";
   import type { Plan, PlanKind, PlanSummary } from "$lib/types";
-  import { cn, formatCurrency } from "$lib/utils";
+  import { cn } from "$lib/utils";
   import { syncListViewUrl } from "$lib/utils/navigation";
   import { parseScopeFilter, type ScopeFilter } from "$lib/utils/list-view-url";
   import {
@@ -68,18 +44,11 @@
     createQuery,
     useQueryClient,
   } from "@tanstack/svelte-query";
-  import { Plus, Trash2 } from "lucide-svelte";
+  import { Plus } from "lucide-svelte";
   import { toast } from "svelte-sonner";
   import { toastError } from "$lib/toast-error";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import QueryError from "$lib/components/ui/QueryError.svelte";
-  import { computeLedgerSummary } from "$lib/services/transaction-cashflow";
-  import { fetchTransactions } from "$lib/services/transactions";
-  import {
-    CASH_FETCH_END_SENTINEL,
-    fetchPrivateCashPosition,
-    livePosition,
-  } from "$lib/services/cash-position";
 
   const queryClient = useQueryClient();
   const plansHubPath = "/plans";
@@ -129,31 +98,6 @@
     enabled: () => !!session.userId,
   }));
 
-  const monthBounds = $derived(currentCalendarMonthQueryBounds());
-
-  const surplusTransactionsHref = $derived.by(() => {
-    const inclusiveEnd = new Date(`${monthBounds.endExclusive}T00:00:00`);
-    inclusiveEnd.setDate(inclusiveEnd.getDate() - 1);
-    const end = `${inclusiveEnd.getFullYear()}-${String(inclusiveEnd.getMonth() + 1).padStart(2, "0")}-${String(inclusiveEnd.getDate()).padStart(2, "0")}`;
-    const params = new URLSearchParams({
-      startDate: monthBounds.start,
-      endDate: end,
-      group: groupFilter,
-    });
-    return `/transactions?${params.toString()}`;
-  });
-
-  const monthTxQuery = createQuery(() => ({
-    queryKey: qk.transactions.list(
-      session.userId!,
-      "plans-surplus",
-      monthBounds.start,
-      monthBounds.endExclusive
-    ),
-    queryFn: () => fetchTransactions(monthBounds.start, monthBounds.endExclusive),
-    enabled: () => !!session.userId,
-  }));
-
   const categoriesQuery = createQuery(() => ({
     queryKey: qk.categories(session.userId!),
     queryFn: fetchCategories,
@@ -180,106 +124,6 @@
     enabled: () => !!session.userId && debtPlanIds.length > 0,
   }));
 
-  const snapshotQuery = createQuery(() => ({
-    queryKey: qk.financialSnapshot(session.userId!),
-    queryFn: fetchFinancialSnapshot,
-    enabled: () => !!session.userId,
-  }));
-
-  const cashPositionQuery = createQuery(() => ({
-    queryKey: qk.cashPosition(session.userId!),
-    queryFn: fetchPrivateCashPosition,
-    enabled: () => !!session.userId,
-  }));
-
-  const itemsQuery = createQuery(() => ({
-    queryKey: qk.netWorthItems(session.userId!),
-    queryFn: fetchNetWorthItems,
-    enabled: () => !!session.userId,
-  }));
-
-  const fxQuery = createQuery(() => ({
-    queryKey: qk.fx(),
-    queryFn: fetchPlnRates,
-    staleTime: 12 * 60 * 60 * 1000,
-  }));
-
-  const valuedItems = $derived.by(() => {
-    const rates = fxQuery.data;
-    const items = itemsQuery.data ?? [];
-    if (!canConvertAllToPln(items, rates)) return null;
-    const effectiveRates = ratesForPlnConversion(rates);
-    return items.map((it) => {
-      const amountPln = convertToPln(it.amount, it.currency, effectiveRates);
-      return {
-        label: it.label,
-        currency: it.currency,
-        amount: it.amount,
-        amountPln: amountPln!,
-      };
-    });
-  });
-
-  const fxUnavailable = $derived(
-    (itemsQuery.data ?? []).some((it) => it.currency !== "PLN") &&
-      (fxQuery.isError || (fxQuery.isSuccess && valuedItems === null))
-  );
-
-  const cashRangeStart = $derived(cashPositionQuery.data?.as_of_date ?? "2000-01-01");
-  // Open upper bound: fetchTransactions uses an exclusive `.lt("date", end)`, so a real
-  // current date would drop today's (and any future-dated) paid rows. The live position
-  // has no upper bound — the engine filters to paid. Use a far-future sentinel.
-  const CASH_RANGE_END = CASH_FETCH_END_SENTINEL;
-  const positionTxQuery = createQuery(() => ({
-    queryKey: qk.transactions.list(session.userId!, "cash-position-range", cashRangeStart),
-    queryFn: () => fetchTransactions(cashRangeStart, CASH_RANGE_END),
-    // isSuccess (not !isLoading): on an anchor-query error we must NOT fall back to the
-    // "2000-01-01" default range with a null anchor and render a confidently wrong figure.
-    enabled: () => !!session.userId && cashPositionQuery.isSuccess,
-  }));
-
-  const derivedCash = $derived(
-    livePosition(
-      cashPositionQuery.data ?? null,
-      (positionTxQuery.data ?? [])
-        .filter((t) => (t.group_id ?? null) === null)
-        .map((t) => ({ type: t.type, amount: t.amount, status: t.status, date: t.date }))
-    )
-  );
-
-  // Debts are valued as of today (matching the plan detail headline); only assets keep
-  // the manual snapshot date.
-  const linkedExpensesByPlanId = $derived(
-    Object.fromEntries(
-      Object.entries(progressQuery.data ?? {}).map(([planId, p]) => [planId, p.linkedExpenses])
-    )
-  );
-
-  const debtBalances = $derived(
-    collectNetWorthDebtBalances(
-      plansQuery.data ?? [],
-      debtTermsQuery.data ?? {},
-      todayIsoLocal(),
-      linkedExpensesByPlanId
-    )
-  );
-
-  const goalAssets = $derived(
-    (plansQuery.data ?? [])
-      .filter((plan) => plan.group_id === null && plan.kind === "save" && isLivePlan(plan))
-      .reduce((sum, plan) => sum + (progressQuery.data?.[plan.id]?.savedAmount ?? 0), 0)
-  );
-
-  const netWorth = $derived(
-    computeNetWorth({
-      asOfDate: snapshotQuery.data?.as_of_date ?? null,
-      items: valuedItems ?? [],
-      derivedCash,
-      goalAssets,
-      debtBalances,
-    })
-  );
-
   function planCanManage(plan: PlanSummary): boolean {
     if (!session.userId) return false;
     return canManagePlan(plan, session.userId, groupRolesQuery.data ?? new Map());
@@ -303,78 +147,6 @@
       };
     })
   );
-
-  const scopedMonthTxs = $derived.by(() => {
-    if (!monthTxQuery.data) return [];
-    return monthTxQuery.data.filter((tx) => {
-      if (groupFilter === "all") return true;
-      if (groupFilter === "own") return tx.group_id === null;
-      return tx.group_id === groupFilter;
-    });
-  });
-
-  const scopedSummaries = $derived(
-    summaries.filter((p) => {
-      if (groupFilter === "all") return true;
-      if (groupFilter === "own") return p.group_id === null;
-      return p.group_id === groupFilter;
-    })
-  );
-
-  const scopedDebtTerms = $derived.by(() => {
-    const terms = debtTermsQuery.data ?? {};
-    const scopedIds = new Set(
-      (plansQuery.data ?? [])
-        .filter((p) => {
-          if (groupFilter === "all") return true;
-          if (groupFilter === "own") return p.group_id === null;
-          return p.group_id === groupFilter;
-        })
-        .map((p) => p.id)
-    );
-    return Object.fromEntries(Object.entries(terms).filter(([planId]) => scopedIds.has(planId)));
-  });
-
-  const monthlySurplus = $derived.by(() => {
-    const monthSummary = monthTxQuery.data ? computeLedgerSummary(scopedMonthTxs) : null;
-    if (!monthSummary) return null;
-    // Observed debt-payment coverage: sum of current-month linked expenses across active debt
-    // plans. Pass it only when coverage is actually observed (> 0); an unlinked-but-imported
-    // rata would otherwise be double-counted and the estimate note would vanish.
-    const observedDebtCoverage = progressQuery.data
-      ? scopedSummaries
-          .filter((p) => p.kind === "debt" && p.bucket === "active" && isLivePlan(p))
-          .reduce((sum, p) => sum + (progressQuery.data?.[p.id]?.linkedExpenseCurrentMonth ?? 0), 0)
-      : 0;
-    const debtPaymentsInExpenses = gateObservedDebtCoverage(observedDebtCoverage);
-    // Contributions already made this month are credited
-    // against the monthly pace - saving toward a goal must not read as falling behind.
-    const saveContributionsThisMonth = progressQuery.data
-      ? scopedSummaries
-          .filter((p) => p.kind === "save" && p.bucket === "active")
-          .reduce(
-            (sum, p) => sum + (progressQuery.data?.[p.id]?.saveContributionsCurrentMonth ?? 0),
-            0
-          )
-      : 0;
-    return computeMonthlySurplus({
-      totalIncome: monthSummary.total_income,
-      totalExpenses: monthSummary.total_expenses,
-      debtMonthlyPayments: sumDebtMonthlyPayments(scopedSummaries, scopedDebtTerms),
-      saveMonthlyNeeded: sumSaveMonthlyNeeded(scopedSummaries),
-      debtPaymentsInExpenses,
-      saveContributionsThisMonth,
-    });
-  });
-
-  const planningActions = $derived.by(() => {
-    if (!monthlySurplus) return [];
-    return buildPlanningQueueActions({
-      summaries: scopedSummaries,
-      monthlySurplus,
-      debtTerms: scopedDebtTerms,
-    });
-  });
 
   const hasActivePlans = $derived((plansQuery.data?.length ?? 0) > 0);
   const showPlansZeroState = $derived(!hasActivePlans);
@@ -409,65 +181,6 @@
   let debtFirstPaymentAmount = $state("");
   let categoryId = $state("");
   let groupId = $state("");
-
-  let showNetWorthForm = $state(false);
-  let snapshotDate = $state("");
-  let openingAmount = $state("");
-  let netWorthItems = $state<{ id?: string; label: string; amount: string; currency: string }[]>(
-    []
-  );
-
-  function addNetWorthItem() {
-    netWorthItems = [...netWorthItems, { label: "", amount: "", currency: "PLN" }];
-  }
-
-  function removeNetWorthItem(index: number) {
-    netWorthItems = netWorthItems.filter((_, i) => i !== index);
-  }
-
-  function openNetWorthForm() {
-    // Only open once both anchors have resolved. Otherwise the fields would
-    // initialize blank/today and a submit would overwrite the seeded cash anchor
-    // and assets snapshot with 0s.
-    if (!cashPositionQuery.isSuccess || !snapshotQuery.isSuccess || !itemsQuery.isSuccess) return;
-    const snap = snapshotQuery.data;
-    snapshotDate = snap?.as_of_date ?? todayIsoLocal();
-    const pos = cashPositionQuery.data;
-    openingAmount = pos ? String(pos.opening_amount) : "";
-    netWorthItems = (itemsQuery.data ?? []).map((it) => ({
-      id: it.id,
-      label: it.label,
-      amount: String(it.amount),
-      currency: it.currency,
-    }));
-    showNetWorthForm = true;
-  }
-
-  const snapshotMutation = createSvelteMutation(() => ({
-    mutationFn: async () => {
-      const items: NetWorthItemInput[] = netWorthItems.map((it) => ({
-        id: it.id,
-        label: it.label,
-        amount: it.amount === "" ? 0 : Number(it.amount),
-        currency: it.currency,
-      }));
-      await saveNetWorthSnapshot({
-        as_of_date: snapshotDate,
-        opening_amount: openingAmount === "" ? 0 : Number(openingAmount),
-        items,
-      });
-    },
-    onSuccess: async () => {
-      showNetWorthForm = false;
-      toast.success(m.plans_net_worth_toast_saved());
-      const u = requireSessionUserId();
-      await queryClient.invalidateQueries({ queryKey: qk.financialSnapshot(u) });
-      await queryClient.invalidateQueries({ queryKey: qk.cashPosition(u) });
-      await queryClient.invalidateQueries({ queryKey: qk.netWorthItems(u) });
-      await queryClient.invalidateQueries({ queryKey: qk.fx() });
-    },
-    onError: (err) => toastError(err),
-  }));
 
   function applyDebtDateDefaults() {
     startDate = todayIsoLocal();
@@ -724,28 +437,6 @@
   </div>
 
   <p class="text-sm text-slate-400">{m.plans_tagline()}</p>
-
-  <div class="grid items-stretch gap-3 lg:grid-cols-12">
-    <div class="min-w-0 lg:col-span-7">
-      {#if snapshotQuery.isLoading}
-        <div class="h-36 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
-      {:else}
-        <NetWorthHero summary={netWorth} {fxUnavailable} onedit={openNetWorthForm} />
-      {/if}
-    </div>
-
-    <div class="min-w-0 lg:col-span-5">
-      {#if monthTxQuery.isLoading}
-        <div class="h-28 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
-      {:else if monthlySurplus}
-        <SurplusCard
-          summary={monthlySurplus}
-          actions={planningActions}
-          transactionsHref={surplusTransactionsHref}
-        />
-      {/if}
-    </div>
-  </div>
 
   {#if plansQuery.isLoading}
     <div class="grid gap-3 sm:grid-cols-2">
@@ -1086,123 +777,6 @@
         class="bg-accent-gradient focus-visible:ring-accent flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
       >
         {createMutation.isPending || updateMutation.isPending ? m.common_saving() : m.common_save()}
-      </button>
-    </div>
-  </form>
-</Dialog>
-
-<Dialog
-  open={showNetWorthForm}
-  onclose={() => (showNetWorthForm = false)}
-  title={m.plans_net_worth_edit_title()}
->
-  <form
-    class="space-y-4"
-    onsubmit={(e) => {
-      e.preventDefault();
-      void snapshotMutation.mutateAsync().catch(() => {
-        // onError already toasted
-      });
-    }}
-  >
-    <p class="text-xs text-slate-400">{m.plans_net_worth_manual_note()}</p>
-    <div class="space-y-1">
-      <label class="text-xs font-medium text-slate-300" for="snapshot-date">
-        {m.plans_net_worth_as_of_label()}
-      </label>
-      <DayPicker
-        id="snapshot-date"
-        bind:value={snapshotDate}
-        label={m.plans_net_worth_as_of_label()}
-        showLabel={false}
-      />
-    </div>
-    <div class="space-y-1">
-      <label class="text-xs font-medium text-slate-300" for="snapshot-opening-amount">
-        {m.net_worth_cash_position_label()}
-      </label>
-      <input
-        id="snapshot-opening-amount"
-        type="number"
-        min="0"
-        step="0.01"
-        bind:value={openingAmount}
-        placeholder="0"
-        class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
-      />
-      <p class="text-xs text-slate-500">{m.net_worth_cash_position_hint()}</p>
-      <p class="text-xs text-slate-400">
-        {m.net_worth_cash_current_hint({ amount: formatCurrency(derivedCash) })}
-      </p>
-    </div>
-    <div class="space-y-2">
-      <div class="flex items-center justify-between">
-        <span class="text-xs font-medium text-slate-300">{m.net_worth_items_label()}</span>
-        <button
-          type="button"
-          onclick={addNetWorthItem}
-          class="text-accent text-xs font-medium hover:underline"
-        >
-          {m.net_worth_items_add()}
-        </button>
-      </div>
-      {#each netWorthItems as item, i (i)}
-        <div class="flex items-center gap-2">
-          <input
-            type="text"
-            bind:value={item.label}
-            placeholder={m.net_worth_items_label_placeholder()}
-            maxlength="60"
-            class="focus:border-accent/40 min-w-0 flex-1 rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
-          />
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            bind:value={item.amount}
-            placeholder="0"
-            class="focus:border-accent/40 w-24 rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
-          />
-          <select
-            bind:value={item.currency}
-            aria-label={m.net_worth_items_currency_label()}
-            class="focus:border-accent/40 rounded-xl border border-white/10 bg-slate-900/60 px-2 py-2 text-sm text-slate-100"
-          >
-            {#each SUPPORTED_CURRENCIES as code (code)}
-              <option value={code}>{code}</option>
-            {/each}
-          </select>
-          <button
-            type="button"
-            onclick={() => removeNetWorthItem(i)}
-            aria-label={m.net_worth_items_remove()}
-            class="shrink-0 rounded-full border border-white/10 p-2 text-slate-400 hover:bg-white/5 hover:text-rose-300"
-          >
-            <Trash2 size={14} aria-hidden="true" />
-          </button>
-        </div>
-      {/each}
-      {#if netWorthItems.length === 0}
-        <p class="text-xs text-slate-500">{m.net_worth_items_empty()}</p>
-      {/if}
-    </div>
-    <div class="flex gap-2 pt-1">
-      <button
-        type="button"
-        onclick={() => (showNetWorthForm = false)}
-        class="flex-1 rounded-full border border-white/10 bg-slate-900/60 py-2 text-sm font-medium text-slate-200"
-      >
-        {m.common_cancel()}
-      </button>
-      <button
-        type="submit"
-        disabled={snapshotMutation.isPending ||
-          !cashPositionQuery.isSuccess ||
-          !snapshotQuery.isSuccess ||
-          !itemsQuery.isSuccess}
-        class="bg-accent-gradient flex-1 rounded-full py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
-      >
-        {snapshotMutation.isPending ? m.common_saving() : m.common_save()}
       </button>
     </div>
   </form>

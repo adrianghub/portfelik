@@ -152,12 +152,16 @@
     resumeSession = null;
   }
 
-  function handleCommitted(result: CommitResult, dateRange?: ImportedDateRange): void {
+  function handleCommitted(
+    result: CommitResult,
+    dateRange?: ImportedDateRange,
+    story?: string | null
+  ): void {
     const u = requireSessionUserId();
     queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
     queryClient.invalidateQueries({ queryKey: qk.summary(u) });
     queryClient.invalidateQueries({ queryKey: qk.importHealth(u) });
-    toast.success(importSuccessLabel(result.inserted), {
+    toast.success(story || importSuccessLabel(result.inserted), {
       description: m.bank_commit_toast_detail({
         skipped: result.skipped,
         duplicates: result.duplicates_preview + result.duplicates_commit,

@@ -5,11 +5,15 @@ export type TransactionStatus = "paid" | "draft" | "upcoming" | "overdue";
 export type InvitationStatus = "pending" | "accepted" | "rejected" | "cancelled";
 export type UserRole = "user" | "admin";
 
+export type CategoryCapPeriod = "month" | "year";
+
 export interface Category {
   id: string;
   name: string;
   type: TransactionType;
   user_id: string | null;
+  cap_amount: number | null;
+  cap_period: CategoryCapPeriod | null;
   created_at: string;
   updated_at: string;
 }
@@ -205,16 +209,6 @@ export interface PlanSummary extends Plan {
   bucket: PlanBucket;
 }
 
-export interface FinancialSnapshot {
-  user_id: string;
-  as_of_date: string;
-  cash_amount: number;
-  investments_amount: number;
-  real_estate_amount: number;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface CashPosition {
   id: string;
   owner_id: string | null;
@@ -223,38 +217,6 @@ export interface CashPosition {
   as_of_date: string;
   created_at: string;
   updated_at: string;
-}
-
-export interface NetWorthItem {
-  id: string;
-  user_id: string;
-  label: string;
-  amount: number;
-  currency: string;
-  position: number;
-  created_at: string;
-  updated_at: string;
-}
-
-/** A net-worth item with its PLN-converted value resolved for display/summing. */
-export interface NetWorthItemValued {
-  label: string;
-  currency: string;
-  amount: number;
-  amountPln: number;
-}
-
-export interface NetWorthSummary {
-  hasSnapshot: boolean;
-  hasData: boolean;
-  asOfDate: string | null;
-  cash: number;
-  items: NetWorthItemValued[];
-  otherAssets: number;
-  goalAssets: number;
-  totalAssets: number;
-  totalDebt: number;
-  netWorth: number;
 }
 
 export type NotificationType =

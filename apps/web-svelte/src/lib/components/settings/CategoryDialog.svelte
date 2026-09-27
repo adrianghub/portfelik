@@ -4,7 +4,7 @@
   import { requireSessionUserId, session } from "$lib/auth/session.svelte";
   import { qk } from "$lib/query-keys";
   import { createCategory, isCategoryReferenced, updateCategory } from "$lib/services/categories";
-  import type { Category, TransactionType } from "$lib/types";
+  import type { Category, CategoryCapPeriod, TransactionType } from "$lib/types";
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import { toast } from "svelte-sonner";
   import { toastError } from "$lib/toast-error";
@@ -21,11 +21,15 @@
 
   let name = $state(untrack(() => initial?.name ?? ""));
   let type = $state<TransactionType>(untrack(() => initial?.type ?? "expense"));
+  let capAmount = $state(untrack(() => (initial?.cap_amount != null ? String(initial.cap_amount) : "")));
+  let capPeriod = $state<CategoryCapPeriod>(untrack(() => initial?.cap_period ?? "month"));
 
   $effect(() => {
     if (open) {
       name = initial?.name ?? "";
       type = initial?.type ?? "expense";
+      capAmount = initial?.cap_amount != null ? String(initial.cap_amount) : "";
+      capPeriod = initial?.cap_period ?? "month";
     }
   });
 
@@ -40,10 +44,17 @@
   const typeLocked = $derived(isEdit && refsQuery.data === true);
 
   const mutation = createMutation(() => ({
-    mutationFn: () =>
-      isEdit
-        ? updateCategory(initial!.id, typeLocked ? { name } : { name, type })
-        : createCategory({ name, type }),
+    mutationFn: () => {
+      const raw = capAmount.trim();
+      const amount = Number(raw);
+      const cap =
+        type === "expense" && raw !== "" && Number.isFinite(amount) && amount > 0
+          ? { cap_amount: amount, cap_period: capPeriod }
+          : { cap_amount: null, cap_period: null };
+      return isEdit
+        ? updateCategory(initial!.id, typeLocked ? { name, ...cap } : { name, type, ...cap })
+        : createCategory({ name, type, ...cap });
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: qk.categories(requireSessionUserId()) });
       toast.success(isEdit ? m.toast_category_updated() : m.toast_category_created());
@@ -108,6 +119,40 @@
         <p class="text-xs text-slate-400">{m.category_form_type_locked_hint()}</p>
       {/if}
     </div>
+
+    {#if type === "expense"}
+      <div class="space-y-1">
+        <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="cat-cap"
+          >{m.category_form_cap()}</label
+        >
+        <input
+          id="cat-cap"
+          type="number"
+          min="0"
+          step="0.01"
+          inputmode="decimal"
+          bind:value={capAmount}
+          placeholder={m.category_form_cap_placeholder()}
+          class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:ring-2 focus:outline-none"
+        />
+        <p class="text-xs text-slate-400">{m.category_form_cap_hint()}</p>
+      </div>
+      {#if capAmount.trim() !== ""}
+        <div class="space-y-1">
+          <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="cat-cap-period"
+            >{m.category_form_cap_period()}</label
+          >
+          <select
+            id="cat-cap-period"
+            bind:value={capPeriod}
+            class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 focus:ring-2 focus:outline-none"
+          >
+            <option value="month">{m.category_form_cap_month()}</option>
+            <option value="year">{m.category_form_cap_year()}</option>
+          </select>
+        </div>
+      {/if}
+    {/if}
 
     {#if mutation.isError}
       <p class="text-sm text-rose-300">{m.common_error_title()}</p>

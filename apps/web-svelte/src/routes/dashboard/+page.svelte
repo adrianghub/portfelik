@@ -3,8 +3,8 @@
   import { page } from "$app/stores";
   import TransactionTable from "$lib/components/transactions/TransactionTable.svelte";
   import DashboardImportHealth from "$lib/components/dashboard/DashboardImportHealth.svelte";
+  import DashboardPiles from "$lib/components/dashboard/DashboardPiles.svelte";
   import DashboardActions from "$lib/components/dashboard/DashboardActions.svelte";
-  import DashboardNetWorthStrip from "$lib/components/dashboard/DashboardNetWorthStrip.svelte";
   import DashboardPlanProgress from "$lib/components/dashboard/DashboardPlanProgress.svelte";
   import DashboardBalanceHero from "$lib/components/dashboard/DashboardBalanceHero.svelte";
   import DashboardSpendingInsight from "$lib/components/dashboard/DashboardSpendingInsight.svelte";
@@ -909,6 +909,8 @@
     </div>
   {/if}
 
+  <DashboardPiles />
+
   <!-- Status band -->
   <section class="mt-4">
     <h2 class="mb-1.5 text-sm font-medium text-slate-400">{m.dashboard_status_band()}</h2>
@@ -916,7 +918,6 @@
       <DashboardActions {groupFilter} overdue={overdueSummary} {overdueState} />
       <DashboardPlanProgress {groupFilter} />
       <DashboardImportHealth />
-      <DashboardNetWorthStrip />
     </div>
   </section>
 

@@ -18,9 +18,7 @@ describe("qk factory", () => {
       qk.transactions.all(U),
       qk.plans(U),
       qk.planProgress(U),
-      qk.financialSnapshot(U),
       qk.cashPosition(U),
-      qk.netWorthItems(U),
     ]) {
       expect(key.slice(0, user.length)).toEqual([...user]);
     }
@@ -36,10 +34,5 @@ describe("qk factory", () => {
     expect(qk.categories(U)).not.toEqual(qk.categories(U2));
     expect(qk.categories(U)[1]).toBe(U);
     expect(qk.categories(U2)[1]).toBe(U2);
-  });
-
-  it("keeps FX public and not user-scoped", () => {
-    expect(qk.fx()).toEqual(["fx", "nbp-table-a"]);
-    expect(qk.fx()[0]).not.toBe("user");
   });
 });
