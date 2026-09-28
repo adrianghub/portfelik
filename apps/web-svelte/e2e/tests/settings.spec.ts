@@ -11,14 +11,23 @@ async function gotoSettings(page: Page, query = ""): Promise<void> {
   await page.goto(`/settings${query}`);
 }
 
-test("landing lists the three sections and their subsections", async ({ page }) => {
+test("landing lists the sections and their subsections", async ({ page }) => {
   await gotoSettings(page);
 
   await expect(page.getByRole("heading", { name: "Ustawienia" })).toBeVisible();
-  for (const section of ["Konto", "Finanse", "Inne"]) {
+  for (const section of ["Konto", "Finanse", "Współdzielenie", "Aplikacja", "Dane i prywatność"]) {
     await expect(page.getByRole("heading", { name: section, exact: true })).toBeVisible();
   }
-  for (const sub of ["Profil", "Wygląd", "Kategorie", "Reguły", "Grupy"]) {
+  for (const sub of [
+    "Profil",
+    "Powiadomienia",
+    "Kategorie i limity",
+    "Reguły",
+    "Grupy",
+    "Wygląd",
+    "Pomoc i przewodnik",
+    "Eksport i konto",
+  ]) {
     await expect(page.getByRole("button", { name: sub, exact: true })).toBeVisible();
   }
 });

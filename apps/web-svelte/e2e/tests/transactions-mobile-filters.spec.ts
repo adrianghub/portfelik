@@ -32,8 +32,8 @@ test.describe("transactions mobile filters", () => {
   test("import and navigation remain labelled at 320px", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 740 });
     await page.goto("/transactions");
-    const importLink = page.getByRole("link", { name: "Import", exact: true });
-    await expect(importLink).toHaveText("Import");
+    const importLink = page.getByRole("link", { name: "Importuj wyciąg", exact: true });
+    await expect(importLink).toHaveText("Importuj wyciąg");
     const importBox = await importLink.boundingBox();
     expect(importBox!.height).toBeGreaterThanOrEqual(44);
 

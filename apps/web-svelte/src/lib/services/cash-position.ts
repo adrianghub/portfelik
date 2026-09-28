@@ -121,6 +121,34 @@ export function forecastPosition(
   return fromCents(toCents(livePosition(anchor, txs)) + scheduledCents);
 }
 
+export interface ForecastMovementTotals {
+  upcomingIncome: number;
+  upcomingExpenses: number;
+}
+
+/** Upcoming and overdue amounts inside the forecast horizon. Paid rows stay in the live balance. */
+export function forecastMovementTotals(
+  anchor: Anchor,
+  txs: PositionTx[],
+  opts: ForecastPositionOpts = {}
+): ForecastMovementTotals {
+  const horizonEnd = opts.horizonEnd ?? cashForecastHorizonEnd(opts.today);
+  const asOf = asOfOf(anchor);
+  let incomeCents = 0;
+  let expenseCents = 0;
+  for (const tx of txs) {
+    if (!isForecastStatus(tx.status)) continue;
+    if (dateOnly(tx.date) < asOf || !withinForecastHorizon(tx, horizonEnd)) continue;
+    const cents = toCents(tx.amount);
+    if (tx.type === "income") incomeCents += cents;
+    else expenseCents += cents;
+  }
+  return {
+    upcomingIncome: fromCents(incomeCents),
+    upcomingExpenses: fromCents(expenseCents),
+  };
+}
+
 /** Fetch the private cash position for the signed-in user (null if not set yet). */
 export async function fetchPrivateCashPosition(): Promise<CashPosition | null> {
   const {

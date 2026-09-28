@@ -210,7 +210,7 @@
           {
             limit: PLAN_DETAIL_MATCH_LIMIT,
             maxPerPlan: PLAN_DETAIL_MATCH_LIMIT,
-            minRank: "medium",
+            minRank: "high",
             excludeTxIds: dismissedQuery.data ?? [],
           }
         )
@@ -528,15 +528,6 @@
       </div>
     </div>
 
-    {#if previewMatches.length > 0}
-      <section class="space-y-2" aria-labelledby="plan-matches-heading">
-        <p id="plan-matches-heading" class="text-eyebrow text-slate-400">
-          {m.dashboard_plan_matches_title()}
-        </p>
-        <PlanMatchList matches={previewMatches} showPlanName={false} />
-      </section>
-    {/if}
-
     {#if plan.kind === "save" && progress}
       {#if plan.group_id && !canManage}
         <p
@@ -605,6 +596,15 @@
         termsSaving={debtTermsMutation.isPending}
       />
       <PlanForwardNav href={settleHref} title={m.plan_debt_link_payments()} variant="action" />
+    {/if}
+
+    {#if previewMatches.length > 0}
+      <section class="space-y-2" aria-labelledby="plan-matches-heading">
+        <p id="plan-matches-heading" class="text-eyebrow text-slate-400">
+          {m.dashboard_plan_matches_title()}
+        </p>
+        <PlanMatchList matches={previewMatches} showPlanName={false} />
+      </section>
     {/if}
 
     {#if plan.kind !== "save"}

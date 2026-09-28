@@ -1,21 +1,27 @@
 <script lang="ts">
-  import { createQuery } from "@tanstack/svelte-query";
-  import { session } from "$lib/auth/session.svelte";
+  import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
+  import { requireSessionUserId, session } from "$lib/auth/session.svelte";
   import { productDateIso } from "$lib/date-local";
   import { qk } from "$lib/query-keys";
-  import { fetchCategories } from "$lib/services/categories";
-  import { spentInPile, pileWindow } from "$lib/services/pile-progress";
+  import { fetchCategories, updateCategory } from "$lib/services/categories";
+  import { normalizeCapAmount, pileWindow, spentInPile } from "$lib/services/pile-progress";
   import { fetchTransactions } from "$lib/services/transactions";
-  import { formatCurrency } from "$lib/utils";
+  import { toastError } from "$lib/toast-error";
+  import type { CategoryCapPeriod, UserGroup } from "$lib/types";
+  import { formatCurrency, formatDate } from "$lib/utils";
   import type { ScopeFilter } from "$lib/utils/list-view-url";
+  import Dialog from "$lib/components/ui/Dialog.svelte";
+  import { toast } from "svelte-sonner";
   import * as m from "$lib/paraglide/messages";
 
   interface Props {
     groupFilter: ScopeFilter;
+    groups?: Pick<UserGroup, "id" | "name">[];
   }
-  let { groupFilter }: Props = $props();
+  let { groupFilter, groups = [] }: Props = $props();
 
   const today = productDateIso(new Date());
+  const queryClient = useQueryClient();
 
   const categoriesQuery = createQuery(() => ({
     queryKey: qk.categories(session.userId!),
@@ -23,10 +29,13 @@
     enabled: () => !!session.userId,
   }));
 
+  const expenseCategories = $derived(
+    (categoriesQuery.data ?? []).filter((category) => category.type === "expense")
+  );
+
   const piles = $derived(
-    (categoriesQuery.data ?? []).filter(
+    expenseCategories.filter(
       (category) =>
-        category.type === "expense" &&
         category.cap_amount != null &&
         category.cap_amount > 0 &&
         (category.cap_period === "month" || category.cap_period === "year")
@@ -63,41 +72,168 @@
           const spent = spentInPile(txQuery.data, pile.id, pile.cap_period!, today, groupFilter);
           const cap = pile.cap_amount!;
           const pct = Math.min(100, Math.round((spent / cap) * 100));
-          return { pile, spent, cap, pct, over: spent > cap };
+          const left = Math.max(0, cap - spent);
+          return { pile, spent, cap, pct, over: spent > cap, left };
         })
       : []
   );
+
+  const scopeLabel = $derived(
+    groupFilter === "own"
+      ? m.dashboard_scope_own()
+      : groupFilter === "all"
+        ? m.group_filter_all()
+        : (groups.find((group) => group.id === groupFilter)?.name ?? m.group_badge_shared())
+  );
+
+  let limitOpen = $state(false);
+  let limitCategoryId = $state("");
+  let limitAmount = $state("");
+  let limitPeriod = $state<CategoryCapPeriod>("month");
+
+  function openLimit(categoryId?: string) {
+    const category =
+      expenseCategories.find((item) => item.id === categoryId) ?? expenseCategories[0];
+    limitCategoryId = category?.id ?? "";
+    limitAmount = category?.cap_amount != null ? String(category.cap_amount) : "";
+    limitPeriod = category?.cap_period === "year" ? "year" : "month";
+    limitOpen = true;
+  }
+
+  function onLimitCategory(id: string) {
+    limitCategoryId = id;
+    const category = expenseCategories.find((item) => item.id === id);
+    limitAmount = category?.cap_amount != null ? String(category.cap_amount) : "";
+    limitPeriod = category?.cap_period === "year" ? "year" : "month";
+  }
+
+  const saveLimit = createMutation(() => ({
+    mutationFn: () => {
+      const amount = normalizeCapAmount(limitAmount === "" ? null : Number(limitAmount));
+      return updateCategory(limitCategoryId, {
+        cap_amount: amount,
+        cap_period: amount == null ? null : limitPeriod,
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: qk.categories(requireSessionUserId()) });
+      toast.success(m.toast_category_updated());
+      limitOpen = false;
+    },
+    onError: (err) => toastError(err),
+  }));
 </script>
 
-{#if piles.length > 0}
-  <section class="mt-4" aria-labelledby="dashboard-piles-title">
-    <h2 id="dashboard-piles-title" class="mb-2 text-sm font-medium text-slate-400">
+<section class="mt-4" aria-labelledby="dashboard-piles-title">
+  <div class="mb-2 flex items-center justify-between gap-3">
+    <h2 id="dashboard-piles-title" class="text-sm font-medium text-slate-400">
       {m.dashboard_piles_title()}
     </h2>
-    {#if txQuery.isPending}
-      <p class="text-sm text-slate-400">{m.common_loading()}</p>
-    {:else if txQuery.isError}
-      <p class="text-sm text-slate-400">{m.common_error_description()}</p>
-    {:else}
-      <ul class="space-y-3">
-        {#each rows as row (row.pile.id)}
-          <li>
-            <p class="text-sm text-slate-200">
-              {m.dashboard_piles_line({
-                name: row.pile.name,
-                spent: formatCurrency(row.spent),
-                cap: formatCurrency(row.cap),
-              })}
-            </p>
-            <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-white/5">
-              <div
-                class="h-full rounded-full {row.over ? 'bg-rose-400' : 'bg-accent-gradient'}"
-                style="width: {row.pct}%"
-              ></div>
-            </div>
-          </li>
-        {/each}
-      </ul>
+    {#if expenseCategories.length > 0}
+      <button
+        type="button"
+        class="focus-visible:ring-accent text-sm font-medium text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
+        onclick={() => openLimit()}
+      >
+        {m.cap_set_action()}
+      </button>
     {/if}
-  </section>
-{/if}
+  </div>
+
+  {#if piles.length === 0}
+    <p class="text-sm text-slate-400">{m.cap_empty()}</p>
+  {:else if txQuery.isPending}
+    <p class="text-sm text-slate-400">{m.common_loading()}</p>
+  {:else if txQuery.isError}
+    <p class="text-sm text-slate-400">{m.common_error_description()}</p>
+  {:else}
+    <ul class="space-y-3">
+      {#each rows as row (row.pile.id)}
+        <li>
+          <a href="/transactions?categoryId={row.pile.id}" class="block text-sm text-slate-200">
+            {m.dashboard_piles_line({
+              name: row.pile.name,
+              spent: formatCurrency(row.spent),
+              cap: formatCurrency(row.cap),
+            })}
+          </a>
+          <p class="text-xs text-slate-400">
+            {m.cap_remaining({ left: formatCurrency(row.left) })}
+            · {formatDate(today)}
+          </p>
+          <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-white/5">
+            <div
+              class="h-full rounded-full {row.over ? 'bg-rose-400' : 'bg-accent-gradient'}"
+              style="width: {row.pct}%"
+            ></div>
+          </div>
+        </li>
+      {/each}
+    </ul>
+  {/if}
+</section>
+
+<Dialog open={limitOpen} onclose={() => (limitOpen = false)} title={m.cap_set_action()}>
+  <form
+    class="space-y-4"
+    onsubmit={(event) => {
+      event.preventDefault();
+      if (!limitCategoryId || saveLimit.isPending) return;
+      void saveLimit.mutateAsync().catch(() => {
+        // onError already toasted
+      });
+    }}
+  >
+    <div class="space-y-1">
+      <label class="text-xs font-medium text-slate-300" for="limit-category">
+        {m.transactions_filter_category()}
+      </label>
+      <select
+        id="limit-category"
+        class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
+        value={limitCategoryId}
+        onchange={(event) => onLimitCategory((event.currentTarget as HTMLSelectElement).value)}
+      >
+        {#each expenseCategories as category (category.id)}
+          <option value={category.id}>{category.name}</option>
+        {/each}
+      </select>
+    </div>
+    <div class="space-y-1">
+      <label class="text-xs font-medium text-slate-300" for="limit-amount">
+        {m.category_form_cap()}
+      </label>
+      <input
+        id="limit-amount"
+        type="number"
+        min="0"
+        step="0.01"
+        inputmode="decimal"
+        bind:value={limitAmount}
+        class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
+      />
+    </div>
+    <div class="space-y-1">
+      <label class="text-xs font-medium text-slate-300" for="limit-period">
+        {m.category_form_cap_period()}
+      </label>
+      <select
+        id="limit-period"
+        bind:value={limitPeriod}
+        class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
+      >
+        <option value="month">{m.category_form_cap_month()}</option>
+        <option value="year">{m.category_form_cap_year()}</option>
+      </select>
+    </div>
+    <p class="text-xs text-slate-400">{m.cap_scope({ scope: scopeLabel })}</p>
+    <p class="text-xs text-slate-500">{m.category_form_cap_hint()}</p>
+    <button
+      type="submit"
+      disabled={saveLimit.isPending || !limitCategoryId}
+      class="bg-accent-gradient w-full rounded-full py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
+    >
+      {saveLimit.isPending ? m.common_saving() : m.cap_set_action()}
+    </button>
+  </form>
+</Dialog>

@@ -105,7 +105,7 @@
           disabled={dismissMutation.isPending}
           class="focus-visible:ring-accent inline-flex min-h-9 items-center rounded-full border border-white/10 px-3 text-sm font-medium text-slate-400 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
         >
-          {m.plan_settle_reject()}
+          {match.kind === "debt" ? m.plan_settle_reject_debt() : m.plan_settle_reject_save()}
         </button>
       </div>
     </li>

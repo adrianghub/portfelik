@@ -70,7 +70,7 @@ const CASH_TXS = [
 ];
 
 const desktopTable = (page: Page) => page.locator("table");
-const strip = (page: Page) => page.getByRole("button", { name: "Gotówka (prywatna)" });
+const strip = (page: Page) => page.getByRole("button", { name: "Dostępne · Prywatne" });
 
 const MOCK_GROUP = {
   id: "group-1",
@@ -139,9 +139,7 @@ test("group user: mixed all scope hides the cash view, own scope shows it", asyn
   await expect(strip(page)).toBeVisible();
 });
 
-test("private scope without an anchor: one control opens the balance sheet", async ({
-  page,
-}) => {
+test("private scope without an anchor: one control opens the balance sheet", async ({ page }) => {
   await mockCash(page, { withAnchor: false });
   await page.goto("/transactions?group=own");
 
@@ -150,7 +148,7 @@ test("private scope without an anchor: one control opens the balance sheet", asy
   const setBalance = page.getByRole("button", { name: "Ustaw saldo początkowe." });
   await expect(setBalance).toBeVisible();
   await setBalance.click();
-  await expect(page.getByRole("dialog", { name: "Gotówka (prywatna)" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Dostępne · Prywatne" })).toBeVisible();
 });
 
 test("private scope: strip opens edit sheet with anchor fields", async ({ page }) => {
@@ -160,7 +158,7 @@ test("private scope: strip opens edit sheet with anchor fields", async ({ page }
   await expect(strip(page)).toBeVisible();
   await strip(page).click();
 
-  const sheet = page.getByRole("dialog", { name: "Gotówka (prywatna)" });
+  const sheet = page.getByRole("dialog", { name: "Dostępne · Prywatne" });
   await expect(sheet).toBeVisible();
   await expect(sheet.getByLabel("Dzień salda początkowego")).toBeVisible();
   await expect(sheet.locator("#cash-opening-amount")).toHaveValue("1000");
