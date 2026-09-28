@@ -4,18 +4,20 @@ vi.mock("lucide-svelte", () => ({
   User: {},
   Wallet: {},
   Users: {},
+  LifeBuoy: {},
+  Shield: {},
 }));
 
 import { searchSubsections } from "$lib/settings/sections";
 
 describe("settings search", () => {
   it("finds the demo walkthrough from przykład and demo", () => {
-    expect(searchSubsections("przykład").map((sub) => sub.tab)).toContain("profile");
-    expect(searchSubsections("demo").map((sub) => sub.tab)).toContain("profile");
+    expect(searchSubsections("przykład").map((sub) => sub.tab)).toContain("help");
+    expect(searchSubsections("demo").map((sub) => sub.tab)).toContain("help");
   });
 
   it("finds account deletion from usuń konto and usuń dane", () => {
-    expect(searchSubsections("usuń konto").map((sub) => sub.tab)).toContain("profile");
-    expect(searchSubsections("usuń dane").map((sub) => sub.tab)).toContain("profile");
+    expect(searchSubsections("usuń konto").map((sub) => sub.tab)).toContain("privacy");
+    expect(searchSubsections("usuń dane").map((sub) => sub.tab)).toContain("privacy");
   });
 });

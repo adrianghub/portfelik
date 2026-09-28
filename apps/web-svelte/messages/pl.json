@@ -383,7 +383,7 @@
   "bank_import_short": "Import",
   "bank_import_title": "Import wyciągu bankowego",
   "import_private_notice": "Importujesz prywatnie. Nic nie zostanie udostępnione grupie bez przypisania.",
-  "import_banks_now": "Wyciąg CSV: mBank i Erste Bank Polska (dawniej Santander).",
+  "import_banks_now": "Wyciąg CSV z mBanku, ING, PKO BP i Erste (dawniej Santander).",
   "import_banks_soon": "Więcej banków wkrótce.",
   "bank_import_step_upload": "Wgraj plik",
   "bank_import_step_review": "Sprawdź pozycje",

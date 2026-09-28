@@ -12,7 +12,6 @@
   import type { Profile } from "$lib/types";
   import { toastError } from "$lib/toast-error";
   import * as m from "$lib/paraglide/messages";
-  import { cn } from "$lib/utils";
 
   const ACCENT_LABELS: Record<AccentPresetId, () => string> = {
     green: m.accent_green,

@@ -264,7 +264,7 @@
         onFileRetained={(f) => (retainedFile = f)}
       />
       <p class="text-sm text-slate-300">{m.import_banks_now()}</p>
-      <p class="text-xs text-slate-500">{m.import_banks_soon()}</p>
+      <p class="text-xs text-slate-400">{m.import_banks_soon()}</p>
     {:else if step === "review" && activeSession}
       <ImportReviewFlow
         session={activeSession}

@@ -111,9 +111,9 @@ test("private scope: strip shows live total and forecast", async ({ page }) => {
   await expect(strip(page)).toBeVisible();
   await expect(strip(page).locator("p.text-2xl")).toHaveText(/1\D?300,00/); // 1000 + 500 − 200
 
-  // Forecast (live + upcoming income) is surfaced faintly.
-  await expect(strip(page).getByText(/prognoza/)).toBeVisible();
-  await expect(strip(page).getByText(/1\D?600,00/)).toBeVisible();
+  const forecast = page.getByRole("button", { name: /za 90 dni/ });
+  await expect(forecast).toBeVisible();
+  await expect(forecast).toContainText(/1\D?600,00/);
 });
 
 test("solo user (no groups) sees the cash view in the default scope", async ({ page }) => {

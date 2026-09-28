@@ -28,7 +28,9 @@ test("landing lists the sections and their subsections", async ({ page }) => {
     "Pomoc i przewodnik",
     "Eksport i konto",
   ]) {
-    await expect(page.getByRole("button", { name: sub, exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("main").getByRole("button", { name: sub, exact: true })
+    ).toBeVisible();
   }
 });
 
@@ -73,15 +75,18 @@ test("search filters subsections and navigates", async ({ page }) => {
   await expect(page).toHaveURL(/tab=groups/);
 });
 
-test("search finds demo walkthrough and account deletion on Profil", async ({ page }) => {
+test("search finds the demo on Pomoc and account deletion on Eksport", async ({ page }) => {
   await gotoSettings(page);
 
   await page.getByPlaceholder("Szukaj ustawień").fill("przykład");
-  await expect(page.getByRole("button", { name: "Profil" })).toBeVisible();
+  await expect(
+    page.getByRole("main").getByRole("button", { name: "Pomoc i przewodnik" })
+  ).toBeVisible();
 
   await page.getByPlaceholder("Szukaj ustawień").fill("usuń dane");
-  await expect(page.getByRole("button", { name: "Profil" })).toBeVisible();
-  await page.getByRole("button", { name: "Profil" }).click();
-  await expect(page).toHaveURL(/tab=profile/);
-  await expect(page.getByText(/Wspólne wpisy grupy/)).toBeVisible();
+  const privacy = page.getByRole("main").getByRole("button", { name: "Eksport i konto" });
+  await expect(privacy).toBeVisible();
+  await privacy.click();
+  await expect(page).toHaveURL(/tab=privacy/);
+  await expect(page.getByText(/Kasuje konto i prywatne dane/)).toBeVisible();
 });

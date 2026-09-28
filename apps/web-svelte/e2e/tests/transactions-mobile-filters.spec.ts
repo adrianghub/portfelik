@@ -1,11 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
 import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
 
-/** The list hides the bar until Filtry. The bar's own Filtry opens the sheet. */
+/** The filter bar is always visible. Filtry opens the sheet on the first tap. */
 async function openMobileFilterSheet(page: Page) {
   await page.getByRole("button", { name: /^filtry/i }).click();
-  await expect(page.getByRole("button", { name: "Szukaj transakcji", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: /^filtry/i }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
 }
 
 test.describe("transactions mobile filters", () => {
@@ -48,7 +47,6 @@ test.describe("transactions mobile filters", () => {
 
   test("search is reachable from the filter bar without a floating overlay", async ({ page }) => {
     await page.goto("/transactions");
-    await page.getByRole("button", { name: /^filtry/i }).click();
     const search = page.getByRole("button", { name: "Szukaj transakcji", exact: true });
     await expect(search).toBeVisible();
     await expect(search).not.toHaveClass(/mobile-floating-action/);

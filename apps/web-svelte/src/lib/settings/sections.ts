@@ -100,7 +100,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
       {
         tab: "privacy",
         label: () => m.settings_tab_privacy(),
-        keywords: ["eksport", "usuń konto", "prywatność", "dane"],
+        keywords: ["eksport", "usuń konto", "usuń dane", "prywatność", "dane"],
       },
     ],
   },
