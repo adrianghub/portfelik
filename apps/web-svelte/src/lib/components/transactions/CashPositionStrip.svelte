@@ -54,31 +54,34 @@
   }));
 </script>
 
-<button
-  type="button"
-  onclick={openEdit}
-  class="w-full rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3 text-left transition-colors hover:border-white/10 hover:bg-slate-900/80"
-  aria-label={m.cash_position_label()}
->
-  <div class="flex items-baseline justify-between gap-3">
-    <div class="min-w-0">
-      <p class="text-eyebrow text-slate-400">{m.cash_position_label()}</p>
-      {#if hasAnchor}
+{#if hasAnchor}
+  <button
+    type="button"
+    onclick={openEdit}
+    class="w-full rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3 text-left transition-colors hover:border-white/10 hover:bg-slate-900/80"
+    aria-label={m.cash_position_label()}
+  >
+    <div class="flex items-baseline justify-between gap-3">
+      <div class="min-w-0">
+        <p class="text-eyebrow text-slate-400">{m.cash_position_label()}</p>
         <p class="text-2xl font-semibold text-slate-100 tabular-nums">{formatCurrency(live)}</p>
-      {:else}
-        <p class="mt-1 text-xs text-slate-400">{m.cash_position_set_hint()}</p>
+      </div>
+      {#if showForecast}
+        <p class="text-xs text-slate-400 tabular-nums">
+          {m.cash_position_forecast({ amount: formatCurrency(forecast) })}
+        </p>
       {/if}
     </div>
-    {#if hasAnchor && showForecast}
-      <p class="text-xs text-slate-400 tabular-nums">
-        {m.cash_position_forecast({ amount: formatCurrency(forecast) })}
-      </p>
-    {/if}
-  </div>
-  {#if hasAnchor}
-    <p class="mt-2 text-[11px] text-slate-500">{m.cash_position_scope_hint()}</p>
-  {/if}
-</button>
+  </button>
+{:else}
+  <button
+    type="button"
+    onclick={openEdit}
+    class="focus-visible:ring-accent text-sm font-medium text-slate-300 focus-visible:ring-2 focus-visible:outline-none"
+  >
+    {m.cash_position_set_hint()}
+  </button>
+{/if}
 
 <Sheet open={editOpen} onclose={() => (editOpen = false)} title={m.cash_position_label()}>
   <form

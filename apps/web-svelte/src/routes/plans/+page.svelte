@@ -482,7 +482,12 @@
 
 <div class="container mx-auto max-w-5xl space-y-5 px-4 py-6">
   <div class="flex items-center justify-between gap-3">
-    <h1 class="text-2xl font-semibold text-slate-900 dark:text-white">{m.nav_plans()}</h1>
+    <h1
+      class="text-2xl font-semibold text-slate-900 dark:text-white"
+      data-tour-id="tour-plans-list"
+    >
+      {m.nav_plans()}
+    </h1>
     {#if plansQuery.isLoading || !showPlansZeroState}
       <button
         type="button"

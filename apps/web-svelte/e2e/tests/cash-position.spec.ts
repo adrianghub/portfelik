@@ -139,13 +139,18 @@ test("group user: mixed all scope hides the cash view, own scope shows it", asyn
   await expect(strip(page)).toBeVisible();
 });
 
-test("private scope without an anchor: strip prompts to set a balance", async ({ page }) => {
+test("private scope without an anchor: one control opens the balance sheet", async ({
+  page,
+}) => {
   await mockCash(page, { withAnchor: false });
   await page.goto("/transactions?group=own");
 
   await expect(desktopTable(page).getByText("Wydatek gotówkowy")).toBeVisible();
-  // Strip still renders, but as a prompt — no fabricated total.
-  await expect(strip(page).getByText(/Ustaw saldo początkowe/)).toBeVisible();
+  await expect(strip(page)).toHaveCount(0);
+  const setBalance = page.getByRole("button", { name: "Ustaw saldo początkowe." });
+  await expect(setBalance).toBeVisible();
+  await setBalance.click();
+  await expect(page.getByRole("dialog", { name: "Gotówka (prywatna)" })).toBeVisible();
 });
 
 test("private scope: strip opens edit sheet with anchor fields", async ({ page }) => {

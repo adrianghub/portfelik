@@ -33,7 +33,7 @@ export const ONBOARDING_SCENES: OnboardingSceneManifest[] = [
   { id: "1.3", chapter: "dashboard", route: "/dashboard", target: "tour-spending-insight" },
   { id: "2.1", chapter: "transactions", route: "/transactions", target: "tour-transaction-table" },
   { id: "2.3", chapter: "transactions", route: "/transactions", target: "tour-transaction-import" },
-  { id: "3.1", chapter: "plans", route: "/plans", target: "tour-net-worth" },
+  { id: "3.1", chapter: "plans", route: "/plans", target: "tour-plans-list" },
   { id: "3.2", chapter: "plans", route: "/plans", target: "tour-plan-save" },
   { id: "4.3", chapter: "settings", route: "/settings", target: "tour-settings-finance" },
 ];
