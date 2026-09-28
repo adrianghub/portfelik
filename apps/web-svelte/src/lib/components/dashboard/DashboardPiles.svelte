@@ -7,7 +7,13 @@
   import { spentInPile, pileWindow } from "$lib/services/pile-progress";
   import { fetchTransactions } from "$lib/services/transactions";
   import { formatCurrency } from "$lib/utils";
+  import type { ScopeFilter } from "$lib/utils/list-view-url";
   import * as m from "$lib/paraglide/messages";
+
+  interface Props {
+    groupFilter: ScopeFilter;
+  }
+  let { groupFilter }: Props = $props();
 
   const today = productDateIso(new Date());
 
@@ -43,6 +49,7 @@
     queryKey: qk.transactions.list(
       session.userId!,
       "piles",
+      groupFilter,
       window?.start ?? "",
       window?.end ?? ""
     ),
@@ -51,12 +58,14 @@
   }));
 
   const rows = $derived(
-    piles.map((pile) => {
-      const spent = spentInPile(txQuery.data ?? [], pile.id, pile.cap_period!, today);
-      const cap = pile.cap_amount!;
-      const pct = Math.min(100, Math.round((spent / cap) * 100));
-      return { pile, spent, cap, pct, over: spent > cap };
-    })
+    txQuery.isSuccess
+      ? piles.map((pile) => {
+          const spent = spentInPile(txQuery.data, pile.id, pile.cap_period!, today, groupFilter);
+          const cap = pile.cap_amount!;
+          const pct = Math.min(100, Math.round((spent / cap) * 100));
+          return { pile, spent, cap, pct, over: spent > cap };
+        })
+      : []
   );
 </script>
 
@@ -65,24 +74,30 @@
     <h2 id="dashboard-piles-title" class="mb-2 text-sm font-medium text-slate-400">
       {m.dashboard_piles_title()}
     </h2>
-    <ul class="space-y-3">
-      {#each rows as row (row.pile.id)}
-        <li>
-          <p class="text-sm text-slate-200">
-            {m.dashboard_piles_line({
-              name: row.pile.name,
-              spent: formatCurrency(row.spent),
-              cap: formatCurrency(row.cap),
-            })}
-          </p>
-          <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-white/5">
-            <div
-              class="h-full rounded-full {row.over ? 'bg-rose-400' : 'bg-accent-gradient'}"
-              style="width: {row.pct}%"
-            ></div>
-          </div>
-        </li>
-      {/each}
-    </ul>
+    {#if txQuery.isPending}
+      <p class="text-sm text-slate-400">{m.common_loading()}</p>
+    {:else if txQuery.isError}
+      <p class="text-sm text-slate-400">{m.common_error_description()}</p>
+    {:else}
+      <ul class="space-y-3">
+        {#each rows as row (row.pile.id)}
+          <li>
+            <p class="text-sm text-slate-200">
+              {m.dashboard_piles_line({
+                name: row.pile.name,
+                spent: formatCurrency(row.spent),
+                cap: formatCurrency(row.cap),
+              })}
+            </p>
+            <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-white/5">
+              <div
+                class="h-full rounded-full {row.over ? 'bg-rose-400' : 'bg-accent-gradient'}"
+                style="width: {row.pct}%"
+              ></div>
+            </div>
+          </li>
+        {/each}
+      </ul>
+    {/if}
   </section>
 {/if}

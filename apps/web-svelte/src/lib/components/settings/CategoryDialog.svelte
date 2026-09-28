@@ -4,6 +4,7 @@
   import { requireSessionUserId, session } from "$lib/auth/session.svelte";
   import { qk } from "$lib/query-keys";
   import { createCategory, isCategoryReferenced, updateCategory } from "$lib/services/categories";
+  import { normalizeCapAmount } from "$lib/services/pile-progress";
   import type { Category, CategoryCapPeriod, TransactionType } from "$lib/types";
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import { toast } from "svelte-sonner";
@@ -21,16 +22,15 @@
 
   let name = $state(untrack(() => initial?.name ?? ""));
   let type = $state<TransactionType>(untrack(() => initial?.type ?? "expense"));
-  let capAmount = $state(
-    untrack(() => (initial?.cap_amount != null ? String(initial.cap_amount) : ""))
-  );
+  let capAmount = $state<number | null>(untrack(() => initial?.cap_amount ?? null));
   let capPeriod = $state<CategoryCapPeriod>(untrack(() => initial?.cap_period ?? "month"));
+  const capValue = $derived(normalizeCapAmount(capAmount));
 
   $effect(() => {
     if (open) {
       name = initial?.name ?? "";
       type = initial?.type ?? "expense";
-      capAmount = initial?.cap_amount != null ? String(initial.cap_amount) : "";
+      capAmount = initial?.cap_amount ?? null;
       capPeriod = initial?.cap_period ?? "month";
     }
   });
@@ -47,10 +47,9 @@
 
   const mutation = createMutation(() => ({
     mutationFn: () => {
-      const raw = capAmount.trim();
-      const amount = Number(raw);
+      const amount = normalizeCapAmount(capAmount);
       const cap =
-        type === "expense" && raw !== "" && Number.isFinite(amount) && amount > 0
+        type === "expense" && amount != null
           ? { cap_amount: amount, cap_period: capPeriod }
           : { cap_amount: null, cap_period: null };
       return isEdit
@@ -139,7 +138,7 @@
         />
         <p class="text-xs text-slate-400">{m.category_form_cap_hint()}</p>
       </div>
-      {#if capAmount.trim() !== ""}
+      {#if capValue != null}
         <div class="space-y-1">
           <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="cat-cap-period"
             >{m.category_form_cap_period()}</label

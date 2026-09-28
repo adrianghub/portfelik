@@ -941,7 +941,7 @@
       </div>
     {/if}
 
-    <DashboardPiles />
+    <DashboardPiles {groupFilter} />
 
     <!-- Status band -->
     <section class="mt-4">

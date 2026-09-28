@@ -45,3 +45,16 @@ export function describeImportedMoney(lines: ImportStoryLine[]): string | null {
   }
   return parts.join(" ");
 }
+
+/**
+ * Commit can reject rows the client still treats as imports.
+ * Use a story only when those rows are gone, or when nothing was rejected.
+ */
+export function importStoryAfterCommit(input: {
+  duplicatesCommit: number;
+  lines: ImportStoryLine[];
+  fromCommittedRows: boolean;
+}): string | null {
+  if (input.duplicatesCommit > 0 && !input.fromCommittedRows) return null;
+  return describeImportedMoney(input.lines);
+}

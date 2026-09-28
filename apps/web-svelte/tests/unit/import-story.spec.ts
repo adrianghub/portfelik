@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeImportedMoney } from "$lib/content/import-story";
+import { describeImportedMoney, importStoryAfterCommit } from "$lib/content/import-story";
 import { formatCurrency } from "$lib/utils";
 
 describe("describeImportedMoney", () => {
@@ -25,5 +25,27 @@ describe("describeImportedMoney", () => {
 
   it("stays quiet when the file added nothing", () => {
     expect(describeImportedMoney([])).toBeNull();
+  });
+
+  it("does not tell a story from rows the commit rejected", () => {
+    const stale = [{ type: "expense" as const, amount: 100, categoryName: "Zakupy" }];
+    expect(
+      importStoryAfterCommit({
+        duplicatesCommit: 1,
+        lines: stale,
+        fromCommittedRows: false,
+      })
+    ).toBeNull();
+  });
+
+  it("uses only the rows that stayed after commit", () => {
+    const committed = [{ type: "expense" as const, amount: 40, categoryName: "Zakupy" }];
+    expect(
+      importStoryAfterCommit({
+        duplicatesCommit: 1,
+        lines: committed,
+        fromCommittedRows: true,
+      })
+    ).toBe(`Wydatki: ${formatCurrency(40)}. Najwięcej w kategorii Zakupy: ${formatCurrency(40)}.`);
   });
 });
