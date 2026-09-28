@@ -941,7 +941,7 @@
       </div>
     {/if}
 
-  <DashboardPiles />
+    <DashboardPiles />
 
     <!-- Status band -->
     <section class="mt-4">
@@ -1002,8 +1002,8 @@
           />
         {/if}
       </div>
+    {/if}
   {/if}
-{/if}
 </div>
 
 <GlossarySheet
