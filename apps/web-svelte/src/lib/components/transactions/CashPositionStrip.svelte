@@ -79,11 +79,6 @@
     <p class="mt-2 text-[11px] text-slate-500">{m.cash_position_scope_hint()}</p>
   {/if}
 </button>
-<p class="mt-1.5 px-1 text-[11px]">
-  <a href="/plans" class="text-accent/80 hover:text-accent font-medium">
-    {m.cash_position_net_worth_link()}
-  </a>
-</p>
 
 <Sheet open={editOpen} onclose={() => (editOpen = false)} title={m.cash_position_label()}>
   <form

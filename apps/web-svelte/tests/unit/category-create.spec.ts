@@ -10,6 +10,8 @@ describe("createCategoryInline", () => {
       name: "Apteka",
       type: "expense",
       user_id: "u1",
+      cap_amount: null,
+      cap_period: null,
       created_at: "",
       updated_at: "",
     };

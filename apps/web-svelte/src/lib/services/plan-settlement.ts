@@ -1,4 +1,3 @@
-import { currentCalendarMonthBounds } from "$lib/services/financial-surplus";
 import { productDateIso } from "$lib/date-local";
 import {
   isSettlementStatus,
@@ -11,6 +10,16 @@ import { trackOnce } from "$lib/analytics";
 import { supabase } from "$lib/supabase";
 import { suggestRuleText } from "$lib/import/categorize";
 import type { Plan, PlanKind, TransactionType, TransactionWithCategory } from "$lib/types";
+
+/** Inclusive calendar-month bounds for the local date of `today`. */
+export function currentCalendarMonthBounds(today = new Date()): { start: string; end: string } {
+  const year = today.getFullYear();
+  const month = today.getMonth() + 1;
+  const start = `${year}-${String(month).padStart(2, "0")}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const end = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+  return { start, end };
+}
 
 export interface PlanTransactionLink {
   id: string;

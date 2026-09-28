@@ -9,6 +9,8 @@ const cat = (id: string, name: string): Category => ({
   name,
   type: "expense",
   user_id: "u1",
+  cap_amount: null,
+  cap_period: null,
   created_at: "2026-01-01T00:00:00Z",
   updated_at: "2026-01-01T00:00:00Z",
 });

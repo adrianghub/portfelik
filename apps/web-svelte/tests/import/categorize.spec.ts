@@ -16,6 +16,8 @@ const expenseCat: Category = {
   name: "Zakupy",
   type: "expense",
   user_id: "u1",
+  cap_amount: null,
+  cap_period: null,
   created_at: "2026-01-01T00:00:00Z",
   updated_at: "2026-01-01T00:00:00Z",
 };
@@ -24,6 +26,8 @@ const incomeCat: Category = {
   name: "Wypłata",
   type: "income",
   user_id: "u1",
+  cap_amount: null,
+  cap_period: null,
   created_at: "2026-01-01T00:00:00Z",
   updated_at: "2026-01-01T00:00:00Z",
 };
@@ -32,6 +36,8 @@ const otherExpenseCat: Category = {
   name: "Transport",
   type: "expense",
   user_id: "u1",
+  cap_amount: null,
+  cap_period: null,
   created_at: "2026-01-01T00:00:00Z",
   updated_at: "2026-01-01T00:00:00Z",
 };

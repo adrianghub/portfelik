@@ -49,6 +49,7 @@
   import { fetchProfile } from "$lib/services/profiles";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { toast } from "svelte-sonner";
+  import { importStoryAfterCommit, type ImportStoryLine } from "$lib/content/import-story";
   import { cn, formatCurrency } from "$lib/utils";
   import { session as authSession, requireSessionUserId } from "$lib/auth/session.svelte";
   import { qk } from "$lib/query-keys";
@@ -57,7 +58,11 @@
     session: ImportSession;
     parseErrorCount?: number;
     skippedRowCount?: number;
-    onCommitted: (result: CommitResult, dateRange?: ImportedDateRange) => void;
+    onCommitted: (
+      result: CommitResult,
+      dateRange?: ImportedDateRange,
+      story?: string | null
+    ) => void;
     onCancel: () => Promise<void> | void;
   }
   let {
@@ -188,6 +193,37 @@
   // activeRows = rows the user is deciding on (not auto-skipped duplicates).
   const activeRows = $derived(rows.filter((r) => r.decision !== "duplicate"));
   const importRows = $derived(rows.filter((r) => r.decision === "import"));
+
+  function storyLines(source: ImportRow[]): ImportStoryLine[] {
+    const categories = categoriesQuery.data ?? [];
+    return source
+      .filter((row) => row.decision === "import")
+      .map((row) => ({
+        type: row.type,
+        amount: row.amount,
+        categoryName: categories.find((c) => c.id === row.selected_category_id)?.name ?? null,
+      }));
+  }
+
+  async function storyForCommit(result: CommitResult): Promise<string | null> {
+    if (result.duplicates_commit > 0) {
+      try {
+        const fresh = await fetchSessionRows(session.id);
+        return importStoryAfterCommit({
+          duplicatesCommit: result.duplicates_commit,
+          lines: storyLines(fresh),
+          fromCommittedRows: true,
+        });
+      } catch {
+        return null;
+      }
+    }
+    return importStoryAfterCommit({
+      duplicatesCommit: 0,
+      lines: storyLines(importRows),
+      fromCommittedRows: false,
+    });
+  }
   const skippedRows = $derived(rows.filter((r) => r.decision === "skip"));
   const duplicateRows = $derived(rows.filter((r) => r.decision === "duplicate"));
   const uncategorizedImportRows = $derived(
@@ -941,7 +977,9 @@
   const commitMut = createMutation(() => ({
     mutationFn: () => commitImportSession(session.id),
     onSuccess: (result) => {
-      onCommitted(result, getImportedDateRange());
+      void storyForCommit(result).then((story) => {
+        onCommitted(result, getImportedDateRange(), story);
+      });
     },
     onError: (err: { message: string; details?: string | null }) => {
       const msg = err.message ?? "";

@@ -64,48 +64,23 @@ nadpłać** (debt).
   the current calendar month meet the required monthly amount. Historical averages
   never satisfy or label the current month.
 
-## Manual net worth (D1)
+## Manual net worth and monthly surplus
 
-- `financial_snapshots`: one row per user - `cash_amount`, `investments_amount`,
-  `real_estate_amount`, `as_of_date` (all manual entry).
-- **Majątek netto** on `/plans` = sum(assets) − sum(debt liabilities). Only **active**
-  loans count (accrued balance to the snapshot date); upcoming/future loans are
-  excluded until `start_date`; finished loans drop out when balance is zero. If
-  terms are not saved yet on an active plan, `plans.target_amount` is used as fallback.
-- Copy states values are user-entered; Portfelik does not derive bank balances from import.
-- **Pulpit strip (D2):** compact net-worth summary linking to `/plans`; same manual snapshot.
-
-## Monthly surplus (D2)
-
-**Nadwyżka planistyczna** on `/plans` (below majątek netto) - distinct from Pulpit
-bilans hero:
-
-```
-bilans = wpływy − wydatki   (ten miesiąc, z importu / wpisów)
-scenariusz po tempie celów = bilans − niezrealizowane tempo aktywnych celów save
-```
-
-- Compact three-column strip: przychody · wydatki · bilans miesiąca (small).
-- Bilans i scenariusz po tempie celu opisują przepływ miesiąca. Nie są saldem
-  gotówki ani kwotą dostępną do przypisania.
-- Raty kredytów **nie** odejmujemy ponownie - przy import-first wydatków rata jest
-  już w wydatkach; karta pokazuje raty **aktywnych** planów kredytowych tylko jako informację.
-- Save pace from `computePlanProgress().monthlyNeeded` on active save plans
-  (`start_date ≤ today ≤ end_date`).
-- Subtle link to `/transactions` for drill-down.
+Removed from Kokpit and Plany. Category spending limits replaced that view.
+Tables `financial_snapshots`, `net_worth_items`, and `cash_positions` stay so
+existing rows and account export are unchanged. A later migration may drop the
+unused snapshot tables. See [One step back](./one-step-back.md).
 
 ## Group collaboration (G1 + G2)
 
 - **G1 read + settle:** any group member sees shared plans and may link/unlink eligible
   group-scoped transactions via `link_plan_transaction` (scope must match).
 - **G2 writes:** only plan creator or group owner/co-owner may edit/delete plans and debt
-  terms (`is_group_co_owner` RLS). Plain members get read-only detail + settle CTAs.
-- Net worth snapshots stay **per-user** (not group-shared).
+  terms (`is_group_co_owner` RLS). Plain members get read-only detail and settle actions.
 
 ## Deferred (D3+)
 
-- Safety-cushion copy on scenarios (needs avg expenses baseline)
-- Auto net worth from import balances (needs explicit user-confirmed mapping)
+- Safety-cushion copy on scenarios (needs an average-expenses baseline)
 
 ## Lifecycle example
 

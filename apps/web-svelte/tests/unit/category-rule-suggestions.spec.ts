@@ -7,6 +7,8 @@ const inneExpense: Category = {
   name: "Inne wydatki",
   type: "expense",
   user_id: "u1",
+  cap_amount: null,
+  cap_period: null,
   created_at: "",
   updated_at: "",
 };
@@ -16,6 +18,8 @@ const transport: Category = {
   name: "Transport",
   type: "expense",
   user_id: "u1",
+  cap_amount: null,
+  cap_period: null,
   created_at: "",
   updated_at: "",
 };

@@ -125,6 +125,8 @@ export type Database = {
       };
       categories: {
         Row: {
+          cap_amount: number | null;
+          cap_period: string | null;
           created_at: string;
           id: string;
           name: string;
@@ -133,6 +135,8 @@ export type Database = {
           user_id: string | null;
         };
         Insert: {
+          cap_amount?: number | null;
+          cap_period?: string | null;
           created_at?: string;
           id?: string;
           name: string;
@@ -141,6 +145,8 @@ export type Database = {
           user_id?: string | null;
         };
         Update: {
+          cap_amount?: number | null;
+          cap_period?: string | null;
           created_at?: string;
           id?: string;
           name?: string;
