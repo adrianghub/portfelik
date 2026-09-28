@@ -84,6 +84,7 @@ jobs:
           PUBLIC_VAPID_KEY: BHKoiccZwq3Y5Qw5dmFxVLJIA7w9zcSZkchPKWk-vxBeR421yieZW7gGxuluBBa6sRmpIsFXRSuFyRarLcdvqT4
           PUBLIC_PLAUSIBLE_DOMAIN: ${{ secrets.PUBLIC_PLAUSIBLE_DOMAIN }}
           PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ secrets.PUBLIC_GOOGLE_WEB_CLIENT_ID }}
+          PUBLIC_BUILD_SHA: ${{ github.sha }}
         run: |
           test "$PUBLIC_SUPABASE_URL" = "https://emqzcygfwcvbmhxhfkcc.supabase.co"
           test -n "$PUBLIC_SUPABASE_ANON_KEY"

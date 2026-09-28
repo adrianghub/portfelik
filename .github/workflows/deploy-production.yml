@@ -20,6 +20,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check release version
+        run: node scripts/check-release-version.mjs
+
       - uses: ./.github/actions/setup-web
 
       - name: Typecheck
@@ -174,6 +177,7 @@ jobs:
           PUBLIC_SUPABASE_ANON_KEY: test-anon-key
           PUBLIC_VAPID_KEY: BHKoiccZwq3Y5Qw5dmFxVLJIA7w9zcSZkchPKWk-vxBeR421yieZW7gGxuluBBa6sRmpIsFXRSuFyRarLcdvqT4
           PUBLIC_PLAUSIBLE_DOMAIN: ""
+          PUBLIC_BUILD_SHA: ${{ github.sha }}
         run: pnpm build
 
       - name: Run Playwright tests
@@ -284,6 +288,7 @@ jobs:
           # was rejected by FCM/autopush), so the canonical value is pinned here.
           PUBLIC_VAPID_KEY: BHKoiccZwq3Y5Qw5dmFxVLJIA7w9zcSZkchPKWk-vxBeR421yieZW7gGxuluBBa6sRmpIsFXRSuFyRarLcdvqT4
           PUBLIC_PLAUSIBLE_DOMAIN: ${{ secrets.PUBLIC_PLAUSIBLE_DOMAIN }}
+          PUBLIC_BUILD_SHA: ${{ github.sha }}
         run: |
           # Misconfigured environment guard: production must build against the
           # production Supabase project, never a staging/mock value.

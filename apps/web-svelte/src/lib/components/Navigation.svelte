@@ -8,7 +8,15 @@
   import * as m from "$lib/paraglide/messages";
   import BrandMark from "$lib/components/BrandMark.svelte";
   import { avatarSrc } from "$lib/theme/avatar-presets";
-  import { LayoutDashboard, Wallet, Target, Settings, ShieldCheck, LogOut } from "lucide-svelte";
+  import {
+    LayoutDashboard,
+    Wallet,
+    Target,
+    Settings,
+    ShieldCheck,
+    LogOut,
+    ScrollText,
+  } from "lucide-svelte";
   import NotificationsPopover from "$lib/components/ui/NotificationsPopover.svelte";
   import { MediaQuery } from "svelte/reactivity";
 
@@ -223,6 +231,15 @@
     >
       <Settings size={15} aria-hidden="true" />
       {m.nav_settings()}
+    </a>
+    <a
+      href="/changelog?from=/dashboard"
+      role="menuitem"
+      onclick={() => (menuOpen = false)}
+      class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 transition-colors hover:bg-white/5"
+    >
+      <ScrollText size={15} aria-hidden="true" />
+      {m.changelog_title()}
     </a>
     <button
       type="button"

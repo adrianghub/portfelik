@@ -20,6 +20,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check release version
+        run: node scripts/check-release-version.mjs
+
       - uses: ./.github/actions/setup-web
 
       - name: Typecheck
@@ -174,6 +177,7 @@ jobs:
           PUBLIC_SUPABASE_ANON_KEY: test-anon-key
           PUBLIC_VAPID_KEY: BHKoiccZwq3Y5Qw5dmFxVLJIA7w9zcSZkchPKWk-vxBeR421yieZW7gGxuluBBa6sRmpIsFXRSuFyRarLcdvqT4
           PUBLIC_PLAUSIBLE_DOMAIN: ""
+          PUBLIC_BUILD_SHA: ${{ github.sha }}
         run: pnpm build
 
       - name: Run Playwright tests
@@ -264,6 +268,7 @@ jobs:
           PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.STAGING_PUBLIC_SUPABASE_ANON_KEY }}
           PUBLIC_VAPID_KEY: ${{ secrets.STAGING_PUBLIC_VAPID_KEY }}
           PUBLIC_PLAUSIBLE_DOMAIN: ${{ secrets.STAGING_PUBLIC_PLAUSIBLE_DOMAIN }}
+          PUBLIC_BUILD_SHA: ${{ github.sha }}
         run: |
           test "$PUBLIC_SUPABASE_URL" != "https://emqzcygfwcvbmhxhfkcc.supabase.co"
           pnpm build

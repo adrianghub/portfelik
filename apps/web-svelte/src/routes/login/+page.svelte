@@ -10,6 +10,7 @@
   import BrandMark from "$lib/components/BrandMark.svelte";
   import { oauthCallbackUrl, signInWithGoogleOAuth } from "$lib/services/oauth";
   import { isNativeCapacitor } from "$lib/services/pwa";
+  import { appVersion } from "$lib/content/changelog";
   import * as m from "$lib/paraglide/messages";
 
   let email = $state("");
@@ -199,6 +200,13 @@
         <a href="/privacy" class="text-slate-400 underline hover:text-slate-200"
           >{m.privacy_policy_link()}</a
         >
+      </p>
+      <p class="mt-3 text-center text-xs text-slate-500">
+        <a href="/changelog?from=/login" class="underline hover:text-slate-200">
+          {m.changelog_title()}
+        </a>
+        <span class="mx-1.5" aria-hidden="true">·</span>
+        <span>v{appVersion}</span>
       </p>
     </section>
   </main>

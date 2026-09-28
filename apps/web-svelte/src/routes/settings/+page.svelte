@@ -10,7 +10,6 @@
   import ProfileTab from "$lib/components/settings/ProfileTab.svelte";
   import PersonalizationTab from "$lib/components/settings/PersonalizationTab.svelte";
   import RulesTab from "$lib/components/settings/RulesTab.svelte";
-  import { PREVIEW_CHANGELOG } from "$lib/content/changelog";
   import { SETTINGS_SECTIONS, searchSubsections, type SettingsTab } from "$lib/settings/sections";
   import { ChevronLeft, ChevronRight, Search } from "lucide-svelte";
   import * as m from "$lib/paraglide/messages";
@@ -112,26 +111,6 @@
       {/if}
     {:else}
       <div class="space-y-4">
-        <section
-          class="rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
-          aria-labelledby="changelog-title"
-        >
-          <h2 id="changelog-title" class="text-eyebrow px-4 pt-4 pb-2 text-slate-400">
-            {m.changelog_title()}
-          </h2>
-          <ul class="divide-y divide-white/5">
-            {#each PREVIEW_CHANGELOG as item (item.id)}
-              <li>
-                <a
-                  href={item.href}
-                  class="focus-visible:ring-accent block px-4 py-3 text-sm text-slate-100 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
-                >
-                  {item.label()}
-                </a>
-              </li>
-            {/each}
-          </ul>
-        </section>
         {#each SETTINGS_SECTIONS as section (section.id)}
           {@const Icon = section.icon}
           <section

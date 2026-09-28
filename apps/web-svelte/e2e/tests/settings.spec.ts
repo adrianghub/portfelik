@@ -11,22 +11,6 @@ async function gotoSettings(page: Page, query = ""): Promise<void> {
   await page.goto(`/settings${query}`);
 }
 
-test("landing changelog links to the screens that changed", async ({ page }) => {
-  await gotoSettings(page);
-
-  const changelog = page.getByRole("region", { name: "Co nowego" });
-  await expect(changelog.getByRole("link", { name: /Kokpit pokazuje wynik miesiąca/ })).toHaveAttribute(
-    "href",
-    "/dashboard"
-  );
-  await expect(changelog.getByRole("link", { name: /Każdy plan to jedna linia/ })).toHaveAttribute(
-    "href",
-    "/plans"
-  );
-  await changelog.getByRole("link", { name: /Słownik ma jedną linię/ }).click();
-  await expect(page).toHaveURL(/\/settings\?tab=profile/);
-});
-
 test("landing lists the three sections and their subsections", async ({ page }) => {
   await gotoSettings(page);
 

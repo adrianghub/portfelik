@@ -1,0 +1,31 @@
+{
+  "versions": [
+    {
+      "version": "0.1.0",
+      "date": "2026-09-28",
+      "sections": [
+        {
+          "title": "Ekran",
+          "items": [
+            "Kokpit otwiera się na wyniku miesiąca i wyjątkach. Historia, limity i nadchodzące są za „Zobacz więcej”.",
+            "Transakcje pokazują liczby miesiąca. Filtry otwierasz osobno.",
+            "Każdy plan to jedna linia. Rozliczenie zostaje w planie."
+          ]
+        },
+        {
+          "title": "Gotówka",
+          "items": [
+            "Liczba gotówki pojawia się po ustawieniu salda początkowego. Wcześniej zostaje jeden przycisk."
+          ]
+        },
+        {
+          "title": "Import i słownik",
+          "items": [
+            "Import zostawia wiersze, które wymagają decyzji.",
+            "Słownik ma jedną linię przy haśle."
+          ]
+        }
+      ]
+    }
+  ]
+}
