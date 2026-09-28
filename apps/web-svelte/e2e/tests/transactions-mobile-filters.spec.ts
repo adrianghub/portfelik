@@ -1,5 +1,12 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
+
+/** The list hides the bar until Filtry. The bar's own Filtry opens the sheet. */
+async function openMobileFilterSheet(page: Page) {
+  await page.getByRole("button", { name: /^filtry/i }).click();
+  await expect(page.getByRole("button", { name: "Szukaj transakcji", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: /^filtry/i }).click();
+}
 
 test.describe("transactions mobile filters", () => {
   test.use({ viewport: { width: 375, height: 812 } });
@@ -41,6 +48,7 @@ test.describe("transactions mobile filters", () => {
 
   test("search is reachable from the filter bar without a floating overlay", async ({ page }) => {
     await page.goto("/transactions");
+    await page.getByRole("button", { name: /^filtry/i }).click();
     const search = page.getByRole("button", { name: "Szukaj transakcji", exact: true });
     await expect(search).toBeVisible();
     await expect(search).not.toHaveClass(/mobile-floating-action/);
@@ -52,7 +60,7 @@ test.describe("transactions mobile filters", () => {
   test("sheet close target stays usable on a short mobile viewport", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 568 });
     await page.goto("/transactions");
-    await page.getByRole("button", { name: /^filtry/i }).click();
+    await openMobileFilterSheet(page);
     const close = page.getByRole("dialog").getByRole("button", { name: "Zamknij", exact: true });
     await expect(close).toBeVisible();
     const box = await close.boundingBox();
@@ -64,7 +72,7 @@ test.describe("transactions mobile filters", () => {
 
   test("mobile filters sheet opens with consolidated controls", async ({ page }) => {
     await page.goto("/transactions");
-    await page.getByRole("button", { name: /^filtry/i }).click();
+    await openMobileFilterSheet(page);
     await expect(page.getByRole("dialog").getByText(/kategoria/i)).toBeVisible();
     await expect(page.getByText(/szybkie filtry/i)).toBeVisible();
     await expect(page.getByRole("button", { name: /zastosuj filtry/i })).toBeVisible();
@@ -75,7 +83,7 @@ test.describe("transactions mobile filters", () => {
     // flex item) and overflow-hidden clipped the footer out of reach. toBeVisible
     // can't catch clipping, so assert the button's box sits inside the viewport.
     await page.goto("/transactions");
-    await page.getByRole("button", { name: /^filtry/i }).click();
+    await openMobileFilterSheet(page);
     const apply = page.getByRole("button", { name: /zastosuj filtry/i });
     await expect(apply).toBeVisible();
     // Poll: the sheet flies in from the bottom, so the box is only meaningful
@@ -92,7 +100,7 @@ test.describe("transactions mobile filters", () => {
     await page.goto("/transactions");
     const urlBefore = page.url();
 
-    await page.getByRole("button", { name: /^filtry/i }).click();
+    await openMobileFilterSheet(page);
     await page
       .getByRole("button", { name: /transport/i })
       .first()

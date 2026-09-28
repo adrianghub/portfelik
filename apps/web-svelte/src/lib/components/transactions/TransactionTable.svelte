@@ -228,10 +228,7 @@
 
 {#if transactions.length === 0}
   {#if showEmptyActions}
-    <EmptyState
-      title={emptyLabel ?? m.transactions_empty()}
-      body={emptyHint ?? m.transactions_empty_hint()}
-    >
+    <EmptyState title={emptyLabel ?? m.transactions_empty()} body={emptyHint}>
       {#snippet icon()}
         <Wallet size={28} strokeWidth={1.4} />
       {/snippet}
@@ -266,10 +263,7 @@
       {/snippet}
     </EmptyState>
   {:else}
-    <EmptyState
-      title={emptyLabel ?? m.transactions_empty()}
-      body={emptyHint ?? m.transactions_empty_hint()}
-    >
+    <EmptyState title={emptyLabel ?? m.transactions_empty()} body={emptyHint}>
       {#snippet icon()}
         <Wallet size={28} strokeWidth={1.4} />
       {/snippet}

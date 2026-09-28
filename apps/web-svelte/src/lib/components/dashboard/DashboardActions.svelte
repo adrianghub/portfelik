@@ -16,10 +16,16 @@
     type DashboardActionTone,
     type OverdueAttentionSummary,
   } from "$lib/services/dashboard-actions";
-  import PlanMatchList from "$lib/components/plans/PlanMatchList.svelte";
-  import { fetchDashboardPlanMatches } from "$lib/services/plan-match-suggestions";
+  import { fetchCategories } from "$lib/services/categories";
+  import { productDateIso } from "$lib/date-local";
+  import {
+    exceededCaps,
+    exclusiveWindowEndToInclusive,
+    pileWindow,
+  } from "$lib/services/pile-progress";
+  import { fetchTransactions } from "$lib/services/transactions";
+  import { formatCurrency, cn } from "$lib/utils";
   import type { ScopeFilter } from "$lib/utils/list-view-url";
-  import { cn } from "$lib/utils";
   import { toast } from "svelte-sonner";
 
   type LoadState = "pending" | "error" | "success";
@@ -46,11 +52,51 @@
     enabled: !!uid,
   }));
 
-  const matchesQuery = createQuery(() => ({
-    queryKey: uid ? qk.planMatches(uid, groupFilter) : ["user", "", "plan-matches", groupFilter],
-    queryFn: () => fetchDashboardPlanMatches(groupFilter),
-    enabled: !!uid,
+  const today = productDateIso(new Date());
+
+  const categoriesQuery = createQuery(() => ({
+    queryKey: qk.categories(session.userId!),
+    queryFn: fetchCategories,
+    enabled: () => !!session.userId,
   }));
+
+  const capCategories = $derived(
+    (categoriesQuery.data ?? []).filter(
+      (category) =>
+        category.type === "expense" &&
+        category.cap_amount != null &&
+        category.cap_amount > 0 &&
+        (category.cap_period === "month" || category.cap_period === "year")
+    )
+  );
+
+  const capWindow = $derived.by(() => {
+    if (capCategories.length === 0) return null;
+    let start = "9999-12-31";
+    let end = "0000-01-01";
+    for (const category of capCategories) {
+      const span = pileWindow(category.cap_period!, today);
+      if (span.start < start) start = span.start;
+      if (span.end > end) end = span.end;
+    }
+    return { start, end };
+  });
+
+  const capTxQuery = createQuery(() => ({
+    queryKey: qk.transactions.list(
+      session.userId!,
+      "piles",
+      groupFilter,
+      capWindow?.start ?? "",
+      capWindow?.end ?? ""
+    ),
+    queryFn: () => fetchTransactions(capWindow!.start, capWindow!.end),
+    enabled: () => !!session.userId && !!capWindow,
+  }));
+
+  const capExceptions = $derived(
+    capTxQuery.data ? exceededCaps(capCategories, capTxQuery.data, today, groupFilter) : []
+  );
 
   const plans = $derived<AttentionPlan[]>(
     (planProgressQuery.data ?? []).map((plan) => ({
@@ -66,14 +112,9 @@
   );
 
   const isPending = $derived(
-    overdueState === "pending" ||
-      planProgressQuery.isPending ||
-      dismissalsQuery.isPending ||
-      matchesQuery.isPending
+    overdueState === "pending" || planProgressQuery.isPending || dismissalsQuery.isPending
   );
-  const isError = $derived(
-    overdueState === "error" || planProgressQuery.isError || matchesQuery.isError
-  );
+  const isError = $derived(overdueState === "error" || planProgressQuery.isError);
 
   const actions = $derived(
     dismissalsQuery.isPending
@@ -86,7 +127,16 @@
         })
   );
 
-  const matches = $derived(matchesQuery.data ?? []);
+  function capHref(categoryId: string, period: "month" | "year"): string {
+    const { start, end } = pileWindow(period, today);
+    const params = new URLSearchParams({
+      categoryId,
+      startDate: start,
+      endDate: exclusiveWindowEndToInclusive(end),
+      group: groupFilter,
+    });
+    return `/transactions?${params.toString()}`;
+  }
 
   function snoozeUntilIso(): string {
     const until = new Date();
@@ -124,29 +174,22 @@
   };
 </script>
 
-{#if actions.length > 0 || matches.length > 0 || isPending || isError}
+{#if actions.length > 0 || capExceptions.length > 0 || isPending || isError}
   <section
-    class="h-full min-w-0 overflow-x-clip rounded-2xl border border-white/5 bg-slate-900/60 bg-[radial-gradient(circle_at_85%_0%,rgba(251,191,36,0.1),transparent_45%)] p-4"
-    aria-labelledby="dashboard-actions-title"
+    class="min-w-0"
+    aria-label={m.dashboard_exceptions_label()}
     aria-busy={isPending}
     data-tour-id="tour-dashboard-actions"
   >
-    <p id="dashboard-actions-title" class="text-eyebrow text-slate-400">
-      {m.dashboard_tasks_title()}
-    </p>
-
-    {#if actions.length > 0}
-      <ul class="mt-2.5 min-w-0 space-y-1.5">
+    {#if actions.length > 0 || capExceptions.length > 0}
+      <ul class="min-w-0 space-y-1.5">
         {#each actions as action (action.id)}
           <li class={cn("flex min-w-0 overflow-hidden rounded-xl border", toneClass[action.tone])}>
             <a
               href={action.href}
               class="focus-visible:ring-accent flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
             >
-              <span class="min-w-0 flex-1">
-                <span class="block font-medium">{action.title}</span>
-                <span class="mt-0.5 block text-xs opacity-75">{action.detail}</span>
-              </span>
+              <span class="min-w-0 flex-1 font-medium">{action.title}</span>
               <ChevronRight size={16} class="shrink-0 opacity-70" aria-hidden="true" />
             </a>
             <button
@@ -160,19 +203,29 @@
             </button>
           </li>
         {/each}
+        {#each capExceptions as cap (cap.categoryId)}
+          <li class="overflow-hidden rounded-xl border border-rose-500/30 bg-rose-500/10">
+            <a
+              href={capHref(cap.categoryId, cap.period)}
+              class="focus-visible:ring-accent flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-rose-100 focus-visible:ring-2 focus-visible:outline-none"
+            >
+              <span class="min-w-0 flex-1">
+                {m.dashboard_piles_line({
+                  name: cap.name,
+                  spent: formatCurrency(cap.spent),
+                  cap: formatCurrency(cap.cap),
+                })}
+              </span>
+              <ChevronRight size={16} class="shrink-0 opacity-70" aria-hidden="true" />
+            </a>
+          </li>
+        {/each}
       </ul>
-    {/if}
-
-    {#if matches.length > 0}
-      <p class="text-eyebrow mt-3 text-slate-400">{m.dashboard_plan_matches_title()}</p>
-      <div class="mt-2.5">
-        <PlanMatchList {matches} />
-      </div>
     {/if}
 
     {#if isPending}
       <div class="mt-2.5 space-y-1.5" aria-hidden="true">
-        <div class="h-14 animate-pulse rounded-xl bg-white/5"></div>
+        <div class="h-10 animate-pulse rounded-xl bg-white/5"></div>
       </div>
       <span class="sr-only">{m.common_loading()}</span>
     {:else if isError}

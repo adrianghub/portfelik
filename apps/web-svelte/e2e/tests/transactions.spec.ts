@@ -25,6 +25,7 @@ test("renders mocked transaction list", async ({ page }) => {
 });
 
 test("search filters results inside the command palette", async ({ page }) => {
+  await page.getByRole("button", { name: "Filtry" }).click();
   await page.getByRole("button", { name: "Szukaj transakcji" }).click();
 
   const search = palette(page);

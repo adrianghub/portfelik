@@ -20,6 +20,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check release version
+        run: node scripts/check-release-version.mjs
+
       - name: Validate branch flow
         env:
           BASE_REF: ${{ github.base_ref }}

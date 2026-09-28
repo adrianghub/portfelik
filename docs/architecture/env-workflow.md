@@ -39,6 +39,11 @@ and migration targets.
   production promotion path.
 - Production promotion flows `dev` → `main`; after merge, sync `dev` from
   `origin/main` again.
+- A push to `main` publishes git tag `vX.Y.Z` and a GitHub Release when that
+  Play version name is new. The name and version code live in the AAB
+  (`android/app/build.gradle`) and in
+  `apps/web-svelte/src/lib/content/changelog.json`. See
+  `docs/runbooks/release.md`.
 - Hot files must not evolve independently on both branches: `CLAUDE.md`,
   plan/list pages/components, seed scripts, Supabase docs/runbooks, and E2E
   specs.

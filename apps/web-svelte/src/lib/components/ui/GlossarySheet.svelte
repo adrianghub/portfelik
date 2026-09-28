@@ -3,12 +3,7 @@
   import { track } from "$lib/analytics";
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import Input from "$lib/components/ui/Input.svelte";
-  import {
-    buildGlossaryEntries,
-    glossaryEntryById,
-    glossaryTermLabel,
-    searchGlossary,
-  } from "$lib/content/glossary";
+  import { buildGlossaryEntries, glossaryEntryById, searchGlossary } from "$lib/content/glossary";
 
   interface Props {
     open: boolean;
@@ -51,28 +46,6 @@
         >
           <h3 class="font-semibold text-slate-100">{entry.term}</h3>
           <p class="mt-1 text-sm text-slate-300">{entry.short}</p>
-          {#if entry.long}
-            <p class="mt-2 text-xs leading-relaxed text-slate-400">{entry.long}</p>
-          {/if}
-          {#if entry.seeAlso && entry.seeAlso.length > 0}
-            <p class="mt-2 text-xs text-slate-500">
-              {m.glossary_see_also()}:
-              {#each entry.seeAlso as relatedId, i (relatedId)}
-                {#if i > 0},
-                {/if}
-                <button
-                  type="button"
-                  class="text-accent hover:underline"
-                  onclick={() => {
-                    const term = glossaryTermLabel(relatedId, entries);
-                    if (term) query = term;
-                  }}
-                >
-                  {glossaryTermLabel(relatedId, entries) ?? relatedId}
-                </button>
-              {/each}
-            </p>
-          {/if}
         </li>
       {:else}
         <li class="py-6 text-center text-sm text-slate-400">—</li>

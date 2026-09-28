@@ -17,7 +17,7 @@
   }
 </script>
 
-<EmptyState title={m.dashboard_discovery_title()} body={m.dashboard_discovery_body()}>
+<EmptyState title={m.dashboard_discovery_title()}>
   {#snippet icon()}
     <LayoutDashboard size={28} strokeWidth={1.4} />
   {/snippet}

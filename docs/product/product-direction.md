@@ -11,16 +11,19 @@ intended to do.
 
 ### Current UI scope
 
-Refine the existing interface and visual identity incrementally. Preserve useful
-financial detail, reports, and existing capabilities while removing redundant
-controls, repeated explanations, and inconsistent action styling. Decorative
-checkmarks should not appear in action buttons; retain meaningful selection
-indicators in checkboxes and choice lists.
+The default screen of Kokpit, Transakcje, and Plany is the published language
+in `docs/product/thin-surface.md`: the outcome, one
+action, and exceptions. The same information stays one gesture away. This does
+not drop import, the ledger, plans, groups, or category limits.
+
+Preserve useful financial detail and existing capabilities while removing
+redundant controls, repeated explanations, and inconsistent action styling.
+Decorative checkmarks should not appear in action buttons; retain meaningful
+selection indicators in checkboxes and choice lists.
 
 Monthly money jobs and the replacement-interface prototype are deferred. Their
 design documents do not authorize adding assignment UI or replacing the current
-Kokpit, Transakcje, and Plany experience. Simplification means clearer existing
-workflows, not a reduced-information redesign.
+Kokpit, Transakcje, and Plany experience.
 
 JakStoimy helps users understand everyday finances by importing bank history,
 organizing transactions, seeing the month clearly, and reconciling plans with

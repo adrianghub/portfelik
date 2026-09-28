@@ -163,7 +163,7 @@ test.describe("onboarding hardening", () => {
     await expect(page.getByRole("heading", { name: "Brak planów" })).toBeVisible({
       timeout: 10_000,
     });
-    await expect(page.getByText("Najpierw importuj wyciąg albo wczytaj przykład.")).toBeVisible();
+    await expect(page.getByText("Najpierw importuj wyciąg albo wczytaj przykład.")).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Importuj wyciąg" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Wczytaj przykładowy miesiąc" })).toBeVisible();
   });
