@@ -48,6 +48,50 @@ export function matchesPileScope(groupId: string | null | undefined, scope: stri
   return groupId === scope;
 }
 
+export function exclusiveWindowEndToInclusive(end: string): string {
+  const [yearText, monthText, dayText] = end.split("-");
+  const date = new Date(Date.UTC(Number(yearText), Number(monthText) - 1, Number(dayText)));
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
+}
+
+export function exceededCaps(
+  categories: Array<{
+    id: string;
+    name: string;
+    type: string;
+    cap_amount: number | null;
+    cap_period: CategoryCapPeriod | null;
+  }>,
+  rows: PileSpendRow[],
+  today: string,
+  scope = "all"
+): Array<{
+  categoryId: string;
+  name: string;
+  spent: number;
+  cap: number;
+  period: CategoryCapPeriod;
+}> {
+  const exceeded = [];
+  for (const category of categories) {
+    if (category.type !== "expense") continue;
+    if (category.cap_amount == null || category.cap_amount <= 0) continue;
+    if (category.cap_period !== "month" && category.cap_period !== "year") continue;
+    const spent = spentInPile(rows, category.id, category.cap_period, today, scope);
+    if (spent > category.cap_amount) {
+      exceeded.push({
+        categoryId: category.id,
+        name: category.name,
+        spent,
+        cap: category.cap_amount,
+        period: category.cap_period,
+      });
+    }
+  }
+  return exceeded;
+}
+
 export function spentInPile(
   rows: PileSpendRow[],
   categoryId: string,

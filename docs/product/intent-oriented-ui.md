@@ -55,7 +55,10 @@ once; prefer a current deterministic calculation or confirmed same-context
 history.
 
 The operating rule is: **default from context and confirmed history, make
-financial scope visible, and ask only for unresolved intent.**
+financial scope visible, and ask only for unresolved intent.** The screen
+renders the published language from
+`docs/product/thin-surface.md`. A sentence appears
+only on an exception, an error, or a field the engine filled.
 
 **Decision surface**
 

@@ -18,6 +18,7 @@
     onScopeChange,
     onRangeChange,
     onRangeClear,
+    showPeriod = true,
   }: {
     period: DashboardPeriod;
     groupFilter: ScopeFilter;
@@ -28,6 +29,7 @@
     onScopeChange: (scope: ScopeFilter) => void;
     onRangeChange: (start: string, end: string) => void;
     onRangeClear: () => void;
+    showPeriod?: boolean;
   } = $props();
 
   function shortDate(iso: string): string {
@@ -99,43 +101,45 @@
 {/snippet}
 
 <div class="flex min-w-0 flex-wrap items-center gap-2">
-  <div role="tablist" aria-label="Okres" class="flex gap-1">
-    {#each periodChips as chip (chip.value)}
-      <button
-        type="button"
-        role="tab"
-        aria-selected={period === chip.value}
-        onclick={() => onPeriodChange(chip.value)}
-        class={cn(
-          "focus-visible:ring-accent rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
-          period === chip.value
-            ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
-            : "border border-white/5 text-slate-300 hover:bg-white/5"
-        )}
-      >
-        {chip.label}
-      </button>
-    {/each}
-  </div>
+  {#if showPeriod}
+    <div role="tablist" aria-label="Okres" class="flex gap-1">
+      {#each periodChips as chip (chip.value)}
+        <button
+          type="button"
+          role="tab"
+          aria-selected={period === chip.value}
+          onclick={() => onPeriodChange(chip.value)}
+          class={cn(
+            "focus-visible:ring-accent rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none",
+            period === chip.value
+              ? "bg-accent-gradient text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)]"
+              : "border border-white/5 text-slate-300 hover:bg-white/5"
+          )}
+        >
+          {chip.label}
+        </button>
+      {/each}
+    </div>
 
-  <DateRangePicker
-    variant="chip"
-    active={period === "custom"}
-    label={rangeLabel}
-    startDate={customRange?.start ?? null}
-    endDate={customRange?.end ?? null}
-    onchange={onRangeChange}
-    clearable={period === "custom"}
-    onclear={onRangeClear}
-    clearLabel={m.dashboard_range_clear()}
-  />
+    <DateRangePicker
+      variant="chip"
+      active={period === "custom"}
+      label={rangeLabel}
+      startDate={customRange?.start ?? null}
+      endDate={customRange?.end ?? null}
+      onchange={onRangeChange}
+      clearable={period === "custom"}
+      onclear={onRangeClear}
+      clearLabel={m.dashboard_range_clear()}
+    />
+  {/if}
 
   {#if hasGroups}
     {#if isDesktop.current}
       <div
         role="tablist"
         aria-label={m.dashboard_scope_all()}
-        class="flex flex-wrap gap-1 border-l border-white/10 pl-2"
+        class={cn("flex flex-wrap gap-1", showPeriod && "border-l border-white/10 pl-2")}
       >
         <button
           type="button"

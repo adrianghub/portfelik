@@ -70,33 +70,28 @@ async function mockPlanMatchLedger(
   });
 }
 
-test("kokpit offers Powiąż and Pomiń for a high-rank plan match", async ({ page }) => {
+test("plan page offers Powiąż and Pomiń for a high-rank plan match", async ({ page }) => {
   await mockPlanMatchLedger(page);
 
-  await page.goto("/dashboard");
+  await page.goto("/plans/plan-match-1");
 
-  const panel = page.getByRole("region", { name: "Do sprawdzenia" });
-  await expect(panel.getByText("Hotel wakacje")).toBeVisible({ timeout: 10_000 });
-  await expect(panel.getByRole("link", { name: "Wakacje", exact: true })).toBeVisible();
-  await expect(panel.getByRole("button", { name: "Powiąż" })).toBeVisible();
-  await expect(panel.getByRole("button", { name: "Pomiń" })).toBeVisible();
-  await expect(panel.getByText(/dopasowanie|Może pasować|Słabe trafienie/)).toHaveCount(0);
+  await expect(page.getByText("Hotel wakacje")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("button", { name: "Powiąż" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Pomiń" })).toBeVisible();
+  await expect(page.getByText(/dopasowanie|Może pasować|Słabe trafienie/)).toHaveCount(0);
+
+  await page.goto("/dashboard");
+  await expect(page.getByText("Hotel wakacje")).toHaveCount(0);
 });
 
-test("Pomiń on settle keeps the kokpit match hidden after going back", async ({ page }) => {
+test("Pomiń on the plan keeps the match hidden", async ({ page }) => {
   await mockPlanMatchLedger(page);
 
-  await page.goto("/dashboard");
-  const panel = page.getByRole("region", { name: "Do sprawdzenia" });
-  await expect(panel.getByText("Hotel wakacje")).toBeVisible({ timeout: 10_000 });
-  await panel.getByRole("link", { name: "Wakacje", exact: true }).click();
-
-  await expect(page.getByRole("heading", { name: "Powiąż wpłaty" })).toBeVisible();
+  await page.goto("/plans/plan-match-1");
+  await expect(page.getByText("Hotel wakacje")).toBeVisible({ timeout: 10_000 });
   await page.getByRole("button", { name: "Pomiń" }).click();
-  await expect(page.getByText("Hotel wakacje")).not.toBeVisible();
+  await expect(page.getByText("Hotel wakacje")).toHaveCount(0);
 
   await page.goto("/dashboard");
-  await expect(
-    page.getByRole("region", { name: "Do sprawdzenia" }).getByText("Hotel wakacje")
-  ).toHaveCount(0);
+  await expect(page.getByText("Hotel wakacje")).toHaveCount(0);
 });

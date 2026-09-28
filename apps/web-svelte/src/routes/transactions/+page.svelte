@@ -79,6 +79,7 @@
   import { syncListViewUrl } from "$lib/utils/navigation";
   import type { TransactionStatus, TransactionType, TransactionWithCategory } from "$lib/types";
   import {
+    formatCurrency,
     formatDate,
     fullMonthOf,
     getDateRangeBounds,
@@ -517,17 +518,6 @@
     return emptyLabel;
   });
 
-  const tableEmptyHint = $derived.by(() => {
-    if (searchQuery && (displayTxs?.length ?? 0) > 0 && (visibleTxs?.length ?? 0) === 0) {
-      return m.transactions_empty_search_hint();
-    }
-    if ((displayTxs?.length ?? 0) === 0 && (txQuery.data?.length ?? 0) > 0) {
-      return m.transactions_empty_filtered_hint();
-    }
-    if (discovery) return m.transactions_empty_ledger_hint();
-    return m.transactions_empty_hint();
-  });
-
   const showTableEmptyActions = $derived(
     (txQuery.data?.length ?? 0) === 0 &&
       (tableEmptyLabel === emptyLabel || tableEmptyLabel === m.transactions_empty_ledger()) &&
@@ -626,6 +616,7 @@
   });
   let bulkDeleteConfirm = $state(false);
   let searchModalOpen = $state(false);
+  let filtersOpen = $state(false);
   let stickyFiltersRef = $state<HTMLDivElement | null>(null);
   let stickyFiltersHeight = $state(0);
 
@@ -1110,15 +1101,26 @@
   <div class="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
     <div>
       <h1 class="text-hero font-semibold text-slate-100">{m.transactions_title()}</h1>
-      {#if groupsQuery.data}
-        <p class="mt-0.5 hidden text-xs text-slate-400 md:block">
-          {groupsQuery.data.length > 0
-            ? m.transactions_subtitle_groups()
-            : m.transactions_subtitle_own()}
+      {#if summary}
+        <p class="mt-1 text-sm text-slate-300">
+          {m.summary_income()}
+          {formatCurrency(summary.total_income)}
+          · {m.summary_expenses()}
+          {formatCurrency(summary.total_expenses)}
+          · {m.summary_net()}
+          {formatCurrency(summary.net)}
         </p>
       {/if}
     </div>
     <div class="flex shrink-0 items-center gap-2">
+      {#if !showTableEmptyActions}
+        <a
+          href="/import"
+          class="bg-accent-gradient focus-visible:ring-accent inline-flex h-11 items-center rounded-full px-3 text-sm font-semibold text-slate-900 focus-visible:ring-2 focus-visible:outline-none sm:h-9 sm:px-3.5"
+        >
+          {m.transactions_empty_import_cta()}
+        </a>
+      {/if}
       <a
         href="/transactions?status=upcoming"
         class="focus-visible:ring-accent inline-flex h-11 items-center gap-1.5 rounded-full border border-white/10 px-3 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none sm:h-9 sm:px-3.5"
@@ -1149,32 +1151,42 @@
 
   <!-- Sticky filter bar -->
   {#if categoriesQuery.data && selectedIds.size === 0}
-    <TransactionFiltersBar
-      bind:stickyRef={stickyFiltersRef}
-      {dateLabel}
-      {explicitStartDate}
-      {explicitEndDate}
-      {isDefaultDateFilter}
-      categories={categoriesQuery.data ?? []}
-      {categoryId}
-      {typeFilter}
-      {statusFilter}
-      {groupFilter}
-      {viewFilter}
-      groups={groupsQuery.data ?? []}
-      searchQueryActive={!!searchQuery}
-      {onApplyDateRange}
-      {onClearDateFilter}
-      {onCategoryChange}
-      {onTypeChange}
-      {onStatusChange}
-      {onClearFilters}
-      {onGroupChange}
-      onViewPreset={setViewPreset}
-      {onApplySheetFilters}
-      onToggleSearch={toggleSearch}
-      {searchModalOpen}
-    />
+    {#if filtersOpen || activeFilters.length > 0 || !isDefaultDateFilter || !!searchQuery}
+      <TransactionFiltersBar
+        bind:stickyRef={stickyFiltersRef}
+        {dateLabel}
+        {explicitStartDate}
+        {explicitEndDate}
+        {isDefaultDateFilter}
+        categories={categoriesQuery.data ?? []}
+        {categoryId}
+        {typeFilter}
+        {statusFilter}
+        {groupFilter}
+        {viewFilter}
+        groups={groupsQuery.data ?? []}
+        searchQueryActive={!!searchQuery}
+        {onApplyDateRange}
+        {onClearDateFilter}
+        {onCategoryChange}
+        {onTypeChange}
+        {onStatusChange}
+        {onClearFilters}
+        {onGroupChange}
+        onViewPreset={setViewPreset}
+        {onApplySheetFilters}
+        onToggleSearch={toggleSearch}
+        {searchModalOpen}
+      />
+    {:else}
+      <button
+        type="button"
+        class="focus-visible:ring-accent text-sm font-medium text-slate-300 focus-visible:ring-2 focus-visible:outline-none"
+        onclick={() => (filtersOpen = true)}
+      >
+        {m.transactions_filters_sheet_title()}
+      </button>
+    {/if}
   {/if}
 
   {#if activeFilters.length > 0}
@@ -1207,24 +1219,16 @@
     />
   {/if}
 
-  {#if summary}
+  {#if filtersOpen && summary}
     <SummaryCards
       {summary}
       mode={summaryMode}
       activeType={typeFilter}
       ontypeclick={(type) => onTypeChange(typeFilter === type ? undefined : type)}
     />
-  {:else if txQuery.isLoading}
-    <div class="grid grid-cols-3 gap-3">
-      {#each [0, 1, 2] as _, i (i)}
-        <div
-          class="h-20 animate-pulse rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800"
-        ></div>
-      {/each}
-    </div>
   {/if}
 
-  {#if summary && summary.total_expenses > 0}
+  {#if filtersOpen && summary && summary.total_expenses > 0}
     <CategoryBreakdown categories={summary.categories} oncategoryclick={onCategoryChange} />
   {/if}
 
@@ -1253,7 +1257,6 @@
         currentUserId={session.userId}
         canManage={txCanManage}
         emptyLabel={tableEmptyLabel}
-        emptyHint={tableEmptyHint}
         showEmptyActions={showTableEmptyActions}
         onemptyadd={openAdd}
         onemptydemo={discovery ? requestDemoSeedAndTour : undefined}
@@ -1291,7 +1294,6 @@
     transactions={visibleTxs ?? []}
     currentUserId={session.userId}
     emptyLabel={tableEmptyLabel}
-    emptyHint={tableEmptyHint}
     onrowclick={(tx) => {
       closeSearch();
       sheetTx = tx;

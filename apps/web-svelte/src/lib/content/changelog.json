@@ -1,0 +1,15 @@
+{
+  "versions": [
+    {
+      "version": "1.2.0",
+      "versionCode": 6,
+      "date": "2026-09-28",
+      "items": [
+        "Na Kokpicie widać wynik miesiąca i wyjątki. Historię i limity otwierasz przez Zobacz więcej.",
+        "W transakcjach na górze są przychody, wydatki i bilans.",
+        "Każdy plan to nazwa i jedna liczba. Rozliczenie zostaje w planie.",
+        "Gotówkę widać po ustawieniu salda początkowego."
+      ]
+    }
+  ]
+}

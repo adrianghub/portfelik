@@ -20,7 +20,7 @@ test.describe("dashboard mobile layout", () => {
 
   test("no horizontal overflow at 375px", async ({ page }) => {
     await page.goto("/dashboard");
-    await expect(page.getByRole("heading", { name: /wydatki w tym okresie/i })).toBeVisible({
+    await expect(page.getByRole("button", { name: "Zobacz więcej" })).toBeVisible({
       timeout: 10000,
     });
 
@@ -30,7 +30,8 @@ test.describe("dashboard mobile layout", () => {
     });
     expect(overflowAtTop).toBe(false);
 
-    await page.getByRole("heading", { name: "Ten miesiąc" }).scrollIntoViewIfNeeded();
+    await page.getByRole("button", { name: "Zobacz więcej" }).click();
+    await page.getByRole("heading", { name: /wydatki w tym okresie/i }).scrollIntoViewIfNeeded();
     const overflowAtStatus = await page.evaluate(() => {
       const doc = document.documentElement;
       return doc.scrollWidth > doc.clientWidth + 1;
@@ -40,6 +41,7 @@ test.describe("dashboard mobile layout", () => {
 
   test("spending accordion expands on mobile", async ({ page }) => {
     await page.goto("/dashboard");
+    await page.getByRole("button", { name: "Zobacz więcej" }).click();
     const toggle = page.getByRole("button", { name: /wydatki w tym okresie/i });
     await expect(toggle).toBeVisible({ timeout: 10000 });
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
@@ -53,6 +55,7 @@ test.describe("dashboard mobile layout", () => {
 
   test("spend history accordion expands on mobile", async ({ page }) => {
     await page.goto("/dashboard");
+    await page.getByRole("button", { name: "Zobacz więcej" }).click();
     const toggle = page.getByRole("button", { name: /historia wydatków/i });
     await expect(toggle).toBeVisible({ timeout: 10000 });
     await toggle.click();
@@ -61,6 +64,7 @@ test.describe("dashboard mobile layout", () => {
 
   test("period chips and custom range drive the dashboard window", async ({ page }) => {
     await page.goto("/dashboard");
+    await page.getByRole("button", { name: "Zobacz więcej" }).click();
 
     // Calendar month is the canonical default and is omitted from the URL.
     await expect(page.getByRole("tab", { name: /^ten miesiąc$/i })).toHaveAttribute(

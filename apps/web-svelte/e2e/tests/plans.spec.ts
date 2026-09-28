@@ -23,7 +23,7 @@ test("renders sectioned hub with saving goals and debt plans", async ({ page }) 
   await page.goto("/plans");
 
   await expect(page.getByRole("heading", { name: "Plany" })).toBeVisible();
-  await expect(page.getByText("Tu cele oszczędnościowe i kredyty.")).toBeVisible();
+  await expect(page.getByText("Tu cele oszczędnościowe i kredyty.")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Cele oszczędnościowe" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Kredyty" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Wakacje/ })).toBeVisible();
@@ -38,9 +38,8 @@ test.describe("plans mobile period visibility", () => {
 
   test("shows the complete plan deadline without horizontal overflow", async ({ page }) => {
     await page.goto("/plans");
-
-    const planLink = page.getByRole("link", { name: /Nowy samochód/ });
-    await expect(planLink).toContainText("30.06.2027");
+    await page.getByRole("link", { name: /Nowy samochód/ }).click();
+    await expect(page.getByRole("button", { name: "Termin celu" })).toContainText("30.06.2027");
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth
     );

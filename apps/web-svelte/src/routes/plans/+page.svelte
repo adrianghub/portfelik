@@ -482,7 +482,12 @@
 
 <div class="container mx-auto max-w-5xl space-y-5 px-4 py-6">
   <div class="flex items-center justify-between gap-3">
-    <h1 class="text-2xl font-semibold text-slate-900 dark:text-white">{m.nav_plans()}</h1>
+    <h1
+      class="text-2xl font-semibold text-slate-900 dark:text-white"
+      data-tour-id="tour-plans-list"
+    >
+      {m.nav_plans()}
+    </h1>
     {#if plansQuery.isLoading || !showPlansZeroState}
       <button
         type="button"
@@ -494,8 +499,6 @@
       </button>
     {/if}
   </div>
-
-  <p class="text-sm text-slate-400">{m.plans_tagline()}</p>
 
   {#if demoActive}
     <DemoShowcaseBanner
@@ -515,10 +518,7 @@
   {:else if plansQuery.isError}
     <QueryError error={plansQuery.error} onRetry={() => plansQuery.refetch()} />
   {:else if showPlansZeroState}
-    <EmptyState
-      title={discovery ? m.plans_empty_title() : m.plans_empty_hint()}
-      body={discovery ? m.plans_empty_ledger_hint() : undefined}
-    >
+    <EmptyState title={m.plans_empty_title()}>
       {#snippet action()}
         <div class="flex flex-wrap items-center justify-center gap-2">
           {#if discovery}
