@@ -93,7 +93,9 @@ describe("RPC: mark_preview_duplicates", () => {
         type: "expense",
         currency: "PLN",
         date: opts?.date ?? ROW_DATE,
-        description: opts?.description ?? `${SENTINEL} MANUAL TX`,
+        description: opts?.description
+          ? `${SENTINEL} ${opts.description}`
+          : `${SENTINEL} MANUAL TX`,
       })
       .select("id")
       .single();
@@ -121,7 +123,9 @@ describe("RPC: mark_preview_duplicates", () => {
         amount: opts.amount ?? MATCH_AMOUNT,
         type: "expense",
         currency: "PLN",
-        description: opts.description ?? `${SENTINEL} row r${opts.rowIndex}`,
+        description: opts.description
+          ? `${SENTINEL} ${opts.description}`
+          : `${SENTINEL} row r${opts.rowIndex}`,
         raw_row_hash: `rh-${SENTINEL}-${seed.fileSuffix}-${opts.rowIndex}`,
         decision: opts.decision ?? "import",
         duplicate_of: opts.duplicateOf ?? null,

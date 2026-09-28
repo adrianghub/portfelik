@@ -9,7 +9,7 @@
         "W transakcjach jest jeden import. Opłaconą pozycję oznaczasz bez drugiego wpisu.",
         "Dostępne środki są prywatne i pokazują, ile zostanie za 90 dni.",
         "Ustawienia dzielą konto, finanse, współdzielenie, aplikację oraz dane.",
-        "Wyciąg CSV czyta mBank, ING, PKO BP i Erste."
+        "Wyciąg CSV obsługuje mBank, Erste/Santander i kolejne formaty."
       ]
     },
     {

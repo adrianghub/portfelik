@@ -258,12 +258,16 @@
           </div>
         </div>
       {/if}
+      <div class="space-y-1">
+        <h2 class="text-base font-medium text-slate-100">{m.import_csv_heading()}</h2>
+        <p class="text-sm text-slate-300">{m.import_banks_now()}</p>
+        <p class="text-sm text-slate-400">{m.import_banks_formats()}</p>
+      </div>
       <FileUpload
         onSessionReady={handleSessionReady}
         initialFile={retainedFile}
         onFileRetained={(f) => (retainedFile = f)}
       />
-      <p class="text-sm text-slate-300">{m.import_banks_now()}</p>
       <p class="text-xs text-slate-400">{m.import_banks_soon()}</p>
     {:else if step === "review" && activeSession}
       <ImportReviewFlow
