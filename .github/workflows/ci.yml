@@ -178,7 +178,6 @@ jobs:
           PUBLIC_SUPABASE_ANON_KEY: test-anon-key
           PUBLIC_VAPID_KEY: BHKoiccZwq3Y5Qw5dmFxVLJIA7w9zcSZkchPKWk-vxBeR421yieZW7gGxuluBBa6sRmpIsFXRSuFyRarLcdvqT4
           PUBLIC_PLAUSIBLE_DOMAIN: ""
-          PUBLIC_BUILD_SHA: ${{ github.sha }}
         run: pnpm build
 
       - name: Run Playwright tests

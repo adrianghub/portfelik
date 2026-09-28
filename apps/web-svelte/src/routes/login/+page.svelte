@@ -206,7 +206,7 @@
           {m.changelog_title()}
         </a>
         <span class="mx-1.5" aria-hidden="true">·</span>
-        <span>v{appVersion}</span>
+        <span>{appVersion}</span>
       </p>
     </section>
   </main>

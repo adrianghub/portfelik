@@ -6,17 +6,22 @@ import {
   changelogProblems,
   changelogReturnHref,
   formatChangelogDate,
+  readPlayVersion,
   releaseNotesMarkdown,
 } from "$lib/content/changelog";
 
 const packageVersion = JSON.parse(
   readFileSync(new URL("../../package.json", import.meta.url), "utf8")
 ).version as string;
+const play = readPlayVersion(
+  readFileSync(new URL("../../android/app/build.gradle", import.meta.url), "utf8")
+);
 
 describe("changelog", () => {
-  it("matches package.json and stays ordered", () => {
-    expect(changelogProblems(changelog, packageVersion)).toEqual([]);
-    expect(appVersion).toBe(packageVersion);
+  it("matches the Play bundle and package.json", () => {
+    expect(changelogProblems(changelog, { packageVersion, play })).toEqual([]);
+    expect(appVersion).toBe("1.2.0");
+    expect(play).toEqual({ versionName: "1.2.0", versionCode: 6 });
   });
 
   it("formats the release date in Polish", () => {
@@ -32,10 +37,10 @@ describe("changelog", () => {
     expect(changelogReturnHref(null)).toBe("/login");
   });
 
-  it("renders release notes for the current version", () => {
+  it("renders release notes with the Play version code", () => {
     const notes = releaseNotesMarkdown(changelog[0]);
-    expect(notes).toContain(`# v${packageVersion}`);
-    expect(notes).toContain("## Ekran");
-    expect(notes).toContain("- Kokpit otwiera się na wyniku miesiąca");
+    expect(notes).toContain("# 1.2.0");
+    expect(notes).toContain("Kod wersji 6.");
+    expect(notes).toContain("- Na Kokpicie widać wynik miesiąca");
   });
 });

@@ -1,34 +1,31 @@
 # Release
 
-Production is `main`. A GitHub Release and git tag are created only there, and
-only when the version is new.
+The version people see is the Play version name. The same number is on the
+changelog page, in the web app, and on the AAB.
 
 ## What to change
 
 In the same commit:
 
-1. Add the new version at the top of
-   `apps/web-svelte/src/lib/content/changelog.json`.
-2. Set the same version in `apps/web-svelte/package.json`.
+1. Add the version at the top of
+   `apps/web-svelte/src/lib/content/changelog.json`, with a new `versionCode`.
+2. Set that `versionName` and `versionCode` in
+   `apps/web-svelte/android/app/build.gradle`.
+3. Set the same version name in `apps/web-svelte/package.json`.
 
-The version is `MAJOR.MINOR.PATCH`. The newest changelog entry is the current
-version. Older entries stay in the file. Do not rewrite a version that already
-has a tag.
+Play rejects an upload that reuses a version code. The last internal bundle is
+1.1.2. This release is 1.2.0, code 6.
 
-`scripts/check-release-version.mjs` fails CI when those two disagree, a date is
-not `YYYY-MM-DD`, or the list is not newest-first.
+`scripts/check-release-version.mjs` fails CI when those three disagree.
 
 ## What `main` does
 
-`.github/workflows/release.yml` runs on every push to `main`.
+`.github/workflows/release.yml` tags `vX.Y.Z` and opens a GitHub Release when
+that tag does not exist. The notes are the changelog entry, including the
+Play version code.
 
-- It reads `apps/web-svelte/package.json`.
-- If tag `vX.Y.Z` already exists, it stops. The tag is not moved.
-- Otherwise it creates that tag on the pushed commit and a GitHub Release
-  whose notes come from the matching changelog entry.
-
-Staging (`dev`) does not get a tag. The deployed app shows the version from
-the changelog and, on CI builds, the short git SHA as the build.
+`.github/workflows/deploy-play-internal.yml` uploads the AAB from the same
+`versionName` and `versionCode`. Staging does not get a tag.
 
 ## Check locally
 

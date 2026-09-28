@@ -19,10 +19,7 @@ const date = new Intl.DateTimeFormat("pl-PL", {
   year: "numeric",
 }).format(new Date(year, month - 1, day));
 
-const lines = [`# v${entry.version}`, "", date, ""];
-for (const section of entry.sections) {
-  lines.push(`## ${section.title}`, "");
-  for (const item of section.items) lines.push(`- ${item}`);
-  lines.push("");
-}
+const lines = [`# ${entry.version}`, "", date, "", `Kod wersji ${entry.versionCode}.`, ""];
+for (const item of entry.items) lines.push(`- ${item}`);
+lines.push("");
 process.stdout.write(lines.join("\n"));
