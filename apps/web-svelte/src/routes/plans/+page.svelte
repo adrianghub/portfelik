@@ -495,8 +495,6 @@
     {/if}
   </div>
 
-  <p class="text-sm text-slate-400">{m.plans_tagline()}</p>
-
   {#if demoActive}
     <DemoShowcaseBanner
       onclear={async () => {
@@ -515,10 +513,7 @@
   {:else if plansQuery.isError}
     <QueryError error={plansQuery.error} onRetry={() => plansQuery.refetch()} />
   {:else if showPlansZeroState}
-    <EmptyState
-      title={discovery ? m.plans_empty_title() : m.plans_empty_hint()}
-      body={discovery ? m.plans_empty_ledger_hint() : undefined}
-    >
+    <EmptyState title={m.plans_empty_title()}>
       {#snippet action()}
         <div class="flex flex-wrap items-center justify-center gap-2">
           {#if discovery}

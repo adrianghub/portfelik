@@ -71,6 +71,7 @@ test.describe("recurring entry links", () => {
     page,
   }) => {
     await page.goto("/dashboard");
+    await page.getByRole("button", { name: "Zobacz więcej" }).click();
 
     await expect(page.getByText(/Nadchodzące \(\d+\)/)).toBeVisible({ timeout: 10000 });
     await expect(page.getByRole("link", { name: /Nadchodzące \(\d+\)/ })).toHaveCount(0);

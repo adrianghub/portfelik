@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { normalizeCapAmount, pileWindow, spentInPile } from "$lib/services/pile-progress";
+import {
+  exceededCaps,
+  normalizeCapAmount,
+  pileWindow,
+  spentInPile,
+} from "$lib/services/pile-progress";
 
 describe("pile progress", () => {
   it("counts only paid expenses inside this month", () => {
@@ -68,6 +73,62 @@ describe("pile progress", () => {
     expect(spentInPile(rows, "groceries", "month", "2026-09-27", "own")).toBe(40);
     expect(spentInPile(rows, "groceries", "month", "2026-09-27", "home")).toBe(15);
     expect(spentInPile(rows, "groceries", "month", "2026-09-27", "all")).toBe(55);
+  });
+
+  it("lists a category only when paid spending in scope is over the cap", () => {
+    const categories = [
+      {
+        id: "groceries",
+        name: "Jedzenie",
+        type: "expense",
+        cap_amount: 40,
+        cap_period: "month" as const,
+      },
+      {
+        id: "rent",
+        name: "Czynsz",
+        type: "expense",
+        cap_amount: 100,
+        cap_period: "month" as const,
+      },
+    ];
+    const rows = [
+      {
+        category_id: "groceries",
+        type: "expense",
+        status: "paid",
+        amount: 40,
+        date: "2026-09-02",
+        group_id: null,
+      },
+      {
+        category_id: "groceries",
+        type: "expense",
+        status: "paid",
+        amount: 15,
+        date: "2026-09-03",
+        group_id: "home",
+      },
+      {
+        category_id: "groceries",
+        type: "expense",
+        status: "paid",
+        amount: 99,
+        date: "2026-08-31",
+        group_id: null,
+      },
+    ];
+
+    expect(exceededCaps(categories, rows, "2026-09-27", "own")).toEqual([]);
+    expect(exceededCaps(categories, rows, "2026-09-27", "all")).toEqual([
+      {
+        categoryId: "groceries",
+        name: "Jedzenie",
+        spent: 55,
+        cap: 40,
+        period: "month",
+      },
+    ]);
   });
 
   it("reads a number input without calling trim on it", () => {

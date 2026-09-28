@@ -1,14 +1,14 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
   import { fetchLastCommittedImportSession } from "$lib/services/bank-import";
+  import { isCommittedImportStale } from "$lib/services/import-staleness";
   import { fetchProfile } from "$lib/services/profiles";
   import { getBankImportReminder } from "$lib/profile-settings";
   import { supabase } from "$lib/supabase";
-  import { cn, formatDate } from "$lib/utils";
   import { createQuery } from "@tanstack/svelte-query";
   import { session } from "$lib/auth/session.svelte";
   import { qk } from "$lib/query-keys";
-  import { ChevronRight, Landmark } from "lucide-svelte";
+  import { ChevronRight } from "lucide-svelte";
 
   const profileQuery = createQuery(() => ({
     queryKey: qk.profile(session.userId!),
@@ -28,61 +28,34 @@
     enabled: () => !!session.userId,
   }));
 
-  const cadenceDays = $derived(getBankImportReminder(profileQuery.data?.settings).cadenceDays);
+  const reminder = $derived(getBankImportReminder(profileQuery.data?.settings));
 
   const daysSinceImport = $derived.by(() => {
-    const session = importHealthQuery.data;
-    if (!session?.committed_at) return null;
-    const committed = new Date(session.committed_at);
+    const committedAt = importHealthQuery.data?.committed_at;
+    if (!committedAt) return null;
+    const committed = new Date(committedAt);
     const now = new Date();
     return Math.floor((now.getTime() - committed.getTime()) / (1000 * 60 * 60 * 24));
   });
 
-  const isStale = $derived(daysSinceImport === null ? true : daysSinceImport >= cadenceDays);
+  const show = $derived(
+    profileQuery.isSuccess &&
+      importHealthQuery.isSuccess &&
+      isCommittedImportStale({
+        enabled: reminder.enabled,
+        committedAt: importHealthQuery.data?.committed_at ?? null,
+        cadenceDays: reminder.cadenceDays,
+        now: new Date(),
+      })
+  );
 </script>
 
-<section
-  class="flex h-full min-w-0 flex-col overflow-x-clip rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur"
-  aria-labelledby="dashboard-import-health-title"
->
-  <div class="flex items-start justify-between gap-3">
-    <div class="min-w-0 flex-1">
-      <p id="dashboard-import-health-title" class="text-eyebrow text-slate-400">
-        {m.dashboard_import_health_title()}
-      </p>
-      {#if importHealthQuery.isPending}
-        <div class="mt-2 h-4 w-40 animate-pulse rounded bg-slate-800/60"></div>
-      {:else if importHealthQuery.data?.committed_at}
-        <p class="mt-1.5 text-sm text-slate-200">
-          {m.dashboard_import_health_last({
-            date: formatDate(importHealthQuery.data.committed_at),
-          })}
-        </p>
-        <p class={cn("mt-0.5 text-xs", isStale ? "text-amber-300/90" : "text-emerald-300/80")}>
-          {#if isStale && daysSinceImport !== null}
-            {m.dashboard_import_health_stale({ days: daysSinceImport })}
-          {:else if !isStale}
-            {m.dashboard_import_health_fresh()}
-          {/if}
-        </p>
-      {:else}
-        <p class="mt-1.5 text-sm text-slate-300">{m.dashboard_import_health_never()}</p>
-      {/if}
-      <p class="mt-1 text-xs text-slate-400">
-        {m.dashboard_import_health_cadence({ days: cadenceDays })}
-      </p>
-    </div>
-    <Landmark size={18} class="mt-0.5 shrink-0 text-slate-500" aria-hidden="true" />
-  </div>
-
+{#if show && daysSinceImport !== null}
   <a
     href="/import"
-    class={cn(
-      "focus-visible:ring-accent mt-auto inline-flex items-center gap-1 pt-2 text-sm font-semibold focus-visible:ring-2 focus-visible:outline-none",
-      isStale ? "text-emerald-400 hover:underline" : "text-slate-400 hover:text-slate-300"
-    )}
+    class="focus-visible:ring-accent inline-flex items-center gap-1 text-sm font-medium text-amber-200 focus-visible:ring-2 focus-visible:outline-none"
   >
-    {isStale ? m.dashboard_import_health_cta() : m.dashboard_import_health_review()}
+    {m.dashboard_import_health_stale({ days: daysSinceImport })}
     <ChevronRight size={14} aria-hidden="true" />
   </a>
-</section>
+{/if}

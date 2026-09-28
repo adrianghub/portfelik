@@ -761,7 +761,6 @@
   title={m.bank_review_group_sheet_title()}
 >
   {#if groupSheetRow}
-    <p class="mb-3 text-xs text-slate-400">{m.bank_review_group_sheet_hint()}</p>
     <select
       class="focus-visible:ring-accent h-9 w-full rounded-lg border border-white/10 bg-slate-900 px-3 text-sm text-slate-100 focus-visible:ring-2 focus-visible:outline-none"
       value={groupSheetRow.selected_group_id ?? ""}

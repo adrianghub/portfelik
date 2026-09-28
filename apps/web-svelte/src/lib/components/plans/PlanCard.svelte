@@ -1,11 +1,11 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
-  import { deriveDebtDisplayBalance, estimateInterestPaidSince } from "$lib/services/plan-debt";
+  import { deriveDebtDisplayBalance } from "$lib/services/plan-debt";
   import { todayIso } from "$lib/services/plans";
   import type { PlanDebtTerms, PlanSummary } from "$lib/types";
   import { getPlanEmoji } from "$lib/utils/plan-emoji";
-  import { formatCurrency, formatDate } from "$lib/utils";
-  import { CalendarDays, MoreVertical, Pencil, Trash2, Users } from "lucide-svelte";
+  import { formatCurrency } from "$lib/utils";
+  import { MoreVertical, Pencil, Trash2, Users } from "lucide-svelte";
 
   interface Props {
     plan: PlanSummary;
@@ -29,35 +29,11 @@
   }: Props = $props();
 
   const kind = $derived(plan.kind ?? "save");
-  const savePct = $derived(
-    plan.target_amount != null && plan.target_amount > 0
-      ? Math.min(100, Math.round((plan.savedAmount / plan.target_amount) * 100))
-      : 0
-  );
-  // Canonical display balance (daily accrual unless payments are linked) so the card
-  // matches the plan detail headline and the net-worth Kredyty line.
   const debtBalance = $derived(
     debtTerms ? deriveDebtDisplayBalance(debtTerms, plan.start_date, linkedExpenses, todayIso()) : 0
   );
-  const debtPaid = $derived(
-    debtTerms ? Math.max(0, Number(debtTerms.original_amount) - debtBalance) : 0
-  );
-  const debtPaidPct = $derived(
-    debtTerms && debtTerms.original_amount > 0
-      ? Math.min(100, Math.max(0, Math.round((debtPaid / Number(debtTerms.original_amount)) * 100)))
-      : 0
-  );
-  const debtInterestSinceStart = $derived(
-    debtTerms ? estimateInterestPaidSince(debtTerms, plan.start_date, todayIso()) : 0
-  );
-
   const emoji = $derived(getPlanEmoji(categoryName, plan.name) || (kind === "debt" ? "🏦" : "🎯"));
   const isUpcoming = $derived(plan.bucket === "upcoming");
-  const periodLabel = $derived(
-    isUpcoming
-      ? `${m.plan_card_planned_from({ date: formatDate(plan.start_date) })} · ${m.plan_card_planned_until({ date: formatDate(plan.end_date) })}`
-      : `${formatDate(plan.start_date)} - ${formatDate(plan.end_date)}`
-  );
   const saveOnTrack = $derived(
     kind === "save" &&
       plan.bucket === "active" &&
@@ -186,53 +162,18 @@
               {/if}
             </div>
           {/if}
-          <p class="mt-0.5 flex items-start gap-1 text-xs text-slate-400">
-            <CalendarDays size={11} strokeWidth={1.8} class="mt-0.5 shrink-0" aria-hidden="true" />
-            {#if categoryName}{categoryName} ·
-            {/if}{periodLabel}
-          </p>
-        </a>
-      </div>
-
-      {#if kind === "save" && plan.target_amount != null}
-        <div class="mt-3">
-          <div class="h-1.5 overflow-hidden rounded-full bg-slate-800" aria-hidden="true">
-            <div class="bg-accent-gradient h-full rounded-full" style="width: {savePct}%"></div>
-          </div>
-          <div class="mt-1.5 flex items-center justify-between gap-2 text-xs">
-            <span class="text-slate-400">
+          {#if kind === "save" && plan.target_amount != null}
+            <p class="mt-0.5 text-xs text-slate-400">
               {m.plan_save_saved({
                 saved: formatCurrency(plan.savedAmount),
                 target: formatCurrency(plan.target_amount),
               })}
-            </span>
-            <span class="text-accent font-semibold tabular-nums">{savePct}%</span>
-          </div>
-        </div>
-      {:else if kind === "debt" && debtTerms}
-        <div class="mt-3">
-          <div class="h-1.5 overflow-hidden rounded-full bg-slate-800" aria-hidden="true">
-            <div class="bg-accent-gradient h-full rounded-full" style="width: {debtPaidPct}%"></div>
-          </div>
-          <div class="mt-1.5 flex items-center justify-between gap-2 text-xs">
-            <span class="min-w-0 truncate text-slate-400">
-              {m.plan_debt_card_progress({
-                paid: formatCurrency(debtPaid),
-                total: formatCurrency(Number(debtTerms.original_amount)),
-              })} · {formatCurrency(Number(debtTerms.monthly_payment))}/mies
-            </span>
-            <span class="text-accent shrink-0 font-semibold tabular-nums">{debtPaidPct}%</span>
-          </div>
-          {#if debtInterestSinceStart > 0.01}
-            <p class="mt-1 truncate text-xs text-slate-400">
-              {m.plan_debt_interest_paid_since({
-                date: formatDate(plan.start_date),
-                amount: formatCurrency(debtInterestSinceStart),
-              })}
             </p>
+          {:else if kind === "debt" && debtTerms}
+            <p class="mt-0.5 text-xs text-slate-400">{formatCurrency(debtBalance)}</p>
           {/if}
-        </div>
-      {/if}
+        </a>
+      </div>
     </div>
 
     {#if hasActions}
