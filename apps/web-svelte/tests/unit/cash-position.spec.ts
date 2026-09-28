@@ -4,13 +4,31 @@ vi.mock("$lib/supabase", () => ({
   supabase: {},
 }));
 
-import { forecastRunningBalances, type RunningBalanceTx } from "$lib/services/cash-position";
+import {
+  forecastMovementTotals,
+  forecastRunningBalances,
+  type RunningBalanceTx,
+} from "$lib/services/cash-position";
 
 const anchor = { opening_amount: 1000, as_of_date: "2026-06-01" };
 
 function tx(over: Partial<RunningBalanceTx> & { id: string }): RunningBalanceTx {
   return { type: "expense", amount: 0, status: "upcoming", date: "2026-07-01", ...over };
 }
+
+describe("forecastMovementTotals", () => {
+  it("sums upcoming income and expenses inside the horizon and ignores paid rows", () => {
+    const rows: RunningBalanceTx[] = [
+      tx({ id: "paid", status: "paid", type: "expense", amount: 80, date: "2026-06-02" }),
+      tx({ id: "out", status: "upcoming", type: "expense", amount: 40, date: "2026-06-20" }),
+      tx({ id: "in", status: "upcoming", type: "income", amount: 15, date: "2026-06-21" }),
+      tx({ id: "far", status: "upcoming", type: "expense", amount: 500, date: "2026-12-01" }),
+    ];
+    expect(
+      forecastMovementTotals(anchor, rows, { today: "2026-06-01", horizonEnd: "2026-09-01" })
+    ).toEqual({ upcomingIncome: 15, upcomingExpenses: 40 });
+  });
+});
 
 describe("forecastRunningBalances", () => {
   it("accumulates paid then upcoming in date order from the opening balance", () => {

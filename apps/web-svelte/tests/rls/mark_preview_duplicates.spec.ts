@@ -93,7 +93,9 @@ describe("RPC: mark_preview_duplicates", () => {
         type: "expense",
         currency: "PLN",
         date: opts?.date ?? ROW_DATE,
-        description: opts?.description ?? `${SENTINEL} MANUAL TX`,
+        description: opts?.description
+          ? `${SENTINEL} ${opts.description}`
+          : `${SENTINEL} MANUAL TX`,
       })
       .select("id")
       .single();
@@ -121,7 +123,9 @@ describe("RPC: mark_preview_duplicates", () => {
         amount: opts.amount ?? MATCH_AMOUNT,
         type: "expense",
         currency: "PLN",
-        description: opts.description ?? `${SENTINEL} row r${opts.rowIndex}`,
+        description: opts.description
+          ? `${SENTINEL} ${opts.description}`
+          : `${SENTINEL} row r${opts.rowIndex}`,
         raw_row_hash: `rh-${SENTINEL}-${seed.fileSuffix}-${opts.rowIndex}`,
         decision: opts.decision ?? "import",
         duplicate_of: opts.duplicateOf ?? null,
@@ -138,11 +142,19 @@ describe("RPC: mark_preview_duplicates", () => {
 
   type Warning = { row_id: string; duplicate_of_transaction_id: string };
 
-  it("flips a row matching an existing manual transaction to 'duplicate'", async () => {
-    const txId = await seedManualTx(); // ROW_DATE, exact amount/currency/type
+  it("folds a marked payment when the bank posts the same amount a day later", async () => {
+    const txId = await seedManualTx({
+      description: "Orange Flex",
+      date: "2026-09-13",
+      amount: 35,
+    });
     const seed = await seedSession();
-    // Import row posted one day later → within Path C's ±1 day window.
-    const rowId = await insertRow(seed, { rowIndex: 0, postedAt: "2026-03-11" });
+    const rowId = await insertRow(seed, {
+      rowIndex: 0,
+      postedAt: "2026-09-14",
+      amount: 35,
+      description: "ORANGE POLSKA S.A.",
+    });
 
     const { data, error } = await callRpc(ctx.userA.client, seed.sessionId);
     expect(error).toBeNull();
@@ -184,10 +196,13 @@ describe("RPC: mark_preview_duplicates", () => {
   });
 
   it("does not flip a user-skipped row even when it matches", async () => {
-    await seedManualTx();
+    const txId = await seedManualTx({ description: "Orange Flex" });
     const seed = await seedSession();
-    // Pre-set the matching row to 'skip' → RPC must leave it untouched.
-    const rowId = await insertRow(seed, { rowIndex: 0, decision: "skip" });
+    const rowId = await insertRow(seed, {
+      rowIndex: 0,
+      decision: "skip",
+      description: "ORANGE POLSKA S.A.",
+    });
 
     const { data, error } = await callRpc(ctx.userA.client, seed.sessionId);
     expect(error).toBeNull();
@@ -208,7 +223,7 @@ describe("RPC: mark_preview_duplicates", () => {
 
   it("does not overwrite an already-duplicate row's existing duplicate_of (idempotent)", async () => {
     // A different manual tx that Path C would also match on amount/currency/date.
-    const newMatchTxId = await seedManualTx();
+    const newMatchTxId = await seedManualTx({ description: "Orange Flex" });
     // A pre-existing duplicate_of pointer the RPC must NOT clobber.
     const priorTxId = await seedManualTx({
       amount: NO_MATCH_AMOUNT,
@@ -221,6 +236,7 @@ describe("RPC: mark_preview_duplicates", () => {
       postedAt: "2026-03-11",
       decision: "duplicate",
       duplicateOf: priorTxId,
+      description: "ORANGE POLSKA S.A.",
     });
 
     const { data, error } = await callRpc(ctx.userA.client, seed.sessionId);
@@ -240,6 +256,84 @@ describe("RPC: mark_preview_duplicates", () => {
     expect(after.error).toBeNull();
     expect(after.data?.decision).toBe("duplicate");
     expect(after.data?.duplicate_of).toBe(priorTxId);
+  });
+
+  it("ignores a same-amount manual payment from a different payee", async () => {
+    await seedManualTx({ description: "Lidl", date: ROW_DATE, amount: 35 });
+    const seed = await seedSession();
+    const rowId = await insertRow(seed, {
+      rowIndex: 0,
+      amount: 35,
+      description: "ORANGE POLSKA S.A.",
+    });
+
+    const { data, error } = await callRpc(ctx.userA.client, seed.sessionId);
+    expect(error).toBeNull();
+    expect((data as Warning[]).find((w) => w.row_id === rowId)).toBeUndefined();
+
+    const after = await ctx.admin
+      .from("transaction_import_rows")
+      .select("decision")
+      .eq("id", rowId)
+      .single();
+    expect(after.data?.decision).toBe("import");
+  });
+
+  it("asks for a decision when the payee matches but the amount does not", async () => {
+    await seedManualTx({ description: "Orange Flex", date: "2026-09-13", amount: 35 });
+    const seed = await seedSession();
+    const rowId = await insertRow(seed, {
+      rowIndex: 0,
+      postedAt: "2026-09-14",
+      amount: 40,
+      description: "ORANGE POLSKA S.A.",
+    });
+
+    const { error } = await callRpc(ctx.userA.client, seed.sessionId);
+    expect(error).toBeNull();
+
+    const after = await ctx.admin
+      .from("transaction_import_rows")
+      .select("decision, duplicate_of")
+      .eq("id", rowId)
+      .single();
+    expect(after.data?.decision).toBe("pending");
+    expect(after.data?.duplicate_of).toBeNull();
+  });
+
+  it("does not fold a second real charge into the same marked payment", async () => {
+    const txId = await seedManualTx({
+      description: "Orange Flex",
+      date: "2026-09-13",
+      amount: 35,
+    });
+    const seed = await seedSession();
+    const firstId = await insertRow(seed, {
+      rowIndex: 0,
+      postedAt: "2026-09-14",
+      amount: 35,
+      description: "ORANGE POLSKA S.A.",
+    });
+    const secondId = await insertRow(seed, {
+      rowIndex: 1,
+      postedAt: "2026-09-15",
+      amount: 35,
+      description: "ORANGE POLSKA S.A.",
+    });
+
+    const { error } = await callRpc(ctx.userA.client, seed.sessionId);
+    expect(error).toBeNull();
+
+    const rows = await ctx.admin
+      .from("transaction_import_rows")
+      .select("id, decision, duplicate_of")
+      .in("id", [firstId, secondId]);
+    const first = rows.data?.find((row) => row.id === firstId);
+    const second = rows.data?.find((row) => row.id === secondId);
+    expect(first?.decision).toBe("duplicate");
+    expect(first?.duplicate_of).toBe(txId);
+    expect(second?.decision).toBe("import");
+    expect(second?.duplicate_of).toBeNull();
   });
 
   it("raises session_not_found when another user calls it", async () => {

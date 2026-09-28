@@ -66,8 +66,8 @@
     --app-header-offset: calc(3.5rem + var(--safe-top));
     /* Distance from viewport bottom to FAB / sticky action controls. */
     --mobile-action-bottom: calc(6rem + var(--safe-bottom));
-    /* Scrollable page padding - shrinks when the pill nav hides on scroll. */
-    --mobile-page-bottom: calc(6rem + var(--safe-bottom));
+    /* Scrollable page padding - clears the pill nav with room under the last card. */
+    --mobile-page-bottom: calc(8rem + var(--safe-bottom));
   }
 
   html.mobile-nav-hidden {
@@ -493,10 +493,37 @@
     transition: padding-bottom var(--duration-base) var(--ease-out-expo);
   }
 
-  /* Extra scroll clearance for fixed in-page detail actions. */
+  /* Extra scroll clearance for fixed in-page detail actions and the pill nav. */
   .mobile-detail-bottom {
-    padding-bottom: calc(var(--mobile-action-bottom) + 3.5rem);
+    padding-bottom: calc(var(--mobile-page-bottom) + 2rem);
     transition: padding-bottom var(--duration-base) var(--ease-out-expo);
+  }
+
+  .beta-ribbon {
+    position: fixed;
+    top: var(--safe-top);
+    right: 0;
+    z-index: 60;
+    width: 6.5rem;
+    height: 6.5rem;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .beta-ribbon__band {
+    position: absolute;
+    top: 1.35rem;
+    right: -2.15rem;
+    width: 9rem;
+    transform: rotate(45deg);
+    background: #e10600;
+    color: #fff;
+    text-align: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    line-height: 1.65rem;
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.35);
   }
 
   @media (min-width: 768px) {

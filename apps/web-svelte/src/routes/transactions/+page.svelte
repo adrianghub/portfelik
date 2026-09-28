@@ -15,7 +15,6 @@
   import TransactionTable from "$lib/components/transactions/TransactionTable.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import SearchModal from "$lib/components/ui/SearchModal.svelte";
-  import { holdMobileFabClearance } from "$lib/services/native-overlay";
   import DemoShowcaseBanner from "$lib/components/onboarding/DemoShowcaseBanner.svelte";
   import * as m from "$lib/paraglide/messages";
   import {
@@ -23,6 +22,7 @@
     cashForecastHorizonEnd,
     cashForecastProjectionEnd,
     fetchPrivateCashPosition,
+    forecastMovementTotals,
     forecastPosition,
     livePosition,
   } from "$lib/services/cash-position";
@@ -87,7 +87,7 @@
     monthYearLabel,
   } from "$lib/utils";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
-  import { Plus, Repeat, X } from "lucide-svelte";
+  import { Repeat, X } from "lucide-svelte";
   import { toast } from "svelte-sonner";
   import { toastError } from "$lib/toast-error";
   import { isNativeCapacitor } from "$lib/services/pwa";
@@ -422,8 +422,6 @@
   let renderedTxCount = $state(TX_CHUNK_SIZE);
   const renderedTxs = $derived((visibleTxs ?? []).slice(0, renderedTxCount));
 
-  $effect(() => holdMobileFabClearance());
-
   $effect(() => {
     void visibleTxs;
     renderedTxCount = TX_CHUNK_SIZE;
@@ -566,11 +564,14 @@
       date: tx.date,
     }));
   });
-  const cashForecast = $derived(
-    forecastPosition(cashAnchor, [...privatePaidTxs, ...privateForecastProjectedTxs], {
-      today: cashForecastToday,
-      horizonEnd: cashForecastHorizon,
-    })
+  const cashForecastTxs = $derived([...privatePaidTxs, ...privateForecastProjectedTxs]);
+  const cashForecastOpts = $derived({
+    today: cashForecastToday,
+    horizonEnd: cashForecastHorizon,
+  });
+  const cashForecast = $derived(forecastPosition(cashAnchor, cashForecastTxs, cashForecastOpts));
+  const cashForecastMovements = $derived(
+    forecastMovementTotals(cashAnchor, cashForecastTxs, cashForecastOpts)
   );
 
   // Dialog state
@@ -616,7 +617,6 @@
   });
   let bulkDeleteConfirm = $state(false);
   let searchModalOpen = $state(false);
-  let filtersOpen = $state(false);
   let stickyFiltersRef = $state<HTMLDivElement | null>(null);
   let stickyFiltersHeight = $state(0);
 
@@ -1112,10 +1112,11 @@
         </p>
       {/if}
     </div>
-    <div class="flex shrink-0 items-center gap-2">
+    <div class="flex flex-wrap items-center gap-2">
       {#if !showTableEmptyActions}
         <a
           href="/import"
+          data-tour-id="tour-transaction-import"
           class="bg-accent-gradient focus-visible:ring-accent inline-flex h-11 items-center rounded-full px-3 text-sm font-semibold text-slate-900 focus-visible:ring-2 focus-visible:outline-none sm:h-9 sm:px-3.5"
         >
           {m.transactions_empty_import_cta()}
@@ -1136,7 +1137,11 @@
       >
         + {m.transaction_manual_add()}
       </button>
-      <TransactionDataActions exportDisabled={!accountedTxs?.length} onexport={handleExport} />
+      <TransactionDataActions
+        exportDisabled={!accountedTxs?.length}
+        onexport={handleExport}
+        onmanualadd={openAdd}
+      />
     </div>
   </div>
 
@@ -1151,42 +1156,32 @@
 
   <!-- Sticky filter bar -->
   {#if categoriesQuery.data && selectedIds.size === 0}
-    {#if filtersOpen || activeFilters.length > 0 || !isDefaultDateFilter || !!searchQuery}
-      <TransactionFiltersBar
-        bind:stickyRef={stickyFiltersRef}
-        {dateLabel}
-        {explicitStartDate}
-        {explicitEndDate}
-        {isDefaultDateFilter}
-        categories={categoriesQuery.data ?? []}
-        {categoryId}
-        {typeFilter}
-        {statusFilter}
-        {groupFilter}
-        {viewFilter}
-        groups={groupsQuery.data ?? []}
-        searchQueryActive={!!searchQuery}
-        {onApplyDateRange}
-        {onClearDateFilter}
-        {onCategoryChange}
-        {onTypeChange}
-        {onStatusChange}
-        {onClearFilters}
-        {onGroupChange}
-        onViewPreset={setViewPreset}
-        {onApplySheetFilters}
-        onToggleSearch={toggleSearch}
-        {searchModalOpen}
-      />
-    {:else}
-      <button
-        type="button"
-        class="focus-visible:ring-accent text-sm font-medium text-slate-300 focus-visible:ring-2 focus-visible:outline-none"
-        onclick={() => (filtersOpen = true)}
-      >
-        {m.transactions_filters_sheet_title()}
-      </button>
-    {/if}
+    <TransactionFiltersBar
+      bind:stickyRef={stickyFiltersRef}
+      {dateLabel}
+      {explicitStartDate}
+      {explicitEndDate}
+      {isDefaultDateFilter}
+      categories={categoriesQuery.data ?? []}
+      {categoryId}
+      {typeFilter}
+      {statusFilter}
+      {groupFilter}
+      {viewFilter}
+      groups={groupsQuery.data ?? []}
+      searchQueryActive={!!searchQuery}
+      {onApplyDateRange}
+      {onClearDateFilter}
+      {onCategoryChange}
+      {onTypeChange}
+      {onStatusChange}
+      {onClearFilters}
+      {onGroupChange}
+      onViewPreset={setViewPreset}
+      {onApplySheetFilters}
+      onToggleSearch={toggleSearch}
+      {searchModalOpen}
+    />
   {/if}
 
   {#if activeFilters.length > 0}
@@ -1213,13 +1208,15 @@
     <CashPositionStrip
       live={cashLive}
       forecast={cashForecast}
+      upcomingIncome={cashForecastMovements.upcomingIncome}
+      upcomingExpenses={cashForecastMovements.upcomingExpenses}
       hasAnchor={!!cashAnchorQuery.data}
       anchor={cashAnchor}
       anchorReady={cashAnchorQuery.isSuccess}
     />
   {/if}
 
-  {#if filtersOpen && summary}
+  {#if (activeFilters.length > 0 || !isDefaultDateFilter) && summary}
     <SummaryCards
       {summary}
       mode={summaryMode}
@@ -1228,7 +1225,7 @@
     />
   {/if}
 
-  {#if filtersOpen && summary && summary.total_expenses > 0}
+  {#if (activeFilters.length > 0 || !isDefaultDateFilter) && summary && summary.total_expenses > 0}
     <CategoryBreakdown categories={summary.categories} oncategoryclick={onCategoryChange} />
   {/if}
 
@@ -1273,15 +1270,6 @@
     {/if}
   {/if}
 </div>
-
-<button
-  onclick={openAdd}
-  aria-label={m.transaction_manual_add()}
-  title={m.transaction_manual_add_hint()}
-  class="mobile-floating-action bg-accent-gradient fixed right-4 bottom-(--mobile-action-bottom) z-40 flex h-14 w-14 items-center justify-center rounded-full text-slate-900 shadow-[0_0_24px_var(--color-accent-glow)] transition-all active:scale-95 md:hidden"
->
-  <Plus size={24} strokeWidth={2.3} aria-hidden="true" />
-</button>
 
 <SearchModal
   open={searchModalOpen}

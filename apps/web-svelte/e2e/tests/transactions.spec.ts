@@ -119,7 +119,7 @@ test("far-future recurring forecast rows expose only scoped series actions", asy
   const row = desktopTable(page).locator("tbody tr").filter({ hasText: "Czynsz" });
   await expect(row).toBeVisible();
   await expect(row.getByLabel("Płatność cykliczna, prognoza")).toBeVisible();
-  await expect(row.getByRole("button", { name: "Oznacz jako zapłacone" })).toHaveCount(0);
+  await expect(row.getByRole("button", { name: "Oznacz jako opłacone" })).toHaveCount(0);
 
   await row.click();
   const sheet = page.locator("aside");
@@ -171,7 +171,7 @@ test("near-term recurring occurrence rows are manageable transactions", async ({
   const row = desktopTable(page).locator("tbody tr").filter({ hasText: "Czynsz" });
   await expect(row).toBeVisible();
   await expect(row.getByLabel("Płatność cykliczna")).toBeVisible();
-  await expect(row.getByRole("button", { name: "Oznacz jako zapłacone" })).toBeVisible();
+  await expect(row.getByRole("button", { name: "Oznacz jako opłacone" })).toBeVisible();
 
   await row.click();
   const sheet = page.locator("aside");
@@ -279,7 +279,7 @@ test("quick-settle marks an upcoming transaction paid", async ({ page }) => {
   await expect(row).toBeVisible();
   await row.click();
   const sheet = page.locator("aside");
-  const settle = sheet.getByRole("button", { name: "Oznacz jako zapłacone" });
+  const settle = sheet.getByRole("button", { name: "Oznacz jako opłacone" });
   await expect(settle).toBeVisible();
   await settle.click();
 
@@ -311,7 +311,7 @@ test("push settle keeps a failed action retryable and never shows false success"
   await expect(page).toHaveURL(/action=settle/);
   await expect(page.getByText("Oznaczono jako zapłacone")).toHaveCount(0);
 
-  const retry = page.locator("aside").getByRole("button", { name: "Oznacz jako zapłacone" });
+  const retry = page.locator("aside").getByRole("button", { name: "Oznacz jako opłacone" });
   await expect(retry).toBeVisible();
   await retry.click();
   await expect.poll(() => patchCount).toBe(2);

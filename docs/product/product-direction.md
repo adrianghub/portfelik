@@ -1,11 +1,33 @@
 # Product Direction
 
-Last updated: 2026-07-17
+Last updated: 2026-09-28
 
 JakStoimy (repo: Portfelik) is an import-first personal finance PWA. It is not
 trying to become a manual bookkeeping spreadsheet with charts. The product
 should connect what actually happened in the user's finances with what the user
 intended to do.
+
+The promise, in the product's own voice:
+
+> JakStoimy pomaga Ci wiedzieć, na co możesz sobie pozwolić, teraz i za chwilę.
+
+> To, co prywatne, zostaje prywatne. To, co wspólne, ogarniacie razem.
+
+The first sentence is why the product exists. The second is why sharing works
+the way it does. A couple, a family, or roommates are a layer on top. The app
+has to be useful for one person.
+
+Data is fuel. The product is the answer. Transactions, rules, available cash,
+upcoming obligations, category limits, and plans feed one financial model. Kokpit
+reads that model. "Czy mnie na to stać?", "Czy nas na to stać?", and "Czy Dom
+może sobie na to pozwolić?" are the same model on a different scope. They do
+not ship until Available is trustworthy: upcoming obligations, limits, plans,
+and known cash flows have to already be inside that number.
+
+The public beta proves a boring loop: import, recognition, a few decisions,
+Kokpit, return a few days later. For two people: assign only what is shared,
+and both can see how Dom stands. Bank sync, purchase simulation, and loan
+what-ifs wait until people come back for that answer.
 
 ## Product Thesis
 
