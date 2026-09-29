@@ -225,7 +225,7 @@ describe("Path B/C: cross-source duplicate warnings (preview + commit)", () => {
     });
   });
 
-  it("ignores manual/non-plan candidates outside the tighter ±1-day window", async () => {
+  it("ignores manual/non-plan candidates outside the ±3-day window", async () => {
     await makePlanLinkedExpenseTx({
       suffix: "nolist-window-A",
       txUserId: ctx.userA.userId,
@@ -237,7 +237,7 @@ describe("Path B/C: cross-source duplicate warnings (preview + commit)", () => {
     const preview = await makeImportSessionAndRow({
       suffix: "nolist-window-A",
       sessionUserId: ctx.userA.userId,
-      postedAt: "2026-03-12",
+      postedAt: "2026-03-16",
       amount: 42.5,
     });
 

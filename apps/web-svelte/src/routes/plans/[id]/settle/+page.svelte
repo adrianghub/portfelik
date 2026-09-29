@@ -251,7 +251,9 @@
               onclick={() => dismissMutation.mutate(ranked.tx.id)}
               class="focus-visible:ring-accent inline-flex min-h-11 items-center rounded-full border border-white/10 px-4 text-sm font-medium text-slate-400 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
             >
-              {m.plan_settle_reject()}
+              {planQuery.data?.kind === "debt"
+                ? m.plan_settle_reject_debt()
+                : m.plan_settle_reject_save()}
             </button>
           </div>
         </div>

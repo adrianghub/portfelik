@@ -227,7 +227,7 @@ test.describe("plan settle page", () => {
     const tx1Card = page
       .locator("div.rounded-2xl")
       .filter({ hasText: "Zakupy spożywcze na wakacje" });
-    await tx1Card.getByRole("button", { name: /Pomiń/ }).click();
+    await tx1Card.getByRole("button", { name: "To nie rata" }).click();
 
     // TX1 gone, no lower-ranked expense remains visible
     await expect(page.getByText("Zakupy spożywcze na wakacje")).not.toBeVisible();

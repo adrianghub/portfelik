@@ -166,7 +166,7 @@ export function demoBannerActionHref(id: DemoBannerActionId): string | undefined
     case "import":
       return "/import";
     case "settings":
-      return "/settings?tab=profile";
+      return "/settings?tab=help";
     default:
       return undefined;
   }

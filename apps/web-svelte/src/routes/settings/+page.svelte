@@ -14,7 +14,16 @@
   import { ChevronLeft, ChevronRight, Search } from "lucide-svelte";
   import * as m from "$lib/paraglide/messages";
 
-  const TAB_IDS: SettingsTab[] = ["categories", "rules", "groups", "profile", "personalization"];
+  const TAB_IDS: SettingsTab[] = [
+    "categories",
+    "rules",
+    "groups",
+    "profile",
+    "notifications",
+    "personalization",
+    "help",
+    "privacy",
+  ];
 
   // `?tab=` stays the canonical deep-link param. Absent/invalid → section landing.
   const activeTab = $derived.by<SettingsTab | null>(() => {
@@ -63,7 +72,13 @@
       {:else if activeTab === "groups"}
         <GroupsTab />
       {:else if activeTab === "profile"}
-        <ProfileTab {profile} />
+        <ProfileTab {profile} section="profile" />
+      {:else if activeTab === "notifications"}
+        <ProfileTab {profile} section="notifications" />
+      {:else if activeTab === "help"}
+        <ProfileTab {profile} section="help" />
+      {:else if activeTab === "privacy"}
+        <ProfileTab {profile} section="privacy" />
       {:else if activeTab === "personalization"}
         <PersonalizationTab {profile} />
       {/if}

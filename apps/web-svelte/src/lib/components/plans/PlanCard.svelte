@@ -3,8 +3,8 @@
   import { deriveDebtDisplayBalance } from "$lib/services/plan-debt";
   import { todayIso } from "$lib/services/plans";
   import type { PlanDebtTerms, PlanSummary } from "$lib/types";
-  import { getPlanEmoji } from "$lib/utils/plan-emoji";
-  import { formatCurrency } from "$lib/utils";
+  import PlanMark from "$lib/components/plans/PlanMark.svelte";
+  import { formatCurrency, formatDate } from "$lib/utils";
   import { MoreVertical, Pencil, Trash2, Users } from "lucide-svelte";
 
   interface Props {
@@ -12,27 +12,17 @@
     debtTerms?: PlanDebtTerms;
     /** Paid linked expense payments — same inputs as the plan detail balance. */
     linkedExpenses?: { amount: number; date: string }[];
-    categoryName?: string;
     groupName?: string;
     onedit?: (plan: PlanSummary) => void;
     ondelete?: (id: string) => void;
   }
 
-  let {
-    plan,
-    debtTerms,
-    linkedExpenses = [],
-    categoryName,
-    groupName,
-    onedit,
-    ondelete,
-  }: Props = $props();
+  let { plan, debtTerms, linkedExpenses = [], groupName, onedit, ondelete }: Props = $props();
 
   const kind = $derived(plan.kind ?? "save");
   const debtBalance = $derived(
     debtTerms ? deriveDebtDisplayBalance(debtTerms, plan.start_date, linkedExpenses, todayIso()) : 0
   );
-  const emoji = $derived(getPlanEmoji(categoryName, plan.name) || (kind === "debt" ? "🏦" : "🎯"));
   const isUpcoming = $derived(plan.bucket === "upcoming");
   const saveOnTrack = $derived(
     kind === "save" &&
@@ -118,18 +108,7 @@
   <div class="flex items-stretch">
     <div class="min-w-0 flex-1 p-4">
       <div class="flex items-start gap-3">
-        <div
-          class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-800 text-xl"
-          aria-hidden="true"
-        >
-          {#if emoji}
-            {emoji}
-          {:else}
-            <span class="text-sm font-semibold text-slate-400">
-              {plan.name.charAt(0).toUpperCase()}
-            </span>
-          {/if}
-        </div>
+        <PlanMark {kind} />
 
         <a
           href="/plans/{plan.id}"
@@ -169,6 +148,14 @@
                 target: formatCurrency(plan.target_amount),
               })}
             </p>
+            {#if plan.end_date && plan.monthlyNeeded != null && plan.monthlyNeeded > 0}
+              <p class="mt-0.5 text-xs text-slate-500">
+                {m.plan_save_pace({
+                  date: formatDate(plan.end_date),
+                  amount: formatCurrency(plan.monthlyNeeded),
+                })}
+              </p>
+            {/if}
           {:else if kind === "debt" && debtTerms}
             <p class="mt-0.5 text-xs text-slate-400">{formatCurrency(debtBalance)}</p>
           {/if}
