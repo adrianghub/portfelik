@@ -6,6 +6,7 @@
   import { ArrowDown, ArrowUp, ArrowUpDown, Check, Users, Wallet } from "lucide-svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import { isQuickSettleEligible } from "$lib/services/transaction-permissions";
+  import { partitionTransactionCards } from "$lib/components/transactions/transaction-bands";
 
   interface Props {
     transactions: TransactionWithCategory[];
@@ -219,21 +220,20 @@
     }));
   }
 
-  const cardBands = $derived.by(() => {
-    const obligations = sortedTransactions.filter(isObligationRow);
-    const facts = sortedTransactions.filter((tx) => !isObligationRow(tx));
-    if (obligations.length === 0 || facts.length === 0) {
-      return [{ id: "all", title: null as string | null, groups: groupByDay(sortedTransactions) }];
-    }
-    return [
-      {
-        id: "upcoming",
-        title: m.transactions_band_upcoming(),
-        groups: groupByDay(obligations),
-      },
-      { id: "history", title: m.transactions_band_history(), groups: groupByDay(facts) },
-    ];
-  });
+  const bandTitle: Record<"overdue" | "upcoming" | "draft" | "history", () => string> = {
+    overdue: m.transactions_band_overdue,
+    upcoming: m.transactions_band_upcoming,
+    draft: m.transactions_band_draft,
+    history: m.transactions_band_history,
+  };
+
+  const cardBands = $derived.by(() =>
+    partitionTransactionCards(sortedTransactions).map((band) => ({
+      id: band.id,
+      title: band.titled ? bandTitle[band.id]() : null,
+      groups: groupByDay(band.rows),
+    }))
+  );
 </script>
 
 {#snippet sortIndicator(key: SortKey)}
