@@ -258,6 +258,32 @@ describe("RPC: mark_preview_duplicates", () => {
     expect(after.data?.duplicate_of).toBe(priorTxId);
   });
 
+  it("does not fold two card payments that share only generic wording", async () => {
+    await seedManualTx({
+      description: "Płatność kartą Lidl",
+      date: "2026-03-10",
+      amount: 35,
+    });
+    const seed = await seedSession();
+    const rowId = await insertRow(seed, {
+      rowIndex: 0,
+      postedAt: "2026-03-12",
+      amount: 35,
+      description: "Płatność kartą Orange",
+    });
+
+    const { data, error } = await callRpc(ctx.userA.client, seed.sessionId);
+    expect(error).toBeNull();
+    expect((data as Warning[]).find((w) => w.row_id === rowId)).toBeUndefined();
+
+    const after = await ctx.admin
+      .from("transaction_import_rows")
+      .select("decision")
+      .eq("id", rowId)
+      .single();
+    expect(after.data?.decision).toBe("import");
+  });
+
   it("ignores a same-amount manual payment from a different payee", async () => {
     await seedManualTx({ description: "Lidl", date: ROW_DATE, amount: 35 });
     const seed = await seedSession();
