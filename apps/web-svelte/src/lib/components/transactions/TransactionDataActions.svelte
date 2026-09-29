@@ -1,44 +1,54 @@
 <script lang="ts">
-  import { Landmark, Download } from "lucide-svelte";
+  import { Download, MoreHorizontal, Plus } from "lucide-svelte";
   import * as m from "$lib/paraglide/messages";
 
   interface Props {
     exportDisabled: boolean;
     onexport: () => void;
+    onmanualadd: () => void;
   }
 
-  let { exportDisabled, onexport }: Props = $props();
+  let { exportDisabled, onexport, onmanualadd }: Props = $props();
 
-  const importPill =
-    "focus-visible:ring-accent bg-accent-gradient flex h-11 items-center gap-1.5 rounded-full px-3.5 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-colors hover:brightness-110 focus-visible:ring-2 focus-visible:outline-none sm:h-9";
-  const secondaryPill =
-    "focus-visible:ring-accent flex h-9 items-center gap-1.5 rounded-full border border-white/10 bg-slate-900/60 px-3.5 text-sm font-medium text-slate-200 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40";
-  const secondaryIconOnly =
-    "focus-visible:ring-accent flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-slate-900/60 text-slate-200 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40 sm:hidden";
+  let menu = $state<HTMLDetailsElement | null>(null);
+
+  function closeMenu() {
+    if (menu) menu.open = false;
+  }
 </script>
 
-<div class="flex shrink-0 items-center gap-2" data-tour-id="tour-transaction-import">
-  <a href="/import" class={importPill}>
-    <Landmark size={15} strokeWidth={1.8} aria-hidden="true" />
-    {m.bank_import_short()}
-  </a>
-  <button
-    type="button"
-    class={secondaryIconOnly}
-    disabled={exportDisabled}
-    onclick={onexport}
-    title={m.csv_export()}
-    aria-label={m.csv_export()}
+<details bind:this={menu} class="relative shrink-0">
+  <summary
+    class="focus-visible:ring-accent flex h-11 w-11 cursor-pointer list-none items-center justify-center rounded-full border border-white/10 bg-slate-900/60 text-slate-200 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none sm:h-9 sm:w-9 [&::-webkit-details-marker]:hidden"
+    aria-label={m.transactions_more_actions()}
   >
-    <Download size={15} strokeWidth={1.8} aria-hidden="true" />
-  </button>
-  <button
-    type="button"
-    class="{secondaryPill} hidden sm:inline-flex"
-    disabled={exportDisabled}
-    onclick={onexport}
+    <MoreHorizontal size={16} strokeWidth={1.8} aria-hidden="true" />
+  </summary>
+  <div
+    class="absolute right-0 z-30 mt-1 w-52 overflow-hidden rounded-xl border border-white/10 bg-slate-900/95 shadow-lg backdrop-blur"
   >
-    <Download size={15} strokeWidth={1.8} aria-hidden="true" />
-    {m.csv_export()}
-  </button>
-</div>
+    <button
+      type="button"
+      class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 hover:bg-white/5 md:hidden"
+      onclick={() => {
+        closeMenu();
+        onmanualadd();
+      }}
+    >
+      <Plus size={15} strokeWidth={1.8} aria-hidden="true" />
+      {m.transaction_manual_add()}
+    </button>
+    <button
+      type="button"
+      class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40"
+      disabled={exportDisabled}
+      onclick={() => {
+        closeMenu();
+        onexport();
+      }}
+    >
+      <Download size={15} strokeWidth={1.8} aria-hidden="true" />
+      {m.csv_export()}
+    </button>
+  </div>
+</details>

@@ -15,17 +15,28 @@
   interface Props {
     live: number;
     forecast: number;
+    upcomingIncome?: number;
+    upcomingExpenses?: number;
     hasAnchor: boolean;
     anchor: CashPosition | null;
     /** Wait until the anchor query has settled before opening the edit sheet. */
     anchorReady?: boolean;
   }
-  let { live, forecast, hasAnchor, anchor, anchorReady = true }: Props = $props();
+  let {
+    live,
+    forecast,
+    upcomingIncome = 0,
+    upcomingExpenses = 0,
+    hasAnchor,
+    anchor,
+    anchorReady = true,
+  }: Props = $props();
 
   const queryClient = useQueryClient();
   const showForecast = $derived(Math.abs(forecast - live) >= 0.01);
 
   let editOpen = $state(false);
+  let forecastOpen = $state(false);
   let openingAmount = $state("");
   let asOfDate = $state("");
 
@@ -55,24 +66,47 @@
 </script>
 
 {#if hasAnchor}
-  <button
-    type="button"
-    onclick={openEdit}
-    class="w-full rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3 text-left transition-colors hover:border-white/10 hover:bg-slate-900/80"
-    aria-label={m.cash_position_label()}
-  >
-    <div class="flex items-baseline justify-between gap-3">
-      <div class="min-w-0">
-        <p class="text-eyebrow text-slate-400">{m.cash_position_label()}</p>
-        <p class="text-2xl font-semibold text-slate-100 tabular-nums">{formatCurrency(live)}</p>
-      </div>
-      {#if showForecast}
-        <p class="text-xs text-slate-400 tabular-nums">
-          {m.cash_position_forecast({ amount: formatCurrency(forecast) })}
-        </p>
+  <div class="rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3">
+    <button
+      type="button"
+      onclick={openEdit}
+      class="w-full text-left transition-colors"
+      aria-label={m.cash_position_label()}
+    >
+      <p class="text-eyebrow text-slate-400">{m.cash_position_label()}</p>
+      <p class="text-2xl font-semibold text-slate-100 tabular-nums">{formatCurrency(live)}</p>
+    </button>
+    {#if showForecast}
+      <button
+        type="button"
+        class="focus-visible:ring-accent mt-1 text-xs text-slate-400 tabular-nums focus-visible:ring-2 focus-visible:outline-none"
+        aria-expanded={forecastOpen}
+        onclick={() => (forecastOpen = !forecastOpen)}
+      >
+        {m.cash_position_forecast({ amount: formatCurrency(forecast) })}
+      </button>
+      {#if forecastOpen}
+        <dl class="mt-3 space-y-1 border-t border-white/5 pt-3 text-sm">
+          <div class="flex items-baseline justify-between gap-3">
+            <dt class="text-slate-400">{m.cash_position_today()}</dt>
+            <dd class="font-medium text-slate-100 tabular-nums">{formatCurrency(live)}</dd>
+          </div>
+          <div class="flex items-baseline justify-between gap-3">
+            <dt class="text-slate-400">{m.cash_position_upcoming_out()}</dt>
+            <dd class="text-rose-300 tabular-nums">−{formatCurrency(upcomingExpenses)}</dd>
+          </div>
+          <div class="flex items-baseline justify-between gap-3">
+            <dt class="text-slate-400">{m.cash_position_upcoming_in()}</dt>
+            <dd class="text-emerald-300 tabular-nums">+{formatCurrency(upcomingIncome)}</dd>
+          </div>
+          <div class="flex items-baseline justify-between gap-3">
+            <dt class="text-slate-300">{m.cash_position_forecast_result()}</dt>
+            <dd class="font-medium text-slate-100 tabular-nums">{formatCurrency(forecast)}</dd>
+          </div>
+        </dl>
       {/if}
-    </div>
-  </button>
+    {/if}
+  </div>
 {:else}
   <button
     type="button"

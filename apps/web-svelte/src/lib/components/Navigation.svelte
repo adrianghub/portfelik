@@ -7,7 +7,6 @@
   import type { User } from "@supabase/supabase-js";
   import * as m from "$lib/paraglide/messages";
   import BrandMark from "$lib/components/BrandMark.svelte";
-  import { avatarSrc } from "$lib/theme/avatar-presets";
   import {
     LayoutDashboard,
     Wallet,
@@ -52,10 +51,7 @@
   const avatarUrl = $derived<string | null>(
     (user?.user_metadata?.avatar_url as string | undefined) ?? null
   );
-  // Fallback chain: preset avatar → OAuth photo → initials.
-  const avatarImg = $derived<string | null>(
-    avatarSrc(profile?.settings?.avatarPresetId) ?? avatarUrl
-  );
+  const avatarImg = $derived<string | null>(avatarUrl);
   const initials = $derived.by(() => {
     const source = profile?.name?.trim() || profile?.email || user?.email || "";
     if (!source) return "?";
@@ -111,7 +107,7 @@
 
 <!-- Desktop top bar -->
 <header
-  class="fixed inset-x-0 top-0 z-50 hidden h-(--app-header-offset) items-center gap-4 border-b border-white/5 bg-slate-950/80 px-6 pt-(--safe-top) backdrop-blur md:flex"
+  class="fixed inset-x-0 top-0 z-50 hidden h-(--app-header-offset) items-center gap-4 border-b border-white/5 bg-slate-950/80 py-0 pt-(--safe-top) pr-16 pl-6 backdrop-blur md:flex"
 >
   <a href="/" class="mr-2 shrink-0 transition-opacity hover:opacity-90" aria-label={m.app_name()}>
     <BrandMark size="sm" />
@@ -183,7 +179,7 @@
 
 <!-- Mobile top bar -->
 <header
-  class="fixed inset-x-0 top-0 z-50 flex h-(--app-header-offset) items-center gap-3 border-b border-white/5 bg-slate-950/80 px-4 pt-(--safe-top) backdrop-blur md:hidden"
+  class="fixed inset-x-0 top-0 z-50 flex h-(--app-header-offset) items-center gap-3 border-b border-white/5 bg-slate-950/80 pt-(--safe-top) pr-16 pl-4 backdrop-blur md:hidden"
 >
   <a href="/" class="shrink-0 transition-opacity hover:opacity-90" aria-label={m.app_name()}>
     <BrandMark size="sm" />

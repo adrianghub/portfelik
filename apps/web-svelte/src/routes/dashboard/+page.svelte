@@ -82,7 +82,6 @@
   import { MediaQuery } from "svelte/reactivity";
   import { untrack } from "svelte";
   import { ChevronDown } from "lucide-svelte";
-  import { dailyGreeting } from "$lib/dashboard-daily";
 
   const isDesktop = new MediaQuery("(min-width: 640px)");
   let historyExpanded = $state(untrack(() => isDesktop.current));
@@ -98,7 +97,11 @@
     if (!detailsOpen) detailsOpen = true;
   });
 
-  const greeting = dailyGreeting();
+  const greetingName = $derived.by(() => {
+    const raw = profileQuery.data?.name?.trim();
+    if (!raw) return "";
+    return raw.split(/\s+/)[0] ?? raw;
+  });
 
   type Period = DashboardPeriod;
   const period = $derived(parseDashboardPeriod($page.url.searchParams));
@@ -812,7 +815,7 @@
   <div class="md:hidden">
     <p class="truncate text-base font-medium text-slate-100">
       {#if profileQuery.data}
-        {greeting}, {profileQuery.data.name ?? profileQuery.data.email}!
+        {greetingName ? m.dashboard_greeting({ name: greetingName }) : m.dashboard_greeting_plain()}
       {:else}
         &nbsp;
       {/if}
@@ -824,7 +827,9 @@
     <div>
       {#if profileQuery.data}
         <p class="mb-0.5 text-base text-slate-400">
-          {greeting}, {profileQuery.data.name ?? profileQuery.data.email}!
+          {greetingName
+            ? m.dashboard_greeting({ name: greetingName })
+            : m.dashboard_greeting_plain()}
         </p>
       {/if}
       <h1 class="text-hero font-semibold text-slate-100">
@@ -961,6 +966,8 @@
       </div>
     {/if}
 
+    <DashboardPiles {groupFilter} groups={groupsQuery.data ?? []} />
+
     <div class="space-y-2">
       <DashboardActions {groupFilter} overdue={overdueSummary} {overdueState} />
       <DashboardImportHealth />
@@ -976,7 +983,6 @@
     </button>
 
     {#if detailsOpen}
-      <DashboardPiles {groupFilter} />
       <DashboardPlanProgress {groupFilter} />
 
       <!-- Upcoming / overdue -->

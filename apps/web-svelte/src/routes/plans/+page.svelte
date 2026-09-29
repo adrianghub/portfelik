@@ -156,7 +156,6 @@
     enabled: () => !!session.userId,
   }));
 
-  const categoryMap = $derived(new Map((categoriesQuery.data ?? []).map((c) => [c.id, c.name])));
   const groupMap = $derived(new Map((groupsQuery.data ?? []).map((g) => [g.id, g.name])));
   const planIds = $derived((plansQuery.data ?? []).map((p) => p.id));
 
@@ -609,7 +608,6 @@
             <div data-tour-id={i === 0 ? "tour-plan-save" : undefined}>
               <PlanCard
                 {plan}
-                categoryName={categoryMap.get(plan.category_id ?? "")}
                 groupName={groupMap.get(plan.group_id ?? "")}
                 onedit={planCanManage(plan) ? resetForm : undefined}
                 ondelete={planCanManage(plan) ? (id) => (deleteTargetId = id) : undefined}
@@ -636,7 +634,6 @@
                 {plan}
                 debtTerms={debtTermsQuery.data?.[plan.id]}
                 linkedExpenses={progressQuery.data?.[plan.id]?.linkedExpenses ?? []}
-                categoryName={categoryMap.get(plan.category_id ?? "")}
                 groupName={groupMap.get(plan.group_id ?? "")}
                 onedit={planCanManage(plan) ? resetForm : undefined}
                 ondelete={planCanManage(plan) ? (id) => (deleteTargetId = id) : undefined}

@@ -35,8 +35,9 @@
 
   interface Props {
     profile: Profile | null;
+    section?: "profile" | "notifications" | "help" | "privacy";
   }
-  let { profile }: Props = $props();
+  let { profile, section = "profile" }: Props = $props();
 
   const queryClient = useQueryClient();
 
@@ -224,310 +225,327 @@
 {#if !profile}
   <div class="h-32 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800"></div>
 {:else}
-  <div
-    class="divide-y divide-white/5 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
-  >
-    <div class="flex items-center justify-between gap-3 px-4 py-3">
-      <span class="shrink-0 text-sm text-slate-400">{m.profile_name()}</span>
-      {#if editing}
-        <form
-          onsubmit={handleSubmit}
-          class="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2"
-        >
-          <!-- svelte-ignore a11y_autofocus -->
-          <input
-            type="text"
-            bind:value={nameInput}
-            autofocus
-            class="focus:border-accent/40 focus:ring-accent/30 min-w-0 flex-1 basis-full rounded-lg border border-white/10 bg-slate-950/60 px-2 py-1 text-sm text-slate-100 focus:ring-2 focus:outline-none sm:basis-0"
-          />
-          <button
-            type="submit"
-            disabled={mutation.isPending}
-            class="bg-accent-gradient rounded-lg px-3 py-1 text-xs font-semibold text-slate-900 transition-transform hover:brightness-110 disabled:opacity-50"
+  {#if section === "profile"}
+    <div
+      class="divide-y divide-white/5 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
+    >
+      <div class="flex items-center justify-between gap-3 px-4 py-3">
+        <span class="shrink-0 text-sm text-slate-400">{m.profile_name()}</span>
+        {#if editing}
+          <form
+            onsubmit={handleSubmit}
+            class="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2"
           >
-            {mutation.isPending ? m.common_saving() : m.common_save()}
-          </button>
-          <button
-            type="button"
-            onclick={() => (editing = false)}
-            class="rounded-lg border border-white/10 px-3 py-1 text-xs font-medium text-slate-300 transition-colors hover:bg-white/5"
-          >
-            {m.common_cancel()}
-          </button>
-        </form>
-      {:else}
-        <div class="flex items-center gap-2">
-          <span class="text-sm text-slate-100">{profile.name ?? "-"}</span>
-          <button
-            onclick={startEdit}
-            class="rounded-lg p-2 text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-200"
-            aria-label={m.common_edit()}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              ><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /></svg
+            <!-- svelte-ignore a11y_autofocus -->
+            <input
+              type="text"
+              bind:value={nameInput}
+              autofocus
+              class="focus:border-accent/40 focus:ring-accent/30 min-w-0 flex-1 basis-full rounded-lg border border-white/10 bg-slate-950/60 px-2 py-1 text-sm text-slate-100 focus:ring-2 focus:outline-none sm:basis-0"
+            />
+            <button
+              type="submit"
+              disabled={mutation.isPending}
+              class="bg-accent-gradient rounded-lg px-3 py-1 text-xs font-semibold text-slate-900 transition-transform hover:brightness-110 disabled:opacity-50"
             >
-          </button>
-        </div>
-      {/if}
-    </div>
-    <div class="flex justify-between px-4 py-3">
-      <span class="text-sm text-slate-400">{m.profile_email()}</span>
-      <span class="text-sm text-slate-100">{profile.email}</span>
-    </div>
-    <div class="flex justify-between px-4 py-3">
-      <span class="text-sm text-slate-400">{m.profile_role()}</span>
-      <span class="text-sm text-slate-100">
-        {profile.role === "admin" ? m.profile_role_admin() : m.profile_role_user()}
-      </span>
-    </div>
-  </div>
-
-  {#if nativeShell}
-    <div
-      class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
-    >
-      <p class="px-4 py-3 text-sm text-slate-300">{m.profile_push_native_inbox_only()}</p>
-    </div>
-  {:else if notifSupported}
-    <div
-      class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
-    >
-      <div
-        class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
-      >
-        <span class="text-sm font-medium text-slate-100">
-          {#if pushState === "active"}
-            {m.profile_notifications_enabled()}
-          {:else if pushState === "blocked"}
-            {m.profile_notifications_blocked()}
-          {:else}
-            {m.profile_notifications_disabled()}
-          {/if}
-        </span>
-        {#if pushState === "active"}
-          <button
-            type="button"
-            onclick={() => unsubMutation.mutate()}
-            disabled={unsubMutation.isPending}
-            class="shrink-0 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:bg-white/5 disabled:opacity-50"
-          >
-            {unsubMutation.isPending ? m.common_saving() : m.profile_notifications_disable()}
-          </button>
-        {:else if pushState !== "blocked"}
-          <button
-            type="button"
-            onclick={() =>
-              subMutation.mutate(deferBrowserPush ? { allowBrowserOnMobile: true } : undefined)}
-            disabled={subMutation.isPending}
-            class="bg-accent-gradient shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-900 transition-transform hover:brightness-110 disabled:opacity-50"
-          >
-            {subMutation.isPending
-              ? m.common_saving()
-              : deferBrowserPush
-                ? m.profile_notifications_enable_browser()
-                : m.profile_notifications_enable()}
-          </button>
+              {mutation.isPending ? m.common_saving() : m.common_save()}
+            </button>
+            <button
+              type="button"
+              onclick={() => (editing = false)}
+              class="rounded-lg border border-white/10 px-3 py-1 text-xs font-medium text-slate-300 transition-colors hover:bg-white/5"
+            >
+              {m.common_cancel()}
+            </button>
+          </form>
+        {:else}
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-slate-100">{profile.name ?? "-"}</span>
+            <button
+              onclick={startEdit}
+              class="rounded-lg p-2 text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-200"
+              aria-label={m.common_edit()}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                ><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /></svg
+              >
+            </button>
+          </div>
         {/if}
       </div>
-      {#if deferBrowserPush}
-        <p class="border-t border-white/5 px-4 py-2 text-xs text-slate-400">
-          {m.profile_push_install_first_hint()}
-        </p>
-      {/if}
-      {#if pushSubscriptions.length > 0}
-        <div class="space-y-2 border-t border-white/5 px-4 py-3">
-          <p class="text-xs font-medium text-slate-300">{m.profile_push_devices_title()}</p>
-          {#if pushSubscriptions.length > 1}
-            <p class="text-xs text-slate-400">{m.profile_push_devices_multi_hint()}</p>
-          {/if}
-          <ul class="space-y-2">
-            {#each pushSubscriptions as sub (sub.endpoint)}
-              <li class="flex items-center justify-between gap-2 text-xs">
-                <div class="min-w-0">
-                  <p class="font-medium text-slate-200">
-                    {pushDeviceLabel(sub)}
-                    {#if sub.endpoint === currentPushEndpoint}
-                      <span class="text-accent ml-1">({m.profile_push_device_current()})</span>
-                    {/if}
-                  </p>
-                  <p class="truncate text-slate-500">{sub.user_agent ?? sub.endpoint}</p>
-                </div>
-                <button
-                  type="button"
-                  onclick={() => deletePushSubMutation.mutate(sub.endpoint)}
-                  disabled={deletePushSubMutation.isPending}
-                  class="shrink-0 rounded-md border border-white/10 px-2 py-1 text-slate-400 hover:text-white disabled:opacity-40"
-                >
-                  {m.admin_push_sub_delete()}
-                </button>
-              </li>
-            {/each}
-          </ul>
-        </div>
-      {/if}
+      <div class="flex justify-between px-4 py-3">
+        <span class="text-sm text-slate-400">{m.profile_email()}</span>
+        <span class="text-sm text-slate-100">{profile.email}</span>
+      </div>
+      <div class="flex justify-between px-4 py-3">
+        <span class="text-sm text-slate-400">{m.profile_role()}</span>
+        <span class="text-sm text-slate-100">
+          {profile.role === "admin" ? m.profile_role_admin() : m.profile_role_user()}
+        </span>
+      </div>
     </div>
   {/if}
 
-  {#if !nativeShell}
+  {#if section === "notifications"}
+    {#if nativeShell}
+      <div
+        class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
+      >
+        <p class="px-4 py-3 text-sm text-slate-300">{m.profile_push_native_inbox_only()}</p>
+      </div>
+    {:else if notifSupported}
+      <div
+        class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
+      >
+        <div
+          class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+        >
+          <span class="text-sm font-medium text-slate-100">
+            {#if pushState === "active"}
+              {m.profile_notifications_enabled()}
+            {:else if pushState === "blocked"}
+              {m.profile_notifications_blocked()}
+            {:else}
+              {m.profile_notifications_disabled()}
+            {/if}
+          </span>
+          {#if pushState === "active"}
+            <button
+              type="button"
+              onclick={() => unsubMutation.mutate()}
+              disabled={unsubMutation.isPending}
+              class="shrink-0 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:bg-white/5 disabled:opacity-50"
+            >
+              {unsubMutation.isPending ? m.common_saving() : m.profile_notifications_disable()}
+            </button>
+          {:else if pushState !== "blocked"}
+            <button
+              type="button"
+              onclick={() =>
+                subMutation.mutate(deferBrowserPush ? { allowBrowserOnMobile: true } : undefined)}
+              disabled={subMutation.isPending}
+              class="bg-accent-gradient shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-900 transition-transform hover:brightness-110 disabled:opacity-50"
+            >
+              {subMutation.isPending
+                ? m.common_saving()
+                : deferBrowserPush
+                  ? m.profile_notifications_enable_browser()
+                  : m.profile_notifications_enable()}
+            </button>
+          {/if}
+        </div>
+        {#if deferBrowserPush}
+          <p class="border-t border-white/5 px-4 py-2 text-xs text-slate-400">
+            {m.profile_push_install_first_hint()}
+          </p>
+        {/if}
+        {#if pushSubscriptions.length > 0}
+          <div class="space-y-2 border-t border-white/5 px-4 py-3">
+            <p class="text-xs font-medium text-slate-300">{m.profile_push_devices_title()}</p>
+            {#if pushSubscriptions.length > 1}
+              <p class="text-xs text-slate-400">{m.profile_push_devices_multi_hint()}</p>
+            {/if}
+            <ul class="space-y-2">
+              {#each pushSubscriptions as sub (sub.endpoint)}
+                <li class="flex items-center justify-between gap-2 text-xs">
+                  <div class="min-w-0">
+                    <p class="font-medium text-slate-200">
+                      {pushDeviceLabel(sub)}
+                      {#if sub.endpoint === currentPushEndpoint}
+                        <span class="text-accent ml-1">({m.profile_push_device_current()})</span>
+                      {/if}
+                    </p>
+                    <p class="truncate text-slate-500">{sub.user_agent ?? sub.endpoint}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onclick={() => deletePushSubMutation.mutate(sub.endpoint)}
+                    disabled={deletePushSubMutation.isPending}
+                    class="shrink-0 rounded-md border border-white/10 px-2 py-1 text-slate-400 hover:text-white disabled:opacity-40"
+                  >
+                    {m.admin_push_sub_delete()}
+                  </button>
+                </li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
+      </div>
+    {/if}
+
+    {#if !nativeShell}
+      <div
+        class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
+      >
+        <div
+          class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+        >
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-slate-100">{m.profile_pwa_install_title()}</p>
+            <p class="mt-0.5 text-xs text-slate-400">{m.profile_pwa_install_hint()}</p>
+          </div>
+          <button
+            type="button"
+            onclick={showInstallPromptAgain}
+            class="shrink-0 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:bg-white/5"
+          >
+            {m.profile_pwa_install_show_again()}
+          </button>
+        </div>
+      </div>
+    {/if}
+
     <div
       class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
+      data-tour-id="tour-import-reminders"
+    >
+      <div class="space-y-3 px-4 py-3">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-slate-100">{m.profile_import_alert_title()}</p>
+            <p class="mt-0.5 text-xs text-slate-400">{m.profile_import_alert_hint()}</p>
+          </div>
+          <label class="inline-flex shrink-0 items-center gap-2 text-xs text-slate-300">
+            <input
+              type="checkbox"
+              checked={bankImportReminder.enabled}
+              disabled={reminderMutation.isPending}
+              onchange={(event) =>
+                setReminderEnabled((event.currentTarget as HTMLInputElement).checked)}
+              class="h-4 w-4 rounded border-white/10 bg-slate-950"
+            />
+            {m.profile_import_alert_enabled()}
+          </label>
+        </div>
+
+        <label class="block max-w-xs text-xs text-slate-400">
+          {m.profile_import_alert_cadence()}
+          <select
+            class="focus-visible:ring-accent mt-1 h-9 w-full rounded-lg border border-white/10 bg-slate-950 px-3 text-sm text-slate-100 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+            value={String(bankImportReminder.cadenceDays)}
+            disabled={!bankImportReminder.enabled || reminderMutation.isPending}
+            onchange={(event) =>
+              setReminderCadence((event.currentTarget as HTMLSelectElement).value)}
+          >
+            <option value="7">{m.profile_import_alert_cadence_weekly()}</option>
+            <option value="14">{m.profile_import_alert_cadence_biweekly()}</option>
+            <option value="30">{m.profile_import_alert_cadence_monthly()}</option>
+          </select>
+        </label>
+
+        <p class="text-xs text-slate-400">{m.profile_import_alert_push_note()}</p>
+      </div>
+    </div>
+  {/if}
+
+  {#if section === "help"}
+    <DemoWalkthroughPanel {profile} />
+
+    <div
+      class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
+      data-tour-id="tour-glossary"
     >
       <div
         class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
       >
         <div class="min-w-0">
-          <p class="text-sm font-medium text-slate-100">{m.profile_pwa_install_title()}</p>
-          <p class="mt-0.5 text-xs text-slate-400">{m.profile_pwa_install_hint()}</p>
+          <p class="text-sm font-medium text-slate-100">{m.glossary_title()}</p>
+          <p class="mt-0.5 text-xs text-slate-400">
+            {m.glossary_open_settings({ appName: m.app_name() })}
+          </p>
         </div>
         <button
           type="button"
-          onclick={showInstallPromptAgain}
-          class="shrink-0 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:bg-white/5"
+          onclick={() => (glossaryOpen = true)}
+          class="shrink-0 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-white/5"
         >
-          {m.profile_pwa_install_show_again()}
+          {m.glossary_title()}
         </button>
       </div>
     </div>
   {/if}
 
-  <div
-    class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
-    data-tour-id="tour-import-reminders"
-  >
-    <div class="space-y-3 px-4 py-3">
-      <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+  {#if section === "privacy"}
+    <div class="overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur">
+      <div
+        class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+      >
         <div class="min-w-0">
-          <p class="text-sm font-medium text-slate-100">{m.profile_import_alert_title()}</p>
-          <p class="mt-0.5 text-xs text-slate-400">{m.profile_import_alert_hint()}</p>
+          <p class="text-sm font-medium text-slate-100">{m.settings_export_title()}</p>
+          <p class="mt-0.5 text-xs text-slate-400">{m.settings_export_body()}</p>
+          <details class="mt-1">
+            <summary class="cursor-pointer text-xs font-medium text-slate-300">
+              {m.settings_export_contents_label()}
+            </summary>
+            <p class="mt-1 text-xs text-slate-400">{m.settings_export_contents()}</p>
+          </details>
         </div>
-        <label class="inline-flex shrink-0 items-center gap-2 text-xs text-slate-300">
-          <input
-            type="checkbox"
-            checked={bankImportReminder.enabled}
-            disabled={reminderMutation.isPending}
-            onchange={(event) =>
-              setReminderEnabled((event.currentTarget as HTMLInputElement).checked)}
-            class="h-4 w-4 rounded border-white/10 bg-slate-950"
-          />
-          {m.profile_import_alert_enabled()}
-        </label>
-      </div>
-
-      <label class="block max-w-xs text-xs text-slate-400">
-        {m.profile_import_alert_cadence()}
-        <select
-          class="focus-visible:ring-accent mt-1 h-9 w-full rounded-lg border border-white/10 bg-slate-950 px-3 text-sm text-slate-100 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-          value={String(bankImportReminder.cadenceDays)}
-          disabled={!bankImportReminder.enabled || reminderMutation.isPending}
-          onchange={(event) => setReminderCadence((event.currentTarget as HTMLSelectElement).value)}
+        <button
+          type="button"
+          onclick={async () => {
+            try {
+              const bundle = await buildAccountExport();
+              const saved = await downloadAccountExport(bundle);
+              if (saved) toast.success(m.settings_export_success());
+            } catch (err) {
+              toastError(err);
+            }
+          }}
+          class="shrink-0 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-white/5"
         >
-          <option value="7">{m.profile_import_alert_cadence_weekly()}</option>
-          <option value="14">{m.profile_import_alert_cadence_biweekly()}</option>
-          <option value="30">{m.profile_import_alert_cadence_monthly()}</option>
-        </select>
-      </label>
-
-      <p class="text-xs text-slate-400">{m.profile_import_alert_push_note()}</p>
-    </div>
-  </div>
-
-  <DemoWalkthroughPanel {profile} />
-
-  <div
-    class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
-    data-tour-id="tour-glossary"
-  >
-    <div
-      class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
-    >
-      <div class="min-w-0">
-        <p class="text-sm font-medium text-slate-100">{m.glossary_title()}</p>
-        <p class="mt-0.5 text-xs text-slate-400">
-          {m.glossary_open_settings({ appName: m.app_name() })}
-        </p>
+          {m.settings_export_action()}
+        </button>
       </div>
-      <button
-        type="button"
-        onclick={() => (glossaryOpen = true)}
-        class="shrink-0 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-white/5"
-      >
-        {m.glossary_title()}
-      </button>
     </div>
-  </div>
 
-  <div class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur">
     <div
-      class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+      class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
     >
-      <div class="min-w-0">
-        <p class="text-sm font-medium text-slate-100">{m.settings_export_title()}</p>
-        <p class="mt-0.5 text-xs text-slate-400">{m.settings_export_body()}</p>
-      </div>
-      <button
-        type="button"
-        onclick={async () => {
-          try {
-            const bundle = await buildAccountExport();
-            const saved = await downloadAccountExport(bundle);
-            if (saved) toast.success(m.settings_export_success());
-          } catch (err) {
-            toastError(err);
-          }
-        }}
-        class="shrink-0 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-white/5"
+      <div
+        class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
       >
-        {m.settings_export_action()}
-      </button>
-    </div>
-  </div>
-
-  <div class="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur">
-    <div
-      class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
-    >
-      <div class="min-w-0">
-        <p class="text-sm font-medium text-slate-100">{m.profile_delete_account()}</p>
-        <p class="mt-0.5 text-xs text-slate-400">{m.profile_delete_account_hint()}</p>
-        {#if deleteError}
-          <p class="mt-1.5 text-xs text-rose-300">{deleteError}</p>
-          <button
-            type="button"
-            class="text-accent mt-1.5 text-xs font-medium hover:underline"
-            onclick={() => goto("/settings?tab=groups")}
-          >
-            {m.profile_delete_account_go_groups()}
-          </button>
-        {/if}
+        <div class="min-w-0">
+          <p class="text-sm font-medium text-slate-100">{m.profile_delete_account()}</p>
+          <p class="mt-0.5 text-xs text-slate-400">{m.profile_delete_account_hint()}</p>
+          {#if deleteError}
+            <p class="mt-1.5 text-xs text-rose-300">{deleteError}</p>
+            <button
+              type="button"
+              class="text-accent mt-1.5 text-xs font-medium hover:underline"
+              onclick={() => goto("/settings?tab=groups")}
+            >
+              {m.profile_delete_account_go_groups()}
+            </button>
+          {/if}
+        </div>
+        <button
+          type="button"
+          onclick={() => {
+            deleteError = null;
+            showDeleteConfirm = true;
+          }}
+          class="shrink-0 rounded-lg border border-rose-500/25 px-3 py-1.5 text-xs font-medium text-rose-300/90 transition-colors hover:border-rose-400/40 hover:bg-rose-500/10 hover:text-rose-200"
+        >
+          {m.profile_delete_account()}
+        </button>
       </div>
-      <button
-        type="button"
-        onclick={() => {
-          deleteError = null;
-          showDeleteConfirm = true;
-        }}
-        class="shrink-0 rounded-lg border border-rose-500/25 px-3 py-1.5 text-xs font-medium text-rose-300/90 transition-colors hover:border-rose-400/40 hover:bg-rose-500/10 hover:text-rose-200"
-      >
-        {m.profile_delete_account()}
-      </button>
     </div>
-  </div>
 
-  <p class="mt-4 px-1 text-xs text-slate-400">
-    <a href="/privacy" class="text-slate-400 underline hover:text-slate-200"
-      >{m.privacy_policy_link()}</a
-    >
-  </p>
+    <p class="mt-4 px-1 text-xs text-slate-400">
+      <a href="/privacy" class="text-slate-400 underline hover:text-slate-200"
+        >{m.privacy_policy_link()}</a
+      >
+    </p>
+  {/if}
 {/if}
 
 <ConfirmDialog
@@ -538,4 +556,6 @@
   pending={deleteMutation.isPending}
 />
 
-<GlossarySheet open={glossaryOpen} onclose={() => (glossaryOpen = false)} />
+{#if section === "help"}
+  <GlossarySheet open={glossaryOpen} onclose={() => (glossaryOpen = false)} />
+{/if}

@@ -1,10 +1,18 @@
 // Settings information architecture: three sections, each drilling into the
 // existing flat tab panels. The `tab` ids stay the canonical `?tab=` deep-link
 // values (back-compat), so the panel components are reused unchanged.
-import { User, Wallet, Users } from "lucide-svelte";
+import { LifeBuoy, Shield, User, Users, Wallet } from "lucide-svelte";
 import * as m from "$lib/paraglide/messages";
 
-export type SettingsTab = "categories" | "rules" | "groups" | "profile" | "personalization";
+export type SettingsTab =
+  | "categories"
+  | "rules"
+  | "groups"
+  | "profile"
+  | "notifications"
+  | "personalization"
+  | "help"
+  | "privacy";
 
 export interface SettingsSubsection {
   tab: SettingsTab;
@@ -14,7 +22,7 @@ export interface SettingsSubsection {
 }
 
 export interface SettingsSection {
-  id: "account" | "finance" | "sharing";
+  id: "account" | "finance" | "sharing" | "application" | "data";
   label: () => string;
   icon: typeof User;
   subs: SettingsSubsection[];
@@ -29,23 +37,12 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
       {
         tab: "profile",
         label: () => m.settings_tab_profile(),
-        keywords: [
-          "profil",
-          "imię",
-          "email",
-          "konto",
-          "powiadomienia",
-          "usuń konto",
-          "usuń dane",
-          "przykład",
-          "demo",
-          "eksport",
-        ],
+        keywords: ["profil", "imię", "email", "konto"],
       },
       {
-        tab: "personalization",
-        label: () => m.settings_tab_personalization(),
-        keywords: ["personalizacja", "kolor", "akcent", "motyw", "awatar", "wygląd"],
+        tab: "notifications",
+        label: () => m.settings_tab_notifications(),
+        keywords: ["powiadomienia", "przypomnienie", "import", "push"],
       },
     ],
   },
@@ -57,7 +54,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
       {
         tab: "categories",
         label: () => m.settings_tab_categories(),
-        keywords: ["kategorie", "wydatki", "przychody"],
+        keywords: ["kategorie", "limity", "wydatki", "przychody"],
       },
       {
         tab: "rules",
@@ -74,7 +71,36 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
       {
         tab: "groups",
         label: () => m.settings_tab_groups(),
-        keywords: ["grupy", "zaproszenia", "członkowie", "inne", "wspólnie"],
+        keywords: ["grupy", "zaproszenia", "członkowie", "wspólnie", "własność"],
+      },
+    ],
+  },
+  {
+    id: "application",
+    label: () => m.settings_section_application(),
+    icon: LifeBuoy,
+    subs: [
+      {
+        tab: "personalization",
+        label: () => m.settings_tab_personalization(),
+        keywords: ["personalizacja", "kolor", "akcent", "motyw", "awatar", "wygląd"],
+      },
+      {
+        tab: "help",
+        label: () => m.settings_tab_help(),
+        keywords: ["pomoc", "przewodnik", "przykład", "demo", "słownik"],
+      },
+    ],
+  },
+  {
+    id: "data",
+    label: () => m.settings_section_data(),
+    icon: Shield,
+    subs: [
+      {
+        tab: "privacy",
+        label: () => m.settings_tab_privacy(),
+        keywords: ["eksport", "usuń konto", "usuń dane", "prywatność", "dane"],
       },
     ],
   },

@@ -77,7 +77,7 @@ test("plan page offers Powiąż and Pomiń for a high-rank plan match", async ({
 
   await expect(page.getByText("Hotel wakacje")).toBeVisible({ timeout: 10_000 });
   await expect(page.getByRole("button", { name: "Powiąż" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Pomiń" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "To nie wpłata" })).toBeVisible();
   await expect(page.getByText(/dopasowanie|Może pasować|Słabe trafienie/)).toHaveCount(0);
 
   await page.goto("/dashboard");
@@ -89,7 +89,7 @@ test("Pomiń on the plan keeps the match hidden", async ({ page }) => {
 
   await page.goto("/plans/plan-match-1");
   await expect(page.getByText("Hotel wakacje")).toBeVisible({ timeout: 10_000 });
-  await page.getByRole("button", { name: "Pomiń" }).click();
+  await page.getByRole("button", { name: "To nie wpłata" }).click();
   await expect(page.getByText("Hotel wakacje")).toHaveCount(0);
 
   await page.goto("/dashboard");
