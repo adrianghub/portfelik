@@ -12,4 +12,4 @@ overrides:
   cookie: ^0.7.0
   # Dev/test-only (jsdom > undici); patches 7 Dependabot advisories. Not in the shipped bundle.
   # Pinned to the 7.x line jsdom 29 is tested against (avoid the undici 8 major bump).
-  undici: ^7.28.0
+  undici: ^7.30.0
