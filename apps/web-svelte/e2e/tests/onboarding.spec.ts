@@ -201,14 +201,14 @@ test.describe("onboarding hardening", () => {
   });
 
   test("opens glossary from settings", async ({ page }) => {
-    await page.goto("/settings?tab=profile");
+    await page.goto("/settings?tab=help");
     await page.getByRole("button", { name: "Słownik pojęć" }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Import bankowy" })).toBeVisible();
   });
 
   test("loads demo from settings on empty ledger", async ({ page }) => {
-    await page.goto("/settings?tab=profile");
+    await page.goto("/settings?tab=help");
     await page.getByRole("button", { name: "Wczytaj przykładowy miesiąc" }).click();
     await expect(page.getByText("Przykładowy miesiąc jest gotowy.")).toBeVisible();
   });
@@ -216,7 +216,7 @@ test.describe("onboarding hardening", () => {
   test("demo banner is on kokpit, transactions, and plans, and clearing it works", async ({
     page,
   }) => {
-    await page.goto("/settings?tab=profile");
+    await page.goto("/settings?tab=help");
     await page.getByRole("button", { name: "Wczytaj przykładowy miesiąc" }).click();
     await expect(page.getByText("Przykładowy miesiąc jest gotowy.")).toBeVisible();
 

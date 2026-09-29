@@ -7,7 +7,7 @@
   } from "$lib/services/plan-settlement";
   import { todayIso } from "$lib/services/plans";
   import type { PlanDebtTerms } from "$lib/types";
-  import { getPlanEmoji } from "$lib/utils/plan-emoji";
+  import PlanMark from "$lib/components/plans/PlanMark.svelte";
   import { formatCurrency, formatDate } from "$lib/utils";
   import { createQuery } from "@tanstack/svelte-query";
   import { session } from "$lib/auth/session.svelte";
@@ -95,7 +95,6 @@
 </script>
 
 {#snippet planRow(plan: PlanSettlementProgress)}
-  {@const emoji = getPlanEmoji(undefined, plan.planName)}
   {@const terms = plan.kind === "debt" ? debtTermsQuery.data?.[plan.planId] : undefined}
   {@const display = progressDisplay(plan, terms)}
   <li>
@@ -104,18 +103,7 @@
       class="block rounded-xl border border-white/5 px-3 py-1.5 transition-colors hover:bg-white/5"
     >
       <div class="flex min-w-0 items-center gap-2">
-        <div
-          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-800 text-sm"
-          aria-hidden="true"
-        >
-          {#if emoji}
-            {emoji}
-          {:else}
-            <span class="text-xs font-semibold text-slate-400">
-              {plan.planName.charAt(0).toUpperCase()}
-            </span>
-          {/if}
-        </div>
+        <PlanMark kind={plan.kind ?? "save"} size="sm" />
         <span class="min-w-0 flex-1 truncate text-sm font-medium text-slate-200">
           {plan.planName}
         </span>

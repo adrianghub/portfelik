@@ -7,6 +7,7 @@
     loginUrlForTarget,
     rememberLoginRedirect,
   } from "$lib/auth-redirect";
+  import BetaRibbon from "$lib/components/BetaRibbon.svelte";
   import BrandMark from "$lib/components/BrandMark.svelte";
   import Navigation from "$lib/components/Navigation.svelte";
   import Breadcrumbs from "$lib/components/ui/Breadcrumbs.svelte";
@@ -293,6 +294,7 @@
   });
 </script>
 
+<BetaRibbon />
 <Toaster
   richColors
   position="bottom-right"

@@ -16,7 +16,7 @@ test.describe("native spine on a phone", () => {
     await mockSupabaseAPI(page);
 
     await page.goto("/dashboard");
-    await expect(page.locator(".md\\:hidden p")).toContainText(/Cześć|Hej|Witaj|Dzień dobry/, {
+    await expect(page.locator(".md\\:hidden p")).toContainText(/^Hej/, {
       timeout: 10_000,
     });
     await expect(page.getByText(/^Yo,/)).toHaveCount(0);
@@ -27,7 +27,6 @@ test.describe("native spine on a phone", () => {
     await expect(page).toHaveURL(/\/transactions/);
     await expect(page.getByRole("heading", { name: /transakcje/i })).toBeVisible();
 
-    await page.getByRole("button", { name: /^filtry/i }).click();
     await page.getByRole("button", { name: "Szukaj transakcji" }).click();
     const search = page.getByRole("search", { name: "Szukaj transakcji" });
     await expect(search).toBeVisible();
@@ -44,7 +43,7 @@ test.describe("native spine on a phone", () => {
     await page.getByRole("dialog").getByRole("button", { name: "Zamknij", exact: true }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
 
-    await page.getByRole("link", { name: "Import", exact: true }).click();
+    await page.getByRole("link", { name: "Importuj wyciąg", exact: true }).click();
     await expect(page).toHaveURL(/\/import/);
     await expect(page.getByText("Wybierz wyciąg")).toBeVisible();
 
