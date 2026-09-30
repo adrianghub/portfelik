@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { createMutation, useQueryClient } from "@tanstack/svelte-query";
   import { requireSessionUserId } from "$lib/auth/session.svelte";
   import { qk } from "$lib/query-keys";
@@ -33,6 +34,20 @@
   let editDateEnabled = $state(false);
   let editDayOfMonth = $state("1");
   let showAdvanced = $state(false);
+  let initialSnapshot = $state("");
+
+  const currentSnapshot = $derived(
+    JSON.stringify([
+      categoryId,
+      editDesc,
+      editCounterparty,
+      editDescEnabled,
+      editCounterpartyEnabled,
+      editDateEnabled,
+      editDayOfMonth,
+    ])
+  );
+  const dirty = $derived(currentSnapshot !== initialSnapshot);
 
   const editsText = $derived(rule?.kind !== "type");
   const typeLabel = $derived(
@@ -53,6 +68,17 @@
     editDateEnabled = rule.match_day_of_month != null;
     editDayOfMonth = String(rule.match_day_of_month ?? 1);
     showAdvanced = editDateEnabled;
+    initialSnapshot = untrack(() =>
+      JSON.stringify([
+        categoryId,
+        editDesc,
+        editCounterparty,
+        editDescEnabled,
+        editCounterpartyEnabled,
+        editDateEnabled,
+        editDayOfMonth,
+      ])
+    );
   });
 
   const filteredCategories = $derived(
@@ -89,9 +115,15 @@
     },
     onError: (err) => toastError(err),
   }));
+
+  function requestClose() {
+    if (mutation.isPending) return;
+    if (dirty && !window.confirm(m.common_unsaved_changes_confirm())) return;
+    onclose();
+  }
 </script>
 
-<Dialog {open} {onclose} title={m.bank_review_rule_edit()}>
+<Dialog {open} onclose={requestClose} title={m.bank_review_rule_edit()}>
   <div class="space-y-3">
     {#if typeLabel}
       <p class="rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-300">
@@ -169,7 +201,7 @@
     </div>
 
     <div class="flex justify-end gap-2 pt-1">
-      <Button variant="ghost" onclick={onclose} disabled={mutation.isPending}>
+      <Button variant="ghost" onclick={requestClose} disabled={mutation.isPending}>
         {m.common_cancel()}
       </Button>
       <Button

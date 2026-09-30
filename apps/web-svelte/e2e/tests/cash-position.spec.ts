@@ -111,7 +111,7 @@ test("private scope: strip shows live total and forecast", async ({ page }) => {
   await expect(strip(page)).toBeVisible();
   await expect(strip(page).locator("p.text-2xl")).toHaveText(/1\D?300,00/); // 1000 + 500 − 200
 
-  const forecast = page.getByRole("button", { name: /za 90 dni/ });
+  const forecast = page.getByRole("button", { name: /Po nadchodzących płatnościach/ });
   await expect(forecast).toBeVisible();
   await expect(forecast).toContainText(/1\D?600,00/);
 });
@@ -162,6 +162,6 @@ test("private scope: strip opens edit sheet with anchor fields", async ({ page }
   await expect(sheet).toBeVisible();
   await expect(sheet.getByLabel("Dzień salda początkowego")).toBeVisible();
   await expect(sheet.locator("#cash-opening-amount")).toHaveValue("1000");
-  await expect(sheet.getByLabel("Saldo początkowe gotówki")).toBeVisible();
-  await expect(sheet.getByText(/sprzed pierwszej transakcji z wybranego dnia/)).toBeVisible();
+  await expect(sheet.getByLabel("Saldo początkowe")).toBeVisible();
+  await expect(sheet.getByText(/na początku wybranego dnia/)).toBeVisible();
 });

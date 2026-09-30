@@ -35,10 +35,18 @@ test("search filters results inside the command palette", async ({ page }) => {
   await expect(search.getByText("Bilet miesięczny")).toBeVisible();
   await expect(search.getByText("Zakupy spożywcze")).toBeHidden();
 
+  await search.getByPlaceholder("Szukaj transakcji…").fill("transport");
+  await expect(search.getByText("Bilet miesięczny")).toBeVisible();
+  await expect(search.getByText("Zakupy spożywcze")).toBeHidden();
+
+  await search.getByPlaceholder("Szukaj transakcji…").fill("150,50");
+  await expect(search.getByText("Zakupy spożywcze")).toBeVisible();
+  await expect(search.getByText("Bilet miesięczny")).toBeHidden();
+
   // Clicking a result card closes the palette and opens the detail sheet.
-  await search.getByText("Bilet miesięczny").click();
+  await search.getByText("Zakupy spożywcze").click();
   await expect(search).toBeHidden();
-  await expect(page.locator("aside").getByText("Bilet miesięczny")).toBeVisible();
+  await expect(page.locator("aside").getByText("Zakupy spożywcze")).toBeVisible();
 });
 
 test("txId deep link opens transaction outside the current date range", async ({ page }) => {
@@ -199,6 +207,7 @@ test("add transaction: opens dialog and shows success toast", async ({ page }) =
   await page.locator("#tx-cat").click();
   await page.locator("#tx-cat").fill("Jedzenie");
   await page.getByRole("option", { name: "Jedzenie" }).click();
+  await expect(page.locator("#tx-cat")).toHaveValue("Jedzenie");
 
   // Submit
   await page.getByRole("button", { name: "Zapisz" }).click();
@@ -283,7 +292,7 @@ test("quick-settle marks an upcoming transaction paid", async ({ page }) => {
   await expect(settle).toBeVisible();
   await settle.click();
 
-  await expect(page.getByText("Oznaczono jako zapłacone")).toBeVisible();
+  await expect(page.getByText("Oznaczono jako opłacone")).toBeVisible();
   await expect(sheet.getByText("Opłacone", { exact: true })).toBeVisible();
   await expect(settle).toHaveCount(0);
 });
@@ -309,7 +318,7 @@ test("push settle keeps a failed action retryable and never shows false success"
 
   await expect.poll(() => patchCount).toBe(1);
   await expect(page).toHaveURL(/action=settle/);
-  await expect(page.getByText("Oznaczono jako zapłacone")).toHaveCount(0);
+  await expect(page.getByText("Oznaczono jako opłacone")).toHaveCount(0);
 
   const retry = page.locator("aside").getByRole("button", { name: "Oznacz jako opłacone" });
   await expect(retry).toBeVisible();

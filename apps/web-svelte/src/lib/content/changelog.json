@@ -1,12 +1,24 @@
 {
   "versions": [
     {
+      "version": "1.3.1",
+      "versionCode": 8,
+      "date": "2026-09-30",
+      "items": [
+        "Kokpit pokazuje dostępne teraz i kwotę po nadchodzących płatnościach — osobno od bilansu miesiąca.",
+        "Menu trzech kropek w Transakcjach otwiera się nad filtrami, a nie pod nimi.",
+        "Import przyjmuje wyłącznie wyciągi w PLN i łączy oznaczone zobowiązania z pasującymi transakcjami bankowymi.",
+        "Limity mówią wprost, ile zostało i do kiedy obowiązują.",
+        "Duże eksporty i importy zbierają wszystkie rekordy, nie tylko pierwszą stronę."
+      ]
+    },
+    {
       "version": "1.3.0",
       "versionCode": 7,
       "date": "2026-09-28",
       "items": [
-        "Kokpit wita Hej i pokazuje limity kategorii w bieżącym okresie.",
-        "W transakcjach jest jeden import. Opłaconą pozycję oznaczasz bez drugiego wpisu.",
+        "Kokpit wita po imieniu i pokazuje limity kategorii w bieżącym okresie.",
+        "W Transakcjach jest jeden przycisk importu. Opłaconą pozycję oznaczasz bez drugiego wpisu.",
         "Dostępne środki są prywatne i pokazują, ile zostanie za 90 dni.",
         "Ustawienia dzielą konto, finanse, współdzielenie, aplikację oraz dane.",
         "Wyciąg CSV obsługuje większość polskich instytucji bankowych."

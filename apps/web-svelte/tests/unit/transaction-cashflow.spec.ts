@@ -60,4 +60,20 @@ describe("transaction-cashflow", () => {
     ).toEqual(["overdue", "paid", "upcoming"]);
     expect(computeForecastSummary(forecastRows).total_expenses).toBe(550);
   });
+
+  it("keeps historical non-PLN rows out of PLN summaries", () => {
+    const mixedRows = [
+      tx({ id: "pln", status: "paid", amount: 200, currency: "PLN" }),
+      tx({ id: "eur", status: "paid", amount: 300, currency: "EUR" }),
+    ];
+
+    expect(computeLedgerSummary(mixedRows).total_expenses).toBe(200);
+  });
+
+  it("ignores a malformed row without a currency instead of crashing the summary", () => {
+    const malformed = tx({ id: "missing-currency", status: "paid", amount: 300 });
+    Reflect.deleteProperty(malformed, "currency");
+
+    expect(computeLedgerSummary([malformed]).total_expenses).toBe(0);
+  });
 });

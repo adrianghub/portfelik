@@ -115,6 +115,27 @@
   let recurrenceEndDate = $state<string>("");
   let group_id = $state<string>(untrack(() => initial?.group_id ?? ""));
   let formError = $state<string | null>(null);
+  let initialSnapshot = $state("");
+  const currentSnapshot = $derived(
+    JSON.stringify([
+      type,
+      amount,
+      counterparty,
+      description,
+      date,
+      category_id,
+      status,
+      is_recurring,
+      recurring_day,
+      recurrence_frequency,
+      recurrence_interval,
+      recurrence_weekday,
+      recurrence_month,
+      recurrenceEndDate,
+      group_id,
+    ])
+  );
+  const dirty = $derived(currentSnapshot !== initialSnapshot);
 
   $effect(() => {
     if (open) {
@@ -135,6 +156,25 @@
       recurrence_month = initial?.recurrence_month ?? new Date().getMonth() + 1;
       recurrenceEndDate = initial?.recurrence_end_date ?? "";
       group_id = initial?.group_id ?? planContext?.groupId ?? "";
+      initialSnapshot = untrack(() =>
+        JSON.stringify([
+          type,
+          amount,
+          counterparty,
+          description,
+          date,
+          category_id,
+          status,
+          is_recurring,
+          recurring_day,
+          recurrence_frequency,
+          recurrence_interval,
+          recurrence_weekday,
+          recurrence_month,
+          recurrenceEndDate,
+          group_id,
+        ])
+      );
     }
   });
 
@@ -325,12 +365,18 @@
       });
   }
 
+  function requestClose() {
+    if (mutation.isPending) return;
+    if (dirty && !window.confirm(m.common_unsaved_changes_confirm())) return;
+    onclose();
+  }
+
   const inputClass =
     "w-full scroll-mb-32 rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 placeholder:text-slate-500 backdrop-blur focus:border-accent/40 focus:ring-2 focus:ring-accent/30 focus:outline-none";
   const labelClass = "text-eyebrow block text-slate-400";
 </script>
 
-<Dialog {open} {onclose} {title}>
+<Dialog {open} onclose={requestClose} {title}>
   <form onsubmit={handleSubmit} class="space-y-4">
     {#if !planContext}
       <!-- Type toggle -->
@@ -570,7 +616,7 @@
     <div class="flex gap-2 pt-1">
       <button
         type="button"
-        onclick={onclose}
+        onclick={requestClose}
         class="flex-1 rounded-full border border-white/10 bg-slate-900/60 py-2 text-sm font-medium text-slate-200 backdrop-blur transition-colors hover:bg-white/5"
       >
         {m.common_cancel()}

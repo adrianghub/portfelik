@@ -1,15 +1,17 @@
 import type { MonthlySummary, TransactionWithCategory } from "$lib/types";
+import { isSupportedLedgerCurrency } from "$lib/ledger-currency";
 
 export function computeSummary(transactions: TransactionWithCategory[]): MonthlySummary {
-  const totalIncome = transactions
+  const supportedTransactions = transactions.filter((t) => isSupportedLedgerCurrency(t.currency));
+  const totalIncome = supportedTransactions
     .filter((t) => t.type === "income")
     .reduce((s, t) => s + t.amount, 0);
-  const totalExpenses = transactions
+  const totalExpenses = supportedTransactions
     .filter((t) => t.type === "expense")
     .reduce((s, t) => s + t.amount, 0);
 
   const catMap = new Map<string, { name: string; total: number; count: number }>();
-  transactions
+  supportedTransactions
     .filter((t) => t.type === "expense")
     .forEach((t) => {
       const e = catMap.get(t.category_id);

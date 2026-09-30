@@ -1,7 +1,7 @@
 import { browser } from "$app/environment";
 import { PUBLIC_PLAUSIBLE_DOMAIN } from "$env/static/public";
 
-export type AnalyticsEvent =
+export type MilestoneEvent =
   | "onboarding_started"
   | "guided_tour_started"
   | "guided_tour_scene_viewed"
@@ -19,9 +19,14 @@ export type AnalyticsEvent =
   | "pwa_install_prompt_shown"
   | "push_enabled";
 
+export type DiagnosticEvent =
+  "client_error" | "mutation_failure" | "import_failure" | "parser_failure";
+
+export type AnalyticsEvent = MilestoneEvent | DiagnosticEvent;
+
 export type AnalyticsProps = Record<string, string | number | boolean>;
 
-const MILESTONE_KEYS: Record<AnalyticsEvent, string> = {
+const MILESTONE_KEYS: Record<MilestoneEvent, string> = {
   onboarding_started: "analytics:onboarding_started",
   guided_tour_started: "analytics:guided_tour_started",
   guided_tour_scene_viewed: "analytics:guided_tour_scene_viewed",
@@ -101,7 +106,7 @@ export function track(event: AnalyticsEvent, props?: AnalyticsProps): void {
 }
 
 /** Fire a milestone event at most once per browser profile. */
-export function trackOnce(event: AnalyticsEvent, props?: AnalyticsProps): void {
+export function trackOnce(event: MilestoneEvent, props?: AnalyticsProps): void {
   if (typeof localStorage === "undefined") {
     track(event, props);
     return;

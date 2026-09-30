@@ -13,7 +13,14 @@ import {
 const anchor = { opening_amount: 1000, as_of_date: "2026-06-01" };
 
 function tx(over: Partial<RunningBalanceTx> & { id: string }): RunningBalanceTx {
-  return { type: "expense", amount: 0, status: "upcoming", date: "2026-07-01", ...over };
+  return {
+    type: "expense",
+    amount: 0,
+    status: "upcoming",
+    date: "2026-07-01",
+    currency: "PLN",
+    ...over,
+  };
 }
 
 describe("forecastMovementTotals", () => {

@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
+import { isoDaysFromToday, TEST_USER_ID } from "../helpers/fixtures";
 
 function currentCalendarMonthRange(): { start: string; end: string } {
   const now = new Date();
@@ -37,6 +38,90 @@ test.describe("dashboard mobile layout", () => {
       return doc.scrollWidth > doc.clientWidth + 1;
     });
     expect(overflowAtStatus).toBe(false);
+  });
+
+  test("shows the full profile name and separates current cash from the 90-day forecast", async ({
+    page,
+  }) => {
+    const today = isoDaysFromToday(0);
+    const cashRows = [
+      {
+        id: "dashboard-cash-income",
+        date: today,
+        description: "Wpływ",
+        amount: 500,
+        type: "income",
+        status: "paid",
+        currency: "PLN",
+        user_id: TEST_USER_ID,
+        group_id: null,
+        is_recurring: false,
+      },
+      {
+        id: "dashboard-cash-expense",
+        date: today,
+        description: "Zakup",
+        amount: 200,
+        type: "expense",
+        status: "paid",
+        currency: "PLN",
+        user_id: TEST_USER_ID,
+        group_id: null,
+        is_recurring: false,
+      },
+      {
+        id: "dashboard-cash-upcoming",
+        date: isoDaysFromToday(7),
+        description: "Rachunek",
+        amount: 300,
+        type: "expense",
+        status: "upcoming",
+        currency: "PLN",
+        user_id: TEST_USER_ID,
+        group_id: null,
+        is_recurring: false,
+      },
+    ];
+
+    await page.route("**/rest/v1/profiles**", (route) =>
+      route.fulfill({
+        status: 200,
+        json: {
+          id: TEST_USER_ID,
+          email: "test@portfelik.test",
+          name: "Mr. Zinko",
+          role: "user",
+          settings: { guidedTour: { dismissed: true } },
+        },
+      })
+    );
+    await page.route("**/rest/v1/cash_positions**", (route) =>
+      route.fulfill({
+        status: 200,
+        json: {
+          owner_id: TEST_USER_ID,
+          group_id: null,
+          opening_amount: 1000,
+          as_of_date: today,
+        },
+      })
+    );
+    await page.route("**/rest/v1/transactions_with_category**", (route) => {
+      const url = route.request().url();
+      return route.fulfill({
+        status: 200,
+        json: url.includes("is_recurring=eq.true") ? [] : cashRows,
+      });
+    });
+
+    await page.goto("/dashboard");
+
+    await expect(page.getByRole("heading", { name: "Hej, Mr. Zinko!" })).toBeVisible();
+    const cash = page.getByTestId("dashboard-cash-position");
+    await expect(cash.getByText("Dostępne teraz", { exact: true })).toBeVisible();
+    await expect(cash.getByText("Po nadchodzących płatnościach", { exact: true })).toBeVisible();
+    await expect(cash).toContainText(/1\D?300,00/);
+    await expect(cash).toContainText(/1\D?000,00/);
   });
 
   test("spending accordion expands on mobile", async ({ page }) => {

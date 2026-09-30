@@ -303,7 +303,14 @@
   const privatePaidTxs = $derived(
     (paidHistoryQuery.data ?? [])
       .filter((t) => (t.group_id ?? null) === null)
-      .map((t) => ({ id: t.id, type: t.type, amount: t.amount, status: t.status, date: t.date }))
+      .map((t) => ({
+        id: t.id,
+        type: t.type,
+        amount: t.amount,
+        status: t.status,
+        date: t.date,
+        currency: t.currency,
+      }))
   );
 
   const cashAnchor = $derived(cashAnchorQuery.data ?? null);
@@ -411,9 +418,20 @@
   const visibleTxs = $derived(
     displayTxs?.filter((tx) => {
       if (!searchQuery) return true;
-      const q = searchQuery.toLowerCase();
+      const q = searchQuery.trim().toLocaleLowerCase("pl-PL");
+      const compactAmountQuery = q.replaceAll("\u00a0", "").replaceAll(" ", "").replace(",", ".");
+      const amountText = String(tx.amount).replace(",", ".");
+      const formattedAmount = formatCurrency(tx.amount, tx.currency)
+        .toLocaleLowerCase("pl-PL")
+        .replaceAll("\u00a0", "")
+        .replaceAll(" ", "")
+        .replace(",", ".");
       return (
-        tx.description?.toLowerCase().includes(q) || tx.counterparty?.toLowerCase().includes(q)
+        tx.description?.toLocaleLowerCase("pl-PL").includes(q) ||
+        tx.counterparty?.toLocaleLowerCase("pl-PL").includes(q) ||
+        tx.category_name?.toLocaleLowerCase("pl-PL").includes(q) ||
+        amountText.includes(compactAmountQuery) ||
+        formattedAmount.includes(compactAmountQuery)
       );
     })
   );
@@ -562,6 +580,7 @@
       amount: tx.amount,
       status: tx.status,
       date: tx.date,
+      currency: tx.currency,
     }));
   });
   const cashForecastTxs = $derived([...privatePaidTxs, ...privateForecastProjectedTxs]);
@@ -1259,7 +1278,7 @@
         onemptydemo={discovery ? requestDemoSeedAndTour : undefined}
         emptyDemoDisabled={guidedTourUi.demoBusy}
         bind:selectedIds
-        stickyHeaderTop={`calc(var(--app-header-offset) + ${stickyFiltersHeight}px)`}
+        stickyHeaderTop={`calc(var(--app-content-offset) + ${stickyFiltersHeight}px)`}
         onrowclick={(tx) => (sheetTx = tx)}
         onsettle={quickSettle}
         ondelete={(id: string) => (deleteTargetId = id)}

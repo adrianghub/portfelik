@@ -7,6 +7,7 @@
   import DashboardActions from "$lib/components/dashboard/DashboardActions.svelte";
   import DashboardPlanProgress from "$lib/components/dashboard/DashboardPlanProgress.svelte";
   import DashboardBalanceHero from "$lib/components/dashboard/DashboardBalanceHero.svelte";
+  import DashboardCashPosition from "$lib/components/dashboard/DashboardCashPosition.svelte";
   import DashboardSpendingInsight from "$lib/components/dashboard/DashboardSpendingInsight.svelte";
   import DashboardViewToolbar from "$lib/components/dashboard/DashboardViewToolbar.svelte";
   import DashboardDiscovery from "$lib/components/dashboard/DashboardDiscovery.svelte";
@@ -51,6 +52,15 @@
     resolveCeleCategoryId,
   } from "$lib/services/goal-spending";
   import { fetchRecurringOccurrenceSkips } from "$lib/services/recurring-occurrences";
+  import { localDateIso } from "$lib/date-local";
+  import {
+    CASH_FETCH_END_SENTINEL,
+    cashForecastHorizonEnd,
+    cashForecastProjectionEnd,
+    fetchPrivateCashPosition,
+    forecastPosition,
+    livePosition,
+  } from "$lib/services/cash-position";
   import {
     forwardForecastTransactions,
     recurringProjectionsForTransactionRange,
@@ -99,8 +109,7 @@
 
   const greetingName = $derived.by(() => {
     const raw = profileQuery.data?.name?.trim();
-    if (!raw) return "";
-    return raw.split(/\s+/)[0] ?? raw;
+    return raw ?? "";
   });
 
   type Period = DashboardPeriod;
@@ -217,6 +226,19 @@
     queryKey: qk.profile(session.userId!),
     queryFn: () => fetchProfile(session.userId!),
     enabled: () => !!session.userId,
+  }));
+
+  const cashAnchorQuery = createQuery(() => ({
+    queryKey: qk.cashPosition(session.userId!),
+    queryFn: fetchPrivateCashPosition,
+    enabled: () => !!session.userId,
+  }));
+
+  const cashAnchorStart = $derived(cashAnchorQuery.data?.as_of_date ?? "2000-01-01");
+  const cashHistoryQuery = createQuery(() => ({
+    queryKey: qk.transactions.list(session.userId!, "cash-history", cashAnchorStart),
+    queryFn: () => fetchTransactions(cashAnchorStart, CASH_FETCH_END_SENTINEL),
+    enabled: () => !!session.userId && cashAnchorQuery.isSuccess && !!cashAnchorQuery.data,
   }));
 
   const plansQuery = createQuery(() => ({
@@ -565,6 +587,77 @@
     enabled: () => !!session.userId,
     staleTime: 60_000,
   }));
+
+  // The headline cash forecast has a fixed horizon independent of the selected
+  // reporting period. A week dashboard view must still account for the same
+  // 90-day obligations as the private cash view in Transakcje.
+  const cashForecastToday = $derived(localDateIso());
+  const cashForecastHorizon = $derived(cashForecastHorizonEnd(cashForecastToday));
+  const cashProjectionEnd = $derived(cashForecastProjectionEnd(cashForecastToday));
+  const cashRecurringSkipsQuery = createQuery(() => ({
+    queryKey: qk.transactions.list(
+      session.userId!,
+      "dashboard-cash-recurring-skips",
+      cashForecastToday,
+      cashProjectionEnd
+    ),
+    queryFn: () => fetchRecurringOccurrenceSkips(cashForecastToday, cashProjectionEnd),
+    enabled: () => !!session.userId && !!cashAnchorQuery.data,
+    staleTime: 60_000,
+  }));
+
+  const privateCashTxs = $derived(
+    (cashHistoryQuery.data ?? [])
+      .filter((tx) => (tx.group_id ?? null) === null)
+      .map((tx) => ({
+        id: tx.id,
+        type: tx.type,
+        amount: tx.amount,
+        status: tx.status,
+        date: tx.date,
+        currency: tx.currency,
+      }))
+  );
+  const privateCashProjectedTxs = $derived.by(() => {
+    if (!cashAnchorQuery.data) return [];
+    const privateTemplates = (recurringTemplatesQuery.data ?? []).filter(
+      (tx) => (tx.group_id ?? null) === null
+    );
+    if (privateTemplates.length === 0) return [];
+    const privateReal = (cashHistoryQuery.data ?? []).filter(
+      (tx) => (tx.group_id ?? null) === null
+    );
+    return recurringProjectionsForTransactionRange({
+      templates: privateTemplates,
+      existing: privateReal,
+      skipped: cashRecurringSkipsQuery.data ?? [],
+      start: cashForecastToday,
+      end: cashProjectionEnd,
+    }).map((tx) => ({
+      id: tx.id,
+      type: tx.type,
+      amount: tx.amount,
+      status: tx.status,
+      date: tx.date,
+      currency: tx.currency,
+    }));
+  });
+  const cashPositionTxs = $derived([...privateCashTxs, ...privateCashProjectedTxs]);
+  const cashPositionOptions = $derived({
+    today: cashForecastToday,
+    horizonEnd: cashForecastHorizon,
+  });
+  const currentCashPosition = $derived(livePosition(cashAnchorQuery.data ?? null, cashPositionTxs));
+  const afterUpcomingCashPosition = $derived(
+    forecastPosition(cashAnchorQuery.data ?? null, cashPositionTxs, cashPositionOptions)
+  );
+  const cashPositionLoading = $derived(
+    cashAnchorQuery.isPending ||
+      (!!cashAnchorQuery.data &&
+        (cashHistoryQuery.isPending ||
+          recurringTemplatesQuery.isPending ||
+          cashRecurringSkipsQuery.isPending))
+  );
   // Forecast source = scheduled real rows (one-off upcoming + materialized
   // recurring occurrences) UNIONed with deduped projections — so the chart's
   // forecast region agrees with the /transactions upcoming list for a window,
@@ -700,7 +793,7 @@
   });
 
   const overdueSummary = $derived.by(() => {
-    const overdue = scopeFilter(overdueQuery.data ?? []);
+    const overdue = scopeFilter(overdueQuery.data ?? []).filter((tx) => tx.currency === "PLN");
     if (overdue.length === 0) return null;
 
     const dates = overdue.map((tx) => tx.date.slice(0, 10)).sort();
@@ -813,28 +906,26 @@
 <div class="container mx-auto max-w-4xl min-w-0 space-y-4 px-4 py-6 md:max-w-5xl">
   <!-- Header - mobile -->
   <div class="md:hidden">
-    <p class="truncate text-base font-medium text-slate-100">
-      {#if profileQuery.data}
+    <h1 class="truncate text-2xl font-semibold tracking-tight text-slate-100">
+      {#if profileQuery.isSuccess}
         {greetingName ? m.dashboard_greeting({ name: greetingName }) : m.dashboard_greeting_plain()}
       {:else}
         &nbsp;
       {/if}
-    </p>
+    </h1>
   </div>
 
   <!-- Header - desktop -->
   <div class="hidden items-start justify-between md:flex">
     <div>
-      {#if profileQuery.data}
-        <p class="mb-0.5 text-base text-slate-400">
+      {#if profileQuery.isSuccess}
+        <h1 class="text-2xl font-semibold tracking-tight text-slate-100">
           {greetingName
             ? m.dashboard_greeting({ name: greetingName })
             : m.dashboard_greeting_plain()}
-        </p>
+        </h1>
       {/if}
-      <h1 class="text-hero font-semibold text-slate-100">
-        {m.dashboard_title()}
-      </h1>
+      <p class="mt-1 text-sm text-slate-400">{m.dashboard_title()}</p>
     </div>
   </div>
 
@@ -869,6 +960,13 @@
         restarting={restartTourMutation.isPending}
       />
     {/if}
+
+    <DashboardCashPosition
+      live={currentCashPosition}
+      forecast={afterUpcomingCashPosition}
+      hasAnchor={!!cashAnchorQuery.data}
+      loading={cashPositionLoading}
+    />
 
     <!-- Financial overview: balance beside spending and history on wide screens -->
     {#if txQuery.isLoading}
