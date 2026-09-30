@@ -5,6 +5,8 @@
   import { cubicOut } from "svelte/easing";
   import { motionDuration } from "$lib/motion";
   import { hideMobileChrome, registerNativeOverlayCloser } from "$lib/services/native-overlay";
+  import { focusFirstInOverlay, trapOverlayTab } from "$lib/focus-trap";
+  import * as m from "$lib/paraglide/messages";
 
   interface Props {
     open: boolean;
@@ -24,6 +26,7 @@
   let dragY = $state(0);
   let dragging = $state(false);
   let dragStartY = 0;
+  let panel = $state<HTMLElement | null>(null);
 
   const backdropOpacity = $derived(Math.max(0.15, 0.6 - dragY / 420));
 
@@ -32,7 +35,13 @@
   }
 
   function onkeydown(e: KeyboardEvent) {
-    if (e.key === "Escape") onclose();
+    if (!open) return;
+    if (e.key === "Escape") {
+      e.preventDefault();
+      onclose();
+      return;
+    }
+    if (panel) trapOverlayTab(e, panel);
   }
 
   function portal(node: HTMLElement) {
@@ -83,11 +92,17 @@
 
   $effect(() => {
     if (!open || typeof document === "undefined") return;
+    const previousFocus =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const releaseChrome = hideMobileChrome();
     const unregister = registerNativeOverlayCloser(() => onclose());
+    queueMicrotask(() => {
+      if (open && panel) focusFirstInOverlay(panel);
+    });
     return () => {
       unregister();
       releaseChrome();
+      queueMicrotask(() => previousFocus?.focus({ preventScroll: true }));
     };
   });
 
@@ -112,6 +127,7 @@
     transition:fade={{ duration: motionDuration(180), easing: cubicOut }}
   >
     <div
+      bind:this={panel}
       class="sheet-panel flex max-h-[min(90dvh,100%)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-white/5 bg-slate-900/95 pb-(--safe-bottom) shadow-[0_-12px_40px_rgba(0,0,0,0.4)] backdrop-blur"
       class:sheet-panel--dragging={dragging}
       style:transform={dragY > 0 ? `translateY(${dragY}px)` : undefined}
@@ -148,7 +164,7 @@
             type="button"
             onclick={onclose}
             class="focus-visible:ring-accent flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-100 focus-visible:ring-2 focus-visible:outline-none"
-            aria-label="Zamknij"
+            aria-label={m.common_close()}
           >
             <X size={16} strokeWidth={1.8} aria-hidden="true" />
           </button>

@@ -4,15 +4,43 @@ vi.mock("$lib/supabase", () => ({ supabase: {} }));
 
 import { runningBalances } from "$lib/services/cash-position";
 
-type Tx = { id: string; type: "income" | "expense"; amount: number; status: string; date: string };
+type Tx = {
+  id: string;
+  type: "income" | "expense";
+  amount: number;
+  status: string;
+  date: string;
+  currency: string;
+};
 
 const anchor = { opening_amount: 1000, as_of_date: "2026-06-01" };
 
 const txs: Tx[] = [
-  { id: "a", type: "income", amount: 500, status: "paid", date: "2026-06-05T10:00:00Z" },
-  { id: "b", type: "expense", amount: 200, status: "paid", date: "2026-06-06T09:00:00Z" },
-  { id: "c", type: "expense", amount: 999, status: "paid", date: "2026-05-31T09:00:00Z" }, // before anchor → ignored
-  { id: "d", type: "income", amount: 300, status: "upcoming", date: "2026-06-20" }, // not paid → ignored
+  {
+    id: "a",
+    type: "income",
+    amount: 500,
+    status: "paid",
+    date: "2026-06-05T10:00:00Z",
+    currency: "PLN",
+  },
+  {
+    id: "b",
+    type: "expense",
+    amount: 200,
+    status: "paid",
+    date: "2026-06-06T09:00:00Z",
+    currency: "PLN",
+  },
+  {
+    id: "c",
+    type: "expense",
+    amount: 999,
+    status: "paid",
+    date: "2026-05-31T09:00:00Z",
+    currency: "PLN",
+  }, // before anchor → ignored
+  { id: "d", type: "income", amount: 300, status: "upcoming", date: "2026-06-20", currency: "PLN" }, // not paid → ignored
 ];
 
 describe("runningBalances", () => {
@@ -26,8 +54,22 @@ describe("runningBalances", () => {
 
   it("orders same-day rows by id for a stable running balance", () => {
     const sameDay: Tx[] = [
-      { id: "y", type: "expense", amount: 40, status: "paid", date: "2026-06-10T20:00:00Z" },
-      { id: "x", type: "income", amount: 100, status: "paid", date: "2026-06-10T08:00:00Z" },
+      {
+        id: "y",
+        type: "expense",
+        amount: 40,
+        status: "paid",
+        date: "2026-06-10T20:00:00Z",
+        currency: "PLN",
+      },
+      {
+        id: "x",
+        type: "income",
+        amount: 100,
+        status: "paid",
+        date: "2026-06-10T08:00:00Z",
+        currency: "PLN",
+      },
     ];
     const map = runningBalances(anchor, sameDay);
     // id "x" before "y" regardless of input order / wall-clock time

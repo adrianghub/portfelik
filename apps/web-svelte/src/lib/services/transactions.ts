@@ -78,6 +78,7 @@ export async function fetchAllTransactionsForExport(): Promise<TransactionWithCa
       .from("transactions_with_category")
       .select("*")
       .order("date", { ascending: false })
+      .order("id")
       .range(from, from + PAGE_SIZE - 1);
     if (error) throw error;
     all.push(...(data as TransactionWithCategory[]));

@@ -4,34 +4,31 @@ import { resolve } from "node:path";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const mockUser = { id: "user-1" };
+let ruleRows: unknown[] = [{ id: "r1" }];
+
+function pagedRows(rows: unknown[]) {
+  const builder = {
+    select: vi.fn(() => builder),
+    eq: vi.fn(() => builder),
+    in: vi.fn(() => builder),
+    order: vi.fn(() => builder),
+    range: vi.fn(async (from: number, to: number) => ({
+      data: rows.slice(from, to + 1),
+      error: null,
+    })),
+  };
+  return builder;
+}
 
 const fromHandlers: Record<string, () => unknown> = {
-  categorization_rules: () => ({
-    select: vi.fn().mockReturnThis(),
-    order: vi.fn(async () => ({ data: [{ id: "r1" }], error: null })),
-  }),
-  bank_accounts: () => ({
-    select: vi.fn(async () => ({ data: [], error: null })),
-  }),
-  transaction_import_sessions: () => ({
-    select: vi.fn().mockReturnThis(),
-    order: vi.fn(async () => ({ data: [], error: null })),
-  }),
-  cash_positions: () => ({
-    select: vi.fn().mockReturnThis(),
-    eq: vi.fn(async () => ({
-      data: [{ owner_id: "user-1", opening_amount: 500 }],
-      error: null,
-    })),
-  }),
-  net_worth_items: () => ({
-    select: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockReturnThis(),
-    order: vi.fn(async () => ({
-      data: [{ label: "ETF", amount: 1000, currency: "PLN" }],
-      error: null,
-    })),
-  }),
+  categories: () => pagedRows([{ id: "c1" }]),
+  plans: () => pagedRows([{ id: "p1" }]),
+  user_groups: () => pagedRows([{ id: "g1" }]),
+  categorization_rules: () => pagedRows(ruleRows),
+  bank_accounts: () => pagedRows([]),
+  transaction_import_sessions: () => pagedRows([]),
+  cash_positions: () => pagedRows([{ owner_id: "user-1", opening_amount: 500 }]),
+  net_worth_items: () => pagedRows([{ label: "ETF", amount: 1000, currency: "PLN" }]),
   profiles: () => ({
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
@@ -48,30 +45,11 @@ const fromHandlers: Record<string, () => unknown> = {
       error: null,
     })),
   }),
-  plan_debt_terms: () => ({
-    select: vi.fn().mockReturnThis(),
-    in: vi.fn(async () => ({ data: [{ plan_id: "p1" }], error: null })),
-  }),
-  plan_transaction_links: () => ({
-    select: vi.fn().mockReturnThis(),
-    in: vi.fn(async () => ({ data: [{ id: "link-1", plan_id: "p1" }], error: null })),
-  }),
-  plan_progress_snapshots: () => ({
-    select: vi.fn().mockReturnThis(),
-    in: vi.fn().mockReturnThis(),
-    order: vi.fn(async () => ({
-      data: [{ id: "ps1", plan_id: "p1", saved_amount: 250 }],
-      error: null,
-    })),
-  }),
-  group_members: () => ({
-    select: vi.fn().mockReturnThis(),
-    in: vi.fn(async () => ({ data: [{ group_id: "g1", user_id: "user-1" }], error: null })),
-  }),
-  recurring_occurrence_skips: () => ({
-    select: vi.fn().mockReturnThis(),
-    order: vi.fn(async () => ({ data: [{ id: "skip-1" }], error: null })),
-  }),
+  plan_debt_terms: () => pagedRows([{ plan_id: "p1" }]),
+  plan_transaction_links: () => pagedRows([{ id: "link-1", plan_id: "p1" }]),
+  plan_progress_snapshots: () => pagedRows([{ id: "ps1", plan_id: "p1", saved_amount: 250 }]),
+  group_members: () => pagedRows([{ group_id: "g1", user_id: "user-1" }]),
+  recurring_occurrence_skips: () => pagedRows([{ id: "skip-1" }]),
 };
 
 vi.mock("$lib/supabase", () => ({
@@ -129,6 +107,14 @@ function finalPublicTablesFromMigrations(): string[] {
 describe("buildAccountExport", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    ruleRows = [{ id: "r1" }];
+  });
+
+  it("exports every page when a collection exceeds the Data API row cap", async () => {
+    ruleRows = Array.from({ length: 1001 }, (_, index) => ({ id: `r${index}` }));
+    const bundle = await buildAccountExport();
+    expect(bundle.categorization_rules).toHaveLength(1001);
+    expect(bundle.categorization_rules.at(-1)).toEqual({ id: "r1000" });
   });
 
   it("includes balance-sheet keys under the informational contract", async () => {

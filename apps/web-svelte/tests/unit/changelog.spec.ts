@@ -20,12 +20,12 @@ const play = readPlayVersion(
 describe("changelog", () => {
   it("matches the Play bundle and package.json", () => {
     expect(changelogProblems(changelog, { packageVersion, play })).toEqual([]);
-    expect(appVersion).toBe("1.3.0");
-    expect(play).toEqual({ versionName: "1.3.0", versionCode: 7 });
+    expect(appVersion).toBe("1.3.1");
+    expect(play).toEqual({ versionName: "1.3.1", versionCode: 8 });
   });
 
   it("formats the release date in Polish", () => {
-    expect(formatChangelogDate("2026-09-28")).toBe("28 września 2026");
+    expect(formatChangelogDate("2026-09-30")).toBe("30 września 2026");
   });
 
   it("returns only to known in-app paths", () => {
@@ -39,8 +39,8 @@ describe("changelog", () => {
 
   it("renders release notes with the Play version code", () => {
     const notes = releaseNotesMarkdown(changelog[0]);
-    expect(notes).toContain("# 1.3.0");
-    expect(notes).toContain("Kod wersji 7.");
-    expect(notes).toContain("- Kokpit wita Hej");
+    expect(notes).toContain("# 1.3.1");
+    expect(notes).toContain("Kod wersji 8.");
+    expect(notes).toContain("- Kokpit pokazuje dostępne teraz");
   });
 });

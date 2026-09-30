@@ -73,16 +73,18 @@
           const cap = pile.cap_amount!;
           const pct = Math.min(100, Math.round((spent / cap) * 100));
           const left = Math.max(0, cap - spent);
-          return { pile, spent, cap, pct, over: spent > cap, left };
+          const exceeded = Math.max(0, spent - cap);
+          const periodEnd = pileWindow(pile.cap_period!, today).end;
+          return { pile, spent, cap, pct, over: spent > cap, left, exceeded, periodEnd };
         })
       : []
   );
 
   const scopeLabel = $derived(
     groupFilter === "own"
-      ? m.dashboard_scope_own()
+      ? m.cap_scope_private()
       : groupFilter === "all"
-        ? m.group_filter_all()
+        ? m.cap_scope_combined()
         : (groups.find((group) => group.id === groupFilter)?.name ?? m.group_badge_shared())
   );
 
@@ -90,6 +92,14 @@
   let limitCategoryId = $state("");
   let limitAmount = $state("");
   let limitPeriod = $state<CategoryCapPeriod>("month");
+  let initialLimitCategoryId = $state("");
+  let initialLimitAmount = $state("");
+  let initialLimitPeriod = $state<CategoryCapPeriod>("month");
+  const limitDirty = $derived(
+    limitCategoryId !== initialLimitCategoryId ||
+      limitAmount !== initialLimitAmount ||
+      limitPeriod !== initialLimitPeriod
+  );
 
   function openLimit(categoryId?: string) {
     const category =
@@ -97,7 +107,16 @@
     limitCategoryId = category?.id ?? "";
     limitAmount = category?.cap_amount != null ? String(category.cap_amount) : "";
     limitPeriod = category?.cap_period === "year" ? "year" : "month";
+    initialLimitCategoryId = limitCategoryId;
+    initialLimitAmount = limitAmount;
+    initialLimitPeriod = limitPeriod;
     limitOpen = true;
+  }
+
+  function requestLimitClose() {
+    if (saveLimit.isPending) return;
+    if (limitDirty && !globalThis.confirm(m.common_unsaved_changes_confirm())) return;
+    limitOpen = false;
   }
 
   function onLimitCategory(id: string) {
@@ -129,7 +148,7 @@
     <h2 id="dashboard-piles-title" class="text-sm font-medium text-slate-400">
       {m.dashboard_piles_title()}
     </h2>
-    {#if expenseCategories.length > 0}
+    {#if categoriesQuery.isSuccess && expenseCategories.length > 0}
       <button
         type="button"
         class="focus-visible:ring-accent text-sm font-medium text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
@@ -140,12 +159,34 @@
     {/if}
   </div>
 
-  {#if piles.length === 0}
+  {#if categoriesQuery.isPending}
+    <p class="text-sm text-slate-400" aria-live="polite">{m.common_loading()}</p>
+  {:else if categoriesQuery.isError}
+    <div class="flex items-center justify-between gap-3">
+      <p class="text-sm text-slate-400">{m.cap_load_error()}</p>
+      <button
+        type="button"
+        class="focus-visible:ring-accent rounded-full border border-white/10 px-3 py-2 text-sm text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
+        onclick={() => categoriesQuery.refetch()}
+      >
+        {m.common_retry()}
+      </button>
+    </div>
+  {:else if piles.length === 0}
     <p class="text-sm text-slate-400">{m.cap_empty()}</p>
   {:else if txQuery.isPending}
     <p class="text-sm text-slate-400">{m.common_loading()}</p>
   {:else if txQuery.isError}
-    <p class="text-sm text-slate-400">{m.common_error_description()}</p>
+    <div class="flex items-center justify-between gap-3">
+      <p class="text-sm text-slate-400">{m.common_error_description()}</p>
+      <button
+        type="button"
+        class="focus-visible:ring-accent rounded-full border border-white/10 px-3 py-2 text-sm text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
+        onclick={() => txQuery.refetch()}
+      >
+        {m.common_retry()}
+      </button>
+    </div>
   {:else}
     <ul class="space-y-3">
       {#each rows as row (row.pile.id)}
@@ -157,11 +198,20 @@
               cap: formatCurrency(row.cap),
             })}
           </a>
-          <p class="text-xs text-slate-400">
-            {m.cap_remaining({ left: formatCurrency(row.left) })}
-            · {formatDate(today)}
+          <p class="text-xs {row.over ? 'text-rose-300' : 'text-slate-400'}">
+            {row.over
+              ? m.cap_exceeded({ amount: formatCurrency(row.exceeded) })
+              : m.cap_remaining({ left: formatCurrency(row.left) })}
+            · {m.cap_until({ date: formatDate(row.periodEnd) })}
           </p>
-          <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-white/5">
+          <div
+            class="mt-1 h-1.5 overflow-hidden rounded-full bg-white/5"
+            role="progressbar"
+            aria-label={row.pile.name}
+            aria-valuemin="0"
+            aria-valuemax={row.cap}
+            aria-valuenow={Math.min(row.spent, row.cap)}
+          >
             <div
               class="h-full rounded-full {row.over ? 'bg-rose-400' : 'bg-accent-gradient'}"
               style="width: {row.pct}%"
@@ -173,7 +223,7 @@
   {/if}
 </section>
 
-<Dialog open={limitOpen} onclose={() => (limitOpen = false)} title={m.cap_set_action()}>
+<Dialog open={limitOpen} onclose={requestLimitClose} title={m.cap_set_action()}>
   <form
     class="space-y-4"
     onsubmit={(event) => {

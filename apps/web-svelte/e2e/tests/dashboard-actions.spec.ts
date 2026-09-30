@@ -21,6 +21,7 @@ const OVERDUE_TX = {
   date: daysAgoIso(10),
   category_id: "cat-1",
   category_name: "Inne wydatki",
+  currency: "PLN",
   user_id: TEST_USER_ID,
   group_id: null,
 };

@@ -3,6 +3,7 @@
   import { X } from "lucide-svelte";
   import * as m from "$lib/paraglide/messages";
   import { hideMobileChrome, registerNativeOverlayCloser } from "$lib/services/native-overlay";
+  import { focusFirstInOverlay, trapOverlayTab } from "$lib/focus-trap";
 
   interface Props {
     open: boolean;
@@ -11,22 +12,35 @@
     children: Snippet;
   }
   let { open, onclose, title, children }: Props = $props();
+  let panel = $state<HTMLElement | null>(null);
 
   function onbackdrop(e: MouseEvent) {
     if (e.target === e.currentTarget) onclose();
   }
 
   function onkeydown(e: KeyboardEvent) {
-    if (e.key === "Escape") onclose();
+    if (!open) return;
+    if (e.key === "Escape") {
+      e.preventDefault();
+      onclose();
+      return;
+    }
+    if (panel) trapOverlayTab(e, panel);
   }
 
   $effect(() => {
     if (!open) return;
+    const previousFocus =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const releaseChrome = hideMobileChrome();
     const unregister = registerNativeOverlayCloser(() => onclose());
+    queueMicrotask(() => {
+      if (open && panel) focusFirstInOverlay(panel);
+    });
     return () => {
       unregister();
       releaseChrome();
+      queueMicrotask(() => previousFocus?.focus({ preventScroll: true }));
     };
   });
 </script>
@@ -41,10 +55,12 @@
     onkeydown={null}
   >
     <div
+      bind:this={panel}
       class="flex max-h-[min(85dvh,640px)] w-full max-w-md flex-col overflow-visible rounded-2xl border border-white/5 bg-slate-900/95 shadow-[0_0_60px_rgba(16,185,129,0.08)] backdrop-blur"
       role="dialog"
       aria-modal="true"
       aria-labelledby="dialog-title"
+      tabindex="-1"
     >
       <div
         class="flex shrink-0 items-center justify-between border-b border-white/5 px-5 pt-5 pb-3"

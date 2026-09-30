@@ -3,6 +3,8 @@
   import { page } from "$app/state";
   import BrandMark from "$lib/components/BrandMark.svelte";
   import * as m from "$lib/paraglide/messages";
+  import { reportError } from "$lib/observability";
+  import { onMount } from "svelte";
 
   const message = $derived(
     page.error?.message && page.error.message !== "Not Found"
@@ -13,6 +15,8 @@
   async function retry() {
     await invalidateAll();
   }
+
+  onMount(() => reportError(page.error, "route"));
 </script>
 
 <main class="grid min-h-screen place-items-center bg-slate-950 px-4">

@@ -9,6 +9,24 @@ type Env = {
   testPassword: string;
 };
 
+export function assertLocalSupabaseUrl(value: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error("RLS tests require a valid local Supabase URL.");
+  }
+  const loopback =
+    parsed.hostname === "127.0.0.1" ||
+    parsed.hostname === "localhost" ||
+    parsed.hostname === "[::1]";
+  if (parsed.protocol !== "http:" || !loopback) {
+    throw new Error(
+      `Refusing to run destructive RLS fixtures against non-local Supabase target: ${parsed.origin}`
+    );
+  }
+}
+
 function requireEnv(): Env {
   const url = process.env.SUPABASE_URL ?? process.env.PUBLIC_SUPABASE_URL;
   const anonKey = process.env.SUPABASE_ANON_KEY ?? process.env.PUBLIC_SUPABASE_ANON_KEY;
@@ -19,6 +37,7 @@ function requireEnv(): Env {
       "RLS tests require SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY and RLS_TEST_PASSWORD env vars (Supabase URL/keys via `supabase status` from repo root; password is any local string)."
     );
   }
+  assertLocalSupabaseUrl(url);
   return { url, anonKey, serviceRoleKey, testPassword };
 }
 
@@ -138,27 +157,61 @@ export async function provisionTwoUsers(): Promise<TestContext> {
  */
 export async function cleanupSentinels(admin: SupabaseClient): Promise<void> {
   const pattern = `${SENTINEL}%`;
+  const [plansResult, transactionsResult] = await Promise.all([
+    admin.from("plans").select("id").like("name", pattern),
+    admin.from("transactions").select("id").like("description", pattern),
+  ]);
+  if (plansResult.error) throw plansResult.error;
+  if (transactionsResult.error) throw transactionsResult.error;
+  const planIds = (plansResult.data ?? []).map((row) => row.id);
+  const transactionIds = (transactionsResult.data ?? []).map((row) => row.id);
+
   // transactions cascade to transaction_import_links (FK transaction_id ON DELETE CASCADE).
-  await admin.from("plan_transaction_links").delete().not("id", "is", null);
-  await admin.from("transactions").delete().like("description", pattern);
-  await admin.from("plans").delete().like("name", pattern);
-  await admin.from("notifications").delete().like("title", pattern);
+  if (planIds.length > 0) {
+    const { error } = await admin.from("plan_transaction_links").delete().in("plan_id", planIds);
+    if (error) throw error;
+  }
+  if (transactionIds.length > 0) {
+    const { error } = await admin
+      .from("plan_transaction_links")
+      .delete()
+      .in("transaction_id", transactionIds);
+    if (error) throw error;
+  }
+  const deleteTransactions = await admin.from("transactions").delete().like("description", pattern);
+  if (deleteTransactions.error) throw deleteTransactions.error;
+  const deletePlans = await admin.from("plans").delete().like("name", pattern);
+  if (deletePlans.error) throw deletePlans.error;
+  const deleteNotifications = await admin.from("notifications").delete().like("title", pattern);
+  if (deleteNotifications.error) throw deleteNotifications.error;
   // Import chain: rows → sessions → bank_accounts (all RESTRICT, so order matters).
   // rows by raw_row_hash sentinel
-  await admin.from("transaction_import_rows").delete().like("raw_row_hash", `%${SENTINEL}%`);
+  const deleteImportRows = await admin
+    .from("transaction_import_rows")
+    .delete()
+    .like("raw_row_hash", `%${SENTINEL}%`);
+  if (deleteImportRows.error) throw deleteImportRows.error;
   // sessions by source_file_hash sentinel
-  await admin
+  const deleteImportSessions = await admin
     .from("transaction_import_sessions")
     .delete()
     .like("source_file_hash", `%${SENTINEL}%`);
+  if (deleteImportSessions.error) throw deleteImportSessions.error;
   // bank_accounts by label sentinel
-  await admin.from("bank_accounts").delete().like("label", pattern);
+  const deleteBankAccounts = await admin.from("bank_accounts").delete().like("label", pattern);
+  if (deleteBankAccounts.error) throw deleteBankAccounts.error;
   // categories cascade to categorization_rules (FK category_id ON DELETE CASCADE).
-  await admin.from("categories").delete().like("name", pattern);
+  const deleteCategories = await admin.from("categories").delete().like("name", pattern);
+  if (deleteCategories.error) throw deleteCategories.error;
   // group_invitations: clean by sentinel email domain
-  await admin.from("group_invitations").delete().like("invited_user_email", "%@rls.test");
+  const deleteInvitations = await admin
+    .from("group_invitations")
+    .delete()
+    .like("invited_user_email", "%@rls.test");
+  if (deleteInvitations.error) throw deleteInvitations.error;
   // user_groups: cascades to group_members + group_invitations
-  await admin.from("user_groups").delete().like("name", pattern);
+  const deleteGroups = await admin.from("user_groups").delete().like("name", pattern);
+  if (deleteGroups.error) throw deleteGroups.error;
 }
 
 /**

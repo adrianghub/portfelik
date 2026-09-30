@@ -15,6 +15,11 @@ import type { ImportAdapterKind, ImportSourceKind } from "$lib/import/banks/type
 export type { ImportAdapterKind, ImportSourceKind } from "$lib/import/banks/types";
 import type { Database } from "$lib/supabase.types";
 import { decisionForRow } from "$lib/import/holds";
+import {
+  findUnsupportedImportCurrencies,
+  SUPPORTED_IMPORT_CURRENCY,
+} from "$lib/import/import-limits";
+import { fetchAllPages } from "$lib/services/fetch-all-pages";
 
 type RowUpdate = Database["public"]["Tables"]["transaction_import_rows"]["Update"];
 
@@ -304,6 +309,11 @@ export async function insertPreviewRows(
 ): Promise<ImportRow[]> {
   if (rows.length === 0) return [];
 
+  const unsupportedCurrencies = findUnsupportedImportCurrencies(rows);
+  if (unsupportedCurrencies.length > 0) {
+    throw new Error(`unsupported_import_currency:${unsupportedCurrencies.join(",")}`);
+  }
+
   const payload = rows.map((r) => {
     const categoryId = resolveCategory?.(r) ?? null;
     return {
@@ -314,7 +324,7 @@ export async function insertPreviewRows(
       type: r.type,
       description: r.description,
       counterparty: r.counterparty ?? null,
-      currency: r.currency,
+      currency: SUPPORTED_IMPORT_CURRENCY,
       external_id: r.external_id ?? null,
       raw_row_hash: r.raw_row_hash,
       is_hold: r.is_hold ?? false,
@@ -340,13 +350,15 @@ export async function insertPreviewRows(
 }
 
 export async function fetchSessionRows(sessionId: string): Promise<ImportRow[]> {
-  const { data, error } = await supabase
-    .from("transaction_import_rows")
-    .select("*")
-    .eq("session_id", sessionId)
-    .order("row_index", { ascending: true });
-  if (error) throw error;
-  return (data ?? []) as ImportRow[];
+  return fetchAllPages(async (from, to) => {
+    const { data, error } = await supabase
+      .from("transaction_import_rows")
+      .select("*")
+      .eq("session_id", sessionId)
+      .order("row_index", { ascending: true })
+      .range(from, to);
+    return { data: (data ?? null) as ImportRow[] | null, error };
+  });
 }
 
 export async function updateRowDecision(
