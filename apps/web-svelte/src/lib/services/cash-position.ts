@@ -1,4 +1,5 @@
 import { addLocalDays, localDateIso } from "$lib/date-local";
+import { isSupportedLedgerCurrency } from "$lib/ledger-currency";
 import { supabase } from "$lib/supabase";
 import type { CashPosition } from "$lib/types";
 
@@ -8,6 +9,7 @@ export interface PositionTx {
   amount: number; // always absolute; sign comes from `type`
   status: string; // 'paid' counts toward live balance; others are forecast
   date: string; // ISO date or timestamp; compared date-only (transactions.date is timestamptz)
+  currency: string;
 }
 
 /** Paid + scheduled rows that also carry an id (running-balance maps). */
@@ -87,7 +89,10 @@ function compareDateThenId(
 export function livePosition(anchor: Anchor, txs: PositionTx[]): number {
   const asOf = asOfOf(anchor);
   const balanceCents = txs
-    .filter((t) => t.status === "paid" && dateOnly(t.date) >= asOf)
+    .filter(
+      (t) =>
+        isSupportedLedgerCurrency(t.currency) && t.status === "paid" && dateOnly(t.date) >= asOf
+    )
     .reduce((sum, t) => sum + signedCents(t), openingCents(anchor));
   return fromCents(balanceCents);
 }
@@ -113,6 +118,7 @@ export function forecastPosition(
   const scheduledCents = txs
     .filter(
       (t) =>
+        isSupportedLedgerCurrency(t.currency) &&
         isForecastStatus(t.status) &&
         dateOnly(t.date) >= asOfOf(anchor) &&
         withinForecastHorizon(t, horizonEnd)
@@ -137,6 +143,7 @@ export function forecastMovementTotals(
   let incomeCents = 0;
   let expenseCents = 0;
   for (const tx of txs) {
+    if (!isSupportedLedgerCurrency(tx.currency)) continue;
     if (!isForecastStatus(tx.status)) continue;
     if (dateOnly(tx.date) < asOf || !withinForecastHorizon(tx, horizonEnd)) continue;
     const cents = toCents(tx.amount);
@@ -173,7 +180,10 @@ export async function fetchPrivateCashPosition(): Promise<CashPosition | null> {
 export function runningBalances(anchor: Anchor, txs: RunningBalanceTx[]): Map<string, number> {
   const asOf = asOfOf(anchor);
   const paid = txs
-    .filter((t) => t.status === "paid" && dateOnly(t.date) >= asOf)
+    .filter(
+      (t) =>
+        isSupportedLedgerCurrency(t.currency) && t.status === "paid" && dateOnly(t.date) >= asOf
+    )
     .sort(compareDateThenId);
   const result = new Map<string, number>();
   let balanceCents = openingCents(anchor);
@@ -199,6 +209,7 @@ export function forecastRunningBalances(
   const rows = txs
     .filter(
       (t) =>
+        isSupportedLedgerCurrency(t.currency) &&
         dateOnly(t.date) >= asOf &&
         (t.status === "paid" ||
           (isForecastStatus(t.status) && withinForecastHorizon(t, horizonEnd)))

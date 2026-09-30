@@ -1,9 +1,7 @@
 import { supabase } from "$lib/supabase";
-import { fetchCategories } from "$lib/services/categories";
-import { fetchUserGroups } from "$lib/services/groups";
-import { fetchPlansForExport } from "$lib/services/plans";
 import { fetchAllTransactionsForExport } from "$lib/services/transactions";
 import { saveTextFile } from "$lib/services/save-text-file";
+import { chunksOf, fetchAllPages } from "$lib/services/fetch-all-pages";
 
 /**
  * Informational account dump — not a round-trip restore format.
@@ -90,54 +88,100 @@ export async function buildAccountExport(): Promise<AccountExportBundle> {
 
   const now = new Date();
 
-  const [transactions, categories, plans, groups] = await Promise.all([
+  const [
+    transactions,
+    categories,
+    plans,
+    groups,
+    rules,
+    accounts,
+    sessions,
+    cashPositions,
+    netWorthItems,
+  ] = await Promise.all([
     fetchAllTransactionsForExport(),
-    fetchCategories(),
-    fetchPlansForExport(),
-    fetchUserGroups(),
+    fetchAllPages((from, to) =>
+      supabase
+        .from("categories")
+        .select("id, name, type, user_id, cap_amount, cap_period, created_at, updated_at")
+        .eq("user_id", user.id)
+        .order("name")
+        .order("id")
+        .range(from, to)
+    ),
+    fetchAllPages((from, to) =>
+      supabase
+        .from("plans")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .order("id")
+        .range(from, to)
+    ),
+    fetchAllPages((from, to) =>
+      supabase.from("user_groups").select("*").order("name").order("id").range(from, to)
+    ),
+    fetchAllPages((from, to) =>
+      supabase
+        .from("categorization_rules")
+        .select("*")
+        .order("priority", { ascending: false })
+        .order("id")
+        .range(from, to)
+    ),
+    fetchAllPages((from, to) =>
+      supabase
+        .from("bank_accounts")
+        .select("id, kind, label, archived_at, created_at, updated_at")
+        .order("id")
+        .range(from, to)
+    ),
+    fetchAllPages((from, to) =>
+      supabase
+        .from("transaction_import_sessions")
+        .select(
+          "id, status, adapter_kind, source_filename, rows_total, committed_at, created_at, updated_at"
+        )
+        .order("created_at", { ascending: false })
+        .order("id")
+        .range(from, to)
+    ),
+    fetchAllPages((from, to) =>
+      supabase
+        .from("cash_positions")
+        .select("id, owner_id, group_id, opening_amount, as_of_date, created_at, updated_at")
+        .eq("owner_id", user.id)
+        .order("id")
+        .range(from, to)
+    ),
+    fetchAllPages((from, to) =>
+      supabase
+        .from("net_worth_items")
+        .select("id, user_id, label, amount, currency, position, is_demo, created_at, updated_at")
+        .eq("user_id", user.id)
+        .order("position", { ascending: true })
+        .order("id")
+        .range(from, to)
+    ),
   ]);
-
-  const { data: rules, error: rulesError } = await supabase
-    .from("categorization_rules")
-    .select("*")
-    .order("priority", { ascending: false });
-  if (rulesError) throw rulesError;
-
-  const { data: accounts, error: accountsError } = await supabase
-    .from("bank_accounts")
-    .select("id, kind, label, archived_at, created_at, updated_at");
-  if (accountsError) throw accountsError;
-
-  const { data: sessions, error: sessionsError } = await supabase
-    .from("transaction_import_sessions")
-    .select(
-      "id, status, adapter_kind, source_filename, rows_total, committed_at, created_at, updated_at"
-    )
-    .order("created_at", { ascending: false });
-  if (sessionsError) throw sessionsError;
-
-  const { data: cashPositions, error: cashError } = await supabase
-    .from("cash_positions")
-    .select("id, owner_id, group_id, opening_amount, as_of_date, created_at, updated_at")
-    .eq("owner_id", user.id);
-  if (cashError) throw cashError;
-
-  const { data: netWorthItems, error: netWorthError } = await supabase
-    .from("net_worth_items")
-    .select("id, user_id, label, amount, currency, position, is_demo, created_at, updated_at")
-    .eq("user_id", user.id)
-    .order("position", { ascending: true });
-  if (netWorthError) throw netWorthError;
 
   const groupIds = groups.map((g) => g.id);
   let groupMembers: unknown[] = [];
   if (groupIds.length > 0) {
-    const { data, error } = await supabase
-      .from("group_members")
-      .select("group_id, user_id, role, joined_at")
-      .in("group_id", groupIds);
-    if (error) throw error;
-    groupMembers = data ?? [];
+    groupMembers = (
+      await Promise.all(
+        chunksOf(groupIds).map((ids) =>
+          fetchAllPages((from, to) =>
+            supabase
+              .from("group_members")
+              .select("group_id, user_id, role, joined_at")
+              .in("group_id", ids)
+              .order("group_id")
+              .order("user_id")
+              .range(from, to)
+          )
+        )
+      )
+    ).flat();
   }
 
   const { data: profile, error: profileError } = await supabase
@@ -159,49 +203,71 @@ export async function buildAccountExport(): Promise<AccountExportBundle> {
   let planDebtTerms: unknown[] = [];
   let planProgressSnapshots: unknown[] = [];
   if (planIds.length > 0) {
-    const [linksResult, debtTermsResult, progressSnapshotsResult] = await Promise.all([
-      supabase
-        .from("plan_transaction_links")
-        .select("id, plan_id, transaction_id, created_by, created_at")
-        .in("plan_id", planIds),
-      supabase.from("plan_debt_terms").select("*").in("plan_id", planIds),
-      supabase
-        .from("plan_progress_snapshots")
-        .select("id, plan_id, saved_amount, effective_date, note, created_by, created_at")
-        .in("plan_id", planIds)
-        .order("effective_date", { ascending: false }),
-    ]);
-    if (linksResult.error) throw linksResult.error;
-    if (debtTermsResult.error) throw debtTermsResult.error;
-    if (progressSnapshotsResult.error) throw progressSnapshotsResult.error;
-    planTransactionLinks = linksResult.data ?? [];
-    planDebtTerms = debtTermsResult.data ?? [];
-    planProgressSnapshots = progressSnapshotsResult.data ?? [];
+    const perPlanChunk = await Promise.all(
+      chunksOf(planIds).map(async (ids) => {
+        const [links, debtTerms, progressSnapshots] = await Promise.all([
+          fetchAllPages((from, to) =>
+            supabase
+              .from("plan_transaction_links")
+              .select("id, plan_id, transaction_id, created_by, created_at")
+              .in("plan_id", ids)
+              .order("id")
+              .range(from, to)
+          ),
+          fetchAllPages((from, to) =>
+            supabase
+              .from("plan_debt_terms")
+              .select("*")
+              .in("plan_id", ids)
+              .order("plan_id")
+              .range(from, to)
+          ),
+          fetchAllPages((from, to) =>
+            supabase
+              .from("plan_progress_snapshots")
+              .select("id, plan_id, saved_amount, effective_date, note, created_by, created_at")
+              .in("plan_id", ids)
+              .order("effective_date", { ascending: false })
+              .order("id")
+              .range(from, to)
+          ),
+        ]);
+        return { links, debtTerms, progressSnapshots };
+      })
+    );
+    planTransactionLinks = perPlanChunk.flatMap((result) => result.links);
+    planDebtTerms = perPlanChunk.flatMap((result) => result.debtTerms);
+    planProgressSnapshots = perPlanChunk.flatMap((result) => result.progressSnapshots);
   }
 
-  const { data: recurringSkips, error: recurringSkipsError } = await supabase
-    .from("recurring_occurrence_skips")
-    .select("id, user_id, group_id, recurring_template_id, occurrence_date, created_by, created_at")
-    .order("occurrence_date", { ascending: false });
-  if (recurringSkipsError) throw recurringSkipsError;
+  const recurringSkips = await fetchAllPages((from, to) =>
+    supabase
+      .from("recurring_occurrence_skips")
+      .select(
+        "id, user_id, group_id, recurring_template_id, occurrence_date, created_by, created_at"
+      )
+      .order("occurrence_date", { ascending: false })
+      .order("id")
+      .range(from, to)
+  );
 
   return {
     export_contract: ACCOUNT_EXPORT_CONTRACT,
     exported_at: now.toISOString(),
     transactions,
     categories,
-    categorization_rules: rules ?? [],
+    categorization_rules: rules,
     plans,
     plan_transaction_links: planTransactionLinks,
     plan_debt_terms: planDebtTerms,
     plan_progress_snapshots: planProgressSnapshots,
     groups,
     group_members: groupMembers,
-    bank_accounts: accounts ?? [],
-    import_sessions: sessions ?? [],
-    cash_positions: cashPositions ?? [],
-    recurring_occurrence_skips: recurringSkips ?? [],
-    net_worth_items: netWorthItems ?? [],
+    bank_accounts: accounts,
+    import_sessions: sessions,
+    cash_positions: cashPositions,
+    recurring_occurrence_skips: recurringSkips,
+    net_worth_items: netWorthItems,
     financial_snapshot: snapshot ?? null,
     profile: profile ?? null,
   };

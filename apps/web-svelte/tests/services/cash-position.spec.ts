@@ -7,16 +7,22 @@ vi.mock("$lib/supabase", () => ({ supabase: {} }));
 
 import { forecastPosition, livePosition } from "$lib/services/cash-position";
 
-type Tx = { type: "income" | "expense"; amount: number; status: string; date: string };
+type Tx = {
+  type: "income" | "expense";
+  amount: number;
+  status: string;
+  date: string;
+  currency: string;
+};
 
 const anchor = { opening_amount: 1000, as_of_date: "2026-06-01" };
 
 const txs: Tx[] = [
-  { type: "income", amount: 500, status: "paid", date: "2026-06-05" },
-  { type: "expense", amount: 200, status: "paid", date: "2026-06-06" },
-  { type: "expense", amount: 999, status: "paid", date: "2026-05-31" }, // before as_of_date → ignored
-  { type: "income", amount: 300, status: "upcoming", date: "2026-06-20" }, // forecast only
-  { type: "expense", amount: 50, status: "overdue", date: "2026-06-02" }, // not paid → ignored by live
+  { type: "income", amount: 500, status: "paid", date: "2026-06-05", currency: "PLN" },
+  { type: "expense", amount: 200, status: "paid", date: "2026-06-06", currency: "PLN" },
+  { type: "expense", amount: 999, status: "paid", date: "2026-05-31", currency: "PLN" }, // before as_of_date → ignored
+  { type: "income", amount: 300, status: "upcoming", date: "2026-06-20", currency: "PLN" }, // forecast only
+  { type: "expense", amount: 50, status: "overdue", date: "2026-06-02", currency: "PLN" }, // not paid → ignored by live
 ];
 
 describe("livePosition", () => {
@@ -31,7 +37,7 @@ describe("livePosition", () => {
   it("accumulates in integer grosze instead of leaking floating-point fractions", () => {
     expect(
       livePosition({ opening_amount: 0.1, as_of_date: "2026-06-01" }, [
-        { type: "income", amount: 0.2, status: "paid", date: "2026-06-01" },
+        { type: "income", amount: 0.2, status: "paid", date: "2026-06-01", currency: "PLN" },
       ])
     ).toBe(0.3);
   });
@@ -48,7 +54,13 @@ describe("forecastPosition", () => {
   it("ignores upcoming beyond the horizon", () => {
     const far = [
       ...txs,
-      { type: "expense" as const, amount: 999, status: "upcoming", date: "2027-01-01" },
+      {
+        type: "expense" as const,
+        amount: 999,
+        status: "upcoming",
+        date: "2027-01-01",
+        currency: "PLN",
+      },
     ];
     expect(forecastPosition(anchor, far, { today: "2026-06-01", horizonEnd: "2026-06-30" })).toBe(
       1550
@@ -58,11 +70,43 @@ describe("forecastPosition", () => {
   it("excludes pre-anchor overdue the same way as forecastRunningBalances", () => {
     const withPreAnchor = [
       ...txs,
-      { type: "expense" as const, amount: 400, status: "overdue", date: "2026-05-15" },
+      {
+        type: "expense" as const,
+        amount: 400,
+        status: "overdue",
+        date: "2026-05-15",
+        currency: "PLN",
+      },
     ];
     // Pre-anchor overdue must not pull the forecast below live+in-window scheduled.
     expect(
       forecastPosition(anchor, withPreAnchor, { today: "2026-06-01", horizonEnd: "2026-06-30" })
+    ).toBe(1550);
+  });
+
+  it("does not add a historical non-PLN amount to the PLN balance", () => {
+    expect(
+      livePosition(anchor, [
+        ...txs,
+        { type: "income", amount: 10_000, status: "paid", date: "2026-06-10", currency: "EUR" },
+      ])
+    ).toBe(1300);
+  });
+
+  it("does not add scheduled non-PLN amounts to the PLN forecast", () => {
+    const withFx = [
+      ...txs,
+      {
+        type: "expense" as const,
+        amount: 8_000,
+        status: "upcoming",
+        date: "2026-06-12",
+        currency: "USD",
+      },
+    ];
+
+    expect(
+      forecastPosition(anchor, withFx, { today: "2026-06-01", horizonEnd: "2026-06-30" })
     ).toBe(1550);
   });
 });
@@ -71,9 +115,27 @@ describe("livePosition with timestamptz dates (transactions.date is timestamptz)
   // Real rows arrive as full ISO timestamps; the engine must compare date-only against
   // the bare as_of_date and must NOT drop same-day or future-dated paid rows.
   const tsTxs: Tx[] = [
-    { type: "income", amount: 500, status: "paid", date: "2026-06-01T23:30:00.000Z" }, // == as_of_date → counts
-    { type: "expense", amount: 100, status: "paid", date: "2026-05-31T23:30:00.000Z" }, // day before → excluded
-    { type: "income", amount: 200, status: "paid", date: "2026-12-31T08:00:00.000Z" }, // future-dated → counts
+    {
+      type: "income",
+      amount: 500,
+      status: "paid",
+      date: "2026-06-01T23:30:00.000Z",
+      currency: "PLN",
+    }, // == as_of_date → counts
+    {
+      type: "expense",
+      amount: 100,
+      status: "paid",
+      date: "2026-05-31T23:30:00.000Z",
+      currency: "PLN",
+    }, // day before → excluded
+    {
+      type: "income",
+      amount: 200,
+      status: "paid",
+      date: "2026-12-31T08:00:00.000Z",
+      currency: "PLN",
+    }, // future-dated → counts
   ];
 
   it("includes the as_of-day timestamp and future-dated paid rows, excludes the day before", () => {

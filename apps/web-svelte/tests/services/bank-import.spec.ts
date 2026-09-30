@@ -69,6 +69,7 @@ import {
   cancelImportSession,
   commitImportSession,
   fetchActivePreviewSession,
+  fetchSessionRows,
   findExistingSession,
   insertPreviewRows,
   openImportSession,
@@ -179,6 +180,7 @@ describe("insertPreviewRows", () => {
     expect(payload).toHaveLength(2);
     expect(payload[0]).toMatchObject({
       session_id: "s1",
+      currency: "PLN",
       suggested_category_id: "cat-9",
       selected_category_id: "cat-9",
       decision: "import",
@@ -199,6 +201,49 @@ describe("insertPreviewRows", () => {
       suggested_category_id: null,
       selected_category_id: null,
     });
+  });
+
+  it("rejects non-PLN rows before any persistence", async () => {
+    await expect(insertPreviewRows("s1", [row(0), { ...row(1), currency: "EUR" }])).rejects.toThrow(
+      "unsupported_import_currency:EUR"
+    );
+
+    expect(h.state.log.from).toHaveLength(0);
+    expect(h.state.log.insert).toHaveLength(0);
+    expect(h.state.log.update).toHaveLength(0);
+  });
+});
+
+describe("fetchSessionRows", () => {
+  it("retrieves every page in stable row_index order", async () => {
+    const firstPage = Array.from({ length: 1_000 }, (_, row_index) => ({
+      id: `r${row_index}`,
+      row_index,
+    }));
+    const secondPage = Array.from({ length: 205 }, (_, offset) => ({
+      id: `r${offset + 1_000}`,
+      row_index: offset + 1_000,
+    }));
+    h.state.results = [
+      { data: firstPage, error: null },
+      { data: secondPage, error: null },
+    ];
+
+    const out = await fetchSessionRows("s1");
+
+    expect(out).toHaveLength(1_205);
+    expect(out.map((row) => row.row_index)).toEqual(
+      Array.from({ length: 1_205 }, (_, index) => index)
+    );
+    expect(h.state.log.from).toEqual(["transaction_import_rows", "transaction_import_rows"]);
+    expect(h.state.log.chain.filter(([method]) => method === "range")).toEqual([
+      ["range", 0, 999],
+      ["range", 1_000, 1_999],
+    ]);
+    expect(h.state.log.chain.filter(([method]) => method === "order")).toEqual([
+      ["order", "row_index", { ascending: true }],
+      ["order", "row_index", { ascending: true }],
+    ]);
   });
 });
 
@@ -232,7 +277,9 @@ describe("cancelImportSession", () => {
 
     await cancelImportSession("s1");
 
-    expect(h.state.log.rpc).toEqual([{ name: "cancel_import_session", args: { p_session_id: "s1" } }]);
+    expect(h.state.log.rpc).toEqual([
+      { name: "cancel_import_session", args: { p_session_id: "s1" } },
+    ]);
   });
 
   it("throws on error", async () => {
