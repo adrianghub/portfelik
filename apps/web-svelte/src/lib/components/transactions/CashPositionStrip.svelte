@@ -39,12 +39,25 @@
   let forecastOpen = $state(false);
   let openingAmount = $state("");
   let asOfDate = $state("");
+  let initialOpeningAmount = $state("");
+  let initialAsOfDate = $state("");
+  const editDirty = $derived(
+    openingAmount !== initialOpeningAmount || asOfDate !== initialAsOfDate
+  );
 
   function openEdit() {
     if (!anchorReady) return;
     openingAmount = anchor ? String(anchor.opening_amount) : "";
     asOfDate = anchor?.as_of_date ?? localDateIso();
+    initialOpeningAmount = openingAmount;
+    initialAsOfDate = asOfDate;
     editOpen = true;
+  }
+
+  function requestClose() {
+    if (saveMutation.isPending) return;
+    if (editDirty && !window.confirm(m.common_unsaved_changes_confirm())) return;
+    editOpen = false;
   }
 
   const saveMutation = createSvelteMutation(() => ({
@@ -117,7 +130,7 @@
   </button>
 {/if}
 
-<Sheet open={editOpen} onclose={() => (editOpen = false)} title={m.cash_position_label()}>
+<Sheet open={editOpen} onclose={requestClose} title={m.cash_position_label()}>
   <form
     class="space-y-4"
     onsubmit={(e) => {

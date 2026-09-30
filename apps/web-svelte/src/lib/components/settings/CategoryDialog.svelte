@@ -24,7 +24,10 @@
   let type = $state<TransactionType>(untrack(() => initial?.type ?? "expense"));
   let capAmount = $state<number | null>(untrack(() => initial?.cap_amount ?? null));
   let capPeriod = $state<CategoryCapPeriod>(untrack(() => initial?.cap_period ?? "month"));
+  let initialSnapshot = $state("");
   const capValue = $derived(normalizeCapAmount(capAmount));
+  const currentSnapshot = $derived(JSON.stringify([name, type, capAmount, capPeriod]));
+  const dirty = $derived(currentSnapshot !== initialSnapshot);
 
   $effect(() => {
     if (open) {
@@ -32,6 +35,7 @@
       type = initial?.type ?? "expense";
       capAmount = initial?.cap_amount ?? null;
       capPeriod = initial?.cap_period ?? "month";
+      initialSnapshot = untrack(() => JSON.stringify([name, type, capAmount, capPeriod]));
     }
   });
 
@@ -70,9 +74,15 @@
       // onError already toasted
     });
   }
+
+  function requestClose() {
+    if (mutation.isPending) return;
+    if (dirty && !window.confirm(m.common_unsaved_changes_confirm())) return;
+    onclose();
+  }
 </script>
 
-<Dialog {open} {onclose} {title}>
+<Dialog {open} onclose={requestClose} {title}>
   <form onsubmit={handleSubmit} class="space-y-4">
     <div class="space-y-1">
       <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="cat-name"
@@ -162,7 +172,7 @@
     <div class="flex gap-2 pt-1">
       <button
         type="button"
-        onclick={onclose}
+        onclick={requestClose}
         class="flex-1 rounded-full border border-white/10 bg-slate-900/60 py-2 text-sm font-medium text-slate-200 backdrop-blur transition-colors hover:bg-white/5"
       >
         {m.common_cancel()}

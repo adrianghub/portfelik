@@ -298,7 +298,7 @@
 
   <div
     bind:this={stickyToolbarRef}
-    class="sticky top-(--app-header-offset) z-30 -mx-4 space-y-2 border-b border-white/10 bg-slate-950 px-4 py-2"
+    class="sticky top-(--app-content-offset) z-30 -mx-4 space-y-2 border-b border-white/10 bg-slate-950 px-4 py-2"
   >
     {#if bulkImportableVisibleCount > 0 || bulkRestorableVisibleCount > 0 || canUndo}
       <div class="flex flex-wrap items-center gap-2">
@@ -446,7 +446,7 @@
         <table class="min-w-full divide-y divide-white/5 text-sm">
           <thead
             class="sticky z-40 bg-slate-900/95 text-xs text-slate-400 uppercase backdrop-blur"
-            style={`top: calc(var(--app-header-offset) + ${stickyToolbarHeight}px)`}
+            style={`top: calc(var(--app-content-offset) + ${stickyToolbarHeight}px)`}
           >
             <tr>
               <th class="px-3 py-2 text-left">{m.bank_review_header_date()}</th>

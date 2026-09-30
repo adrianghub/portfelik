@@ -48,6 +48,39 @@ test("drill into a subsection then back to the landing", async ({ page }) => {
   await expect(page.getByPlaceholder("Szukaj ustawień")).toBeVisible();
 });
 
+test("push banner reserves layout space and does not intercept the settings back button", async ({
+  page,
+}) => {
+  await injectFakeSession(page);
+  await page.addInitScript(() => {
+    localStorage.removeItem("push_prompted_at");
+    Object.defineProperty(window, "Notification", {
+      configurable: true,
+      value: { permission: "default", requestPermission: async () => "default" },
+    });
+    if (!("PushManager" in window)) {
+      Object.defineProperty(window, "PushManager", { configurable: true, value: class {} });
+    }
+  });
+  await mockSupabaseAPI(page);
+  await page.goto("/settings?tab=personalization");
+
+  const banner = page.getByTestId("push-notification-banner");
+  const back = page.getByRole("button", { name: "Ustawienia" });
+  await expect(banner).toBeVisible();
+  await expect(back).toBeVisible();
+  await expect(async () => {
+    const bannerBox = await banner.boundingBox();
+    const backBox = await back.boundingBox();
+    expect(bannerBox).not.toBeNull();
+    expect(backBox).not.toBeNull();
+    expect(backBox!.y).toBeGreaterThanOrEqual(bannerBox!.y + bannerBox!.height);
+  }).toPass();
+
+  await back.click();
+  await expect(page).toHaveURL(/\/settings$/);
+});
+
 test("deep link to a tab renders that panel directly", async ({ page }) => {
   await gotoSettings(page, "?tab=categories");
 

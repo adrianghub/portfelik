@@ -55,6 +55,63 @@ test.describe("transactions mobile filters", () => {
     await expect(page.getByRole("search", { name: "Szukaj transakcji" })).toBeVisible();
   });
 
+  test("more-actions menu stays above filters and closes with outside tap or Escape", async ({
+    page,
+  }) => {
+    await page.goto("/transactions");
+    const trigger = page.getByRole("button", { name: "Więcej akcji" });
+    const menu = page.getByRole("menu", { name: "Więcej akcji" });
+
+    await trigger.click();
+    await expect(menu).toBeVisible();
+    const exportAction = menu.getByRole("menuitem", { name: "Eksportuj CSV" });
+    const actionBox = await exportAction.boundingBox();
+    expect(actionBox).not.toBeNull();
+    const actionIsTopHit = await page.evaluate(
+      ({ x, y }) => {
+        const hit = document.elementFromPoint(x, y);
+        return hit?.closest('[role="menuitem"]')?.textContent?.includes("Eksportuj CSV") ?? false;
+      },
+      { x: actionBox!.x + actionBox!.width / 2, y: actionBox!.y + actionBox!.height / 2 }
+    );
+    expect(actionIsTopHit).toBe(true);
+
+    await page.mouse.click(8, Math.min(700, actionBox!.y + actionBox!.height / 2));
+    await expect(menu).toHaveCount(0);
+
+    await trigger.click();
+    await expect(menu).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+  });
+
+  test("more-actions menu supports arrow, Home, End and Tab keyboard navigation", async ({
+    page,
+  }) => {
+    await page.goto("/transactions");
+    const trigger = page.getByRole("button", { name: "Więcej akcji" });
+    const menu = page.getByRole("menu", { name: "Więcej akcji" });
+
+    await trigger.focus();
+    await page.keyboard.press("ArrowDown");
+    await expect(menu).toBeVisible();
+    const enabledItems = menu.locator('[role="menuitem"]:not(:disabled)');
+    await expect(enabledItems.first()).toBeFocused();
+
+    await page.keyboard.press("End");
+    await expect(enabledItems.last()).toBeFocused();
+    await page.keyboard.press("Home");
+    await expect(enabledItems.first()).toBeFocused();
+    await page.keyboard.press("ArrowUp");
+    await expect(enabledItems.last()).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(enabledItems.first()).toBeFocused();
+
+    await page.keyboard.press("Tab");
+    await expect(menu).toHaveCount(0);
+  });
+
   test("sheet close target stays usable on a short mobile viewport", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 568 });
     await page.goto("/transactions");
@@ -66,6 +123,24 @@ test.describe("transactions mobile filters", () => {
     expect(Math.round(box!.height)).toBeGreaterThanOrEqual(44);
     await close.click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
+  });
+
+  test("sheet traps keyboard focus and restores it to the trigger", async ({ page }) => {
+    await page.goto("/transactions");
+    const trigger = page.getByRole("button", { name: /^filtry/i });
+    await trigger.focus();
+    await trigger.click();
+
+    const dialog = page.getByRole("dialog");
+    const close = dialog.getByRole("button", { name: "Zamknij", exact: true });
+    await expect(close).toBeFocused();
+
+    await page.keyboard.press("Shift+Tab");
+    await expect(dialog.getByRole("button", { name: /zastosuj filtry/i })).toBeFocused();
+
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(trigger).toBeFocused();
   });
 
   test("mobile filters sheet opens with consolidated controls", async ({ page }) => {

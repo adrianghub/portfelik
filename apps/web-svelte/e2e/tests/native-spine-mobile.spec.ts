@@ -16,7 +16,7 @@ test.describe("native spine on a phone", () => {
     await mockSupabaseAPI(page);
 
     await page.goto("/dashboard");
-    await expect(page.locator(".md\\:hidden p")).toContainText(/^Hej/, {
+    await expect(page.getByRole("heading", { name: /^Hej/ })).toBeVisible({
       timeout: 10_000,
     });
     await expect(page.getByText(/^Yo,/)).toHaveCount(0);

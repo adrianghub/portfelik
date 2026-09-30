@@ -16,6 +16,7 @@
   import GuidedTourHost from "$lib/components/onboarding/GuidedTourHost.svelte";
   import { motionDuration } from "$lib/motion";
   import { initPlausible } from "$lib/analytics";
+  import { installGlobalErrorReporting } from "$lib/observability";
   import * as m from "$lib/paraglide/messages";
   import { fetchProfile } from "$lib/services/profiles";
   import { applyAccent } from "$lib/theme/accent-presets";
@@ -79,6 +80,7 @@
   let loadedUserId: string | null = null;
   let notifPermission = $state<NotificationPermission>("default");
   let pushPromptedRecently = $state(false);
+  let notifBannerHeight = $state(0);
   let isPublicRoute = $derived(
     PUBLIC_PATHS.includes(page.url.pathname) || page.url.pathname.startsWith("/invite/")
   );
@@ -175,6 +177,7 @@
 
   onMount(() => {
     initPlausible();
+    const teardownErrorReporting = installGlobalErrorReporting();
     // Register unconditionally (not auth-gated) so install/standalone is deterministic
     // for anonymous + login pages. Push subscription still gated in loadAuthenticatedUser.
     registerServiceWorker();
@@ -285,6 +288,7 @@
     })();
 
     return () => {
+      teardownErrorReporting();
       removeNativeAuthDeepLink?.();
       removeNativeBack?.();
       teardownNotificationSync();
@@ -312,43 +316,49 @@
       </div>
     </main>
   {:else if !isPublicRoute}
-    <Navigation {profile} {user} />
-    {#if showNotifBanner}
-      <div
-        class="fixed inset-x-0 top-(--app-header-offset) z-40 flex items-center justify-between gap-3 border-b border-white/5 bg-slate-900/90 px-4 py-2 text-sm text-white backdrop-blur"
-      >
-        <span class="text-slate-300">{m.push_banner_text()}</span>
-        <div class="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            onclick={enableNotifications}
-            class="rounded-md bg-white px-3 py-1 text-xs font-medium text-zinc-900 transition-colors hover:bg-zinc-100"
-          >
-            {m.push_banner_enable()}
-          </button>
-          <button
-            type="button"
-            onclick={dismissPushBanner}
-            class="rounded-md px-2 py-1 text-xs text-slate-400 transition-colors hover:text-white"
-            aria-label={m.common_close()}
-          >
-            ✕
-          </button>
-        </div>
-      </div>
-    {/if}
-    <main
-      class="mobile-page-bottom min-h-screen overflow-x-clip bg-slate-950 pt-(--app-header-offset) md:pb-6"
+    <div
+      style={`--app-banner-height:${showNotifBanner ? notifBannerHeight : 0}px;--app-content-offset:calc(var(--app-header-offset) + var(--app-banner-height))`}
     >
-      <Breadcrumbs />
-      {#key page.url.pathname}
-        <div in:fade={{ duration: motionDuration(140) }}>
-          {@render children()}
+      <Navigation {profile} {user} />
+      {#if showNotifBanner}
+        <div
+          bind:clientHeight={notifBannerHeight}
+          data-testid="push-notification-banner"
+          class="fixed inset-x-0 top-(--app-header-offset) z-40 flex items-center justify-between gap-3 border-b border-white/5 bg-slate-900/90 px-4 py-2 text-sm text-white backdrop-blur"
+        >
+          <span class="text-slate-300">{m.push_banner_text()}</span>
+          <div class="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onclick={enableNotifications}
+              class="rounded-md bg-white px-3 py-1 text-xs font-medium text-zinc-900 transition-colors hover:bg-zinc-100"
+            >
+              {m.push_banner_enable()}
+            </button>
+            <button
+              type="button"
+              onclick={dismissPushBanner}
+              class="rounded-md px-2 py-1 text-xs text-slate-400 transition-colors hover:text-white"
+              aria-label={m.common_close()}
+            >
+              ✕
+            </button>
+          </div>
         </div>
-      {/key}
-    </main>
-    <GuidedTourHost {profile} {userId} />
-    <InstallPrompt />
+      {/if}
+      <main
+        class="mobile-page-bottom min-h-screen overflow-x-clip bg-slate-950 pt-(--app-content-offset) md:pb-6"
+      >
+        <Breadcrumbs />
+        {#key page.url.pathname}
+          <div in:fade={{ duration: motionDuration(140) }}>
+            {@render children()}
+          </div>
+        {/key}
+      </main>
+      <GuidedTourHost {profile} {userId} />
+      <InstallPrompt />
+    </div>
   {:else}
     <div class="pt-(--safe-top)">
       {@render children()}

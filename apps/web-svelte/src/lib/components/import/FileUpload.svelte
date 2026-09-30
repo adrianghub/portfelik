@@ -12,12 +12,14 @@
   import { matchCategory } from "$lib/import/categorize";
   import { decodeBankCsv } from "$lib/import/csv/decode";
   import {
-    checkImportFileSize,
     checkImportRowCount,
+    findUnsupportedImportCurrencies,
     IMPORT_MAX_FILE_BYTES,
     IMPORT_MAX_ROWS,
+    readImportFileBytes,
   } from "$lib/import/import-limits";
   import { normalize } from "$lib/import/normalize";
+  import { reportError } from "$lib/observability";
   import * as m from "$lib/paraglide/messages";
   import {
     cancelImportSession,
@@ -31,6 +33,7 @@
   } from "$lib/services/bank-import";
   import { fetchCategories } from "$lib/services/categories";
   import { fetchCategorizationRules } from "$lib/services/categorization-rules";
+  import { errorMessage } from "$lib/services/supabase-errors";
   import { cn, transactionsUrlForRange } from "$lib/utils";
   import { FileText, Upload, X } from "lucide-svelte";
   import { toast } from "svelte-sonner";
@@ -79,6 +82,12 @@
     const adapter = getImportAdapter(kind);
     const parsed = adapter.parse(text);
     parseErrorCount = parsed.errors.length;
+    if (parsed.errors.length > 0) {
+      const parseFailure = new Error("Bank statement parser rejected rows");
+      parseFailure.name =
+        parsed.rows.length === 0 ? "BankCsvParseError" : "BankCsvPartialParseError";
+      reportError(parseFailure, "parser");
+    }
     if (parsed.rows.length === 0 && parsed.errors.length > 0) {
       error = m.bank_upload_parse_failed({ bank: label });
       return;
@@ -87,6 +96,15 @@
     const rowLimit = checkImportRowCount(parsed.rows.length);
     if (rowLimit) {
       error = limitErrorMessage(rowLimit);
+      return;
+    }
+
+    const unsupportedCurrencies = findUnsupportedImportCurrencies(parsed.rows);
+    if (unsupportedCurrencies.length > 0) {
+      error = m.bank_upload_unsupported_currencies({
+        currencies: unsupportedCurrencies.join(", "),
+      });
+      toast.error(error);
       return;
     }
 
@@ -131,7 +149,8 @@
         fetchCategories(),
       ]);
       resolver = (r) => matchCategory(r, rules, categories);
-    } catch {
+    } catch (e) {
+      reportError(e, "import");
       resolver = undefined;
     }
     try {
@@ -145,7 +164,8 @@
     // commit RPC re-detects duplicates as a safety net.
     try {
       await markPreviewDuplicates(session.id);
-    } catch {
+    } catch (e) {
+      reportError(e, "import");
       // Non-fatal: the commit RPC re-detects duplicates as a safety net. Still warn
       // so the user knows the pre-scan didn't run and can check duplicates manually.
       toast.warning(m.bank_upload_duplicate_scan_failed());
@@ -166,13 +186,13 @@
     selectedKind = null;
     busy = true;
     try {
-      const bytes = await file.arrayBuffer();
-      const sizeLimit = checkImportFileSize(bytes.byteLength);
-      if (sizeLimit) {
-        error = limitErrorMessage(sizeLimit);
+      const fileRead = await readImportFileBytes(file);
+      if (!fileRead.ok) {
+        error = limitErrorMessage(fileRead.violation);
         toast.error(error);
         return;
       }
+      const { bytes } = fileRead;
       const text = decodeBankCsv(bytes);
       const result = detectImportAdapter(text);
       pending = { file, bytes, text };
@@ -186,7 +206,8 @@
       }
       // Uncertified high and all medium/low/null results wait for confirmation.
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
+      reportError(e, "parser");
+      const msg = errorMessage(e, { fallback: m.bank_upload_failed() });
       error = msg;
       toast.error(msg);
     } finally {
@@ -200,7 +221,8 @@
     try {
       await proceedWithAdapter(selectedKind);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
+      reportError(e, "import");
+      const msg = errorMessage(e, { fallback: m.bank_upload_failed() });
       error = msg;
       toast.error(msg);
     } finally {
