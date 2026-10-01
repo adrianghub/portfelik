@@ -235,7 +235,7 @@
   const cashAnchorQuery = createQuery(() => ({
     queryKey: qk.cashPosition(session.userId!),
     queryFn: fetchPrivateCashPosition,
-    enabled: () => !!session.userId,
+    enabled: !!session.userId,
   }));
 
   const cashAnchorStart = $derived(cashAnchorQuery.data?.as_of_date ?? "2000-01-01");
@@ -250,20 +250,20 @@
   const plansQuery = createQuery(() => ({
     queryKey: qk.plans(session.userId!),
     queryFn: fetchPlans,
-    enabled: () => !!session.userId,
+    enabled: !!session.userId,
   }));
 
   const demoProbeQuery = createQuery(() => ({
     queryKey: qk.transactions.list(session.userId!, "demo-probe"),
     queryFn: fetchDemoProbe,
-    enabled: () => !!session.userId,
+    enabled: !!session.userId,
     staleTime: 60_000,
   }));
 
   const txCountQuery = createQuery(() => ({
     queryKey: qk.transactions.list(session.userId!, "all-time-count"),
     queryFn: fetchTransactionCount,
-    enabled: () => !!session.userId,
+    enabled: !!session.userId,
     staleTime: 60_000,
   }));
 
@@ -275,11 +275,14 @@
     })
   );
 
+  // Do not use isFetched: disabled/not-yet-started queries stay isFetched=false and
+  // freeze the top pulse forever. isLoading is false when idle-disabled or settled.
   const ledgerReady = $derived(
-    txCountQuery.isFetched &&
-      demoProbeQuery.isFetched &&
-      plansQuery.isFetched &&
-      cashAnchorQuery.isFetched
+    !!session.userId &&
+      !txCountQuery.isLoading &&
+      !demoProbeQuery.isLoading &&
+      !plansQuery.isLoading &&
+      !cashAnchorQuery.isLoading
   );
   const discovery = $derived(
     ledgerReady &&
@@ -964,7 +967,11 @@
   </div>
 
   {#if !ledgerReady}
-    <div class="h-48 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
+    <div
+      class="h-48 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"
+      data-testid="dashboard-ledger-loading"
+      aria-hidden="true"
+    ></div>
   {:else if discovery}
     <DashboardDiscovery />
   {:else}
