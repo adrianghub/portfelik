@@ -116,7 +116,12 @@ fi
 
 # open-pr.sh on `dev` targets `main`. Never auto-merge production promotions
 # from open-pr; --merge below is the intentional promotion step.
-PR_URL="$(bash "$SCRIPT_DIR/open-pr.sh" main --no-auto-merge)"
+# Take the last https URL from stdout — open-pr may still print chatter.
+PR_URL="$(bash "$SCRIPT_DIR/open-pr.sh" main --no-auto-merge | awk '/^https:\/\// {u=$0} END{print u}')"
+if [ -z "$PR_URL" ]; then
+  echo "Refuse: open-pr.sh did not return a PR URL." >&2
+  exit 1
+fi
 echo "$PR_URL"
 
 PR_NUMBER="$(gh pr view "$PR_URL" --json number --jq '.number')"
