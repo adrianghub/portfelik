@@ -16,15 +16,19 @@ Use this skill to open or update a pull request for this repository.
    bash scripts/open-pr.sh $ARGUMENTS
    ```
 3. If no arguments are supplied, let the script infer the base branch:
-   - `dev` targets `main`.
+   - `dev` targets `main` (use `./scripts/promote.sh` for production promotions).
    - Other branches target `dev`.
-4. Pass a base branch only when the user supplied one. Pass `--dry-run` only when the user asked for a preview or the real PR cannot be opened safely.
-5. Relay the important script output to the user:
-   - On gate failure, report the failing gate and the detail the script printed.
-   - On success, report the PR URL.
+4. Flags (only when the user asked):
+   - `--dry-run` — preview body, no push/`gh`
+   - `--draft` — keep draft (skips auto-merge)
+   - `--no-auto-merge` — ready PR without enabling auto-merge
+5. Feature → `dev` defaults: mark ready + enable **merge-commit** auto-merge.
+   Relay the PR URL and whether auto-merge was enabled.
 6. After a `dev` → `main` production PR merges, do **not** open a hand-rolled
    `main` → `dev` sync PR. `.github/workflows/sync-dev.yml` fast-forwards `dev`.
    If that workflow failed, run `./scripts/sync-dev.sh --push`.
+7. For end-to-end “ship when green” (wait checks / optional promote), prefer the
+   `/ship` skill.
 
 ## Guardrails
 
