@@ -206,7 +206,8 @@
   }
 
   async function storyForCommit(result: CommitResult): Promise<string | null> {
-    if (result.duplicates_commit > 0) {
+    if (result.inserted === 0) return m.bank_commit_no_new();
+    if (result.duplicates_commit > 0 || importRows.length === 0) {
       try {
         const fresh = await fetchSessionRows(session.id);
         return importStoryAfterCommit({
@@ -1166,6 +1167,8 @@
         {#if rows.some((r) => r.is_hold && r.decision === "pending")}
           <p class="text-muted-foreground text-sm">{m.bank_review_hold_hint()}</p>
         {/if}
+      {:else if importRows.length === 0 && duplicateRows.length > 0}
+        <span>{m.bank_review_finish_hint()}</span>
       {:else if importRows.length === 0}
         <span class="text-amber-300">{m.bank_review_commit_zero_hint()}</span>
       {:else}
@@ -1182,11 +1185,15 @@
       </Button>
       <Button
         variant="primary"
-        disabled={importRows.length === 0 || pendingRows.length > 0 || commitMut.isPending}
+        disabled={(importRows.length === 0 && duplicateRows.length === 0) ||
+          pendingRows.length > 0 ||
+          commitMut.isPending}
         loading={commitMut.isPending}
         onclick={commitOrConfirm}
       >
-        {importActionLabel(importRows.length)}
+        {importRows.length === 0
+          ? m.bank_review_finish_action()
+          : importActionLabel(importRows.length)}
       </Button>
     </div>
   </div>

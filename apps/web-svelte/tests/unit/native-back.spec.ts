@@ -51,8 +51,12 @@ describe("native overlay stack", () => {
 
   it("closes the most recently registered overlay first", () => {
     const closed: string[] = [];
-    registerNativeOverlayCloser(() => closed.push("a"));
-    registerNativeOverlayCloser(() => closed.push("b"));
+    registerNativeOverlayCloser(() => {
+      closed.push("a");
+    });
+    registerNativeOverlayCloser(() => {
+      closed.push("b");
+    });
 
     expect(nativeOverlayCount()).toBe(2);
     expect(closeTopNativeOverlay()).toBe(true);
@@ -72,6 +76,17 @@ describe("native overlay stack", () => {
     expect(closeTopNativeOverlay()).toBe(true);
     expect(closeTopNativeOverlay()).toBe(false);
     expect(calls).toBe(1);
+  });
+
+  it("keeps a pending closer on the stack until it permits dismissal", () => {
+    let pending = true;
+    const close = vi.fn(() => (pending ? (false as const) : undefined));
+    registerNativeOverlayCloser(close);
+    expect(closeTopNativeOverlay()).toBe(true);
+    expect(nativeOverlayCount()).toBe(1);
+    pending = false;
+    expect(closeTopNativeOverlay()).toBe(true);
+    expect(nativeOverlayCount()).toBe(0);
   });
 
   it("lets a page handler consume back before routing", () => {

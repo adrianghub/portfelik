@@ -129,6 +129,44 @@ describe("commit_import_session obligation reconciliation", () => {
     return commitSession(sessionId);
   }
 
+  it("reconciles mBank card-purchase boilerplate without matching a different merchant", async () => {
+    const categoryId = await seedCategory();
+    const targetId = await seedManualExpense(categoryId, "paid");
+    const accountId = await seedAccount("mbank");
+    const sessionId = await seedSession(accountId, "mbank-boilerplate", "mbank");
+    const rowId = await seedImportRow(sessionId, "mbank-boilerplate", "2026-09-13");
+    const edited = await ctx.admin
+      .from("transaction_import_rows")
+      .update({
+        description: `${SENTINEL} ZAKUP TOWARÓW I USŁUG Orange Flex`,
+        counterparty: "Orange Polska",
+      })
+      .eq("id", rowId);
+    expect(edited.error).toBeNull();
+    // The Orange target is still unlinked here: a different merchant must not
+    // reconcile just because the boilerplate, amount and date are identical.
+    const otherSession = await seedSession(accountId, "mbank-other-merchant", "mbank");
+    const otherRow = await seedImportRow(otherSession, "mbank-other-merchant", "2026-09-13");
+    const changed = await ctx.admin
+      .from("transaction_import_rows")
+      .update({
+        description: `${SENTINEL} ZAKUP TOWARÓW I USŁUG Energa Polska`,
+        counterparty: "Energa Polska",
+      })
+      .eq("id", otherRow);
+    expect(changed.error).toBeNull();
+    expect((await markAndCommit(otherSession)).inserted).toBe(1);
+
+    expect((await markAndCommit(sessionId)).inserted).toBe(0);
+    const link = await ctx.userA.client
+      .from("transaction_import_links")
+      .select("transaction_id")
+      .eq("row_id", rowId)
+      .single();
+    expect(link.error).toBeNull();
+    expect(link.data?.transaction_id).toBe(targetId);
+  });
+
   async function seedPlanLinkedExpense(options: {
     categoryId: string;
     description: string;

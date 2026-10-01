@@ -677,7 +677,10 @@
 <!-- Leave confirm -->
 <ConfirmDialog
   open={!!leaveGroupId}
+  title={m.group_leave()}
   message={m.group_leave_confirm()}
+  confirmLabel={m.group_leave()}
+  intent="neutral"
   onconfirm={() => leaveMutation.mutate()}
   onclose={() => (leaveGroupId = null)}
   pending={leaveMutation.isPending}

@@ -65,6 +65,7 @@
       class="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full border-4 border-slate-800"
       style="background: conic-gradient(var(--color-accent) {pct}%, rgb(30 41 59) {pct}%)"
       role="progressbar"
+      aria-label={plan.name}
       aria-valuenow={pct}
       aria-valuemin={0}
       aria-valuemax={100}
@@ -120,7 +121,7 @@
             class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 py-2 pr-9 pl-3.5 text-sm text-slate-100 tabular-nums backdrop-blur focus:ring-2 focus:outline-none disabled:opacity-50"
           />
           <span
-            class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-slate-500"
+            class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-slate-400"
           >
             zł
           </span>
@@ -141,7 +142,7 @@
   <div class="mt-5 grid gap-2 sm:grid-cols-2">
     {#if progress.monthlyNeeded != null}
       <div class="rounded-xl border border-white/5 bg-slate-900/50 px-3 py-2.5">
-        <p class="text-eyebrow text-slate-500">{m.plan_save_monthly_needed_label()}</p>
+        <p class="text-eyebrow text-slate-400">{m.plan_save_monthly_needed_label()}</p>
         <p class="mt-1 text-sm font-semibold text-slate-100 tabular-nums">
           {m.plan_save_monthly_needed({ amount: formatCurrency(progress.monthlyNeeded) })}
         </p>
@@ -149,7 +150,7 @@
     {/if}
     {#if progress.monthlyActual != null}
       <div class="rounded-xl border border-white/5 bg-slate-900/50 px-3 py-2.5">
-        <p class="text-eyebrow text-slate-500">{m.plan_save_monthly_actual_label()}</p>
+        <p class="text-eyebrow text-slate-400">{m.plan_save_monthly_actual_label()}</p>
         <p class="mt-1 text-sm font-semibold text-emerald-300 tabular-nums">
           {m.plan_save_monthly_actual({ amount: formatCurrency(progress.monthlyActual) })}
         </p>

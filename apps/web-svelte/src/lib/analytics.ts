@@ -20,7 +20,12 @@ export type MilestoneEvent =
   | "push_enabled";
 
 export type DiagnosticEvent =
-  "client_error" | "mutation_failure" | "import_failure" | "parser_failure";
+  | "client_error"
+  | "mutation_failure"
+  | "import_failure"
+  | "parser_failure"
+  | "web_vital"
+  | "api_timing";
 
 export type AnalyticsEvent = MilestoneEvent | DiagnosticEvent;
 
@@ -45,42 +50,36 @@ const MILESTONE_KEYS: Record<MilestoneEvent, string> = {
   push_enabled: "analytics:push_enabled",
 };
 
-type PlausibleFn = ((event: string, options?: { props?: Record<string, string> }) => void) & {
-  q?: unknown[][];
-};
-
-declare global {
-  interface Window {
-    plausible?: PlausibleFn;
-  }
+export function analyticsEnabled(): boolean {
+  return browser && !!plausibleDomain();
 }
-
-let scriptInjected = false;
 
 function plausibleDomain(): string | null {
   const domain = PUBLIC_PLAUSIBLE_DOMAIN?.trim();
   return domain ? domain : null;
 }
 
-/** Load Plausible when PUBLIC_PLAUSIBLE_DOMAIN is set. Safe to call multiple times. */
-export function initPlausible(): void {
-  if (!browser || scriptInjected) return;
-  const domain = plausibleDomain();
-  if (!domain) return;
-
-  scriptInjected = true;
-  const w = window;
-  w.plausible =
-    w.plausible ||
-    (((...args: unknown[]) => {
-      (w.plausible!.q = w.plausible!.q || []).push(args);
-    }) as PlausibleFn);
-
-  const script = document.createElement("script");
-  script.defer = true;
-  script.dataset.domain = domain;
-  script.src = "https://plausible.io/js/script.js";
-  document.head.appendChild(script);
+/** Bounded route names: never send entity IDs, invite tokens, queries or hashes. */
+export function analyticsPath(path: string): string {
+  const top = path.split("/")[1];
+  if (
+    [
+      "dashboard",
+      "transactions",
+      "import",
+      "plans",
+      "settings",
+      "login",
+      "privacy",
+      "changelog",
+      "invite",
+      "admin",
+      "auth",
+    ].includes(top)
+  ) {
+    return `/${top}`;
+  }
+  return "/";
 }
 
 function toPlausibleProps(props?: AnalyticsProps): Record<string, string> | undefined {
@@ -90,19 +89,26 @@ function toPlausibleProps(props?: AnalyticsProps): Record<string, string> | unde
   return Object.fromEntries(entries.map(([key, value]) => [key, String(value)]));
 }
 
-/** Send a custom event. No-ops when domain unset; logs in dev. */
-export function track(event: AnalyticsEvent, props?: AnalyticsProps): void {
-  if (import.meta.env.DEV) {
-    console.debug("[analytics]", event, props);
-  }
-  if (!browser || !plausibleDomain()) return;
-  initPlausible();
-  const plausibleProps = toPlausibleProps(props);
-  if (plausibleProps) {
-    window.plausible?.(event, { props: plausibleProps });
-  } else {
-    window.plausible?.(event);
-  }
+/** Send only an explicit, bounded payload; no automatic URL/referrer capture. */
+export function track(event: AnalyticsEvent | "pageview", props?: AnalyticsProps): void {
+  if (import.meta.env.DEV) console.debug("[analytics]", event, props);
+  const domain = plausibleDomain();
+  if (!browser || !domain) return;
+  void fetch("https://plausible.io/api/event", {
+    method: "POST",
+    headers: { "Content-Type": "text/plain" },
+    body: JSON.stringify({
+      name: event,
+      domain,
+      url: window.location.origin + analyticsPath(window.location.pathname),
+      props: toPlausibleProps(props),
+    }),
+    credentials: "omit",
+    referrerPolicy: "no-referrer",
+    keepalive: true,
+  }).catch(() => {
+    /* Telemetry must never interrupt a financial action. */
+  });
 }
 
 /** Fire a milestone event at most once per browser profile. */

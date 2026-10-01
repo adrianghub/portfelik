@@ -625,7 +625,7 @@
             : m.plan_detail_linked_header()}
         </h2>
         {#if progress}
-          <p class="text-xs text-slate-500">
+          <p class="text-xs text-slate-400">
             {progress.linkedCount}
             {#if plan.kind === "save"}
               · {formatCurrency(progress.savedAmount)}
@@ -869,7 +869,7 @@
                 onclick={() => onunlink(tx.id)}
                 disabled={loading && pendingId === tx.id}
                 aria-label={m.plan_settle_unlink()}
-                class="rounded-full p-1 text-slate-500 transition-colors hover:bg-white/5 hover:text-rose-400 disabled:opacity-40"
+                class="rounded-full p-1 text-slate-400 transition-colors hover:bg-white/5 hover:text-rose-400 disabled:opacity-40"
                 onmousedown={() => setpending(tx.id)}
               >
                 <Link2Off size={13} strokeWidth={1.8} aria-hidden="true" />

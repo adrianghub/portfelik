@@ -268,7 +268,6 @@
         initialFile={retainedFile}
         onFileRetained={(f) => (retainedFile = f)}
       />
-      <p class="text-xs text-slate-400">{m.import_banks_soon()}</p>
     {:else if step === "review" && activeSession}
       <ImportReviewFlow
         session={activeSession}

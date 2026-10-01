@@ -5,8 +5,19 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+const currencyFormatters = new Map<string, Intl.NumberFormat>();
+
 export function formatCurrency(amount: number, currency = "PLN"): string {
-  return new Intl.NumberFormat("pl-PL", { style: "currency", currency }).format(amount);
+  let formatter = currencyFormatters.get(currency);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat("pl-PL", {
+      style: "currency",
+      currency,
+      useGrouping: "always",
+    });
+    if (currencyFormatters.size < 32) currencyFormatters.set(currency, formatter);
+  }
+  return formatter.format(amount);
 }
 
 export function formatDate(date: string): string {

@@ -11,7 +11,7 @@
   import DashboardSpendingInsight from "$lib/components/dashboard/DashboardSpendingInsight.svelte";
   import DashboardViewToolbar from "$lib/components/dashboard/DashboardViewToolbar.svelte";
   import DashboardDiscovery from "$lib/components/dashboard/DashboardDiscovery.svelte";
-  import SpendHistoryChart from "$lib/components/dashboard/charts/SpendHistoryChart.svelte";
+  import SpendHistoryChart from "$lib/components/dashboard/charts/LazySpendHistoryChart.svelte";
   import * as m from "$lib/paraglide/messages";
   import DemoShowcaseBanner from "$lib/components/onboarding/DemoShowcaseBanner.svelte";
   import GlossarySheet from "$lib/components/ui/GlossarySheet.svelte";
@@ -59,6 +59,7 @@
     cashForecastProjectionEnd,
     fetchPrivateCashPosition,
     forecastPosition,
+    forecastMovementTotals,
     livePosition,
   } from "$lib/services/cash-position";
   import {
@@ -200,26 +201,29 @@
   }
 
   const settleMutation = createMutation(() => ({
-    mutationFn: (vars: { id: string; prev: TransactionStatus }) =>
+    mutationFn: (vars: { id: string; prev: TransactionStatus; type: "income" | "expense" }) =>
       updateTransactionStatus(vars.id, "paid"),
     onSuccess: async (_data, vars) => {
       await invalidateAfterSettle();
-      toast.success(m.toast_transaction_settled(), {
-        action: {
-          label: m.toast_transaction_settle_undo(),
-          onClick: () => {
-            void updateTransactionStatus(vars.id, vars.prev)
-              .then(() => invalidateAfterSettle())
-              .catch((err) => toastError(err));
+      toast.success(
+        vars.type === "income" ? m.toast_transaction_received() : m.toast_transaction_settled(),
+        {
+          action: {
+            label: m.toast_transaction_settle_undo(),
+            onClick: () => {
+              void updateTransactionStatus(vars.id, vars.prev)
+                .then(() => invalidateAfterSettle())
+                .catch((err) => toastError(err));
+            },
           },
-        },
-      });
+        }
+      );
     },
     onError: (err) => toastError(err),
   }));
 
   function quickSettle(tx: TransactionWithCategory) {
-    settleMutation.mutate({ id: tx.id, prev: tx.status });
+    settleMutation.mutate({ id: tx.id, prev: tx.status, type: tx.type });
   }
 
   const profileQuery = createQuery(() => ({
@@ -270,10 +274,15 @@
   );
 
   const ledgerReady = $derived(
-    txCountQuery.isFetched && demoProbeQuery.isFetched && plansQuery.isFetched
+    txCountQuery.isFetched &&
+      demoProbeQuery.isFetched &&
+      plansQuery.isFetched &&
+      cashAnchorQuery.isFetched
   );
   const discovery = $derived(
     ledgerReady &&
+      !cashAnchorQuery.isError &&
+      !cashAnchorQuery.data &&
       typeof txCountQuery.data === "number" &&
       isDiscoveryLedger({ demoActive, transactionCount: txCountQuery.data }) &&
       !guidedTourUi.running
@@ -651,6 +660,9 @@
   const afterUpcomingCashPosition = $derived(
     forecastPosition(cashAnchorQuery.data ?? null, cashPositionTxs, cashPositionOptions)
   );
+  const cashForecastMovements = $derived(
+    forecastMovementTotals(cashAnchorQuery.data ?? null, cashPositionTxs, cashPositionOptions)
+  );
   const cashPositionLoading = $derived(
     cashAnchorQuery.isPending ||
       (!!cashAnchorQuery.data &&
@@ -658,6 +670,21 @@
           recurringTemplatesQuery.isPending ||
           cashRecurringSkipsQuery.isPending))
   );
+  const cashPositionError = $derived(
+    cashAnchorQuery.isError ||
+      (!!cashAnchorQuery.data &&
+        (cashHistoryQuery.isError ||
+          recurringTemplatesQuery.isError ||
+          cashRecurringSkipsQuery.isError))
+  );
+  function retryCashPosition() {
+    void Promise.all([
+      cashAnchorQuery.refetch(),
+      cashHistoryQuery.refetch(),
+      recurringTemplatesQuery.refetch(),
+      cashRecurringSkipsQuery.refetch(),
+    ]);
+  }
   // Forecast source = scheduled real rows (one-off upcoming + materialized
   // recurring occurrences) UNIONed with deduped projections — so the chart's
   // forecast region agrees with the /transactions upcoming list for a window,
@@ -935,6 +962,18 @@
     <DashboardDiscovery />
   {:else}
     <!-- Period stays behind more. Scope stays when a group exists. -->
+    <DashboardCashPosition
+      live={currentCashPosition}
+      forecast={afterUpcomingCashPosition}
+      upcomingIncome={cashForecastMovements.upcomingIncome}
+      upcomingExpenses={cashForecastMovements.upcomingExpenses}
+      anchorDate={cashAnchorQuery.data?.as_of_date}
+      hasAnchor={!!cashAnchorQuery.data}
+      loading={cashPositionLoading}
+      error={cashPositionError}
+      onRetry={retryCashPosition}
+    />
+
     {#if detailsOpen || (groupsQuery.data?.length ?? 0) > 0}
       <DashboardViewToolbar
         {period}
@@ -960,13 +999,6 @@
         restarting={restartTourMutation.isPending}
       />
     {/if}
-
-    <DashboardCashPosition
-      live={currentCashPosition}
-      forecast={afterUpcomingCashPosition}
-      hasAnchor={!!cashAnchorQuery.data}
-      loading={cashPositionLoading}
-    />
 
     <!-- Financial overview: balance beside spending and history on wide screens -->
     {#if txQuery.isLoading}
@@ -1048,12 +1080,14 @@
                 >
                   <div class="expand-grid-inner">
                     <div class="expand-grid-panel px-2 pb-2">
-                      <SpendHistoryChart
-                        buckets={combinedHistoryBuckets}
-                        {allocationByLabel}
-                        onselectperiod={selectHistoryPeriod}
-                        onOpenGlossary={openGlossary}
-                      />
+                      {#if historyExpanded}
+                        <SpendHistoryChart
+                          buckets={combinedHistoryBuckets}
+                          {allocationByLabel}
+                          onselectperiod={selectHistoryPeriod}
+                          onOpenGlossary={openGlossary}
+                        />
+                      {/if}
                     </div>
                   </div>
                 </div>

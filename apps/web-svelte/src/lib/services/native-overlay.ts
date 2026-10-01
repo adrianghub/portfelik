@@ -2,7 +2,7 @@
 
 export type NativeBackPageHandler = () => boolean;
 
-const overlayClosers: Array<() => void> = [];
+const overlayClosers: Array<() => void | false> = [];
 let pageHandler: NativeBackPageHandler | null = null;
 let chromeHides = 0;
 let fabHolds = 0;
@@ -39,7 +39,7 @@ export function hideMobileChrome(): () => void {
   };
 }
 
-export function registerNativeOverlayCloser(close: () => void): () => void {
+export function registerNativeOverlayCloser(close: () => void | false): () => void {
   overlayClosers.push(close);
   return () => {
     const index = overlayClosers.lastIndexOf(close);
@@ -50,7 +50,7 @@ export function registerNativeOverlayCloser(close: () => void): () => void {
 export function closeTopNativeOverlay(): boolean {
   const close = overlayClosers.pop();
   if (!close) return false;
-  close();
+  if (close() === false) overlayClosers.push(close);
   return true;
 }
 

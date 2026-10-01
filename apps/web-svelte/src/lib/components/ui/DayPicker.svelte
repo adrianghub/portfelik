@@ -14,6 +14,8 @@
     placeholder?: string;
     required?: boolean;
     disabled?: boolean;
+    /** Latest selectable ISO calendar date. */
+    max?: string;
     /** Render the built-in label. Set false when an external label already
         describes the field (e.g. a form using its own eyebrow labels). */
     showLabel?: boolean;
@@ -33,6 +35,7 @@
     placeholder = m.day_picker_placeholder(),
     required = false,
     disabled = false,
+    max,
     showLabel = true,
     yearsPast = 100,
     yearsAhead = 35,
@@ -139,6 +142,7 @@
   function toggleOpen() {
     if (disabled) return;
     if (!open) {
+      triggerRef?.focus({ preventScroll: true });
       syncCalendarPlaceholder();
       if (isDesktop.current) updatePopoverPosition();
     }
@@ -189,6 +193,7 @@
     class="rounded-xl border border-white/5 bg-slate-900/60 p-3"
     type="single"
     value={selected}
+    maxValue={toValue(max)}
     preventDeselect
     onValueChange={handleValueChange}
     bind:placeholder={calendarPlaceholder}

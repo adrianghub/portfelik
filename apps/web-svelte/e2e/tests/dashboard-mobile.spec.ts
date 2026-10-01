@@ -118,8 +118,8 @@ test.describe("dashboard mobile layout", () => {
 
     await expect(page.getByRole("heading", { name: "Hej, Mr. Zinko!" })).toBeVisible();
     const cash = page.getByTestId("dashboard-cash-position");
-    await expect(cash.getByText("Dostępne teraz", { exact: true })).toBeVisible();
-    await expect(cash.getByText("Po nadchodzących płatnościach", { exact: true })).toBeVisible();
+    await expect(cash.getByText("Saldo z transakcji", { exact: true }).first()).toBeVisible();
+    await expect(cash.getByText("Prognoza salda", { exact: true }).first()).toBeVisible();
     await expect(cash).toContainText(/1\D?300,00/);
     await expect(cash).toContainText(/1\D?000,00/);
   });
@@ -135,7 +135,7 @@ test.describe("dashboard mobile layout", () => {
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
     await expect(panel).toHaveAttribute("aria-hidden", "false");
-    await expect(page.getByText(/top kategorie/i)).toBeVisible();
+    await expect(page.getByText(/największe wydatki/i)).toBeVisible();
   });
 
   test("spend history accordion expands on mobile", async ({ page }) => {

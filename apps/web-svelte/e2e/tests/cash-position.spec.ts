@@ -70,7 +70,7 @@ const CASH_TXS = [
 ];
 
 const desktopTable = (page: Page) => page.locator("table");
-const strip = (page: Page) => page.getByRole("button", { name: "Dostępne · Prywatne" });
+const strip = (page: Page) => page.getByTestId("transaction-cash-position");
 
 const MOCK_GROUP = {
   id: "group-1",
@@ -109,9 +109,9 @@ test("private scope: strip shows live total and forecast", async ({ page }) => {
   // then settles to live once the paid-history query resolves, so wait for the
   // settled value (auto-retrying).
   await expect(strip(page)).toBeVisible();
-  await expect(strip(page).locator("p.text-2xl")).toHaveText(/1\D?300,00/); // 1000 + 500 − 200
+  await expect(strip(page).locator("p.text-3xl")).toHaveText(/1\D?300,00/); // 1000 + 500 − 200
 
-  const forecast = page.getByRole("button", { name: /Po nadchodzących płatnościach/ });
+  const forecast = strip(page).locator("p.text-2xl");
   await expect(forecast).toBeVisible();
   await expect(forecast).toContainText(/1\D?600,00/);
 });
@@ -123,7 +123,7 @@ test("solo user (no groups) sees the cash view in the default scope", async ({ p
   await page.goto("/transactions");
 
   await expect(strip(page)).toBeVisible();
-  await expect(strip(page).locator("p.text-2xl")).toHaveText(/1\D?300,00/);
+  await expect(strip(page).locator("p.text-3xl")).toHaveText(/1\D?300,00/);
 });
 
 test("group user: mixed all scope hides the cash view, own scope shows it", async ({ page }) => {
@@ -145,10 +145,12 @@ test("private scope without an anchor: one control opens the balance sheet", asy
 
   await expect(desktopTable(page).getByText("Wydatek gotówkowy")).toBeVisible();
   await expect(strip(page)).toHaveCount(0);
-  const setBalance = page.getByRole("button", { name: "Ustaw saldo początkowe." });
+  const setBalance = page.getByRole("button", {
+    name: "Ustaw saldo początkowe, aby zobaczyć saldo i prognozę",
+  });
   await expect(setBalance).toBeVisible();
   await setBalance.click();
-  await expect(page.getByRole("dialog", { name: "Dostępne · Prywatne" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Saldo z transakcji" })).toBeVisible();
 });
 
 test("private scope: strip opens edit sheet with anchor fields", async ({ page }) => {
@@ -156,12 +158,33 @@ test("private scope: strip opens edit sheet with anchor fields", async ({ page }
   await page.goto("/transactions?group=own");
 
   await expect(strip(page)).toBeVisible();
-  await strip(page).click();
+  await strip(page).getByRole("button", { name: "Zmień saldo początkowe" }).click();
 
-  const sheet = page.getByRole("dialog", { name: "Dostępne · Prywatne" });
+  const sheet = page.getByRole("dialog", { name: "Saldo z transakcji" });
   await expect(sheet).toBeVisible();
   await expect(sheet.getByLabel("Dzień salda początkowego")).toBeVisible();
   await expect(sheet.locator("#cash-opening-amount")).toHaveValue("1000");
   await expect(sheet.getByLabel("Saldo początkowe")).toBeVisible();
   await expect(sheet.getByText(/na początku wybranego dnia/)).toBeVisible();
+});
+
+test.describe("nested balance date sheet", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+  test("announces each dialog separately and Escape closes only the calendar", async ({ page }) => {
+    await mockCash(page);
+    await page.goto("/transactions?group=own");
+    await page.getByRole("button", { name: "Zmień saldo początkowe", exact: true }).click();
+    const balance = page.getByRole("dialog", { name: "Saldo z transakcji", exact: true });
+    const trigger = balance.getByRole("button", { name: "Dzień salda początkowego", exact: true });
+    await trigger.click();
+    const calendar = page.getByRole("dialog", { name: "Dzień salda początkowego", exact: true });
+    await expect(calendar).toBeVisible();
+    await expect(balance).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(calendar).toHaveCount(0);
+    await expect(balance).toBeVisible();
+    await expect(trigger).toBeFocused();
+    await balance.locator("#cash-opening-amount").fill("");
+    await expect(balance.getByRole("button", { name: "Zapisz", exact: true })).toBeDisabled();
+  });
 });

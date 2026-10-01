@@ -482,7 +482,7 @@ test("import wizard: uploads, flags probable duplicates, commits, and blocks re-
 
   await expect(page.getByRole("heading", { name: "Potwierdź import" })).toBeVisible();
   await expect(page.getByText("Dodaj 3 · pomiń 0")).toBeVisible();
-  await expect(page.getByText(/Pominięte jako duplikat/)).toBeVisible();
+  await expect(page.getByText(/Pozycje pasujące do zapisanych transakcji/)).toBeVisible();
   await page.getByRole("button", { name: "Potwierdź (3)" }).click();
 
   await expect(page).toHaveURL(/\/transactions\?startYear=2026&startMonth=5/);

@@ -138,9 +138,7 @@ export async function buildAccountExport(): Promise<AccountExportBundle> {
     fetchAllPages((from, to) =>
       supabase
         .from("transaction_import_sessions")
-        .select(
-          "id, status, adapter_kind, source_filename, rows_total, committed_at, created_at, updated_at"
-        )
+        .select("id, status, adapter_kind, source_filename, rows_total, committed_at, created_at")
         .order("created_at", { ascending: false })
         .order("id")
         .range(from, to)

@@ -19,7 +19,7 @@ describe("describeImportedMoney", () => {
       { type: "expense", amount: 200, categoryName: "Zakupy" },
     ]);
     expect(story).toBe(
-      `Przychody: ${formatCurrency(5000)}. Wydatki: ${formatCurrency(200)}. Najwięcej w kategorii Zakupy: ${formatCurrency(200)}.`
+      `Wpływy: ${formatCurrency(5000)}. Wydatki: ${formatCurrency(200)}. Najwięcej w kategorii Zakupy: ${formatCurrency(200)}.`
     );
   });
 

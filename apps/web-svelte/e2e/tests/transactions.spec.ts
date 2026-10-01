@@ -9,7 +9,7 @@ import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
 const desktopTable = (page: Page) => page.locator("table");
 
 // Search palette renders card list (not table) at all breakpoints.
-const palette = (page: Page) => page.getByRole("search");
+const palette = (page: Page) => page.getByRole("dialog", { name: "Szukaj transakcji" });
 
 test.beforeEach(async ({ page }) => {
   await injectFakeSession(page);
@@ -135,7 +135,7 @@ test("far-future recurring forecast rows expose only scoped series actions", asy
   await expect(sheet.getByText("Jeszcze nie ma jej w historii")).toBeVisible();
   await expect(sheet.getByText("Seria cykliczna")).toBeVisible();
   await sheet.getByRole("button", { name: "Edytuj" }).click();
-  await expect(sheet.getByRole("button", { name: "To wystąpienie" })).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Tylko ta płatność" })).toBeVisible();
   await expect(sheet.getByRole("button", { name: "Cała seria" })).toBeVisible();
   await expect(sheet.getByRole("button", { name: "Usuń" })).toBeVisible();
 });
@@ -293,7 +293,7 @@ test("quick-settle marks an upcoming transaction paid", async ({ page }) => {
   await settle.click();
 
   await expect(page.getByText("Oznaczono jako opłacone")).toBeVisible();
-  await expect(sheet.getByText("Opłacone", { exact: true })).toBeVisible();
+  await expect(sheet.getByText("Zrealizowane", { exact: true })).toBeVisible();
   await expect(settle).toHaveCount(0);
 });
 
@@ -344,6 +344,31 @@ test("stale push is acknowledged when the transaction is already paid", async ({
 
   await expect.poll(() => notificationAckCount).toBe(1);
   await expect(page).not.toHaveURL(/action=settle/);
-  await expect(page.locator("aside").getByText("Opłacone", { exact: true })).toBeVisible();
+  await expect(page.locator("aside").getByText("Zrealizowane", { exact: true })).toBeVisible();
   await expect(page.getByText("Oznaczono jako zapłacone")).toHaveCount(0);
+});
+
+test("search pages a large history without hiding matching results", async ({ page }) => {
+  await page.route("**/rest/v1/transactions_with_category**", (route) =>
+    route.fulfill({
+      json: Array.from({ length: 161 }, (_, i) => ({
+        ...MOCK_TRANSACTIONS[0],
+        id: `large-${i}`,
+        description: `Quality search ${i}`,
+        date: new Date().toISOString().slice(0, 10),
+      })),
+    })
+  );
+  await page.reload();
+  await page.getByRole("button", { name: "Szukaj transakcji", exact: true }).click();
+  const search = palette(page);
+  await expect(search.locator("li")).toHaveCount(80);
+  await search.getByRole("button", { name: /Pokaż więcej/ }).click();
+  await expect(search.locator("li")).toHaveCount(160);
+  await search.getByRole("button", { name: /Pokaż więcej/ }).click();
+  await expect(search.locator("li")).toHaveCount(161);
+  await expect(search.getByRole("button", { name: /Pokaż więcej/ })).toHaveCount(0);
+  await search.getByPlaceholder("Szukaj transakcji…").fill("Quality search 160");
+  await expect(search.locator("li")).toHaveCount(1);
+  await expect(search.getByText("Quality search 160", { exact: true })).toBeVisible();
 });

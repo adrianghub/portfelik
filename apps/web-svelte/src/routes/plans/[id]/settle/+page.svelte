@@ -171,6 +171,10 @@
   }
 </script>
 
+<svelte:head>
+  <title>{settleTitle} · JakStoimy</title>
+</svelte:head>
+
 <div class="mobile-detail-bottom container mx-auto max-w-2xl space-y-6 px-4 pt-6 md:pb-8">
   <div class="flex items-start gap-3">
     <button

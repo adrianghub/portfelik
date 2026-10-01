@@ -15,7 +15,8 @@
   import InstallPrompt from "$lib/components/ui/InstallPrompt.svelte";
   import GuidedTourHost from "$lib/components/onboarding/GuidedTourHost.svelte";
   import { motionDuration } from "$lib/motion";
-  import { initPlausible } from "$lib/analytics";
+  import { track } from "$lib/analytics";
+  import { installWebVitals } from "$lib/performance-monitoring";
   import { installGlobalErrorReporting } from "$lib/observability";
   import * as m from "$lib/paraglide/messages";
   import { fetchProfile } from "$lib/services/profiles";
@@ -62,6 +63,7 @@
   // never retains the previous offset. Browser back/forward (popstate) keeps the
   // restored position (e.g. the Plany hub's saved scroll).
   afterNavigate(({ type }) => {
+    track("pageview");
     if (type !== "popstate") {
       window.scrollTo(0, 0);
     }
@@ -176,7 +178,7 @@
   }
 
   onMount(() => {
-    initPlausible();
+    void installWebVitals();
     const teardownErrorReporting = installGlobalErrorReporting();
     // Register unconditionally (not auth-gated) so install/standalone is deterministic
     // for anonymous + login pages. Push subscription still gated in loadAuthenticatedUser.

@@ -40,6 +40,26 @@ Both registers stay professional. Warm does not mean chatty.
 10. Prefer *aplikacja* over *apka*. Prefer precise verbs over slang
     (*ogarnąć*, *zerknij*).
 
+## Financial terms
+
+Every amount needs a meaning, a date range, and a source. Use these terms on
+all screens, including help and notifications:
+
+| Polish term | Meaning |
+|---|---|
+| Saldo z transakcji | Private PLN opening balance plus recorded inflows minus expenses since its date. It is not a bank-provided balance. |
+| Prognoza salda | That balance plus expected inflows minus upcoming and overdue expenses within the displayed 90-day horizon. |
+| Bilans okresu | Recorded inflows minus expenses for the selected period; not the amount available in an account. |
+| Wpływy / wydatki | The two directions of money movement. |
+| Zrealizowane | Neutral completed status for both directions. |
+| Oznacz jako opłacone / Oznacz jako otrzymane | Explicit manual confirmation of an expense or an inflow. JakStoimy does not execute payments. |
+| Saldo kredytu | Remaining principal; installments and interest have separate labels. |
+
+Keep the private scope and PLN basis visible near the balance. Display the
+forecast date next to its number. Put the full calculation behind
+“Jak obliczamy saldo i prognozę?”. Date filters for period reports do not change
+the private balance or its forecast horizon.
+
 ## Do / don’t
 
 | Do | Don’t |

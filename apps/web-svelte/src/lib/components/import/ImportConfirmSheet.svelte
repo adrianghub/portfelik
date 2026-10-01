@@ -32,7 +32,9 @@
 <Dialog {open} onclose={onClose} title={m.bank_confirm_title()}>
   <div class="space-y-4">
     <p class="text-sm text-slate-300">
-      {m.bank_confirm_summary({ add: importCount, skip: skipCount })}
+      {importCount === 0
+        ? m.bank_review_finish_hint()
+        : m.bank_confirm_summary({ add: importCount, skip: skipCount })}
     </p>
 
     {#if inneRows.length > 0}
@@ -78,7 +80,9 @@
         </Button>
       {/if}
       <Button variant="primary" loading={commitPending} disabled={commitPending} onclick={onCommit}>
-        {m.bank_confirm_submit({ count: importCount })}
+        {importCount === 0
+          ? m.bank_review_finish_action()
+          : m.bank_confirm_submit({ count: importCount })}
       </Button>
     </div>
   </div>

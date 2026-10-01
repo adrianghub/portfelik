@@ -209,10 +209,10 @@
                   type="button"
                   onclick={(event) => handleSettleClick(n, event)}
                   class="{actionBtnClass} text-accent hover:text-accent font-medium"
-                  aria-label={m.transactions_quick_settle()}
-                  title={m.transactions_quick_settle()}
+                  aria-label={m.transactions_quick_settle_generic()}
+                  title={m.transactions_quick_settle_generic()}
                 >
-                  {m.transactions_quick_settle_short()}
+                  {m.transactions_quick_settle_generic_short()}
                 </button>
               {/if}
               <button

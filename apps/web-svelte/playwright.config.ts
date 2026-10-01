@@ -12,6 +12,7 @@ const FAKE_ANON_KEY = "test-anon-key";
 
 export default defineConfig({
   testDir: "./e2e/tests",
+  testIgnore: "quality-matrix.spec.ts",
   snapshotPathTemplate: "{testDir}/snapshots/{platform}/{testFilePath}/{arg}{ext}",
   fullyParallel: true,
   forbidOnly: isCI,

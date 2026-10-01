@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { requireSessionUserId, session } from "$lib/auth/session.svelte";
-  import { productDateIso } from "$lib/date-local";
+  import { addLocalDays, productDateIso } from "$lib/date-local";
   import { qk } from "$lib/query-keys";
   import { fetchCategories, updateCategory } from "$lib/services/categories";
   import { normalizeCapAmount, pileWindow, spentInPile } from "$lib/services/pile-progress";
@@ -74,7 +74,8 @@
           const pct = Math.min(100, Math.round((spent / cap) * 100));
           const left = Math.max(0, cap - spent);
           const exceeded = Math.max(0, spent - cap);
-          const periodEnd = pileWindow(pile.cap_period!, today).end;
+          // Query windows end exclusively; the displayed deadline is inclusive.
+          const periodEnd = addLocalDays(pileWindow(pile.cap_period!, today).end, -1);
           return { pile, spent, cap, pct, over: spent > cap, left, exceeded, periodEnd };
         })
       : []

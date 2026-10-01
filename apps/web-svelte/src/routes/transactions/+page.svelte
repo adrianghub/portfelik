@@ -196,14 +196,19 @@
   const emptyLabel = $derived.by(() => {
     if (explicitStartDate && explicitEndDate) {
       const fm = fullMonthOf(explicitStartDate, explicitEndDate);
-      if (fm) return m.transactions_empty_month({ period: monthNameLocative(fm.month) });
+      if (fm)
+        return m.transactions_empty_month({
+          period: `${fm.month === 9 ? "we" : "w"} ${monthNameLocative(fm.month)}`,
+        });
       return m.transactions_empty_range({
         from: formatDate(explicitStartDate),
         to: formatDate(explicitEndDate),
       });
     }
     if (startYear === endYear && startMonth === endMonth) {
-      return m.transactions_empty_month({ period: monthNameLocative(startMonth) });
+      return m.transactions_empty_month({
+        period: `${startMonth === 9 ? "we" : "w"} ${monthNameLocative(startMonth)}`,
+      });
     }
     return m.transactions_empty_range({
       from: monthYearLabel(startYear, startMonth),
@@ -415,11 +420,14 @@
   // visibleTxs adds the search filter on top - search is row-only UI sugar
   // so it deliberately doesn't affect totals.
   let searchQuery = $state("");
+  const normalizedSearchQuery = $derived(searchQuery.trim().toLocaleLowerCase("pl-PL"));
+  const compactAmountQuery = $derived(
+    normalizedSearchQuery.replaceAll("\u00a0", "").replaceAll(" ", "").replace(",", ".")
+  );
   const visibleTxs = $derived(
     displayTxs?.filter((tx) => {
-      if (!searchQuery) return true;
-      const q = searchQuery.trim().toLocaleLowerCase("pl-PL");
-      const compactAmountQuery = q.replaceAll("\u00a0", "").replaceAll(" ", "").replace(",", ".");
+      if (!normalizedSearchQuery) return true;
+      const q = normalizedSearchQuery;
       const amountText = String(tx.amount).replace(",", ".");
       const formattedAmount = formatCurrency(tx.amount, tx.currency)
         .toLocaleLowerCase("pl-PL")
@@ -438,6 +446,11 @@
 
   const TX_CHUNK_SIZE = 80;
   let renderedTxCount = $state(TX_CHUNK_SIZE);
+  let searchResultCount = $state(TX_CHUNK_SIZE);
+  $effect(() => {
+    void normalizedSearchQuery;
+    searchResultCount = TX_CHUNK_SIZE;
+  });
   const renderedTxs = $derived((visibleTxs ?? []).slice(0, renderedTxCount));
 
   $effect(() => {
@@ -561,6 +574,42 @@
   // personal forecast without a financial change.
   const cashForecastToday = $derived(localDateIso());
   const cashForecastHorizon = $derived(cashForecastHorizonEnd(cashForecastToday));
+  const cashRecurringSkipsQuery = createQuery(() => ({
+    queryKey: qk.transactions.list(
+      session.userId!,
+      "cash-recurring-skips",
+      cashForecastToday,
+      cashForecastProjectionEnd(cashForecastToday)
+    ),
+    queryFn: () =>
+      fetchRecurringOccurrenceSkips(
+        cashForecastToday,
+        cashForecastProjectionEnd(cashForecastToday)
+      ),
+    enabled: () => !!session.userId && !!cashAnchor,
+  }));
+  const cashPositionLoading = $derived(
+    cashAnchorQuery.isPending ||
+      (!!cashAnchor &&
+        (paidHistoryQuery.isPending ||
+          recurringTemplatesQuery.isPending ||
+          cashRecurringSkipsQuery.isPending))
+  );
+  const cashPositionError = $derived(
+    cashAnchorQuery.isError ||
+      (!!cashAnchor &&
+        (paidHistoryQuery.isError ||
+          recurringTemplatesQuery.isError ||
+          cashRecurringSkipsQuery.isError))
+  );
+  function retryCashPosition() {
+    void Promise.all([
+      cashAnchorQuery.refetch(),
+      paidHistoryQuery.refetch(),
+      recurringTemplatesQuery.refetch(),
+      cashRecurringSkipsQuery.refetch(),
+    ]);
+  }
   const privateForecastProjectedTxs = $derived.by(() => {
     if (!showCashView) return [];
     const templates = (recurringTemplatesQuery.data ?? []).filter(
@@ -571,7 +620,7 @@
     return recurringProjectionsForTransactionRange({
       templates,
       existing: privateReal,
-      skipped: recurringSkipsQuery.data ?? [],
+      skipped: cashRecurringSkipsQuery.data ?? [],
       start: cashForecastToday,
       end: cashForecastProjectionEnd(cashForecastToday),
     }).map((tx) => ({
@@ -809,6 +858,7 @@
     mutationFn: (vars: {
       id: string;
       prev: TransactionStatus;
+      type: "income" | "expense";
       notificationId?: string;
       actionKey?: string;
     }) => updateTransactionStatus(vars.id, "paid"),
@@ -816,16 +866,19 @@
       await acknowledgeSettleNotification(vars.notificationId);
       await invalidateAfterSettle();
       if (vars.actionKey) consumeSettleAction(vars.actionKey);
-      toast.success(m.toast_transaction_settled(), {
-        action: {
-          label: m.toast_transaction_settle_undo(),
-          onClick: () => {
-            void updateTransactionStatus(vars.id, vars.prev)
-              .then(() => invalidateAfterSettle())
-              .catch((err) => toastError(err));
+      toast.success(
+        vars.type === "income" ? m.toast_transaction_received() : m.toast_transaction_settled(),
+        {
+          action: {
+            label: m.toast_transaction_settle_undo(),
+            onClick: () => {
+              void updateTransactionStatus(vars.id, vars.prev)
+                .then(() => invalidateAfterSettle())
+                .catch((err) => toastError(err));
+            },
           },
-        },
-      });
+        }
+      );
     },
     onError: (err, vars) => {
       if (vars.actionKey) {
@@ -844,6 +897,7 @@
     settleMutation.mutate({
       id: tx.id,
       prev: tx.status,
+      type: tx.type,
       notificationId: actionKey ? (settleNotificationId ?? undefined) : undefined,
       actionKey,
     });
@@ -874,6 +928,7 @@
       settleMutation.mutate({
         id: match.id,
         prev: match.status,
+        type: match.type,
         notificationId: settleNotificationId ?? undefined,
         actionKey: key,
       });
@@ -1232,6 +1287,9 @@
       hasAnchor={!!cashAnchorQuery.data}
       anchor={cashAnchor}
       anchorReady={cashAnchorQuery.isSuccess}
+      loading={cashPositionLoading}
+      error={cashPositionError}
+      onRetry={retryCashPosition}
     />
   {/if}
 
@@ -1298,7 +1356,7 @@
 >
   <TransactionTable
     layout="cards"
-    transactions={visibleTxs ?? []}
+    transactions={(visibleTxs ?? []).slice(0, searchResultCount)}
     currentUserId={session.userId}
     emptyLabel={tableEmptyLabel}
     onrowclick={(tx) => {
@@ -1306,6 +1364,17 @@
       sheetTx = tx;
     }}
   />
+  {#if searchResultCount < (visibleTxs?.length ?? 0)}
+    <button
+      type="button"
+      class="focus-visible:ring-accent mt-3 min-h-11 w-full rounded-xl border border-white/10 px-4 text-sm text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
+      onclick={() => (searchResultCount += TX_CHUNK_SIZE)}
+      >{m.transactions_search_more({
+        shown: Math.min(searchResultCount, visibleTxs?.length ?? 0),
+        total: visibleTxs?.length ?? 0,
+      })}</button
+    >
+  {/if}
 </SearchModal>
 
 <TransactionDialog open={dialogOpen} onclose={() => (dialogOpen = false)} initial={editTarget} />

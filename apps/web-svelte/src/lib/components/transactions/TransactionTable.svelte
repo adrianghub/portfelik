@@ -306,128 +306,134 @@
             <h3 class="text-eyebrow px-1 py-1 text-slate-400">{group.label}</h3>
             <ul class="space-y-1.5">
               {#each group.items as tx (tx.id)}
-                <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-                <li
-                  class={cn(
-                    "rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3 backdrop-blur transition-colors",
-                    isProjected(tx) && "border-sky-400/15 bg-sky-950/20",
-                    isObligationRow(tx) && !isProjected(tx) && "border-dashed border-sky-400/30",
-                    onrowclick && "cursor-pointer hover:bg-white/5 active:scale-[0.99]",
-                    selectedIds.has(tx.id) && "ring-2 ring-slate-400"
-                  )}
-                  role={rowActsAsButton(tx) ? "button" : undefined}
-                  tabindex={rowActsAsButton(tx) ? 0 : undefined}
-                  onclick={() => onrowclick?.(tx)}
-                  onkeydown={(e) => {
-                    if (!rowActsAsButton(tx)) return;
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      onrowclick?.(tx);
-                    }
-                  }}
-                >
-                  <div class="flex items-start justify-between gap-3">
-                    {#if ondelete && canManage(tx)}
-                      <button
-                        type="button"
-                        onclick={(e) => {
-                          e.stopPropagation();
-                          toggleOne(tx.id);
-                        }}
-                        class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors {selectedIds.has(
-                          tx.id
-                        )
-                          ? 'bg-accent-gradient border-transparent'
-                          : 'border-white/15 hover:border-white/30'}"
-                        aria-label={m.transactions_select_all()}
-                      >
-                        {#if selectedIds.has(tx.id)}
-                          <Check size={11} strokeWidth={2.5} class="text-slate-900" />
-                        {/if}
-                      </button>
-                    {/if}
-                    <span
-                      class={cn(
-                        "min-w-0 flex-1 text-sm leading-snug font-medium text-slate-100",
-                        layout === "cards" ? "line-clamp-3 wrap-break-word" : "truncate"
-                      )}
-                    >
-                      {#if tx.counterparty?.trim()}
-                        <span
-                          class={cn("block", layout === "cards" ? "wrap-break-word" : "truncate")}
-                          >{tx.counterparty}</span
+                <li>
+                  <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+                  <div
+                    class={cn(
+                      "rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3 backdrop-blur transition-colors",
+                      isProjected(tx) && "border-sky-400/15 bg-sky-950/20",
+                      isObligationRow(tx) && !isProjected(tx) && "border-dashed border-sky-400/30",
+                      onrowclick && "cursor-pointer hover:bg-white/5 active:scale-[0.99]",
+                      selectedIds.has(tx.id) && "ring-2 ring-slate-400"
+                    )}
+                    role={rowActsAsButton(tx) ? "button" : undefined}
+                    tabindex={rowActsAsButton(tx) ? 0 : undefined}
+                    onclick={() => onrowclick?.(tx)}
+                    onkeydown={(e) => {
+                      if (!rowActsAsButton(tx)) return;
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onrowclick?.(tx);
+                      }
+                    }}
+                  >
+                    <div class="flex items-start justify-between gap-3">
+                      {#if ondelete && canManage(tx)}
+                        <button
+                          type="button"
+                          onclick={(e) => {
+                            e.stopPropagation();
+                            toggleOne(tx.id);
+                          }}
+                          class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors {selectedIds.has(
+                            tx.id
+                          )
+                            ? 'bg-accent-gradient border-transparent'
+                            : 'border-white/15 hover:border-white/30'}"
+                          aria-label={m.transactions_select_all()}
                         >
-                        {#if tx.description}
+                          {#if selectedIds.has(tx.id)}
+                            <Check size={11} strokeWidth={2.5} class="text-slate-900" />
+                          {/if}
+                        </button>
+                      {/if}
+                      <span
+                        class={cn(
+                          "min-w-0 flex-1 text-sm leading-snug font-medium text-slate-100",
+                          layout === "cards" ? "line-clamp-3 wrap-break-word" : "truncate"
+                        )}
+                      >
+                        {#if tx.counterparty?.trim()}
                           <span
-                            class={cn(
-                              "block text-xs font-normal text-slate-400",
-                              layout === "cards" ? "line-clamp-2 wrap-break-word" : "truncate"
-                            )}>{tx.description}</span
+                            class={cn("block", layout === "cards" ? "wrap-break-word" : "truncate")}
+                            >{tx.counterparty}</span
+                          >
+                          {#if tx.description}
+                            <span
+                              class={cn(
+                                "block text-xs font-normal text-slate-400",
+                                layout === "cards" ? "line-clamp-2 wrap-break-word" : "truncate"
+                              )}>{tx.description}</span
+                            >
+                          {/if}
+                        {:else}
+                          {tx.description}
+                        {/if}
+                        {#if isProjected(tx)}
+                          <span
+                            class="ml-1 text-xs text-sky-300/70"
+                            title={m.transactions_projected_hint()}
+                            aria-label={m.transactions_recurring_payment_forecast()}>↻</span
+                          >
+                        {:else if isRecurringOccurrence(tx) || tx.is_recurring}
+                          <span
+                            class="ml-1 text-xs text-slate-400"
+                            title={m.transactions_recurring_occurrence_hint()}
+                            aria-label={m.transactions_recurring_payment()}>↻</span
                           >
                         {/if}
-                      {:else}
-                        {tx.description}
-                      {/if}
-                      {#if isProjected(tx)}
-                        <span
-                          class="ml-1 text-xs text-sky-300/70"
-                          title={m.transactions_projected_hint()}
-                          aria-label={m.transactions_recurring_payment_forecast()}>↻</span
-                        >
-                      {:else if isRecurringOccurrence(tx) || tx.is_recurring}
-                        <span
-                          class="ml-1 text-xs text-slate-400"
-                          title={m.transactions_recurring_occurrence_hint()}
-                          aria-label={m.transactions_recurring_payment()}>↻</span
-                        >
-                      {/if}
-                      {#if isShared(tx)}
-                        <span
-                          class="border-accent/20 bg-accent/10 text-accent ml-1 inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px]"
-                        >
-                          <Users size={9} />
-                        </span>
-                      {/if}
-                      {#if tx.is_hold}
-                        <span
-                          class="ml-1 text-[10px] font-normal text-slate-400"
-                          title={m.bank_review_hold_hint()}>{m.bank_review_hold_badge()}</span
-                        >
-                      {/if}
-                    </span>
-                    <span
-                      class={cn(
-                        "shrink-0 text-sm font-semibold tabular-nums",
-                        tx.type === "income" ? "text-emerald-300" : "text-rose-300"
-                      )}
-                    >
-                      {tx.type === "income" ? "+" : "−"}{formatCurrency(tx.amount, tx.currency)}
-                    </span>
-                  </div>
-                  <div class="mt-1.5 flex flex-wrap items-center gap-2">
-                    <span class="text-xs text-slate-400">{tx.category_name}</span>
-                    <span
-                      class={cn(
-                        "ml-auto inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                        statusClass[tx.status] ??
-                          "border border-white/10 bg-slate-800/60 text-slate-400"
-                      )}
-                    >
-                      {statusLabel[tx.status] ?? tx.status}
-                    </span>
-                    {#if onsettle && !isProjected(tx) && isQuickSettleEligible(tx.status) && canManage(tx)}
-                      <button
-                        type="button"
-                        onclick={(e) => {
-                          e.stopPropagation();
-                          onsettle?.(tx);
-                        }}
-                        class="focus-visible:ring-accent border-accent/30 bg-accent/10 text-accent hover:bg-accent/20 inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none"
-                        aria-label={m.transactions_quick_settle()}
+                        {#if isShared(tx)}
+                          <span
+                            class="border-accent/20 bg-accent/10 text-accent ml-1 inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px]"
+                          >
+                            <Users size={9} />
+                          </span>
+                        {/if}
+                        {#if tx.is_hold}
+                          <span
+                            class="ml-1 text-[10px] font-normal text-slate-400"
+                            title={m.bank_review_hold_hint()}>{m.bank_review_hold_badge()}</span
+                          >
+                        {/if}
+                      </span>
+                      <span
+                        class={cn(
+                          "shrink-0 text-sm font-semibold tabular-nums",
+                          tx.type === "income" ? "text-emerald-300" : "text-rose-300"
+                        )}
                       >
-                        {m.transactions_quick_settle_short()}
-                      </button>
-                    {/if}
+                        {tx.type === "income" ? "+" : "−"}{formatCurrency(tx.amount, tx.currency)}
+                      </span>
+                    </div>
+                    <div class="mt-1.5 flex flex-wrap items-center gap-2">
+                      <span class="text-xs text-slate-400">{tx.category_name}</span>
+                      <span
+                        class={cn(
+                          "ml-auto inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                          statusClass[tx.status] ??
+                            "border border-white/10 bg-slate-800/60 text-slate-400"
+                        )}
+                      >
+                        {statusLabel[tx.status] ?? tx.status}
+                      </span>
+                      {#if onsettle && !isProjected(tx) && isQuickSettleEligible(tx.status) && canManage(tx)}
+                        <button
+                          type="button"
+                          onclick={(e) => {
+                            e.stopPropagation();
+                            onsettle?.(tx);
+                          }}
+                          class="focus-visible:ring-accent border-accent/30 bg-accent/10 text-accent hover:bg-accent/20 inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                          aria-label={tx.type === "income"
+                            ? m.transactions_quick_settle_income()
+                            : m.transactions_quick_settle()}
+                        >
+                          {tx.type === "income"
+                            ? m.transactions_quick_settle_income()
+                            : m.transactions_quick_settle_short()}
+                        </button>
+                      {/if}
+                    </div>
                   </div>
                 </li>
               {/each}
@@ -505,7 +511,7 @@
                 {@render sortIndicator("category")}
               </button>
             </th>
-            <th scope="col" aria-sort={ariaSort("status")} class="w-36 px-4 py-3 text-left">
+            <th scope="col" aria-sort={ariaSort("status")} class="w-48 px-4 py-3 text-left">
               <button
                 type="button"
                 class="text-eyebrow focus-visible:ring-accent inline-flex items-center gap-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
@@ -613,28 +619,35 @@
                 <span class="block truncate">{tx.category_name}</span>
               </td>
               <td class="px-4 py-3">
-                <span
-                  class={cn(
-                    "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                    statusClass[tx.status] ??
-                      "border border-white/10 bg-slate-800/60 text-slate-400"
-                  )}
-                >
-                  {statusLabel[tx.status] ?? tx.status}
-                </span>
-                {#if onsettle && !isProjected(tx) && isQuickSettleEligible(tx.status) && canManage(tx)}
-                  <button
-                    type="button"
-                    onclick={(e) => {
-                      e.stopPropagation();
-                      onsettle?.(tx);
-                    }}
-                    class="focus-visible:ring-accent border-accent/30 bg-accent/10 text-accent hover:bg-accent/20 inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none"
-                    aria-label={m.transactions_quick_settle()}
+                <div class="flex flex-col items-start gap-2">
+                  <span
+                    class={cn(
+                      "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                      statusClass[tx.status] ??
+                        "border border-white/10 bg-slate-800/60 text-slate-400"
+                    )}
                   >
-                    {m.transactions_quick_settle_short()}
-                  </button>
-                {/if}
+                    {statusLabel[tx.status] ?? tx.status}
+                  </span>
+                  {#if onsettle && !isProjected(tx) && isQuickSettleEligible(tx.status) && canManage(tx)}
+                    <button
+                      type="button"
+                      onclick={(e) => {
+                        e.stopPropagation();
+                        onsettle?.(tx);
+                      }}
+                      class="focus-visible:ring-accent text-accent inline-flex min-h-8 items-center gap-1 text-xs font-medium whitespace-nowrap underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+                      aria-label={tx.type === "income"
+                        ? m.transactions_quick_settle_income()
+                        : m.transactions_quick_settle()}
+                    >
+                      <Check size={13} strokeWidth={1.8} aria-hidden="true" />
+                      {tx.type === "income"
+                        ? m.transactions_quick_settle_income()
+                        : m.transactions_quick_settle()}
+                    </button>
+                  {/if}
+                </div>
               </td>
               <td
                 class={cn(

@@ -300,7 +300,7 @@
       z {formatCurrency(Number(terms.original_amount))}
     </p>
     {#if snapshotMode && terms.balance_anchor_date != null && terms.anchor_balance != null}
-      <p class="mt-1 text-xs text-slate-500">
+      <p class="mt-1 text-xs text-slate-400">
         {m.plan_debt_snapshot_note({
           amount: formatCurrency(Number(terms.anchor_balance)),
           date: formatDate(terms.balance_anchor_date),
@@ -310,13 +310,14 @@
     <div
       class="mt-4 h-2 overflow-hidden rounded-full bg-slate-800"
       role="progressbar"
+      aria-label={m.plan_debt_progress_label()}
       aria-valuenow={paidPct}
       aria-valuemin={0}
       aria-valuemax={100}
     >
       <div class="bg-accent-gradient h-full rounded-full" style="width: {paidPct}%"></div>
     </div>
-    <p class="mt-2 text-xs text-slate-500">
+    <p class="mt-2 text-xs text-slate-400">
       {m.plan_debt_card_progress({
         paid: formatCurrency(paid),
         total: formatCurrency(Number(terms.original_amount)),
@@ -330,24 +331,24 @@
         })}
       </p>
       {#if !hasLinkedPayments}
-        <p class="mt-0.5 text-xs text-slate-500">{m.plan_debt_interest_estimate_note()}</p>
+        <p class="mt-0.5 text-xs text-slate-400">{m.plan_debt_interest_estimate_note()}</p>
       {/if}
     {/if}
   </div>
 
   <div class="grid grid-cols-3 gap-2">
     <div class="rounded-xl border border-white/5 bg-slate-900/50 px-2 py-3 text-center">
-      <p class="text-[10px] text-slate-500 uppercase">{m.plan_debt_stats_rate()}</p>
+      <p class="text-[10px] text-slate-400 uppercase">{m.plan_debt_stats_rate()}</p>
       <p class="mt-1 text-sm font-semibold text-slate-100">{Number(terms.annual_rate)}%</p>
     </div>
     <div class="rounded-xl border border-white/5 bg-slate-900/50 px-2 py-3 text-center">
-      <p class="text-[10px] text-slate-500 uppercase">{m.plan_debt_stats_payment()}</p>
+      <p class="text-[10px] text-slate-400 uppercase">{m.plan_debt_stats_payment()}</p>
       <p class="mt-1 text-sm font-semibold text-slate-100 tabular-nums">
         {formatCurrency(Number(terms.monthly_payment))}
       </p>
     </div>
     <div class="rounded-xl border border-white/5 bg-slate-900/50 px-2 py-3 text-center">
-      <p class="text-[10px] text-slate-500 uppercase">{m.plan_debt_stats_daily_interest()}</p>
+      <p class="text-[10px] text-slate-400 uppercase">{m.plan_debt_stats_daily_interest()}</p>
       <p class="mt-1 text-sm font-semibold text-amber-300 tabular-nums">
         {m.plan_debt_daily_interest_value({ amount: formatCurrency(dailyInterest) })}
       </p>
@@ -405,7 +406,7 @@
               bind:value={editBalance}
               class="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 disabled:opacity-50"
             />
-            <span class="mt-1 block text-xs text-slate-500">
+            <span class="mt-1 block text-xs text-slate-400">
               {m.plan_debt_balance_today_estimate({ amount: formatCurrency(displayBalance) })}
             </span>
           </label>

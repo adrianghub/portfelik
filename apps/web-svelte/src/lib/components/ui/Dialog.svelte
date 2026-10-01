@@ -19,7 +19,12 @@
   }
 
   function onkeydown(e: KeyboardEvent) {
-    if (!open) return;
+    if (!open || e.defaultPrevented) return;
+    const activeOverlay =
+      e.target instanceof Element
+        ? e.target.closest('[role="dialog"], [role="alertdialog"]')
+        : null;
+    if (activeOverlay && activeOverlay !== panel) return;
     if (e.key === "Escape") {
       e.preventDefault();
       onclose();

@@ -20,6 +20,8 @@
   }
 
   let { open, onclose, title, labelledBy, flush = false, children }: Props = $props();
+  const uid = $props.id();
+  const titleId = `${uid}-title`;
 
   const DISMISS_DRAG_PX = 96;
 
@@ -35,7 +37,12 @@
   }
 
   function onkeydown(e: KeyboardEvent) {
-    if (!open) return;
+    if (!open || e.defaultPrevented) return;
+    const activeOverlay =
+      e.target instanceof Element
+        ? e.target.closest('[role="dialog"], [role="alertdialog"]')
+        : null;
+    if (activeOverlay && activeOverlay !== panel) return;
     if (e.key === "Escape") {
       e.preventDefault();
       onclose();
@@ -133,7 +140,7 @@
       style:transform={dragY > 0 ? `translateY(${dragY}px)` : undefined}
       role="dialog"
       aria-modal="true"
-      aria-labelledby={title ? "sheet-title" : labelledBy}
+      aria-labelledby={title ? titleId : labelledBy}
       tabindex="-1"
       transition:fly={{ y: "100%", duration: motionDuration(320), easing: cubicOut, opacity: 1 }}
     >
@@ -157,7 +164,7 @@
 
       {#if title}
         <div class="flex shrink-0 items-center justify-between border-b border-white/5 px-5 py-3">
-          <h2 id="sheet-title" class="text-base font-semibold text-slate-100">
+          <h2 id={titleId} class="text-base font-semibold text-slate-100">
             {title}
           </h2>
           <button

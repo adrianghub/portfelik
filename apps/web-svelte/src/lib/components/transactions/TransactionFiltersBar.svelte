@@ -197,7 +197,12 @@
     <div class="flex items-center gap-2 px-4 py-2">
       <button
         type="button"
-        onclick={onToggleSearch}
+        onclick={(event) => {
+          // WebKit does not focus buttons on pointer click by default. Capture
+          // the trigger before the dialog moves focus so Escape restores it.
+          event.currentTarget.focus({ preventScroll: true });
+          onToggleSearch();
+        }}
         class="focus-visible:ring-accent relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-colors focus-visible:ring-2 focus-visible:outline-none md:h-9 md:w-9 {searchModalOpen
           ? 'border-accent/40 bg-accent/15 text-accent'
           : 'border-white/10 bg-slate-900/60 text-slate-300 hover:bg-white/5'}"
