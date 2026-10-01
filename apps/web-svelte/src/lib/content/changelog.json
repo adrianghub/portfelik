@@ -1,15 +1,19 @@
 {
   "versions": [
     {
+      "version": "1.3.3",
+      "versionCode": 11,
+      "date": "2026-10-01",
+      "items": ["Naprawiony Kokpit.", "Krótsza historia zmian."]
+    },
+    {
       "version": "1.3.2",
       "versionCode": 10,
       "date": "2026-10-01",
       "items": [
-        "Saldo z transakcji i prognoza mają osobne opisy oraz wyjaśnienie obliczeń.",
-        "Na komputerze oznaczysz płatność jako opłaconą bez zawijania przycisku.",
-        "Kokpit i wyszukiwanie dużej historii działają szybciej.",
-        "Eksport konta działa również z historią importów, a saldo początkowe przyjmuje przecinek.",
-        "Import zapisuje potwierdzenie z banku także wtedy, gdy nie dodaje nowych transakcji."
+        "Jaśniejsze saldo i prognoza.",
+        "Szybszy Kokpit i wyszukiwanie.",
+        "Poprawki importu, eksportu i płatności."
       ]
     },
     {
@@ -17,11 +21,9 @@
       "versionCode": 8,
       "date": "2026-09-30",
       "items": [
-        "Kokpit pokazuje dostępne teraz i kwotę po nadchodzących płatnościach — osobno od bilansu miesiąca.",
-        "Menu trzech kropek w Transakcjach otwiera się nad filtrami, a nie pod nimi.",
-        "Import przyjmuje wyłącznie wyciągi w PLN i łączy oznaczone zobowiązania z pasującymi transakcjami bankowymi.",
-        "Limity mówią wprost, ile zostało i do kiedy obowiązują.",
-        "Duże eksporty i importy zbierają wszystkie rekordy, nie tylko pierwszą stronę."
+        "Prognoza po płatnościach.",
+        "Czytelniejsze limity.",
+        "Poprawki importu i eksportu."
       ]
     },
     {
@@ -29,11 +31,9 @@
       "versionCode": 7,
       "date": "2026-09-28",
       "items": [
-        "Kokpit wita po imieniu i pokazuje limity kategorii w bieżącym okresie.",
-        "W Transakcjach jest jeden przycisk importu. Opłaconą pozycję oznaczasz bez drugiego wpisu.",
-        "Dostępne środki są prywatne i pokazują, ile zostanie za 90 dni.",
-        "Ustawienia dzielą konto, finanse, współdzielenie, aplikację oraz dane.",
-        "Wyciąg CSV obsługuje większość polskich instytucji bankowych."
+        "Nowy Kokpit i ustawienia.",
+        "Prostsze rozliczanie płatności.",
+        "Import wyciągów CSV."
       ]
     },
     {
@@ -41,10 +41,9 @@
       "versionCode": 6,
       "date": "2026-09-28",
       "items": [
-        "Na Kokpicie widać wynik miesiąca i wyjątki. Historię i limity otwierasz przez Zobacz więcej.",
-        "W transakcjach na górze są przychody, wydatki i bilans.",
-        "Każdy plan to nazwa i jedna liczba. Rozliczenie zostaje w planie.",
-        "Gotówkę widać po ustawieniu salda początkowego."
+        "Podsumowanie miesiąca.",
+        "Prostsze plany.",
+        "Saldo początkowe."
       ]
     }
   ]
