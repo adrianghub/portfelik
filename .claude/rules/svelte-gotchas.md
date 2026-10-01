@@ -47,7 +47,9 @@ paths:
 
 16. **Literal BOM (U+FEFF) in JS/TS source triggers ESLint `no-irregular-whitespace`.** For CSV UTF-8 BOM prefix use `"\uFEFF"` (escape form). Same in regex: `/^\uFEFF/`. Never paste the raw character - it's invisible in editors but breaks ESLint.
 
-17. **Tailwind v4: use canonical utility syntax (strict).** Prefer built-in scale + CSS-variable shorthand over arbitrary brackets when equivalent - fixes `suggestCanonicalClasses` and keeps classes consistent.
+17. **`createQuery` `enabled` must be a boolean read inside `options()`, not a lazy `() =>` that closes over other queries.** TanStack Svelte Query only re-resolves options when `$derived` deps change. Values read only inside an `enabled` callback are invisible to that tracking — so a dependent query can stay disabled after its parent succeeds. Disabled queries keep `isPending === true`; UI that gates on `isPending` then freezes (e.g. Kokpit cash skeleton until a Transakcje remount warms the cache). Prefer `enabled: !!session.userId && !!parentQuery.data`, and use `isLoading` (pending + fetching) for dependent loading gates.
+
+18. **Tailwind v4: use canonical utility syntax (strict).** Prefer built-in scale + CSS-variable shorthand over arbitrary brackets when equivalent - fixes `suggestCanonicalClasses` and keeps classes consistent.
    - `min-w-40` not `min-w-[10rem]`; `min-w-48` not `min-w-[12rem]`
    - `pb-(--mobile-action-bottom)` not `pb-[var(--mobile-action-bottom)]` (project token from `app.css`)
    - Keep true arbitrary values only when no canonical form exists (e.g. `md:pb-[calc(0.75rem+env(safe-area-inset-bottom))]` for safe-area bars)

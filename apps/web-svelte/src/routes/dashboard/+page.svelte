@@ -242,7 +242,9 @@
   const cashHistoryQuery = createQuery(() => ({
     queryKey: qk.transactions.list(session.userId!, "cash-history", cashAnchorStart),
     queryFn: () => fetchTransactions(cashAnchorStart, CASH_FETCH_END_SENTINEL),
-    enabled: () => !!session.userId && cashAnchorQuery.isSuccess && !!cashAnchorQuery.data,
+    // Boolean (not `() =>`) so `$derived` tracks cashAnchorQuery and re-enables
+    // when the anchor lands. Lazy enabled callbacks close over stale deps.
+    enabled: !!session.userId && cashAnchorQuery.isSuccess && !!cashAnchorQuery.data,
   }));
 
   const plansQuery = createQuery(() => ({
@@ -611,7 +613,10 @@
       cashProjectionEnd
     ),
     queryFn: () => fetchRecurringOccurrenceSkips(cashForecastToday, cashProjectionEnd),
-    enabled: () => !!session.userId && !!cashAnchorQuery.data,
+    // Must read cashAnchorQuery.data during options() so enabled flips when the
+    // anchor resolves. A lazy `() => !!cashAnchorQuery.data` never re-runs when
+    // the queryKey is unchanged — leaving the query disabled (isPending forever).
+    enabled: !!session.userId && !!cashAnchorQuery.data,
     staleTime: 60_000,
   }));
 
@@ -663,12 +668,14 @@
   const cashForecastMovements = $derived(
     forecastMovementTotals(cashAnchorQuery.data ?? null, cashPositionTxs, cashPositionOptions)
   );
+  // Prefer isLoading (pending + fetching) over isPending — disabled dependents
+  // stay isPending=true and would otherwise freeze the cash skeleton forever.
   const cashPositionLoading = $derived(
-    cashAnchorQuery.isPending ||
+    cashAnchorQuery.isLoading ||
       (!!cashAnchorQuery.data &&
-        (cashHistoryQuery.isPending ||
-          recurringTemplatesQuery.isPending ||
-          cashRecurringSkipsQuery.isPending))
+        (cashHistoryQuery.isLoading ||
+          recurringTemplatesQuery.isLoading ||
+          cashRecurringSkipsQuery.isLoading))
   );
   const cashPositionError = $derived(
     cashAnchorQuery.isError ||
