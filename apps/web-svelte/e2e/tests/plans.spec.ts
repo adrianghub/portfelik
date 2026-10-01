@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { formatCurrency } from "../../src/lib/utils";
 import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
 
 /** Two ISO dates in the currently open calendar month (always on-grid). */
@@ -29,8 +30,12 @@ test("renders sectioned hub with saving goals and debt plans", async ({ page }) 
   await expect(page.getByRole("link", { name: /Wakacje/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /Nowy samochód/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /Kredyt hipoteczny/ })).toBeVisible();
-  await expect(page.getByText("Odłożono 0,00 zł z 1000,00 zł")).toBeVisible();
-  await expect(page.getByText("Odłożono 0,00 zł z 60 000,00 zł")).toBeVisible();
+  await expect(
+    page.getByText(`Odłożono ${formatCurrency(0)} z ${formatCurrency(1000)}`)
+  ).toBeVisible();
+  await expect(
+    page.getByText(`Odłożono ${formatCurrency(0)} z ${formatCurrency(60_000)}`)
+  ).toBeVisible();
 });
 
 test.describe("plans mobile period visibility", () => {
@@ -113,7 +118,9 @@ test("save plan detail separates new payment, existing transaction and balance c
   await page.goto("/plans/plan-save-1");
 
   await expect(page.getByRole("heading", { name: "Nowy samochód" })).toBeVisible();
-  await expect(page.getByText("Odłożono 0,00 zł z 60 000,00 zł")).toBeVisible();
+  await expect(
+    page.getByText(`Odłożono ${formatCurrency(0)} z ${formatCurrency(60_000)}`)
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "Zapisz nową wpłatę" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Powiąż istniejącą transakcję" })).toHaveAttribute(
     "href",
@@ -121,7 +128,7 @@ test("save plan detail separates new payment, existing transaction and balance c
   );
 
   await page.getByRole("button", { name: "Zapisz nową wpłatę" }).click();
-  await expect(page.getByText(/To doda opłaconą transakcję/)).toBeVisible();
+  await expect(page.getByText(/Dodasz zrealizowaną transakcję/)).toBeVisible();
   await page.keyboard.press("Escape");
 
   await page.getByRole("button", { name: "Skoryguj stan celu" }).click();

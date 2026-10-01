@@ -28,7 +28,7 @@ test.describe("native spine on a phone", () => {
     await expect(page.getByRole("heading", { name: /transakcje/i })).toBeVisible();
 
     await page.getByRole("button", { name: "Szukaj transakcji" }).click();
-    const search = page.getByRole("search", { name: "Szukaj transakcji" });
+    const search = page.getByRole("dialog", { name: "Szukaj transakcji" });
     await expect(search).toBeVisible();
     await expect(search.getByRole("button", { name: "Zamknij wyszukiwanie" })).toBeVisible();
     const box = await search.boundingBox();
