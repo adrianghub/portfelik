@@ -20,8 +20,8 @@ const play = readPlayVersion(
 describe("changelog", () => {
   it("matches the Play bundle and package.json", () => {
     expect(changelogProblems(changelog, { packageVersion, play })).toEqual([]);
-    expect(appVersion).toBe("1.3.2");
-    expect(play).toEqual({ versionName: "1.3.2", versionCode: 10 });
+    expect(appVersion).toBe("1.3.3");
+    expect(play).toEqual({ versionName: "1.3.3", versionCode: 11 });
   });
 
   it("formats the release date in Polish", () => {
@@ -39,8 +39,8 @@ describe("changelog", () => {
 
   it("renders release notes with the Play version code", () => {
     const notes = releaseNotesMarkdown(changelog[0]);
-    expect(notes).toContain("# 1.3.2");
-    expect(notes).toContain("Kod wersji 10.");
-    expect(notes).toContain("- Saldo z transakcji i prognoza");
+    expect(notes).toContain("# 1.3.3");
+    expect(notes).toContain("Kod wersji 11.");
+    expect(notes).toContain("- Naprawiony Kokpit.");
   });
 });
