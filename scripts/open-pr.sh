@@ -1,16 +1,35 @@
 #!/usr/bin/env bash
-# scripts/open-pr.sh [base] [--dry-run]
+# scripts/open-pr.sh [base] [--dry-run] [--draft] [--no-auto-merge]
 # Runs gates; blocks on failure; otherwise builds the PR body from git history
 # and creates/updates the PR via gh. Portable across Claude Code / Codex / Cursor / shell.
+#
+# Feature → dev (default): mark ready (unless --draft) and enable merge-commit
+# auto-merge (unless --no-auto-merge). Production promotions (dev → main) never
+# auto-merge here — use ./scripts/promote.sh --merge.
 set -uo pipefail
 ROOT="$(git rev-parse --show-toplevel)"; cd "$ROOT"
 SCRIPT_DIR="$ROOT/scripts"
 
-DRY=0; BASE_ARG=""
+DRY=0
+DRAFT=0
+NO_AUTO_MERGE=0
+BASE_ARG=""
 for a in "$@"; do
   case "$a" in
     --dry-run) DRY=1 ;;
-    *) BASE_ARG="$a" ;;
+    --draft) DRAFT=1 ;;
+    --no-auto-merge) NO_AUTO_MERGE=1 ;;
+    -h | --help)
+      echo "usage: ./scripts/open-pr.sh [base] [--dry-run] [--draft] [--no-auto-merge]"
+      exit 0
+      ;;
+    *)
+      if [ -n "$BASE_ARG" ]; then
+        echo "usage: ./scripts/open-pr.sh [base] [--dry-run] [--draft] [--no-auto-merge]" >&2
+        exit 2
+      fi
+      BASE_ARG="$a"
+      ;;
   esac
 done
 
@@ -80,6 +99,7 @@ else
   E2E_LINE="- $(ck "$(gateval test:e2e)") \`pnpm test:e2e\` (mocked Playwright) is green"
 fi
 
+COMP_LINE="- $(ck "$(gateval test:components)") \`pnpm test:components\` is green"
 BODY="$(cat <<EOF
 <!-- Auto-filled by scripts/open-pr.sh - do not hand-edit. -->
 ## Summary
@@ -96,6 +116,7 @@ $WHY
 - $(ck "$(gateval lint)") \`pnpm lint\` is clean
 - $(ck "$(gateval format)") \`pnpm format:check\` is clean
 - $(ck "$(gateval test:unit)") \`pnpm test:unit\` is green
+$COMP_LINE
 $E2E_LINE
 $RLS_LINE
 - $(ck "$(gateval secret-scan)") Secret scan is clean
@@ -117,6 +138,7 @@ EOF
 if [ $DRY -eq 1 ]; then
   echo "base: $BASE   head: $BRANCH"
   echo "title: $TITLE"
+  echo "draft: $DRAFT   auto-merge: $([ "$BASE" = dev ] && [ $NO_AUTO_MERGE -eq 0 ] && [ $DRAFT -eq 0 ] && echo yes || echo no)"
   echo "----- body -----"
   printf '%s\n' "$BODY"
   echo "----- dry run: no push, no gh -----"
@@ -128,8 +150,31 @@ git push -q -u origin "$BRANCH"
 # for the branch, which would make us edit+reprint a dead PR instead of opening one.
 EXISTING_PR="$(gh pr list --head "$BRANCH" --state open --json url -q '.[0].url')"
 if [ -n "$EXISTING_PR" ]; then
-  gh pr edit "$BRANCH" --body "$BODY"
-  echo "$EXISTING_PR"
+  gh pr edit "$BRANCH" --body "$BODY" >/dev/null
+  PR_URL="$EXISTING_PR"
 else
-  gh pr create --draft --base "$BASE" --head "$BRANCH" --title "$TITLE" --body "$BODY"
+  CREATE_ARGS=(--base "$BASE" --head "$BRANCH" --title "$TITLE" --body "$BODY")
+  if [ $DRAFT -eq 1 ]; then
+    CREATE_ARGS=(--draft "${CREATE_ARGS[@]}")
+  fi
+  PR_URL="$(gh pr create "${CREATE_ARGS[@]}")"
 fi
+
+# Feature → dev: ready + merge-commit auto-merge by default.
+# Production promotions stay intentional (promote.sh --merge).
+if [ "$BASE" = "dev" ] && [ $DRAFT -eq 0 ]; then
+  if gh pr view "$PR_URL" --json isDraft --jq '.isDraft' | grep -q true; then
+    gh pr ready "$PR_URL" >/dev/null || true
+  fi
+  if [ $NO_AUTO_MERGE -eq 0 ]; then
+    if gh pr merge "$PR_URL" --auto --merge >/dev/null; then
+      echo "Auto-merge enabled (merge commit)." >&2
+    else
+      echo "Could not enable auto-merge (checks/branch protection). Merge as a merge commit when green." >&2
+    fi
+  fi
+elif [ "$BASE" = "main" ]; then
+  echo "Production PR: auto-merge not enabled here. Use ./scripts/promote.sh --merge when ready." >&2
+fi
+
+echo "$PR_URL"
