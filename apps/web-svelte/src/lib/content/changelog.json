@@ -2,7 +2,7 @@
   "versions": [
     {
       "version": "1.3.2",
-      "versionCode": 9,
+      "versionCode": 10,
       "date": "2026-10-01",
       "items": [
         "Saldo z transakcji i prognoza mają osobne opisy oraz wyjaśnienie obliczeń.",
