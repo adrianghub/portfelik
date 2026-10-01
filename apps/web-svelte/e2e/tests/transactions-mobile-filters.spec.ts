@@ -52,7 +52,7 @@ test.describe("transactions mobile filters", () => {
     await expect(search).not.toHaveClass(/mobile-floating-action/);
     expect((await search.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     await search.click();
-    await expect(page.getByRole("search", { name: "Szukaj transakcji" })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Szukaj transakcji" })).toBeVisible();
   });
 
   test("more-actions menu stays above filters and closes with outside tap or Escape", async ({
@@ -61,6 +61,7 @@ test.describe("transactions mobile filters", () => {
     await page.goto("/transactions");
     const trigger = page.getByRole("button", { name: "Więcej akcji" });
     const menu = page.getByRole("menu", { name: "Więcej akcji" });
+    const heading = page.getByRole("heading", { name: /transakcje/i });
 
     await trigger.click();
     await expect(menu).toBeVisible();
@@ -76,7 +77,7 @@ test.describe("transactions mobile filters", () => {
     );
     expect(actionIsTopHit).toBe(true);
 
-    await page.mouse.click(8, Math.min(700, actionBox!.y + actionBox!.height / 2));
+    await heading.click();
     await expect(menu).toHaveCount(0);
 
     await trigger.click();
