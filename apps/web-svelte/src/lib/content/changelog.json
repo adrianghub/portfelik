@@ -40,11 +40,7 @@
       "version": "1.2.0",
       "versionCode": 6,
       "date": "2026-09-28",
-      "items": [
-        "Podsumowanie miesiąca.",
-        "Prostsze plany.",
-        "Saldo początkowe."
-      ]
+      "items": ["Podsumowanie miesiąca.", "Prostsze plany.", "Saldo początkowe."]
     }
   ]
 }
