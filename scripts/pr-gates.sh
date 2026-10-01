@@ -64,6 +64,13 @@ else
   gate test:unit FAIL "see /tmp/pr-unit.log"
 fi
 
+# --- component tests (CI quality job always runs these) ---
+if (cd "$WEB" && pnpm test:components >/tmp/pr-components.log 2>&1); then
+  gate test:components PASS "green"
+else
+  gate test:components FAIL "see /tmp/pr-components.log"
+fi
+
 # --- secret scan over changed, existing files ---
 # Match secret VALUES, not variable names: JWTs, Supabase secret keys, PEM
 # private-key blocks, and hardcoded quoted password literals. Sensitive tokens are

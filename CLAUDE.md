@@ -17,7 +17,9 @@ Apply these rules to every task.
 - Start feature branches with `./scripts/start-work.sh <branch-name>`. After a
   production promotion, `.github/workflows/sync-dev.yml` fast-forwards `dev` to
   `main`. Local fallback is `./scripts/sync-dev.sh --push`. Do not open a
-  hand-rolled sync PR unless that workflow failed.
+  hand-rolled sync PR unless that workflow failed. Promote staging → production
+  with `./scripts/promote.sh` (optional `--merge`); see
+  `docs/runbooks/promote-and-ship.md`.
 - Use `/Users/adrianzinko/.local/bin/edgar` for broad context, three or more
   files, files over roughly 400 lines, noisy output, and large diffs. Verify
   important findings against source.
@@ -38,7 +40,9 @@ Run from `apps/web-svelte/` unless noted otherwise:
 
 Do not claim PR readiness while a required gate is skipped or failing.
 `./scripts/open-pr.sh` is the canonical PR entry point and runs the repository
-gate suite.
+gate suite. Feature → `dev` PRs are marked ready and get merge-commit auto-merge
+by default (`--draft` / `--no-auto-merge` to opt out). Production promotions use
+`./scripts/promote.sh`, not a hand-rolled `dev` → `main` flow.
 
 ### Change discipline
 

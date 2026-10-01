@@ -314,3 +314,51 @@ jobs:
           name: playwright-smoke-report
           path: apps/web-svelte/playwright-report/
           retention-days: 7
+
+  soak-nudge:
+    name: Staging soak nudge
+    needs: smoke
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Comment promote reminder on associated PR(s)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+          STAGING_URL: https://dev.portfelik.pages.dev
+          MARKER: "<!-- staging-soak-promote -->"
+        run: |
+          set -euo pipefail
+          prs="$(gh api "repos/${REPO}/commits/${SHA}/pulls" \
+            -H "Accept: application/vnd.github+json" \
+            --jq '.[].number' 2>/dev/null || true)"
+          if [ -z "$prs" ]; then
+            echo "No associated pull requests for $SHA — skipping soak comment."
+            exit 0
+          fi
+
+          body="$(printf '%s\n' \
+            "$MARKER" \
+            "Staging deploy for \`${SHA:0:7}\` is green: ${STAGING_URL}" \
+            "" \
+            "Soft soak — look at staging, then add the \`promote\` label on this PR when you are ready to ship to production. \`./scripts/promote.sh\` warns if the label is missing (use \`--force\` to silence)." \
+            "" \
+            "Production promotion: \`./scripts/promote.sh\` (add \`--merge\` to wait for checks and merge as a merge commit). After merge, \`sync-dev.yml\` fast-forwards \`dev\`.")"
+
+          for n in $prs; do
+            existing="$(gh api "repos/${REPO}/issues/${n}/comments" --paginate \
+              --jq --arg m "$MARKER" '.[] | select(.body | contains($m)) | .id' \
+              | head -1 || true)"
+            if [ -n "$existing" ]; then
+              gh api -X PATCH "repos/${REPO}/issues/comments/${existing}" \
+                -f body="$body" >/dev/null
+              echo "Updated soak comment on #$n"
+            else
+              gh api -X POST "repos/${REPO}/issues/${n}/comments" \
+                -f body="$body" >/dev/null
+              echo "Posted soak comment on #$n"
+            fi
+          done

@@ -54,16 +54,21 @@ and migration targets.
 # Begin a task. A name without a slash gets the codex/ prefix.
 ./scripts/start-work.sh ui-density-pass
 
-# Open or update the feature PR after committing.
+# Open or update the feature PR after committing (ready + merge-commit auto-merge).
 ./scripts/open-pr.sh
+# ./scripts/open-pr.sh --draft
+# ./scripts/open-pr.sh --no-auto-merge
 
-# Promote the integration branch from dev to main.
-git switch dev
-./scripts/open-pr.sh main
+# Promote staging (dev) → production (main). Soft soak warns without `promote` label.
+./scripts/promote.sh
+./scripts/promote.sh --merge
 
 # Immediately after the production PR lands (CI also does this).
 ./scripts/sync-dev.sh --push
 ```
+
+Full promote/ship ceremony, soak label etiquette, and branch-protection checklist:
+`docs/runbooks/promote-and-ship.md`.
 
 Never solve long-lived branch divergence with a force-push, rebase, or squash
 between `dev` and `main`. Production promotion must preserve `dev` ancestry so

@@ -301,7 +301,8 @@
   const paidHistoryQuery = createQuery(() => ({
     queryKey: qk.transactions.list(session.userId!, "cash-history", anchorStart),
     queryFn: () => fetchTransactions(anchorStart, CASH_END),
-    enabled: () => !!session.userId && cashAnchorQuery.isSuccess,
+    // Boolean so options() tracks cashAnchorQuery.isSuccess when the anchor lands.
+    enabled: !!session.userId && cashAnchorQuery.isSuccess,
   }));
 
   // Private (non-group) rows only — the pool is a personal balance.
@@ -329,7 +330,9 @@
   const linkedIdsQuery = createQuery(() => ({
     queryKey: qk.planLinks(session.userId!),
     queryFn: fetchLinkedTransactionIds,
-    enabled: () => !!session.userId && viewFilter === "unlinked",
+    // Boolean so options() tracks viewFilter — lazy enabled would stay off when
+    // switching to ?view=unlinked without a remount (queryKey has no viewFilter).
+    enabled: !!session.userId && viewFilter === "unlinked",
   }));
   const linkedIds = $derived(linkedIdsQuery.data ?? new Set<string>());
 
@@ -586,14 +589,17 @@
         cashForecastToday,
         cashForecastProjectionEnd(cashForecastToday)
       ),
-    enabled: () => !!session.userId && !!cashAnchor,
+    // Boolean so options() tracks cashAnchor when the private pool lands.
+    enabled: !!session.userId && !!cashAnchor,
   }));
+  // isLoading (not isPending): disabled dependents stay pending and would
+  // freeze the cash strip skeleton until a remount with a warm cache.
   const cashPositionLoading = $derived(
-    cashAnchorQuery.isPending ||
+    cashAnchorQuery.isLoading ||
       (!!cashAnchor &&
-        (paidHistoryQuery.isPending ||
-          recurringTemplatesQuery.isPending ||
-          cashRecurringSkipsQuery.isPending))
+        (paidHistoryQuery.isLoading ||
+          recurringTemplatesQuery.isLoading ||
+          cashRecurringSkipsQuery.isLoading))
   );
   const cashPositionError = $derived(
     cashAnchorQuery.isError ||
