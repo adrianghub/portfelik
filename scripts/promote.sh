@@ -127,13 +127,13 @@ echo "$PR_URL"
 PR_NUMBER="$(gh pr view "$PR_URL" --json number --jq '.number')"
 
 if [ "$MERGE" -eq 0 ]; then
-  echo "Opened/updated production PR #$PR_NUMBER."
+  echo "Opened/updated production PR #${PR_NUMBER}."
   echo "When ready: ./scripts/promote.sh --merge   # or merge the PR on GitHub as a merge commit"
   echo "After merge, sync-dev.yml fast-forwards origin/dev (fallback: ./scripts/sync-dev.sh --push)."
   exit 0
 fi
 
-echo "Waiting for required checks on #$PR_NUMBER…"
+echo "Waiting for required checks on #${PR_NUMBER}…"
 # Poll until mergeable or failed. Prefer enabling auto-merge so GitHub merges
 # as soon as required checks pass (merge commit, never squash).
 if gh pr merge "$PR_NUMBER" --auto --merge; then
@@ -152,7 +152,7 @@ else
     pending="$(printf '%s' "$state" | jq '[.checks[] | select(.status != "COMPLETED")] | length')"
     failed="$(printf '%s' "$state" | jq '[.checks[] | select(.conclusion == "FAILURE" or .conclusion == "CANCELLED" or .conclusion == "TIMED_OUT")] | length')"
     if [ "$failed" -gt 0 ]; then
-      echo "Refuse: required checks failed on #$PR_NUMBER." >&2
+      echo "Refuse: required checks failed on #${PR_NUMBER}." >&2
       printf '%s\n' "$state" | jq -r '.checks[] | select(.conclusion == "FAILURE" or .conclusion == "CANCELLED" or .conclusion == "TIMED_OUT") | "  x \(.name): \(.conclusion)"' >&2
       exit 1
     fi
@@ -165,7 +165,7 @@ else
     fi
     sleep 20
   done
-  echo "Timed out waiting for checks on #$PR_NUMBER." >&2
+  echo "Timed out waiting for checks on #${PR_NUMBER}." >&2
   exit 1
 fi
 
@@ -173,18 +173,18 @@ fi
 for _ in $(seq 1 90); do
   pr_state="$(gh pr view "$PR_NUMBER" --json state --jq '.state')"
   if [ "$pr_state" = "MERGED" ]; then
-    echo "Merged #$PR_NUMBER."
+    echo "Merged #${PR_NUMBER}."
     echo "sync-dev.yml will fast-forward origin/dev."
     exit 0
   fi
   failed="$(gh pr view "$PR_NUMBER" --json statusCheckRollup \
     --jq '[.statusCheckRollup[]? | select(.conclusion == "FAILURE" or .conclusion == "CANCELLED" or .conclusion == "TIMED_OUT")] | length')"
   if [ "$failed" -gt 0 ]; then
-    echo "Refuse: checks failed while waiting for auto-merge on #$PR_NUMBER." >&2
+    echo "Refuse: checks failed while waiting for auto-merge on #${PR_NUMBER}." >&2
     exit 1
   fi
   sleep 20
 done
 
-echo "Timed out waiting for auto-merge on #$PR_NUMBER." >&2
+echo "Timed out waiting for auto-merge on #${PR_NUMBER}." >&2
 exit 1
