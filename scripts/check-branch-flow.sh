@@ -32,4 +32,4 @@ case "$BASE" in
     ;;
 esac
 
-echo "Branch flow valid: $HEAD -> $BASE"
+echo "Branch flow valid: $HEAD -> $BASE" >&2
