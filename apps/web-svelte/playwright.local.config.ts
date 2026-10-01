@@ -23,6 +23,7 @@ export default defineConfig({
       PUBLIC_SUPABASE_URL: process.env.QUALITY_SUPABASE_URL!,
       PUBLIC_SUPABASE_ANON_KEY: process.env.QUALITY_SUPABASE_ANON_KEY!,
       PUBLIC_VAPID_KEY: "",
+      PUBLIC_PLAUSIBLE_DOMAIN: "",
     },
   },
 });
