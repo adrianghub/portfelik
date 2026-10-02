@@ -3,6 +3,7 @@
   import { requireSessionUserId, session } from "$lib/auth/session.svelte";
   import { addLocalDays, productDateIso } from "$lib/date-local";
   import { qk } from "$lib/query-keys";
+  import { parseMoneyInput } from "$lib/money-input";
   import { fetchCategories, updateCategory } from "$lib/services/categories";
   import { normalizeCapAmount, pileWindow, spentInPile } from "$lib/services/pile-progress";
   import { fetchTransactions } from "$lib/services/transactions";
@@ -30,7 +31,9 @@
   }));
 
   const expenseCategories = $derived(
-    (categoriesQuery.data ?? []).filter((category) => category.type === "expense")
+    (categoriesQuery.data ?? []).filter(
+      (category) => category.type === "expense" && !category.archived_at
+    )
   );
 
   const piles = $derived(
@@ -63,7 +66,7 @@
       window?.end ?? ""
     ),
     queryFn: () => fetchTransactions(window!.start, window!.end),
-    enabled: () => !!session.userId && !!window,
+    enabled: !!session.userId && !!window,
   }));
 
   const rows = $derived(
@@ -96,6 +99,7 @@
   let initialLimitCategoryId = $state("");
   let initialLimitAmount = $state("");
   let initialLimitPeriod = $state<CategoryCapPeriod>("month");
+  const limitValid = $derived(limitAmount === "" || parseMoneyInput(limitAmount) !== null);
   const limitDirty = $derived(
     limitCategoryId !== initialLimitCategoryId ||
       limitAmount !== initialLimitAmount ||
@@ -129,7 +133,7 @@
 
   const saveLimit = createMutation(() => ({
     mutationFn: () => {
-      const amount = normalizeCapAmount(limitAmount === "" ? null : Number(limitAmount));
+      const amount = normalizeCapAmount(limitAmount);
       return updateCategory(limitCategoryId, {
         cap_amount: amount,
         cap_period: amount == null ? null : limitPeriod,
@@ -229,7 +233,7 @@
     class="space-y-4"
     onsubmit={(event) => {
       event.preventDefault();
-      if (!limitCategoryId || saveLimit.isPending) return;
+      if (!limitCategoryId || saveLimit.isPending || !limitValid) return;
       void saveLimit.mutateAsync().catch(() => {
         // onError already toasted
       });
@@ -256,13 +260,15 @@
       </label>
       <input
         id="limit-amount"
-        type="number"
-        min="0"
-        step="0.01"
+        type="text"
         inputmode="decimal"
+        aria-invalid={!limitValid}
         bind:value={limitAmount}
         class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
       />
+      {#if !limitValid}<p class="text-xs text-rose-300" role="alert">
+          {m.error_invalid_amount()}
+        </p>{/if}
     </div>
     <div class="space-y-1">
       <label class="text-xs font-medium text-slate-300" for="limit-period">
@@ -281,7 +287,7 @@
     <p class="text-xs text-slate-500">{m.category_form_cap_hint()}</p>
     <button
       type="submit"
-      disabled={saveLimit.isPending || !limitCategoryId}
+      disabled={saveLimit.isPending || !limitCategoryId || !limitValid}
       class="bg-accent-gradient w-full rounded-full py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
     >
       {saveLimit.isPending ? m.common_saving() : m.cap_set_action()}

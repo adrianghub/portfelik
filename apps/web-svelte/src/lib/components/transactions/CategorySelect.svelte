@@ -43,13 +43,16 @@
   let rootRef = $state<HTMLDivElement | null>(null);
   let lastSelectedId = $state<string | null>(null);
 
-  const items = $derived(categories.map((c) => c.name));
+  const activeCategories = $derived(categories.filter((category) => !category.archived_at));
+  const items = $derived(activeCategories.map((c) => c.name));
   const selectedCategory = $derived(categories.find((c) => c.id === selectedId) ?? null);
 
   function idForName(value: string): string | null {
     const q = value.trim().toLocaleLowerCase("pl");
     if (!q) return null;
-    return categories.find((c) => c.name.toLocaleLowerCase("pl") === q)?.id ?? null;
+    if (selectedCategory?.archived_at && selectedCategory.name.toLocaleLowerCase("pl") === q)
+      return selectedCategory.id;
+    return activeCategories.find((c) => c.name.toLocaleLowerCase("pl") === q)?.id ?? null;
   }
 
   function emit(next: string | null): void {

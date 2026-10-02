@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from "$app/stores";
+  import { parseMoneyInput } from "$lib/money-input";
   import {
     approximateDailyInterest,
     isPaymentBelowMonthlyInterest,
@@ -73,6 +74,12 @@
   let editBalance = $state("");
   let editRate = $state("");
   let editPayment = $state("");
+  const editTermsValid = $derived(
+    (parseMoneyInput(editOriginal) ?? 0) > 0 &&
+      parseMoneyInput(editBalance) !== null &&
+      parseMoneyInput(editRate) !== null &&
+      (parseMoneyInput(editPayment) ?? 0) > 0
+  );
   let editStartDate = $state("");
   let editEndDate = $state("");
 
@@ -185,18 +192,35 @@
   }
 
   async function saveTermsEdit() {
+    if (termsSaving) return;
+    const original = parseMoneyInput(editOriginal);
+    const balance = parseMoneyInput(editBalance);
+    const rate = parseMoneyInput(editRate);
+    const payment = parseMoneyInput(editPayment);
+    if (
+      original === null ||
+      original <= 0 ||
+      balance === null ||
+      rate === null ||
+      payment === null ||
+      payment <= 0
+    ) {
+      toast.error(m.error_invalid_amount());
+      return;
+    }
     if (editEndDate < editStartDate) {
       toast.error(m.plan_form_dates_invalid());
       return;
     }
     try {
-      const balanceChanged = Math.abs(Number(editBalance) - Number(terms.current_balance)) > 0.01;
+      const balanceChanged =
+        Math.abs(Math.round(balance * 100) - Math.round(Number(terms.current_balance) * 100)) > 1;
       const input: PlanDebtTermsInput = {
         ...normalizeDebtTermsInput({
-          original_amount: Number(editOriginal),
-          current_balance: Number(editBalance),
-          annual_rate: Number(editRate),
-          monthly_payment: Number(editPayment),
+          original_amount: original,
+          current_balance: balance,
+          annual_rate: rate,
+          monthly_payment: payment,
         }),
         ...(balanceChanged ? { reset_balance_anchor: true } : {}),
       };
@@ -387,9 +411,8 @@
           <label class="block text-xs text-slate-400">
             {m.plan_debt_original()}
             <input
-              type="number"
-              min="0.01"
-              step="0.01"
+              type="text"
+              inputmode="decimal"
               required
               disabled={termsSaving}
               bind:value={editOriginal}
@@ -399,9 +422,8 @@
           <label class="block text-xs text-slate-400">
             {m.plan_debt_balance()}
             <input
-              type="number"
-              min="0"
-              step="0.01"
+              type="text"
+              inputmode="decimal"
               disabled={termsSaving}
               bind:value={editBalance}
               class="mt-1 w-full rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 disabled:opacity-50"
@@ -413,9 +435,8 @@
           <label class="block text-xs text-slate-400">
             {m.plan_debt_rate()}
             <input
-              type="number"
-              min="0"
-              step="0.01"
+              type="text"
+              inputmode="decimal"
               required
               disabled={termsSaving}
               bind:value={editRate}
@@ -425,9 +446,8 @@
           <label class="block text-xs text-slate-400">
             {m.plan_debt_payment()}
             <input
-              type="number"
-              min="0.01"
-              step="0.01"
+              type="text"
+              inputmode="decimal"
               required
               disabled={termsSaving}
               bind:value={editPayment}
@@ -465,13 +485,16 @@
             </button>
             <button
               type="button"
-              disabled={termsSaving}
+              disabled={termsSaving || !editTermsValid}
               onclick={saveTermsEdit}
               class="bg-accent-gradient flex-1 rounded-xl py-2.5 text-sm font-semibold text-slate-900 disabled:opacity-50"
             >
               {termsSaving ? m.common_saving() : m.common_save()}
             </button>
           </div>
+          {#if !editTermsValid}<p class="text-xs text-rose-300" role="alert">
+              {m.error_invalid_amount()}
+            </p>{/if}
           {#if snapshotMode && onSyncBalance}
             <button
               type="button"

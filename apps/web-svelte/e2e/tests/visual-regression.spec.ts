@@ -1,5 +1,18 @@
 import { expect, test, type Page } from "@playwright/test";
 import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
+import { MOCK_TRANSACTIONS } from "../helpers/fixtures";
+
+async function mockVisualAPI(page: Page) {
+  await mockSupabaseAPI(page);
+  // The browser clock is frozen, so fixture dates must use that same calendar.
+  // Node's real clock otherwise changes balances and screenshot labels each day.
+  const dates = ["2026-09-30", "2026-09-30", "2026-10-07"];
+  await page.route("**/rest/v1/transactions_with_category**", (route) =>
+    route.fulfill({
+      json: MOCK_TRANSACTIONS.map((transaction, index) => ({ ...transaction, date: dates[index] })),
+    })
+  );
+}
 
 async function dismissPushBanner(page: Page) {
   const banner = page.getByTestId("push-notification-banner");
@@ -38,7 +51,7 @@ test.describe("mobile visual regression", () => {
         },
       });
     });
-    await mockSupabaseAPI(page);
+    await mockVisualAPI(page);
   });
 
   test("Kokpit", async ({ page }) => {
@@ -86,7 +99,7 @@ test.describe("desktop visual regression", () => {
   test.beforeEach(async ({ page }) => {
     await page.clock.setFixedTime(new Date("2026-09-30T10:00:00.000Z"));
     await injectFakeSession(page);
-    await mockSupabaseAPI(page);
+    await mockVisualAPI(page);
     await page.addInitScript(() => localStorage.setItem("push_prompted_at", String(Date.now())));
     await page.route("**/rest/v1/cash_positions**", (route) =>
       route.fulfill({

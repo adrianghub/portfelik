@@ -10,7 +10,9 @@ export async function fetchCategories(): Promise<Category[]> {
 
   const { data, error } = await supabase
     .from("categories")
-    .select("id, name, type, user_id, cap_amount, cap_period, created_at, updated_at")
+    .select(
+      "id, name, type, user_id, cap_amount, cap_period, archived_at, color, icon, created_at, updated_at"
+    )
     .eq("user_id", user.id)
     .order("name");
 
@@ -23,6 +25,8 @@ export async function createCategory(input: {
   type: TransactionType;
   cap_amount?: number | null;
   cap_period?: CategoryCapPeriod | null;
+  color?: string | null;
+  icon?: string | null;
 }): Promise<Category> {
   const {
     data: { user },
@@ -47,6 +51,9 @@ export async function updateCategory(
     type: TransactionType;
     cap_amount: number | null;
     cap_period: CategoryCapPeriod | null;
+    archived_at: string | null;
+    color: string | null;
+    icon: string | null;
   }>
 ): Promise<Category> {
   const { data, error } = await supabase

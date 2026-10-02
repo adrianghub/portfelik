@@ -6,6 +6,7 @@ vi.mock("$lib/supabase", () => ({
 
 import {
   forecastMovementTotals,
+  liveMovementTotals,
   forecastRunningBalances,
   type RunningBalanceTx,
 } from "$lib/services/cash-position";
@@ -22,6 +23,21 @@ function tx(over: Partial<RunningBalanceTx> & { id: string }): RunningBalanceTx 
     ...over,
   };
 }
+
+describe("liveMovementTotals", () => {
+  it("explains paid movements after the anchor and excludes plans and unsupported currency", () => {
+    expect(
+      liveMovementTotals(anchor, [
+        tx({ id: "income", status: "paid", type: "income", amount: 0.3 }),
+        tx({ id: "expense1", status: "paid", amount: 0.1 }),
+        tx({ id: "expense2", status: "paid", amount: 0.2 }),
+        tx({ id: "old", status: "paid", amount: 50, date: "2026-05-31" }),
+        tx({ id: "future", amount: 100 }),
+        tx({ id: "foreign", status: "paid", amount: 100, currency: "EUR" }),
+      ])
+    ).toEqual({ paidIncome: 0.3, paidExpenses: 0.3 });
+  });
+});
 
 describe("forecastMovementTotals", () => {
   it("sums upcoming income and expenses inside the horizon and ignores paid rows", () => {

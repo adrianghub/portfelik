@@ -45,6 +45,22 @@ function tx(overrides: Partial<TransactionWithCategory> = {}): TransactionWithCa
 }
 
 describe("suggestPlanContribution", () => {
+  it("marks a savings target complete when decimal contributions sum to it exactly", () => {
+    const progress = computePlanProgress({
+      planId: "plan-cents",
+      planName: "Goal",
+      kind: "save",
+      budgetAmount: null,
+      targetAmount: 0.3,
+      startDate: "2026-07-01",
+      endDate: "2026-07-31",
+      today: "2026-07-05",
+      linkedTransactions: [tx({ id: "a", amount: 0.1 }), tx({ id: "b", amount: 0.2 })],
+    });
+    expect(progress.savedAmount).toBe(0.3);
+    expect(progress.remaining).toBe(0);
+    expect(progress.saveContributionsCurrentMonth).toBe(0.3);
+  });
   it("uses explicit context, then unmet monthly pace, then same-plan history and caps remainder", () => {
     expect(
       suggestPlanContribution({

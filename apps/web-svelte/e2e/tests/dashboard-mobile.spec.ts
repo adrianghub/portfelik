@@ -40,6 +40,23 @@ test.describe("dashboard mobile layout", () => {
     expect(overflowAtStatus).toBe(false);
   });
 
+  test("prefers a chosen greeting name while keeping the full profile name", async ({ page }) => {
+    await page.route("**/rest/v1/profiles**", (route) =>
+      route.fulfill({
+        status: 200,
+        json: {
+          id: TEST_USER_ID,
+          email: "test@portfelik.test",
+          name: "Mr. Zinko",
+          role: "user",
+          settings: { preferredName: "Adrian", guidedTour: { dismissed: true } },
+        },
+      })
+    );
+    await page.goto("/dashboard");
+    await expect(page.getByRole("heading", { name: "Hej, Adrian!" })).toBeVisible();
+  });
+
   test("shows the full profile name and separates current cash from the 90-day forecast", async ({
     page,
   }) => {
@@ -118,10 +135,79 @@ test.describe("dashboard mobile layout", () => {
 
     await expect(page.getByRole("heading", { name: "Hej, Mr. Zinko!" })).toBeVisible();
     const cash = page.getByTestId("dashboard-cash-position");
-    await expect(cash.getByText("Saldo z transakcji", { exact: true }).first()).toBeVisible();
-    await expect(cash.getByText("Prognoza salda", { exact: true }).first()).toBeVisible();
+    await expect(cash.getByText("Dostępne teraz", { exact: true }).first()).toBeVisible();
+    await expect(
+      cash.getByText("Po nadchodzących płatnościach", { exact: true }).first()
+    ).toBeVisible();
     await expect(cash).toContainText(/1\D?300,00/);
     await expect(cash).toContainText(/1\D?000,00/);
+    await cash.getByText("Jak obliczamy saldo i prognozę?", { exact: true }).click();
+    await expect(cash.getByText("Zaksięgowane wpływy", { exact: true })).toBeVisible();
+    await expect(cash.getByText("Zaksięgowane wydatki", { exact: true })).toBeVisible();
+  });
+
+  test("first visit renders cash while unrelated plans and demo checks are still pending", async ({
+    page,
+  }) => {
+    const today = isoDaysFromToday(0);
+    let release!: () => void;
+    const auxiliaryReady = new Promise<void>((resolve) => (release = resolve));
+    await page.route("**/rest/v1/plans**", async (route) => {
+      await auxiliaryReady;
+      await route.fulfill({ status: 200, json: [] });
+    });
+    await page.route("**/rest/v1/net_worth_items**", async (route) => {
+      await auxiliaryReady;
+      await route.fulfill({ status: 200, json: [] });
+    });
+    await page.route("**/rest/v1/cash_positions**", (route) =>
+      route.fulfill({
+        status: 200,
+        json: { owner_id: TEST_USER_ID, group_id: null, opening_amount: 1000, as_of_date: today },
+      })
+    );
+    await page.route("**/rest/v1/transactions_with_category**", (route) =>
+      route.fulfill({ status: 200, json: [] })
+    );
+    try {
+      await page.goto("/dashboard");
+      const cash = page.getByTestId("dashboard-cash-position");
+      await expect(cash).toBeVisible();
+      await expect(cash.locator("p.text-3xl")).toHaveText(/1\D?000,00/);
+      await expect(page.getByTestId("dashboard-cash-loading")).toHaveCount(0);
+      await expect(page).toHaveURL(/\/dashboard$/);
+    } finally {
+      release();
+    }
+  });
+
+  test("cash remains a skeleton until its history arrives, then recovers without navigation", async ({
+    page,
+  }) => {
+    const today = isoDaysFromToday(0);
+    let release!: () => void;
+    const historyReady = new Promise<void>((resolve) => (release = resolve));
+    await page.route("**/rest/v1/cash_positions**", (route) =>
+      route.fulfill({
+        status: 200,
+        json: { owner_id: TEST_USER_ID, group_id: null, opening_amount: 1000, as_of_date: today },
+      })
+    );
+    await page.route("**/rest/v1/transactions_with_category**", async (route) => {
+      await historyReady;
+      await route.fulfill({ status: 200, json: [] });
+    });
+    try {
+      await page.goto("/dashboard");
+      await expect(page.getByTestId("dashboard-cash-loading")).toBeVisible();
+      await expect(page.getByTestId("dashboard-cash-position")).toHaveCount(0);
+    } finally {
+      release();
+    }
+    await expect(page.getByTestId("dashboard-cash-position").locator("p.text-3xl")).toHaveText(
+      /1\D?000,00/
+    );
+    await expect(page.getByTestId("dashboard-cash-loading")).toHaveCount(0);
   });
 
   test("spending accordion expands on mobile", async ({ page }) => {
