@@ -12,6 +12,46 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  android:
+    name: Android bundle and version
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Detect Android and release changes
+        id: scope
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          changed=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          if printf '%s\n' "$changed" | grep -Eq '^(pnpm-lock.yaml|pnpm-workspace.yaml|apps/web-svelte/(android/|package.json|capacitor.config.ts|src/lib/content/changelog.json|scripts/android-)|scripts/(.*release.*|.*android-bundle.sh)|\.github/workflows/(ci|deploy-play-internal).yml)'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: ./.github/actions/setup-web
+        if: steps.scope.outputs.run == 'true'
+      - uses: actions/setup-java@v5
+        if: steps.scope.outputs.run == 'true'
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Build unsigned AAB and verify embedded version
+        if: steps.scope.outputs.run == 'true'
+        working-directory: apps/web-svelte
+        env:
+          PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          PUBLIC_SUPABASE_ANON_KEY: placeholder
+          PUBLIC_VAPID_KEY: placeholder
+          PUBLIC_PLAUSIBLE_DOMAIN: ""
+          PUBLIC_GOOGLE_WEB_CLIENT_ID: placeholder
+        run: |
+          node ../../scripts/check-release-version.mjs
+          pnpm exec vite build --mode production
+          pnpm exec cap sync android
+          bash ../../scripts/build-android-bundle.sh
+
   quality:
     name: Typecheck, lint, format, unit
     runs-on: ubuntu-latest
@@ -21,7 +61,9 @@ jobs:
           fetch-depth: 0
 
       - name: Check release version
-        run: node scripts/check-release-version.mjs
+        run: |
+          node scripts/check-release-version.mjs
+          node --test scripts/android-release.test.mjs
 
       - name: Validate branch flow
         env:
