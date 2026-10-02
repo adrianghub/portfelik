@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 
 export function nextRelease(
   versions,
@@ -46,8 +47,16 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const release = nextRelease(notes.versions, process.argv.slice(2));
   notes.versions.unshift(release);
   pkg.version = release.version;
-  writeFileSync(notesUrl, JSON.stringify(notes, null, 2) + "\n");
-  writeFileSync(packageUrl, JSON.stringify(pkg, null, 2) + "\n");
+  const prettier = createRequire(packageUrl)("prettier");
+  const format = async (value, url) =>
+    prettier.format(JSON.stringify(value), {
+      ...(await prettier.resolveConfig(fileURLToPath(url))),
+      filepath: fileURLToPath(url),
+    });
+  const notesText = await format(notes, notesUrl);
+  const packageText = await format(pkg, packageUrl);
+  writeFileSync(notesUrl, notesText);
+  writeFileSync(packageUrl, packageText);
   console.log(
     `Prepared ${release.version} (${release.versionCode}); Gradle reads these values automatically.`,
   );
