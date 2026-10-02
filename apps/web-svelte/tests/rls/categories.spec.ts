@@ -41,6 +41,116 @@ describe("RLS: categories", () => {
     expect(data?.length).toBe(1);
   });
 
+  it("keeps presentation choices private and rejects unsupported values", async () => {
+    const saved = await ctx.userA.client
+      .from("categories")
+      .update({ color: "#38bdf8", icon: "home" })
+      .eq("id", catAId)
+      .select("color, icon")
+      .single();
+    expect(saved.error).toBeNull();
+    expect(saved.data).toEqual({ color: "#38bdf8", icon: "home" });
+    expectBlockedWrite(
+      await ctx.userB.client
+        .from("categories")
+        .update({ color: "#fb7185" })
+        .eq("id", catAId)
+        .select()
+    );
+    expect(
+      (await ctx.userA.client.from("categories").update({ color: "url(unsafe)" }).eq("id", catAId))
+        .error?.code
+    ).toBe("23514");
+    expect(
+      (await ctx.userA.client.from("categories").update({ icon: "unsupported" }).eq("id", catAId))
+        .error?.code
+    ).toBe("23514");
+  });
+
+  it("keeps seeded fallback categories active", async () => {
+    const defaults = await ctx.userA.client
+      .from("categories")
+      .select("id, name")
+      .in("name", ["Inne wydatki", "Inne przychody"]);
+    expect(defaults.data?.length).toBe(2);
+    for (const category of defaults.data!) {
+      const archived = await ctx.userA.client
+        .from("categories")
+        .update({ archived_at: new Date().toISOString() })
+        .eq("id", category.id);
+      expect(archived.error?.code).toBe("23514");
+    }
+  });
+
+  it("archives without losing historical labels or rules and rejects new assignments", async () => {
+    const category = await ctx.userA.client
+      .from("categories")
+      .insert({ user_id: ctx.userA.userId, name: `${SENTINEL} archival`, type: "expense" })
+      .select("id")
+      .single();
+    expect(category.error).toBeNull();
+    const id = category.data!.id;
+    const input = {
+      user_id: ctx.userA.userId,
+      category_id: id,
+      amount: 20,
+      type: "expense",
+      status: "paid",
+      date: "2026-09-13",
+      description: `${SENTINEL} historical purchase`,
+    };
+    const transaction = await ctx.userA.client
+      .from("transactions")
+      .insert(input)
+      .select("id")
+      .single();
+    expect(transaction.error).toBeNull();
+    const rule = await ctx.userA.client
+      .from("categorization_rules")
+      .insert({
+        user_id: ctx.userA.userId,
+        category_id: id,
+        kind: "contains",
+        match_description: `${SENTINEL} archival merchant`,
+      })
+      .select("id")
+      .single();
+    expect(rule.error).toBeNull();
+    const archived = await ctx.userA.client
+      .from("categories")
+      .update({ archived_at: new Date().toISOString() })
+      .eq("id", id);
+    expect(archived.error).toBeNull();
+    const history = await ctx.userA.client
+      .from("transactions_with_category")
+      .select("category_id, category_name")
+      .eq("id", transaction.data!.id)
+      .single();
+    expect(history.data).toEqual({ category_id: id, category_name: `${SENTINEL} archival` });
+    expect(
+      (
+        await ctx.userA.client
+          .from("transactions")
+          .update({ description: `${SENTINEL} corrected label` })
+          .eq("id", transaction.data!.id)
+      ).error
+    ).toBeNull();
+    expect((await ctx.userA.client.from("transactions").insert(input)).error?.code).toBe("23514");
+    const storedRule = await ctx.userA.client
+      .from("categorization_rules")
+      .select("category_id")
+      .eq("id", rule.data!.id)
+      .single();
+    expect(storedRule.data?.category_id).toBe(id);
+    expect((await ctx.userA.client.from("categories").delete().eq("id", id)).error?.code).toBe(
+      "23503"
+    );
+    expect(
+      (await ctx.userA.client.from("categories").update({ archived_at: null }).eq("id", id)).error
+    ).toBeNull();
+    expect((await ctx.userA.client.from("transactions").insert(input)).error).toBeNull();
+  });
+
   it("user A cannot see a NULL-user (legacy system) category", async () => {
     // Categories are now strictly per-user; the system read path was removed.
     const { data } = await ctx.userA.client.from("categories").select("id").eq("id", systemCatId);
@@ -48,10 +158,7 @@ describe("RLS: categories", () => {
   });
 
   it("user A cannot see user B's private category", async () => {
-    const { data, error } = await ctx.userA.client
-      .from("categories")
-      .select("id")
-      .eq("id", catBId);
+    const { data, error } = await ctx.userA.client.from("categories").select("id").eq("id", catBId);
     expect(error).toBeNull();
     expect(data?.length).toBe(0);
   });

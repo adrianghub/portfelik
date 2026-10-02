@@ -307,4 +307,76 @@ describe("RPC: delete_account", () => {
       await ctx.admin.auth.admin.deleteUser(temporary.userId);
     }
   });
+
+  it("preserves shared history when the receiving owner archived the equivalent category", async () => {
+    const temporary = await createTemporaryUser(ctx, "archived-custody");
+    let groupId: string | null = null;
+    try {
+      const group = await ctx.userA.client.rpc("create_group", {
+        p_name: `${SENTINEL} archived-custody`,
+      });
+      if (group.error) throw group.error;
+      groupId = (group.data as { id: string }).id;
+      expect(
+        (
+          await ctx.admin
+            .from("group_members")
+            .insert({ group_id: groupId, user_id: temporary.userId })
+        ).error
+      ).toBeNull();
+      const name = `${SENTINEL} archived-custody category`;
+      const source = await ctx.admin
+        .from("categories")
+        .insert({ user_id: temporary.userId, name, type: "expense" })
+        .select("id")
+        .single();
+      const destination = await ctx.admin
+        .from("categories")
+        .insert({
+          user_id: ctx.userA.userId,
+          name,
+          type: "expense",
+          archived_at: new Date().toISOString(),
+        })
+        .select("id")
+        .single();
+      expect(source.error).toBeNull();
+      expect(destination.error).toBeNull();
+      const transaction = await ctx.admin
+        .from("transactions")
+        .insert({
+          user_id: temporary.userId,
+          group_id: groupId,
+          category_id: source.data!.id,
+          amount: 12,
+          currency: "PLN",
+          type: "expense",
+          status: "paid",
+          date: "2026-09-13",
+          description: `${SENTINEL} preserved history`,
+        })
+        .select("id")
+        .single();
+      expect(transaction.error).toBeNull();
+      expect((await temporary.client.rpc("delete_account")).error).toBeNull();
+      const history = await ctx.admin
+        .from("transactions")
+        .select("user_id, category_id")
+        .eq("id", transaction.data!.id)
+        .single();
+      expect(history.data).toEqual({
+        user_id: ctx.userA.userId,
+        category_id: destination.data!.id,
+      });
+      const category = await ctx.admin
+        .from("categories")
+        .select("archived_at")
+        .eq("id", destination.data!.id)
+        .single();
+      expect(category.data?.archived_at).not.toBeNull();
+    } finally {
+      if (groupId) await ctx.admin.from("user_groups").delete().eq("id", groupId);
+      await ctx.admin.auth.admin.deleteUser(temporary.userId);
+    }
+  });
 });
