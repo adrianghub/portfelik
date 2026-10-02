@@ -200,7 +200,17 @@ export async function cleanupSentinels(admin: SupabaseClient): Promise<void> {
   // bank_accounts by label sentinel
   const deleteBankAccounts = await admin.from("bank_accounts").delete().like("label", pattern);
   if (deleteBankAccounts.error) throw deleteBankAccounts.error;
-  // categories cascade to categorization_rules (FK category_id ON DELETE CASCADE).
+  // Categories retain their rules. Explicitly remove local fixture rules first.
+  const fixtureCategories = await admin.from("categories").select("id").like("name", pattern);
+  if (fixtureCategories.error) throw fixtureCategories.error;
+  const fixtureCategoryIds = fixtureCategories.data?.map((category) => category.id) ?? [];
+  if (fixtureCategoryIds.length > 0) {
+    const deletedRules = await admin
+      .from("categorization_rules")
+      .delete()
+      .in("category_id", fixtureCategoryIds);
+    if (deletedRules.error) throw deletedRules.error;
+  }
   const deleteCategories = await admin.from("categories").delete().like("name", pattern);
   if (deleteCategories.error) throw deleteCategories.error;
   // group_invitations: clean by sentinel email domain

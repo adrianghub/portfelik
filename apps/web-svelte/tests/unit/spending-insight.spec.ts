@@ -2,6 +2,24 @@ import { describe, expect, it } from "vitest";
 import { computeSpendingInsight } from "$lib/services/spending-insight";
 import type { TransactionWithCategory } from "$lib/types";
 
+it("keeps dashboard spending categories and net equal to exact cent totals", () => {
+  const insight = computeSpendingInsight({
+    current: [
+      tx({ id: "a", amount: 0.1 }),
+      tx({ id: "b", amount: 0.2 }),
+      tx({ id: "income", amount: 0.5, type: "income" }),
+    ],
+    previous: [tx({ id: "before", amount: 0.1 })],
+    rolling: [],
+    periodsInRolling: 0,
+    budgets: [],
+  });
+  expect(insight.spent).toBe(0.3);
+  expect(insight.net).toBe(0.2);
+  expect(insight.categories[0].total).toBe(0.3);
+  expect(insight.categories[0].deltaAbs).toBe(0.2);
+});
+
 function tx(
   o: Partial<TransactionWithCategory> & { id: string; amount: number }
 ): TransactionWithCategory {
@@ -243,7 +261,9 @@ describe("computeSpendingInsight", () => {
         tx({ id: "cele-1", amount: 4000, category_id: celeCategoryId, category_name: "Cele" }),
         tx({ id: "food-1", amount: 200, category_id: "food", category_name: "Jedzenie" }),
       ],
-      previous: [tx({ id: "food-prev", amount: 200, category_id: "food", category_name: "Jedzenie" })],
+      previous: [
+        tx({ id: "food-prev", amount: 200, category_id: "food", category_name: "Jedzenie" }),
+      ],
       rolling: [],
       periodsInRolling: 3,
       budgets: [],

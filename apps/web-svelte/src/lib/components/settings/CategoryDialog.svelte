@@ -4,9 +4,10 @@
   import { requireSessionUserId, session } from "$lib/auth/session.svelte";
   import { qk } from "$lib/query-keys";
   import { createCategory, isCategoryReferenced, updateCategory } from "$lib/services/categories";
-  import { normalizeCapAmount } from "$lib/services/pile-progress";
+  import { parseMoneyInput } from "$lib/money-input";
   import type { Category, CategoryCapPeriod, TransactionType } from "$lib/types";
   import Dialog from "$lib/components/ui/Dialog.svelte";
+  import AppearanceFields from "$lib/components/ui/AppearanceFields.svelte";
   import { toast } from "svelte-sonner";
   import { toastError } from "$lib/toast-error";
   import * as m from "$lib/paraglide/messages";
@@ -22,20 +23,27 @@
 
   let name = $state(untrack(() => initial?.name ?? ""));
   let type = $state<TransactionType>(untrack(() => initial?.type ?? "expense"));
-  let capAmount = $state<number | null>(untrack(() => initial?.cap_amount ?? null));
+  let capAmount = $state(untrack(() => String(initial?.cap_amount ?? "")));
   let capPeriod = $state<CategoryCapPeriod>(untrack(() => initial?.cap_period ?? "month"));
+  let color = $state<string | null>(null);
+  let icon = $state<string | null>(null);
   let initialSnapshot = $state("");
-  const capValue = $derived(normalizeCapAmount(capAmount));
-  const currentSnapshot = $derived(JSON.stringify([name, type, capAmount, capPeriod]));
+  const capValue = $derived(parseMoneyInput(capAmount));
+  const capValid = $derived(type !== "expense" || capAmount.trim() === "" || capValue !== null);
+  const currentSnapshot = $derived(JSON.stringify([name, type, capAmount, capPeriod, color, icon]));
   const dirty = $derived(currentSnapshot !== initialSnapshot);
 
   $effect(() => {
     if (open) {
       name = initial?.name ?? "";
       type = initial?.type ?? "expense";
-      capAmount = initial?.cap_amount ?? null;
+      capAmount = String(initial?.cap_amount ?? "");
       capPeriod = initial?.cap_period ?? "month";
-      initialSnapshot = untrack(() => JSON.stringify([name, type, capAmount, capPeriod]));
+      color = initial?.color ?? null;
+      icon = initial?.icon ?? null;
+      initialSnapshot = untrack(() =>
+        JSON.stringify([name, type, capAmount, capPeriod, color, icon])
+      );
     }
   });
 
@@ -45,20 +53,23 @@
   const refsQuery = createQuery(() => ({
     queryKey: [...qk.categories(session.userId ?? "anon"), "refs", initial?.id ?? "new"] as const,
     queryFn: () => isCategoryReferenced(initial!.id),
-    enabled: () => open && !!session.userId && !!initial?.id,
+    enabled: open && !!session.userId && !!initial?.id,
   }));
   const typeLocked = $derived(isEdit && refsQuery.data === true);
 
   const mutation = createMutation(() => ({
     mutationFn: () => {
-      const amount = normalizeCapAmount(capAmount);
+      const amount = capValue !== null && capValue > 0 ? capValue : null;
       const cap =
         type === "expense" && amount != null
           ? { cap_amount: amount, cap_period: capPeriod }
           : { cap_amount: null, cap_period: null };
       return isEdit
-        ? updateCategory(initial!.id, typeLocked ? { name, ...cap } : { name, type, ...cap })
-        : createCategory({ name, type, ...cap });
+        ? updateCategory(
+            initial!.id,
+            typeLocked ? { name, color, icon, ...cap } : { name, type, color, icon, ...cap }
+          )
+        : createCategory({ name, type, color, icon, ...cap });
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: qk.categories(requireSessionUserId()) });
@@ -70,6 +81,7 @@
 
   function handleSubmit(e: Event) {
     e.preventDefault();
+    if (mutation.isPending || !capValid) return;
     void mutation.mutateAsync().catch(() => {
       // onError already toasted
     });
@@ -131,6 +143,8 @@
       {/if}
     </div>
 
+    <AppearanceFields bind:color bind:icon id="category" />
+
     {#if type === "expense"}
       <div class="space-y-1">
         <label class="text-xs font-medium text-slate-600 dark:text-slate-300" for="cat-cap"
@@ -138,15 +152,15 @@
         >
         <input
           id="cat-cap"
-          type="number"
-          min="0"
-          step="0.01"
+          type="text"
           inputmode="decimal"
           bind:value={capAmount}
+          aria-invalid={!capValid}
           placeholder={m.category_form_cap_placeholder()}
           class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:ring-2 focus:outline-none"
         />
         <p class="text-xs text-slate-400">{m.category_form_cap_hint()}</p>
+        {#if !capValid}<p class="text-xs text-rose-300">{m.error_invalid_amount()}</p>{/if}
       </div>
       {#if capValue != null}
         <div class="space-y-1">
@@ -179,7 +193,7 @@
       </button>
       <button
         type="submit"
-        disabled={mutation.isPending}
+        disabled={mutation.isPending || !capValid}
         class="bg-accent-gradient flex-1 rounded-lg py-2 text-sm font-medium text-slate-900 transition-transform hover:brightness-110 disabled:opacity-50"
       >
         {mutation.isPending ? m.common_saving() : m.common_save()}

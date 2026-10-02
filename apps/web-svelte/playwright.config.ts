@@ -38,6 +38,7 @@ export default defineConfig({
     url: `http://localhost:${port}`,
     reuseExistingServer: !isCI,
     env: {
+      PUBLIC_PLAUSIBLE_DOMAIN: "",
       PUBLIC_SUPABASE_URL: "https://emqzcygfwcvbmhxhfkcc.supabase.co",
       PUBLIC_SUPABASE_ANON_KEY: FAKE_ANON_KEY,
       PUBLIC_VAPID_KEY:

@@ -4,12 +4,41 @@
  */
 import { expect, test, type Page } from "@playwright/test";
 import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
+import { MOCK_CATEGORIES } from "../helpers/fixtures";
 
 async function gotoSettings(page: Page, query = ""): Promise<void> {
   await injectFakeSession(page);
   await mockSupabaseAPI(page);
   await page.goto(`/settings${query}`);
 }
+
+test("saves a category color, icon and a comma-decimal limit without changing identity", async ({
+  page,
+}) => {
+  await injectFakeSession(page);
+  await mockSupabaseAPI(page);
+  let saved: Record<string, unknown> | undefined;
+  await page.route(/.*\/rest\/v1\/categories.*/, async (route) => {
+    if (route.request().method() === "PATCH") {
+      saved = route.request().postDataJSON();
+      return route.fulfill({ status: 200, json: { ...MOCK_CATEGORIES[0], ...saved } });
+    }
+    return route.fallback();
+  });
+  await page.goto("/settings?tab=categories");
+  await page
+    .getByRole("button", { name: "Edytuj", exact: true })
+    .filter({ visible: true })
+    .first()
+    .click();
+  const dialog = page.getByRole("dialog", { name: "Edytuj kategorię" });
+  await dialog.getByLabel("Ikona", { exact: true }).selectOption("home");
+  await dialog.getByLabel("Kolor", { exact: true }).selectOption("#38bdf8");
+  await dialog.getByLabel("Limit wydatków", { exact: true }).fill("1 234,56");
+  await dialog.getByRole("button", { name: "Zapisz", exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  expect(saved).toMatchObject({ color: "#38bdf8", icon: "home", cap_amount: 1234.56 });
+});
 
 test("landing lists the sections and their subsections", async ({ page }) => {
   await gotoSettings(page);

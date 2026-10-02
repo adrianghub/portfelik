@@ -1,13 +1,14 @@
 <script lang="ts">
-  import { Landmark, Target } from "lucide-svelte";
+  import VisualIcon from "$lib/components/ui/VisualIcon.svelte";
   import type { PlanKind } from "$lib/types";
 
   interface Props {
     kind: PlanKind;
     size?: "sm" | "md";
+    name?: string | null;
   }
 
-  let { kind, size = "md" }: Props = $props();
+  let { kind, size = "md", name = null }: Props = $props();
 
   const box = $derived(size === "sm" ? "h-7 w-7" : "h-10 w-10");
   const icon = $derived(size === "sm" ? 14 : 18);
@@ -17,9 +18,5 @@
   class="flex {box} shrink-0 items-center justify-center rounded-full bg-slate-800 text-slate-300"
   aria-hidden="true"
 >
-  {#if kind === "debt"}
-    <Landmark size={icon} strokeWidth={1.7} />
-  {:else}
-    <Target size={icon} strokeWidth={1.7} />
-  {/if}
+  <VisualIcon name={name ?? (kind === "debt" ? "landmark" : "target")} size={icon} />
 </span>

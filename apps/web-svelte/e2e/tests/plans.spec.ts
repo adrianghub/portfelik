@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { formatCurrency } from "../../src/lib/utils";
 import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
+import { MOCK_PLANS } from "../helpers/fixtures";
 
 /** Two ISO dates in the currently open calendar month (always on-grid). */
 function datesInCurrentMonth(): { startDate: string; endDate: string } {
@@ -18,6 +19,27 @@ function datesInCurrentMonth(): { startDate: string; endDate: string } {
 test.beforeEach(async ({ page }) => {
   await injectFakeSession(page);
   await mockSupabaseAPI(page);
+});
+
+test("changes a plan icon while preserving its financial fields", async ({ page }) => {
+  const plan = { ...MOCK_PLANS[0], icon: null as string | null };
+  let saved: Record<string, unknown> | undefined;
+  await page.route(new RegExp(`/rest/v1/plans\\?[^]*id=eq\\.${plan.id}`), async (route) => {
+    if (route.request().method() === "PATCH") {
+      saved = route.request().postDataJSON();
+      plan.icon = saved!.icon as string | null;
+    }
+    return route.fulfill({ status: 200, json: plan });
+  });
+  await page.goto(`/plans/${plan.id}`);
+  await page.getByText("Ikona planu", { exact: true }).click();
+  await page.getByLabel("Ikona", { exact: true }).selectOption("plane");
+  await page.getByRole("button", { name: "Zapisz", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Zapisz", exact: true })).toBeDisabled();
+  expect(saved).toEqual({ icon: "plane" });
+  await page.reload();
+  await page.getByText("Ikona planu", { exact: true }).click();
+  await expect(page.getByLabel("Ikona", { exact: true })).toHaveValue("plane");
 });
 
 test("renders sectioned hub with saving goals and debt plans", async ({ page }) => {

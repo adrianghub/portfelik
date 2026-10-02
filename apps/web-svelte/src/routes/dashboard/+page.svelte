@@ -61,6 +61,7 @@
     forecastPosition,
     forecastMovementTotals,
     livePosition,
+    liveMovementTotals,
   } from "$lib/services/cash-position";
   import {
     forwardForecastTransactions,
@@ -109,7 +110,8 @@
   });
 
   const greetingName = $derived.by(() => {
-    const raw = profileQuery.data?.name?.trim();
+    const raw =
+      profileQuery.data?.settings.preferredName?.trim() || profileQuery.data?.name?.trim();
     return raw ?? "";
   });
 
@@ -183,7 +185,7 @@
   const groupRolesQuery = createQuery(() => ({
     queryKey: qk.myGroupRoles(session.userId!),
     queryFn: fetchMyGroupRoles,
-    enabled: () => !!session.userId,
+    enabled: !!session.userId,
   }));
 
   function dashCanManage(tx: TransactionWithCategory): boolean {
@@ -229,7 +231,7 @@
   const profileQuery = createQuery(() => ({
     queryKey: qk.profile(session.userId!),
     queryFn: () => fetchProfile(session.userId!),
-    enabled: () => !!session.userId,
+    enabled: !!session.userId,
   }));
 
   const cashAnchorQuery = createQuery(() => ({
@@ -275,14 +277,14 @@
     })
   );
 
-  // Do not use isFetched: disabled/not-yet-started queries stay isFetched=false and
-  // freeze the top pulse forever. isLoading is false when idle-disabled or settled.
+  // Only the discovery decision depends on these auxiliary queries. Cash and
+  // period totals must render independently when plans/demo checks are slow.
   const ledgerReady = $derived(
     !!session.userId &&
-      !txCountQuery.isLoading &&
-      !demoProbeQuery.isLoading &&
-      !plansQuery.isLoading &&
-      !cashAnchorQuery.isLoading
+      txCountQuery.isSuccess &&
+      demoProbeQuery.isSuccess &&
+      plansQuery.isSuccess &&
+      cashAnchorQuery.isSuccess
   );
   const discovery = $derived(
     ledgerReady &&
@@ -371,19 +373,33 @@
   const groupsQuery = createQuery(() => ({
     queryKey: qk.userGroups(session.userId!),
     queryFn: fetchUserGroups,
-    enabled: () => !!session.userId,
+    enabled: !!session.userId,
   }));
 
   const categoriesQuery = createQuery(() => ({
     queryKey: qk.categories(session.userId!),
     queryFn: fetchCategories,
-    enabled: () => !!session.userId,
+    enabled: !!session.userId,
   }));
+  const categoryIdsByName = $derived(
+    new Map(
+      (categoriesQuery.data ?? [])
+        .filter((category) => category.type === "expense")
+        .map((category) => [category.name, category.id])
+    )
+  );
+  const categoryColors = $derived(
+    new Map(
+      (categoriesQuery.data ?? [])
+        .filter((category) => !!category.color)
+        .map((category) => [category.id, category.color!])
+    )
+  );
 
   const saveLinkedQuery = createQuery(() => ({
     queryKey: qk.saveLinkedIds(session.userId!),
     queryFn: fetchSaveLinkedTransactionIds,
-    enabled: () => !!session.userId,
+    enabled: !!session.userId,
   }));
 
   // Previous month remains a calendar month; week/custom use a contiguous
@@ -504,7 +520,7 @@
       spanBounds.end
     ),
     queryFn: () => fetchTransactions(spanBounds.start, spanBounds.end),
-    enabled: () => !!session.userId,
+    enabled: !!session.userId,
     staleTime: 60_000,
   }));
 
@@ -513,7 +529,7 @@
   const overdueQuery = createQuery(() => ({
     queryKey: qk.transactions.list(session.userId!, "dashboard-overdue"),
     queryFn: () => fetchTransactionsByStatus("overdue"),
-    enabled: () => !!session.userId,
+    enabled: !!session.userId,
     staleTime: 60_000,
   }));
 
@@ -585,7 +601,7 @@
   const recurringTemplatesQuery = createQuery(() => ({
     queryKey: qk.transactions.list(session.userId!, "recurring-templates"),
     queryFn: fetchRecurringTemplates,
-    enabled: () => !!session.userId,
+    enabled: !!session.userId,
     staleTime: 60_000,
   }));
   // Skips span current period + forecast horizon: projections are built for
@@ -598,7 +614,7 @@
       forwardBounds.end
     ),
     queryFn: () => fetchRecurringOccurrenceSkips(bounds.start, forwardBounds.end),
-    enabled: () => !!session.userId,
+    enabled: !!session.userId,
     staleTime: 60_000,
   }));
 
@@ -665,6 +681,9 @@
     horizonEnd: cashForecastHorizon,
   });
   const currentCashPosition = $derived(livePosition(cashAnchorQuery.data ?? null, cashPositionTxs));
+  const cashRecordedMovements = $derived(
+    liveMovementTotals(cashAnchorQuery.data ?? null, cashPositionTxs)
+  );
   const afterUpcomingCashPosition = $derived(
     forecastPosition(cashAnchorQuery.data ?? null, cashPositionTxs, cashPositionOptions)
   );
@@ -674,7 +693,8 @@
   // Prefer isLoading (pending + fetching) over isPending — disabled dependents
   // stay isPending=true and would otherwise freeze the cash skeleton forever.
   const cashPositionLoading = $derived(
-    cashAnchorQuery.isLoading ||
+    !session.userId ||
+      cashAnchorQuery.isPending ||
       (!!cashAnchorQuery.data &&
         (cashHistoryQuery.isLoading ||
           recurringTemplatesQuery.isLoading ||
@@ -966,13 +986,7 @@
     </div>
   </div>
 
-  {#if !ledgerReady}
-    <div
-      class="h-48 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"
-      data-testid="dashboard-ledger-loading"
-      aria-hidden="true"
-    ></div>
-  {:else if discovery}
+  {#if discovery}
     <DashboardDiscovery />
   {:else}
     <!-- Period stays behind more. Scope stays when a group exists. -->
@@ -982,6 +996,9 @@
       upcomingIncome={cashForecastMovements.upcomingIncome}
       upcomingExpenses={cashForecastMovements.upcomingExpenses}
       anchorDate={cashAnchorQuery.data?.as_of_date}
+      openingAmount={cashAnchorQuery.data?.opening_amount}
+      paidIncome={cashRecordedMovements.paidIncome}
+      paidExpenses={cashRecordedMovements.paidExpenses}
       hasAnchor={!!cashAnchorQuery.data}
       loading={cashPositionLoading}
       error={cashPositionError}
@@ -1014,6 +1031,9 @@
       />
     {/if}
 
+    <DashboardActions {groupFilter} overdue={overdueSummary} {overdueState} />
+    <DashboardPiles {groupFilter} groups={groupsQuery.data ?? []} />
+
     <!-- Financial overview: balance beside spending and history on wide screens -->
     {#if txQuery.isLoading}
       <div class="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-12">
@@ -1041,6 +1061,7 @@
             savingsRatio={savingsRatioDisplay}
             spent={spendingInsight.spent}
             categories={spendingInsight.categories}
+            {categoryColors}
             {showForecastNote}
             forecastNet={forecastSummary?.net}
             {transactionsHref}
@@ -1064,6 +1085,8 @@
               <SpendHistoryChart
                 buckets={combinedHistoryBuckets}
                 {allocationByLabel}
+                {categoryIdsByName}
+                {categoryColors}
                 onselectperiod={selectHistoryPeriod}
                 onOpenGlossary={openGlossary}
               />
@@ -1098,6 +1121,8 @@
                         <SpendHistoryChart
                           buckets={combinedHistoryBuckets}
                           {allocationByLabel}
+                          {categoryIdsByName}
+                          {categoryColors}
                           onselectperiod={selectHistoryPeriod}
                           onOpenGlossary={openGlossary}
                         />
@@ -1111,13 +1136,6 @@
         {/if}
       </div>
     {/if}
-
-    <DashboardPiles {groupFilter} groups={groupsQuery.data ?? []} />
-
-    <div class="space-y-2">
-      <DashboardActions {groupFilter} overdue={overdueSummary} {overdueState} />
-      <DashboardImportHealth />
-    </div>
 
     <button
       type="button"
@@ -1182,6 +1200,8 @@
         </div>
       {/if}
     {/if}
+
+    <DashboardImportHealth />
   {/if}
 </div>
 

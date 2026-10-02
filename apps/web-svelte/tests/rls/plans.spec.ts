@@ -47,6 +47,24 @@ describe("RLS: plans", () => {
     expect(data?.length).toBe(1);
   });
 
+  it("allows a plan icon preference only for an authorized owner", async () => {
+    const saved = await ctx.userA.client
+      .from("plans")
+      .update({ icon: "home" })
+      .eq("id", planAId)
+      .select("icon")
+      .single();
+    expect(saved.error).toBeNull();
+    expect(saved.data?.icon).toBe("home");
+    expectBlockedWrite(
+      await ctx.userB.client.from("plans").update({ icon: "car" }).eq("id", planAId).select()
+    );
+    expect(
+      (await ctx.userA.client.from("plans").update({ icon: "unsupported" }).eq("id", planAId)).error
+        ?.code
+    ).toBe("23514");
+  });
+
   it("user A does not see user B private plan", async () => {
     const { data, error } = await ctx.userA.client.from("plans").select("id").eq("id", planBId);
     expect(error).toBeNull();

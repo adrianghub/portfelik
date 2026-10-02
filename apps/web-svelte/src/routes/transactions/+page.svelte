@@ -25,6 +25,7 @@
     forecastMovementTotals,
     forecastPosition,
     livePosition,
+    liveMovementTotals,
   } from "$lib/services/cash-position";
   import { createCategory, fetchCategories } from "$lib/services/categories";
   import { makeCreateCategoryInline } from "$lib/category-create";
@@ -321,6 +322,7 @@
 
   const cashAnchor = $derived(cashAnchorQuery.data ?? null);
   const cashLive = $derived(livePosition(cashAnchor, privatePaidTxs));
+  const cashRecordedMovements = $derived(liveMovementTotals(cashAnchor, privatePaidTxs));
 
   // Quick-view presets. `view` is a URL param so a preset is shareable and
   // survives reload. "unlinked" (Bez planu) and "inne" are client-side filters
@@ -423,7 +425,17 @@
   // visibleTxs adds the search filter on top - search is row-only UI sugar
   // so it deliberately doesn't affect totals.
   let searchQuery = $state("");
-  const normalizedSearchQuery = $derived(searchQuery.trim().toLocaleLowerCase("pl-PL"));
+  let settledSearchQuery = $state("");
+  $effect(() => {
+    const next = searchQuery;
+    if (!next.trim()) {
+      settledSearchQuery = "";
+      return;
+    }
+    const timer = setTimeout(() => (settledSearchQuery = next), 150);
+    return () => clearTimeout(timer);
+  });
+  const normalizedSearchQuery = $derived(settledSearchQuery.trim().toLocaleLowerCase("pl-PL"));
   const compactAmountQuery = $derived(
     normalizedSearchQuery.replaceAll("\u00a0", "").replaceAll(" ", "").replace(",", ".")
   );
@@ -1290,6 +1302,8 @@
       forecast={cashForecast}
       upcomingIncome={cashForecastMovements.upcomingIncome}
       upcomingExpenses={cashForecastMovements.upcomingExpenses}
+      paidIncome={cashRecordedMovements.paidIncome}
+      paidExpenses={cashRecordedMovements.paidExpenses}
       hasAnchor={!!cashAnchorQuery.data}
       anchor={cashAnchor}
       anchorReady={cashAnchorQuery.isSuccess}

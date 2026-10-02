@@ -287,6 +287,7 @@ jobs:
           # was rejected by FCM/autopush), so the canonical value is pinned here.
           PUBLIC_VAPID_KEY: BHKoiccZwq3Y5Qw5dmFxVLJIA7w9zcSZkchPKWk-vxBeR421yieZW7gGxuluBBa6sRmpIsFXRSuFyRarLcdvqT4
           PUBLIC_PLAUSIBLE_DOMAIN: ${{ secrets.PUBLIC_PLAUSIBLE_DOMAIN }}
+          PUBLIC_RELEASE_CHANNEL: public-beta
         run: |
           # Misconfigured environment guard: production must build against the
           # production Supabase project, never a staging/mock value.

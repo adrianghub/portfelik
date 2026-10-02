@@ -97,6 +97,29 @@ export function livePosition(anchor: Anchor, txs: PositionTx[]): number {
   return fromCents(balanceCents);
 }
 
+/** Recorded movements explain the current balance separately from its forecast. */
+export function liveMovementTotals(
+  anchor: Anchor,
+  txs: PositionTx[]
+): {
+  paidIncome: number;
+  paidExpenses: number;
+} {
+  let incomeCents = 0;
+  let expenseCents = 0;
+  for (const tx of txs) {
+    if (
+      !isSupportedLedgerCurrency(tx.currency) ||
+      tx.status !== "paid" ||
+      dateOnly(tx.date) < asOfOf(anchor)
+    )
+      continue;
+    if (tx.type === "income") incomeCents += toCents(tx.amount);
+    else expenseCents += toCents(tx.amount);
+  }
+  return { paidIncome: fromCents(incomeCents), paidExpenses: fromCents(expenseCents) };
+}
+
 export interface ForecastPositionOpts {
   /** Local YYYY-MM-DD; defaults to today. */
   today?: string;

@@ -220,14 +220,14 @@ export function bucketPeriodHistory(
       if (t.type !== "expense") continue;
       const ts = new Date(t.date).getTime();
       if (ts < startMs || ts >= endMs) continue;
-      const amt = Math.abs(Number(t.amount));
+      const amt = Math.round(Math.abs(Number(t.amount)) * 100);
       total += amt;
       byCat.set(t.category_name, (byCat.get(t.category_name) ?? 0) + amt);
     }
     const categories = [...byCat.entries()]
-      .map(([name, catTotal]) => ({ name, total: catTotal }))
+      .map(([name, catTotal]) => ({ name, total: catTotal / 100 }))
       .sort((a, b) => b.total - a.total);
-    return { ...w, total, categories, isCurrent: nowMs >= startMs && nowMs < endMs };
+    return { ...w, total: total / 100, categories, isCurrent: nowMs >= startMs && nowMs < endMs };
   });
 }
 

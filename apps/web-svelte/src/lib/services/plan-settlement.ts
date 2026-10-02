@@ -1,3 +1,4 @@
+import { sumMoneyAmounts, moneyDifference } from "$lib/money";
 import { productDateIso } from "$lib/date-local";
 import {
   isSettlementStatus,
@@ -35,6 +36,7 @@ export interface PlanProgressSnapshot {
 }
 
 export interface PlanSettlementProgress {
+  icon?: string | null;
   planId: string;
   planName: string;
   kind: PlanKind;
@@ -477,7 +479,7 @@ function saveProgressBalance(
       isSettlementStatus(tx.status) &&
       (!snapshot || productDateIso(tx.date) > snapshot.effectiveDate)
   );
-  return (snapshot?.savedAmount ?? 0) + laterPaidExpenses.reduce((sum, tx) => sum + tx.amount, 0);
+  return sumMoneyAmounts(laterPaidExpenses, snapshot?.savedAmount ?? 0);
 }
 
 export function countRankedSuggestions(
@@ -487,9 +489,7 @@ export function countRankedSuggestions(
   dismissedIds: ReadonlySet<string> = new Set(),
   progressSnapshot: PlanProgressSnapshot | null = null
 ): number {
-  const spentAmount = linkedTransactions
-    .filter((t) => t.type === "expense")
-    .reduce((s, t) => s + t.amount, 0);
+  const spentAmount = sumMoneyAmounts(linkedTransactions.filter((t) => t.type === "expense"));
   const savedAmount = saveProgressBalance(linkedTransactions, progressSnapshot);
   return eligible
     .filter((tx) => !dismissedIds.has(tx.id))
@@ -541,7 +541,7 @@ export async function fetchRankedEligibleTransactions(
     fetchDismissedKeys(planId),
     fetchPlanProgressSnapshot(planId),
   ]);
-  const spentAmount = linked.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
+  const spentAmount = sumMoneyAmounts(linked.filter((t) => t.type === "expense"));
   const savedAmount = saveProgressBalance(linked, progressSnapshot);
 
   return eligible
@@ -555,12 +555,12 @@ function sumSaveContributionsInMonth(
   monthStart: string,
   monthEnd: string
 ): number {
-  return contributions
-    .filter((t) => {
+  return sumMoneyAmounts(
+    contributions.filter((t) => {
       const d = productDateIso(t.date);
       return d >= monthStart && d <= monthEnd;
     })
-    .reduce((sum, t) => sum + t.amount, 0);
+  );
 }
 
 export type SavePaceBasis = "none" | "current-month" | "historical-average";
@@ -614,6 +614,7 @@ export function computeSaveMonthlyActual(input: {
 }
 
 export function computePlanProgress(input: {
+  icon?: string | null;
   planId: string;
   planName: string;
   kind?: import("$lib/types").PlanKind;
@@ -631,22 +632,22 @@ export function computePlanProgress(input: {
   const paidLinked = input.linkedTransactions.filter((t) => isSettlementStatus(t.status));
   const expenses = paidLinked.filter((t) => t.type === "expense");
   const incomes = paidLinked.filter((t) => t.type === "income");
-  const spentAmount = expenses.reduce((s, t) => s + t.amount, 0);
-  const incomeAmount = incomes.reduce((s, t) => s + t.amount, 0);
+  const spentAmount = sumMoneyAmounts(expenses);
+  const incomeAmount = sumMoneyAmounts(incomes);
   const monthBounds = currentCalendarMonthBounds(new Date(today));
   const inCurrentMonth = (t: TransactionWithCategory) => {
     const d = productDateIso(t.date);
     return d >= monthBounds.start && d <= monthBounds.end;
   };
-  const linkedExpenseCurrentMonth = expenses
-    .filter(inCurrentMonth)
-    .reduce((sum, t) => sum + t.amount, 0);
+  const linkedExpenseCurrentMonth = sumMoneyAmounts(expenses.filter(inCurrentMonth));
   const saveContributionsCurrentMonth = input.kind === "save" ? linkedExpenseCurrentMonth : 0;
   const progressSnapshot = input.kind === "save" ? (input.progressSnapshot ?? null) : null;
   const savedAmount = input.kind === "save" ? saveProgressBalance(expenses, progressSnapshot) : 0;
   const targetAmount = input.targetAmount ?? null;
   const remaining =
-    targetAmount != null && targetAmount > 0 ? Math.max(0, targetAmount - savedAmount) : null;
+    targetAmount != null && targetAmount > 0
+      ? Math.max(0, moneyDifference(targetAmount, savedAmount))
+      : null;
   const monthsRem = input.endDate ? calendarMonthsUntil(input.endDate) : null;
   const isActive =
     input.startDate && input.endDate
@@ -669,6 +670,7 @@ export function computePlanProgress(input: {
   return {
     planId: input.planId,
     planName: input.planName,
+    ...(input.icon ? { icon: input.icon } : {}),
     kind: input.kind ?? "save",
     groupId: input.groupId ?? null,
     startDate: input.startDate ?? null,
@@ -773,6 +775,7 @@ export async function fetchDashboardPlanProgress(): Promise<PlanSettlementProgre
     return computePlanProgress({
       planId: plan.id,
       planName: plan.name,
+      icon: plan.icon,
       kind: plan.kind,
       groupId: plan.group_id,
       budgetAmount: plan.budget_amount,
@@ -818,6 +821,7 @@ export async function fetchPlanProgressForPlans(
     result[plan.id] = computePlanProgress({
       planId: plan.id,
       planName: plan.name,
+      icon: plan.icon,
       kind: plan.kind,
       groupId: plan.group_id,
       budgetAmount: plan.budget_amount,

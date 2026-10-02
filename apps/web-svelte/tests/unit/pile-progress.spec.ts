@@ -51,6 +51,32 @@ describe("pile progress", () => {
     });
   });
 
+  it("sums paid expenses in grosze without floating-point overflow at the limit", () => {
+    const rows = [0.1, 0.2].map((amount) => ({
+      category_id: "groceries",
+      type: "expense",
+      status: "paid",
+      amount,
+      date: "2026-09-02",
+    }));
+    expect(spentInPile(rows, "groceries", "month", "2026-09-27")).toBe(0.3);
+    expect(
+      exceededCaps(
+        [
+          {
+            id: "groceries",
+            name: "Jedzenie",
+            type: "expense",
+            cap_amount: 0.3,
+            cap_period: "month",
+          },
+        ],
+        rows,
+        "2026-09-27"
+      )
+    ).toEqual([]);
+  });
+
   it("keeps spending inside the selected dashboard scope", () => {
     const rows = [
       {
@@ -137,6 +163,7 @@ describe("pile progress", () => {
     expect(normalizeCapAmount(undefined)).toBeNull();
     expect(normalizeCapAmount(null)).toBeNull();
     expect(normalizeCapAmount("  80 ")).toBe(80);
+    expect(normalizeCapAmount("2 000,50")).toBe(2000.5);
     expect(normalizeCapAmount("")).toBeNull();
   });
 });

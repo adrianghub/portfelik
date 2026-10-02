@@ -105,11 +105,12 @@
   <section class="mt-8 space-y-2">
     <h2 class="text-base font-semibold text-slate-100">Twoje dane są Twoje</h2>
     <p class="text-sm leading-relaxed text-slate-300">
-      W <strong>Ustawienia → Profil</strong> możesz w każdej chwili pobrać komplet swoich danych (plik
-      JSON) lub usunąć konto. Na telefonie ten plik idzie przez udostępnianie systemu i nie zostaje w
-      aplikacji. Prywatne dane znikają. Wspólna historia grupy zostaje u właściciela. Eksport transakcji
-      do CSV znajdziesz na ekranie Transakcje. Jeśli prowadzisz grupę, przed usunięciem konta przekaż
-      ją komuś albo rozwiąż.
+      W <strong>Ustawienia → Eksport i konto</strong> możesz pobrać kopię swoich danych w formacie JSON,
+      m.in. transakcje, kategorie, plany, reguły i informacje o kontach, lub usunąć konto. Szczegółowy
+      zakres eksportu sprawdzisz przed pobraniem. Na telefonie ten plik idzie przez udostępnianie systemu
+      i nie zostaje w aplikacji. Prywatne dane znikają. Wspólna historia grupy zostaje u właściciela.
+      Eksport transakcji do CSV znajdziesz na ekranie Transakcje. Jeśli prowadzisz grupę, przed usunięciem
+      konta przekaż ją komuś albo rozwiąż.
     </p>
   </section>
 

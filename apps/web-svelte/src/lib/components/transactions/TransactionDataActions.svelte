@@ -2,6 +2,7 @@
   import { Download, MoreHorizontal, Plus } from "lucide-svelte";
   import { tick } from "svelte";
   import * as m from "$lib/paraglide/messages";
+  import { registerNativeOverlayCloser } from "$lib/services/native-overlay";
 
   interface Props {
     exportDisabled: boolean;
@@ -101,6 +102,7 @@
 
   $effect(() => {
     if (!open) return;
+    const unregisterOverlay = registerNativeOverlayCloser(() => closeMenu({ restoreFocus: true }));
 
     function onPointerDown(event: PointerEvent) {
       const target = event.target as Node | null;
@@ -123,6 +125,7 @@
     window.addEventListener("resize", onViewportChange);
     window.addEventListener("scroll", onViewportChange, true);
     return () => {
+      unregisterOverlay();
       window.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("keydown", onKeydown);
       window.removeEventListener("resize", onViewportChange);

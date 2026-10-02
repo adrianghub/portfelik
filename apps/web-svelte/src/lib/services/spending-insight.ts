@@ -1,3 +1,4 @@
+import { sumMoneyAmounts, moneyDifference } from "$lib/money";
 import { isAllocationExpense } from "$lib/services/goal-spending";
 import { ledgerTransactions } from "$lib/services/transaction-cashflow";
 import type { TransactionWithCategory } from "$lib/types";
@@ -56,18 +57,19 @@ function expenseByCategory(
   for (const t of txs) {
     if (t.type !== "expense") continue;
     const cur = map.get(t.category_id) ?? { name: t.category_name, total: 0 };
-    cur.total += t.amount;
+    cur.total += Math.round(t.amount * 100);
     if (!cur.name) cur.name = t.category_name;
     map.set(t.category_id, cur);
   }
+  for (const value of map.values()) value.total /= 100;
   return map;
 }
 
 function sumExpenses(txs: TransactionWithCategory[]): number {
-  return txs.reduce((s, t) => (t.type === "expense" ? s + t.amount : s), 0);
+  return sumMoneyAmounts(txs.filter((t) => t.type === "expense"));
 }
 function sumIncome(txs: TransactionWithCategory[]): number {
-  return txs.reduce((s, t) => (t.type === "income" ? s + t.amount : s), 0);
+  return sumMoneyAmounts(txs.filter((t) => t.type === "income"));
 }
 
 export function computeSpendingInsight(input: {
@@ -97,7 +99,7 @@ export function computeSpendingInsight(input: {
   const categories: CategoryInsight[] = [];
   for (const [categoryId, { name, total }] of curByCat) {
     const prevTotal = prevByCat.get(categoryId)?.total ?? 0;
-    const deltaAbs = total - prevTotal;
+    const deltaAbs = moneyDifference(total, prevTotal);
     const deltaPct = prevTotal < CATEGORY_DELTA_FLOOR ? null : (deltaAbs / prevTotal) * 100;
     const avgTotal = (rollByCat.get(categoryId)?.total ?? 0) / periods;
     const anomaly = avgTotal >= ANOMALY_BASELINE_FLOOR && total >= ANOMALY_RATIO * avgTotal;
@@ -136,7 +138,7 @@ export function computeSpendingInsight(input: {
 
   const spent = sumExpenses(current);
   const prevSpent = sumExpenses(previous);
-  const net = sumIncome(current) - spent;
+  const net = moneyDifference(sumIncome(current), spent);
   const spentDeltaPct =
     prevSpent < HEADLINE_DELTA_FLOOR ? null : ((spent - prevSpent) / prevSpent) * 100;
 

@@ -200,7 +200,8 @@
   $effect(() => {
     if (!initial && planContext?.planKind === "save" && categoriesQuery.data) {
       const goalCategory = categoriesQuery.data.find(
-        (category) => category.type === "expense" && category.name === "Cele"
+        (category) =>
+          category.type === "expense" && category.name === "Cele" && !category.archived_at
       );
       if (goalCategory) category_id = goalCategory.id;
     }

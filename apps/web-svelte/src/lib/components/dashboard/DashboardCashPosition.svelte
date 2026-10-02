@@ -8,6 +8,9 @@
     upcomingIncome,
     upcomingExpenses,
     anchorDate,
+    openingAmount,
+    paidIncome,
+    paidExpenses,
     hasAnchor,
     loading = false,
     error = false,
@@ -18,6 +21,9 @@
     upcomingIncome: number;
     upcomingExpenses: number;
     anchorDate?: string;
+    openingAmount?: number;
+    paidIncome?: number;
+    paidExpenses?: number;
     hasAnchor: boolean;
     loading?: boolean;
     error?: boolean;
@@ -28,6 +34,7 @@
 {#if loading}
   <div
     class="h-48 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"
+    data-testid="dashboard-cash-loading"
     aria-hidden="true"
   ></div>
 {:else if error}
@@ -50,7 +57,18 @@
     aria-label={m.cash_position_label()}
     data-testid="dashboard-cash-position"
   >
-    <CashBalanceSummary {live} {forecast} {upcomingIncome} {upcomingExpenses} {anchorDate} />
+    <CashBalanceSummary
+      {live}
+      {forecast}
+      {upcomingIncome}
+      {upcomingExpenses}
+      {anchorDate}
+      {openingAmount}
+      {paidIncome}
+      {paidExpenses}
+      currentLabel={m.dashboard_cash_now()}
+      forecastLabel={m.dashboard_cash_after_upcoming()}
+    />
     <a
       href="/transactions?group=own"
       class="focus-visible:ring-accent text-accent mt-2 inline-flex min-h-11 items-center text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"

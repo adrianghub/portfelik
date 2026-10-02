@@ -18,6 +18,8 @@
     forecast: number;
     upcomingIncome?: number;
     upcomingExpenses?: number;
+    paidIncome?: number;
+    paidExpenses?: number;
     hasAnchor: boolean;
     anchor: CashPosition | null;
     /** Wait until the anchor query has settled before opening the edit sheet. */
@@ -31,6 +33,8 @@
     forecast,
     upcomingIncome = 0,
     upcomingExpenses = 0,
+    paidIncome,
+    paidExpenses,
     hasAnchor,
     anchor,
     anchorReady = true,
@@ -119,6 +123,9 @@
       {forecast}
       {upcomingIncome}
       {upcomingExpenses}
+      {paidIncome}
+      {paidExpenses}
+      openingAmount={anchor?.opening_amount}
       anchorDate={anchor?.as_of_date}
     />
     <button

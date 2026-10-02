@@ -82,7 +82,11 @@
   });
 
   const filteredCategories = $derived(
-    categories.filter((c) => !rule?.match_type || c.type === rule.match_type)
+    categories.filter(
+      (c) =>
+        (!c.archived_at || c.id === rule?.category_id) &&
+        (!rule?.match_type || c.type === rule.match_type)
+    )
   );
 
   const mutation = createMutation(() => ({

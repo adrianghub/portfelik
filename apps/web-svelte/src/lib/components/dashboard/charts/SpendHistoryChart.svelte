@@ -5,6 +5,10 @@
   import { X } from "lucide-svelte";
   import type { PeriodHistoryBucket } from "$lib/services/period-history";
   import { stackCategoryHistory } from "$lib/services/period-history";
+  import {
+    categoryColor,
+    CATEGORY_HISTORY_OTHER_COLOR,
+  } from "$lib/services/spending-category-display";
   import InfoTooltip from "$lib/components/ui/InfoTooltip.svelte";
   import { formatCurrency } from "$lib/utils";
   import * as m from "$lib/paraglide/messages";
@@ -12,12 +16,16 @@
   let {
     buckets,
     allocationByLabel,
+    categoryIdsByName,
+    categoryColors,
     onselectperiod,
     onOpenGlossary,
   }: {
     buckets: PeriodHistoryBucket[];
     /** Goal allocation totals by bucket label — shown aside from consumption Razem. */
     allocationByLabel?: ReadonlyMap<string, number>;
+    categoryIdsByName?: ReadonlyMap<string, string>;
+    categoryColors?: ReadonlyMap<string, string>;
     /** Confirm drill-down from the bar breakdown panel. */
     onselectperiod?: (bucket: PeriodHistoryBucket) => void;
     onOpenGlossary?: (entryId: string) => void;
@@ -25,17 +33,6 @@
 
   // Distinct, legible hues; last entry (slate) is reserved for the folded
   // "Pozostałe" bucket in the stacked bar chart.
-  const PALETTE = [
-    "#34d399",
-    "#38bdf8",
-    "#a78bfa",
-    "#fbbf24",
-    "#fb7185",
-    "#22d3ee",
-    "#f472b6",
-    "#fb923c",
-    "#94a3b8",
-  ];
 
   // Drop leading empty windows so a brand-new account doesn't render months of
   // blank pre-history bars (and their empty tooltips).
@@ -84,10 +81,16 @@
   // Same top-N + fold label as the category breakdown lists on the dashboard.
   const stack = $derived(stackCategoryHistory(visibleBuckets, 8, "Pozostałe"));
   const series = $derived(
-    stack.categories.map((key, i) => ({
+    stack.categories.map((key) => ({
       key,
       label: key,
-      color: PALETTE[i] ?? PALETTE[PALETTE.length - 1],
+      color:
+        key === "Pozostałe"
+          ? CATEGORY_HISTORY_OTHER_COLOR
+          : categoryColor(
+              categoryIdsByName?.get(key) ?? key,
+              categoryColors?.get(categoryIdsByName?.get(key) ?? key)
+            ),
     }))
   );
   const colorByKey = $derived(new Map(series.map((s) => [s.key, s.color])));
@@ -115,7 +118,7 @@
       .map((key) => ({
         key,
         amount: Number(row[key]) || 0,
-        color: colorByKey.get(key) ?? PALETTE[PALETTE.length - 1],
+        color: colorByKey.get(key) ?? CATEGORY_HISTORY_OTHER_COLOR,
       }))
       .filter((s) => s.amount > 0);
   });

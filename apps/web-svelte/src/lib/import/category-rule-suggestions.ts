@@ -50,6 +50,8 @@ export function detectCategoryRuleSuggestions(
   >();
 
   for (const row of rows) {
+    if (categories.find((category) => category.id === row.selected_category_id)?.archived_at)
+      continue;
     if (!row.selected_category_id) continue;
     const text = suggestRuleText(row);
     if (text.trim() === "") continue;
