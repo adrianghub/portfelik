@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import changelog from "../../src/lib/content/changelog.json";
+import changelog from "../../src/lib/content/changelog.json" with { type: "json" };
 
 const release = changelog.versions[0];
 const date = new Intl.DateTimeFormat("pl-PL", {
