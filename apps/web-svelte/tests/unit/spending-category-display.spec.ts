@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { CategoryInsight } from "$lib/services/spending-insight";
 import {
   categorySharePct,
+  categoryColor,
   categoryRingSegments,
   formatDeltaPct,
   isSignificantDeltaPct,
@@ -10,6 +11,14 @@ import {
   TOP_SPENDING_CATEGORIES,
   TOP_SPENDING_MOVERS,
 } from "$lib/services/spending-category-display";
+
+it("uses a chosen category color consistently in the ring and after renaming", () => {
+  const colors = new Map([["category-id", "#38bdf8"]]);
+  const category = cat("category-id", 20);
+  expect(categoryRingSegments([category], 20, 100, 4, colors)[0].color).toBe("#38bdf8");
+  expect(categoryColor(category.categoryId, colors.get(category.categoryId))).toBe("#38bdf8");
+  expect(categoryColor("category-id", "url(unsafe)")).toBe(categoryColor("category-id"));
+});
 
 function cat(id: string, total: number, deltaAbs = 0): CategoryInsight {
   return {
@@ -27,6 +36,13 @@ function cat(id: string, total: number, deltaAbs = 0): CategoryInsight {
 }
 
 describe("spending-category-display", () => {
+  it("keeps a category's color when its ranking changes", () => {
+    const first = categoryRingSegments([cat("food", 70), cat("transport", 30)], 100, 100);
+    const reordered = categoryRingSegments([cat("transport", 70), cat("food", 30)], 100, 100);
+    expect(first.find((segment) => segment.key === "food")?.color).toBe(
+      reordered.find((segment) => segment.key === "food")?.color
+    );
+  });
   it("categorySharePct returns 0 when spent is zero", () => {
     expect(categorySharePct(100, 0)).toBe(0);
   });

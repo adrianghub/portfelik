@@ -43,17 +43,23 @@
 
   let editing = $state(false);
   let nameInput = $state("");
+  let preferredNameInput = $state("");
   const reminderCadenceOptions = [7, 14, 30] as const;
 
   const bankImportReminder = $derived(getBankImportReminder(profile?.settings));
 
   function startEdit() {
     nameInput = profile?.name ?? "";
+    preferredNameInput = profile?.settings.preferredName ?? "";
     editing = true;
   }
 
   const mutation = createMutation(() => ({
-    mutationFn: () => updateProfile(profile!.id, { name: nameInput }),
+    mutationFn: () =>
+      updateProfile(profile!.id, {
+        name: nameInput.trim(),
+        settings: { ...profile!.settings, preferredName: preferredNameInput.trim() },
+      }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: qk.profile(requireSessionUserId()) });
       toast.success(m.toast_profile_updated());
@@ -85,6 +91,7 @@
 
   function handleSubmit(e: Event) {
     e.preventDefault();
+    if (mutation.isPending) return;
     mutation.mutate();
   }
 
@@ -240,9 +247,19 @@
             <input
               type="text"
               bind:value={nameInput}
+              aria-label={m.profile_name()}
               autofocus
               class="focus:border-accent/40 focus:ring-accent/30 min-w-0 flex-1 basis-full rounded-lg border border-white/10 bg-slate-950/60 px-2 py-1 text-sm text-slate-100 focus:ring-2 focus:outline-none sm:basis-0"
             />
+            <label class="basis-full text-xs text-slate-400">
+              {m.profile_preferred_name()}
+              <input
+                type="text"
+                bind:value={preferredNameInput}
+                placeholder={m.profile_preferred_name_hint()}
+                class="focus:border-accent/40 mt-1 min-h-11 w-full rounded-lg border border-white/10 bg-slate-950/60 px-2 py-1 text-sm text-slate-100"
+              />
+            </label>
             <button
               type="submit"
               disabled={mutation.isPending}

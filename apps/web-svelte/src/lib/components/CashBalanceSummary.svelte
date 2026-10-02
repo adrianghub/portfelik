@@ -9,25 +9,35 @@
     upcomingIncome = 0,
     upcomingExpenses = 0,
     anchorDate,
+    openingAmount,
+    paidIncome,
+    paidExpenses,
+    currentLabel = m.cash_position_label(),
+    forecastLabel = m.cash_position_forecast_result(),
   }: {
     live: number;
     forecast: number;
     upcomingIncome?: number;
     upcomingExpenses?: number;
     anchorDate?: string;
+    openingAmount?: number;
+    paidIncome?: number;
+    paidExpenses?: number;
+    currentLabel?: string;
+    forecastLabel?: string;
   } = $props();
 </script>
 
 <div class="grid gap-4 sm:grid-cols-2 sm:gap-6">
   <div class="min-w-0">
-    <p class="text-sm font-medium text-slate-300">{m.cash_position_label()}</p>
+    <p class="text-sm font-medium text-slate-300">{currentLabel}</p>
     <p class="mt-1 text-3xl font-semibold tracking-tight text-slate-100 tabular-nums">
       {formatCurrency(live)}
     </p>
     <p class="mt-1 text-xs text-slate-400">{m.cash_position_recorded_hint()}</p>
   </div>
   <div class="min-w-0 border-t border-white/5 pt-4 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-6">
-    <p class="text-sm font-medium text-slate-300">{m.cash_position_forecast_result()}</p>
+    <p class="text-sm font-medium text-slate-300">{forecastLabel}</p>
     <p class="mt-1 text-2xl font-semibold tracking-tight text-slate-100 tabular-nums">
       {formatCurrency(forecast)}
     </p>
@@ -46,8 +56,22 @@
     {#if anchorDate}{m.cash_position_anchor_hint({ date: formatDate(anchorDate) })}{/if}
   </p>
   <dl class="space-y-2 text-sm">
+    {#if openingAmount !== undefined && paidIncome !== undefined && paidExpenses !== undefined}
+      <div class="flex items-baseline justify-between gap-3">
+        <dt class="text-slate-400">{m.net_worth_cash_position_label()}</dt>
+        <dd class="text-slate-100 tabular-nums">{formatCurrency(openingAmount)}</dd>
+      </div>
+      <div class="flex items-baseline justify-between gap-3">
+        <dt class="text-slate-400">{m.cash_position_paid_income()}</dt>
+        <dd class="text-emerald-300 tabular-nums">+{formatCurrency(paidIncome)}</dd>
+      </div>
+      <div class="flex items-baseline justify-between gap-3">
+        <dt class="text-slate-400">{m.cash_position_paid_expenses()}</dt>
+        <dd class="text-rose-300 tabular-nums">−{formatCurrency(paidExpenses)}</dd>
+      </div>
+    {/if}
     <div class="flex items-baseline justify-between gap-3">
-      <dt class="text-slate-400">{m.cash_position_label()}</dt>
+      <dt class="text-slate-400">{currentLabel}</dt>
       <dd class="text-slate-100 tabular-nums">{formatCurrency(live)}</dd>
     </div>
     <div class="flex items-baseline justify-between gap-3">
@@ -59,7 +83,7 @@
       <dd class="text-rose-300 tabular-nums">−{formatCurrency(upcomingExpenses)}</dd>
     </div>
     <div class="flex items-baseline justify-between gap-3 border-t border-white/5 pt-2">
-      <dt class="font-medium text-slate-300">{m.cash_position_forecast_result()}</dt>
+      <dt class="font-medium text-slate-300">{forecastLabel}</dt>
       <dd class="font-semibold text-slate-100 tabular-nums">{formatCurrency(forecast)}</dd>
     </div>
   </dl>

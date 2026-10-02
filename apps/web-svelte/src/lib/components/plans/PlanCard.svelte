@@ -108,7 +108,7 @@
   <div class="flex items-stretch">
     <div class="min-w-0 flex-1 p-4">
       <div class="flex items-start gap-3">
-        <PlanMark {kind} />
+        <PlanMark {kind} name={plan.icon} />
 
         <a
           href="/plans/{plan.id}"

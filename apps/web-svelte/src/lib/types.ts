@@ -14,6 +14,9 @@ export interface Category {
   user_id: string | null;
   cap_amount: number | null;
   cap_period: CategoryCapPeriod | null;
+  archived_at?: string | null;
+  color?: string | null;
+  icon?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -85,6 +88,7 @@ export interface MonthlySummary {
 }
 
 export interface ProfileSettings {
+  preferredName?: string;
   notificationsEnabled?: boolean;
   accentColor?: string;
   /** Preset avatar id (see avatar-presets.ts); absent ⇒ OAuth photo or initials. */
@@ -159,6 +163,7 @@ export interface GroupInvitationPreview {
 export type PlanKind = "save" | "debt";
 
 export interface Plan {
+  icon?: string | null;
   id: string;
   name: string;
   user_id: string;

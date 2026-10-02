@@ -84,6 +84,18 @@ export interface PlanInput {
   is_demo?: boolean;
 }
 
+/** Update only presentation, preserving debt terms and historical plan state. */
+export async function updatePlanIcon(id: string, icon: string | null): Promise<Plan> {
+  const { data, error } = await supabase
+    .from("plans")
+    .update({ icon })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Plan;
+}
+
 type NormalizedPlanInput = Omit<PlanInput, "kind"> & { kind: PlanKind };
 
 function normalizePlanInput(input: PlanInput): NormalizedPlanInput {

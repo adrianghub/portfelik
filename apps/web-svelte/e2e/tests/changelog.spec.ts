@@ -4,10 +4,10 @@ test("changelog is public and closes back to the page that opened it", async ({ 
   await page.goto("/changelog?from=/login");
 
   await expect(page.getByRole("heading", { name: "Co nowego" })).toBeVisible();
-  await expect(page.getByText("Wersja 1.3.3")).toBeVisible();
-  await expect(page.getByRole("heading", { name: /1\.3\.3, 1 października 2026/ })).toBeVisible();
+  await expect(page.getByText("Wersja 1.3.4")).toBeVisible();
+  await expect(page.getByRole("heading", { name: /1\.3\.4, 2 października 2026/ })).toBeVisible();
   await expect(
-    page.getByText("Jaśniejsze saldo i prognoza.", {
+    page.getByText("Stabilniejszy Kokpit i saldo.", {
       exact: false,
     })
   ).toBeVisible();

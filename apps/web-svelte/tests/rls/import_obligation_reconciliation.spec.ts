@@ -129,6 +129,160 @@ describe("commit_import_session obligation reconciliation", () => {
     return commitSession(sessionId);
   }
 
+  it("clears an archived category from a saved preview so it can be recategorized", async () => {
+    const categoryId = await seedCategory();
+    const accountId = await seedAccount();
+    const sessionId = await seedSession(accountId, "archived-category");
+    const rowId = await seedImportRow(sessionId, "archived-category", "2026-09-13");
+    expect(
+      (
+        await ctx.userA.client
+          .from("transaction_import_rows")
+          .update({ selected_category_id: categoryId })
+          .eq("id", rowId)
+      ).error
+    ).toBeNull();
+    expect(
+      (
+        await ctx.userA.client
+          .from("categories")
+          .update({ archived_at: new Date().toISOString() })
+          .eq("id", categoryId)
+      ).error
+    ).toBeNull();
+    const preview = await ctx.userA.client
+      .from("transaction_import_rows")
+      .select("selected_category_id")
+      .eq("id", rowId)
+      .single();
+    expect(preview.data?.selected_category_id).toBeNull();
+    const fallback = await ctx.userA.client
+      .from("categories")
+      .select("id")
+      .eq("name", "Inne wydatki")
+      .single();
+    expect(
+      (
+        await ctx.userA.client
+          .from("transaction_import_rows")
+          .update({ selected_category_id: fallback.data!.id })
+          .eq("id", rowId)
+      ).error
+    ).toBeNull();
+    expect((await commitSession(sessionId)).inserted).toBe(1);
+  });
+
+  it("requires an explicit choice when two obligations match the same bank payment", async () => {
+    const categoryId = await seedCategory();
+    const first = await seedManualExpense(categoryId, "paid");
+    const second = await seedManualExpense(categoryId, "upcoming");
+    await ctx.admin.from("transactions").update({ date: "2026-09-14" }).eq("id", second);
+    const accountId = await seedAccount();
+    const sessionId = await seedSession(accountId, "ambiguous");
+    const rowId = await seedImportRow(sessionId, "ambiguous", "2026-09-13");
+
+    const warnings = await markSession(sessionId);
+    expect(warnings).toHaveLength(1);
+    expect(
+      warnings[0].obligation_candidates.map((candidate: { id: string }) => candidate.id)
+    ).toEqual([first, second]);
+    const row = await ctx.userA.client
+      .from("transaction_import_rows")
+      .select("decision, duplicate_of")
+      .eq("id", rowId)
+      .single();
+    expect(row.data).toEqual({ decision: "pending", duplicate_of: null });
+    const blocked = await ctx.userA.client.rpc("commit_import_session", {
+      p_session_id: sessionId,
+    });
+    expect(blocked.error).not.toBeNull();
+
+    // A stale client cannot bypass the confirmation by setting duplicate alone.
+    await ctx.userA.client
+      .from("transaction_import_rows")
+      .update({ decision: "duplicate", duplicate_of: first })
+      .eq("id", rowId);
+    const unconfirmed = await ctx.userA.client.rpc("commit_import_session", {
+      p_session_id: sessionId,
+    });
+    expect(unconfirmed.error?.message).toContain("obligation_match_ambiguous");
+
+    const confirmed = await ctx.userA.client
+      .from("transaction_import_rows")
+      .update({ decision: "duplicate", duplicate_of: second, obligation_match_confirmed: true })
+      .eq("id", rowId);
+    expect(confirmed.error).toBeNull();
+    expect((await commitSession(sessionId)).inserted).toBe(0);
+    const link = await ctx.userA.client
+      .from("transaction_import_links")
+      .select("transaction_id")
+      .eq("row_id", rowId)
+      .single();
+    expect(link.data?.transaction_id).toBe(second);
+    const untouched = await ctx.userA.client
+      .from("transactions")
+      .select("date, status")
+      .eq("id", first)
+      .single();
+    expect(untouched.data?.status).toBe("paid");
+    expect(untouched.data?.date).toContain("2026-09-13");
+  });
+
+  it("does not let distinct bank rows without external IDs confirm the same obligation", async () => {
+    const categoryId = await seedCategory();
+    const first = await seedManualExpense(categoryId, "upcoming");
+    const second = await seedManualExpense(categoryId, "upcoming");
+    const sessionId = await seedSession(await seedAccount(), "two-rows");
+    const firstRow = await seedImportRow(sessionId, "two-rows-first", "2026-09-13");
+    const secondRow = await ctx.admin
+      .from("transaction_import_rows")
+      .insert({
+        session_id: sessionId,
+        row_index: 1,
+        posted_at: "2026-09-13",
+        amount: 35,
+        currency: "PLN",
+        type: "expense",
+        description: `${SENTINEL} ORANGE POLSKA S.A.`,
+        counterparty: "Orange Polska",
+        raw_row_hash: `raw-${SENTINEL}-second`,
+        decision: "import",
+        external_id: null,
+      })
+      .select("id")
+      .single();
+    expect(secondRow.error).toBeNull();
+    await ctx.admin
+      .from("transaction_import_rows")
+      .update({ external_id: null })
+      .eq("id", firstRow);
+    await markSession(sessionId);
+    const firstChoice = await ctx.userA.client
+      .from("transaction_import_rows")
+      .update({ decision: "duplicate", duplicate_of: first, obligation_match_confirmed: true })
+      .eq("id", firstRow);
+    expect(firstChoice.error).toBeNull();
+    const reused = await ctx.userA.client
+      .from("transaction_import_rows")
+      .update({ decision: "duplicate", duplicate_of: first, obligation_match_confirmed: true })
+      .eq("id", secondRow.data!.id);
+    expect(reused.error?.code).toBe("23505");
+    const secondChoice = await ctx.userA.client
+      .from("transaction_import_rows")
+      .update({ decision: "duplicate", duplicate_of: second, obligation_match_confirmed: true })
+      .eq("id", secondRow.data!.id);
+    expect(secondChoice.error).toBeNull();
+    expect((await commitSession(sessionId)).inserted).toBe(0);
+    const links = await ctx.userA.client
+      .from("transaction_import_links")
+      .select("transaction_id")
+      .eq("session_id", sessionId);
+    expect(links.error).toBeNull();
+    expect(new Set(links.data?.map((link) => link.transaction_id))).toEqual(
+      new Set([first, second])
+    );
+  });
+
   it("reconciles mBank card-purchase boilerplate without matching a different merchant", async () => {
     const categoryId = await seedCategory();
     const targetId = await seedManualExpense(categoryId, "paid");

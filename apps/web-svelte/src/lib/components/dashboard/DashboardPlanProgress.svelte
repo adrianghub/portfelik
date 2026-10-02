@@ -103,7 +103,7 @@
       class="block rounded-xl border border-white/5 px-3 py-1.5 transition-colors hover:bg-white/5"
     >
       <div class="flex min-w-0 items-center gap-2">
-        <PlanMark kind={plan.kind ?? "save"} size="sm" />
+        <PlanMark kind={plan.kind ?? "save"} name={plan.icon} size="sm" />
         <span class="min-w-0 flex-1 truncate text-sm font-medium text-slate-200">
           {plan.planName}
         </span>

@@ -25,6 +25,29 @@ async function focusOpen(input: HTMLElement): Promise<void> {
 }
 
 describe("CategorySelect (pillMode)", () => {
+  it("preserves an archived historical selection while hiding it from new options", async () => {
+    const archived = { ...cat("old", "Dawna kategoria"), archived_at: "2026-10-01T00:00:00Z" };
+    const onchange = vi.fn();
+    const selected = render(CategorySelect, {
+      categories: [...categories, archived],
+      type: "expense",
+      selectedId: "old",
+      onchange,
+      pillMode: true,
+    });
+    expect(screen.getByRole("button").textContent).toContain("Dawna kategoria");
+    selected.unmount();
+    render(CategorySelect, {
+      categories: [...categories, archived],
+      type: "expense",
+      selectedId: null,
+      onchange,
+      pillMode: true,
+    });
+    await focusOpen(screen.getByRole("combobox"));
+    expect(screen.queryByRole("option", { name: "Dawna kategoria" })).toBeNull();
+    expect(screen.getByRole("option", { name: "Transport" })).toBeTruthy();
+  });
   it("shows a clear chip for the selected category and clears on click", async () => {
     const onchange = vi.fn();
     render(CategorySelect, {

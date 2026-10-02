@@ -96,7 +96,7 @@
           <button
             type="button"
             onclick={() => onsearchchange("")}
-            class="rounded-full p-1 text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-100"
+            class="flex size-11 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-100"
             aria-label={m.transactions_search_clear()}
           >
             <X size={16} strokeWidth={1.8} aria-hidden="true" />
@@ -105,7 +105,7 @@
         <button
           type="button"
           onclick={onclose}
-          class="shrink-0 rounded-md border border-white/10 px-2 py-1 text-xs font-medium text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-200"
+          class="min-h-11 min-w-11 shrink-0 rounded-md border border-white/10 px-2 py-1 text-xs font-medium text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-200"
           aria-label={m.transactions_search_close()}
         >
           <span class="md:hidden">{m.common_close()}</span>

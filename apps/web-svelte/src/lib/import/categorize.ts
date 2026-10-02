@@ -175,7 +175,7 @@ export function resolveCategorizationRule(
     if (!matchRule(rule, row)) continue;
     const category = categoryById.get(rule.category_id);
     // Skip rules whose category is gone or whose type contradicts the row.
-    if (!category || category.type !== row.type) continue;
+    if (!category || category.archived_at || category.type !== row.type) continue;
     return rule;
   }
   return null;

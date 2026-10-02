@@ -132,6 +132,7 @@ type BankImportMockOptions = {
   initialRules?: CategorizationRule[];
   autoSkipFirstAsDuplicate?: boolean;
   failMarkDuplicatesOnce?: boolean;
+  ambiguousObligation?: boolean;
 };
 
 async function mockBankImportAPI(page: Page, options = {}) {
@@ -408,6 +409,7 @@ async function mockBankImportAPI(page: Page, options = {}) {
           failMarkDuplicatesOnce = false;
           return route.fulfill({ status: 500, json: { message: "scan failed" } });
         }
+        if (opts.ambiguousObligation && rows[0]) rows[0].decision = "pending";
         return route.fulfill({ status: 200, json: [] });
       }
       if (url.includes("/rpc/preview_fingerprint_warnings")) {
@@ -423,6 +425,26 @@ async function mockBankImportAPI(page: Page, options = {}) {
                     duplicate_of_amount: 42.3,
                     duplicate_of_currency: "PLN",
                     duplicate_of_description: "Biedronka wpisana ręcznie",
+                    ...(opts.ambiguousObligation
+                      ? {
+                          obligation_candidates: [
+                            {
+                              id: "manual-duplicate-1",
+                              date: "2026-05-02",
+                              amount: 42.3,
+                              currency: "PLN",
+                              description: "Biedronka pierwszy zakup",
+                            },
+                            {
+                              id: "manual-duplicate-2",
+                              date: "2026-05-03",
+                              amount: 42.3,
+                              currency: "PLN",
+                              description: "Biedronka drugi zakup",
+                            },
+                          ],
+                        }
+                      : {}),
                   },
                 ]
               : [],
@@ -492,6 +514,32 @@ test("import wizard: uploads, flags probable duplicates, commits, and blocks re-
   await expect(page.getByText("Ten plik był już importowany")).toBeVisible({
     timeout: 10_000,
   });
+});
+
+test("import wizard: asks which obligation an ambiguous bank row confirms", async ({ page }) => {
+  await page.unrouteAll();
+  await injectFakeSession(page);
+  await mockBankImportAPI(page, { ambiguousObligation: true });
+  await page.goto("/import");
+  await uploadUncertifiedStatement(page, { name: "wyciag.csv", buffer: mbankSample });
+  await expect(page.getByText(/Pasuje więcej niż jedna płatność/)).toBeVisible();
+  const confirmed = page.waitForRequest(
+    (request) =>
+      request.method() === "PATCH" &&
+      request.url().includes("transaction_import_rows") &&
+      request.postDataJSON().obligation_match_confirmed === true
+  );
+  await page.getByRole("button", { name: "Opłaca Biedronka drugi zakup z 2026-05-03" }).click();
+  expect((await confirmed).postDataJSON()).toMatchObject({
+    decision: "duplicate",
+    duplicate_of: "manual-duplicate-2",
+    obligation_match_confirmed: true,
+  });
+  await expect(page.getByText(/Pasuje więcej niż jedna płatność/)).toHaveCount(0);
+  await page.getByRole("button", { name: "Pokaż", exact: true }).click();
+  await expect(page.getByText(/2026-05-03.*Biedronka drugi zakup/)).toBeVisible();
+  await page.getByRole("button", { name: "Cofnij ostatnią zmianę" }).click();
+  await expect(page.getByText(/Pasuje więcej niż jedna płatność/)).toBeVisible();
 });
 
 test("import wizard: commits a fully-categorized statement in one click (no per-row decisions)", async ({

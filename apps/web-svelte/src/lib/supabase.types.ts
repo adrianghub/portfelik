@@ -125,6 +125,9 @@ export type Database = {
       };
       categories: {
         Row: {
+          color: string | null;
+          icon: string | null;
+          archived_at: string | null;
           cap_amount: number | null;
           cap_period: string | null;
           created_at: string;
@@ -135,6 +138,9 @@ export type Database = {
           user_id: string | null;
         };
         Insert: {
+          color?: string | null;
+          icon?: string | null;
+          archived_at?: string | null;
           cap_amount?: number | null;
           cap_period?: string | null;
           created_at?: string;
@@ -145,6 +151,9 @@ export type Database = {
           user_id?: string | null;
         };
         Update: {
+          color?: string | null;
+          icon?: string | null;
+          archived_at?: string | null;
           cap_amount?: number | null;
           cap_period?: string | null;
           created_at?: string;
@@ -616,6 +625,7 @@ export type Database = {
       };
       plans: {
         Row: {
+          icon: string | null;
           budget_amount: number | null;
           category_id: string | null;
           created_at: string;
@@ -634,6 +644,7 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          icon?: string | null;
           budget_amount?: number | null;
           category_id?: string | null;
           created_at?: string;
@@ -652,6 +663,7 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          icon?: string | null;
           budget_amount?: number | null;
           category_id?: string | null;
           created_at?: string;
@@ -925,6 +937,7 @@ export type Database = {
           decision: string;
           description: string;
           duplicate_of: string | null;
+          obligation_match_confirmed: boolean;
           edited_description: string | null;
           external_id: string | null;
           id: string;
@@ -947,6 +960,7 @@ export type Database = {
           decision?: string;
           description: string;
           duplicate_of?: string | null;
+          obligation_match_confirmed?: boolean;
           edited_description?: string | null;
           external_id?: string | null;
           id?: string;
@@ -969,6 +983,7 @@ export type Database = {
           decision?: string;
           description?: string;
           duplicate_of?: string | null;
+          obligation_match_confirmed?: boolean;
           edited_description?: string | null;
           external_id?: string | null;
           id?: string;

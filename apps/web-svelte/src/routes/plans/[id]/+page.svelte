@@ -17,6 +17,8 @@
   } from "$lib/services/plan-settlement";
   import DebtPlanDetail from "$lib/components/plans/DebtPlanDetail.svelte";
   import PlanForwardNav from "$lib/components/plans/PlanForwardNav.svelte";
+  import PlanAppearance from "$lib/components/plans/PlanAppearance.svelte";
+  import PlanMark from "$lib/components/plans/PlanMark.svelte";
   import PlanMatchList from "$lib/components/plans/PlanMatchList.svelte";
   import SavePlanDetail from "$lib/components/plans/SavePlanDetail.svelte";
   import QueryError from "$lib/components/ui/QueryError.svelte";
@@ -83,49 +85,49 @@
   const groupRolesQuery = createQuery(() => ({
     queryKey: qk.myGroupRoles(session.userId!),
     queryFn: fetchMyGroupRoles,
-    enabled: () => !!session.userId,
+    enabled: !!session.userId,
   }));
 
   const planQuery = createQuery(() => ({
     queryKey: qk.plan(session.userId!, id),
     queryFn: () => fetchPlanById(id),
-    enabled: () => !!session.userId && !!id,
+    enabled: !!session.userId && !!id,
   }));
 
   const linkedQuery = createQuery(() => ({
     queryKey: qk.planLinks(session.userId!, id),
     queryFn: () => fetchLinkedTransactions(id),
-    enabled: () => !!session.userId && !!id,
+    enabled: !!session.userId && !!id,
   }));
 
   const suggestionCountQuery = createQuery(() => ({
     queryKey: qk.planSuggestionCount(session.userId!, id),
     queryFn: () => fetchSuggestionCount(id),
-    enabled: () => !!session.userId && !!id,
+    enabled: !!session.userId && !!id,
   }));
 
   const rankedQuery = createQuery(() => ({
     queryKey: qk.planRanked(session.userId!, id, "expense"),
     queryFn: () => fetchRankedEligibleTransactions(id),
-    enabled: () => !!session.userId && !!id,
+    enabled: !!session.userId && !!id,
   }));
 
   const dismissedQuery = createQuery(() => ({
     queryKey: qk.planDismissed(session.userId!, id),
     queryFn: () => fetchDismissedTransactionIds(id),
-    enabled: () => !!session.userId && !!id,
+    enabled: !!session.userId && !!id,
   }));
 
   const progressSnapshotQuery = createQuery(() => ({
     queryKey: qk.planProgressList(session.userId!, id, "snapshot"),
     queryFn: () => fetchPlanProgressSnapshot(id),
-    enabled: () => !!session.userId && !!id && planQuery.data?.kind === "save",
+    enabled: !!session.userId && !!id && planQuery.data?.kind === "save",
   }));
 
   const debtTermsQuery = createQuery(() => ({
     queryKey: qk.planDebtTerms(session.userId!, id),
     queryFn: () => fetchPlanDebtTerms(id),
-    enabled: () => !!session.userId && !!id && planQuery.data?.kind === "debt",
+    enabled: !!session.userId && !!id && planQuery.data?.kind === "debt",
   }));
 
   const linkedTxIds = $derived(new Set((linkedQuery.data ?? []).map((tx) => tx.id)));
@@ -142,7 +144,7 @@
         excludeTransactionIds: linkedTxIds,
       });
     },
-    enabled: () =>
+    enabled:
       !!session.userId &&
       !!planQuery.data &&
       planQuery.data.kind === "debt" &&
@@ -489,6 +491,7 @@
           <h1 class="truncate text-2xl font-semibold text-slate-900 md:text-3xl dark:text-white">
             {plan.name}
           </h1>
+          <PlanMark kind={plan.kind} name={plan.icon} size="sm" />
         </div>
         <div class="flex flex-wrap items-center gap-2 pl-8 text-sm text-slate-400">
           <span class="inline-flex items-center gap-1">
@@ -527,6 +530,8 @@
         {/if}
       </div>
     </div>
+
+    {#if canManage}<PlanAppearance {plan} />{/if}
 
     {#if plan.kind === "save" && progress}
       {#if plan.group_id && !canManage}

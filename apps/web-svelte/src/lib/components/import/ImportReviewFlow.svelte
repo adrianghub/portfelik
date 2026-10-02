@@ -227,14 +227,20 @@
   }
   const skippedRows = $derived(rows.filter((r) => r.decision === "skip"));
   const duplicateRows = $derived(rows.filter((r) => r.decision === "duplicate"));
-  const uncategorizedImportRows = $derived(
-    importRows.filter((r) => r.selected_category_id == null)
-  );
+  function needsCategory(row: ImportRow): boolean {
+    return (
+      row.selected_category_id == null ||
+      !!categoriesQuery.data?.find(
+        (category) => category.id === row.selected_category_id && category.archived_at
+      )
+    );
+  }
+  const uncategorizedImportRows = $derived(importRows.filter(needsCategory));
 
   const filterCounts = $derived({
     pending: activeRows.filter((r) => r.decision === "pending").length,
     all: activeRows.length,
-    uncategorized: activeRows.filter((r) => r.selected_category_id == null).length,
+    uncategorized: activeRows.filter(needsCategory).length,
     income: activeRows.filter((r) => r.type === "income").length,
     expense: activeRows.filter((r) => r.type === "expense").length,
   });
@@ -262,7 +268,7 @@
         base = activeRows.filter((r) => r.decision === "pending");
         break;
       case "uncategorized":
-        base = activeRows.filter((r) => r.selected_category_id == null);
+        base = activeRows.filter(needsCategory);
         break;
       case "income":
         base = activeRows.filter((r) => r.type === "income");
@@ -289,7 +295,9 @@
   const inneRows = $derived(uncategorizedImportRows);
   const needsConfirm = $derived(inneRows.length > 0 || duplicateRows.length > 0);
 
-  const celeCategoryId = $derived(resolveCeleCategoryId(categoriesQuery.data ?? []));
+  const celeCategoryId = $derived(
+    resolveCeleCategoryId((categoriesQuery.data ?? []).filter((category) => !category.archived_at))
+  );
   const savePlans = $derived(savePlansQuery.data ?? []);
 
   let dismissedRuleSuggestions = $state<Set<string>>(new Set());
@@ -398,10 +406,17 @@
   function duplicateDetail(rowId: string): string | null {
     const warning = warningsByRow.get(rowId);
     if (!warning) return null;
+    const row = rows.find((item) => item.id === rowId);
+    const selected = warning.obligation_candidates?.find(
+      (candidate) => candidate.id === row?.duplicate_of
+    );
     return m.bank_review_probable_duplicate_detail({
-      date: warning.duplicate_of_date,
-      amount: formatCurrency(warning.duplicate_of_amount, warning.duplicate_of_currency),
-      description: warning.duplicate_of_description,
+      date: selected?.date ?? warning.duplicate_of_date,
+      amount: formatCurrency(
+        selected?.amount ?? warning.duplicate_of_amount,
+        selected?.currency ?? warning.duplicate_of_currency
+      ),
+      description: selected?.description ?? warning.duplicate_of_description,
     });
   }
 
@@ -427,6 +442,7 @@
         editedDescription:
           patch.edited_description === undefined ? undefined : patch.edited_description,
         duplicateOf: patch.duplicate_of === undefined ? undefined : patch.duplicate_of,
+        obligationMatchConfirmed: patch.obligation_match_confirmed,
       });
     } catch (e) {
       const original = previous?.find((r) => r.id === rowId);
@@ -506,6 +522,28 @@
   async function setDecision(row: ImportRow, decision: "import" | "skip"): Promise<void> {
     pushUndo([{ rowId: row.id, before: { decision: row.decision } }]);
     await patchRow(row.id, { decision });
+  }
+
+  async function chooseObligation(row: ImportRow, candidateId: string | null): Promise<void> {
+    pushUndo([
+      {
+        rowId: row.id,
+        before: {
+          decision: row.decision,
+          duplicate_of: row.duplicate_of,
+          obligation_match_confirmed: row.obligation_match_confirmed ?? false,
+        },
+      },
+    ]);
+    try {
+      await patchRow(row.id, {
+        decision: candidateId ? "duplicate" : "import",
+        duplicate_of: candidateId,
+        obligation_match_confirmed: candidateId !== null,
+      });
+    } catch {
+      // patchRow restores the row and reports the failed save.
+    }
   }
 
   async function bulkImportVisible(): Promise<void> {
@@ -1058,6 +1096,41 @@
 {/snippet}
 
 <div class="space-y-4">
+  {#each rows.filter((row) => row.decision === "pending" && (warningsByRow.get(row.id)?.obligation_candidates?.length ?? 0) > 1) as row (row.id)}
+    <section class="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3">
+      <p class="text-sm font-medium text-amber-100">
+        {m.bank_review_ambiguous_obligation({
+          description: row.counterparty ?? row.description,
+          amount: formatCurrency(row.amount, row.currency),
+        })}
+      </p>
+      <p class="mt-1 text-xs text-slate-300">{m.bank_review_ambiguous_obligation_hint()}</p>
+      <div class="mt-3 flex flex-wrap gap-2">
+        {#each warningsByRow.get(row.id)?.obligation_candidates ?? [] as candidate (candidate.id)}
+          <Button
+            variant="ghost"
+            size="lg"
+            disabled={rows.some(
+              (other) =>
+                other.id !== row.id &&
+                other.decision === "duplicate" &&
+                other.obligation_match_confirmed &&
+                other.duplicate_of === candidate.id
+            )}
+            onclick={() => void chooseObligation(row, candidate.id)}
+          >
+            {m.bank_review_confirm_obligation({
+              description: candidate.description,
+              date: candidate.date,
+            })}
+          </Button>
+        {/each}
+        <Button variant="ghost" size="lg" onclick={() => void chooseObligation(row, null)}>
+          {m.bank_review_separate_transaction()}
+        </Button>
+      </div>
+    </section>
+  {/each}
   {#if accountQuery.data}
     <p class="rounded-xl border border-white/5 bg-slate-950/40 px-3 py-2 text-xs text-slate-300">
       {m.bank_review_account_destination({

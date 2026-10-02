@@ -17,7 +17,7 @@ export function normalizeCapAmount(value: unknown): number | null {
   if (typeof value === "string") {
     const trimmed = value.trim();
     if (trimmed === "") return null;
-    const amount = Number(trimmed);
+    const amount = Number(trimmed.replace(/\s/g, "").replace(",", "."));
     return Number.isFinite(amount) && amount > 0 ? amount : null;
   }
   return null;
@@ -62,6 +62,7 @@ export function exceededCaps(
     type: string;
     cap_amount: number | null;
     cap_period: CategoryCapPeriod | null;
+    archived_at?: string | null;
   }>,
   rows: PileSpendRow[],
   today: string,
@@ -75,6 +76,7 @@ export function exceededCaps(
 }> {
   const exceeded = [];
   for (const category of categories) {
+    if (category.archived_at) continue;
     if (category.type !== "expense") continue;
     if (category.cap_amount == null || category.cap_amount <= 0) continue;
     if (category.cap_period !== "month" && category.cap_period !== "year") continue;
@@ -100,12 +102,13 @@ export function spentInPile(
   scope = "all"
 ): number {
   const { start, end } = pileWindow(period, today);
-  return rows.reduce((sum, row) => {
+  const cents = rows.reduce((sum, row) => {
     if (row.category_id !== categoryId) return sum;
     if (row.type !== "expense" || row.status !== "paid") return sum;
     if (!matchesPileScope(row.group_id, scope)) return sum;
     const day = row.date.slice(0, 10);
     if (day < start || day >= end) return sum;
-    return sum + row.amount;
+    return sum + Math.round(row.amount * 100);
   }, 0);
+  return cents / 100;
 }

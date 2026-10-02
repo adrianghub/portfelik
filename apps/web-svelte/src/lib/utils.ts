@@ -30,7 +30,8 @@ export function formatDate(date: string): string {
 
 /**
  * First day of a month as a date-only ISO string. Date-only on purpose:
- * `transactions.date` is a SQL `date`, and the previous local-midnight
+ * `transactions.date` stores a logical calendar day in `timestamptz`;
+ * normal UI/import writes use YYYY-MM-DD (UTC midnight). The previous local-midnight
  * `toISOString()` shifted by the timezone offset (Poland: July became
  * `2026-06-30T22:00Z`), dragging the prior month's last day into the range
  * and dropping this month's last day. `Date.UTC` also normalizes month

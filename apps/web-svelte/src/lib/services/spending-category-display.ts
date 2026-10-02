@@ -5,8 +5,27 @@ export const TOP_SPENDING_MOVERS = 3;
 /** Dashboard card preview — full lists open in a dialog. */
 export const DASHBOARD_PREVIEW_CATEGORIES = 3;
 export const DASHBOARD_PREVIEW_MOVERS = 3;
-export const CATEGORY_RING_COLORS = ["#34d399", "#a3e635", "#fbbf24", "#fb7185"] as const;
+export const CATEGORY_RING_COLORS = [
+  "#34d399",
+  "#38bdf8",
+  "#a78bfa",
+  "#fbbf24",
+  "#fb7185",
+  "#22d3ee",
+  "#f472b6",
+  "#fb923c",
+] as const;
 export const CATEGORY_RING_OTHER_COLOR = "rgba(255,255,255,0.18)";
+export const CATEGORY_HISTORY_OTHER_COLOR = "#94a3b8";
+
+/** Stable category identity keeps colors unchanged when spend rankings change. */
+export function categoryColor(identity: string, chosen?: string | null): string {
+  if (chosen && CATEGORY_RING_COLORS.some((color) => color === chosen)) return chosen;
+  let hash = 2166136261;
+  for (let i = 0; i < identity.length; i++)
+    hash = Math.imul(hash ^ identity.charCodeAt(i), 16777619);
+  return CATEGORY_RING_COLORS[(hash >>> 0) % CATEGORY_RING_COLORS.length];
+}
 
 export type CategoryRingSegment = {
   key: string;
@@ -49,7 +68,8 @@ export function categoryRingSegments(
   categories: CategoryInsight[],
   spent: number,
   circumference: number,
-  maxSegments = 4
+  maxSegments = 4,
+  colors?: ReadonlyMap<string, string>
 ): CategoryRingSegment[] {
   if (spent <= 0) return [];
 
@@ -60,7 +80,7 @@ export function categoryRingSegments(
   let offset = 0;
   let topSum = 0;
 
-  for (const [i, cat] of top.entries()) {
+  for (const cat of top) {
     const arcLen = circumference * (cat.total / spent);
     if (arcLen <= 0) continue;
     topSum += cat.total;
@@ -69,7 +89,7 @@ export function categoryRingSegments(
       name: cat.name,
       arcLen,
       offset,
-      color: CATEGORY_RING_COLORS[i % CATEGORY_RING_COLORS.length],
+      color: categoryColor(cat.categoryId, colors?.get(cat.categoryId)),
     });
     offset += arcLen;
   }

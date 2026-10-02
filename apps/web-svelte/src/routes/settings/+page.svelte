@@ -13,6 +13,7 @@
   import { SETTINGS_SECTIONS, searchSubsections, type SettingsTab } from "$lib/settings/sections";
   import { ChevronLeft, ChevronRight, Search } from "lucide-svelte";
   import * as m from "$lib/paraglide/messages";
+  import { releaseChannelLabel, appVersion } from "$lib/release-channel";
 
   const TAB_IDS: SettingsTab[] = [
     "categories",
@@ -36,7 +37,7 @@
   const profileQuery = createQuery(() => ({
     queryKey: qk.profile(session.userId!),
     queryFn: () => fetchProfile(requireSessionUserId()),
-    enabled: () => !!session.userId,
+    enabled: !!session.userId,
   }));
   const profile = $derived(profileQuery.data ?? null);
 
@@ -155,4 +156,7 @@
       </div>
     {/if}
   {/if}
+  <p class="text-xs text-slate-400">
+    {releaseChannelLabel} · {m.app_version_label({ version: appVersion })}
+  </p>
 </div>

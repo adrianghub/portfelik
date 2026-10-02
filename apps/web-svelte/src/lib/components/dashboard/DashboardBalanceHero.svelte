@@ -23,6 +23,7 @@
     savingsRatio,
     spent = 0,
     categories = [],
+    categoryColors,
     showForecastNote = false,
     forecastNet,
     transactionsHref,
@@ -34,6 +35,7 @@
     savingsRatio: number | null;
     spent?: number;
     categories?: CategoryInsight[];
+    categoryColors?: ReadonlyMap<string, string>;
     showForecastNote?: boolean;
     forecastNet?: number;
     transactionsHref: (extra?: Record<string, string>) => string;
@@ -79,7 +81,9 @@
     };
   });
 
-  const ringSegments = $derived(categoryRingSegments(categories, spent, circumference));
+  const ringSegments = $derived(
+    categoryRingSegments(categories, spent, circumference, 4, categoryColors)
+  );
   const ringLegend = $derived(
     ringSegments.map((seg) => {
       const amount = spent > 0 ? (seg.arcLen / circumference) * spent : 0;

@@ -73,6 +73,7 @@ export interface ImportRow {
   edited_description: string | null;
   decision: RowDecision;
   duplicate_of: string | null;
+  obligation_match_confirmed?: boolean;
   transaction_id: string | null;
   created_at: string;
 }
@@ -92,6 +93,13 @@ export interface DuplicateWarning {
   duplicate_of_amount: number;
   duplicate_of_currency: string;
   duplicate_of_description: string;
+  obligation_candidates?: {
+    id: string;
+    date: string;
+    amount: number;
+    currency: string;
+    description: string;
+  }[];
 }
 
 // -------------------- bank_accounts --------------------
@@ -369,6 +377,7 @@ export async function updateRowDecision(
     selectedGroupId?: string | null;
     editedDescription?: string | null;
     duplicateOf?: string | null;
+    obligationMatchConfirmed?: boolean;
   }
 ): Promise<void> {
   const patch: RowUpdate = {};
@@ -378,6 +387,8 @@ export async function updateRowDecision(
   if (update.selectedGroupId !== undefined) patch.selected_group_id = update.selectedGroupId;
   if (update.editedDescription !== undefined) patch.edited_description = update.editedDescription;
   if (update.duplicateOf !== undefined) patch.duplicate_of = update.duplicateOf;
+  if (update.obligationMatchConfirmed !== undefined)
+    patch.obligation_match_confirmed = update.obligationMatchConfirmed;
 
   if (Object.keys(patch).length === 0) return;
 
