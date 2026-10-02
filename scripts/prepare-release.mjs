@@ -54,6 +54,8 @@ if (
   const format = async (value, url) =>
     prettier.format(JSON.stringify(value), {
       ...(await prettier.resolveConfig(fileURLToPath(url))),
+      // JSON needs no Svelte/Tailwind plugins, whose resolution depends on cwd.
+      plugins: [],
       filepath: fileURLToPath(url),
     });
   const notesText = await format(notes, notesUrl);
