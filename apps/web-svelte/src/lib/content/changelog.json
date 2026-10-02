@@ -1,10 +1,23 @@
 {
   "versions": [
     {
+      "version": "1.3.4",
+      "versionCode": 12,
+      "date": "2026-10-02",
+      "items": [
+        "Stabilniejszy Kokpit i saldo.",
+        "Bezpieczniejszy import i archiwum kategorii.",
+        "Publiczna beta w wdrożeniach."
+      ]
+    },
+    {
       "version": "1.3.3",
       "versionCode": 11,
       "date": "2026-10-01",
-      "items": ["Naprawiony Kokpit.", "Krótsza historia zmian."]
+      "items": [
+        "Naprawiony Kokpit.",
+        "Krótsza historia zmian."
+      ]
     },
     {
       "version": "1.3.2",
@@ -40,7 +53,11 @@
       "version": "1.2.0",
       "versionCode": 6,
       "date": "2026-09-28",
-      "items": ["Podsumowanie miesiąca.", "Prostsze plany.", "Saldo początkowe."]
+      "items": [
+        "Podsumowanie miesiąca.",
+        "Prostsze plany.",
+        "Saldo początkowe."
+      ]
     }
   ]
 }

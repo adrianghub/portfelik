@@ -136,6 +136,44 @@ describe("RLS: categories", () => {
       ).error
     ).toBeNull();
     expect((await ctx.userA.client.from("transactions").insert(input)).error?.code).toBe("23514");
+    expect(
+      (
+        await ctx.userA.client
+          .from("plans")
+          .insert({
+            user_id: ctx.userA.userId,
+            name: `${SENTINEL} plan archival`,
+            kind: "save",
+            target_amount: 100,
+            start_date: "2026-10-01",
+            end_date: "2026-10-31",
+            category_id: id,
+          })
+          .select("id")
+      ).error?.code
+    ).toBe("23514");
+    const keptPlan = await ctx.userA.client
+      .from("plans")
+      .insert({
+        user_id: ctx.userA.userId,
+        name: `${SENTINEL} plan historical`,
+        kind: "save",
+        target_amount: 100,
+        start_date: "2026-10-01",
+        end_date: "2026-10-31",
+        category_id: null,
+      })
+      .select("id")
+      .single();
+    expect(keptPlan.error).toBeNull();
+    expect(
+      (
+        await ctx.userA.client
+          .from("plans")
+          .update({ category_id: id })
+          .eq("id", keptPlan.data!.id)
+      ).error?.code
+    ).toBe("23514");
     const storedRule = await ctx.userA.client
       .from("categorization_rules")
       .select("category_id")

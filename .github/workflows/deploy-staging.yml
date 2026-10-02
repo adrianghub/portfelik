@@ -267,6 +267,7 @@ jobs:
           PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.STAGING_PUBLIC_SUPABASE_ANON_KEY }}
           PUBLIC_VAPID_KEY: ${{ secrets.STAGING_PUBLIC_VAPID_KEY }}
           PUBLIC_PLAUSIBLE_DOMAIN: ${{ secrets.STAGING_PUBLIC_PLAUSIBLE_DOMAIN }}
+          PUBLIC_RELEASE_CHANNEL: public-beta
         run: |
           test "$PUBLIC_SUPABASE_URL" != "https://emqzcygfwcvbmhxhfkcc.supabase.co"
           pnpm build
