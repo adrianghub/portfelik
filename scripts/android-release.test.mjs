@@ -2,6 +2,66 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { uploadDecision } from "./play-release-state.mjs";
 import { nextRelease } from "./prepare-release.mjs";
+import {
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+} from "node:fs";
+import { execFileSync } from "node:child_process";
+import { tmpdir } from "node:os";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
+test("release command updates both files and produces formatted JSON", () => {
+  const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  const fixture = mkdtempSync(resolve(tmpdir(), "portfelik-release-fixture-"));
+  try {
+    mkdirSync(`${fixture}/scripts`, { recursive: true });
+    const web = `${fixture}/apps/web-svelte`;
+    mkdirSync(`${web}/src/lib/content`, { recursive: true });
+    cpSync(
+      `${root}/scripts/prepare-release.mjs`,
+      `${fixture}/scripts/prepare-release.mjs`,
+    );
+    for (const file of [
+      "package.json",
+      ".prettierrc.json",
+      "src/lib/content/changelog.json",
+    ]) {
+      cpSync(`${root}/apps/web-svelte/${file}`, `${web}/${file}`);
+    }
+    symlinkSync(`${root}/apps/web-svelte/node_modules`, `${web}/node_modules`);
+    const before = JSON.parse(
+      readFileSync(`${web}/src/lib/content/changelog.json`, "utf8"),
+    ).versions;
+    execFileSync(process.execPath, [
+      `${fixture}/scripts/prepare-release.mjs`,
+      "Automatyczna numeracja.",
+    ]);
+    const after = JSON.parse(
+      readFileSync(`${web}/src/lib/content/changelog.json`, "utf8"),
+    ).versions;
+    assert.deepEqual(
+      after[0],
+      nextRelease(before, ["Automatyczna numeracja."]),
+    );
+    assert.deepEqual(after.slice(1), before);
+    assert.equal(
+      JSON.parse(readFileSync(`${web}/package.json`, "utf8")).version,
+      after[0].version,
+    );
+    execFileSync(
+      `${root}/apps/web-svelte/node_modules/.bin/prettier`,
+      ["--check", "package.json", "src/lib/content/changelog.json"],
+      { cwd: web },
+    );
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
 
 test("new release derives the next name and Android code", () => {
   assert.deepEqual(

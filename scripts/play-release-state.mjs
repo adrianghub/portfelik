@@ -1,5 +1,5 @@
 import { createSign } from "node:crypto";
-import { appendFileSync, readFileSync } from "node:fs";
+import { appendFileSync, readFileSync, realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 export function uploadDecision(code, bundles, tracks) {
@@ -107,7 +107,10 @@ async function checkPlay() {
   }
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (
+  process.argv[1] &&
+  realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
   checkPlay().catch((error) => {
     console.error(error.message);
     process.exitCode = 1;

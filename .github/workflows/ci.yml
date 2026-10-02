@@ -61,9 +61,7 @@ jobs:
           fetch-depth: 0
 
       - name: Check release version
-        run: |
-          node scripts/check-release-version.mjs
-          node --test scripts/android-release.test.mjs
+        run: node scripts/check-release-version.mjs
 
       - name: Validate branch flow
         env:
@@ -72,6 +70,9 @@ jobs:
         run: bash scripts/check-branch-flow.sh "$BASE_REF" "$HEAD_REF"
 
       - uses: ./.github/actions/setup-web
+
+      - name: Release automation tests
+        run: node --test scripts/android-release.test.mjs
 
       - name: Typecheck
         working-directory: apps/web-svelte
