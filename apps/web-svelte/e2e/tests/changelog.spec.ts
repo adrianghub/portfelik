@@ -16,8 +16,8 @@ test("changelog is public and closes back to the page that opened it", async ({ 
   await expect(page.getByText(`Wersja ${release.version}`)).toBeVisible();
   await expect(page.getByRole("heading", { name: `${release.version}, ${date}` })).toBeVisible();
   await expect(
-    page.getByText(release.items[0], {
-      exact: false,
+    page.getByRole("article").first().getByText(release.items[0], {
+      exact: true,
     })
   ).toBeVisible();
 
