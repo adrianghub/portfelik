@@ -4,6 +4,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+node ../../scripts/check-release-version.mjs
 
 if [[ -z "${PUBLIC_SUPABASE_URL:-}" || -z "${PUBLIC_SUPABASE_ANON_KEY:-}" || -z "${PUBLIC_VAPID_KEY:-}" ]]; then
   echo "PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, and PUBLIC_VAPID_KEY must be set" >&2
@@ -32,5 +33,5 @@ fi
 
 cd android
 chmod +x gradlew
-./gradlew bundleRelease --no-daemon
+bash "$ROOT/../../scripts/build-android-bundle.sh"
 echo "AAB: android/app/build/outputs/bundle/release/app-release.aab"

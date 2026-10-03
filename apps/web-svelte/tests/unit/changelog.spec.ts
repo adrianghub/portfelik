@@ -6,22 +6,18 @@ import {
   changelogProblems,
   changelogReturnHref,
   formatChangelogDate,
-  readPlayVersion,
   releaseNotesMarkdown,
 } from "$lib/content/changelog";
 
 const packageVersion = JSON.parse(
   readFileSync(new URL("../../package.json", import.meta.url), "utf8")
 ).version as string;
-const play = readPlayVersion(
-  readFileSync(new URL("../../android/app/build.gradle", import.meta.url), "utf8")
-);
+const play = { versionName: changelog[0].version, versionCode: changelog[0].versionCode };
 
 describe("changelog", () => {
   it("matches the Play bundle and package.json", () => {
     expect(changelogProblems(changelog, { packageVersion, play })).toEqual([]);
-    expect(appVersion).toBe("1.3.4");
-    expect(play).toEqual({ versionName: "1.3.4", versionCode: 12 });
+    expect(appVersion).toBe(packageVersion);
   });
 
   it("formats the release date in Polish", () => {
@@ -39,8 +35,8 @@ describe("changelog", () => {
 
   it("renders release notes with the Play version code", () => {
     const notes = releaseNotesMarkdown(changelog[0]);
-    expect(notes).toContain("# 1.3.4");
-    expect(notes).toContain("Kod wersji 12.");
-    expect(notes).toContain("- Stabilniejszy Kokpit i saldo.");
+    expect(notes).toContain(`# ${appVersion}`);
+    expect(notes).toContain(`Kod wersji ${play.versionCode}.`);
+    expect(notes).toContain(`- ${changelog[0].items[0]}`);
   });
 });

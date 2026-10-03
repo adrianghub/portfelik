@@ -4,34 +4,51 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const packageVersion = JSON.parse(
-  readFileSync(resolve(root, "apps/web-svelte/package.json"), "utf8")
+  readFileSync(resolve(root, "apps/web-svelte/package.json"), "utf8"),
 ).version;
 const versions = JSON.parse(
-  readFileSync(resolve(root, "apps/web-svelte/src/lib/content/changelog.json"), "utf8")
+  readFileSync(
+    resolve(root, "apps/web-svelte/src/lib/content/changelog.json"),
+    "utf8",
+  ),
 ).versions;
 const gradle = readFileSync(
   resolve(root, "apps/web-svelte/android/app/build.gradle"),
-  "utf8"
+  "utf8",
 );
-const versionName = gradle.match(/versionName\s+"([^"]+)"/)?.[1];
-const versionCode = Number(gradle.match(/versionCode\s+(\d+)/)?.[1]);
+const versionName = versions[0]?.version;
+const versionCode = versions[0]?.versionCode;
 
 const semver = /^\d+\.\d+\.\d+$/;
 const isoDate = /^\d{4}-\d{2}-\d{2}$/;
 const problems = [];
 
-if (!Array.isArray(versions) || versions.length === 0) problems.push("changelog is empty");
-if (!versionName || !Number.isInteger(versionCode)) {
-  problems.push("android/app/build.gradle is missing versionName or versionCode");
+if (!Array.isArray(versions) || versions.length === 0)
+  problems.push("changelog is empty");
+if (
+  !gradle.includes("versionCode releaseMetadata.versionCode.intValue()") ||
+  !gradle.includes("versionName releaseMetadata.version") ||
+  !gradle.includes("file('../../src/lib/content/changelog.json')") ||
+  /version(?:Name|Code)\s+["\d]/.test(gradle)
+) {
+  problems.push(
+    "Android must read its version from changelog.json, without hardcoded values",
+  );
 }
 
 const seen = new Set();
 for (const [index, entry] of versions.entries()) {
-  if (!semver.test(entry.version ?? "")) problems.push(`${entry.version} is not a version name`);
-  if (!Number.isInteger(entry.versionCode) || entry.versionCode < 1) {
+  if (!semver.test(entry.version ?? ""))
+    problems.push(`${entry.version} is not a version name`);
+  if (
+    !Number.isInteger(entry.versionCode) ||
+    entry.versionCode < 1 ||
+    entry.versionCode > 2_100_000_000
+  ) {
     problems.push(`${entry.version} has no Play version code`);
   }
-  if (!isoDate.test(entry.date ?? "")) problems.push(`${entry.version} date is not YYYY-MM-DD`);
+  if (!isoDate.test(entry.date ?? ""))
+    problems.push(`${entry.version} date is not YYYY-MM-DD`);
   if (seen.has(entry.version)) problems.push(`${entry.version} is duplicated`);
   seen.add(entry.version);
   if (!Array.isArray(entry.items) || entry.items.length === 0) {
@@ -43,7 +60,9 @@ for (const [index, entry] of versions.entries()) {
       return major * 1_000_000 + minor * 1_000 + patch;
     };
     if (value(entry.version) >= value(versions[index - 1].version)) {
-      problems.push(`${entry.version} is not older than ${versions[index - 1].version}`);
+      problems.push(
+        `${entry.version} is not older than ${versions[index - 1].version}`,
+      );
     }
     if (entry.versionCode >= versions[index - 1].versionCode) {
       problems.push(`${entry.version} code ${entry.versionCode} is not older`);
@@ -53,13 +72,9 @@ for (const [index, entry] of versions.entries()) {
 
 const current = versions[0];
 if (current && current.version !== packageVersion) {
-  problems.push(`package.json ${packageVersion} does not match changelog ${current.version}`);
-}
-if (current && current.version !== versionName) {
-  problems.push(`AAB versionName ${versionName} does not match changelog ${current.version}`);
-}
-if (current && current.versionCode !== versionCode) {
-  problems.push(`AAB versionCode ${versionCode} does not match changelog ${current?.versionCode}`);
+  problems.push(
+    `package.json ${packageVersion} does not match changelog ${current.version}`,
+  );
 }
 
 if (problems.length > 0) {
@@ -67,4 +82,6 @@ if (problems.length > 0) {
   process.exit(1);
 }
 
-console.log(`release ${versionName} (${versionCode}) matches the Play bundle and the changelog`);
+console.log(
+  `release ${versionName} (${versionCode}); Android reads this metadata directly`,
+);

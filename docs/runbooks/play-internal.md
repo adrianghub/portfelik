@@ -24,9 +24,18 @@ Production secrets never sign an unpromoted snapshot.
 The upload commits the Play edit (`changesNotSentForReview: false`) so Internal
 testers receive the new `versionCode` without a manual Console submit.
 
-Play still requires a **new `versionCode`** for every upload. Bump
-`apps/web-svelte/android/app/build.gradle` in the PR that should reach testers.
-Uploading the same `versionCode` twice is rejected by Play.
+Prepare a release on a feature branch with one command:
+
+```bash
+node scripts/prepare-release.mjs "Krótka informacja o zmianie."
+```
+
+It increments the patch version and Android code, updates the package and
+changelog, and leaves the changes for review. Gradle reads the changelog directly;
+never edit a version in `build.gradle`. CI validates the metadata, then checks
+actual Google Play bundles and tracks before building. A completed Internal
+release is skipped on reruns, including manual dispatch. An occupied draft code
+or older code fails before signing; finish the draft or prepare a new release.
 
 ## One-time secrets (Production environment)
 
@@ -34,14 +43,14 @@ Add these on the **Production** GitHub environment (same place as
 `PUBLIC_SUPABASE_URL`), not as repository-wide secrets unless you also grant
 the workflow that environment.
 
-| Secret | Value |
-| --- | --- |
-| `PLAY_SERVICE_ACCOUNT_JSON` | Full JSON key of a Play Console API service account |
+| Secret                           | Value                                                                               |
+| -------------------------------- | ----------------------------------------------------------------------------------- |
+| `PLAY_SERVICE_ACCOUNT_JSON`      | Full JSON key of a Play Console API service account                                 |
 | `ANDROID_UPLOAD_KEYSTORE_BASE64` | `base64 -w0 android/upload-keystore.jks` from the machine that holds the upload key |
-| `ANDROID_KEYSTORE_PASSWORD` | `storePassword` from `android/keystore.properties` |
-| `ANDROID_KEY_ALIAS` | Usually `upload` (see `create-upload-keystore.sh`) |
-| `ANDROID_KEY_PASSWORD` | `keyPassword` from `keystore.properties` |
-| `PUBLIC_GOOGLE_WEB_CLIENT_ID` | Web OAuth client ID used by native Google Sign-In |
+| `ANDROID_KEYSTORE_PASSWORD`      | `storePassword` from `android/keystore.properties`                                  |
+| `ANDROID_KEY_ALIAS`              | Usually `upload` (see `create-upload-keystore.sh`)                                  |
+| `ANDROID_KEY_PASSWORD`           | `keyPassword` from `keystore.properties`                                            |
+| `PUBLIC_GOOGLE_WEB_CLIENT_ID`    | Web OAuth client ID used by native Google Sign-In                                   |
 
 Also required (already used by web production deploy):
 `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_ANON_KEY`.
@@ -86,9 +95,9 @@ Never commit the `.jks` or `keystore.properties`.
   do not match (or the base64 was truncated). Re-copy both from the laptop that
   holds `upload-keystore.jks`, then re-run **Deploy Play Internal** from `main`.
   CI now checks this with `keytool` before Gradle.
-- **Version code already used** — bump `versionCode` / `versionName` and
-  promote `dev` → `main` again, or run the workflow after that commit is on
-  `main`.
+- **Version code already used** — the preflight normally skips an already
+  completed Internal release. For a draft or a higher code in Play, finish that
+  draft or run `prepare-release.mjs` on a feature branch and promote it.
 - **Service account 403** — the Play user invite is pending or lacks the
   testing-track permission.
 - **Android SDK / licenses** — the job uses the hosted runner SDK. If
