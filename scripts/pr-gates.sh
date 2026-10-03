@@ -26,6 +26,14 @@ CHANGED="$(git diff --name-only "$BASE"...HEAD 2>/dev/null)"
 changed_match() { printf '%s\n' "$CHANGED" | grep -qE "$1"; }
 stack_up() { (exec 3<>/dev/tcp/127.0.0.1/54321) 2>/dev/null; }
 
+# Release automation is checked locally as well as in GitHub Actions.
+if node scripts/check-release-version.mjs >/tmp/pr-release.log 2>&1 && \
+   node --test scripts/android-release.test.mjs >>/tmp/pr-release.log 2>&1; then
+  gate release-version PASS "metadata and upload decisions"
+else
+  gate release-version FAIL "see /tmp/pr-release.log"
+fi
+
 # --- svelte-check (must be 0 errors / 0 warnings) ---
 sc_out="$(cd "$WEB" && pnpm exec svelte-check --tsconfig ./tsconfig.json 2>&1)"
 sc_line="$(printf '%s\n' "$sc_out" | grep -E 'COMPLETED' | tail -1)"

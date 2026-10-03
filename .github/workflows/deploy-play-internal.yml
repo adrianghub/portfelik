@@ -18,37 +18,27 @@ jobs:
     name: Check Android release
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    environment: Production
     outputs:
       upload: ${{ steps.version.outputs.upload }}
     steps:
       - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
-          fetch-depth: 2
+      - name: Restrict release to main
+        env:
+          RELEASE_BRANCH: ${{ github.event.workflow_run.head_branch || github.ref_name }}
+        run: test "$RELEASE_BRANCH" = main
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
       - name: Check release versions
         run: node scripts/check-release-version.mjs
-      - name: Upload only a new Android version
+      - name: Check actual Google Play version codes
         id: version
         env:
-          MANUAL_UPLOAD: ${{ github.event_name == 'workflow_dispatch' }}
-        run: |
-          if [[ "$MANUAL_UPLOAD" == "true" ]]; then
-            echo "upload=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          path=apps/web-svelte/android/app/build.gradle
-          current=$(sed -nE 's/^[[:space:]]*versionCode ([0-9]+).*$/\1/p' "$path")
-          previous=$(git show "HEAD^:$path" | sed -nE 's/^[[:space:]]*versionCode ([0-9]+).*$/\1/p')
-          if [[ ! "$current" =~ ^[0-9]+$ || ! "$previous" =~ ^[0-9]+$ || "$current" -lt "$previous" ]]; then
-            echo "::error::Android versionCode must not decrease and must be readable."
-            exit 1
-          fi
-          if [[ "$current" -gt "$previous" ]]; then
-            echo "upload=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "upload=false" >> "$GITHUB_OUTPUT"
-            echo "Android version $current is unchanged; skipping Play upload."
-          fi
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: node scripts/play-release-state.mjs
 
   play-internal:
     name: Bundle and upload Internal AAB

@@ -1,14 +1,23 @@
 import { expect, test } from "@playwright/test";
+import changelog from "../../src/lib/content/changelog.json" with { type: "json" };
+
+const release = changelog.versions[0];
+const date = new Intl.DateTimeFormat("pl-PL", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+  timeZone: "UTC",
+}).format(new Date(`${release.date}T12:00:00Z`));
 
 test("changelog is public and closes back to the page that opened it", async ({ page }) => {
   await page.goto("/changelog?from=/login");
 
   await expect(page.getByRole("heading", { name: "Co nowego" })).toBeVisible();
-  await expect(page.getByText("Wersja 1.3.4")).toBeVisible();
-  await expect(page.getByRole("heading", { name: /1\.3\.4, 2 października 2026/ })).toBeVisible();
+  await expect(page.getByText(`Wersja ${release.version}`)).toBeVisible();
+  await expect(page.getByRole("heading", { name: `${release.version}, ${date}` })).toBeVisible();
   await expect(
-    page.getByText("Stabilniejszy Kokpit i saldo.", {
-      exact: false,
+    page.getByRole("article").first().getByText(release.items[0], {
+      exact: true,
     })
   ).toBeVisible();
 
