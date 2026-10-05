@@ -152,3 +152,23 @@ test("search finds the demo on Pomoc and account deletion on Eksport", async ({ 
   await expect(page).toHaveURL(/tab=privacy/);
   await expect(page.getByText(/Kasuje konto i prywatne dane/)).toBeVisible();
 });
+
+test("help offers public feedback without putting private data in the external URL", async ({
+  page,
+}) => {
+  await gotoSettings(page, "?tab=help");
+  const feedback = page.getByRole("region", { name: "Zgłoś błąd", exact: true });
+  await expect(feedback).toContainText("Zgłoszenia w GitHub są publiczne");
+  await expect(feedback).toContainText(
+    "Nie dołączaj wyciągów, danych finansowych ani danych osobowych."
+  );
+  const link = feedback.getByRole("link", {
+    name: "Otwórz zgłoszenie w GitHub (nowa karta)",
+    exact: true,
+  });
+  await expect(link).toHaveAttribute("href", "https://github.com/adrianghub/portfelik/issues/new");
+  await expect(link).toHaveAttribute("target", "_blank");
+  await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  await link.focus();
+  await expect(link).toBeFocused();
+});

@@ -465,6 +465,20 @@
   {/if}
 
   {#if section === "help"}
+    <section
+      class="mb-4 rounded-2xl border border-white/5 bg-slate-900/60 p-4"
+      aria-labelledby="feedback-title"
+    >
+      <h2 id="feedback-title" class="text-sm font-medium text-slate-100">{m.feedback_title()}</h2>
+      <p class="mt-2 text-sm leading-relaxed text-slate-400">{m.feedback_public_notice()}</p>
+      <a
+        href="https://github.com/adrianghub/portfelik/issues/new"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="focus-visible:ring-accent text-accent mt-3 inline-flex min-h-11 items-center rounded-lg text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"
+        >{m.feedback_link()}</a
+      >
+    </section>
     <DemoWalkthroughPanel {profile} />
 
     <div
