@@ -10,14 +10,16 @@
 //     row's type - a rule must never assign an income category to an expense.
 //   * Text comparison is trimmed + case-insensitive.
 //   * Rule kinds (mirrors the categorization_rules CHECK constraint):
-//       exact     - description OR counterparty equals the rule's text
-//       contains  - description OR counterparty contains the rule's text
+//       exact     - selected text fields equal their respective values
+//       contains  - selected text fields contain their respective values
 //       type      - row type equals match_type
 //       composite - row type equals match_type AND a text (contains) match
 //   For exact/contains, a rule may set match_description, match_counterparty,
-//   or both; the row matches if ANY set field matches.
+//   or both. New rules require ALL fields; legacy `any` (or a missing operator)
+//   keeps OR behavior. Day/type constraints always narrow the rule.
 
 import type { CategorizationRule, Category, TransactionType } from "$lib/types";
+import { normalizeTransactionText, suggestDescriptionRule } from "./transaction-text";
 
 export interface MatchableRow {
   type: TransactionType;
@@ -27,7 +29,7 @@ export interface MatchableRow {
 }
 
 export function normalizeRuleText(value: string | null | undefined): string {
-  return (value ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+  return normalizeTransactionText(value).normalized;
 }
 
 const COMMON_BANK_TOKENS = new Set([
@@ -54,6 +56,7 @@ function cleanMerchantText(raw: string): string {
   return raw.replace(TRAILING_DATE_NOISE, "").replace(/\s+/g, " ").trim();
 }
 
+/** Legacy merchant hint for plan matching only. Never use this to create or group rules. */
 export function suggestRuleText(
   row: MatchableRow,
   preferredField?: "description" | "counterparty"
@@ -77,25 +80,24 @@ export function suggestRuleText(
 
 export interface CapturedRuleDraft {
   kind: "contains";
+  match_operator: "all";
   match_description: string;
-  match_counterparty: string;
+  match_counterparty: null;
   match_type: null;
 }
 
 /**
- * Build a "contains" rule draft from a transaction the user just (re)categorized, so future
- * imports of similar rows auto-apply the same category. Mirrors the import-flow capture: the
- * suggested token is matched against both description and counterparty (OR logic), and
- * `match_type` stays null - the category-type safeguard in `matchCategory` keeps it correct.
- * Returns null when no usable token exists (caller should then offer nothing).
+ * Start with the actual cleaned description. Counterparty is a separate, opt-in
+ * condition; no token extraction or copying between fields. Category type remains guarded.
  */
 export function suggestRuleFromRow(row: MatchableRow): CapturedRuleDraft | null {
-  const text = suggestRuleText(row);
+  const text = suggestDescriptionRule(row);
   if (text.trim() === "") return null;
   return {
     kind: "contains",
+    match_operator: "all",
     match_description: text,
-    match_counterparty: text,
+    match_counterparty: null,
     match_type: null,
   };
 }
@@ -107,16 +109,20 @@ function textMatches(
 ): boolean {
   const desc = normalizeRuleText(row.description);
   const cp = normalizeRuleText(row.counterparty);
+  const checks: boolean[] = [];
 
   if (rule.match_description != null) {
     const needle = normalizeRuleText(rule.match_description);
-    if (needle !== "" && (mode === "exact" ? desc === needle : desc.includes(needle))) return true;
+    checks.push(needle !== "" && (mode === "exact" ? desc === needle : desc.includes(needle)));
   }
   if (rule.match_counterparty != null) {
     const needle = normalizeRuleText(rule.match_counterparty);
-    if (needle !== "" && (mode === "exact" ? cp === needle : cp.includes(needle))) return true;
+    checks.push(needle !== "" && (mode === "exact" ? cp === needle : cp.includes(needle)));
   }
-  return false;
+  return (
+    checks.length > 0 &&
+    (rule.match_operator === "all" ? checks.every(Boolean) : checks.some(Boolean))
+  );
 }
 
 function dayOfMonthMatches(rule: CategorizationRule, row: MatchableRow): boolean {
@@ -219,10 +225,19 @@ export function selectRetroMatches(
     .map((tx) => tx.id);
 }
 
+function effectiveTextOperator(
+  rule: Pick<CategorizationRule, "match_operator" | "match_description" | "match_counterparty">
+): "all" | "any" {
+  return rule.match_description != null && rule.match_counterparty != null
+    ? (rule.match_operator ?? "any")
+    : "all";
+}
+
 export function isEquivalentCategorizationRule(
   a: Pick<
     CategorizationRule,
     | "kind"
+    | "match_operator"
     | "match_description"
     | "match_counterparty"
     | "match_type"
@@ -232,6 +247,7 @@ export function isEquivalentCategorizationRule(
   b: Pick<
     CategorizationRule,
     | "kind"
+    | "match_operator"
     | "match_description"
     | "match_counterparty"
     | "match_type"
@@ -241,6 +257,7 @@ export function isEquivalentCategorizationRule(
 ): boolean {
   return (
     a.kind === b.kind &&
+    effectiveTextOperator(a) === effectiveTextOperator(b) &&
     normalizeRuleText(a.match_description) === normalizeRuleText(b.match_description) &&
     normalizeRuleText(a.match_counterparty) === normalizeRuleText(b.match_counterparty) &&
     (a.match_type ?? null) === (b.match_type ?? null) &&
@@ -253,6 +270,7 @@ export function findDuplicateCategorizationRule<
   T extends Pick<
     CategorizationRule,
     | "kind"
+    | "match_operator"
     | "match_description"
     | "match_counterparty"
     | "match_type"
@@ -264,6 +282,7 @@ export function findDuplicateCategorizationRule<
   candidate: Pick<
     CategorizationRule,
     | "kind"
+    | "match_operator"
     | "match_description"
     | "match_counterparty"
     | "match_type"

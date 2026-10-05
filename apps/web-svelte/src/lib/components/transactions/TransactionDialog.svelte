@@ -15,6 +15,9 @@
   import { createCategorizationRule, findRetroMatchIds } from "$lib/services/categorization-rules";
   import { materializeRecurringOccurrencesForNearTerm } from "$lib/services/recurring-occurrences";
   import { dayAfter, removeFutureMaterializedOccurrences } from "$lib/services/recurring-series";
+  import RuleCreateDialog from "$lib/components/settings/RuleCreateDialog.svelte";
+  import type { CategorizationRuleInput } from "$lib/services/categorization-rules";
+  import type { MatchableRow } from "$lib/import/categorize";
   import { suggestRuleFromRow } from "$lib/import/categorize";
   import type {
     PlanKind,
@@ -55,6 +58,7 @@
   let { open, onclose, initial = null, planContext = null }: Props = $props();
 
   const queryClient = useQueryClient();
+  let ruleCapture = $state<(MatchableRow & { categoryId: string }) | null>(null);
 
   const uid = $derived(session.userId);
 
@@ -289,39 +293,42 @@
     });
     if (!draft) return;
     const targetCategoryId = category_id;
-    const token = draft.match_counterparty || draft.match_description;
+    const token = draft.match_description;
+    const capturedRow = {
+      type,
+      description,
+      counterparty: counterparty.trim() || null,
+      posted_at: date,
+      categoryId: targetCategoryId,
+    };
     toast(m.rule_capture_offer({ text: token }), {
       action: {
         label: m.rule_capture_action(),
         onClick: () => {
-          void (async () => {
-            try {
-              const created = await createCategorizationRule({
-                ...draft,
-                category_id: targetCategoryId,
-                priority: 10,
-              });
-              await queryClient.invalidateQueries({
-                queryKey: qk.categorizationRules(requireSessionUserId()),
-              });
-              const matchIds = await findRetroMatchIds(created);
-              if (matchIds.length > 0) {
-                toast.success(m.rule_capture_created(), {
-                  action: {
-                    label: m.rule_apply_action({ count: matchIds.length }),
-                    onClick: () => void applyRuleRetro(created.category_id, matchIds),
-                  },
-                });
-              } else {
-                toast.success(m.rule_capture_created());
-              }
-            } catch {
-              toast.info(m.rule_capture_exists());
-            }
-          })();
+          ruleCapture = capturedRow;
         },
       },
     });
+  }
+
+  async function createTransactionRule(input: CategorizationRuleInput): Promise<void> {
+    const created = await createCategorizationRule(input);
+    await queryClient.invalidateQueries({
+      queryKey: qk.categorizationRules(requireSessionUserId()),
+    });
+    toast.success(m.rule_capture_created());
+    try {
+      const matchIds = await findRetroMatchIds(created);
+      if (matchIds.length > 0)
+        toast(m.rule_apply_action({ count: matchIds.length }), {
+          action: {
+            label: m.rule_apply_action({ count: matchIds.length }),
+            onClick: () => void applyRuleRetro(created.category_id, matchIds),
+          },
+        });
+    } catch (err) {
+      toastError(err);
+    }
   }
 
   function handleSubmit(e: Event) {
@@ -632,3 +639,15 @@
     </div>
   </form>
 </Dialog>
+
+{#if ruleCapture}
+  <RuleCreateDialog
+    open={true}
+    row={ruleCapture}
+    categoryId={ruleCapture.categoryId}
+    categories={categoriesQuery.data ?? []}
+    rows={[ruleCapture]}
+    oncreate={createTransactionRule}
+    onclose={() => (ruleCapture = null)}
+  />
+{/if}

@@ -6,6 +6,9 @@
   import Badge from "$lib/components/ui/Badge.svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import Dialog from "$lib/components/ui/Dialog.svelte";
+  import Sheet from "$lib/components/ui/Sheet.svelte";
+  import ImportCategorySheet from "$lib/components/import/ImportCategorySheet.svelte";
+  import { groupSimilarImportRows } from "$lib/import/similar-rows";
   import CategorySelect from "$lib/components/transactions/CategorySelect.svelte";
   import type { ImportRow } from "$lib/services/bank-import";
   import type { ImportRowFilter } from "$lib/import/filter-rows";
@@ -113,6 +116,11 @@
 
   let groupSheetRowId = $state<string | null>(null);
   let showAllRows = $state(false);
+  let categorySheetRowId = $state<string | null>(null);
+  let recentCategoryIds = $state<string[]>([]);
+  let filtersOpen = $state(false);
+  let expandedGroupIds = $state<string[]>([]);
+  const categorySheetRow = $derived(visibleRows.find((r) => r.id === categorySheetRowId));
 
   const groupSheetRow = $derived(
     groupSheetRowId ? visibleRows.find((r) => r.id === groupSheetRowId) : null
@@ -167,6 +175,14 @@
   const CHUNK_SIZE = 60;
   let shown = $state(CHUNK_SIZE);
   const reviewRenderedRows = $derived(reviewRows.slice(0, shown));
+  const mobileGroups = $derived(groupSimilarImportRows(reviewRows).slice(0, shown));
+
+  function selectMobileCategory(row: ImportRow, id: string | null) {
+    if (id)
+      recentCategoryIds = [id, ...recentCategoryIds.filter((recent) => recent !== id)].slice(0, 8);
+    onCategoryChange(row, id);
+    categorySheetRowId = null;
+  }
 
   $effect(() => {
     void filter;
@@ -245,6 +261,102 @@
   });
 </script>
 
+{#snippet filterControls()}
+  <div class="flex flex-wrap items-center gap-2 overflow-x-auto">
+    {#if inspectedRule}
+      <button
+        type="button"
+        class="border-accent bg-accent/10 text-accent inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors"
+        title={m.bank_review_rule_filter_clear()}
+        aria-label={m.bank_review_rule_filter_clear()}
+        onclick={onClearInspectedRule}
+      >
+        <span class="max-w-60 truncate">
+          {m.bank_review_rule_filter_chip({ rule: ruleMatchText(inspectedRule) })}
+        </span>
+        <span class="text-slate-400">{inspectedRuleCount}</span>
+        <span aria-hidden="true">×</span>
+      </button>
+    {/if}
+    {#each filterOptions as f (f.kind)}
+      <button
+        type="button"
+        class={cn(
+          "rounded-full border px-3 py-1 text-xs transition-colors",
+          filter === f.kind
+            ? "border-accent bg-accent/10 text-accent"
+            : "border-white/10 text-slate-400 hover:bg-white/5"
+        )}
+        onclick={() => onFilterChange(f.kind)}
+      >
+        {f.label}<span class="ml-1.5 text-slate-400">{filterCounts[f.kind]}</span>
+      </button>
+    {/each}
+    <div class="relative inline-flex">
+      <select
+        value={sortKind}
+        aria-label={m.bank_review_sort_label()}
+        title={m.bank_review_sort_dropdown_hint()}
+        class="focus-visible:ring-accent appearance-none rounded-full border border-white/10 bg-slate-950 py-1 pr-8 pl-3 text-xs text-slate-400 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset"
+        onchange={(event) => setSortKind((event.currentTarget as HTMLSelectElement).value)}
+      >
+        {#each sortKinds as kind (kind)}
+          <option value={kind}>{sortLabelByKind[kind]}</option>
+        {/each}
+      </select>
+      <ChevronDown
+        size={14}
+        aria-hidden="true"
+        class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-slate-400"
+      />
+    </div>
+  </div>
+
+  <div class="flex flex-wrap items-center gap-2">
+    <input
+      type="search"
+      bind:value={advancedFilter.text}
+      placeholder={m.bank_review_search_placeholder()}
+      class="h-9 min-w-48 flex-1 rounded-full border border-white/10 bg-slate-900/60 px-3 text-sm text-slate-200"
+    />
+    <input
+      type="number"
+      inputmode="decimal"
+      step="0.01"
+      placeholder={m.bank_review_amount_min()}
+      value={advancedFilter.amountMin ?? ""}
+      oninput={(e) => (advancedFilter.amountMin = parseAmount(e.currentTarget.value))}
+      class="h-9 w-28 rounded-full border border-white/10 bg-slate-900/60 px-3 text-sm text-slate-200"
+    />
+    <input
+      type="number"
+      inputmode="decimal"
+      step="0.01"
+      placeholder={m.bank_review_amount_max()}
+      value={advancedFilter.amountMax ?? ""}
+      oninput={(e) => (advancedFilter.amountMax = parseAmount(e.currentTarget.value))}
+      class="h-9 w-28 rounded-full border border-white/10 bg-slate-900/60 px-3 text-sm text-slate-200"
+    />
+    <CategorySelect
+      categories={filterCategories}
+      selectedId={advancedFilter.categoryId}
+      type="expense"
+      onchange={(id) => (advancedFilter.categoryId = id)}
+      placeholder={m.bank_review_header_category()}
+      class="min-w-40"
+    />
+    {#if advancedActive}
+      <button
+        type="button"
+        onclick={onclearfilter}
+        class="h-9 rounded-full border border-white/10 px-3 text-xs font-medium text-slate-300 hover:bg-white/5"
+      >
+        {m.bank_review_filter_clear()}
+      </button>
+    {/if}
+  </div>
+{/snippet}
+
 <div class="space-y-4">
   {#if parseErrorCount > 0}
     <p
@@ -305,7 +417,7 @@
         {#if canUndo}
           <button
             type="button"
-            class="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-400 transition-colors hover:bg-white/5"
+            class="min-h-11 rounded-full border border-white/10 px-3 py-1 text-sm text-slate-400 transition-colors hover:bg-white/5 md:min-h-0 md:text-xs"
             onclick={onUndo}
           >
             {m.bank_review_undo_last_change()}
@@ -314,7 +426,7 @@
         {#if bulkImportableVisibleCount > 0}
           <button
             type="button"
-            class="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-400 transition-colors hover:bg-white/5"
+            class="min-h-11 rounded-full border border-white/10 px-3 py-1 text-sm text-slate-400 transition-colors hover:bg-white/5 md:min-h-0 md:text-xs"
             onclick={onBulkImportVisible}
           >
             {m.bank_review_mark_visible_import_action({ count: bulkImportableVisibleCount })}
@@ -323,7 +435,7 @@
         {#if bulkRestorableVisibleCount > 0}
           <button
             type="button"
-            class="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-400 transition-colors hover:bg-white/5"
+            class="min-h-11 rounded-full border border-white/10 px-3 py-1 text-sm text-slate-400 transition-colors hover:bg-white/5 md:min-h-0 md:text-xs"
             onclick={onBulkRestoreVisible}
           >
             {m.bank_review_restore_visible_action({ count: bulkRestorableVisibleCount })}
@@ -332,98 +444,23 @@
       </div>
     {/if}
 
-    <div class="flex flex-wrap items-center gap-2 overflow-x-auto">
-      {#if inspectedRule}
-        <button
-          type="button"
-          class="border-accent bg-accent/10 text-accent inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors"
-          title={m.bank_review_rule_filter_clear()}
-          aria-label={m.bank_review_rule_filter_clear()}
-          onclick={onClearInspectedRule}
-        >
-          <span class="max-w-60 truncate">
-            {m.bank_review_rule_filter_chip({ rule: ruleMatchText(inspectedRule) })}
-          </span>
-          <span class="text-slate-400">{inspectedRuleCount}</span>
-          <span aria-hidden="true">×</span>
-        </button>
-      {/if}
-      {#each filterOptions as f (f.kind)}
-        <button
-          type="button"
-          class={cn(
-            "rounded-full border px-3 py-1 text-xs transition-colors",
-            filter === f.kind
-              ? "border-accent bg-accent/10 text-accent"
-              : "border-white/10 text-slate-400 hover:bg-white/5"
-          )}
-          onclick={() => onFilterChange(f.kind)}
-        >
-          {f.label}<span class="ml-1.5 text-slate-400">{filterCounts[f.kind]}</span>
-        </button>
-      {/each}
-      <div class="relative inline-flex">
-        <select
-          value={sortKind}
-          aria-label={m.bank_review_sort_label()}
-          title={m.bank_review_sort_dropdown_hint()}
-          class="focus-visible:ring-accent appearance-none rounded-full border border-white/10 bg-slate-950 py-1 pr-8 pl-3 text-xs text-slate-400 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset"
-          onchange={(event) => setSortKind((event.currentTarget as HTMLSelectElement).value)}
-        >
-          {#each sortKinds as kind (kind)}
-            <option value={kind}>{sortLabelByKind[kind]}</option>
-          {/each}
-        </select>
-        <ChevronDown
-          size={14}
-          aria-hidden="true"
-          class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-slate-400"
-        />
-      </div>
-    </div>
-
-    <div class="flex flex-wrap items-center gap-2">
-      <input
-        type="search"
-        bind:value={advancedFilter.text}
-        placeholder={m.bank_review_search_placeholder()}
-        class="h-9 min-w-48 flex-1 rounded-full border border-white/10 bg-slate-900/60 px-3 text-sm text-slate-200"
-      />
-      <input
-        type="number"
-        inputmode="decimal"
-        step="0.01"
-        placeholder={m.bank_review_amount_min()}
-        value={advancedFilter.amountMin ?? ""}
-        oninput={(e) => (advancedFilter.amountMin = parseAmount(e.currentTarget.value))}
-        class="h-9 w-28 rounded-full border border-white/10 bg-slate-900/60 px-3 text-sm text-slate-200"
-      />
-      <input
-        type="number"
-        inputmode="decimal"
-        step="0.01"
-        placeholder={m.bank_review_amount_max()}
-        value={advancedFilter.amountMax ?? ""}
-        oninput={(e) => (advancedFilter.amountMax = parseAmount(e.currentTarget.value))}
-        class="h-9 w-28 rounded-full border border-white/10 bg-slate-900/60 px-3 text-sm text-slate-200"
-      />
-      <CategorySelect
-        categories={filterCategories}
-        selectedId={advancedFilter.categoryId}
-        type="expense"
-        onchange={(id) => (advancedFilter.categoryId = id)}
-        placeholder={m.bank_review_header_category()}
-        class="min-w-40"
-      />
-      {#if advancedActive}
-        <button
-          type="button"
-          onclick={onclearfilter}
-          class="h-9 rounded-full border border-white/10 px-3 text-xs font-medium text-slate-300 hover:bg-white/5"
-        >
-          {m.bank_review_filter_clear()}
-        </button>
-      {/if}
+    <div class="hidden space-y-2 md:block">{@render filterControls()}</div>
+    <div class="flex min-h-11 items-center justify-between gap-3 md:hidden">
+      <p class="text-sm font-medium text-slate-100">
+        {m.import_v2_decisions({
+          count: visibleRows.filter(
+            (row) =>
+              row.decision === "pending" ||
+              (row.decision === "import" && row.selected_category_id === null)
+          ).length,
+        })}
+      </p>
+      <button
+        type="button"
+        class="min-h-11 rounded-full border border-white/10 px-4 text-sm text-slate-300"
+        aria-pressed={advancedActive || filter !== "all"}
+        onclick={() => (filtersOpen = true)}>{m.import_v2_filters()}</button
+      >
     </div>
   </div>
 
@@ -604,129 +641,177 @@
     {/if}
 
     <ul class="space-y-1.5 md:hidden">
-      {#each reviewRenderedRows as row (row.id)}
-        {@const rule = matchedRuleFor(row)}
-        {@const categoryAction = categoryActionFor(row)}
-        {@const groupName = groups.find((g) => g.id === row.selected_group_id)?.name}
-        <li class="space-y-2 rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3">
-          <div class="flex items-start justify-between gap-3">
-            {#if row.counterparty}
-              <span class="min-w-0 flex-1 truncate text-sm font-medium text-slate-100">
-                {row.counterparty}
-              </span>
-            {:else}
-              <span class="min-w-0 flex-1"></span>
-            {/if}
-            <span
-              class={cn(
-                "shrink-0 text-sm font-semibold tabular-nums",
-                row.type === "income" ? "text-emerald-300" : "text-rose-300"
-              )}
+      {#each mobileGroups as similarRows (similarRows[0].id)}
+        {@const representative = similarRows[0]}
+        {@const expanded = expandedGroupIds.includes(representative.id)}
+        <li class="space-y-2">
+          {#if similarRows.length > 1}
+            <div
+              class="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-800/60 px-4 py-3"
             >
-              {row.type === "income" ? "+" : "−"}{formatCurrency(row.amount, row.currency)}
-            </span>
-          </div>
-          <div class="flex flex-wrap items-center gap-2 text-xs text-slate-400">
-            <span>{row.posted_at}</span>
-            {#if row.is_hold}
-              <span
-                class="text-[10px] font-normal text-slate-400"
-                title={m.bank_review_hold_hint()}
-              >
-                {m.bank_review_hold_badge()}
-              </span>
-            {/if}
-            {#if groupName}
-              <Badge variant="shared">{groupName}</Badge>
-            {/if}
-          </div>
-          <Input
-            class="w-full"
-            value={row.edited_description ?? row.description}
-            onchange={(e) => {
-              const v = (e.target as HTMLInputElement).value.trim();
-              onPatchRow(row.id, {
-                edited_description: v === "" || v === row.description ? null : v,
-              });
-            }}
-          />
-          <CategorySelect
-            class="w-full min-w-0"
-            categories={categoriesFor(row.type)}
-            type={row.type}
-            selectedId={row.selected_category_id}
-            placeholder={m.bank_review_header_category()}
-            onchange={(id) => onCategoryChange(row, id)}
-            oncreate={createCategoryInline}
-            pillMode
-          />
-          <div class="flex flex-wrap items-center gap-2">
-            {#if celeCategoryId && row.type === "expense"}
-              {@const planHint = matchSavePlanHint(
-                {
-                  type: row.type,
-                  description: row.edited_description ?? row.description,
-                  counterparty: row.counterparty,
-                },
-                savePlans
-              )}
-              {#if planHint && row.selected_category_id !== celeCategoryId}
-                <button
-                  type="button"
-                  class="rounded-md bg-emerald-950/50 px-2 py-0.5 text-xs text-emerald-300"
-                  onclick={() => onCategoryChange(row, celeCategoryId)}
-                >
-                  {m.bank_review_cele_apply()}
-                </button>
-              {/if}
-            {/if}
-            {#if rule}
-              <span
-                class="rounded-md bg-slate-800/80 px-2 py-0.5 text-xs text-slate-300"
-                title={m.bank_review_row_rule_attribution({ text: ruleMatchText(rule) })}
-              >
-                {m.bank_review_rule_pill({ rule: ruleMatchText(rule) })}
-              </span>
+              <p class="min-h-11 px-1 text-sm text-slate-300">
+                {m.import_v2_group_summary({
+                  count: similarRows.length,
+                  amount: formatCurrency(
+                    similarRows.reduce((sum, row) => sum + row.amount, 0),
+                    representative.currency
+                  ),
+                })}
+              </p>
               <button
                 type="button"
-                class="text-xs text-slate-400 underline-offset-2 hover:text-slate-200 hover:underline"
-                title={m.bank_review_row_rule_attribution_title()}
-                onclick={() => onEditRule(rule)}
+                class="min-h-11 text-sm text-sky-300"
+                aria-expanded={expanded}
+                onclick={() =>
+                  (expandedGroupIds = expanded
+                    ? expandedGroupIds.filter((id) => id !== representative.id)
+                    : [...expandedGroupIds, representative.id])}
+                >{expanded
+                  ? m.import_v2_group_collapse()
+                  : m.import_v2_group_expand({ count: similarRows.length })}</button
               >
-                {m.bank_review_rule_edit()}
-              </button>
-            {:else if categoryAction}
-              <span class="text-xs text-slate-500">{m.bank_review_category_one_off()}</span>
-              {#if categoryAction.similarCount > 0}
+            </div>
+          {/if}
+          <ul class="space-y-2">
+            {#each expanded ? similarRows : [representative] as row (row.id)}
+              {@const rule = matchedRuleFor(row)}
+              {@const categoryAction = categoryActionFor(row)}
+              {@const groupName = groups.find((g) => g.id === row.selected_group_id)?.name}
+              <li class="space-y-2 rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3">
+                <div class="flex items-start justify-between gap-3">
+                  {#if row.counterparty}
+                    <span class="min-w-0 flex-1 truncate text-sm font-medium text-slate-100">
+                      {row.counterparty}
+                    </span>
+                  {:else}
+                    <span class="min-w-0 flex-1"></span>
+                  {/if}
+                  <span
+                    class={cn(
+                      "shrink-0 text-sm font-semibold tabular-nums",
+                      row.type === "income" ? "text-emerald-300" : "text-rose-300"
+                    )}
+                  >
+                    {row.type === "income" ? "+" : "−"}{formatCurrency(row.amount, row.currency)}
+                  </span>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                  <span>{row.posted_at}</span>
+                  {#if row.is_hold}
+                    <span
+                      class="text-[10px] font-normal text-slate-400"
+                      title={m.bank_review_hold_hint()}
+                    >
+                      {m.bank_review_hold_badge()}
+                    </span>
+                  {/if}
+                  {#if groupName}
+                    <Badge variant="shared">{groupName}</Badge>
+                  {/if}
+                </div>
+                <p class="text-sm wrap-break-word text-slate-300">
+                  {row.edited_description ?? row.description}
+                </p>
+                <details>
+                  <summary class="min-h-11 cursor-pointer py-3 text-sm text-slate-400"
+                    >{m.import_v2_edit_description()}</summary
+                  >
+                  <Input
+                    class="w-full"
+                    value={row.edited_description ?? row.description}
+                    onchange={(e) => {
+                      const v = (e.target as HTMLInputElement).value.trim();
+                      onPatchRow(row.id, {
+                        edited_description: v === "" || v === row.description ? null : v,
+                      });
+                    }}
+                  />
+                </details>
                 <button
                   type="button"
-                  class="text-xs text-sky-300 underline-offset-2 hover:underline"
-                  onclick={() => onApplySimilar(row)}
+                  class="focus-visible:ring-accent min-h-11 w-full rounded-xl border border-white/10 px-3 py-3 text-left text-sm text-slate-100 focus-visible:ring-2"
+                  aria-label={m.bank_review_header_category()}
+                  onclick={() => (categorySheetRowId = row.id)}
                 >
-                  {m.bank_review_apply_similar({ count: categoryAction.similarCount })}
+                  {categoriesFor(row.type).find(
+                    (category) => category.id === row.selected_category_id
+                  )?.name ?? m.bank_review_header_category()}
+                  <ChevronDown size={16} class="float-right text-slate-400" aria-hidden="true" />
                 </button>
-              {/if}
-              <button
-                type="button"
-                class="text-xs text-slate-300 underline-offset-2 hover:underline"
-                onclick={() => onSaveRule(row)}
-              >
-                {categoryAction.kind === "update"
-                  ? m.bank_review_update_rule_explicit()
-                  : m.bank_review_save_rule_explicit()}
-              </button>
-            {/if}
-            <button
-              type="button"
-              class="text-xs text-slate-400 underline-offset-2 hover:underline"
-              onclick={() => (groupSheetRowId = row.id)}
-            >
-              {row.selected_group_id ? m.bank_review_group_change() : m.bank_review_group_add()}
-            </button>
-          </div>
-          <div class="flex items-center justify-end gap-2">
-            {@render decisionControl(row)}
-          </div>
+                <div class="flex flex-wrap items-center gap-2">
+                  {#if celeCategoryId && row.type === "expense"}
+                    {@const planHint = matchSavePlanHint(
+                      {
+                        type: row.type,
+                        description: row.edited_description ?? row.description,
+                        counterparty: row.counterparty,
+                      },
+                      savePlans
+                    )}
+                    {#if planHint && row.selected_category_id !== celeCategoryId}
+                      <button
+                        type="button"
+                        class="rounded-md bg-emerald-950/50 px-2 py-0.5 text-xs text-emerald-300"
+                        onclick={() => onCategoryChange(row, celeCategoryId)}
+                      >
+                        {m.bank_review_cele_apply()}
+                      </button>
+                    {/if}
+                  {/if}
+                  {#if rule}
+                    <span
+                      class="rounded-md bg-slate-800/80 px-2 py-0.5 text-xs text-slate-300"
+                      title={m.bank_review_row_rule_attribution({ text: ruleMatchText(rule) })}
+                    >
+                      {m.bank_review_rule_pill({ rule: ruleMatchText(rule) })}
+                    </span>
+                    <button
+                      type="button"
+                      class="min-h-11 px-1 text-sm text-slate-400 underline-offset-2 hover:text-slate-200 hover:underline"
+                      title={m.bank_review_row_rule_attribution_title()}
+                      onclick={() => onEditRule(rule)}
+                    >
+                      {m.bank_review_rule_edit()}
+                    </button>
+                  {:else if categoryAction}
+                    <span class="min-h-11 px-1 text-sm text-slate-500"
+                      >{m.bank_review_category_one_off()}</span
+                    >
+                    {#if categoryAction.similarCount > 0}
+                      <button
+                        type="button"
+                        class="min-h-11 px-1 text-sm text-sky-300 underline-offset-2 hover:underline"
+                        onclick={() => onApplySimilar(row)}
+                      >
+                        {m.bank_review_apply_similar({ count: categoryAction.similarCount })}
+                      </button>
+                    {/if}
+                    <button
+                      type="button"
+                      class="min-h-11 px-1 text-sm text-slate-300 underline-offset-2 hover:underline"
+                      onclick={() => onSaveRule(row)}
+                    >
+                      {categoryAction.kind === "update"
+                        ? m.bank_review_update_rule_explicit()
+                        : m.bank_review_save_rule_explicit()}
+                    </button>
+                  {/if}
+                  <button
+                    type="button"
+                    class="min-h-11 px-1 text-sm text-slate-400 underline-offset-2 hover:underline"
+                    onclick={() => (groupSheetRowId = row.id)}
+                  >
+                    {row.selected_group_id
+                      ? m.bank_review_group_change()
+                      : m.bank_review_group_add()}
+                  </button>
+                </div>
+                <div class="flex items-center justify-end gap-2">
+                  {@render decisionControl(row)}
+                </div>
+              </li>
+            {/each}
+          </ul>
         </li>
       {/each}
       {#if shown < reviewRows.length}
@@ -783,3 +868,27 @@
     </div>
   {/if}
 </Dialog>
+
+<Sheet open={filtersOpen} onclose={() => (filtersOpen = false)} title={m.import_v2_filters()}>
+  <div class="space-y-4">{@render filterControls()}</div>
+  <Button class="mt-4 min-h-11 w-full" onclick={() => (filtersOpen = false)}
+    >{m.common_close()}</Button
+  >
+</Sheet>
+
+{#if categorySheetRow}
+  {#key categorySheetRow.id}
+    <ImportCategorySheet
+      categories={categoriesFor(categorySheetRow.type)}
+      type={categorySheetRow.type}
+      selectedId={categorySheetRow.selected_category_id}
+      suggestedId={categorySheetRow.suggested_category_id}
+      recentIds={recentCategoryIds}
+      onselect={(id) => {
+        if (categorySheetRow) selectMobileCategory(categorySheetRow, id);
+      }}
+      oncreate={createCategoryInline}
+      onclose={() => (categorySheetRowId = null)}
+    />
+  {/key}
+{/if}

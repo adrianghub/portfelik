@@ -20,6 +20,7 @@
 // coordinate. Lp is statement-level → never used as external_id; Erste rows
 // hard-dedupe only via (user_id, bank_account_id, source_file_hash, row_index).
 
+import { cleanTransactionText as collapseWs } from "../transaction-text";
 import { parseCsv } from "../csv/parse";
 import type {
   AdapterDetectionInput,
@@ -45,10 +46,6 @@ function parseAmount(raw: string): number | null {
 function parseDate(raw: string): string | null {
   const m = DATE_DMY_RE.exec((raw ?? "").trim());
   return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
-}
-
-function collapseWs(s: string): string {
-  return s.replace(/\s+/g, " ").trim();
 }
 
 /** A summary/account row: 5th field is a bare currency code, not an IBAN. */
@@ -121,6 +118,7 @@ export const ersteAdapter: ImportAdapter = {
         amount: Math.abs(signed),
         type,
         description,
+        text_fields: { primary_description: cells[2] ?? "", counterparty: cells[3] ?? "" },
         counterparty: counterparty || undefined,
         external_id: undefined, // col8 Lp is statement-level → never used for dedupe
         currency: "PLN",

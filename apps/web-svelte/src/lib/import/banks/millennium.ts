@@ -1,3 +1,4 @@
+import { cleanTransactionText as collapseWs } from "../transaction-text";
 import { parseCsv } from "../csv/parse";
 import type {
   AdapterDetectionInput,
@@ -45,10 +46,6 @@ function parseDate(raw: string): string | null {
   m = /^(\d{2})[.-](\d{2})[.-](\d{4})$/.exec(t);
   if (m) return `${m[3]}-${m[2]}-${m[1]}`;
   return null;
-}
-
-function collapseWs(s: string): string {
-  return s.replace(/\s+/g, " ").trim();
 }
 
 export const millenniumAdapter: ImportAdapter = {
@@ -123,7 +120,14 @@ export const millenniumAdapter: ImportAdapter = {
         amount: amountRaw,
         type,
         description: description || "Operacja bankowa",
-        counterparty: idx.counterparty >= 0 ? collapseWs(cells[idx.counterparty] ?? "") : undefined,
+        text_fields: {
+          primary_description: idx.desc >= 0 ? (cells[idx.desc] ?? "") : "",
+          counterparty: idx.counterparty >= 0 ? (cells[idx.counterparty] ?? "") : undefined,
+        },
+        counterparty:
+          idx.counterparty >= 0
+            ? collapseWs(cells[idx.counterparty] ?? "") || undefined
+            : undefined,
         currency:
           idx.currency >= 0 ? (cells[idx.currency] ?? "").trim().toUpperCase() || "PLN" : "PLN",
         source_row_text: csv.rowTexts[i],

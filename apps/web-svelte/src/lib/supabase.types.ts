@@ -171,6 +171,7 @@ export type Database = {
           created_at: string;
           id: string;
           kind: Database["public"]["Enums"]["categorization_rule_kind"];
+          match_operator: string;
           match_counterparty: string | null;
           match_day_of_month: number | null;
           match_description: string | null;
@@ -183,6 +184,7 @@ export type Database = {
           created_at?: string;
           id?: string;
           kind: Database["public"]["Enums"]["categorization_rule_kind"];
+          match_operator?: string;
           match_counterparty?: string | null;
           match_day_of_month?: number | null;
           match_description?: string | null;
@@ -195,6 +197,7 @@ export type Database = {
           created_at?: string;
           id?: string;
           kind?: Database["public"]["Enums"]["categorization_rule_kind"];
+          match_operator?: string;
           match_counterparty?: string | null;
           match_day_of_month?: number | null;
           match_description?: string | null;

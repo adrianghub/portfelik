@@ -27,6 +27,8 @@ export interface CategorizationRule {
   id: string;
   user_id: string;
   kind: CategorizationRuleKind;
+  /** Missing only in pre-migration data: preserve legacy OR behavior. */
+  match_operator?: "all" | "any";
   match_description: string | null;
   match_counterparty: string | null;
   match_type: TransactionType | null;

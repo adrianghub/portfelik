@@ -73,6 +73,13 @@
     if (rule.match_counterparty) {
       parts.push(`${m.bank_review_save_rule_field_counterparty()}: "${rule.match_counterparty}"`);
     }
+    if (rule.match_description && rule.match_counterparty) {
+      parts.push(
+        rule.match_operator === "all"
+          ? m.rule_v2_operator_all_short()
+          : m.rule_v2_operator_any_short()
+      );
+    }
     if (rule.match_type) {
       const t = rule.match_type === "income" ? m.common_income() : m.common_expense();
       parts.push(`${m.rules_field_type()}: ${t}`);
