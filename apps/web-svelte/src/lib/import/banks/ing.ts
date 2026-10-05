@@ -21,6 +21,7 @@
 // FIXTURE STATUS: behavior verified against synthetic fixtures. Validation
 // against real anonymized ING exports is a step-2.5 task; provisional.
 
+import { cleanTransactionText as collapseWs, combineTransactionText } from "../transaction-text";
 import { parseCsv } from "../csv/parse";
 import type {
   AdapterDetectionInput,
@@ -52,10 +53,6 @@ function parseDate(raw: string): string | null {
   m = /^(\d{2})[.-](\d{2})[.-](\d{4})$/.exec(t);
   if (m) return `${m[3]}-${m[2]}-${m[1]}`;
   return null;
-}
-
-function collapseWs(s: string): string {
-  return s.replace(/\s+/g, " ").trim();
 }
 
 function hasTransactionSignal(cells: string[], idx: Record<string, number>): boolean {
@@ -204,8 +201,7 @@ export const ingAdapter: ImportAdapter = {
       const counterparty = idx.counterparty !== -1 ? collapseWs(cells[idx.counterparty] ?? "") : "";
       const titleRaw = idx.title !== -1 ? (cells[idx.title] ?? "") : "";
       const detailsRaw = idx.details !== -1 ? (cells[idx.details] ?? "") : "";
-      const description =
-        collapseWs([titleRaw, detailsRaw].filter(Boolean).join(" - ")) || "(brak opisu)";
+      const description = combineTransactionText(titleRaw, detailsRaw) || "(brak opisu)";
       const external_id = idx.external !== -1 ? (cells[idx.external] ?? "").trim() : "";
 
       const currency =
@@ -216,6 +212,11 @@ export const ingAdapter: ImportAdapter = {
         amount,
         type,
         description,
+        text_fields: {
+          primary_description: titleRaw,
+          secondary_description: detailsRaw,
+          counterparty: idx.counterparty !== -1 ? (cells[idx.counterparty] ?? "") : undefined,
+        },
         counterparty: counterparty || undefined,
         external_id: external_id || undefined,
         currency,

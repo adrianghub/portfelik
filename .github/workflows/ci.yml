@@ -71,8 +71,8 @@ jobs:
 
       - uses: ./.github/actions/setup-web
 
-      - name: Release automation tests
-        run: node --test scripts/android-release.test.mjs
+      - name: Repository automation tests
+        run: node --test scripts/android-release.test.mjs scripts/supabase-ops.test.mjs apps/web-svelte/scripts/seed-personas.test.mjs
 
       - name: Typecheck
         working-directory: apps/web-svelte

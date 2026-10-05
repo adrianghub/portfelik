@@ -1,5 +1,6 @@
 import { INNE_CATEGORY_NAMES } from "$lib/constants/categories";
-import { suggestRuleText, type MatchableRow } from "$lib/import/categorize";
+import { normalizeRuleText, type MatchableRow } from "$lib/import/categorize";
+import { suggestDescriptionRule } from "$lib/import/transaction-text";
 import type { Category, TransactionType } from "$lib/types";
 
 export interface CategoryRuleSuggestion {
@@ -53,9 +54,9 @@ export function detectCategoryRuleSuggestions(
     if (categories.find((category) => category.id === row.selected_category_id)?.archived_at)
       continue;
     if (!row.selected_category_id) continue;
-    const text = suggestRuleText(row);
+    const text = suggestDescriptionRule(row);
     if (text.trim() === "") continue;
-    const key = `${row.type}|${text.toLowerCase()}`;
+    const key = `${row.type}|${normalizeRuleText(text)}`;
     const name = rowCategoryName(row, categories) ?? "";
     const bucket = buckets.get(key) ?? {
       text,
@@ -75,7 +76,7 @@ export function detectCategoryRuleSuggestions(
 
   const suggestions: CategoryRuleSuggestion[] = [];
   for (const bucket of buckets.values()) {
-    if (bucket.total < minCount) continue;
+    if (bucket.total < minCount || bucket.counts.size !== 1) continue;
     let bestId = "";
     let bestName = "";
     let bestCount = 0;
@@ -89,7 +90,7 @@ export function detectCategoryRuleSuggestions(
     if (!bestId || bestCount < minCount) continue;
     if (isInneCategoryName(bestName)) continue;
     suggestions.push({
-      signature: `category_rule:${bucket.type}:${bucket.text.toLowerCase()}:${bestId}`,
+      signature: `category_rule:${bucket.type}:${normalizeRuleText(bucket.text)}:${bestId}`,
       text: bucket.text,
       type: bucket.type,
       categoryId: bestId,

@@ -15,7 +15,7 @@ load_env_file() {
   local name
   local value
 
-  [[ -f "$ENV_FILE" ]] || return
+  [[ -f "$ENV_FILE" ]] || return 0
 
   while IFS= read -r line || [[ -n "$line" ]]; do
     [[ "$line" =~ ^[[:space:]]*$ || "$line" =~ ^[[:space:]]*# ]] && continue

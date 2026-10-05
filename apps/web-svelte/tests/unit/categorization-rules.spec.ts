@@ -109,7 +109,10 @@ describe("createCategorizationRule", () => {
       priority: 0,
       created_at: "2026-06-01T00:00:00Z",
     };
-    h.state.results = [{ data: [], error: null }, { data: created, error: null }];
+    h.state.results = [
+      { data: [], error: null },
+      { data: created, error: null },
+    ];
 
     const out = await createCategorizationRule({
       kind: "contains",
@@ -122,6 +125,7 @@ describe("createCategorizationRule", () => {
     expect(h.state.log.insert[0]).toMatchObject({
       user_id: TEST_UID,
       kind: "contains",
+      match_operator: "all",
       match_description: "lidl",
       category_id: "cat-2",
       priority: 0,
@@ -139,6 +143,20 @@ describe("buildCategorizationRuleEditPatch", () => {
     dateEnabled: false,
     dayOfMonth: "1",
   };
+
+  it("rejects a blank enabled field even when the other condition has text", () => {
+    expect(
+      buildCategorizationRuleEditPatch(
+        { kind: "contains", match_type: null },
+        {
+          ...form,
+          desc: "  ",
+          counterpartyEnabled: true,
+          counterparty: "Netflix International",
+        }
+      )
+    ).toEqual({ ok: false, issue: "require_text" });
+  });
 
   it("never includes kind and preserves composite match_type", () => {
     const built = buildCategorizationRuleEditPatch(

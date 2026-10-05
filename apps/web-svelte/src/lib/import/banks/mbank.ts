@@ -16,6 +16,7 @@
 // Encoding: typically Windows-1250 (decode.ts handles).
 // Separator: `;`.
 
+import { cleanTransactionText as collapseWs, combineTransactionText } from "../transaction-text";
 import { parseCsv } from "../csv/parse";
 import type {
   AdapterDetectionInput,
@@ -53,10 +54,6 @@ function parseDate(raw: string): string | null {
   m = /^(\d{2})[.-](\d{2})[.-](\d{4})$/.exec(t);
   if (m) return `${m[3]}-${m[2]}-${m[1]}`;
   return null;
-}
-
-function collapseWs(s: string): string {
-  return s.replace(/\s+/g, " ").trim();
 }
 
 export const mbankAdapter: ImportAdapter = {
@@ -134,7 +131,7 @@ export const mbankAdapter: ImportAdapter = {
 
       const opis = idx.opis !== -1 ? (cells[idx.opis] ?? "") : "";
       const tytul = idx.tytul !== -1 ? (cells[idx.tytul] ?? "") : "";
-      const description = collapseWs([opis, tytul].filter(Boolean).join(" - "));
+      const description = combineTransactionText(opis, tytul);
       const counterparty =
         idx.counterparty !== -1 ? collapseWs(cells[idx.counterparty] ?? "") : undefined;
 
@@ -143,6 +140,11 @@ export const mbankAdapter: ImportAdapter = {
         amount,
         type,
         description: description || "(brak opisu)",
+        text_fields: {
+          primary_description: opis,
+          secondary_description: tytul,
+          counterparty: idx.counterparty !== -1 ? (cells[idx.counterparty] ?? "") : undefined,
+        },
         counterparty: counterparty || undefined,
         external_id: undefined, // mBank "Historia operacji" does not export an op id
         currency: "PLN",

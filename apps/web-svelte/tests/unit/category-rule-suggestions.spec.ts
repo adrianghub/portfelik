@@ -25,17 +25,36 @@ const transport: Category = {
 };
 
 describe("detectCategoryRuleSuggestions", () => {
-  it("suggests a rule when the same merchant repeats in Inne", () => {
-    const rows = Array.from({ length: 3 }, (_, i) => ({
+  it("suggests a rule when the same actual description repeats with one category", () => {
+    const rows = Array.from({ length: 3 }, () => ({
       type: "expense" as const,
-      description: `NETFLIX ${i}`,
+      description: "NETFLIX.COM AMSTERDAM",
       counterparty: "NETFLIX",
       selected_category_id: transport.id,
       category_name: transport.name,
     }));
     const suggestions = detectCategoryRuleSuggestions(rows, [inneExpense, transport]);
     expect(suggestions).toHaveLength(1);
-    expect(suggestions[0]?.text).toBe("NETFLIX");
+    expect(suggestions[0]?.text).toBe("NETFLIX.COM AMSTERDAM");
     expect(suggestions[0]?.count).toBe(3);
+  });
+  it("does not group unrelated descriptions by the same first word or payment processor", () => {
+    const rows = ["PRZELEW NETFLIX", "PRZELEW ALLEGRO", "PRZELEW CZYNSZ"].map((description) => ({
+      type: "expense" as const,
+      description,
+      counterparty: "PayU",
+      selected_category_id: transport.id,
+    }));
+    expect(detectCategoryRuleSuggestions(rows, [transport])).toEqual([]);
+  });
+  it("does not propose a persistent rule when category choices conflict", () => {
+    const rows = [transport.id, transport.id, transport.id, inneExpense.id].map(
+      (selected_category_id) => ({
+        type: "expense" as const,
+        description: "NETFLIX",
+        selected_category_id,
+      })
+    );
+    expect(detectCategoryRuleSuggestions(rows, [inneExpense, transport])).toEqual([]);
   });
 });

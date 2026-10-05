@@ -154,6 +154,11 @@
     </div>
 
     {#if editsText}
+      <p class="text-xs text-slate-400">
+        {rule?.match_operator === "all"
+          ? m.rule_v2_all_conditions()
+          : m.rule_v2_legacy_conditions()}
+      </p>
       <label class="flex items-center gap-2 text-sm text-slate-200">
         <input type="checkbox" bind:checked={editDescEnabled} />
         <span>{m.bank_review_rule_if_description()}</span>

@@ -5,6 +5,7 @@
 // the app ships to (browser via Vite, vitest via Node).
 
 import type { NormalizedRow, ParsedImportFile, ParseError } from "./banks/types";
+import { cleanTransactionText } from "./transaction-text";
 
 async function sha256Hex(input: string | ArrayBuffer): Promise<string> {
   const bytes = typeof input === "string" ? new TextEncoder().encode(input) : new Uint8Array(input);
@@ -36,7 +37,12 @@ export async function normalize(
       continue;
     }
     const raw_row_hash = await sha256Hex(r.source_row_text);
-    rows.push({ ...r, raw_row_hash });
+    rows.push({
+      ...r,
+      description: cleanTransactionText(r.description),
+      counterparty: cleanTransactionText(r.counterparty) || undefined,
+      raw_row_hash,
+    });
   }
   return { rows, errors, sourceFileHash };
 }

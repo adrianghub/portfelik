@@ -43,8 +43,8 @@ function targetEnv(name) {
   return undefined;
 }
 
-const adminEmail = targetEnv("ADMIN_EMAIL") ?? process.env.SEED_ADMIN_EMAIL ?? DEFAULT_ADMIN_LOGIN;
-const userEmail = targetEnv("USER_EMAIL") ?? process.env.SEED_USER_EMAIL ?? DEFAULT_USER_LOGIN;
+const adminEmail = targetEnv("ADMIN_EMAIL") || process.env.SEED_ADMIN_EMAIL || DEFAULT_ADMIN_LOGIN;
+const userEmail = targetEnv("USER_EMAIL") || process.env.SEED_USER_EMAIL || DEFAULT_USER_LOGIN;
 
 function getConfig() {
   if (target === "staging") {
@@ -527,14 +527,14 @@ function manualPersonas() {
   return [
     {
       email: adminEmail,
-      password: targetEnv("ADMIN_PASSWORD") ?? process.env.SEED_ADMIN_PASSWORD ?? adminEmail,
+      password: targetEnv("ADMIN_PASSWORD") || process.env.SEED_ADMIN_PASSWORD || adminEmail,
       label: "Portfelik Admin",
       role: "admin",
       withDemoRows: true,
     },
     {
       email: userEmail,
-      password: targetEnv("USER_PASSWORD") ?? process.env.SEED_USER_PASSWORD ?? userEmail,
+      password: targetEnv("USER_PASSWORD") || process.env.SEED_USER_PASSWORD || userEmail,
       label: "Portfelik User",
       role: "user",
       withDemoRows: true,

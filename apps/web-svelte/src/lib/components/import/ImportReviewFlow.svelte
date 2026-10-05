@@ -16,14 +16,13 @@
     fetchCategorizationRules,
     updateCategorizationRule,
   } from "$lib/services/categorization-rules";
-  import {
-    findDuplicateCategorizationRule,
-    matchCategory,
-    suggestRuleText,
-  } from "$lib/import/categorize";
+  import { areSimilarImportRows } from "$lib/import/similar-rows";
+  import { matchCategory, suggestRuleFromRow } from "$lib/import/categorize";
   import { detectCategoryRuleSuggestions } from "$lib/import/category-rule-suggestions";
   import { fetchPlans } from "$lib/services/plans";
   import { resolveCeleCategoryId } from "$lib/services/goal-spending";
+  import RuleCreateDialog from "$lib/components/settings/RuleCreateDialog.svelte";
+  import type { CategorizationRuleInput } from "$lib/services/categorization-rules";
   import type { CategorizationRule, TransactionType } from "$lib/types";
   import { importAdapterLabel } from "$lib/import/banks/registry";
   import {
@@ -101,6 +100,12 @@
   let confirmOpen = $state(false);
   let editRuleOpen = $state(false);
   let editingRule = $state<CategorizationRule | null>(null);
+  let capturingRule = $state<{
+    row: ImportRow;
+    previousCategoryId: string | null;
+    epoch?: number;
+    signature?: string;
+  } | null>(null);
   let editDescEnabled = $state(false);
   let editDesc = $state("");
   let editCounterpartyEnabled = $state(false);
@@ -110,6 +115,20 @@
   let showAdvancedRuleOptions = $state(false);
   let editRuleSaving = $state(false);
 
+  const editedRulePreview = $derived.by(() => {
+    if (!editingRule) return null;
+    const result = buildCategorizationRuleEditPatch(editingRule, {
+      categoryId: editingRule.category_id,
+      descEnabled: editDescEnabled,
+      desc: editDesc,
+      counterpartyEnabled: editCounterpartyEnabled,
+      counterparty: editCounterparty,
+      dateEnabled: editDateEnabled,
+      dayOfMonth: editDayOfMonth,
+    });
+    return result.ok ? { ...editingRule, ...result.patch } : null;
+  });
+
   const editRuleShowsText = $derived(editingRule?.kind !== "type");
   const editRuleTypeLabel = $derived(
     editingRule?.match_type === "income"
@@ -118,6 +137,8 @@
         ? m.common_expense()
         : null
   );
+  let createdRuleIds = $state<string[]>([]);
+
   let pendingCategoryReplacement = $state<
     Record<
       string,
@@ -192,6 +213,9 @@
 
   // activeRows = rows the user is deciding on (not auto-skipped duplicates).
   const activeRows = $derived(rows.filter((r) => r.decision !== "duplicate"));
+  const editedRuleMatches = $derived(
+    editedRulePreview ? activeRows.filter((r) => rowMatchesRule(r, editedRulePreview)) : []
+  );
   const importRows = $derived(rows.filter((r) => r.decision === "import"));
 
   function storyLines(source: ImportRow[]): ImportStoryLine[] {
@@ -318,27 +342,18 @@
   async function acceptRuleSuggestion(
     suggestion: (typeof categoryRuleSuggestions)[number]
   ): Promise<void> {
-    try {
-      await createCategorizationRule({
-        kind: "contains",
-        match_description: suggestion.text,
-        match_counterparty: suggestion.text,
-        match_type: null,
-        category_id: suggestion.categoryId,
-        priority: MANUAL_RULE_PRIORITY,
-      });
-      await refreshRules();
-      toast.success(m.rule_capture_created());
-      dismissedRuleSuggestions = new Set([...dismissedRuleSuggestions, suggestion.signature]);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (msg === "duplicate_categorization_rule") {
-        toast.info(m.bank_review_rule_already_saved({ rule: suggestion.text }));
-        dismissedRuleSuggestions = new Set([...dismissedRuleSuggestions, suggestion.signature]);
-      } else {
-        toast.error(msg);
-      }
-    }
+    const row = importRows.find(
+      (r) =>
+        r.selected_category_id === suggestion.categoryId &&
+        suggestRuleFromRow({ ...r, description: r.edited_description ?? r.description })
+          ?.match_description === suggestion.text
+    );
+    if (row)
+      capturingRule = {
+        row,
+        previousCategoryId: row.selected_category_id,
+        signature: suggestion.signature,
+      };
   }
 
   // Cadence nudge: when the statement spans more days than the user's import-reminder
@@ -566,7 +581,13 @@
 
   function rowMatchesRule(row: ImportRow, rule: CategorizationRule): boolean {
     const cats = categoriesQuery.data ?? [];
-    return matchCategory(row, [rule], cats) !== null;
+    return (
+      matchCategory(
+        { ...row, description: row.edited_description ?? row.description },
+        [rule],
+        cats
+      ) !== null
+    );
   }
 
   function ruleHasTextScope(rule: CategorizationRule): boolean {
@@ -578,15 +599,15 @@
 
   function draftRuleForRow(row: ImportRow): CategorizationRule | null {
     if (!row.selected_category_id) return null;
-    const text = suggestRuleText(row);
-    if (text === "") return null;
+    const draft = suggestRuleFromRow({
+      ...row,
+      description: row.edited_description ?? row.description,
+    });
+    if (!draft) return null;
     return {
       id: "__draft__",
       user_id: "__draft__",
-      kind: "contains",
-      match_description: text,
-      match_counterparty: text,
-      match_type: null,
+      ...draft,
       match_day_of_month: null,
       category_id: row.selected_category_id,
       priority: MANUAL_RULE_PRIORITY,
@@ -602,7 +623,8 @@
     const similarCount = activeRows.filter(
       (candidate) =>
         candidate.id !== row.id &&
-        rowMatchesRule(candidate, draft) &&
+        candidate.decision !== "skip" &&
+        areSimilarImportRows(candidate, row) &&
         (candidate.selected_category_id == null ||
           candidate.selected_category_id === context.previousCategoryId)
     ).length;
@@ -620,7 +642,12 @@
     if (!context || !draft || !row.selected_category_id) return;
 
     const targets = activeRows.filter((candidate) => {
-      if (candidate.id === row.id || !rowMatchesRule(candidate, draft)) return false;
+      if (
+        candidate.id === row.id ||
+        candidate.decision === "skip" ||
+        !areSimilarImportRows(candidate, row)
+      )
+        return false;
       return (
         candidate.selected_category_id == null ||
         candidate.selected_category_id === context.previousCategoryId
@@ -667,7 +694,7 @@
       return;
     }
 
-    await captureRuleForRow(row, context.previousCategoryId, ruleApplyEpoch);
+    captureRuleForRow(row, context.previousCategoryId, ruleApplyEpoch);
   }
 
   async function refreshRules(): Promise<CategorizationRule[]> {
@@ -679,12 +706,14 @@
   async function applyRuleCategoryToRows(
     rule: CategorizationRule,
     previousCategoryId: string | null,
-    epoch?: number
+    epoch?: number,
+    sourceRowId?: string
   ): Promise<UndoSnapshot[]> {
     if (epoch !== undefined && epoch !== ruleApplyEpoch) return [];
     const targets = activeRows.filter((r) => {
       if (!rowMatchesRule(r, rule)) return false;
       if (r.selected_category_id === rule.category_id) return false;
+      if (r.id === sourceRowId) return true;
       return r.selected_category_id == null || r.selected_category_id === previousCategoryId;
     });
     const snapshots = targets.map((r) => ({
@@ -733,7 +762,11 @@
 
         const nextCategoryId = matchesNextRule
           ? nextRule.category_id
-          : matchCategory(row, nextRules, cats);
+          : matchCategory(
+              { ...row, description: row.edited_description ?? row.description },
+              nextRules,
+              cats
+            );
         if (row.selected_category_id === nextCategoryId) return null;
         return { row, nextCategoryId };
       })
@@ -755,6 +788,7 @@
   ): Promise<void> {
     try {
       await deleteCategorizationRule(ruleId);
+      createdRuleIds = createdRuleIds.filter((id) => id !== ruleId);
       const current = queryClient.getQueryData<ImportRow[]>(rowsKey) ?? [];
       await Promise.all(
         changedRows
@@ -779,46 +813,29 @@
     }
   }
 
-  async function createAndApplyRule(input: {
-    kind: "contains" | "exact";
-    categoryId: string;
-    text: string;
-    previousCategoryId?: string | null;
-    epoch?: number;
-  }): Promise<CategorizationRule> {
-    const text = input.text.trim();
-    const candidate = {
-      id: "__draft__",
-      user_id: "__draft__",
-      kind: input.kind,
-      match_description: text,
-      match_counterparty: text,
-      match_type: null,
-      match_day_of_month: null,
-      category_id: input.categoryId,
-      priority: MANUAL_RULE_PRIORITY,
-      created_at: "",
-    } satisfies CategorizationRule;
-
-    if (findDuplicateCategorizationRule(rulesQuery.data ?? [], candidate)) {
-      throw new Error("duplicate_categorization_rule");
+  async function createAndApplyRule(
+    input: CategorizationRuleInput & {
+      previousCategoryId?: string | null;
+      epoch?: number;
+      sourceRowId?: string;
     }
-
-    const created = await createCategorizationRule({
-      kind: input.kind,
-      category_id: input.categoryId,
-      match_description: text,
-      match_counterparty: text,
-      match_day_of_month: null,
-      priority: MANUAL_RULE_PRIORITY,
-    });
-    await refreshRules();
-
-    const snapshots = await applyRuleCategoryToRows(
-      created,
-      input.previousCategoryId ?? null,
-      input.epoch
-    );
+  ): Promise<CategorizationRule> {
+    const created = await createCategorizationRule(input);
+    createdRuleIds = [...createdRuleIds, created.id];
+    let snapshots: UndoSnapshot[];
+    try {
+      await refreshRules();
+      snapshots = await applyRuleCategoryToRows(
+        created,
+        input.previousCategoryId ?? null,
+        input.epoch,
+        input.sourceRowId
+      );
+    } catch {
+      // Persistence already succeeded. Do not leave a retry button that creates a duplicate.
+      toast.warning(m.rule_v2_apply_error());
+      return created;
+    }
 
     const toastMsg =
       snapshots.length > 0
@@ -843,53 +860,26 @@
     return created;
   }
 
-  async function captureRuleForRow(
+  function captureRuleForRow(
     row: ImportRow,
     previousCategoryId: string | null,
     epoch?: number
-  ): Promise<boolean> {
-    if (!row.selected_category_id) return false;
-    const text = suggestRuleText(row);
-    if (text === "") return false;
-    const draft = {
-      id: "__draft__",
-      user_id: "__draft__",
-      kind: "contains",
-      match_description: text,
-      match_counterparty: text,
-      match_type: null,
-      match_day_of_month: null,
-      category_id: row.selected_category_id,
-      priority: MANUAL_RULE_PRIORITY,
-      created_at: "",
-    } satisfies CategorizationRule;
+  ): void {
+    if (!row.selected_category_id) return;
+    capturingRule = { row, previousCategoryId, epoch };
+  }
 
-    const duplicate = findDuplicateCategorizationRule(rulesQuery.data ?? [], draft);
-    if (duplicate) {
-      const duplicateLabel = duplicate.match_description ?? duplicate.match_counterparty ?? text;
-      await applyRuleCategoryToRows(duplicate, previousCategoryId, epoch);
-      toast.info(m.bank_review_rule_already_saved({ rule: duplicateLabel }));
-      return true;
-    }
-
-    try {
-      await createAndApplyRule({
-        kind: "contains",
-        categoryId: row.selected_category_id,
-        text,
-        previousCategoryId,
-        epoch,
-      });
-      return true;
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (msg === "duplicate_categorization_rule") {
-        toast.info(m.bank_review_rule_already_saved({ rule: text }));
-        return true;
-      }
-      toast.error(msg);
-      return false;
-    }
+  async function createCapturedRule(input: CategorizationRuleInput): Promise<void> {
+    const context = capturingRule;
+    if (!context) return;
+    await createAndApplyRule({
+      ...input,
+      previousCategoryId: context.previousCategoryId,
+      epoch: context.epoch,
+      sourceRowId: context.row.id,
+    });
+    if (context.signature)
+      dismissedRuleSuggestions = new Set([...dismissedRuleSuggestions, context.signature]);
   }
 
   async function handleRowCategoryChange(
@@ -939,7 +929,12 @@
     return (
       (rulesQuery.data ?? []).find(
         (rule) =>
-          rule.category_id === row.selected_category_id && matchCategory(row, [rule], cats) !== null
+          rule.category_id === row.selected_category_id &&
+          matchCategory(
+            { ...row, description: row.edited_description ?? row.description },
+            [rule],
+            cats
+          ) !== null
       ) ?? null
     );
   }
@@ -1034,7 +1029,7 @@
   }));
 
   function commitOrConfirm(): void {
-    if (needsConfirm) confirmOpen = true;
+    if (importRows.length > 0 || needsConfirm) confirmOpen = true;
     else commitMut.mutate();
   }
 
@@ -1215,6 +1210,7 @@
     }}
     onClearFilter={() => {
       inspectedRuleId = null;
+      clearAdvancedFilter();
       filter = "all";
     }}
     onBulkImportVisible={() => void bulkImportVisible()}
@@ -1278,11 +1274,35 @@
   skipCount={skippedRows.length}
   dupCount={duplicateRows.length}
   {inneRows}
+  automaticCount={importRows.filter(
+    (row) =>
+      row.selected_category_id != null && row.selected_category_id === row.suggested_category_id
+  ).length}
+  manualCount={importRows.filter(
+    (row) =>
+      row.selected_category_id != null && row.selected_category_id !== row.suggested_category_id
+  ).length}
+  newRuleCount={createdRuleIds.length}
   commitPending={commitMut.isPending}
   onClose={() => (confirmOpen = false)}
   onCommit={confirmCommit}
   onSkipInne={() => void skipInneAndCommit()}
 />
+
+{#if capturingRule}
+  <RuleCreateDialog
+    open={true}
+    row={{
+      ...capturingRule.row,
+      description: capturingRule.row.edited_description ?? capturingRule.row.description,
+    }}
+    categoryId={capturingRule.row.selected_category_id ?? ""}
+    categories={categoriesQuery.data ?? []}
+    rows={activeRows.map((r) => ({ ...r, description: r.edited_description ?? r.description }))}
+    oncreate={createCapturedRule}
+    onclose={() => (capturingRule = null)}
+  />
+{/if}
 
 <Dialog open={editRuleOpen} onclose={closeRuleEditor} title={m.bank_review_rule_edit()}>
   <div class="space-y-3">
@@ -1296,6 +1316,11 @@
     {/if}
 
     {#if editRuleShowsText}
+      <p class="text-xs text-slate-400">
+        {editingRule?.match_operator === "all"
+          ? m.rule_v2_all_conditions()
+          : m.rule_v2_legacy_conditions()}
+      </p>
       <label class="flex items-center gap-2 text-sm text-slate-200">
         <input type="checkbox" bind:checked={editDescEnabled} />
         <span>{m.bank_review_rule_if_description()}</span>
@@ -1346,6 +1371,12 @@
       {/if}
     </div>
 
+    <p class="text-sm text-slate-300" aria-live="polite">
+      {m.rule_v2_preview_count({ count: editedRuleMatches.length })}
+    </p>
+    {#if editedRulePreview && editedRuleMatches.length === 0}<p class="text-xs text-amber-300">
+        {m.rule_v2_no_matches()}
+      </p>{/if}
     <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
       <Button
         variant="ghost"

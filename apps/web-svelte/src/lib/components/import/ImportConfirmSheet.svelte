@@ -11,6 +11,9 @@
     skipCount: number;
     dupCount: number;
     inneRows: ImportRow[];
+    automaticCount: number;
+    manualCount: number;
+    newRuleCount: number;
     commitPending: boolean;
     onClose: () => void;
     onCommit: () => void;
@@ -22,6 +25,9 @@
     skipCount,
     dupCount,
     inneRows,
+    automaticCount,
+    manualCount,
+    newRuleCount,
     commitPending,
     onClose,
     onCommit,
@@ -37,11 +43,21 @@
         : m.bank_confirm_summary({ add: importCount, skip: skipCount })}
     </p>
 
+    <div
+      class="space-y-1 rounded-xl border border-white/10 px-3 py-3 text-sm text-slate-300"
+      data-testid="import-final-summary"
+    >
+      <p>{m.import_v2_automatic({ count: automaticCount })}</p>
+      <p>{m.import_v2_manual({ count: manualCount })}</p>
+      <p>{m.import_v2_new_rules({ count: newRuleCount })}</p>
+    </div>
+
     {#if inneRows.length > 0}
       <div class="rounded-xl border border-sky-500/40 bg-sky-500/10 px-3 py-2">
         <p class="text-xs font-medium text-sky-200">
           {m.bank_confirm_inne_heading({ count: inneRows.length })}
         </p>
+        <p class="mt-2 text-xs text-sky-100/90">{m.import_v2_inne_allowed()}</p>
         <ul class="mt-2 max-h-48 space-y-1 overflow-y-auto">
           {#each inneRows as row (row.id)}
             <li class="flex justify-between gap-3 text-xs text-sky-100/90">
