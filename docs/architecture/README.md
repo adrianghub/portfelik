@@ -14,6 +14,8 @@ Last reviewed: **2026-06-04**.
    cross-cutting patterns.
 3. [`database.md`](./database.md) - current schema, RLS strategy, RPCs,
    migrations, and compatibility notes.
+   [`categorization-rules.md`](./categorization-rules.md) describes text matching
+   and compatibility with legacy import rules.
 4. [`flows/`](./flows/) - current critical workflows:
    - [`auth.md`](./flows/auth.md)
    - [`transaction-crud.md`](./flows/transaction-crud.md)

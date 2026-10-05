@@ -47,6 +47,12 @@ export interface ParsedRow {
   description: string;
   /** Counterparty name when bank provides one separately. */
   counterparty?: string;
+  /** Original bank columns, kept in memory for local diagnostics; never sent to telemetry. */
+  text_fields?: {
+    primary_description: string;
+    secondary_description?: string;
+    counterparty?: string;
+  };
   /** Bank's operation id when extractable (used for hard dedup). */
   external_id?: string;
   /** Uppercase 3-letter ISO 4217 (e.g. "PLN"). */

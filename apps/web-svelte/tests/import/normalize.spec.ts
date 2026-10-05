@@ -10,6 +10,26 @@ const fixtureText = readFileSync(fixturePath, "utf-8");
 const fixtureBytes = readFileSync(fixturePath).buffer;
 
 describe("import/normalize", () => {
+  it("cleans independent display fields without changing raw provenance or dedup hashes", async () => {
+    const parsed = mbankAdapter.parse(fixtureText);
+    const before = await normalize(parsed, fixtureBytes);
+    const source = parsed.rows[0].source_row_text;
+    parsed.rows[0] = {
+      ...parsed.rows[0],
+      description: "  Cafe\u0301\u00a0 0123\nRUMIA  ",
+      counterparty: "  Spółka\u00a0  International ",
+    };
+    const after = await normalize(parsed, fixtureBytes);
+    expect(after.rows[0]).toMatchObject({
+      description: "Café 0123 RUMIA",
+      counterparty: "Spółka International",
+      source_row_text: source,
+    });
+    expect(after.rows[0].raw_row_hash).toBe(before.rows[0].raw_row_hash);
+    expect(after.sourceFileHash).toBe(before.sourceFileHash);
+    expect(parsed.rows[0].description).toBe("  Cafe\u0301\u00a0 0123\nRUMIA  ");
+  });
+
   it("attaches a 64-char hex raw_row_hash to every row", async () => {
     const parsed = mbankAdapter.parse(fixtureText);
     const normalized = await normalize(parsed, fixtureBytes);

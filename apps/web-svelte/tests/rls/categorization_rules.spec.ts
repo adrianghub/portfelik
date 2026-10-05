@@ -46,6 +46,113 @@ describe("RLS: categorization_rules", () => {
     expect(data?.length).toBe(1);
   });
 
+  it("unversioned legacy writes retain ANY without changing the text values", async () => {
+    const { data, error } = await ctx.userA.client
+      .from("categorization_rules")
+      .select("match_operator,match_description,match_counterparty")
+      .eq("id", ruleAId)
+      .single();
+    expect(error).toBeNull();
+    expect(data).toMatchObject({
+      match_operator: "any",
+      match_description: "biedronka",
+      match_counterparty: null,
+    });
+  });
+
+  it("authenticated V2 writes explicitly retain ALL with independent text conditions", async () => {
+    const { data, error } = await ctx.userA.client
+      .from("categorization_rules")
+      .insert({
+        user_id: ctx.userA.userId,
+        kind: "contains",
+        match_operator: "all",
+        match_description: "v2 description",
+        match_counterparty: "v2 counterparty",
+        category_id: categoryAId,
+      })
+      .select("match_operator,match_description,match_counterparty")
+      .single();
+    expect(error).toBeNull();
+    expect(data).toMatchObject({
+      match_operator: "all",
+      match_description: "v2 description",
+      match_counterparty: "v2 counterparty",
+    });
+  });
+
+  it("legacy ANY is preserved while editing conditions; clients cannot switch its operator", async () => {
+    const created = await ctx.admin
+      .from("categorization_rules")
+      .insert({
+        user_id: ctx.userA.userId,
+        kind: "contains",
+        match_operator: "any",
+        match_description: "legacy merchant",
+        match_counterparty: "legacy merchant",
+        category_id: categoryAId,
+        priority: 302,
+      })
+      .select("id")
+      .single();
+    expect(created.error).toBeNull();
+    const edited = await ctx.userA.client
+      .from("categorization_rules")
+      .update({ match_description: "legacy edited" })
+      .eq("id", created.data!.id)
+      .select("match_operator")
+      .single();
+    expect(edited.error).toBeNull();
+    expect(edited.data?.match_operator).toBe("any");
+    const denied = await ctx.userA.client
+      .from("categorization_rules")
+      .update({ match_operator: "all" })
+      .eq("id", created.data!.id);
+    expect(denied.error).not.toBeNull();
+  });
+
+  it("rejects an unknown text operator", async () => {
+    const bad = await ctx.userA.client.from("categorization_rules").insert({
+      user_id: ctx.userA.userId,
+      kind: "contains",
+      match_operator: "either",
+      match_description: "invalid operator",
+      category_id: categoryAId,
+    });
+    expect(bad.error?.code).toBe("23514");
+  });
+
+  it("duplicate identity distinguishes ALL and ANY with two conditions", async () => {
+    const input = {
+      user_id: ctx.userA.userId,
+      kind: "contains" as const,
+      match_description: "operator identity",
+      match_counterparty: "actual counterparty",
+      category_id: categoryAId,
+    };
+    expect(
+      (
+        await ctx.userA.client
+          .from("categorization_rules")
+          .insert({ ...input, match_operator: "all" })
+      ).error
+    ).toBeNull();
+    expect(
+      (
+        await ctx.userA.client
+          .from("categorization_rules")
+          .insert({ ...input, match_operator: "any" })
+      ).error
+    ).toBeNull();
+    expect(
+      (
+        await ctx.userA.client
+          .from("categorization_rules")
+          .insert({ ...input, match_operator: "all" })
+      ).error?.code
+    ).toBe("23505");
+  });
+
   it("user B does NOT see user A's rule", async () => {
     const { data } = await ctx.userB.client
       .from("categorization_rules")

@@ -1,7 +1,7 @@
 {
   "name": "web-svelte",
   "private": true,
-  "version": "1.3.4",
+  "version": "1.3.5",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
@@ -13,6 +13,7 @@
     "lint": "eslint src/",
     "format": "prettier --write src/",
     "format:check": "prettier --check src/",
+    "import:inspect": "node scripts/inspect-bank-import.mjs",
     "seed:local": "SEED_TARGET=local node ./scripts/seed-personas.mjs",
     "seed:staging": "node ./scripts/seed-staging.mjs",
     "test:e2e": "playwright test",

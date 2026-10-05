@@ -115,6 +115,7 @@ type CategorizationRule = {
   id: string;
   user_id: string;
   kind: "exact" | "contains" | "type" | "composite";
+  match_operator?: "all" | "any";
   match_description: string | null;
   match_counterparty: string | null;
   match_type: "income" | "expense" | null;
@@ -149,6 +150,7 @@ async function mockBankImportAPI(page: Page, options = {}) {
       updated_at: "2026-05-01T00:00:00Z",
     },
   ];
+  const categories = [...MOCK_CATEGORIES];
   const sessions: ImportSession[] = [];
   let rows: ImportRow[] = [];
   let rules: CategorizationRule[] =
@@ -209,7 +211,17 @@ async function mockBankImportAPI(page: Page, options = {}) {
           failCategoriesOnce = false;
           return route.fulfill({ status: 500, json: { message: "temporary categories failure" } });
         }
-        return route.fulfill({ status: 200, json: MOCK_CATEGORIES });
+        if (method === "POST") {
+          const body = request.postDataJSON();
+          const category = {
+            ...MOCK_CATEGORIES[0],
+            ...body,
+            id: `created-category-${categories.length}`,
+          };
+          categories.push(category);
+          return route.fulfill({ status: 201, json: category });
+        }
+        return route.fulfill({ status: 200, json: categories });
       }
 
       if (pathname.endsWith("/categorization_rules")) {
@@ -225,6 +237,9 @@ async function mockBankImportAPI(page: Page, options = {}) {
           const duplicate = rules.some(
             (rule) =>
               rule.kind === body.kind &&
+              (rule.match_description == null ||
+                rule.match_counterparty == null ||
+                (rule.match_operator ?? "any") === (body.match_operator ?? "all")) &&
               normalize(rule.match_description) === normalize(body.match_description) &&
               normalize(rule.match_counterparty) === normalize(body.match_counterparty) &&
               (rule.match_type ?? null) === (body.match_type ?? null) &&
@@ -240,6 +255,7 @@ async function mockBankImportAPI(page: Page, options = {}) {
             id: `rule-${rules.length + 1}`,
             user_id: TEST_USER_ID,
             kind: body.kind ?? "contains",
+            match_operator: body.match_operator ?? "all",
             match_description: body.match_description ?? null,
             match_counterparty: body.match_counterparty ?? null,
             match_type: body.match_type ?? null,
@@ -542,7 +558,7 @@ test("import wizard: asks which obligation an ambiguous bank row confirms", asyn
   await expect(page.getByText(/Pasuje więcej niż jedna płatność/)).toBeVisible();
 });
 
-test("import wizard: commits a fully-categorized statement in one click (no per-row decisions)", async ({
+test("import wizard: reviews final counts for a fully-categorized statement without per-row decisions", async ({
   page,
 }) => {
   await page.goto("/import");
@@ -562,7 +578,9 @@ test("import wizard: commits a fully-categorized statement in one click (no per-
 
   await expect(page.getByRole("button", { name: /^Zaimportuj \d+ transakc/ })).toBeEnabled();
   await page.getByRole("button", { name: /^Zaimportuj \d+ transakc/ }).click();
-  await expect(page.getByRole("heading", { name: "Potwierdź import" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Potwierdź import" })).toBeVisible();
+  await expect(page.getByTestId("import-final-summary")).toContainText("Kategorie z sugestii: 4");
+  await page.getByRole("button", { name: "Potwierdź (4)" }).click();
   await expect(page).toHaveURL(/\/transactions\?startYear=2026&startMonth=5/);
 });
 
@@ -606,8 +624,80 @@ test("import wizard: category choice is one-off until the user explicitly saves 
   expect(rulePostCount).toBe(0);
 
   await reviewTable.getByRole("button", { name: "Zapisz regułę" }).click();
+  const ruleDialog = page.getByRole("dialog", { name: "Zapamiętaj kategoryzację" });
+  await expect(ruleDialog.getByLabel("Opis", { exact: true })).toHaveValue(editedDescription);
+  await expect(ruleDialog.getByRole("checkbox", { name: "Opis zawiera" })).toBeChecked();
+  await expect(ruleDialog.getByRole("checkbox", { name: "Kontrahent zawiera" })).not.toBeChecked();
+  await expect(ruleDialog.getByRole("checkbox", { name: "Kontrahent zawiera" })).toBeDisabled();
+  await expect(ruleDialog.getByText("Pasujące transakcje: 1")).toBeVisible();
+  expect(rulePostCount).toBe(0);
+  await ruleDialog.getByRole("button", { name: "Utwórz regułę" }).click();
   await expect(page.getByText(/Reguła zapisana/)).toBeVisible({ timeout: 5_000 });
   expect(rulePostCount).toBe(1);
+  await page.getByRole("button", { name: /^Zaimportuj 1 transakc/ }).click();
+  await expect(page.getByTestId("import-final-summary")).toContainText("Nowe reguły: 1");
+});
+
+test("rule engine v2: counterparty is opt-in and narrows a live preview before any write", async ({
+  page,
+}) => {
+  await page.unrouteAll();
+  await injectFakeSession(page);
+  await mockBankImportAPI(page, { defaultRules: false });
+  await page.goto("/import");
+  const statement = Buffer.from(
+    `"mBank S.A."
+"Historia operacji"
+"Klient";"Jan Kowalski"
+"Numer rachunku";"PL00 0000 0000 0000 0000 0000 0000"
+""
+#Data księgowania;#Data operacji;#Opis operacji;#Tytuł;#Nadawca/Odbiorca;#Numer konta;#Kwota;#Saldo po operacji
+2026-05-06;2026-05-06;"PŁATNOŚĆ KARTĄ";"NETFLIX.COM AMSTERDAM";"Netflix International";"PL00 5555 5555 5555 5555 5555 5555";-24,00;9217,81
+2026-05-07;2026-05-07;"PŁATNOŚĆ KARTĄ";"NETFLIX.COM AMSTERDAM";"Inny kontrahent";"PL00 6666 6666 6666 6666 6666 6666";-18,00;9199,81
+`,
+    "utf8"
+  );
+  await uploadUncertifiedStatement(page, { name: "wyciag.csv", buffer: statement });
+  const firstRow = page
+    .getByRole("table")
+    .getByRole("row")
+    .filter({ hasText: "Netflix International" });
+  await firstRow.getByRole("combobox", { name: "Kategoria" }).click();
+  await page.getByRole("option", { name: "Jedzenie", exact: true }).click();
+  await firstRow.getByRole("button", { name: "Zapisz regułę" }).click();
+  const dialog = page.getByRole("dialog", { name: "Zapamiętaj kategoryzację" });
+  await expect(dialog.getByLabel("Opis", { exact: true })).toHaveValue(
+    "PŁATNOŚĆ KARTĄ - NETFLIX.COM AMSTERDAM"
+  );
+  await expect(dialog.getByLabel("Kontrahent", { exact: true })).toHaveValue(
+    "Netflix International"
+  );
+  await expect(dialog.getByText("Pasujące transakcje: 2")).toBeVisible();
+  await dialog.getByRole("checkbox", { name: "Kontrahent zawiera" }).check();
+  await expect(dialog.getByText("Pasujące transakcje: 1")).toBeVisible();
+  await dialog.getByLabel("Kontrahent", { exact: true }).fill("Nieistniejący kontrahent");
+  await expect(dialog.getByText("Pasujące transakcje: 0")).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Utwórz regułę" })).toBeDisabled();
+  await dialog.getByLabel("Kontrahent", { exact: true }).fill("Netflix International");
+  await dialog.getByLabel("Kategoria", { exact: true }).selectOption({ label: "Transport" });
+  const request = page.waitForRequest(
+    (r) => r.method() === "POST" && r.url().includes("/categorization_rules")
+  );
+  await dialog.getByRole("button", { name: "Utwórz regułę" }).click();
+  expect((await request).postDataJSON()).toMatchObject({
+    match_operator: "all",
+    category_id: "cat-2",
+    match_description: "PŁATNOŚĆ KARTĄ - NETFLIX.COM AMSTERDAM",
+    match_counterparty: "Netflix International",
+  });
+  await expect(dialog).toHaveCount(0);
+  // The second row matched only the description, so it keeps its one-off state.
+  await expect(
+    page.getByRole("table").getByRole("button", { name: "Wyczyść kategorię" })
+  ).toHaveCount(1);
+  await expect(
+    page.getByRole("table").getByRole("button", { name: "Wyczyść kategorię" })
+  ).toContainText("Transport");
 });
 
 test("import wizard: correcting a rule-derived category does not mutate the rule without consent", async ({
@@ -686,14 +776,22 @@ test("import wizard: applies a one-off category to similar rows without saving a
 ""
 #Data księgowania;#Data operacji;#Opis operacji;#Tytuł;#Nadawca/Odbiorca;#Numer konta;#Kwota;#Saldo po operacji
 2026-05-06;2026-05-06;"ZAKUP TOWARÓW I USŁUG";"KAWA";"KAWIARNIA CENTRUM";"PL00 5555 5555 5555 5555 5555 5555";-24,00;9217,81
-2026-05-07;2026-05-07;"ZAKUP TOWARÓW I USŁUG";"HERBATA";"KAWIARNIA MOKOTÓW";"PL00 6666 6666 6666 6666 6666 6666";-18,00;9199,81
+2026-05-07;2026-05-07;"ZAKUP TOWARÓW I USŁUG";"KAWA";"KAWIARNIA CENTRUM";"PL00 6666 6666 6666 6666 6666 6666";-18,00;9199,81
+2026-05-08;2026-05-08;"ZAKUP TOWARÓW I USŁUG";"KAWA";"INNA KAWIARNIA";"PL00 7777 7777 7777 7777 7777 7777";-16,00;9183,81
+2026-05-09;2026-05-09;"ZAKUP TOWARÓW I USŁUG";"KAWA";"KAWIARNIA CENTRUM";"PL00 8888 8888 8888 8888 8888 8888";-20,00;9163,81
 `,
     "utf8"
   );
   await uploadUncertifiedStatement(page, { name: "wyciag.csv", buffer: similarRowsSample });
 
   const reviewTable = page.getByRole("table");
-  const firstRow = reviewTable.getByRole("row").filter({ hasText: "KAWIARNIA CENTRUM" });
+  const skippedRow = reviewTable.getByRole("row").last();
+  await skippedRow.getByRole("button", { name: "Pomiń", exact: true }).click();
+  await expect(skippedRow.getByRole("button", { name: "Pomiń", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true"
+  );
+  const firstRow = reviewTable.getByRole("row").filter({ hasText: "KAWIARNIA CENTRUM" }).first();
   await firstRow.getByRole("combobox", { name: "Kategoria" }).click();
   await page.getByRole("option", { name: "Jedzenie", exact: true }).click();
 
@@ -905,10 +1003,10 @@ test.describe("import review on a phone", () => {
     await expect(summary).toContainText(/gotowych/);
     await expect(page.getByRole("button", { name: /Pokaż wszystkie/ })).toBeVisible();
     await expect(page.getByRole("table")).toHaveCount(0);
-    await expect(page.locator("ul").getByText("BIEDRONKA")).toHaveCount(0);
+    await expect(page.locator("ul").getByText("BIEDRONKA", { exact: true })).toHaveCount(0);
 
     await page.getByRole("button", { name: /Pokaż wszystkie/ }).click();
-    await expect(page.locator("ul").getByText("BIEDRONKA")).toBeVisible();
+    await expect(page.locator("ul").getByText("BIEDRONKA", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Pokaż tylko wyjątki" })).toBeVisible();
   });
 
@@ -923,7 +1021,89 @@ test.describe("import review on a phone", () => {
     const summary = page.getByTestId("import-review-summary");
     await expect(summary).toBeVisible({ timeout: 10_000 });
     await expect(summary).toContainText(/trafi do „Inne”/);
-    await expect(page.locator("ul").getByText("BIEDRONKA")).toBeVisible();
+    await expect(page.locator("ul").getByText("BIEDRONKA", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: /Pokaż wszystkie/ })).toHaveCount(0);
+  });
+
+  test("chooses categories, groups similar rows, undoes bulk changes and reviews the final counts", async ({
+    page,
+  }) => {
+    await page.unrouteAll();
+    await injectFakeSession(page);
+    await mockBankImportAPI(page, { defaultRules: false });
+    let rulePosts = 0;
+    page.on("request", (request) => {
+      if (request.method() === "POST" && request.url().includes("/categorization_rules"))
+        rulePosts++;
+    });
+    await page.goto("/import");
+    const sample = Buffer.from(
+      `"mBank S.A."
+"Historia operacji"
+"Klient";"Jan Kowalski"
+"Numer rachunku";"PL00 0000 0000 0000 0000 0000 0000"
+""
+#Data księgowania;#Data operacji;#Opis operacji;#Tytuł;#Nadawca/Odbiorca;#Numer konta;#Kwota;#Saldo po operacji
+2026-05-06;2026-05-06;"ZAKUP TOWARÓW I USŁUG";"KAWA";"KAWIARNIA CENTRUM";"PL00 5555 5555 5555 5555 5555 5555";-24,00;9217,81
+2026-05-07;2026-05-07;"ZAKUP TOWARÓW I USŁUG";"KAWA";"KAWIARNIA CENTRUM";"PL00 6666 6666 6666 6666 6666 6666";-18,00;9199,81
+`,
+      "utf8"
+    );
+    await uploadUncertifiedStatement(page, { name: "wyciag.csv", buffer: sample });
+    await expect(page.getByText(/2 podobnych pozycji · razem/)).toContainText("42");
+    await page.getByRole("button", { name: "Pokaż pozycje (2)" }).click();
+    await expect(page.getByRole("button", { name: "Kategoria", exact: true })).toHaveCount(2);
+    await page.getByRole("button", { name: "Zwiń pozycje" }).click();
+    await page.getByRole("button", { name: "Kategoria", exact: true }).click();
+    let sheet = page.getByRole("dialog", { name: "Kategoria", exact: true });
+    await sheet.getByRole("searchbox", { name: "Szukaj kategorii" }).fill("jedz");
+    await sheet.getByRole("button", { name: "Jedzenie", exact: true }).click();
+    await expect(sheet).not.toBeVisible();
+    await expect(page.getByRole("button", { name: "Zastosuj do podobnych (1)" })).toBeVisible();
+    expect(rulePosts).toBe(0);
+    await page.getByRole("button", { name: "Zastosuj do podobnych (1)" }).click();
+    await expect(page.getByTestId("import-review-summary")).toContainText("2 gotowych");
+    await page.getByRole("button", { name: "Cofnij ostatnią zmianę" }).click();
+    await expect(page.getByRole("button", { name: "Zastosuj do podobnych (1)" })).toBeVisible();
+    await page.getByRole("button", { name: "Kategoria", exact: true }).last().click();
+    sheet = page.getByRole("dialog", { name: "Kategoria", exact: true });
+    await expect(
+      sheet.getByRole("region", { name: "Ostatnio wybrane w tym imporcie" })
+    ).toContainText("Jedzenie");
+    await sheet.getByRole("searchbox", { name: "Szukaj kategorii" }).fill("Kawa na mieście");
+    await sheet.getByRole("button", { name: "Utwórz „Kawa na mieście”" }).click();
+    await expect(sheet).not.toBeVisible();
+    const markImport = page.getByRole("button", { name: /Oznacz widoczne jako import/ });
+    if (await markImport.isVisible()) await markImport.click();
+    // Viewport-only phone tests still use a mouse; moving it away lets success
+    // notices expire instead of keeping them hovered over the sticky action.
+    await page.mouse.move(0, 0);
+    await expect(page.locator("[data-sonner-toast]")).toHaveCount(0, { timeout: 10_000 });
+    await page.getByRole("button", { name: /^Zaimportuj 2 transakc/ }).click();
+    const final = page.getByTestId("import-final-summary");
+    await expect(final).toContainText("Kategorie wybrane ręcznie: 2");
+    await expect(final).toContainText("Kategorie z sugestii: 0");
+    await expect(final).toContainText("Nowe reguły: 0");
+    expect(rulePosts).toBe(0);
+  });
+
+  test("keeps advanced filters in a sheet and restores the list after clearing them", async ({
+    page,
+  }) => {
+    await page.unrouteAll();
+    await injectFakeSession(page);
+    await mockBankImportAPI(page, { defaultRules: false });
+    await page.goto("/import");
+    await uploadUncertifiedStatement(page, { name: "wyciag.csv", buffer: mbankSample });
+    const search = page.getByPlaceholder("Szukaj opisu lub kontrahenta");
+    await expect(search).not.toBeVisible();
+    await page.getByRole("button", { name: "Filtry i sortowanie" }).click();
+    const sheet = page.getByRole("dialog", { name: "Filtry i sortowanie" });
+    await sheet.getByRole("searchbox").fill("nieistniejąca-transakcja");
+    await sheet.getByRole("button", { name: "Zamknij", exact: true }).last().click();
+    await expect(sheet).not.toBeVisible();
+    await expect(page.getByText("Brak pozycji pasujących do filtru")).toBeVisible();
+    await page.getByRole("button", { name: "Wyczyść filtr", exact: true }).click();
+    await expect(page.locator("ul").getByText("BIEDRONKA", { exact: true })).toBeVisible();
   });
 });

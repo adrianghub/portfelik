@@ -184,7 +184,7 @@ describe("import/categorize matchCategory", () => {
 });
 
 describe("suggestRuleFromRow", () => {
-  it("builds a contains rule from the suggested token (counterparty preferred)", () => {
+  it("builds a description-only contains rule from the real description", () => {
     const draft = suggestRuleFromRow({
       type: "expense",
       description: "Płatność kartą",
@@ -192,24 +192,27 @@ describe("suggestRuleFromRow", () => {
     });
     expect(draft).toEqual({
       kind: "contains",
-      match_description: "Żabka",
-      match_counterparty: "Żabka",
+      match_operator: "all",
+      match_description: "Płatność kartą",
+      match_counterparty: null,
       match_type: null,
     });
   });
 
-  it("falls back to a description token when counterparty is absent", () => {
+  it("keeps the complete description when counterparty is absent", () => {
     const draft = suggestRuleFromRow({
       type: "expense",
       description: "Zakup Biedronka 4456",
       counterparty: null,
     });
-    expect(draft?.match_description).toBe("Biedronka");
-    expect(draft?.match_counterparty).toBe("Biedronka");
+    expect(draft?.match_description).toBe("Zakup Biedronka 4456");
+    expect(draft?.match_counterparty).toBeNull();
   });
 
   it("returns null when no usable token exists", () => {
-    expect(suggestRuleFromRow({ type: "expense", description: "   ", counterparty: null })).toBeNull();
+    expect(
+      suggestRuleFromRow({ type: "expense", description: "   ", counterparty: null })
+    ).toBeNull();
   });
 });
 
@@ -221,11 +224,46 @@ describe("selectRetroMatches", () => {
     category_id: expenseCat.id,
   });
   const txs: RetroTransaction[] = [
-    { id: "t1", user_id: "u1", category_id: otherExpenseCat.id, type: "expense", description: "BIEDRONKA 1", counterparty: null },
-    { id: "t2", user_id: "u1", category_id: expenseCat.id, type: "expense", description: "BIEDRONKA 2", counterparty: null },
-    { id: "t3", user_id: "u2", category_id: null, type: "expense", description: "BIEDRONKA 3", counterparty: null },
-    { id: "t4", user_id: "u1", category_id: null, type: "income", description: "BIEDRONKA refund", counterparty: null },
-    { id: "t5", user_id: "u1", category_id: null, type: "expense", description: "LIDL", counterparty: null },
+    {
+      id: "t1",
+      user_id: "u1",
+      category_id: otherExpenseCat.id,
+      type: "expense",
+      description: "BIEDRONKA 1",
+      counterparty: null,
+    },
+    {
+      id: "t2",
+      user_id: "u1",
+      category_id: expenseCat.id,
+      type: "expense",
+      description: "BIEDRONKA 2",
+      counterparty: null,
+    },
+    {
+      id: "t3",
+      user_id: "u2",
+      category_id: null,
+      type: "expense",
+      description: "BIEDRONKA 3",
+      counterparty: null,
+    },
+    {
+      id: "t4",
+      user_id: "u1",
+      category_id: null,
+      type: "income",
+      description: "BIEDRONKA refund",
+      counterparty: null,
+    },
+    {
+      id: "t5",
+      user_id: "u1",
+      category_id: null,
+      type: "expense",
+      description: "LIDL",
+      counterparty: null,
+    },
   ];
 
   it("returns only own, non-target-category, type-correct, matching transactions", () => {

@@ -12,9 +12,11 @@ import { findDuplicateCategorizationRule, selectRetroMatches } from "$lib/import
 import { fetchCategories } from "$lib/services/categories";
 import { fetchAllTransactionsForExport } from "$lib/services/transactions";
 import type { CategorizationRule, CategorizationRuleKind, TransactionType } from "$lib/types";
+import { cleanTransactionText } from "$lib/import/transaction-text";
 
 export interface CategorizationRuleInput {
   kind: CategorizationRuleKind;
+  match_operator?: "all" | "any";
   match_description?: string | null;
   match_counterparty?: string | null;
   match_type?: TransactionType | null;
@@ -24,7 +26,10 @@ export interface CategorizationRuleInput {
 }
 
 /** Client updates never change `kind` — matching mode is delete+create. */
-export type CategorizationRuleUpdate = Omit<Partial<CategorizationRuleInput>, "kind">;
+export type CategorizationRuleUpdate = Omit<
+  Partial<CategorizationRuleInput>,
+  "kind" | "match_operator"
+>;
 
 export interface RuleEditFormState {
   categoryId: string;
@@ -71,9 +76,12 @@ export function buildCategorizationRuleEditPatch(
   const hasTextConstraint = form.descEnabled || form.counterpartyEnabled;
   if (!hasTextConstraint) return { ok: false, issue: "require_condition" };
 
-  const nextDesc = form.descEnabled ? form.desc.trim() : null;
-  const nextCounterparty = form.counterpartyEnabled ? form.counterparty.trim() : null;
-  if (!nextDesc && !nextCounterparty) return { ok: false, issue: "require_text" };
+  const nextDesc = form.descEnabled ? cleanTransactionText(form.desc) : null;
+  const nextCounterparty = form.counterpartyEnabled
+    ? cleanTransactionText(form.counterparty)
+    : null;
+  if ((form.descEnabled && !nextDesc) || (form.counterpartyEnabled && !nextCounterparty))
+    return { ok: false, issue: "require_text" };
 
   const patch: CategorizationRuleUpdate = {
     category_id: form.categoryId,
@@ -109,8 +117,9 @@ export async function createCategorizationRule(
   const existingRules = await fetchCategorizationRules();
   const candidate = {
     kind: input.kind,
-    match_description: input.match_description ?? null,
-    match_counterparty: input.match_counterparty ?? null,
+    match_operator: input.match_operator ?? "all",
+    match_description: cleanTransactionText(input.match_description) || null,
+    match_counterparty: cleanTransactionText(input.match_counterparty) || null,
     match_type: input.match_type ?? null,
     match_day_of_month: input.match_day_of_month ?? null,
     category_id: input.category_id,
@@ -124,8 +133,9 @@ export async function createCategorizationRule(
     .insert({
       user_id: user.id,
       kind: input.kind,
-      match_description: input.match_description ?? null,
-      match_counterparty: input.match_counterparty ?? null,
+      match_operator: candidate.match_operator,
+      match_description: candidate.match_description,
+      match_counterparty: candidate.match_counterparty,
       match_type: input.match_type ?? null,
       match_day_of_month: input.match_day_of_month ?? null,
       category_id: input.category_id,
