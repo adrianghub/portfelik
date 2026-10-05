@@ -1,3 +1,4 @@
+import { isSupportedLedgerCurrency } from "$lib/ledger-currency";
 import type { CategoryCapPeriod } from "$lib/types";
 
 export interface PileSpendRow {
@@ -5,6 +6,7 @@ export interface PileSpendRow {
   type: string;
   status: string;
   amount: number;
+  currency: string;
   date: string;
   group_id?: string | null;
 }
@@ -105,6 +107,7 @@ export function spentInPile(
   const cents = rows.reduce((sum, row) => {
     if (row.category_id !== categoryId) return sum;
     if (row.type !== "expense" || row.status !== "paid") return sum;
+    if (!isSupportedLedgerCurrency(row.currency)) return sum;
     if (!matchesPileScope(row.group_id, scope)) return sum;
     const day = row.date.slice(0, 10);
     if (day < start || day >= end) return sum;
