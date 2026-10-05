@@ -46,7 +46,7 @@ describe("RLS: categorization_rules", () => {
     expect(data?.length).toBe(1);
   });
 
-  it("new rules default to ALL without changing the text values", async () => {
+  it("unversioned legacy writes retain ANY without changing the text values", async () => {
     const { data, error } = await ctx.userA.client
       .from("categorization_rules")
       .select("match_operator,match_description,match_counterparty")
@@ -54,9 +54,30 @@ describe("RLS: categorization_rules", () => {
       .single();
     expect(error).toBeNull();
     expect(data).toMatchObject({
-      match_operator: "all",
+      match_operator: "any",
       match_description: "biedronka",
       match_counterparty: null,
+    });
+  });
+
+  it("authenticated V2 writes explicitly retain ALL with independent text conditions", async () => {
+    const { data, error } = await ctx.userA.client
+      .from("categorization_rules")
+      .insert({
+        user_id: ctx.userA.userId,
+        kind: "contains",
+        match_operator: "all",
+        match_description: "v2 description",
+        match_counterparty: "v2 counterparty",
+        category_id: categoryAId,
+      })
+      .select("match_operator,match_description,match_counterparty")
+      .single();
+    expect(error).toBeNull();
+    expect(data).toMatchObject({
+      match_operator: "all",
+      match_description: "v2 description",
+      match_counterparty: "v2 counterparty",
     });
   });
 

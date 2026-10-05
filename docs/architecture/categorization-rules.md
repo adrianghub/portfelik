@@ -25,8 +25,12 @@ the same matcher as import, shows examples, and blocks creation at zero matches.
 
 Apply `20261004000000_categorization_rule_text_operator.sql` before deploying
 the new client. Its initial column default backfills existing rows with `any`,
-then changes the default to `all` for subsequent inserts. The duplicate index
-includes the operator when both text fields are present. The existing column
+then changes the default to `all` for subsequent inserts. Apply the follow-up
+`20261005092337_preserve_legacy_rule_write_operator.sql` before production rollout:
+it restores the database default to `any` for installed pre-V2 clients that omit
+the field. V2 clients explicitly insert `all`, so new V2 rules still use AND.
+Neither migration infers or rewrites the behavior of existing rules. The duplicate
+index includes the operator when both text fields are present. The existing column
 UPDATE grants deliberately exclude the operator.
 
 Do not automatically collapse legacy rules with identical description and
