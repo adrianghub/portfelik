@@ -88,6 +88,11 @@ export interface ErrorMessageOpts {
  * bespoke copy for a specific RPC still pass `overrides: { P0001: "..." }`.
  */
 const P0001_MESSAGES: Record<string, () => string> = {
+  account_invalid: m.bank_commit_error_account_invalid,
+  account_kind_mismatch: m.bank_commit_error_kind_mismatch,
+  rows_pending: m.bank_commit_error_rows_pending,
+  category_invalid: m.bank_commit_error_category_invalid,
+  category_required: m.bank_commit_error_category_invalid,
   transaction_outside_plan_period: m.error_plan_link_outside_period,
   transaction_already_linked: m.error_plan_link_already_linked,
   transaction_type_not_supported: m.error_plan_link_type,

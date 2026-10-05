@@ -44,9 +44,36 @@ describe("RPC: commit_import_session", () => {
   async function seedAccountAndSession(opts?: {
     user?: "A" | "B";
     archive?: boolean;
-    detectedKind?: "ing" | "mbank" | "erste" | "pko_bp" | "pekao" | "millennium" | "alior" | "bnp_paribas" | "citi_handlowy";
-    accountKind?: "ing" | "mbank" | "erste" | "pko_bp" | "pekao" | "millennium" | "alior" | "bnp_paribas" | "citi_handlowy";
-    adapterKind?: "ing" | "mbank" | "erste" | "pko_bp" | "pekao" | "millennium" | "alior" | "bnp_paribas" | "citi_handlowy";
+    detectedKind?:
+      | "ing"
+      | "mbank"
+      | "erste"
+      | "pko_bp"
+      | "pekao"
+      | "millennium"
+      | "alior"
+      | "bnp_paribas"
+      | "citi_handlowy";
+    accountKind?:
+      | "ing"
+      | "mbank"
+      | "erste"
+      | "pko_bp"
+      | "pekao"
+      | "millennium"
+      | "alior"
+      | "bnp_paribas"
+      | "citi_handlowy";
+    adapterKind?:
+      | "ing"
+      | "mbank"
+      | "erste"
+      | "pko_bp"
+      | "pekao"
+      | "millennium"
+      | "alior"
+      | "bnp_paribas"
+      | "citi_handlowy";
     fileSuffix?: string;
   }): Promise<Seed> {
     const userId = (opts?.user ?? "A") === "A" ? ctx.userA.userId : ctx.userB.userId;
@@ -112,7 +139,7 @@ describe("RPC: commit_import_session", () => {
       externalId?: string | null;
       postedAt?: string;
       rawHashSuffix?: string;
-    },
+    }
   ): Promise<string> {
     const res = await ctx.admin
       .from("transaction_import_rows")
@@ -291,6 +318,68 @@ describe("RPC: commit_import_session", () => {
       .single();
     expect(tx.error).toBeNull();
     expect(tx.data?.counterparty).toBe(merchant);
+  });
+
+  it("reimports the same file without cancelling history or duplicating ledger rows", async () => {
+    const seed = await seedAccountAndSession();
+    await insertRow(seed.sessionId, { rowIndex: 0, categoryId: seed.categoryId });
+    const first = await callCommit(ctx.userA.client, seed.sessionId);
+    expect(first.error).toBeNull();
+    expect(first.data).toMatchObject({ inserted: 1 });
+
+    const cancel = await ctx.userA.client.rpc("cancel_import_session", {
+      p_session_id: seed.sessionId,
+    });
+    expect(cancel.error?.message).toBe("import_session_not_cancellable");
+
+    const payload = {
+      user_id: ctx.userA.userId,
+      bank_account_id: seed.accountId,
+      source_file_hash: seed.fileHash,
+      detected_kind: "ing",
+    };
+    const retry = await ctx.userA.client
+      .from("transaction_import_sessions")
+      .insert(payload)
+      .select("id")
+      .single();
+    expect(retry.error).toBeNull();
+    const raced = await ctx.userA.client.from("transaction_import_sessions").insert(payload);
+    expect(raced.error?.code).toBe("23505");
+
+    await insertRow(retry.data!.id, { rowIndex: 0, categoryId: seed.categoryId });
+    const repeated = await callCommit(ctx.userA.client, retry.data!.id);
+    expect(repeated.error).toBeNull();
+    expect(repeated.data).toMatchObject({ inserted: 0, duplicates_commit: 1 });
+    const sessions = await ctx.userA.client
+      .from("transaction_import_sessions")
+      .select("id,status,rows_committed")
+      .eq("source_file_hash", seed.fileHash);
+    expect(sessions.error).toBeNull();
+    expect(sessions.data).toHaveLength(2);
+    expect(sessions.data).toContainEqual({
+      id: seed.sessionId,
+      status: "committed",
+      rows_committed: 1,
+    });
+    expect(sessions.data).toContainEqual({
+      id: retry.data!.id,
+      status: "committed",
+      rows_committed: 0,
+    });
+    const links = await ctx.userA.client
+      .from("transaction_import_links")
+      .select("transaction_id,session_id")
+      .eq("source_file_hash", seed.fileHash);
+    expect(links.error).toBeNull();
+    expect(links.data).toHaveLength(1);
+    expect(links.data![0].session_id).toBe(seed.sessionId);
+    const hidden = await ctx.userB.client
+      .from("transaction_import_sessions")
+      .select("id")
+      .eq("source_file_hash", seed.fileHash);
+    expect(hidden.error).toBeNull();
+    expect(hidden.data).toEqual([]);
   });
 
   it("happy path: counts skipped + duplicate + inserted; tx + link created", async () => {

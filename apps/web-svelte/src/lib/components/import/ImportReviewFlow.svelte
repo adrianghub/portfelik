@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { errorMessage } from "$lib/services/supabase-errors";
   import * as m from "$lib/paraglide/messages";
   import { importActionLabel } from "$lib/content/import-copy";
   import DuplicateBanner from "$lib/components/import/DuplicateBanner.svelte";
@@ -413,7 +414,7 @@
       toast.success(m.toast_category_created());
       return created.id;
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : m.toast_error());
+      toast.error(errorMessage(e));
       return null;
     }
   }
@@ -466,7 +467,7 @@
           (curr ?? []).map((r) => (r.id === rowId ? original : r))
         );
       }
-      toast.error(e instanceof Error ? e.message : String(e));
+      toast.error(errorMessage(e));
       throw e;
     }
   }
@@ -689,7 +690,7 @@
         await applyRuleCategoryToRows(nextRule, context.previousCategoryId);
         toast.success(m.bank_review_rule_updated());
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : String(e));
+        toast.error(errorMessage(e));
       }
       return;
     }
@@ -809,7 +810,7 @@
       });
       toast.success(m.bank_review_rule_undone());
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e));
+      toast.error(errorMessage(e));
     }
   }
 
@@ -991,7 +992,7 @@
       toast.success(m.bank_review_rule_updated());
       closeRuleEditor();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e));
+      toast.error(errorMessage(e));
     } finally {
       editRuleSaving = false;
     }
@@ -1015,16 +1016,8 @@
         onCommitted(result, getImportedDateRange(), story);
       });
     },
-    onError: (err: { message: string; details?: string | null }) => {
-      const msg = err.message ?? "";
-      if (msg.includes("account_invalid")) toast.error(m.bank_commit_error_account_invalid());
-      else if (msg.includes("account_kind_mismatch"))
-        toast.error(m.bank_commit_error_kind_mismatch());
-      else if (msg.includes("rows_pending")) toast.error(m.bank_commit_error_rows_pending());
-      else if (msg.includes("category_invalid") || msg.includes("category_required"))
-        toast.error(m.bank_commit_error_category_invalid());
-      else if (msg.includes("group_forbidden")) toast.error(m.bank_commit_error_group_forbidden());
-      else toast.error(m.bank_commit_error_generic());
+    onError: (err: unknown) => {
+      toast.error(errorMessage(err, { fallback: m.bank_commit_error_generic() }));
     },
   }));
 

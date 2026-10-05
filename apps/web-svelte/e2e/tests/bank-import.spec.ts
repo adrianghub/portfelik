@@ -527,9 +527,59 @@ test("import wizard: uploads, flags probable duplicates, commits, and blocks re-
 
   await page.goto("/import");
   await uploadUncertifiedStatement(page, { name: "wyciag.csv", buffer: mbankSample });
-  await expect(page.getByText("Ten plik był już importowany")).toBeVisible({
+  await expect(page.getByText("Ten plik został już zaimportowany")).toBeVisible({
     timeout: 10_000,
   });
+});
+
+test("committed re-upload formats object errors and preserves the original session", async ({
+  page,
+}) => {
+  await page.goto("/import");
+  await uploadUncertifiedStatement(page, { name: "statement.csv", buffer: mbankSample });
+  await page.getByRole("button", { name: /^Zaimportuj \d+ transakc/ }).click();
+  await page.getByRole("button", { name: /^Potwierdź \(/ }).click();
+  await expect(page).toHaveURL(/transactions/);
+  await page.goto("/import");
+  await uploadUncertifiedStatement(page, { name: "statement.csv", buffer: mbankSample });
+  await expect(page.getByText("Ten plik został już zaimportowany")).toBeVisible();
+
+  const cancelled: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("cancel_import_session")) cancelled.push(request.url());
+  });
+  await page.route("**/rest/v1/transaction_import_rows**", (route) =>
+    route.fulfill({
+      status: 403,
+      json: { code: "42501", message: "internal database detail", details: null, hint: null },
+    })
+  );
+  await page.getByRole("button", { name: "Zobacz transakcje" }).click();
+  await expect(page.getByText("Nie masz uprawnień do tej czynności.")).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("[object Object]");
+  await expect(page.locator("body")).not.toContainText("internal database detail");
+  await page.unroute("**/rest/v1/transaction_import_rows**");
+
+  await page.route("**/rest/v1/transaction_import_sessions**", async (route) => {
+    if (route.request().method() === "POST") {
+      await route.fulfill({
+        status: 500,
+        json: { code: "P0001", message: "internal unexpected detail" },
+      });
+    } else await route.fallback();
+  });
+  await page.getByRole("button", { name: "Importuj ponownie mimo to" }).click();
+  await expect(
+    page.getByText("Nie udało się przygotować importu. Sprawdź plik i spróbuj ponownie.").first()
+  ).toBeVisible();
+  await expect(page.getByText("Ten plik został już zaimportowany")).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("[object Object]");
+  await expect(page.locator("body")).not.toContainText("internal unexpected detail");
+  expect(cancelled).toEqual([]);
+  await page.unroute("**/rest/v1/transaction_import_sessions**");
+  await page.getByRole("button", { name: "Importuj ponownie mimo to" }).click();
+  await expect(page.getByRole("button", { name: /^Zaimportuj \d+ transakc/ })).toBeVisible();
+  expect(cancelled).toEqual([]);
 });
 
 test("import wizard: asks which obligation an ambiguous bank row confirms", async ({ page }) => {

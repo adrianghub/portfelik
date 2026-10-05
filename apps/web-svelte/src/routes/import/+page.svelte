@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { errorMessage } from "$lib/services/supabase-errors";
   import * as m from "$lib/paraglide/messages";
   import { importSuccessLabel } from "$lib/content/import-copy";
   import { onMount } from "svelte";
@@ -91,7 +92,7 @@
       try {
         await cancelImportSession(activeSession.id);
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : m.bank_import_cancel_failed());
+        toast.error(errorMessage(e, { fallback: m.bank_import_cancel_failed() }));
         leaveDialogOpen = false;
         pendingHref = null;
         return;
@@ -121,7 +122,7 @@
         } catch {
           /* best-effort; prior draft remains the resume target */
         }
-        toast.error(e instanceof Error ? e.message : m.bank_import_prior_cancel_failed());
+        toast.error(errorMessage(e, { fallback: m.bank_import_prior_cancel_failed() }));
         return;
       }
     }
@@ -146,7 +147,7 @@
     try {
       await cancelImportSession(resumeSession.id);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : m.bank_import_cancel_failed());
+      toast.error(errorMessage(e, { fallback: m.bank_import_cancel_failed() }));
       return;
     }
     resumeSession = null;
@@ -182,7 +183,7 @@
     try {
       await cancelImportSession(activeSession.id);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : m.bank_import_cancel_failed());
+      toast.error(errorMessage(e, { fallback: m.bank_import_cancel_failed() }));
       return;
     }
     resetToUpload();

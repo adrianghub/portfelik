@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { errorMessage } from "$lib/services/supabase-errors";
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { requireAuthUser } from "$lib/auth/require-user";
@@ -58,7 +59,7 @@
       notifications = notifs as unknown as AdminNotificationRow[];
       pushSubs = subs;
     } catch (err) {
-      error = err instanceof Error ? err.message : String(err);
+      error = errorMessage(err);
     } finally {
       loading = false;
     }
@@ -70,7 +71,7 @@
       if (error) throw error;
     },
     onSuccess: () => toast.success(m.toast_admin_summary_triggered()),
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toast.error(errorMessage(err)),
   }));
 
   const deleteSubMutation = createMutation(() => ({
@@ -83,7 +84,7 @@
       await loadAll();
     },
     onError: (err: Error) => {
-      toast.error(err.message);
+      toast.error(errorMessage(err));
       pendingDelete = null;
     },
   }));
