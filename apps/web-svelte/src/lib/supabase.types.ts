@@ -951,6 +951,7 @@ export type Database = {
           selected_category_id: string | null;
           selected_group_id: string | null;
           session_id: string;
+          source_data: Json | null;
           suggested_category_id: string | null;
           transaction_id: string | null;
           type: Database["public"]["Enums"]["transaction_type"];
@@ -974,6 +975,7 @@ export type Database = {
           selected_category_id?: string | null;
           selected_group_id?: string | null;
           session_id: string;
+          source_data?: Json | null;
           suggested_category_id?: string | null;
           transaction_id?: string | null;
           type: Database["public"]["Enums"]["transaction_type"];
@@ -997,6 +999,7 @@ export type Database = {
           selected_category_id?: string | null;
           selected_group_id?: string | null;
           session_id?: string;
+          source_data?: Json | null;
           suggested_category_id?: string | null;
           transaction_id?: string | null;
           type?: Database["public"]["Enums"]["transaction_type"];
@@ -1705,6 +1708,7 @@ export type Database = {
         Returns: undefined;
       };
       update_transaction_statuses: { Args: never; Returns: undefined };
+      valid_import_source_data: { Args: { data: Json }; Returns: boolean };
       verify_group_invitation_recipient: {
         Args: { p_email: string; p_token: string };
         Returns: boolean;

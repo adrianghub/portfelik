@@ -86,6 +86,24 @@ describe("errorMessage — P0001 mapping", () => {
     ).toBe("Własny komunikat");
   });
 
+  it("formats plain import errors without exposing internal messages", () => {
+    expect(errorMessage({ code: "P0001", message: "rows_pending" })).toBe(
+      m.bank_commit_error_rows_pending()
+    );
+    expect(errorMessage({ code: "P0001", message: "account_invalid" })).toBe(
+      m.bank_commit_error_account_invalid()
+    );
+    expect(
+      errorMessage(
+        { code: "P0001", message: "unknown internal detail" },
+        { fallback: m.bank_upload_failed() }
+      )
+    ).toBe(m.bank_upload_failed());
+    expect(errorMessage({ code: "42501", message: "secret table name" })).toBe(
+      m.error_permission()
+    );
+  });
+
   it("uses the provided fallback for unknown errors", () => {
     expect(errorMessage({ code: "99999" }, { fallback: "Nie udało się zapisać." })).toBe(
       "Nie udało się zapisać."

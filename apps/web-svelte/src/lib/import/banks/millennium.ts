@@ -130,6 +130,12 @@ export const millenniumAdapter: ImportAdapter = {
             : undefined,
         currency:
           idx.currency >= 0 ? (cells[idx.currency] ?? "").trim().toUpperCase() || "PLN" : "PLN",
+        source_data: {
+          columns: Array.from({ length: Math.max(headers.length, cells.length) }, (_, index) => ({
+            label: headers[index] ?? `Kolumna ${index + 1}`,
+            value: cells[index] ?? "",
+          })),
+        },
         source_row_text: csv.rowTexts[i],
         row_index: i - headerRowIdx - 1,
       });
