@@ -4,6 +4,18 @@ description: Install pnpm, Node.js, and repository dependencies for the Svelte a
 runs:
   using: composite
   steps:
+    - name: Configure bounded APT downloads
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        # The Azure HTTP mirror can stall Playwright's install-deps on hosted runners.
+        for mirrors in /etc/apt/apt-mirrors.txt /etc/apt/apt-security-mirrors.txt; do
+          if [[ -f "$mirrors" ]]; then
+            sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' "$mirrors"
+          fi
+        done
+        printf '%s\n' 'Acquire::http::Timeout "30";' 'Acquire::https::Timeout "30";' 'Acquire::Retries "1";' | sudo tee /etc/apt/apt.conf.d/99-ci-timeouts >/dev/null
+
     - uses: pnpm/action-setup@v5
       with:
         version: 10
