@@ -34,7 +34,7 @@
   import { fetchCategories } from "$lib/services/categories";
   import { fetchCategorizationRules } from "$lib/services/categorization-rules";
   import { errorMessage } from "$lib/services/supabase-errors";
-  import { cn, transactionsUrlForRange } from "$lib/utils";
+  import { cn, formatDate, transactionsUrlForRange } from "$lib/utils";
   import { FileText, Upload, X } from "lucide-svelte";
   import { toast } from "svelte-sonner";
 
@@ -74,7 +74,7 @@
     return m.bank_upload_too_many_rows({ maxRows: String(IMPORT_MAX_ROWS) });
   }
 
-  async function proceedWithAdapter(kind: ImportAdapterKind): Promise<void> {
+  async function proceedWithAdapter(kind: ImportAdapterKind, allowReimport = false): Promise<void> {
     if (!pending) return;
     const { file, bytes, text } = pending;
     const label = importAdapterLabel(kind);
@@ -121,12 +121,12 @@
       bankAccountId: account.id,
       sourceFileHash: normalized.sourceFileHash,
     });
-    if (existing?.status === "committed") {
+    if (existing?.status === "committed" && !allowReimport) {
       committedConflict = existing;
       return;
     }
     // An uncommitted preview for the same file is an abandoned earlier
-    // attempt. Cancel it (frees the partial unique index on file hash) and
+    // attempt. Cancel only that draft (frees the preview-only unique index) and
     // start fresh - no mid-review resume.
     if (existing?.status === "preview") {
       await cancelImportSession(existing.id);
@@ -171,6 +171,7 @@
       toast.warning(m.bank_upload_duplicate_scan_failed());
     }
     pending = null;
+    committedConflict = null;
     onSessionReady(session, parseErrorCount, skippedRowCount);
   }
 
@@ -216,7 +217,7 @@
   }
 
   async function confirmAdapter(): Promise<void> {
-    if (!selectedKind) return;
+    if (busy || !selectedKind) return;
     busy = true;
     try {
       await proceedWithAdapter(selectedKind);
@@ -230,16 +231,20 @@
     }
   }
 
-  async function cancelCommittedConflict(): Promise<void> {
-    if (!committedConflict) return;
+  async function reimportCommittedFile(): Promise<void> {
+    if (busy || !committedConflict || !pending || !selectedKind) return;
+    busy = true;
+    error = null;
     try {
-      await cancelImportSession(committedConflict.id);
-      committedConflict = null;
-      pending = null;
-      detection = null;
-      selectedKind = null;
+      // The committed session is immutable history. Only open another preview;
+      // duplicate detection and commit-time idempotency still apply.
+      await proceedWithAdapter(selectedKind, true);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e));
+      reportError(e, "import");
+      error = errorMessage(e, { fallback: m.bank_upload_failed() });
+      toast.error(error);
+    } finally {
+      busy = false;
     }
   }
 
@@ -268,7 +273,7 @@
 
       await goto(transactionsUrlForRange({ startYear, startMonth, endYear, endMonth }));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e));
+      toast.error(errorMessage(e));
     }
   }
 
@@ -416,21 +421,26 @@
       </p>
       <p class="text-sm text-amber-100/90">
         {m.bank_upload_already_committed_body({
-          date: committedConflict.committed_at?.slice(0, 10) ?? "-",
+          date: committedConflict.committed_at
+            ? formatDate(committedConflict.committed_at.slice(0, 10))
+            : "—",
+          bank: importAdapterLabel(
+            committedConflict.adapter_kind ?? committedConflict.detected_kind
+          ),
           inserted: committedConflict.rows_committed,
           skipped: committedConflict.rows_skipped,
           duplicates: committedConflict.rows_duplicate,
         })}
       </p>
       <div class="flex flex-wrap gap-2">
-        <Button variant="ghost" size="sm" onclick={viewCommittedTransactions}>
+        <Button variant="ghost" size="sm" disabled={busy} onclick={viewCommittedTransactions}>
           {m.bank_upload_view_transactions()}
         </Button>
-        <Button variant="ghost" size="sm" onclick={cancelCommittedConflict}>
-          {m.bank_upload_cancel_previous()}
+        <Button variant="ghost" size="sm" disabled={busy} onclick={reimportCommittedFile}>
+          {m.bank_upload_reimport()}
         </Button>
       </div>
-      <p class="text-xs text-amber-200/70">{m.bank_upload_cancel_previous_hint()}</p>
+      <p class="text-xs text-amber-200/70">{m.bank_upload_reimport_hint()}</p>
     </div>
   {/if}
 </div>

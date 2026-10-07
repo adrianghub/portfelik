@@ -18,7 +18,7 @@
     normalizeDebtTermsInput,
     saveDebtPlan,
   } from "$lib/services/plan-debt";
-  import { extractPostgrestError, postgrestErrorCode } from "$lib/services/supabase-errors";
+  import { errorMessage, postgrestErrorCode } from "$lib/services/supabase-errors";
   import {
     createPlan,
     canManagePlan,
@@ -357,12 +357,7 @@
           toast.error(m.plan_db_constraint_failed());
           return;
         }
-        const pg = extractPostgrestError(err);
-        if (pg?.message) {
-          toast.error(pg.message);
-          return;
-        }
-        toast.error(m.toast_error());
+        toast.error(errorMessage(err));
       }
     }
   }

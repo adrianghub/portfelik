@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { errorMessage } from "$lib/services/supabase-errors";
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { requireAuthUser } from "$lib/auth/require-user";
@@ -57,7 +58,7 @@
       .order("created_at", { ascending: false });
 
     if (err) {
-      error = err.message;
+      error = errorMessage(err);
     } else {
       profiles = (data ?? []) as Profile[];
     }
