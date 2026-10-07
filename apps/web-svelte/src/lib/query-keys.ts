@@ -40,6 +40,7 @@ export const qk = {
   notifications: (u: Id) => [...userNs(u), "notifications"] as const,
   actionDismissals: (u: Id) => [...userNs(u), "action-dismissals"] as const,
   importHealth: (u: Id) => [...userNs(u), "import-health"] as const,
+  importHistory: (u: Id) => [...userNs(u), "import-history"] as const,
   summary: (u: Id) => [...userNs(u), "summary"] as const,
   saveLinkedIds: (u: Id) => [...userNs(u), "plan-save-linked-ids"] as const,
   importRows: (u: Id, sessionId: string) => [...userNs(u), "import-rows", sessionId] as const,

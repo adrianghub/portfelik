@@ -76,6 +76,7 @@ export interface ImportRow {
   obligation_match_confirmed?: boolean;
   transaction_id: string | null;
   created_at: string;
+  source_data?: { columns: { label: string; value: string }[] } | null;
 }
 
 export interface CommitResult {
@@ -335,6 +336,7 @@ export async function insertPreviewRows(
       currency: SUPPORTED_IMPORT_CURRENCY,
       external_id: r.external_id ?? null,
       raw_row_hash: r.raw_row_hash,
+      source_data: r.source_data ?? null,
       is_hold: r.is_hold ?? false,
       suggested_category_id: categoryId,
       selected_category_id: categoryId,

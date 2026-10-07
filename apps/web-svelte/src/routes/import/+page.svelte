@@ -161,6 +161,7 @@
     queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
     queryClient.invalidateQueries({ queryKey: qk.summary(u) });
     queryClient.invalidateQueries({ queryKey: qk.importHealth(u) });
+    queryClient.invalidateQueries({ queryKey: qk.importHistory(u) });
     queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
     queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
     queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
@@ -202,6 +203,11 @@
   <header class="space-y-1">
     <h1 class="text-2xl font-semibold text-slate-100">{m.bank_import_title()}</h1>
     <p class="text-sm text-slate-400">{m.import_private_notice()}</p>
+    {#if step === "upload"}
+      <a href="/import/history" class="text-accent inline-block py-2 text-sm hover:underline"
+        >{m.import_history_title()}</a
+      >
+    {/if}
   </header>
 
   <ol class="flex flex-wrap items-center gap-2 text-xs text-slate-400">

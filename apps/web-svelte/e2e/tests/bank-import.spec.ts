@@ -50,6 +50,7 @@ async function uploadUncertifiedStatement(
 }
 
 type ImportRow = {
+  source_data?: { columns: { label: string; value: string }[] } | null;
   id: string;
   session_id: string;
   row_index: number;
@@ -373,6 +374,7 @@ async function mockBankImportAPI(page: Page, options = {}) {
             currency: row.currency ?? "PLN",
             external_id: row.external_id ?? null,
             raw_row_hash: row.raw_row_hash ?? `raw-${index}`,
+            source_data: row.source_data ?? null,
             suggested_category_id: row.suggested_category_id ?? null,
             selected_category_id: row.selected_category_id ?? null,
             selected_group_id: null,
@@ -493,6 +495,40 @@ async function mockBankImportAPI(page: Page, options = {}) {
 test.beforeEach(async ({ page }) => {
   await injectFakeSession(page);
   await mockBankImportAPI(page);
+});
+
+test("statement preview retains bank columns after reload and includes duplicates", async ({
+  page,
+}) => {
+  await page.unrouteAll();
+  await injectFakeSession(page);
+  await mockBankImportAPI(page, { autoSkipFirstAsDuplicate: true });
+  await page.goto("/import");
+  await uploadUncertifiedStatement(page, { name: "wyciag.csv", buffer: mbankSample });
+  await page.getByRole("button", { name: "Zobacz wyciąg", exact: true }).click();
+  await page.getByRole("button", { name: /^Duplikaty \(1\)/ }).click();
+  await page
+    .getByRole("button", { name: /BIEDRONKA/ })
+    .first()
+    .click();
+  const details = page.getByRole("dialog", { name: "Szczegóły operacji" });
+  await expect(details.getByRole("heading", { name: "Dane z banku" })).toBeVisible();
+  await expect(details.getByText("#Data księgowania", { exact: true })).toBeVisible();
+  await expect(details.getByText("#Numer konta", { exact: true })).toBeVisible();
+  await page.screenshot({ path: "/tmp/import-statement-details.png" });
+  await page.getByRole("button", { name: "Zamknij", exact: true }).click();
+  await page.reload();
+  await page
+    .getByRole("button", { name: /Wznów|Kontynuuj/ })
+    .first()
+    .click();
+  await page.getByRole("button", { name: "Zobacz wyciąg", exact: true }).click();
+  await page.getByRole("button", { name: /^Duplikaty \(1\)/ }).click();
+  await page
+    .getByRole("button", { name: /BIEDRONKA/ })
+    .first()
+    .click();
+  await expect(details.getByText("#Data księgowania", { exact: true })).toBeVisible();
 });
 
 test("import wizard: uploads, flags probable duplicates, commits, and blocks re-import", async ({

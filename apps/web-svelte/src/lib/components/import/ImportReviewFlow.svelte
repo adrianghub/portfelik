@@ -4,6 +4,8 @@
   import DuplicateBanner from "$lib/components/import/DuplicateBanner.svelte";
   import ImportReviewCategorizeStep from "$lib/components/import/ImportReviewCategorizeStep.svelte";
   import ImportConfirmSheet from "$lib/components/import/ImportConfirmSheet.svelte";
+  import ImportStatementPreview from "$lib/components/import/ImportStatementPreview.svelte";
+  import { needsImportReview } from "$lib/import/statement-preview";
   import Button from "$lib/components/ui/Button.svelte";
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import Input from "$lib/components/ui/Input.svelte";
@@ -79,7 +81,7 @@
     endMonth: number;
   }
 
-  type FilterKind = "pending" | "all" | "uncategorized" | "income" | "expense";
+  type FilterKind = "review" | "pending" | "all" | "uncategorized" | "income" | "expense";
   const MANUAL_RULE_PRIORITY = 10;
 
   const queryClient = useQueryClient();
@@ -251,6 +253,13 @@
   }
   const skippedRows = $derived(rows.filter((r) => r.decision === "skip"));
   const duplicateRows = $derived(rows.filter((r) => r.decision === "duplicate"));
+  const archivedCategoryIds = $derived(
+    new Set(
+      (categoriesQuery.data ?? [])
+        .filter((category) => category.archived_at)
+        .map((category) => category.id)
+    )
+  );
   function needsCategory(row: ImportRow): boolean {
     return (
       row.selected_category_id == null ||
@@ -262,6 +271,7 @@
   const uncategorizedImportRows = $derived(importRows.filter(needsCategory));
 
   const filterCounts = $derived({
+    review: activeRows.filter((row) => needsImportReview(row, archivedCategoryIds)).length,
     pending: activeRows.filter((r) => r.decision === "pending").length,
     all: activeRows.length,
     uncategorized: activeRows.filter(needsCategory).length,
@@ -288,6 +298,9 @@
     if (inspectedRule) return inspectedRuleRows;
     let base: typeof activeRows;
     switch (filter) {
+      case "review":
+        base = activeRows.filter((row) => needsImportReview(row, archivedCategoryIds));
+        break;
       case "pending":
         base = activeRows.filter((r) => r.decision === "pending");
         break;
@@ -371,7 +384,9 @@
   const pendingRows = $derived(rows.filter((r) => r.decision === "pending"));
   const reviewSummary = $derived(
     summarizeImportReview({
-      importRows,
+      importRows: importRows.map((row) => ({
+        selected_category_id: needsCategory(row) ? null : row.selected_category_id,
+      })),
       pendingCount: pendingRows.length,
       duplicateCount: duplicateRows.length,
     })
@@ -379,6 +394,7 @@
 
   const filterOptions: { kind: FilterKind; label: string }[] = $derived.by(() => {
     const base = [
+      { kind: "review" as const, label: m.import_statement_filter_review() },
       { kind: "all" as const, label: m.bank_review_filter_all() },
       { kind: "uncategorized" as const, label: m.bank_review_filter_uncategorized() },
       { kind: "income" as const, label: m.bank_review_filter_income() },
@@ -1091,6 +1107,17 @@
 {/snippet}
 
 <div class="space-y-4">
+  <ImportStatementPreview
+    {session}
+    {rows}
+    categories={categoriesQuery.data ?? []}
+    {matchedRuleFor}
+    onReview={() => {
+      inspectedRuleId = null;
+      clearAdvancedFilter();
+      filter = "review";
+    }}
+  />
   {#each rows.filter((row) => row.decision === "pending" && (warningsByRow.get(row.id)?.obligation_candidates?.length ?? 0) > 1) as row (row.id)}
     <section class="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3">
       <p class="text-sm font-medium text-amber-100">

@@ -148,6 +148,12 @@ export const mbankAdapter: ImportAdapter = {
         counterparty: counterparty || undefined,
         external_id: undefined, // mBank "Historia operacji" does not export an op id
         currency: "PLN",
+        source_data: {
+          columns: Array.from({ length: Math.max(headers.length, cells.length) }, (_, index) => ({
+            label: headers[index] ?? `Kolumna ${index + 1}`,
+            value: cells[index] ?? "",
+          })),
+        },
         source_row_text: rawLine,
         row_index: localIndex,
       });

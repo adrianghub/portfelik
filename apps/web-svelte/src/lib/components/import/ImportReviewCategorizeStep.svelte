@@ -24,7 +24,7 @@
   }
   import { ChevronDown, Users } from "lucide-svelte";
 
-  type FilterKind = "pending" | "all" | "uncategorized" | "income" | "expense";
+  type FilterKind = "review" | "pending" | "all" | "uncategorized" | "income" | "expense";
   type SortKind = "original" | "date_desc" | "date_asc" | "amount_desc" | "amount_asc";
 
   interface RowCategoryAction {
