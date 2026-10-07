@@ -91,9 +91,10 @@ Przegląd, Wydatki, Transakcje i Plan finansowania wewnątrz jednego widoku.
 
 1. Model `spend`, pozycje i rozliczenia z RLS, jawnymi GRANT i zgodnym eksportem.
 2. Karty/szczegóły i ręczne linkowanie istniejących faktów.
-3. Wspólny odczyt przyszłych przepływów i składniki prognozy.
-4. Alokacje celów oraz prognoza wolnych środków.
-5. Sugestie importu oparte na tych samych trwałych rozliczeniach.
+3. Sugestie importu oparte na tych samych trwałych rozliczeniach, bez oczekiwania
+   na pełną prognozę. Łączą plany z codziennym importem; użytkownik zatwierdza link.
+4. Wspólny odczyt przyszłych przepływów i składniki prognozy.
+5. Alokacje celów oraz prognoza wolnych środków.
 
 Wymagane regresje: kwota faktyczna różna od planowanej, zaliczka/dopłata,
 cofnięcie linku, anulowanie, zapłata przed projektem, brak terminu, retry,

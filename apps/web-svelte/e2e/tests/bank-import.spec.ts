@@ -517,6 +517,7 @@ test("statement preview retains bank columns after reload and includes duplicate
   await expect(details.getByText("#Numer konta", { exact: true })).toBeVisible();
   await page.screenshot({ path: "/tmp/import-statement-details.png" });
   await page.getByRole("button", { name: "Zamknij", exact: true }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
   await page
     .getByRole("button", { name: /Wznów|Kontynuuj/ })
@@ -529,6 +530,7 @@ test("statement preview retains bank columns after reload and includes duplicate
     .first()
     .click();
   await expect(details.getByText("#Data księgowania", { exact: true })).toBeVisible();
+  await page.screenshot({ path: "/tmp/import-statement-mobile.png" });
 });
 
 test("import wizard: uploads, flags probable duplicates, commits, and blocks re-import", async ({
