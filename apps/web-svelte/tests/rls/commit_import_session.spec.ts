@@ -264,36 +264,82 @@ describe("RPC: commit_import_session", () => {
     expect(error?.message).toMatch(/group_forbidden/);
   });
 
-  it("uncategorized import row falls back to the caller's 'Inne wydatki' default", async () => {
+  it.each([
+    ["expense", "Inne wydatki"],
+    ["income", "Inne przychody"],
+  ] as const)(
+    "persists the committed %s fallback category in import history",
+    async (type, name) => {
+      const seed = await seedAccountAndSession();
+      const rowId = await insertRow(seed.sessionId, {
+        rowIndex: 0,
+        decision: "import",
+        categoryId: null,
+        type,
+        description: `${SENTINEL} INNE r0`,
+      });
+
+      const { data, error } = await callCommit(ctx.userA.client, seed.sessionId);
+      expect(error).toBeNull();
+      expect((data as { inserted: number }).inserted).toBe(1);
+
+      const inne = await ctx.admin
+        .from("categories")
+        .select("id")
+        .eq("user_id", ctx.userA.userId)
+        .eq("type", type)
+        .eq("name", name)
+        .single();
+      expect(inne.error).toBeNull();
+
+      const tx = await ctx.admin
+        .from("transactions")
+        .select("category_id")
+        .eq("user_id", ctx.userA.userId)
+        .eq("description", `${SENTINEL} INNE r0`)
+        .single();
+      expect(tx.error).toBeNull();
+      expect(tx.data?.category_id).toBe(inne.data?.id);
+
+      const row = await ctx.userA.client
+        .from("transaction_import_rows")
+        .select("selected_category_id")
+        .eq("id", rowId)
+        .single();
+      expect(row.error).toBeNull();
+      expect(row.data?.selected_category_id).toBe(inne.data?.id);
+    }
+  );
+
+  it("keeps the committed fallback snapshot when the transaction is recategorized", async () => {
     const seed = await seedAccountAndSession();
-    await insertRow(seed.sessionId, {
-      rowIndex: 0,
-      decision: "import",
-      categoryId: null,
-      description: `${SENTINEL} INNE r0`,
-    });
+    const rowId = await insertRow(seed.sessionId, { rowIndex: 0, categoryId: null });
+    const commit = await callCommit(ctx.userA.client, seed.sessionId);
+    expect(commit.error).toBeNull();
 
-    const { data, error } = await callCommit(ctx.userA.client, seed.sessionId);
-    expect(error).toBeNull();
-    expect((data as { inserted: number }).inserted).toBe(1);
-
-    const inne = await ctx.admin
-      .from("categories")
-      .select("id")
-      .eq("user_id", ctx.userA.userId)
-      .eq("type", "expense")
-      .eq("name", "Inne wydatki")
+    const before = await ctx.userA.client
+      .from("transaction_import_rows")
+      .select("selected_category_id, transaction_id")
+      .eq("id", rowId)
       .single();
-    expect(inne.error).toBeNull();
+    expect(before.error).toBeNull();
+    expect(before.data?.selected_category_id).toBeTruthy();
+    expect(before.data?.transaction_id).toBeTruthy();
 
-    const tx = await ctx.admin
+    const update = await ctx.userA.client
       .from("transactions")
-      .select("category_id")
-      .eq("user_id", ctx.userA.userId)
-      .eq("description", `${SENTINEL} INNE r0`)
+      .update({ category_id: seed.categoryId })
+      .eq("id", before.data!.transaction_id!);
+    expect(update.error).toBeNull();
+
+    const after = await ctx.userA.client
+      .from("transaction_import_rows")
+      .select("selected_category_id")
+      .eq("id", rowId)
       .single();
-    expect(tx.error).toBeNull();
-    expect(tx.data?.category_id).toBe(inne.data?.id);
+    expect(after.error).toBeNull();
+    expect(after.data?.selected_category_id).toBe(before.data?.selected_category_id);
+    expect(after.data?.selected_category_id).not.toBe(seed.categoryId);
   });
 
   it("copies import row counterparty onto committed transaction", async () => {
