@@ -158,6 +158,10 @@
             {/if}
           {:else if kind === "debt" && debtTerms}
             <p class="mt-0.5 text-xs text-slate-400">{formatCurrency(debtBalance)}</p>
+          {:else if kind === "spend" && plan.budget_amount != null}
+            <p class="mt-0.5 text-xs text-slate-400">
+              {m.plan_card_spend_budget({ amount: formatCurrency(plan.budget_amount) })}
+            </p>
           {/if}
         </a>
       </div>

@@ -496,6 +496,50 @@ export type Database = {
           },
         ];
       };
+      plan_items: {
+        Row: {
+          amount: number;
+          created_at: string;
+          due_date: string | null;
+          id: string;
+          label: string;
+          payee: string | null;
+          plan_id: string;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          amount: number;
+          created_at?: string;
+          due_date?: string | null;
+          id?: string;
+          label: string;
+          payee?: string | null;
+          plan_id: string;
+          status: string;
+          updated_at?: string;
+        };
+        Update: {
+          amount?: number;
+          created_at?: string;
+          due_date?: string | null;
+          id?: string;
+          label?: string;
+          payee?: string | null;
+          plan_id?: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "plan_items_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "plans";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       plan_progress_snapshots: {
         Row: {
           created_at: string;

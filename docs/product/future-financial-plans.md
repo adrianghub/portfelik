@@ -20,24 +20,19 @@ Transport nie staje się kategorią Teneryfa.
 ## Pozycje i rozliczenia
 
 Nowe `plan_items` należą do planu wydatkowego: etykieta, planowana kwota PLN,
-opcjonalny termin DATE, odbiorca i stan. DB używa numeric. Obliczenia sumują
-grosze. Pozycja bez terminu jest budżetem, nie przepływem przypisanym po cichu
-do konkretnego miesiąca.
+opcjonalny termin DATE i odbiorca. Stan opisuje pewność płatności, nie rezerwację
+i nie dowód, że pieniądze wyszły z konta. Szacowane nie ma terminu. Zaplanowana
+płatność ma termin orientacyjny i zostaje w limicie budżetu, ale nie w kwocie
+do zapłaty. Potwierdzona płatność jest zobowiązaniem, dopóki nie powiążemy
+transakcji. Anulowane zostaje w historii i wypada z sum. Rezerwacja jest osobnym
+stanem na później. DB używa numeric; obliczenia sumują grosze. Pozycja bez
+terminu jest budżetem, nie przepływem przypisanym po cichu do konkretnego miesiąca.
+Prognoza, gdy powstanie, odejmuje pozostałą kwotę potwierdzonych pozycji, nie
+każdej pozycji z datą.
 
 Budżet planu nie jest saldem konta. 12 000 zł na wakacjach oznacza planowany
 limit wydatków, nie odłożone środki. Zapłacone liczą się tylko z powiązanych
-transakcji. Sam plan nie obniża aktualnego salda. Rezerwacja apartamentu nie
-oznacza, że pieniądze już wyszły.
-
-Stany pozycji:
-
-| Stan | Znaczenie |
-| --- | --- |
-| Szacowane | Kwota bez terminu. Nie wchodzi do prognozy jako płatność. |
-| Zarezerwowane | Jest termin albo zobowiązanie. Pieniądze nie muszą jeszcze wyjść z konta. |
-| Do zapłaty | Została kwota po odjęciu powiązanych transakcji. |
-| Rozliczone | Powiązane transakcje pokrywają plan. |
-| Anulowane | Znika z prognozy. Historia powiązań zostaje. |
+transakcji. Sam plan nie obniża aktualnego salda.
 
 Istniejące `plan_transaction_links` otrzymują opcjonalne `plan_item_id`.
 Backend sprawdza zgodność pozycji z planem, zakres prywatności, uprawnienia,

@@ -259,6 +259,169 @@ test.skip("refinances a debt plan: closes old, opens new, writes no transaction"
   expect(transactionWritten).toBe(false);
 });
 
+test("creates a spend plan with a budget cap", async ({ page }) => {
+  let postedBody: Record<string, unknown> | undefined;
+  await page.route(/.*\/rest\/v1\/plans.*/, async (route) => {
+    const request = route.request();
+    if (request.method() === "POST") {
+      postedBody = request.postDataJSON() as Record<string, unknown>;
+      return route.fulfill({
+        status: 201,
+        json: {
+          id: "plan-malta",
+          name: postedBody.name,
+          kind: "spend",
+          user_id: "00000000-0000-0000-0000-000000000001",
+          group_id: null,
+          category_id: null,
+          budget_amount: postedBody.budget_amount,
+          target_amount: null,
+          start_date: postedBody.start_date,
+          end_date: postedBody.end_date,
+          status: "active",
+          created_at: "2026-10-08T10:00:00Z",
+          updated_at: "2026-10-08T10:00:00Z",
+        },
+      });
+    }
+    return route.fallback();
+  });
+
+  const { startDate, endDate } = datesInCurrentMonth();
+  await page.goto("/plans");
+  await page.getByRole("button", { name: "Nowy plan" }).first().click();
+  await page.getByRole("button", { name: "Wydatki", exact: true }).click();
+  await page.getByLabel("Nazwa planu").fill("Malta i Gozo");
+  await page.getByRole("button", { name: "Od", exact: true }).click();
+  await page.locator(`[data-date="${startDate}"]`).click();
+  await page.getByRole("button", { name: "Do", exact: true }).click();
+  await page.locator(`[data-date="${endDate}"]`).click();
+  await page.getByLabel("Budżet").fill("12000");
+  await expect(page.getByText("To limit wydatków, nie odłożone pieniądze.")).toBeVisible();
+  await page.getByRole("button", { name: "Zapisz" }).click();
+
+  await expect
+    .poll(() => postedBody)
+    .toMatchObject({
+      name: "Malta i Gozo",
+      kind: "spend",
+      budget_amount: 12000,
+      target_amount: null,
+      start_date: startDate,
+      end_date: endDate,
+    });
+});
+
+test("a spend item stays unpaid until a transaction is linked", async ({ page }) => {
+  const plan = {
+    id: "plan-malta",
+    name: "Malta i Gozo",
+    kind: "spend",
+    user_id: "00000000-0000-0000-0000-000000000001",
+    group_id: null,
+    category_id: null,
+    budget_amount: 12000,
+    target_amount: null,
+    start_date: "2026-10-25",
+    end_date: "2026-11-07",
+    status: "active",
+    icon: null,
+    is_demo: false,
+    refinanced_from_plan_id: null,
+    replaced_by_plan_id: null,
+    created_at: "2026-10-08T10:00:00Z",
+    updated_at: "2026-10-08T10:00:00Z",
+  };
+  const items: Record<string, unknown>[] = [];
+  let patched: Record<string, unknown> | undefined;
+  await page.route(/.*\/rest\/v1\/plans.*id=eq\.plan-malta.*/, (route) =>
+    route.fulfill({ status: 200, json: plan })
+  );
+  await page.route(/.*\/rest\/v1\/plan_items.*/, async (route) => {
+    const request = route.request();
+    if (request.method() === "POST") {
+      const body = request.postDataJSON() as Record<string, unknown>;
+      const row = {
+        id: "item-apartment",
+        created_at: "2026-10-08T10:00:00Z",
+        updated_at: "2026-10-08T10:00:00Z",
+        ...body,
+      };
+      items.push(row);
+      return route.fulfill({ status: 201, json: row });
+    }
+    if (request.method() === "PATCH") {
+      patched = request.postDataJSON() as Record<string, unknown>;
+      const row = {
+        ...items[0],
+        ...patched,
+        updated_at: "2026-10-08T11:00:00Z",
+      };
+      items[0] = row;
+      return route.fulfill({ status: 200, json: row });
+    }
+    return route.fulfill({ status: 200, json: items });
+  });
+
+  const { endDate } = datesInCurrentMonth();
+  await page.goto("/plans/plan-malta");
+  await expect(page.getByRole("heading", { name: "Malta i Gozo" })).toBeVisible();
+  await expect(page.getByText("To nie zmienia salda konta.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Dodaj ręcznie" })).toHaveCount(0);
+  await page.getByLabel("Nazwa pozycji").fill("Apartament");
+  await page.getByLabel("Kwota", { exact: true }).fill("3600");
+  await page.getByRole("button", { name: "Termin płatności" }).click();
+  await page.locator(`[data-date="${endDate}"]`).click();
+  await page.getByRole("button", { name: "Dodaj pozycję" }).click();
+
+  await expect
+    .poll(() => items[0])
+    .toMatchObject({
+      plan_id: "plan-malta",
+      label: "Apartament",
+      amount: 3600,
+      due_date: endDate,
+      status: "planned",
+      payee: null,
+    });
+  const apartment = page.getByRole("listitem").filter({ hasText: "Apartament" });
+  await expect(apartment).toContainText("Zaplanowana płatność");
+  await expect(apartment).not.toContainText("Do zapłaty");
+  await expect(page.getByText("Zarezerwowane")).toHaveCount(0);
+  await expect(page.getByText(formatCurrency(3600)).first()).toBeVisible();
+  await expect(page.getByText(formatCurrency(8400)).first()).toBeVisible();
+  await expect(page.getByText(formatCurrency(0)).first()).toBeVisible();
+  await expect(page.getByText("w płatnościach orientacyjnych")).toBeVisible();
+  await expect(page.getByText("Tylko potwierdzone płatności.")).toBeVisible();
+
+  await page.getByRole("button", { name: "Popraw" }).click();
+  await expect(page.getByRole("heading", { name: "Popraw pozycję" })).toBeVisible();
+  await page.getByLabel("Kwota", { exact: true }).fill("4000");
+  await page.getByRole("button", { name: "Zapisz zmiany" }).click();
+  await expect
+    .poll(() => patched)
+    .toMatchObject({ amount: 4000, due_date: endDate, status: "planned" });
+  await expect(page.getByText(formatCurrency(8000)).first()).toBeVisible();
+
+  await page.getByRole("button", { name: "Popraw" }).click();
+  await page.getByRole("checkbox", { name: "Potwierdzona płatność" }).check();
+  await page.getByRole("button", { name: "Zapisz zmiany" }).click();
+  await expect.poll(() => patched).toMatchObject({ amount: 4000, status: "confirmed" });
+  await expect(apartment).toContainText("Potwierdzona płatność");
+  await expect(apartment).toContainText("Do zapłaty");
+  await expect(page.getByText(formatCurrency(4000)).first()).toBeVisible();
+  await expect(page.getByText("w płatnościach orientacyjnych")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Anuluj pozycję" }).click();
+  await expect.poll(() => patched).toMatchObject({ status: "cancelled" });
+  await expect(page.getByRole("button", { name: "Przywróć" })).toBeVisible();
+  await page.getByRole("button", { name: "Przywróć" }).click();
+  await expect
+    .poll(() => patched)
+    .toMatchObject({ amount: 4000, due_date: endDate, status: "planned" });
+  await expect(apartment).toContainText("Zaplanowana płatność");
+});
+
 test("debt scenarios route redirects to plan detail", async ({ page }) => {
   await page.goto("/plans/plan-debt-1/scenarios?mode=monthly&extra=500");
   await expect.poll(() => page.url()).toMatch(/\/plans\/plan-debt-1\/?$/);
