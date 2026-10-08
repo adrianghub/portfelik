@@ -50,11 +50,14 @@ const h = vi.hoisted(() => {
 
 vi.mock("$lib/supabase", () => ({ supabase: h.supabase }));
 
+import { matchCategory } from "$lib/import/categorize";
 import {
   buildCategorizationRuleEditPatch,
   createCategorizationRule,
+  planCategorizationRuleEdit,
   updateCategorizationRule,
 } from "$lib/services/categorization-rules";
+import type { CategorizationRule, Category } from "$lib/types";
 
 beforeEach(() => {
   h.state.results = [];
@@ -286,5 +289,124 @@ describe("updateCategorizationRule", () => {
 
     expect(out).toEqual(saved);
     expect(h.state.log.chain.some((entry) => entry[0] === "delete")).toBe(false);
+  });
+});
+
+describe("merged rule categorization", () => {
+  const groceries: Category = {
+    id: "groceries",
+    name: "Zakupy",
+    type: "expense",
+    user_id: TEST_UID,
+    cap_amount: null,
+    cap_period: null,
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
+  };
+  const transport: Category = { ...groceries, id: "transport", name: "Transport" };
+  const fuel: Category = { ...groceries, id: "fuel", name: "Paliwo" };
+  const categories = [groceries, transport, fuel];
+
+  function rule(
+    partial: Pick<CategorizationRule, "id" | "priority" | "category_id"> &
+      Partial<CategorizationRule>
+  ): CategorizationRule {
+    return {
+      user_id: TEST_UID,
+      kind: "contains",
+      match_operator: "all",
+      match_description: "biedronka",
+      match_counterparty: null,
+      match_type: null,
+      match_day_of_month: null,
+      created_at: "2026-01-01T00:00:00Z",
+      ...partial,
+    };
+  }
+
+  const payuRow = {
+    type: "expense" as const,
+    description: "BIEDRONKA SKLEP 123",
+    counterparty: "PAYU BIEDRONKA",
+  };
+  const otherRow = { ...payuRow, counterparty: "INNY SKLEP" };
+  const fuelRow = {
+    type: "expense" as const,
+    description: "ORLEN 44",
+    counterparty: "ORLEN",
+  };
+
+  function afterClearingCounterparty(rules: CategorizationRule[], currentId: string) {
+    const current = rules.find((item) => item.id === currentId);
+    if (!current) throw new Error("missing rule");
+    const plan = planCategorizationRuleEdit(current, { match_counterparty: null }, rules);
+    const survivor = { ...current, ...plan.patch };
+    return rules
+      .filter((item) => item.id !== current.id && item.id !== plan.retireId)
+      .concat(survivor);
+  }
+
+  it("keeps the broader rule ahead of a weaker competitor", () => {
+    const specific = rule({
+      id: "specific",
+      priority: 0,
+      category_id: "groceries",
+      match_counterparty: "payu",
+    });
+    const broad = rule({ id: "broad", priority: 10, category_id: "groceries" });
+    const competitor = rule({ id: "other", priority: 5, category_id: "transport" });
+    const before = [specific, broad, competitor];
+
+    expect(matchCategory(payuRow, before, categories)).toBe("groceries");
+    expect(matchCategory(otherRow, before, categories)).toBe("groceries");
+
+    const weakened = [competitor, { ...specific, match_counterparty: null, priority: 0 }];
+    expect(matchCategory(otherRow, weakened, categories)).toBe("transport");
+
+    const after = afterClearingCounterparty(before, "specific");
+    expect(after.map((item) => item.id).sort()).toEqual(["other", "specific"]);
+    expect(after.find((item) => item.id === "specific")?.priority).toBe(10);
+    expect(matchCategory(payuRow, after, categories)).toBe("groceries");
+    expect(matchCategory(otherRow, after, categories)).toBe("groceries");
+  });
+
+  it("lets a stronger edited rule cover rows after its condition is removed", () => {
+    const specific = rule({
+      id: "specific",
+      priority: 20,
+      category_id: "groceries",
+      match_counterparty: "payu",
+    });
+    const broad = rule({ id: "broad", priority: 2, category_id: "groceries" });
+    const competitor = rule({ id: "other", priority: 10, category_id: "transport" });
+    const before = [specific, broad, competitor];
+
+    expect(matchCategory(payuRow, before, categories)).toBe("groceries");
+    expect(matchCategory(otherRow, before, categories)).toBe("transport");
+
+    const after = afterClearingCounterparty(before, "specific");
+    expect(after.find((item) => item.id === "specific")?.priority).toBe(20);
+    expect(matchCategory(payuRow, after, categories)).toBe("groceries");
+    expect(matchCategory(otherRow, after, categories)).toBe("groceries");
+  });
+
+  it("does not disturb a higher-priority rule for a different merchant", () => {
+    const specific = rule({
+      id: "specific",
+      priority: 0,
+      category_id: "groceries",
+      match_counterparty: "payu",
+    });
+    const broad = rule({ id: "broad", priority: 10, category_id: "groceries" });
+    const orlen = rule({
+      id: "orlen",
+      priority: 50,
+      category_id: "fuel",
+      match_description: "orlen",
+    });
+    const after = afterClearingCounterparty([specific, broad, orlen], "specific");
+
+    expect(matchCategory(fuelRow, after, categories)).toBe("fuel");
+    expect(matchCategory(payuRow, after, categories)).toBe("groceries");
   });
 });
