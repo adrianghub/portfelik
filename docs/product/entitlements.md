@@ -116,6 +116,54 @@ Zasady kopii:
 - Przycisk tworzenia jest nieaktywny razem z tym zdaniem, zanim otworzy się
   formularz. Odmowa serwera używa tego samego wyjaśnienia.
 
+## Cztery warstwy
+
+Subskrypcja przyznaje uprawnienia. Nie robi tego komponent, flaga płatności
+w profilu ani nazwa pakietu wpisana w kilku ekranach. Dzięki temu późniejsza
+zmiana progów albo dostawcy płatności nie przebudowuje aplikacji.
+
+| Warstwa | Pytanie | Teraz |
+| --- | --- | --- |
+| Subscription | Kto ma jaki plan i do kiedy? | `beta`. Później `free`, `premium`, trial, karencja. |
+| Entitlements | Co z tego planu wynika? | Puste progi. Funkcje włączone. |
+| Usage | Ile obiektów naprawdę istnieje? | Liczniki do odczytu, bez blokady. |
+| Enforcement | Czy ten zapis wolno wykonać? | W becie zawsze tak. |
+
+Zewnętrzny operator płatności będzie wysyłał zdarzenia do subskrypcji. Nie
+będzie decydował, czy można utworzyć plan. Kontrakt decyzji:
+
+```ts
+type EntitlementDecision = {
+  allowed: boolean;
+  used: number;
+  limit: number | null;
+  reason?: "limit_reached" | "feature_unavailable";
+};
+```
+
+`limit: null` oznacza brak progu. Liczenie i decyzja o zapisie dzieją się w
+jednej transakcji bazy, także przy dwóch równoległych żądaniach.
+
+Model ma miejsce na późniejszą jednostkę zużycia, na przykład odświeżenie
+połączenia bankowego, jeśli operator będzie nas za nie rozliczał. Tych jednostek
+nie mierzymy i nie naliczamy. Nie ma rocznego zobowiązania, cennika zużycia ani
+karnych stawek.
+
+## Własność licencji
+
+Premium kupuje osoba. Jej prywatne limity dotyczą jej kont bankowych, reguł i
+prywatnych planów. Limit członków Domu i obiektów wspólnych dotyczy Domu, nie
+sumy prywatnych kont uczestników.
+
+Premium jednej osoby może rozszerzać możliwości wspólnego Domu, w którym ta
+osoba jest. Wygaśnięcie tego Premium nie usuwa danych i nie odbiera drugiej
+osobie dostępu do jej prywatnych zasobów ani do historii Domu. Wspólne obiekty
+ponad późniejszy próg zostają. Blokada dotyczy tylko tworzenia nowych.
+
+Tej polityki nie wolno dopisywać przy okazji liczników. Gdy liczniki powstaną,
+w becie tylko pokazują wykorzystanie i nie rozróżniają jeszcze właściciela
+płatności.
+
 ## Model
 
 Jeden moduł zwraca plan, wykorzystanie i decyzję `canCreate` dla kluczy:
@@ -141,17 +189,27 @@ nie reguły liczenia.
 
 ## Kolejność
 
-| Kiedy | Praca |
-| --- | --- |
-| Teraz | Dokończenie i przetestowanie importu |
-| Następnie | Model `spend`, pozycje planów, rozliczenia |
-| Równolegle | Model uprawnień: `beta`, `free`, `premium`, liczniki, bez egzekwowania progów |
-| Po planach i po danych z bety | Decyzja, które progi z hipotezy włączyć |
-| Przed publiczną monetyzacją | Billing, zejście na Free, odzyskanie zakupów, anulowanie subskrypcji |
+Numery wersji są propozycją zakresu, nie harmonogramem wydań. Aplikacja ma
+pomagać decydować o pieniądzach. System subskrypcji tego nie wyprzedza.
+
+| Zakres | Praca | Priorytet |
+| --- | --- | --- |
+| 1.3.x | Domknięcie importu i regresja łączenia reguł | P0 |
+| 1.3.x | „Co nowego”: kropka przy nieprzeczytanej wersji | P1 |
+| 1.4.0 | Plany wydatkowe: wakacje, remont, wesele | P0 |
+| 1.4.1 | Łączenie transakcji z pozycjami planu | P0 |
+| 1.4.2 | Sugestie powiązań podczas importu CSV | P1 |
+| 1.5.0 | Nadchodzące przepływy i prognoza z planami | P0 |
+| 1.5.x | Dopracowanie pierwszego wejścia | P1 |
+| 1.6.0 | Alokacje oszczędności i tempo celów | P1 |
+| 1.7.0 | Symulacje „Czy nas na to stać?” | P0 |
+| Później | Liczniki bez blokady, potem progi, billing i synchronizacja bankowa | P2 |
 
 Rozliczenie planowanej płatności aktualizuje transakcję, plan i prognozę jednym
-przepływem. Szczegóły są w `future-financial-plans.md`. To nie jest osobny
-system obok entitlementów.
+przepływem. Szczegóły są w `future-financial-plans.md`. Obserwacyjne liczniki
+`beta` / `free` / `premium` wchodzą dopiero po tej pętli i niczego nie blokują.
+Do analityki monetyzacji idą tylko zagregowane liczniki, bez opisów transakcji
+i bez kwot.
 
 ## Co nowego
 
@@ -172,8 +230,12 @@ z logowania i inicjały. Tej zamiany nie robimy razem z modelem planów.
 
 Odznaczenie warunku opisu albo kontrahenta ma się zapisać. Jeśli po zmianie
 reguła jest tym samym dopasowaniem co inna reguła tego użytkownika, zostaje
-jedna: edytowana, z wyższym priorytetem z tej pary. Istniejące dopasowania
-dalej działają. Komunikat „Taki wpis już istnieje.” nie opisuje tej sytuacji.
+jedna: edytowana, z wyższym priorytetem z tej pary. Transakcje, które wygrywała
+ta wyższa reguła, zostają w tej samej kategorii. Słabsza reguła o innej
+kategorii nie przejmuje ich tylko dlatego, że warunki się złączyły. Gdy
+edytowana reguła była silniejsza i użytkownik zdejmuje warunek, nowo pasujące
+transakcje idą za nią. To jest skutek poszerzenia reguły. Komunikat „Taki wpis
+już istnieje.” nie opisuje tej sytuacji.
 Gdy kolizji nie da się tak złączyć, komunikat brzmi „Taka reguła już istnieje.”
 
 Masowe operacje na regułach i kategoriach (usuwanie wielu, przeniesienie do
@@ -184,4 +246,6 @@ ich przy entitlementach.
 
 Płatności, cennik, odzyskiwanie zakupów i obsługa anulowania. Włączenie progów
 w becie. Miesięczny limit transakcji. Ukrywanie albo kasowanie historii po
-zmianie planu. Implementacja awatara pikselowego i masowych operacji.
+zmianie planu. Rozliczanie zużycia, kredyty i pakiety rodzinne jako osobne
+produkty. Implementacja awatara pikselowego i masowych operacji. Synchronizacja
+bankowa.
