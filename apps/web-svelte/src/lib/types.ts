@@ -162,7 +162,7 @@ export interface GroupInvitationPreview {
   expiresAt: string;
 }
 
-export type PlanKind = "save" | "debt";
+export type PlanKind = "save" | "debt" | "spend";
 
 export interface Plan {
   icon?: string | null;

@@ -875,6 +875,7 @@ async function countEligibleForPlans(plans: Plan[]): Promise<Record<string, numb
 
   const byScope = new Map<string, Plan[]>();
   for (const plan of plans) {
+    if (plan.kind === "spend") continue;
     const key = planScopeKey(plan);
     const group = byScope.get(key) ?? [];
     group.push(plan);

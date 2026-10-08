@@ -38,6 +38,7 @@ export const ACCOUNT_EXPORT_TABLE_INVENTORY = {
   plan_transaction_links: { disposition: "exported", field: "plan_transaction_links" },
   plans: { disposition: "exported", field: "plans" },
   plan_debt_terms: { disposition: "exported", field: "plan_debt_terms" },
+  plan_items: { disposition: "exported", field: "plan_items" },
   financial_snapshots: { disposition: "exported", field: "financial_snapshot" },
   plan_settlement_dismissals: {
     disposition: "ephemeral",
@@ -68,6 +69,7 @@ export interface AccountExportBundle {
   plans: unknown[];
   plan_transaction_links: unknown[];
   plan_debt_terms: unknown[];
+  plan_items: unknown[];
   plan_progress_snapshots: unknown[];
   groups: unknown[];
   group_members: unknown[];
@@ -199,11 +201,12 @@ export async function buildAccountExport(): Promise<AccountExportBundle> {
   const planIds = (plans as { id: string }[]).map((p) => p.id);
   let planTransactionLinks: unknown[] = [];
   let planDebtTerms: unknown[] = [];
+  let planItems: unknown[] = [];
   let planProgressSnapshots: unknown[] = [];
   if (planIds.length > 0) {
     const perPlanChunk = await Promise.all(
       chunksOf(planIds).map(async (ids) => {
-        const [links, debtTerms, progressSnapshots] = await Promise.all([
+        const [links, debtTerms, planItemRows, progressSnapshots] = await Promise.all([
           fetchAllPages((from, to) =>
             supabase
               .from("plan_transaction_links")
@@ -222,6 +225,15 @@ export async function buildAccountExport(): Promise<AccountExportBundle> {
           ),
           fetchAllPages((from, to) =>
             supabase
+              .from("plan_items")
+              .select("id, plan_id, label, amount, due_date, status, payee, created_at, updated_at")
+              .in("plan_id", ids)
+              .order("created_at")
+              .order("id")
+              .range(from, to)
+          ),
+          fetchAllPages((from, to) =>
+            supabase
               .from("plan_progress_snapshots")
               .select("id, plan_id, saved_amount, effective_date, note, created_by, created_at")
               .in("plan_id", ids)
@@ -230,11 +242,12 @@ export async function buildAccountExport(): Promise<AccountExportBundle> {
               .range(from, to)
           ),
         ]);
-        return { links, debtTerms, progressSnapshots };
+        return { links, debtTerms, planItemRows, progressSnapshots };
       })
     );
     planTransactionLinks = perPlanChunk.flatMap((result) => result.links);
     planDebtTerms = perPlanChunk.flatMap((result) => result.debtTerms);
+    planItems = perPlanChunk.flatMap((result) => result.planItemRows);
     planProgressSnapshots = perPlanChunk.flatMap((result) => result.progressSnapshots);
   }
 
@@ -258,6 +271,7 @@ export async function buildAccountExport(): Promise<AccountExportBundle> {
     plans,
     plan_transaction_links: planTransactionLinks,
     plan_debt_terms: planDebtTerms,
+    plan_items: planItems,
     plan_progress_snapshots: planProgressSnapshots,
     groups,
     group_members: groupMembers,
