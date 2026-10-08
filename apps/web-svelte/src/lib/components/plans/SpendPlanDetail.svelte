@@ -8,6 +8,7 @@
     cancelPlanItem,
     createPlanItem,
     fetchPlanItems,
+    restorePlanItem,
     updatePlanItem,
     type PlanItem,
   } from "$lib/services/plan-items";
@@ -125,6 +126,20 @@
     }
   }
 
+  async function restoreItem(item: PlanItem) {
+    if (!canManage || cancellingId) return;
+    cancellingId = item.id;
+    try {
+      await restorePlanItem(item);
+      toast.success(m.plan_item_restored());
+      await refreshItems();
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      cancellingId = null;
+    }
+  }
+
   async function cancelItem(id: string) {
     if (!canManage || cancellingId) return;
     cancellingId = id;
@@ -170,6 +185,11 @@
     <div class="rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3">
       <dt class="text-xs text-slate-400">{m.plan_spend_to_pay()}</dt>
       <dd class="mt-1 text-lg font-semibold text-slate-100">{formatCurrency(summary.toPay)}</dd>
+      {#if summary.orientational > 0}
+        <p class="mt-1 text-xs text-slate-300">
+          {m.plan_spend_orientational({ amount: formatCurrency(summary.orientational) })}
+        </p>
+      {/if}
       <p class="mt-1 text-xs text-slate-500">{m.plan_spend_to_pay_hint()}</p>
     </div>
   </dl>
@@ -235,11 +255,25 @@
           </li>
         {/each}
         {#each cancelledItems as item (item.id)}
-          <li class="rounded-xl border border-white/5 px-3 py-3 text-slate-500">
-            <p class="truncate line-through">{item.label}</p>
-            <p class="mt-0.5 text-xs">
-              {itemStatusLabel(item.status)} · {formatCurrency(item.amount)}
-            </p>
+          <li
+            class="flex items-start justify-between gap-3 rounded-xl border border-white/5 px-3 py-3 text-slate-500"
+          >
+            <div class="min-w-0">
+              <p class="truncate line-through">{item.label}</p>
+              <p class="mt-0.5 text-xs">
+                {itemStatusLabel(item.status)} · {formatCurrency(item.amount)}
+              </p>
+            </div>
+            {#if canManage}
+              <button
+                type="button"
+                class="focus-visible:ring-accent shrink-0 rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+                disabled={cancellingId === item.id}
+                onclick={() => restoreItem(item)}
+              >
+                {m.plan_item_restore()}
+              </button>
+            {/if}
           </li>
         {/each}
       </ul>

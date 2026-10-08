@@ -17,6 +17,8 @@ export interface SpendBudgetSummary {
   planned: number;
   /** Confirmed payments only. A date without confirmation is not yet an obligation. */
   toPay: number;
+  /** Dated lines the user has not confirmed. They stay visible beside a zero due amount. */
+  orientational: number;
   /** Budget minus planned lines. Negative means the plan exceeds its cap. */
   budgetLeft: number;
 }
@@ -76,11 +78,13 @@ export function summarizeSpendBudget(
 ): SpendBudgetSummary {
   const active = items.filter((item) => item.status !== "cancelled");
   const confirmed = active.filter((item) => item.status === "confirmed");
+  const orientational = active.filter((item) => item.status === "planned");
   const planned = sumMoneyAmounts(active);
   return {
     budget,
     planned,
     toPay: sumMoneyAmounts(confirmed),
+    orientational: sumMoneyAmounts(orientational),
     budgetLeft: moneyDifference(budget, planned),
   };
 }

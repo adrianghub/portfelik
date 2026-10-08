@@ -391,6 +391,7 @@ test("a spend item stays unpaid until a transaction is linked", async ({ page })
   await expect(page.getByText(formatCurrency(3600)).first()).toBeVisible();
   await expect(page.getByText(formatCurrency(8400)).first()).toBeVisible();
   await expect(page.getByText(formatCurrency(0)).first()).toBeVisible();
+  await expect(page.getByText("w płatnościach orientacyjnych")).toBeVisible();
   await expect(page.getByText("Tylko potwierdzone płatności.")).toBeVisible();
 
   await page.getByRole("button", { name: "Popraw" }).click();
@@ -409,6 +410,16 @@ test("a spend item stays unpaid until a transaction is linked", async ({ page })
   await expect(apartment).toContainText("Potwierdzona płatność");
   await expect(apartment).toContainText("Do zapłaty");
   await expect(page.getByText(formatCurrency(4000)).first()).toBeVisible();
+  await expect(page.getByText("w płatnościach orientacyjnych")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Anuluj pozycję" }).click();
+  await expect.poll(() => patched).toMatchObject({ status: "cancelled" });
+  await expect(page.getByRole("button", { name: "Przywróć" })).toBeVisible();
+  await page.getByRole("button", { name: "Przywróć" }).click();
+  await expect
+    .poll(() => patched)
+    .toMatchObject({ amount: 4000, due_date: endDate, status: "planned" });
+  await expect(apartment).toContainText("Zaplanowana płatność");
 });
 
 test("debt scenarios route redirects to plan detail", async ({ page }) => {

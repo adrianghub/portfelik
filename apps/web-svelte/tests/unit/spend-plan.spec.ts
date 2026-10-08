@@ -9,6 +9,7 @@ describe("spend plan budget", () => {
     ]);
     expect(summary.planned).toBe(4_600);
     expect(summary.toPay).toBe(0);
+    expect(summary.orientational).toBe(3_600);
     expect(summary.budgetLeft).toBe(7_400);
   });
 
@@ -19,6 +20,7 @@ describe("spend plan budget", () => {
     ]);
     expect(summary.planned).toBe(4_600);
     expect(summary.toPay).toBe(3_600);
+    expect(summary.orientational).toBe(1_000);
     expect(summary.budgetLeft).toBe(7_400);
   });
 
@@ -30,6 +32,7 @@ describe("spend plan budget", () => {
     ]);
     expect(summary.planned).toBe(1_300);
     expect(summary.toPay).toBe(800);
+    expect(summary.orientational).toBe(0);
     expect(summary.budgetLeft).toBe(-300);
   });
 

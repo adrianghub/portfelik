@@ -57,6 +57,19 @@ export async function updatePlanItem(id: string, input: PlanItemInput): Promise<
   return data as PlanItem;
 }
 
+/** Cancellation drops confirmation. Restoring a dated line brings it back as a scheduled payment. */
+export async function restorePlanItem(
+  item: Pick<PlanItem, "id" | "label" | "amount" | "due_date" | "payee">
+): Promise<PlanItem> {
+  return updatePlanItem(item.id, {
+    label: item.label,
+    amount: item.amount,
+    dueDate: item.due_date,
+    payee: item.payee,
+    confirmed: false,
+  });
+}
+
 export async function cancelPlanItem(id: string): Promise<PlanItem> {
   const { data, error } = await supabase
     .from("plan_items")
