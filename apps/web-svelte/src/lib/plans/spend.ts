@@ -1,7 +1,10 @@
 import { moneyDifference, sumMoneyAmounts } from "$lib/money";
 
-/** Commitment on a spend item. Cash leaves only when a transaction is linked later. */
-export type SpendItemStatus = "estimated" | "reserved" | "cancelled";
+/**
+ * Commitment on a spend item. A date is an orientation until the user confirms it.
+ * Cash leaves only when a transaction is linked later. Reservation is a future state.
+ */
+export type SpendItemStatus = "estimated" | "planned" | "confirmed" | "cancelled";
 
 export interface SpendItemAmounts {
   amount: number;
@@ -10,11 +13,9 @@ export interface SpendItemAmounts {
 
 export interface SpendBudgetSummary {
   budget: number;
-  /** Estimated and reserved lines. Cancelled lines stay stored and drop out. */
+  /** Estimated, planned, and confirmed lines. Cancelled lines stay stored and drop out. */
   planned: number;
-  /** Dated commitments only. Estimates are not yet payments. */
-  reserved: number;
-  /** Reserved amount still unpaid. Linked transactions are a later slice, so this equals reserved. */
+  /** Confirmed payments only. A date without confirmation is not yet an obligation. */
   toPay: number;
   /** Budget minus planned lines. Negative means the plan exceeds its cap. */
   budgetLeft: number;
@@ -30,6 +31,7 @@ export function normalizeSpendItem(input: {
   amount: number | null;
   dueDate: string | null;
   payee?: string | null;
+  confirmed?: boolean;
   cancelled?: boolean;
 }): {
   label: string;
@@ -48,11 +50,16 @@ export function normalizeSpendItem(input: {
   const dueDate = input.dueDate?.trim() ? input.dueDate.trim() : null;
   const payee = input.payee?.trim() ? input.payee.trim() : null;
   if (payee && payee.length > 160) throw new Error("item_payee_too_long");
+  if (input.confirmed && !input.cancelled && !dueDate) {
+    throw new Error("item_confirm_needs_date");
+  }
   const status: SpendItemStatus = input.cancelled
     ? "cancelled"
-    : dueDate
-      ? "reserved"
-      : "estimated";
+    : !dueDate
+      ? "estimated"
+      : input.confirmed
+        ? "confirmed"
+        : "planned";
   return {
     label,
     amount,
@@ -68,14 +75,12 @@ export function summarizeSpendBudget(
   items: readonly SpendItemAmounts[]
 ): SpendBudgetSummary {
   const active = items.filter((item) => item.status !== "cancelled");
-  const reservedItems = active.filter((item) => item.status === "reserved");
+  const confirmed = active.filter((item) => item.status === "confirmed");
   const planned = sumMoneyAmounts(active);
-  const reserved = sumMoneyAmounts(reservedItems);
   return {
     budget,
     planned,
-    reserved,
-    toPay: reserved,
+    toPay: sumMoneyAmounts(confirmed),
     budgetLeft: moneyDifference(budget, planned),
   };
 }

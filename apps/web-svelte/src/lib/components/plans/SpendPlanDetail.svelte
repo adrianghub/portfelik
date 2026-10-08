@@ -4,7 +4,13 @@
   import { summarizeSpendBudget } from "$lib/plans/spend";
   import * as m from "$lib/paraglide/messages";
   import { qk } from "$lib/query-keys";
-  import { cancelPlanItem, createPlanItem, fetchPlanItems } from "$lib/services/plan-items";
+  import {
+    cancelPlanItem,
+    createPlanItem,
+    fetchPlanItems,
+    updatePlanItem,
+    type PlanItem,
+  } from "$lib/services/plan-items";
   import { errorMessage } from "$lib/services/supabase-errors";
   import type { Plan } from "$lib/types";
   import { formatCurrency, formatDate } from "$lib/utils";
@@ -18,8 +24,15 @@
   let amount = $state("");
   let dueDate = $state("");
   let payee = $state("");
+  let confirmed = $state(false);
+  let editingId = $state<string | null>(null);
   let saving = $state(false);
   let cancellingId = $state<string | null>(null);
+  let formEl = $state<HTMLFormElement | null>(null);
+
+  $effect(() => {
+    if (!dueDate.trim()) confirmed = false;
+  });
 
   const itemsQuery = createQuery(() => ({
     queryKey: qk.planItems(session.userId ?? "", plan.id),
@@ -35,8 +48,9 @@
     (itemsQuery.data ?? []).filter((item) => item.status === "cancelled")
   );
 
-  function itemStatusLabel(status: "estimated" | "reserved" | "cancelled"): string {
-    if (status === "reserved") return m.plan_item_status_reserved();
+  function itemStatusLabel(status: PlanItem["status"]): string {
+    if (status === "planned") return m.plan_item_status_planned();
+    if (status === "confirmed") return m.plan_item_status_confirmed();
     if (status === "cancelled") return m.plan_item_status_cancelled();
     return m.plan_item_status_estimated();
   }
@@ -51,7 +65,30 @@
       toast.error(m.plan_item_amount_required());
       return;
     }
+    if (message === "item_confirm_needs_date") {
+      toast.error(m.plan_item_confirm_needs_date());
+      return;
+    }
     toast.error(errorMessage(err));
+  }
+
+  function resetForm() {
+    editingId = null;
+    label = "";
+    amount = "";
+    dueDate = "";
+    payee = "";
+    confirmed = false;
+  }
+
+  function startEdit(item: PlanItem) {
+    editingId = item.id;
+    label = item.label;
+    amount = String(item.amount);
+    dueDate = item.due_date ?? "";
+    payee = item.payee ?? "";
+    confirmed = item.status === "confirmed";
+    formEl?.scrollIntoView({ block: "nearest" });
   }
 
   async function refreshItems() {
@@ -59,22 +96,27 @@
     await queryClient.invalidateQueries({ queryKey: qk.planItems(userId, plan.id) });
   }
 
-  async function addItem(event: SubmitEvent) {
+  async function saveItem(event: SubmitEvent) {
     event.preventDefault();
     if (!canManage || saving) return;
     saving = true;
+    const input = {
+      label,
+      amount: amount === "" ? null : Number(amount),
+      dueDate,
+      payee,
+      confirmed,
+    };
+    const editedId = editingId;
     try {
-      await createPlanItem(plan.id, {
-        label,
-        amount: amount === "" ? null : Number(amount),
-        dueDate,
-        payee,
-      });
-      label = "";
-      amount = "";
-      dueDate = "";
-      payee = "";
-      toast.success(m.plan_item_added());
+      if (editedId) {
+        await updatePlanItem(editedId, input);
+        toast.success(m.plan_item_updated());
+      } else {
+        await createPlanItem(plan.id, input);
+        toast.success(m.plan_item_added());
+      }
+      resetForm();
       await refreshItems();
     } catch (err) {
       toastItemError(err);
@@ -128,6 +170,7 @@
     <div class="rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3">
       <dt class="text-xs text-slate-400">{m.plan_spend_to_pay()}</dt>
       <dd class="mt-1 text-lg font-semibold text-slate-100">{formatCurrency(summary.toPay)}</dd>
+      <p class="mt-1 text-xs text-slate-500">{m.plan_spend_to_pay_hint()}</p>
     </div>
   </dl>
   <p class="text-xs text-slate-400">{m.plan_spend_balance_hint()}</p>
@@ -144,7 +187,10 @@
       <ul class="space-y-2">
         {#each activeItems as item (item.id)}
           <li
-            class="flex items-start justify-between gap-3 rounded-xl border border-white/5 bg-slate-900/60 px-3 py-3"
+            class="flex items-start justify-between gap-3 rounded-xl border bg-slate-900/60 px-3 py-3 {editingId ===
+            item.id
+              ? 'border-accent/40'
+              : 'border-white/5'}"
           >
             <div class="min-w-0">
               <p class="truncate font-medium text-slate-100">{item.label}</p>
@@ -157,7 +203,7 @@
                   · {item.payee}
                 {/if}
               </p>
-              {#if item.status === "reserved"}
+              {#if item.status === "confirmed"}
                 <p class="mt-1 text-sm text-slate-200">
                   {m.plan_spend_to_pay()}
                   {formatCurrency(item.amount)}
@@ -167,14 +213,24 @@
               {/if}
             </div>
             {#if canManage}
-              <button
-                type="button"
-                class="focus-visible:ring-accent shrink-0 rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-                disabled={cancellingId === item.id}
-                onclick={() => cancelItem(item.id)}
-              >
-                {m.plan_item_cancel()}
-              </button>
+              <div class="flex shrink-0 flex-col gap-2">
+                <button
+                  type="button"
+                  class="focus-visible:ring-accent rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+                  disabled={cancellingId === item.id}
+                  onclick={() => startEdit(item)}
+                >
+                  {m.plan_item_edit()}
+                </button>
+                <button
+                  type="button"
+                  class="focus-visible:ring-accent rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+                  disabled={cancellingId === item.id}
+                  onclick={() => cancelItem(item.id)}
+                >
+                  {m.plan_item_cancel()}
+                </button>
+              </div>
             {/if}
           </li>
         {/each}
@@ -192,10 +248,13 @@
 
   {#if canManage}
     <form
+      bind:this={formEl}
       class="space-y-3 rounded-2xl border border-white/5 bg-slate-900/40 p-4"
-      onsubmit={addItem}
+      onsubmit={saveItem}
     >
-      <h3 class="text-sm font-semibold text-slate-100">{m.plan_item_add()}</h3>
+      <h3 class="text-sm font-semibold text-slate-100">
+        {editingId ? m.plan_item_edit_heading() : m.plan_item_add()}
+      </h3>
       <div class="space-y-1">
         <label class="text-xs font-medium text-slate-300" for="spend-item-label">
           {m.plan_item_label()}
@@ -234,6 +293,18 @@
       </div>
       <p class="text-xs text-slate-500">{m.plan_item_due_hint()}</p>
       <div class="space-y-1">
+        <label class="flex items-center gap-2 text-sm text-slate-200" for="spend-item-confirmed">
+          <input
+            id="spend-item-confirmed"
+            type="checkbox"
+            bind:checked={confirmed}
+            disabled={!dueDate.trim() || saving}
+          />
+          {m.plan_item_confirmed()}
+        </label>
+        <p class="text-xs text-slate-500">{m.plan_item_confirmed_hint()}</p>
+      </div>
+      <div class="space-y-1">
         <label class="text-xs font-medium text-slate-300" for="spend-item-payee">
           {m.plan_item_payee()}
         </label>
@@ -245,13 +316,25 @@
           class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 focus:ring-2 focus:outline-none"
         />
       </div>
-      <button
-        type="submit"
-        disabled={saving}
-        class="bg-accent-gradient focus-visible:ring-accent rounded-full px-4 py-2 text-sm font-semibold text-slate-900 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-      >
-        {saving ? m.common_saving() : m.plan_item_add()}
-      </button>
+      <div class="flex flex-wrap gap-2">
+        <button
+          type="submit"
+          disabled={saving}
+          class="bg-accent-gradient focus-visible:ring-accent rounded-full px-4 py-2 text-sm font-semibold text-slate-900 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+        >
+          {saving ? m.common_saving() : editingId ? m.plan_item_save() : m.plan_item_add()}
+        </button>
+        {#if editingId}
+          <button
+            type="button"
+            class="focus-visible:ring-accent rounded-full border border-white/10 px-4 py-2 text-sm text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+            disabled={saving}
+            onclick={resetForm}
+          >
+            {m.plan_item_discard()}
+          </button>
+        {/if}
+      </div>
     </form>
   {/if}
 </section>

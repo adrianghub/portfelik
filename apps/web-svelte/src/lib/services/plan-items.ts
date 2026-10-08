@@ -26,14 +26,31 @@ export async function fetchPlanItems(planId: string): Promise<PlanItem[]> {
   return (data ?? []) as PlanItem[];
 }
 
-export async function createPlanItem(
-  planId: string,
-  input: { label: string; amount: number | null; dueDate: string | null; payee?: string | null }
-): Promise<PlanItem> {
+type PlanItemInput = {
+  label: string;
+  amount: number | null;
+  dueDate: string | null;
+  payee?: string | null;
+  confirmed?: boolean;
+};
+
+export async function createPlanItem(planId: string, input: PlanItemInput): Promise<PlanItem> {
   const row = normalizeSpendItem(input);
   const { data, error } = await supabase
     .from("plan_items")
     .insert({ plan_id: planId, ...row })
+    .select(PLAN_ITEM_COLUMNS)
+    .single();
+  if (error) throw error;
+  return data as PlanItem;
+}
+
+export async function updatePlanItem(id: string, input: PlanItemInput): Promise<PlanItem> {
+  const row = normalizeSpendItem(input);
+  const { data, error } = await supabase
+    .from("plan_items")
+    .update(row)
+    .eq("id", id)
     .select(PLAN_ITEM_COLUMNS)
     .single();
   if (error) throw error;

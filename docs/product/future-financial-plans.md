@@ -20,9 +20,15 @@ Transport nie staje się kategorią Teneryfa.
 ## Pozycje i rozliczenia
 
 Nowe `plan_items` należą do planu wydatkowego: etykieta, planowana kwota PLN,
-opcjonalny termin DATE, odbiorca, stan planowane / z terminem / rozliczone /
-anulowane. DB używa numeric; obliczenia sumują grosze. Pozycja bez terminu jest
-budżetem, nie przepływem przypisanym po cichu do konkretnego miesiąca.
+opcjonalny termin DATE i odbiorca. Stan opisuje pewność płatności, nie rezerwację
+i nie dowód, że pieniądze wyszły z konta. Szacowane nie ma terminu. Zaplanowana
+płatność ma termin orientacyjny i zostaje w limicie budżetu, ale nie w kwocie
+do zapłaty. Potwierdzona płatność jest zobowiązaniem, dopóki nie powiążemy
+transakcji. Anulowane zostaje w historii i wypada z sum. Rezerwacja jest osobnym
+stanem na później. DB używa numeric; obliczenia sumują grosze. Pozycja bez
+terminu jest budżetem, nie przepływem przypisanym po cichu do konkretnego miesiąca.
+Prognoza, gdy powstanie, odejmuje pozostałą kwotę potwierdzonych pozycji, nie
+każdej pozycji z datą.
 
 Istniejące `plan_transaction_links` otrzymują opcjonalne `plan_item_id`.
 Backend sprawdza zgodność pozycji z planem, zakres prywatności, uprawnienia,

@@ -333,6 +333,7 @@ test("a spend item stays unpaid until a transaction is linked", async ({ page })
     updated_at: "2026-10-08T10:00:00Z",
   };
   const items: Record<string, unknown>[] = [];
+  let patched: Record<string, unknown> | undefined;
   await page.route(/.*\/rest\/v1\/plans.*id=eq\.plan-malta.*/, (route) =>
     route.fulfill({ status: 200, json: plan })
   );
@@ -348,6 +349,16 @@ test("a spend item stays unpaid until a transaction is linked", async ({ page })
       };
       items.push(row);
       return route.fulfill({ status: 201, json: row });
+    }
+    if (request.method() === "PATCH") {
+      patched = request.postDataJSON() as Record<string, unknown>;
+      const row = {
+        ...items[0],
+        ...patched,
+        updated_at: "2026-10-08T11:00:00Z",
+      };
+      items[0] = row;
+      return route.fulfill({ status: 200, json: row });
     }
     return route.fulfill({ status: 200, json: items });
   });
@@ -370,12 +381,34 @@ test("a spend item stays unpaid until a transaction is linked", async ({ page })
       label: "Apartament",
       amount: 3600,
       due_date: endDate,
-      status: "reserved",
+      status: "planned",
       payee: null,
     });
-  await expect(page.getByText("Apartament")).toBeVisible();
+  const apartment = page.getByRole("listitem").filter({ hasText: "Apartament" });
+  await expect(apartment).toContainText("Zaplanowana płatność");
+  await expect(apartment).not.toContainText("Do zapłaty");
+  await expect(page.getByText("Zarezerwowane")).toHaveCount(0);
   await expect(page.getByText(formatCurrency(3600)).first()).toBeVisible();
   await expect(page.getByText(formatCurrency(8400)).first()).toBeVisible();
+  await expect(page.getByText(formatCurrency(0)).first()).toBeVisible();
+  await expect(page.getByText("Tylko potwierdzone płatności.")).toBeVisible();
+
+  await page.getByRole("button", { name: "Popraw" }).click();
+  await expect(page.getByRole("heading", { name: "Popraw pozycję" })).toBeVisible();
+  await page.getByLabel("Kwota", { exact: true }).fill("4000");
+  await page.getByRole("button", { name: "Zapisz zmiany" }).click();
+  await expect
+    .poll(() => patched)
+    .toMatchObject({ amount: 4000, due_date: endDate, status: "planned" });
+  await expect(page.getByText(formatCurrency(8000)).first()).toBeVisible();
+
+  await page.getByRole("button", { name: "Popraw" }).click();
+  await page.getByRole("checkbox", { name: "Potwierdzona płatność" }).check();
+  await page.getByRole("button", { name: "Zapisz zmiany" }).click();
+  await expect.poll(() => patched).toMatchObject({ amount: 4000, status: "confirmed" });
+  await expect(apartment).toContainText("Potwierdzona płatność");
+  await expect(apartment).toContainText("Do zapłaty");
+  await expect(page.getByText(formatCurrency(4000)).first()).toBeVisible();
 });
 
 test("debt scenarios route redirects to plan detail", async ({ page }) => {
