@@ -19,7 +19,9 @@
   import { installWebVitals } from "$lib/performance-monitoring";
   import { installGlobalErrorReporting } from "$lib/observability";
   import * as m from "$lib/paraglide/messages";
-  import { fetchProfile } from "$lib/services/profiles";
+  import { appVersion, isChangelogUnseen } from "$lib/content/changelog";
+  import { qk } from "$lib/query-keys";
+  import { fetchProfile, updateProfile } from "$lib/services/profiles";
   import { applyAccent } from "$lib/theme/accent-presets";
   import { setupNotificationSync } from "$lib/services/notification-sync";
   import {
@@ -140,6 +142,32 @@
     } else if (page.url.pathname === "/login" && authStatus === "authenticated") {
       void goto(consumeLoginRedirect(page.url), { replaceState: true });
     }
+  });
+
+  let changelogMarkAttempt = $state<string | null>(null);
+
+  $effect(() => {
+    if (page.url.pathname !== "/changelog") return;
+    const current = profile;
+    const uid = userId;
+    if (!current || !uid || !isChangelogUnseen(current.settings?.changelogSeenVersion)) return;
+    if (changelogMarkAttempt === appVersion) return;
+    changelogMarkAttempt = appVersion;
+    const settings = { ...current.settings, changelogSeenVersion: appVersion };
+    const optimistic = { ...current, settings };
+    // The dashboard profile query stays fresh for five minutes. Writing only
+    // the layout state lets that cached row put the unread mark back.
+    profile = optimistic;
+    queryClient.setQueryData(qk.profile(uid), optimistic);
+    void updateProfile(uid, { settings })
+      .then((saved) => {
+        queryClient.setQueryData(qk.profile(uid), saved);
+      })
+      .catch(() => {
+        // Leave the attempt latched so a failed write does not retry in a loop.
+        queryClient.setQueryData(qk.profile(uid), current);
+        if (profile?.settings?.changelogSeenVersion === appVersion) profile = current;
+      });
   });
 
   function clearAuthenticatedUser() {
