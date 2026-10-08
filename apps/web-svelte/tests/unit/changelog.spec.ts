@@ -6,6 +6,7 @@ import {
   changelogProblems,
   changelogReturnHref,
   formatChangelogDate,
+  isChangelogUnseen,
   releaseNotesMarkdown,
 } from "$lib/content/changelog";
 
@@ -13,6 +14,16 @@ const packageVersion = JSON.parse(
   readFileSync(new URL("../../package.json", import.meta.url), "utf8")
 ).version as string;
 const play = { versionName: changelog[0].version, versionCode: changelog[0].versionCode };
+
+describe("isChangelogUnseen", () => {
+  it("is unseen until the current version has been opened", () => {
+    expect(isChangelogUnseen(undefined, "1.3.8")).toBe(true);
+    expect(isChangelogUnseen(null, "1.3.8")).toBe(true);
+    expect(isChangelogUnseen("1.3.7", "1.3.8")).toBe(true);
+    expect(isChangelogUnseen("1.3.8", "1.3.8")).toBe(false);
+    expect(isChangelogUnseen("1.4.0", "1.3.8")).toBe(false);
+  });
+});
 
 describe("changelog", () => {
   it("matches the Play bundle and package.json", () => {
