@@ -53,6 +53,7 @@ vi.mock("$lib/supabase", () => ({ supabase: h.supabase }));
 import {
   buildCategorizationRuleEditPatch,
   createCategorizationRule,
+  updateCategorizationRule,
 } from "$lib/services/categorization-rules";
 
 beforeEach(() => {
@@ -196,5 +197,94 @@ describe("buildCategorizationRuleEditPatch", () => {
         { ...form, descEnabled: false, counterpartyEnabled: false }
       )
     ).toEqual({ ok: false, issue: "require_condition" });
+  });
+});
+
+describe("updateCategorizationRule", () => {
+  const current = {
+    id: "rule-a",
+    user_id: TEST_UID,
+    kind: "contains" as const,
+    match_operator: "all" as const,
+    match_description: "biedronka",
+    match_counterparty: "payu",
+    match_type: null,
+    match_day_of_month: null,
+    category_id: "cat-1",
+    priority: 0,
+    created_at: "2026-01-01T00:00:00Z",
+  };
+  const descriptionOnly = {
+    ...current,
+    id: "rule-b",
+    match_counterparty: null,
+    priority: 10,
+    created_at: "2026-01-02T00:00:00Z",
+  };
+
+  it("keeps one rule when clearing counterparty matches an existing rule", async () => {
+    const saved = { ...descriptionOnly, id: "rule-a", priority: 10 };
+    h.state.results = [
+      { data: [current, descriptionOnly], error: null },
+      { data: null, error: null },
+      { data: saved, error: null },
+    ];
+
+    const out = await updateCategorizationRule("rule-a", {
+      match_description: "biedronka",
+      match_counterparty: null,
+      category_id: "cat-1",
+    });
+
+    expect(out).toEqual(saved);
+    expect(h.state.log.chain).toContainEqual(["delete"]);
+    expect(h.state.log.chain).toContainEqual(["eq", "id", "rule-b"]);
+    expect(h.state.log.chain).toContainEqual([
+      "update",
+      expect.objectContaining({ match_counterparty: null, priority: 10 }),
+    ]);
+  });
+
+  it("keeps an explicitly higher priority when retiring the twin", async () => {
+    const saved = { ...descriptionOnly, id: "rule-a", priority: 50 };
+    h.state.results = [
+      { data: [current, descriptionOnly], error: null },
+      { data: null, error: null },
+      { data: saved, error: null },
+    ];
+
+    await updateCategorizationRule("rule-a", {
+      match_counterparty: null,
+      priority: 50,
+    });
+
+    const update = h.state.log.chain.find((entry) => entry[0] === "update");
+    expect(update?.[1]).toMatchObject({ match_counterparty: null, priority: 50 });
+  });
+
+  it("restores the other rule when the save fails after retiring it", async () => {
+    h.state.results = [
+      { data: [current, descriptionOnly], error: null },
+      { data: null, error: null },
+      { data: null, error: { code: "23505", message: "duplicate key" } },
+    ];
+
+    await expect(updateCategorizationRule("rule-a", { match_counterparty: null })).rejects.toThrow(
+      "duplicate_categorization_rule"
+    );
+    expect(h.state.log.insert[0]).toMatchObject({ id: "rule-b", match_counterparty: null });
+  });
+
+  it("does not delete anything when the edited rule stays unique", async () => {
+    const saved = { ...current, match_counterparty: null };
+    h.state.results = [
+      { data: [current], error: null },
+      { data: saved, error: null },
+    ];
+
+    const out = await updateCategorizationRule("rule-a", { match_counterparty: null });
+
+    expect(out).toEqual(saved);
+    expect(h.state.log.chain.some((entry) => entry[0] === "delete")).toBe(false);
   });
 });

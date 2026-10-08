@@ -156,13 +156,57 @@ export async function updateCategorizationRule(
   id: string,
   patch: CategorizationRuleUpdate
 ): Promise<CategorizationRule> {
+  const existing = await fetchCategorizationRules();
+  const current = existing.find((rule) => rule.id === id);
+  let nextPatch = patch;
+  let retired: CategorizationRule | null = null;
+  if (current) {
+    const preview = {
+      kind: current.kind,
+      match_operator: current.match_operator,
+      match_description:
+        patch.match_description !== undefined ? patch.match_description : current.match_description,
+      match_counterparty:
+        patch.match_counterparty !== undefined
+          ? patch.match_counterparty
+          : current.match_counterparty,
+      match_type: patch.match_type !== undefined ? patch.match_type : current.match_type,
+      match_day_of_month:
+        patch.match_day_of_month !== undefined
+          ? patch.match_day_of_month
+          : (current.match_day_of_month ?? null),
+      category_id: patch.category_id !== undefined ? patch.category_id : current.category_id,
+    };
+    const twin = findDuplicateCategorizationRule(
+      existing.filter((rule) => rule.id !== id),
+      preview
+    );
+    // The edited rule becomes the survivor. Keep the higher priority so a
+    // redundant twin cannot silently lose to a third, narrower rule.
+    if (twin) {
+      const requested = patch.priority ?? current.priority;
+      const priority = Math.max(requested, twin.priority);
+      if (priority !== requested) nextPatch = { ...patch, priority };
+      retired = twin;
+      await deleteCategorizationRule(twin.id);
+    }
+  }
+
   const { data, error } = await supabase
     .from("categorization_rules")
-    .update(patch)
+    .update(nextPatch)
     .eq("id", id)
     .select()
     .single();
-  if (error) throw error;
+  if (error) {
+    if (retired) {
+      await supabase.from("categorization_rules").insert(retired);
+    }
+    if ((error as { code?: string }).code === "23505") {
+      throw new Error("duplicate_categorization_rule");
+    }
+    throw error;
+  }
   return data as CategorizationRule;
 }
 
