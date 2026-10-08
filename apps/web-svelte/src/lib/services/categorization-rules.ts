@@ -152,17 +152,75 @@ export async function createCategorizationRule(
   return data as CategorizationRule;
 }
 
+/**
+ * When an edit makes this rule identical to another, retire that other rule
+ * and keep the higher priority. Dropping to the edited rule's lower priority
+ * would let a third rule start winning matches the broader rule already owned.
+ */
+export function planCategorizationRuleEdit(
+  current: CategorizationRule,
+  patch: CategorizationRuleUpdate,
+  existing: CategorizationRule[]
+): { patch: CategorizationRuleUpdate; retireId: string | null } {
+  const preview = {
+    kind: current.kind,
+    match_operator: current.match_operator,
+    match_description:
+      patch.match_description !== undefined ? patch.match_description : current.match_description,
+    match_counterparty:
+      patch.match_counterparty !== undefined
+        ? patch.match_counterparty
+        : current.match_counterparty,
+    match_type: patch.match_type !== undefined ? patch.match_type : current.match_type,
+    match_day_of_month:
+      patch.match_day_of_month !== undefined
+        ? patch.match_day_of_month
+        : (current.match_day_of_month ?? null),
+    category_id: patch.category_id !== undefined ? patch.category_id : current.category_id,
+  };
+  const twin = findDuplicateCategorizationRule(
+    existing.filter((rule) => rule.id !== current.id),
+    preview
+  );
+  if (!twin) return { patch, retireId: null };
+  const requested = patch.priority ?? current.priority;
+  const priority = Math.max(requested, twin.priority);
+  return {
+    patch: priority === requested ? patch : { ...patch, priority },
+    retireId: twin.id,
+  };
+}
+
 export async function updateCategorizationRule(
   id: string,
   patch: CategorizationRuleUpdate
 ): Promise<CategorizationRule> {
+  const existing = await fetchCategorizationRules();
+  const current = existing.find((rule) => rule.id === id);
+  let nextPatch = patch;
+  let retired: CategorizationRule | null = null;
+  if (current) {
+    const plan = planCategorizationRuleEdit(current, patch, existing);
+    nextPatch = plan.patch;
+    retired = existing.find((rule) => rule.id === plan.retireId) ?? null;
+    if (retired) await deleteCategorizationRule(retired.id);
+  }
+
   const { data, error } = await supabase
     .from("categorization_rules")
-    .update(patch)
+    .update(nextPatch)
     .eq("id", id)
     .select()
     .single();
-  if (error) throw error;
+  if (error) {
+    if (retired) {
+      await supabase.from("categorization_rules").insert(retired);
+    }
+    if ((error as { code?: string }).code === "23505") {
+      throw new Error("duplicate_categorization_rule");
+    }
+    throw error;
+  }
   return data as CategorizationRule;
 }
 

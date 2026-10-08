@@ -11,10 +11,11 @@ when behavior and docs disagree.
 3. [One step back](./one-step-back.md) — remove a vertical before adding the next
 4. [Debt and savings goals](./debt-and-savings-goals.md) — plan kinds and
    settlement rules
-5. [Polish voice](./polish-voice.md) — how we write in the product
-6. [Bank import compatibility](./bank-import-compatibility.md) — supported
+5. [Entitlements](./entitlements.md) — Free, Premium, and beta limits
+6. [Polish voice](./polish-voice.md) — how we write in the product
+7. [Bank import compatibility](./bank-import-compatibility.md) — supported
    statement formats
-7. [Account export](./account-export.md) — what export includes / omits
+8. [Account export](./account-export.md) — what export includes / omits
 
 Shipped implementation plans and one-off design dumps are not kept here.
 Git history + PRs hold that trail.
