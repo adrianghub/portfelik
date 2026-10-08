@@ -9,6 +9,14 @@ export type SpendItemStatus = "estimated" | "planned" | "confirmed" | "cancelled
 export interface SpendItemAmounts {
   amount: number;
   status: SpendItemStatus;
+  /** Paid linked transactions. Omitted until settlement exists for the line. */
+  settled?: number;
+}
+
+export interface SpendItemSettlement {
+  settled: number;
+  remaining: number;
+  overpaid: number;
 }
 
 export interface SpendBudgetSummary {
@@ -71,6 +79,24 @@ export function normalizeSpendItem(input: {
   };
 }
 
+/** Remainder after paid transactions. Extra payments stay visible as an overpayment. */
+export function settleSpendItem(
+  amount: number,
+  payments: readonly { amount: number; counts: boolean }[]
+): SpendItemSettlement {
+  const settled = sumMoneyAmounts(payments.filter((payment) => payment.counts));
+  const difference = moneyDifference(amount, settled);
+  return {
+    settled,
+    remaining: difference > 0 ? difference : 0,
+    overpaid: difference < 0 ? Math.abs(difference) : 0,
+  };
+}
+
+function unsettledAmount(item: SpendItemAmounts): number {
+  return settleSpendItem(item.amount, [{ amount: item.settled ?? 0, counts: true }]).remaining;
+}
+
 /** Budget math in grosze. Estimates count against the cap and are not due payments. */
 export function summarizeSpendBudget(
   budget: number,
@@ -83,8 +109,10 @@ export function summarizeSpendBudget(
   return {
     budget,
     planned,
-    toPay: sumMoneyAmounts(confirmed),
-    orientational: sumMoneyAmounts(orientational),
+    toPay: sumMoneyAmounts(confirmed.map((item) => ({ amount: unsettledAmount(item) }))),
+    orientational: sumMoneyAmounts(
+      orientational.map((item) => ({ amount: unsettledAmount(item) }))
+    ),
     budgetLeft: moneyDifference(budget, planned),
   };
 }

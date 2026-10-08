@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { normalizeSpendBudget, normalizeSpendItem, summarizeSpendBudget } from "$lib/plans/spend";
+import {
+  normalizeSpendBudget,
+  normalizeSpendItem,
+  settleSpendItem,
+  summarizeSpendBudget,
+} from "$lib/plans/spend";
 
 describe("spend plan budget", () => {
   it("keeps a dated apartment in the budget without treating the date as money due", () => {
@@ -69,6 +74,34 @@ describe("spend plan budget", () => {
     expect(() =>
       normalizeSpendItem({ label: "Apartament", amount: 4000, dueDate: "", confirmed: true })
     ).toThrow("item_confirm_needs_date");
+  });
+
+  it("subtracts a real deposit from a confirmed apartment", () => {
+    const summary = summarizeSpendBudget(12_000, [
+      { amount: 4_000, status: "confirmed", settled: 1_000 },
+    ]);
+    expect(summary.planned).toBe(4_000);
+    expect(summary.toPay).toBe(3_000);
+    expect(summary.budgetLeft).toBe(8_000);
+    expect(summary.orientational).toBe(0);
+  });
+
+  it("keeps an orientational line visible after a partial payment", () => {
+    const summary = summarizeSpendBudget(12_000, [
+      { amount: 3_600, status: "planned", settled: 1_000 },
+    ]);
+    expect(summary.toPay).toBe(0);
+    expect(summary.orientational).toBe(2_600);
+  });
+
+  it("caps the remainder at zero and reports an overpayment", () => {
+    expect(
+      settleSpendItem(4_000, [
+        { amount: 2_500, counts: true },
+        { amount: 2_000, counts: true },
+        { amount: 100, counts: false },
+      ])
+    ).toEqual({ settled: 4_500, remaining: 0, overpaid: 500 });
   });
 
   it("keeps a cancelled line from becoming a due payment", () => {

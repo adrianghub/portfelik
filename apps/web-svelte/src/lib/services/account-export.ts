@@ -210,7 +210,7 @@ export async function buildAccountExport(): Promise<AccountExportBundle> {
           fetchAllPages((from, to) =>
             supabase
               .from("plan_transaction_links")
-              .select("id, plan_id, transaction_id, created_by, created_at")
+              .select("id, plan_id, plan_item_id, transaction_id, created_by, created_at")
               .in("plan_id", ids)
               .order("id")
               .range(from, to)

@@ -31,6 +31,10 @@ Prognoza, gdy powstanie, odejmuje pozostałą kwotę potwierdzonych pozycji, nie
 każdej pozycji z datą.
 
 Istniejące `plan_transaction_links` otrzymują opcjonalne `plan_item_id`.
+Pozostało do zapłaty to `max(0, kwota pozycji - opłacone transakcje)`. Nadpłata
+zostaje widoczna osobno. Jedna transakcja rozlicza jedną pozycję. Odpięcie
+przywraca kwotę. Wspólny plan może przyjąć prywatną wpłatę wołającego, bez
+pokazywania opisu tej transakcji pozostałym członkom Domu.
 Backend sprawdza zgodność pozycji z planem, zakres prywatności, uprawnienia,
 walutę i status faktu. Pozycję może rozliczać kilka rzeczywistych płatności,
 np. zaliczka i dopłata. Jedna transakcja nadal należy w całości do jednego

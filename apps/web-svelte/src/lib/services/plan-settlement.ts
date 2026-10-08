@@ -25,9 +25,27 @@ export function currentCalendarMonthBounds(today = new Date()): { start: string;
 export interface PlanTransactionLink {
   id: string;
   plan_id: string;
+  plan_item_id: string | null;
   transaction_id: string;
   created_by: string | null;
   created_at: string;
+}
+
+export interface SpendSettlementRow {
+  linkId: string;
+  planItemId: string;
+  transactionId: string;
+  amount: number;
+  paidOn: string;
+  countsAsPaid: boolean;
+  description: string | null;
+}
+
+export interface SpendPaymentCandidate {
+  id: string;
+  description: string;
+  amount: number;
+  date: string;
 }
 
 export interface PlanProgressSnapshot {
@@ -91,11 +109,44 @@ export interface RankedTransaction {
 export async function fetchPlanLinks(planId: string): Promise<PlanTransactionLink[]> {
   const { data, error } = await supabase
     .from("plan_transaction_links")
-    .select("id, plan_id, transaction_id, created_by, created_at")
+    .select("id, plan_id, plan_item_id, transaction_id, created_by, created_at")
     .eq("plan_id", planId)
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as PlanTransactionLink[];
+}
+
+export async function fetchSpendSettlements(planId: string): Promise<SpendSettlementRow[]> {
+  const { data, error } = await supabase.rpc("list_spend_item_settlements", {
+    p_plan_id: planId,
+  });
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    linkId: row.link_id,
+    planItemId: row.plan_item_id,
+    transactionId: row.transaction_id,
+    amount: Number(row.amount),
+    paidOn: row.paid_on,
+    countsAsPaid: row.counts_as_paid,
+    description: row.description,
+  }));
+}
+
+export async function searchSpendPaymentCandidates(
+  query: string
+): Promise<SpendPaymentCandidate[]> {
+  const trimmed = query.trim().replace(/[%_\\]/g, "\\$&");
+  let request = supabase
+    .from("transactions")
+    .select("id, description, amount, date")
+    .eq("type", "expense")
+    .eq("status", "paid")
+    .order("date", { ascending: false })
+    .limit(20);
+  if (trimmed) request = request.ilike("description", `%${trimmed}%`);
+  const { data, error } = await request;
+  if (error) throw error;
+  return (data ?? []) as SpendPaymentCandidate[];
 }
 
 export async function createAndLinkPlanTransaction(input: {
@@ -134,11 +185,12 @@ export async function createAndLinkPlanTransaction(input: {
 export async function linkPlanTransaction(
   planId: string,
   transactionId: string,
-  opts?: { planKind?: PlanKind }
+  opts?: { planKind?: PlanKind; planItemId?: string | null }
 ): Promise<PlanTransactionLink> {
   const { data, error } = await supabase.rpc("link_plan_transaction", {
     p_plan_id: planId,
     p_transaction_id: transactionId,
+    p_plan_item_id: opts?.planItemId ?? null,
   });
   if (error) throw error;
   if (opts?.planKind) {
