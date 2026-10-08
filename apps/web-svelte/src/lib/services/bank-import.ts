@@ -76,6 +76,7 @@ export interface ImportRow {
   obligation_match_confirmed?: boolean;
   transaction_id: string | null;
   created_at: string;
+  source_data?: { columns: { label: string; value: string }[] } | null;
 }
 
 export interface CommitResult {
@@ -161,14 +162,9 @@ export async function fetchBankAccount(id: string): Promise<BankAccount> {
 // -------------------- sessions --------------------
 
 /**
- * Look up any existing non-cancelled session for the same (account, file_hash).
- * The partial unique index on transaction_import_sessions guarantees at most one
- * such row exists, so the caller cannot just blindly insert a new session - it
- * must resume (preview) or surface "already imported" (committed).
- *
- * Returns the session row regardless of status (preview / committed) so the UI
- * can branch on it. Cancelled sessions are NOT returned: re-upload after cancel
- * is the supported "start fresh" path.
+ * Find the newest non-cancelled attempt for this account and file. Multiple
+ * committed attempts preserve provenance; only one preview may be active.
+ * The upload flow surfaces committed history before an explicit reimport.
  */
 export async function findExistingSession(input: {
   bankAccountId: string;
@@ -180,6 +176,9 @@ export async function findExistingSession(input: {
     .eq("bank_account_id", input.bankAccountId)
     .eq("source_file_hash", input.sourceFileHash)
     .neq("status", "cancelled")
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(1)
     .maybeSingle();
   if (error) throw error;
   return (data ?? null) as ImportSession | null;
@@ -335,6 +334,7 @@ export async function insertPreviewRows(
       currency: SUPPORTED_IMPORT_CURRENCY,
       external_id: r.external_id ?? null,
       raw_row_hash: r.raw_row_hash,
+      source_data: r.source_data ?? null,
       is_hold: r.is_hold ?? false,
       suggested_category_id: categoryId,
       selected_category_id: categoryId,

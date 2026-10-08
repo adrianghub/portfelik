@@ -1,6 +1,34 @@
 {
   "versions": [
     {
+      "version": "1.3.8",
+      "versionCode": 16,
+      "date": "2026-10-07",
+      "items": [
+        "Podgląd wyciągu pokazuje oryginalne dane bankowe obok danych rozpoznanych przez JakStoimy.",
+        "Historia importów w Ustawieniach zachowuje wyniki zatwierdzonych wyciągów.",
+        "Podsumowanie importu i widok Do sprawdzenia ułatwiają znalezienie operacji wymagających decyzji."
+      ]
+    },
+    {
+      "version": "1.3.7",
+      "versionCode": 15,
+      "date": "2026-10-05",
+      "items": [
+        "Poprawiona obsługa błędów importu: czytelne komunikaty bez technicznych szczegółów.",
+        "Ponowny import tego samego wyciągu zachowuje historię i zabezpieczenia przed duplikatami."
+      ]
+    },
+    {
+      "version": "1.3.6",
+      "versionCode": 14,
+      "date": "2026-10-05",
+      "items": [
+        "Naprawione limity wydatków w PLN: transakcje w innych walutach nie zmieniają wykorzystania limitu.",
+        "Nowe zgłaszanie błędów w Pomocy z informacją o prywatności zgłoszenia."
+      ]
+    },
+    {
       "version": "1.3.5",
       "versionCode": 13,
       "date": "2026-10-05",

@@ -167,6 +167,7 @@ jobs:
       - name: Install Playwright browsers
         if: steps.e2e-scope.outputs.run == 'true'
         working-directory: apps/web-svelte
+        timeout-minutes: 5
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Build app

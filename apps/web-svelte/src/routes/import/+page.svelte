@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { errorMessage } from "$lib/services/supabase-errors";
   import * as m from "$lib/paraglide/messages";
   import { importSuccessLabel } from "$lib/content/import-copy";
   import { onMount } from "svelte";
@@ -91,7 +92,7 @@
       try {
         await cancelImportSession(activeSession.id);
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : m.bank_import_cancel_failed());
+        toast.error(errorMessage(e, { fallback: m.bank_import_cancel_failed() }));
         leaveDialogOpen = false;
         pendingHref = null;
         return;
@@ -121,7 +122,7 @@
         } catch {
           /* best-effort; prior draft remains the resume target */
         }
-        toast.error(e instanceof Error ? e.message : m.bank_import_prior_cancel_failed());
+        toast.error(errorMessage(e, { fallback: m.bank_import_prior_cancel_failed() }));
         return;
       }
     }
@@ -146,7 +147,7 @@
     try {
       await cancelImportSession(resumeSession.id);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : m.bank_import_cancel_failed());
+      toast.error(errorMessage(e, { fallback: m.bank_import_cancel_failed() }));
       return;
     }
     resumeSession = null;
@@ -161,6 +162,7 @@
     queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
     queryClient.invalidateQueries({ queryKey: qk.summary(u) });
     queryClient.invalidateQueries({ queryKey: qk.importHealth(u) });
+    queryClient.invalidateQueries({ queryKey: qk.importHistory(u) });
     queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
     queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
     queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
@@ -182,7 +184,7 @@
     try {
       await cancelImportSession(activeSession.id);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : m.bank_import_cancel_failed());
+      toast.error(errorMessage(e, { fallback: m.bank_import_cancel_failed() }));
       return;
     }
     resetToUpload();
@@ -202,6 +204,11 @@
   <header class="space-y-1">
     <h1 class="text-2xl font-semibold text-slate-100">{m.bank_import_title()}</h1>
     <p class="text-sm text-slate-400">{m.import_private_notice()}</p>
+    {#if step === "upload"}
+      <a href="/import/history" class="text-accent inline-block py-2 text-sm hover:underline"
+        >{m.import_history_title()}</a
+      >
+    {/if}
   </header>
 
   <ol class="flex flex-wrap items-center gap-2 text-xs text-slate-400">

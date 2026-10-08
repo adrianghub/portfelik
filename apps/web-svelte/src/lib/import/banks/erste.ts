@@ -31,6 +31,17 @@ import type {
   ParsedRow,
 } from "./types";
 
+const SOURCE_LABELS = [
+  "Data transakcji",
+  "Data księgowania",
+  "Tytuł",
+  "Kontrahent",
+  "Nr rachunku kontrahenta",
+  "Kwota",
+  "Blokada/saldo",
+  "Lp",
+];
+
 const CURRENCY_RE = /^[A-Z]{3}$/;
 const DATE_DMY_RE = /^(\d{2})[.-](\d{2})[.-](\d{4})$/;
 const AMOUNT_RE = /^-?\d+,\d{2}$/;
@@ -122,6 +133,12 @@ export const ersteAdapter: ImportAdapter = {
         counterparty: counterparty || undefined,
         external_id: undefined, // col8 Lp is statement-level → never used for dedupe
         currency: "PLN",
+        source_data: {
+          columns: cells.map((value, index) => ({
+            label: SOURCE_LABELS[index] ?? `Kolumna ${index + 1}`,
+            value,
+          })),
+        },
         source_row_text: rawLine,
         row_index: r, // physical parsed index (summary row consumed index 0)
       });

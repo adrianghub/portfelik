@@ -176,9 +176,37 @@ test("settle then import matching bank payment and reimport keeps one expense", 
   expect(links.error).toBeNull();
   expect(links.data).toHaveLength(1);
   await upload();
-  await expect(page.getByText("Ten plik był już importowany")).toBeVisible();
+  await expect(page.getByText("Ten plik został już zaimportowany")).toBeVisible();
+  const original = await owner.client
+    .from("transaction_import_sessions")
+    .select("id,status,rows_committed,committed_at")
+    .eq("user_id", owner.id)
+    .single();
+  expect(original.error).toBeNull();
+  await page.getByRole("button", { name: "Importuj ponownie mimo to" }).click();
+  await page.getByRole("button", { name: "Zakończ import", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Zakończ import", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/transactions/);
   const repeat = await owner.client.from("transactions").select("id").eq("user_id", owner.id);
-  expect(repeat.data).toHaveLength(1);
+  expect(repeat.error).toBeNull();
+  expect(repeat.data).toEqual([{ id: seeded.data.id }]);
+  const attempts = await owner.client
+    .from("transaction_import_sessions")
+    .select("id,status,rows_committed,committed_at")
+    .eq("user_id", owner.id);
+  expect(attempts.error).toBeNull();
+  expect(attempts.data).toHaveLength(2);
+  expect(attempts.data).toContainEqual(original.data);
+  expect(attempts.data?.every((attempt) => attempt.status === "committed")).toBe(true);
+  const repeatedLinks = await owner.client
+    .from("transaction_import_links")
+    .select("transaction_id")
+    .eq("transaction_id", seeded.data.id);
+  expect(repeatedLinks.error).toBeNull();
+  expect(repeatedLinks.data).toHaveLength(1);
 });
 
 test("group creation, private access, ownership transfer and leaving", async ({

@@ -3,10 +3,12 @@
 // values (back-compat), so the panel components are reused unchanged.
 import { LifeBuoy, Shield, User, Users, Wallet } from "lucide-svelte";
 import * as m from "$lib/paraglide/messages";
+import { importHistoryCopy } from "$lib/content/import-history-copy";
 
 export type SettingsTab =
   | "categories"
   | "rules"
+  | "import"
   | "groups"
   | "profile"
   | "notifications"
@@ -60,6 +62,11 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
         tab: "rules",
         label: () => m.settings_tab_rules(),
         keywords: ["reguły", "automatyczne", "kategoryzacja"],
+      },
+      {
+        tab: "import",
+        label: () => importHistoryCopy.title,
+        keywords: ["import", "historia", "wyciąg", "csv", "bank"],
       },
     ],
   },

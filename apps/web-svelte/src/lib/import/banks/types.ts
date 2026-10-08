@@ -57,6 +57,8 @@ export interface ParsedRow {
   external_id?: string;
   /** Uppercase 3-letter ISO 4217 (e.g. "PLN"). */
   currency: string;
+  /** Original decoded bank cells, independent of recognized or edited transaction fields. */
+  source_data?: { columns: { label: string; value: string }[] } | null;
   /** Exact original CSV line - fed into normalize() for hashing. */
   source_row_text: string;
   /** 0-based position in the source file (after header). */

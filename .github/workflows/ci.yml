@@ -211,6 +211,7 @@ jobs:
       - name: Install Playwright browsers
         if: steps.e2e-scope.outputs.run == 'true'
         working-directory: apps/web-svelte
+        timeout-minutes: 5
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Build app
@@ -247,6 +248,7 @@ jobs:
       - uses: ./.github/actions/setup-web
       - name: Install browser matrix
         working-directory: apps/web-svelte
+        timeout-minutes: 5
         run: pnpm exec playwright install --with-deps chromium firefox webkit
       - name: Build mocked app
         working-directory: apps/web-svelte
@@ -281,6 +283,7 @@ jobs:
         run: supabase start
       - name: Install Chromium
         working-directory: apps/web-svelte
+        timeout-minutes: 5
         run: pnpm exec playwright install --with-deps chromium
       - name: Test real UI and database mutations
         working-directory: apps/web-svelte

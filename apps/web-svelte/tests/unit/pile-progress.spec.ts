@@ -13,6 +13,7 @@ describe("pile progress", () => {
         {
           category_id: "groceries",
           type: "expense",
+          currency: "PLN",
           status: "paid",
           amount: 40,
           date: "2026-09-02",
@@ -20,6 +21,7 @@ describe("pile progress", () => {
         {
           category_id: "groceries",
           type: "expense",
+          currency: "PLN",
           status: "paid",
           amount: 10,
           date: "2026-08-31",
@@ -27,11 +29,19 @@ describe("pile progress", () => {
         {
           category_id: "groceries",
           type: "expense",
+          currency: "PLN",
           status: "upcoming",
           amount: 99,
           date: "2026-09-20",
         },
-        { category_id: "other", type: "expense", status: "paid", amount: 5, date: "2026-09-03" },
+        {
+          category_id: "other",
+          type: "expense",
+          currency: "PLN",
+          status: "paid",
+          amount: 5,
+          date: "2026-09-03",
+        },
       ],
       "groceries",
       "month",
@@ -55,6 +65,7 @@ describe("pile progress", () => {
     const rows = [0.1, 0.2].map((amount) => ({
       category_id: "groceries",
       type: "expense",
+      currency: "PLN",
       status: "paid",
       amount,
       date: "2026-09-02",
@@ -82,6 +93,7 @@ describe("pile progress", () => {
       {
         category_id: "groceries",
         type: "expense",
+        currency: "PLN",
         status: "paid",
         amount: 40,
         date: "2026-09-02",
@@ -90,6 +102,7 @@ describe("pile progress", () => {
       {
         category_id: "groceries",
         type: "expense",
+        currency: "PLN",
         status: "paid",
         amount: 15,
         date: "2026-09-03",
@@ -122,6 +135,7 @@ describe("pile progress", () => {
       {
         category_id: "groceries",
         type: "expense",
+        currency: "PLN",
         status: "paid",
         amount: 40,
         date: "2026-09-02",
@@ -130,6 +144,7 @@ describe("pile progress", () => {
       {
         category_id: "groceries",
         type: "expense",
+        currency: "PLN",
         status: "paid",
         amount: 15,
         date: "2026-09-03",
@@ -138,6 +153,7 @@ describe("pile progress", () => {
       {
         category_id: "groceries",
         type: "expense",
+        currency: "PLN",
         status: "paid",
         amount: 99,
         date: "2026-08-31",
@@ -155,6 +171,51 @@ describe("pile progress", () => {
         period: "month",
       },
     ]);
+  });
+
+  it("keeps foreign-currency history out of PLN limits and exceeded-limit alerts", () => {
+    const rows = [
+      {
+        category_id: "groceries",
+        type: "expense",
+        status: "paid",
+        amount: 25,
+        currency: "PLN",
+        date: "2026-09-02",
+      },
+      {
+        category_id: "groceries",
+        type: "expense",
+        status: "paid",
+        amount: 100,
+        currency: "EUR",
+        date: "2026-09-02",
+      },
+      {
+        category_id: "groceries",
+        type: "expense",
+        status: "paid",
+        amount: 100,
+        currency: "USD",
+        date: "2026-09-02",
+      },
+    ];
+    expect(spentInPile(rows, "groceries", "month", "2026-09-27")).toBe(25);
+    expect(
+      exceededCaps(
+        [
+          {
+            id: "groceries",
+            name: "Jedzenie",
+            type: "expense",
+            cap_amount: 50,
+            cap_period: "month",
+          },
+        ],
+        rows,
+        "2026-09-27"
+      )
+    ).toEqual([]);
   });
 
   it("reads a number input without calling trim on it", () => {

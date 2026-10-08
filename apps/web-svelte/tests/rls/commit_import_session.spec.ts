@@ -44,9 +44,36 @@ describe("RPC: commit_import_session", () => {
   async function seedAccountAndSession(opts?: {
     user?: "A" | "B";
     archive?: boolean;
-    detectedKind?: "ing" | "mbank" | "erste" | "pko_bp" | "pekao" | "millennium" | "alior" | "bnp_paribas" | "citi_handlowy";
-    accountKind?: "ing" | "mbank" | "erste" | "pko_bp" | "pekao" | "millennium" | "alior" | "bnp_paribas" | "citi_handlowy";
-    adapterKind?: "ing" | "mbank" | "erste" | "pko_bp" | "pekao" | "millennium" | "alior" | "bnp_paribas" | "citi_handlowy";
+    detectedKind?:
+      | "ing"
+      | "mbank"
+      | "erste"
+      | "pko_bp"
+      | "pekao"
+      | "millennium"
+      | "alior"
+      | "bnp_paribas"
+      | "citi_handlowy";
+    accountKind?:
+      | "ing"
+      | "mbank"
+      | "erste"
+      | "pko_bp"
+      | "pekao"
+      | "millennium"
+      | "alior"
+      | "bnp_paribas"
+      | "citi_handlowy";
+    adapterKind?:
+      | "ing"
+      | "mbank"
+      | "erste"
+      | "pko_bp"
+      | "pekao"
+      | "millennium"
+      | "alior"
+      | "bnp_paribas"
+      | "citi_handlowy";
     fileSuffix?: string;
   }): Promise<Seed> {
     const userId = (opts?.user ?? "A") === "A" ? ctx.userA.userId : ctx.userB.userId;
@@ -112,7 +139,7 @@ describe("RPC: commit_import_session", () => {
       externalId?: string | null;
       postedAt?: string;
       rawHashSuffix?: string;
-    },
+    }
   ): Promise<string> {
     const res = await ctx.admin
       .from("transaction_import_rows")
@@ -237,36 +264,82 @@ describe("RPC: commit_import_session", () => {
     expect(error?.message).toMatch(/group_forbidden/);
   });
 
-  it("uncategorized import row falls back to the caller's 'Inne wydatki' default", async () => {
+  it.each([
+    ["expense", "Inne wydatki"],
+    ["income", "Inne przychody"],
+  ] as const)(
+    "persists the committed %s fallback category in import history",
+    async (type, name) => {
+      const seed = await seedAccountAndSession();
+      const rowId = await insertRow(seed.sessionId, {
+        rowIndex: 0,
+        decision: "import",
+        categoryId: null,
+        type,
+        description: `${SENTINEL} INNE r0`,
+      });
+
+      const { data, error } = await callCommit(ctx.userA.client, seed.sessionId);
+      expect(error).toBeNull();
+      expect((data as { inserted: number }).inserted).toBe(1);
+
+      const inne = await ctx.admin
+        .from("categories")
+        .select("id")
+        .eq("user_id", ctx.userA.userId)
+        .eq("type", type)
+        .eq("name", name)
+        .single();
+      expect(inne.error).toBeNull();
+
+      const tx = await ctx.admin
+        .from("transactions")
+        .select("category_id")
+        .eq("user_id", ctx.userA.userId)
+        .eq("description", `${SENTINEL} INNE r0`)
+        .single();
+      expect(tx.error).toBeNull();
+      expect(tx.data?.category_id).toBe(inne.data?.id);
+
+      const row = await ctx.userA.client
+        .from("transaction_import_rows")
+        .select("selected_category_id")
+        .eq("id", rowId)
+        .single();
+      expect(row.error).toBeNull();
+      expect(row.data?.selected_category_id).toBe(inne.data?.id);
+    }
+  );
+
+  it("keeps the committed fallback snapshot when the transaction is recategorized", async () => {
     const seed = await seedAccountAndSession();
-    await insertRow(seed.sessionId, {
-      rowIndex: 0,
-      decision: "import",
-      categoryId: null,
-      description: `${SENTINEL} INNE r0`,
-    });
+    const rowId = await insertRow(seed.sessionId, { rowIndex: 0, categoryId: null });
+    const commit = await callCommit(ctx.userA.client, seed.sessionId);
+    expect(commit.error).toBeNull();
 
-    const { data, error } = await callCommit(ctx.userA.client, seed.sessionId);
-    expect(error).toBeNull();
-    expect((data as { inserted: number }).inserted).toBe(1);
-
-    const inne = await ctx.admin
-      .from("categories")
-      .select("id")
-      .eq("user_id", ctx.userA.userId)
-      .eq("type", "expense")
-      .eq("name", "Inne wydatki")
+    const before = await ctx.userA.client
+      .from("transaction_import_rows")
+      .select("selected_category_id, transaction_id")
+      .eq("id", rowId)
       .single();
-    expect(inne.error).toBeNull();
+    expect(before.error).toBeNull();
+    expect(before.data?.selected_category_id).toBeTruthy();
+    expect(before.data?.transaction_id).toBeTruthy();
 
-    const tx = await ctx.admin
+    const update = await ctx.userA.client
       .from("transactions")
-      .select("category_id")
-      .eq("user_id", ctx.userA.userId)
-      .eq("description", `${SENTINEL} INNE r0`)
+      .update({ category_id: seed.categoryId })
+      .eq("id", before.data!.transaction_id!);
+    expect(update.error).toBeNull();
+
+    const after = await ctx.userA.client
+      .from("transaction_import_rows")
+      .select("selected_category_id")
+      .eq("id", rowId)
       .single();
-    expect(tx.error).toBeNull();
-    expect(tx.data?.category_id).toBe(inne.data?.id);
+    expect(after.error).toBeNull();
+    expect(after.data?.selected_category_id).toBe(before.data?.selected_category_id);
+    expect(after.data?.selected_category_id).not.toBe(seed.categoryId);
   });
 
   it("copies import row counterparty onto committed transaction", async () => {
@@ -291,6 +364,68 @@ describe("RPC: commit_import_session", () => {
       .single();
     expect(tx.error).toBeNull();
     expect(tx.data?.counterparty).toBe(merchant);
+  });
+
+  it("reimports the same file without cancelling history or duplicating ledger rows", async () => {
+    const seed = await seedAccountAndSession();
+    await insertRow(seed.sessionId, { rowIndex: 0, categoryId: seed.categoryId });
+    const first = await callCommit(ctx.userA.client, seed.sessionId);
+    expect(first.error).toBeNull();
+    expect(first.data).toMatchObject({ inserted: 1 });
+
+    const cancel = await ctx.userA.client.rpc("cancel_import_session", {
+      p_session_id: seed.sessionId,
+    });
+    expect(cancel.error?.message).toBe("import_session_not_cancellable");
+
+    const payload = {
+      user_id: ctx.userA.userId,
+      bank_account_id: seed.accountId,
+      source_file_hash: seed.fileHash,
+      detected_kind: "ing",
+    };
+    const retry = await ctx.userA.client
+      .from("transaction_import_sessions")
+      .insert(payload)
+      .select("id")
+      .single();
+    expect(retry.error).toBeNull();
+    const raced = await ctx.userA.client.from("transaction_import_sessions").insert(payload);
+    expect(raced.error?.code).toBe("23505");
+
+    await insertRow(retry.data!.id, { rowIndex: 0, categoryId: seed.categoryId });
+    const repeated = await callCommit(ctx.userA.client, retry.data!.id);
+    expect(repeated.error).toBeNull();
+    expect(repeated.data).toMatchObject({ inserted: 0, duplicates_commit: 1 });
+    const sessions = await ctx.userA.client
+      .from("transaction_import_sessions")
+      .select("id,status,rows_committed")
+      .eq("source_file_hash", seed.fileHash);
+    expect(sessions.error).toBeNull();
+    expect(sessions.data).toHaveLength(2);
+    expect(sessions.data).toContainEqual({
+      id: seed.sessionId,
+      status: "committed",
+      rows_committed: 1,
+    });
+    expect(sessions.data).toContainEqual({
+      id: retry.data!.id,
+      status: "committed",
+      rows_committed: 0,
+    });
+    const links = await ctx.userA.client
+      .from("transaction_import_links")
+      .select("transaction_id,session_id")
+      .eq("source_file_hash", seed.fileHash);
+    expect(links.error).toBeNull();
+    expect(links.data).toHaveLength(1);
+    expect(links.data![0].session_id).toBe(seed.sessionId);
+    const hidden = await ctx.userB.client
+      .from("transaction_import_sessions")
+      .select("id")
+      .eq("source_file_hash", seed.fileHash);
+    expect(hidden.error).toBeNull();
+    expect(hidden.data).toEqual([]);
   });
 
   it("happy path: counts skipped + duplicate + inserted; tx + link created", async () => {

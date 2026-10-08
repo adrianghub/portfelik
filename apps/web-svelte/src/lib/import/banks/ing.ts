@@ -220,6 +220,12 @@ export const ingAdapter: ImportAdapter = {
         counterparty: counterparty || undefined,
         external_id: external_id || undefined,
         currency,
+        source_data: {
+          columns: Array.from({ length: Math.max(headers.length, cells.length) }, (_, index) => ({
+            label: headers[index] ?? `Kolumna ${index + 1}`,
+            value: cells[index] ?? "",
+          })),
+        },
         source_row_text: rawLine,
         row_index: localIndex,
         is_hold: isHold || undefined,

@@ -10,6 +10,7 @@
   import ProfileTab from "$lib/components/settings/ProfileTab.svelte";
   import PersonalizationTab from "$lib/components/settings/PersonalizationTab.svelte";
   import RulesTab from "$lib/components/settings/RulesTab.svelte";
+  import ImportHistory from "$lib/components/import/ImportHistory.svelte";
   import { SETTINGS_SECTIONS, searchSubsections, type SettingsTab } from "$lib/settings/sections";
   import { ChevronLeft, ChevronRight, Search } from "lucide-svelte";
   import * as m from "$lib/paraglide/messages";
@@ -18,6 +19,7 @@
   const TAB_IDS: SettingsTab[] = [
     "categories",
     "rules",
+    "import",
     "groups",
     "profile",
     "notifications",
@@ -70,6 +72,8 @@
         <CategoriesTab />
       {:else if activeTab === "rules"}
         <RulesTab />
+      {:else if activeTab === "import"}
+        <ImportHistory />
       {:else if activeTab === "groups"}
         <GroupsTab />
       {:else if activeTab === "profile"}
