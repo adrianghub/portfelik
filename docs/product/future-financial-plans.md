@@ -1,8 +1,8 @@
 # Przyszłość finansowa — następny milestone
 
-Status: projekt do przeglądu, **nie wdrożone zachowanie**. Stabilizacja importu
-jest oddzielną zmianą. Rozszerzamy istniejące Plany; nie dodajemy modułu Wakacje
-ani integracji bankowej.
+Status: kierunek zatwierdzony, **jeszcze nie wdrożony**. Najbliższa praca po
+domknięciu importu. Rozszerzamy istniejące Plany. Nie dodajemy osobnego modułu
+Wakacje ani integracji bankowej.
 
 ## Rodzaje i zgodność
 
@@ -32,6 +32,10 @@ stanem na później. DB używa numeric; obliczenia sumują grosze. Pozycja bez
 terminu jest budżetem, nie przepływem przypisanym po cichu do konkretnego miesiąca.
 Prognoza, gdy powstanie, odejmuje pozostałą kwotę potwierdzonych pozycji, nie
 każdej pozycji z datą.
+
+Budżet planu nie jest saldem konta. 12 000 zł na wakacjach oznacza planowany
+limit wydatków, nie odłożone środki. Zapłacone liczą się tylko z powiązanych
+transakcji. Sam plan nie obniża aktualnego salda.
 
 Istniejące `plan_transaction_links` otrzymują opcjonalne `plan_item_id`.
 Pozostało do zapłaty to `max(0, kwota pozycji - opłacone transakcje)`. Nadpłata
@@ -111,6 +115,12 @@ Przegląd, Wydatki, Transakcje i Plan finansowania wewnątrz jednego widoku.
    na pełną prognozę. Łączą plany z codziennym importem; użytkownik zatwierdza link.
 4. Wspólny odczyt przyszłych przepływów i składniki prognozy.
 5. Alokacje celów oraz prognoza wolnych środków.
+
+Pierwszy scenariusz akceptacyjny: użytkownik tworzy wakacje, dodaje apartament
+i zaliczkę, importuje wyciąg, łączy faktyczną płatność z pozycją i widzi, ile
+zostało do zapłaty. Kolejny krok pokazuje te pozostałe płatności w prognozie
+salda. Plan ma własny zakres prywatności. Wspólny wyjazd może łączyć wydatki
+opłacone z prywatnych kont, bez ujawniania całej historii tych kont.
 
 Wymagane regresje: kwota faktyczna różna od planowanej, zaliczka/dopłata,
 cofnięcie linku, anulowanie, zapłata przed projektem, brak terminu, retry,

@@ -138,6 +138,9 @@ const P0001_MESSAGES: Record<string, () => string> = {
 export function errorMessage(err: unknown, opts: ErrorMessageOpts = {}): string {
   // Explicit, already-localized client-side validation copy renders verbatim.
   if (err instanceof ValidationError) return err.message;
+  if (err instanceof Error && err.message === "duplicate_categorization_rule") {
+    return m.rule_capture_exists();
+  }
   const code = postgrestErrorCode(err);
   if (code && opts.overrides?.[code]) return opts.overrides[code];
   const { kind, detail } = classifyError(err);
