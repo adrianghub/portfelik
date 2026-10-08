@@ -422,6 +422,127 @@ test("a spend item stays unpaid until a transaction is linked", async ({ page })
   await expect(apartment).toContainText("Zaplanowana płatność");
 });
 
+test("a linked deposit reduces what the apartment still has to pay", async ({ page }) => {
+  const plan = {
+    id: "plan-malta",
+    name: "Malta i Gozo",
+    kind: "spend",
+    user_id: "00000000-0000-0000-0000-000000000001",
+    group_id: null,
+    category_id: null,
+    budget_amount: 12000,
+    target_amount: null,
+    start_date: "2026-10-25",
+    end_date: "2026-11-07",
+    status: "active",
+    icon: null,
+    is_demo: false,
+    refinanced_from_plan_id: null,
+    replaced_by_plan_id: null,
+    created_at: "2026-10-08T10:00:00Z",
+    updated_at: "2026-10-08T10:00:00Z",
+  };
+  const item = {
+    id: "item-apartment",
+    plan_id: "plan-malta",
+    label: "Apartament",
+    amount: 4000,
+    due_date: "2026-10-22",
+    status: "confirmed",
+    payee: null,
+    created_at: "2026-10-08T10:00:00Z",
+    updated_at: "2026-10-08T10:00:00Z",
+  };
+  let settlements: Record<string, unknown>[] = [];
+  let linked: Record<string, unknown> | undefined;
+  await page.route(/.*\/rest\/v1\/plans.*id=eq\.plan-malta.*/, (route) =>
+    route.fulfill({ status: 200, json: plan })
+  );
+  await page.route(/.*\/rest\/v1\/plan_items.*/, async (route) => {
+    if (route.request().method() === "PATCH") {
+      Object.assign(item, route.request().postDataJSON() as Record<string, unknown>);
+      return route.fulfill({ status: 200, json: item });
+    }
+    return route.fulfill({ status: 200, json: [item] });
+  });
+  await page.route(/.*\/rest\/v1\/rpc\/list_spend_item_settlements.*/, (route) =>
+    route.fulfill({ status: 200, json: settlements })
+  );
+  await page.route(/.*\/rest\/v1\/rpc\/link_plan_transaction.*/, async (route) => {
+    linked = route.request().postDataJSON() as Record<string, unknown>;
+    settlements = [
+      {
+        link_id: "link-deposit",
+        plan_item_id: "item-apartment",
+        transaction_id: "tx-deposit",
+        amount: 1000,
+        paid_on: "2026-02-01",
+        counts_as_paid: true,
+        description: "Zaliczka apartament",
+      },
+    ];
+    return route.fulfill({
+      status: 200,
+      json: {
+        id: "link-deposit",
+        plan_id: "plan-malta",
+        plan_item_id: "item-apartment",
+        transaction_id: "tx-deposit",
+        created_by: plan.user_id,
+        created_at: "2026-10-08T12:00:00Z",
+      },
+    });
+  });
+  await page.route(/.*\/rest\/v1\/rpc\/unlink_plan_transaction.*/, (route) => {
+    settlements = [];
+    return route.fulfill({ status: 200, json: null });
+  });
+  await page.route(/.*\/rest\/v1\/transactions\?.*/, (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    return route.fulfill({
+      status: 200,
+      json: [
+        {
+          id: "tx-deposit",
+          description: "Zaliczka apartament",
+          amount: 1000,
+          date: "2026-02-01",
+        },
+      ],
+    });
+  });
+
+  await page.goto("/plans/plan-malta");
+  const apartment = page.getByRole("listitem").filter({ hasText: "Apartament" }).first();
+  await expect(apartment).toContainText("Do zapłaty");
+  await page.getByRole("button", { name: "Powiąż transakcję" }).click();
+  await page.getByRole("button", { name: /Zaliczka apartament/ }).click();
+  await expect
+    .poll(() => linked)
+    .toMatchObject({
+      p_plan_id: "plan-malta",
+      p_transaction_id: "tx-deposit",
+      p_plan_item_id: "item-apartment",
+    });
+  await expect(apartment).toContainText("Wpłacono");
+  await expect(apartment).toContainText("Pozostało");
+  await expect(page.getByText("Koszty w planie")).toBeVisible();
+  await expect(page.getByText(formatCurrency(3000)).first()).toBeVisible();
+  await expect(page.getByText(formatCurrency(1000)).first()).toBeVisible();
+
+  await page.getByRole("button", { name: "Anuluj pozycję" }).click();
+  await expect.poll(() => item.status).toBe("cancelled");
+  await expect(apartment).toContainText("Anulowane");
+  await expect(apartment).toContainText("Zaliczka apartament");
+  await expect(apartment).toContainText("Wpłacono");
+  await expect(page.getByText(formatCurrency(3000))).toHaveCount(0);
+  await expect(page.getByText(formatCurrency(12000)).first()).toBeVisible();
+
+  await page.getByRole("button", { name: "Odepnij" }).click();
+  await expect(apartment).not.toContainText("Zaliczka apartament");
+  await expect(page.getByText(formatCurrency(1000))).toHaveCount(0);
+});
+
 test("debt scenarios route redirects to plan detail", async ({ page }) => {
   await page.goto("/plans/plan-debt-1/scenarios?mode=monthly&extra=500");
   await expect.poll(() => page.url()).toMatch(/\/plans\/plan-debt-1\/?$/);
