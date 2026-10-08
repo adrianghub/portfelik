@@ -967,7 +967,7 @@
   "plan_form_budget_hint": "To limit wydatków, nie odłożone pieniądze.",
   "plan_form_budget_required": "Podaj budżet większy od zera.",
   "plan_spend_summary": "Podsumowanie budżetu",
-  "plan_spend_planned": "Zaplanowano",
+  "plan_spend_planned": "Koszty w planie",
   "plan_spend_budget_left_label": "Zostało w budżecie",
   "plan_spend_over_budget": "Przekroczony o {amount}",
   "plan_spend_to_pay": "Do zapłaty",
