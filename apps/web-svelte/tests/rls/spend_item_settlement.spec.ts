@@ -267,4 +267,161 @@ describe("RPC: spend item settlement", () => {
       await ctx.admin.from("user_groups").delete().eq("id", groupId);
     }
   });
+
+  async function privateLine(name: string) {
+    const plan = await ctx.admin
+      .from("plans")
+      .insert({
+        name: `${SENTINEL} ${name}`,
+        user_id: ctx.userA.userId,
+        kind: "spend",
+        budget_amount: 12000,
+        start_date: "2026-10-25",
+        end_date: "2026-11-07",
+        status: "active",
+      })
+      .select("id")
+      .single();
+    if (plan.error) throw plan.error;
+    const item = await ctx.admin
+      .from("plan_items")
+      .insert({
+        plan_id: plan.data.id,
+        label: name,
+        amount: 4000,
+        due_date: "2026-10-22",
+        status: "confirmed",
+      })
+      .select("id")
+      .single();
+    if (item.error) throw item.error;
+    return { planId: plan.data.id as string, itemId: item.data.id as string };
+  }
+
+  it("keeps a single link when the same transaction is assigned to two plans at once", async () => {
+    const malta = await privateLine("Malta");
+    const gozo = await privateLine("Gozo");
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const txId = await expense({
+        userId: ctx.userA.userId,
+        categoryId: categoryA,
+        description: `Równoległa zaliczka ${attempt}`,
+        amount: 1000,
+      });
+      const [first, second] = await Promise.all([
+        ctx.userA.client.rpc("link_plan_transaction", {
+          p_plan_id: malta.planId,
+          p_transaction_id: txId,
+          p_plan_item_id: malta.itemId,
+        }),
+        ctx.userA.client.rpc("link_plan_transaction", {
+          p_plan_id: gozo.planId,
+          p_transaction_id: txId,
+          p_plan_item_id: gozo.itemId,
+        }),
+      ]);
+      const failures = [first, second].filter((result) => result.error);
+      expect(failures).toHaveLength(1);
+      expect(failures[0]?.error?.message ?? "").toMatch(/transaction_already_linked/);
+      expect(failures[0]?.error?.message ?? "").not.toMatch(/duplicate key/);
+      const rows = await ctx.admin
+        .from("plan_transaction_links")
+        .select("plan_id")
+        .eq("transaction_id", txId);
+      expect(rows.data).toHaveLength(1);
+      const winnerPlanId = first.error ? gozo.planId : malta.planId;
+      expect(rows.data?.[0]?.plan_id).toBe(winnerPlanId);
+      const removed = await ctx.userA.client.rpc("unlink_plan_transaction", {
+        p_plan_id: winnerPlanId,
+        p_transaction_id: txId,
+      });
+      expect(removed.error).toBeNull();
+    }
+  });
+
+  it("keeps the deposit after the line is cancelled and still allows unlink", async () => {
+    const { planId, itemId } = await privateLine("Anulowany apartament");
+    const txId = await expense({
+      userId: ctx.userA.userId,
+      categoryId: categoryA,
+      description: "Zaliczka przed anulowaniem",
+      amount: 1000,
+    });
+    const linked = await ctx.userA.client.rpc("link_plan_transaction", {
+      p_plan_id: planId,
+      p_transaction_id: txId,
+      p_plan_item_id: itemId,
+    });
+    expect(linked.error).toBeNull();
+
+    const unpaid = await ctx.admin
+      .from("transactions")
+      .update({ status: "upcoming" })
+      .eq("id", txId)
+      .select("id")
+      .single();
+    expect(unpaid.error).toBeNull();
+    const notCounted = await ctx.userA.client.rpc("list_spend_item_settlements", {
+      p_plan_id: planId,
+    });
+    expect(notCounted.data).toEqual([
+      expect.objectContaining({ transaction_id: txId, amount: 1000, counts_as_paid: false }),
+    ]);
+    const paidAgain = await ctx.admin
+      .from("transactions")
+      .update({ status: "paid" })
+      .eq("id", txId);
+    expect(paidAgain.error).toBeNull();
+
+    const cancelled = await ctx.userA.client
+      .from("plan_items")
+      .update({ status: "cancelled" })
+      .eq("id", itemId)
+      .select("status")
+      .single();
+    expect(cancelled.error).toBeNull();
+    expect(cancelled.data?.status).toBe("cancelled");
+
+    const transaction = await ctx.userA.client
+      .from("transactions")
+      .select("id, amount, description")
+      .eq("id", txId)
+      .single();
+    expect(transaction.data).toMatchObject({ id: txId, amount: 1000 });
+
+    const listed = await ctx.userA.client.rpc("list_spend_item_settlements", {
+      p_plan_id: planId,
+    });
+    expect(listed.data).toEqual([
+      expect.objectContaining({
+        plan_item_id: itemId,
+        transaction_id: txId,
+        amount: 1000,
+        counts_as_paid: true,
+      }),
+    ]);
+
+    const unlinked = await ctx.userA.client.rpc("unlink_plan_transaction", {
+      p_plan_id: planId,
+      p_transaction_id: txId,
+    });
+    expect(unlinked.error).toBeNull();
+    const after = await ctx.userA.client.rpc("list_spend_item_settlements", {
+      p_plan_id: planId,
+    });
+    expect(after.data).toEqual([]);
+    const surviving = await ctx.userA.client
+      .from("transactions")
+      .select("id")
+      .eq("id", txId)
+      .single();
+    expect(surviving.data?.id).toBe(txId);
+
+    const rejected = await ctx.userA.client.rpc("link_plan_transaction", {
+      p_plan_id: planId,
+      p_transaction_id: txId,
+      p_plan_item_id: itemId,
+    });
+    expect(rejected.error?.message ?? "").toMatch(/plan_item_cancelled/);
+  });
 });

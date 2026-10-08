@@ -24,7 +24,10 @@ opcjonalny termin DATE i odbiorca. Stan opisuje pewność płatności, nie rezer
 i nie dowód, że pieniądze wyszły z konta. Szacowane nie ma terminu. Zaplanowana
 płatność ma termin orientacyjny i zostaje w limicie budżetu, ale nie w kwocie
 do zapłaty. Potwierdzona płatność jest zobowiązaniem, dopóki nie powiążemy
-transakcji. Anulowane zostaje w historii i wypada z sum. Rezerwacja jest osobnym
+transakcji. Anulowane zostaje w historii i wypada z sum. Anulowanie po
+częściowej wpłacie zdejmuje całą pozycję z limitu. Transakcja zostaje w księdze,
+wpłatę widać przy anulowanej pozycji i można ją odpiąć. Anulowanej pozycji nie
+da się rozliczyć ponownie. Rezerwacja jest osobnym
 stanem na później. DB używa numeric; obliczenia sumują grosze. Pozycja bez
 terminu jest budżetem, nie przepływem przypisanym po cichu do konkretnego miesiąca.
 Prognoza, gdy powstanie, odejmuje pozostałą kwotę potwierdzonych pozycji, nie
@@ -32,7 +35,10 @@ każdej pozycji z datą.
 
 Istniejące `plan_transaction_links` otrzymują opcjonalne `plan_item_id`.
 Pozostało do zapłaty to `max(0, kwota pozycji - opłacone transakcje)`. Nadpłata
-zostaje widoczna osobno. Jedna transakcja rozlicza jedną pozycję. Odpięcie
+zostaje widoczna osobno. Suma kosztów w planie liczy pełne kwoty pozycji, nie
+pozostałości, więc wpłacona zaliczka nie oddaje tej kwoty do wolnego budżetu.
+Jedna transakcja rozlicza jedną pozycję. Równoczesne przypisanie tej samej
+transakcji do dwóch planów zostawia jeden link. Odpięcie
 przywraca kwotę. Wspólny plan może przyjąć prywatną wpłatę wołającego, bez
 pokazywania opisu tej transakcji pozostałym członkom Domu.
 Backend sprawdza zgodność pozycji z planem, zakres prywatności, uprawnienia,

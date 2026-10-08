@@ -458,9 +458,13 @@ test("a linked deposit reduces what the apartment still has to pay", async ({ pa
   await page.route(/.*\/rest\/v1\/plans.*id=eq\.plan-malta.*/, (route) =>
     route.fulfill({ status: 200, json: plan })
   );
-  await page.route(/.*\/rest\/v1\/plan_items.*/, (route) =>
-    route.fulfill({ status: 200, json: [item] })
-  );
+  await page.route(/.*\/rest\/v1\/plan_items.*/, async (route) => {
+    if (route.request().method() === "PATCH") {
+      Object.assign(item, route.request().postDataJSON() as Record<string, unknown>);
+      return route.fulfill({ status: 200, json: item });
+    }
+    return route.fulfill({ status: 200, json: [item] });
+  });
   await page.route(/.*\/rest\/v1\/rpc\/list_spend_item_settlements.*/, (route) =>
     route.fulfill({ status: 200, json: settlements })
   );
@@ -522,12 +526,21 @@ test("a linked deposit reduces what the apartment still has to pay", async ({ pa
     });
   await expect(apartment).toContainText("Wpłacono");
   await expect(apartment).toContainText("Pozostało");
+  await expect(page.getByText("Koszty w planie")).toBeVisible();
   await expect(page.getByText(formatCurrency(3000)).first()).toBeVisible();
   await expect(page.getByText(formatCurrency(1000)).first()).toBeVisible();
 
+  await page.getByRole("button", { name: "Anuluj pozycję" }).click();
+  await expect.poll(() => item.status).toBe("cancelled");
+  await expect(apartment).toContainText("Anulowane");
+  await expect(apartment).toContainText("Zaliczka apartament");
+  await expect(apartment).toContainText("Wpłacono");
+  await expect(page.getByText(formatCurrency(3000))).toHaveCount(0);
+  await expect(page.getByText(formatCurrency(12000)).first()).toBeVisible();
+
   await page.getByRole("button", { name: "Odepnij" }).click();
-  await expect(apartment).toContainText("Do zapłaty");
-  await expect(page.getByText(formatCurrency(4000)).first()).toBeVisible();
+  await expect(apartment).not.toContainText("Zaliczka apartament");
+  await expect(page.getByText(formatCurrency(1000))).toHaveCount(0);
 });
 
 test("debt scenarios route redirects to plan detail", async ({ page }) => {

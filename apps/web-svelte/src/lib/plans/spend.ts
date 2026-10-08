@@ -21,7 +21,7 @@ export interface SpendItemSettlement {
 
 export interface SpendBudgetSummary {
   budget: number;
-  /** Estimated, planned, and confirmed lines. Cancelled lines stay stored and drop out. */
+  /** Estimated, scheduled, and confirmed lines. Cancelled lines stay stored and drop out. */
   planned: number;
   /** Confirmed payments only. A date without confirmation is not yet an obligation. */
   toPay: number;

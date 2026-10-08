@@ -422,24 +422,56 @@
           </li>
         {/each}
         {#each cancelledItems as item (item.id)}
-          <li
-            class="flex items-start justify-between gap-3 rounded-xl border border-white/5 px-3 py-3 text-slate-500"
-          >
-            <div class="min-w-0">
-              <p class="truncate line-through">{item.label}</p>
-              <p class="mt-0.5 text-xs">
-                {itemStatusLabel(item.status)} · {formatCurrency(item.amount)}
-              </p>
+          {@const itemPayments = settlements.filter(
+            (settlement) => settlement.planItemId === item.id
+          )}
+          {@const settlement = settleSpendItem(item.amount, paymentsFor(item.id))}
+          <li class="space-y-2 rounded-xl border border-white/5 px-3 py-3 text-slate-500">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="truncate line-through">{item.label}</p>
+                <p class="mt-0.5 text-xs">
+                  {itemStatusLabel(item.status)} · {formatCurrency(item.amount)}
+                </p>
+                {#if settlement.settled > 0}
+                  <p class="mt-1 text-sm text-slate-300">
+                    {m.plan_item_paid({ amount: formatCurrency(settlement.settled) })}
+                  </p>
+                {/if}
+              </div>
+              {#if canManage}
+                <button
+                  type="button"
+                  class="focus-visible:ring-accent shrink-0 rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+                  disabled={cancellingId === item.id}
+                  onclick={() => restoreItem(item)}
+                >
+                  {m.plan_item_restore()}
+                </button>
+              {/if}
             </div>
-            {#if canManage}
-              <button
-                type="button"
-                class="focus-visible:ring-accent shrink-0 rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-                disabled={cancellingId === item.id}
-                onclick={() => restoreItem(item)}
-              >
-                {m.plan_item_restore()}
-              </button>
+            {#if itemPayments.length > 0}
+              <ul class="space-y-1">
+                {#each itemPayments as payment (payment.linkId)}
+                  <li class="flex items-center justify-between gap-3 text-sm text-slate-400">
+                    <span class="min-w-0 truncate">
+                      {payment.description ?? m.plan_item_private_payment()}
+                      · {formatDate(payment.paidOn)}
+                      · {formatCurrency(payment.amount)}
+                    </span>
+                    {#if canManage}
+                      <button
+                        type="button"
+                        class="focus-visible:ring-accent shrink-0 rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+                        disabled={unlinkingId === payment.transactionId}
+                        onclick={() => unlinkPayment(payment.transactionId)}
+                      >
+                        {m.plan_item_unlink()}
+                      </button>
+                    {/if}
+                  </li>
+                {/each}
+              </ul>
             {/if}
           </li>
         {/each}

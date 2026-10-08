@@ -94,6 +94,16 @@ describe("spend plan budget", () => {
     expect(summary.orientational).toBe(2_600);
   });
 
+  it("drops a cancelled partly paid line from the budget without treating the deposit as free money", () => {
+    const summary = summarizeSpendBudget(12_000, [
+      { amount: 4_000, status: "cancelled", settled: 1_000 },
+    ]);
+    expect(summary.planned).toBe(0);
+    expect(summary.toPay).toBe(0);
+    expect(summary.orientational).toBe(0);
+    expect(summary.budgetLeft).toBe(12_000);
+  });
+
   it("caps the remainder at zero and reports an overpayment", () => {
     expect(
       settleSpendItem(4_000, [
