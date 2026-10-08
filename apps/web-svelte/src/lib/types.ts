@@ -95,6 +95,8 @@ export interface ProfileSettings {
   accentColor?: string;
   /** Preset avatar id (see avatar-presets.ts); absent ⇒ OAuth photo or initials. */
   avatarPresetId?: string;
+  /** Last changelog version opened from the account menu. */
+  changelogSeenVersion?: string;
   alerts?: {
     bankImportReminder?: {
       enabled: boolean;

@@ -192,6 +192,7 @@
   "changelog_title": "Co nowego",
   "changelog_current": "Wersja {version}",
   "changelog_close": "Zamknij",
+  "changelog_unseen": "Nieprzeczytane zmiany",
   "settings_tab_categories": "Kategorie i limity",
   "settings_tab_groups": "Grupy",
   "settings_tab_rules": "Reguły",
