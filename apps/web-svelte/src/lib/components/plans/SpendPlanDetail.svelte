@@ -141,6 +141,7 @@
     const userId = requireSessionUserId();
     await queryClient.invalidateQueries({ queryKey: qk.planItems(userId, plan.id) });
     await queryClient.invalidateQueries({ queryKey: qk.planLinks(userId, plan.id) });
+    await queryClient.invalidateQueries({ queryKey: qk.spendForecast(userId) });
   }
 
   async function linkPayment(itemId: string, transactionId: string) {

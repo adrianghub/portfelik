@@ -30,8 +30,11 @@ wpłatę widać przy anulowanej pozycji i można ją odpiąć. Anulowanej pozycj
 da się rozliczyć ponownie. Rezerwacja jest osobnym
 stanem na później. DB używa numeric; obliczenia sumują grosze. Pozycja bez
 terminu jest budżetem, nie przepływem przypisanym po cichu do konkretnego miesiąca.
-Prognoza, gdy powstanie, odejmuje pozostałą kwotę potwierdzonych pozycji, nie
-każdej pozycji z datą.
+Prognoza salda prywatnego korzysta z istniejącego silnika kasowego. Odejmuje
+pozostałą kwotę potwierdzonych pozycji prywatnego planu, których nie ma już
+w nadchodzących transakcjach. Wpłacona zaliczka zostaje w saldzie i nie jest
+odejmowana drugi raz. Pozycja zaplanowana, szacunek i anulowana nie wchodzą
+do prognozy. Pozostałość wspólnego planu nie wchodzi do salda prywatnego.
 
 Budżet planu nie jest saldem konta. 12 000 zł na wakacjach oznacza planowany
 limit wydatków, nie odłożone środki. Zapłacone liczą się tylko z powiązanych
@@ -90,6 +93,21 @@ Historyczne wpłaty i korekty zachowują znaczenie; przejście na alokacje wymag
 jawnego wyboru, nie masowego przeliczenia danych. Brak terminu nie generuje
 fikcyjnego wymaganego tempa. Kwota zgromadzona, planowane tempo i rzeczywiste
 wykonanie pozostają rozróżnione.
+
+## Kokpit
+
+Kokpit zostaje przeglądem salda, płatności, prognozy, planów, wydatków i
+ostatnich transakcji. Nie przenosi formularza planu na ten ekran. Na desktopie
+kolejność to liczniki, potem plany i wydatki obok siebie, na końcu transakcje.
+Na mobile liczniki, plany, wydatki i transakcje idą jeden pod drugim.
+
+Planowana kwota nie jest wydatkiem historii. Wydatkiem jest powiązana
+transakcja i liczy się raz. W planie ta sama wpłata zmniejsza pozostałą kwotę.
+
+Szczegóły planu zostają miejscem budżetu, pozycji, statusów i rozliczeń.
+Zwarty układ podsumowania, pasek wykorzystania budżetu i zwinięty formularz
+dodawania są późniejszą zmianą prezentacji. Pasek pokazuje wykorzystanie
+budżetu, nie postęp opłacania. Obliczeń nie zmieniamy przy zmianie układu.
 
 ## Import, prywatność i UI
 

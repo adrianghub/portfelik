@@ -63,6 +63,8 @@
     livePosition,
     liveMovementTotals,
   } from "$lib/services/cash-position";
+  import { appendConfirmedSpendForecast } from "$lib/plans/spend-forecast";
+  import { fetchPrivateSpendForecastSource } from "$lib/services/spend-forecast";
   import {
     forwardForecastTransactions,
     recurringProjectionsForTransactionRange,
@@ -197,6 +199,7 @@
   async function invalidateAfterSettle() {
     const u = requireSessionUserId();
     await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+    await queryClient.invalidateQueries({ queryKey: qk.spendForecast(u) });
     await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
     await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
     await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
@@ -676,6 +679,21 @@
     }));
   });
   const cashPositionTxs = $derived([...privateCashTxs, ...privateCashProjectedTxs]);
+  // Plan remainders join the forecast when they arrive. They must not hold the
+  // live balance behind the plans request.
+  const spendForecastQuery = createQuery(() => ({
+    queryKey: qk.spendForecast(session.userId!),
+    queryFn: fetchPrivateSpendForecastSource,
+    enabled: !!session.userId && !!cashAnchorQuery.data,
+    staleTime: 60_000,
+  }));
+  const cashForecastTxs = $derived(
+    appendConfirmedSpendForecast(
+      cashPositionTxs,
+      spendForecastQuery.data ?? null,
+      cashForecastToday
+    )
+  );
   const cashPositionOptions = $derived({
     today: cashForecastToday,
     horizonEnd: cashForecastHorizon,
@@ -685,10 +703,10 @@
     liveMovementTotals(cashAnchorQuery.data ?? null, cashPositionTxs)
   );
   const afterUpcomingCashPosition = $derived(
-    forecastPosition(cashAnchorQuery.data ?? null, cashPositionTxs, cashPositionOptions)
+    forecastPosition(cashAnchorQuery.data ?? null, cashForecastTxs, cashPositionOptions)
   );
   const cashForecastMovements = $derived(
-    forecastMovementTotals(cashAnchorQuery.data ?? null, cashPositionTxs, cashPositionOptions)
+    forecastMovementTotals(cashAnchorQuery.data ?? null, cashForecastTxs, cashPositionOptions)
   );
   // Prefer isLoading (pending + fetching) over isPending — disabled dependents
   // stay isPending=true and would otherwise freeze the cash skeleton forever.
@@ -713,6 +731,7 @@
       cashHistoryQuery.refetch(),
       recurringTemplatesQuery.refetch(),
       cashRecurringSkipsQuery.refetch(),
+      spendForecastQuery.refetch(),
     ]);
   }
   // Forecast source = scheduled real rows (one-off upcoming + materialized

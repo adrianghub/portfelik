@@ -12,6 +12,7 @@ export const qk = {
   categories: (u: Id) => [...userNs(u), "categories"] as const,
   categorizationRules: (u: Id) => [...userNs(u), "categorization_rules"] as const,
   plans: (u: Id) => [...userNs(u), "plans"] as const,
+  spendForecast: (u: Id) => [...userNs(u), "plans", "spend-forecast"] as const,
   plan: (u: Id, id: string) => [...userNs(u), "plan", id] as const,
   planLinks: (u: Id, id?: string) => [...userNs(u), "plan-links", ...(id ? [id] : [])] as const,
   planRanked: (u: Id, id: string, ...p: unknown[]) =>

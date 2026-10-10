@@ -27,6 +27,8 @@
     livePosition,
     liveMovementTotals,
   } from "$lib/services/cash-position";
+  import { appendConfirmedSpendForecast } from "$lib/plans/spend-forecast";
+  import { fetchPrivateSpendForecastSource } from "$lib/services/spend-forecast";
   import { createCategory, fetchCategories } from "$lib/services/categories";
   import { makeCreateCategoryInline } from "$lib/category-create";
   import { fetchMyGroupRoles, fetchUserGroups } from "$lib/services/groups";
@@ -297,6 +299,13 @@
     enabled: () => !!session.userId,
   }));
 
+  const spendForecastQuery = createQuery(() => ({
+    queryKey: qk.spendForecast(session.userId!),
+    queryFn: fetchPrivateSpendForecastSource,
+    enabled: !!session.userId && !!cashAnchorQuery.data,
+    staleTime: 60_000,
+  }));
+
   const anchorStart = $derived(cashAnchorQuery.data?.as_of_date ?? "2000-01-01");
 
   const paidHistoryQuery = createQuery(() => ({
@@ -501,6 +510,7 @@
           void queryClient.invalidateQueries({
             queryKey: qk.transactions.all(u),
           });
+          void queryClient.invalidateQueries({ queryKey: qk.spendForecast(u) });
           void queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
         }
       })
@@ -626,6 +636,7 @@
       paidHistoryQuery.refetch(),
       recurringTemplatesQuery.refetch(),
       cashRecurringSkipsQuery.refetch(),
+      spendForecastQuery.refetch(),
     ]);
   }
   const privateForecastProjectedTxs = $derived.by(() => {
@@ -650,7 +661,13 @@
       currency: tx.currency,
     }));
   });
-  const cashForecastTxs = $derived([...privatePaidTxs, ...privateForecastProjectedTxs]);
+  const cashForecastTxs = $derived(
+    appendConfirmedSpendForecast(
+      [...privatePaidTxs, ...privateForecastProjectedTxs],
+      spendForecastQuery.data ?? null,
+      cashForecastToday
+    )
+  );
   const cashForecastOpts = $derived({
     today: cashForecastToday,
     horizonEnd: cashForecastHorizon,
@@ -745,6 +762,7 @@
     onSuccess: async () => {
       const u = requireSessionUserId();
       await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.spendForecast(u) });
       await queryClient.invalidateQueries({
         queryKey: qk.transactions.list(u, "recurring-skips"),
       });
@@ -760,6 +778,7 @@
   async function invalidateAfterSeriesMutation() {
     const u = requireSessionUserId();
     await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+    await queryClient.invalidateQueries({ queryKey: qk.spendForecast(u) });
     await queryClient.invalidateQueries({ queryKey: qk.transactions.list(u, "recurring-skips") });
     await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
     await queryClient.invalidateQueries({ queryKey: qk.planLinks(u) });
@@ -831,6 +850,7 @@
     onSuccess: async (affected) => {
       const u = requireSessionUserId();
       await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.spendForecast(u) });
       await queryClient.invalidateQueries({ queryKey: qk.transactions.list(u, "recurring-skips") });
       await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
@@ -857,6 +877,7 @@
   async function invalidateAfterSettle() {
     const u = requireSessionUserId();
     await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+    await queryClient.invalidateQueries({ queryKey: qk.spendForecast(u) });
     await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
     await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
     await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
@@ -964,6 +985,7 @@
       await queryClient.invalidateQueries({
         queryKey: qk.transactions.all(u),
       });
+      await queryClient.invalidateQueries({ queryKey: qk.spendForecast(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
       toast.success(m.toast_transactions_bulk_category({ count: affected }));
       selectedIds = new Set<string>();
