@@ -27,6 +27,8 @@
     livePosition,
     liveMovementTotals,
   } from "$lib/services/cash-position";
+  import { confirmedSpendForecastFlows } from "$lib/plans/spend-forecast";
+  import { fetchPrivateSpendForecastSource } from "$lib/services/spend-forecast";
   import { createCategory, fetchCategories } from "$lib/services/categories";
   import { makeCreateCategoryInline } from "$lib/category-create";
   import { fetchMyGroupRoles, fetchUserGroups } from "$lib/services/groups";
@@ -297,6 +299,13 @@
     enabled: () => !!session.userId,
   }));
 
+  const spendForecastQuery = createQuery(() => ({
+    queryKey: qk.spendForecast(session.userId!),
+    queryFn: fetchPrivateSpendForecastSource,
+    enabled: !!session.userId && !!cashAnchorQuery.data,
+    staleTime: 60_000,
+  }));
+
   const anchorStart = $derived(cashAnchorQuery.data?.as_of_date ?? "2000-01-01");
 
   const paidHistoryQuery = createQuery(() => ({
@@ -501,6 +510,7 @@
           void queryClient.invalidateQueries({
             queryKey: qk.transactions.all(u),
           });
+          void queryClient.invalidateQueries({ queryKey: qk.spendForecast(u) });
           void queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
         }
       })
@@ -611,14 +621,16 @@
       (!!cashAnchor &&
         (paidHistoryQuery.isLoading ||
           recurringTemplatesQuery.isLoading ||
-          cashRecurringSkipsQuery.isLoading))
+          cashRecurringSkipsQuery.isLoading ||
+          spendForecastQuery.isLoading))
   );
   const cashPositionError = $derived(
     cashAnchorQuery.isError ||
       (!!cashAnchor &&
         (paidHistoryQuery.isError ||
           recurringTemplatesQuery.isError ||
-          cashRecurringSkipsQuery.isError))
+          cashRecurringSkipsQuery.isError ||
+          spendForecastQuery.isError))
   );
   function retryCashPosition() {
     void Promise.all([
@@ -626,6 +638,7 @@
       paidHistoryQuery.refetch(),
       recurringTemplatesQuery.refetch(),
       cashRecurringSkipsQuery.refetch(),
+      spendForecastQuery.refetch(),
     ]);
   }
   const privateForecastProjectedTxs = $derived.by(() => {
@@ -651,13 +664,24 @@
     }));
   });
   const cashForecastTxs = $derived([...privatePaidTxs, ...privateForecastProjectedTxs]);
+  const cashForecastWithPlans = $derived([
+    ...cashForecastTxs,
+    ...confirmedSpendForecastFlows({
+      items: spendForecastQuery.data?.items ?? [],
+      links: spendForecastQuery.data?.links ?? [],
+      forecastTransactionIds: new Set(cashForecastTxs.map((tx) => tx.id)),
+      today: cashForecastToday,
+    }),
+  ]);
   const cashForecastOpts = $derived({
     today: cashForecastToday,
     horizonEnd: cashForecastHorizon,
   });
-  const cashForecast = $derived(forecastPosition(cashAnchor, cashForecastTxs, cashForecastOpts));
+  const cashForecast = $derived(
+    forecastPosition(cashAnchor, cashForecastWithPlans, cashForecastOpts)
+  );
   const cashForecastMovements = $derived(
-    forecastMovementTotals(cashAnchor, cashForecastTxs, cashForecastOpts)
+    forecastMovementTotals(cashAnchor, cashForecastWithPlans, cashForecastOpts)
   );
 
   // Dialog state
@@ -745,6 +769,7 @@
     onSuccess: async () => {
       const u = requireSessionUserId();
       await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.spendForecast(u) });
       await queryClient.invalidateQueries({
         queryKey: qk.transactions.list(u, "recurring-skips"),
       });
@@ -760,6 +785,7 @@
   async function invalidateAfterSeriesMutation() {
     const u = requireSessionUserId();
     await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+    await queryClient.invalidateQueries({ queryKey: qk.spendForecast(u) });
     await queryClient.invalidateQueries({ queryKey: qk.transactions.list(u, "recurring-skips") });
     await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
     await queryClient.invalidateQueries({ queryKey: qk.planLinks(u) });
@@ -831,6 +857,7 @@
     onSuccess: async (affected) => {
       const u = requireSessionUserId();
       await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.spendForecast(u) });
       await queryClient.invalidateQueries({ queryKey: qk.transactions.list(u, "recurring-skips") });
       await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
@@ -857,6 +884,7 @@
   async function invalidateAfterSettle() {
     const u = requireSessionUserId();
     await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+    await queryClient.invalidateQueries({ queryKey: qk.spendForecast(u) });
     await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
     await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
     await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
@@ -964,6 +992,7 @@
       await queryClient.invalidateQueries({
         queryKey: qk.transactions.all(u),
       });
+      await queryClient.invalidateQueries({ queryKey: qk.spendForecast(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
       toast.success(m.toast_transactions_bulk_category({ count: affected }));
       selectedIds = new Set<string>();

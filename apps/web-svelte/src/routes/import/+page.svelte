@@ -160,6 +160,7 @@
   ): void {
     const u = requireSessionUserId();
     queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+    queryClient.invalidateQueries({ queryKey: qk.spendForecast(u) });
     queryClient.invalidateQueries({ queryKey: qk.summary(u) });
     queryClient.invalidateQueries({ queryKey: qk.importHealth(u) });
     queryClient.invalidateQueries({ queryKey: qk.importHistory(u) });
