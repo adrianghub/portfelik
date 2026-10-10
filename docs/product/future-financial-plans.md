@@ -101,6 +101,15 @@ ostatnich transakcji. Nie przenosi formularza planu na ten ekran. Na desktopie
 kolejność to liczniki, potem plany i wydatki obok siebie, na końcu transakcje.
 Na mobile liczniki, plany, wydatki i transakcje idą jeden pod drugim.
 
+Trzy liczniki liczą jeden zakres: prywatny albo jeden Dom. Saldo to kotwica
+tego zakresu plus opłacone ruchy od jej daty. Brak kotwicy to brak liczby, nie
+zero. Płatności z 30 dni to nierozliczone potwierdzone zobowiązania z tego
+okna. Zaległe zostają obok, a płatności orientacyjne osobno. Prognoza za 30
+dni jest wynikiem istniejącego silnika: przyszłe wpływy, przyszłe wydatki i
+reszta potwierdzonych pozycji, której transakcja nie jest już w przepływach.
+Nie jest różnicą salda i płatności. Nie ma zapisanej poduszki, więc licznik
+pokazuje kwotę bez łuku.
+
 Planowana kwota nie jest wydatkiem historii. Wydatkiem jest powiązana
 transakcja i liczy się raz. W planie ta sama wpłata zmniejsza pozostałą kwotę.
 
