@@ -63,3 +63,27 @@ export function confirmedSpendForecastFlows(input: {
   }
   return flows;
 }
+
+/**
+ * One composition for every cash view. Kokpit and Transakcje both append these
+ * flows before the existing forecast engine. Import does not calculate a second
+ * number; committing an import only refreshes this source.
+ */
+export function appendConfirmedSpendForecast<T extends PositionTx & { id: string }>(
+  cashTxs: readonly T[],
+  source: {
+    items: readonly SpendForecastItem[];
+    links: readonly SpendForecastLink[];
+  } | null,
+  today: string
+): Array<T | PositionTx> {
+  return [
+    ...cashTxs,
+    ...confirmedSpendForecastFlows({
+      items: source?.items ?? [],
+      links: source?.links ?? [],
+      forecastTransactionIds: new Set(cashTxs.map((tx) => tx.id)),
+      today,
+    }),
+  ];
+}

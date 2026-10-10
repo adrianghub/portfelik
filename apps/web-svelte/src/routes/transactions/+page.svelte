@@ -27,7 +27,7 @@
     livePosition,
     liveMovementTotals,
   } from "$lib/services/cash-position";
-  import { confirmedSpendForecastFlows } from "$lib/plans/spend-forecast";
+  import { appendConfirmedSpendForecast } from "$lib/plans/spend-forecast";
   import { fetchPrivateSpendForecastSource } from "$lib/services/spend-forecast";
   import { createCategory, fetchCategories } from "$lib/services/categories";
   import { makeCreateCategoryInline } from "$lib/category-create";
@@ -663,25 +663,20 @@
       currency: tx.currency,
     }));
   });
-  const cashForecastTxs = $derived([...privatePaidTxs, ...privateForecastProjectedTxs]);
-  const cashForecastWithPlans = $derived([
-    ...cashForecastTxs,
-    ...confirmedSpendForecastFlows({
-      items: spendForecastQuery.data?.items ?? [],
-      links: spendForecastQuery.data?.links ?? [],
-      forecastTransactionIds: new Set(cashForecastTxs.map((tx) => tx.id)),
-      today: cashForecastToday,
-    }),
-  ]);
+  const cashForecastTxs = $derived(
+    appendConfirmedSpendForecast(
+      [...privatePaidTxs, ...privateForecastProjectedTxs],
+      spendForecastQuery.data ?? null,
+      cashForecastToday
+    )
+  );
   const cashForecastOpts = $derived({
     today: cashForecastToday,
     horizonEnd: cashForecastHorizon,
   });
-  const cashForecast = $derived(
-    forecastPosition(cashAnchor, cashForecastWithPlans, cashForecastOpts)
-  );
+  const cashForecast = $derived(forecastPosition(cashAnchor, cashForecastTxs, cashForecastOpts));
   const cashForecastMovements = $derived(
-    forecastMovementTotals(cashAnchor, cashForecastWithPlans, cashForecastOpts)
+    forecastMovementTotals(cashAnchor, cashForecastTxs, cashForecastOpts)
   );
 
   // Dialog state

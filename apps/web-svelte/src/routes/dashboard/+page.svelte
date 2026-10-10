@@ -63,7 +63,7 @@
     livePosition,
     liveMovementTotals,
   } from "$lib/services/cash-position";
-  import { confirmedSpendForecastFlows } from "$lib/plans/spend-forecast";
+  import { appendConfirmedSpendForecast } from "$lib/plans/spend-forecast";
   import { fetchPrivateSpendForecastSource } from "$lib/services/spend-forecast";
   import {
     forwardForecastTransactions,
@@ -685,15 +685,13 @@
     enabled: !!session.userId && !!cashAnchorQuery.data,
     staleTime: 60_000,
   }));
-  const spendForecastFlows = $derived(
-    confirmedSpendForecastFlows({
-      items: spendForecastQuery.data?.items ?? [],
-      links: spendForecastQuery.data?.links ?? [],
-      forecastTransactionIds: new Set(cashPositionTxs.map((tx) => tx.id)),
-      today: cashForecastToday,
-    })
+  const cashForecastTxs = $derived(
+    appendConfirmedSpendForecast(
+      cashPositionTxs,
+      spendForecastQuery.data ?? null,
+      cashForecastToday
+    )
   );
-  const cashForecastTxs = $derived([...cashPositionTxs, ...spendForecastFlows]);
   const cashPositionOptions = $derived({
     today: cashForecastToday,
     horizonEnd: cashForecastHorizon,
