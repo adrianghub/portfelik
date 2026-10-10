@@ -146,15 +146,66 @@ test.describe("dashboard mobile layout", () => {
     expect(forecastBox!.y).toBeLessThan(balanceBox!.y);
     expect(forecastBox!.width).toBeGreaterThan(balanceBox!.width + 40);
     expect(Math.abs(balanceBox!.y - paymentsBox!.y)).toBeLessThan(8);
+    const balanceArc = await cash.getByTestId("cockpit-balance").locator("svg").boundingBox();
+    const balanceLabel = await cash.getByText("Saldo kont", { exact: true }).boundingBox();
+    const balanceAmount = await cash
+      .getByTestId("cockpit-balance")
+      .getByText(/1\D?300,00/)
+      .boundingBox();
+    expect(balanceArc && balanceLabel && balanceAmount).toBeTruthy();
+    expect(balanceLabel!.y).toBeGreaterThan(balanceArc!.y + balanceArc!.height - 1);
+    expect(balanceAmount!.y).toBeGreaterThan(balanceLabel!.y);
+    expect(
+      await cash
+        .getByTestId("cockpit-balance")
+        .getByText(/1\D?300,00/)
+        .evaluate((el) => getComputedStyle(el).position)
+    ).not.toBe("absolute");
 
+    async function indicatorBoxes() {
+      const forecast = await cash.getByTestId("cockpit-forecast").boundingBox();
+      const balance = await cash.getByTestId("cockpit-balance").boundingBox();
+      const payments = await cash.getByTestId("cockpit-payments").boundingBox();
+      expect(forecast && balance && payments).toBeTruthy();
+      return { forecast: forecast!, balance: balance!, payments: payments! };
+    }
+
+    await page.setViewportSize({ width: 320, height: 800 });
+    const stacked = await indicatorBoxes();
+    expect(stacked.forecast.y).toBeLessThan(stacked.balance.y);
+    expect(stacked.balance.y).toBeLessThan(stacked.payments.y);
+    expect(Math.abs(stacked.forecast.width - stacked.balance.width)).toBeLessThan(8);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const phone = await indicatorBoxes();
+    expect(phone.forecast.y).toBeLessThan(phone.balance.y);
+    expect(phone.forecast.width).toBeGreaterThan(phone.balance.width + 40);
+    expect(Math.abs(phone.balance.y - phone.payments.y)).toBeLessThan(8);
+
+    for (const width of [768, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      const wide = await indicatorBoxes();
+      expect(wide.balance.x).toBeLessThan(wide.payments.x);
+      expect(wide.payments.x).toBeLessThan(wide.forecast.x);
+      expect(Math.abs(wide.balance.y - wide.forecast.y)).toBeLessThan(8);
+      expect(Math.abs(wide.balance.width - wide.payments.width)).toBeLessThan(24);
+      expect(Math.abs(wide.payments.width - wide.forecast.width)).toBeLessThan(24);
+    }
+
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = "32px";
+    });
+    for (const id of ["cockpit-balance", "cockpit-payments", "cockpit-forecast"]) {
+      const clips = await cash
+        .getByTestId(id)
+        .evaluate((el) => el.scrollWidth > el.clientWidth + 1);
+      expect(clips).toBe(false);
+    }
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = "";
+    });
     await page.setViewportSize({ width: 1280, height: 800 });
-    const desktopForecast = await cash.getByTestId("cockpit-forecast").boundingBox();
-    const desktopBalance = await cash.getByTestId("cockpit-balance").boundingBox();
-    const desktopPayments = await cash.getByTestId("cockpit-payments").boundingBox();
-    expect(desktopForecast && desktopBalance && desktopPayments).toBeTruthy();
-    expect(desktopBalance!.x).toBeLessThan(desktopPayments!.x);
-    expect(desktopPayments!.x).toBeLessThan(desktopForecast!.x);
-    expect(Math.abs(desktopBalance!.y - desktopForecast!.y)).toBeLessThan(8);
 
     await cash.getByText("Jak obliczamy saldo i prognozę?", { exact: true }).click();
     await expect(cash.getByText("Zaksięgowane wpływy", { exact: true })).toBeVisible();
@@ -221,6 +272,52 @@ test.describe("dashboard mobile layout", () => {
     }
     await expect(page.getByTestId("cockpit-balance")).toContainText(/1\D?000,00/);
     await expect(page.getByTestId("dashboard-cash-loading")).toHaveCount(0);
+  });
+
+  test("large and negative indicator amounts stay inside the card", async ({ page }) => {
+    const today = isoDaysFromToday(0);
+    await page.route("**/rest/v1/cash_positions**", (route) =>
+      route.fulfill({
+        status: 200,
+        json: {
+          owner_id: TEST_USER_ID,
+          group_id: null,
+          opening_amount: 1_000_000,
+          as_of_date: today,
+        },
+      })
+    );
+    await page.route("**/rest/v1/transactions_with_category**", (route) =>
+      route.fulfill({
+        status: 200,
+        json: [
+          {
+            id: "wide-upcoming",
+            date: isoDaysFromToday(3),
+            description: "Rachunek",
+            amount: 1_500_000,
+            type: "expense",
+            status: "upcoming",
+            currency: "PLN",
+            user_id: TEST_USER_ID,
+            group_id: null,
+            is_recurring: false,
+          },
+        ],
+      })
+    );
+    await page.setViewportSize({ width: 320, height: 800 });
+    await page.goto("/dashboard");
+    const cash = page.getByTestId("dashboard-cash-position");
+    await expect(cash.getByTestId("cockpit-balance")).toContainText(/1\D?000\D?000,00/);
+    await expect(cash.getByTestId("cockpit-payments")).toContainText(/1\D?500\D?000,00/);
+    await expect(cash.getByTestId("cockpit-forecast")).toContainText(/-500\D?000,00/);
+    for (const id of ["cockpit-balance", "cockpit-payments", "cockpit-forecast"]) {
+      const clips = await cash
+        .getByTestId(id)
+        .evaluate((el) => el.scrollWidth > el.clientWidth + 1);
+      expect(clips).toBe(false);
+    }
   });
 
   test("spending accordion expands on mobile", async ({ page }) => {
