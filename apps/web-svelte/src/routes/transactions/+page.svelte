@@ -621,16 +621,14 @@
       (!!cashAnchor &&
         (paidHistoryQuery.isLoading ||
           recurringTemplatesQuery.isLoading ||
-          cashRecurringSkipsQuery.isLoading ||
-          spendForecastQuery.isLoading))
+          cashRecurringSkipsQuery.isLoading))
   );
   const cashPositionError = $derived(
     cashAnchorQuery.isError ||
       (!!cashAnchor &&
         (paidHistoryQuery.isError ||
           recurringTemplatesQuery.isError ||
-          cashRecurringSkipsQuery.isError ||
-          spendForecastQuery.isError))
+          cashRecurringSkipsQuery.isError))
   );
   function retryCashPosition() {
     void Promise.all([

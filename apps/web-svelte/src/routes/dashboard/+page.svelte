@@ -679,6 +679,8 @@
     }));
   });
   const cashPositionTxs = $derived([...privateCashTxs, ...privateCashProjectedTxs]);
+  // Plan remainders join the forecast when they arrive. They must not hold the
+  // live balance behind the plans request.
   const spendForecastQuery = createQuery(() => ({
     queryKey: qk.spendForecast(session.userId!),
     queryFn: fetchPrivateSpendForecastSource,
@@ -714,16 +716,14 @@
       (!!cashAnchorQuery.data &&
         (cashHistoryQuery.isLoading ||
           recurringTemplatesQuery.isLoading ||
-          cashRecurringSkipsQuery.isLoading ||
-          spendForecastQuery.isLoading))
+          cashRecurringSkipsQuery.isLoading))
   );
   const cashPositionError = $derived(
     cashAnchorQuery.isError ||
       (!!cashAnchorQuery.data &&
         (cashHistoryQuery.isError ||
           recurringTemplatesQuery.isError ||
-          cashRecurringSkipsQuery.isError ||
-          spendForecastQuery.isError))
+          cashRecurringSkipsQuery.isError))
   );
   function retryCashPosition() {
     void Promise.all([
