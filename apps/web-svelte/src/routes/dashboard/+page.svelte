@@ -52,7 +52,8 @@
     resolveCeleCategoryId,
   } from "$lib/services/goal-spending";
   import { fetchRecurringOccurrenceSkips } from "$lib/services/recurring-occurrences";
-  import { localDateIso } from "$lib/date-local";
+  import { addLocalDays, localDateIso } from "$lib/date-local";
+  import { COCKPIT_HORIZON_DAYS, cockpitIndicators } from "$lib/cockpit/indicators";
   import {
     CASH_FETCH_END_SENTINEL,
     cashForecastHorizonEnd,
@@ -699,6 +700,22 @@
     horizonEnd: cashForecastHorizon,
   });
   const currentCashPosition = $derived(livePosition(cashAnchorQuery.data ?? null, cashPositionTxs));
+  const cockpitHorizonEnd = $derived(addLocalDays(cashForecastToday, COCKPIT_HORIZON_DAYS));
+  const cockpit = $derived(
+    cockpitIndicators({
+      scope: { kind: "private" },
+      anchor: cashAnchorQuery.data
+        ? {
+            opening_amount: cashAnchorQuery.data.opening_amount,
+            as_of_date: cashAnchorQuery.data.as_of_date,
+          }
+        : null,
+      transactions: cashPositionTxs,
+      items: spendForecastQuery.data?.items ?? [],
+      links: spendForecastQuery.data?.links ?? [],
+      today: cashForecastToday,
+    })
+  );
   const cashRecordedMovements = $derived(
     liveMovementTotals(cashAnchorQuery.data ?? null, cashPositionTxs)
   );
@@ -1019,6 +1036,12 @@
       paidIncome={cashRecordedMovements.paidIncome}
       paidExpenses={cashRecordedMovements.paidExpenses}
       hasAnchor={!!cashAnchorQuery.data}
+      balance={cockpit.balance}
+      payments30={cockpit.payments30}
+      forecast30={cockpit.forecast30}
+      forecastDate={cockpitHorizonEnd}
+      overdue={cockpit.overdue}
+      orientational30={cockpit.orientational30}
       loading={cashPositionLoading}
       error={cashPositionError}
       onRetry={retryCashPosition}

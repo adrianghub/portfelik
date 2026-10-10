@@ -14,6 +14,7 @@
     paidExpenses,
     currentLabel = m.cash_position_label(),
     forecastLabel = m.cash_position_forecast_result(),
+    showHeadlines = true,
   }: {
     live: number;
     forecast: number;
@@ -25,28 +26,33 @@
     paidExpenses?: number;
     currentLabel?: string;
     forecastLabel?: string;
+    showHeadlines?: boolean;
   } = $props();
 </script>
 
-<div class="grid gap-4 sm:grid-cols-2 sm:gap-6">
-  <div class="min-w-0">
-    <p class="text-sm font-medium text-slate-300">{currentLabel}</p>
-    <p class="mt-1 text-3xl font-semibold tracking-tight text-slate-100 tabular-nums">
-      {formatCurrency(live)}
-    </p>
-    <p class="mt-1 text-xs text-slate-400">{m.cash_position_recorded_hint()}</p>
+{#if showHeadlines}
+  <div class="grid gap-4 sm:grid-cols-2 sm:gap-6">
+    <div class="min-w-0">
+      <p class="text-sm font-medium text-slate-300">{currentLabel}</p>
+      <p class="mt-1 text-3xl font-semibold tracking-tight text-slate-100 tabular-nums">
+        {formatCurrency(live)}
+      </p>
+      <p class="mt-1 text-xs text-slate-400">{m.cash_position_recorded_hint()}</p>
+    </div>
+    <div class="min-w-0 border-t border-white/5 pt-4 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-6">
+      <p class="text-sm font-medium text-slate-300">{forecastLabel}</p>
+      <p class="mt-1 text-2xl font-semibold tracking-tight text-slate-100 tabular-nums">
+        {formatCurrency(forecast)}
+      </p>
+      <p class="mt-1 text-xs text-slate-400">
+        {m.cash_position_horizon({ date: formatDate(cashForecastHorizonEnd()) })}
+      </p>
+    </div>
   </div>
-  <div class="min-w-0 border-t border-white/5 pt-4 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-6">
-    <p class="text-sm font-medium text-slate-300">{forecastLabel}</p>
-    <p class="mt-1 text-2xl font-semibold tracking-tight text-slate-100 tabular-nums">
-      {formatCurrency(forecast)}
-    </p>
-    <p class="mt-1 text-xs text-slate-400">
-      {m.cash_position_horizon({ date: formatDate(cashForecastHorizonEnd()) })}
-    </p>
-  </div>
-</div>
-<details class="mt-3 border-t border-white/5 pt-1">
+{/if}
+<details
+  class={showHeadlines ? "mt-3 border-t border-white/5 pt-1" : "border-t border-white/5 pt-1"}
+>
   <summary
     class="focus-visible:ring-accent min-h-11 cursor-pointer content-center text-sm font-medium text-slate-300 focus-visible:ring-2 focus-visible:outline-none"
     >{m.cash_position_calculation_title()}</summary
