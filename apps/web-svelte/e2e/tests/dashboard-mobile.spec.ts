@@ -57,9 +57,7 @@ test.describe("dashboard mobile layout", () => {
     await expect(page.getByRole("heading", { name: "Hej, Adrian!" })).toBeVisible();
   });
 
-  test("shows the full profile name and separates current cash from the 90-day forecast", async ({
-    page,
-  }) => {
+  test("shows the full profile name and the 30-day cockpit indicators", async ({ page }) => {
     const today = isoDaysFromToday(0);
     const cashRows = [
       {
@@ -135,12 +133,29 @@ test.describe("dashboard mobile layout", () => {
 
     await expect(page.getByRole("heading", { name: "Hej, Mr. Zinko!" })).toBeVisible();
     const cash = page.getByTestId("dashboard-cash-position");
-    await expect(cash.getByText("Dostępne teraz", { exact: true }).first()).toBeVisible();
-    await expect(
-      cash.getByText("Po nadchodzących płatnościach", { exact: true }).first()
-    ).toBeVisible();
-    await expect(cash).toContainText(/1\D?300,00/);
-    await expect(cash).toContainText(/1\D?000,00/);
+    await expect(cash.getByText("Saldo kont", { exact: true })).toBeVisible();
+    await expect(cash.getByText("Płatności", { exact: true })).toBeVisible();
+    await expect(cash.getByText("Prognoza", { exact: true })).toBeVisible();
+    await expect(cash.getByTestId("cockpit-balance")).toContainText(/1\D?300,00/);
+    await expect(cash.getByTestId("cockpit-payments")).toContainText(/300,00/);
+    await expect(cash.getByTestId("cockpit-forecast")).toContainText(/1\D?000,00/);
+    const forecastBox = await cash.getByTestId("cockpit-forecast").boundingBox();
+    const balanceBox = await cash.getByTestId("cockpit-balance").boundingBox();
+    const paymentsBox = await cash.getByTestId("cockpit-payments").boundingBox();
+    expect(forecastBox && balanceBox && paymentsBox).toBeTruthy();
+    expect(forecastBox!.y).toBeLessThan(balanceBox!.y);
+    expect(forecastBox!.width).toBeGreaterThan(balanceBox!.width + 40);
+    expect(Math.abs(balanceBox!.y - paymentsBox!.y)).toBeLessThan(8);
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const desktopForecast = await cash.getByTestId("cockpit-forecast").boundingBox();
+    const desktopBalance = await cash.getByTestId("cockpit-balance").boundingBox();
+    const desktopPayments = await cash.getByTestId("cockpit-payments").boundingBox();
+    expect(desktopForecast && desktopBalance && desktopPayments).toBeTruthy();
+    expect(desktopBalance!.x).toBeLessThan(desktopPayments!.x);
+    expect(desktopPayments!.x).toBeLessThan(desktopForecast!.x);
+    expect(Math.abs(desktopBalance!.y - desktopForecast!.y)).toBeLessThan(8);
+
     await cash.getByText("Jak obliczamy saldo i prognozę?", { exact: true }).click();
     await expect(cash.getByText("Zaksięgowane wpływy", { exact: true })).toBeVisible();
     await expect(cash.getByText("Zaksięgowane wydatki", { exact: true })).toBeVisible();
@@ -173,7 +188,7 @@ test.describe("dashboard mobile layout", () => {
       await page.goto("/dashboard");
       const cash = page.getByTestId("dashboard-cash-position");
       await expect(cash).toBeVisible();
-      await expect(cash.locator("p.text-3xl")).toHaveText(/1\D?000,00/);
+      await expect(cash.getByTestId("cockpit-balance")).toContainText(/1\D?000,00/);
       await expect(page.getByTestId("dashboard-cash-loading")).toHaveCount(0);
       await expect(page).toHaveURL(/\/dashboard$/);
     } finally {
@@ -204,9 +219,7 @@ test.describe("dashboard mobile layout", () => {
     } finally {
       release();
     }
-    await expect(page.getByTestId("dashboard-cash-position").locator("p.text-3xl")).toHaveText(
-      /1\D?000,00/
-    );
+    await expect(page.getByTestId("cockpit-balance")).toContainText(/1\D?000,00/);
     await expect(page.getByTestId("dashboard-cash-loading")).toHaveCount(0);
   });
 

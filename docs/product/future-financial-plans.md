@@ -107,8 +107,8 @@ zero. Płatności z 30 dni to nierozliczone potwierdzone zobowiązania z tego
 okna. Zaległe zostają obok, a płatności orientacyjne osobno. Prognoza za 30
 dni jest wynikiem istniejącego silnika: przyszłe wpływy, przyszłe wydatki i
 reszta potwierdzonych pozycji, której transakcja nie jest już w przepływach.
-Nie jest różnicą salda i płatności. Nie ma zapisanej poduszki, więc licznik
-pokazuje kwotę bez łuku.
+Nie jest różnicą salda i płatności. Nie ma zapisanej poduszki, więc półokrąg jest tylko obudową licznika.
+Nie wypełniamy go procentem.
 
 Planowana kwota nie jest wydatkiem historii. Wydatkiem jest powiązana
 transakcja i liczy się raz. W planie ta sama wpłata zmniejsza pozostałą kwotę.
