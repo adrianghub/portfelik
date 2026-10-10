@@ -18,5 +18,8 @@
   class="flex {box} shrink-0 items-center justify-center rounded-full bg-slate-800 text-slate-300"
   aria-hidden="true"
 >
-  <VisualIcon name={name ?? (kind === "debt" ? "landmark" : "target")} size={icon} />
+  <VisualIcon
+    name={name ?? (kind === "debt" ? "landmark" : kind === "spend" ? "plane" : "target")}
+    size={icon}
+  />
 </span>

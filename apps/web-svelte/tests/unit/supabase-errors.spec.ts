@@ -38,6 +38,13 @@ describe("classifyError", () => {
   });
 });
 
+describe("errorMessage — rule duplicate", () => {
+  it("names an existing categorization rule instead of a generic entry", () => {
+    expect(errorMessage(new Error("duplicate_categorization_rule"))).toBe(m.rule_capture_exists());
+    expect(errorMessage(new Error("duplicate_categorization_rule"))).not.toBe(m.error_duplicate());
+  });
+});
+
 describe("errorMessage — P0001 mapping", () => {
   it("prefers a per-code override", () => {
     expect(errorMessage({ code: "23503" }, { overrides: { "23503": "Kategoria w użyciu" } })).toBe(

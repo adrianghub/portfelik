@@ -21,6 +21,7 @@
   import PlanMark from "$lib/components/plans/PlanMark.svelte";
   import PlanMatchList from "$lib/components/plans/PlanMatchList.svelte";
   import SavePlanDetail from "$lib/components/plans/SavePlanDetail.svelte";
+  import SpendPlanDetail from "$lib/components/plans/SpendPlanDetail.svelte";
   import QueryError from "$lib/components/ui/QueryError.svelte";
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import DayPicker from "$lib/components/ui/DayPicker.svelte";
@@ -103,13 +104,13 @@
   const suggestionCountQuery = createQuery(() => ({
     queryKey: qk.planSuggestionCount(session.userId!, id),
     queryFn: () => fetchSuggestionCount(id),
-    enabled: !!session.userId && !!id,
+    enabled: !!session.userId && !!id && !!planQuery.data && planQuery.data.kind !== "spend",
   }));
 
   const rankedQuery = createQuery(() => ({
     queryKey: qk.planRanked(session.userId!, id, "expense"),
     queryFn: () => fetchRankedEligibleTransactions(id),
-    enabled: !!session.userId && !!id,
+    enabled: !!session.userId && !!id && !!planQuery.data && planQuery.data.kind !== "spend",
   }));
 
   const dismissedQuery = createQuery(() => ({
@@ -198,7 +199,7 @@
   });
 
   const previewMatches = $derived(
-    planQuery.data
+    planQuery.data && planQuery.data.kind !== "spend"
       ? pickTopPlanMatches(
           [
             {
@@ -601,6 +602,8 @@
         termsSaving={debtTermsMutation.isPending}
       />
       <PlanForwardNav href={settleHref} title={m.plan_debt_link_payments()} variant="action" />
+    {:else if plan.kind === "spend"}
+      <SpendPlanDetail {plan} {canManage} />
     {/if}
 
     {#if previewMatches.length > 0}
@@ -612,7 +615,7 @@
       </section>
     {/if}
 
-    {#if plan.kind !== "save"}
+    {#if plan.kind === "debt"}
       <button
         type="button"
         onclick={() => openManualTx(defaultManualTxType(plan.kind ?? "save"))}
@@ -622,7 +625,7 @@
       </button>
     {/if}
 
-    {#if plan.kind !== "debt" || linkedQuery.data?.length}
+    {#if plan.kind !== "spend" && (plan.kind !== "debt" || linkedQuery.data?.length)}
       <div class="flex items-center justify-between gap-2">
         <h2 class="text-eyebrow text-slate-400">
           {plan.kind === "save"

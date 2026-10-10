@@ -1,5 +1,6 @@
 import { trackOnce } from "$lib/analytics";
 import { localDateIso } from "$lib/date-local";
+import { normalizeSpendBudget } from "$lib/plans/spend";
 import { supabase } from "$lib/supabase";
 import type { GroupMemberRole, Plan, PlanBucket, PlanKind } from "$lib/types";
 
@@ -109,12 +110,13 @@ function normalizePlanInput(input: PlanInput): NormalizedPlanInput {
       ? Math.abs(input.target_amount)
       : null;
   if (kind === "save" && (!target || target <= 0)) throw new Error("target_required");
+  const budget = kind === "spend" ? normalizeSpendBudget(input.budget_amount) : null;
   return {
     name,
     kind,
     group_id: input.group_id ?? null,
     category_id: input.category_id ?? null,
-    budget_amount: null,
+    budget_amount: budget,
     target_amount: kind === "save" ? target : target && target > 0 ? target : null,
     start_date: input.start_date,
     end_date: input.end_date,

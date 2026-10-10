@@ -1,5 +1,6 @@
 <script lang="ts">
   import CashBalanceSummary from "$lib/components/CashBalanceSummary.svelte";
+  import CockpitIndicators from "$lib/components/dashboard/CockpitIndicators.svelte";
   import * as m from "$lib/paraglide/messages";
 
   let {
@@ -12,6 +13,12 @@
     paidIncome,
     paidExpenses,
     hasAnchor,
+    balance,
+    payments30,
+    forecast30,
+    forecastDate,
+    overdue = 0,
+    orientational30 = 0,
     loading = false,
     error = false,
     onRetry,
@@ -25,6 +32,12 @@
     paidIncome?: number;
     paidExpenses?: number;
     hasAnchor: boolean;
+    balance: number | null;
+    payments30: number;
+    forecast30: number | null;
+    forecastDate: string;
+    overdue?: number;
+    orientational30?: number;
     loading?: boolean;
     error?: boolean;
     onRetry?: () => void;
@@ -57,18 +70,30 @@
     aria-label={m.cash_position_label()}
     data-testid="dashboard-cash-position"
   >
-    <CashBalanceSummary
-      {live}
-      {forecast}
-      {upcomingIncome}
-      {upcomingExpenses}
-      {anchorDate}
-      {openingAmount}
-      {paidIncome}
-      {paidExpenses}
-      currentLabel={m.dashboard_cash_now()}
-      forecastLabel={m.dashboard_cash_after_upcoming()}
+    <p class="mb-3 text-sm font-medium text-slate-300">{m.dashboard_scope_own()}</p>
+    <CockpitIndicators
+      {balance}
+      {payments30}
+      {forecast30}
+      {forecastDate}
+      {overdue}
+      {orientational30}
     />
+    <div class="mt-3">
+      <CashBalanceSummary
+        {live}
+        {forecast}
+        {upcomingIncome}
+        {upcomingExpenses}
+        {anchorDate}
+        {openingAmount}
+        {paidIncome}
+        {paidExpenses}
+        currentLabel={m.dashboard_cash_now()}
+        forecastLabel={m.dashboard_cash_after_upcoming()}
+        showHeadlines={false}
+      />
+    </div>
     <a
       href="/transactions?group=own"
       class="focus-visible:ring-accent text-accent mt-2 inline-flex min-h-11 items-center text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"

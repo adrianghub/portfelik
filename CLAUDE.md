@@ -76,6 +76,7 @@ Supabase. Canonical direction lives in:
 - `docs/product/product-direction.md`
 - `docs/product/intent-oriented-ui.md`
 - `docs/product/debt-and-savings-goals.md`
+- `docs/product/entitlements.md`
 - `docs/product/polish-voice.md`
 
 The product spine is Kokpit, Transakcje, Import, Plany, and Ustawienia. Main
@@ -96,6 +97,10 @@ flow entered from transaction and reminder surfaces.
   system. Push is an optional delivery channel, never the source of state.
 - Private and group scopes must remain explicit. Import provenance is private;
   group writes follow owner/co-owner permissions.
+- Entitlements are one server-checked model. Beta does not enforce Free caps.
+  Transactions, CSV import, and existing history stay unlimited. A plan change
+  or migration never deletes financial history. See
+  `docs/product/entitlements.md`.
 
 ## Branch and environment model
 

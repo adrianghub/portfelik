@@ -33,6 +33,7 @@
       (p) =>
         (groupFilter === "all" ||
           (groupFilter === "own" ? p.groupId === null : p.groupId === groupFilter)) &&
+        p.kind !== "spend" &&
         (p.kind === "debt" ||
           (p.targetAmount != null && p.targetAmount > 0) ||
           p.eligibleCount > 0 ||

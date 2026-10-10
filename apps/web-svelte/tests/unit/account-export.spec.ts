@@ -46,6 +46,7 @@ const fromHandlers: Record<string, () => unknown> = {
     })),
   }),
   plan_debt_terms: () => pagedRows([{ plan_id: "p1" }]),
+  plan_items: () => pagedRows([{ id: "item-1", plan_id: "p1", label: "Apartament", amount: 3600 }]),
   plan_transaction_links: () => pagedRows([{ id: "link-1", plan_id: "p1" }]),
   plan_progress_snapshots: () => pagedRows([{ id: "ps1", plan_id: "p1", saved_amount: 250 }]),
   group_members: () => pagedRows([{ group_id: "g1", user_id: "user-1" }]),
@@ -124,6 +125,9 @@ describe("buildAccountExport", () => {
     expect(bundle.plans).toHaveLength(1);
     expect(bundle.plan_transaction_links).toHaveLength(1);
     expect(bundle.plan_debt_terms).toHaveLength(1);
+    expect(bundle.plan_items).toEqual([
+      expect.objectContaining({ id: "item-1", label: "Apartament", amount: 3600 }),
+    ]);
     expect(bundle.plan_progress_snapshots).toEqual([
       expect.objectContaining({ id: "ps1", plan_id: "p1", saved_amount: 250 }),
     ]);

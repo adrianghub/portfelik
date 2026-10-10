@@ -29,6 +29,12 @@ export const changelog: ChangelogVersion[] = notes.versions;
 
 export const appVersion = changelog[0]?.version ?? "0.0.0";
 
+/** True when the account has not opened this changelog version yet. */
+export function isChangelogUnseen(seen: string | null | undefined, current = appVersion): boolean {
+  if (!seen || !SEMVER.test(seen) || !SEMVER.test(current)) return seen !== current;
+  return semverValue(seen) < semverValue(current);
+}
+
 export function formatChangelogDate(isoDate: string): string {
   const [year, month, day] = isoDate.split("-").map(Number);
   return new Intl.DateTimeFormat("pl-PL", {

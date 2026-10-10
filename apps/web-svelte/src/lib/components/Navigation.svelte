@@ -7,6 +7,7 @@
   import type { User } from "@supabase/supabase-js";
   import * as m from "$lib/paraglide/messages";
   import BrandMark from "$lib/components/BrandMark.svelte";
+  import { isChangelogUnseen } from "$lib/content/changelog";
   import {
     LayoutDashboard,
     Wallet,
@@ -60,6 +61,7 @@
     return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
   });
   const email = $derived(profile?.email ?? user?.email ?? "");
+  const changelogUnseen = $derived(isChangelogUnseen(profile?.settings?.changelogSeenVersion));
 
   async function signOut() {
     menuOpen = false;
@@ -235,7 +237,13 @@
       class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 transition-colors hover:bg-white/5"
     >
       <ScrollText size={15} aria-hidden="true" />
-      {m.changelog_title()}
+      <span class="inline-flex items-center gap-2">
+        {m.changelog_title()}
+        {#if changelogUnseen}
+          <span class="bg-accent h-2 w-2 rounded-full" aria-hidden="true"></span>
+          <span class="sr-only">{m.changelog_unseen()}</span>
+        {/if}
+      </span>
     </a>
     <button
       type="button"

@@ -128,6 +128,12 @@ export async function mockSupabaseAPI(page: Page): Promise<void> {
     });
   }
 
+  // PostgREST returns the updated row. Keep it for later reads in this test.
+  let profileRow: Record<string, unknown> = {
+    ...MOCK_PROFILE,
+    settings: { ...MOCK_PROFILE.settings },
+  };
+
   // Single REST handler - match by URL content to avoid ordering issues
   for (const supabaseUrl of SUPABASE_URLS)
     await page.route(`${supabaseUrl}/rest/v1/**`, async (route) => {
@@ -137,9 +143,11 @@ export async function mockSupabaseAPI(page: Page): Promise<void> {
       // ── Profiles ──────────────────────────────────────────────────────────
       if (url.includes("/profiles")) {
         if (method === "PATCH") {
-          return fulfillSupabaseJson(route, MOCK_PROFILE);
+          const body = route.request().postDataJSON() as Record<string, unknown> | null;
+          if (body && typeof body === "object") profileRow = { ...profileRow, ...body };
+          return fulfillSupabaseJson(route, profileRow);
         }
-        return fulfillSupabaseJson(route, MOCK_PROFILE);
+        return fulfillSupabaseJson(route, profileRow);
       }
 
       // ── Categories ────────────────────────────────────────────────────────

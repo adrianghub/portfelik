@@ -211,6 +211,7 @@
   );
   const savePlans = $derived(filteredPlans.filter((p) => p.kind === "save"));
   const debtPlans = $derived(filteredPlans.filter((p) => p.kind === "debt" && isLivePlan(p)));
+  const spendPlans = $derived(filteredPlans.filter((p) => p.kind === "spend" && isLivePlan(p)));
 
   function todayIsoLocal(): string {
     const now = new Date();
@@ -224,6 +225,7 @@
   let startDate = $state(todayIsoLocal());
   let endDate = $state(todayIsoLocal());
   let targetAmount = $state("");
+  let budgetAmount = $state("");
   let debtOriginal = $state("");
   let debtBalance = $state("");
   let debtRate = $state("1");
@@ -252,6 +254,7 @@
       endDate = todayIsoLocal();
     }
     targetAmount = plan?.target_amount != null ? String(plan.target_amount) : "";
+    budgetAmount = plan?.budget_amount != null ? String(plan.budget_amount) : "";
     debtOriginal = "";
     debtBalance = "";
     debtRate = "1";
@@ -281,7 +284,7 @@
       kind: planKind,
       start_date: startDate,
       end_date: endDate,
-      budget_amount: null,
+      budget_amount: planKind === "spend" && budgetAmount !== "" ? Number(budgetAmount) : null,
       target_amount:
         planKind === "save" && targetAmount !== ""
           ? Number(targetAmount)
@@ -342,6 +345,9 @@
         return;
       case "target_required":
         toast.error(m.plan_form_target_required());
+        return;
+      case "budget_required":
+        toast.error(m.plan_form_budget_required());
         return;
       default: {
         const pgCode = postgrestErrorCode(err);
@@ -638,6 +644,21 @@
         {/if}
       </section>
     </div>
+    {#if spendPlans.length > 0}
+      <section class="mt-5 min-w-0 space-y-2">
+        <h2 class="text-xs font-medium tracking-wide text-slate-400 uppercase">
+          {m.plans_section_spend()}
+        </h2>
+        {#each spendPlans as plan (plan.id)}
+          <PlanCard
+            {plan}
+            groupName={groupMap.get(plan.group_id ?? "")}
+            onedit={planCanManage(plan) ? resetForm : undefined}
+            ondelete={planCanManage(plan) ? (id) => (deleteTargetId = id) : undefined}
+          />
+        {/each}
+      </section>
+    {/if}
   {/if}
 </div>
 
@@ -656,8 +677,8 @@
   <form onsubmit={submitForm} class="space-y-4">
     <div class="space-y-1">
       <p class="text-xs font-medium text-slate-300">{m.plan_form_kind()}</p>
-      <div class="grid grid-cols-2 gap-2">
-        {#each [{ kind: "save" as PlanKind, label: m.plan_kind_save() }, { kind: "debt" as PlanKind, label: m.plan_kind_debt() }] as tile (tile.kind)}
+      <div class="grid grid-cols-3 gap-2">
+        {#each [{ kind: "save" as PlanKind, label: m.plan_kind_save() }, { kind: "debt" as PlanKind, label: m.plan_kind_debt() }, { kind: "spend" as PlanKind, label: m.plan_kind_spend() }] as tile (tile.kind)}
           <button
             type="button"
             disabled={!!editing}
@@ -729,7 +750,7 @@
           class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:ring-2 focus:outline-none"
         />
       </div>
-    {:else}
+    {:else if planKind === "debt"}
       <div class="grid gap-3 sm:grid-cols-2">
         <div class="space-y-1">
           <label class="text-xs font-medium text-slate-300" for="debt-original"
@@ -809,6 +830,22 @@
         </div>
       </div>
       <p class="text-xs text-slate-500">{m.plan_debt_first_payment_hint()}</p>
+    {:else if planKind === "spend"}
+      <div class="space-y-1">
+        <label class="text-xs font-medium text-slate-300" for="plan-budget">
+          {m.plan_form_budget()}
+        </label>
+        <input
+          id="plan-budget"
+          type="number"
+          min="0.01"
+          step="0.01"
+          required
+          bind:value={budgetAmount}
+          class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 focus:ring-2 focus:outline-none"
+        />
+        <p class="text-xs text-slate-500">{m.plan_form_budget_hint()}</p>
+      </div>
     {/if}
 
     <div class="space-y-1">

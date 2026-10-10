@@ -496,6 +496,50 @@ export type Database = {
           },
         ];
       };
+      plan_items: {
+        Row: {
+          amount: number;
+          created_at: string;
+          due_date: string | null;
+          id: string;
+          label: string;
+          payee: string | null;
+          plan_id: string;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          amount: number;
+          created_at?: string;
+          due_date?: string | null;
+          id?: string;
+          label: string;
+          payee?: string | null;
+          plan_id: string;
+          status: string;
+          updated_at?: string;
+        };
+        Update: {
+          amount?: number;
+          created_at?: string;
+          due_date?: string | null;
+          id?: string;
+          label?: string;
+          payee?: string | null;
+          plan_id?: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "plan_items_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "plans";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       plan_progress_snapshots: {
         Row: {
           created_at: string;
@@ -586,6 +630,7 @@ export type Database = {
           created_by: string | null;
           id: string;
           plan_id: string;
+          plan_item_id: string | null;
           transaction_id: string;
         };
         Insert: {
@@ -593,6 +638,7 @@ export type Database = {
           created_by?: string | null;
           id?: string;
           plan_id: string;
+          plan_item_id?: string | null;
           transaction_id: string;
         };
         Update: {
@@ -600,6 +646,7 @@ export type Database = {
           created_by?: string | null;
           id?: string;
           plan_id?: string;
+          plan_item_id?: string | null;
           transaction_id?: string;
         };
         Relationships: [
@@ -1502,12 +1549,13 @@ export type Database = {
       is_group_owner: { Args: { p_group_id: string }; Returns: boolean };
       leave_group: { Args: { p_group_id: string }; Returns: undefined };
       link_plan_transaction: {
-        Args: { p_plan_id: string; p_transaction_id: string };
+        Args: { p_plan_id: string; p_plan_item_id?: string | null; p_transaction_id: string };
         Returns: {
           created_at: string;
           created_by: string | null;
           id: string;
           plan_id: string;
+          plan_item_id: string | null;
           transaction_id: string;
         };
         SetofOptions: {
@@ -1516,6 +1564,18 @@ export type Database = {
           isOneToOne: true;
           isSetofReturn: false;
         };
+      };
+      list_spend_item_settlements: {
+        Args: { p_plan_id: string };
+        Returns: {
+          amount: number;
+          counts_as_paid: boolean;
+          description: string | null;
+          link_id: string;
+          paid_on: string;
+          plan_item_id: string;
+          transaction_id: string;
+        }[];
       };
       mark_all_notifications_read: { Args: never; Returns: undefined };
       mark_notification_read: {

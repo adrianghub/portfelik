@@ -1,8 +1,8 @@
 # Przyszłość finansowa — następny milestone
 
-Status: projekt do przeglądu, **nie wdrożone zachowanie**. Stabilizacja importu
-jest oddzielną zmianą. Rozszerzamy istniejące Plany; nie dodajemy modułu Wakacje
-ani integracji bankowej.
+Status: kierunek zatwierdzony, **jeszcze nie wdrożony**. Najbliższa praca po
+domknięciu importu. Rozszerzamy istniejące Plany. Nie dodajemy osobnego modułu
+Wakacje ani integracji bankowej.
 
 ## Rodzaje i zgodność
 
@@ -20,11 +20,34 @@ Transport nie staje się kategorią Teneryfa.
 ## Pozycje i rozliczenia
 
 Nowe `plan_items` należą do planu wydatkowego: etykieta, planowana kwota PLN,
-opcjonalny termin DATE, odbiorca, stan planowane / z terminem / rozliczone /
-anulowane. DB używa numeric; obliczenia sumują grosze. Pozycja bez terminu jest
-budżetem, nie przepływem przypisanym po cichu do konkretnego miesiąca.
+opcjonalny termin DATE i odbiorca. Stan opisuje pewność płatności, nie rezerwację
+i nie dowód, że pieniądze wyszły z konta. Szacowane nie ma terminu. Zaplanowana
+płatność ma termin orientacyjny i zostaje w limicie budżetu, ale nie w kwocie
+do zapłaty. Potwierdzona płatność jest zobowiązaniem, dopóki nie powiążemy
+transakcji. Anulowane zostaje w historii i wypada z sum. Anulowanie po
+częściowej wpłacie zdejmuje całą pozycję z limitu. Transakcja zostaje w księdze,
+wpłatę widać przy anulowanej pozycji i można ją odpiąć. Anulowanej pozycji nie
+da się rozliczyć ponownie. Rezerwacja jest osobnym
+stanem na później. DB używa numeric; obliczenia sumują grosze. Pozycja bez
+terminu jest budżetem, nie przepływem przypisanym po cichu do konkretnego miesiąca.
+Prognoza salda prywatnego korzysta z istniejącego silnika kasowego. Odejmuje
+pozostałą kwotę potwierdzonych pozycji prywatnego planu, których nie ma już
+w nadchodzących transakcjach. Wpłacona zaliczka zostaje w saldzie i nie jest
+odejmowana drugi raz. Pozycja zaplanowana, szacunek i anulowana nie wchodzą
+do prognozy. Pozostałość wspólnego planu nie wchodzi do salda prywatnego.
+
+Budżet planu nie jest saldem konta. 12 000 zł na wakacjach oznacza planowany
+limit wydatków, nie odłożone środki. Zapłacone liczą się tylko z powiązanych
+transakcji. Sam plan nie obniża aktualnego salda.
 
 Istniejące `plan_transaction_links` otrzymują opcjonalne `plan_item_id`.
+Pozostało do zapłaty to `max(0, kwota pozycji - opłacone transakcje)`. Nadpłata
+zostaje widoczna osobno. Suma kosztów w planie liczy pełne kwoty pozycji, nie
+pozostałości, więc wpłacona zaliczka nie oddaje tej kwoty do wolnego budżetu.
+Jedna transakcja rozlicza jedną pozycję. Równoczesne przypisanie tej samej
+transakcji do dwóch planów zostawia jeden link. Odpięcie
+przywraca kwotę. Wspólny plan może przyjąć prywatną wpłatę wołającego, bez
+pokazywania opisu tej transakcji pozostałym członkom Domu.
 Backend sprawdza zgodność pozycji z planem, zakres prywatności, uprawnienia,
 walutę i status faktu. Pozycję może rozliczać kilka rzeczywistych płatności,
 np. zaliczka i dopłata. Jedna transakcja nadal należy w całości do jednego
@@ -71,6 +94,30 @@ jawnego wyboru, nie masowego przeliczenia danych. Brak terminu nie generuje
 fikcyjnego wymaganego tempa. Kwota zgromadzona, planowane tempo i rzeczywiste
 wykonanie pozostają rozróżnione.
 
+## Kokpit
+
+Kokpit zostaje przeglądem salda, płatności, prognozy, planów, wydatków i
+ostatnich transakcji. Nie przenosi formularza planu na ten ekran. Na desktopie
+kolejność to liczniki, potem plany i wydatki obok siebie, na końcu transakcje.
+Na mobile liczniki, plany, wydatki i transakcje idą jeden pod drugim.
+
+Trzy liczniki liczą jeden zakres: prywatny albo jeden Dom. Saldo to kotwica
+tego zakresu plus opłacone ruchy od jej daty. Brak kotwicy to brak liczby, nie
+zero. Płatności z 30 dni to nierozliczone potwierdzone zobowiązania z tego
+okna. Zaległe zostają obok, a płatności orientacyjne osobno. Prognoza za 30
+dni jest wynikiem istniejącego silnika: przyszłe wpływy, przyszłe wydatki i
+reszta potwierdzonych pozycji, której transakcja nie jest już w przepływach.
+Nie jest różnicą salda i płatności. Nie ma zapisanej poduszki, więc półokrąg jest tylko obudową licznika.
+Nie wypełniamy go procentem.
+
+Planowana kwota nie jest wydatkiem historii. Wydatkiem jest powiązana
+transakcja i liczy się raz. W planie ta sama wpłata zmniejsza pozostałą kwotę.
+
+Szczegóły planu zostają miejscem budżetu, pozycji, statusów i rozliczeń.
+Zwarty układ podsumowania, pasek wykorzystania budżetu i zwinięty formularz
+dodawania są późniejszą zmianą prezentacji. Pasek pokazuje wykorzystanie
+budżetu, nie postęp opłacania. Obliczeń nie zmieniamy przy zmianie układu.
+
 ## Import, prywatność i UI
 
 Matching używa kwoty/kierunku, daty, odbiorcy, opisu, konta i zakresu.
@@ -95,6 +142,12 @@ Przegląd, Wydatki, Transakcje i Plan finansowania wewnątrz jednego widoku.
    na pełną prognozę. Łączą plany z codziennym importem; użytkownik zatwierdza link.
 4. Wspólny odczyt przyszłych przepływów i składniki prognozy.
 5. Alokacje celów oraz prognoza wolnych środków.
+
+Pierwszy scenariusz akceptacyjny: użytkownik tworzy wakacje, dodaje apartament
+i zaliczkę, importuje wyciąg, łączy faktyczną płatność z pozycją i widzi, ile
+zostało do zapłaty. Kolejny krok pokazuje te pozostałe płatności w prognozie
+salda. Plan ma własny zakres prywatności. Wspólny wyjazd może łączyć wydatki
+opłacone z prywatnych kont, bez ujawniania całej historii tych kont.
 
 Wymagane regresje: kwota faktyczna różna od planowanej, zaliczka/dopłata,
 cofnięcie linku, anulowanie, zapłata przed projektem, brak terminu, retry,

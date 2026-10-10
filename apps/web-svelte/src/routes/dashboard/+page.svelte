@@ -52,7 +52,8 @@
     resolveCeleCategoryId,
   } from "$lib/services/goal-spending";
   import { fetchRecurringOccurrenceSkips } from "$lib/services/recurring-occurrences";
-  import { localDateIso } from "$lib/date-local";
+  import { addLocalDays, localDateIso } from "$lib/date-local";
+  import { COCKPIT_HORIZON_DAYS, cockpitIndicators } from "$lib/cockpit/indicators";
   import {
     CASH_FETCH_END_SENTINEL,
     cashForecastHorizonEnd,
@@ -63,6 +64,8 @@
     livePosition,
     liveMovementTotals,
   } from "$lib/services/cash-position";
+  import { appendConfirmedSpendForecast } from "$lib/plans/spend-forecast";
+  import { fetchPrivateSpendForecastSource } from "$lib/services/spend-forecast";
   import {
     forwardForecastTransactions,
     recurringProjectionsForTransactionRange,
@@ -197,6 +200,7 @@
   async function invalidateAfterSettle() {
     const u = requireSessionUserId();
     await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+    await queryClient.invalidateQueries({ queryKey: qk.spendForecast(u) });
     await queryClient.invalidateQueries({ queryKey: qk.planProgress(u) });
     await queryClient.invalidateQueries({ queryKey: qk.planProgressList(u) });
     await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
@@ -676,19 +680,50 @@
     }));
   });
   const cashPositionTxs = $derived([...privateCashTxs, ...privateCashProjectedTxs]);
+  // Plan remainders join the forecast when they arrive. They must not hold the
+  // live balance behind the plans request.
+  const spendForecastQuery = createQuery(() => ({
+    queryKey: qk.spendForecast(session.userId!),
+    queryFn: fetchPrivateSpendForecastSource,
+    enabled: !!session.userId && !!cashAnchorQuery.data,
+    staleTime: 60_000,
+  }));
+  const cashForecastTxs = $derived(
+    appendConfirmedSpendForecast(
+      cashPositionTxs,
+      spendForecastQuery.data ?? null,
+      cashForecastToday
+    )
+  );
   const cashPositionOptions = $derived({
     today: cashForecastToday,
     horizonEnd: cashForecastHorizon,
   });
   const currentCashPosition = $derived(livePosition(cashAnchorQuery.data ?? null, cashPositionTxs));
+  const cockpitHorizonEnd = $derived(addLocalDays(cashForecastToday, COCKPIT_HORIZON_DAYS));
+  const cockpit = $derived(
+    cockpitIndicators({
+      scope: { kind: "private" },
+      anchor: cashAnchorQuery.data
+        ? {
+            opening_amount: cashAnchorQuery.data.opening_amount,
+            as_of_date: cashAnchorQuery.data.as_of_date,
+          }
+        : null,
+      transactions: cashPositionTxs,
+      items: spendForecastQuery.data?.items ?? [],
+      links: spendForecastQuery.data?.links ?? [],
+      today: cashForecastToday,
+    })
+  );
   const cashRecordedMovements = $derived(
     liveMovementTotals(cashAnchorQuery.data ?? null, cashPositionTxs)
   );
   const afterUpcomingCashPosition = $derived(
-    forecastPosition(cashAnchorQuery.data ?? null, cashPositionTxs, cashPositionOptions)
+    forecastPosition(cashAnchorQuery.data ?? null, cashForecastTxs, cashPositionOptions)
   );
   const cashForecastMovements = $derived(
-    forecastMovementTotals(cashAnchorQuery.data ?? null, cashPositionTxs, cashPositionOptions)
+    forecastMovementTotals(cashAnchorQuery.data ?? null, cashForecastTxs, cashPositionOptions)
   );
   // Prefer isLoading (pending + fetching) over isPending — disabled dependents
   // stay isPending=true and would otherwise freeze the cash skeleton forever.
@@ -713,6 +748,7 @@
       cashHistoryQuery.refetch(),
       recurringTemplatesQuery.refetch(),
       cashRecurringSkipsQuery.refetch(),
+      spendForecastQuery.refetch(),
     ]);
   }
   // Forecast source = scheduled real rows (one-off upcoming + materialized
@@ -1000,6 +1036,12 @@
       paidIncome={cashRecordedMovements.paidIncome}
       paidExpenses={cashRecordedMovements.paidExpenses}
       hasAnchor={!!cashAnchorQuery.data}
+      balance={cockpit.balance}
+      payments30={cockpit.payments30}
+      forecast30={cockpit.forecast30}
+      forecastDate={cockpitHorizonEnd}
+      overdue={cockpit.overdue}
+      orientational30={cockpit.orientational30}
       loading={cashPositionLoading}
       error={cashPositionError}
       onRetry={retryCashPosition}
