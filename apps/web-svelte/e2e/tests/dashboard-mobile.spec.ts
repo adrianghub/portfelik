@@ -246,6 +246,99 @@ test.describe("dashboard mobile layout", () => {
     ).toBeVisible();
   });
 
+  test("expenses clipped by an anchor show the start day", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-06-20T10:00:00.000Z"));
+    const rows = [
+      {
+        id: "before-anchor",
+        date: "2026-06-10",
+        description: "Przed",
+        amount: 300,
+        type: "expense",
+        status: "paid",
+        currency: "PLN",
+        user_id: TEST_USER_ID,
+        group_id: null,
+        is_recurring: false,
+      },
+      {
+        id: "after-anchor",
+        date: "2026-06-16",
+        description: "Po",
+        amount: 500,
+        type: "expense",
+        status: "paid",
+        currency: "PLN",
+        user_id: TEST_USER_ID,
+        group_id: null,
+        is_recurring: false,
+      },
+    ];
+    await page.route("**/rest/v1/cash_positions**", (route) =>
+      route.fulfill({
+        status: 200,
+        json: {
+          owner_id: TEST_USER_ID,
+          group_id: null,
+          opening_amount: 12000,
+          as_of_date: "2026-06-15",
+        },
+      })
+    );
+    await page.route("**/rest/v1/transactions_with_category**", (route) => {
+      const url = route.request().url();
+      return route.fulfill({
+        status: 200,
+        json: url.includes("is_recurring=eq.true") ? [] : rows,
+      });
+    });
+
+    await page.goto("/dashboard");
+    const payments = page.getByTestId("cockpit-payments");
+    await expect(payments).toContainText(/500,00/);
+    await expect(payments).not.toContainText(/800,00/);
+    await expect(payments.getByTestId("cockpit-expenses-from")).toHaveText("Od 15.06");
+    const help = payments.getByRole("button", { name: "Zakres wydatków" });
+    await help.click();
+    await expect(help).toHaveAttribute("aria-expanded", "true");
+    await expect(payments).toContainText(
+      "Wydatki obejmują okres od 15.06, od dnia salda początkowego."
+    );
+  });
+
+  test("household expenses stay blank until their sources are complete", async ({ page }) => {
+    const today = isoDaysFromToday(0);
+    await page.route("**/rest/v1/transactions_with_category**", (route) => {
+      const url = route.request().url();
+      return route.fulfill({
+        status: 200,
+        json: url.includes("is_recurring=eq.true")
+          ? []
+          : [
+              {
+                id: "dom-expense",
+                date: today,
+                description: "Czynsz",
+                amount: 400,
+                type: "expense",
+                status: "paid",
+                currency: "PLN",
+                user_id: TEST_USER_ID,
+                group_id: "group-dom",
+                is_recurring: false,
+              },
+            ],
+      });
+    });
+
+    await page.goto("/dashboard?group=group-dom");
+    const payments = page.getByTestId("cockpit-payments");
+    await expect(payments).toHaveAttribute("aria-label", "Wydatki: Brak danych");
+    await expect(payments).toContainText("-");
+    await expect(payments).not.toContainText("400");
+    await expect(payments).not.toContainText("0,00");
+  });
+
   test("first visit renders cash while unrelated plans and demo checks are still pending", async ({
     page,
   }) => {

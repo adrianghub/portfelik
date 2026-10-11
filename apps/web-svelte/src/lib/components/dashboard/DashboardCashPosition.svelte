@@ -21,6 +21,7 @@
     balance,
     expenses,
     monthForecast,
+    expensesFrom = null,
     orientational = 0,
     loading = false,
     error = false,
@@ -42,6 +43,7 @@
     balance: number | null;
     expenses: number | null;
     monthForecast: number | null;
+    expensesFrom?: string | null;
     orientational?: number;
     loading?: boolean;
     error?: boolean;
@@ -101,7 +103,13 @@
         </button>
       </div>
     </div>
-    <CockpitIndicators {balance} {expenses} forecast={monthForecast} {orientational} />
+    <CockpitIndicators
+      {balance}
+      {expenses}
+      forecast={monthForecast}
+      {orientational}
+      {expensesFrom}
+    />
     {#if showPrivateDetails && hasAnchor}
       <div class="mt-3">
         <CashBalanceSummary

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { shortDayMonth } from "$lib/cockpit/month-window";
   import * as m from "$lib/paraglide/messages";
   import { formatCurrency } from "$lib/utils";
 
@@ -7,12 +8,23 @@
     expenses,
     forecast,
     orientational = 0,
+    expensesFrom = null,
   }: {
     balance: number | null;
     expenses: number | null;
     forecast: number | null;
     orientational?: number;
+    /** YYYY-MM-DD when Wydatki start on the anchor inside this month. */
+    expensesFrom?: string | null;
   } = $props();
+
+  let expensesHelpOpen = $state(false);
+  const expensesFromLabel = $derived(expensesFrom ? shortDayMonth(expensesFrom) : null);
+  const expensesName = $derived(
+    expensesFromLabel
+      ? `${m.cockpit_payments_label()}: ${accessibleAmount(expenses)}, ${m.cockpit_expenses_from({ date: expensesFromLabel })}`
+      : `${m.cockpit_payments_label()}: ${accessibleAmount(expenses)}`
+  );
 
   function visibleAmount(amount: number | null): string {
     return amount === null ? "-" : formatCurrency(amount);
@@ -84,9 +96,32 @@
     class="order-3 min-w-0 rounded-2xl border border-white/5 bg-slate-950/40 px-3 py-3 md:order-2"
     data-testid="cockpit-payments"
     role="group"
-    aria-label="{m.cockpit_payments_label()}: {accessibleAmount(expenses)}"
+    aria-label={expensesName}
   >
     {@render dial(m.cockpit_payments_label(), "", visibleAmount(expenses), "payments")}
+    {#if expensesFromLabel}
+      <div class="mt-1 flex items-center justify-center gap-0.5">
+        <p class="text-xs text-slate-400" data-testid="cockpit-expenses-from">
+          {m.cockpit_expenses_from({ date: expensesFromLabel })}
+        </p>
+        <button
+          type="button"
+          class="focus-visible:ring-accent inline-flex size-8 items-center justify-center rounded-full text-sm text-slate-400 hover:bg-white/5 hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
+          aria-expanded={expensesHelpOpen}
+          aria-controls="cockpit-expenses-from-help"
+          aria-label={m.cockpit_expenses_from_help_label()}
+          onclick={() => (expensesHelpOpen = !expensesHelpOpen)}>?</button
+        >
+      </div>
+      {#if expensesHelpOpen}
+        <p
+          id="cockpit-expenses-from-help"
+          class="mt-1 text-center text-xs leading-relaxed text-slate-400"
+        >
+          {m.cockpit_expenses_from_help({ date: expensesFromLabel })}
+        </p>
+      {/if}
+    {/if}
     {#if orientational > 0}
       <p class="mt-1 text-center text-xs text-slate-400">
         {m.cockpit_orientational({ amount: formatCurrency(orientational) })}

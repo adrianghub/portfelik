@@ -1120,6 +1120,7 @@
       onMonthShift={shiftCashMonth}
       balance={cockpitMonth.balance}
       expenses={cockpitMonth.expenses}
+      expensesFrom={cockpitMonth.expensesFrom}
       monthForecast={cockpitMonth.forecast}
       orientational={cockpitMonth.orientational}
       loading={cashPositionLoading}

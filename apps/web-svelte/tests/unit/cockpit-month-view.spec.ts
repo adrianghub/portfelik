@@ -8,6 +8,7 @@ import {
   ledgerRangeCoversMonth,
   parseCashMonthParam,
   shiftCalendarMonth,
+  shortDayMonth,
 } from "$lib/cockpit/month-window";
 import { buildListViewUrl } from "$lib/utils/list-view-url";
 
@@ -91,6 +92,8 @@ describe("calendar month window", () => {
       false
     );
     expect(ledgerRangeCoversMonth(monthStart, monthEnd, monthStart, monthEnd)).toBe(false);
+    expect(shortDayMonth("2026-06-15")).toBe("15.06");
+    expect(shortDayMonth("2026-06-05")).toBe("5.06");
   });
 
   it("shifts across the year boundary and labels the month in Polish", () => {
@@ -151,16 +154,41 @@ describe("cockpit month view", () => {
     const all = view({ scopeFilter: "all", items: [], links: [] });
     expect(shared.balance).toBeNull();
     expect(shared.forecast).toBeNull();
-    expect(shared.expenses).toBe(400);
+    expect(shared.expenses).toBeNull();
+    expect(shared.expensesFrom).toBeNull();
     expect(all.balance).toBeNull();
     expect(all.forecast).toBeNull();
     expect(all.expenses).toBe(1_800);
+    expect(all.expensesFrom).toBeNull();
+  });
+
+  it("withholds household expenses while plan remainders and recurring rows are missing", () => {
+    const result = view({
+      scopeFilter: "group-dom",
+      privateAnchor: null,
+      rows: [row({ id: "tx-dom", amount: 400, groupId: "group-dom", status: "paid" })],
+      items: [
+        {
+          id: "item-dom",
+          amount: 4_000,
+          dueDate: "2026-10-22",
+          status: "confirmed",
+          groupId: "group-dom",
+        },
+      ],
+      links: [],
+    });
+    expect(result.balance).toBeNull();
+    expect(result.forecast).toBeNull();
+    expect(result.expenses).toBeNull();
+    expect(result.expensesFrom).toBeNull();
   });
 
   it("withholds expenses when the month ledger does not cover the whole month", () => {
     const result = view({ monthLedger: "partial" });
     expect(result.balance).toBe(11_000);
     expect(result.expenses).toBeNull();
+    expect(result.expensesFrom).toBeNull();
     expect(result.forecast).toBe(7_200);
   });
 
@@ -174,6 +202,7 @@ describe("cockpit month view", () => {
     });
     expect(result.balance).toBeNull();
     expect(result.expenses).toBeNull();
+    expect(result.expensesFrom).toBeNull();
     expect(result.forecast).toBeNull();
   });
 
@@ -191,7 +220,20 @@ describe("cockpit month view", () => {
     });
     expect(result.balance).toBeNull();
     expect(result.expenses).toBe(500);
+    expect(result.expensesFrom).toBe("2026-06-15");
     expect(result.forecast).toBe(11_700);
+  });
+
+  it("marks a zero when the only expenses are before an anchor inside the month", () => {
+    const result = view({
+      month: { year: 2026, month: 6 },
+      privateAnchor: { opening_amount: 12_000, as_of_date: "2026-06-15" },
+      rows: [row({ id: "tx-before", amount: 300, date: "2026-06-10" })],
+      items: [],
+      links: [],
+    });
+    expect(result.expenses).toBe(0);
+    expect(result.expensesFrom).toBe("2026-06-15");
   });
 
   it("uses the opening amount when a past month starts on the anchor date", () => {
@@ -204,6 +246,7 @@ describe("cockpit month view", () => {
     });
     expect(result.balance).toBe(12_000);
     expect(result.expenses).toBe(400);
+    expect(result.expensesFrom).toBeNull();
     expect(result.forecast).toBe(11_600);
   });
 
@@ -217,6 +260,7 @@ describe("cockpit month view", () => {
     });
     expect(result.balance).toBe(9_000);
     expect(result.expenses).toBe(100);
+    expect(result.expensesFrom).toBeNull();
     expect(result.forecast).toBe(8_900);
   });
 

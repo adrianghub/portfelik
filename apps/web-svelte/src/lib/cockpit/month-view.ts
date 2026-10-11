@@ -9,6 +9,14 @@ import { calendarMonthBounds, type CalendarMonth } from "$lib/cockpit/month-wind
 import type { SpendForecastLink } from "$lib/plans/spend-forecast";
 import type { ScopeFilter } from "$lib/utils/list-view-url";
 
+export interface CockpitMonthViewResult extends CockpitMonthIndicators {
+  /**
+   * Anchor date when private Wydatki start inside the month, not on day 1.
+   * Null when the figure is a full month, or when Wydatki are withheld.
+   */
+  expensesFrom: string | null;
+}
+
 export interface CockpitMonthRow {
   id: string;
   type: "income" | "expense";
@@ -60,7 +68,7 @@ function uniqueRows(rows: readonly CockpitMonthRow[]): CockpitMonthRow[] {
  * Remainder flows are attached inside `cockpitMonthIndicators`, so callers pass
  * ledger rows once.
  */
-export function buildCockpitMonthView(input: CockpitMonthViewInput): CockpitMonthIndicators {
+export function buildCockpitMonthView(input: CockpitMonthViewInput): CockpitMonthViewResult {
   const scope = scopeOf(input.scopeFilter);
   const rows = uniqueRows(input.rows).filter((row) => {
     if (scope.kind === "all") return true;
@@ -91,6 +99,16 @@ export function buildCockpitMonthView(input: CockpitMonthViewInput): CockpitMont
     monthEnd: bounds.monthEnd,
     allocationTransactionIds,
   });
-  if (input.monthLedger === "partial") return { ...indicators, expenses: null };
-  return indicators;
+  const anchorDay = input.privateAnchor?.as_of_date.slice(0, 10) ?? null;
+  const clippedByAnchor =
+    scope.kind === "private" &&
+    anchorDay != null &&
+    anchorDay > bounds.monthStart &&
+    anchorDay <= bounds.monthEnd;
+  const withholdExpenses = input.monthLedger === "partial" || scope.kind === "group";
+  return {
+    ...indicators,
+    expenses: withholdExpenses ? null : indicators.expenses,
+    expensesFrom: withholdExpenses || !clippedByAnchor ? null : anchorDay,
+  };
 }

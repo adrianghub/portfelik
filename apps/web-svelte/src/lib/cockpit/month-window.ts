@@ -67,6 +67,12 @@ export function ledgerRangeCoversMonth(
   return rangeStart <= monthStart && rangeEndExclusive > monthEnd;
 }
 
+/** `2026-06-15` becomes `15.06`. The day has no leading zero. */
+export function shortDayMonth(iso: string): string {
+  const [, month, day] = iso.slice(0, 10).split("-");
+  return `${Number(day)}.${month}`;
+}
+
 export function calendarMonthLabel(month: CalendarMonth): string {
   const formatted = new Intl.DateTimeFormat("pl-PL", {
     month: "long",
