@@ -73,6 +73,13 @@ export function shortDayMonth(iso: string): string {
   return `${Number(day)}.${month}`;
 }
 
+/** Inclusive dates as `15.06` or `15.06-20.06`. Same day stays one date. */
+export function inclusiveDayRangeLabel(start: string, end: string): string {
+  const from = shortDayMonth(start);
+  const to = shortDayMonth(end);
+  return from === to ? from : `${from}-${to}`;
+}
+
 export function calendarMonthLabel(month: CalendarMonth): string {
   const formatted = new Intl.DateTimeFormat("pl-PL", {
     month: "long",

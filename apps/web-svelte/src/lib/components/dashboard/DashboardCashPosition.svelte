@@ -1,18 +1,9 @@
 <script lang="ts">
-  import CashBalanceSummary from "$lib/components/CashBalanceSummary.svelte";
   import CockpitIndicators from "$lib/components/dashboard/CockpitIndicators.svelte";
   import { ChevronLeft, ChevronRight } from "lucide-svelte";
   import * as m from "$lib/paraglide/messages";
 
   let {
-    live,
-    forecast,
-    upcomingIncome,
-    upcomingExpenses,
-    anchorDate,
-    openingAmount,
-    paidIncome,
-    paidExpenses,
     hasAnchor,
     showPrivateDetails,
     scopeLabel,
@@ -28,14 +19,6 @@
     error = false,
     onRetry,
   }: {
-    live: number;
-    forecast: number;
-    upcomingIncome: number;
-    upcomingExpenses: number;
-    anchorDate?: string;
-    openingAmount?: number;
-    paidIncome?: number;
-    paidExpenses?: number;
     hasAnchor: boolean;
     showPrivateDetails: boolean;
     scopeLabel: string;
@@ -53,6 +36,7 @@
   } = $props();
 
   let openingHelpOpen = $state(false);
+  let countersHelpOpen = $state(false);
 </script>
 
 {#if loading}
@@ -113,31 +97,14 @@
       {expensesFrom}
       {expensesIncomplete}
     />
-    {#if showPrivateDetails && hasAnchor}
-      <div class="mt-3">
-        <CashBalanceSummary
-          {live}
-          {forecast}
-          {upcomingIncome}
-          {upcomingExpenses}
-          {anchorDate}
-          {openingAmount}
-          {paidIncome}
-          {paidExpenses}
-          currentLabel={m.cockpit_today_now()}
-          forecastLabel={m.cockpit_today_horizon()}
-          calculationTitle={m.cockpit_today_calculation_title()}
-          scopeHint={m.cockpit_today_hint()}
-          showHeadlines={false}
-        />
-      </div>
-      <a
-        href="/transactions?group=own"
-        class="focus-visible:ring-accent text-accent mt-2 inline-flex min-h-11 items-center text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"
-        >{m.cash_position_transactions_link()}</a
-      >
-    {:else if showPrivateDetails}
-      <div class="mt-3 flex min-h-11 items-center gap-1">
+    <div class="mt-2 flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1">
+      {#if showPrivateDetails && hasAnchor}
+        <a
+          href="/transactions?group=own"
+          class="focus-visible:ring-accent text-accent inline-flex min-h-11 items-center text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"
+          >{m.cash_position_transactions_link()}</a
+        >
+      {:else if showPrivateDetails}
         <a
           href="/transactions?group=own"
           class="focus-visible:ring-accent inline-flex min-h-11 items-center text-sm font-medium text-slate-300 focus-visible:ring-2 focus-visible:outline-none"
@@ -151,12 +118,25 @@
           aria-label={m.cockpit_opening_help_label()}
           onclick={() => (openingHelpOpen = !openingHelpOpen)}>?</button
         >
-      </div>
-      {#if openingHelpOpen}
-        <p id="cockpit-opening-help" class="pb-1 text-xs leading-relaxed text-slate-400">
-          {m.cockpit_opening_help()}
-        </p>
       {/if}
+      <button
+        type="button"
+        class="focus-visible:ring-accent inline-flex size-8 items-center justify-center rounded-full text-sm text-slate-400 hover:bg-white/5 hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
+        aria-expanded={countersHelpOpen}
+        aria-controls="cockpit-counters-help"
+        aria-label={m.cockpit_counters_help_label()}
+        onclick={() => (countersHelpOpen = !countersHelpOpen)}>?</button
+      >
+    </div>
+    {#if openingHelpOpen}
+      <p id="cockpit-opening-help" class="pb-1 text-xs leading-relaxed text-slate-400">
+        {m.cockpit_opening_help()}
+      </p>
+    {/if}
+    {#if countersHelpOpen}
+      <p id="cockpit-counters-help" class="pb-1 text-xs leading-relaxed text-slate-400">
+        {m.cockpit_counters_help()}
+      </p>
     {/if}
   </section>
 {/if}

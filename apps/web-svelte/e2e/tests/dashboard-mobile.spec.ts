@@ -32,7 +32,7 @@ test.describe("dashboard mobile layout", () => {
     expect(overflowAtTop).toBe(false);
 
     await page.getByRole("button", { name: "Zobacz więcej" }).click();
-    await page.getByRole("heading", { name: /wydatki w tym okresie/i }).scrollIntoViewIfNeeded();
+    await page.getByRole("heading", { name: /^kategorie$/i }).scrollIntoViewIfNeeded();
     const overflowAtStatus = await page.evaluate(() => {
       const doc = document.documentElement;
       return doc.scrollWidth > doc.clientWidth + 1;
@@ -215,13 +215,24 @@ test.describe("dashboard mobile layout", () => {
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(cash.getByTestId("cockpit-payments")).toContainText(/500,00/);
 
-    await cash.getByText("Wyliczenie na dziś i 90 dni", { exact: true }).click();
-    await expect(cash.getByText("Zaksięgowane wpływy", { exact: true })).toBeVisible();
-    await expect(cash.getByText("Zaksięgowane wydatki", { exact: true })).toBeVisible();
-    await expect(cash.getByText("Saldo na dziś", { exact: true })).toBeVisible();
-    await expect(cash).toContainText("osobno od liczników wybranego miesiąca");
-    await expect(cash).not.toContainText("Wybór okresu i filtrów nie zmienia tych kwot");
+    await expect(cash.getByText("Wyliczenie na dziś i 90 dni")).toHaveCount(0);
     await expect(cash).not.toContainText("Dostępne teraz");
+    await expect(page.locator("#dashboard-spending")).toBeVisible();
+    await expect(page.getByTestId("cockpit-category-period").first()).toBeVisible();
+    await expect(page.getByTestId("cockpit-history")).toBeVisible();
+    await expect(page.getByTestId("cockpit-history-span")).toHaveText("Ostatnie miesiące");
+    const countersHelp = cash.getByRole("button", { name: "Zakres liczników" });
+    await countersHelp.click();
+    await expect(countersHelp).toHaveAttribute("aria-expanded", "true");
+    await expect(cash.getByText(/nie są saldem z banku/)).toBeVisible();
+
+    await page.getByRole("button", { name: "Zobacz więcej" }).click();
+    await page.getByRole("tab", { name: /ostatnie 7 dni/i }).click();
+    await expect(page).toHaveURL(/period=week/);
+    await expect(cash.getByTestId("cockpit-payments")).toContainText(/500,00/);
+    await expect(page.getByTestId("cockpit-category-period").first()).toHaveText("Ostatnie 7 dni");
+    await expect(page.getByTestId("cockpit-history-span")).toHaveText("Ostatnie tygodnie");
+    await expect(cash.getByTestId("cockpit-month")).not.toHaveText("Ostatnie 7 dni");
   });
 
   test("missing opening balance shows a dash and one short action", async ({ page }) => {
@@ -503,8 +514,7 @@ test.describe("dashboard mobile layout", () => {
 
   test("spending accordion expands on mobile", async ({ page }) => {
     await page.goto("/dashboard");
-    await page.getByRole("button", { name: "Zobacz więcej" }).click();
-    const toggle = page.getByRole("button", { name: /wydatki w tym okresie/i });
+    const toggle = page.getByRole("button", { name: /kategorie/i });
     await expect(toggle).toBeVisible({ timeout: 10000 });
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
     const panel = page.locator("#dashboard-spending .expand-grid");
@@ -515,13 +525,10 @@ test.describe("dashboard mobile layout", () => {
     await expect(page.getByText(/największe wydatki/i)).toBeVisible();
   });
 
-  test("spend history accordion expands on mobile", async ({ page }) => {
+  test("spend history is visible without extra steps", async ({ page }) => {
     await page.goto("/dashboard");
-    await page.getByRole("button", { name: "Zobacz więcej" }).click();
-    const toggle = page.getByRole("button", { name: /historia wydatków/i });
-    await expect(toggle).toBeVisible({ timeout: 10000 });
-    await toggle.click();
-    await expect(page.locator(".overflow-x-hidden.rounded-xl.border")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Historia", exact: true })).toBeVisible();
+    await expect(page.getByTestId("cockpit-history-span")).toHaveText("Ostatnie miesiące");
   });
 
   test("period chips and custom range drive the dashboard window", async ({ page }) => {
@@ -536,8 +543,11 @@ test.describe("dashboard mobile layout", () => {
     await expect(page).not.toHaveURL(/period=/);
 
     // Week is a non-default view and remains explicit in the URL.
+    // It changes categories and the chart, not the month counters.
     await page.getByRole("tab", { name: /ostatnie 7 dni/i }).click();
     await expect(page).toHaveURL(/period=week/);
+    await expect(page.getByTestId("cockpit-category-period").first()).toHaveText("Ostatnie 7 dni");
+    await expect(page.getByTestId("cockpit-history-span")).toHaveText("Ostatnie tygodnie");
 
     // Picking a range via the date picker switches to custom (startDate/endDate,
     // period param dropped) — presets apply immediately.

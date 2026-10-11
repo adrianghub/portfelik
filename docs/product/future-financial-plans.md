@@ -96,10 +96,14 @@ wykonanie pozostają rozróżnione.
 
 ## Kokpit
 
-Kokpit zostaje przeglądem salda, płatności, prognozy, planów, wydatków i
-ostatnich transakcji. Nie przenosi formularza planu na ten ekran. Na desktopie
-kolejność to liczniki, potem plany i wydatki obok siebie, na końcu transakcje.
-Na mobile liczniki, plany, wydatki i transakcje idą jeden pod drugim.
+Kokpit odpowiada na trzy pytania: ile mam, ile wydam, ile mi zostanie.
+Nie przenosi formularza planu na ten ekran. Na górze są trzy liczniki miesiąca.
+Pod nimi są kategorie i wykres wybranego okresu. Kategorie mają krótką etykietę
+tego zakresu, na przykład nazwę miesiąca albo „Ostatnie 7 dni”. Wykres ma osobną
+etykietę serii, na przykład „Ostatnie miesiące”. To nie są liczniki miesiąca.
+Na desktopie kategorie i wykres stoją obok siebie, na mobile jeden pod drugim.
+Plany, nadchodzące transakcje oraz tydzień, rok i własny zakres zostają za
+„Zobacz więcej”.
 
 Trzy liczniki liczą jeden zakres: prywatny albo jeden Dom. Saldo to kotwica
 tego zakresu plus opłacone ruchy od jej daty. Brak kotwicy to brak liczby, nie
@@ -112,8 +116,9 @@ Nie wypełniamy go procentem.
 
 Filtr miesiąca jest osobnym oknem tego samego silnika, nie drugim liczeniem.
 Ustawia trzy liczniki: Stan salda, Wydatki, Prognoza. Tydzień, rok i własny
-zakres tego nie zmieniają. Pierścień bilansu, kategorie i wykres zostają na
-dotychczasowych miejscach.
+zakres tego nie zmieniają. Nie ma pierścienia bilansu ani drugiego wyliczenia
+na dziś i 90 dni obok tych liczników. Kategorie i wykres pokazują swój zakres
+krótką etykietą, żeby nie wyglądały jak te same wydatki co licznik miesiąca.
 
 Bieżący miesiąc: Stan salda to saldo na dziś. Wydatki to opłacone wydatki od
 początku miesiąca do dziś, plus nierozliczone potwierdzone zobowiązania do
@@ -148,16 +153,33 @@ wchodzą. Potwierdzona reszta liczy się raz: opłacona zaliczka jest już wydat
 i zmniejsza resztę. Alokacje celów zostają w saldzie i poza Wydatkami. Liczymy
 tylko PLN.
 
-Liczniki z 30 dni zostają. Tydzień, rok i własny zakres nie zmieniają tych
-trzech liczb miesiąca.
+Funkcja liczników z 30 dni zostaje w silniku i nie jest drugim panelem na
+Kokpicie. Tydzień, rok i własny zakres nie zmieniają trzech liczb miesiąca.
 
 Planowana kwota nie jest wydatkiem historii. Wydatkiem jest powiązana
 transakcja i liczy się raz. W planie ta sama wpłata zmniejsza pozostałą kwotę.
 
+## Plany 2.0
+
 Szczegóły planu zostają miejscem budżetu, pozycji, statusów i rozliczeń.
-Zwarty układ podsumowania, pasek wykorzystania budżetu i zwinięty formularz
-dodawania są późniejszą zmianą prezentacji. Pasek pokazuje wykorzystanie
-budżetu, nie postęp opłacania. Obliczeń nie zmieniamy przy zmianie układu.
+Obliczeń nie zmieniamy. Zmienia się prezentacja.
+
+Największa liczba to pozostało w budżecie. Obok widać kwotę uwzględnioną
+w planie i budżet. Wydano i do zapłaty są mniejsze. Pasek pokazuje wykorzystanie
+budżetu, nie postęp opłacania.
+
+Formularz dodawania otwiera się na żądanie i nie spycha listy. Nazwa i kwota
+są obowiązkowe. Termin jest opcjonalny. Status to wybór szacunkowy albo
+potwierdzony, z krótkim objaśnieniem pod znakiem zapytania. Odbiorca jest
+w dodatkowych szczegółach. Na telefonie jest dolny panel, na desktopie modal
+albo panel boczny. Powiązanie transakcji zostaje akcją pozycji, nie polem
+formularza tworzenia.
+
+Lista nie używa jednej karty dla wszystkiego. Cel pokazuje postęp odkładania.
+Kredyt pokazuje pozostałe zadłużenie. Plan wydatków pokazuje wykorzystanie
+budżetu. Regularne zakupy nie są celem oszczędnościowym. W danych przykładowych
+„Tygodniowe zakupy” trzeba będzie zastąpić limitem albo wydatkiem cyklicznym,
+razem z nowym demo, nie wcześniej.
 
 ## Import, prywatność i UI
 
@@ -171,9 +193,27 @@ Pierwszy etap łączy istniejące fakty po imporcie. Późniejsze sugestie w rev
 korzystają z tego samego RPC, bez drugiego mechanizmu rozliczenia.
 
 Lista Planów rozróżnia cele, budżety projektów i kredyty. Karta wakacji pokazuje
-wydano/budżet i następny wydatek, poduszka — zgromadzono/cel i planowane tempo.
-Spójne SVG pozostają głównym systemem ikon. Szczegóły projektu zawierają
-Przegląd, Wydatki, Transakcje i Plan finansowania wewnątrz jednego widoku.
+wydano i budżet oraz następny wydatek. Poduszka pokazuje zgromadzono, cel
+i planowane tempo. Spójne SVG pozostają głównym systemem ikon. Szczegóły projektu
+zawierają Przegląd, Wydatki, Transakcje i Plan finansowania wewnątrz jednego widoku.
+
+## Kolejność ekranów
+
+Najbliższa praca porządkuje prezentację, nie silnik.
+
+1. Kokpit 2.0. Trzy liczniki miesiąca zamiast pierścienia. Kategorie i wykres
+   pod nimi. Bez drugiego panelu na dziś i 90 dni.
+2. Transakcje. Lista jest centrum. Duży panel salda i prognozy schodzi z tego ekranu.
+3. Plany 2.0. Lista, szczegóły, formularz i język.
+4. Nowy onboarding. Dopiero gdy Kokpit, Transakcje i Plany są ekranami, przez
+   które da się przejść bez instrukcji silnika.
+5. Propozycje łączenia transakcji z pozycjami planu po imporcie. Użytkownik
+   zatwierdza dopasowanie.
+6. Scenariusze na przyszłość, w tym większy zakup i wolne środki za kilka miesięcy.
+   Po dopracowaniu podstawowych obliczeń i interfejsu.
+
+Na razie bez płatnych subskrypcji, rozbudowanej personalizacji, awatarów,
+integracji bankowych i kolejnych dashboardów.
 
 ## Kolejność wdrożenia i akceptacja
 
