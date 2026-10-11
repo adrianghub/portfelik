@@ -337,6 +337,60 @@ test.describe("dashboard mobile layout", () => {
     await expect(payments).toContainText("-");
     await expect(payments).not.toContainText("400");
     await expect(payments).not.toContainText("0,00");
+    const help = payments.getByRole("button", { name: "Kompletność wydatków" });
+    await help.click();
+    await expect(help).toHaveAttribute("aria-expanded", "true");
+    await expect(payments).toContainText(
+      "Wydatki pokażemy, gdy obejmą transakcje, potwierdzone zobowiązania i serie cykliczne."
+    );
+  });
+
+  test("all-scope expenses stay blank until their sources are complete", async ({ page }) => {
+    const today = isoDaysFromToday(0);
+    await page.route("**/rest/v1/transactions_with_category**", (route) => {
+      const url = route.request().url();
+      return route.fulfill({
+        status: 200,
+        json: url.includes("is_recurring=eq.true")
+          ? []
+          : [
+              {
+                id: "own-expense",
+                date: today,
+                description: "Zakup",
+                amount: 250,
+                type: "expense",
+                status: "paid",
+                currency: "PLN",
+                user_id: TEST_USER_ID,
+                group_id: null,
+                is_recurring: false,
+              },
+              {
+                id: "dom-expense",
+                date: today,
+                description: "Czynsz",
+                amount: 400,
+                type: "expense",
+                status: "paid",
+                currency: "PLN",
+                user_id: TEST_USER_ID,
+                group_id: "group-dom",
+                is_recurring: false,
+              },
+            ],
+      });
+    });
+
+    await page.goto("/dashboard?group=all");
+    const payments = page.getByTestId("cockpit-payments");
+    await expect(payments).toContainText("-");
+    await expect(payments).not.toContainText("250");
+    await expect(payments).not.toContainText("400");
+    await expect(payments).not.toContainText("650");
+    await expect(payments).not.toContainText("0,00");
+    await payments.getByRole("button", { name: "Kompletność wydatków" }).click();
+    await expect(payments).toContainText("potwierdzone zobowiązania i serie cykliczne");
   });
 
   test("first visit renders cash while unrelated plans and demo checks are still pending", async ({

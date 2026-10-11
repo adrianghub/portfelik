@@ -15,6 +15,11 @@ export interface CockpitMonthViewResult extends CockpitMonthIndicators {
    * Null when the figure is a full month, or when Wydatki are withheld.
    */
   expensesFrom: string | null;
+  /**
+   * True when Dom or Wszystkie Wydatki are withheld because plan remainders
+   * and recurring rows are not in the figure yet.
+   */
+  expensesIncomplete: boolean;
 }
 
 export interface CockpitMonthRow {
@@ -105,10 +110,12 @@ export function buildCockpitMonthView(input: CockpitMonthViewInput): CockpitMont
     anchorDay != null &&
     anchorDay > bounds.monthStart &&
     anchorDay <= bounds.monthEnd;
-  const withholdExpenses = input.monthLedger === "partial" || scope.kind === "group";
+  const scopeIncomplete = scope.kind === "group" || scope.kind === "all";
+  const withholdExpenses = input.monthLedger === "partial" || scopeIncomplete;
   return {
     ...indicators,
     expenses: withholdExpenses ? null : indicators.expenses,
     expensesFrom: withholdExpenses || !clippedByAnchor ? null : anchorDay,
+    expensesIncomplete: scopeIncomplete && input.monthLedger !== "partial",
   };
 }

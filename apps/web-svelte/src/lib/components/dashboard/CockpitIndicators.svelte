@@ -9,6 +9,7 @@
     forecast,
     orientational = 0,
     expensesFrom = null,
+    expensesIncomplete = false,
   }: {
     balance: number | null;
     expenses: number | null;
@@ -16,9 +17,12 @@
     orientational?: number;
     /** YYYY-MM-DD when Wydatki start on the anchor inside this month. */
     expensesFrom?: string | null;
+    /** Dom and Wszystkie stay blank until every expense source is loaded. */
+    expensesIncomplete?: boolean;
   } = $props();
 
   let expensesHelpOpen = $state(false);
+  let incompleteHelpOpen = $state(false);
   const expensesFromLabel = $derived(expensesFrom ? shortDayMonth(expensesFrom) : null);
   const expensesName = $derived(
     expensesFromLabel
@@ -119,6 +123,25 @@
           class="mt-1 text-center text-xs leading-relaxed text-slate-400"
         >
           {m.cockpit_expenses_from_help({ date: expensesFromLabel })}
+        </p>
+      {/if}
+    {:else if expensesIncomplete}
+      <div class="mt-1 flex justify-center">
+        <button
+          type="button"
+          class="focus-visible:ring-accent inline-flex size-8 items-center justify-center rounded-full text-sm text-slate-400 hover:bg-white/5 hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
+          aria-expanded={incompleteHelpOpen}
+          aria-controls="cockpit-expenses-incomplete-help"
+          aria-label={m.cockpit_expenses_incomplete_help_label()}
+          onclick={() => (incompleteHelpOpen = !incompleteHelpOpen)}>?</button
+        >
+      </div>
+      {#if incompleteHelpOpen}
+        <p
+          id="cockpit-expenses-incomplete-help"
+          class="mt-1 text-center text-xs leading-relaxed text-slate-400"
+        >
+          {m.cockpit_expenses_incomplete_help()}
         </p>
       {/if}
     {/if}

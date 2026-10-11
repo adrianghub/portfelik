@@ -128,9 +128,10 @@ miesiąca.
 Zakres Wszystkie nie pokazuje wspólnego salda ani wspólnej prognozy. Nie
 sumujemy niezależnych pul gotówki i nie podstawiamy prywatnej kotwicy pod Dom.
 Brak kotwicy zakresu zostawia Stan salda i Prognozę puste. Prywatne Wydatki
-nadal liczą znane ruchy. Wydatki Domu zostają puste, dopóki nie obejmują
-potwierdzonych reszt planów i niematerializowanych transakcji cyklicznych.
-Nie pokazujemy wtedy zera.
+nadal liczą znane ruchy. Wydatki Domu i Wszystkie zostają puste, dopóki nie
+obejmują potwierdzonych reszt planów i niematerializowanych transakcji
+cyklicznych. Nie pokazujemy wtedy zera. Krótkie objaśnienie jest pod znakiem
+zapytania.
 
 Nie ma kwoty na datę sprzed kotwicy. Nie ma prognozy, której data końcowa
 wypada po dziś plus 90 dni. Miesiąc, który zaczyna się w tym horyzoncie, a

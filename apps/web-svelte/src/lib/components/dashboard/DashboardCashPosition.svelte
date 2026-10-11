@@ -22,6 +22,7 @@
     expenses,
     monthForecast,
     expensesFrom = null,
+    expensesIncomplete = false,
     orientational = 0,
     loading = false,
     error = false,
@@ -44,6 +45,7 @@
     expenses: number | null;
     monthForecast: number | null;
     expensesFrom?: string | null;
+    expensesIncomplete?: boolean;
     orientational?: number;
     loading?: boolean;
     error?: boolean;
@@ -109,6 +111,7 @@
       forecast={monthForecast}
       {orientational}
       {expensesFrom}
+      {expensesIncomplete}
     />
     {#if showPrivateDetails && hasAnchor}
       <div class="mt-3">

@@ -1121,6 +1121,7 @@
       balance={cockpitMonth.balance}
       expenses={cockpitMonth.expenses}
       expensesFrom={cockpitMonth.expensesFrom}
+      expensesIncomplete={cockpitMonth.expensesIncomplete}
       monthForecast={cockpitMonth.forecast}
       orientational={cockpitMonth.orientational}
       loading={cashPositionLoading}

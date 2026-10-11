@@ -1138,6 +1138,8 @@
   "cockpit_expenses_from": "Od {date}",
   "cockpit_expenses_from_help": "Wydatki obejmują okres od {date}, od dnia salda początkowego. Wcześniejsza część miesiąca jest już w saldzie początkowym.",
   "cockpit_expenses_from_help_label": "Zakres wydatków",
+  "cockpit_expenses_incomplete_help": "Wydatki pokażemy, gdy obejmą transakcje, potwierdzone zobowiązania i serie cykliczne.",
+  "cockpit_expenses_incomplete_help_label": "Kompletność wydatków",
   "cockpit_overdue": "Zaległe {amount}",
   "cockpit_orientational": "Orientacyjne {amount}",
   "cash_position_paid_income": "Zaksięgowane wpływy",

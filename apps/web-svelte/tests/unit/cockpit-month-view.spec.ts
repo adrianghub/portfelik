@@ -156,10 +156,12 @@ describe("cockpit month view", () => {
     expect(shared.forecast).toBeNull();
     expect(shared.expenses).toBeNull();
     expect(shared.expensesFrom).toBeNull();
+    expect(shared.expensesIncomplete).toBe(true);
     expect(all.balance).toBeNull();
     expect(all.forecast).toBeNull();
-    expect(all.expenses).toBe(1_800);
+    expect(all.expenses).toBeNull();
     expect(all.expensesFrom).toBeNull();
+    expect(all.expensesIncomplete).toBe(true);
   });
 
   it("withholds household expenses while plan remainders and recurring rows are missing", () => {
@@ -182,6 +184,18 @@ describe("cockpit month view", () => {
     expect(result.forecast).toBeNull();
     expect(result.expenses).toBeNull();
     expect(result.expensesFrom).toBeNull();
+    expect(result.expensesIncomplete).toBe(true);
+  });
+
+  it("does not explain a household blank while the month fetch is still partial", () => {
+    const result = view({
+      scopeFilter: "all",
+      monthLedger: "partial",
+      items: [],
+      links: [],
+    });
+    expect(result.expenses).toBeNull();
+    expect(result.expensesIncomplete).toBe(false);
   });
 
   it("withholds expenses when the month ledger does not cover the whole month", () => {
@@ -189,6 +203,7 @@ describe("cockpit month view", () => {
     expect(result.balance).toBe(11_000);
     expect(result.expenses).toBeNull();
     expect(result.expensesFrom).toBeNull();
+    expect(result.expensesIncomplete).toBe(false);
     expect(result.forecast).toBe(7_200);
   });
 
