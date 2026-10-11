@@ -4,25 +4,15 @@
 
   let {
     balance,
-    payments30,
-    forecast30,
-    forecastDate,
-    overdue = 0,
-    orientational30 = 0,
+    expenses,
+    forecast,
+    orientational = 0,
   }: {
     balance: number | null;
-    payments30: number;
-    forecast30: number | null;
-    /** Inclusive YYYY-MM-DD the 30-day forecast is calculated through. */
-    forecastDate: string;
-    overdue?: number;
-    orientational30?: number;
+    expenses: number | null;
+    forecast: number | null;
+    orientational?: number;
   } = $props();
-
-  function calendarDate(iso: string): string {
-    const [year, month, day] = iso.slice(0, 10).split("-");
-    return `${day}.${month}.${year}`;
-  }
 
   function amountOrMissing(amount: number | null): string {
     return amount === null ? m.cockpit_missing() : formatCurrency(amount);
@@ -90,22 +80,12 @@
     class="order-3 min-w-0 rounded-2xl border border-white/5 bg-slate-950/40 px-3 py-3 md:order-2"
     data-testid="cockpit-payments"
     role="group"
-    aria-label="{m.cockpit_payments_label()}: {formatCurrency(payments30)}"
+    aria-label="{m.cockpit_payments_label()}: {amountOrMissing(expenses)}"
   >
-    {@render dial(
-      m.cockpit_payments_label(),
-      m.cockpit_payments_window(),
-      formatCurrency(payments30),
-      "payments"
-    )}
-    {#if overdue > 0}
-      <p class="mt-1 text-center text-xs text-rose-300">
-        {m.cockpit_overdue({ amount: formatCurrency(overdue) })}
-      </p>
-    {/if}
-    {#if orientational30 > 0}
+    {@render dial(m.cockpit_payments_label(), "", amountOrMissing(expenses), "payments")}
+    {#if orientational > 0}
       <p class="mt-1 text-center text-xs text-slate-400">
-        {m.cockpit_orientational({ amount: formatCurrency(orientational30) })}
+        {m.cockpit_orientational({ amount: formatCurrency(orientational) })}
       </p>
     {/if}
   </div>
@@ -114,13 +94,8 @@
     class="order-1 col-span-2 min-w-0 rounded-2xl border border-white/5 bg-slate-950/40 px-3 py-3 max-[359px]:col-span-1 md:order-3 md:col-span-1"
     data-testid="cockpit-forecast"
     role="group"
-    aria-label="{m.cockpit_forecast_label()}: {amountOrMissing(forecast30)}"
+    aria-label="{m.cockpit_forecast_label()}: {amountOrMissing(forecast)}"
   >
-    {@render dial(
-      m.cockpit_forecast_label(),
-      m.cockpit_forecast_until({ date: calendarDate(forecastDate) }),
-      amountOrMissing(forecast30),
-      "forecast"
-    )}
+    {@render dial(m.cockpit_forecast_label(), "", amountOrMissing(forecast), "forecast")}
   </div>
 </div>

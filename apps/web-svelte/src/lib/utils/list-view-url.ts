@@ -51,15 +51,27 @@ export function writeDashboardRange(params: URLSearchParams, range: DashboardRan
   params.set("endDate", range.end);
 }
 
+export function writeCashMonth(params: URLSearchParams, value: string | null): void {
+  if (!value) params.delete("cashMonth");
+  else params.set("cashMonth", value);
+}
+
 export function buildListViewUrl(
   pathname: string,
   current: URLSearchParams,
-  patch: { group?: ScopeFilter; period?: DashboardPeriod; range?: DashboardRange }
+  patch: {
+    group?: ScopeFilter;
+    period?: DashboardPeriod;
+    range?: DashboardRange;
+    /** Null clears the param. Undefined leaves the current value. */
+    cashMonth?: string | null;
+  }
 ): string {
   const params = new URLSearchParams(current);
   if (patch.group !== undefined) writeScopeFilter(params, patch.group);
   if (patch.range !== undefined) writeDashboardRange(params, patch.range);
   else if (patch.period !== undefined) writeDashboardPeriod(params, patch.period);
+  if (patch.cashMonth !== undefined) writeCashMonth(params, patch.cashMonth);
   const query = params.toString();
   return query ? `${pathname}?${query}` : pathname;
 }

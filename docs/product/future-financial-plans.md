@@ -111,8 +111,9 @@ Nie jest różnicą salda i płatności. Nie ma zapisanej poduszki, więc póło
 Nie wypełniamy go procentem.
 
 Filtr miesiąca jest osobnym oknem tego samego silnika, nie drugim liczeniem.
-Układ Kokpitu jeszcze go nie pokazuje. Nazwy zostają: Stan salda, Wydatki,
-Prognoza.
+Ustawia trzy liczniki: Stan salda, Wydatki, Prognoza. Tydzień, rok i własny
+zakres tego nie zmieniają. Pierścień bilansu, kategorie i wykres zostają na
+dotychczasowych miejscach.
 
 Bieżący miesiąc: Stan salda to saldo na dziś. Wydatki to opłacone wydatki od
 początku miesiąca do dziś, plus nierozliczone potwierdzone zobowiązania do

@@ -1,6 +1,7 @@
 <script lang="ts">
   import CashBalanceSummary from "$lib/components/CashBalanceSummary.svelte";
   import CockpitIndicators from "$lib/components/dashboard/CockpitIndicators.svelte";
+  import { ChevronLeft, ChevronRight } from "lucide-svelte";
   import * as m from "$lib/paraglide/messages";
 
   let {
@@ -13,12 +14,14 @@
     paidIncome,
     paidExpenses,
     hasAnchor,
+    showPrivateDetails,
+    scopeLabel,
+    monthLabel,
+    onMonthShift,
     balance,
-    payments30,
-    forecast30,
-    forecastDate,
-    overdue = 0,
-    orientational30 = 0,
+    expenses,
+    monthForecast,
+    orientational = 0,
     loading = false,
     error = false,
     onRetry,
@@ -32,12 +35,14 @@
     paidIncome?: number;
     paidExpenses?: number;
     hasAnchor: boolean;
+    showPrivateDetails: boolean;
+    scopeLabel: string;
+    monthLabel: string;
+    onMonthShift: (delta: number) => void;
     balance: number | null;
-    payments30: number;
-    forecast30: number | null;
-    forecastDate: string;
-    overdue?: number;
-    orientational30?: number;
+    expenses: number | null;
+    monthForecast: number | null;
+    orientational?: number;
     loading?: boolean;
     error?: boolean;
     onRetry?: () => void;
@@ -64,46 +69,64 @@
       >{m.common_retry()}</button
     >
   </section>
-{:else if hasAnchor}
+{:else}
   <section
     class="rounded-2xl border border-white/5 bg-slate-900/60 p-4 sm:p-5"
     aria-label={m.cash_position_label()}
     data-testid="dashboard-cash-position"
   >
-    <p class="mb-3 text-sm font-medium text-slate-300">{m.dashboard_scope_own()}</p>
-    <CockpitIndicators
-      {balance}
-      {payments30}
-      {forecast30}
-      {forecastDate}
-      {overdue}
-      {orientational30}
-    />
-    <div class="mt-3">
-      <CashBalanceSummary
-        {live}
-        {forecast}
-        {upcomingIncome}
-        {upcomingExpenses}
-        {anchorDate}
-        {openingAmount}
-        {paidIncome}
-        {paidExpenses}
-        currentLabel={m.dashboard_cash_now()}
-        forecastLabel={m.dashboard_cash_after_upcoming()}
-        showHeadlines={false}
-      />
+    <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <p class="text-sm font-medium text-slate-300">{scopeLabel}</p>
+      <div class="flex items-center gap-1" role="group" aria-label={m.cockpit_month_nav()}>
+        <button
+          type="button"
+          class="focus-visible:ring-accent inline-flex size-11 items-center justify-center rounded-lg text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+          aria-label={m.cockpit_month_previous()}
+          onclick={() => onMonthShift(-1)}
+        >
+          <ChevronLeft size={16} aria-hidden="true" />
+        </button>
+        <p class="px-1 text-center text-sm font-medium text-slate-100" data-testid="cockpit-month">
+          {monthLabel}
+        </p>
+        <button
+          type="button"
+          class="focus-visible:ring-accent inline-flex size-11 items-center justify-center rounded-lg text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+          aria-label={m.cockpit_month_next()}
+          onclick={() => onMonthShift(1)}
+        >
+          <ChevronRight size={16} aria-hidden="true" />
+        </button>
+      </div>
     </div>
-    <a
-      href="/transactions?group=own"
-      class="focus-visible:ring-accent text-accent mt-2 inline-flex min-h-11 items-center text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"
-      >{m.cash_position_transactions_link()}</a
-    >
+    <CockpitIndicators {balance} {expenses} forecast={monthForecast} {orientational} />
+    {#if showPrivateDetails && hasAnchor}
+      <div class="mt-3">
+        <CashBalanceSummary
+          {live}
+          {forecast}
+          {upcomingIncome}
+          {upcomingExpenses}
+          {anchorDate}
+          {openingAmount}
+          {paidIncome}
+          {paidExpenses}
+          currentLabel={m.dashboard_cash_now()}
+          forecastLabel={m.dashboard_cash_after_upcoming()}
+          showHeadlines={false}
+        />
+      </div>
+      <a
+        href="/transactions?group=own"
+        class="focus-visible:ring-accent text-accent mt-2 inline-flex min-h-11 items-center text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"
+        >{m.cash_position_transactions_link()}</a
+      >
+    {:else if showPrivateDetails}
+      <a
+        href="/transactions?group=own"
+        class="focus-visible:ring-accent mt-3 flex min-h-11 items-center text-sm font-medium text-slate-300 focus-visible:ring-2 focus-visible:outline-none"
+        >{m.cash_position_set_hint()}</a
+      >
+    {/if}
   </section>
-{:else}
-  <a
-    href="/transactions?group=own"
-    class="focus-visible:ring-accent flex min-h-20 items-center rounded-2xl border border-dashed border-white/10 bg-slate-900/40 px-4 py-3 text-sm font-medium text-slate-300 focus-visible:ring-2 focus-visible:outline-none"
-    >{m.cash_position_set_hint()}</a
-  >
 {/if}

@@ -57,7 +57,7 @@ test.describe("dashboard mobile layout", () => {
     await expect(page.getByRole("heading", { name: "Hej, Adrian!" })).toBeVisible();
   });
 
-  test("shows the full profile name and the 30-day cockpit indicators", async ({ page }) => {
+  test("shows the full profile name and the month cockpit indicators", async ({ page }) => {
     const today = isoDaysFromToday(0);
     const cashRows = [
       {
@@ -86,7 +86,7 @@ test.describe("dashboard mobile layout", () => {
       },
       {
         id: "dashboard-cash-upcoming",
-        date: isoDaysFromToday(7),
+        date: today,
         description: "Rachunek",
         amount: 300,
         type: "expense",
@@ -133,11 +133,11 @@ test.describe("dashboard mobile layout", () => {
 
     await expect(page.getByRole("heading", { name: "Hej, Mr. Zinko!" })).toBeVisible();
     const cash = page.getByTestId("dashboard-cash-position");
-    await expect(cash.getByText("Saldo kont", { exact: true })).toBeVisible();
-    await expect(cash.getByText("Płatności", { exact: true })).toBeVisible();
+    await expect(cash.getByText("Stan salda", { exact: true })).toBeVisible();
+    await expect(cash.getByText("Wydatki", { exact: true })).toBeVisible();
     await expect(cash.getByText("Prognoza", { exact: true })).toBeVisible();
     await expect(cash.getByTestId("cockpit-balance")).toContainText(/1\D?300,00/);
-    await expect(cash.getByTestId("cockpit-payments")).toContainText(/300,00/);
+    await expect(cash.getByTestId("cockpit-payments")).toContainText(/500,00/);
     await expect(cash.getByTestId("cockpit-forecast")).toContainText(/1\D?000,00/);
     const forecastBox = await cash.getByTestId("cockpit-forecast").boundingBox();
     const balanceBox = await cash.getByTestId("cockpit-balance").boundingBox();
@@ -147,7 +147,7 @@ test.describe("dashboard mobile layout", () => {
     expect(forecastBox!.width).toBeGreaterThan(balanceBox!.width + 40);
     expect(Math.abs(balanceBox!.y - paymentsBox!.y)).toBeLessThan(8);
     const balanceArc = await cash.getByTestId("cockpit-balance").locator("svg").boundingBox();
-    const balanceLabel = await cash.getByText("Saldo kont", { exact: true }).boundingBox();
+    const balanceLabel = await cash.getByText("Stan salda", { exact: true }).boundingBox();
     const balanceAmount = await cash
       .getByTestId("cockpit-balance")
       .getByText(/1\D?300,00/)
@@ -206,6 +206,14 @@ test.describe("dashboard mobile layout", () => {
       document.documentElement.style.fontSize = "";
     });
     await page.setViewportSize({ width: 1280, height: 800 });
+
+    await cash.getByRole("button", { name: "Następny miesiąc" }).click();
+    await expect(page).toHaveURL(/cashMonth=/);
+    await expect(cash.getByTestId("cockpit-payments")).toContainText(/0,00/);
+    await expect(cash.getByTestId("cockpit-balance")).toContainText(/1\D?000,00/);
+    await cash.getByRole("button", { name: "Poprzedni miesiąc" }).click();
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(cash.getByTestId("cockpit-payments")).toContainText(/500,00/);
 
     await cash.getByText("Jak obliczamy saldo i prognozę?", { exact: true }).click();
     await expect(cash.getByText("Zaksięgowane wpływy", { exact: true })).toBeVisible();
@@ -293,7 +301,7 @@ test.describe("dashboard mobile layout", () => {
         json: [
           {
             id: "wide-upcoming",
-            date: isoDaysFromToday(3),
+            date: today,
             description: "Rachunek",
             amount: 1_500_000,
             type: "expense",
