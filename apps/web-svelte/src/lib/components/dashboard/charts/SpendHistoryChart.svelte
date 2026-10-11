@@ -20,6 +20,7 @@
     categoryColors,
     onselectperiod,
     onOpenGlossary,
+    periodLabel,
   }: {
     buckets: PeriodHistoryBucket[];
     /** Goal allocation totals by bucket label — shown aside from consumption Razem. */
@@ -29,6 +30,8 @@
     /** Confirm drill-down from the bar breakdown panel. */
     onselectperiod?: (bucket: PeriodHistoryBucket) => void;
     onOpenGlossary?: (entryId: string) => void;
+    /** Series window, for example „Ostatnie miesiące”. Not the month counters. */
+    periodLabel: string;
   } = $props();
 
   // Distinct, legible hues; last entry (slate) is reserved for the folded
@@ -176,12 +179,17 @@
 <svelte:window onclick={clickOutside} onkeydown={onKeydown} />
 
 <div
-  class="overflow-x-hidden rounded-xl border border-slate-800 bg-slate-900/60 p-4"
+  class="overflow-x-hidden rounded-3xl border border-white/5 bg-slate-900/60 p-4"
   data-spend-history-root
+  data-testid="cockpit-history"
 >
+  <div class="mb-2">
+    <h2 class="text-sm font-medium text-slate-400">{m.cockpit_history_title()}</h2>
+    <p class="text-xs text-slate-500" data-testid="cockpit-history-span">{periodLabel}</p>
+  </div>
   {#if browser && hasData}
     <div
-      class={onselectperiod ? "h-56 cursor-pointer" : "h-56"}
+      class={onselectperiod ? "h-44 cursor-pointer sm:h-52" : "h-44 sm:h-52"}
       data-spend-history-chart
       use:emphasizeCurrentTick={currentLabel}
     >

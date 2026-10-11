@@ -98,9 +98,12 @@ wykonanie pozostają rozróżnione.
 
 Kokpit odpowiada na trzy pytania: ile mam, ile wydam, ile mi zostanie.
 Nie przenosi formularza planu na ten ekran. Na górze są trzy liczniki miesiąca.
-Pod nimi są kategorie i wykres wybranego okresu. Na desktopie kategorie i wykres
-stoją obok siebie, na mobile jeden pod drugim. Plany, nadchodzące transakcje
-oraz tydzień, rok i własny zakres zostają za „Zobacz więcej”.
+Pod nimi są kategorie i wykres wybranego okresu. Kategorie mają krótką etykietę
+tego zakresu, na przykład nazwę miesiąca albo „Ostatnie 7 dni”. Wykres ma osobną
+etykietę serii, na przykład „Ostatnie miesiące”. To nie są liczniki miesiąca.
+Na desktopie kategorie i wykres stoją obok siebie, na mobile jeden pod drugim.
+Plany, nadchodzące transakcje oraz tydzień, rok i własny zakres zostają za
+„Zobacz więcej”.
 
 Trzy liczniki liczą jeden zakres: prywatny albo jeden Dom. Saldo to kotwica
 tego zakresu plus opłacone ruchy od jej daty. Brak kotwicy to brak liczby, nie
@@ -114,7 +117,8 @@ Nie wypełniamy go procentem.
 Filtr miesiąca jest osobnym oknem tego samego silnika, nie drugim liczeniem.
 Ustawia trzy liczniki: Stan salda, Wydatki, Prognoza. Tydzień, rok i własny
 zakres tego nie zmieniają. Nie ma pierścienia bilansu ani drugiego wyliczenia
-na dziś i 90 dni obok tych liczników.
+na dziś i 90 dni obok tych liczników. Kategorie i wykres pokazują swój zakres
+krótką etykietą, żeby nie wyglądały jak te same wydatki co licznik miesiąca.
 
 Bieżący miesiąc: Stan salda to saldo na dziś. Wydatki to opłacone wydatki od
 początku miesiąca do dziś, plus nierozliczone potwierdzone zobowiązania do

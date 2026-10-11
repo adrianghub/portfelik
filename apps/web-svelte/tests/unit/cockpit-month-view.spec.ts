@@ -8,6 +8,7 @@ import {
   ledgerRangeCoversMonth,
   parseCashMonthParam,
   shiftCalendarMonth,
+  inclusiveDayRangeLabel,
   shortDayMonth,
 } from "$lib/cockpit/month-window";
 import { buildListViewUrl } from "$lib/utils/list-view-url";
@@ -94,6 +95,8 @@ describe("calendar month window", () => {
     expect(ledgerRangeCoversMonth(monthStart, monthEnd, monthStart, monthEnd)).toBe(false);
     expect(shortDayMonth("2026-06-15")).toBe("15.06");
     expect(shortDayMonth("2026-06-05")).toBe("5.06");
+    expect(inclusiveDayRangeLabel("2026-10-01", "2026-10-11")).toBe("1.10-11.10");
+    expect(inclusiveDayRangeLabel("2026-10-11", "2026-10-11")).toBe("11.10");
   });
 
   it("shifts across the year boundary and labels the month in Polish", () => {

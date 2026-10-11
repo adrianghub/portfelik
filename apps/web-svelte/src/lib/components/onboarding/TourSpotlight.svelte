@@ -108,6 +108,7 @@
   <div class="pointer-events-none fixed inset-0 z-[55]" aria-hidden="true">
     <div
       class="absolute rounded-2xl ring-2 ring-emerald-400/90 ring-offset-2 ring-offset-transparent transition-[top,left,width,height] duration-200"
+      data-testid="tour-spotlight"
       style="
         top: {rect.top}px;
         left: {rect.left}px;

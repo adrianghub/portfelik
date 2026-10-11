@@ -49,8 +49,10 @@
   import { localDateIso } from "$lib/date-local";
   import { buildCockpitMonthView, type CockpitMonthRow } from "$lib/cockpit/month-view";
   import {
+    calendarMonthFromIso,
     calendarMonthLabel,
     cashMonthQueryValue,
+    inclusiveDayRangeLabel,
     cockpitMonthFetchBounds,
     parseCashMonthParam,
     shiftCalendarMonth,
@@ -960,6 +962,25 @@
     { value: "month", label: m.dashboard_period_month() },
     { value: "year", label: m.dashboard_period_year() },
   ]);
+
+  // Categories follow this window. The three counters follow cashMonth instead.
+  const categoryPeriodLabel = $derived.by(() => {
+    if (period === "week") return m.dashboard_period_week();
+    if (period === "year") return bounds.start.slice(0, 4);
+    if (period === "custom" && customRange) {
+      return inclusiveDayRangeLabel(customRange.start, customRange.end);
+    }
+    return calendarMonthLabel(calendarMonthFromIso(bounds.start));
+  });
+  const historySpanLabel = $derived(
+    period === "week"
+      ? m.cockpit_history_span_week()
+      : period === "year"
+        ? m.cockpit_history_span_year()
+        : period === "custom"
+          ? m.cockpit_history_span_custom()
+          : m.cockpit_history_span_month()
+  );
 </script>
 
 <svelte:head>
@@ -1055,6 +1076,7 @@
         <DashboardSpendingInsight
           insight={spendingInsight}
           {period}
+          periodLabel={categoryPeriodLabel}
           goalSplit={goalSpendingSplit}
           bind:expanded={spendingExpanded}
           categoryHref={(id) => (id ? transactionsHref({ categoryId: id }) : transactionsHref())}
@@ -1066,6 +1088,7 @@
           {categoryColors}
           onselectperiod={selectHistoryPeriod}
           onOpenGlossary={openGlossary}
+          periodLabel={historySpanLabel}
         />
       </div>
       <a

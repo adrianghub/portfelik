@@ -11,12 +11,15 @@
   let {
     insight,
     period,
+    periodLabel,
     categoryHref,
     goalSplit = null,
     expanded = $bindable(false),
   }: {
     insight: SpendingInsight;
     period: "week" | "month" | "year" | "custom";
+    /** Concrete window, separate from the month counters. */
+    periodLabel: string;
     categoryHref: (categoryId: string | null) => string;
     goalSplit?: {
       goalContributions: number;
@@ -98,7 +101,10 @@
 >
   {#if isMdLayout.current}
     <div class="flex items-baseline justify-between gap-3">
-      <h2 class="text-sm font-medium text-slate-400">{m.dashboard_spending_title()}</h2>
+      <div class="min-w-0">
+        <h2 class="text-sm font-medium text-slate-400">{m.cockpit_categories_title()}</h2>
+        <p class="text-xs text-slate-500" data-testid="cockpit-category-period">{periodLabel}</p>
+      </div>
       {#if insight.spent > 0 || insight.categories.length > 0}
         <span class="shrink-0 text-sm font-semibold text-slate-200 tabular-nums">
           {formatCurrency(insight.spent)}
@@ -115,7 +121,10 @@
       aria-expanded={expanded}
       onclick={() => (expanded = !expanded)}
     >
-      <h2 class="text-sm font-medium text-slate-400">{m.dashboard_spending_title()}</h2>
+      <span class="min-w-0 text-left">
+        <h2 class="text-sm font-medium text-slate-400">{m.cockpit_categories_title()}</h2>
+        <p class="text-xs text-slate-500" data-testid="cockpit-category-period">{periodLabel}</p>
+      </span>
       <span class="flex shrink-0 items-center gap-2">
         {#if insight.spent > 0 || insight.categories.length > 0}
           <span class="text-sm font-semibold text-slate-200 tabular-nums">

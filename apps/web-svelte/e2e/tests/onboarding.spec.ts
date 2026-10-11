@@ -185,6 +185,18 @@ test.describe("onboarding hardening", () => {
 
     const tour = page.locator("[data-guided-tour-chrome]");
     await expect(tour).toContainText("1 z 8", { timeout: 15_000 });
+    const counters = page.getByTestId("cockpit-indicators");
+    await expect(counters).toHaveAttribute("data-tour-id", "tour-balance-ring");
+    await expect(counters.getByText("Stan salda", { exact: true })).toBeVisible();
+    const spotlight = page.getByTestId("tour-spotlight");
+    await expect(spotlight).toBeVisible();
+    const targetBox = await counters.boundingBox();
+    const spotlightBox = await spotlight.boundingBox();
+    expect(targetBox && spotlightBox).toBeTruthy();
+    expect(spotlightBox!.y).toBeLessThan(targetBox!.y + targetBox!.height);
+    expect(spotlightBox!.y + spotlightBox!.height).toBeGreaterThan(targetBox!.y);
+    expect(spotlightBox!.x).toBeLessThan(targetBox!.x + targetBox!.width);
+    expect(spotlightBox!.x + spotlightBox!.width).toBeGreaterThan(targetBox!.x);
     await page.waitForTimeout(800);
     const before = await page.evaluate(() => window.scrollY);
     await page.evaluate(() => window.scrollBy(0, 120));
