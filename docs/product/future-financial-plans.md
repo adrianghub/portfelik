@@ -110,6 +110,40 @@ reszta potwierdzonych pozycji, której transakcja nie jest już w przepływach.
 Nie jest różnicą salda i płatności. Nie ma zapisanej poduszki, więc półokrąg jest tylko obudową licznika.
 Nie wypełniamy go procentem.
 
+Filtr miesiąca jest osobnym oknem tego samego silnika, nie drugim liczeniem.
+Układ Kokpitu jeszcze go nie pokazuje. Nazwy zostają: Stan salda, Wydatki,
+Prognoza.
+
+Bieżący miesiąc: Stan salda to saldo na dziś. Wydatki to opłacone wydatki od
+początku miesiąca do dziś, plus nierozliczone potwierdzone zobowiązania do
+końca miesiąca, plus nadchodzące wydatki bez planu. Prognoza to szacunek na
+ostatni dzień miesiąca. Miniony miesiąc: Stan salda to saldo na początek tego
+miesiąca. Prognoza to saldo wyliczone na koniec miesiąca z kotwicy i opłaconej
+historii. To dwie różne daty. Wydatki to opłacone wydatki całego miesiąca.
+Przyszły miesiąc: Stan salda to szacunek na dzień przed początkiem miesiąca.
+Prognoza to szacunek na ostatni dzień. Wydatki to przewidywane wydatki tego
+miesiąca.
+
+Zakres Wszystkie nie pokazuje wspólnego salda ani wspólnej prognozy. Nie
+sumujemy niezależnych pul gotówki i nie podstawiamy prywatnej kotwicy pod Dom.
+Brak kotwicy zakresu zostawia Stan salda i Prognozę puste. Wydatki nadal liczą
+znane ruchy.
+
+Nie ma kwoty na datę sprzed kotwicy. Nie ma prognozy, której data końcowa
+wypada po dziś plus 90 dni. Miesiąc, który zaczyna się w tym horyzoncie, a
+kończy po nim, może mieć Stan salda i nie ma Prognozy. Nie pokazujemy części
+miesiąca jako pełnej prognozy.
+
+Zaległe z poprzednich miesięcy zostają poza Wydatkami tego miesiąca i nadal są
+wyjątkiem. Zaległe z datą w tym miesiącu wchodzą do Wydatków. Płatność
+orientacyjna zostaje obok Wydatków, nie w nich. Szacowane i anulowane nie
+wchodzą. Potwierdzona reszta liczy się raz: opłacona zaliczka jest już wydatkiem
+i zmniejsza resztę. Alokacje celów zostają w saldzie i poza Wydatkami. Liczymy
+tylko PLN.
+
+Liczniki z 30 dni zostają. Tydzień, rok i własny zakres nie zmieniają tych
+trzech liczb miesiąca.
+
 Planowana kwota nie jest wydatkiem historii. Wydatkiem jest powiązana
 transakcja i liczy się raz. W planie ta sama wpłata zmniejsza pozostałą kwotę.
 
