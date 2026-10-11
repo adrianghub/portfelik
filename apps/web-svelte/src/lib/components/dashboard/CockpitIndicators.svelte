@@ -86,6 +86,7 @@
 <div
   class="grid grid-cols-2 gap-3 max-[359px]:grid-cols-1 md:grid-cols-3"
   data-testid="cockpit-indicators"
+  data-tour-id="tour-balance-ring"
 >
   <div
     class="order-2 min-w-0 rounded-2xl border border-white/5 bg-slate-950/40 px-3 py-3 md:order-1"
