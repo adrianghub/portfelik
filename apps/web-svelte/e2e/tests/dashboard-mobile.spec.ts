@@ -215,9 +215,35 @@ test.describe("dashboard mobile layout", () => {
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(cash.getByTestId("cockpit-payments")).toContainText(/500,00/);
 
-    await cash.getByText("Jak obliczamy saldo i prognozę?", { exact: true }).click();
+    await cash.getByText("Wyliczenie na dziś i 90 dni", { exact: true }).click();
     await expect(cash.getByText("Zaksięgowane wpływy", { exact: true })).toBeVisible();
     await expect(cash.getByText("Zaksięgowane wydatki", { exact: true })).toBeVisible();
+    await expect(cash.getByText("Saldo na dziś", { exact: true })).toBeVisible();
+    await expect(cash).toContainText("osobno od liczników wybranego miesiąca");
+    await expect(cash).not.toContainText("Wybór okresu i filtrów nie zmienia tych kwot");
+    await expect(cash).not.toContainText("Dostępne teraz");
+  });
+
+  test("missing opening balance shows a dash and one short action", async ({ page }) => {
+    await page.goto("/dashboard");
+    const cash = page.getByTestId("dashboard-cash-position");
+    await expect(cash.getByTestId("cockpit-balance")).toContainText("-");
+    await expect(cash.getByTestId("cockpit-forecast")).toContainText("-");
+    await expect(cash.getByText("Brak danych", { exact: true })).toHaveCount(0);
+    await expect(cash.getByTestId("cockpit-balance")).toHaveAttribute(
+      "aria-label",
+      "Stan salda: Brak danych"
+    );
+    const action = cash.getByRole("link", { name: "Ustaw saldo początkowe", exact: true });
+    await expect(action).toBeVisible();
+    await expect(action).toHaveAttribute("href", "/transactions?group=own");
+    await expect(cash).not.toContainText("aby zobaczyć saldo i prognozę");
+    const help = cash.getByRole("button", { name: "Objaśnienie" });
+    await help.click();
+    await expect(help).toHaveAttribute("aria-expanded", "true");
+    await expect(
+      cash.getByText("Saldo i prognoza pojawią się po ustawieniu salda początkowego.")
+    ).toBeVisible();
   });
 
   test("first visit renders cash while unrelated plans and demo checks are still pending", async ({

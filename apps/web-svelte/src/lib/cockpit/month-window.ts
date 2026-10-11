@@ -1,3 +1,5 @@
+import { addLocalDays } from "$lib/date-local";
+
 export interface CalendarMonth {
   year: number;
   /** 1-12. */
@@ -41,6 +43,28 @@ export function cashMonthQueryValue(month: CalendarMonth, today: string): string
   const current = calendarMonthFromIso(today);
   if (month.year === current.year && month.month === current.month) return null;
   return `${month.year}-${String(month.month).padStart(2, "0")}`;
+}
+
+/** Inclusive month fetch. `endExclusive` is the day after `monthEnd`. */
+export function cockpitMonthFetchBounds(month: CalendarMonth): {
+  start: string;
+  endExclusive: string;
+} {
+  const { monthStart, monthEnd } = calendarMonthBounds(month);
+  return { start: monthStart, endExclusive: addLocalDays(monthEnd, 1) };
+}
+
+/**
+ * True only when [rangeStart, rangeEndExclusive) contains every day of the
+ * inclusive month. A range that stops on the last day does not cover it.
+ */
+export function ledgerRangeCoversMonth(
+  rangeStart: string,
+  rangeEndExclusive: string,
+  monthStart: string,
+  monthEnd: string
+): boolean {
+  return rangeStart <= monthStart && rangeEndExclusive > monthEnd;
 }
 
 export function calendarMonthLabel(month: CalendarMonth): string {

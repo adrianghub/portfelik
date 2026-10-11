@@ -31,6 +31,11 @@ export interface CockpitMonthViewInput {
   links: readonly SpendForecastLink[];
   saveLinkedIds?: ReadonlySet<string>;
   celeCategoryId?: string | null;
+  /**
+   * `partial` means the caller does not yet have every ledger row of this
+   * month. Wydatki stay empty so a short window cannot look complete.
+   */
+  monthLedger?: "complete" | "partial";
 }
 
 function scopeOf(scopeFilter: ScopeFilter): CockpitMonthScope {
@@ -75,7 +80,7 @@ export function buildCockpitMonthView(input: CockpitMonthViewInput): CockpitMont
       .map((row) => row.id)
   );
   const bounds = calendarMonthBounds(input.month);
-  return cockpitMonthIndicators({
+  const indicators = cockpitMonthIndicators({
     scope,
     anchor: scope.kind === "private" ? input.privateAnchor : null,
     transactions: rows,
@@ -86,4 +91,6 @@ export function buildCockpitMonthView(input: CockpitMonthViewInput): CockpitMont
     monthEnd: bounds.monthEnd,
     allocationTransactionIds,
   });
+  if (input.monthLedger === "partial") return { ...indicators, expenses: null };
+  return indicators;
 }

@@ -133,7 +133,8 @@ znane ruchy.
 Nie ma kwoty na datę sprzed kotwicy. Nie ma prognozy, której data końcowa
 wypada po dziś plus 90 dni. Miesiąc, który zaczyna się w tym horyzoncie, a
 kończy po nim, może mieć Stan salda i nie ma Prognozy. Nie pokazujemy części
-miesiąca jako pełnej prognozy.
+miesiąca jako pełnej prognozy. Wydatki też pokazujemy tylko wtedy, gdy pobrane
+transakcje obejmują cały miesiąc. Inaczej ten licznik zostaje pusty.
 
 Zaległe z poprzednich miesięcy zostają poza Wydatkami tego miesiąca i nadal są
 wyjątkiem. Zaległe z datą w tym miesiącu wchodzą do Wydatków. Płatność

@@ -57,6 +57,7 @@
   import {
     calendarMonthLabel,
     cashMonthQueryValue,
+    cockpitMonthFetchBounds,
     parseCashMonthParam,
     shiftCalendarMonth,
   } from "$lib/cockpit/month-window";
@@ -710,6 +711,18 @@
     parseCashMonthParam($page.url.searchParams.get("cashMonth"), cashForecastToday)
   );
   const cashMonthLabel = $derived(calendarMonthLabel(cashMonth));
+  const cockpitMonthFetch = $derived(cockpitMonthFetchBounds(cashMonth));
+  const cockpitMonthLedgerQuery = createQuery(() => ({
+    queryKey: qk.transactions.list(
+      session.userId!,
+      "cockpit-month",
+      cockpitMonthFetch.start,
+      cockpitMonthFetch.endExclusive
+    ),
+    queryFn: () => fetchTransactions(cockpitMonthFetch.start, cockpitMonthFetch.endExclusive),
+    enabled: !!session.userId,
+    staleTime: 60_000,
+  }));
   const cashScopeLabel = $derived.by(() => {
     if (groupFilter === "all") return m.dashboard_scope_all();
     if (groupFilter === "own") return m.dashboard_scope_own();
@@ -740,12 +753,16 @@
     };
   }
 
+  // The chart span is shorter than a household month. Counters use the full
+  // calendar fetch, and Wydatki stay empty until that fetch succeeds.
   const cockpitMonthRows = $derived.by(() => {
     const history = (cashHistoryQuery.data ?? []).map(monthRow);
     const projected = privateCashProjectedTxs.map((tx) =>
       monthRow({ ...tx, group_id: null, category_id: null })
     );
-    const listed = (txQuery.data ?? []).map(monthRow);
+    const listed = cockpitMonthLedgerQuery.isSuccess
+      ? (cockpitMonthLedgerQuery.data ?? []).map(monthRow)
+      : [];
     return [...history, ...projected, ...listed];
   });
   const cockpitMonth = $derived(
@@ -764,6 +781,7 @@
       links: spendForecastQuery.data?.links ?? [],
       saveLinkedIds,
       celeCategoryId,
+      monthLedger: cockpitMonthLedgerQuery.isSuccess ? "complete" : "partial",
     })
   );
 
@@ -787,6 +805,7 @@
   const cashPositionLoading = $derived(
     !session.userId ||
       cashAnchorQuery.isPending ||
+      cockpitMonthLedgerQuery.isLoading ||
       (!!cashAnchorQuery.data &&
         (cashHistoryQuery.isLoading ||
           recurringTemplatesQuery.isLoading ||
@@ -794,6 +813,7 @@
   );
   const cashPositionError = $derived(
     cashAnchorQuery.isError ||
+      cockpitMonthLedgerQuery.isError ||
       (!!cashAnchorQuery.data &&
         (cashHistoryQuery.isError ||
           recurringTemplatesQuery.isError ||
@@ -803,6 +823,7 @@
     void Promise.all([
       cashAnchorQuery.refetch(),
       cashHistoryQuery.refetch(),
+      cockpitMonthLedgerQuery.refetch(),
       recurringTemplatesQuery.refetch(),
       cashRecurringSkipsQuery.refetch(),
       spendForecastQuery.refetch(),

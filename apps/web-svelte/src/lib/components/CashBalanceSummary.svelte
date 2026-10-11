@@ -14,6 +14,8 @@
     paidExpenses,
     currentLabel = m.cash_position_label(),
     forecastLabel = m.cash_position_forecast_result(),
+    calculationTitle = m.cash_position_calculation_title(),
+    scopeHint = m.cash_position_scope_hint(),
     showHeadlines = true,
   }: {
     live: number;
@@ -26,6 +28,8 @@
     paidExpenses?: number;
     currentLabel?: string;
     forecastLabel?: string;
+    calculationTitle?: string;
+    scopeHint?: string;
     showHeadlines?: boolean;
   } = $props();
 </script>
@@ -55,10 +59,10 @@
 >
   <summary
     class="focus-visible:ring-accent min-h-11 cursor-pointer content-center text-sm font-medium text-slate-300 focus-visible:ring-2 focus-visible:outline-none"
-    >{m.cash_position_calculation_title()}</summary
+    >{calculationTitle}</summary
   >
   <p class="mb-3 text-xs leading-relaxed text-slate-400">
-    {m.cash_position_scope_hint()}
+    {scopeHint}
     {#if anchorDate}{m.cash_position_anchor_hint({ date: formatDate(anchorDate) })}{/if}
   </p>
   <dl class="space-y-2 text-sm">

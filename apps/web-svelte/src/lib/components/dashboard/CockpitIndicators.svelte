@@ -14,7 +14,11 @@
     orientational?: number;
   } = $props();
 
-  function amountOrMissing(amount: number | null): string {
+  function visibleAmount(amount: number | null): string {
+    return amount === null ? "-" : formatCurrency(amount);
+  }
+
+  function accessibleAmount(amount: number | null): string {
     return amount === null ? m.cockpit_missing() : formatCurrency(amount);
   }
 </script>
@@ -71,18 +75,18 @@
     class="order-2 min-w-0 rounded-2xl border border-white/5 bg-slate-950/40 px-3 py-3 md:order-1"
     data-testid="cockpit-balance"
     role="group"
-    aria-label="{m.cockpit_balance_label()}: {amountOrMissing(balance)}"
+    aria-label="{m.cockpit_balance_label()}: {accessibleAmount(balance)}"
   >
-    {@render dial(m.cockpit_balance_label(), "", amountOrMissing(balance), "balance")}
+    {@render dial(m.cockpit_balance_label(), "", visibleAmount(balance), "balance")}
   </div>
 
   <div
     class="order-3 min-w-0 rounded-2xl border border-white/5 bg-slate-950/40 px-3 py-3 md:order-2"
     data-testid="cockpit-payments"
     role="group"
-    aria-label="{m.cockpit_payments_label()}: {amountOrMissing(expenses)}"
+    aria-label="{m.cockpit_payments_label()}: {accessibleAmount(expenses)}"
   >
-    {@render dial(m.cockpit_payments_label(), "", amountOrMissing(expenses), "payments")}
+    {@render dial(m.cockpit_payments_label(), "", visibleAmount(expenses), "payments")}
     {#if orientational > 0}
       <p class="mt-1 text-center text-xs text-slate-400">
         {m.cockpit_orientational({ amount: formatCurrency(orientational) })}
@@ -94,8 +98,8 @@
     class="order-1 col-span-2 min-w-0 rounded-2xl border border-white/5 bg-slate-950/40 px-3 py-3 max-[359px]:col-span-1 md:order-3 md:col-span-1"
     data-testid="cockpit-forecast"
     role="group"
-    aria-label="{m.cockpit_forecast_label()}: {amountOrMissing(forecast)}"
+    aria-label="{m.cockpit_forecast_label()}: {accessibleAmount(forecast)}"
   >
-    {@render dial(m.cockpit_forecast_label(), "", amountOrMissing(forecast), "forecast")}
+    {@render dial(m.cockpit_forecast_label(), "", visibleAmount(forecast), "forecast")}
   </div>
 </div>

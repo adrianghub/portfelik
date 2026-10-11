@@ -4,6 +4,8 @@ import {
   calendarMonthBounds,
   calendarMonthLabel,
   cashMonthQueryValue,
+  cockpitMonthFetchBounds,
+  ledgerRangeCoversMonth,
   parseCashMonthParam,
   shiftCalendarMonth,
 } from "$lib/cockpit/month-window";
@@ -76,6 +78,21 @@ describe("calendar month window", () => {
     expect(calendarMonthBounds({ year: 2026, month: 2 }).monthEnd).toBe("2026-02-28");
   });
 
+  it("covers a month only when the fetch includes the day after it ends", () => {
+    const { monthStart, monthEnd } = calendarMonthBounds(october);
+    const bounds = cockpitMonthFetchBounds(october);
+    expect(bounds).toEqual({ start: "2026-10-01", endExclusive: "2026-11-01" });
+    expect(cockpitMonthFetchBounds({ year: 2024, month: 2 }).endExclusive).toBe("2024-03-01");
+    expect(ledgerRangeCoversMonth(bounds.start, bounds.endExclusive, monthStart, monthEnd)).toBe(
+      true
+    );
+    expect(ledgerRangeCoversMonth(monthStart, "2026-10-15", monthStart, monthEnd)).toBe(false);
+    expect(ledgerRangeCoversMonth("2026-10-02", bounds.endExclusive, monthStart, monthEnd)).toBe(
+      false
+    );
+    expect(ledgerRangeCoversMonth(monthStart, monthEnd, monthStart, monthEnd)).toBe(false);
+  });
+
   it("shifts across the year boundary and labels the month in Polish", () => {
     expect(shiftCalendarMonth({ year: 2026, month: 12 }, 1)).toEqual({ year: 2027, month: 1 });
     expect(shiftCalendarMonth({ year: 2026, month: 1 }, -1)).toEqual({ year: 2025, month: 12 });
@@ -138,6 +155,69 @@ describe("cockpit month view", () => {
     expect(all.balance).toBeNull();
     expect(all.forecast).toBeNull();
     expect(all.expenses).toBe(1_800);
+  });
+
+  it("withholds expenses when the month ledger does not cover the whole month", () => {
+    const result = view({ monthLedger: "partial" });
+    expect(result.balance).toBe(11_000);
+    expect(result.expenses).toBeNull();
+    expect(result.forecast).toBe(7_200);
+  });
+
+  it("returns no amounts for a month that ends before the anchor", () => {
+    const result = view({
+      month: { year: 2026, month: 5 },
+      privateAnchor: { opening_amount: 12_000, as_of_date: "2026-06-01" },
+      rows: [row({ id: "tx-may", amount: 300, date: "2026-05-10" })],
+      items: [],
+      links: [],
+    });
+    expect(result.balance).toBeNull();
+    expect(result.expenses).toBeNull();
+    expect(result.forecast).toBeNull();
+  });
+
+  it("counts only the part of a past month that is on or after the anchor", () => {
+    const result = view({
+      month: { year: 2026, month: 6 },
+      privateAnchor: { opening_amount: 12_000, as_of_date: "2026-06-15" },
+      rows: [
+        row({ id: "tx-before", amount: 300, date: "2026-06-10" }),
+        row({ id: "tx-after", amount: 500, date: "2026-06-20" }),
+        row({ id: "tx-income", type: "income", amount: 200, date: "2026-06-18" }),
+      ],
+      items: [],
+      links: [],
+    });
+    expect(result.balance).toBeNull();
+    expect(result.expenses).toBe(500);
+    expect(result.forecast).toBe(11_700);
+  });
+
+  it("uses the opening amount when a past month starts on the anchor date", () => {
+    const result = view({
+      month: { year: 2026, month: 9 },
+      privateAnchor: { opening_amount: 12_000, as_of_date: "2026-09-01" },
+      rows: [row({ id: "tx-september", amount: 400, date: "2026-09-10" })],
+      items: [],
+      links: [],
+    });
+    expect(result.balance).toBe(12_000);
+    expect(result.expenses).toBe(400);
+    expect(result.forecast).toBe(11_600);
+  });
+
+  it("uses the opening amount when a future month starts on the anchor date", () => {
+    const result = view({
+      month: { year: 2026, month: 11 },
+      privateAnchor: { opening_amount: 9_000, as_of_date: "2026-11-01" },
+      rows: [row({ id: "tx-november", amount: 100, status: "upcoming", date: "2026-11-02" })],
+      items: [],
+      links: [],
+    });
+    expect(result.balance).toBe(9_000);
+    expect(result.expenses).toBe(100);
+    expect(result.forecast).toBe(8_900);
   });
 
   it("leaves another month's payment out of the selected month", () => {

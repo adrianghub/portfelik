@@ -47,6 +47,8 @@
     error?: boolean;
     onRetry?: () => void;
   } = $props();
+
+  let openingHelpOpen = $state(false);
 </script>
 
 {#if loading}
@@ -111,8 +113,10 @@
           {openingAmount}
           {paidIncome}
           {paidExpenses}
-          currentLabel={m.dashboard_cash_now()}
-          forecastLabel={m.dashboard_cash_after_upcoming()}
+          currentLabel={m.cockpit_today_now()}
+          forecastLabel={m.cockpit_today_horizon()}
+          calculationTitle={m.cockpit_today_calculation_title()}
+          scopeHint={m.cockpit_today_hint()}
           showHeadlines={false}
         />
       </div>
@@ -122,11 +126,26 @@
         >{m.cash_position_transactions_link()}</a
       >
     {:else if showPrivateDetails}
-      <a
-        href="/transactions?group=own"
-        class="focus-visible:ring-accent mt-3 flex min-h-11 items-center text-sm font-medium text-slate-300 focus-visible:ring-2 focus-visible:outline-none"
-        >{m.cash_position_set_hint()}</a
-      >
+      <div class="mt-3 flex min-h-11 items-center gap-1">
+        <a
+          href="/transactions?group=own"
+          class="focus-visible:ring-accent inline-flex min-h-11 items-center text-sm font-medium text-slate-300 focus-visible:ring-2 focus-visible:outline-none"
+          >{m.cockpit_set_opening()}</a
+        >
+        <button
+          type="button"
+          class="focus-visible:ring-accent inline-flex size-8 items-center justify-center rounded-full text-sm text-slate-400 hover:bg-white/5 hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
+          aria-expanded={openingHelpOpen}
+          aria-controls="cockpit-opening-help"
+          aria-label={m.cockpit_opening_help_label()}
+          onclick={() => (openingHelpOpen = !openingHelpOpen)}>?</button
+        >
+      </div>
+      {#if openingHelpOpen}
+        <p id="cockpit-opening-help" class="pb-1 text-xs leading-relaxed text-slate-400">
+          {m.cockpit_opening_help()}
+        </p>
+      {/if}
     {/if}
   </section>
 {/if}
