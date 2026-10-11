@@ -111,8 +111,9 @@ Nie jest różnicą salda i płatności. Nie ma zapisanej poduszki, więc póło
 Nie wypełniamy go procentem.
 
 Filtr miesiąca jest osobnym oknem tego samego silnika, nie drugim liczeniem.
-Układ Kokpitu jeszcze go nie pokazuje. Nazwy zostają: Stan salda, Wydatki,
-Prognoza.
+Ustawia trzy liczniki: Stan salda, Wydatki, Prognoza. Tydzień, rok i własny
+zakres tego nie zmieniają. Pierścień bilansu, kategorie i wykres zostają na
+dotychczasowych miejscach.
 
 Bieżący miesiąc: Stan salda to saldo na dziś. Wydatki to opłacone wydatki od
 początku miesiąca do dziś, plus nierozliczone potwierdzone zobowiązania do
@@ -126,13 +127,19 @@ miesiąca.
 
 Zakres Wszystkie nie pokazuje wspólnego salda ani wspólnej prognozy. Nie
 sumujemy niezależnych pul gotówki i nie podstawiamy prywatnej kotwicy pod Dom.
-Brak kotwicy zakresu zostawia Stan salda i Prognozę puste. Wydatki nadal liczą
-znane ruchy.
+Brak kotwicy zakresu zostawia Stan salda i Prognozę puste. Prywatne Wydatki
+nadal liczą znane ruchy. Wydatki Domu i Wszystkie zostają puste, dopóki nie
+obejmują potwierdzonych reszt planów i niematerializowanych transakcji
+cyklicznych. Nie pokazujemy wtedy zera. Krótkie objaśnienie jest pod znakiem
+zapytania.
 
 Nie ma kwoty na datę sprzed kotwicy. Nie ma prognozy, której data końcowa
 wypada po dziś plus 90 dni. Miesiąc, który zaczyna się w tym horyzoncie, a
 kończy po nim, może mieć Stan salda i nie ma Prognozy. Nie pokazujemy części
-miesiąca jako pełnej prognozy.
+miesiąca jako pełnej prognozy. Wydatki też pokazujemy tylko wtedy, gdy pobrane
+transakcje obejmują cały miesiąc. Inaczej ten licznik zostaje pusty. Gdy
+prywatna kotwica wypada w środku wybranego miesiąca, Wydatki liczą się od tego
+dnia i mają oznaczenie początku zakresu.
 
 Zaległe z poprzednich miesięcy zostają poza Wydatkami tego miesiąca i nadal są
 wyjątkiem. Zaległe z datą w tym miesiącu wchodzą do Wydatków. Płatność

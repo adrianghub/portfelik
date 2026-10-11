@@ -52,8 +52,15 @@
     resolveCeleCategoryId,
   } from "$lib/services/goal-spending";
   import { fetchRecurringOccurrenceSkips } from "$lib/services/recurring-occurrences";
-  import { addLocalDays, localDateIso } from "$lib/date-local";
-  import { COCKPIT_HORIZON_DAYS, cockpitIndicators } from "$lib/cockpit/indicators";
+  import { localDateIso } from "$lib/date-local";
+  import { buildCockpitMonthView, type CockpitMonthRow } from "$lib/cockpit/month-view";
+  import {
+    calendarMonthLabel,
+    cashMonthQueryValue,
+    cockpitMonthFetchBounds,
+    parseCashMonthParam,
+    shiftCalendarMonth,
+  } from "$lib/cockpit/month-window";
   import {
     CASH_FETCH_END_SENTINEL,
     cashForecastHorizonEnd,
@@ -700,22 +707,90 @@
     horizonEnd: cashForecastHorizon,
   });
   const currentCashPosition = $derived(livePosition(cashAnchorQuery.data ?? null, cashPositionTxs));
-  const cockpitHorizonEnd = $derived(addLocalDays(cashForecastToday, COCKPIT_HORIZON_DAYS));
-  const cockpit = $derived(
-    cockpitIndicators({
-      scope: { kind: "private" },
-      anchor: cashAnchorQuery.data
+  const cashMonth = $derived(
+    parseCashMonthParam($page.url.searchParams.get("cashMonth"), cashForecastToday)
+  );
+  const cashMonthLabel = $derived(calendarMonthLabel(cashMonth));
+  const cockpitMonthFetch = $derived(cockpitMonthFetchBounds(cashMonth));
+  const cockpitMonthLedgerQuery = createQuery(() => ({
+    queryKey: qk.transactions.list(
+      session.userId!,
+      "cockpit-month",
+      cockpitMonthFetch.start,
+      cockpitMonthFetch.endExclusive
+    ),
+    queryFn: () => fetchTransactions(cockpitMonthFetch.start, cockpitMonthFetch.endExclusive),
+    enabled: !!session.userId,
+    staleTime: 60_000,
+  }));
+  const cashScopeLabel = $derived.by(() => {
+    if (groupFilter === "all") return m.dashboard_scope_all();
+    if (groupFilter === "own") return m.dashboard_scope_own();
+    return (
+      groupsQuery.data?.find((group) => group.id === groupFilter)?.name ?? m.visual_icon_home()
+    );
+  });
+
+  function monthRow(tx: {
+    id: string;
+    type: "income" | "expense";
+    amount: number;
+    status: string;
+    date: string;
+    currency: string;
+    group_id?: string | null;
+    category_id?: string | null;
+  }): CockpitMonthRow {
+    return {
+      id: tx.id,
+      type: tx.type,
+      amount: tx.amount,
+      status: tx.status,
+      date: tx.date,
+      currency: tx.currency,
+      groupId: tx.group_id ?? null,
+      categoryId: tx.category_id ?? null,
+    };
+  }
+
+  // The chart span is shorter than a household month. Counters use the full
+  // calendar fetch, and Wydatki stay empty until that fetch succeeds.
+  const cockpitMonthRows = $derived.by(() => {
+    const history = (cashHistoryQuery.data ?? []).map(monthRow);
+    const projected = privateCashProjectedTxs.map((tx) =>
+      monthRow({ ...tx, group_id: null, category_id: null })
+    );
+    const listed = cockpitMonthLedgerQuery.isSuccess
+      ? (cockpitMonthLedgerQuery.data ?? []).map(monthRow)
+      : [];
+    return [...history, ...projected, ...listed];
+  });
+  const cockpitMonth = $derived(
+    buildCockpitMonthView({
+      scopeFilter: groupFilter,
+      month: cashMonth,
+      today: cashForecastToday,
+      privateAnchor: cashAnchorQuery.data
         ? {
             opening_amount: cashAnchorQuery.data.opening_amount,
             as_of_date: cashAnchorQuery.data.as_of_date,
           }
         : null,
-      transactions: cashPositionTxs,
+      rows: cockpitMonthRows,
       items: spendForecastQuery.data?.items ?? [],
       links: spendForecastQuery.data?.links ?? [],
-      today: cashForecastToday,
+      saveLinkedIds,
+      celeCategoryId,
+      monthLedger: cockpitMonthLedgerQuery.isSuccess ? "complete" : "partial",
     })
   );
+
+  function shiftCashMonth(delta: number) {
+    const next = shiftCalendarMonth(cashMonth, delta);
+    syncListViewUrl("/dashboard", $page.url.searchParams, {
+      cashMonth: cashMonthQueryValue(next, cashForecastToday),
+    });
+  }
   const cashRecordedMovements = $derived(
     liveMovementTotals(cashAnchorQuery.data ?? null, cashPositionTxs)
   );
@@ -730,6 +805,7 @@
   const cashPositionLoading = $derived(
     !session.userId ||
       cashAnchorQuery.isPending ||
+      cockpitMonthLedgerQuery.isLoading ||
       (!!cashAnchorQuery.data &&
         (cashHistoryQuery.isLoading ||
           recurringTemplatesQuery.isLoading ||
@@ -737,6 +813,7 @@
   );
   const cashPositionError = $derived(
     cashAnchorQuery.isError ||
+      cockpitMonthLedgerQuery.isError ||
       (!!cashAnchorQuery.data &&
         (cashHistoryQuery.isError ||
           recurringTemplatesQuery.isError ||
@@ -746,6 +823,7 @@
     void Promise.all([
       cashAnchorQuery.refetch(),
       cashHistoryQuery.refetch(),
+      cockpitMonthLedgerQuery.refetch(),
       recurringTemplatesQuery.refetch(),
       cashRecurringSkipsQuery.refetch(),
       spendForecastQuery.refetch(),
@@ -1036,12 +1114,16 @@
       paidIncome={cashRecordedMovements.paidIncome}
       paidExpenses={cashRecordedMovements.paidExpenses}
       hasAnchor={!!cashAnchorQuery.data}
-      balance={cockpit.balance}
-      payments30={cockpit.payments30}
-      forecast30={cockpit.forecast30}
-      forecastDate={cockpitHorizonEnd}
-      overdue={cockpit.overdue}
-      orientational30={cockpit.orientational30}
+      showPrivateDetails={groupFilter === "own"}
+      scopeLabel={cashScopeLabel}
+      monthLabel={cashMonthLabel}
+      onMonthShift={shiftCashMonth}
+      balance={cockpitMonth.balance}
+      expenses={cockpitMonth.expenses}
+      expensesFrom={cockpitMonth.expensesFrom}
+      expensesIncomplete={cockpitMonth.expensesIncomplete}
+      monthForecast={cockpitMonth.forecast}
+      orientational={cockpitMonth.orientational}
       loading={cashPositionLoading}
       error={cashPositionError}
       onRetry={retryCashPosition}

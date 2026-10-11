@@ -57,7 +57,7 @@ test.describe("dashboard mobile layout", () => {
     await expect(page.getByRole("heading", { name: "Hej, Adrian!" })).toBeVisible();
   });
 
-  test("shows the full profile name and the 30-day cockpit indicators", async ({ page }) => {
+  test("shows the full profile name and the month cockpit indicators", async ({ page }) => {
     const today = isoDaysFromToday(0);
     const cashRows = [
       {
@@ -86,7 +86,7 @@ test.describe("dashboard mobile layout", () => {
       },
       {
         id: "dashboard-cash-upcoming",
-        date: isoDaysFromToday(7),
+        date: today,
         description: "Rachunek",
         amount: 300,
         type: "expense",
@@ -133,11 +133,11 @@ test.describe("dashboard mobile layout", () => {
 
     await expect(page.getByRole("heading", { name: "Hej, Mr. Zinko!" })).toBeVisible();
     const cash = page.getByTestId("dashboard-cash-position");
-    await expect(cash.getByText("Saldo kont", { exact: true })).toBeVisible();
-    await expect(cash.getByText("Płatności", { exact: true })).toBeVisible();
+    await expect(cash.getByText("Stan salda", { exact: true })).toBeVisible();
+    await expect(cash.getByText("Wydatki", { exact: true })).toBeVisible();
     await expect(cash.getByText("Prognoza", { exact: true })).toBeVisible();
     await expect(cash.getByTestId("cockpit-balance")).toContainText(/1\D?300,00/);
-    await expect(cash.getByTestId("cockpit-payments")).toContainText(/300,00/);
+    await expect(cash.getByTestId("cockpit-payments")).toContainText(/500,00/);
     await expect(cash.getByTestId("cockpit-forecast")).toContainText(/1\D?000,00/);
     const forecastBox = await cash.getByTestId("cockpit-forecast").boundingBox();
     const balanceBox = await cash.getByTestId("cockpit-balance").boundingBox();
@@ -147,7 +147,7 @@ test.describe("dashboard mobile layout", () => {
     expect(forecastBox!.width).toBeGreaterThan(balanceBox!.width + 40);
     expect(Math.abs(balanceBox!.y - paymentsBox!.y)).toBeLessThan(8);
     const balanceArc = await cash.getByTestId("cockpit-balance").locator("svg").boundingBox();
-    const balanceLabel = await cash.getByText("Saldo kont", { exact: true }).boundingBox();
+    const balanceLabel = await cash.getByText("Stan salda", { exact: true }).boundingBox();
     const balanceAmount = await cash
       .getByTestId("cockpit-balance")
       .getByText(/1\D?300,00/)
@@ -207,9 +207,190 @@ test.describe("dashboard mobile layout", () => {
     });
     await page.setViewportSize({ width: 1280, height: 800 });
 
-    await cash.getByText("Jak obliczamy saldo i prognozę?", { exact: true }).click();
+    await cash.getByRole("button", { name: "Następny miesiąc" }).click();
+    await expect(page).toHaveURL(/cashMonth=/);
+    await expect(cash.getByTestId("cockpit-payments")).toContainText(/0,00/);
+    await expect(cash.getByTestId("cockpit-balance")).toContainText(/1\D?000,00/);
+    await cash.getByRole("button", { name: "Poprzedni miesiąc" }).click();
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(cash.getByTestId("cockpit-payments")).toContainText(/500,00/);
+
+    await cash.getByText("Wyliczenie na dziś i 90 dni", { exact: true }).click();
     await expect(cash.getByText("Zaksięgowane wpływy", { exact: true })).toBeVisible();
     await expect(cash.getByText("Zaksięgowane wydatki", { exact: true })).toBeVisible();
+    await expect(cash.getByText("Saldo na dziś", { exact: true })).toBeVisible();
+    await expect(cash).toContainText("osobno od liczników wybranego miesiąca");
+    await expect(cash).not.toContainText("Wybór okresu i filtrów nie zmienia tych kwot");
+    await expect(cash).not.toContainText("Dostępne teraz");
+  });
+
+  test("missing opening balance shows a dash and one short action", async ({ page }) => {
+    await page.goto("/dashboard");
+    const cash = page.getByTestId("dashboard-cash-position");
+    await expect(cash.getByTestId("cockpit-balance")).toContainText("-");
+    await expect(cash.getByTestId("cockpit-forecast")).toContainText("-");
+    await expect(cash.getByText("Brak danych", { exact: true })).toHaveCount(0);
+    await expect(cash.getByTestId("cockpit-balance")).toHaveAttribute(
+      "aria-label",
+      "Stan salda: Brak danych"
+    );
+    const action = cash.getByRole("link", { name: "Ustaw saldo początkowe", exact: true });
+    await expect(action).toBeVisible();
+    await expect(action).toHaveAttribute("href", "/transactions?group=own");
+    await expect(cash).not.toContainText("aby zobaczyć saldo i prognozę");
+    const help = cash.getByRole("button", { name: "Objaśnienie" });
+    await help.click();
+    await expect(help).toHaveAttribute("aria-expanded", "true");
+    await expect(
+      cash.getByText("Saldo i prognoza pojawią się po ustawieniu salda początkowego.")
+    ).toBeVisible();
+  });
+
+  test("expenses clipped by an anchor show the start day", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-06-20T10:00:00.000Z"));
+    const rows = [
+      {
+        id: "before-anchor",
+        date: "2026-06-10",
+        description: "Przed",
+        amount: 300,
+        type: "expense",
+        status: "paid",
+        currency: "PLN",
+        user_id: TEST_USER_ID,
+        group_id: null,
+        is_recurring: false,
+      },
+      {
+        id: "after-anchor",
+        date: "2026-06-16",
+        description: "Po",
+        amount: 500,
+        type: "expense",
+        status: "paid",
+        currency: "PLN",
+        user_id: TEST_USER_ID,
+        group_id: null,
+        is_recurring: false,
+      },
+    ];
+    await page.route("**/rest/v1/cash_positions**", (route) =>
+      route.fulfill({
+        status: 200,
+        json: {
+          owner_id: TEST_USER_ID,
+          group_id: null,
+          opening_amount: 12000,
+          as_of_date: "2026-06-15",
+        },
+      })
+    );
+    await page.route("**/rest/v1/transactions_with_category**", (route) => {
+      const url = route.request().url();
+      return route.fulfill({
+        status: 200,
+        json: url.includes("is_recurring=eq.true") ? [] : rows,
+      });
+    });
+
+    await page.goto("/dashboard");
+    const payments = page.getByTestId("cockpit-payments");
+    await expect(payments).toContainText(/500,00/);
+    await expect(payments).not.toContainText(/800,00/);
+    await expect(payments.getByTestId("cockpit-expenses-from")).toHaveText("Od 15.06");
+    const help = payments.getByRole("button", { name: "Zakres wydatków" });
+    await help.click();
+    await expect(help).toHaveAttribute("aria-expanded", "true");
+    await expect(payments).toContainText(
+      "Wydatki obejmują okres od 15.06, od dnia salda początkowego."
+    );
+  });
+
+  test("household expenses stay blank until their sources are complete", async ({ page }) => {
+    const today = isoDaysFromToday(0);
+    await page.route("**/rest/v1/transactions_with_category**", (route) => {
+      const url = route.request().url();
+      return route.fulfill({
+        status: 200,
+        json: url.includes("is_recurring=eq.true")
+          ? []
+          : [
+              {
+                id: "dom-expense",
+                date: today,
+                description: "Czynsz",
+                amount: 400,
+                type: "expense",
+                status: "paid",
+                currency: "PLN",
+                user_id: TEST_USER_ID,
+                group_id: "group-dom",
+                is_recurring: false,
+              },
+            ],
+      });
+    });
+
+    await page.goto("/dashboard?group=group-dom");
+    const payments = page.getByTestId("cockpit-payments");
+    await expect(payments).toHaveAttribute("aria-label", "Wydatki: Brak danych");
+    await expect(payments).toContainText("-");
+    await expect(payments).not.toContainText("400");
+    await expect(payments).not.toContainText("0,00");
+    const help = payments.getByRole("button", { name: "Kompletność wydatków" });
+    await help.click();
+    await expect(help).toHaveAttribute("aria-expanded", "true");
+    await expect(payments).toContainText(
+      "Wydatki pokażemy, gdy obejmą transakcje, potwierdzone zobowiązania i serie cykliczne."
+    );
+  });
+
+  test("all-scope expenses stay blank until their sources are complete", async ({ page }) => {
+    const today = isoDaysFromToday(0);
+    await page.route("**/rest/v1/transactions_with_category**", (route) => {
+      const url = route.request().url();
+      return route.fulfill({
+        status: 200,
+        json: url.includes("is_recurring=eq.true")
+          ? []
+          : [
+              {
+                id: "own-expense",
+                date: today,
+                description: "Zakup",
+                amount: 250,
+                type: "expense",
+                status: "paid",
+                currency: "PLN",
+                user_id: TEST_USER_ID,
+                group_id: null,
+                is_recurring: false,
+              },
+              {
+                id: "dom-expense",
+                date: today,
+                description: "Czynsz",
+                amount: 400,
+                type: "expense",
+                status: "paid",
+                currency: "PLN",
+                user_id: TEST_USER_ID,
+                group_id: "group-dom",
+                is_recurring: false,
+              },
+            ],
+      });
+    });
+
+    await page.goto("/dashboard?group=all");
+    const payments = page.getByTestId("cockpit-payments");
+    await expect(payments).toContainText("-");
+    await expect(payments).not.toContainText("250");
+    await expect(payments).not.toContainText("400");
+    await expect(payments).not.toContainText("650");
+    await expect(payments).not.toContainText("0,00");
+    await payments.getByRole("button", { name: "Kompletność wydatków" }).click();
+    await expect(payments).toContainText("potwierdzone zobowiązania i serie cykliczne");
   });
 
   test("first visit renders cash while unrelated plans and demo checks are still pending", async ({
@@ -293,7 +474,7 @@ test.describe("dashboard mobile layout", () => {
         json: [
           {
             id: "wide-upcoming",
-            date: isoDaysFromToday(3),
+            date: today,
             description: "Rachunek",
             amount: 1_500_000,
             type: "expense",
