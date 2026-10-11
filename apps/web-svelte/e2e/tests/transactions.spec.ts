@@ -220,7 +220,7 @@ test("single delete: confirm dialog then success toast", async ({ page }) => {
   // Click the first data row to open the detail sheet.
   // Due to Svelte 5 event delegation, clicking the delete button inside a role="button" TR
   // fires the row's onclick; so we use the sheet's own delete button instead.
-  await desktopTable(page).locator("tbody tr").first().click();
+  await desktopTable(page).locator("tbody tr").filter({ has: page.locator("td") }).first().click();
 
   // Detail sheet appears
   const sheet = page.locator("aside");

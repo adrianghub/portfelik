@@ -110,7 +110,10 @@ test("balance save survives reload and export contains the saved balance", async
   await dialog.getByRole("button", { name: "Zapisz", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await page.reload();
-  await expect(page.getByTestId("transaction-cash-position")).toContainText("2 635,81 zł");
+  await page.getByRole("button", { name: "Zmień saldo początkowe", exact: true }).click();
+  const saved = page.getByRole("dialog", { name: "Saldo z transakcji" });
+  await expect(saved.locator("#cash-opening-amount")).toHaveValue(/2635[.,]81/);
+  await saved.getByRole("button", { name: "Anuluj", exact: true }).click();
   const bundle = await exportBundle(page);
   expect(bundle.cash_positions).toHaveLength(1);
   expect(Number(bundle.cash_positions[0].opening_amount)).toBe(2635.81);

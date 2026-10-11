@@ -227,13 +227,15 @@
     history: m.transactions_band_history,
   };
 
-  const cardBands = $derived.by(() =>
+  const transactionBands = $derived.by(() =>
     partitionTransactionCards(sortedTransactions).map((band) => ({
       id: band.id,
       title: band.titled ? bandTitle[band.id]() : null,
+      rows: band.rows,
       groups: groupByDay(band.rows),
     }))
   );
+  const desktopColumnCount = $derived(ondelete ? 6 : 5);
 </script>
 
 {#snippet sortIndicator(key: SortKey)}
@@ -296,7 +298,7 @@
     class={cn("space-y-3", layout === "responsive" && "sm:hidden")}
     aria-label={m.transactions_title()}
   >
-    {#each cardBands as band (band.id)}
+    {#each transactionBands as band (band.id)}
       <div class="space-y-3">
         {#if band.title}
           <h2 class="text-eyebrow px-1 text-slate-300">{band.title}</h2>
@@ -535,131 +537,146 @@
             </th>
           </tr>
         </thead>
-        <tbody>
-          {#each sortedTransactions as tx (tx.id)}
-            <tr
-              class={cn(
-                "border-b border-white/5 transition-colors last:border-0 hover:bg-white/5",
-                isProjected(tx) && "bg-sky-950/15",
-                !!onrowclick && "cursor-pointer",
-                selectedIds.has(tx.id) && "bg-white/5"
-              )}
-              role={rowActsAsButton(tx) ? "button" : undefined}
-              tabindex={rowActsAsButton(tx) ? 0 : undefined}
-              onclick={() => onrowclick?.(tx)}
-              onkeydown={(e) => {
-                if (!rowActsAsButton(tx)) return;
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  onrowclick?.(tx);
-                }
-              }}
-            >
-              {#if ondelete && canManage(tx)}
-                <td class="w-10 py-3 pl-4">
-                  <button
-                    type="button"
-                    onclick={(e) => {
-                      e.stopPropagation();
-                      toggleOne(tx.id);
-                    }}
-                    class="flex h-4 w-4 items-center justify-center rounded border transition-colors {selectedIds.has(
-                      tx.id
-                    )
-                      ? 'bg-accent-gradient border-transparent'
-                      : 'border-white/15 hover:border-white/30'}"
-                    aria-label={m.transactions_select_all()}
-                  >
-                    {#if selectedIds.has(tx.id)}
-                      <Check size={11} strokeWidth={2.5} class="text-slate-900" />
-                    {/if}
-                  </button>
-                </td>
-              {:else if ondelete}
-                <td class="w-10 py-3 pl-4" aria-hidden="true"></td>
-              {/if}
-              <td class="px-4 py-3 whitespace-nowrap text-slate-400">{formatDate(tx.date)}</td>
-              <td class="px-4 py-3 text-slate-100">
-                {#if tx.counterparty?.trim()}
-                  <div class="truncate font-medium">{tx.counterparty}</div>
-                  {#if tx.description}
-                    <div class="truncate text-xs text-slate-400">{tx.description}</div>
-                  {/if}
-                {:else}
-                  <span class="block truncate">{tx.description}</span>
-                {/if}
-                {#if isProjected(tx)}
-                  <span
-                    class="ml-1 text-xs text-sky-300/70"
-                    title={m.transactions_projected_hint()}
-                    aria-label={m.transactions_recurring_payment_forecast()}>↻</span
-                  >
-                {:else if isRecurringOccurrence(tx) || tx.is_recurring}
-                  <span
-                    class="ml-1 text-xs text-slate-400"
-                    title={m.transactions_recurring_occurrence_hint()}
-                    aria-label={m.transactions_recurring_payment()}>↻</span
-                  >
-                {/if}
-                {#if isShared(tx)}
-                  <span
-                    class="border-accent/20 bg-accent/10 text-accent ml-1 inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px]"
-                  >
-                    <Users size={10} />
-                  </span>
-                {/if}
-                {#if tx.is_hold}
-                  <span
-                    class="ml-1 text-[10px] font-normal text-slate-400"
-                    title={m.bank_review_hold_hint()}>{m.bank_review_hold_badge()}</span
-                  >
-                {/if}
-              </td>
-              <td class="px-4 py-3 text-slate-400">
-                <span class="block truncate">{tx.category_name}</span>
-              </td>
-              <td class="px-4 py-3">
-                <div class="flex flex-col items-start gap-2">
-                  <span
-                    class={cn(
-                      "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                      statusClass[tx.status] ??
-                        "border border-white/10 bg-slate-800/60 text-slate-400"
-                    )}
-                  >
-                    {statusLabel[tx.status] ?? tx.status}
-                  </span>
-                  {#if onsettle && !isProjected(tx) && isQuickSettleEligible(tx.status) && canManage(tx)}
+        {#each transactionBands as band (band.id)}
+          <tbody>
+            {#if band.title}
+              <tr class="border-b border-white/5 bg-slate-950/40">
+                <th
+                  colspan={desktopColumnCount}
+                  scope="colgroup"
+                  class="text-eyebrow px-4 py-2 text-left font-medium text-slate-300"
+                  data-testid="transaction-band-{band.id}"
+                >
+                  {band.title}
+                </th>
+              </tr>
+            {/if}
+            {#each band.rows as tx (tx.id)}
+              <tr
+                class={cn(
+                  "border-b border-white/5 transition-colors last:border-0 hover:bg-white/5",
+                  tx.status === "overdue" && "bg-rose-950/25",
+                  (tx.status === "upcoming" || isProjected(tx)) && "bg-sky-950/20",
+                  !!onrowclick && "cursor-pointer",
+                  selectedIds.has(tx.id) && "bg-white/5"
+                )}
+                role={rowActsAsButton(tx) ? "button" : undefined}
+                tabindex={rowActsAsButton(tx) ? 0 : undefined}
+                onclick={() => onrowclick?.(tx)}
+                onkeydown={(e) => {
+                  if (!rowActsAsButton(tx)) return;
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onrowclick?.(tx);
+                  }
+                }}
+              >
+                {#if ondelete && canManage(tx)}
+                  <td class="w-10 py-3 pl-4">
                     <button
                       type="button"
                       onclick={(e) => {
                         e.stopPropagation();
-                        onsettle?.(tx);
+                        toggleOne(tx.id);
                       }}
-                      class="focus-visible:ring-accent text-accent inline-flex min-h-8 items-center gap-1 text-xs font-medium whitespace-nowrap underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-none"
-                      aria-label={tx.type === "income"
-                        ? m.transactions_quick_settle_income()
-                        : m.transactions_quick_settle()}
+                      class="flex h-4 w-4 items-center justify-center rounded border transition-colors {selectedIds.has(
+                        tx.id
+                      )
+                        ? 'bg-accent-gradient border-transparent'
+                        : 'border-white/15 hover:border-white/30'}"
+                      aria-label={m.transactions_select_all()}
                     >
-                      <Check size={13} strokeWidth={1.8} aria-hidden="true" />
-                      {tx.type === "income"
-                        ? m.transactions_quick_settle_income()
-                        : m.transactions_quick_settle()}
+                      {#if selectedIds.has(tx.id)}
+                        <Check size={11} strokeWidth={2.5} class="text-slate-900" />
+                      {/if}
                     </button>
+                  </td>
+                {:else if ondelete}
+                  <td class="w-10 py-3 pl-4" aria-hidden="true"></td>
+                {/if}
+                <td class="px-4 py-3 whitespace-nowrap text-slate-400">{formatDate(tx.date)}</td>
+                <td class="px-4 py-3 text-slate-100">
+                  {#if tx.counterparty?.trim()}
+                    <div class="truncate font-medium">{tx.counterparty}</div>
+                    {#if tx.description}
+                      <div class="truncate text-xs text-slate-400">{tx.description}</div>
+                    {/if}
+                  {:else}
+                    <span class="block truncate">{tx.description}</span>
                   {/if}
-                </div>
-              </td>
-              <td
-                class={cn(
-                  "px-4 py-3 text-right font-semibold whitespace-nowrap tabular-nums",
-                  tx.type === "income" ? "text-emerald-300" : "text-rose-300"
-                )}
-              >
-                {tx.type === "income" ? "+" : "−"}{formatCurrency(tx.amount, tx.currency)}
-              </td>
-            </tr>
-          {/each}
-        </tbody>
+                  {#if isProjected(tx)}
+                    <span
+                      class="ml-1 text-xs text-sky-300/70"
+                      title={m.transactions_projected_hint()}
+                      aria-label={m.transactions_recurring_payment_forecast()}>↻</span
+                    >
+                  {:else if isRecurringOccurrence(tx) || tx.is_recurring}
+                    <span
+                      class="ml-1 text-xs text-slate-400"
+                      title={m.transactions_recurring_occurrence_hint()}
+                      aria-label={m.transactions_recurring_payment()}>↻</span
+                    >
+                  {/if}
+                  {#if isShared(tx)}
+                    <span
+                      class="border-accent/20 bg-accent/10 text-accent ml-1 inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px]"
+                    >
+                      <Users size={10} />
+                    </span>
+                  {/if}
+                  {#if tx.is_hold}
+                    <span
+                      class="ml-1 text-[10px] font-normal text-slate-400"
+                      title={m.bank_review_hold_hint()}>{m.bank_review_hold_badge()}</span
+                    >
+                  {/if}
+                </td>
+                <td class="px-4 py-3 text-slate-400">
+                  <span class="block truncate">{tx.category_name}</span>
+                </td>
+                <td class="px-4 py-3">
+                  <div class="flex flex-col items-start gap-2">
+                    <span
+                      class={cn(
+                        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                        statusClass[tx.status] ??
+                          "border border-white/10 bg-slate-800/60 text-slate-400"
+                      )}
+                    >
+                      {statusLabel[tx.status] ?? tx.status}
+                    </span>
+                    {#if onsettle && !isProjected(tx) && isQuickSettleEligible(tx.status) && canManage(tx)}
+                      <button
+                        type="button"
+                        onclick={(e) => {
+                          e.stopPropagation();
+                          onsettle?.(tx);
+                        }}
+                        class="focus-visible:ring-accent text-accent inline-flex min-h-8 items-center gap-1 text-xs font-medium whitespace-nowrap underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+                        aria-label={tx.type === "income"
+                          ? m.transactions_quick_settle_income()
+                          : m.transactions_quick_settle()}
+                      >
+                        <Check size={13} strokeWidth={1.8} aria-hidden="true" />
+                        {tx.type === "income"
+                          ? m.transactions_quick_settle_income()
+                          : m.transactions_quick_settle()}
+                      </button>
+                    {/if}
+                  </div>
+                </td>
+                <td
+                  class={cn(
+                    "px-4 py-3 text-right font-semibold whitespace-nowrap tabular-nums",
+                    tx.type === "income" ? "text-emerald-300" : "text-rose-300"
+                  )}
+                >
+                  {tx.type === "income" ? "+" : "−"}{formatCurrency(tx.amount, tx.currency)}
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        {/each}
       </table>
     </div>
   {/if}

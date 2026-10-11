@@ -101,29 +101,34 @@ async function mockCash(
   }
 }
 
-test("private scope: strip shows live total and forecast", async ({ page }) => {
+test("private scope keeps the opening-balance editor off the list", async ({ page }) => {
   await mockCash(page);
   await page.goto("/transactions?group=own");
 
-  // Strip renders the live cash position. It first paints the opening balance,
-  // then settles to live once the paid-history query resolves, so wait for the
-  // settled value (auto-retrying).
-  await expect(strip(page)).toBeVisible();
-  await expect(strip(page).locator("p.text-3xl")).toHaveText(/1\D?300,00/); // 1000 + 500 − 200
+  await expect(page.getByText("Prognoza salda")).toHaveCount(0);
+  await expect(page.locator("p.text-3xl")).toHaveCount(0);
+  const table = desktopTable(page);
+  await expect(table.getByRole("columnheader", { name: "Nadchodzące", exact: true })).toBeVisible();
+  await expect(table.getByRole("columnheader", { name: "Historia", exact: true })).toBeVisible();
 
-  const forecast = strip(page).locator("p.text-2xl");
-  await expect(forecast).toBeVisible();
-  await expect(forecast).toContainText(/1\D?600,00/);
+  await expect(strip(page)).toBeVisible();
+  await strip(page).getByRole("button", { name: "Zmień saldo początkowe" }).click();
+
+  const sheet = page.getByRole("dialog", { name: "Saldo z transakcji" });
+  await expect(sheet).toBeVisible();
+  await expect(sheet).toContainText(/1\D?300,00/);
+  await expect(sheet).not.toContainText("Prognoza salda");
 });
 
-test("solo user (no groups) sees the cash view in the default scope", async ({ page }) => {
+test("solo user (no groups) can still edit the opening balance", async ({ page }) => {
   // No groups → no own/all tabs; the page defaults to scope "all", but every row
-  // is private so the pool must still be reachable.
+  // is private so the editor must still be reachable.
   await mockCash(page); // default mock returns [] for user_groups
   await page.goto("/transactions");
 
   await expect(strip(page)).toBeVisible();
-  await expect(strip(page).locator("p.text-3xl")).toHaveText(/1\D?300,00/);
+  await expect(page.locator("p.text-3xl")).toHaveCount(0);
+  await expect(strip(page).getByRole("button", { name: "Zmień saldo początkowe" })).toBeVisible();
 });
 
 test("group user: mixed all scope hides the cash view, own scope shows it", async ({ page }) => {
