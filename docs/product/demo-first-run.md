@@ -89,4 +89,5 @@ wyłącznie kotwicy przykładu, seed jej nie zapisuje. Własna kotwica nigdy nie
 jest wymieniana na przykładową.
 
 Kontrakt jest w `apps/web-svelte/src/lib/demo/first-run.ts`. Podłączenie do
-ekranów czeka na filtr miesiąca Kokpitu i uproszczoną listę Transakcji.
+ekranów czeka, aż Kokpit, Transakcje i Plany będą tymi ekranami, które
+przewodnik ma pokazać. Nowy onboarding nie startuje wcześniej.
