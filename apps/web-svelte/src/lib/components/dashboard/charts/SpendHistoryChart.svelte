@@ -185,7 +185,7 @@
 >
   <div class="mb-2">
     <h2 class="text-sm font-medium text-slate-400">{m.cockpit_history_title()}</h2>
-    <p class="text-xs text-slate-500" data-testid="cockpit-history-span">{periodLabel}</p>
+    <p class="text-xs text-slate-400" data-testid="cockpit-history-span">{periodLabel}</p>
   </div>
   {#if browser && hasData}
     <div
