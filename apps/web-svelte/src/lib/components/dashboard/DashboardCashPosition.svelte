@@ -160,7 +160,7 @@
           <ChevronRight size={16} aria-hidden="true" />
         </button>
       </div>
-      <p class="shrink-0 text-xs text-slate-500">
+      <p class="shrink-0 text-xs text-slate-400">
         {demo ? m.cockpit_sample_data() : scopeLabel}
       </p>
     </div>
