@@ -240,7 +240,7 @@ test.describe("dashboard mobile layout", () => {
     await expect(action).toBeVisible();
     await expect(action).toHaveAttribute("href", "/transactions?group=own");
     await expect(cash).not.toContainText("aby zobaczyć saldo i prognozę");
-    const help = cash.getByRole("button", { name: "Objaśnienie" });
+    const help = cash.getByRole("button", { name: "Objaśnienie", exact: true });
     await help.hover();
     await expect(help).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByRole("tooltip")).toHaveText(
