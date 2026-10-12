@@ -30,6 +30,9 @@ test("search filters results inside the command palette", async ({ page }) => {
 
   const search = palette(page);
   await expect(search).toBeVisible();
+  await expect(search.getByText("Rachunek za prąd")).toBeVisible();
+  await expect(search.getByText("Zakupy spożywcze")).toBeVisible();
+  await expect(search.getByRole("heading", { name: "Nadchodzące", exact: true })).toHaveCount(0);
 
   await search.getByPlaceholder("Szukaj transakcji…").fill("bilet");
   await expect(search.getByText("Bilet miesięczny")).toBeVisible();
@@ -220,7 +223,11 @@ test("single delete: confirm dialog then success toast", async ({ page }) => {
   // Click the first data row to open the detail sheet.
   // Due to Svelte 5 event delegation, clicking the delete button inside a role="button" TR
   // fires the row's onclick; so we use the sheet's own delete button instead.
-  await desktopTable(page).locator("tbody tr").first().click();
+  await desktopTable(page)
+    .locator("tbody tr")
+    .filter({ has: page.locator("td") })
+    .first()
+    .click();
 
   // Detail sheet appears
   const sheet = page.locator("aside");
@@ -283,17 +290,15 @@ test("quick-settle marks an upcoming transaction paid", async ({ page }) => {
   });
   await page.reload();
 
-  // tx-3 ("Rachunek za prąd") is seeded with status "upcoming" → eligible for quick-settle.
+  // tx-3 ("Rachunek za prąd") is upcoming on the default list, so settle stays on the row.
   const row = desktopTable(page).locator("tbody tr").filter({ hasText: "Rachunek za prąd" });
-  await expect(row).toBeVisible();
-  await row.click();
-  const sheet = page.locator("aside");
-  const settle = sheet.getByRole("button", { name: "Oznacz jako opłacone" });
+  const settle = row.getByRole("button", { name: "Oznacz jako opłacone", exact: true });
   await expect(settle).toBeVisible();
   await settle.click();
 
+  await expect(page.locator("aside")).toHaveCount(0);
   await expect(page.getByText("Oznaczono jako opłacone")).toBeVisible();
-  await expect(sheet.getByText("Zrealizowane", { exact: true })).toBeVisible();
+  await expect(row.getByText("Zrealizowane", { exact: true })).toBeVisible();
   await expect(settle).toHaveCount(0);
 });
 

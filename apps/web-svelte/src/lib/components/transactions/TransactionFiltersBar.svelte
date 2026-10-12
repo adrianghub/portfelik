@@ -78,7 +78,6 @@
   let draftCategoryId = $state<string | undefined>(undefined);
   let draftType = $state<"income" | "expense" | undefined>(undefined);
   let draftStatus = $state<string | undefined>(undefined);
-  let draftGroup = $state<ScopeFilter>("own");
   let draftView = $state<"unlinked" | "inne" | undefined>(undefined);
 
   const hasGroups = $derived(groups.length > 0);
@@ -98,7 +97,6 @@
     if (categoryId) count += 1;
     if (typeFilter) count += 1;
     if (statusFilter) count += 1;
-    if (hasGroups && groupFilter !== "own") count += 1;
     if (appliedView) count += 1;
     return count;
   });
@@ -115,7 +113,6 @@
     draftCategoryId = categoryId;
     draftType = typeFilter;
     draftStatus = statusFilter;
-    draftGroup = groupFilter;
     draftView = appliedView;
   }
 
@@ -138,7 +135,6 @@
     draftCategoryId = undefined;
     draftType = undefined;
     draftStatus = undefined;
-    draftGroup = "own";
     draftView = undefined;
   }
 
@@ -151,7 +147,7 @@
       categoryId: draftCategoryId,
       type: draftType,
       status: draftStatus,
-      group: draftGroup,
+      group: groupFilter,
       view: draftView,
     });
     mobileFiltersOpen = false;
@@ -296,43 +292,6 @@
             }}
           />
 
-          {#if hasGroups}
-            <div>
-              <p class="text-eyebrow mb-2 text-slate-400">{m.dashboard_scope_label()}</p>
-              <div class="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={draftGroup === "own"}
-                  onclick={() => (draftGroup = "own")}
-                  class={activePillClass(draftGroup === "own")}
-                >
-                  {m.group_filter_own()}
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={draftGroup === "all"}
-                  onclick={() => (draftGroup = "all")}
-                  class={activePillClass(draftGroup === "all")}
-                >
-                  {m.group_filter_all()}
-                </button>
-                {#each groups as g (g.id)}
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={draftGroup === g.id}
-                    onclick={() => (draftGroup = g.id)}
-                    class={activePillClass(draftGroup === g.id)}
-                  >
-                    {g.name}
-                  </button>
-                {/each}
-              </div>
-            </div>
-          {/if}
-
           <div>
             <p class="text-eyebrow mb-2 text-slate-400">{m.transactions_view_quick()}</p>
             <div class="flex flex-wrap gap-2">
@@ -370,52 +329,50 @@
     </Sheet>
   {/if}
 
-  <!-- Scope + quick-view: desktop only (mobile lives in the filters sheet) -->
-  <div class="hidden flex-wrap gap-1 sm:flex" role="group">
-    {#if hasGroups}
-      <div role="tablist" aria-label="Grupa" class="flex flex-wrap gap-1">
+  <!-- Ownership stays outside the transaction filters, on every width. -->
+  {#if hasGroups}
+    <div role="tablist" aria-label={m.dashboard_scope_label()} class="flex flex-wrap gap-1">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={groupFilter === "own"}
+        onclick={() => onGroupChange("own")}
+        class={activePillClass(groupFilter === "own")}
+      >
+        {m.group_filter_own()}
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={groupFilter === "all"}
+        onclick={() => onGroupChange("all")}
+        class={activePillClass(groupFilter === "all")}
+      >
+        {m.group_filter_all()}
+      </button>
+      {#each groups as g (g.id)}
         <button
           type="button"
           role="tab"
-          aria-selected={groupFilter === "own"}
-          onclick={() => onGroupChange("own")}
-          class={activePillClass(groupFilter === "own")}
+          aria-selected={groupFilter === g.id}
+          onclick={() => onGroupChange(g.id)}
+          class={activePillClass(groupFilter === g.id)}
         >
-          {m.group_filter_own()}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={groupFilter === "all"}
-          onclick={() => onGroupChange("all")}
-          class={activePillClass(groupFilter === "all")}
-        >
-          {m.group_filter_all()}
-        </button>
-        {#each groups as g (g.id)}
-          <button
-            type="button"
-            role="tab"
-            aria-selected={groupFilter === g.id}
-            onclick={() => onGroupChange(g.id)}
-            class={activePillClass(groupFilter === g.id)}
-          >
-            {g.name}
-          </button>
-        {/each}
-      </div>
-    {/if}
-    <div class="flex flex-wrap gap-1" aria-label={m.transactions_view_quick()}>
-      {#each desktopQuickPresets as preset (preset.key)}
-        <button
-          type="button"
-          aria-pressed={preset.active}
-          onclick={preset.run}
-          class={activePillClass(preset.active)}
-        >
-          {preset.label}
+          {g.name}
         </button>
       {/each}
     </div>
+  {/if}
+  <div class="hidden flex-wrap gap-1 sm:flex" aria-label={m.transactions_view_quick()}>
+    {#each desktopQuickPresets as preset (preset.key)}
+      <button
+        type="button"
+        aria-pressed={preset.active}
+        onclick={preset.run}
+        class={activePillClass(preset.active)}
+      >
+        {preset.label}
+      </button>
+    {/each}
   </div>
 {/if}

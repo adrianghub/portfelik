@@ -72,6 +72,11 @@ const CASH_TXS = [
 const desktopTable = (page: Page) => page.locator("table");
 const strip = (page: Page) => page.getByTestId("transaction-cash-position");
 
+async function openBalanceEditor(page: Page) {
+  await page.getByRole("button", { name: "Więcej akcji" }).click();
+  await page.getByRole("menuitem", { name: "Zmień saldo początkowe" }).click();
+}
+
 const MOCK_GROUP = {
   id: "group-1",
   name: "Wspólny budżet",
@@ -101,29 +106,86 @@ async function mockCash(
   }
 }
 
-test("private scope: strip shows live total and forecast", async ({ page }) => {
+test("default date order uses status bands and another sort uses one list", async ({ page }) => {
   await mockCash(page);
   await page.goto("/transactions?group=own");
 
-  // Strip renders the live cash position. It first paints the opening balance,
-  // then settles to live once the paid-history query resolves, so wait for the
-  // settled value (auto-retrying).
-  await expect(strip(page)).toBeVisible();
-  await expect(strip(page).locator("p.text-3xl")).toHaveText(/1\D?300,00/); // 1000 + 500 − 200
-
-  const forecast = strip(page).locator("p.text-2xl");
-  await expect(forecast).toBeVisible();
-  await expect(forecast).toContainText(/1\D?600,00/);
+  const table = desktopTable(page);
+  await expect(table.getByRole("rowheader", { name: "Nadchodzące", exact: true })).toBeVisible();
+  await table.getByRole("button", { name: /Kwota/ }).click();
+  await expect(table.getByRole("rowheader", { name: "Nadchodzące", exact: true })).toHaveCount(0);
+  const rows = table.locator("tbody tr").filter({ has: page.locator("td") });
+  await expect(rows.nth(0)).toContainText("Wydatek gotówkowy");
+  await expect(rows.nth(1)).toContainText("Przyszły wpływ");
+  await expect(rows.nth(2)).toContainText("Wpłata gotówki");
 });
 
-test("solo user (no groups) sees the cash view in the default scope", async ({ page }) => {
+test("collapsing Nadchodzące leaves the history rows", async ({ page }) => {
+  await mockCash(page);
+  await page.goto("/transactions?group=own");
+
+  const table = desktopTable(page);
+  await expect(table.getByText("Przyszły wpływ")).toBeVisible();
+  const toggle = table.getByRole("button", { name: "Nadchodzące", exact: true });
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(table.getByText("Przyszły wpływ")).toHaveCount(0);
+  await expect(table.getByText("Wydatek gotówkowy")).toBeVisible();
+  await expect(table.getByText("Wpłata gotówki")).toBeVisible();
+  await toggle.click();
+  await expect(table.getByText("Przyszły wpływ")).toBeVisible();
+});
+
+test("search still finds an upcoming row after Nadchodzące is collapsed", async ({ page }) => {
+  await mockCash(page);
+  await page.goto("/transactions?group=own");
+
+  const table = desktopTable(page);
+  await table.getByRole("button", { name: "Nadchodzące", exact: true }).click();
+  await expect(table.getByText("Przyszły wpływ")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Szukaj transakcji", exact: true }).click();
+  const search = page.getByRole("dialog", { name: "Szukaj transakcji" });
+  await search.getByPlaceholder("Szukaj transakcji…").fill("Przyszły");
+  await expect(search.getByText("Przyszły wpływ")).toBeVisible();
+  await expect(search.getByRole("heading", { name: "Nadchodzące", exact: true })).toHaveCount(0);
+  await expect(table.getByText("Przyszły wpływ")).toHaveCount(0);
+});
+
+test("private scope keeps the opening-balance editor off the list", async ({ page }) => {
+  await mockCash(page);
+  await page.goto("/transactions?group=own");
+
+  await expect(page.getByText("Prognoza salda")).toHaveCount(0);
+  await expect(page.locator("p.text-3xl")).toHaveCount(0);
+  const table = desktopTable(page);
+  await expect(table.getByRole("rowheader", { name: "Nadchodzące", exact: true })).toBeVisible();
+  await expect(table.getByRole("rowheader", { name: "Historia", exact: true })).toBeVisible();
+
+  await expect(
+    page.getByRole("button", { name: "Zmień saldo początkowe", exact: true })
+  ).toHaveCount(0);
+  await openBalanceEditor(page);
+
+  const sheet = page.getByRole("dialog", { name: "Saldo z transakcji" });
+  await expect(sheet).toBeVisible();
+  await expect(sheet).toContainText(/1\D?300,00/);
+  await expect(sheet).not.toContainText("Prognoza salda");
+});
+
+test("solo user (no groups) can still edit the opening balance", async ({ page }) => {
   // No groups → no own/all tabs; the page defaults to scope "all", but every row
-  // is private so the pool must still be reachable.
+  // is private so the editor must still be reachable.
   await mockCash(page); // default mock returns [] for user_groups
   await page.goto("/transactions");
 
-  await expect(strip(page)).toBeVisible();
-  await expect(strip(page).locator("p.text-3xl")).toHaveText(/1\D?300,00/);
+  await expect(page.locator("p.text-3xl")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Zmień saldo początkowe", exact: true })
+  ).toHaveCount(0);
+  await openBalanceEditor(page);
+  await expect(page.getByRole("dialog", { name: "Saldo z transakcji" })).toBeVisible();
 });
 
 test("group user: mixed all scope hides the cash view, own scope shows it", async ({ page }) => {
@@ -132,11 +194,14 @@ test("group user: mixed all scope hides the cash view, own scope shows it", asyn
   // "all" scope mixes private + group rows → personal pool is hidden.
   await page.goto("/transactions?group=all");
   await expect(desktopTable(page).getByText("Wydatek gotówkowy")).toBeVisible();
-  await expect(strip(page)).toHaveCount(0);
+  await page.getByRole("button", { name: "Więcej akcji" }).click();
+  await expect(page.getByRole("menuitem", { name: "Zmień saldo początkowe" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
 
-  // Switching to own scope brings the pool back.
+  // Switching to own scope brings the editor back, inside the actions menu.
   await page.goto("/transactions?group=own");
-  await expect(strip(page)).toBeVisible();
+  await page.getByRole("button", { name: "Więcej akcji" }).click();
+  await expect(page.getByRole("menuitem", { name: "Zmień saldo początkowe" })).toBeVisible();
 });
 
 test("private scope without an anchor: one control opens the balance sheet", async ({ page }) => {
@@ -145,6 +210,9 @@ test("private scope without an anchor: one control opens the balance sheet", asy
 
   await expect(desktopTable(page).getByText("Wydatek gotówkowy")).toBeVisible();
   await expect(strip(page)).toHaveCount(0);
+  await page.getByRole("button", { name: "Więcej akcji" }).click();
+  await expect(page.getByRole("menuitem", { name: "Zmień saldo początkowe" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
   const setBalance = page.getByRole("button", {
     name: "Ustaw saldo początkowe, aby zobaczyć saldo i prognozę",
   });
@@ -153,12 +221,33 @@ test("private scope without an anchor: one control opens the balance sheet", asy
   await expect(page.getByRole("dialog", { name: "Saldo z transakcji" })).toBeVisible();
 });
 
+test("phone without an anchor keeps the opening-balance hint", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockCash(page, { withAnchor: false });
+  await page.goto("/transactions?group=own");
+
+  const setBalance = page.getByRole("button", {
+    name: "Ustaw saldo początkowe, aby zobaczyć saldo i prognozę",
+  });
+  await expect(setBalance).toBeVisible();
+  await page.getByRole("button", { name: "Więcej akcji" }).click();
+  await expect(page.getByRole("menuitem", { name: "Zmień saldo początkowe" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await setBalance.click();
+  const sheet = page.getByRole("dialog", { name: "Saldo z transakcji" });
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByLabel("Saldo początkowe")).toBeVisible();
+  await expect(sheet.locator("#cash-opening-amount")).toHaveValue("");
+});
+
 test("private scope: strip opens edit sheet with anchor fields", async ({ page }) => {
   await mockCash(page);
   await page.goto("/transactions?group=own");
 
-  await expect(strip(page)).toBeVisible();
-  await strip(page).getByRole("button", { name: "Zmień saldo początkowe" }).click();
+  await expect(
+    page.getByRole("button", { name: "Zmień saldo początkowe", exact: true })
+  ).toHaveCount(0);
+  await openBalanceEditor(page);
 
   const sheet = page.getByRole("dialog", { name: "Saldo z transakcji" });
   await expect(sheet).toBeVisible();
@@ -173,7 +262,7 @@ test.describe("nested balance date sheet", () => {
   test("announces each dialog separately and Escape closes only the calendar", async ({ page }) => {
     await mockCash(page);
     await page.goto("/transactions?group=own");
-    await page.getByRole("button", { name: "Zmień saldo początkowe", exact: true }).click();
+    await openBalanceEditor(page);
     const balance = page.getByRole("dialog", { name: "Saldo z transakcji", exact: true });
     const trigger = balance.getByRole("button", { name: "Dzień salda początkowego", exact: true });
     await trigger.click();

@@ -202,8 +202,17 @@ zawierają Przegląd, Wydatki, Transakcje i Plan finansowania wewnątrz jednego 
 Najbliższa praca porządkuje prezentację, nie silnik.
 
 1. Kokpit 2.0. Trzy liczniki miesiąca zamiast pierścienia. Kategorie i wykres
-   pod nimi. Bez drugiego panelu na dziś i 90 dni.
-2. Transakcje. Lista jest centrum. Duży panel salda i prognozy schodzi z tego ekranu.
+   pod nimi. Bez drugiego panelu na dziś i 90 dni. Domyślny okres kategorii
+   zostaje niezależny od miesiąca liczników. Etykiety rozróżniają te zakresy.
+   Zsynchronizowanie domyślnego okresu to osobna decyzja, poza tym ekranem.
+2. Transakcje. Lista jest centrum. Duży panel salda i prognozy schodzi z tego
+   ekranu. Gdy kotwicy nie ma, podpowiedź salda początkowego zostaje widoczna.
+   Gdy saldo jest ustawione, zmiana jest w menu akcji. Nadchodzące płatności są
+   filtrem statusu. Opłacone i oczekujące wiersze stoją w osobnych pasmach przy
+   domyślnym porządku daty. Pasmo Nadchodzące można zwinąć, żeby została historia.
+   Inne sortowanie i wyszukiwanie pokazują jedną listę.
+   Zakres własności (prywatne, wszystkie albo konkretna grupa) stoi obok filtrów
+   transakcji.
 3. Plany 2.0. Lista, szczegóły, formularz i język.
 4. Nowy onboarding. Dopiero gdy Kokpit, Transakcje i Plany są ekranami, przez
    które da się przejść bez instrukcji silnika.

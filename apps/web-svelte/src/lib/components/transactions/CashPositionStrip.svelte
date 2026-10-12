@@ -1,5 +1,4 @@
 <script lang="ts">
-  import CashBalanceSummary from "$lib/components/CashBalanceSummary.svelte";
   import DayPicker from "$lib/components/ui/DayPicker.svelte";
   import Sheet from "$lib/components/ui/Sheet.svelte";
   import { requireSessionUserId, session } from "$lib/auth/session.svelte";
@@ -15,30 +14,21 @@
 
   interface Props {
     live: number;
-    forecast: number;
-    upcomingIncome?: number;
-    upcomingExpenses?: number;
-    paidIncome?: number;
-    paidExpenses?: number;
     hasAnchor: boolean;
     anchor: CashPosition | null;
     /** Wait until the anchor query has settled before opening the edit sheet. */
     anchorReady?: boolean;
-    loading?: boolean;
+    /** Paid history has settled, so the sheet can show the current balance. */
+    liveReady?: boolean;
     error?: boolean;
     onRetry?: () => void;
   }
   let {
     live,
-    forecast,
-    upcomingIncome = 0,
-    upcomingExpenses = 0,
-    paidIncome,
-    paidExpenses,
     hasAnchor,
     anchor,
     anchorReady = true,
-    loading = false,
+    liveReady = false,
     error = false,
     onRetry,
   }: Props = $props();
@@ -60,7 +50,7 @@
     openingAmount !== initialOpeningAmount || asOfDate !== initialAsOfDate
   );
 
-  function openEdit() {
+  export function openEdit() {
     if (!anchorReady) return;
     openingAmount = anchor ? String(anchor.opening_amount) : "";
     asOfDate = anchor?.as_of_date ?? localDateIso();
@@ -93,53 +83,21 @@
   }));
 </script>
 
-{#if loading}
-  <div
-    class="h-48 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"
-    aria-hidden="true"
-  ></div>
-{:else if error}
-  <section
-    class="rounded-2xl border border-rose-500/20 bg-slate-900/60 p-4"
-    data-testid="transaction-cash-position"
-    aria-label={m.cash_position_label()}
-  >
+{#if error}
+  <div data-testid="transaction-cash-position">
     <p class="text-sm text-rose-300" role="alert">{m.cash_position_load_error()}</p>
     <button
       type="button"
       onclick={onRetry}
-      class="focus-visible:ring-accent text-accent mt-2 inline-flex min-h-11 items-center text-sm focus-visible:ring-2 focus-visible:outline-none"
+      class="focus-visible:ring-accent text-accent mt-1 inline-flex min-h-11 items-center text-sm focus-visible:ring-2 focus-visible:outline-none"
       >{m.common_retry()}</button
     >
-  </section>
-{:else if hasAnchor}
-  <section
-    class="rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3"
-    aria-label={m.cash_position_label()}
-    data-testid="transaction-cash-position"
-  >
-    <CashBalanceSummary
-      {live}
-      {forecast}
-      {upcomingIncome}
-      {upcomingExpenses}
-      {paidIncome}
-      {paidExpenses}
-      openingAmount={anchor?.opening_amount}
-      anchorDate={anchor?.as_of_date}
-    />
-    <button
-      type="button"
-      onclick={openEdit}
-      class="focus-visible:ring-accent text-accent mt-2 inline-flex min-h-11 items-center text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"
-      >{m.cash_position_edit_balance()}</button
-    >
-  </section>
-{:else}
+  </div>
+{:else if anchorReady && !hasAnchor}
   <button
     type="button"
     onclick={openEdit}
-    class="focus-visible:ring-accent min-h-11 text-sm font-medium text-slate-300 focus-visible:ring-2 focus-visible:outline-none"
+    class="focus-visible:ring-accent inline-flex min-h-11 items-center text-sm font-medium text-slate-300 focus-visible:ring-2 focus-visible:outline-none"
     >{m.cash_position_set_hint()}</button
   >
 {/if}
@@ -190,7 +148,7 @@
           {m.error_invalid_amount()}
         </p>{/if}
       <p class="text-xs text-slate-500">{m.net_worth_cash_position_hint()}</p>
-      {#if hasAnchor && !loading && !error}
+      {#if hasAnchor && liveReady && !error}
         <p class="text-xs text-slate-400">
           {m.net_worth_cash_current_hint({ amount: formatCurrency(live) })}
         </p>
