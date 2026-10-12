@@ -175,9 +175,9 @@
       data-testid="cockpit-indicators"
       data-tour-id="tour-balance-ring"
     >
-      <div>
-        <div class="flex items-center justify-between gap-3">
-          <p class="text-sm font-medium text-slate-300">{heroLabel}</p>
+      <div class="min-w-0">
+        <div class="flex items-start justify-between gap-3">
+          <p class="min-w-0 text-sm font-medium break-words text-slate-300">{heroLabel}</p>
           <InfoTooltip
             label={m.cockpit_forecast_help_label()}
             text={m.cockpit_forecast_meaning()}
@@ -187,7 +187,7 @@
           />
         </div>
         <p
-          class="text-hero mt-1 font-semibold tracking-tight {monthForecast != null &&
+          class="text-hero mt-1 font-semibold tracking-tight break-words {monthForecast != null &&
           monthForecast < 0
             ? 'text-rose-400'
             : 'text-slate-50'}"
@@ -209,14 +209,15 @@
       </div>
 
       <div
-        class="mt-6 grid grid-cols-2 gap-4 max-[359px]:grid-cols-1 md:mt-0 md:grid-cols-1 md:gap-8"
+        class="mt-6 grid min-w-0 grid-cols-2 gap-4 max-[359px]:grid-cols-1 md:mt-0 md:grid-cols-1 md:gap-8"
       >
         <div
+          class="min-w-0"
           data-testid="cockpit-balance"
           aria-label="{m.cockpit_balance_today()}: {accessible(balance)}"
         >
-          <div class="flex items-center gap-1">
-            <p class="text-sm text-slate-400">{m.cockpit_balance_today()}</p>
+          <div class="flex min-w-0 items-start gap-1">
+            <p class="min-w-0 text-sm break-words text-slate-400">{m.cockpit_balance_today()}</p>
             <InfoTooltip
               label={m.cockpit_counters_help_label()}
               text={m.cockpit_counters_help()}
@@ -224,8 +225,8 @@
             />
           </div>
           <p
-            class="mt-1 text-2xl font-semibold tracking-tight tabular-nums {balance != null &&
-            balance < 0
+            class="mt-1 text-2xl font-semibold tracking-tight break-words tabular-nums {balance !=
+              null && balance < 0
               ? 'text-rose-400'
               : ''}"
           >
@@ -233,17 +234,20 @@
           </p>
         </div>
         <div
+          class="min-w-0"
           data-testid="cockpit-payments"
           aria-label="{m.cockpit_spent_month()}: {accessible(spent)}"
         >
-          <div class="flex items-center gap-1">
-            <p class="text-sm text-slate-400">{m.cockpit_spent_month()}</p>
+          <div class="flex min-w-0 items-start gap-1">
+            <p class="min-w-0 text-sm break-words text-slate-400">{m.cockpit_spent_month()}</p>
             <InfoTooltip label={spentHelpLabel} text={spentHelp} side="bottom" />
           </div>
-          <p class="mt-1 text-2xl font-semibold tracking-tight tabular-nums">{shown(spent)}</p>
+          <p class="mt-1 text-2xl font-semibold tracking-tight break-words tabular-nums">
+            {shown(spent)}
+          </p>
           {#if chart.comparison}
             <p
-              class="mt-1.5 text-sm font-medium {chart.comparison.percent < 0
+              class="mt-1.5 text-sm font-medium break-words {chart.comparison.percent < 0
                 ? 'text-emerald-400'
                 : 'text-rose-400'}"
             >

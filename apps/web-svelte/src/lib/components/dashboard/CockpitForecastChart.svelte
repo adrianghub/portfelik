@@ -83,6 +83,9 @@
   const todayVisible = $derived(
     todayPoint != null && (drawn || todayRatio == null || todayRatio <= 0)
   );
+  const todayAtStart = $derived(todayRatio != null && todayRatio <= 0.14);
+  const todayAtEnd = $derived(todayRatio != null && todayRatio >= 0.86);
+  const todayShift = $derived(todayAtStart ? "0%" : todayAtEnd ? "-100%" : "-50%");
 
   onMount(() => {
     const onVisibility = () => {
@@ -218,15 +221,19 @@
     </div>
   {/if}
   <div class="relative mt-1 h-5 text-sm text-slate-400">
-    <span class="absolute left-0">{axisDayLabel(rangeStart)}</span>
+    {#if !todayAtStart}
+      <span class="absolute left-0">{axisDayLabel(rangeStart)}</span>
+    {/if}
     {#if todayRatio != null}
       <span
-        class="absolute -translate-x-1/2 text-slate-200"
-        style="left: {todayRatio * 100}%"
+        class="absolute text-slate-200"
+        style="left: {todayRatio * 100}%; transform: translateX({todayShift})"
         data-testid="cockpit-today-label">{m.cockpit_today()}</span
       >
     {/if}
-    <span class="absolute right-0">{axisDayLabel(rangeEnd)}</span>
+    {#if !todayAtEnd}
+      <span class="absolute right-0">{axisDayLabel(rangeEnd)}</span>
+    {/if}
   </div>
 </div>
 
