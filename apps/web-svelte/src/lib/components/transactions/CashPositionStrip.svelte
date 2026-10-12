@@ -50,7 +50,7 @@
     openingAmount !== initialOpeningAmount || asOfDate !== initialAsOfDate
   );
 
-  function openEdit() {
+  export function openEdit() {
     if (!anchorReady) return;
     openingAmount = anchor ? String(anchor.opening_amount) : "";
     asOfDate = anchor?.as_of_date ?? localDateIso();
@@ -93,16 +93,7 @@
       >{m.common_retry()}</button
     >
   </div>
-{:else if hasAnchor}
-  <div data-testid="transaction-cash-position">
-    <button
-      type="button"
-      onclick={openEdit}
-      class="focus-visible:ring-accent text-accent inline-flex min-h-11 items-center text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"
-      >{m.cash_position_edit_balance()}</button
-    >
-  </div>
-{:else if anchorReady}
+{:else if anchorReady && !hasAnchor}
   <button
     type="button"
     onclick={openEdit}

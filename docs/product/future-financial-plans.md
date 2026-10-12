@@ -206,8 +206,10 @@ Najbliższa praca porządkuje prezentację, nie silnik.
    zostaje niezależny od miesiąca liczników. Etykiety rozróżniają te zakresy.
    Zsynchronizowanie domyślnego okresu to osobna decyzja, poza tym ekranem.
 2. Transakcje. Lista jest centrum. Duży panel salda i prognozy schodzi z tego
-   ekranu. Saldo początkowe zostaje cichą akcją. Nadchodzące płatności są
-   filtrem statusu. Opłacone i oczekujące wiersze stoją w osobnych pasmach.
+   ekranu. Gdy kotwicy nie ma, podpowiedź salda początkowego zostaje widoczna.
+   Gdy saldo jest ustawione, zmiana jest w menu akcji. Nadchodzące płatności są
+   filtrem statusu. Opłacone i oczekujące wiersze stoją w osobnych pasmach przy
+   domyślnym porządku daty. Inne sortowanie i wyszukiwanie pokazują jedną listę.
    Zakres własności (prywatne, wszystkie albo konkretna grupa) stoi obok filtrów
    transakcji.
 3. Plany 2.0. Lista, szczegóły, formularz i język.

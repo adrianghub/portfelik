@@ -6,7 +6,10 @@
   import { ArrowDown, ArrowUp, ArrowUpDown, Check, Users, Wallet } from "lucide-svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import { isQuickSettleEligible } from "$lib/services/transaction-permissions";
-  import { partitionTransactionCards } from "$lib/components/transactions/transaction-bands";
+  import {
+    partitionTransactionCards,
+    usesTransactionStatusBands,
+  } from "$lib/components/transactions/transaction-bands";
 
   interface Props {
     transactions: TransactionWithCategory[];
@@ -227,14 +230,28 @@
     history: m.transactions_band_history,
   };
 
-  const transactionBands = $derived.by(() =>
-    partitionTransactionCards(sortedTransactions).map((band) => ({
+  const statusBands = $derived(
+    usesTransactionStatusBands(layout, sortKey, sortDirection, initialSortDirection)
+  );
+
+  const transactionBands = $derived.by(() => {
+    if (!statusBands) {
+      return [
+        {
+          id: "flat" as const,
+          title: null,
+          rows: sortedTransactions,
+          groups: [{ key: "all", label: null, items: sortedTransactions }],
+        },
+      ];
+    }
+    return partitionTransactionCards(sortedTransactions).map((band) => ({
       id: band.id,
       title: band.titled ? bandTitle[band.id]() : null,
       rows: band.rows,
       groups: groupByDay(band.rows),
-    }))
-  );
+    }));
+  });
   const desktopColumnCount = $derived(ondelete ? 6 : 5);
 </script>
 
@@ -305,7 +322,9 @@
         {/if}
         {#each band.groups as group (`${band.id}-${group.key}`)}
           <section class="space-y-1.5">
-            <h3 class="text-eyebrow px-1 py-1 text-slate-400">{group.label}</h3>
+            {#if group.label}
+              <h3 class="text-eyebrow px-1 py-1 text-slate-400">{group.label}</h3>
+            {/if}
             <ul class="space-y-1.5">
               {#each group.items as tx (tx.id)}
                 <li>
@@ -543,7 +562,7 @@
               <tr class="border-b border-white/5 bg-slate-950/40">
                 <th
                   colspan={desktopColumnCount}
-                  scope="colgroup"
+                  scope="rowgroup"
                   class="text-eyebrow px-4 py-2 text-left font-medium text-slate-300"
                   data-testid="transaction-band-{band.id}"
                 >

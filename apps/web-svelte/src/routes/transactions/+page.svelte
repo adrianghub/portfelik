@@ -91,6 +91,7 @@
   import QueryError from "$lib/components/ui/QueryError.svelte";
 
   const queryClient = useQueryClient();
+  let cashEditor = $state<{ openEdit: () => void } | null>(null);
 
   const createCategoryInline = makeCreateCategoryInline({
     createCategory,
@@ -1120,6 +1121,7 @@
       <h1 class="text-hero font-semibold text-slate-100">{m.transactions_title()}</h1>
       {#if showCashView}
         <CashPositionStrip
+          bind:this={cashEditor}
           live={cashLive}
           hasAnchor={!!cashAnchorQuery.data}
           anchor={cashAnchor}
@@ -1151,6 +1153,9 @@
         exportDisabled={!accountedTxs?.length}
         onexport={handleExport}
         onmanualadd={openAdd}
+        oneditbalance={showCashView && cashAnchor && cashAnchorQuery.isSuccess
+          ? () => cashEditor?.openEdit()
+          : undefined}
       />
     </div>
   </div>

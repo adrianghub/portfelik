@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Download, MoreHorizontal, Plus } from "lucide-svelte";
+  import { Download, MoreHorizontal, Plus, Wallet } from "lucide-svelte";
   import { tick } from "svelte";
   import * as m from "$lib/paraglide/messages";
   import { registerNativeOverlayCloser } from "$lib/services/native-overlay";
@@ -8,12 +8,15 @@
     exportDisabled: boolean;
     onexport: () => void;
     onmanualadd: () => void;
+    /** Present only after an opening balance exists. The unset hint stays on the page. */
+    oneditbalance?: () => void;
   }
 
-  let { exportDisabled, onexport, onmanualadd }: Props = $props();
+  let { exportDisabled, onexport, onmanualadd, oneditbalance }: Props = $props();
 
   const menuId = $props.id();
   const MENU_WIDTH = 208;
+  const menuWidth = $derived(oneditbalance ? 248 : MENU_WIDTH);
   const VIEWPORT_GAP = 8;
 
   let open = $state(false);
@@ -35,13 +38,13 @@
     const trigger = triggerRef.getBoundingClientRect();
     const measuredHeight = menuRef?.offsetHeight ?? 92;
     const left = Math.min(
-      window.innerWidth - MENU_WIDTH - VIEWPORT_GAP,
-      Math.max(VIEWPORT_GAP, trigger.right - MENU_WIDTH)
+      window.innerWidth - menuWidth - VIEWPORT_GAP,
+      Math.max(VIEWPORT_GAP, trigger.right - menuWidth)
     );
     const below = trigger.bottom + 4;
     const openAbove = below + measuredHeight > window.innerHeight - VIEWPORT_GAP;
     const top = openAbove ? Math.max(VIEWPORT_GAP, trigger.top - measuredHeight - 4) : below;
-    menuStyle = `top:${top}px;left:${left}px;width:${MENU_WIDTH}px`;
+    menuStyle = `top:${top}px;left:${left}px;width:${menuWidth}px`;
   }
 
   function closeMenu({ restoreFocus = false } = {}) {
@@ -186,6 +189,20 @@
         <Download size={15} strokeWidth={1.8} aria-hidden="true" />
         {m.csv_export()}
       </button>
+      {#if oneditbalance}
+        <button
+          type="button"
+          role="menuitem"
+          class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm whitespace-nowrap text-slate-200 hover:bg-white/5"
+          onclick={() => {
+            closeMenu();
+            oneditbalance?.();
+          }}
+        >
+          <Wallet size={15} strokeWidth={1.8} aria-hidden="true" />
+          {m.cash_position_edit_balance()}
+        </button>
+      {/if}
     </div>
   {/if}
 </div>

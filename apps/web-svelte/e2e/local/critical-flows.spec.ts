@@ -110,7 +110,8 @@ test("balance save survives reload and export contains the saved balance", async
   await dialog.getByRole("button", { name: "Zapisz", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await page.reload();
-  await page.getByRole("button", { name: "Zmień saldo początkowe", exact: true }).click();
+  await page.getByRole("button", { name: "Więcej akcji" }).click();
+  await page.getByRole("menuitem", { name: "Zmień saldo początkowe" }).click();
   const saved = page.getByRole("dialog", { name: "Saldo z transakcji" });
   await expect(saved.locator("#cash-opening-amount")).toHaveValue(/2635[.,]81/);
   await saved.getByRole("button", { name: "Anuluj", exact: true }).click();
