@@ -540,7 +540,7 @@
           <button
             type="button"
             onclick={() => navigateBack("/plans")}
-            class="shrink-0 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-100"
+            class="hidden shrink-0 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-100 md:inline-flex md:items-center"
             aria-label={m.common_back()}
           >
             <ArrowLeft size={16} strokeWidth={1.8} aria-hidden="true" />
@@ -550,7 +550,7 @@
           </h1>
           <PlanMark kind={plan.kind} name={plan.icon} size="sm" />
         </div>
-        <div class="flex flex-wrap items-center gap-2 pl-8 text-sm text-slate-400">
+        <div class="flex flex-wrap items-center gap-2 text-sm text-slate-400 md:pl-8">
           <span class="inline-flex items-center gap-1">
             <CalendarDays size={14} strokeWidth={1.8} aria-hidden="true" />
             {#if planIsUpcoming && plan.kind !== "spend"}
@@ -580,7 +580,7 @@
         {#if plan.group_id}
           <a
             href="/settings?tab=groups&group={plan.group_id}"
-            class="focus-visible:ring-accent pl-8 text-xs font-medium text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+            class="focus-visible:ring-accent text-xs font-medium text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:outline-none md:pl-8"
           >
             {m.plan_group_roles_link({ role: groupRoleLabel(myGroupRole) })}
           </a>

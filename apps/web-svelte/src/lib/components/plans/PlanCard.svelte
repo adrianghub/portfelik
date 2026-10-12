@@ -117,7 +117,7 @@
   <div class="flex items-stretch">
     <a
       href="/plans/{plan.id}"
-      class="hover:text-accent grid min-w-0 flex-1 grid-cols-1 items-center gap-0.5 px-3 py-2.5 transition-colors md:grid-cols-[minmax(0,1fr)_auto] md:gap-x-6 md:px-4"
+      class="hover:text-accent grid min-w-0 flex-1 grid-cols-1 items-center gap-0 px-3 py-2 leading-snug transition-colors md:grid-cols-[minmax(0,1fr)_auto] md:gap-x-6 md:gap-y-0.5 md:px-4 md:py-2.5 md:leading-normal"
     >
       <div class="min-w-0 md:col-start-1 md:row-start-1">
         <span class="flex min-w-0 items-center gap-2">
@@ -125,9 +125,9 @@
           <span class="truncate font-semibold text-slate-100">{plan.name}</span>
         </span>
         {#if kind === "save" && plan.end_date}
-          <p class="mt-0.5 text-xs text-slate-400">{formatDate(plan.end_date)}</p>
+          <p class="text-xs text-slate-400 md:mt-0.5">{formatDate(plan.end_date)}</p>
         {:else if kind === "spend"}
-          <p class="mt-0.5 text-xs text-slate-400">
+          <p class="text-xs text-slate-400 md:mt-0.5">
             {formatDate(plan.start_date)} - {formatDate(plan.end_date)}
           </p>
         {/if}
@@ -138,7 +138,7 @@
       {#if kind === "save" && plan.target_amount != null}
         <p class="text-xs text-slate-400 md:col-start-1">{m.plan_save_meaning()}</p>
         <p
-          class="text-lg font-semibold whitespace-nowrap text-slate-100 tabular-nums md:col-start-2 md:row-span-3 md:row-start-1 md:self-center md:text-right md:text-2xl"
+          class="text-lg leading-tight font-semibold whitespace-nowrap text-slate-100 tabular-nums md:col-start-2 md:row-span-3 md:row-start-1 md:self-center md:text-right md:text-2xl md:leading-normal"
         >
           {formatCurrency(plan.savedAmount)}
         </p>
@@ -158,7 +158,7 @@
       {:else if kind === "debt" && debtTerms}
         <p class="text-xs text-slate-400 md:col-start-1">{m.plan_debt_remaining_hero()}</p>
         <p
-          class="text-lg font-semibold whitespace-nowrap text-slate-100 tabular-nums md:col-start-2 md:row-span-3 md:row-start-1 md:self-center md:text-right md:text-2xl"
+          class="text-lg leading-tight font-semibold whitespace-nowrap text-slate-100 tabular-nums md:col-start-2 md:row-span-3 md:row-start-1 md:self-center md:text-right md:text-2xl md:leading-normal"
         >
           {formatCurrency(debtBalance)}
         </p>
@@ -172,7 +172,7 @@
       {:else if kind === "spend" && spendSummary}
         <p class="text-xs text-slate-400 md:col-start-1">{m.plan_spend_budget_left_label()}</p>
         <p
-          class="text-lg font-semibold whitespace-nowrap text-slate-100 tabular-nums md:col-start-2 md:row-span-3 md:row-start-1 md:self-center md:text-right md:text-2xl"
+          class="text-lg leading-tight font-semibold whitespace-nowrap text-slate-100 tabular-nums md:col-start-2 md:row-span-3 md:row-start-1 md:self-center md:text-right md:text-2xl md:leading-normal"
         >
           {#if spendSummary.budgetLeft < 0}
             {m.plan_spend_over_budget({

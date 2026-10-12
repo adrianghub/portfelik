@@ -363,11 +363,11 @@
           )}
           {@const settlement = settleSpendItem(item.amount, paymentsFor(item.id))}
           <li
-            class="space-y-3 rounded-xl border bg-slate-900/60 px-3 py-3 {editingId === item.id
+            class="space-y-1.5 rounded-xl border bg-slate-900/60 px-3 py-2.5 {editingId === item.id
               ? 'border-accent/40'
               : 'border-white/5'}"
           >
-            <div class="flex items-start justify-between gap-3">
+            <div class="flex items-start justify-between gap-2">
               <div class="min-w-0 flex-1">
                 <div class="flex items-baseline justify-between gap-3">
                   <p class="truncate font-medium text-slate-100">{item.label}</p>
@@ -375,7 +375,7 @@
                     {formatCurrency(item.amount)}
                   </p>
                 </div>
-                <p class="mt-0.5 text-xs text-slate-400">
+                <p class="text-xs text-slate-400">
                   {#if item.due_date}
                     {formatDate(item.due_date)} ·
                   {/if}
@@ -384,34 +384,38 @@
                     · {item.payee}
                   {/if}
                 </p>
-                {#if spendItemNeedsLink(item.status, settlement)}
-                  <p class="mt-1 text-sm text-amber-300">
-                    {m.plan_spend_to_pay()}
-                    {formatCurrency(settlement.remaining)}
-                  </p>
-                {/if}
-                {#if settlement.settled > 0}
-                  <p class="mt-1 text-sm text-slate-300">
-                    {m.plan_item_paid({ amount: formatCurrency(settlement.settled) })}
-                  </p>
-                {/if}
-                {#if settlement.overpaid > 0}
-                  <p class="mt-1 text-sm text-amber-200">
-                    {m.plan_item_overpaid({ amount: formatCurrency(settlement.overpaid) })}
-                  </p>
-                {/if}
-                {#if canManage && spendItemNeedsLink(item.status, settlement)}
-                  <button
-                    type="button"
-                    class="focus-visible:ring-accent mt-2 rounded-full border border-emerald-400/40 px-3 py-1 text-sm font-semibold text-emerald-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
-                    onclick={() => {
-                      actionMenuId = null;
-                      linkingItemId = linkingItemId === item.id ? null : item.id;
-                      paymentQuery = "";
-                    }}
-                  >
-                    {linkingItemId === item.id ? m.plan_item_link_close() : m.plan_item_link()}
-                  </button>
+                {#if spendItemNeedsLink(item.status, settlement) || settlement.settled > 0 || settlement.overpaid > 0}
+                  <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                    {#if spendItemNeedsLink(item.status, settlement)}
+                      <p class="text-sm text-amber-300">
+                        {m.plan_spend_to_pay()}
+                        {formatCurrency(settlement.remaining)}
+                      </p>
+                    {/if}
+                    {#if settlement.settled > 0}
+                      <p class="text-sm text-slate-300">
+                        {m.plan_item_paid({ amount: formatCurrency(settlement.settled) })}
+                      </p>
+                    {/if}
+                    {#if settlement.overpaid > 0}
+                      <p class="text-sm text-amber-200">
+                        {m.plan_item_overpaid({ amount: formatCurrency(settlement.overpaid) })}
+                      </p>
+                    {/if}
+                    {#if canManage && spendItemNeedsLink(item.status, settlement)}
+                      <button
+                        type="button"
+                        class="focus-visible:ring-accent rounded-full border border-emerald-400/40 px-3 py-1 text-sm font-semibold text-emerald-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+                        onclick={() => {
+                          actionMenuId = null;
+                          linkingItemId = linkingItemId === item.id ? null : item.id;
+                          paymentQuery = "";
+                        }}
+                      >
+                        {linkingItemId === item.id ? m.plan_item_link_close() : m.plan_item_link()}
+                      </button>
+                    {/if}
+                  </div>
                 {/if}
               </div>
               {#if canManage}
@@ -457,10 +461,10 @@
               {/if}
             </div>
             {#if itemPayments.length > 0}
-              <ul class="space-y-1">
+              <ul class="space-y-1 border-t border-white/8 pt-1.5">
                 {#each itemPayments as payment (payment.linkId)}
-                  <li class="flex items-center justify-between gap-3 text-sm text-slate-300">
-                    <span class="min-w-0 truncate">
+                  <li class="flex items-center gap-2 text-xs text-slate-400">
+                    <span class="min-w-0 flex-1 truncate">
                       {payment.description ?? m.plan_item_private_payment()}
                       · {formatDate(payment.paidOn)}
                       · {formatCurrency(payment.amount)}
@@ -471,7 +475,7 @@
                     {#if canManage}
                       <button
                         type="button"
-                        class="focus-visible:ring-accent shrink-0 rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+                        class="focus-visible:ring-accent shrink-0 rounded-full border border-white/10 px-2 py-1 text-xs text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
                         disabled={unlinkingId === payment.transactionId}
                         onclick={() => unlinkPayment(payment.transactionId)}
                       >
@@ -550,9 +554,9 @@
               {/if}
             </div>
             {#if itemPayments.length > 0}
-              <ul class="space-y-1">
+              <ul class="space-y-1 border-t border-white/8 pt-1.5">
                 {#each itemPayments as payment (payment.linkId)}
-                  <li class="flex items-center justify-between gap-3 text-sm text-slate-400">
+                  <li class="flex items-center gap-2 text-xs text-slate-400">
                     <span class="min-w-0 truncate">
                       {payment.description ?? m.plan_item_private_payment()}
                       · {formatDate(payment.paidOn)}

@@ -32,6 +32,7 @@ test("changes a plan icon while preserving its financial fields", async ({ page 
     return route.fulfill({ status: 200, json: plan });
   });
   await page.goto(`/plans/${plan.id}`);
+  await expect(page.getByRole("button", { name: "Wróć" })).toBeVisible();
   await page.getByText("Ikona planu", { exact: true }).click();
   await page.getByLabel("Ikona", { exact: true }).selectOption("plane");
   await page.getByRole("button", { name: "Zapisz", exact: true }).click();
@@ -67,6 +68,10 @@ test.describe("plans mobile period visibility", () => {
     await page.goto("/plans");
     await page.getByRole("link", { name: /Nowy samochód/ }).click();
     await expect(page.getByRole("button", { name: "Termin celu" })).toContainText("30.06.2027");
+    await expect(
+      page.getByRole("navigation", { name: "Ścieżka nawigacji" }).getByRole("link", { name: "Plany" })
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Wróć" })).toBeHidden();
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth
     );
