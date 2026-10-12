@@ -328,7 +328,9 @@
   });
 </script>
 
-<BetaRibbon />
+{#if page.url.pathname === "/login"}
+  <BetaRibbon />
+{/if}
 <Toaster
   richColors
   position="bottom-right"
