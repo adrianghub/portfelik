@@ -152,8 +152,9 @@ test.describe("desktop visual regression", () => {
     const card = page.getByTestId("dashboard-cash-position");
     await expect(card).toContainText("2 635,81 zł");
     await expect(card.getByText("Wyliczenie na dziś i 90 dni")).toHaveCount(0);
-    await card.getByRole("button", { name: "Zakres liczników" }).click();
-    await expect(card).toContainText("nie są saldem z banku");
+    await card.getByRole("button", { name: "Zakres liczników" }).hover();
+    await expect(page.getByRole("tooltip")).toContainText("nie są saldem z banku");
+    await page.mouse.move(0, 0);
     await expect(card).not.toContainText("Dostępne teraz");
     await expect(page.locator("#dashboard-spending")).toBeVisible();
     await expect(page).toHaveScreenshot("dashboard-desktop.png");

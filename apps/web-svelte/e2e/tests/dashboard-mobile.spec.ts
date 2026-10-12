@@ -133,34 +133,24 @@ test.describe("dashboard mobile layout", () => {
 
     await expect(page.getByRole("heading", { name: "Hej, Mr. Zinko!" })).toBeVisible();
     const cash = page.getByTestId("dashboard-cash-position");
-    await expect(cash.getByText("Stan salda", { exact: true })).toBeVisible();
-    await expect(cash.getByText("Wydatki", { exact: true })).toBeVisible();
-    await expect(cash.getByText("Prognoza", { exact: true })).toBeVisible();
+    await expect(cash.getByText("Saldo na dziś", { exact: true })).toBeVisible();
+    await expect(cash.getByText("Wydano w tym miesiącu", { exact: true })).toBeVisible();
+    await expect(cash.getByText("Przewidywane saldo na koniec miesiąca")).toBeVisible();
     await expect(cash.getByTestId("cockpit-balance")).toContainText(/1\D?300,00/);
-    await expect(cash.getByTestId("cockpit-payments")).toContainText(/500,00/);
+    await expect(cash.getByTestId("cockpit-payments")).toContainText(/200,00/);
     await expect(cash.getByTestId("cockpit-forecast")).toContainText(/1\D?000,00/);
     const forecastBox = await cash.getByTestId("cockpit-forecast").boundingBox();
     const balanceBox = await cash.getByTestId("cockpit-balance").boundingBox();
     const paymentsBox = await cash.getByTestId("cockpit-payments").boundingBox();
     expect(forecastBox && balanceBox && paymentsBox).toBeTruthy();
     expect(forecastBox!.y).toBeLessThan(balanceBox!.y);
-    expect(forecastBox!.width).toBeGreaterThan(balanceBox!.width + 40);
     expect(Math.abs(balanceBox!.y - paymentsBox!.y)).toBeLessThan(8);
-    const balanceArc = await cash.getByTestId("cockpit-balance").locator("svg").boundingBox();
-    const balanceLabel = await cash.getByText("Stan salda", { exact: true }).boundingBox();
-    const balanceAmount = await cash
-      .getByTestId("cockpit-balance")
-      .getByText(/1\D?300,00/)
-      .boundingBox();
-    expect(balanceArc && balanceLabel && balanceAmount).toBeTruthy();
-    expect(balanceLabel!.y).toBeGreaterThan(balanceArc!.y + balanceArc!.height - 1);
-    expect(balanceAmount!.y).toBeGreaterThan(balanceLabel!.y);
-    expect(
-      await cash
-        .getByTestId("cockpit-balance")
-        .getByText(/1\D?300,00/)
-        .evaluate((el) => getComputedStyle(el).position)
-    ).not.toBe("absolute");
+    const todayLine = await cash.getByTestId("cockpit-today").boundingBox();
+    const todayLabel = await cash.getByTestId("cockpit-today-label").boundingBox();
+    expect(todayLine && todayLabel).toBeTruthy();
+    const lineCenter = todayLine!.x + todayLine!.width / 2;
+    const labelCenter = todayLabel!.x + todayLabel!.width / 2;
+    expect(Math.abs(lineCenter - labelCenter)).toBeLessThan(12);
 
     async function indicatorBoxes() {
       const forecast = await cash.getByTestId("cockpit-forecast").boundingBox();
@@ -174,22 +164,18 @@ test.describe("dashboard mobile layout", () => {
     const stacked = await indicatorBoxes();
     expect(stacked.forecast.y).toBeLessThan(stacked.balance.y);
     expect(stacked.balance.y).toBeLessThan(stacked.payments.y);
-    expect(Math.abs(stacked.forecast.width - stacked.balance.width)).toBeLessThan(8);
 
     await page.setViewportSize({ width: 390, height: 844 });
     const phone = await indicatorBoxes();
     expect(phone.forecast.y).toBeLessThan(phone.balance.y);
-    expect(phone.forecast.width).toBeGreaterThan(phone.balance.width + 40);
     expect(Math.abs(phone.balance.y - phone.payments.y)).toBeLessThan(8);
 
     for (const width of [768, 1440]) {
       await page.setViewportSize({ width, height: 900 });
       const wide = await indicatorBoxes();
-      expect(wide.balance.x).toBeLessThan(wide.payments.x);
-      expect(wide.payments.x).toBeLessThan(wide.forecast.x);
-      expect(Math.abs(wide.balance.y - wide.forecast.y)).toBeLessThan(8);
-      expect(Math.abs(wide.balance.width - wide.payments.width)).toBeLessThan(24);
-      expect(Math.abs(wide.payments.width - wide.forecast.width)).toBeLessThan(24);
+      expect(wide.forecast.x).toBeLessThan(wide.balance.x);
+      expect(Math.abs(wide.balance.x - wide.payments.x)).toBeLessThan(24);
+      expect(wide.balance.y).toBeLessThan(wide.payments.y);
     }
 
     await page.setViewportSize({ width: 375, height: 812 });
@@ -213,7 +199,7 @@ test.describe("dashboard mobile layout", () => {
     await expect(cash.getByTestId("cockpit-balance")).toContainText(/1\D?000,00/);
     await cash.getByRole("button", { name: "Poprzedni miesiąc" }).click();
     await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(cash.getByTestId("cockpit-payments")).toContainText(/500,00/);
+    await expect(cash.getByTestId("cockpit-payments")).toContainText(/200,00/);
 
     await expect(cash.getByText("Wyliczenie na dziś i 90 dni")).toHaveCount(0);
     await expect(cash).not.toContainText("Dostępne teraz");
@@ -222,14 +208,14 @@ test.describe("dashboard mobile layout", () => {
     await expect(page.getByTestId("cockpit-history")).toBeVisible();
     await expect(page.getByTestId("cockpit-history-span")).toHaveText("Ostatnie miesiące");
     const countersHelp = cash.getByRole("button", { name: "Zakres liczników" });
-    await countersHelp.click();
+    await countersHelp.hover();
     await expect(countersHelp).toHaveAttribute("aria-expanded", "true");
-    await expect(cash.getByText(/nie są saldem z banku/)).toBeVisible();
+    await expect(page.getByRole("tooltip")).toContainText(/nie są saldem z banku/);
 
     await page.getByRole("button", { name: "Zobacz więcej" }).click();
     await page.getByRole("tab", { name: /ostatnie 7 dni/i }).click();
     await expect(page).toHaveURL(/period=week/);
-    await expect(cash.getByTestId("cockpit-payments")).toContainText(/500,00/);
+    await expect(cash.getByTestId("cockpit-payments")).toContainText(/200,00/);
     await expect(page.getByTestId("cockpit-category-period").first()).toHaveText("Ostatnie 7 dni");
     await expect(page.getByTestId("cockpit-history-span")).toHaveText("Ostatnie tygodnie");
     await expect(cash.getByTestId("cockpit-month")).not.toHaveText("Ostatnie 7 dni");
@@ -243,18 +229,18 @@ test.describe("dashboard mobile layout", () => {
     await expect(cash.getByText("Brak danych", { exact: true })).toHaveCount(0);
     await expect(cash.getByTestId("cockpit-balance")).toHaveAttribute(
       "aria-label",
-      "Stan salda: Brak danych"
+      "Saldo na dziś: Brak danych"
     );
     const action = cash.getByRole("link", { name: "Ustaw saldo początkowe", exact: true });
     await expect(action).toBeVisible();
     await expect(action).toHaveAttribute("href", "/transactions?group=own");
     await expect(cash).not.toContainText("aby zobaczyć saldo i prognozę");
-    const help = cash.getByRole("button", { name: "Objaśnienie" });
-    await help.click();
+    const help = cash.getByRole("button", { name: "Objaśnienie", exact: true });
+    await help.hover();
     await expect(help).toHaveAttribute("aria-expanded", "true");
-    await expect(
-      cash.getByText("Saldo i prognoza pojawią się po ustawieniu salda początkowego.")
-    ).toBeVisible();
+    await expect(page.getByRole("tooltip")).toHaveText(
+      "Saldo i prognoza pojawią się po ustawieniu salda początkowego."
+    );
   });
 
   test("expenses clipped by an anchor show the start day", async ({ page }) => {
@@ -308,11 +294,11 @@ test.describe("dashboard mobile layout", () => {
     const payments = page.getByTestId("cockpit-payments");
     await expect(payments).toContainText(/500,00/);
     await expect(payments).not.toContainText(/800,00/);
-    await expect(payments.getByTestId("cockpit-expenses-from")).toHaveText("Od 15.06");
+    await expect(payments).not.toContainText("Od 15.06");
     const help = payments.getByRole("button", { name: "Zakres wydatków" });
-    await help.click();
+    await help.hover();
     await expect(help).toHaveAttribute("aria-expanded", "true");
-    await expect(payments).toContainText(
+    await expect(page.getByRole("tooltip")).toContainText(
       "Wydatki obejmują okres od 15.06, od dnia salda początkowego."
     );
   });
@@ -344,14 +330,14 @@ test.describe("dashboard mobile layout", () => {
 
     await page.goto("/dashboard?group=group-dom");
     const payments = page.getByTestId("cockpit-payments");
-    await expect(payments).toHaveAttribute("aria-label", "Wydatki: Brak danych");
+    await expect(payments).toHaveAttribute("aria-label", "Wydano w tym miesiącu: Brak danych");
     await expect(payments).toContainText("-");
     await expect(payments).not.toContainText("400");
     await expect(payments).not.toContainText("0,00");
     const help = payments.getByRole("button", { name: "Kompletność wydatków" });
-    await help.click();
+    await help.hover();
     await expect(help).toHaveAttribute("aria-expanded", "true");
-    await expect(payments).toContainText(
+    await expect(page.getByRole("tooltip")).toContainText(
       "Wydatki pokażemy, gdy obejmą transakcje, potwierdzone zobowiązania i serie cykliczne."
     );
   });
@@ -400,8 +386,10 @@ test.describe("dashboard mobile layout", () => {
     await expect(payments).not.toContainText("400");
     await expect(payments).not.toContainText("650");
     await expect(payments).not.toContainText("0,00");
-    await payments.getByRole("button", { name: "Kompletność wydatków" }).click();
-    await expect(payments).toContainText("potwierdzone zobowiązania i serie cykliczne");
+    await payments.getByRole("button", { name: "Kompletność wydatków" }).hover();
+    await expect(page.getByRole("tooltip")).toContainText(
+      "potwierdzone zobowiązania i serie cykliczne"
+    );
   });
 
   test("first visit renders cash while unrelated plans and demo checks are still pending", async ({
@@ -502,7 +490,7 @@ test.describe("dashboard mobile layout", () => {
     await page.goto("/dashboard");
     const cash = page.getByTestId("dashboard-cash-position");
     await expect(cash.getByTestId("cockpit-balance")).toContainText(/1\D?000\D?000,00/);
-    await expect(cash.getByTestId("cockpit-payments")).toContainText(/1\D?500\D?000,00/);
+    await expect(cash.getByTestId("cockpit-payments")).toContainText(/0,00/);
     await expect(cash.getByTestId("cockpit-forecast")).toContainText(/-500\D?000,00/);
     for (const id of ["cockpit-balance", "cockpit-payments", "cockpit-forecast"]) {
       const clips = await cash
