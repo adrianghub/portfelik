@@ -208,9 +208,7 @@
         {/if}
       </div>
 
-      <div
-        class="mt-6 grid min-w-0 grid-cols-2 gap-4 max-[359px]:grid-cols-1 md:mt-0 md:grid-cols-1 md:gap-8"
-      >
+      <div class="mt-5 grid min-w-0 gap-6 md:mt-0 md:gap-8">
         <div
           class="min-w-0"
           data-testid="cockpit-balance"

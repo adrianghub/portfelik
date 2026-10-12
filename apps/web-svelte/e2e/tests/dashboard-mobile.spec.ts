@@ -144,7 +144,7 @@ test.describe("dashboard mobile layout", () => {
     const paymentsBox = await cash.getByTestId("cockpit-payments").boundingBox();
     expect(forecastBox && balanceBox && paymentsBox).toBeTruthy();
     expect(forecastBox!.y).toBeLessThan(balanceBox!.y);
-    expect(Math.abs(balanceBox!.y - paymentsBox!.y)).toBeLessThan(8);
+    expect(balanceBox!.y).toBeLessThan(paymentsBox!.y);
     const todayLine = await cash.getByTestId("cockpit-today").boundingBox();
     const todayLabel = await cash.getByTestId("cockpit-today-label").boundingBox();
     expect(todayLine && todayLabel).toBeTruthy();
@@ -168,7 +168,7 @@ test.describe("dashboard mobile layout", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     const phone = await indicatorBoxes();
     expect(phone.forecast.y).toBeLessThan(phone.balance.y);
-    expect(Math.abs(phone.balance.y - phone.payments.y)).toBeLessThan(8);
+    expect(phone.balance.y).toBeLessThan(phone.payments.y);
 
     for (const width of [768, 1440]) {
       await page.setViewportSize({ width, height: 900 });
