@@ -1,7 +1,15 @@
 <script lang="ts">
   import DayPicker from "$lib/components/ui/DayPicker.svelte";
+  import Dialog from "$lib/components/ui/Dialog.svelte";
+  import InfoTooltip from "$lib/components/ui/InfoTooltip.svelte";
   import { session, requireSessionUserId } from "$lib/auth/session.svelte";
-  import { settleSpendItem, summarizeSpendBudget } from "$lib/plans/spend";
+  import { sumMoneyAmounts } from "$lib/money";
+  import {
+    settleSpendItem,
+    spendItemFacingStatus,
+    spendItemNeedsLink,
+    summarizeSpendBudget,
+  } from "$lib/plans/spend";
   import * as m from "$lib/paraglide/messages";
   import { qk } from "$lib/query-keys";
   import {
@@ -22,6 +30,7 @@
   import type { Plan } from "$lib/types";
   import { formatCurrency, formatDate } from "$lib/utils";
   import { createQuery, useQueryClient } from "@tanstack/svelte-query";
+  import { MoreHorizontal, Plus } from "lucide-svelte";
   import { toast } from "svelte-sonner";
 
   let { plan, canManage }: { plan: Plan; canManage: boolean } = $props();
@@ -33,13 +42,15 @@
   let payee = $state("");
   let confirmed = $state(false);
   let editingId = $state<string | null>(null);
+  let formOpen = $state(false);
+  let formSnapshot = $state("");
+  let actionMenuId = $state<string | null>(null);
   let saving = $state(false);
   let cancellingId = $state<string | null>(null);
   let linkingItemId = $state<string | null>(null);
   let paymentQuery = $state("");
   let linking = $state(false);
   let unlinkingId = $state<string | null>(null);
-  let formEl = $state<HTMLFormElement | null>(null);
 
   $effect(() => {
     if (!dueDate.trim()) confirmed = false;
@@ -52,7 +63,7 @@
   }));
 
   const settlementQuery = createQuery(() => ({
-    queryKey: qk.planLinks(session.userId ?? "", plan.id),
+    queryKey: qk.planSpendSettlements(session.userId ?? "", plan.id),
     queryFn: () => fetchSpendSettlements(plan.id),
     enabled: !!session.userId,
   }));
@@ -77,6 +88,11 @@
       .map((settlement) => ({ amount: settlement.amount, counts: settlement.countsAsPaid }));
   }
 
+  const paidTotal = $derived(
+    sumMoneyAmounts(
+      settlements.filter((row) => row.countsAsPaid).map((row) => ({ amount: row.amount }))
+    )
+  );
   const summary = $derived(
     summarizeSpendBudget(
       plan.budget_amount ?? 0,
@@ -93,11 +109,19 @@
   const cancelledItems = $derived(
     (itemsQuery.data ?? []).filter((item) => item.status === "cancelled")
   );
+  const usedPct = $derived(
+    summary.budget > 0 ? Math.min(100, Math.round((summary.planned / summary.budget) * 100)) : 0
+  );
 
-  function itemStatusLabel(status: PlanItem["status"]): string {
-    if (status === "planned") return m.plan_item_status_planned();
-    if (status === "confirmed") return m.plan_item_status_confirmed();
-    if (status === "cancelled") return m.plan_item_status_cancelled();
+  function facingLabel(item: PlanItem): string {
+    const facing = spendItemFacingStatus(
+      item.status,
+      settleSpendItem(item.amount, paymentsFor(item.id))
+    );
+    if (facing === "paid") return m.plan_item_status_paid();
+    if (facing === "partial") return m.plan_item_status_partial();
+    if (facing === "confirmed") return m.plan_item_status_confirmed();
+    if (facing === "cancelled") return m.plan_item_status_cancelled();
     return m.plan_item_status_estimated();
   }
 
@@ -118,6 +142,10 @@
     toast.error(errorMessage(err));
   }
 
+  function currentSnapshot(): string {
+    return JSON.stringify({ label, amount, dueDate, payee, confirmed });
+  }
+
   function resetForm() {
     editingId = null;
     label = "";
@@ -125,22 +153,41 @@
     dueDate = "";
     payee = "";
     confirmed = false;
+    formOpen = false;
+    formSnapshot = currentSnapshot();
+  }
+
+  function openAdd() {
+    resetForm();
+    formSnapshot = currentSnapshot();
+    formOpen = true;
+  }
+
+  function requestCloseForm() {
+    if (currentSnapshot() !== formSnapshot && !window.confirm(m.common_unsaved_changes_confirm())) {
+      return;
+    }
+    resetForm();
   }
 
   function startEdit(item: PlanItem) {
+    actionMenuId = null;
     editingId = item.id;
     label = item.label;
     amount = String(item.amount);
     dueDate = item.due_date ?? "";
     payee = item.payee ?? "";
     confirmed = item.status === "confirmed";
-    formEl?.scrollIntoView({ block: "nearest" });
+    formSnapshot = currentSnapshot();
+    formOpen = true;
   }
 
   async function refreshItems() {
     const userId = requireSessionUserId();
     await queryClient.invalidateQueries({ queryKey: qk.planItems(userId, plan.id) });
     await queryClient.invalidateQueries({ queryKey: qk.planLinks(userId, plan.id) });
+    await queryClient.invalidateQueries({ queryKey: qk.planSpendSettlements(userId, plan.id) });
+    await queryClient.invalidateQueries({ queryKey: qk.planSpendCards(userId) });
     await queryClient.invalidateQueries({ queryKey: qk.spendForecast(userId) });
   }
 
@@ -235,48 +282,73 @@
   }
 </script>
 
-<section class="space-y-4" aria-labelledby="spend-summary-heading">
-  <h2 id="spend-summary-heading" class="text-sm font-semibold text-slate-100">
-    {m.plan_spend_summary()}
-  </h2>
-  <dl class="grid gap-3 sm:grid-cols-2">
-    <div class="rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3">
-      <dt class="text-xs text-slate-400">{m.plan_form_budget()}</dt>
-      <dd class="mt-1 text-lg font-semibold text-slate-100">
-        {formatCurrency(summary.budget)}
-      </dd>
+<section
+  class="space-y-6 md:grid md:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)] md:items-start md:space-y-0 md:gap-x-10"
+  aria-labelledby="spend-summary-heading"
+>
+  <div class="rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3">
+    <div class="flex items-start justify-between gap-3">
+      <h2 id="spend-summary-heading" class="text-sm text-slate-400">
+        {m.plan_spend_budget_left_label()}
+      </h2>
+      <InfoTooltip label={m.plan_spend_rules_label()} text={m.plan_spend_rules()} />
     </div>
-    <div class="rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3">
-      <dt class="text-xs text-slate-400">{m.plan_spend_planned()}</dt>
-      <dd class="mt-1 text-lg font-semibold text-slate-100">
-        {formatCurrency(summary.planned)}
-      </dd>
-    </div>
-    <div class="rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3">
-      <dt class="text-xs text-slate-400">{m.plan_spend_budget_left_label()}</dt>
-      <dd class="mt-1 text-lg font-semibold text-slate-100">
-        {#if summary.budgetLeft < 0}
-          {m.plan_spend_over_budget({ amount: formatCurrency(Math.abs(summary.budgetLeft)) })}
-        {:else}
-          {formatCurrency(summary.budgetLeft)}
-        {/if}
-      </dd>
-    </div>
-    <div class="rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3">
-      <dt class="text-xs text-slate-400">{m.plan_spend_to_pay()}</dt>
-      <dd class="mt-1 text-lg font-semibold text-slate-100">{formatCurrency(summary.toPay)}</dd>
-      {#if summary.orientational > 0}
-        <p class="mt-1 text-xs text-slate-300">
-          {m.plan_spend_orientational({ amount: formatCurrency(summary.orientational) })}
-        </p>
+    <p class="mt-1 text-3xl font-semibold text-slate-100 tabular-nums">
+      {#if summary.budgetLeft < 0}
+        {m.plan_spend_over_budget({ amount: formatCurrency(Math.abs(summary.budgetLeft)) })}
+      {:else}
+        {formatCurrency(summary.budgetLeft)}
       {/if}
-      <p class="mt-1 text-xs text-slate-500">{m.plan_spend_to_pay_hint()}</p>
+    </p>
+    <p class="mt-1 text-sm text-slate-400">
+      {m.plan_spend_in_plan({
+        planned: formatCurrency(summary.planned),
+        budget: formatCurrency(summary.budget),
+      })}
+    </p>
+    <div
+      class="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-800"
+      role="progressbar"
+      aria-label={m.plan_spend_bar_label()}
+      aria-valuenow={usedPct}
+      aria-valuemin={0}
+      aria-valuemax={100}
+    >
+      <div
+        class="h-full rounded-full {summary.budgetLeft < 0 ? 'bg-rose-400' : 'bg-accent'}"
+        style="width: {usedPct}%"
+      ></div>
     </div>
-  </dl>
-  <p class="text-xs text-slate-400">{m.plan_spend_balance_hint()}</p>
+    <p class="mt-2 text-sm text-slate-400">
+      {m.plan_spend_paid()}
+      {formatCurrency(paidTotal)}
+      <span> · </span>
+      <span class={summary.toPay > 0 ? "text-amber-300" : ""}>
+        {m.plan_spend_to_pay()}
+        {formatCurrency(summary.toPay)}
+      </span>
+    </p>
+    {#if summary.orientational > 0}
+      <p class="mt-1 text-xs text-slate-400">
+        {m.plan_spend_orientational({ amount: formatCurrency(summary.orientational) })}
+      </p>
+    {/if}
+  </div>
 
   <div class="space-y-2">
-    <h3 class="text-sm font-semibold text-slate-100">{m.plan_spend_items()}</h3>
+    <div class="flex items-center justify-between gap-3">
+      <h3 class="text-sm font-semibold text-slate-100">{m.plan_spend_items()}</h3>
+      {#if canManage}
+        <button
+          type="button"
+          class="bg-accent-gradient focus-visible:ring-accent grid size-8 place-items-center rounded-full text-slate-900 focus-visible:ring-2 focus-visible:outline-none"
+          aria-label={m.plan_item_add_open()}
+          onclick={openAdd}
+        >
+          <Plus size={16} aria-hidden="true" />
+        </button>
+      {/if}
+    </div>
     {#if itemsQuery.isError}
       <p class="text-sm text-rose-300">{m.error_generic()}</p>
     {:else if activeItems.length === 0 && cancelledItems.length === 0}
@@ -291,78 +363,108 @@
           )}
           {@const settlement = settleSpendItem(item.amount, paymentsFor(item.id))}
           <li
-            class="space-y-3 rounded-xl border bg-slate-900/60 px-3 py-3 {editingId === item.id
+            class="space-y-1.5 rounded-xl border bg-slate-900/60 px-3 py-2.5 {editingId === item.id
               ? 'border-accent/40'
               : 'border-white/5'}"
           >
-            <div class="flex items-start justify-between gap-3">
-              <div class="min-w-0">
-                <p class="truncate font-medium text-slate-100">{item.label}</p>
-                <p class="mt-0.5 text-xs text-slate-400">
-                  {itemStatusLabel(item.status)}
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-baseline justify-between gap-3">
+                  <p class="truncate font-medium text-slate-100">{item.label}</p>
+                  <p class="shrink-0 text-sm font-semibold text-slate-100 tabular-nums">
+                    {formatCurrency(item.amount)}
+                  </p>
+                </div>
+                <p class="text-xs text-slate-400">
                   {#if item.due_date}
-                    · {formatDate(item.due_date)}
+                    {formatDate(item.due_date)} ·
                   {/if}
+                  {facingLabel(item)}
                   {#if item.payee}
                     · {item.payee}
                   {/if}
                 </p>
-                {#if item.status === "confirmed"}
-                  <p class="mt-1 text-sm text-slate-200">
-                    {settlement.settled > 0
-                      ? m.plan_item_remaining({ amount: formatCurrency(settlement.remaining) })
-                      : `${m.plan_spend_to_pay()} ${formatCurrency(item.amount)}`}
-                  </p>
-                {:else}
-                  <p class="mt-1 text-sm text-slate-200">{formatCurrency(item.amount)}</p>
-                {/if}
-                {#if settlement.settled > 0}
-                  <p class="mt-1 text-sm text-slate-300">
-                    {m.plan_item_paid({ amount: formatCurrency(settlement.settled) })}
-                  </p>
-                {/if}
-                {#if settlement.overpaid > 0}
-                  <p class="mt-1 text-sm text-amber-200">
-                    {m.plan_item_overpaid({ amount: formatCurrency(settlement.overpaid) })}
-                  </p>
+                {#if spendItemNeedsLink(item.status, settlement) || settlement.settled > 0 || settlement.overpaid > 0}
+                  <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                    {#if spendItemNeedsLink(item.status, settlement)}
+                      <p class="text-sm text-amber-300">
+                        {m.plan_spend_to_pay()}
+                        {formatCurrency(settlement.remaining)}
+                      </p>
+                    {/if}
+                    {#if settlement.settled > 0}
+                      <p class="text-sm text-slate-300">
+                        {m.plan_item_paid({ amount: formatCurrency(settlement.settled) })}
+                      </p>
+                    {/if}
+                    {#if settlement.overpaid > 0}
+                      <p class="text-sm text-amber-200">
+                        {m.plan_item_overpaid({ amount: formatCurrency(settlement.overpaid) })}
+                      </p>
+                    {/if}
+                    {#if canManage && spendItemNeedsLink(item.status, settlement)}
+                      <button
+                        type="button"
+                        class="focus-visible:ring-accent rounded-full border border-emerald-400/40 px-3 py-1 text-sm font-semibold text-emerald-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+                        onclick={() => {
+                          actionMenuId = null;
+                          linkingItemId = linkingItemId === item.id ? null : item.id;
+                          paymentQuery = "";
+                        }}
+                      >
+                        {linkingItemId === item.id ? m.plan_item_link_close() : m.plan_item_link()}
+                      </button>
+                    {/if}
+                  </div>
                 {/if}
               </div>
               {#if canManage}
-                <div class="flex shrink-0 flex-col gap-2">
+                <div class="relative shrink-0">
                   <button
                     type="button"
-                    class="focus-visible:ring-accent rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-                    disabled={cancellingId === item.id}
-                    onclick={() => startEdit(item)}
+                    class="focus-visible:ring-accent flex size-11 items-center justify-center rounded-full text-slate-400 hover:bg-white/5 hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
+                    aria-haspopup="menu"
+                    aria-expanded={actionMenuId === item.id}
+                    aria-label={m.plan_item_actions()}
+                    onclick={() => (actionMenuId = actionMenuId === item.id ? null : item.id)}
                   >
-                    {m.plan_item_edit()}
+                    <MoreHorizontal size={16} strokeWidth={1.8} aria-hidden="true" />
                   </button>
-                  <button
-                    type="button"
-                    class="focus-visible:ring-accent rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-                    onclick={() => {
-                      linkingItemId = linkingItemId === item.id ? null : item.id;
-                      paymentQuery = "";
-                    }}
-                  >
-                    {linkingItemId === item.id ? m.plan_item_link_close() : m.plan_item_link()}
-                  </button>
-                  <button
-                    type="button"
-                    class="focus-visible:ring-accent rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-                    disabled={cancellingId === item.id}
-                    onclick={() => cancelItem(item.id)}
-                  >
-                    {m.plan_item_cancel()}
-                  </button>
+                  {#if actionMenuId === item.id}
+                    <div
+                      role="menu"
+                      class="absolute top-11 right-0 z-20 w-48 overflow-hidden rounded-xl border border-white/10 bg-slate-900 py-1 shadow-xl"
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        class="block w-full px-3 py-2 text-left text-sm text-slate-200 hover:bg-white/5"
+                        onclick={() => startEdit(item)}
+                      >
+                        {m.plan_item_edit()}
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        class="block w-full px-3 py-2 text-left text-sm text-rose-300 hover:bg-white/5"
+                        disabled={cancellingId === item.id}
+                        onclick={() => {
+                          actionMenuId = null;
+                          void cancelItem(item.id);
+                        }}
+                      >
+                        {m.plan_item_cancel()}
+                      </button>
+                    </div>
+                  {/if}
                 </div>
               {/if}
             </div>
             {#if itemPayments.length > 0}
-              <ul class="space-y-1">
+              <ul class="space-y-1 border-t border-white/8 pt-1.5">
                 {#each itemPayments as payment (payment.linkId)}
-                  <li class="flex items-center justify-between gap-3 text-sm text-slate-300">
-                    <span class="min-w-0 truncate">
+                  <li class="flex items-center gap-2 text-xs text-slate-400">
+                    <span class="min-w-0 flex-1 truncate">
                       {payment.description ?? m.plan_item_private_payment()}
                       · {formatDate(payment.paidOn)}
                       · {formatCurrency(payment.amount)}
@@ -373,7 +475,7 @@
                     {#if canManage}
                       <button
                         type="button"
-                        class="focus-visible:ring-accent shrink-0 rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+                        class="focus-visible:ring-accent shrink-0 rounded-full border border-white/10 px-2 py-1 text-xs text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
                         disabled={unlinkingId === payment.transactionId}
                         onclick={() => unlinkPayment(payment.transactionId)}
                       >
@@ -432,7 +534,7 @@
               <div class="min-w-0">
                 <p class="truncate line-through">{item.label}</p>
                 <p class="mt-0.5 text-xs">
-                  {itemStatusLabel(item.status)} · {formatCurrency(item.amount)}
+                  {facingLabel(item)} · {formatCurrency(item.amount)}
                 </p>
                 {#if settlement.settled > 0}
                   <p class="mt-1 text-sm text-slate-300">
@@ -452,9 +554,9 @@
               {/if}
             </div>
             {#if itemPayments.length > 0}
-              <ul class="space-y-1">
+              <ul class="space-y-1 border-t border-white/8 pt-1.5">
                 {#each itemPayments as payment (payment.linkId)}
-                  <li class="flex items-center justify-between gap-3 text-sm text-slate-400">
+                  <li class="flex items-center gap-2 text-xs text-slate-400">
                     <span class="min-w-0 truncate">
                       {payment.description ?? m.plan_item_private_payment()}
                       · {formatDate(payment.paidOn)}
@@ -479,66 +581,80 @@
       </ul>
     {/if}
   </div>
+</section>
 
-  {#if canManage}
-    <form
-      bind:this={formEl}
-      class="space-y-3 rounded-2xl border border-white/5 bg-slate-900/40 p-4"
-      onsubmit={saveItem}
-    >
-      <h3 class="text-sm font-semibold text-slate-100">
-        {editingId ? m.plan_item_edit_heading() : m.plan_item_add()}
-      </h3>
+<Dialog
+  open={formOpen}
+  onclose={requestCloseForm}
+  title={editingId ? m.plan_item_edit_heading() : m.plan_item_add()}
+>
+  <form class="space-y-3" onsubmit={saveItem}>
+    <div class="space-y-1">
+      <label class="text-xs font-medium text-slate-300" for="spend-item-label">
+        {m.plan_item_label()}
+      </label>
+      <input
+        id="spend-item-label"
+        type="text"
+        required
+        maxlength="120"
+        bind:value={label}
+        class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 focus:ring-2 focus:outline-none"
+      />
+    </div>
+    <div class="grid gap-3 sm:grid-cols-2">
       <div class="space-y-1">
-        <label class="text-xs font-medium text-slate-300" for="spend-item-label">
-          {m.plan_item_label()}
+        <label class="text-xs font-medium text-slate-300" for="spend-item-amount">
+          {m.plan_item_amount()}
         </label>
         <input
-          id="spend-item-label"
-          type="text"
+          id="spend-item-amount"
+          type="number"
+          min="0.01"
+          step="0.01"
           required
-          maxlength="120"
-          bind:value={label}
+          bind:value={amount}
           class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 focus:ring-2 focus:outline-none"
         />
       </div>
-      <div class="grid gap-3 sm:grid-cols-2">
-        <div class="space-y-1">
-          <label class="text-xs font-medium text-slate-300" for="spend-item-amount">
-            {m.plan_item_amount()}
-          </label>
-          <input
-            id="spend-item-amount"
-            type="number"
-            min="0.01"
-            step="0.01"
-            required
-            bind:value={amount}
-            class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 focus:ring-2 focus:outline-none"
-          />
-        </div>
-        <DayPicker
-          id="spend-item-due"
-          bind:value={dueDate}
-          label={m.plan_item_due()}
-          yearsPast={2}
-          yearsAhead={5}
+      <DayPicker
+        id="spend-item-due"
+        bind:value={dueDate}
+        label={m.plan_item_due()}
+        yearsPast={2}
+        yearsAhead={5}
+      />
+    </div>
+    <fieldset class="space-y-2">
+      <legend class="flex items-center gap-1 text-xs font-medium text-slate-300">
+        {m.plan_item_kind()}
+        <InfoTooltip label={m.plan_item_kind_help_label()} text={m.plan_item_kind_help()} />
+      </legend>
+      <label class="flex items-center gap-2 text-sm text-slate-200">
+        <input
+          type="radio"
+          name="spend-item-kind"
+          checked={!confirmed}
+          onchange={() => (confirmed = false)}
         />
-      </div>
-      <p class="text-xs text-slate-500">{m.plan_item_due_hint()}</p>
-      <div class="space-y-1">
-        <label class="flex items-center gap-2 text-sm text-slate-200" for="spend-item-confirmed">
-          <input
-            id="spend-item-confirmed"
-            type="checkbox"
-            bind:checked={confirmed}
-            disabled={!dueDate.trim() || saving}
-          />
-          {m.plan_item_confirmed()}
-        </label>
-        <p class="text-xs text-slate-500">{m.plan_item_confirmed_hint()}</p>
-      </div>
-      <div class="space-y-1">
+        {m.plan_item_status_estimated()}
+      </label>
+      <label class="flex items-center gap-2 text-sm text-slate-200">
+        <input
+          type="radio"
+          name="spend-item-kind"
+          checked={confirmed}
+          disabled={!dueDate.trim() || saving}
+          onchange={() => (confirmed = true)}
+        />
+        {m.plan_item_status_confirmed()}
+      </label>
+    </fieldset>
+    <details class="rounded-xl border border-white/10 px-3 py-2">
+      <summary class="min-h-11 cursor-pointer content-center text-sm text-slate-300">
+        {m.plan_item_more_details()}
+      </summary>
+      <div class="space-y-1 py-2">
         <label class="text-xs font-medium text-slate-300" for="spend-item-payee">
           {m.plan_item_payee()}
         </label>
@@ -550,25 +666,23 @@
           class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 focus:ring-2 focus:outline-none"
         />
       </div>
-      <div class="flex flex-wrap gap-2">
-        <button
-          type="submit"
-          disabled={saving}
-          class="bg-accent-gradient focus-visible:ring-accent rounded-full px-4 py-2 text-sm font-semibold text-slate-900 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-        >
-          {saving ? m.common_saving() : editingId ? m.plan_item_save() : m.plan_item_add()}
-        </button>
-        {#if editingId}
-          <button
-            type="button"
-            class="focus-visible:ring-accent rounded-full border border-white/10 px-4 py-2 text-sm text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
-            disabled={saving}
-            onclick={resetForm}
-          >
-            {m.plan_item_discard()}
-          </button>
-        {/if}
-      </div>
-    </form>
-  {/if}
-</section>
+    </details>
+    <div class="flex flex-wrap gap-2">
+      <button
+        type="submit"
+        disabled={saving}
+        class="bg-accent-gradient focus-visible:ring-accent min-h-11 rounded-full px-4 text-sm font-semibold text-slate-900 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+      >
+        {saving ? m.common_saving() : editingId ? m.plan_item_save() : m.plan_item_add()}
+      </button>
+      <button
+        type="button"
+        class="focus-visible:ring-accent min-h-11 rounded-full border border-white/10 px-4 text-sm text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+        disabled={saving}
+        onclick={requestCloseForm}
+      >
+        {m.plan_item_discard()}
+      </button>
+    </div>
+  </form>
+</Dialog>

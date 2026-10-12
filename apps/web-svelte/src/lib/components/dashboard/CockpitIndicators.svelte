@@ -1,5 +1,6 @@
 <script lang="ts">
   import { shortDayMonth } from "$lib/cockpit/month-window";
+  import InfoTooltip from "$lib/components/ui/InfoTooltip.svelte";
   import * as m from "$lib/paraglide/messages";
   import { formatCurrency } from "$lib/utils";
 
@@ -10,24 +11,43 @@
     orientational = 0,
     expensesFrom = null,
     expensesIncomplete = false,
+    onOpenGlossary,
   }: {
     balance: number | null;
     expenses: number | null;
     forecast: number | null;
     orientational?: number;
-    /** YYYY-MM-DD when Wydatki start on the anchor inside this month. */
+    /** YYYY-MM-DD when Wydatki start on the anchor inside this window. */
     expensesFrom?: string | null;
     /** Dom and Wszystkie stay blank until every expense source is loaded. */
     expensesIncomplete?: boolean;
+    onOpenGlossary?: (entryId: string) => void;
   } = $props();
 
-  let expensesHelpOpen = $state(false);
-  let incompleteHelpOpen = $state(false);
   const expensesFromLabel = $derived(expensesFrom ? shortDayMonth(expensesFrom) : null);
   const expensesName = $derived(
     expensesFromLabel
       ? `${m.cockpit_payments_label()}: ${accessibleAmount(expenses)}, ${m.cockpit_expenses_from({ date: expensesFromLabel })}`
       : `${m.cockpit_payments_label()}: ${accessibleAmount(expenses)}`
+  );
+  const expensesHelp = $derived.by(() => {
+    const parts: string[] = [];
+    if (expensesFromLabel) {
+      parts.push(m.cockpit_expenses_from_help({ date: expensesFromLabel }));
+    }
+    if (orientational > 0) {
+      parts.push(m.cockpit_orientational({ amount: formatCurrency(orientational) }));
+    }
+    if (expensesIncomplete) parts.push(m.cockpit_expenses_incomplete_help());
+    if (parts.length === 0) parts.push(m.cockpit_counters_help());
+    return parts.join(" ");
+  });
+  const expensesHelpLabel = $derived(
+    expensesFromLabel || expensesIncomplete
+      ? expensesFromLabel
+        ? m.cockpit_expenses_from_help_label()
+        : m.cockpit_expenses_incomplete_help_label()
+      : m.cockpit_payments_label()
   );
 
   function visibleAmount(amount: number | null): string {
@@ -41,9 +61,11 @@
 
 {#snippet dial(
   label: string,
-  period: string,
   value: string,
-  tone: "balance" | "payments" | "forecast"
+  tone: "balance" | "payments" | "forecast",
+  helpLabel: string,
+  helpText: string,
+  glossaryEntryId?: string
 )}
   <div class="flex w-full min-w-0 flex-col items-center text-center">
     <svg
@@ -72,14 +94,23 @@
       />
     </svg>
     <p class="w-full min-w-0 text-sm font-medium wrap-anywhere text-slate-300">{label}</p>
-    <p
-      class="mt-1 w-full min-w-0 text-xl font-semibold tracking-tight wrap-anywhere text-slate-100 tabular-nums md:text-2xl"
-    >
-      {value}
-    </p>
-    {#if period}
-      <p class="mt-1 max-w-full text-xs wrap-anywhere text-slate-400">{period}</p>
-    {/if}
+    <div class="mt-1 grid w-full min-w-0 grid-cols-[1.25rem_minmax(0,1fr)_1.25rem] items-center">
+      <span></span>
+      <p
+        class="min-w-0 text-center text-xl font-semibold tracking-tight wrap-anywhere text-slate-100 tabular-nums md:text-2xl"
+      >
+        {value}
+      </p>
+      <span class="justify-self-end">
+        <InfoTooltip
+          label={helpLabel}
+          text={helpText}
+          side="top"
+          {glossaryEntryId}
+          {onOpenGlossary}
+        />
+      </span>
+    </div>
   </div>
 {/snippet}
 
@@ -94,7 +125,13 @@
     role="group"
     aria-label="{m.cockpit_balance_label()}: {accessibleAmount(balance)}"
   >
-    {@render dial(m.cockpit_balance_label(), "", visibleAmount(balance), "balance")}
+    {@render dial(
+      m.cockpit_balance_label(),
+      visibleAmount(balance),
+      "balance",
+      m.cockpit_counters_help_label(),
+      m.cockpit_counters_help()
+    )}
   </div>
 
   <div
@@ -103,54 +140,13 @@
     role="group"
     aria-label={expensesName}
   >
-    {@render dial(m.cockpit_payments_label(), "", visibleAmount(expenses), "payments")}
-    {#if expensesFromLabel}
-      <div class="mt-1 flex items-center justify-center gap-0.5">
-        <p class="text-xs text-slate-400" data-testid="cockpit-expenses-from">
-          {m.cockpit_expenses_from({ date: expensesFromLabel })}
-        </p>
-        <button
-          type="button"
-          class="focus-visible:ring-accent inline-flex size-8 items-center justify-center rounded-full text-sm text-slate-400 hover:bg-white/5 hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
-          aria-expanded={expensesHelpOpen}
-          aria-controls="cockpit-expenses-from-help"
-          aria-label={m.cockpit_expenses_from_help_label()}
-          onclick={() => (expensesHelpOpen = !expensesHelpOpen)}>?</button
-        >
-      </div>
-      {#if expensesHelpOpen}
-        <p
-          id="cockpit-expenses-from-help"
-          class="mt-1 text-center text-xs leading-relaxed text-slate-400"
-        >
-          {m.cockpit_expenses_from_help({ date: expensesFromLabel })}
-        </p>
-      {/if}
-    {:else if expensesIncomplete}
-      <div class="mt-1 flex justify-center">
-        <button
-          type="button"
-          class="focus-visible:ring-accent inline-flex size-8 items-center justify-center rounded-full text-sm text-slate-400 hover:bg-white/5 hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
-          aria-expanded={incompleteHelpOpen}
-          aria-controls="cockpit-expenses-incomplete-help"
-          aria-label={m.cockpit_expenses_incomplete_help_label()}
-          onclick={() => (incompleteHelpOpen = !incompleteHelpOpen)}>?</button
-        >
-      </div>
-      {#if incompleteHelpOpen}
-        <p
-          id="cockpit-expenses-incomplete-help"
-          class="mt-1 text-center text-xs leading-relaxed text-slate-400"
-        >
-          {m.cockpit_expenses_incomplete_help()}
-        </p>
-      {/if}
-    {/if}
-    {#if orientational > 0}
-      <p class="mt-1 text-center text-xs text-slate-400">
-        {m.cockpit_orientational({ amount: formatCurrency(orientational) })}
-      </p>
-    {/if}
+    {@render dial(
+      m.cockpit_payments_label(),
+      visibleAmount(expenses),
+      "payments",
+      expensesHelpLabel,
+      expensesHelp
+    )}
   </div>
 
   <div
@@ -159,6 +155,13 @@
     role="group"
     aria-label="{m.cockpit_forecast_label()}: {accessibleAmount(forecast)}"
   >
-    {@render dial(m.cockpit_forecast_label(), "", visibleAmount(forecast), "forecast")}
+    {@render dial(
+      m.cockpit_forecast_label(),
+      visibleAmount(forecast),
+      "forecast",
+      m.cockpit_forecast_help_label(),
+      m.dashboard_forecast_info(),
+      "prognoza"
+    )}
   </div>
 </div>

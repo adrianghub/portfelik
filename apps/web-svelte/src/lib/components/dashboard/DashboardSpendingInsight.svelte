@@ -97,7 +97,7 @@
 <section
   id="dashboard-spending"
   data-tour-id="tour-spending-insight"
-  class="flex min-w-0 flex-col overflow-x-clip rounded-3xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur"
+  class="flex h-full min-w-0 flex-col overflow-x-clip rounded-3xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur"
 >
   {#if isMdLayout.current}
     <div class="flex items-baseline justify-between gap-3">
