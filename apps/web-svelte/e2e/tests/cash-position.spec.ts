@@ -120,6 +120,23 @@ test("default date order uses status bands and another sort uses one list", asyn
   await expect(rows.nth(2)).toContainText("Wpłata gotówki");
 });
 
+test("collapsing Nadchodzące leaves the history rows", async ({ page }) => {
+  await mockCash(page);
+  await page.goto("/transactions?group=own");
+
+  const table = desktopTable(page);
+  await expect(table.getByText("Przyszły wpływ")).toBeVisible();
+  const toggle = table.getByRole("button", { name: "Nadchodzące", exact: true });
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(table.getByText("Przyszły wpływ")).toHaveCount(0);
+  await expect(table.getByText("Wydatek gotówkowy")).toBeVisible();
+  await expect(table.getByText("Wpłata gotówki")).toBeVisible();
+  await toggle.click();
+  await expect(table.getByText("Przyszły wpływ")).toBeVisible();
+});
+
 test("private scope keeps the opening-balance editor off the list", async ({ page }) => {
   await mockCash(page);
   await page.goto("/transactions?group=own");
