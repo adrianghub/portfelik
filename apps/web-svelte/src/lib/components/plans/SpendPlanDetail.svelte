@@ -4,7 +4,12 @@
   import InfoTooltip from "$lib/components/ui/InfoTooltip.svelte";
   import { session, requireSessionUserId } from "$lib/auth/session.svelte";
   import { sumMoneyAmounts } from "$lib/money";
-  import { settleSpendItem, spendItemFacingStatus, summarizeSpendBudget } from "$lib/plans/spend";
+  import {
+    settleSpendItem,
+    spendItemFacingStatus,
+    spendItemNeedsLink,
+    summarizeSpendBudget,
+  } from "$lib/plans/spend";
   import * as m from "$lib/paraglide/messages";
   import { qk } from "$lib/query-keys";
   import {
@@ -25,7 +30,7 @@
   import type { Plan } from "$lib/types";
   import { formatCurrency, formatDate } from "$lib/utils";
   import { createQuery, useQueryClient } from "@tanstack/svelte-query";
-  import { MoreHorizontal } from "lucide-svelte";
+  import { MoreHorizontal, Plus } from "lucide-svelte";
   import { toast } from "svelte-sonner";
 
   let { plan, canManage }: { plan: Plan; canManage: boolean } = $props();
@@ -58,7 +63,7 @@
   }));
 
   const settlementQuery = createQuery(() => ({
-    queryKey: qk.planLinks(session.userId ?? "", plan.id),
+    queryKey: qk.planSpendSettlements(session.userId ?? "", plan.id),
     queryFn: () => fetchSpendSettlements(plan.id),
     enabled: !!session.userId,
   }));
@@ -181,6 +186,7 @@
     const userId = requireSessionUserId();
     await queryClient.invalidateQueries({ queryKey: qk.planItems(userId, plan.id) });
     await queryClient.invalidateQueries({ queryKey: qk.planLinks(userId, plan.id) });
+    await queryClient.invalidateQueries({ queryKey: qk.planSpendSettlements(userId, plan.id) });
     await queryClient.invalidateQueries({ queryKey: qk.planSpendCards(userId) });
     await queryClient.invalidateQueries({ queryKey: qk.spendForecast(userId) });
   }
@@ -276,7 +282,10 @@
   }
 </script>
 
-<section class="space-y-4" aria-labelledby="spend-summary-heading">
+<section
+  class="space-y-6 md:grid md:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)] md:items-start md:space-y-0 md:gap-x-10"
+  aria-labelledby="spend-summary-heading"
+>
   <div class="rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3">
     <div class="flex items-start justify-between gap-3">
       <h2 id="spend-summary-heading" class="text-sm text-slate-400">
@@ -310,27 +319,20 @@
         style="width: {usedPct}%"
       ></div>
     </div>
-    <dl class="mt-3 flex flex-wrap gap-x-8 gap-y-2">
-      <div>
-        <dt class="text-xs text-slate-400">{m.plan_spend_paid()}</dt>
-        <dd class="text-sm font-medium text-slate-200 tabular-nums">
-          {formatCurrency(paidTotal)}
-        </dd>
-      </div>
-      <div>
-        <dt class="text-xs text-slate-400">{m.plan_spend_to_pay()}</dt>
-        <dd class="text-sm font-medium text-slate-200 tabular-nums">
-          {formatCurrency(summary.toPay)}
-        </dd>
-      </div>
-    </dl>
+    <p class="mt-2 text-sm text-slate-400">
+      {m.plan_spend_paid()}
+      {formatCurrency(paidTotal)}
+      <span> · </span>
+      <span class={summary.toPay > 0 ? "text-amber-300" : ""}>
+        {m.plan_spend_to_pay()}
+        {formatCurrency(summary.toPay)}
+      </span>
+    </p>
     {#if summary.orientational > 0}
-      <p class="mt-2 text-xs text-slate-300">
+      <p class="mt-1 text-xs text-slate-400">
         {m.plan_spend_orientational({ amount: formatCurrency(summary.orientational) })}
       </p>
     {/if}
-    <p class="mt-1 text-xs text-slate-400">{m.plan_spend_to_pay_hint()}</p>
-    <p class="mt-1 text-xs text-slate-400">{m.plan_spend_balance_hint()}</p>
   </div>
 
   <div class="space-y-2">
@@ -339,10 +341,11 @@
       {#if canManage}
         <button
           type="button"
-          class="bg-accent-gradient focus-visible:ring-accent inline-flex min-h-11 items-center rounded-full px-4 text-sm font-semibold text-slate-900 focus-visible:ring-2 focus-visible:outline-none"
+          class="bg-accent-gradient focus-visible:ring-accent grid size-8 place-items-center rounded-full text-slate-900 focus-visible:ring-2 focus-visible:outline-none"
+          aria-label={m.plan_item_add_open()}
           onclick={openAdd}
         >
-          {m.plan_item_add_open()}
+          <Plus size={16} aria-hidden="true" />
         </button>
       {/if}
     </div>
@@ -365,8 +368,13 @@
               : 'border-white/5'}"
           >
             <div class="flex items-start justify-between gap-3">
-              <div class="min-w-0">
-                <p class="truncate font-medium text-slate-100">{item.label}</p>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-baseline justify-between gap-3">
+                  <p class="truncate font-medium text-slate-100">{item.label}</p>
+                  <p class="shrink-0 text-sm font-semibold text-slate-100 tabular-nums">
+                    {formatCurrency(item.amount)}
+                  </p>
+                </div>
                 <p class="mt-0.5 text-xs text-slate-400">
                   {#if item.due_date}
                     {formatDate(item.due_date)} ·
@@ -376,11 +384,8 @@
                     · {item.payee}
                   {/if}
                 </p>
-                <p class="mt-1 text-sm font-medium text-slate-100 tabular-nums">
-                  {formatCurrency(item.amount)}
-                </p>
-                {#if item.status === "confirmed" && settlement.remaining > 0}
-                  <p class="mt-1 text-sm text-slate-200">
+                {#if spendItemNeedsLink(item.status, settlement)}
+                  <p class="mt-1 text-sm text-amber-300">
                     {m.plan_spend_to_pay()}
                     {formatCurrency(settlement.remaining)}
                   </p>
@@ -394,6 +399,19 @@
                   <p class="mt-1 text-sm text-amber-200">
                     {m.plan_item_overpaid({ amount: formatCurrency(settlement.overpaid) })}
                   </p>
+                {/if}
+                {#if canManage && spendItemNeedsLink(item.status, settlement)}
+                  <button
+                    type="button"
+                    class="focus-visible:ring-accent mt-2 rounded-full border border-emerald-400/40 px-3 py-1 text-sm font-semibold text-emerald-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+                    onclick={() => {
+                      actionMenuId = null;
+                      linkingItemId = linkingItemId === item.id ? null : item.id;
+                      paymentQuery = "";
+                    }}
+                  >
+                    {linkingItemId === item.id ? m.plan_item_link_close() : m.plan_item_link()}
+                  </button>
                 {/if}
               </div>
               {#if canManage}
@@ -420,18 +438,6 @@
                         onclick={() => startEdit(item)}
                       >
                         {m.plan_item_edit()}
-                      </button>
-                      <button
-                        type="button"
-                        role="menuitem"
-                        class="block w-full px-3 py-2 text-left text-sm text-slate-200 hover:bg-white/5"
-                        onclick={() => {
-                          actionMenuId = null;
-                          linkingItemId = linkingItemId === item.id ? null : item.id;
-                          paymentQuery = "";
-                        }}
-                      >
-                        {linkingItemId === item.id ? m.plan_item_link_close() : m.plan_item_link()}
                       </button>
                       <button
                         type="button"

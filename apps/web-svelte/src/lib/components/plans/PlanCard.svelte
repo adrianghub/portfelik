@@ -113,103 +113,106 @@
   });
 </script>
 
-<div
-  class="relative overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
->
+<div class="relative">
   <div class="flex items-stretch">
-    <div class="min-w-0 flex-1 p-4">
-      <div class="flex items-start gap-3">
-        <PlanMark {kind} name={plan.icon} />
-
-        <a
-          href="/plans/{plan.id}"
-          class="hover:text-accent min-w-0 flex-1 rounded-lg transition-colors"
-        >
-          <span class="block truncate leading-tight font-semibold text-slate-100">{plan.name}</span>
-          {#if plan.group_id && groupName}
-            <p class="mt-0.5 truncate text-xs text-slate-400">{groupName}</p>
-          {/if}
-          {#if kind === "save" && plan.target_amount != null}
-            <p class="mt-1 text-base font-semibold text-slate-100 tabular-nums">
-              {m.plan_save_gathered({
-                saved: formatCurrency(plan.savedAmount),
-                target: formatCurrency(plan.target_amount),
-              })}
-            </p>
-            <div
-              class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-800"
-              role="progressbar"
-              aria-label={m.plan_save_saved_label()}
-              aria-valuenow={savePct}
-              aria-valuemin={0}
-              aria-valuemax={100}
-            >
-              <div class="bg-accent h-full rounded-full" style="width: {savePct}%"></div>
-            </div>
-            {#if plan.end_date}
-              <p class="mt-1 text-xs text-slate-400">{formatDate(plan.end_date)}</p>
-            {/if}
-          {:else if kind === "debt" && debtTerms}
-            <p class="text-eyebrow mt-2 text-slate-400">{m.plan_debt_remaining_hero()}</p>
-            <p class="text-lg font-semibold text-slate-100 tabular-nums">
-              {formatCurrency(debtBalance)}
-            </p>
-            {#if Number(debtTerms.monthly_payment) > 0}
-              <p class="mt-0.5 text-xs text-slate-400">
-                {m.plan_debt_card_installment({
-                  amount: formatCurrency(Number(debtTerms.monthly_payment)),
-                })}
-              </p>
-            {/if}
-          {:else if kind === "spend" && spendSummary}
-            <p class="mt-0.5 text-xs text-slate-400">
-              {formatDate(plan.start_date)} - {formatDate(plan.end_date)}
-            </p>
-            <p class="text-eyebrow mt-2 text-slate-400">{m.plan_spend_budget_left_label()}</p>
-            <p class="text-lg font-semibold text-slate-100 tabular-nums">
-              {#if spendSummary.budgetLeft < 0}
-                {m.plan_spend_over_budget({
-                  amount: formatCurrency(Math.abs(spendSummary.budgetLeft)),
-                })}
-              {:else}
-                {formatCurrency(spendSummary.budgetLeft)}
-              {/if}
-            </p>
-            <p class="text-xs text-slate-400">
-              {m.plan_spend_in_plan({
-                planned: formatCurrency(spendSummary.planned),
-                budget: formatCurrency(spendSummary.budget),
-              })}
-            </p>
-            <div
-              class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-800"
-              role="progressbar"
-              aria-label={m.plan_spend_bar_label()}
-              aria-valuenow={spendUsedPct}
-              aria-valuemin={0}
-              aria-valuemax={100}
-            >
-              <div
-                class={cn(
-                  "h-full rounded-full",
-                  spendSummary.budgetLeft < 0 ? "bg-rose-400" : "bg-accent"
-                )}
-                style="width: {spendUsedPct}%"
-              ></div>
-            </div>
-            {#if spendSummary.toPay > 0}
-              <p class="mt-1 text-xs text-slate-300">
-                {m.plan_spend_to_pay()}: {formatCurrency(spendSummary.toPay)}
-              </p>
-            {/if}
-          {:else if kind === "spend" && plan.budget_amount != null}
-            <p class="mt-1 text-xs text-slate-400">
-              {formatDate(plan.start_date)} - {formatDate(plan.end_date)}
-            </p>
-          {/if}
-        </a>
+    <a
+      href="/plans/{plan.id}"
+      class="hover:text-accent grid min-w-0 flex-1 grid-cols-1 items-center gap-0.5 px-3 py-2.5 transition-colors md:grid-cols-[minmax(0,1fr)_auto] md:gap-x-6 md:px-4"
+    >
+      <div class="min-w-0 md:col-start-1 md:row-start-1">
+        <span class="flex min-w-0 items-center gap-2">
+          <PlanMark {kind} name={plan.icon} size="sm" />
+          <span class="truncate font-semibold text-slate-100">{plan.name}</span>
+        </span>
+        {#if kind === "save" && plan.end_date}
+          <p class="mt-0.5 text-xs text-slate-400">{formatDate(plan.end_date)}</p>
+        {:else if kind === "spend"}
+          <p class="mt-0.5 text-xs text-slate-400">
+            {formatDate(plan.start_date)} - {formatDate(plan.end_date)}
+          </p>
+        {/if}
       </div>
-    </div>
+      {#if plan.group_id && groupName}
+        <p class="truncate text-xs text-slate-400 md:col-start-1">{groupName}</p>
+      {/if}
+      {#if kind === "save" && plan.target_amount != null}
+        <p class="text-xs text-slate-400 md:col-start-1">{m.plan_save_meaning()}</p>
+        <p
+          class="text-lg font-semibold whitespace-nowrap text-slate-100 tabular-nums md:col-start-2 md:row-span-3 md:row-start-1 md:self-center md:text-right md:text-2xl"
+        >
+          {formatCurrency(plan.savedAmount)}
+        </p>
+        <p class="flex items-center gap-2 text-sm text-slate-300 md:col-start-1">
+          {m.plan_save_of_target({ target: formatCurrency(plan.target_amount) })}
+          <span
+            class="h-1 w-16 overflow-hidden rounded-full bg-slate-800"
+            role="progressbar"
+            aria-label={m.plan_save_saved_label()}
+            aria-valuenow={savePct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <span class="bg-accent block h-full rounded-full" style="width: {savePct}%"></span>
+          </span>
+        </p>
+      {:else if kind === "debt" && debtTerms}
+        <p class="text-xs text-slate-400 md:col-start-1">{m.plan_debt_remaining_hero()}</p>
+        <p
+          class="text-lg font-semibold whitespace-nowrap text-slate-100 tabular-nums md:col-start-2 md:row-span-3 md:row-start-1 md:self-center md:text-right md:text-2xl"
+        >
+          {formatCurrency(debtBalance)}
+        </p>
+        {#if Number(debtTerms.monthly_payment) > 0}
+          <p class="text-sm text-slate-300 md:col-start-1">
+            {m.plan_debt_card_installment({
+              amount: formatCurrency(Number(debtTerms.monthly_payment)),
+            })}
+          </p>
+        {/if}
+      {:else if kind === "spend" && spendSummary}
+        <p class="text-xs text-slate-400 md:col-start-1">{m.plan_spend_budget_left_label()}</p>
+        <p
+          class="text-lg font-semibold whitespace-nowrap text-slate-100 tabular-nums md:col-start-2 md:row-span-3 md:row-start-1 md:self-center md:text-right md:text-2xl"
+        >
+          {#if spendSummary.budgetLeft < 0}
+            {m.plan_spend_over_budget({
+              amount: formatCurrency(Math.abs(spendSummary.budgetLeft)),
+            })}
+          {:else}
+            {formatCurrency(spendSummary.budgetLeft)}
+          {/if}
+        </p>
+        <p class="flex items-center gap-2 text-sm text-slate-300 md:col-start-1">
+          {#if spendSummary.toPay > 0}
+            <span class="text-amber-300">
+              {m.plan_spend_to_pay()}
+              {formatCurrency(spendSummary.toPay)}
+            </span>
+          {:else}
+            {m.plan_spend_in_plan({
+              planned: formatCurrency(spendSummary.planned),
+              budget: formatCurrency(spendSummary.budget),
+            })}
+          {/if}
+          <span
+            class="h-1 w-16 overflow-hidden rounded-full bg-slate-800"
+            role="progressbar"
+            aria-label={m.plan_spend_bar_label()}
+            aria-valuenow={spendUsedPct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <span
+              class={cn(
+                "block h-full rounded-full",
+                spendSummary.budgetLeft < 0 ? "bg-rose-400" : "bg-accent"
+              )}
+              style="width: {spendUsedPct}%"
+            ></span>
+          </span>
+        </p>
+      {/if}
+    </a>
 
     {#if hasActions}
       <div class="flex shrink-0 items-stretch" data-plan-menu={plan.id}>
@@ -219,7 +222,7 @@
           onclick={toggleMenu}
           aria-haspopup="menu"
           aria-expanded={menuOpen}
-          class="flex w-11 items-center justify-center border-l border-white/5 text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-200"
+          class="flex w-10 items-center justify-center self-center text-slate-400 transition-colors hover:text-slate-200"
           aria-label={m.plan_actions()}
         >
           <MoreVertical size={16} strokeWidth={1.8} aria-hidden="true" />

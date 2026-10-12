@@ -35,6 +35,15 @@ export function spendItemFacingStatus(
   return "estimated";
 }
 
+/** Another payment can be linked while a confirmed obligation still has a remainder. */
+export function spendItemNeedsLink(
+  status: SpendItemStatus,
+  settlement?: Pick<SpendItemSettlement, "settled" | "remaining"> | null
+): boolean {
+  const facing = spendItemFacingStatus(status, settlement);
+  return facing === "confirmed" || facing === "partial";
+}
+
 export interface SpendBudgetSummary {
   budget: number;
   /** Estimated, scheduled, and confirmed lines. Cancelled lines stay stored and drop out. */

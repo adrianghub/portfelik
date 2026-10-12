@@ -4,6 +4,7 @@ import {
   normalizeSpendItem,
   settleSpendItem,
   spendItemFacingStatus,
+  spendItemNeedsLink,
   summarizeSpendBudget,
 } from "$lib/plans/spend";
 
@@ -122,6 +123,14 @@ describe("spend plan budget", () => {
     expect(spendItemFacingStatus("confirmed", { settled: 200, remaining: 300 })).toBe("partial");
     expect(spendItemFacingStatus("confirmed", { settled: 500, remaining: 0 })).toBe("paid");
     expect(spendItemFacingStatus("cancelled", { settled: 200, remaining: 0 })).toBe("cancelled");
+  });
+
+  it("offers another link only while a confirmed remainder is open", () => {
+    expect(spendItemNeedsLink("planned", { settled: 0, remaining: 500 })).toBe(false);
+    expect(spendItemNeedsLink("confirmed", { settled: 0, remaining: 500 })).toBe(true);
+    expect(spendItemNeedsLink("confirmed", { settled: 200, remaining: 300 })).toBe(true);
+    expect(spendItemNeedsLink("confirmed", { settled: 500, remaining: 0 })).toBe(false);
+    expect(spendItemNeedsLink("cancelled", { settled: 200, remaining: 300 })).toBe(false);
   });
 
   it("keeps a cancelled line from becoming a due payment", () => {

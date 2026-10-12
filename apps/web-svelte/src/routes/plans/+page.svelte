@@ -7,9 +7,7 @@
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import DemoShowcaseBanner from "$lib/components/onboarding/DemoShowcaseBanner.svelte";
   import * as m from "$lib/paraglide/messages";
-  import CategorySelect from "$lib/components/transactions/CategorySelect.svelte";
-  import { createCategory, fetchCategories } from "$lib/services/categories";
-  import { makeCreateCategoryInline } from "$lib/category-create";
+  import InfoTooltip from "$lib/components/ui/InfoTooltip.svelte";
   import { fetchUserGroups, fetchMyGroupRoles } from "$lib/services/groups";
   import { fetchPlanItemsForPlans } from "$lib/services/plan-items";
   import { settleSpendItem, summarizeSpendBudget, type SpendItemAmounts } from "$lib/plans/spend";
@@ -64,14 +62,6 @@
 
   const queryClient = useQueryClient();
   const plansHubPath = "/plans";
-
-  const createCategoryInline = makeCreateCategoryInline({
-    createCategory,
-    invalidate: () =>
-      queryClient.invalidateQueries({ queryKey: qk.categories(requireSessionUserId()) }),
-    toastSuccess: () => toast.success(m.toast_category_created()),
-    toastError: () => toast.error(m.toast_error()),
-  });
 
   beforeNavigate(({ from, to }) => {
     if (from?.url.pathname === plansHubPath && to && to.url.pathname !== plansHubPath) {
@@ -148,12 +138,6 @@
   const groupRolesQuery = createQuery(() => ({
     queryKey: qk.myGroupRoles(session.userId!),
     queryFn: fetchMyGroupRoles,
-    enabled: () => !!session.userId,
-  }));
-
-  const categoriesQuery = createQuery(() => ({
-    queryKey: qk.categories(session.userId!),
-    queryFn: fetchCategories,
     enabled: () => !!session.userId,
   }));
 
@@ -330,9 +314,19 @@
       }
     }
     categoryId = plan?.category_id ?? "";
-    groupId = plan?.group_id ?? "";
+    if (plan) {
+      groupId = plan.group_id ?? "";
+    } else if (groupFilter !== "all" && groupFilter !== "own") {
+      groupId = groupFilter;
+    } else {
+      groupId = "";
+    }
     showForm = true;
   }
+
+  const showGroupField = $derived(
+    (groupsQuery.data?.length ?? 0) > 0 && (!!editing || groupFilter === "all")
+  );
 
   function formPayload() {
     return {
@@ -544,14 +538,14 @@
     >
       {m.nav_plans()}
     </h1>
-    {#if plansQuery.isLoading || !showPlansZeroState}
+    {#if !plansQuery.isLoading}
       <button
         type="button"
         onclick={() => resetForm()}
-        class="bg-accent-gradient focus-visible:ring-accent inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:outline-none"
+        aria-label={m.plan_form_title_add()}
+        class="bg-accent-gradient focus-visible:ring-accent grid size-9 place-items-center rounded-full text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:outline-none"
       >
-        <Plus size={16} aria-hidden="true" />
-        {m.plan_form_title_add()}
+        <Plus size={18} aria-hidden="true" />
       </button>
     {/if}
   </div>
@@ -567,9 +561,9 @@
   {/if}
 
   {#if plansQuery.isLoading}
-    <div class="grid gap-3 sm:grid-cols-2">
-      {#each Array(4) as _, i (i)}
-        <div class="h-32 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
+    <div class="space-y-2">
+      {#each Array(3) as _, i (i)}
+        <div class="h-16 animate-pulse rounded-xl border border-white/5 bg-slate-900/60"></div>
       {/each}
     </div>
   {:else if plansQuery.isError}
@@ -598,12 +592,12 @@
           <button
             type="button"
             onclick={() => resetForm()}
+            aria-label={m.plan_form_title_add()}
             class={discovery
-              ? "focus-visible:ring-accent inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
-              : "bg-accent-gradient focus-visible:ring-accent inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] focus-visible:ring-2 focus-visible:outline-none"}
+              ? "focus-visible:ring-accent grid size-9 place-items-center rounded-full border border-white/15 text-slate-200 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+              : "bg-accent-gradient focus-visible:ring-accent grid size-9 place-items-center rounded-full text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] focus-visible:ring-2 focus-visible:outline-none"}
           >
-            <Plus size={16} aria-hidden="true" />
-            {m.plan_form_title_add()}
+            <Plus size={18} aria-hidden="true" />
           </button>
         </div>
       {/snippet}
@@ -650,73 +644,43 @@
       {/each}
     </div>
 
-    <div class="grid items-start gap-5 lg:grid-cols-2">
-      <section class="min-w-0 space-y-2">
-        <h2 class="text-xs font-medium tracking-wide text-slate-400 uppercase">
-          {m.plans_section_save()}
-        </h2>
-        {#if savePlans.length === 0}
-          <p
-            class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-400"
-          >
-            {m.plans_section_save_empty()}
-          </p>
-        {:else}
-          {#each savePlans as plan, i (plan.id)}
-            <div data-tour-id={i === 0 ? "tour-plan-save" : undefined}>
-              <PlanCard
-                {plan}
-                groupName={groupMap.get(plan.group_id ?? "")}
-                onedit={planCanManage(plan) ? resetForm : undefined}
-                ondelete={planCanManage(plan) ? (id) => (deleteTargetId = id) : undefined}
-              />
-            </div>
-          {/each}
-        {/if}
-      </section>
-
-      <section class="min-w-0 space-y-2">
-        <h2 class="text-xs font-medium tracking-wide text-slate-400 uppercase">
-          {m.plans_section_debt()}
-        </h2>
-        {#if debtPlans.length === 0}
-          <p
-            class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-400"
-          >
-            {m.plans_section_debt_empty()}
-          </p>
-        {:else}
-          {#each debtPlans as plan, i (plan.id)}
-            <div data-tour-id={i === 0 ? "tour-plan-settle" : undefined}>
-              <PlanCard
-                {plan}
-                debtTerms={debtTermsQuery.data?.[plan.id]}
-                linkedExpenses={progressQuery.data?.[plan.id]?.linkedExpenses ?? []}
-                groupName={groupMap.get(plan.group_id ?? "")}
-                onedit={planCanManage(plan) ? resetForm : undefined}
-                ondelete={planCanManage(plan) ? (id) => (deleteTargetId = id) : undefined}
-              />
-            </div>
-          {/each}
-        {/if}
-      </section>
-      {#if spendPlans.length > 0}
-        <section class="min-w-0 space-y-2">
-          <h2 class="text-xs font-medium tracking-wide text-slate-400 uppercase">
-            {m.plans_section_spend()}
-          </h2>
-          {#each spendPlans as plan (plan.id)}
+    {#if savePlans.length + spendPlans.length + debtPlans.length > 0}
+      <div
+        class="divide-y divide-white/8 overflow-hidden rounded-2xl border border-white/8 bg-slate-900/40"
+      >
+        {#each savePlans as plan, i (plan.id)}
+          <div data-tour-id={i === 0 ? "tour-plan-save" : undefined}>
             <PlanCard
               {plan}
-              spendSummary={spendSummaries[plan.id] ?? null}
               groupName={groupMap.get(plan.group_id ?? "")}
               onedit={planCanManage(plan) ? resetForm : undefined}
               ondelete={planCanManage(plan) ? (id) => (deleteTargetId = id) : undefined}
             />
-          {/each}
-        </section>
-      {/if}
-    </div>
+          </div>
+        {/each}
+        {#each spendPlans as plan (plan.id)}
+          <PlanCard
+            {plan}
+            spendSummary={spendSummaries[plan.id] ?? null}
+            groupName={groupMap.get(plan.group_id ?? "")}
+            onedit={planCanManage(plan) ? resetForm : undefined}
+            ondelete={planCanManage(plan) ? (id) => (deleteTargetId = id) : undefined}
+          />
+        {/each}
+        {#each debtPlans as plan, i (plan.id)}
+          <div data-tour-id={i === 0 ? "tour-plan-settle" : undefined}>
+            <PlanCard
+              {plan}
+              debtTerms={debtTermsQuery.data?.[plan.id]}
+              linkedExpenses={progressQuery.data?.[plan.id]?.linkedExpenses ?? []}
+              groupName={groupMap.get(plan.group_id ?? "")}
+              onedit={planCanManage(plan) ? resetForm : undefined}
+              ondelete={planCanManage(plan) ? (id) => (deleteTargetId = id) : undefined}
+            />
+          </div>
+        {/each}
+      </div>
+    {/if}
   {/if}
 </div>
 
@@ -766,28 +730,6 @@
       />
     </div>
 
-    <div class="grid gap-3 sm:grid-cols-2">
-      <DayPicker
-        id="plan-start"
-        bind:value={startDate}
-        label={m.plan_form_start_date()}
-        yearsPast={planKind === "debt" ? 50 : 100}
-        yearsAhead={planKind === "debt" ? 1 : 15}
-        required
-      />
-      <DayPicker
-        id="plan-end"
-        bind:value={endDate}
-        label={planKind === "debt" ? m.plan_form_end_date_debt() : m.plan_form_end_date()}
-        yearsPast={planKind === "debt" ? 0 : 100}
-        yearsAhead={planKind === "debt" ? 100 : 15}
-        required
-      />
-    </div>
-    {#if planKind === "debt"}
-      <p class="text-xs text-slate-500">{m.plan_form_debt_dates_hint()}</p>
-    {/if}
-
     {#if planKind === "save"}
       <div class="space-y-1">
         <label class="text-xs font-medium text-slate-300" for="plan-target">
@@ -804,7 +746,48 @@
           class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:ring-2 focus:outline-none"
         />
       </div>
+      <DayPicker
+        id="plan-end"
+        bind:value={endDate}
+        label={m.plan_form_deadline()}
+        yearsPast={100}
+        yearsAhead={15}
+        required
+      />
+      <details class="text-sm text-slate-300">
+        <summary class="cursor-pointer">{m.plan_item_more_details()}</summary>
+        <div class="pt-3">
+          <DayPicker
+            id="plan-start"
+            bind:value={startDate}
+            label={m.plan_form_start_date()}
+            yearsPast={100}
+            yearsAhead={15}
+            required
+          />
+        </div>
+      </details>
     {:else if planKind === "debt"}
+      <p class="text-xs font-medium text-slate-300">{m.plan_form_section_basic()}</p>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <DayPicker
+          id="plan-start"
+          bind:value={startDate}
+          label={m.plan_form_start_date()}
+          yearsPast={50}
+          yearsAhead={1}
+          required
+        />
+        <DayPicker
+          id="plan-end"
+          bind:value={endDate}
+          label={m.plan_form_end_date_debt()}
+          yearsPast={0}
+          yearsAhead={100}
+          required
+        />
+      </div>
+      <p class="text-xs font-medium text-slate-300">{m.plan_form_section_debt()}</p>
       <div class="grid gap-3 sm:grid-cols-2">
         <div class="space-y-1">
           <label class="text-xs font-medium text-slate-300" for="debt-original"
@@ -862,33 +845,41 @@
             class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
           />
         </div>
-        <DayPicker
-          id="debt-first-payment-date"
-          bind:value={debtFirstPaymentDate}
-          label={m.plan_debt_first_payment_date()}
-          yearsPast={5}
-          yearsAhead={2}
-        />
-        <div class="space-y-1">
-          <label class="text-xs font-medium text-slate-300" for="debt-first-payment-amount"
-            >{m.plan_debt_first_payment_amount()}</label
-          >
-          <input
-            id="debt-first-payment-amount"
-            type="number"
-            min="0.01"
-            step="0.01"
-            bind:value={debtFirstPaymentAmount}
-            class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
-          />
-        </div>
       </div>
-      <p class="text-xs text-slate-500">{m.plan_debt_first_payment_hint()}</p>
+      <details class="text-sm text-slate-300">
+        <summary class="cursor-pointer">{m.plan_item_more_details()}</summary>
+        <div class="grid gap-3 pt-3 sm:grid-cols-2">
+          <DayPicker
+            id="debt-first-payment-date"
+            bind:value={debtFirstPaymentDate}
+            label={m.plan_debt_first_payment_date()}
+            yearsPast={5}
+            yearsAhead={2}
+          />
+          <div class="space-y-1">
+            <label class="text-xs font-medium text-slate-300" for="debt-first-payment-amount"
+              >{m.plan_debt_first_payment_amount()}</label
+            >
+            <input
+              id="debt-first-payment-amount"
+              type="number"
+              min="0.01"
+              step="0.01"
+              bind:value={debtFirstPaymentAmount}
+              class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
+            />
+          </div>
+          <p class="text-xs text-slate-400 sm:col-span-2">{m.plan_debt_first_payment_hint()}</p>
+        </div>
+      </details>
     {:else if planKind === "spend"}
       <div class="space-y-1">
-        <label class="text-xs font-medium text-slate-300" for="plan-budget">
-          {m.plan_form_budget()}
-        </label>
+        <div class="flex items-center gap-1">
+          <label class="text-xs font-medium text-slate-300" for="plan-budget">
+            {m.plan_form_budget()}
+          </label>
+          <InfoTooltip label={m.plan_form_budget_help_label()} text={m.plan_form_budget_hint()} />
+        </div>
         <input
           id="plan-budget"
           type="number"
@@ -898,26 +889,28 @@
           bind:value={budgetAmount}
           class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 focus:ring-2 focus:outline-none"
         />
-        <p class="text-xs text-slate-500">{m.plan_form_budget_hint()}</p>
+      </div>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <DayPicker
+          id="plan-start"
+          bind:value={startDate}
+          label={m.plan_form_start_date()}
+          yearsPast={100}
+          yearsAhead={15}
+          required
+        />
+        <DayPicker
+          id="plan-end"
+          bind:value={endDate}
+          label={m.plan_form_end_date()}
+          yearsPast={100}
+          yearsAhead={15}
+          required
+        />
       </div>
     {/if}
 
-    <div class="space-y-1">
-      <label class="text-xs font-medium text-slate-300" for="plan-category">
-        {m.plan_form_category()}
-      </label>
-      <CategorySelect
-        id="plan-category"
-        categories={categoriesQuery.data ?? []}
-        selectedId={categoryId || null}
-        type="expense"
-        onchange={(id) => (categoryId = id ?? "")}
-        oncreate={createCategoryInline}
-        placeholder={m.plan_form_no_category()}
-      />
-    </div>
-
-    {#if (groupsQuery.data?.length ?? 0) > 0}
+    {#if showGroupField}
       <div class="space-y-1">
         <label class="text-xs font-medium text-slate-300" for="plan-group">
           {m.plan_form_group()}
