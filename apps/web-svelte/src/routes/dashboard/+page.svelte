@@ -46,7 +46,7 @@
     resolveCeleCategoryId,
   } from "$lib/services/goal-spending";
   import { fetchRecurringOccurrenceSkips } from "$lib/services/recurring-occurrences";
-  import { localDateIso } from "$lib/date-local";
+  import { addLocalDays, localDateIso } from "$lib/date-local";
   import {
     buildCockpitMonthView,
     cockpitForecastChart,
@@ -54,14 +54,9 @@
   } from "$lib/cockpit/month-view";
   import { takeCockpitImportReveal } from "$lib/cockpit/import-reveal";
   import {
-    calendarMonthBounds,
     calendarMonthFromIso,
     calendarMonthLabel,
-    cashMonthQueryValue,
     inclusiveDayRangeLabel,
-    cockpitMonthFetchBounds,
-    parseCashMonthParam,
-    shiftCalendarMonth,
   } from "$lib/cockpit/month-window";
   import {
     CASH_FETCH_END_SENTINEL,
@@ -665,11 +660,16 @@
     enabled: !!session.userId && !!cashAnchorQuery.data,
     staleTime: 60_000,
   }));
-  const cashMonth = $derived(
-    parseCashMonthParam($page.url.searchParams.get("cashMonth"), cashForecastToday)
-  );
-  const cashMonthLabel = $derived(calendarMonthLabel(cashMonth));
-  const cockpitMonthFetch = $derived(cockpitMonthFetchBounds(cashMonth));
+  // The period chips and the date range are the only window. Counters,
+  // categories, and the chart all read it.
+  const gaugeRange = $derived({
+    start: bounds.start.slice(0, 10),
+    end: addLocalDays(bounds.end.slice(0, 10), -1),
+  });
+  const cockpitMonthFetch = $derived({
+    start: gaugeRange.start,
+    endExclusive: bounds.end.slice(0, 10),
+  });
   const cockpitMonthLedgerQuery = createQuery(() => ({
     queryKey: qk.transactions.list(
       session.userId!,
@@ -726,7 +726,8 @@
   const cockpitMonth = $derived(
     buildCockpitMonthView({
       scopeFilter: groupFilter,
-      month: cashMonth,
+      month: calendarMonthFromIso(gaugeRange.start),
+      range: gaugeRange,
       today: cashForecastToday,
       privateAnchor: cashAnchorQuery.data
         ? {
@@ -745,7 +746,8 @@
   const cockpitChart = $derived(
     cockpitForecastChart({
       scopeFilter: groupFilter,
-      month: cashMonth,
+      month: calendarMonthFromIso(gaugeRange.start),
+      range: gaugeRange,
       today: cashForecastToday,
       privateAnchor: cashAnchorQuery.data
         ? {
@@ -761,14 +763,7 @@
       monthLedger: cockpitMonthLedgerQuery.isSuccess ? "complete" : "partial",
     })
   );
-  const cockpitBounds = $derived(calendarMonthBounds(cashMonth));
 
-  function shiftCashMonth(delta: number) {
-    const next = shiftCalendarMonth(cashMonth, delta);
-    syncListViewUrl("/dashboard", $page.url.searchParams, {
-      cashMonth: cashMonthQueryValue(next, cashForecastToday),
-    });
-  }
   // Prefer isLoading (pending + fetching) over isPending. Disabled dependents
   // stay isPending=true and would otherwise freeze the cash skeleton forever.
   const cashPositionLoading = $derived(
@@ -995,7 +990,7 @@
     { value: "year", label: m.dashboard_period_year() },
   ]);
 
-  // Categories follow this window. The three counters follow cashMonth instead.
+  // Same window as the three counters.
   const categoryPeriodLabel = $derived.by(() => {
     if (period === "week") return m.dashboard_period_week();
     if (period === "year") return bounds.start.slice(0, 4);
@@ -1048,22 +1043,31 @@
   {#if discovery}
     <DashboardDiscovery />
   {:else}
-    <!-- Period stays behind more. Scope stays when a group exists. -->
+    <DashboardViewToolbar
+      {period}
+      {groupFilter}
+      groups={groupsQuery.data ?? []}
+      {periodChips}
+      {customRange}
+      onPeriodChange={setPeriod}
+      onScopeChange={setGroupFilter}
+      onRangeChange={setCustomRange}
+      onRangeClear={() => setPeriod("month")}
+    />
     <DashboardCashPosition
       hasAnchor={!!cashAnchorQuery.data}
       showPrivateDetails={groupFilter === "own"}
       scopeLabel={cashScopeLabel}
-      monthLabel={cashMonthLabel}
-      onMonthShift={shiftCashMonth}
+      transactionsHref={transactionsHref()}
       balance={cockpitMonth.balance}
       expensesFrom={cockpitMonth.expensesFrom}
       expensesIncomplete={cockpitMonth.expensesIncomplete}
       monthForecast={cockpitMonth.forecast}
       orientational={cockpitMonth.orientational}
       chart={cockpitChart}
-      rangeStart={cockpitBounds.monthStart}
-      rangeEnd={cockpitBounds.monthEnd}
-      projected={cashForecastToday <= cockpitBounds.monthEnd}
+      rangeStart={gaugeRange.start}
+      rangeEnd={gaugeRange.end}
+      projected={cashForecastToday <= gaugeRange.end}
       demo={demoActive}
       revealCount={importRevealCount}
       loading={cashPositionLoading}
@@ -1071,21 +1075,6 @@
       onRetry={retryCashPosition}
       onOpenGlossary={openGlossary}
     />
-
-    {#if detailsOpen || (groupsQuery.data?.length ?? 0) > 0}
-      <DashboardViewToolbar
-        {period}
-        {groupFilter}
-        groups={groupsQuery.data ?? []}
-        {periodChips}
-        {customRange}
-        showPeriod={detailsOpen}
-        onPeriodChange={setPeriod}
-        onScopeChange={setGroupFilter}
-        onRangeChange={setCustomRange}
-        onRangeClear={() => setPeriod("month")}
-      />
-    {/if}
 
     {#if demoActive}
       <DemoShowcaseBanner
@@ -1101,7 +1090,7 @@
     <DashboardActions {groupFilter} overdue={overdueSummary} {overdueState} />
     <DashboardPiles {groupFilter} groups={groupsQuery.data ?? []} />
 
-    <!-- Categories and the chart follow the period. The month counters do not. -->
+    <!-- Categories and the chart use the same period as the counters. -->
     {#if txQuery.isLoading}
       <div class="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-2">
         <div class="h-40 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
@@ -1110,7 +1099,7 @@
     {:else if txQuery.isError}
       <QueryError error={txQuery.error} onRetry={() => txQuery.refetch()} />
     {:else}
-      <div class="grid min-w-0 grid-cols-1 items-start gap-3 lg:grid-cols-2">
+      <div class="grid min-w-0 grid-cols-1 items-stretch gap-3 lg:grid-cols-2">
         <DashboardSpendingInsight
           insight={spendingInsight}
           {period}

@@ -6,7 +6,6 @@
   import type { CockpitForecastChart as ChartModel } from "$lib/cockpit/forecast-chart";
   import { shortDayMonth } from "$lib/cockpit/month-window";
   import { motionDuration } from "$lib/motion";
-  import { ChevronLeft, ChevronRight } from "lucide-svelte";
   import * as m from "$lib/paraglide/messages";
   import { formatCurrency, monthNameLocative } from "$lib/utils";
 
@@ -14,8 +13,7 @@
     hasAnchor,
     showPrivateDetails,
     scopeLabel,
-    monthLabel,
-    onMonthShift,
+    transactionsHref,
     balance,
     expensesFrom = null,
     expensesIncomplete = false,
@@ -35,8 +33,7 @@
     hasAnchor: boolean;
     showPrivateDetails: boolean;
     scopeLabel: string;
-    monthLabel: string;
-    onMonthShift: (delta: number) => void;
+    transactionsHref: string;
     balance: number | null;
     expensesFrom?: string | null;
     expensesIncomplete?: boolean;
@@ -140,30 +137,9 @@
     aria-label={m.cash_position_label()}
     data-testid="dashboard-cash-position"
   >
-    <div class="flex items-center justify-between gap-3">
-      <div class="flex min-w-0 items-center gap-1">
-        <button
-          type="button"
-          class="focus-visible:ring-accent inline-flex size-8 items-center justify-center rounded-lg text-slate-400 hover:bg-white/5 hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
-          aria-label={m.cockpit_month_previous()}
-          onclick={() => onMonthShift(-1)}
-        >
-          <ChevronLeft size={16} aria-hidden="true" />
-        </button>
-        <p class="text-eyebrow truncate text-slate-300" data-testid="cockpit-month">{monthLabel}</p>
-        <button
-          type="button"
-          class="focus-visible:ring-accent inline-flex size-8 items-center justify-center rounded-lg text-slate-400 hover:bg-white/5 hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
-          aria-label={m.cockpit_month_next()}
-          onclick={() => onMonthShift(1)}
-        >
-          <ChevronRight size={16} aria-hidden="true" />
-        </button>
-      </div>
-      <p class="shrink-0 text-xs text-slate-400">
-        {demo ? m.cockpit_sample_data() : scopeLabel}
-      </p>
-    </div>
+    <p class="mb-3 text-sm font-medium text-slate-300">
+      {demo ? m.cockpit_sample_data() : scopeLabel}
+    </p>
     {#if revealCount != null}
       <p class="mt-3 text-sm text-slate-400" data-testid="cockpit-analyzed">
         {analyzed(revealCount)}
@@ -267,7 +243,7 @@
     <div class="mt-2 flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1">
       {#if showPrivateDetails && hasAnchor}
         <a
-          href="/transactions?group=own"
+          href={transactionsHref}
           class="focus-visible:ring-accent text-accent inline-flex min-h-11 items-center text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"
           >{m.cash_position_transactions_link()}</a
         >

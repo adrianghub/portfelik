@@ -99,12 +99,8 @@
   const displayBalance = $derived(
     deriveDebtDisplayBalance(terms, planStartDate, linkedExpenses, todayIso())
   );
-  const paid = $derived(Math.max(0, Number(terms.original_amount) - displayBalance));
   const interestPaidSinceStart = $derived(
     estimateInterestPaidSince(terms, planStartDate, todayIso())
-  );
-  const paidPct = $derived(
-    terms.original_amount > 0 ? Math.round((paid / terms.original_amount) * 100) : 0
   );
   const dailyInterest = $derived(
     approximateDailyInterest(displayBalance, Number(terms.annual_rate))
@@ -331,22 +327,6 @@
         })}
       </p>
     {/if}
-    <div
-      class="mt-4 h-2 overflow-hidden rounded-full bg-slate-800"
-      role="progressbar"
-      aria-label={m.plan_debt_progress_label()}
-      aria-valuenow={paidPct}
-      aria-valuemin={0}
-      aria-valuemax={100}
-    >
-      <div class="bg-accent-gradient h-full rounded-full" style="width: {paidPct}%"></div>
-    </div>
-    <p class="mt-2 text-xs text-slate-400">
-      {m.plan_debt_card_progress({
-        paid: formatCurrency(paid),
-        total: formatCurrency(Number(terms.original_amount)),
-      })}
-    </p>
     {#if interestPaidSinceStart > 0.01}
       <p class="mt-1 text-xs text-slate-400">
         {m.plan_debt_interest_paid_since({

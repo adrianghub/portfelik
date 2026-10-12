@@ -193,14 +193,7 @@ test.describe("dashboard mobile layout", () => {
     });
     await page.setViewportSize({ width: 1280, height: 800 });
 
-    await cash.getByRole("button", { name: "Następny miesiąc" }).click();
-    await expect(page).toHaveURL(/cashMonth=/);
-    await expect(cash.getByTestId("cockpit-payments")).toContainText(/0,00/);
-    await expect(cash.getByTestId("cockpit-balance")).toContainText(/1\D?000,00/);
-    await cash.getByRole("button", { name: "Poprzedni miesiąc" }).click();
-    await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(cash.getByTestId("cockpit-payments")).toContainText(/200,00/);
-
+    await expect(cash.getByRole("button", { name: "Następny miesiąc" })).toHaveCount(0);
     await expect(cash.getByText("Wyliczenie na dziś i 90 dni")).toHaveCount(0);
     await expect(cash).not.toContainText("Dostępne teraz");
     await expect(page.locator("#dashboard-spending")).toBeVisible();
@@ -212,13 +205,11 @@ test.describe("dashboard mobile layout", () => {
     await expect(countersHelp).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByRole("tooltip")).toContainText(/nie są saldem z banku/);
 
-    await page.getByRole("button", { name: "Zobacz więcej" }).click();
     await page.getByRole("tab", { name: /ostatnie 7 dni/i }).click();
     await expect(page).toHaveURL(/period=week/);
     await expect(cash.getByTestId("cockpit-payments")).toContainText(/200,00/);
     await expect(page.getByTestId("cockpit-category-period").first()).toHaveText("Ostatnie 7 dni");
     await expect(page.getByTestId("cockpit-history-span")).toHaveText("Ostatnie tygodnie");
-    await expect(cash.getByTestId("cockpit-month")).not.toHaveText("Ostatnie 7 dni");
   });
 
   test("missing opening balance shows a dash and one short action", async ({ page }) => {
@@ -294,7 +285,7 @@ test.describe("dashboard mobile layout", () => {
     const payments = page.getByTestId("cockpit-payments");
     await expect(payments).toContainText(/500,00/);
     await expect(payments).not.toContainText(/800,00/);
-    await expect(payments).not.toContainText("Od 15.06");
+    await expect(payments.getByText("Od 15.06")).toHaveCount(0);
     const help = payments.getByRole("button", { name: "Zakres wydatków" });
     await help.hover();
     await expect(help).toHaveAttribute("aria-expanded", "true");
@@ -521,7 +512,6 @@ test.describe("dashboard mobile layout", () => {
 
   test("period chips and custom range drive the dashboard window", async ({ page }) => {
     await page.goto("/dashboard");
-    await page.getByRole("button", { name: "Zobacz więcej" }).click();
 
     // Calendar month is the canonical default and is omitted from the URL.
     await expect(page.getByRole("tab", { name: /^ten miesiąc$/i })).toHaveAttribute(
@@ -531,7 +521,7 @@ test.describe("dashboard mobile layout", () => {
     await expect(page).not.toHaveURL(/period=/);
 
     // Week is a non-default view and remains explicit in the URL.
-    // It changes categories and the chart, not the month counters.
+    // Categories, the chart, and the counters follow it.
     await page.getByRole("tab", { name: /ostatnie 7 dni/i }).click();
     await expect(page).toHaveURL(/period=week/);
     await expect(page.getByTestId("cockpit-category-period").first()).toHaveText("Ostatnie 7 dni");

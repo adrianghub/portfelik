@@ -61,7 +61,7 @@
     scrollRestoreKey,
   } from "$lib/utils/scroll-restore";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
-  import { ArrowLeft, CalendarDays, Link2Off, Users } from "lucide-svelte";
+  import { ArrowLeft, CalendarDays, Link2Off, MoreHorizontal, Users } from "lucide-svelte";
   import { tick } from "svelte";
   import { toast } from "svelte-sonner";
   import { localDateIso } from "$lib/date-local";
@@ -191,6 +191,62 @@
   const canRecordProgress = $derived(
     planBucket === "active" && planQuery.data?.status === "active"
   );
+
+  let spendEditOpen = $state(false);
+  let spendMoreOpen = $state(false);
+  let editName = $state("");
+  let editBudget = $state("");
+  let editStart = $state("");
+  let editEnd = $state("");
+
+  function openSpendEdit() {
+    const plan = planQuery.data;
+    if (!plan) return;
+    editName = plan.name;
+    editBudget = plan.budget_amount != null ? String(plan.budget_amount) : "";
+    editStart = plan.start_date;
+    editEnd = plan.end_date;
+    spendEditOpen = true;
+  }
+
+  const spendEditMutation = createMutation(() => ({
+    mutationFn: async () => {
+      const plan = planQuery.data!;
+      await updatePlan(id, {
+        name: editName,
+        kind: "spend",
+        start_date: editStart,
+        end_date: editEnd,
+        budget_amount: editBudget === "" ? null : Number(editBudget),
+        category_id: plan.category_id,
+        group_id: plan.group_id,
+      });
+    },
+    onSuccess: async () => {
+      spendEditOpen = false;
+      toast.success(m.plan_item_updated());
+      const u = requireSessionUserId();
+      await queryClient.invalidateQueries({ queryKey: qk.plan(u, id) });
+      await queryClient.invalidateQueries({ queryKey: qk.plans(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.planSpendCards(u) });
+    },
+    onError: (err) => {
+      const message = err instanceof Error ? err.message : "";
+      if (message === "budget_required") {
+        toast.error(m.plan_form_budget_required());
+        return;
+      }
+      if (message === "name_required") {
+        toast.error(m.plan_form_name_required());
+        return;
+      }
+      if (message === "date_required" || message === "date_order") {
+        toast.error(m.plan_form_dates_invalid());
+        return;
+      }
+      toastError(err);
+    },
+  }));
 
   const canManage = $derived.by(() => {
     const plan = planQuery.data;
@@ -484,7 +540,7 @@
           <button
             type="button"
             onclick={() => navigateBack("/plans")}
-            class="shrink-0 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-100"
+            class="hidden shrink-0 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-100 md:inline-flex md:items-center"
             aria-label={m.common_back()}
           >
             <ArrowLeft size={16} strokeWidth={1.8} aria-hidden="true" />
@@ -494,10 +550,10 @@
           </h1>
           <PlanMark kind={plan.kind} name={plan.icon} size="sm" />
         </div>
-        <div class="flex flex-wrap items-center gap-2 pl-8 text-sm text-slate-400">
+        <div class="flex flex-wrap items-center gap-2 text-sm text-slate-400 md:pl-8">
           <span class="inline-flex items-center gap-1">
             <CalendarDays size={14} strokeWidth={1.8} aria-hidden="true" />
-            {#if planIsUpcoming}
+            {#if planIsUpcoming && plan.kind !== "spend"}
               {m.plan_card_planned_from({ date: formatDate(plan.start_date) })} · {m.plan_card_planned_until(
                 { date: formatDate(plan.end_date) }
               )}
@@ -505,7 +561,7 @@
               {formatDate(plan.start_date)} - {formatDate(plan.end_date)}
             {/if}
           </span>
-          {#if planIsUpcoming}
+          {#if planIsUpcoming && plan.kind !== "spend"}
             <span
               class="shrink-0 rounded-full border border-sky-400/30 bg-sky-400/10 px-2 py-0.5 text-[10px] font-semibold text-sky-300 uppercase"
             >
@@ -524,15 +580,34 @@
         {#if plan.group_id}
           <a
             href="/settings?tab=groups&group={plan.group_id}"
-            class="focus-visible:ring-accent pl-8 text-xs font-medium text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+            class="focus-visible:ring-accent text-xs font-medium text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:outline-none md:pl-8"
           >
             {m.plan_group_roles_link({ role: groupRoleLabel(myGroupRole) })}
           </a>
         {/if}
       </div>
+      {#if canManage && plan.kind === "spend"}
+        <div class="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            class="focus-visible:ring-accent min-h-11 rounded-full border border-white/10 px-3 text-sm text-slate-200 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+            onclick={openSpendEdit}
+          >
+            {m.common_edit()}
+          </button>
+          <button
+            type="button"
+            class="focus-visible:ring-accent flex size-11 items-center justify-center rounded-full border border-white/10 text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+            aria-label={m.plan_more_actions()}
+            onclick={() => (spendMoreOpen = true)}
+          >
+            <MoreHorizontal size={16} strokeWidth={1.8} aria-hidden="true" />
+          </button>
+        </div>
+      {/if}
     </div>
 
-    {#if canManage}<PlanAppearance {plan} />{/if}
+    {#if canManage && plan.kind !== "spend"}<PlanAppearance {plan} />{/if}
 
     {#if plan.kind === "save" && progress}
       {#if plan.group_id && !canManage}
@@ -677,6 +752,58 @@
 </div>
 
 {#if planQuery.data}
+  <Dialog open={spendEditOpen} onclose={() => (spendEditOpen = false)} title={m.common_edit()}>
+    <form
+      class="space-y-3"
+      onsubmit={(event) => {
+        event.preventDefault();
+        if (!spendEditMutation.isPending) spendEditMutation.mutate();
+      }}
+    >
+      <div class="space-y-1">
+        <label class="text-xs font-medium text-slate-300" for="spend-plan-name"
+          >{m.plan_form_name()}</label
+        >
+        <input
+          id="spend-plan-name"
+          required
+          bind:value={editName}
+          class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 focus:ring-2 focus:outline-none"
+        />
+      </div>
+      <div class="space-y-1">
+        <label class="text-xs font-medium text-slate-300" for="spend-plan-budget"
+          >{m.plan_form_budget()}</label
+        >
+        <input
+          id="spend-plan-budget"
+          type="number"
+          min="0.01"
+          step="0.01"
+          required
+          bind:value={editBudget}
+          class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 focus:ring-2 focus:outline-none"
+        />
+        <p class="text-xs text-slate-500">{m.plan_form_budget_hint()}</p>
+      </div>
+      <DayPicker id="spend-plan-start" bind:value={editStart} label={m.plan_form_start_date()} />
+      <DayPicker id="spend-plan-end" bind:value={editEnd} label={m.plan_form_end_date()} />
+      <button
+        type="submit"
+        disabled={spendEditMutation.isPending}
+        class="bg-accent-gradient focus-visible:ring-accent min-h-11 rounded-full px-4 text-sm font-semibold text-slate-900 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+      >
+        {spendEditMutation.isPending ? m.common_saving() : m.common_save()}
+      </button>
+    </form>
+  </Dialog>
+  <Dialog
+    open={spendMoreOpen}
+    onclose={() => (spendMoreOpen = false)}
+    title={m.plan_more_actions()}
+  >
+    <PlanAppearance plan={planQuery.data} />
+  </Dialog>
   <TransactionDialog
     open={showManualTxDialog}
     onclose={() => (showManualTxDialog = false)}

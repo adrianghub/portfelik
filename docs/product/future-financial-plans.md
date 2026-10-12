@@ -175,9 +175,12 @@ w dodatkowych szczegółach. Na telefonie jest dolny panel, na desktopie modal
 albo panel boczny. Powiązanie transakcji zostaje akcją pozycji, nie polem
 formularza tworzenia.
 
-Lista nie używa jednej karty dla wszystkiego. Cel pokazuje postęp odkładania.
-Kredyt pokazuje pozostałe zadłużenie. Plan wydatków pokazuje wykorzystanie
-budżetu. Regularne zakupy nie są celem oszczędnościowym. W danych przykładowych
+Lista nie używa jednej karty dla wszystkiego. Cel pokazuje zgromadzoną kwotę
+i pasek odkładania. Kredyt pokazuje pozostałe zadłużenie, bez paska spłaty.
+Plan wydatków pokazuje pozostało w budżecie i pasek wykorzystania limitu.
+Na wierszu pozycji szacunkowy obejmuje koszt bez potwierdzenia, także z terminem.
+Potwierdzony, częściowo opłacony, opłacony i anulowany opisują te same stany
+i powiązane wpłaty. Obliczenia pozycji się nie zmieniają. Regularne zakupy nie są celem oszczędnościowym. W danych przykładowych
 „Tygodniowe zakupy” trzeba będzie zastąpić limitem albo wydatkiem cyklicznym,
 razem z nowym demo, nie wcześniej.
 
@@ -193,9 +196,9 @@ Pierwszy etap łączy istniejące fakty po imporcie. Późniejsze sugestie w rev
 korzystają z tego samego RPC, bez drugiego mechanizmu rozliczenia.
 
 Lista Planów rozróżnia cele, budżety projektów i kredyty. Karta wakacji pokazuje
-wydano i budżet oraz następny wydatek. Poduszka pokazuje zgromadzono, cel
-i planowane tempo. Spójne SVG pozostają głównym systemem ikon. Szczegóły projektu
-zawierają Przegląd, Wydatki, Transakcje i Plan finansowania wewnątrz jednego widoku.
+pozostało w budżecie. Poduszka pokazuje zgromadzono i cel. Kredyt pokazuje
+pozostałe zadłużenie. Spójne SVG pozostają głównym systemem ikon. Szczegóły projektu
+zawierają budżet, pozycje i rozliczenia wewnątrz jednego widoku.
 
 ## Kolejność ekranów
 

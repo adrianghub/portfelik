@@ -15,6 +15,7 @@
     onrestart?: () => void;
     clearing?: boolean;
     restarting?: boolean;
+    compact?: boolean;
     class?: string;
   }
 
@@ -23,6 +24,7 @@
     onrestart,
     clearing = false,
     restarting = false,
+    compact = false,
     class: className = "",
   }: Props = $props();
 
@@ -33,7 +35,9 @@
   let confirmClearOpen = $state(false);
 
   const visibleActions = $derived(
-    DEMO_BANNER_ACTIONS.filter((id) => id !== "restart_tour" || onrestart)
+    DEMO_BANNER_ACTIONS.filter(
+      (id) => (id !== "restart_tour" || onrestart) && (!compact || id === "clear")
+    )
   );
 
   function actionHandler(id: DemoBannerActionId): (() => void) | undefined {
@@ -71,8 +75,12 @@
   role="status"
 >
   <div class="min-w-0">
-    <p class="text-sm font-semibold text-amber-100">{banner.title}</p>
-    <p class="mt-0.5 text-xs leading-relaxed text-amber-100/70">{banner.body}</p>
+    <p class="text-sm font-semibold text-amber-100">
+      {compact ? m.plans_demo_compact() : banner.title}
+    </p>
+    {#if !compact}
+      <p class="mt-0.5 text-xs leading-relaxed text-amber-100/70">{banner.body}</p>
+    {/if}
   </div>
   <div class="flex flex-wrap items-center gap-2">
     {#each visibleActions as actionId (actionId)}
