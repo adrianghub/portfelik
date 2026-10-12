@@ -151,8 +151,12 @@ test.describe("desktop visual regression", () => {
     await page.goto("/dashboard");
     const card = page.getByTestId("dashboard-cash-position");
     await expect(card).toContainText("2 635,81 zł");
-    await card.getByText("Jak obliczamy saldo i prognozę?", { exact: true }).click();
-    await expect(card).toContainText("Nie jest to saldo pobrane z banku");
+    await expect(card.getByText("Wyliczenie na dziś i 90 dni")).toHaveCount(0);
+    await card.getByRole("button", { name: "Zakres liczników" }).hover();
+    await expect(page.getByRole("tooltip")).toContainText("nie są saldem z banku");
+    await page.mouse.move(0, 0);
+    await expect(card).not.toContainText("Dostępne teraz");
+    await expect(page.locator("#dashboard-spending")).toBeVisible();
     await expect(page).toHaveScreenshot("dashboard-desktop.png");
   });
   test("transaction desktop action stays on one line", async ({ page }) => {
@@ -196,7 +200,8 @@ test.describe("desktop visual regression", () => {
   test("mobile balance sheet", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/transactions?group=own");
-    await page.getByRole("button", { name: "Zmień saldo początkowe", exact: true }).click();
+    await page.getByRole("button", { name: "Więcej akcji" }).click();
+    await page.getByRole("menuitem", { name: "Zmień saldo początkowe" }).click();
     await expect(page.getByRole("dialog", { name: "Saldo z transakcji" })).toBeVisible();
     await expect(page).toHaveScreenshot("cash-sheet-mobile.png");
   });

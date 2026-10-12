@@ -1,8 +1,9 @@
 <script lang="ts">
+  import { moneyDifference } from "$lib/money";
   import * as m from "$lib/paraglide/messages";
   import type { PlanSettlementProgress } from "$lib/services/plan-settlement";
   import type { Plan } from "$lib/types";
-  import { formatCurrency } from "$lib/utils";
+  import { formatCurrency, formatDate } from "$lib/utils";
   import { page } from "$app/stores";
   import DayPicker from "$lib/components/ui/DayPicker.svelte";
   import PlanForwardNav from "$lib/components/plans/PlanForwardNav.svelte";
@@ -24,6 +25,7 @@
   const target = $derived(plan.target_amount ?? 0);
   const saved = $derived(progress.savedAmount);
   const pct = $derived(target > 0 ? Math.min(100, Math.round((saved / target) * 100)) : 0);
+  const leftToGoal = $derived(moneyDifference(target, saved));
   const gap = $derived(
     progress.monthlyNeeded != null && progress.monthlyActual != null
       ? progress.monthlyNeeded - progress.monthlyActual
@@ -60,44 +62,30 @@
   class="rounded-2xl border border-white/5 bg-slate-900/60 bg-[radial-gradient(circle_at_10%_20%,rgba(45,212,191,0.15),transparent_40%)] p-5"
   aria-label={plan.name}
 >
-  <div class="flex items-start gap-4">
-    <div
-      class="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full border-4 border-slate-800"
-      style="background: conic-gradient(var(--color-accent) {pct}%, rgb(30 41 59) {pct}%)"
-      role="progressbar"
-      aria-label={plan.name}
-      aria-valuenow={pct}
-      aria-valuemin={0}
-      aria-valuemax={100}
-    >
-      <span
-        class="flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-lg font-bold text-emerald-400"
-      >
-        {pct}%
-      </span>
-    </div>
-    <div class="min-w-0 flex-1">
-      <div class="flex flex-wrap items-center gap-2">
-        <p class="text-eyebrow text-slate-400">{m.plan_save_saved_label()}</p>
-        {#if onTrack && saved > 0}
-          <span
-            class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 uppercase"
-          >
-            {m.plan_save_on_track_badge()}
-          </span>
-        {/if}
-      </div>
-      <p class="text-accent text-2xl font-semibold tabular-nums">
-        {formatCurrency(saved)}
-      </p>
-      <p class="text-sm text-slate-400">
-        {m.plan_save_saved({ saved: formatCurrency(saved), target: formatCurrency(target) })}
-      </p>
-      {#if saved <= 0}
-        <p class="mt-1 text-xs text-slate-400">{m.plan_save_empty_hint()}</p>
-      {/if}
-    </div>
+  <p class="text-lg font-semibold text-slate-100 tabular-nums">
+    {m.plan_save_gathered({ saved: formatCurrency(saved), target: formatCurrency(target) })}
+  </p>
+  <div
+    class="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-800"
+    role="progressbar"
+    aria-label={m.plan_save_saved_label()}
+    aria-valuenow={pct}
+    aria-valuemin={0}
+    aria-valuemax={100}
+  >
+    <div class="bg-accent h-full rounded-full" style="width: {pct}%"></div>
   </div>
+  {#if leftToGoal > 0}
+    <p class="mt-2 text-sm text-slate-400">
+      {m.plan_save_left({ amount: formatCurrency(leftToGoal) })}
+    </p>
+  {/if}
+  {#if plan.end_date}
+    <p class="mt-1 text-xs text-slate-400">{formatDate(plan.end_date)}</p>
+  {/if}
+  {#if saved <= 0}
+    <p class="mt-1 text-xs text-slate-400">{m.plan_save_empty_hint()}</p>
+  {/if}
 
   {#if onAdjust}
     <div

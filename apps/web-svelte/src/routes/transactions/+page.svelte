@@ -19,16 +19,9 @@
   import * as m from "$lib/paraglide/messages";
   import {
     CASH_FETCH_END_SENTINEL,
-    cashForecastHorizonEnd,
-    cashForecastProjectionEnd,
     fetchPrivateCashPosition,
-    forecastMovementTotals,
-    forecastPosition,
     livePosition,
-    liveMovementTotals,
   } from "$lib/services/cash-position";
-  import { appendConfirmedSpendForecast } from "$lib/plans/spend-forecast";
-  import { fetchPrivateSpendForecastSource } from "$lib/services/spend-forecast";
   import { createCategory, fetchCategories } from "$lib/services/categories";
   import { makeCreateCategoryInline } from "$lib/category-create";
   import { fetchMyGroupRoles, fetchUserGroups } from "$lib/services/groups";
@@ -90,7 +83,7 @@
     monthYearLabel,
   } from "$lib/utils";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
-  import { Repeat, X } from "lucide-svelte";
+  import { X } from "lucide-svelte";
   import { toast } from "svelte-sonner";
   import { toastError } from "$lib/toast-error";
   import { isNativeCapacitor } from "$lib/services/pwa";
@@ -98,6 +91,7 @@
   import QueryError from "$lib/components/ui/QueryError.svelte";
 
   const queryClient = useQueryClient();
+  let cashEditor = $state<{ openEdit: () => void } | null>(null);
 
   const createCategoryInline = makeCreateCategoryInline({
     createCategory,
@@ -285,10 +279,10 @@
 
   const groupFilter = $derived(parseScopeFilter($page.url.searchParams));
 
-  // Derived cash position. The strip + per-row running balance read the private
-  // pool anchor plus the full paid history since the anchor's as_of_date —
-  // independent of the visible month/category filters. `showCashView` (defined
-  // after groupsQuery) widens this to solo users whose only scope is "all".
+  // Opening-balance editor. Its current-balance hint reads the private pool,
+  // independent of the visible month and category filters. The list does not
+  // show that balance or the 90-day forecast. `showCashView` (defined after
+  // groupsQuery) widens the editor to solo users whose only scope is "all".
   const isPrivateScope = $derived(groupFilter === "own");
   // Open upper bound for paid history: exclusive `.lt` must not clip future-dated paid rows.
   const CASH_END = CASH_FETCH_END_SENTINEL;
@@ -299,20 +293,13 @@
     enabled: () => !!session.userId,
   }));
 
-  const spendForecastQuery = createQuery(() => ({
-    queryKey: qk.spendForecast(session.userId!),
-    queryFn: fetchPrivateSpendForecastSource,
-    enabled: !!session.userId && !!cashAnchorQuery.data,
-    staleTime: 60_000,
-  }));
-
   const anchorStart = $derived(cashAnchorQuery.data?.as_of_date ?? "2000-01-01");
 
   const paidHistoryQuery = createQuery(() => ({
     queryKey: qk.transactions.list(session.userId!, "cash-history", anchorStart),
     queryFn: () => fetchTransactions(anchorStart, CASH_END),
-    // Boolean so options() tracks cashAnchorQuery.isSuccess when the anchor lands.
-    enabled: !!session.userId && cashAnchorQuery.isSuccess,
+    // Boolean so options() tracks the anchor. No anchor means there is no hint to fill.
+    enabled: !!session.userId && !!cashAnchorQuery.data,
   }));
 
   // Private (non-group) rows only — the pool is a personal balance.
@@ -331,7 +318,7 @@
 
   const cashAnchor = $derived(cashAnchorQuery.data ?? null);
   const cashLive = $derived(livePosition(cashAnchor, privatePaidTxs));
-  const cashRecordedMovements = $derived(liveMovementTotals(cashAnchor, privatePaidTxs));
+  const cashLiveReady = $derived(!!cashAnchor && paidHistoryQuery.isSuccess);
 
   // Quick-view presets. `view` is a URL param so a preset is shareable and
   // survives reload. "unlinked" (Bez planu) and "inne" are client-side filters
@@ -586,96 +573,13 @@
   }));
 
   // Solo users (no groups) never get the own/all tabs and stay in the default
-  // "all" scope — yet every row they have is private, so the cash pool applies.
-  // Treat that as the cash view; group users keep the strict own-scope gate so a
-  // mixed "all" ledger hides the personal pool.
+  // "all" scope. Every row they have is private, so the opening-balance editor
+  // still applies. Group users keep the strict own-scope gate so a mixed "all"
+  // ledger hides the personal pool.
   const soloAllScope = $derived(
     groupFilter === "all" && groupsQuery.isSuccess && (groupsQuery.data?.length ?? 0) === 0
   );
   const showCashView = $derived(isPrivateScope || soloAllScope);
-
-  // Filter-independent private projection for the cash forecast: fixed horizon
-  // from today (not the visible month), so browsing months cannot change the
-  // personal forecast without a financial change.
-  const cashForecastToday = $derived(localDateIso());
-  const cashForecastHorizon = $derived(cashForecastHorizonEnd(cashForecastToday));
-  const cashRecurringSkipsQuery = createQuery(() => ({
-    queryKey: qk.transactions.list(
-      session.userId!,
-      "cash-recurring-skips",
-      cashForecastToday,
-      cashForecastProjectionEnd(cashForecastToday)
-    ),
-    queryFn: () =>
-      fetchRecurringOccurrenceSkips(
-        cashForecastToday,
-        cashForecastProjectionEnd(cashForecastToday)
-      ),
-    // Boolean so options() tracks cashAnchor when the private pool lands.
-    enabled: !!session.userId && !!cashAnchor,
-  }));
-  // isLoading (not isPending): disabled dependents stay pending and would
-  // freeze the cash strip skeleton until a remount with a warm cache.
-  const cashPositionLoading = $derived(
-    cashAnchorQuery.isLoading ||
-      (!!cashAnchor &&
-        (paidHistoryQuery.isLoading ||
-          recurringTemplatesQuery.isLoading ||
-          cashRecurringSkipsQuery.isLoading))
-  );
-  const cashPositionError = $derived(
-    cashAnchorQuery.isError ||
-      (!!cashAnchor &&
-        (paidHistoryQuery.isError ||
-          recurringTemplatesQuery.isError ||
-          cashRecurringSkipsQuery.isError))
-  );
-  function retryCashPosition() {
-    void Promise.all([
-      cashAnchorQuery.refetch(),
-      paidHistoryQuery.refetch(),
-      recurringTemplatesQuery.refetch(),
-      cashRecurringSkipsQuery.refetch(),
-      spendForecastQuery.refetch(),
-    ]);
-  }
-  const privateForecastProjectedTxs = $derived.by(() => {
-    if (!showCashView) return [];
-    const templates = (recurringTemplatesQuery.data ?? []).filter(
-      (tx) => (tx.group_id ?? null) === null
-    );
-    if (templates.length === 0) return [];
-    const privateReal = (paidHistoryQuery.data ?? []).filter((t) => (t.group_id ?? null) === null);
-    return recurringProjectionsForTransactionRange({
-      templates,
-      existing: privateReal,
-      skipped: cashRecurringSkipsQuery.data ?? [],
-      start: cashForecastToday,
-      end: cashForecastProjectionEnd(cashForecastToday),
-    }).map((tx) => ({
-      id: tx.id,
-      type: tx.type,
-      amount: tx.amount,
-      status: tx.status,
-      date: tx.date,
-      currency: tx.currency,
-    }));
-  });
-  const cashForecastTxs = $derived(
-    appendConfirmedSpendForecast(
-      [...privatePaidTxs, ...privateForecastProjectedTxs],
-      spendForecastQuery.data ?? null,
-      cashForecastToday
-    )
-  );
-  const cashForecastOpts = $derived({
-    today: cashForecastToday,
-    horizonEnd: cashForecastHorizon,
-  });
-  const cashForecast = $derived(forecastPosition(cashAnchor, cashForecastTxs, cashForecastOpts));
-  const cashForecastMovements = $derived(
-    forecastMovementTotals(cashAnchor, cashForecastTxs, cashForecastOpts)
-  );
 
   // Dialog state
   let dialogOpen = $state(false);
@@ -1215,15 +1119,17 @@
   <div class="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
     <div>
       <h1 class="text-hero font-semibold text-slate-100">{m.transactions_title()}</h1>
-      {#if summary}
-        <p class="mt-1 text-sm text-slate-300">
-          {m.summary_income()}
-          {formatCurrency(summary.total_income)}
-          · {m.summary_expenses()}
-          {formatCurrency(summary.total_expenses)}
-          · {m.summary_net()}
-          {formatCurrency(summary.net)}
-        </p>
+      {#if showCashView}
+        <CashPositionStrip
+          bind:this={cashEditor}
+          live={cashLive}
+          hasAnchor={!!cashAnchorQuery.data}
+          anchor={cashAnchor}
+          anchorReady={cashAnchorQuery.isSuccess}
+          liveReady={cashLiveReady}
+          error={cashAnchorQuery.isError}
+          onRetry={() => cashAnchorQuery.refetch()}
+        />
       {/if}
     </div>
     <div class="flex flex-wrap items-center gap-2">
@@ -1236,14 +1142,6 @@
           {m.transactions_empty_import_cta()}
         </a>
       {/if}
-      <a
-        href="/transactions?status=upcoming"
-        class="focus-visible:ring-accent inline-flex h-11 items-center gap-1.5 rounded-full border border-white/10 px-3 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none sm:h-9 sm:px-3.5"
-        title={m.recurring_entry()}
-      >
-        <Repeat size={16} aria-hidden="true" />
-        <span>{m.recurring_entry()}</span>
-      </a>
       <button
         onclick={openAdd}
         class="focus-visible:ring-accent hidden h-9 items-center gap-1.5 rounded-full border border-white/10 px-3.5 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none md:inline-flex"
@@ -1255,6 +1153,9 @@
         exportDisabled={!accountedTxs?.length}
         onexport={handleExport}
         onmanualadd={openAdd}
+        oneditbalance={showCashView && cashAnchor && cashAnchorQuery.isSuccess
+          ? () => cashEditor?.openEdit()
+          : undefined}
       />
     </div>
   </div>
@@ -1316,23 +1217,6 @@
         </span>
       {/each}
     </div>
-  {/if}
-
-  {#if showCashView}
-    <CashPositionStrip
-      live={cashLive}
-      forecast={cashForecast}
-      upcomingIncome={cashForecastMovements.upcomingIncome}
-      upcomingExpenses={cashForecastMovements.upcomingExpenses}
-      paidIncome={cashRecordedMovements.paidIncome}
-      paidExpenses={cashRecordedMovements.paidExpenses}
-      hasAnchor={!!cashAnchorQuery.data}
-      anchor={cashAnchor}
-      anchorReady={cashAnchorQuery.isSuccess}
-      loading={cashPositionLoading}
-      error={cashPositionError}
-      onRetry={retryCashPosition}
-    />
   {/if}
 
   {#if (activeFilters.length > 0 || !isDefaultDateFilter) && summary}

@@ -9,6 +9,16 @@ type BandRow = {
   projected?: boolean;
 };
 
+/** Status bands belong to the default date order. Search and any other sort stay one list. */
+export function usesTransactionStatusBands(
+  layout: "responsive" | "cards",
+  sortKey: string,
+  sortDirection: "asc" | "desc",
+  defaultDirection: "asc" | "desc"
+): boolean {
+  return layout !== "cards" && sortKey === "date" && sortDirection === defaultDirection;
+}
+
 /** Overdue and drafts are not "coming up" and they are not history. */
 export function transactionCardBand(tx: BandRow): CardBandId {
   if (tx.status === "overdue") return "overdue";

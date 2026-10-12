@@ -1,6 +1,26 @@
 {
   "versions": [
     {
+      "version": "1.3.11",
+      "versionCode": 19,
+      "date": "2026-10-12",
+      "items": [
+        "Wykres na Kokpicie pokazuje saldo i prognozę wybranego okresu.",
+        "Na telefonie saldo stoi nad wydatkami.",
+        "Na wykresie widać dzień dzisiejszy."
+      ]
+    },
+    {
+      "version": "1.3.10",
+      "versionCode": 18,
+      "date": "2026-10-12",
+      "items": [
+        "Lista planów jest zwarta. Na szerokim ekranie główna kwota stoi po prawej.",
+        "W planie wydatków widać, ile zostało w budżecie. Transakcję można powiązać, dopóki pozycja ma resztę do zapłaty.",
+        "Nowy plan nie pyta o kategorię."
+      ]
+    },
+    {
       "version": "1.3.9",
       "versionCode": 17,
       "date": "2026-10-10",

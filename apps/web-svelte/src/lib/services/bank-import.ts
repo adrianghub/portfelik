@@ -415,6 +415,15 @@ export async function commitImportSession(sessionId: string): Promise<CommitResu
   const result = data as unknown as CommitResult;
   if (result.inserted > 0) {
     const { trackOnce } = await import("$lib/analytics");
+    const firstImport =
+      typeof localStorage === "undefined" ||
+      localStorage.getItem("analytics:first_import_committed") !== "1";
+    if (firstImport) {
+      const { markCockpitImportReveal } = await import("$lib/cockpit/import-reveal");
+      markCockpitImportReveal(
+        result.inserted + result.skipped + result.duplicates_preview + result.duplicates_commit
+      );
+    }
     trackOnce("first_import_committed");
     trackOnce("first_transaction_created", { source: "import" });
   }

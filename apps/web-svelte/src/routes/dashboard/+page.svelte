@@ -6,7 +6,6 @@
   import DashboardPiles from "$lib/components/dashboard/DashboardPiles.svelte";
   import DashboardActions from "$lib/components/dashboard/DashboardActions.svelte";
   import DashboardPlanProgress from "$lib/components/dashboard/DashboardPlanProgress.svelte";
-  import DashboardBalanceHero from "$lib/components/dashboard/DashboardBalanceHero.svelte";
   import DashboardCashPosition from "$lib/components/dashboard/DashboardCashPosition.svelte";
   import DashboardSpendingInsight from "$lib/components/dashboard/DashboardSpendingInsight.svelte";
   import DashboardViewToolbar from "$lib/components/dashboard/DashboardViewToolbar.svelte";
@@ -28,12 +27,7 @@
   import { fetchPlans } from "$lib/services/plans";
   import { fetchProfile } from "$lib/services/profiles";
   import { fetchMyGroupRoles, fetchUserGroups } from "$lib/services/groups";
-  import {
-    computeForecastSummary,
-    computeLedgerSummary,
-    forecastTransactions,
-    ledgerTransactions,
-  } from "$lib/services/transaction-cashflow";
+  import { forecastTransactions, ledgerTransactions } from "$lib/services/transaction-cashflow";
   import {
     fetchRecurringTemplates,
     fetchTransactionCount,
@@ -53,18 +47,22 @@
   } from "$lib/services/goal-spending";
   import { fetchRecurringOccurrenceSkips } from "$lib/services/recurring-occurrences";
   import { addLocalDays, localDateIso } from "$lib/date-local";
-  import { COCKPIT_HORIZON_DAYS, cockpitIndicators } from "$lib/cockpit/indicators";
+  import {
+    buildCockpitMonthView,
+    cockpitForecastChart,
+    type CockpitMonthRow,
+  } from "$lib/cockpit/month-view";
+  import { takeCockpitImportReveal } from "$lib/cockpit/import-reveal";
+  import {
+    calendarMonthFromIso,
+    calendarMonthLabel,
+    inclusiveDayRangeLabel,
+  } from "$lib/cockpit/month-window";
   import {
     CASH_FETCH_END_SENTINEL,
-    cashForecastHorizonEnd,
     cashForecastProjectionEnd,
     fetchPrivateCashPosition,
-    forecastPosition,
-    forecastMovementTotals,
-    livePosition,
-    liveMovementTotals,
   } from "$lib/services/cash-position";
-  import { appendConfirmedSpendForecast } from "$lib/plans/spend-forecast";
   import { fetchPrivateSpendForecastSource } from "$lib/services/spend-forecast";
   import {
     forwardForecastTransactions,
@@ -84,7 +82,7 @@
   import { session, requireSessionUserId } from "$lib/auth/session.svelte";
   import { qk } from "$lib/query-keys";
   import type { TransactionStatus, TransactionWithCategory } from "$lib/types";
-  import { cn, getDateRangeBounds } from "$lib/utils";
+  import { getDateRangeBounds } from "$lib/utils";
   import { syncListViewUrl } from "$lib/utils/navigation";
   import {
     parseDashboardPeriod,
@@ -94,23 +92,15 @@
     type ScopeFilter,
   } from "$lib/utils/list-view-url";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
-  import { MediaQuery } from "svelte/reactivity";
-  import { untrack } from "svelte";
-  import { ChevronDown } from "lucide-svelte";
+  import { onMount } from "svelte";
 
-  const isDesktop = new MediaQuery("(min-width: 640px)");
-  let historyExpanded = $state(untrack(() => isDesktop.current));
-  let detailsOpen = $state(false);
-  let balanceExpanded = $state(false);
-  let spendingExpanded = $state(false);
-
-  // The dashboard chapter of the tour highlights spending, which lives behind
-  // "Zobacz więcej". Opening it also keeps the page tall enough to scroll.
-  $effect(() => {
-    const scene = guidedTourUi.currentSceneId;
-    if (!guidedTourUi.running || (scene !== "1.1" && scene !== "1.2" && scene !== "1.3")) return;
-    if (!detailsOpen) detailsOpen = true;
+  let importRevealCount = $state<number | null>(null);
+  onMount(() => {
+    importRevealCount = takeCockpitImportReveal();
   });
+
+  let detailsOpen = $state(false);
+  let spendingExpanded = $state(false);
 
   const greetingName = $derived.by(() => {
     const raw =
@@ -563,10 +553,6 @@
   const scopedTxs = $derived(inWindow(allScopedTxs, bounds.start, bounds.end));
   const scopedLedgerTxs = $derived(ledgerTransactions(scopedTxs));
 
-  const summary = $derived(
-    scopedTxs.length > 0 || txQuery.data ? computeLedgerSummary(scopedTxs) : null
-  );
-
   const previousLedgerTxs = $derived(
     ledgerTransactions(inWindow(allScopedTxs, prevBounds.start, prevBounds.end))
   );
@@ -626,7 +612,6 @@
   // reporting period. A week dashboard view must still account for the same
   // 90-day obligations as the private cash view in Transakcje.
   const cashForecastToday = $derived(localDateIso());
-  const cashForecastHorizon = $derived(cashForecastHorizonEnd(cashForecastToday));
   const cashProjectionEnd = $derived(cashForecastProjectionEnd(cashForecastToday));
   const cashRecurringSkipsQuery = createQuery(() => ({
     queryKey: qk.transactions.list(
@@ -643,18 +628,6 @@
     staleTime: 60_000,
   }));
 
-  const privateCashTxs = $derived(
-    (cashHistoryQuery.data ?? [])
-      .filter((tx) => (tx.group_id ?? null) === null)
-      .map((tx) => ({
-        id: tx.id,
-        type: tx.type,
-        amount: tx.amount,
-        status: tx.status,
-        date: tx.date,
-        currency: tx.currency,
-      }))
-  );
   const privateCashProjectedTxs = $derived.by(() => {
     if (!cashAnchorQuery.data) return [];
     const privateTemplates = (recurringTemplatesQuery.data ?? []).filter(
@@ -679,57 +652,124 @@
       currency: tx.currency,
     }));
   });
-  const cashPositionTxs = $derived([...privateCashTxs, ...privateCashProjectedTxs]);
-  // Plan remainders join the forecast when they arrive. They must not hold the
-  // live balance behind the plans request.
+  // Plan remainders join the month counters when they arrive. They must not
+  // hold the cash skeleton behind the plans request.
   const spendForecastQuery = createQuery(() => ({
     queryKey: qk.spendForecast(session.userId!),
     queryFn: fetchPrivateSpendForecastSource,
     enabled: !!session.userId && !!cashAnchorQuery.data,
     staleTime: 60_000,
   }));
-  const cashForecastTxs = $derived(
-    appendConfirmedSpendForecast(
-      cashPositionTxs,
-      spendForecastQuery.data ?? null,
-      cashForecastToday
-    )
-  );
-  const cashPositionOptions = $derived({
-    today: cashForecastToday,
-    horizonEnd: cashForecastHorizon,
+  // The period chips and the date range are the only window. Counters,
+  // categories, and the chart all read it.
+  const gaugeRange = $derived({
+    start: bounds.start.slice(0, 10),
+    end: addLocalDays(bounds.end.slice(0, 10), -1),
   });
-  const currentCashPosition = $derived(livePosition(cashAnchorQuery.data ?? null, cashPositionTxs));
-  const cockpitHorizonEnd = $derived(addLocalDays(cashForecastToday, COCKPIT_HORIZON_DAYS));
-  const cockpit = $derived(
-    cockpitIndicators({
-      scope: { kind: "private" },
-      anchor: cashAnchorQuery.data
+  const cockpitMonthFetch = $derived({
+    start: gaugeRange.start,
+    endExclusive: bounds.end.slice(0, 10),
+  });
+  const cockpitMonthLedgerQuery = createQuery(() => ({
+    queryKey: qk.transactions.list(
+      session.userId!,
+      "cockpit-month",
+      cockpitMonthFetch.start,
+      cockpitMonthFetch.endExclusive
+    ),
+    queryFn: () => fetchTransactions(cockpitMonthFetch.start, cockpitMonthFetch.endExclusive),
+    enabled: !!session.userId,
+    staleTime: 60_000,
+  }));
+  const cashScopeLabel = $derived.by(() => {
+    if (groupFilter === "all") return m.dashboard_scope_all();
+    if (groupFilter === "own") return m.dashboard_scope_own();
+    return (
+      groupsQuery.data?.find((group) => group.id === groupFilter)?.name ?? m.visual_icon_home()
+    );
+  });
+
+  function monthRow(tx: {
+    id: string;
+    type: "income" | "expense";
+    amount: number;
+    status: string;
+    date: string;
+    currency: string;
+    group_id?: string | null;
+    category_id?: string | null;
+  }): CockpitMonthRow {
+    return {
+      id: tx.id,
+      type: tx.type,
+      amount: tx.amount,
+      status: tx.status,
+      date: tx.date,
+      currency: tx.currency,
+      groupId: tx.group_id ?? null,
+      categoryId: tx.category_id ?? null,
+    };
+  }
+
+  // The chart span is shorter than a household month. Counters use the full
+  // calendar fetch, and Wydatki stay empty until that fetch succeeds.
+  const cockpitMonthRows = $derived.by(() => {
+    const history = (cashHistoryQuery.data ?? []).map(monthRow);
+    const projected = privateCashProjectedTxs.map((tx) =>
+      monthRow({ ...tx, group_id: null, category_id: null })
+    );
+    const listed = cockpitMonthLedgerQuery.isSuccess
+      ? (cockpitMonthLedgerQuery.data ?? []).map(monthRow)
+      : [];
+    return [...history, ...projected, ...listed];
+  });
+  const cockpitMonth = $derived(
+    buildCockpitMonthView({
+      scopeFilter: groupFilter,
+      month: calendarMonthFromIso(gaugeRange.start),
+      range: gaugeRange,
+      today: cashForecastToday,
+      privateAnchor: cashAnchorQuery.data
         ? {
             opening_amount: cashAnchorQuery.data.opening_amount,
             as_of_date: cashAnchorQuery.data.as_of_date,
           }
         : null,
-      transactions: cashPositionTxs,
+      rows: cockpitMonthRows,
       items: spendForecastQuery.data?.items ?? [],
       links: spendForecastQuery.data?.links ?? [],
-      today: cashForecastToday,
+      saveLinkedIds,
+      celeCategoryId,
+      monthLedger: cockpitMonthLedgerQuery.isSuccess ? "complete" : "partial",
     })
   );
-  const cashRecordedMovements = $derived(
-    liveMovementTotals(cashAnchorQuery.data ?? null, cashPositionTxs)
+  const cockpitChart = $derived(
+    cockpitForecastChart({
+      scopeFilter: groupFilter,
+      month: calendarMonthFromIso(gaugeRange.start),
+      range: gaugeRange,
+      today: cashForecastToday,
+      privateAnchor: cashAnchorQuery.data
+        ? {
+            opening_amount: cashAnchorQuery.data.opening_amount,
+            as_of_date: cashAnchorQuery.data.as_of_date,
+          }
+        : null,
+      rows: cockpitMonthRows,
+      items: spendForecastQuery.data?.items ?? [],
+      links: spendForecastQuery.data?.links ?? [],
+      saveLinkedIds,
+      celeCategoryId,
+      monthLedger: cockpitMonthLedgerQuery.isSuccess ? "complete" : "partial",
+    })
   );
-  const afterUpcomingCashPosition = $derived(
-    forecastPosition(cashAnchorQuery.data ?? null, cashForecastTxs, cashPositionOptions)
-  );
-  const cashForecastMovements = $derived(
-    forecastMovementTotals(cashAnchorQuery.data ?? null, cashForecastTxs, cashPositionOptions)
-  );
-  // Prefer isLoading (pending + fetching) over isPending — disabled dependents
+
+  // Prefer isLoading (pending + fetching) over isPending. Disabled dependents
   // stay isPending=true and would otherwise freeze the cash skeleton forever.
   const cashPositionLoading = $derived(
     !session.userId ||
       cashAnchorQuery.isPending ||
+      cockpitMonthLedgerQuery.isLoading ||
       (!!cashAnchorQuery.data &&
         (cashHistoryQuery.isLoading ||
           recurringTemplatesQuery.isLoading ||
@@ -737,6 +777,7 @@
   );
   const cashPositionError = $derived(
     cashAnchorQuery.isError ||
+      cockpitMonthLedgerQuery.isError ||
       (!!cashAnchorQuery.data &&
         (cashHistoryQuery.isError ||
           recurringTemplatesQuery.isError ||
@@ -746,6 +787,7 @@
     void Promise.all([
       cashAnchorQuery.refetch(),
       cashHistoryQuery.refetch(),
+      cockpitMonthLedgerQuery.refetch(),
       recurringTemplatesQuery.refetch(),
       cashRecurringSkipsQuery.refetch(),
       spendForecastQuery.refetch(),
@@ -788,20 +830,7 @@
     })
   );
 
-  const forecastSummary = $derived(
-    scopedTxs.length > 0 || txQuery.data
-      ? computeForecastSummary([...scopedTxs, ...currentProjectedTxs])
-      : null
-  );
-  const showForecastNote = $derived(
-    !!summary &&
-      !!forecastSummary &&
-      (summary.net !== forecastSummary.net ||
-        summary.total_income !== forecastSummary.total_income ||
-        summary.total_expenses !== forecastSummary.total_expenses)
-  );
-
-  // Current bucket: paid so far + scheduled/projected remainder — the bar shows
+  // Current bucket: paid so far + scheduled/projected remainder. The bar shows
   // the expected end-of-period spend and joins the forecast band via isProjected.
   const currentForecastBucket = $derived.by(() => {
     const paidBucket = historyBuckets[historyBuckets.length - 1];
@@ -855,25 +884,6 @@
     currentForecastBucket,
     ...forwardBuckets,
   ]);
-
-  // Only meaningful once period income is real: a tiny income row (interest, a
-  // refund) makes net/income explode into ±1000s of %. Clamped to ±100 — beyond
-  // that the number stops communicating anything the red balance doesn't.
-  const SAVINGS_RATIO_MIN_INCOME = 150;
-  const savingsRatio = $derived.by(() => {
-    if (!summary) return null;
-    if (summary.total_income < SAVINGS_RATIO_MIN_INCOME) return null;
-    const pct = Math.round((summary.net / summary.total_income) * 100);
-    return Math.max(-100, Math.min(100, pct));
-  });
-
-  const savingsRatioDisplay = $derived.by(() => {
-    if (savingsRatio === null || !summary) return null;
-    if (Math.abs(savingsRatio) === 100 && Math.abs(summary.net) > summary.total_income) {
-      return null;
-    }
-    return savingsRatio;
-  });
 
   // Whole span, not the selected period: overdue rows live in past months (the
   // 90-day lookback) and scheduled rows in future ones — a week-wide window
@@ -980,15 +990,23 @@
     { value: "year", label: m.dashboard_period_year() },
   ]);
 
-  function shortDateLabel(iso: string): string {
-    const [, mm, dd] = iso.split("-");
-    return `${dd}.${mm}`;
-  }
-
-  const activePeriodLabel = $derived(
-    period === "custom" && customRange
-      ? `${shortDateLabel(customRange.start)}–${shortDateLabel(customRange.end)}`
-      : (periodChips.find((c) => c.value === period)?.label ?? "")
+  // Same window as the three counters.
+  const categoryPeriodLabel = $derived.by(() => {
+    if (period === "week") return m.dashboard_period_week();
+    if (period === "year") return bounds.start.slice(0, 4);
+    if (period === "custom" && customRange) {
+      return inclusiveDayRangeLabel(customRange.start, customRange.end);
+    }
+    return calendarMonthLabel(calendarMonthFromIso(bounds.start));
+  });
+  const historySpanLabel = $derived(
+    period === "week"
+      ? m.cockpit_history_span_week()
+      : period === "year"
+        ? m.cockpit_history_span_year()
+        : period === "custom"
+          ? m.cockpit_history_span_custom()
+          : m.cockpit_history_span_month()
   );
 </script>
 
@@ -1025,42 +1043,38 @@
   {#if discovery}
     <DashboardDiscovery />
   {:else}
-    <!-- Period stays behind more. Scope stays when a group exists. -->
+    <DashboardViewToolbar
+      {period}
+      {groupFilter}
+      groups={groupsQuery.data ?? []}
+      {periodChips}
+      {customRange}
+      onPeriodChange={setPeriod}
+      onScopeChange={setGroupFilter}
+      onRangeChange={setCustomRange}
+      onRangeClear={() => setPeriod("month")}
+    />
     <DashboardCashPosition
-      live={currentCashPosition}
-      forecast={afterUpcomingCashPosition}
-      upcomingIncome={cashForecastMovements.upcomingIncome}
-      upcomingExpenses={cashForecastMovements.upcomingExpenses}
-      anchorDate={cashAnchorQuery.data?.as_of_date}
-      openingAmount={cashAnchorQuery.data?.opening_amount}
-      paidIncome={cashRecordedMovements.paidIncome}
-      paidExpenses={cashRecordedMovements.paidExpenses}
       hasAnchor={!!cashAnchorQuery.data}
-      balance={cockpit.balance}
-      payments30={cockpit.payments30}
-      forecast30={cockpit.forecast30}
-      forecastDate={cockpitHorizonEnd}
-      overdue={cockpit.overdue}
-      orientational30={cockpit.orientational30}
+      showPrivateDetails={groupFilter === "own"}
+      scopeLabel={cashScopeLabel}
+      transactionsHref={transactionsHref()}
+      balance={cockpitMonth.balance}
+      expensesFrom={cockpitMonth.expensesFrom}
+      expensesIncomplete={cockpitMonth.expensesIncomplete}
+      monthForecast={cockpitMonth.forecast}
+      orientational={cockpitMonth.orientational}
+      chart={cockpitChart}
+      rangeStart={gaugeRange.start}
+      rangeEnd={gaugeRange.end}
+      projected={cashForecastToday <= gaugeRange.end}
+      demo={demoActive}
+      revealCount={importRevealCount}
       loading={cashPositionLoading}
       error={cashPositionError}
       onRetry={retryCashPosition}
+      onOpenGlossary={openGlossary}
     />
-
-    {#if detailsOpen || (groupsQuery.data?.length ?? 0) > 0}
-      <DashboardViewToolbar
-        {period}
-        {groupFilter}
-        groups={groupsQuery.data ?? []}
-        {periodChips}
-        {customRange}
-        showPeriod={detailsOpen}
-        onPeriodChange={setPeriod}
-        onScopeChange={setGroupFilter}
-        onRangeChange={setCustomRange}
-        onRangeClear={() => setPeriod("month")}
-      />
-    {/if}
 
     {#if demoActive}
       <DemoShowcaseBanner
@@ -1076,107 +1090,40 @@
     <DashboardActions {groupFilter} overdue={overdueSummary} {overdueState} />
     <DashboardPiles {groupFilter} groups={groupsQuery.data ?? []} />
 
-    <!-- Financial overview: balance beside spending and history on wide screens -->
+    <!-- Categories and the chart use the same period as the counters. -->
     {#if txQuery.isLoading}
-      <div class="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-12">
-        <div
-          class="h-96 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60 lg:col-span-5 lg:h-auto"
-        ></div>
-        <div class="grid min-w-0 gap-3 lg:col-span-7">
-          <div class="h-40 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
-          <div class="h-64 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
-        </div>
+      <div class="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-2">
+        <div class="h-40 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
+        <div class="h-64 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
       </div>
     {:else if txQuery.isError}
       <QueryError error={txQuery.error} onRetry={() => txQuery.refetch()} />
     {:else}
-      <div
-        class={cn(
-          "grid min-w-0 grid-cols-1 gap-3 lg:items-stretch",
-          detailsOpen && "lg:grid-cols-12"
-        )}
-      >
-        <div class={cn("min-w-0", detailsOpen && "lg:col-span-5")}>
-          <DashboardBalanceHero
-            periodLabel={activePeriodLabel}
-            {summary}
-            savingsRatio={savingsRatioDisplay}
-            spent={spendingInsight.spent}
-            categories={spendingInsight.categories}
-            {categoryColors}
-            {showForecastNote}
-            forecastNet={forecastSummary?.net}
-            {transactionsHref}
-            bind:breakdownOpen={balanceExpanded}
-          />
-        </div>
-
-        {#if detailsOpen}
-          <div class="grid min-w-0 content-start gap-3 lg:col-span-7">
-            <DashboardSpendingInsight
-              insight={spendingInsight}
-              {period}
-              goalSplit={goalSpendingSplit}
-              bind:expanded={spendingExpanded}
-              categoryHref={(id) =>
-                id ? transactionsHref({ categoryId: id }) : transactionsHref()}
-            />
-
-            <!-- Multi-period spend comparison (last 6 weeks/months/years) -->
-            {#if isDesktop.current}
-              <SpendHistoryChart
-                buckets={combinedHistoryBuckets}
-                {allocationByLabel}
-                {categoryIdsByName}
-                {categoryColors}
-                onselectperiod={selectHistoryPeriod}
-                onOpenGlossary={openGlossary}
-              />
-            {:else}
-              <div class="rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur">
-                <button
-                  type="button"
-                  class="flex w-full items-center justify-between gap-3 p-4"
-                  aria-expanded={historyExpanded}
-                  onclick={() => (historyExpanded = !historyExpanded)}
-                >
-                  <span class="text-sm font-medium text-slate-300"
-                    >{m.dashboard_history_title()}</span
-                  >
-                  <ChevronDown
-                    size={17}
-                    strokeWidth={1.8}
-                    class={cn(
-                      "text-slate-400 transition-transform duration-300 ease-out",
-                      historyExpanded && "rotate-180"
-                    )}
-                    aria-hidden="true"
-                  />
-                </button>
-                <div
-                  class={cn("expand-grid", historyExpanded && "expand-grid--open")}
-                  aria-hidden={!historyExpanded}
-                >
-                  <div class="expand-grid-inner">
-                    <div class="expand-grid-panel px-2 pb-2">
-                      {#if historyExpanded}
-                        <SpendHistoryChart
-                          buckets={combinedHistoryBuckets}
-                          {allocationByLabel}
-                          {categoryIdsByName}
-                          {categoryColors}
-                          onselectperiod={selectHistoryPeriod}
-                          onOpenGlossary={openGlossary}
-                        />
-                      {/if}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            {/if}
-          </div>
-        {/if}
+      <div class="grid min-w-0 grid-cols-1 items-stretch gap-3 lg:grid-cols-2">
+        <DashboardSpendingInsight
+          insight={spendingInsight}
+          {period}
+          periodLabel={categoryPeriodLabel}
+          goalSplit={goalSpendingSplit}
+          bind:expanded={spendingExpanded}
+          categoryHref={(id) => (id ? transactionsHref({ categoryId: id }) : transactionsHref())}
+        />
+        <SpendHistoryChart
+          buckets={combinedHistoryBuckets}
+          {allocationByLabel}
+          {categoryIdsByName}
+          {categoryColors}
+          onselectperiod={selectHistoryPeriod}
+          onOpenGlossary={openGlossary}
+          periodLabel={historySpanLabel}
+        />
       </div>
+      <a
+        href={transactionsHref()}
+        class="text-accent focus-visible:ring-accent flex min-h-11 w-fit items-center text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"
+      >
+        {m.dashboard_balance_all_link()}
+      </a>
     {/if}
 
     <button

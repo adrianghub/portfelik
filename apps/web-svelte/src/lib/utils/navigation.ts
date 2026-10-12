@@ -19,7 +19,12 @@ export function navigateBack(fallbackHref: string): void {
 export function syncListViewUrl(
   pathname: string,
   current: URLSearchParams,
-  patch: { group?: ScopeFilter; period?: DashboardPeriod; range?: DashboardRange }
+  patch: {
+    group?: ScopeFilter;
+    period?: DashboardPeriod;
+    range?: DashboardRange;
+    cashMonth?: string | null;
+  }
 ): void {
   void goto(buildListViewUrl(pathname, current, patch), {
     replaceState: true,
