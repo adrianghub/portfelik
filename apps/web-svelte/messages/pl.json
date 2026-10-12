@@ -1216,7 +1216,7 @@
   "cash_position_horizon": "Prognoza na najbliższe 90 dni, do {date}.",
   "cash_position_calculation_title": "Jak obliczamy saldo i prognozę?",
   "cash_position_anchor_hint": "Saldo początkowe ustawiono na {date}.",
-  "cash_position_transactions_link": "Zobacz prywatne transakcje",
+  "cash_position_transactions_link": "Zobacz transakcje →",
   "feedback_title": "Zgłoś błąd",
   "feedback_public_notice": "Zgłoszenia w GitHub są publiczne i wymagają konta GitHub. Nie dołączaj wyciągów, danych finansowych ani danych osobowych.",
   "feedback_link": "Otwórz zgłoszenie w GitHub (nowa karta)",

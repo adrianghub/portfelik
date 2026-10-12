@@ -91,11 +91,28 @@ test.describe("cockpit forecast chart", () => {
     const ring = card.locator(".today-ring");
     await expect(ring).toHaveCSS("animation-name", /cockpit-today-pulse/);
     await expect(ring).not.toHaveClass(/quiet/);
+    expect(await ring.evaluate((el) => el.tagName)).toBe("SPAN");
+    const phoneBalance = await card.getByTestId("cockpit-balance").boundingBox();
+    const phonePayments = await card.getByTestId("cockpit-payments").boundingBox();
+    expect(phoneBalance && phonePayments).toBeTruthy();
+    expect(Math.abs(phoneBalance!.y - phonePayments!.y)).toBeLessThan(8);
+    for (const id of ["cockpit-balance", "cockpit-payments", "cockpit-forecast"]) {
+      const clips = await card
+        .getByTestId(id)
+        .evaluate((el) => el.scrollWidth > el.clientWidth + 1);
+      expect(clips).toBe(false);
+    }
     await saveCard(card, "cockpit-mobile");
+    if (existsSync(ARTIFACTS)) {
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.screenshot({ path: `${ARTIFACTS}/cockpit-mobile-viewport.png` });
+    }
 
     const chart = card.getByTestId("cockpit-chart");
     const box = await chart.boundingBox();
     expect(box).toBeTruthy();
+    expect(box!.height).toBeGreaterThan(160);
+    expect(box!.height).toBeLessThan(180);
     await page.mouse.move(box!.x + box!.width * 0.12, box!.y + 80);
     await page.mouse.down();
     await page.mouse.move(box!.x + box!.width * 0.2, box!.y + 80, { steps: 8 });
@@ -124,6 +141,9 @@ test.describe("cockpit forecast chart", () => {
     expect(forecast!.x).toBeLessThan(balance!.x);
     expect(balance!.y).toBeLessThan(payments!.y);
     await saveCard(card, "cockpit-desktop");
+    if (existsSync(ARTIFACTS)) {
+      await page.screenshot({ path: `${ARTIFACTS}/cockpit-desktop-viewport.png` });
+    }
   });
 
   test("does not stack Dziś on the last day of the month", async ({ page }) => {

@@ -136,6 +136,7 @@ test.describe("dashboard mobile layout", () => {
     await expect(cash.getByText("Saldo na dziś", { exact: true })).toBeVisible();
     await expect(cash.getByText("Wydano w tym miesiącu", { exact: true })).toBeVisible();
     await expect(cash.getByText("Przewidywane saldo na koniec miesiąca")).toBeVisible();
+    await expect(cash.getByRole("link", { name: "Zobacz transakcje →" })).toBeVisible();
     await expect(cash.getByTestId("cockpit-balance")).toContainText(/1\D?300,00/);
     await expect(cash.getByTestId("cockpit-payments")).toContainText(/200,00/);
     await expect(cash.getByTestId("cockpit-forecast")).toContainText(/1\D?000,00/);
@@ -144,7 +145,8 @@ test.describe("dashboard mobile layout", () => {
     const paymentsBox = await cash.getByTestId("cockpit-payments").boundingBox();
     expect(forecastBox && balanceBox && paymentsBox).toBeTruthy();
     expect(forecastBox!.y).toBeLessThan(balanceBox!.y);
-    expect(balanceBox!.y).toBeLessThan(paymentsBox!.y);
+    expect(Math.abs(balanceBox!.y - paymentsBox!.y)).toBeLessThan(8);
+    expect(balanceBox!.x).toBeLessThan(paymentsBox!.x);
     const todayLine = await cash.getByTestId("cockpit-today").boundingBox();
     const todayLabel = await cash.getByTestId("cockpit-today-label").boundingBox();
     expect(todayLine && todayLabel).toBeTruthy();
@@ -166,9 +168,40 @@ test.describe("dashboard mobile layout", () => {
     expect(stacked.balance.y).toBeLessThan(stacked.payments.y);
 
     await page.setViewportSize({ width: 390, height: 844 });
+    await page.evaluate(() => window.scrollTo(0, 0));
     const phone = await indicatorBoxes();
     expect(phone.forecast.y).toBeLessThan(phone.balance.y);
-    expect(phone.balance.y).toBeLessThan(phone.payments.y);
+    expect(Math.abs(phone.balance.y - phone.payments.y)).toBeLessThan(8);
+    expect(phone.balance.x).toBeLessThan(phone.payments.x);
+    for (const id of ["cockpit-balance", "cockpit-payments", "cockpit-forecast"]) {
+      const clips = await cash
+        .getByTestId(id)
+        .evaluate((el) => el.scrollWidth > el.clientWidth + 1);
+      expect(clips).toBe(false);
+    }
+    const peek = await page.evaluate(() => {
+      const card = document.querySelector("[data-testid='dashboard-cash-position']");
+      const nav = document.querySelector(".mobile-bottom-nav");
+      if (!(card instanceof HTMLElement) || !(nav instanceof HTMLElement)) return null;
+      let sibling = card.nextElementSibling;
+      let nextTop: number | null = null;
+      while (sibling) {
+        const rect = sibling.getBoundingClientRect();
+        if (rect.height > 8) {
+          nextTop = rect.top;
+          break;
+        }
+        sibling = sibling.nextElementSibling;
+      }
+      return {
+        cardBottom: card.getBoundingClientRect().bottom,
+        navTop: nav.getBoundingClientRect().top,
+        nextTop,
+      };
+    });
+    expect(peek?.nextTop).not.toBeNull();
+    expect(peek!.cardBottom).toBeLessThan(peek!.navTop);
+    expect(peek!.nextTop!).toBeLessThan(peek!.navTop);
 
     for (const width of [768, 1440]) {
       await page.setViewportSize({ width, height: 900 });
@@ -222,6 +255,7 @@ test.describe("dashboard mobile layout", () => {
       "aria-label",
       "Saldo na dziś: Brak danych"
     );
+    await expect(cash.getByRole("link", { name: /Zobacz transakcje/ })).toHaveCount(0);
     const action = cash.getByRole("link", { name: "Ustaw saldo początkowe", exact: true });
     await expect(action).toBeVisible();
     await expect(action).toHaveAttribute("href", "/transactions?group=own");

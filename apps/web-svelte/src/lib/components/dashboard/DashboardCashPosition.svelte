@@ -133,21 +133,30 @@
   </section>
 {:else}
   <section
-    class="rounded-2xl border border-white/5 bg-slate-900/60 p-4 sm:p-5"
+    class="rounded-2xl border border-white/5 bg-slate-900/60 p-3 sm:p-5"
     aria-label={m.cash_position_label()}
     data-testid="dashboard-cash-position"
   >
-    <p class="mb-3 text-sm font-medium text-slate-300">
-      {demo ? m.cockpit_sample_data() : scopeLabel}
-    </p>
+    <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5">
+      <p class="text-sm font-medium text-slate-300">
+        {demo ? m.cockpit_sample_data() : scopeLabel}
+      </p>
+      {#if showPrivateDetails && hasAnchor}
+        <a
+          href={transactionsHref}
+          class="focus-visible:ring-accent text-xs text-slate-400 hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
+          >{m.cash_position_transactions_link()}</a
+        >
+      {/if}
+    </div>
     {#if revealCount != null}
-      <p class="mt-3 text-sm text-slate-400" data-testid="cockpit-analyzed">
+      <p class="mt-2 text-sm text-slate-400" data-testid="cockpit-analyzed">
         {analyzed(revealCount)}
       </p>
     {/if}
 
     <div
-      class="mt-4 md:grid md:grid-cols-[minmax(0,1fr)_220px] md:items-end md:gap-10"
+      class="mt-2 md:mt-4 md:grid md:grid-cols-[minmax(0,1fr)_220px] md:items-end md:gap-10"
       data-testid="cockpit-indicators"
       data-tour-id="tour-balance-ring"
     >
@@ -172,7 +181,7 @@
           {shown(monthForecast)}
         </p>
         {#if chart.points && chart.points.length > 1}
-          <div class="mt-2">
+          <div class="mt-1">
             <CockpitForecastChart
               points={chart.points}
               todayRatio={chart.todayRatio}
@@ -184,7 +193,9 @@
         {/if}
       </div>
 
-      <div class="mt-5 grid min-w-0 gap-6 md:mt-0 md:gap-8">
+      <div
+        class="mt-3 grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))] gap-x-3 gap-y-2 md:mt-0 md:grid-cols-1 md:gap-8"
+      >
         <div
           class="min-w-0"
           data-testid="cockpit-balance"
@@ -199,7 +210,7 @@
             />
           </div>
           <p
-            class="mt-1 text-2xl font-semibold tracking-tight break-words tabular-nums {balance !=
+            class="mt-1 text-xl font-semibold tracking-tight break-words tabular-nums md:text-2xl {balance !=
               null && balance < 0
               ? 'text-rose-400'
               : ''}"
@@ -216,7 +227,7 @@
             <p class="min-w-0 text-sm break-words text-slate-400">{m.cockpit_spent_month()}</p>
             <InfoTooltip label={spentHelpLabel} text={spentHelp} side="bottom" />
           </div>
-          <p class="mt-1 text-2xl font-semibold tracking-tight break-words tabular-nums">
+          <p class="mt-1 text-xl font-semibold tracking-tight break-words tabular-nums md:text-2xl">
             {shown(spent)}
           </p>
           {#if chart.comparison}
@@ -240,14 +251,8 @@
       </div>
     </div>
 
-    <div class="mt-2 flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1">
-      {#if showPrivateDetails && hasAnchor}
-        <a
-          href={transactionsHref}
-          class="focus-visible:ring-accent text-accent inline-flex min-h-11 items-center text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"
-          >{m.cash_position_transactions_link()}</a
-        >
-      {:else if showPrivateDetails}
+    {#if showPrivateDetails && !hasAnchor}
+      <div class="mt-2 flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1">
         <a
           href="/transactions?group=own"
           class="focus-visible:ring-accent inline-flex min-h-11 items-center text-sm font-medium text-slate-300 focus-visible:ring-2 focus-visible:outline-none"
@@ -258,7 +263,7 @@
           text={m.cockpit_opening_help()}
           side="bottom"
         />
-      {/if}
-    </div>
+      </div>
+    {/if}
   </section>
 {/if}

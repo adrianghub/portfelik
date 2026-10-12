@@ -150,7 +150,7 @@
 </script>
 
 <div class="relative">
-  <div class="relative h-[210px]">
+  <div class="relative h-[170px]">
     <svg
       viewBox="0 0 {width} {height}"
       class="block h-full w-full touch-pan-y"
