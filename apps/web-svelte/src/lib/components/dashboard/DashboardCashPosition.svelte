@@ -1,7 +1,14 @@
 <script lang="ts">
-  import CockpitIndicators from "$lib/components/dashboard/CockpitIndicators.svelte";
+  import { browser } from "$app/environment";
+  import { onMount } from "svelte";
+  import CockpitForecastChart from "$lib/components/dashboard/CockpitForecastChart.svelte";
+  import InfoTooltip from "$lib/components/ui/InfoTooltip.svelte";
+  import type { CockpitForecastChart as ChartModel } from "$lib/cockpit/forecast-chart";
+  import { shortDayMonth } from "$lib/cockpit/month-window";
+  import { motionDuration } from "$lib/motion";
   import { ChevronLeft, ChevronRight } from "lucide-svelte";
   import * as m from "$lib/paraglide/messages";
+  import { formatCurrency, monthNameLocative } from "$lib/utils";
 
   let {
     hasAnchor,
@@ -10,14 +17,20 @@
     monthLabel,
     onMonthShift,
     balance,
-    expenses,
-    monthForecast,
     expensesFrom = null,
     expensesIncomplete = false,
     orientational = 0,
+    monthForecast,
+    chart,
+    rangeStart,
+    rangeEnd,
+    projected = true,
+    demo = false,
+    revealCount = null,
     loading = false,
     error = false,
     onRetry,
+    onOpenGlossary,
   }: {
     hasAnchor: boolean;
     showPrivateDetails: boolean;
@@ -25,18 +38,80 @@
     monthLabel: string;
     onMonthShift: (delta: number) => void;
     balance: number | null;
-    expenses: number | null;
-    monthForecast: number | null;
     expensesFrom?: string | null;
     expensesIncomplete?: boolean;
     orientational?: number;
+    monthForecast: number | null;
+    chart: ChartModel;
+    rangeStart: string;
+    rangeEnd: string;
+    projected?: boolean;
+    demo?: boolean;
+    revealCount?: number | null;
     loading?: boolean;
     error?: boolean;
     onRetry?: () => void;
+    onOpenGlossary?: (entryId: string) => void;
   } = $props();
 
-  let openingHelpOpen = $state(false);
-  let countersHelpOpen = $state(false);
+  let progress = $state(1);
+
+  const spent = $derived(chart.spent);
+  const expensesFromLabel = $derived(expensesFrom ? shortDayMonth(expensesFrom) : null);
+  const heroLabel = $derived(projected ? m.cockpit_forecast_hero() : m.cockpit_closing_hero());
+  const spentHelp = $derived.by(() => {
+    const parts: string[] = [];
+    if (expensesFromLabel) parts.push(m.cockpit_expenses_from_help({ date: expensesFromLabel }));
+    if (orientational > 0)
+      parts.push(m.cockpit_orientational({ amount: formatCurrency(orientational) }));
+    if (expensesIncomplete) parts.push(m.cockpit_expenses_incomplete_help());
+    if (parts.length === 0) parts.push(m.cockpit_counters_help());
+    return parts.join(" ");
+  });
+  const spentHelpLabel = $derived(
+    expensesIncomplete
+      ? m.cockpit_expenses_incomplete_help_label()
+      : expensesFromLabel
+        ? m.cockpit_expenses_from_help_label()
+        : m.cockpit_spent_month()
+  );
+
+  function shown(amount: number | null): string {
+    if (amount == null) return "-";
+    return formatCurrency(amount * progress);
+  }
+
+  function accessible(amount: number | null): string {
+    return amount == null ? m.cockpit_missing() : formatCurrency(amount);
+  }
+
+  function analyzed(count: number): string {
+    const mod10 = count % 10;
+    const mod100 = count % 100;
+    if (count === 1) return m.cockpit_analyzed_one({ count });
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+      return m.cockpit_analyzed_few({ count });
+    }
+    return m.cockpit_analyzed_many({ count });
+  }
+
+  function comparedWith(month: number): string {
+    return `${month === 9 ? "we" : "w"} ${monthNameLocative(month)}`;
+  }
+
+  onMount(() => {
+    if (!browser || revealCount == null || motionDuration(1_000) === 0) return;
+    progress = 0;
+    const started = performance.now();
+    let frame = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - started) / 1_000);
+      progress = 1 - (1 - t) ** 3;
+      if (t < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  });
 </script>
 
 {#if loading}
@@ -65,38 +140,128 @@
     aria-label={m.cash_position_label()}
     data-testid="dashboard-cash-position"
   >
-    <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-      <p class="text-sm font-medium text-slate-300">{scopeLabel}</p>
-      <div class="flex items-center gap-1" role="group" aria-label={m.cockpit_month_nav()}>
+    <div class="flex items-center justify-between gap-3">
+      <div class="flex min-w-0 items-center gap-1">
         <button
           type="button"
-          class="focus-visible:ring-accent inline-flex size-11 items-center justify-center rounded-lg text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+          class="focus-visible:ring-accent inline-flex size-8 items-center justify-center rounded-lg text-slate-400 hover:bg-white/5 hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
           aria-label={m.cockpit_month_previous()}
           onclick={() => onMonthShift(-1)}
         >
           <ChevronLeft size={16} aria-hidden="true" />
         </button>
-        <p class="px-1 text-center text-sm font-medium text-slate-100" data-testid="cockpit-month">
-          {monthLabel}
-        </p>
+        <p class="text-eyebrow truncate text-slate-300" data-testid="cockpit-month">{monthLabel}</p>
         <button
           type="button"
-          class="focus-visible:ring-accent inline-flex size-11 items-center justify-center rounded-lg text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+          class="focus-visible:ring-accent inline-flex size-8 items-center justify-center rounded-lg text-slate-400 hover:bg-white/5 hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
           aria-label={m.cockpit_month_next()}
           onclick={() => onMonthShift(1)}
         >
           <ChevronRight size={16} aria-hidden="true" />
         </button>
       </div>
+      <p class="shrink-0 text-xs text-slate-500">
+        {demo ? m.cockpit_sample_data() : scopeLabel}
+      </p>
     </div>
-    <CockpitIndicators
-      {balance}
-      {expenses}
-      forecast={monthForecast}
-      {orientational}
-      {expensesFrom}
-      {expensesIncomplete}
-    />
+    {#if revealCount != null}
+      <p class="mt-3 text-sm text-slate-400" data-testid="cockpit-analyzed">
+        {analyzed(revealCount)}
+      </p>
+    {/if}
+
+    <div
+      class="mt-4 md:grid md:grid-cols-[minmax(0,1fr)_220px] md:items-end md:gap-10"
+      data-testid="cockpit-indicators"
+      data-tour-id="tour-balance-ring"
+    >
+      <div>
+        <div class="flex items-center justify-between gap-3">
+          <p class="text-sm font-medium text-slate-300">{heroLabel}</p>
+          <InfoTooltip
+            label={m.cockpit_forecast_help_label()}
+            text={m.cockpit_forecast_meaning()}
+            side="bottom"
+            glossaryEntryId="prognoza"
+            {onOpenGlossary}
+          />
+        </div>
+        <p
+          class="text-hero mt-1 font-semibold tracking-tight {monthForecast != null &&
+          monthForecast < 0
+            ? 'text-rose-400'
+            : 'text-slate-50'}"
+          data-testid="cockpit-forecast"
+        >
+          {shown(monthForecast)}
+        </p>
+        {#if chart.points && chart.points.length > 1}
+          <div class="mt-2">
+            <CockpitForecastChart
+              points={chart.points}
+              todayRatio={chart.todayRatio}
+              {rangeStart}
+              {rangeEnd}
+              reveal={revealCount != null}
+            />
+          </div>
+        {/if}
+      </div>
+
+      <div
+        class="mt-6 grid grid-cols-2 gap-4 max-[359px]:grid-cols-1 md:mt-0 md:grid-cols-1 md:gap-8"
+      >
+        <div
+          data-testid="cockpit-balance"
+          aria-label="{m.cockpit_balance_today()}: {accessible(balance)}"
+        >
+          <div class="flex items-center gap-1">
+            <p class="text-sm text-slate-400">{m.cockpit_balance_today()}</p>
+            <InfoTooltip
+              label={m.cockpit_counters_help_label()}
+              text={m.cockpit_counters_help()}
+              side="bottom"
+            />
+          </div>
+          <p
+            class="mt-1 text-2xl font-semibold tracking-tight tabular-nums {balance != null &&
+            balance < 0
+              ? 'text-rose-400'
+              : ''}"
+          >
+            {shown(balance)}
+          </p>
+        </div>
+        <div
+          data-testid="cockpit-payments"
+          aria-label="{m.cockpit_spent_month()}: {accessible(spent)}"
+        >
+          <div class="flex items-center gap-1">
+            <p class="text-sm text-slate-400">{m.cockpit_spent_month()}</p>
+            <InfoTooltip label={spentHelpLabel} text={spentHelp} side="bottom" />
+          </div>
+          <p class="mt-1 text-2xl font-semibold tracking-tight tabular-nums">{shown(spent)}</p>
+          {#if chart.comparison}
+            <p
+              class="mt-1.5 text-sm font-medium {chart.comparison.percent < 0
+                ? 'text-emerald-400'
+                : 'text-rose-400'}"
+            >
+              {chart.comparison.percent < 0
+                ? m.cockpit_vs_less({
+                    percent: Math.abs(chart.comparison.percent),
+                    when: comparedWith(chart.comparison.month),
+                  })
+                : m.cockpit_vs_more({
+                    percent: chart.comparison.percent,
+                    when: comparedWith(chart.comparison.month),
+                  })}
+            </p>
+          {/if}
+        </div>
+      </div>
+    </div>
+
     <div class="mt-2 flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1">
       {#if showPrivateDetails && hasAnchor}
         <a
@@ -110,33 +275,12 @@
           class="focus-visible:ring-accent inline-flex min-h-11 items-center text-sm font-medium text-slate-300 focus-visible:ring-2 focus-visible:outline-none"
           >{m.cockpit_set_opening()}</a
         >
-        <button
-          type="button"
-          class="focus-visible:ring-accent inline-flex size-8 items-center justify-center rounded-full text-sm text-slate-400 hover:bg-white/5 hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
-          aria-expanded={openingHelpOpen}
-          aria-controls="cockpit-opening-help"
-          aria-label={m.cockpit_opening_help_label()}
-          onclick={() => (openingHelpOpen = !openingHelpOpen)}>?</button
-        >
+        <InfoTooltip
+          label={m.cockpit_opening_help_label()}
+          text={m.cockpit_opening_help()}
+          side="bottom"
+        />
       {/if}
-      <button
-        type="button"
-        class="focus-visible:ring-accent inline-flex size-8 items-center justify-center rounded-full text-sm text-slate-400 hover:bg-white/5 hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
-        aria-expanded={countersHelpOpen}
-        aria-controls="cockpit-counters-help"
-        aria-label={m.cockpit_counters_help_label()}
-        onclick={() => (countersHelpOpen = !countersHelpOpen)}>?</button
-      >
     </div>
-    {#if openingHelpOpen}
-      <p id="cockpit-opening-help" class="pb-1 text-xs leading-relaxed text-slate-400">
-        {m.cockpit_opening_help()}
-      </p>
-    {/if}
-    {#if countersHelpOpen}
-      <p id="cockpit-counters-help" class="pb-1 text-xs leading-relaxed text-slate-400">
-        {m.cockpit_counters_help()}
-      </p>
-    {/if}
   </section>
 {/if}

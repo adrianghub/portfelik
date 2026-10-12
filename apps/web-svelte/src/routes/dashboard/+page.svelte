@@ -47,8 +47,14 @@
   } from "$lib/services/goal-spending";
   import { fetchRecurringOccurrenceSkips } from "$lib/services/recurring-occurrences";
   import { localDateIso } from "$lib/date-local";
-  import { buildCockpitMonthView, type CockpitMonthRow } from "$lib/cockpit/month-view";
   import {
+    buildCockpitMonthView,
+    cockpitForecastChart,
+    type CockpitMonthRow,
+  } from "$lib/cockpit/month-view";
+  import { takeCockpitImportReveal } from "$lib/cockpit/import-reveal";
+  import {
+    calendarMonthBounds,
     calendarMonthFromIso,
     calendarMonthLabel,
     cashMonthQueryValue,
@@ -91,6 +97,12 @@
     type ScopeFilter,
   } from "$lib/utils/list-view-url";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
+  import { onMount } from "svelte";
+
+  let importRevealCount = $state<number | null>(null);
+  onMount(() => {
+    importRevealCount = takeCockpitImportReveal();
+  });
 
   let detailsOpen = $state(false);
   let spendingExpanded = $state(false);
@@ -730,6 +742,26 @@
       monthLedger: cockpitMonthLedgerQuery.isSuccess ? "complete" : "partial",
     })
   );
+  const cockpitChart = $derived(
+    cockpitForecastChart({
+      scopeFilter: groupFilter,
+      month: cashMonth,
+      today: cashForecastToday,
+      privateAnchor: cashAnchorQuery.data
+        ? {
+            opening_amount: cashAnchorQuery.data.opening_amount,
+            as_of_date: cashAnchorQuery.data.as_of_date,
+          }
+        : null,
+      rows: cockpitMonthRows,
+      items: spendForecastQuery.data?.items ?? [],
+      links: spendForecastQuery.data?.links ?? [],
+      saveLinkedIds,
+      celeCategoryId,
+      monthLedger: cockpitMonthLedgerQuery.isSuccess ? "complete" : "partial",
+    })
+  );
+  const cockpitBounds = $derived(calendarMonthBounds(cashMonth));
 
   function shiftCashMonth(delta: number) {
     const next = shiftCalendarMonth(cashMonth, delta);
@@ -1024,14 +1056,20 @@
       monthLabel={cashMonthLabel}
       onMonthShift={shiftCashMonth}
       balance={cockpitMonth.balance}
-      expenses={cockpitMonth.expenses}
       expensesFrom={cockpitMonth.expensesFrom}
       expensesIncomplete={cockpitMonth.expensesIncomplete}
       monthForecast={cockpitMonth.forecast}
       orientational={cockpitMonth.orientational}
+      chart={cockpitChart}
+      rangeStart={cockpitBounds.monthStart}
+      rangeEnd={cockpitBounds.monthEnd}
+      projected={cashForecastToday <= cockpitBounds.monthEnd}
+      demo={demoActive}
+      revealCount={importRevealCount}
       loading={cashPositionLoading}
       error={cashPositionError}
       onRetry={retryCashPosition}
+      onOpenGlossary={openGlossary}
     />
 
     {#if detailsOpen || (groupsQuery.data?.length ?? 0) > 0}
