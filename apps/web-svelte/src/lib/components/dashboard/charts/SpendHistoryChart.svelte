@@ -179,7 +179,7 @@
 <svelte:window onclick={clickOutside} onkeydown={onKeydown} />
 
 <div
-  class="overflow-x-hidden rounded-3xl border border-white/5 bg-slate-900/60 p-4"
+  class="h-full overflow-x-hidden rounded-3xl border border-white/5 bg-slate-900/60 p-4"
   data-spend-history-root
   data-testid="cockpit-history"
 >

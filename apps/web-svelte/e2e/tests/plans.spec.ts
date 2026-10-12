@@ -69,7 +69,9 @@ test.describe("plans mobile period visibility", () => {
     await page.getByRole("link", { name: /Nowy samochód/ }).click();
     await expect(page.getByRole("button", { name: "Termin celu" })).toContainText("30.06.2027");
     await expect(
-      page.getByRole("navigation", { name: "Ścieżka nawigacji" }).getByRole("link", { name: "Plany" })
+      page
+        .getByRole("navigation", { name: "Ścieżka nawigacji" })
+        .getByRole("link", { name: "Plany" })
     ).toBeVisible();
     await expect(page.getByRole("button", { name: "Wróć" })).toBeHidden();
     const overflow = await page.evaluate(
@@ -304,7 +306,9 @@ test("creates a spend plan with a budget cap", async ({ page }) => {
   await page.locator(`[data-date="${endDate}"]`).click();
   await page.getByRole("spinbutton", { name: "Budżet", exact: true }).fill("12000");
   await page.getByRole("button", { name: "Co znaczy budżet" }).hover();
-  await expect(page.getByRole("tooltip")).toContainText("To limit wydatków, nie odłożone pieniądze.");
+  await expect(page.getByRole("tooltip")).toContainText(
+    "To limit wydatków, nie odłożone pieniądze."
+  );
   await page.getByRole("button", { name: "Zapisz" }).click();
 
   await expect
@@ -780,7 +784,9 @@ test("demo plans keep a compact label and the same plan figures", async ({ page 
 
   await page.goto("/plans");
   await expect(page.getByText("Tryb demonstracyjny")).toBeVisible();
-  await expect(page.getByText("Są tu wakacje, kanapa i czynsz.")).toHaveCount(0);
+  await expect(
+    page.getByText("To przykładowe dane. Możesz je przejrzeć, a potem usunąć.")
+  ).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Usuń przykład" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Nowy samochód/ })).toContainText(
     `Zgromadzono ${formatCurrency(0)} z ${formatCurrency(60_000)}`

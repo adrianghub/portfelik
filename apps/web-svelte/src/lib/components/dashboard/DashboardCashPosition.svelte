@@ -1,14 +1,13 @@
 <script lang="ts">
   import CockpitIndicators from "$lib/components/dashboard/CockpitIndicators.svelte";
-  import { ChevronLeft, ChevronRight } from "lucide-svelte";
+  import InfoTooltip from "$lib/components/ui/InfoTooltip.svelte";
   import * as m from "$lib/paraglide/messages";
 
   let {
     hasAnchor,
     showPrivateDetails,
     scopeLabel,
-    monthLabel,
-    onMonthShift,
+    transactionsHref,
     balance,
     expenses,
     monthForecast,
@@ -18,12 +17,12 @@
     loading = false,
     error = false,
     onRetry,
+    onOpenGlossary,
   }: {
     hasAnchor: boolean;
     showPrivateDetails: boolean;
     scopeLabel: string;
-    monthLabel: string;
-    onMonthShift: (delta: number) => void;
+    transactionsHref: string;
     balance: number | null;
     expenses: number | null;
     monthForecast: number | null;
@@ -33,10 +32,8 @@
     loading?: boolean;
     error?: boolean;
     onRetry?: () => void;
+    onOpenGlossary?: (entryId: string) => void;
   } = $props();
-
-  let openingHelpOpen = $state(false);
-  let countersHelpOpen = $state(false);
 </script>
 
 {#if loading}
@@ -65,30 +62,7 @@
     aria-label={m.cash_position_label()}
     data-testid="dashboard-cash-position"
   >
-    <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-      <p class="text-sm font-medium text-slate-300">{scopeLabel}</p>
-      <div class="flex items-center gap-1" role="group" aria-label={m.cockpit_month_nav()}>
-        <button
-          type="button"
-          class="focus-visible:ring-accent inline-flex size-11 items-center justify-center rounded-lg text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
-          aria-label={m.cockpit_month_previous()}
-          onclick={() => onMonthShift(-1)}
-        >
-          <ChevronLeft size={16} aria-hidden="true" />
-        </button>
-        <p class="px-1 text-center text-sm font-medium text-slate-100" data-testid="cockpit-month">
-          {monthLabel}
-        </p>
-        <button
-          type="button"
-          class="focus-visible:ring-accent inline-flex size-11 items-center justify-center rounded-lg text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
-          aria-label={m.cockpit_month_next()}
-          onclick={() => onMonthShift(1)}
-        >
-          <ChevronRight size={16} aria-hidden="true" />
-        </button>
-      </div>
-    </div>
+    <p class="mb-3 text-sm font-medium text-slate-300">{scopeLabel}</p>
     <CockpitIndicators
       {balance}
       {expenses}
@@ -96,11 +70,12 @@
       {orientational}
       {expensesFrom}
       {expensesIncomplete}
+      {onOpenGlossary}
     />
-    <div class="mt-2 flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1">
+    <div class="mt-2 flex min-h-11 flex-wrap items-center gap-x-2 gap-y-1">
       {#if showPrivateDetails && hasAnchor}
         <a
-          href="/transactions?group=own"
+          href={transactionsHref}
           class="focus-visible:ring-accent text-accent inline-flex min-h-11 items-center text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"
           >{m.cash_position_transactions_link()}</a
         >
@@ -110,33 +85,8 @@
           class="focus-visible:ring-accent inline-flex min-h-11 items-center text-sm font-medium text-slate-300 focus-visible:ring-2 focus-visible:outline-none"
           >{m.cockpit_set_opening()}</a
         >
-        <button
-          type="button"
-          class="focus-visible:ring-accent inline-flex size-8 items-center justify-center rounded-full text-sm text-slate-400 hover:bg-white/5 hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
-          aria-expanded={openingHelpOpen}
-          aria-controls="cockpit-opening-help"
-          aria-label={m.cockpit_opening_help_label()}
-          onclick={() => (openingHelpOpen = !openingHelpOpen)}>?</button
-        >
+        <InfoTooltip label={m.cockpit_opening_help_label()} text={m.cockpit_opening_help()} />
       {/if}
-      <button
-        type="button"
-        class="focus-visible:ring-accent inline-flex size-8 items-center justify-center rounded-full text-sm text-slate-400 hover:bg-white/5 hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
-        aria-expanded={countersHelpOpen}
-        aria-controls="cockpit-counters-help"
-        aria-label={m.cockpit_counters_help_label()}
-        onclick={() => (countersHelpOpen = !countersHelpOpen)}>?</button
-      >
     </div>
-    {#if openingHelpOpen}
-      <p id="cockpit-opening-help" class="pb-1 text-xs leading-relaxed text-slate-400">
-        {m.cockpit_opening_help()}
-      </p>
-    {/if}
-    {#if countersHelpOpen}
-      <p id="cockpit-counters-help" class="pb-1 text-xs leading-relaxed text-slate-400">
-        {m.cockpit_counters_help()}
-      </p>
-    {/if}
   </section>
 {/if}

@@ -36,6 +36,11 @@ export interface CockpitMonthRow {
 export interface CockpitMonthViewInput {
   scopeFilter: ScopeFilter;
   month: CalendarMonth;
+  /**
+   * Inclusive window. When set, the counters use this range instead of the
+   * calendar month. The money rules stay the same.
+   */
+  range?: { start: string; end: string };
   today: string;
   /** Private anchor only. A household or Wszystkie never receives this row. */
   privateAnchor: { opening_amount: number; as_of_date: string } | null;
@@ -92,7 +97,9 @@ export function buildCockpitMonthView(input: CockpitMonthViewInput): CockpitMont
       )
       .map((row) => row.id)
   );
-  const bounds = calendarMonthBounds(input.month);
+  const bounds = input.range
+    ? { monthStart: input.range.start.slice(0, 10), monthEnd: input.range.end.slice(0, 10) }
+    : calendarMonthBounds(input.month);
   const indicators = cockpitMonthIndicators({
     scope,
     anchor: scope.kind === "private" ? input.privateAnchor : null,
