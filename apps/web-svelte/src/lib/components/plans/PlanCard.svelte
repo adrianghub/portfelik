@@ -127,7 +127,7 @@
         >
           <span class="block truncate leading-tight font-semibold text-slate-100">{plan.name}</span>
           {#if plan.group_id && groupName}
-            <p class="mt-0.5 truncate text-xs text-slate-500">{groupName}</p>
+            <p class="mt-0.5 truncate text-xs text-slate-400">{groupName}</p>
           {/if}
           {#if kind === "save" && plan.target_amount != null}
             <p class="mt-1 text-base font-semibold text-slate-100 tabular-nums">
@@ -147,7 +147,7 @@
               <div class="bg-accent h-full rounded-full" style="width: {savePct}%"></div>
             </div>
             {#if plan.end_date}
-              <p class="mt-1 text-xs text-slate-500">{formatDate(plan.end_date)}</p>
+              <p class="mt-1 text-xs text-slate-400">{formatDate(plan.end_date)}</p>
             {/if}
           {:else if kind === "debt" && debtTerms}
             <p class="text-eyebrow mt-2 text-slate-400">{m.plan_debt_remaining_hero()}</p>
@@ -162,7 +162,7 @@
               </p>
             {/if}
           {:else if kind === "spend" && spendSummary}
-            <p class="mt-0.5 text-xs text-slate-500">
+            <p class="mt-0.5 text-xs text-slate-400">
               {formatDate(plan.start_date)} - {formatDate(plan.end_date)}
             </p>
             <p class="text-eyebrow mt-2 text-slate-400">{m.plan_spend_budget_left_label()}</p>
@@ -203,7 +203,7 @@
               </p>
             {/if}
           {:else if kind === "spend" && plan.budget_amount != null}
-            <p class="mt-1 text-xs text-slate-500">
+            <p class="mt-1 text-xs text-slate-400">
               {formatDate(plan.start_date)} - {formatDate(plan.end_date)}
             </p>
           {/if}

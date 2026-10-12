@@ -329,8 +329,8 @@
         {m.plan_spend_orientational({ amount: formatCurrency(summary.orientational) })}
       </p>
     {/if}
-    <p class="mt-1 text-xs text-slate-500">{m.plan_spend_to_pay_hint()}</p>
-    <p class="mt-1 text-xs text-slate-500">{m.plan_spend_balance_hint()}</p>
+    <p class="mt-1 text-xs text-slate-400">{m.plan_spend_to_pay_hint()}</p>
+    <p class="mt-1 text-xs text-slate-400">{m.plan_spend_balance_hint()}</p>
   </div>
 
   <div class="space-y-2">

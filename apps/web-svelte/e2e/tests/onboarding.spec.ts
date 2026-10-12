@@ -244,12 +244,13 @@ test.describe("onboarding hardening", () => {
     await expect(page.getByRole("button", { name: "Usuń przykład" })).toBeVisible();
 
     await page.goto("/plans");
-    await expect(page.getByText("To przykładowy miesiąc.")).toBeVisible({
+    await expect(page.getByText("Tryb demonstracyjny")).toBeVisible({
       timeout: 10_000,
     });
+    await expect(page.getByText("To przykładowy miesiąc.")).toHaveCount(0);
 
     await page.getByRole("button", { name: "Usuń przykład" }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Usuń", exact: true }).click();
-    await expect(page.getByText("To przykładowy miesiąc.")).toHaveCount(0);
+    await expect(page.getByText("Tryb demonstracyjny")).toHaveCount(0);
   });
 });

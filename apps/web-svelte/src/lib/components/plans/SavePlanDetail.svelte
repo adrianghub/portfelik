@@ -81,7 +81,7 @@
     </p>
   {/if}
   {#if plan.end_date}
-    <p class="mt-1 text-xs text-slate-500">{formatDate(plan.end_date)}</p>
+    <p class="mt-1 text-xs text-slate-400">{formatDate(plan.end_date)}</p>
   {/if}
   {#if saved <= 0}
     <p class="mt-1 text-xs text-slate-400">{m.plan_save_empty_hint()}</p>
