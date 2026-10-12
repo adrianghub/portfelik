@@ -187,7 +187,7 @@ test.describe("onboarding hardening", () => {
     await expect(tour).toContainText("1 z 8", { timeout: 15_000 });
     const counters = page.getByTestId("cockpit-indicators");
     await expect(counters).toHaveAttribute("data-tour-id", "tour-balance-ring");
-    await expect(counters.getByText("Stan salda", { exact: true })).toBeVisible();
+    await expect(counters.getByText("Saldo na dziś", { exact: true })).toBeVisible();
     const spotlight = page.getByTestId("tour-spotlight");
     await expect(spotlight).toBeVisible();
     const targetBox = await counters.boundingBox();

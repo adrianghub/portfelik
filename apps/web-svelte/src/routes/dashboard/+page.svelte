@@ -47,7 +47,12 @@
   } from "$lib/services/goal-spending";
   import { fetchRecurringOccurrenceSkips } from "$lib/services/recurring-occurrences";
   import { addLocalDays, localDateIso } from "$lib/date-local";
-  import { buildCockpitMonthView, type CockpitMonthRow } from "$lib/cockpit/month-view";
+  import {
+    buildCockpitMonthView,
+    cockpitForecastChart,
+    type CockpitMonthRow,
+  } from "$lib/cockpit/month-view";
+  import { takeCockpitImportReveal } from "$lib/cockpit/import-reveal";
   import {
     calendarMonthFromIso,
     calendarMonthLabel,
@@ -87,6 +92,12 @@
     type ScopeFilter,
   } from "$lib/utils/list-view-url";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
+  import { onMount } from "svelte";
+
+  let importRevealCount = $state<number | null>(null);
+  onMount(() => {
+    importRevealCount = takeCockpitImportReveal();
+  });
 
   let detailsOpen = $state(false);
   let spendingExpanded = $state(false);
@@ -732,6 +743,26 @@
       monthLedger: cockpitMonthLedgerQuery.isSuccess ? "complete" : "partial",
     })
   );
+  const cockpitChart = $derived(
+    cockpitForecastChart({
+      scopeFilter: groupFilter,
+      month: calendarMonthFromIso(gaugeRange.start),
+      range: gaugeRange,
+      today: cashForecastToday,
+      privateAnchor: cashAnchorQuery.data
+        ? {
+            opening_amount: cashAnchorQuery.data.opening_amount,
+            as_of_date: cashAnchorQuery.data.as_of_date,
+          }
+        : null,
+      rows: cockpitMonthRows,
+      items: spendForecastQuery.data?.items ?? [],
+      links: spendForecastQuery.data?.links ?? [],
+      saveLinkedIds,
+      celeCategoryId,
+      monthLedger: cockpitMonthLedgerQuery.isSuccess ? "complete" : "partial",
+    })
+  );
 
   // Prefer isLoading (pending + fetching) over isPending. Disabled dependents
   // stay isPending=true and would otherwise freeze the cash skeleton forever.
@@ -1029,11 +1060,16 @@
       scopeLabel={cashScopeLabel}
       transactionsHref={transactionsHref()}
       balance={cockpitMonth.balance}
-      expenses={cockpitMonth.expenses}
       expensesFrom={cockpitMonth.expensesFrom}
       expensesIncomplete={cockpitMonth.expensesIncomplete}
       monthForecast={cockpitMonth.forecast}
       orientational={cockpitMonth.orientational}
+      chart={cockpitChart}
+      rangeStart={gaugeRange.start}
+      rangeEnd={gaugeRange.end}
+      projected={cashForecastToday <= gaugeRange.end}
+      demo={demoActive}
+      revealCount={importRevealCount}
       loading={cashPositionLoading}
       error={cashPositionError}
       onRetry={retryCashPosition}

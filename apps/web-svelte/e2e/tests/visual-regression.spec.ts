@@ -154,6 +154,7 @@ test.describe("desktop visual regression", () => {
     await expect(card.getByText("Wyliczenie na dziś i 90 dni")).toHaveCount(0);
     await card.getByRole("button", { name: "Zakres liczników" }).hover();
     await expect(page.getByRole("tooltip")).toContainText("nie są saldem z banku");
+    await page.mouse.move(0, 0);
     await expect(card).not.toContainText("Dostępne teraz");
     await expect(page.locator("#dashboard-spending")).toBeVisible();
     await expect(page).toHaveScreenshot("dashboard-desktop.png");

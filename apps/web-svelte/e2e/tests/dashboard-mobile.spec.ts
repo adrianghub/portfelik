@@ -133,34 +133,36 @@ test.describe("dashboard mobile layout", () => {
 
     await expect(page.getByRole("heading", { name: "Hej, Mr. Zinko!" })).toBeVisible();
     const cash = page.getByTestId("dashboard-cash-position");
-    await expect(cash.getByText("Stan salda", { exact: true })).toBeVisible();
-    await expect(cash.getByText("Wydatki", { exact: true })).toBeVisible();
-    await expect(cash.getByText("Prognoza", { exact: true })).toBeVisible();
+    await expect(cash.getByText("Saldo na dziś", { exact: true })).toBeVisible();
+    await expect(cash.getByText("Wydano w tym miesiącu", { exact: true })).toBeVisible();
+    await expect(cash.getByText("Przewidywane saldo na koniec miesiąca")).toBeVisible();
+    const transactionsLink = cash.getByRole("link", { name: "Zobacz transakcje →" });
+    await expect(transactionsLink).toBeVisible();
+    await expect(transactionsLink).toHaveAttribute(
+      "href",
+      /\/transactions\?startDate=\d{4}-\d{2}-\d{2}&endDate=\d{4}-\d{2}-\d{2}&group=own/
+    );
     await expect(cash.getByTestId("cockpit-balance")).toContainText(/1\D?300,00/);
-    await expect(cash.getByTestId("cockpit-payments")).toContainText(/500,00/);
+    await expect(cash.getByTestId("cockpit-payments")).toContainText(/200,00/);
     await expect(cash.getByTestId("cockpit-forecast")).toContainText(/1\D?000,00/);
     const forecastBox = await cash.getByTestId("cockpit-forecast").boundingBox();
     const balanceBox = await cash.getByTestId("cockpit-balance").boundingBox();
     const paymentsBox = await cash.getByTestId("cockpit-payments").boundingBox();
     expect(forecastBox && balanceBox && paymentsBox).toBeTruthy();
     expect(forecastBox!.y).toBeLessThan(balanceBox!.y);
-    expect(forecastBox!.width).toBeGreaterThan(balanceBox!.width + 40);
     expect(Math.abs(balanceBox!.y - paymentsBox!.y)).toBeLessThan(8);
-    const balanceArc = await cash.getByTestId("cockpit-balance").locator("svg").first().boundingBox();
-    const balanceLabel = await cash.getByText("Stan salda", { exact: true }).boundingBox();
-    const balanceAmount = await cash
-      .getByTestId("cockpit-balance")
-      .getByText(/1\D?300,00/)
-      .boundingBox();
-    expect(balanceArc && balanceLabel && balanceAmount).toBeTruthy();
-    expect(balanceLabel!.y).toBeGreaterThan(balanceArc!.y + balanceArc!.height - 1);
-    expect(balanceAmount!.y).toBeGreaterThan(balanceLabel!.y);
-    expect(
-      await cash
-        .getByTestId("cockpit-balance")
-        .getByText(/1\D?300,00/)
-        .evaluate((el) => getComputedStyle(el).position)
-    ).not.toBe("absolute");
+    expect(balanceBox!.x).toBeLessThan(paymentsBox!.x);
+    const linkBox = await transactionsLink.boundingBox();
+    const cardBox = await cash.boundingBox();
+    expect(linkBox && cardBox).toBeTruthy();
+    expect(linkBox!.y).toBeGreaterThan(paymentsBox!.y);
+    expect(linkBox!.width).toBeGreaterThan(cardBox!.width * 0.75);
+    const todayLine = await cash.getByTestId("cockpit-today").boundingBox();
+    const todayLabel = await cash.getByTestId("cockpit-today-label").boundingBox();
+    expect(todayLine && todayLabel).toBeTruthy();
+    const lineCenter = todayLine!.x + todayLine!.width / 2;
+    const labelCenter = todayLabel!.x + todayLabel!.width / 2;
+    expect(Math.abs(lineCenter - labelCenter)).toBeLessThan(12);
 
     async function indicatorBoxes() {
       const forecast = await cash.getByTestId("cockpit-forecast").boundingBox();
@@ -174,22 +176,49 @@ test.describe("dashboard mobile layout", () => {
     const stacked = await indicatorBoxes();
     expect(stacked.forecast.y).toBeLessThan(stacked.balance.y);
     expect(stacked.balance.y).toBeLessThan(stacked.payments.y);
-    expect(Math.abs(stacked.forecast.width - stacked.balance.width)).toBeLessThan(8);
 
     await page.setViewportSize({ width: 390, height: 844 });
+    await page.evaluate(() => window.scrollTo(0, 0));
     const phone = await indicatorBoxes();
     expect(phone.forecast.y).toBeLessThan(phone.balance.y);
-    expect(phone.forecast.width).toBeGreaterThan(phone.balance.width + 40);
     expect(Math.abs(phone.balance.y - phone.payments.y)).toBeLessThan(8);
+    expect(phone.balance.x).toBeLessThan(phone.payments.x);
+    for (const id of ["cockpit-balance", "cockpit-payments", "cockpit-forecast"]) {
+      const clips = await cash
+        .getByTestId(id)
+        .evaluate((el) => el.scrollWidth > el.clientWidth + 1);
+      expect(clips).toBe(false);
+    }
+    const peek = await page.evaluate(() => {
+      const card = document.querySelector("[data-testid='dashboard-cash-position']");
+      const nav = document.querySelector(".mobile-bottom-nav");
+      if (!(card instanceof HTMLElement) || !(nav instanceof HTMLElement)) return null;
+      let sibling = card.nextElementSibling;
+      let nextTop: number | null = null;
+      while (sibling) {
+        const rect = sibling.getBoundingClientRect();
+        if (rect.height > 8) {
+          nextTop = rect.top;
+          break;
+        }
+        sibling = sibling.nextElementSibling;
+      }
+      return {
+        cardBottom: card.getBoundingClientRect().bottom,
+        navTop: nav.getBoundingClientRect().top,
+        nextTop,
+      };
+    });
+    expect(peek?.nextTop).not.toBeNull();
+    expect(peek!.cardBottom).toBeLessThan(peek!.navTop);
+    expect(peek!.nextTop!).toBeLessThan(peek!.navTop);
 
     for (const width of [768, 1440]) {
       await page.setViewportSize({ width, height: 900 });
       const wide = await indicatorBoxes();
-      expect(wide.balance.x).toBeLessThan(wide.payments.x);
-      expect(wide.payments.x).toBeLessThan(wide.forecast.x);
-      expect(Math.abs(wide.balance.y - wide.forecast.y)).toBeLessThan(8);
-      expect(Math.abs(wide.balance.width - wide.payments.width)).toBeLessThan(24);
-      expect(Math.abs(wide.payments.width - wide.forecast.width)).toBeLessThan(24);
+      expect(wide.forecast.x).toBeLessThan(wide.balance.x);
+      expect(Math.abs(wide.balance.x - wide.payments.x)).toBeLessThan(24);
+      expect(wide.balance.y).toBeLessThan(wide.payments.y);
     }
 
     await page.setViewportSize({ width: 375, height: 812 });
@@ -221,7 +250,7 @@ test.describe("dashboard mobile layout", () => {
 
     await page.getByRole("tab", { name: /ostatnie 7 dni/i }).click();
     await expect(page).toHaveURL(/period=week/);
-    await expect(cash.getByTestId("cockpit-payments")).toContainText(/500,00/);
+    await expect(cash.getByTestId("cockpit-payments")).toContainText(/200,00/);
     await expect(page.getByTestId("cockpit-category-period").first()).toHaveText("Ostatnie 7 dni");
     await expect(page.getByTestId("cockpit-history-span")).toHaveText("Ostatnie tygodnie");
   });
@@ -234,8 +263,9 @@ test.describe("dashboard mobile layout", () => {
     await expect(cash.getByText("Brak danych", { exact: true })).toHaveCount(0);
     await expect(cash.getByTestId("cockpit-balance")).toHaveAttribute(
       "aria-label",
-      "Stan salda: Brak danych"
+      "Saldo na dziś: Brak danych"
     );
+    await expect(cash.getByRole("link", { name: /Zobacz transakcje/ })).toHaveCount(0);
     const action = cash.getByRole("link", { name: "Ustaw saldo początkowe", exact: true });
     await expect(action).toBeVisible();
     await expect(action).toHaveAttribute("href", "/transactions?group=own");
@@ -335,7 +365,7 @@ test.describe("dashboard mobile layout", () => {
 
     await page.goto("/dashboard?group=group-dom");
     const payments = page.getByTestId("cockpit-payments");
-    await expect(payments).toHaveAttribute("aria-label", "Wydatki: Brak danych");
+    await expect(payments).toHaveAttribute("aria-label", "Wydano w tym miesiącu: Brak danych");
     await expect(payments).toContainText("-");
     await expect(payments).not.toContainText("400");
     await expect(payments).not.toContainText("0,00");
@@ -495,7 +525,7 @@ test.describe("dashboard mobile layout", () => {
     await page.goto("/dashboard");
     const cash = page.getByTestId("dashboard-cash-position");
     await expect(cash.getByTestId("cockpit-balance")).toContainText(/1\D?000\D?000,00/);
-    await expect(cash.getByTestId("cockpit-payments")).toContainText(/1\D?500\D?000,00/);
+    await expect(cash.getByTestId("cockpit-payments")).toContainText(/0,00/);
     await expect(cash.getByTestId("cockpit-forecast")).toContainText(/-500\D?000,00/);
     for (const id of ["cockpit-balance", "cockpit-payments", "cockpit-forecast"]) {
       const clips = await cash

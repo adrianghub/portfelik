@@ -1074,7 +1074,10 @@ test("import wizard: confirm sheet skips uncategorized rows and imports the rest
 });
 
 test.describe("import review on a phone", () => {
-  test.use({ viewport: { width: 390, height: 844 } });
+  // html { scroll-behavior: smooth } restarts scroll-into-view on every
+  // retry, so a sticky control never stays stable. Reduced motion makes that
+  // scroll instant. The app already honors prefers-reduced-motion.
+  test.use({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" });
 
   test("summarizes clean rows and hides them behind show all", async ({ page }) => {
     await page.unrouteAll();
@@ -1151,8 +1154,14 @@ test.describe("import review on a phone", () => {
     expect(rulePosts).toBe(0);
     await page.getByRole("button", { name: "Zastosuj do podobnych (1)" }).click();
     await expect(page.getByTestId("import-review-summary")).toContainText("2 gotowych");
+    // The success notice sits over the lower controls. Move the pointer off it
+    // so it can expire before the next click.
+    await page.mouse.move(0, 0);
+    await expect(page.locator("[data-sonner-toast]")).toHaveCount(0);
     await page.getByRole("button", { name: "Cofnij ostatnią zmianę" }).click();
     await expect(page.getByRole("button", { name: "Zastosuj do podobnych (1)" })).toBeVisible();
+    await page.mouse.move(0, 0);
+    await expect(page.locator("[data-sonner-toast]")).toHaveCount(0);
     await page.getByRole("button", { name: "Kategoria", exact: true }).last().click();
     sheet = page.getByRole("dialog", { name: "Kategoria", exact: true });
     await expect(

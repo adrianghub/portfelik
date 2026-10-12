@@ -1,8 +1,10 @@
 import { isAllocationExpense } from "$lib/services/goal-spending";
 import type { CockpitSpendItem } from "$lib/cockpit/indicators";
+import { buildCockpitForecastChart, type CockpitForecastChart } from "$lib/cockpit/forecast-chart";
 import {
   cockpitMonthIndicators,
   type CockpitMonthIndicators,
+  type CockpitMonthInput,
   type CockpitMonthScope,
 } from "$lib/cockpit/month";
 import { calendarMonthBounds, type CalendarMonth } from "$lib/cockpit/month-window";
@@ -78,7 +80,7 @@ function uniqueRows(rows: readonly CockpitMonthRow[]): CockpitMonthRow[] {
  * Remainder flows are attached inside `cockpitMonthIndicators`, so callers pass
  * ledger rows once.
  */
-export function buildCockpitMonthView(input: CockpitMonthViewInput): CockpitMonthViewResult {
+function monthInput(input: CockpitMonthViewInput): CockpitMonthInput {
   const scope = scopeOf(input.scopeFilter);
   const rows = uniqueRows(input.rows).filter((row) => {
     if (scope.kind === "all") return true;
@@ -100,7 +102,7 @@ export function buildCockpitMonthView(input: CockpitMonthViewInput): CockpitMont
   const bounds = input.range
     ? { monthStart: input.range.start.slice(0, 10), monthEnd: input.range.end.slice(0, 10) }
     : calendarMonthBounds(input.month);
-  const indicators = cockpitMonthIndicators({
+  return {
     scope,
     anchor: scope.kind === "private" ? input.privateAnchor : null,
     transactions: rows,
@@ -110,14 +112,33 @@ export function buildCockpitMonthView(input: CockpitMonthViewInput): CockpitMont
     monthStart: bounds.monthStart,
     monthEnd: bounds.monthEnd,
     allocationTransactionIds,
-  });
+  };
+}
+
+export function cockpitForecastChart(input: CockpitMonthViewInput): CockpitForecastChart {
+  if (input.monthLedger === "partial") {
+    return {
+      points: null,
+      todayRatio: null,
+      balance: null,
+      forecast: null,
+      spent: null,
+      comparison: null,
+    };
+  }
+  return buildCockpitForecastChart(monthInput(input));
+}
+
+export function buildCockpitMonthView(input: CockpitMonthViewInput): CockpitMonthViewResult {
+  const model = monthInput(input);
+  const indicators = cockpitMonthIndicators(model);
   const anchorDay = input.privateAnchor?.as_of_date.slice(0, 10) ?? null;
   const clippedByAnchor =
-    scope.kind === "private" &&
+    model.scope.kind === "private" &&
     anchorDay != null &&
-    anchorDay > bounds.monthStart &&
-    anchorDay <= bounds.monthEnd;
-  const scopeIncomplete = scope.kind === "group" || scope.kind === "all";
+    anchorDay > model.monthStart &&
+    anchorDay <= model.monthEnd;
+  const scopeIncomplete = model.scope.kind === "group" || model.scope.kind === "all";
   const withholdExpenses = input.monthLedger === "partial" || scopeIncomplete;
   return {
     ...indicators,
