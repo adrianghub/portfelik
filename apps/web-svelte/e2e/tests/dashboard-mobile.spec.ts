@@ -136,7 +136,12 @@ test.describe("dashboard mobile layout", () => {
     await expect(cash.getByText("Saldo na dziś", { exact: true })).toBeVisible();
     await expect(cash.getByText("Wydano w tym miesiącu", { exact: true })).toBeVisible();
     await expect(cash.getByText("Przewidywane saldo na koniec miesiąca")).toBeVisible();
-    await expect(cash.getByRole("link", { name: "Zobacz transakcje →" })).toBeVisible();
+    const transactionsLink = cash.getByRole("link", { name: "Zobacz transakcje →" });
+    await expect(transactionsLink).toBeVisible();
+    await expect(transactionsLink).toHaveAttribute(
+      "href",
+      /\/transactions\?startDate=\d{4}-\d{2}-\d{2}&endDate=\d{4}-\d{2}-\d{2}&group=own/
+    );
     await expect(cash.getByTestId("cockpit-balance")).toContainText(/1\D?300,00/);
     await expect(cash.getByTestId("cockpit-payments")).toContainText(/200,00/);
     await expect(cash.getByTestId("cockpit-forecast")).toContainText(/1\D?000,00/);
@@ -147,6 +152,11 @@ test.describe("dashboard mobile layout", () => {
     expect(forecastBox!.y).toBeLessThan(balanceBox!.y);
     expect(Math.abs(balanceBox!.y - paymentsBox!.y)).toBeLessThan(8);
     expect(balanceBox!.x).toBeLessThan(paymentsBox!.x);
+    const linkBox = await transactionsLink.boundingBox();
+    const cardBox = await cash.boundingBox();
+    expect(linkBox && cardBox).toBeTruthy();
+    expect(linkBox!.y).toBeGreaterThan(paymentsBox!.y);
+    expect(linkBox!.width).toBeGreaterThan(cardBox!.width * 0.75);
     const todayLine = await cash.getByTestId("cockpit-today").boundingBox();
     const todayLabel = await cash.getByTestId("cockpit-today-label").boundingBox();
     expect(todayLine && todayLabel).toBeTruthy();

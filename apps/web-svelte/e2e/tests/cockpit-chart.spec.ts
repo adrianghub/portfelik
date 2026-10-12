@@ -105,7 +105,7 @@ test.describe("cockpit forecast chart", () => {
     await saveCard(card, "cockpit-mobile");
     if (existsSync(ARTIFACTS)) {
       await page.evaluate(() => window.scrollTo(0, 0));
-      await page.screenshot({ path: `${ARTIFACTS}/cockpit-mobile-viewport.png` });
+      await page.screenshot({ path: `${ARTIFACTS}/cockpit-transactions-row-390.png` });
     }
 
     const chart = card.getByTestId("cockpit-chart");

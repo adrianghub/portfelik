@@ -6,6 +6,7 @@
   import type { CockpitForecastChart as ChartModel } from "$lib/cockpit/forecast-chart";
   import { shortDayMonth } from "$lib/cockpit/month-window";
   import { motionDuration } from "$lib/motion";
+  import { ChevronRight, Wallet } from "lucide-svelte";
   import * as m from "$lib/paraglide/messages";
   import { formatCurrency, monthNameLocative } from "$lib/utils";
 
@@ -137,18 +138,9 @@
     aria-label={m.cash_position_label()}
     data-testid="dashboard-cash-position"
   >
-    <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5">
-      <p class="text-sm font-medium text-slate-300">
-        {demo ? m.cockpit_sample_data() : scopeLabel}
-      </p>
-      {#if showPrivateDetails && hasAnchor}
-        <a
-          href={transactionsHref}
-          class="focus-visible:ring-accent text-xs text-slate-400 hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
-          >{m.cash_position_transactions_link()}</a
-        >
-      {/if}
-    </div>
+    <p class="text-sm font-medium text-slate-300">
+      {demo ? m.cockpit_sample_data() : scopeLabel}
+    </p>
     {#if revealCount != null}
       <p class="mt-2 text-sm text-slate-400" data-testid="cockpit-analyzed">
         {analyzed(revealCount)}
@@ -251,7 +243,16 @@
       </div>
     </div>
 
-    {#if showPrivateDetails && !hasAnchor}
+    {#if showPrivateDetails && hasAnchor}
+      <a
+        href={transactionsHref}
+        class="focus-visible:ring-accent mt-3 flex w-full items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+      >
+        <Wallet size={16} class="shrink-0 text-slate-400" aria-hidden="true" />
+        <span class="min-w-0 flex-1">{m.cash_position_transactions_link()}</span>
+        <ChevronRight size={16} class="shrink-0 text-slate-500" aria-hidden="true" />
+      </a>
+    {:else if showPrivateDetails}
       <div class="mt-2 flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1">
         <a
           href="/transactions?group=own"
