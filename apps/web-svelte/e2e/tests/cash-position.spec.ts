@@ -137,6 +137,22 @@ test("collapsing Nadchodzące leaves the history rows", async ({ page }) => {
   await expect(table.getByText("Przyszły wpływ")).toBeVisible();
 });
 
+test("search still finds an upcoming row after Nadchodzące is collapsed", async ({ page }) => {
+  await mockCash(page);
+  await page.goto("/transactions?group=own");
+
+  const table = desktopTable(page);
+  await table.getByRole("button", { name: "Nadchodzące", exact: true }).click();
+  await expect(table.getByText("Przyszły wpływ")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Szukaj transakcji", exact: true }).click();
+  const search = page.getByRole("dialog", { name: "Szukaj transakcji" });
+  await search.getByPlaceholder("Szukaj transakcji…").fill("Przyszły");
+  await expect(search.getByText("Przyszły wpływ")).toBeVisible();
+  await expect(search.getByRole("heading", { name: "Nadchodzące", exact: true })).toHaveCount(0);
+  await expect(table.getByText("Przyszły wpływ")).toHaveCount(0);
+});
+
 test("private scope keeps the opening-balance editor off the list", async ({ page }) => {
   await mockCash(page);
   await page.goto("/transactions?group=own");
@@ -203,6 +219,25 @@ test("private scope without an anchor: one control opens the balance sheet", asy
   await expect(setBalance).toBeVisible();
   await setBalance.click();
   await expect(page.getByRole("dialog", { name: "Saldo z transakcji" })).toBeVisible();
+});
+
+test("phone without an anchor keeps the opening-balance hint", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockCash(page, { withAnchor: false });
+  await page.goto("/transactions?group=own");
+
+  const setBalance = page.getByRole("button", {
+    name: "Ustaw saldo początkowe, aby zobaczyć saldo i prognozę",
+  });
+  await expect(setBalance).toBeVisible();
+  await page.getByRole("button", { name: "Więcej akcji" }).click();
+  await expect(page.getByRole("menuitem", { name: "Zmień saldo początkowe" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await setBalance.click();
+  const sheet = page.getByRole("dialog", { name: "Saldo z transakcji" });
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByLabel("Saldo początkowe")).toBeVisible();
+  await expect(sheet.locator("#cash-opening-amount")).toHaveValue("");
 });
 
 test("private scope: strip opens edit sheet with anchor fields", async ({ page }) => {
