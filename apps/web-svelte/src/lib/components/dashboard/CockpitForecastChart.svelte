@@ -150,76 +150,83 @@
 </script>
 
 <div class="relative">
-  <svg
-    viewBox="0 0 {width} {height}"
-    class="block h-[210px] w-full touch-pan-y"
-    preserveAspectRatio="none"
-    role="img"
-    aria-label={m.cockpit_forecast_hero()}
-    data-testid="cockpit-chart"
-    onpointerdown={onPointerDown}
-    onpointermove={onPointerMove}
-    onpointerup={onPointerUp}
-    onpointercancel={onPointerUp}
-  >
-    <defs>
-      <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#145c4a" stop-opacity="0.9" />
-        <stop offset="100%" stop-color="#050505" stop-opacity="0" />
-      </linearGradient>
-    </defs>
-    {#if fillPath}
-      <path d={fillPath} fill="url(#{gradientId})" opacity={drawn || !reveal ? 1 : 0.2} />
-    {/if}
-    {#if fullPath}
-      <path
-        bind:this={line}
-        d={fullPath}
-        fill="none"
-        stroke="#5ee9c5"
-        stroke-width="3"
-        stroke-linejoin="round"
-        stroke-linecap="round"
-        vector-effect="non-scaling-stroke"
-      />
-    {/if}
-    {#if todayRatio != null}
-      <line
-        x1={todayRatio * width}
-        y1="8"
-        x2={todayRatio * width}
-        y2={height - 8}
-        stroke="#8b919a"
-        stroke-width="1.5"
-        stroke-dasharray="3 5"
-        vector-effect="non-scaling-stroke"
-        data-testid="cockpit-today"
-      />
-    {/if}
+  <div class="relative h-[210px]">
+    <svg
+      viewBox="0 0 {width} {height}"
+      class="block h-full w-full touch-pan-y"
+      preserveAspectRatio="none"
+      role="img"
+      aria-label={m.cockpit_forecast_hero()}
+      data-testid="cockpit-chart"
+      onpointerdown={onPointerDown}
+      onpointermove={onPointerMove}
+      onpointerup={onPointerUp}
+      onpointercancel={onPointerUp}
+    >
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#145c4a" stop-opacity="0.9" />
+          <stop offset="100%" stop-color="#050505" stop-opacity="0" />
+        </linearGradient>
+      </defs>
+      {#if fillPath}
+        <path d={fillPath} fill="url(#{gradientId})" opacity={drawn || !reveal ? 1 : 0.2} />
+      {/if}
+      {#if fullPath}
+        <path
+          bind:this={line}
+          d={fullPath}
+          fill="none"
+          stroke="#5ee9c5"
+          stroke-width="3"
+          stroke-linejoin="round"
+          stroke-linecap="round"
+          vector-effect="non-scaling-stroke"
+        />
+      {/if}
+      {#if todayRatio != null}
+        <line
+          x1={todayRatio * width}
+          y1="8"
+          x2={todayRatio * width}
+          y2={height - 8}
+          stroke="#8b919a"
+          stroke-width="1.5"
+          stroke-dasharray="3 5"
+          vector-effect="non-scaling-stroke"
+          data-testid="cockpit-today"
+        />
+      {/if}
+    </svg>
     {#if todayVisible && todayPoint}
-      <circle
-        class="today-ring"
-        class:quiet={!pageVisible || reduced || scrub != null}
-        cx={xOf(todayPoint.date)}
-        cy={yOf(todayPoint.balance)}
-        r="7"
-      />
-      <circle cx={xOf(todayPoint.date)} cy={yOf(todayPoint.balance)} r="6.5" fill="#5ee9c5" />
+      <span
+        class="today-dot"
+        style="left: {(xOf(todayPoint.date) / width) * 100}%; top: {(yOf(todayPoint.balance) /
+          height) *
+          100}%"
+      >
+        <span class="today-ring" class:quiet={!pageVisible || reduced || scrub != null}></span>
+      </span>
     {/if}
     {#if scrub}
-      <circle cx={xOf(scrub.point.date)} cy={yOf(scrub.point.balance)} r="5" fill="#f4f4f5" />
+      <span
+        class="scrub-dot"
+        style="left: {(xOf(scrub.point.date) / width) * 100}%; top: {(yOf(scrub.point.balance) /
+          height) *
+          100}%"
+      ></span>
     {/if}
-  </svg>
-  {#if scrub}
-    <div
-      class="pointer-events-none absolute z-10 w-max max-w-40 -translate-x-1/2 rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-200 shadow-xl"
-      style="left: {dateRatio(scrub.point.date, rangeStart, rangeEnd) * 100}%; top: 8px"
-      data-testid="cockpit-scrub"
-    >
-      <p>{scrub.forecast ? m.cockpit_scrub_forecast() : axisDayLabel(scrub.point.date)}</p>
-      <p class="font-medium tabular-nums">{formatCurrency(scrub.point.balance)}</p>
-    </div>
-  {/if}
+    {#if scrub}
+      <div
+        class="pointer-events-none absolute z-10 w-max max-w-40 -translate-x-1/2 rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-200 shadow-xl"
+        style="left: {dateRatio(scrub.point.date, rangeStart, rangeEnd) * 100}%; top: 8px"
+        data-testid="cockpit-scrub"
+      >
+        <p>{scrub.forecast ? m.cockpit_scrub_forecast() : axisDayLabel(scrub.point.date)}</p>
+        <p class="font-medium tabular-nums">{formatCurrency(scrub.point.balance)}</p>
+      </div>
+    {/if}
+  </div>
   <div class="relative mt-1 h-5 text-sm text-slate-400">
     {#if !todayAtStart}
       <span class="absolute left-0">{axisDayLabel(rangeStart)}</span>
@@ -238,12 +245,32 @@
 </div>
 
 <style>
+  .today-dot,
+  .scrub-dot {
+    position: absolute;
+    z-index: 1;
+    width: 10px;
+    height: 10px;
+    border-radius: 9999px;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+  .today-dot {
+    background: #5ee9c5;
+  }
+  .scrub-dot {
+    z-index: 2;
+    background: #f4f4f5;
+  }
   .today-ring {
-    fill: none;
-    stroke: #5ee9c5;
-    stroke-width: 1.5;
-    transform-box: fill-box;
-    transform-origin: center;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 10px;
+    height: 10px;
+    border: 1.5px solid #5ee9c5;
+    border-radius: 9999px;
+    transform: translate(-50%, -50%);
     animation: cockpit-today-pulse 3s ease-out infinite;
   }
   .today-ring.quiet {
@@ -252,14 +279,15 @@
   }
   @keyframes cockpit-today-pulse {
     0% {
-      transform: scale(1);
-      opacity: 0.4;
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 0.7;
     }
     70% {
-      transform: scale(2.5);
+      transform: translate(-50%, -50%) scale(2.8);
       opacity: 0;
     }
     100% {
+      transform: translate(-50%, -50%) scale(2.8);
       opacity: 0;
     }
   }
