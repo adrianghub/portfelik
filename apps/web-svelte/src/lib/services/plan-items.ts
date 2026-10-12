@@ -16,6 +16,16 @@ export interface PlanItem {
 const PLAN_ITEM_COLUMNS =
   "id, plan_id, label, amount, due_date, status, payee, created_at, updated_at";
 
+export async function fetchPlanItemsForPlans(planIds: string[]): Promise<PlanItem[]> {
+  if (planIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from("plan_items")
+    .select(PLAN_ITEM_COLUMNS)
+    .in("plan_id", planIds);
+  if (error) throw error;
+  return (data ?? []) as PlanItem[];
+}
+
 export async function fetchPlanItems(planId: string): Promise<PlanItem[]> {
   const { data, error } = await supabase
     .from("plan_items")

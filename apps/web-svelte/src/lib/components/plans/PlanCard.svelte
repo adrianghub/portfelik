@@ -1,39 +1,50 @@
 <script lang="ts">
   import * as m from "$lib/paraglide/messages";
+  import type { SpendBudgetSummary } from "$lib/plans/spend";
   import { deriveDebtDisplayBalance } from "$lib/services/plan-debt";
   import { todayIso } from "$lib/services/plans";
   import type { PlanDebtTerms, PlanSummary } from "$lib/types";
   import PlanMark from "$lib/components/plans/PlanMark.svelte";
-  import { formatCurrency, formatDate } from "$lib/utils";
-  import { MoreVertical, Pencil, Trash2, Users } from "lucide-svelte";
+  import { cn, formatCurrency, formatDate } from "$lib/utils";
+  import { MoreVertical, Pencil, Trash2 } from "lucide-svelte";
 
   interface Props {
     plan: PlanSummary;
     debtTerms?: PlanDebtTerms;
     /** Paid linked expense payments — same inputs as the plan detail balance. */
     linkedExpenses?: { amount: number; date: string }[];
+    /** Existing budget math for a spend plan. Null until those rows have loaded. */
+    spendSummary?: SpendBudgetSummary | null;
     groupName?: string;
     onedit?: (plan: PlanSummary) => void;
     ondelete?: (id: string) => void;
   }
 
-  let { plan, debtTerms, linkedExpenses = [], groupName, onedit, ondelete }: Props = $props();
+  let {
+    plan,
+    debtTerms,
+    linkedExpenses = [],
+    spendSummary = null,
+    groupName,
+    onedit,
+    ondelete,
+  }: Props = $props();
 
   const kind = $derived(plan.kind ?? "save");
   const debtBalance = $derived(
     debtTerms ? deriveDebtDisplayBalance(debtTerms, plan.start_date, linkedExpenses, todayIso()) : 0
   );
-  const isUpcoming = $derived(plan.bucket === "upcoming");
-  const saveOnTrack = $derived(
-    kind === "save" &&
-      plan.bucket === "active" &&
-      plan.monthlyNeeded != null &&
-      plan.monthlyNeeded > 0 &&
-      plan.monthlyActual != null &&
-      plan.monthlyActualBasis === "current-month" &&
-      plan.monthlyActual >= plan.monthlyNeeded - 0.01
-  );
   const hasActions = $derived(!!onedit || !!ondelete);
+  const savePct = $derived(
+    plan.target_amount != null && plan.target_amount > 0
+      ? Math.min(100, Math.round((plan.savedAmount / plan.target_amount) * 100))
+      : 0
+  );
+  const spendUsedPct = $derived(
+    spendSummary != null && spendSummary.budget > 0
+      ? Math.min(100, Math.round((spendSummary.planned / spendSummary.budget) * 100))
+      : 0
+  );
 
   let menuOpen = $state(false);
   let buttonRef = $state<HTMLButtonElement | null>(null);
@@ -115,52 +126,85 @@
           class="hover:text-accent min-w-0 flex-1 rounded-lg transition-colors"
         >
           <span class="block truncate leading-tight font-semibold text-slate-100">{plan.name}</span>
-          {#if isUpcoming || saveOnTrack || (plan.group_id && groupName)}
-            <div class="mt-1 flex flex-wrap items-center gap-1.5">
-              {#if isUpcoming}
-                <span
-                  class="shrink-0 rounded-full border border-sky-400/30 bg-sky-400/10 px-2 py-0.5 text-[10px] font-semibold text-sky-300 uppercase"
-                >
-                  {m.plan_card_upcoming_badge()}
-                </span>
-              {/if}
-              {#if saveOnTrack}
-                <span
-                  class="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 uppercase"
-                >
-                  {m.plan_save_on_track_badge()}
-                </span>
-              {/if}
-              {#if plan.group_id && groupName}
-                <span
-                  class="border-accent/20 bg-accent/10 text-accent inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase"
-                >
-                  <Users size={10} strokeWidth={2} aria-hidden="true" />
-                  {groupName}
-                </span>
-              {/if}
-            </div>
+          {#if plan.group_id && groupName}
+            <p class="mt-0.5 truncate text-xs text-slate-500">{groupName}</p>
           {/if}
           {#if kind === "save" && plan.target_amount != null}
-            <p class="mt-0.5 text-xs text-slate-400">
-              {m.plan_save_saved({
+            <p class="mt-1 text-base font-semibold text-slate-100 tabular-nums">
+              {m.plan_save_gathered({
                 saved: formatCurrency(plan.savedAmount),
                 target: formatCurrency(plan.target_amount),
               })}
             </p>
-            {#if plan.end_date && plan.monthlyNeeded != null && plan.monthlyNeeded > 0}
-              <p class="mt-0.5 text-xs text-slate-500">
-                {m.plan_save_pace({
-                  date: formatDate(plan.end_date),
-                  amount: formatCurrency(plan.monthlyNeeded),
+            <div
+              class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-800"
+              role="progressbar"
+              aria-label={m.plan_save_saved_label()}
+              aria-valuenow={savePct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <div class="bg-accent h-full rounded-full" style="width: {savePct}%"></div>
+            </div>
+            {#if plan.end_date}
+              <p class="mt-1 text-xs text-slate-500">{formatDate(plan.end_date)}</p>
+            {/if}
+          {:else if kind === "debt" && debtTerms}
+            <p class="text-eyebrow mt-2 text-slate-400">{m.plan_debt_remaining_hero()}</p>
+            <p class="text-lg font-semibold text-slate-100 tabular-nums">
+              {formatCurrency(debtBalance)}
+            </p>
+            {#if Number(debtTerms.monthly_payment) > 0}
+              <p class="mt-0.5 text-xs text-slate-400">
+                {m.plan_debt_card_installment({
+                  amount: formatCurrency(Number(debtTerms.monthly_payment)),
                 })}
               </p>
             {/if}
-          {:else if kind === "debt" && debtTerms}
-            <p class="mt-0.5 text-xs text-slate-400">{formatCurrency(debtBalance)}</p>
+          {:else if kind === "spend" && spendSummary}
+            <p class="mt-0.5 text-xs text-slate-500">
+              {formatDate(plan.start_date)} - {formatDate(plan.end_date)}
+            </p>
+            <p class="text-eyebrow mt-2 text-slate-400">{m.plan_spend_budget_left_label()}</p>
+            <p class="text-lg font-semibold text-slate-100 tabular-nums">
+              {#if spendSummary.budgetLeft < 0}
+                {m.plan_spend_over_budget({
+                  amount: formatCurrency(Math.abs(spendSummary.budgetLeft)),
+                })}
+              {:else}
+                {formatCurrency(spendSummary.budgetLeft)}
+              {/if}
+            </p>
+            <p class="text-xs text-slate-400">
+              {m.plan_spend_in_plan({
+                planned: formatCurrency(spendSummary.planned),
+                budget: formatCurrency(spendSummary.budget),
+              })}
+            </p>
+            <div
+              class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-800"
+              role="progressbar"
+              aria-label={m.plan_spend_bar_label()}
+              aria-valuenow={spendUsedPct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <div
+                class={cn(
+                  "h-full rounded-full",
+                  spendSummary.budgetLeft < 0 ? "bg-rose-400" : "bg-accent"
+                )}
+                style="width: {spendUsedPct}%"
+              ></div>
+            </div>
+            {#if spendSummary.toPay > 0}
+              <p class="mt-1 text-xs text-slate-300">
+                {m.plan_spend_to_pay()}: {formatCurrency(spendSummary.toPay)}
+              </p>
+            {/if}
           {:else if kind === "spend" && plan.budget_amount != null}
-            <p class="mt-0.5 text-xs text-slate-400">
-              {m.plan_card_spend_budget({ amount: formatCurrency(plan.budget_amount) })}
+            <p class="mt-1 text-xs text-slate-500">
+              {formatDate(plan.start_date)} - {formatDate(plan.end_date)}
             </p>
           {/if}
         </a>

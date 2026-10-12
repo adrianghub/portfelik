@@ -19,6 +19,22 @@ export interface SpendItemSettlement {
   overpaid: number;
 }
 
+/** Words on the row. A date without confirmation stays an estimate. */
+export type SpendItemFacingStatus = "estimated" | "confirmed" | "partial" | "paid" | "cancelled";
+
+export function spendItemFacingStatus(
+  status: SpendItemStatus,
+  settlement?: Pick<SpendItemSettlement, "settled" | "remaining"> | null
+): SpendItemFacingStatus {
+  if (status === "cancelled") return "cancelled";
+  const settled = settlement?.settled ?? 0;
+  const remaining = settlement?.remaining ?? 0;
+  if (settled > 0 && remaining <= 0) return "paid";
+  if (settled > 0 && remaining > 0) return "partial";
+  if (status === "confirmed") return "confirmed";
+  return "estimated";
+}
+
 export interface SpendBudgetSummary {
   budget: number;
   /** Estimated, scheduled, and confirmed lines. Cancelled lines stay stored and drop out. */

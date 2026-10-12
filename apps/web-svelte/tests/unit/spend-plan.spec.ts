@@ -3,6 +3,7 @@ import {
   normalizeSpendBudget,
   normalizeSpendItem,
   settleSpendItem,
+  spendItemFacingStatus,
   summarizeSpendBudget,
 } from "$lib/plans/spend";
 
@@ -112,6 +113,15 @@ describe("spend plan budget", () => {
         { amount: 100, counts: false },
       ])
     ).toEqual({ settled: 4_500, remaining: 0, overpaid: 500 });
+  });
+
+  it("names a dated estimate without calling it a confirmed payment", () => {
+    expect(spendItemFacingStatus("estimated", { settled: 0, remaining: 500 })).toBe("estimated");
+    expect(spendItemFacingStatus("planned", { settled: 0, remaining: 500 })).toBe("estimated");
+    expect(spendItemFacingStatus("confirmed", { settled: 0, remaining: 500 })).toBe("confirmed");
+    expect(spendItemFacingStatus("confirmed", { settled: 200, remaining: 300 })).toBe("partial");
+    expect(spendItemFacingStatus("confirmed", { settled: 500, remaining: 0 })).toBe("paid");
+    expect(spendItemFacingStatus("cancelled", { settled: 200, remaining: 0 })).toBe("cancelled");
   });
 
   it("keeps a cancelled line from becoming a due payment", () => {

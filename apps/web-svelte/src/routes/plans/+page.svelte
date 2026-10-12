@@ -5,14 +5,15 @@
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import DayPicker from "$lib/components/ui/DayPicker.svelte";
   import Dialog from "$lib/components/ui/Dialog.svelte";
-  import Fab from "$lib/components/ui/Fab.svelte";
   import DemoShowcaseBanner from "$lib/components/onboarding/DemoShowcaseBanner.svelte";
   import * as m from "$lib/paraglide/messages";
   import CategorySelect from "$lib/components/transactions/CategorySelect.svelte";
   import { createCategory, fetchCategories } from "$lib/services/categories";
   import { makeCreateCategoryInline } from "$lib/category-create";
   import { fetchUserGroups, fetchMyGroupRoles } from "$lib/services/groups";
-  import { fetchPlanProgressForPlans } from "$lib/services/plan-settlement";
+  import { fetchPlanItemsForPlans } from "$lib/services/plan-items";
+  import { settleSpendItem, summarizeSpendBudget, type SpendItemAmounts } from "$lib/plans/spend";
+  import { fetchPlanProgressForPlans, fetchSpendSettlements } from "$lib/services/plan-settlement";
   import {
     fetchPlanDebtTermsByPlanIds,
     normalizeDebtTermsInput,
@@ -165,6 +166,16 @@
     enabled: () => !!session.userId && planIds.length > 0,
   }));
 
+  const spendPlanIds = $derived(
+    (plansQuery.data ?? []).filter((plan) => plan.kind === "spend").map((plan) => plan.id)
+  );
+
+  const spendFactsQuery = createQuery(() => ({
+    queryKey: qk.planSpendCards(session.userId ?? "", ...spendPlanIds),
+    queryFn: () => fetchSpendCardItems(spendPlanIds),
+    enabled: !!session.userId && spendPlanIds.length > 0,
+  }));
+
   const debtPlanIds = $derived(
     (plansQuery.data ?? []).filter((p) => p.kind === "debt").map((p) => p.id)
   );
@@ -212,6 +223,51 @@
   const savePlans = $derived(filteredPlans.filter((p) => p.kind === "save"));
   const debtPlans = $derived(filteredPlans.filter((p) => p.kind === "debt" && isLivePlan(p)));
   const spendPlans = $derived(filteredPlans.filter((p) => p.kind === "spend" && isLivePlan(p)));
+  const spendSummaries = $derived.by(() => {
+    const facts = spendFactsQuery.data;
+    if (!facts) return {};
+    const summaries: Record<string, ReturnType<typeof summarizeSpendBudget>> = {};
+    for (const plan of spendPlans) {
+      if (plan.budget_amount == null) continue;
+      summaries[plan.id] = summarizeSpendBudget(plan.budget_amount, facts[plan.id] ?? []);
+    }
+    return summaries;
+  });
+
+  async function fetchSpendCardItems(
+    planIds: string[]
+  ): Promise<Record<string, SpendItemAmounts[]>> {
+    const [items, settlementGroups] = await Promise.all([
+      fetchPlanItemsForPlans(planIds),
+      Promise.all(
+        planIds.map(async (planId) => ({
+          planId,
+          rows: await fetchSpendSettlements(planId),
+        }))
+      ),
+    ]);
+    const payments = new Map<string, { amount: number; counts: boolean }[]>();
+    for (const group of settlementGroups) {
+      for (const row of group.rows) {
+        if (!row.planItemId) continue;
+        const list = payments.get(row.planItemId) ?? [];
+        list.push({ amount: row.amount, counts: row.countsAsPaid });
+        payments.set(row.planItemId, list);
+      }
+    }
+    const byPlan: Record<string, SpendItemAmounts[]> = Object.fromEntries(
+      planIds.map((id) => [id, []])
+    );
+    for (const item of items) {
+      const settled = settleSpendItem(item.amount, payments.get(item.id) ?? []).settled;
+      (byPlan[item.plan_id] ??= []).push({
+        amount: item.amount,
+        status: item.status,
+        settled,
+      });
+    }
+    return byPlan;
+  }
 
   function todayIsoLocal(): string {
     const now = new Date();
@@ -492,7 +548,7 @@
       <button
         type="button"
         onclick={() => resetForm()}
-        class="bg-accent-gradient focus-visible:ring-accent hidden items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:outline-none md:inline-flex"
+        class="bg-accent-gradient focus-visible:ring-accent inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:outline-none"
       >
         <Plus size={16} aria-hidden="true" />
         {m.plan_form_title_add()}
@@ -502,6 +558,7 @@
 
   {#if demoActive}
     <DemoShowcaseBanner
+      compact
       onclear={async () => {
         await clearDemoMutation.mutateAsync();
       }}
@@ -643,28 +700,25 @@
           {/each}
         {/if}
       </section>
+      {#if spendPlans.length > 0}
+        <section class="min-w-0 space-y-2">
+          <h2 class="text-xs font-medium tracking-wide text-slate-400 uppercase">
+            {m.plans_section_spend()}
+          </h2>
+          {#each spendPlans as plan (plan.id)}
+            <PlanCard
+              {plan}
+              spendSummary={spendSummaries[plan.id] ?? null}
+              groupName={groupMap.get(plan.group_id ?? "")}
+              onedit={planCanManage(plan) ? resetForm : undefined}
+              ondelete={planCanManage(plan) ? (id) => (deleteTargetId = id) : undefined}
+            />
+          {/each}
+        </section>
+      {/if}
     </div>
-    {#if spendPlans.length > 0}
-      <section class="mt-5 min-w-0 space-y-2">
-        <h2 class="text-xs font-medium tracking-wide text-slate-400 uppercase">
-          {m.plans_section_spend()}
-        </h2>
-        {#each spendPlans as plan (plan.id)}
-          <PlanCard
-            {plan}
-            groupName={groupMap.get(plan.group_id ?? "")}
-            onedit={planCanManage(plan) ? resetForm : undefined}
-            ondelete={planCanManage(plan) ? (id) => (deleteTargetId = id) : undefined}
-          />
-        {/each}
-      </section>
-    {/if}
   {/if}
 </div>
-
-{#if !showPlansZeroState}
-  <Fab onclick={() => resetForm()} aria-label={m.plan_form_title_add()} />
-{/if}
 
 <Dialog
   open={showForm}
