@@ -1,6 +1,8 @@
 import {
   buildCockpitForecastChart,
+  dateRatio,
   type CockpitChartCoverage,
+  type CockpitChartPoint,
   type CockpitForecastChart,
 } from "$lib/cockpit/forecast-chart";
 import type { CockpitLedgerTx } from "$lib/cockpit/indicators";
@@ -8,6 +10,11 @@ import { calendarMonthBounds, calendarMonthFromIso } from "$lib/cockpit/month-wi
 import { addLocalDays } from "$lib/date-local";
 import { isSupportedLedgerCurrency } from "$lib/ledger-currency";
 import { sumMoneyAmounts } from "$lib/money";
+import type { CashAnchor } from "$lib/services/cash-position";
+import {
+  reconstructHistoricalBalances,
+  type HistoricalBalancePoint,
+} from "$lib/services/reconstruct-balances";
 
 export type AnalysisSpan = "all" | "year" | "month" | "week";
 
@@ -49,6 +56,8 @@ export interface AnalysisOverview {
   end: string;
   coverage: AnalysisCoverage;
   anchorDate: string | null;
+  /** True when the balance line uses history calculated backward from the anchor. */
+  reconstructed: boolean;
   chart: CockpitForecastChart | null;
   income: number;
   expense: number;
@@ -204,10 +213,101 @@ function asLedger(rows: readonly AnalysisFlow[]): CockpitLedgerTx[] {
   }));
 }
 
+function chartPoint(point: HistoricalBalancePoint): CockpitChartPoint {
+  return {
+    date: point.date,
+    balance: point.amount,
+    kind: point.quality === "booked" ? "history" : point.quality,
+  };
+}
+
+function withTodayRatio(chart: CockpitForecastChart, today: string): CockpitForecastChart {
+  const start = chart.domainStart;
+  const end = chart.domainEnd;
+  return {
+    ...chart,
+    todayRatio:
+      start != null && end != null && today >= start && today <= end
+        ? dateRatio(today, start, end)
+        : null,
+  };
+}
+
+/**
+ * Prepend balances calculated before the anchor. The cockpit chart still owns
+ * the booked and forecast path, so Kokpit's month line stays where it was.
+ */
+function mergeReconstruction(input: {
+  forward: CockpitForecastChart;
+  anchor: CashAnchor;
+  rows: readonly AnalysisFlow[];
+  from: string;
+  to: string;
+  today: string;
+  windowStart: string;
+}): { chart: CockpitForecastChart | null; coverage: AnalysisCoverage; reconstructed: boolean } {
+  const series = reconstructHistoricalBalances({
+    anchor: input.anchor,
+    transactions: input.rows,
+    from: input.from,
+    to: input.to,
+  });
+  const leadCutoff = input.forward.domainStart ?? "9999-12-31";
+  const lead = series.points
+    .filter((point) => point.date < leadCutoff && point.date <= input.to)
+    .map(chartPoint);
+  const reconstructed = lead.some((point) => point.kind === "reconstructed");
+
+  if (input.forward.points && input.forward.domainStart) {
+    const rest = input.forward.points.map((point) =>
+      point.date === series.confirmedDate && point.kind === "history"
+        ? { ...point, kind: "confirmed" as const }
+        : point
+    );
+    const points = [...lead, ...rest];
+    const domainStart = points[0]?.date ?? null;
+    const domainEnd = points.at(-1)?.date ?? null;
+    const coverage: AnalysisCoverage =
+      domainStart != null && domainStart > input.windowStart ? "clipped" : "full";
+    return {
+      chart: withTodayRatio(
+        { ...input.forward, points, domainStart, domainEnd, coverage },
+        input.today
+      ),
+      coverage,
+      reconstructed,
+    };
+  }
+
+  if (lead.length < 2) {
+    return { chart: null, coverage: input.forward.coverage, reconstructed: false };
+  }
+  const domainStart = lead[0]?.date ?? null;
+  const domainEnd = lead.at(-1)?.date ?? null;
+  const coverage: AnalysisCoverage =
+    domainStart != null && domainStart > input.windowStart ? "clipped" : "full";
+  return {
+    chart: withTodayRatio(
+      {
+        ...input.forward,
+        points: lead,
+        domainStart,
+        domainEnd,
+        coverage,
+        balance: lead.at(-1)?.balance ?? input.forward.balance,
+        forecast: null,
+      },
+      input.today
+    ),
+    coverage,
+    reconstructed,
+  };
+}
+
 export function buildAnalysisOverview(input: {
   span: AnalysisSpan;
   today: string;
-  anchor: { opening_amount: number; as_of_date: string } | null;
+  anchor: CashAnchor | null;
   /** False for a household or Wszystkie. Flows still count. */
   balanceScope: boolean;
   rows: readonly AnalysisFlow[];
@@ -228,14 +328,17 @@ export function buildAnalysisOverview(input: {
 
   let coverage: AnalysisCoverage;
   let chart: CockpitForecastChart | null = null;
+  let reconstructed = false;
   if (!input.balanceScope) {
     coverage = "private-only";
   } else if (!input.anchor || !anchorDate) {
     coverage = "missing";
-  } else if (window.end < anchorDate) {
-    coverage = "before";
   } else {
-    chart = buildCockpitForecastChart({
+    const balanceFrom =
+      input.span === "all" && earliest != null && earliest < window.start
+        ? addLocalDays(earliest, -1)
+        : window.start;
+    const forward = buildCockpitForecastChart({
       scope: { kind: "private" },
       anchor: input.anchor,
       transactions: asLedger(input.rows),
@@ -245,7 +348,18 @@ export function buildAnalysisOverview(input: {
       monthStart: window.start,
       monthEnd: window.end,
     });
-    coverage = chart.coverage;
+    const merged = mergeReconstruction({
+      forward,
+      anchor: input.anchor,
+      rows: input.rows,
+      from: balanceFrom,
+      to: today < window.end ? today : window.end,
+      today,
+      windowStart: window.start,
+    });
+    chart = merged.chart;
+    coverage = merged.coverage;
+    reconstructed = merged.reconstructed;
   }
 
   return {
@@ -253,6 +367,7 @@ export function buildAnalysisOverview(input: {
     end: window.end,
     coverage,
     anchorDate,
+    reconstructed,
     chart,
     income: money.income,
     expense: money.expense,

@@ -74,7 +74,7 @@ const strip = (page: Page) => page.getByTestId("transaction-cash-position");
 
 async function openBalanceEditor(page: Page) {
   await page.getByRole("button", { name: "Więcej akcji" }).click();
-  await page.getByRole("menuitem", { name: "Zmień saldo początkowe" }).click();
+  await page.getByRole("menuitem", { name: "Potwierdź saldo" }).click();
 }
 
 const MOCK_GROUP = {
@@ -163,12 +163,10 @@ test("private scope keeps the opening-balance editor off the list", async ({ pag
   await expect(table.getByRole("rowheader", { name: "Nadchodzące", exact: true })).toBeVisible();
   await expect(table.getByRole("rowheader", { name: "Historia", exact: true })).toBeVisible();
 
-  await expect(
-    page.getByRole("button", { name: "Zmień saldo początkowe", exact: true })
-  ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Potwierdź saldo", exact: true })).toHaveCount(0);
   await openBalanceEditor(page);
 
-  const sheet = page.getByRole("dialog", { name: "Saldo z transakcji" });
+  const sheet = page.getByRole("dialog", { name: "Potwierdź saldo" });
   await expect(sheet).toBeVisible();
   await expect(sheet).toContainText(/1\D?300,00/);
   await expect(sheet).not.toContainText("Prognoza salda");
@@ -181,11 +179,9 @@ test("solo user (no groups) can still edit the opening balance", async ({ page }
   await page.goto("/transactions");
 
   await expect(page.locator("p.text-3xl")).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: "Zmień saldo początkowe", exact: true })
-  ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Potwierdź saldo", exact: true })).toHaveCount(0);
   await openBalanceEditor(page);
-  await expect(page.getByRole("dialog", { name: "Saldo z transakcji" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Potwierdź saldo" })).toBeVisible();
 });
 
 test("group user: mixed all scope hides the cash view, own scope shows it", async ({ page }) => {
@@ -195,13 +191,13 @@ test("group user: mixed all scope hides the cash view, own scope shows it", asyn
   await page.goto("/transactions?group=all");
   await expect(desktopTable(page).getByText("Wydatek gotówkowy")).toBeVisible();
   await page.getByRole("button", { name: "Więcej akcji" }).click();
-  await expect(page.getByRole("menuitem", { name: "Zmień saldo początkowe" })).toHaveCount(0);
+  await expect(page.getByRole("menuitem", { name: "Potwierdź saldo" })).toHaveCount(0);
   await page.keyboard.press("Escape");
 
   // Switching to own scope brings the editor back, inside the actions menu.
   await page.goto("/transactions?group=own");
   await page.getByRole("button", { name: "Więcej akcji" }).click();
-  await expect(page.getByRole("menuitem", { name: "Zmień saldo początkowe" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Potwierdź saldo" })).toBeVisible();
 });
 
 test("private scope without an anchor: one control opens the balance sheet", async ({ page }) => {
@@ -211,14 +207,14 @@ test("private scope without an anchor: one control opens the balance sheet", asy
   await expect(desktopTable(page).getByText("Wydatek gotówkowy")).toBeVisible();
   await expect(strip(page)).toHaveCount(0);
   await page.getByRole("button", { name: "Więcej akcji" }).click();
-  await expect(page.getByRole("menuitem", { name: "Zmień saldo początkowe" })).toHaveCount(0);
+  await expect(page.getByRole("menuitem", { name: "Potwierdź saldo" })).toHaveCount(0);
   await page.keyboard.press("Escape");
   const setBalance = page.getByRole("button", {
-    name: "Ustaw saldo początkowe, aby zobaczyć saldo i prognozę",
+    name: "Potwierdź saldo",
   });
   await expect(setBalance).toBeVisible();
   await setBalance.click();
-  await expect(page.getByRole("dialog", { name: "Saldo z transakcji" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Potwierdź saldo" })).toBeVisible();
 });
 
 test("phone without an anchor keeps the opening-balance hint", async ({ page }) => {
@@ -227,16 +223,17 @@ test("phone without an anchor keeps the opening-balance hint", async ({ page }) 
   await page.goto("/transactions?group=own");
 
   const setBalance = page.getByRole("button", {
-    name: "Ustaw saldo początkowe, aby zobaczyć saldo i prognozę",
+    name: "Potwierdź saldo",
   });
   await expect(setBalance).toBeVisible();
   await page.getByRole("button", { name: "Więcej akcji" }).click();
-  await expect(page.getByRole("menuitem", { name: "Zmień saldo początkowe" })).toHaveCount(0);
+  await expect(page.getByRole("menuitem", { name: "Potwierdź saldo" })).toHaveCount(0);
   await page.keyboard.press("Escape");
   await setBalance.click();
-  const sheet = page.getByRole("dialog", { name: "Saldo z transakcji" });
+  const sheet = page.getByRole("dialog", { name: "Potwierdź saldo" });
   await expect(sheet).toBeVisible();
-  await expect(sheet.getByLabel("Saldo początkowe")).toBeVisible();
+  await expect(sheet.getByLabel("Saldo z banku")).toBeVisible();
+  await expect(sheet.getByText(/na koniec dnia/)).toBeVisible();
   await expect(sheet.locator("#cash-opening-amount")).toHaveValue("");
 });
 
@@ -244,12 +241,10 @@ test("private scope: strip opens edit sheet with anchor fields", async ({ page }
   await mockCash(page);
   await page.goto("/transactions?group=own");
 
-  await expect(
-    page.getByRole("button", { name: "Zmień saldo początkowe", exact: true })
-  ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Potwierdź saldo", exact: true })).toHaveCount(0);
   await openBalanceEditor(page);
 
-  const sheet = page.getByRole("dialog", { name: "Saldo z transakcji" });
+  const sheet = page.getByRole("dialog", { name: "Potwierdź saldo" });
   await expect(sheet).toBeVisible();
   await expect(sheet.getByLabel("Dzień salda początkowego")).toBeVisible();
   await expect(sheet.locator("#cash-opening-amount")).toHaveValue("1000");
@@ -263,7 +258,7 @@ test.describe("nested balance date sheet", () => {
     await mockCash(page);
     await page.goto("/transactions?group=own");
     await openBalanceEditor(page);
-    const balance = page.getByRole("dialog", { name: "Saldo z transakcji", exact: true });
+    const balance = page.getByRole("dialog", { name: "Potwierdź saldo", exact: true });
     const trigger = balance.getByRole("button", { name: "Dzień salda początkowego", exact: true });
     await trigger.click();
     const calendar = page.getByRole("dialog", { name: "Dzień salda początkowego", exact: true });

@@ -43,8 +43,11 @@ describe("analysis overview", () => {
     expect(overview.start).toBe("2026-01-01");
     expect(overview.end).toBe("2026-12-31");
     expect(overview.coverage).toBe("clipped");
-    expect(overview.chart?.domainStart).toBe("2026-09-01");
-    expect(overview.chart?.points?.[0]?.date).not.toBe("2026-01-01");
+    expect(overview.chart?.domainStart).toBe("2026-08-09");
+    expect(overview.chart?.points?.[0]?.kind).toBe("reconstructed");
+    expect(overview.chart?.points?.[0]?.balance).toBe(10_400);
+    expect(overview.chart?.points?.some((point) => point.date === "2026-01-01")).toBe(false);
+    expect(overview.reconstructed).toBe(true);
     expect(overview.income).toBe(5_000);
     expect(overview.expense).toBe(900);
   });
@@ -59,7 +62,9 @@ describe("analysis overview", () => {
     });
     expect(overview.start).toBe("2026-09-01");
     expect(overview.expense).toBe(500);
+    expect(overview.chart?.domainStart).toBe("2026-08-09");
     expect(overview.chart?.coverage).toBe("full");
+    expect(overview.reconstructed).toBe(true);
     expect(overview.shifts.some((shift) => shift.id === "rent")).toBe(true);
   });
 
@@ -74,6 +79,7 @@ describe("analysis overview", () => {
     expect(missing.coverage).toBe("missing");
     expect(missing.chart).toBeNull();
     expect(missing.expense).toBe(200);
+    expect(missing.reconstructed).toBe(false);
 
     const before = buildAnalysisOverview({
       span: "month",
@@ -82,9 +88,11 @@ describe("analysis overview", () => {
       balanceScope: true,
       rows,
     });
-    expect(before.coverage).toBe("before");
-    expect(before.chart).toBeNull();
+    expect(before.coverage).toBe("clipped");
+    expect(before.chart?.points?.[0]?.date).toBe("2026-08-09");
+    expect(before.chart?.points?.every((point) => point.kind === "reconstructed")).toBe(true);
     expect(before.expense).toBe(400);
+    expect(before.reconstructed).toBe(true);
   });
 
   it("does not draw a household balance", () => {

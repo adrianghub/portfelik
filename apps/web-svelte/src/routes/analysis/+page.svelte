@@ -55,10 +55,11 @@
       ? {
           opening_amount: cashAnchorQuery.data.opening_amount,
           as_of_date: cashAnchorQuery.data.as_of_date.slice(0, 10),
+          balance_semantics: cashAnchorQuery.data.balance_semantics,
         }
       : null
   );
-  const needsEarliest = $derived(span === "all" && anchorReady && anchor == null);
+  const needsEarliest = $derived(span === "all" && anchorReady);
   const earliestQuery = createQuery(() => ({
     queryKey: qk.transactions.list(session.userId!, "analysis-earliest"),
     queryFn: fetchEarliestTransactionDate,
@@ -74,9 +75,12 @@
       needsEarliest ? (earliestQuery.data ?? null) : null
     );
     const previous = previousAnalysisWindow(window.start, window.end);
-    const dates = [anchor?.as_of_date, window.start, previous.start].filter(
-      (value): value is string => typeof value === "string" && value.length > 0
-    );
+    const dates = [
+      anchor?.as_of_date,
+      window.start,
+      previous.start,
+      needsEarliest ? earliestQuery.data : null,
+    ].filter((value): value is string => typeof value === "string" && value.length > 0);
     return { start: dates.sort()[0] ?? window.start, endExclusive: addLocalDays(window.end, 1) };
   });
 
@@ -211,9 +215,14 @@
             rangeEnd={overview.chart.domainEnd}
           />
         </div>
-        {#if overview.coverage === "clipped" && overview.anchorDate}
+        {#if overview.reconstructed}
+          <p class="mt-1 text-xs text-slate-400" data-testid="analysis-reconstructed-note">
+            {m.analysis_reconstructed_note()}
+          </p>
+        {/if}
+        {#if overview.coverage === "clipped" && overview.chart?.domainStart}
           <p class="mt-1 text-xs text-slate-400">
-            {m.cockpit_chart_from_anchor({ date: shortDayMonth(overview.anchorDate) })}
+            {m.analysis_history_from({ date: shortDayMonth(overview.chart.domainStart) })}
           </p>
         {/if}
       {:else if overview.coverage === "missing"}

@@ -52,7 +52,11 @@
     const pad = (max - min) * 0.14;
     return { min: min - pad, max: max + pad };
   });
-  const historyPoints = $derived(points.filter((point) => point.kind === "history"));
+  const settledPoints = $derived(
+    points.filter((point) => point.kind === "history" || point.kind === "confirmed")
+  );
+  const reconstructedPoints = $derived(points.filter((point) => point.kind === "reconstructed"));
+  const confirmedPoints = $derived(points.filter((point) => point.kind === "confirmed"));
   const forecastPoints = $derived(points.filter((point) => point.kind === "forecast"));
 
   function xOf(date: string): number {
@@ -74,12 +78,22 @@
       .join(" ");
   }
 
-  const historyPath = $derived(historyPoints.length > 1 ? linePath(historyPoints) : "");
+  const historyPath = $derived(settledPoints.length > 1 ? linePath(settledPoints) : "");
+  const reconstructedSeries = $derived(
+    reconstructedPoints.length === 0
+      ? []
+      : settledPoints.length > 0
+        ? [...reconstructedPoints, settledPoints[0]]
+        : reconstructedPoints
+  );
+  const reconstructedPath = $derived(
+    reconstructedSeries.length > 1 ? linePath(reconstructedSeries) : ""
+  );
   const forecastSeries = $derived(
     forecastPoints.length === 0
       ? []
-      : historyPoints.length > 0
-        ? [historyPoints[historyPoints.length - 1], ...forecastPoints]
+      : settledPoints.length > 0
+        ? [settledPoints[settledPoints.length - 1], ...forecastPoints]
         : forecastPoints
   );
   const forecastPath = $derived(forecastSeries.length > 1 ? linePath(forecastSeries) : "");
@@ -91,7 +105,7 @@
   );
   const todayPoint = $derived.by(() => {
     if (todayRatio == null) return null;
-    return historyPoints[historyPoints.length - 1] ?? null;
+    return settledPoints[settledPoints.length - 1] ?? null;
   });
   const todayVisible = $derived(
     todayPoint != null && (drawn || todayRatio == null || todayRatio <= 0)
@@ -216,6 +230,20 @@
         {#if fillPath}
           <path d={fillPath} fill="url(#{gradientId})" opacity={drawn || !reveal ? 1 : 0.2} />
         {/if}
+        {#if reconstructedPath}
+          <path
+            d={reconstructedPath}
+            fill="none"
+            stroke="var(--color-chart-primary)"
+            stroke-width="3"
+            stroke-linejoin="round"
+            stroke-linecap="round"
+            stroke-dasharray="1.5 4"
+            stroke-opacity="0.75"
+            vector-effect="non-scaling-stroke"
+            data-testid="cockpit-reconstructed"
+          />
+        {/if}
         {#if historyPath}
           <path
             bind:this={line}
@@ -254,6 +282,14 @@
           />
         {/if}
       </svg>
+      {#each confirmedPoints as point (point.date)}
+        <span
+          class="confirmed-dot"
+          style="left: {(xOf(point.date) / width) * 100}%; top: {(yOf(point.balance) / height) *
+            100}%"
+          data-testid="confirmed-balance-dot"
+        ></span>
+      {/each}
       {#if todayVisible && todayPoint}
         <span
           class="today-dot"
@@ -278,7 +314,15 @@
           style="left: {dateRatio(scrub.point.date, rangeStart, rangeEnd) * 100}%; top: 8px"
           data-testid="cockpit-scrub"
         >
-          <p>{scrub.forecast ? m.cockpit_scrub_forecast() : axisDayLabel(scrub.point.date)}</p>
+          <p>
+            {scrub.point.kind === "forecast"
+              ? m.cockpit_scrub_forecast()
+              : scrub.point.kind === "reconstructed"
+                ? m.analysis_scrub_reconstructed({ date: axisDayLabel(scrub.point.date) })
+                : scrub.point.kind === "confirmed"
+                  ? m.analysis_scrub_confirmed({ date: axisDayLabel(scrub.point.date) })
+                  : axisDayLabel(scrub.point.date)}
+          </p>
           <p class="font-medium tabular-nums">{formatCurrency(scrub.point.balance)}</p>
         </div>
       {/if}
@@ -299,9 +343,18 @@
       <span class="absolute right-0">{axisDayLabel(rangeEnd)}</span>
     {/if}
   </div>
-  {#if historyPoints.length > 0 || forecastPoints.length > 0}
+  {#if settledPoints.length > 0 || reconstructedPoints.length > 0 || forecastPoints.length > 0}
     <div class="mt-1 ml-14 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
-      {#if historyPoints.length > 0}
+      {#if reconstructedPoints.length > 0}
+        <span class="inline-flex items-center gap-1.5">
+          <span
+            class="h-0.5 w-4 rounded-full opacity-70"
+            style="background: var(--color-chart-primary)"
+          ></span>
+          {m.analysis_chart_reconstructed()}
+        </span>
+      {/if}
+      {#if settledPoints.length > 0}
         <span class="inline-flex items-center gap-1.5">
           <span class="h-0.5 w-4 rounded-full" style="background: var(--color-chart-primary)"
           ></span>
@@ -323,7 +376,8 @@
 
 <style>
   .today-dot,
-  .scrub-dot {
+  .scrub-dot,
+  .confirmed-dot {
     position: absolute;
     z-index: 1;
     width: 10px;
@@ -332,8 +386,13 @@
     transform: translate(-50%, -50%);
     pointer-events: none;
   }
-  .today-dot {
+  .today-dot,
+  .confirmed-dot {
     background: var(--color-chart-primary);
+  }
+  .confirmed-dot {
+    z-index: 1;
+    box-shadow: 0 0 0 2px rgb(15 23 42);
   }
   .scrub-dot {
     z-index: 2;
