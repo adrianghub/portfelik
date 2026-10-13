@@ -10,6 +10,7 @@ import {
 import {
   forecastPosition,
   livePosition,
+  type CashAnchor,
   type ForecastPositionOpts,
   type PositionTx,
 } from "$lib/services/cash-position";
@@ -35,7 +36,7 @@ export type CockpitScope = { kind: "private" } | { kind: "group"; groupId: strin
 export interface CockpitIndicatorInput {
   scope: CockpitScope;
   /** Null when this scope has no cash anchor. That is missing data, not zero. */
-  anchor: { opening_amount: number; as_of_date: string } | null;
+  anchor: CashAnchor | null;
   /**
    * Ledger rows for the selected scope only. One pool per scope, so a movement
    * is one row. There is no second account balance to add.

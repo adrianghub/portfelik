@@ -11,6 +11,18 @@ import type {
 
 const PAGE_SIZE = 1000;
 
+/** Oldest stored day, so Analizy can bound „Cały okres” without scanning from year 2000. */
+export async function fetchEarliestTransactionDate(): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("transactions_with_category")
+    .select("date")
+    .order("date", { ascending: true })
+    .limit(1);
+  if (error) throw error;
+  const date = data?.[0]?.date;
+  return typeof date === "string" && date.length >= 10 ? date.slice(0, 10) : null;
+}
+
 export async function fetchTransactions(
   start: string,
   end: string,

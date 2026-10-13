@@ -99,10 +99,8 @@ test("balance save survives reload and export contains the saved balance", async
 }) => {
   await login(page, fixtures.owner);
   await page.goto("/transactions?group=own");
-  await page
-    .getByRole("button", { name: "Ustaw saldo początkowe, aby zobaczyć saldo i prognozę" })
-    .click();
-  const dialog = page.getByRole("dialog", { name: "Saldo z transakcji" });
+  await page.getByRole("button", { name: "Potwierdź saldo" }).click();
+  const dialog = page.getByRole("dialog", { name: "Potwierdź saldo" });
   await expect(dialog.getByRole("button", { name: "Zapisz", exact: true })).toBeDisabled();
   await dialog.locator("#cash-opening-amount").fill("99999999999");
   await expect(dialog.getByRole("button", { name: "Zapisz", exact: true })).toBeDisabled();
@@ -111,8 +109,8 @@ test("balance save survives reload and export contains the saved balance", async
   await expect(dialog).toHaveCount(0);
   await page.reload();
   await page.getByRole("button", { name: "Więcej akcji" }).click();
-  await page.getByRole("menuitem", { name: "Zmień saldo początkowe" }).click();
-  const saved = page.getByRole("dialog", { name: "Saldo z transakcji" });
+  await page.getByRole("menuitem", { name: "Potwierdź saldo" }).click();
+  const saved = page.getByRole("dialog", { name: "Potwierdź saldo" });
   await expect(saved.locator("#cash-opening-amount")).toHaveValue(/2635[.,]81/);
   await saved.getByRole("button", { name: "Anuluj", exact: true }).click();
   const bundle = await exportBundle(page);

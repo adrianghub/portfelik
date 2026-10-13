@@ -70,7 +70,7 @@ The product has five first-class modules:
 
 | Module         | Role                                                                                                         |
 | -------------- | ------------------------------------------------------------------------------------------------------------ |
-| **Kokpit**     | Shows period health: income, expenses, balance, largest categories, plan progress, and deterministic action prompts. |
+| **Kokpit**     | Where things stand now: today's balance, this month's spending and forecast, and the main signals. The period filter changes reports under that card. It does not retarget the forecast. |
 | **Transakcje** | The confirmed ledger of financial history, upcoming obligations, recurring occurrences, and private cash-position context. |
 | **Import**     | Structured intake from bank files: parse, preview, categorize, handle duplicates, confirm, and commit.       |
 | **Plany**      | Future intent for `save` goals and `debt` loans; manual net-worth hero; settle by linking history transactions. |
@@ -81,6 +81,11 @@ This is the product contract:
 > Import shows what happened. Transactions organize history. Plans express
 > intent. Settlement connects reality to intent. Kokpit shows financial
 > condition.
+
+Analizy answers what changed. It is a screen opened from Kokpit, not a bottom-nav
+item. Balance history starts on the opening-balance date and does not invent a
+line before it. Income, expenses, and categories can still use earlier
+transactions. A household scope does not draw a private balance.
 
 Web, the installed PWA, and Android (Capacitor, `pl.jakstoimy.app`) share this
 spine. Public V1 stays invite-only (`max_user_cap`). Native is the same product

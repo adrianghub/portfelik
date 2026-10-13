@@ -1,12 +1,33 @@
 {
   "versions": [
     {
+      "version": "1.3.13",
+      "versionCode": 21,
+      "date": "2026-10-13",
+      "items": [
+        "Potwierdź saldo zapisuje kwotę z banku na koniec wybranego dnia.",
+        "Wcześniejsze saldo w Analizach jest na jednej linii, policzone z transakcji.",
+        "Zapisane wcześniej saldo początkowe liczy się tak samo, dopóki go nie zmienisz."
+      ]
+    },
+    {
+      "version": "1.3.12",
+      "versionCode": 20,
+      "date": "2026-10-13",
+      "items": [
+        "Prognoza na Kokpicie zostaje przy bieżącym miesiącu. Filtr okresu jej nie zmienia.",
+        "Wykres ma skalę kwot, kolor motywu oraz osobno historię i prognozę.",
+        "Analizy pokazują saldo w czasie, wpływy, wydatki i kategorie.",
+        "Objaśnienia mieszczą się na ekranie."
+      ]
+    },
+    {
       "version": "1.3.11",
       "versionCode": 19,
       "date": "2026-10-12",
       "items": [
         "Wykres na Kokpicie pokazuje saldo i prognozę wybranego okresu.",
-        "Na telefonie saldo stoi nad wydatkami.",
+        "Na telefonie saldo i wydatki stoją obok siebie.",
         "Na wykresie widać dzień dzisiejszy."
       ]
     },

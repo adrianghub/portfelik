@@ -224,6 +224,8 @@ export interface CashPosition {
   group_id: string | null;
   opening_amount: number;
   as_of_date: string;
+  /** Absent on older clients. Missing means the historical start-of-day contract. */
+  balance_semantics?: "start_of_day" | "end_of_day" | null;
   created_at: string;
   updated_at: string;
 }

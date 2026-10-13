@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildCockpitForecastChart, dateRatio, scrubAtRatio } from "$lib/cockpit/forecast-chart";
+import {
+  axisAmountLabel,
+  buildCockpitForecastChart,
+  chartValueTicks,
+  dateRatio,
+  scrubAtRatio,
+} from "$lib/cockpit/forecast-chart";
 import { cockpitMonthIndicators, type CockpitMonthInput } from "$lib/cockpit/month";
 
 const october = { monthStart: "2026-10-01", monthEnd: "2026-10-31" };
@@ -191,6 +197,46 @@ describe("cockpit forecast chart", () => {
 
     const lateAnchor = buildCockpitForecastChart(input());
     expect(lateAnchor.comparison).toBeNull();
+  });
+
+  it("starts the drawn domain on the opening balance, not on an earlier range", () => {
+    const chart = buildCockpitForecastChart(
+      input({
+        anchor: { opening_amount: 12_000, as_of_date: "2026-10-10" },
+        transactions: [
+          {
+            id: "before",
+            type: "expense",
+            amount: 500,
+            status: "paid",
+            date: "2026-10-02",
+            currency: "PLN",
+          },
+          {
+            id: "after",
+            type: "expense",
+            amount: 200,
+            status: "paid",
+            date: "2026-10-11",
+            currency: "PLN",
+          },
+        ],
+      })
+    );
+    expect(chart.coverage).toBe("clipped");
+    expect(chart.domainStart).toBe("2026-10-10");
+    expect(chart.domainEnd).toBe("2026-10-31");
+    expect(chart.points?.[0]?.date).toBe("2026-10-10");
+    expect(chart.points?.[0]?.balance).toBe(12_000);
+    expect(chart.todayRatio).toBeCloseTo(2 / 21);
+  });
+
+  it("labels the scale from the data, not from zero", () => {
+    expect(chartValueTicks([12_000, 16_000])).toEqual([16_000, 14_000, 12_000]);
+    expect(axisAmountLabel(16_000)).toBe("16 tys.");
+    expect(axisAmountLabel(14_200)).toBe("14,2 tys.");
+    expect(axisAmountLabel(850)).toBe("850");
+    expect(axisAmountLabel(-1200).replace(/\s/g, "")).toBe("−1200");
   });
 
   it("marks a scrub past today as forecast", () => {

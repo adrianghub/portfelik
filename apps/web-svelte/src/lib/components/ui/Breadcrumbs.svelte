@@ -16,6 +16,9 @@
     const path = $page.url.pathname;
     const seg = path.split("/").filter(Boolean);
 
+    if (path === "/analysis") {
+      return [{ label: m.nav_dashboard(), href: "/dashboard" }, { label: m.analysis_title() }];
+    }
     if (path === "/import" || path === "/transactions/import") {
       return [{ label: m.nav_transactions(), href: "/transactions" }, { label: m.nav_import() }];
     }

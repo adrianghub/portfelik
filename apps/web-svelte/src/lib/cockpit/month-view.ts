@@ -9,6 +9,7 @@ import {
 } from "$lib/cockpit/month";
 import { calendarMonthBounds, type CalendarMonth } from "$lib/cockpit/month-window";
 import type { SpendForecastLink } from "$lib/plans/spend-forecast";
+import type { CashAnchor } from "$lib/services/cash-position";
 import type { ScopeFilter } from "$lib/utils/list-view-url";
 
 export interface CockpitMonthViewResult extends CockpitMonthIndicators {
@@ -45,7 +46,7 @@ export interface CockpitMonthViewInput {
   range?: { start: string; end: string };
   today: string;
   /** Private anchor only. A household or Wszystkie never receives this row. */
-  privateAnchor: { opening_amount: number; as_of_date: string } | null;
+  privateAnchor: CashAnchor | null;
   rows: readonly CockpitMonthRow[];
   items: readonly CockpitSpendItem[];
   links: readonly SpendForecastLink[];
@@ -119,6 +120,9 @@ export function cockpitForecastChart(input: CockpitMonthViewInput): CockpitForec
   if (input.monthLedger === "partial") {
     return {
       points: null,
+      domainStart: null,
+      domainEnd: null,
+      coverage: "full",
       todayRatio: null,
       balance: null,
       forecast: null,
