@@ -7,10 +7,8 @@
   import DashboardActions from "$lib/components/dashboard/DashboardActions.svelte";
   import DashboardPlanProgress from "$lib/components/dashboard/DashboardPlanProgress.svelte";
   import DashboardCashPosition from "$lib/components/dashboard/DashboardCashPosition.svelte";
-  import DashboardSpendingInsight from "$lib/components/dashboard/DashboardSpendingInsight.svelte";
   import DashboardViewToolbar from "$lib/components/dashboard/DashboardViewToolbar.svelte";
   import DashboardDiscovery from "$lib/components/dashboard/DashboardDiscovery.svelte";
-  import SpendHistoryChart from "$lib/components/dashboard/charts/LazySpendHistoryChart.svelte";
   import * as m from "$lib/paraglide/messages";
   import DemoShowcaseBanner from "$lib/components/onboarding/DemoShowcaseBanner.svelte";
   import GlossarySheet from "$lib/components/ui/GlossarySheet.svelte";
@@ -27,7 +25,6 @@
   import { fetchPlans } from "$lib/services/plans";
   import { fetchProfile } from "$lib/services/profiles";
   import { fetchMyGroupRoles, fetchUserGroups } from "$lib/services/groups";
-  import { forecastTransactions, ledgerTransactions } from "$lib/services/transaction-cashflow";
   import {
     fetchRecurringTemplates,
     fetchTransactionCount,
@@ -36,15 +33,9 @@
     updateTransactionStatus,
   } from "$lib/services/transactions";
   import { buildRecurringSeriesList } from "$lib/services/recurring-series";
-  import { computeSpendingInsight } from "$lib/services/spending-insight";
   import { fetchCategories } from "$lib/services/categories";
   import { fetchSaveLinkedTransactionIds } from "$lib/services/plan-settlement";
-  import {
-    computeGoalSpendingSplit,
-    partitionForecastExpenses,
-    partitionLedgerExpenses,
-    resolveCeleCategoryId,
-  } from "$lib/services/goal-spending";
+  import { resolveCeleCategoryId } from "$lib/services/goal-spending";
   import { fetchRecurringOccurrenceSkips } from "$lib/services/recurring-occurrences";
   import { localDateIso } from "$lib/date-local";
   import {
@@ -58,7 +49,6 @@
     calendarMonthFromIso,
     calendarMonthLabel,
     cockpitMonthFetchBounds,
-    inclusiveDayRangeLabel,
   } from "$lib/cockpit/month-window";
   import {
     CASH_FETCH_END_SENTINEL,
@@ -70,13 +60,7 @@
     forwardForecastTransactions,
     recurringProjectionsForTransactionRange,
   } from "$lib/services/transaction-projections";
-  import {
-    buildPeriodWindows,
-    buildForwardPeriodWindows,
-    buildDayWindows,
-    buildForwardDayWindows,
-    bucketPeriodHistory,
-  } from "$lib/services/period-history";
+  import { buildForwardPeriodWindows } from "$lib/services/period-history";
   import { canManageTransaction } from "$lib/services/transaction-permissions";
   import { toast } from "svelte-sonner";
   import { toastError } from "$lib/toast-error";
@@ -86,13 +70,7 @@
   import type { TransactionStatus, TransactionWithCategory } from "$lib/types";
   import { getDateRangeBounds } from "$lib/utils";
   import { syncListViewUrl } from "$lib/utils/navigation";
-  import {
-    parseDashboardPeriod,
-    parseDashboardRange,
-    parseScopeFilter,
-    type DashboardPeriod,
-    type ScopeFilter,
-  } from "$lib/utils/list-view-url";
+  import { parseScopeFilter, type ScopeFilter } from "$lib/utils/list-view-url";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { onMount } from "svelte";
 
@@ -102,7 +80,6 @@
   });
 
   let detailsOpen = $state(false);
-  let spendingExpanded = $state(false);
 
   const greetingName = $derived.by(() => {
     const raw =
@@ -110,18 +87,7 @@
     return raw ?? "";
   });
 
-  type Period = DashboardPeriod;
-  const period = $derived(parseDashboardPeriod($page.url.searchParams));
-  const customRange = $derived(parseDashboardRange($page.url.searchParams));
   const groupFilter = $derived(parseScopeFilter($page.url.searchParams));
-
-  function setPeriod(next: Period) {
-    syncListViewUrl("/dashboard", $page.url.searchParams, { period: next });
-  }
-
-  function setCustomRange(start: string, end: string) {
-    syncListViewUrl("/dashboard", $page.url.searchParams, { range: { start, end } });
-  }
 
   function setGroupFilter(scope: ScopeFilter) {
     syncListViewUrl("/dashboard", $page.url.searchParams, { group: scope });
@@ -152,32 +118,10 @@
     return `/analysis?group=${encodeURIComponent(groupFilter)}`;
   }
 
-  /** Drill from a spend-history bar into that exact window's transactions. */
-  function dateOnly(value: string): string {
-    return new Date(value).toISOString().slice(0, 10);
-  }
-
   function previousDateOnly(value: string): string {
     const d = new Date(value);
     d.setUTCDate(d.getUTCDate() - 1);
     return d.toISOString().slice(0, 10);
-  }
-
-  function selectHistoryPeriod(bucket: {
-    start: string;
-    end: string;
-    isProjected?: boolean;
-  }): void {
-    // bucket.end is exclusive; the transactions range wants an inclusive last day.
-    const params = new URLSearchParams();
-    params.set("startDate", dateOnly(bucket.start));
-    params.set("endDate", previousDateOnly(bucket.end));
-    params.set("group", groupFilter);
-    params.set("type", "expense");
-    if (bucket.isProjected) {
-      params.set("status", "upcoming,overdue");
-    }
-    goto(`/transactions?${params.toString()}`);
   }
 
   const queryClient = useQueryClient();
@@ -328,47 +272,15 @@
     onError: (err) => toastError(err),
   }));
 
-  /** Days in [start, end) for date-only ISO strings. */
-  function windowLengthDays(start: string, endExclusive: string): number {
-    const dayMs = 86_400_000;
-    const s = new Date(start.slice(0, 10)).getTime();
-    const e = new Date(endExclusive.slice(0, 10)).getTime();
-    return Math.max(1, Math.round((e - s) / dayMs));
-  }
-
-  // Month and year use calendar boundaries. Week remains a trailing seven-day
-  // window; custom preserves the picker's inclusive range.
+  // Kokpit stays on the current calendar month. Category history lives in Analiza budżetu.
   const bounds = $derived.by(() => {
     const now = new Date();
-    if (period === "custom" && customRange) {
-      const endEx = new Date(customRange.end);
-      endEx.setDate(endEx.getDate() + 1);
-      const end = toIsoDate(endEx);
-      return {
-        start: customRange.start,
-        end,
-        buckets: windowLengthDays(customRange.start, end),
-      };
-    }
-    if (period === "week" || period === "custom") {
-      const end = new Date(now);
-      end.setDate(end.getDate() + 1);
-      const start = new Date(now);
-      start.setDate(start.getDate() - 6);
-      return { start: toIsoDate(start), end: toIsoDate(end), buckets: 7 };
-    }
-    if (period === "year") {
-      const y = now.getFullYear();
-      const b = getDateRangeBounds(y, 1, y, 12);
-      return { start: b.start, end: b.end, buckets: 12 };
-    }
-    const b = getDateRangeBounds(
+    return getDateRangeBounds(
       now.getFullYear(),
       now.getMonth() + 1,
       now.getFullYear(),
       now.getMonth() + 1
     );
-    return { start: b.start, end: b.end, buckets: windowLengthDays(b.start, b.end) };
   });
 
   const groupsQuery = createQuery(() => ({
@@ -382,102 +294,13 @@
     queryFn: fetchCategories,
     enabled: !!session.userId,
   }));
-  const categoryIdsByName = $derived(
-    new Map(
-      (categoriesQuery.data ?? [])
-        .filter((category) => category.type === "expense")
-        .map((category) => [category.name, category.id])
-    )
-  );
-  const categoryColors = $derived(
-    new Map(
-      (categoriesQuery.data ?? [])
-        .filter((category) => !!category.color)
-        .map((category) => [category.id, category.color!])
-    )
-  );
-
   const saveLinkedQuery = createQuery(() => ({
     queryKey: qk.saveLinkedIds(session.userId!),
     queryFn: fetchSaveLinkedTransactionIds,
     enabled: !!session.userId,
   }));
 
-  // Previous month remains a calendar month; week/custom use a contiguous
-  // window of the same length. Year compares year-to-date with last year.
-  const prevBounds = $derived.by(() => {
-    if (period === "year") {
-      const now = new Date();
-      const y = now.getFullYear();
-      const start = getDateRangeBounds(y - 1, 1, y - 1, 12).start;
-      // Same elapsed day-of-year in the previous year, end-exclusive.
-      const end = new Date(y - 1, now.getMonth(), now.getDate() + 1);
-      return { start, end: toIsoDate(end) };
-    }
-    if (period === "month") {
-      const now = new Date();
-      const previousMonth = new Date(now);
-      previousMonth.setDate(1);
-      previousMonth.setMonth(previousMonth.getMonth() - 1);
-      const fullPreviousMonth = getDateRangeBounds(
-        previousMonth.getFullYear(),
-        previousMonth.getMonth() + 1,
-        previousMonth.getFullYear(),
-        previousMonth.getMonth() + 1
-      );
-      const lastDay = new Date(
-        previousMonth.getFullYear(),
-        previousMonth.getMonth() + 1,
-        0
-      ).getDate();
-      const comparedThrough = new Date(
-        previousMonth.getFullYear(),
-        previousMonth.getMonth(),
-        Math.min(now.getDate(), lastDay) + 1
-      );
-      return { start: fullPreviousMonth.start, end: toIsoDate(comparedThrough) };
-    }
-    const start = new Date(bounds.start);
-    start.setDate(start.getDate() - bounds.buckets);
-    return { start: toIsoDate(start), end: bounds.start };
-  });
-
-  // Rolling window: last 3 complete windows before the current one (for averages).
-  const ROLLING_PERIODS = 3;
-  const rollingBounds = $derived.by(() => {
-    if (period === "year") {
-      const y = new Date().getFullYear();
-      return getDateRangeBounds(y - ROLLING_PERIODS, 1, y - 1, 12);
-    }
-    if (period === "month") {
-      const start = new Date();
-      start.setDate(1);
-      start.setMonth(start.getMonth() - ROLLING_PERIODS);
-      return { start: toIsoDate(start), end: bounds.start };
-    }
-    const start = new Date(bounds.start);
-    start.setDate(start.getDate() - bounds.buckets * ROLLING_PERIODS);
-    return { start: toIsoDate(start), end: bounds.start };
-  });
-
-  // Multi-period comparison history: calendar periods for month/year, fixed
-  // trailing windows for week/custom.
-  const HISTORY_PERIODS = 6;
-  const historyWindows = $derived(
-    period === "year" || period === "month"
-      ? buildPeriodWindows(period, HISTORY_PERIODS)
-      : buildDayWindows(bounds.buckets, HISTORY_PERIODS, bounds.end)
-  );
-
-  // Recurring-template projection: forecast periods appended as isProjected buckets.
-  // Year is clamped — projecting recurring rows three calendar years out is noise.
-  // Custom ranges get no forecast: they are a backward-looking analysis window.
-  const forwardWindows = $derived.by(() => {
-    if (period === "custom") return [];
-    if (period === "year") return buildForwardPeriodWindows("year", 1);
-    if (period === "month") return buildForwardPeriodWindows("month", 3);
-    return buildForwardDayWindows(bounds.buckets, 3, bounds.end);
-  });
+  const forwardWindows = $derived(buildForwardPeriodWindows("month", 3));
   const forwardBounds = $derived(
     forwardWindows.length > 0
       ? {
@@ -497,12 +320,7 @@
   const spanBounds = $derived.by(() => {
     const lookback = new Date();
     lookback.setDate(lookback.getDate() - OVERDUE_LOOKBACK_DAYS);
-    const lookbackStart = toIsoDate(lookback);
-    const historyStart = historyWindows[0].start;
-    const start =
-      new Date(historyStart).getTime() < new Date(lookbackStart).getTime()
-        ? historyStart
-        : lookbackStart;
+    const start = toIsoDate(lookback);
     const ahead = new Date();
     ahead.setDate(ahead.getDate() + UPCOMING_AHEAD_DAYS);
     const minEnd = toIsoDate(ahead);
@@ -557,43 +375,8 @@
   }
 
   const allScopedTxs = $derived(scopeFilter(txQuery.data ?? []));
-  const scopedTxs = $derived(inWindow(allScopedTxs, bounds.start, bounds.end));
-  const scopedLedgerTxs = $derived(ledgerTransactions(scopedTxs));
-
-  const previousLedgerTxs = $derived(
-    ledgerTransactions(inWindow(allScopedTxs, prevBounds.start, prevBounds.end))
-  );
-  const rollingLedgerTxs = $derived(
-    ledgerTransactions(inWindow(allScopedTxs, rollingBounds.start, rollingBounds.end))
-  );
-
   const saveLinkedIds = $derived(saveLinkedQuery.data ?? new Set<string>());
   const celeCategoryId = $derived(resolveCeleCategoryId(categoriesQuery.data ?? []));
-
-  const spendingInsight = $derived(
-    computeSpendingInsight({
-      current: scopedLedgerTxs,
-      previous: previousLedgerTxs,
-      rolling: rollingLedgerTxs,
-      periodsInRolling: ROLLING_PERIODS,
-      budgets: [],
-      saveLinkedIds,
-      celeCategoryId,
-    })
-  );
-
-  const goalSpendingSplit = $derived(
-    computeGoalSpendingSplit(scopedLedgerTxs, saveLinkedIds, celeCategoryId)
-  );
-
-  const chartConsumptionTxs = $derived(
-    partitionLedgerExpenses(allScopedTxs, saveLinkedIds, celeCategoryId).consumption
-  );
-  const chartAllocationTxs = $derived(
-    partitionLedgerExpenses(allScopedTxs, saveLinkedIds, celeCategoryId).allocation
-  );
-
-  const historyBuckets = $derived(bucketPeriodHistory(chartConsumptionTxs, historyWindows));
 
   const recurringTemplatesQuery = createQuery(() => ({
     queryKey: qk.transactions.list(session.userId!, "recurring-templates"),
@@ -667,8 +450,7 @@
     enabled: !!session.userId && !!cashAnchorQuery.data,
     staleTime: 60_000,
   }));
-  // Period chips change reports below the cash card. The forecast keeps the
-  // current month, so "Ten rok" cannot turn it into a year-long chart.
+  // The cash forecast stays on the current month. Longer ranges live in Analiza budżetu.
   const forecastMonth = $derived(calendarMonthFromIso(localDateIso()));
   const forecastRange = $derived(calendarMonthBounds(forecastMonth));
   const cockpitMonthFetch = $derived(cockpitMonthFetchBounds(forecastMonth));
@@ -811,17 +593,7 @@
       end: forwardWindows[forwardWindows.length - 1].end,
     });
   });
-  const forwardBuckets = $derived(
-    bucketPeriodHistory(
-      partitionForecastExpenses(forwardForecastTxs, saveLinkedIds, celeCategoryId).consumption,
-      forwardWindows
-    ).map((b) => ({
-      ...b,
-      isProjected: true,
-    }))
-  );
-
-  // Read-time projections inside the current period (now → period end). Same
+  // Read-time projections inside the current month. Same
   // primitive /transactions uses, so "Z zaplanowanymi", the chart's current bar,
   // and the upcoming list all agree with the transactions list for the window.
   const currentProjectedTxs = $derived(
@@ -834,62 +606,7 @@
     })
   );
 
-  // Current bucket: paid so far + scheduled/projected remainder. The bar shows
-  // the expected end-of-period spend and joins the forecast band via isProjected.
-  const currentForecastBucket = $derived.by(() => {
-    const paidBucket = historyBuckets[historyBuckets.length - 1];
-    // A custom range that ends in the past has nothing left to forecast — its
-    // last bucket is plain history.
-    if (!paidBucket.isCurrent) return paidBucket;
-    const window = historyWindows[historyWindows.length - 1];
-    const [bucket] = bucketPeriodHistory(
-      partitionForecastExpenses(
-        [...forecastTransactions(scopedTxs), ...currentProjectedTxs],
-        saveLinkedIds,
-        celeCategoryId
-      ).consumption,
-      [window]
-    );
-    return { ...bucket, isProjected: bucket.total - paidBucket.total > 0.005 };
-  });
-
-  // Goal allocations follow the same realized/current/future semantics as the
-  // consumption bars. In particular, scheduled contributions must remain
-  // visible in forecast tooltips instead of disappearing until they are paid.
-  const allocationByLabel = $derived.by(() => {
-    const historical = bucketPeriodHistory(chartAllocationTxs, historyWindows);
-    const totals = new Map(historical.map((bucket) => [bucket.label, bucket.total]));
-    const currentWindow = historyWindows[historyWindows.length - 1];
-    const currentBucket = historical[historical.length - 1];
-
-    if (currentBucket?.isCurrent) {
-      const [forecastAllocation] = bucketPeriodHistory(
-        partitionForecastExpenses(
-          [...forecastTransactions(scopedTxs), ...currentProjectedTxs],
-          saveLinkedIds,
-          celeCategoryId
-        ).allocation,
-        [currentWindow]
-      );
-      totals.set(forecastAllocation.label, forecastAllocation.total);
-    }
-
-    const forwardAllocations = bucketPeriodHistory(
-      partitionForecastExpenses(forwardForecastTxs, saveLinkedIds, celeCategoryId).allocation,
-      forwardWindows
-    );
-    for (const bucket of forwardAllocations) totals.set(bucket.label, bucket.total);
-
-    return totals;
-  });
-
-  const combinedHistoryBuckets = $derived([
-    ...historyBuckets.slice(0, -1),
-    currentForecastBucket,
-    ...forwardBuckets,
-  ]);
-
-  // Whole span, not the selected period: overdue rows live in past months (the
+  // Whole span, not only this month: overdue rows live in the past (the
   // 90-day lookback) and scheduled rows in future ones — a week-wide window
   // would drop both. Real forward rows arrive via the span fetch; projections
   // are read-time only, so ids never collide.
@@ -987,31 +704,6 @@
       goto(transactionsHref({ status: tx.status, txId: tx.id }));
     }
   }
-
-  const periodChips: { value: Period; label: string }[] = $derived([
-    { value: "week", label: m.dashboard_period_week() },
-    { value: "month", label: m.dashboard_period_month() },
-    { value: "year", label: m.dashboard_period_year() },
-  ]);
-
-  // Categories follow the period chips. The cash card does not.
-  const categoryPeriodLabel = $derived.by(() => {
-    if (period === "week") return m.dashboard_period_week();
-    if (period === "year") return bounds.start.slice(0, 4);
-    if (period === "custom" && customRange) {
-      return inclusiveDayRangeLabel(customRange.start, customRange.end);
-    }
-    return calendarMonthLabel(calendarMonthFromIso(bounds.start));
-  });
-  const historySpanLabel = $derived(
-    period === "week"
-      ? m.cockpit_history_span_week()
-      : period === "year"
-        ? m.cockpit_history_span_year()
-        : period === "custom"
-          ? m.cockpit_history_span_custom()
-          : m.cockpit_history_span_month()
-  );
 </script>
 
 <svelte:head>
@@ -1047,17 +739,19 @@
   {#if discovery}
     <DashboardDiscovery />
   {:else}
-    <DashboardViewToolbar
-      {period}
-      {groupFilter}
-      groups={groupsQuery.data ?? []}
-      {periodChips}
-      {customRange}
-      onPeriodChange={setPeriod}
-      onScopeChange={setGroupFilter}
-      onRangeChange={setCustomRange}
-      onRangeClear={() => setPeriod("month")}
-    />
+    {#if (groupsQuery.data ?? []).length > 0}
+      <DashboardViewToolbar
+        period="month"
+        {groupFilter}
+        groups={groupsQuery.data ?? []}
+        periodChips={[]}
+        showPeriod={false}
+        onPeriodChange={() => {}}
+        onScopeChange={setGroupFilter}
+        onRangeChange={() => {}}
+        onRangeClear={() => {}}
+      />
+    {/if}
     <DashboardCashPosition
       hasAnchor={!!cashAnchorQuery.data}
       showPrivateDetails={groupFilter === "own"}
@@ -1095,34 +789,9 @@
     <DashboardActions {groupFilter} overdue={overdueSummary} {overdueState} />
     <DashboardPiles {groupFilter} groups={groupsQuery.data ?? []} />
 
-    <!-- Categories and the chart use the same period as the counters. -->
-    {#if txQuery.isLoading}
-      <div class="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-2">
-        <div class="h-40 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
-        <div class="h-64 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
-      </div>
-    {:else if txQuery.isError}
+    {#if txQuery.isError}
       <QueryError error={txQuery.error} onRetry={() => txQuery.refetch()} />
-    {:else}
-      <div class="grid min-w-0 grid-cols-1 items-stretch gap-3 lg:grid-cols-2">
-        <DashboardSpendingInsight
-          insight={spendingInsight}
-          {period}
-          periodLabel={categoryPeriodLabel}
-          goalSplit={goalSpendingSplit}
-          bind:expanded={spendingExpanded}
-          categoryHref={(id) => (id ? transactionsHref({ categoryId: id }) : transactionsHref())}
-        />
-        <SpendHistoryChart
-          buckets={combinedHistoryBuckets}
-          {allocationByLabel}
-          {categoryIdsByName}
-          {categoryColors}
-          onselectperiod={selectHistoryPeriod}
-          onOpenGlossary={openGlossary}
-          periodLabel={historySpanLabel}
-        />
-      </div>
+    {:else if !txQuery.isLoading}
       <a
         href={transactionsHref()}
         class="text-accent focus-visible:ring-accent flex min-h-11 w-fit items-center text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"
