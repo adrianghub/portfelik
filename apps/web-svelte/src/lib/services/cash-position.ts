@@ -3,6 +3,22 @@ import { isSupportedLedgerCurrency } from "$lib/ledger-currency";
 import { supabase } from "$lib/supabase";
 import type { CashPosition } from "$lib/types";
 
+/**
+ * How `opening_amount` relates to `as_of_date`.
+ * `start_of_day` is the historical contract: the amount is the balance before
+ * movements on that date, and those movements are added.
+ * `end_of_day` is a confirmed bank balance: the amount already includes every
+ * booked movement on that date, so they must not be added again.
+ * Missing or unknown values stay `start_of_day`, so existing rows do not move.
+ */
+export type CashBalanceSemantics = "start_of_day" | "end_of_day";
+
+export interface CashAnchor {
+  opening_amount: number;
+  as_of_date: string;
+  balance_semantics?: CashBalanceSemantics | null;
+}
+
 /** Minimal transaction shape the position engine needs. */
 export interface PositionTx {
   type: "income" | "expense";
@@ -27,11 +43,42 @@ export const CASH_FORECAST_HORIZON_DAYS = 90;
 /** Exclusive upper bound for fetches that use `.lt(date, end)`. */
 export const CASH_FETCH_END_SENTINEL = "9999-12-31";
 
-type Anchor = Pick<CashPosition, "opening_amount" | "as_of_date"> | null;
+type Anchor = CashAnchor | null;
 
 /** Date-only (YYYY-MM-DD) prefix, so a timestamptz value compares against a bare as_of_date. */
 function dateOnly(d: string): string {
   return d.slice(0, 10);
+}
+
+export function cashBalanceSemantics(anchor: Anchor): CashBalanceSemantics {
+  return anchor?.balance_semantics === "end_of_day" ? "end_of_day" : "start_of_day";
+}
+
+/** Last calendar day already included in `opening_amount`. */
+export function anchorIncludedThrough(anchor: CashAnchor): string {
+  const asOf = dateOnly(anchor.as_of_date);
+  if (cashBalanceSemantics(anchor) === "end_of_day") return asOf;
+  return addLocalDays(asOf, -1);
+}
+
+/** First calendar day whose movements are added on top of `opening_amount`. */
+export function anchorOpenFrom(anchor: CashAnchor): string {
+  return addLocalDays(anchorIncludedThrough(anchor), 1);
+}
+
+/** True when this row is strictly after the anchor instant. */
+export function countsAfterAnchor(date: string, anchor: Anchor): boolean {
+  if (!anchor) return true;
+  return dateOnly(date) >= anchorOpenFrom(anchor);
+}
+
+export function compareCashRowOrder(
+  a: { date: string; id?: string },
+  b: { date: string; id?: string }
+): number {
+  const byDate = dateOnly(a.date).localeCompare(dateOnly(b.date));
+  if (byDate !== 0) return byDate;
+  return (a.id ?? "").localeCompare(b.id ?? "");
 }
 
 function toCents(amount: number): number {
@@ -46,14 +93,15 @@ function openingCents(anchor: Anchor): number {
   return toCents(anchor ? anchor.opening_amount : 0);
 }
 
-function asOfOf(anchor: Anchor): string {
-  // No anchor → epoch, so every transaction is on/after it.
-  return anchor ? anchor.as_of_date : "0000-01-01";
-}
-
 function signedCents(tx: PositionTx): number {
   const amount = toCents(tx.amount);
   return tx.type === "income" ? amount : -amount;
+}
+
+/** Paid PLN movement in grosze. Null when the row stays out of the cash pool. */
+export function bookedCashCents(tx: PositionTx): number | null {
+  if (!isSupportedLedgerCurrency(tx.currency) || tx.status !== "paid") return null;
+  return signedCents(tx);
 }
 
 export function cashForecastHorizonEnd(today: string = localDateIso()): string {
@@ -73,25 +121,18 @@ function withinForecastHorizon(tx: PositionTx, horizonEnd: string): boolean {
   return dateOnly(tx.date) <= horizonEnd;
 }
 
-function compareDateThenId(
-  a: { date: string; id?: string },
-  b: { date: string; id?: string }
-): number {
-  const byDate = dateOnly(a.date).localeCompare(dateOnly(b.date));
-  if (byDate !== 0) return byDate;
-  return (a.id ?? "").localeCompare(b.id ?? "");
-}
-
 /**
- * Live cash balance: opening + Σ(paid income) − Σ(paid expense) for transactions
- * dated on/after the anchor's as_of_date. Never stored — derived on read.
+ * Live cash balance: opening plus booked movements after the anchor instant.
+ * `start_of_day` includes `as_of_date`. `end_of_day` starts the next day.
+ * Never stored — derived on read.
  */
 export function livePosition(anchor: Anchor, txs: PositionTx[]): number {
-  const asOf = asOfOf(anchor);
   const balanceCents = txs
     .filter(
       (t) =>
-        isSupportedLedgerCurrency(t.currency) && t.status === "paid" && dateOnly(t.date) >= asOf
+        isSupportedLedgerCurrency(t.currency) &&
+        t.status === "paid" &&
+        countsAfterAnchor(t.date, anchor)
     )
     .reduce((sum, t) => sum + signedCents(t), openingCents(anchor));
   return fromCents(balanceCents);
@@ -111,7 +152,7 @@ export function liveMovementTotals(
     if (
       !isSupportedLedgerCurrency(tx.currency) ||
       tx.status !== "paid" ||
-      dateOnly(tx.date) < asOfOf(anchor)
+      !countsAfterAnchor(tx.date, anchor)
     )
       continue;
     if (tx.type === "income") incomeCents += toCents(tx.amount);
@@ -143,7 +184,7 @@ export function forecastPosition(
       (t) =>
         isSupportedLedgerCurrency(t.currency) &&
         isForecastStatus(t.status) &&
-        dateOnly(t.date) >= asOfOf(anchor) &&
+        countsAfterAnchor(t.date, anchor) &&
         withinForecastHorizon(t, horizonEnd)
     )
     .reduce((sum, t) => sum + signedCents(t), 0);
@@ -162,13 +203,12 @@ export function forecastMovementTotals(
   opts: ForecastPositionOpts = {}
 ): ForecastMovementTotals {
   const horizonEnd = opts.horizonEnd ?? cashForecastHorizonEnd(opts.today);
-  const asOf = asOfOf(anchor);
   let incomeCents = 0;
   let expenseCents = 0;
   for (const tx of txs) {
     if (!isSupportedLedgerCurrency(tx.currency)) continue;
     if (!isForecastStatus(tx.status)) continue;
-    if (dateOnly(tx.date) < asOf || !withinForecastHorizon(tx, horizonEnd)) continue;
+    if (!countsAfterAnchor(tx.date, anchor) || !withinForecastHorizon(tx, horizonEnd)) continue;
     const cents = toCents(tx.amount);
     if (tx.type === "income") incomeCents += cents;
     else expenseCents += cents;
@@ -201,13 +241,14 @@ export async function fetchPrivateCashPosition(): Promise<CashPosition | null> {
  * history since as_of_date.
  */
 export function runningBalances(anchor: Anchor, txs: RunningBalanceTx[]): Map<string, number> {
-  const asOf = asOfOf(anchor);
   const paid = txs
     .filter(
       (t) =>
-        isSupportedLedgerCurrency(t.currency) && t.status === "paid" && dateOnly(t.date) >= asOf
+        isSupportedLedgerCurrency(t.currency) &&
+        t.status === "paid" &&
+        countsAfterAnchor(t.date, anchor)
     )
-    .sort(compareDateThenId);
+    .sort(compareCashRowOrder);
   const result = new Map<string, number>();
   let balanceCents = openingCents(anchor);
   for (const t of paid) {
@@ -227,17 +268,16 @@ export function forecastRunningBalances(
   txs: RunningBalanceTx[],
   opts: ForecastPositionOpts = {}
 ): Map<string, number> {
-  const asOf = asOfOf(anchor);
   const horizonEnd = opts.horizonEnd ?? cashForecastHorizonEnd(opts.today);
   const rows = txs
     .filter(
       (t) =>
         isSupportedLedgerCurrency(t.currency) &&
-        dateOnly(t.date) >= asOf &&
+        countsAfterAnchor(t.date, anchor) &&
         (t.status === "paid" ||
           (isForecastStatus(t.status) && withinForecastHorizon(t, horizonEnd)))
     )
-    .sort(compareDateThenId);
+    .sort(compareCashRowOrder);
   const result = new Map<string, number>();
   let balanceCents = openingCents(anchor);
   for (const t of rows) {
@@ -250,6 +290,8 @@ export function forecastRunningBalances(
 export interface CashPositionInput {
   opening_amount: number;
   as_of_date: string;
+  /** Omit only for a writer that must keep the stored semantics. */
+  balance_semantics?: CashBalanceSemantics;
 }
 
 /** Create or update the private cash position (one row per user, keyed by owner_id). */
@@ -265,6 +307,7 @@ export async function upsertPrivateCashPosition(input: CashPositionInput): Promi
         owner_id: user.id,
         opening_amount: input.opening_amount,
         as_of_date: input.as_of_date,
+        ...(input.balance_semantics ? { balance_semantics: input.balance_semantics } : {}),
       },
       { onConflict: "owner_id" }
     )

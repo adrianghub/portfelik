@@ -413,10 +413,15 @@ and free-form manual asset items.
 - **`financial_snapshots`**: one row per user; keeps the manual assets'
   `as_of_date` for display/back-compat.
 - **`cash_positions`**: one private owner or group row per scope. Stores
-  `opening_amount` + `as_of_date`; live and forecast cash are computed in app
-  code from paid/upcoming transaction rows. RLS: owner read/write for private
-  rows, group members read, group co-owners write. Scope columns are immutable
-  via trigger.
+  `opening_amount` + `as_of_date` + `balance_semantics`. Live and forecast cash
+  are computed in app code from paid/upcoming transaction rows. RLS: owner
+  read/write for private rows, group members read, group co-owners write.
+  Scope columns are immutable via trigger.
+  `start_of_day` (the default, and every row saved before the column existed)
+  means the amount is the balance before movements on `as_of_date`.
+  `end_of_day` means the amount already includes booked movements on that
+  date. Reconstruction walks backward from that instant and never treats an
+  import as a complete bank history.
 - **`net_worth_items`**: owner-entered assets (`label`, `amount`, `currency`,
   `position`). Cash is not stored here; it is derived from `cash_positions`.
 - **Net worth**: client computes derived cash + manual asset items - live debt

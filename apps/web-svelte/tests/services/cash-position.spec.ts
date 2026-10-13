@@ -142,4 +142,34 @@ describe("livePosition with timestamptz dates (transactions.date is timestamptz)
     // 1000 + 500 (as_of day) + 200 (future) = 1700; the day-before expense is excluded.
     expect(livePosition(anchor, tsTxs)).toBe(1700);
   });
+
+  it("keeps a confirmed end-of-day amount from counting that day's rows again", () => {
+    const confirmed = {
+      opening_amount: 12_000,
+      as_of_date: "2026-10-13",
+      balance_semantics: "end_of_day" as const,
+    };
+    const rows = [
+      {
+        type: "expense" as const,
+        amount: 100,
+        status: "paid",
+        date: "2026-10-13",
+        currency: "PLN",
+      },
+      { type: "income" as const, amount: 40, status: "paid", date: "2026-10-14", currency: "PLN" },
+      {
+        type: "income" as const,
+        amount: 25,
+        status: "upcoming",
+        date: "2026-10-13",
+        currency: "PLN",
+      },
+    ];
+    expect(livePosition(confirmed, rows)).toBe(12_040);
+    expect(
+      forecastPosition(confirmed, rows, { today: "2026-10-13", horizonEnd: "2026-10-31" })
+    ).toBe(12_040);
+    expect(livePosition({ ...confirmed, balance_semantics: "start_of_day" }, rows)).toBe(11_940);
+  });
 });
