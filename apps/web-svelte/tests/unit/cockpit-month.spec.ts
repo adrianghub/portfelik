@@ -433,4 +433,23 @@ describe("cockpit month indicators", () => {
     expect(result.forecast).toBeNull();
     expect(result.expenses).toBe(500);
   });
+
+  it("does not add the confirmation day on top of an end-of-day balance", () => {
+    const result = month({
+      anchor: {
+        opening_amount: 12_000,
+        as_of_date: "2026-10-11",
+        balance_semantics: "end_of_day",
+      },
+      transactions: [
+        tx({ id: "tx-same-day", amount: 500, date: "2026-10-11" }),
+        tx({ id: "tx-next", amount: 200, date: "2026-10-12" }),
+      ],
+      items: [],
+      links: [],
+      today: "2026-10-13",
+    });
+    expect(result.balance).toBe(11_800);
+    expect(result.expenses).toBe(700);
+  });
 });

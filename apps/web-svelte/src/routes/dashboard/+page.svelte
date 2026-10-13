@@ -735,6 +735,7 @@
         ? {
             opening_amount: cashAnchorQuery.data.opening_amount,
             as_of_date: cashAnchorQuery.data.as_of_date,
+            balance_semantics: cashAnchorQuery.data.balance_semantics,
           }
         : null,
       rows: cockpitMonthRows,
@@ -755,6 +756,7 @@
         ? {
             opening_amount: cashAnchorQuery.data.opening_amount,
             as_of_date: cashAnchorQuery.data.as_of_date,
+            balance_semantics: cashAnchorQuery.data.balance_semantics,
           }
         : null,
       rows: cockpitMonthRows,

@@ -6,6 +6,7 @@ import {
   CASH_FORECAST_HORIZON_DAYS,
   forecastPosition,
   livePosition,
+  type CashAnchor,
   type PositionTx,
 } from "$lib/services/cash-position";
 import {
@@ -23,7 +24,7 @@ export type CockpitMonthScope = CockpitScope | { kind: "all" };
 export interface CockpitMonthInput {
   scope: CockpitMonthScope;
   /** Null when this scope has no cash anchor. Missing data, not zero. */
-  anchor: { opening_amount: number; as_of_date: string } | null;
+  anchor: CashAnchor | null;
   /** Ledger rows for one scope. "All" may include every row the caller can read. */
   transactions: readonly CockpitLedgerTx[];
   items: readonly CockpitSpendItem[];

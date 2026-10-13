@@ -88,6 +88,7 @@ export type Database = {
       cash_positions: {
         Row: {
           as_of_date: string;
+          balance_semantics: string;
           created_at: string;
           group_id: string | null;
           id: string;
@@ -97,6 +98,7 @@ export type Database = {
         };
         Insert: {
           as_of_date?: string;
+          balance_semantics?: string;
           created_at?: string;
           group_id?: string | null;
           id?: string;
@@ -106,6 +108,7 @@ export type Database = {
         };
         Update: {
           as_of_date?: string;
+          balance_semantics?: string;
           created_at?: string;
           group_id?: string | null;
           id?: string;

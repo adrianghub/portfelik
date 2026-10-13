@@ -46,16 +46,30 @@
   const dateValid = $derived(!!asOfDate && asOfDate <= localDateIso());
   let initialOpeningAmount = $state("");
   let initialAsOfDate = $state("");
+  let treatAsEndOfDay = $state(true);
+  let initialTreatAsEndOfDay = $state(true);
+  const legacyStart = $derived(!!anchor && anchor.balance_semantics !== "end_of_day");
+  const showLegacyMeaning = $derived(legacyStart && !treatAsEndOfDay);
   const editDirty = $derived(
-    openingAmount !== initialOpeningAmount || asOfDate !== initialAsOfDate
+    openingAmount !== initialOpeningAmount ||
+      asOfDate !== initialAsOfDate ||
+      treatAsEndOfDay !== initialTreatAsEndOfDay
+  );
+  const dateLabel = $derived(
+    showLegacyMeaning ? m.cash_position_as_of_label() : m.cash_position_confirm_date_label()
+  );
+  const amountLabel = $derived(
+    showLegacyMeaning ? m.net_worth_cash_position_label() : m.cash_position_amount_label()
   );
 
   export function openEdit() {
     if (!anchorReady) return;
     openingAmount = anchor ? String(anchor.opening_amount) : "";
     asOfDate = anchor?.as_of_date ?? localDateIso();
+    treatAsEndOfDay = !anchor || anchor.balance_semantics === "end_of_day";
     initialOpeningAmount = openingAmount;
     initialAsOfDate = asOfDate;
+    initialTreatAsEndOfDay = treatAsEndOfDay;
     editOpen = true;
   }
 
@@ -67,14 +81,21 @@
 
   const saveMutation = createSvelteMutation(() => ({
     mutationFn: async () => {
+      const balance_semantics = !legacyStart || treatAsEndOfDay ? "end_of_day" : "start_of_day";
       await upsertPrivateCashPosition({
         opening_amount: Number(normalizedOpeningAmount),
         as_of_date: asOfDate,
+        balance_semantics,
       });
+      return balance_semantics;
     },
-    onSuccess: async () => {
+    onSuccess: async (balance_semantics) => {
       editOpen = false;
-      toast.success(m.cash_position_toast_saved());
+      toast.success(
+        balance_semantics === "end_of_day"
+          ? m.cash_position_toast_saved()
+          : m.cash_position_toast_saved_start()
+      );
       const u = requireSessionUserId();
       await queryClient.invalidateQueries({ queryKey: qk.cashPosition(u) });
       await queryClient.invalidateQueries({ queryKey: qk.transactions.list(u, "cash-history") });
@@ -102,7 +123,7 @@
   >
 {/if}
 
-<Sheet open={editOpen} onclose={requestClose} title={m.cash_position_label()}>
+<Sheet open={editOpen} onclose={requestClose} title={m.cash_position_confirm_title()}>
   <form
     class="space-y-4"
     onsubmit={(e) => {
@@ -115,12 +136,12 @@
   >
     <div class="space-y-1">
       <label class="text-xs font-medium text-slate-300" for="cash-as-of-date">
-        {m.cash_position_as_of_label()}
+        {dateLabel}
       </label>
       <DayPicker
         id="cash-as-of-date"
         bind:value={asOfDate}
-        label={m.cash_position_as_of_label()}
+        label={dateLabel}
         showLabel={false}
         required
         max={localDateIso()}
@@ -131,7 +152,7 @@
     </div>
     <div class="space-y-1">
       <label class="text-xs font-medium text-slate-300" for="cash-opening-amount">
-        {m.net_worth_cash_position_label()}
+        {amountLabel}
       </label>
       <input
         id="cash-opening-amount"
@@ -147,7 +168,21 @@
       {#if !openingValid}<p id="cash-amount-error" class="text-xs text-rose-300">
           {m.error_invalid_amount()}
         </p>{/if}
-      <p class="text-xs text-slate-500">{m.net_worth_cash_position_hint()}</p>
+      {#if showLegacyMeaning}
+        <p class="text-xs text-slate-500">{m.cash_position_legacy_hint()}</p>
+      {:else}
+        <p class="text-xs text-slate-500">{m.net_worth_cash_position_hint()}</p>
+        <p class="text-xs text-slate-500">{m.cash_position_end_of_day_note()}</p>
+      {/if}
+      {#if legacyStart}
+        <label
+          class="flex min-h-11 items-center gap-2 text-xs text-slate-300"
+          for="cash-end-of-day"
+        >
+          <input id="cash-end-of-day" type="checkbox" bind:checked={treatAsEndOfDay} />
+          {m.cash_position_end_of_day_option()}
+        </label>
+      {/if}
       {#if hasAnchor && liveReady && !error}
         <p class="text-xs text-slate-400">
           {m.net_worth_cash_current_hint({ amount: formatCurrency(live) })}

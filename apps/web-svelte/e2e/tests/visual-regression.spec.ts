@@ -201,8 +201,8 @@ test.describe("desktop visual regression", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/transactions?group=own");
     await page.getByRole("button", { name: "Więcej akcji" }).click();
-    await page.getByRole("menuitem", { name: "Zmień saldo początkowe" }).click();
-    await expect(page.getByRole("dialog", { name: "Saldo z transakcji" })).toBeVisible();
+    await page.getByRole("menuitem", { name: "Potwierdź saldo" }).click();
+    await expect(page.getByRole("dialog", { name: "Potwierdź saldo" })).toBeVisible();
     await expect(page).toHaveScreenshot("cash-sheet-mobile.png");
   });
   test("transaction error", async ({ page }) => {

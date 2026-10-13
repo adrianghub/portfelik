@@ -20,7 +20,11 @@ const COMPARABLE_SPEND_FLOOR = 150;
 export interface CockpitChartPoint {
   date: string;
   balance: number;
-  kind: "history" | "forecast";
+  /**
+   * `history` is booked after the anchor. `reconstructed` is calculated
+   * backward and is not a bank confirmation. `confirmed` is the anchor instant.
+   */
+  kind: "history" | "forecast" | "reconstructed" | "confirmed";
 }
 
 export interface CockpitSpendComparison {

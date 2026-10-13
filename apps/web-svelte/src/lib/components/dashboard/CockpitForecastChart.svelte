@@ -19,12 +19,21 @@
     rangeStart,
     rangeEnd,
     reveal = false,
+    historyLabel = m.cockpit_chart_history(),
+    confirmOnScrub = false,
+    legend = "always",
   }: {
     points: CockpitChartPoint[];
     todayRatio: number | null;
     rangeStart: string;
     rangeEnd: string;
     reveal?: boolean;
+    /** Kokpit keeps „Historia”. Analizy name the same stroke „Historia salda”. */
+    historyLabel?: string;
+    /** End-of-day anchors name the saved day while it is touched. */
+    confirmOnScrub?: boolean;
+    /** Analizy hide the history key until a forecast stroke needs the contrast. */
+    legend?: "always" | "forecast-only";
   } = $props();
 
   const width = 640;
@@ -52,7 +61,7 @@
     const pad = (max - min) * 0.14;
     return { min: min - pad, max: max + pad };
   });
-  const historyPoints = $derived(points.filter((point) => point.kind === "history"));
+  const historySeries = $derived(points.filter((point) => point.kind !== "forecast"));
   const forecastPoints = $derived(points.filter((point) => point.kind === "forecast"));
 
   function xOf(date: string): number {
@@ -74,12 +83,12 @@
       .join(" ");
   }
 
-  const historyPath = $derived(historyPoints.length > 1 ? linePath(historyPoints) : "");
+  const historyPath = $derived(historySeries.length > 1 ? linePath(historySeries) : "");
   const forecastSeries = $derived(
     forecastPoints.length === 0
       ? []
-      : historyPoints.length > 0
-        ? [historyPoints[historyPoints.length - 1], ...forecastPoints]
+      : historySeries.length > 0
+        ? [historySeries[historySeries.length - 1], ...forecastPoints]
         : forecastPoints
   );
   const forecastPath = $derived(forecastSeries.length > 1 ? linePath(forecastSeries) : "");
@@ -91,7 +100,7 @@
   );
   const todayPoint = $derived.by(() => {
     if (todayRatio == null) return null;
-    return historyPoints[historyPoints.length - 1] ?? null;
+    return historySeries[historySeries.length - 1] ?? null;
   });
   const todayVisible = $derived(
     todayPoint != null && (drawn || todayRatio == null || todayRatio <= 0)
@@ -165,6 +174,19 @@
     pointerOrigin = { x: 0, y: 0, active: false };
     scrub = null;
   }
+
+  function scrubLabel(point: CockpitChartPoint): string {
+    if (point.kind === "forecast") return m.cockpit_scrub_forecast();
+    if (confirmOnScrub && point.kind === "confirmed") {
+      return m.analysis_scrub_confirmed({ date: axisDayLabel(point.date) });
+    }
+    return axisDayLabel(point.date);
+  }
+
+  const showLegend = $derived(
+    (legend === "always" || forecastPoints.length > 0) &&
+      (historySeries.length > 0 || forecastPoints.length > 0)
+  );
 </script>
 
 <div class="relative">
@@ -278,7 +300,7 @@
           style="left: {dateRatio(scrub.point.date, rangeStart, rangeEnd) * 100}%; top: 8px"
           data-testid="cockpit-scrub"
         >
-          <p>{scrub.forecast ? m.cockpit_scrub_forecast() : axisDayLabel(scrub.point.date)}</p>
+          <p>{scrubLabel(scrub.point)}</p>
           <p class="font-medium tabular-nums">{formatCurrency(scrub.point.balance)}</p>
         </div>
       {/if}
@@ -299,13 +321,13 @@
       <span class="absolute right-0">{axisDayLabel(rangeEnd)}</span>
     {/if}
   </div>
-  {#if historyPoints.length > 0 || forecastPoints.length > 0}
+  {#if showLegend}
     <div class="mt-1 ml-14 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
-      {#if historyPoints.length > 0}
+      {#if historySeries.length > 0}
         <span class="inline-flex items-center gap-1.5">
           <span class="h-0.5 w-4 rounded-full" style="background: var(--color-chart-primary)"
           ></span>
-          {m.cockpit_chart_history()}
+          {historyLabel}
         </span>
       {/if}
       {#if forecastPoints.length > 0}

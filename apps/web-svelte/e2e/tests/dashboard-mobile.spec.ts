@@ -267,7 +267,7 @@ test.describe("dashboard mobile layout", () => {
       "Saldo na dziś: Brak danych"
     );
     await expect(cash.getByRole("link", { name: /Zobacz transakcje/ })).toHaveCount(0);
-    const action = cash.getByRole("link", { name: "Ustaw saldo początkowe", exact: true });
+    const action = cash.getByRole("link", { name: "Potwierdź saldo", exact: true });
     await expect(action).toBeVisible();
     await expect(action).toHaveAttribute("href", "/transactions?group=own");
     await expect(cash).not.toContainText("aby zobaczyć saldo i prognozę");
@@ -275,7 +275,7 @@ test.describe("dashboard mobile layout", () => {
     await help.click();
     await expect(help).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByRole("dialog")).toContainText(
-      "Saldo i prognoza pojawią się po ustawieniu salda początkowego."
+      "Historia salda i prognoza pojawią się po potwierdzeniu salda."
     );
   });
 
@@ -335,7 +335,7 @@ test.describe("dashboard mobile layout", () => {
     await help.click();
     await expect(help).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByRole("dialog")).toContainText(
-      "Wydatki obejmują okres od 15.06, od dnia salda początkowego."
+      "Wydatki obejmują okres od 15.06. Wcześniejsza część miesiąca jest już w zapisanym saldzie."
     );
   });
 
