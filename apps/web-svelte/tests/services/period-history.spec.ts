@@ -12,13 +12,13 @@ function tx(p: {
   date: string;
   amount: number;
   type?: "expense" | "income";
-  category_name?: string;
+  category_name?: string | null;
 }): TransactionWithCategory {
   return {
     type: p.type ?? "expense",
     date: p.date,
     amount: p.amount,
-    category_name: p.category_name ?? "Inne",
+    category_name: p.category_name === undefined ? "Inne" : p.category_name,
   } as unknown as TransactionWithCategory;
 }
 
@@ -70,9 +70,7 @@ describe("buildDayWindows", () => {
     // buildPeriodWindows("week") anchors at ref with end = ref+1d
     const legacy = buildPeriodWindows("week", 4, new Date(Date.UTC(2026, 5, 15)));
     const generalized = buildDayWindows(7, 4, "2026-06-16");
-    expect(generalized.map((x) => [x.start, x.end])).toEqual(
-      legacy.map((x) => [x.start, x.end])
-    );
+    expect(generalized.map((x) => [x.start, x.end])).toEqual(legacy.map((x) => [x.start, x.end]));
   });
 
   it("labels windows by their start day", () => {
@@ -151,6 +149,19 @@ describe("stackCategoryHistory", () => {
     expect(rows[0]).toEqual({ label: "Maj", Mieszkanie: 300, Jedzenie: 100, Inne: 30 });
     // June row: no Transport/Hobby => Inne 0
     expect(rows[1]).toEqual({ label: "Cze", Mieszkanie: 250, Jedzenie: 50, Inne: 0 });
+  });
+
+  it("draws spend that has no category", () => {
+    const bare = bucketPeriodHistory(
+      [
+        tx({ date: "2026-06-02", amount: 40, category_name: "" }),
+        tx({ date: "2026-06-03", amount: 10, category_name: null }),
+      ],
+      windows
+    );
+    const { categories, rows } = stackCategoryHistory(bare, 5);
+    expect(categories).toContain("Bez kategorii");
+    expect(rows[1]?.["Bez kategorii"]).toBe(50);
   });
 
   it("omits the Inne bucket when everything fits in top-N", () => {

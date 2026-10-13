@@ -32,7 +32,7 @@ test.describe("dashboard mobile layout", () => {
     expect(overflowAtTop).toBe(false);
 
     await page.getByRole("button", { name: "Zobacz więcej" }).click();
-    await page.getByRole("heading", { name: /^kategorie$/i }).scrollIntoViewIfNeeded();
+    await page.getByText("Nadchodzące i zaległe").scrollIntoViewIfNeeded();
     const overflowAtStatus = await page.evaluate(() => {
       const doc = document.documentElement;
       return doc.scrollWidth > doc.clientWidth + 1;
@@ -239,21 +239,15 @@ test.describe("dashboard mobile layout", () => {
     await expect(cash.getByRole("button", { name: "Następny miesiąc" })).toHaveCount(0);
     await expect(cash.getByText("Wyliczenie na dziś i 90 dni")).toHaveCount(0);
     await expect(cash).not.toContainText("Dostępne teraz");
-    await expect(page.locator("#dashboard-spending")).toBeVisible();
-    await expect(page.getByTestId("cockpit-category-period").first()).toBeVisible();
-    await expect(page.getByTestId("cockpit-history")).toBeVisible();
-    await expect(page.getByTestId("cockpit-history-span")).toHaveText("Ostatnie miesiące");
+    await expect(page.locator("#dashboard-spending")).toHaveCount(0);
+    await expect(page.getByTestId("cockpit-history")).toHaveCount(0);
+    await expect(page.getByRole("tab", { name: /ostatnie 7 dni/i })).toHaveCount(0);
     const countersHelp = cash.getByRole("button", { name: "Zakres liczników" });
     await countersHelp.hover();
     await expect(countersHelp).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByRole("tooltip")).toContainText(/nie są saldem z banku/);
     await page.mouse.move(0, 0);
-
-    await page.getByRole("tab", { name: /ostatnie 7 dni/i }).click();
-    await expect(page).toHaveURL(/period=week/);
     await expect(cash.getByTestId("cockpit-payments")).toContainText(/200,00/);
-    await expect(page.getByTestId("cockpit-category-period").first()).toHaveText("Ostatnie 7 dni");
-    await expect(page.getByTestId("cockpit-history-span")).toHaveText("Ostatnie tygodnie");
   });
 
   test("missing opening balance shows a dash and one short action", async ({ page }) => {
@@ -537,7 +531,7 @@ test.describe("dashboard mobile layout", () => {
   });
 
   test("spending accordion expands on mobile", async ({ page }) => {
-    await page.goto("/dashboard");
+    await page.goto("/analysis?span=month");
     const toggle = page.getByRole("button", { name: /kategorie/i });
     await expect(toggle).toBeVisible({ timeout: 10000 });
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
@@ -549,44 +543,26 @@ test.describe("dashboard mobile layout", () => {
     await expect(page.getByText(/największe wydatki/i)).toBeVisible();
   });
 
-  test("spend history is visible without extra steps", async ({ page }) => {
-    await page.goto("/dashboard");
+  test("spend history is visible in budget analysis", async ({ page }) => {
+    await page.goto("/analysis?span=month");
+    await expect(page.getByRole("heading", { name: "Analiza budżetu" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Historia", exact: true })).toBeVisible();
     await expect(page.getByTestId("cockpit-history-span")).toHaveText("Ostatnie miesiące");
   });
 
-  test("period chips and custom range drive the dashboard window", async ({ page }) => {
-    await page.goto("/dashboard");
-
-    // Calendar month is the canonical default and is omitted from the URL.
+  test("analysis spans drive categories and history", async ({ page }) => {
+    await page.goto("/analysis?span=month");
     await expect(page.getByRole("tab", { name: /^ten miesiąc$/i })).toHaveAttribute(
       "aria-selected",
       "true"
     );
-    await expect(page).not.toHaveURL(/period=/);
+    await expect(page.getByTestId("cockpit-category-period").first()).toBeVisible();
+    await expect(page.getByTestId("cockpit-history-span")).toHaveText("Ostatnie miesiące");
 
-    // Week is a non-default view and remains explicit in the URL.
-    // Categories, the chart, and the counters follow it.
-    await page.getByRole("tab", { name: /ostatnie 7 dni/i }).click();
-    await expect(page).toHaveURL(/period=week/);
+    await page.getByRole("tab", { name: "7 dni" }).click();
+    await expect(page).toHaveURL(/span=week/);
     await expect(page.getByTestId("cockpit-category-period").first()).toHaveText("Ostatnie 7 dni");
     await expect(page.getByTestId("cockpit-history-span")).toHaveText("Ostatnie tygodnie");
-
-    // Picking a range via the date picker switches to custom (startDate/endDate,
-    // period param dropped) — presets apply immediately.
-    await page.getByRole("button", { name: /zakres dat/i }).click();
-    await page.getByRole("button", { name: /^ten miesiąc$/i }).click();
-    await expect(page).toHaveURL(/startDate=\d{4}-\d{2}-\d{2}/);
-    await expect(page).not.toHaveURL(/period=/);
-
-    // Clearing the range returns to the default calendar-month view.
-    await page.getByRole("button", { name: /wróć do bieżącego miesiąca/i }).click();
-    await expect(page).not.toHaveURL(/startDate=/);
-    await expect(page).not.toHaveURL(/period=/);
-    await expect(page.getByRole("tab", { name: /^ten miesiąc$/i })).toHaveAttribute(
-      "aria-selected",
-      "true"
-    );
   });
 
   test("transaction links carry the exact inclusive month and group scope", async ({ page }) => {

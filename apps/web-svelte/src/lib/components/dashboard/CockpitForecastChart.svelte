@@ -28,11 +28,11 @@
     rangeStart: string;
     rangeEnd: string;
     reveal?: boolean;
-    /** Kokpit keeps „Historia”. Analizy name the same stroke „Historia salda”. */
+    /** Kokpit keeps „Historia”. Analiza budżetu names the same stroke „Historia salda”. */
     historyLabel?: string;
     /** End-of-day anchors name the saved day while it is touched. */
     confirmOnScrub?: boolean;
-    /** Analizy hide the history key until a forecast stroke needs the contrast. */
+    /** Analiza budżetu hides the history key until a forecast stroke needs the contrast. */
     legend?: "always" | "forecast-only";
   } = $props();
 

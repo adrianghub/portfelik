@@ -82,7 +82,7 @@ This is the product contract:
 > intent. Settlement connects reality to intent. Kokpit shows financial
 > condition.
 
-Analizy answers what changed. It is a screen opened from Kokpit, not a bottom-nav
+Analiza budżetu answers what changed. It is a screen opened from Kokpit, not a bottom-nav
 item. Balance history starts on the opening-balance date and does not invent a
 line before it. Income, expenses, and categories can still use earlier
 transactions. A household scope does not draw a private balance.

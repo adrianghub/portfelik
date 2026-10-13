@@ -180,23 +180,30 @@ test.describe("cockpit forecast chart", () => {
     }
   });
 
-  test("keeps the monthly forecast when the year filter is selected", async ({ page }) => {
+  test("keeps the monthly forecast and opens budget analysis", async ({ page }) => {
     const card = await openCashCard(page);
-    await page.getByRole("tab", { name: "Ten rok" }).click();
-    await expect(page).toHaveURL(/period=year/);
+    await expect(page.getByRole("tab", { name: "Ten rok" })).toHaveCount(0);
     await expect(card.getByText("Przewidywane saldo na koniec miesiąca")).toBeVisible();
     await expect(card.getByTestId("cockpit-forecast")).toContainText(/10\D?120,00/);
     await expect(card.getByText("1 sty")).toHaveCount(0);
     await expect(card.getByText("31 gru")).toHaveCount(0);
     await expect(card.getByText("1 paź", { exact: true })).toBeVisible();
     await expect(card.getByTestId("cockpit-chart-scale")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Kategorie", exact: true })).toHaveCount(0);
+    await expect(page.getByTestId("cockpit-history")).toHaveCount(0);
     await card.getByTestId("cockpit-see-analysis").click();
     await expect(page).toHaveURL(/\/analysis/);
-    await expect(page.getByRole("heading", { name: "Analizy" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Analiza budżetu" })).toBeVisible();
     await expect(page.getByTestId("analysis-balance")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Kategorie", exact: true })).toBeVisible();
+    await expect(page.getByTestId("cockpit-history")).toBeVisible();
     await expect(page.getByText("1 sty", { exact: true })).toHaveCount(0);
     if (existsSync(ARTIFACTS)) {
-      await page.screenshot({ path: `${ARTIFACTS}/analysis-overview.png`, fullPage: true });
+      await page.screenshot({ path: `${ARTIFACTS}/analysis-overview.png` });
+      const history = page.getByTestId("cockpit-history");
+      await history.scrollIntoViewIfNeeded();
+      await history.screenshot({ path: `${ARTIFACTS}/analysis-history.png` });
+      await page.screenshot({ path: `${ARTIFACTS}/analysis-history-viewport.png` });
     }
   });
 

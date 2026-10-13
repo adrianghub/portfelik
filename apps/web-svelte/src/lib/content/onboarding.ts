@@ -30,7 +30,7 @@ export const ONBOARDING_CHAPTER_ORDER: TourChapterId[] = [
 export const ONBOARDING_SCENES: OnboardingSceneManifest[] = [
   { id: "1.1", chapter: "dashboard", route: "/dashboard", target: "tour-balance-ring" },
   { id: "1.2", chapter: "dashboard", route: "/dashboard", target: "tour-dashboard-actions" },
-  { id: "1.3", chapter: "dashboard", route: "/dashboard", target: "tour-spending-insight" },
+  { id: "1.3", chapter: "dashboard", route: "/analysis", target: "tour-spending-insight" },
   { id: "2.1", chapter: "transactions", route: "/transactions", target: "tour-transaction-table" },
   { id: "2.3", chapter: "transactions", route: "/transactions", target: "tour-transaction-import" },
   { id: "3.1", chapter: "plans", route: "/plans", target: "tour-plans-list" },
