@@ -21,8 +21,9 @@
     orientational = 0,
     monthForecast,
     chart,
-    rangeStart,
-    rangeEnd,
+    horizonLabel,
+    anchorDate = null,
+    analysisHref,
     projected = true,
     demo = false,
     revealCount = null,
@@ -41,8 +42,9 @@
     orientational?: number;
     monthForecast: number | null;
     chart: ChartModel;
-    rangeStart: string;
-    rangeEnd: string;
+    horizonLabel: string;
+    anchorDate?: string | null;
+    analysisHref: string;
     projected?: boolean;
     demo?: boolean;
     revealCount?: number | null;
@@ -138,9 +140,21 @@
     aria-label={m.cash_position_label()}
     data-testid="dashboard-cash-position"
   >
-    <p class="text-sm font-medium text-slate-300">
-      {demo ? m.cockpit_sample_data() : scopeLabel}
-    </p>
+    <div class="flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <p class="text-sm font-medium text-slate-300">
+          {demo ? m.cockpit_sample_data() : scopeLabel}
+        </p>
+        <p class="mt-0.5 text-xs tracking-wide text-slate-400 uppercase">{horizonLabel}</p>
+      </div>
+      <a
+        href={analysisHref}
+        class="text-accent focus-visible:ring-accent inline-flex min-h-11 shrink-0 items-center text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"
+        data-testid="cockpit-see-analysis"
+      >
+        {m.cockpit_see_analysis()}
+      </a>
+    </div>
     {#if revealCount != null}
       <p class="mt-2 text-sm text-slate-400" data-testid="cockpit-analyzed">
         {analyzed(revealCount)}
@@ -166,22 +180,35 @@
         <p
           class="text-hero mt-1 font-semibold tracking-tight break-words {monthForecast != null &&
           monthForecast < 0
-            ? 'text-rose-400'
+            ? 'text-negative'
             : 'text-slate-50'}"
           data-testid="cockpit-forecast"
         >
           {shown(monthForecast)}
         </p>
-        {#if chart.points && chart.points.length > 1}
+        {#if chart.points && chart.points.length > 1 && chart.domainStart && chart.domainEnd}
           <div class="mt-1">
             <CockpitForecastChart
               points={chart.points}
               todayRatio={chart.todayRatio}
-              {rangeStart}
-              {rangeEnd}
+              rangeStart={chart.domainStart}
+              rangeEnd={chart.domainEnd}
               reveal={revealCount != null}
             />
           </div>
+          {#if chart.coverage === "clipped" && anchorDate}
+            <p class="mt-1 text-xs text-slate-400" data-testid="cockpit-chart-from-anchor">
+              {m.cockpit_chart_from_anchor({ date: shortDayMonth(anchorDate) })}
+            </p>
+          {/if}
+        {:else if showPrivateDetails && chart.coverage === "missing"}
+          <p class="mt-3 text-sm text-slate-300" data-testid="cockpit-forecast-needs-balance">
+            {m.cockpit_forecast_needs_balance()}
+          </p>
+        {:else if showPrivateDetails && chart.coverage === "before" && anchorDate}
+          <p class="mt-3 text-sm text-slate-300" data-testid="cockpit-chart-before-anchor">
+            {m.cockpit_chart_before_anchor({ date: shortDayMonth(anchorDate) })}
+          </p>
         {/if}
       </div>
 
@@ -204,7 +231,7 @@
           <p
             class="mt-1 text-xl font-semibold tracking-tight break-words tabular-nums md:text-2xl {balance !=
               null && balance < 0
-              ? 'text-rose-400'
+              ? 'text-negative'
               : ''}"
           >
             {shown(balance)}
@@ -225,8 +252,8 @@
           {#if chart.comparison}
             <p
               class="mt-1.5 text-sm font-medium break-words {chart.comparison.percent < 0
-                ? 'text-emerald-400'
-                : 'text-rose-400'}"
+                ? 'text-positive'
+                : 'text-negative'}"
             >
               {chart.comparison.percent < 0
                 ? m.cockpit_vs_less({
@@ -246,7 +273,7 @@
     {#if showPrivateDetails && hasAnchor}
       <a
         href={transactionsHref}
-        class="focus-visible:ring-accent mt-3 flex w-full items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+        class="focus-visible:ring-accent mt-4 flex min-h-11 w-full items-center gap-2.5 border-t border-white/10 pt-3 text-sm text-slate-200 hover:text-slate-50 focus-visible:ring-2 focus-visible:outline-none"
       >
         <Wallet size={16} class="shrink-0 text-slate-400" aria-hidden="true" />
         <span class="min-w-0 flex-1">{m.cash_position_transactions_link()}</span>

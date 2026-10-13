@@ -30,6 +30,9 @@
      (income / success / paid) intentionally keep fixed `emerald-*` and do NOT
      track the accent. */
   --color-accent: oklch(0.78 0.18 158);
+  /* Improvement and deterioration stay readable in every accent, including amber. */
+  --color-positive: oklch(0.78 0.16 155);
+  --color-negative: oklch(0.7 0.18 18);
 
   /* Typography scale */
   --text-display: 3rem; /* 48px - hero balance */
@@ -60,6 +63,9 @@
     color-scheme: dark;
     /* Status bar / notch. Capacitor SystemBars injects --safe-area-inset-* on
        Android WebView; env() is the CSS fallback (iOS / modern WebView). */
+    --color-chart-primary: var(--color-accent);
+    --color-chart-fill: color-mix(in oklch, var(--color-accent) 42%, transparent);
+    --color-chart-forecast: color-mix(in oklch, var(--color-accent) 55%, white);
     --safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
     --safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
     --app-header-offset: calc(3.5rem + var(--safe-top));

@@ -1,7 +1,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import {
+    axisAmountLabel,
     axisDayLabel,
+    chartValueTicks,
     dateRatio,
     scrubAtRatio,
     type CockpitChartPoint,
@@ -39,6 +41,7 @@
   let pointerOrigin = { x: 0, y: 0, active: false };
 
   const values = $derived(points.map((point) => point.balance));
+  const ticks = $derived(chartValueTicks(values));
   const scale = $derived.by(() => {
     let min = Math.min(...values);
     let max = Math.max(...values);
@@ -49,6 +52,8 @@
     const pad = (max - min) * 0.14;
     return { min: min - pad, max: max + pad };
   });
+  const historyPoints = $derived(points.filter((point) => point.kind === "history"));
+  const forecastPoints = $derived(points.filter((point) => point.kind === "forecast"));
 
   function xOf(date: string): number {
     return dateRatio(date, rangeStart, rangeEnd) * width;
@@ -69,6 +74,15 @@
       .join(" ");
   }
 
+  const historyPath = $derived(historyPoints.length > 1 ? linePath(historyPoints) : "");
+  const forecastSeries = $derived(
+    forecastPoints.length === 0
+      ? []
+      : historyPoints.length > 0
+        ? [historyPoints[historyPoints.length - 1], ...forecastPoints]
+        : forecastPoints
+  );
+  const forecastPath = $derived(forecastSeries.length > 1 ? linePath(forecastSeries) : "");
   const fullPath = $derived(points.length > 1 ? linePath(points) : "");
   const fillPath = $derived(
     points.length > 1
@@ -77,15 +91,14 @@
   );
   const todayPoint = $derived.by(() => {
     if (todayRatio == null) return null;
-    const history = points.filter((point) => point.kind === "history");
-    return history[history.length - 1] ?? null;
+    return historyPoints[historyPoints.length - 1] ?? null;
   });
   const todayVisible = $derived(
     todayPoint != null && (drawn || todayRatio == null || todayRatio <= 0)
   );
   const todayAtStart = $derived(todayRatio != null && todayRatio <= 0.14);
   const todayAtEnd = $derived(todayRatio != null && todayRatio >= 0.86);
-  const todayShift = $derived(todayAtStart ? "0%" : todayAtEnd ? "-100%" : "-50%");
+  const todayShift = $derived(todayAtEnd ? "-100%" : "-50%");
 
   onMount(() => {
     const onVisibility = () => {
@@ -102,6 +115,10 @@
     }
     drawn = false;
     const length = line.getTotalLength();
+    if (length === 0) {
+      drawn = true;
+      return;
+    }
     line.style.strokeDasharray = `${length}`;
     const animation = line.animate([{ strokeDashoffset: length }, { strokeDashoffset: 0 }], {
       duration: 1000,
@@ -120,6 +137,7 @@
     return () => {
       animation.cancel();
       cancelAnimationFrame(frame);
+      if (line) line.style.strokeDasharray = "";
     };
   });
 
@@ -151,83 +169,122 @@
 
 <div class="relative">
   <div class="relative h-[170px]">
-    <svg
-      viewBox="0 0 {width} {height}"
-      class="block h-full w-full touch-pan-y"
-      preserveAspectRatio="none"
-      role="img"
-      aria-label={m.cockpit_forecast_hero()}
-      data-testid="cockpit-chart"
-      onpointerdown={onPointerDown}
-      onpointermove={onPointerMove}
-      onpointerup={onPointerUp}
-      onpointercancel={onPointerUp}
+    <div
+      class="pointer-events-none absolute inset-y-0 left-0 w-14"
+      data-testid="cockpit-chart-scale"
     >
-      <defs>
-        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#145c4a" stop-opacity="0.9" />
-          <stop offset="100%" stop-color="#050505" stop-opacity="0" />
-        </linearGradient>
-      </defs>
-      {#if fillPath}
-        <path d={fillPath} fill="url(#{gradientId})" opacity={drawn || !reveal ? 1 : 0.2} />
-      {/if}
-      {#if fullPath}
-        <path
-          bind:this={line}
-          d={fullPath}
-          fill="none"
-          stroke="#5ee9c5"
-          stroke-width="3"
-          stroke-linejoin="round"
-          stroke-linecap="round"
-          vector-effect="non-scaling-stroke"
-        />
-      {/if}
-      {#if todayRatio != null}
-        <line
-          x1={todayRatio * width}
-          y1="8"
-          x2={todayRatio * width}
-          y2={height - 8}
-          stroke="#8b919a"
-          stroke-width="1.5"
-          stroke-dasharray="3 5"
-          vector-effect="non-scaling-stroke"
-          data-testid="cockpit-today"
-        />
-      {/if}
-    </svg>
-    {#if todayVisible && todayPoint}
-      <span
-        class="today-dot"
-        style="left: {(xOf(todayPoint.date) / width) * 100}%; top: {(yOf(todayPoint.balance) /
-          height) *
-          100}%"
+      {#each ticks as tick (tick)}
+        <span
+          class="absolute right-1 -translate-y-1/2 text-[11px] leading-none text-slate-400 tabular-nums"
+          style="top: {(yOf(tick) / height) * 100}%"
+        >
+          {axisAmountLabel(tick)}
+        </span>
+      {/each}
+    </div>
+    <div class="absolute inset-y-0 right-0 left-14">
+      <svg
+        viewBox="0 0 {width} {height}"
+        class="block h-full w-full touch-pan-y"
+        preserveAspectRatio="none"
+        role="img"
+        aria-label={m.cockpit_forecast_hero()}
+        data-testid="cockpit-chart"
+        onpointerdown={onPointerDown}
+        onpointermove={onPointerMove}
+        onpointerup={onPointerUp}
+        onpointercancel={onPointerUp}
       >
-        <span class="today-ring" class:quiet={!pageVisible || reduced || scrub != null}></span>
-      </span>
-    {/if}
-    {#if scrub}
-      <span
-        class="scrub-dot"
-        style="left: {(xOf(scrub.point.date) / width) * 100}%; top: {(yOf(scrub.point.balance) /
-          height) *
-          100}%"
-      ></span>
-    {/if}
-    {#if scrub}
-      <div
-        class="pointer-events-none absolute z-10 w-max max-w-40 -translate-x-1/2 rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-200 shadow-xl"
-        style="left: {dateRatio(scrub.point.date, rangeStart, rangeEnd) * 100}%; top: 8px"
-        data-testid="cockpit-scrub"
-      >
-        <p>{scrub.forecast ? m.cockpit_scrub_forecast() : axisDayLabel(scrub.point.date)}</p>
-        <p class="font-medium tabular-nums">{formatCurrency(scrub.point.balance)}</p>
-      </div>
-    {/if}
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="var(--color-chart-fill)" />
+            <stop offset="100%" stop-color="var(--color-chart-fill)" stop-opacity="0" />
+          </linearGradient>
+        </defs>
+        {#each ticks as tick (tick)}
+          <line
+            x1="0"
+            y1={yOf(tick)}
+            x2={width}
+            y2={yOf(tick)}
+            stroke="white"
+            stroke-opacity="0.08"
+            stroke-width="1"
+            vector-effect="non-scaling-stroke"
+          />
+        {/each}
+        {#if fillPath}
+          <path d={fillPath} fill="url(#{gradientId})" opacity={drawn || !reveal ? 1 : 0.2} />
+        {/if}
+        {#if historyPath}
+          <path
+            bind:this={line}
+            d={historyPath}
+            fill="none"
+            stroke="var(--color-chart-primary)"
+            stroke-width="3"
+            stroke-linejoin="round"
+            stroke-linecap="round"
+            vector-effect="non-scaling-stroke"
+          />
+        {/if}
+        {#if forecastPath}
+          <path
+            d={forecastPath}
+            fill="none"
+            stroke="var(--color-chart-forecast)"
+            stroke-width="3"
+            stroke-linejoin="round"
+            stroke-linecap="round"
+            stroke-dasharray="6 5"
+            vector-effect="non-scaling-stroke"
+          />
+        {/if}
+        {#if todayRatio != null}
+          <line
+            x1={todayRatio * width}
+            y1="8"
+            x2={todayRatio * width}
+            y2={height - 8}
+            stroke="#8b919a"
+            stroke-width="1.5"
+            stroke-dasharray="3 5"
+            vector-effect="non-scaling-stroke"
+            data-testid="cockpit-today"
+          />
+        {/if}
+      </svg>
+      {#if todayVisible && todayPoint}
+        <span
+          class="today-dot"
+          style="left: {(xOf(todayPoint.date) / width) * 100}%; top: {(yOf(todayPoint.balance) /
+            height) *
+            100}%"
+        >
+          <span class="today-ring" class:quiet={!pageVisible || reduced || scrub != null}></span>
+        </span>
+      {/if}
+      {#if scrub}
+        <span
+          class="scrub-dot"
+          style="left: {(xOf(scrub.point.date) / width) * 100}%; top: {(yOf(scrub.point.balance) /
+            height) *
+            100}%"
+        ></span>
+      {/if}
+      {#if scrub}
+        <div
+          class="pointer-events-none absolute z-10 w-max max-w-40 -translate-x-1/2 rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-200 shadow-xl"
+          style="left: {dateRatio(scrub.point.date, rangeStart, rangeEnd) * 100}%; top: 8px"
+          data-testid="cockpit-scrub"
+        >
+          <p>{scrub.forecast ? m.cockpit_scrub_forecast() : axisDayLabel(scrub.point.date)}</p>
+          <p class="font-medium tabular-nums">{formatCurrency(scrub.point.balance)}</p>
+        </div>
+      {/if}
+    </div>
   </div>
-  <div class="relative mt-1 h-5 text-sm text-slate-400">
+  <div class="relative mt-1 ml-14 h-5 text-sm text-slate-400">
     {#if !todayAtStart}
       <span class="absolute left-0">{axisDayLabel(rangeStart)}</span>
     {/if}
@@ -242,6 +299,26 @@
       <span class="absolute right-0">{axisDayLabel(rangeEnd)}</span>
     {/if}
   </div>
+  {#if historyPoints.length > 0 || forecastPoints.length > 0}
+    <div class="mt-1 ml-14 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
+      {#if historyPoints.length > 0}
+        <span class="inline-flex items-center gap-1.5">
+          <span class="h-0.5 w-4 rounded-full" style="background: var(--color-chart-primary)"
+          ></span>
+          {m.cockpit_chart_history()}
+        </span>
+      {/if}
+      {#if forecastPoints.length > 0}
+        <span class="inline-flex items-center gap-1.5">
+          <span
+            class="h-0.5 w-4 rounded-full opacity-80"
+            style="background: var(--color-chart-forecast)"
+          ></span>
+          {m.cockpit_chart_forecast()}
+        </span>
+      {/if}
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -256,7 +333,7 @@
     pointer-events: none;
   }
   .today-dot {
-    background: #5ee9c5;
+    background: var(--color-chart-primary);
   }
   .scrub-dot {
     z-index: 2;
@@ -268,7 +345,7 @@
     left: 50%;
     width: 10px;
     height: 10px;
-    border: 1.5px solid #5ee9c5;
+    border: 1.5px solid var(--color-chart-primary);
     border-radius: 9999px;
     transform: translate(-50%, -50%);
     animation: cockpit-today-pulse 3s ease-out infinite;

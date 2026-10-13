@@ -108,6 +108,24 @@ test.describe("cockpit forecast chart", () => {
       await page.screenshot({ path: `${ARTIFACTS}/cockpit-transactions-row-390.png` });
     }
 
+    const forecastHelp = card.getByRole("button", { name: "Objaśnienie prognozy" });
+    await forecastHelp.click();
+    const sheet = page.getByRole("dialog");
+    await expect(sheet).toBeVisible();
+    await expect(sheet).toContainText("prognoz");
+    const sheetBox = await sheet.boundingBox();
+    const phone = page.viewportSize();
+    expect(sheetBox && phone).toBeTruthy();
+    expect(sheetBox!.x).toBeGreaterThanOrEqual(0);
+    expect(sheetBox!.y).toBeGreaterThanOrEqual(0);
+    expect(sheetBox!.x + sheetBox!.width).toBeLessThanOrEqual((phone?.width ?? 0) + 1);
+    expect(sheetBox!.y + sheetBox!.height).toBeLessThanOrEqual((phone?.height ?? 0) + 1);
+    if (existsSync(ARTIFACTS)) {
+      await page.screenshot({ path: `${ARTIFACTS}/cockpit-tooltip-phone.png` });
+    }
+    await page.keyboard.press("Escape");
+    await expect(sheet).toHaveCount(0);
+
     const chart = card.getByTestId("cockpit-chart");
     const box = await chart.boundingBox();
     expect(box).toBeTruthy();
@@ -133,6 +151,22 @@ test.describe("cockpit forecast chart", () => {
     await page.mouse.up();
     await expect(scrub).toHaveCount(0);
 
+    await page.setViewportSize({ width: 700, height: 800 });
+    await forecastHelp.hover();
+    const popover = page.getByRole("dialog");
+    await expect(popover).toBeVisible();
+    const popBox = await popover.boundingBox();
+    expect(popBox).toBeTruthy();
+    expect(popBox!.x).toBeGreaterThanOrEqual(0);
+    expect(popBox!.y).toBeGreaterThanOrEqual(0);
+    expect(popBox!.x + popBox!.width).toBeLessThanOrEqual(701);
+    expect(popBox!.y + popBox!.height).toBeLessThanOrEqual(801);
+    if (existsSync(ARTIFACTS)) {
+      await page.screenshot({ path: `${ARTIFACTS}/cockpit-tooltip-700.png` });
+    }
+    await page.mouse.move(0, 0);
+    await expect(popover).toHaveCount(0);
+
     await page.setViewportSize({ width: 1440, height: 900 });
     const forecast = await card.getByTestId("cockpit-forecast").boundingBox();
     const balance = await card.getByTestId("cockpit-balance").boundingBox();
@@ -143,6 +177,26 @@ test.describe("cockpit forecast chart", () => {
     await saveCard(card, "cockpit-desktop");
     if (existsSync(ARTIFACTS)) {
       await page.screenshot({ path: `${ARTIFACTS}/cockpit-desktop-viewport.png` });
+    }
+  });
+
+  test("keeps the monthly forecast when the year filter is selected", async ({ page }) => {
+    const card = await openCashCard(page);
+    await page.getByRole("tab", { name: "Ten rok" }).click();
+    await expect(page).toHaveURL(/period=year/);
+    await expect(card.getByText("Przewidywane saldo na koniec miesiąca")).toBeVisible();
+    await expect(card.getByTestId("cockpit-forecast")).toContainText(/10\D?120,00/);
+    await expect(card.getByText("1 sty")).toHaveCount(0);
+    await expect(card.getByText("31 gru")).toHaveCount(0);
+    await expect(card.getByText("1 paź", { exact: true })).toBeVisible();
+    await expect(card.getByTestId("cockpit-chart-scale")).toBeVisible();
+    await card.getByTestId("cockpit-see-analysis").click();
+    await expect(page).toHaveURL(/\/analysis/);
+    await expect(page.getByRole("heading", { name: "Analizy" })).toBeVisible();
+    await expect(page.getByTestId("analysis-balance")).toBeVisible();
+    await expect(page.getByText("1 sty", { exact: true })).toHaveCount(0);
+    if (existsSync(ARTIFACTS)) {
+      await page.screenshot({ path: `${ARTIFACTS}/analysis-overview.png`, fullPage: true });
     }
   });
 

@@ -46,7 +46,7 @@
     resolveCeleCategoryId,
   } from "$lib/services/goal-spending";
   import { fetchRecurringOccurrenceSkips } from "$lib/services/recurring-occurrences";
-  import { addLocalDays, localDateIso } from "$lib/date-local";
+  import { localDateIso } from "$lib/date-local";
   import {
     buildCockpitMonthView,
     cockpitForecastChart,
@@ -54,8 +54,10 @@
   } from "$lib/cockpit/month-view";
   import { takeCockpitImportReveal } from "$lib/cockpit/import-reveal";
   import {
+    calendarMonthBounds,
     calendarMonthFromIso,
     calendarMonthLabel,
+    cockpitMonthFetchBounds,
     inclusiveDayRangeLabel,
   } from "$lib/cockpit/month-window";
   import {
@@ -143,6 +145,11 @@
       params.set(key, value);
     }
     return `/transactions?${params.toString()}`;
+  }
+
+  function analysisHref(): string {
+    if (groupFilter === "own") return "/analysis";
+    return `/analysis?group=${encodeURIComponent(groupFilter)}`;
   }
 
   /** Drill from a spend-history bar into that exact window's transactions. */
@@ -660,16 +667,11 @@
     enabled: !!session.userId && !!cashAnchorQuery.data,
     staleTime: 60_000,
   }));
-  // The period chips and the date range are the only window. Counters,
-  // categories, and the chart all read it.
-  const gaugeRange = $derived({
-    start: bounds.start.slice(0, 10),
-    end: addLocalDays(bounds.end.slice(0, 10), -1),
-  });
-  const cockpitMonthFetch = $derived({
-    start: gaugeRange.start,
-    endExclusive: bounds.end.slice(0, 10),
-  });
+  // Period chips change reports below the cash card. The forecast keeps the
+  // current month, so "Ten rok" cannot turn it into a year-long chart.
+  const forecastMonth = $derived(calendarMonthFromIso(localDateIso()));
+  const forecastRange = $derived(calendarMonthBounds(forecastMonth));
+  const cockpitMonthFetch = $derived(cockpitMonthFetchBounds(forecastMonth));
   const cockpitMonthLedgerQuery = createQuery(() => ({
     queryKey: qk.transactions.list(
       session.userId!,
@@ -726,8 +728,8 @@
   const cockpitMonth = $derived(
     buildCockpitMonthView({
       scopeFilter: groupFilter,
-      month: calendarMonthFromIso(gaugeRange.start),
-      range: gaugeRange,
+      month: forecastMonth,
+      range: { start: forecastRange.monthStart, end: forecastRange.monthEnd },
       today: cashForecastToday,
       privateAnchor: cashAnchorQuery.data
         ? {
@@ -746,8 +748,8 @@
   const cockpitChart = $derived(
     cockpitForecastChart({
       scopeFilter: groupFilter,
-      month: calendarMonthFromIso(gaugeRange.start),
-      range: gaugeRange,
+      month: forecastMonth,
+      range: { start: forecastRange.monthStart, end: forecastRange.monthEnd },
       today: cashForecastToday,
       privateAnchor: cashAnchorQuery.data
         ? {
@@ -990,7 +992,7 @@
     { value: "year", label: m.dashboard_period_year() },
   ]);
 
-  // Same window as the three counters.
+  // Categories follow the period chips. The cash card does not.
   const categoryPeriodLabel = $derived.by(() => {
     if (period === "week") return m.dashboard_period_week();
     if (period === "year") return bounds.start.slice(0, 4);
@@ -1058,16 +1060,17 @@
       hasAnchor={!!cashAnchorQuery.data}
       showPrivateDetails={groupFilter === "own"}
       scopeLabel={cashScopeLabel}
-      transactionsHref={transactionsHref()}
+      transactionsHref={`/transactions?startDate=${forecastRange.monthStart}&endDate=${forecastRange.monthEnd}&group=${groupFilter}`}
       balance={cockpitMonth.balance}
       expensesFrom={cockpitMonth.expensesFrom}
       expensesIncomplete={cockpitMonth.expensesIncomplete}
       monthForecast={cockpitMonth.forecast}
       orientational={cockpitMonth.orientational}
       chart={cockpitChart}
-      rangeStart={gaugeRange.start}
-      rangeEnd={gaugeRange.end}
-      projected={cashForecastToday <= gaugeRange.end}
+      horizonLabel={calendarMonthLabel(forecastMonth)}
+      anchorDate={cashAnchorQuery.data?.as_of_date ?? null}
+      analysisHref={analysisHref()}
+      projected={cashForecastToday <= forecastRange.monthEnd}
       demo={demoActive}
       revealCount={importRevealCount}
       loading={cashPositionLoading}
