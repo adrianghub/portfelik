@@ -17,6 +17,7 @@
   import { formatDate } from "$lib/utils";
   import type { Notification } from "$lib/types";
   import { notificationTargetHref } from "$lib/notification-targets";
+  import { notificationBadgeLabel } from "$lib/notifications/badge";
   import {
     isActionableNotification,
     notificationSettleHref,
@@ -51,6 +52,7 @@
 
   const notifications = $derived(query.data ?? []);
   const unreadCount = $derived(notifications.filter((n) => !n.read_at).length);
+  const badgeLabel = $derived(notificationBadgeLabel(unreadCount));
 
   const markReadMutation = createMutation(() => ({
     mutationFn: (id: string) => markNotificationRead(id),
@@ -258,11 +260,11 @@
     aria-label={m.notifications_title()}
   >
     <Bell size={17} aria-hidden="true" />
-    {#if unreadCount > 0}
+    {#if badgeLabel}
       <span
-        class="bg-accent-gradient absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-slate-900"
+        class="bg-accent-gradient absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold text-slate-900"
       >
-        {unreadCount > 9 ? "9+" : unreadCount}
+        {badgeLabel}
       </span>
     {/if}
   </button>

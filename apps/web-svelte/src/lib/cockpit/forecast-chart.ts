@@ -30,9 +30,20 @@ export interface CockpitSpendComparison {
   month: number;
 }
 
+/**
+ * How much of the requested window can be drawn as a balance.
+ * `missing` has no opening balance. `before` ends before that date.
+ * `clipped` starts earlier than the opening balance, so the line begins there.
+ */
+export type CockpitChartCoverage = "missing" | "before" | "clipped" | "full";
+
 export interface CockpitForecastChart {
   points: CockpitChartPoint[] | null;
-  /** Shared by the dashed line and the „Dziś” label. Null outside the window. */
+  /** First and last drawn days. The axis uses these, not an empty range before the anchor. */
+  domainStart: string | null;
+  domainEnd: string | null;
+  coverage: CockpitChartCoverage;
+  /** Shared by the dashed line and the „Dziś” label. Null outside the drawn domain. */
   todayRatio: number | null;
   balance: number | null;
   forecast: number | null;
@@ -74,6 +85,31 @@ const SHORT_MONTHS = [
 export function axisDayLabel(iso: string): string {
   const [, month, date] = day(iso).split("-");
   return `${Number(date)} ${SHORT_MONTHS[Number(month) - 1] ?? ""}`;
+}
+
+/** Three amounts for a scale that follows the data, not zero. */
+export function chartValueTicks(values: readonly number[]): number[] {
+  if (values.length === 0) return [];
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  if (min === max) return [max];
+  return [max, (min + max) / 2, min];
+}
+
+/** Short axis amount. Thousands stay readable; grosze stay off the scale. */
+export function axisAmountLabel(value: number): string {
+  const sign = value < 0 ? "−" : "";
+  const abs = Math.abs(value);
+  if (abs >= 10_000) {
+    const thousands = abs / 1000;
+    const digits = abs >= 100_000 ? 0 : 1;
+    const body = thousands.toLocaleString("pl-PL", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: digits,
+    });
+    return `${sign}${body} tys.`;
+  }
+  return `${sign}${Math.round(abs).toLocaleString("pl-PL")}`;
 }
 
 /** 0 at the first day of the window, 1 at the last. */
@@ -179,10 +215,12 @@ export function buildCockpitForecastChart(input: CockpitMonthInput): CockpitFore
   const start = day(input.monthStart);
   const end = day(input.monthEnd);
   const today = day(input.today);
-  const todayRatio = today >= start && today <= end ? dateRatio(today, start, end) : null;
   if (!anchor) {
     return {
       points: null,
+      domainStart: null,
+      domainEnd: null,
+      coverage: "missing",
       todayRatio: null,
       balance: null,
       forecast: null,
@@ -200,7 +238,10 @@ export function buildCockpitForecastChart(input: CockpitMonthInput): CockpitFore
   if (visibleStart > end) {
     return {
       points: null,
-      todayRatio,
+      domainStart: null,
+      domainEnd: null,
+      coverage: "before",
+      todayRatio: null,
       balance: indicators.balance,
       forecast: indicators.forecast,
       spent,
@@ -247,8 +288,18 @@ export function buildCockpitForecastChart(input: CockpitMonthInput): CockpitFore
     }
   }
 
+  const drawn = points.length > 0 ? points : null;
+  const domainStart = drawn?.[0]?.date ?? null;
+  const domainEnd = drawn?.at(-1)?.date ?? null;
+  const todayRatio =
+    domainStart != null && domainEnd != null && today >= domainStart && today <= domainEnd
+      ? dateRatio(today, domainStart, domainEnd)
+      : null;
   return {
-    points: points.length > 0 ? points : null,
+    points: drawn,
+    domainStart,
+    domainEnd,
+    coverage: anchorDay > start ? "clipped" : "full",
     todayRatio,
     balance: indicators.balance,
     forecast: indicators.forecast,

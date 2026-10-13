@@ -119,6 +119,9 @@ export function cockpitForecastChart(input: CockpitMonthViewInput): CockpitForec
   if (input.monthLedger === "partial") {
     return {
       points: null,
+      domainStart: null,
+      domainEnd: null,
+      coverage: "full",
       todayRatio: null,
       balance: null,
       forecast: null,

@@ -247,6 +247,7 @@ test.describe("dashboard mobile layout", () => {
     await countersHelp.hover();
     await expect(countersHelp).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByRole("tooltip")).toContainText(/nie są saldem z banku/);
+    await page.mouse.move(0, 0);
 
     await page.getByRole("tab", { name: /ostatnie 7 dni/i }).click();
     await expect(page).toHaveURL(/period=week/);
@@ -271,9 +272,9 @@ test.describe("dashboard mobile layout", () => {
     await expect(action).toHaveAttribute("href", "/transactions?group=own");
     await expect(cash).not.toContainText("aby zobaczyć saldo i prognozę");
     const help = cash.getByRole("button", { name: "Objaśnienie", exact: true });
-    await help.hover();
+    await help.click();
     await expect(help).toHaveAttribute("aria-expanded", "true");
-    await expect(page.getByRole("tooltip")).toHaveText(
+    await expect(page.getByRole("dialog")).toContainText(
       "Saldo i prognoza pojawią się po ustawieniu salda początkowego."
     );
   });
@@ -331,9 +332,9 @@ test.describe("dashboard mobile layout", () => {
     await expect(payments).not.toContainText(/800,00/);
     await expect(payments.getByText("Od 15.06")).toHaveCount(0);
     const help = payments.getByRole("button", { name: "Zakres wydatków" });
-    await help.hover();
+    await help.click();
     await expect(help).toHaveAttribute("aria-expanded", "true");
-    await expect(page.getByRole("tooltip")).toContainText(
+    await expect(page.getByRole("dialog")).toContainText(
       "Wydatki obejmują okres od 15.06, od dnia salda początkowego."
     );
   });
@@ -370,9 +371,9 @@ test.describe("dashboard mobile layout", () => {
     await expect(payments).not.toContainText("400");
     await expect(payments).not.toContainText("0,00");
     const help = payments.getByRole("button", { name: "Kompletność wydatków" });
-    await help.hover();
+    await help.click();
     await expect(help).toHaveAttribute("aria-expanded", "true");
-    await expect(page.getByRole("tooltip")).toContainText(
+    await expect(page.getByRole("dialog")).toContainText(
       "Wydatki pokażemy, gdy obejmą transakcje, potwierdzone zobowiązania i serie cykliczne."
     );
   });
@@ -421,8 +422,8 @@ test.describe("dashboard mobile layout", () => {
     await expect(payments).not.toContainText("400");
     await expect(payments).not.toContainText("650");
     await expect(payments).not.toContainText("0,00");
-    await payments.getByRole("button", { name: "Kompletność wydatków" }).hover();
-    await expect(page.getByRole("tooltip")).toContainText(
+    await payments.getByRole("button", { name: "Kompletność wydatków" }).click();
+    await expect(page.getByRole("dialog")).toContainText(
       "potwierdzone zobowiązania i serie cykliczne"
     );
   });

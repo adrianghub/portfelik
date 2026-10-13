@@ -146,6 +146,26 @@ test.describe("cockpit forecast chart", () => {
     }
   });
 
+  test("keeps the monthly forecast when the year filter is selected", async ({ page }) => {
+    const card = await openCashCard(page);
+    await page.getByRole("tab", { name: "Ten rok" }).click();
+    await expect(page).toHaveURL(/period=year/);
+    await expect(card.getByText("Przewidywane saldo na koniec miesiąca")).toBeVisible();
+    await expect(card.getByTestId("cockpit-forecast")).toContainText(/10\D?120,00/);
+    await expect(card.getByText("1 sty")).toHaveCount(0);
+    await expect(card.getByText("31 gru")).toHaveCount(0);
+    await expect(card.getByText("1 paź", { exact: true })).toBeVisible();
+    await expect(card.getByTestId("cockpit-chart-scale")).toBeVisible();
+    await card.getByTestId("cockpit-see-analysis").click();
+    await expect(page).toHaveURL(/\/analysis/);
+    await expect(page.getByRole("heading", { name: "Analizy" })).toBeVisible();
+    await expect(page.getByTestId("analysis-balance")).toBeVisible();
+    await expect(page.getByText("1 sty", { exact: true })).toHaveCount(0);
+    if (existsSync(ARTIFACTS)) {
+      await page.screenshot({ path: `${ARTIFACTS}/analysis-overview.png`, fullPage: true });
+    }
+  });
+
   test("does not stack Dziś on the last day of the month", async ({ page }) => {
     await page.clock.setFixedTime(new Date("2026-09-30T10:00:00.000Z"));
     await injectFakeSession(page);
