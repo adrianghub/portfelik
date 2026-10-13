@@ -147,6 +147,16 @@ export function reconstructHistoricalBalances(input: {
     ) {
       dates.add(addLocalDays(historyStart, -1));
     }
+    // A quiet week still needs its left edge. The balance there is carried,
+    // not invented, and it never starts before the first known movement.
+    if (
+      historyStart != null &&
+      from >= addLocalDays(historyStart, -1) &&
+      from <= to &&
+      from <= confirmedDate
+    ) {
+      dates.add(from);
+    }
     if (historyStart != null && to <= confirmedDate && to >= historyStart && to >= from) {
       dates.add(to);
     }

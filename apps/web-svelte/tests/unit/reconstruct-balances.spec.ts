@@ -117,6 +117,7 @@ describe("reconstructHistoricalBalances", () => {
       to: "2026-09-30",
     });
     expect(series.points).toEqual([
+      expect.objectContaining({ date: "2026-09-01", amount: 12_000, quality: "reconstructed" }),
       expect.objectContaining({ date: "2026-09-30", amount: 12_000, quality: "reconstructed" }),
     ]);
   });
