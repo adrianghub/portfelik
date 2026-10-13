@@ -145,7 +145,7 @@
         <p class="text-sm font-medium text-slate-300">
           {demo ? m.cockpit_sample_data() : scopeLabel}
         </p>
-        <p class="mt-0.5 text-xs tracking-wide text-slate-500 uppercase">{horizonLabel}</p>
+        <p class="mt-0.5 text-xs tracking-wide text-slate-400 uppercase">{horizonLabel}</p>
       </div>
       <a
         href={analysisHref}
@@ -273,7 +273,7 @@
     {#if showPrivateDetails && hasAnchor}
       <a
         href={transactionsHref}
-        class="focus-visible:ring-accent mt-1 flex w-full items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+        class="focus-visible:ring-accent mt-4 flex min-h-11 w-full items-center gap-2.5 border-t border-white/10 pt-3 text-sm text-slate-200 hover:text-slate-50 focus-visible:ring-2 focus-visible:outline-none"
       >
         <Wallet size={16} class="shrink-0 text-slate-400" aria-hidden="true" />
         <span class="min-w-0 flex-1">{m.cash_position_transactions_link()}</span>

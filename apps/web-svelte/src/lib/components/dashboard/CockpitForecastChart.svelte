@@ -175,7 +175,7 @@
     >
       {#each ticks as tick (tick)}
         <span
-          class="absolute right-1 -translate-y-1/2 text-[11px] leading-none text-slate-500 tabular-nums"
+          class="absolute right-1 -translate-y-1/2 text-[11px] leading-none text-slate-400 tabular-nums"
           style="top: {(yOf(tick) / height) * 100}%"
         >
           {axisAmountLabel(tick)}

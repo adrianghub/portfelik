@@ -18,7 +18,7 @@
   import { qk } from "$lib/query-keys";
   import { fetchUserGroups } from "$lib/services/groups";
   import { fetchPrivateCashPosition } from "$lib/services/cash-position";
-  import { fetchTransactions } from "$lib/services/transactions";
+  import { fetchEarliestTransactionDate, fetchTransactions } from "$lib/services/transactions";
   import { cn, formatCurrency, monthName } from "$lib/utils";
   import { parseScopeFilter } from "$lib/utils/list-view-url";
   import { createQuery } from "@tanstack/svelte-query";
@@ -58,13 +58,20 @@
         }
       : null
   );
+  const needsEarliest = $derived(span === "all" && anchorReady && anchor == null);
+  const earliestQuery = createQuery(() => ({
+    queryKey: qk.transactions.list(session.userId!, "analysis-earliest"),
+    queryFn: fetchEarliestTransactionDate,
+    enabled: !!session.userId && needsEarliest,
+  }));
   const fetchBounds = $derived.by(() => {
     if (!anchorReady) return null;
+    if (needsEarliest && !earliestQuery.isSuccess) return null;
     const window = analysisWindow(
       span,
       today,
       anchor?.as_of_date ?? null,
-      span === "all" ? "2000-01-01" : null
+      needsEarliest ? (earliestQuery.data ?? null) : null
     );
     const previous = previousAnalysisWindow(window.start, window.end);
     const dates = [anchor?.as_of_date, window.start, previous.start].filter(
@@ -122,8 +129,13 @@
   const maxBar = $derived(
     Math.max(1, ...overview.bars.flatMap((bar) => [bar.income, bar.expense]))
   );
-  const loading = $derived(!session.userId || cashAnchorQuery.isPending || ledgerQuery.isLoading);
-  const failed = $derived(ledgerQuery.isError);
+  const loading = $derived(
+    !session.userId ||
+      cashAnchorQuery.isPending ||
+      (needsEarliest && earliestQuery.isPending) ||
+      ledgerQuery.isLoading
+  );
+  const failed = $derived(ledgerQuery.isError || (needsEarliest && earliestQuery.isError));
 
   function setSpan(next: AnalysisSpan) {
     const params = new URLSearchParams($page.url.searchParams);
@@ -176,7 +188,13 @@
   {#if loading}
     <div class="h-48 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
   {:else if failed}
-    <QueryError error={ledgerQuery.error} onRetry={() => ledgerQuery.refetch()} />
+    <QueryError
+      error={ledgerQuery.error ?? earliestQuery.error}
+      onRetry={() => {
+        if (needsEarliest && earliestQuery.isError) void earliestQuery.refetch();
+        if (ledgerQuery.isError) void ledgerQuery.refetch();
+      }}
+    />
   {:else}
     <section
       class="rounded-2xl border border-white/5 bg-slate-900/60 p-3 sm:p-5"
