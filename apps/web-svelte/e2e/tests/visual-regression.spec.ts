@@ -156,7 +156,8 @@ test.describe("desktop visual regression", () => {
     await expect(page.getByRole("tooltip")).toContainText("nie są saldem z banku");
     await page.mouse.move(0, 0);
     await expect(card).not.toContainText("Dostępne teraz");
-    await expect(page.locator("#dashboard-spending")).toBeVisible();
+    await expect(page.locator("#dashboard-spending")).toHaveCount(0);
+    await expect(page.getByTestId("cockpit-see-analysis")).toBeVisible();
     await expect(page).toHaveScreenshot("dashboard-desktop.png");
   });
   test("transaction desktop action stays on one line", async ({ page }) => {

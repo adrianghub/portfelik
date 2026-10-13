@@ -249,9 +249,13 @@ export function stackCategoryHistory(
   topN = 5,
   otherLabel = "Inne"
 ): StackedCategoryHistory {
+  const categoryLabel = (name: string | null | undefined) => name?.trim() || "Bez kategorii";
   const totals = new Map<string, number>();
   for (const b of buckets) {
-    for (const c of b.categories) totals.set(c.name, (totals.get(c.name) ?? 0) + c.total);
+    for (const c of b.categories) {
+      const name = categoryLabel(c.name);
+      totals.set(name, (totals.get(name) ?? 0) + c.total);
+    }
   }
   const ranked = [...totals.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name);
   const top = ranked.slice(0, topN);
@@ -263,7 +267,8 @@ export function stackCategoryHistory(
     const row = { label: b.label } as Record<string, number> & { label: string };
     for (const cat of categories) row[cat] = 0;
     for (const c of b.categories) {
-      const key = topSet.has(c.name) ? c.name : hasOther ? otherLabel : null;
+      const name = categoryLabel(c.name);
+      const key = topSet.has(name) ? name : hasOther ? otherLabel : null;
       // No rounding here: summed-then-rounded segments drift from the bucket
       // total (200,39 zł rendered as 200,00). Display formatting rounds.
       if (key) row[key] = row[key] + c.total;

@@ -11,7 +11,7 @@ import type {
 
 const PAGE_SIZE = 1000;
 
-/** Oldest stored day, so Analizy can bound „Cały okres” without scanning from year 2000. */
+/** Oldest stored day, so Analiza budżetu can bound „Cały okres” without scanning from year 2000. */
 export async function fetchEarliestTransactionDate(): Promise<string | null> {
   const { data, error } = await supabase
     .from("transactions_with_category")

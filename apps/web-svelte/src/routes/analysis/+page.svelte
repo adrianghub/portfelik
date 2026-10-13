@@ -2,6 +2,7 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import { analysisBalanceHelp } from "$lib/analysis/balance-help";
+  import BudgetCategoryHistory from "$lib/components/analysis/BudgetCategoryHistory.svelte";
   import CockpitForecastChart from "$lib/components/dashboard/CockpitForecastChart.svelte";
   import InfoTooltip from "$lib/components/ui/InfoTooltip.svelte";
   import QueryError from "$lib/components/ui/QueryError.svelte";
@@ -329,33 +330,12 @@
       </section>
     {/if}
 
-    {#if overview.categories.length > 0}
-      <section
-        class="rounded-2xl border border-white/5 bg-slate-900/60 p-3 sm:p-5"
-        aria-label={m.analysis_categories_title()}
-        data-testid="analysis-categories"
-      >
-        <h2 class="text-sm font-medium text-slate-300">{m.analysis_categories_title()}</h2>
-        <ul class="mt-3 space-y-3">
-          {#each overview.categories as category (category.id)}
-            <li>
-              <div class="flex items-baseline justify-between gap-3 text-sm">
-                <span class="min-w-0 truncate text-slate-200">{categoryName(category.name)}</span>
-                <span class="shrink-0 text-slate-300 tabular-nums"
-                  >{formatCurrency(category.amount)}</span
-                >
-              </div>
-              <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-white/5">
-                <div
-                  class="h-full rounded-full"
-                  style="width: {category.share}%; background: var(--color-chart-primary)"
-                ></div>
-              </div>
-            </li>
-          {/each}
-        </ul>
-      </section>
-    {/if}
+    <BudgetCategoryHistory
+      {groupFilter}
+      period={span === "all" ? "custom" : span}
+      historyKind={span === "week" ? "week" : span === "year" ? "year" : "month"}
+      customRange={span === "all" ? { start: overview.start, end: overview.end } : null}
+    />
 
     {#if overview.shifts.length > 0}
       <section
