@@ -45,7 +45,14 @@ export const CASH_FETCH_END_SENTINEL = "9999-12-31";
 
 type Anchor = CashAnchor | null;
 
-/** Date-only (YYYY-MM-DD) prefix, so a timestamptz value compares against a bare as_of_date. */
+/**
+ * Calendar day stored on `transactions.date`.
+ * Import and manual entry write a bank day as UTC midnight, so the first ten
+ * characters are that day. Midnight UTC is the same calendar day in
+ * Europe/Warsaw. A clock time such as 23:30 UTC would fall on the next Warsaw
+ * day, but those writers do not store one. Converting here would move any
+ * non-midnight row, so the comparison stays on the prefix.
+ */
 function dateOnly(d: string): string {
   return d.slice(0, 10);
 }

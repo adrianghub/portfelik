@@ -421,7 +421,11 @@ and free-form manual asset items.
   means the amount is the balance before movements on `as_of_date`.
   `end_of_day` means the amount already includes booked movements on that
   date. Reconstruction walks backward from that instant and never treats an
-  import as a complete bank history.
+  import as a complete bank history. Booking days stay the first ten characters
+  of `transactions.date`. Import and manual entry store that day as UTC
+  midnight, which is the same calendar day in Europe/Warsaw. The cash engine
+  does not convert a clock time to Warsaw, because that would move existing
+  non-midnight rows.
 - **`net_worth_items`**: owner-entered assets (`label`, `amount`, `currency`,
   `position`). Cash is not stored here; it is derived from `cash_positions`.
 - **Net worth**: client computes derived cash + manual asset items - live debt

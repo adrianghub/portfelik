@@ -102,11 +102,35 @@ test.describe("confirmed balance", () => {
 
     await page.goto("/analysis");
     const balance = page.getByTestId("analysis-balance");
-    await expect(balance.getByTestId("analysis-reconstructed-note")).toBeVisible();
     await expect(balance.getByTestId("cockpit-chart")).toBeVisible();
-    await expect(balance.getByTestId("confirmed-balance-dot")).toBeVisible();
+    await expect(balance.getByText("Odtworzone")).toHaveCount(0);
+    await expect(balance.getByTestId("cockpit-reconstructed")).toHaveCount(0);
+    await expect(balance.getByTestId("confirmed-balance-dot")).toHaveCount(0);
+    await expect(balance.getByTestId("analysis-balance-source")).toHaveText(
+      "Na podstawie historii transakcji"
+    );
+    await expect(balance.getByTestId("analysis-confirmed-caption")).toHaveText(
+      "Saldo potwierdzone"
+    );
     await expect(page.getByTestId("analysis-flows")).toContainText(/1\D?000,00/);
     mkdirSync(ARTIFACTS, { recursive: true });
-    await balance.screenshot({ path: `${ARTIFACTS}/analysis-reconstructed-balance.png` });
+    await balance.screenshot({ path: `${ARTIFACTS}/analysis-balance-history.png` });
+
+    const helpButton = balance.getByRole("button", { name: "Jak liczymy to saldo" });
+    await helpButton.focus();
+    const help = page.getByRole("tooltip");
+    await expect(help).toContainText("różnić od salda bankowego");
+    await expect(help).toContainText("koniec dnia");
+    await help.screenshot({ path: `${ARTIFACTS}/analysis-balance-help.png` });
+    await page.keyboard.press("Escape");
+
+    const chart = balance.getByTestId("cockpit-chart");
+    const box = await chart.boundingBox();
+    expect(box).toBeTruthy();
+    await page.mouse.move(box!.x + box!.width * 0.7, box!.y + 70);
+    await page.mouse.down();
+    await page.mouse.move(box!.x + box!.width * 0.92, box!.y + 70, { steps: 8 });
+    await expect(balance.getByTestId("cockpit-scrub")).toContainText("Saldo potwierdzone");
+    await page.mouse.up();
   });
 });

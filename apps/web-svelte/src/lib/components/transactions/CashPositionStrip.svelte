@@ -81,15 +81,21 @@
 
   const saveMutation = createSvelteMutation(() => ({
     mutationFn: async () => {
+      const balance_semantics = !legacyStart || treatAsEndOfDay ? "end_of_day" : "start_of_day";
       await upsertPrivateCashPosition({
         opening_amount: Number(normalizedOpeningAmount),
         as_of_date: asOfDate,
-        balance_semantics: !legacyStart || treatAsEndOfDay ? "end_of_day" : "start_of_day",
+        balance_semantics,
       });
+      return balance_semantics;
     },
-    onSuccess: async () => {
+    onSuccess: async (balance_semantics) => {
       editOpen = false;
-      toast.success(m.cash_position_toast_saved());
+      toast.success(
+        balance_semantics === "end_of_day"
+          ? m.cash_position_toast_saved()
+          : m.cash_position_toast_saved_start()
+      );
       const u = requireSessionUserId();
       await queryClient.invalidateQueries({ queryKey: qk.cashPosition(u) });
       await queryClient.invalidateQueries({ queryKey: qk.transactions.list(u, "cash-history") });

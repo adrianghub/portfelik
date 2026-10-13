@@ -1,7 +1,9 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
+  import { analysisBalanceHelp } from "$lib/analysis/balance-help";
   import CockpitForecastChart from "$lib/components/dashboard/CockpitForecastChart.svelte";
+  import InfoTooltip from "$lib/components/ui/InfoTooltip.svelte";
   import QueryError from "$lib/components/ui/QueryError.svelte";
   import {
     analysisWindow,
@@ -12,7 +14,6 @@
   } from "$lib/analysis/overview";
   import { session } from "$lib/auth/session.svelte";
   import { axisDayLabel } from "$lib/cockpit/forecast-chart";
-  import { shortDayMonth } from "$lib/cockpit/month-window";
   import { addLocalDays, localDateIso } from "$lib/date-local";
   import * as m from "$lib/paraglide/messages";
   import { qk } from "$lib/query-keys";
@@ -130,6 +131,28 @@
     });
   });
 
+  const balanceSemantics = $derived(
+    anchor?.balance_semantics === "end_of_day" ? "end_of_day" : "start_of_day"
+  );
+  const balanceChartReady = $derived(
+    !!overview.chart?.points &&
+      overview.chart.points.length > 1 &&
+      !!overview.chart.domainStart &&
+      !!overview.chart.domainEnd
+  );
+  const balanceHelp = $derived(
+    anchor && overview.anchorDate
+      ? analysisBalanceHelp({
+          reconstructed: overview.reconstructed,
+          semantics: balanceSemantics,
+          anchorDate: overview.anchorDate,
+          clippedFrom:
+            overview.coverage === "clipped" && overview.chart?.domainStart
+              ? overview.chart.domainStart
+              : null,
+        })
+      : ""
+  );
   const maxBar = $derived(
     Math.max(1, ...overview.bars.flatMap((bar) => [bar.income, bar.expense]))
   );
@@ -205,26 +228,32 @@
       aria-label={m.analysis_balance_title()}
       data-testid="analysis-balance"
     >
-      <h2 class="text-sm font-medium text-slate-300">{m.analysis_balance_title()}</h2>
-      {#if overview.chart?.points && overview.chart.points.length > 1 && overview.chart.domainStart && overview.chart.domainEnd}
+      <div class="flex items-center justify-between gap-3">
+        <h2 class="text-sm font-medium text-slate-300">{m.analysis_balance_title()}</h2>
+        {#if balanceChartReady && balanceHelp}
+          <InfoTooltip label={m.analysis_balance_help_label()} text={balanceHelp} side="bottom" />
+        {/if}
+      </div>
+      {#if balanceChartReady && overview.chart?.domainStart && overview.chart.domainEnd && overview.chart.points}
         <div class="mt-2">
           <CockpitForecastChart
             points={overview.chart.points}
             todayRatio={overview.chart.todayRatio}
             rangeStart={overview.chart.domainStart}
             rangeEnd={overview.chart.domainEnd}
+            historyLabel={m.analysis_chart_history()}
+            confirmOnScrub={balanceSemantics === "end_of_day"}
+            legend="forecast-only"
           />
         </div>
-        {#if overview.reconstructed}
-          <p class="mt-1 text-xs text-slate-400" data-testid="analysis-reconstructed-note">
-            {m.analysis_reconstructed_note()}
-          </p>
-        {/if}
-        {#if overview.coverage === "clipped" && overview.chart?.domainStart}
-          <p class="mt-1 text-xs text-slate-400">
-            {m.analysis_history_from({ date: shortDayMonth(overview.chart.domainStart) })}
-          </p>
-        {/if}
+        <div class="mt-2 flex items-start justify-between gap-3 text-xs text-slate-400">
+          <p data-testid="analysis-balance-source">{m.analysis_balance_source()}</p>
+          {#if balanceSemantics === "end_of_day"}
+            <p class="shrink-0 text-slate-500" data-testid="analysis-confirmed-caption">
+              {m.analysis_confirmed_caption()}
+            </p>
+          {/if}
+        </div>
       {:else if overview.coverage === "missing"}
         <p class="mt-3 text-sm text-slate-300">{m.analysis_balance_missing()}</p>
         <a
