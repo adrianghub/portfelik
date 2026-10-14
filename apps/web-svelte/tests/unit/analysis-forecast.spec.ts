@@ -58,6 +58,10 @@ describe("analysis forecast using Kokpit rules", () => {
     expect(result.expense).toBe(18000);
     expect(result.finalBalance).toBe(148381.18);
     expect(result.points.at(-1)?.balance).toBe(result.finalBalance);
+    expect(result.bars.some((bar) => bar.income > 0)).toBe(true);
+    expect(result.bars.some((bar) => bar.expense > 0)).toBe(true);
+    expect(result.bars.reduce((sum, bar) => sum + bar.income, 0)).toBeCloseTo(result.income, 2);
+    expect(result.bars.reduce((sum, bar) => sum + bar.expense, 0)).toBeCloseTo(result.expense, 2);
   });
   it("deduplicates materialized occurrences, respects skips and ignores draft, foreign and household rows", () => {
     const november = row("salary-nov", "2026-11-26", 13076.57, {

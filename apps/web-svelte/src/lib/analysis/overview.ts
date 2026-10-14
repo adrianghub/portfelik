@@ -156,7 +156,17 @@ function totals(rows: readonly AnalysisFlow[]): { income: number; expense: numbe
   };
 }
 
-function flowBars(
+export function analysisBarKind(
+  start: string,
+  end: string,
+  grouping: "auto" | "day" | "week" | "month" = "auto"
+): AnalysisOverview["barKind"] {
+  if (grouping !== "auto") return grouping;
+  const length = utcDay(end) - utcDay(start) + 1;
+  return length <= 31 ? "day" : length <= 92 ? "week" : "month";
+}
+
+export function buildAnalysisFlowBars(
   rows: readonly AnalysisFlow[],
   start: string,
   end: string,
@@ -194,13 +204,14 @@ function flowBars(
 export function analysisTransactionsUrl(
   range: { start: string; end: string },
   scope: string,
-  categoryIds: Iterable<string> = []
+  categoryIds: Iterable<string> = [],
+  status = "paid"
 ): string {
   const params = new URLSearchParams({
     startDate: range.start,
     endDate: range.end,
     group: scope,
-    status: "paid",
+    status,
     currency: SUPPORTED_LEDGER_CURRENCY,
   });
   const ids = [...categoryIds].sort();
@@ -224,7 +235,7 @@ function categoryTotals(
   return totalsById;
 }
 
-function categoriesOf(rows: readonly AnalysisFlow[]): AnalysisCategory[] {
+export function buildAnalysisCategories(rows: readonly AnalysisFlow[]): AnalysisCategory[] {
   const expense = sumMoneyAmounts(rows.filter((row) => row.type === "expense"));
   return [...categoryTotals(rows).entries()]
     .map(([id, entry]) => ({
@@ -290,15 +301,7 @@ export function buildAnalysisOverview(input: {
   const prior = previousRows.filter(matchesCategory);
   const priorMoney = totals(prior);
   const money = totals(current);
-  const length = utcDay(window.end) - utcDay(window.start) + 1;
-  const barKind =
-    input.grouping && input.grouping !== "auto"
-      ? input.grouping
-      : length <= 31
-        ? "day"
-        : length <= 92
-          ? "week"
-          : "month";
+  const barKind = analysisBarKind(window.start, window.end, input.grouping ?? "auto");
 
   let coverage: AnalysisCoverage;
   let chart: CockpitForecastChart | null = null;
@@ -353,12 +356,12 @@ export function buildAnalysisOverview(input: {
     balanceChange,
     income: money.income,
     expense: money.expense,
-    bars: flowBars(current, window.start, window.end, barKind),
+    bars: buildAnalysisFlowBars(current, window.start, window.end, barKind),
     previousIncome: priorMoney.income,
     previousExpense: priorMoney.expense,
     previousAvailable: previousRows.length > 0,
     barKind,
-    categories: categoriesOf(current),
+    categories: buildAnalysisCategories(current),
     shifts: previousRows.length > 0 ? shiftsOf(current, prior) : [],
   };
 }
