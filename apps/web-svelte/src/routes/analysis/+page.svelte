@@ -1,6 +1,11 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
+  import {
+    analysisForecastEnd,
+    buildAnalysisForecast,
+    type ForecastHorizon,
+  } from "$lib/analysis/forecast";
   import { analysisBalanceHelp } from "$lib/analysis/balance-help";
   import BudgetCategoryHistory from "$lib/components/analysis/BudgetCategoryHistory.svelte";
   import CockpitForecastChart from "$lib/components/dashboard/CockpitForecastChart.svelte";
@@ -21,8 +26,14 @@
   import * as m from "$lib/paraglide/messages";
   import { qk } from "$lib/query-keys";
   import { fetchUserGroups } from "$lib/services/groups";
-  import { fetchPrivateCashPosition } from "$lib/services/cash-position";
-  import { fetchEarliestTransactionDate, fetchTransactions } from "$lib/services/transactions";
+  import { CASH_FETCH_END_SENTINEL, fetchPrivateCashPosition } from "$lib/services/cash-position";
+  import { fetchRecurringOccurrenceSkips } from "$lib/services/recurring-occurrences";
+  import { fetchPrivateSpendForecastSource } from "$lib/services/spend-forecast";
+  import {
+    fetchRecurringTemplates,
+    fetchEarliestTransactionDate,
+    fetchTransactions,
+  } from "$lib/services/transactions";
   import { cn, formatCurrency, monthName } from "$lib/utils";
   import { parseScopeFilter } from "$lib/utils/list-view-url";
   import { createQuery } from "@tanstack/svelte-query";
@@ -42,8 +53,27 @@
     if (spans.some((item) => item.value === raw) || raw === "week") return raw as AnalysisSpan;
     return "all";
   });
+  const mode = $derived($page.url.searchParams.get("mode") === "forecast" ? "forecast" : "history");
+  const horizons: { value: ForecastHorizon; label: string }[] = [
+    { value: "month", label: m.analysis_horizon_month() },
+    { value: "year", label: m.analysis_horizon_year() },
+    { value: "3months", label: m.analysis_horizon_3months() },
+    { value: "6months", label: m.analysis_horizon_6months() },
+    { value: "12months", label: m.analysis_horizon_12months() },
+  ];
+  const horizon = $derived.by<ForecastHorizon>(() => {
+    const raw = $page.url.searchParams.get("horizon");
+    return horizons.some((item) => item.value === raw) ? (raw as ForecastHorizon) : "year";
+  });
   const groupFilter = $derived(parseScopeFilter($page.url.searchParams));
   const today = $derived(localDateIso());
+  const forecastEnd = $derived(analysisForecastEnd(today, horizon));
+  const forecastActive = $derived(mode === "forecast" && groupFilter === "own");
+  let selectedForecastDate = $state("");
+  $effect(() => {
+    void forecastEnd;
+    selectedForecastDate = "";
+  });
 
   const cashAnchorQuery = createQuery(() => ({
     queryKey: qk.cashPosition(session.userId!),
@@ -102,10 +132,10 @@
     ].filter((value): value is string => typeof value === "string" && value.length > 0);
     return {
       start: dates.sort()[0] ?? window.start,
-      endExclusive: addLocalDays(
-        [window.end, anchor?.as_of_date ?? today, today].sort().at(-1)!,
-        1
-      ),
+      endExclusive:
+        mode === "forecast"
+          ? CASH_FETCH_END_SENTINEL
+          : addLocalDays([window.end, anchor?.as_of_date ?? today, today].sort().at(-1)!, 1),
     };
   });
 
@@ -119,6 +149,39 @@
     queryFn: () => fetchTransactions(fetchBounds!.start, fetchBounds!.endExclusive),
     enabled: !!session.userId && fetchBounds != null,
   }));
+
+  const templatesQuery = createQuery(() => ({
+    queryKey: qk.transactions.list(session.userId!, "recurring-templates"),
+    queryFn: fetchRecurringTemplates,
+    enabled: !!session.userId && forecastActive,
+  }));
+  const skipsQuery = createQuery(() => ({
+    queryKey: qk.transactions.list(session.userId!, "analysis-recurring-skips", today, forecastEnd),
+    queryFn: () => fetchRecurringOccurrenceSkips(today, addLocalDays(forecastEnd, 1)),
+    enabled: !!session.userId && forecastActive,
+  }));
+  const spendQuery = createQuery(() => ({
+    queryKey: qk.spendForecast(session.userId!),
+    queryFn: fetchPrivateSpendForecastSource,
+    enabled: !!session.userId && forecastActive && !!anchor,
+  }));
+  const forecast = $derived(
+    buildAnalysisForecast({
+      today,
+      end: forecastEnd,
+      anchor: groupFilter === "own" ? anchor : null,
+      rows: ledgerQuery.data ?? [],
+      templates: templatesQuery.data ?? [],
+      skipped: skipsQuery.data ?? [],
+      spend: spendQuery.data,
+    })
+  );
+  const forecastError = $derived(
+    forecastActive ? (templatesQuery.error ?? skipsQuery.error ?? spendQuery.error) : null
+  );
+  const forecastPoint = $derived(
+    forecast?.points.find((point) => point.date === (selectedForecastDate || forecastEnd))
+  );
 
   const scopeLabel = $derived.by(() => {
     if (groupFilter === "all") return m.dashboard_scope_all();
@@ -191,10 +254,14 @@
     !session.userId ||
       cashAnchorQuery.isPending ||
       (needsEarliest && earliestQuery.isPending) ||
-      ledgerQuery.isLoading
+      ledgerQuery.isLoading ||
+      (forecastActive && (templatesQuery.isLoading || skipsQuery.isLoading || spendQuery.isLoading))
   );
   const failed = $derived(
-    cashAnchorQuery.isError || ledgerQuery.isError || (needsEarliest && earliestQuery.isError)
+    cashAnchorQuery.isError ||
+      ledgerQuery.isError ||
+      (needsEarliest && earliestQuery.isError) ||
+      !!forecastError
   );
 
   function setSpan(next: AnalysisSpan) {
@@ -223,6 +290,18 @@
       : null
   );
 
+  function setMode(next: "history" | "forecast") {
+    const params = new URLSearchParams($page.url.searchParams);
+    if (next === "history") params.delete("mode");
+    else params.set("mode", next);
+    void goto(`/analysis?${params}`, { keepFocus: true, noScroll: true });
+  }
+  function setHorizon(next: ForecastHorizon) {
+    const params = new URLSearchParams($page.url.searchParams);
+    params.set("horizon", next);
+    void goto(`/analysis?${params}`, { keepFocus: true, noScroll: true });
+  }
+
   function barLabel(key: string): string {
     if (key.length === 10) return axisDayLabel(key);
     return monthName(Number(key.slice(5, 7)));
@@ -244,42 +323,76 @@
     <p class="mt-2 text-sm font-medium text-slate-300">{scopeLabel}</p>
   </div>
 
-  <div role="tablist" aria-label={m.analysis_title()} class="flex flex-wrap gap-2">
-    {#each spans as item (item.value)}
+  <div role="tablist" aria-label={m.analysis_mode_label()} class="flex gap-2">
+    {#each [{ value: "history" as const, label: m.analysis_mode_history() }, { value: "forecast" as const, label: m.analysis_mode_forecast() }] as item}
       <button
         type="button"
         role="tab"
-        aria-selected={span === item.value}
+        aria-selected={mode === item.value}
         class={cn(
-          "focus-visible:ring-accent min-h-11 rounded-full px-3.5 text-sm font-medium focus-visible:ring-2 focus-visible:outline-none",
-          span === item.value
-            ? "bg-accent-gradient text-slate-900"
-            : "bg-white/5 text-slate-300 hover:bg-white/10"
+          "focus-visible:ring-accent min-h-11 rounded-xl px-4 text-sm font-medium focus-visible:ring-2 focus-visible:outline-none",
+          mode === item.value ? "bg-accent-gradient text-slate-900" : "bg-white/5 text-slate-300"
         )}
-        onclick={() => setSpan(item.value)}
+        onclick={() => setMode(item.value)}>{item.label}</button
       >
-        {item.label}
-      </button>
     {/each}
   </div>
 
-  {#if span === "custom"}
-    <div class="rounded-2xl border border-white/5 bg-slate-900/60 p-3">
-      <div class="grid gap-3 sm:grid-cols-3 sm:items-end">
-        <DayPicker label={m.analysis_range_from()} bind:value={customFrom} max={today} />
-        <DayPicker label={m.analysis_range_to()} bind:value={customTo} max={today} />
+  {#if mode === "history"}
+    <div role="tablist" aria-label={m.analysis_title()} class="flex flex-wrap gap-2">
+      {#each spans as item (item.value)}
         <button
           type="button"
-          class="bg-accent-gradient min-h-11 rounded-xl px-4 text-sm font-medium text-slate-900 disabled:opacity-40"
-          disabled={!validAnalysisRange({ start: customFrom, end: customTo }, today)}
-          onclick={applyCustomRange}>{m.analysis_apply_range()}</button
+          role="tab"
+          aria-selected={span === item.value}
+          class={cn(
+            "focus-visible:ring-accent min-h-11 rounded-full px-3.5 text-sm font-medium focus-visible:ring-2 focus-visible:outline-none",
+            span === item.value
+              ? "bg-accent-gradient text-slate-900"
+              : "bg-white/5 text-slate-300 hover:bg-white/10"
+          )}
+          onclick={() => setSpan(item.value)}
         >
+          {item.label}
+        </button>
+      {/each}
+    </div>
+
+    {#if span === "custom"}
+      <div class="rounded-2xl border border-white/5 bg-slate-900/60 p-3">
+        <div class="grid gap-3 sm:grid-cols-3 sm:items-end">
+          <DayPicker label={m.analysis_range_from()} bind:value={customFrom} max={today} />
+          <DayPicker label={m.analysis_range_to()} bind:value={customTo} max={today} />
+          <button
+            type="button"
+            class="bg-accent-gradient min-h-11 rounded-xl px-4 text-sm font-medium text-slate-900 disabled:opacity-40"
+            disabled={!validAnalysisRange({ start: customFrom, end: customTo }, today)}
+            onclick={applyCustomRange}>{m.analysis_apply_range()}</button
+          >
+        </div>
+        {#if !validAnalysisRange({ start: customFrom, end: customTo }, today)}<p
+            class="text-negative mt-2 text-sm"
+          >
+            {m.analysis_invalid_range()}
+          </p>{/if}
       </div>
-      {#if !validAnalysisRange({ start: customFrom, end: customTo }, today)}<p
-          class="text-negative mt-2 text-sm"
+    {/if}
+  {:else}
+    <div role="tablist" aria-label={m.analysis_forecast_horizon()} class="flex flex-wrap gap-2">
+      {#each horizons as item (item.value)}
+        <button
+          type="button"
+          role="tab"
+          aria-selected={horizon === item.value}
+          class={cn(
+            "focus-visible:ring-accent min-h-11 rounded-full px-3.5 text-sm font-medium focus-visible:ring-2 focus-visible:outline-none",
+            horizon === item.value
+              ? "bg-accent-gradient text-slate-900"
+              : "bg-white/5 text-slate-300 hover:bg-white/10"
+          )}
+          onclick={() => setHorizon(item.value)}>{item.label}</button
         >
-          {m.analysis_invalid_range()}
-        </p>{/if}
+      {/each}
     </div>
   {/if}
 
@@ -287,13 +400,102 @@
     <div class="h-48 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
   {:else if failed}
     <QueryError
-      error={cashAnchorQuery.error ?? ledgerQuery.error ?? earliestQuery.error}
+      error={cashAnchorQuery.error ?? ledgerQuery.error ?? earliestQuery.error ?? forecastError}
       onRetry={() => {
         if (cashAnchorQuery.isError) void cashAnchorQuery.refetch();
         if (needsEarliest && earliestQuery.isError) void earliestQuery.refetch();
         if (ledgerQuery.isError) void ledgerQuery.refetch();
+        if (forecastActive && templatesQuery.isError) void templatesQuery.refetch();
+        if (forecastActive && skipsQuery.isError) void skipsQuery.refetch();
+        if (forecastActive && spendQuery.isError) void spendQuery.refetch();
       }}
     />
+  {:else if mode === "forecast"}
+    <section
+      class="rounded-2xl border border-white/5 bg-slate-900/60 p-3 sm:p-5"
+      data-testid="analysis-forecast"
+      aria-label={m.analysis_forecast_title()}
+    >
+      <h2 class="text-sm font-medium text-slate-300">{m.analysis_forecast_title()}</h2>
+      {#if forecast}
+        <div class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div>
+            <p class="text-xs text-slate-400">{m.analysis_forecast_today()}</p>
+            <p
+              class="mt-1 text-lg font-semibold tabular-nums"
+              data-testid="analysis-forecast-today"
+            >
+              {formatCurrency(forecast.balance)}
+            </p>
+          </div>
+          <div>
+            <p class="text-xs text-slate-400">{m.analysis_forecast_final()}</p>
+            <p
+              class="mt-1 text-lg font-semibold tabular-nums"
+              data-testid="analysis-forecast-final"
+            >
+              {formatCurrency(forecast.finalBalance)}
+            </p>
+            <p class="text-xs text-slate-500">
+              {axisDayLabel(forecast.end)}
+              {forecast.end.slice(0, 4)}
+            </p>
+          </div>
+          <div>
+            <p class="text-xs text-slate-400">{m.analysis_forecast_income()}</p>
+            <p
+              class="text-positive mt-1 text-lg font-semibold tabular-nums"
+              data-testid="analysis-forecast-income"
+            >
+              {formatCurrency(forecast.income)}
+            </p>
+          </div>
+          <div>
+            <p class="text-xs text-slate-400">{m.analysis_forecast_expense()}</p>
+            <p
+              class="mt-1 text-lg font-semibold tabular-nums"
+              data-testid="analysis-forecast-expense"
+            >
+              {formatCurrency(forecast.expense)}
+            </p>
+          </div>
+        </div>
+        {#if forecast.points.length > 1}
+          <div class="mt-4">
+            <CockpitForecastChart
+              points={forecast.points}
+              todayRatio={0}
+              rangeStart={forecast.start}
+              rangeEnd={forecast.end}
+              legend="forecast-only"
+            />
+          </div>
+        {/if}
+        <div class="mt-3 grid items-end gap-3 sm:grid-cols-2">
+          <DayPicker
+            label={m.analysis_forecast_on_day()}
+            value={selectedForecastDate || forecastEnd}
+            max={forecastEnd}
+            onchange={(date) => (selectedForecastDate = date)}
+          />
+          <p class="text-xl font-semibold tabular-nums" data-testid="analysis-forecast-day">
+            {forecastPoint ? formatCurrency(forecastPoint.balance) : m.analysis_no_day_balance()}
+          </p>
+        </div>
+        <p class="mt-4 text-xs leading-relaxed text-slate-400">
+          {m.analysis_forecast_disclaimer()}
+        </p>
+      {:else}
+        <p class="mt-3 text-sm text-slate-300">
+          {groupFilter === "own" ? m.analysis_balance_missing() : m.analysis_balance_private()}
+        </p>
+        {#if groupFilter === "own"}<a
+            href="/transactions?group=own"
+            class="text-accent mt-2 inline-flex min-h-11 items-center text-sm"
+            >{m.cockpit_set_opening()}</a
+          >{/if}
+      {/if}
+    </section>
   {:else}
     <section
       class="rounded-2xl border border-white/5 bg-slate-900/60 p-3 sm:p-5"
