@@ -191,3 +191,15 @@ it("keeps an already received future-dated occurrence in live cash without proje
   expect(result.finalBalance).toBe(cockpit.forecast);
   expect(result.points.at(-1)?.balance).toBe(result.finalBalance);
 });
+
+it("projects the October salary from an old paid template when no future real row exists", () => {
+  const oldSalary = { ...salary, date: "2026-06-26", status: "paid" as const };
+  const oldRent = { ...rent, date: "2026-06-15", status: "paid" as const };
+  const result = forecast("2026-12-31", {
+    templates: [oldSalary, oldRent],
+    rows: [oldSalary, oldRent],
+  });
+  expect(result.balance).toBe(9462.34);
+  expect(result.points.find((point) => point.date === "2026-10-26")?.balance).toBe(21038.91);
+  expect(result.finalBalance).toBe(44192.05);
+});
