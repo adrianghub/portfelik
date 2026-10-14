@@ -154,7 +154,12 @@
       amount = initial ? String(Math.abs(initial.amount)) : "";
       counterparty = initial?.counterparty ?? "";
       description = initial?.description ?? "";
-      const initialDate = initial?.date ? initial.date.slice(0, 10) : localDateIso();
+      // Linked creates must fall in the plan window; prefer today when it fits.
+      let initialDate = initial?.date ? initial.date.slice(0, 10) : localDateIso();
+      if (!initial && planContext?.startDate && planContext?.endDate) {
+        if (initialDate < planContext.startDate) initialDate = planContext.startDate;
+        else if (initialDate > planContext.endDate) initialDate = planContext.endDate;
+      }
       date = initialDate;
       category_id = initial?.category_id ?? planContext?.categoryId ?? "";
       statusTouched = initial?.status != null;

@@ -197,7 +197,8 @@ test.describe("cockpit forecast chart", () => {
     await expect(page).toHaveURL(/\/analysis/);
     await expect(page.getByRole("heading", { name: "Analiza budżetu" })).toBeVisible();
     await expect(page.getByTestId("analysis-balance")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Kategorie", exact: true })).toBeVisible();
+    // Top-categories summary (chips) — BudgetCategoryHistory also titles "Kategorie".
+    await expect(page.getByTestId("analysis-categories")).toBeVisible();
     await expect(page.getByTestId("analysis-flows")).toBeVisible();
     await expect(page.getByText("1 sty", { exact: true })).toHaveCount(0);
     if (existsSync(ARTIFACTS)) {
