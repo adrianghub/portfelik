@@ -70,6 +70,7 @@
   import { fetchPlans } from "$lib/services/plans";
   import { guidedTourUi, requestDemoSeedAndTour } from "$lib/guided-tour/ui.svelte";
   import { session, requireSessionUserId } from "$lib/auth/session.svelte";
+  import { isSupportedLedgerCurrency } from "$lib/ledger-currency";
   import { qk } from "$lib/query-keys";
   import { parseScopeFilter, type ScopeFilter } from "$lib/utils/list-view-url";
   import { syncListViewUrl } from "$lib/utils/navigation";
@@ -140,6 +141,12 @@
   );
   const endMonth = $derived(
     Number($page.url.searchParams.get("endMonth")) || explicitEndParts?.month || startMonth
+  );
+  const currencyFilter = $derived(
+    $page.url.searchParams.get("currency") === "PLN" ? "PLN" : undefined
+  );
+  const multipleCategoryIds = $derived(
+    new Set(($page.url.searchParams.get("categoryIds") ?? "").split(",").filter(Boolean))
   );
   const categoryId = $derived($page.url.searchParams.get("categoryId") ?? undefined);
   const statusFilter = $derived($page.url.searchParams.get("status") ?? undefined);
@@ -366,12 +373,26 @@
         : true;
   }
 
+  function matchesCategories(tx: { category_id: string | null }): boolean {
+    return (
+      (!categoryId || tx.category_id === categoryId) &&
+      (!multipleCategoryIds.size || multipleCategoryIds.has(tx.category_id || "none"))
+    );
+  }
+
   const filteredTxs = $derived.by(() => {
     if (!txQuery.data) return undefined;
     return txQuery.data.filter((tx) => {
       const matchStatus = !statusSet || statusSet.has(tx.status);
       const matchType = !typeFilter || tx.type === typeFilter;
-      return matchStatus && matchType && matchesScope(tx) && matchesView(tx);
+      return (
+        matchStatus &&
+        matchType &&
+        (!currencyFilter || isSupportedLedgerCurrency(tx.currency)) &&
+        matchesCategories(tx) &&
+        matchesScope(tx) &&
+        matchesView(tx)
+      );
     });
   });
 
@@ -393,8 +414,14 @@
     if (!showProjectedRows || !txQuery.data) return [];
     const templates = (recurringTemplatesQuery.data ?? []).filter((tx) => {
       const matchType = !typeFilter || tx.type === typeFilter;
-      const matchCategory = !categoryId || tx.category_id === categoryId;
-      return matchType && matchCategory && matchesScope(tx) && matchesView(tx);
+      const matchCategory = matchesCategories(tx);
+      return (
+        matchType &&
+        matchCategory &&
+        (!currencyFilter || isSupportedLedgerCurrency(tx.currency)) &&
+        matchesScope(tx) &&
+        matchesView(tx)
+      );
     });
     return recurringProjectionsForTransactionRange({
       templates,
@@ -972,6 +999,34 @@
         clear: () => onCategoryChange(undefined),
       });
     }
+    if (currencyFilter) {
+      chips.push({
+        key: "currency",
+        label: currencyFilter,
+        clear: () => {
+          const params = new URLSearchParams($page.url.searchParams);
+          params.delete("currency");
+          void goto(`/transactions?${params}`);
+        },
+      });
+    }
+    for (const id of multipleCategoryIds) {
+      chips.push({
+        key: `category:${id}`,
+        label:
+          id === "none"
+            ? m.analysis_uncategorized()
+            : (categoriesQuery.data?.find((category) => category.id === id)?.name ??
+              m.transactions_filter_category()),
+        clear: () => {
+          const params = new URLSearchParams($page.url.searchParams);
+          const remaining = [...multipleCategoryIds].filter((value) => value !== id);
+          if (remaining.length) params.set("categoryIds", remaining.join(","));
+          else params.delete("categoryIds");
+          void goto(`/transactions?${params}`);
+        },
+      });
+    }
     if (typeFilter) {
       chips.push({
         key: "type",
@@ -1025,6 +1080,7 @@
 
   function onApplySheetFilters(filters: TransactionSheetFilters) {
     const p = new URLSearchParams($page.url.searchParams);
+    p.delete("categoryIds");
     if (filters.categoryId) p.set("categoryId", filters.categoryId);
     else p.delete("categoryId");
     if (filters.type) p.set("type", filters.type);
@@ -1040,6 +1096,7 @@
 
   function onCategoryChange(id: string | undefined) {
     const params = new URLSearchParams($page.url.searchParams);
+    params.delete("categoryIds");
     if (id) params.set("categoryId", id);
     else params.delete("categoryId");
     goto(`/transactions?${params.toString()}`, { replaceState: false });

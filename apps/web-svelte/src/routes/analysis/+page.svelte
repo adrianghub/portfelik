@@ -14,6 +14,7 @@
   import QueryError from "$lib/components/ui/QueryError.svelte";
   import {
     analysisWindow,
+    analysisTransactionsUrl,
     validAnalysisRange,
     buildAnalysisOverview,
     previousAnalysisWindow,
@@ -24,6 +25,7 @@
   import { axisDayLabel } from "$lib/cockpit/forecast-chart";
   import { addLocalDays, localDateIso } from "$lib/date-local";
   import * as m from "$lib/paraglide/messages";
+  import { isSupportedLedgerCurrency } from "$lib/ledger-currency";
   import { qk } from "$lib/query-keys";
   import { fetchUserGroups } from "$lib/services/groups";
   import { CASH_FETCH_END_SENTINEL, fetchPrivateCashPosition } from "$lib/services/cash-position";
@@ -34,7 +36,7 @@
     fetchEarliestTransactionDate,
     fetchTransactions,
   } from "$lib/services/transactions";
-  import { cn, formatCurrency, monthName } from "$lib/utils";
+  import { cn, formatCurrency, formatDate } from "$lib/utils";
   import { parseScopeFilter } from "$lib/utils/list-view-url";
   import { createQuery } from "@tanstack/svelte-query";
 
@@ -64,6 +66,11 @@
   const horizon = $derived.by<ForecastHorizon>(() => {
     const raw = $page.url.searchParams.get("horizon");
     return horizons.some((item) => item.value === raw) ? (raw as ForecastHorizon) : "year";
+  });
+  const selectedCategoryIds = $derived(new Set($page.url.searchParams.getAll("category")));
+  const grouping = $derived.by<"auto" | "day" | "week" | "month">(() => {
+    const value = $page.url.searchParams.get("grouping");
+    return value === "day" || value === "week" || value === "month" ? value : "auto";
   });
   const groupFilter = $derived(parseScopeFilter($page.url.searchParams));
   const today = $derived(localDateIso());
@@ -216,6 +223,8 @@
       balanceScope: groupFilter === "own",
       rows,
       customRange,
+      categoryIds: selectedCategoryIds,
+      grouping,
     });
   });
 
@@ -226,6 +235,38 @@
       selectedHistoryDate = "";
     }
   });
+
+  const categoryChoices = $derived.by(() => {
+    const choices = new Map<string, string>();
+    for (const row of ledgerQuery.data ?? []) {
+      if (row.status !== "paid" || !isSupportedLedgerCurrency(row.currency)) continue;
+      if (groupFilter === "own" && row.group_id != null) continue;
+      if (groupFilter !== "own" && groupFilter !== "all" && row.group_id !== groupFilter) continue;
+      choices.set(
+        row.category_id || "none",
+        row.category_name?.trim() || m.analysis_uncategorized()
+      );
+    }
+    return [...choices]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, "pl"));
+  });
+  function setCategory(id: string | null) {
+    const ids = new Set(selectedCategoryIds);
+    if (id == null) ids.clear();
+    else if (ids.has(id)) ids.delete(id);
+    else ids.add(id);
+    const params = new URLSearchParams($page.url.searchParams);
+    params.delete("category");
+    for (const value of ids) params.append("category", value);
+    void goto(`/analysis?${params}`, { keepFocus: true, noScroll: true });
+  }
+  function setGrouping(next: string) {
+    const params = new URLSearchParams($page.url.searchParams);
+    if (next === "auto") params.delete("grouping");
+    else params.set("grouping", next);
+    void goto(`/analysis?${params}`, { keepFocus: true, noScroll: true });
+  }
 
   const balanceSemantics = $derived(
     anchor?.balance_semantics === "end_of_day" ? "end_of_day" : "start_of_day"
@@ -286,11 +327,7 @@
   const selectedPoint = $derived(
     overview.chart?.points?.find((point) => point.date === (selectedHistoryDate || overview.end))
   );
-  const balanceChange = $derived(
-    overview.chart?.points?.length
-      ? overview.chart.points.at(-1)!.balance - overview.chart.points[0].balance
-      : null
-  );
+  const balanceChange = $derived(overview.balanceChange);
 
   function setMode(next: "history" | "forecast") {
     const params = new URLSearchParams($page.url.searchParams);
@@ -305,8 +342,11 @@
   }
 
   function barLabel(key: string): string {
-    if (key.length === 10) return axisDayLabel(key);
-    return monthName(Number(key.slice(5, 7)));
+    const label =
+      key.length === 10 ? axisDayLabel(key) : axisDayLabel(`${key}-01`).replace(/^1 /, "");
+    return overview.start.slice(0, 4) !== overview.end.slice(0, 4)
+      ? `${label} ${key.slice(0, 4)}`
+      : label;
   }
 
   function categoryName(name: string): string {
@@ -531,7 +571,7 @@
               class="mt-2 text-xl font-semibold tabular-nums"
               data-testid="analysis-balance-change"
             >
-              {balanceChange == null ? "—" : formatCurrency(balanceChange)}
+              {balanceChange == null ? m.analysis_change_unknown() : formatCurrency(balanceChange)}
             </p>
           </div>
         </div>
@@ -551,7 +591,7 @@
         <p class="mt-2 text-xs text-slate-400">{m.analysis_history_limit()}</p>
         <div class="mt-2 flex items-start justify-between gap-3 text-xs text-slate-400">
           <p data-testid="analysis-balance-source">{m.analysis_balance_source()}</p>
-          {#if balanceSemantics === "end_of_day"}
+          {#if balanceSemantics === "end_of_day" && overview.chart.points.some((point) => point.kind === "confirmed")}
             <p class="shrink-0 text-slate-500" data-testid="analysis-confirmed-caption">
               {m.analysis_confirmed_caption()}
             </p>
@@ -572,6 +612,54 @@
       {/if}
     </section>
 
+    <div class="rounded-2xl border border-white/5 bg-slate-900/60 p-3 sm:p-5">
+      <fieldset aria-label={m.analysis_category_filters()} data-testid="analysis-category-filters">
+        <legend class="text-sm font-medium text-slate-300">{m.analysis_category_filters()}</legend>
+        <div class="mt-3 flex max-h-40 flex-wrap gap-2 overflow-y-auto">
+          <button
+            type="button"
+            aria-pressed={selectedCategoryIds.size === 0}
+            class={cn(
+              "focus-visible:ring-accent min-h-11 rounded-full px-3 text-sm focus-visible:ring-2 focus-visible:outline-none",
+              selectedCategoryIds.size === 0
+                ? "bg-accent-gradient text-slate-900"
+                : "bg-white/5 text-slate-300"
+            )}
+            onclick={() => setCategory(null)}>{m.analysis_all_categories()}</button
+          >
+          {#each categoryChoices as category (category.id)}
+            <button
+              type="button"
+              aria-pressed={selectedCategoryIds.has(category.id)}
+              class={cn(
+                "focus-visible:ring-accent min-h-11 rounded-full px-3 text-sm focus-visible:ring-2 focus-visible:outline-none",
+                selectedCategoryIds.has(category.id)
+                  ? "bg-accent-gradient text-slate-900"
+                  : "bg-white/5 text-slate-300"
+              )}
+              onclick={() => setCategory(category.id)}>{category.name}</button
+            >
+          {/each}
+        </div>
+      </fieldset>
+      <div class="mt-3 flex flex-wrap items-center gap-2">
+        <label for="analysis-grouping" class="text-xs text-slate-400">{m.analysis_grouping()}</label
+        >
+        <select
+          id="analysis-grouping"
+          class="min-h-11 rounded-xl border border-white/10 bg-slate-900 px-3 text-sm text-slate-100"
+          value={grouping}
+          onchange={(event) => setGrouping(event.currentTarget.value)}
+        >
+          <option value="auto">{m.analysis_group_auto()}</option><option value="day"
+            >{m.analysis_group_day()}</option
+          ><option value="week">{m.analysis_group_week()}</option><option value="month"
+            >{m.analysis_group_month()}</option
+          >
+        </select>
+      </div>
+      <p class="mt-2 text-xs text-slate-400">{m.analysis_category_balance_note()}</p>
+    </div>
     <section
       class="rounded-2xl border border-white/5 bg-slate-900/60 p-3 sm:p-5"
       aria-label={m.analysis_flows_title()}
@@ -584,56 +672,99 @@
         <div class="mt-3 grid grid-cols-2 gap-3">
           <div>
             <p class="text-sm text-slate-400">{m.analysis_income()}</p>
-            <p class="text-positive mt-1 text-xl font-semibold tabular-nums">
+            <p
+              class="text-positive mt-1 text-xl font-semibold tabular-nums"
+              data-testid="analysis-income"
+            >
               {formatCurrency(overview.income)}
             </p>
           </div>
           <div>
             <p class="text-sm text-slate-400">{m.analysis_expense()}</p>
-            <p class="mt-1 text-xl font-semibold tabular-nums">
+            <p class="mt-1 text-xl font-semibold tabular-nums" data-testid="analysis-expense">
               {formatCurrency(overview.expense)}
             </p>
           </div>
         </div>
       {/if}
-    </section>
-
-    {#if overview.bars.some((bar) => bar.income > 0 || bar.expense > 0)}
-      <section
-        class="rounded-2xl border border-white/5 bg-slate-900/60 p-3 sm:p-5"
-        aria-label={overview.barKind === "day"
-          ? m.analysis_days_title()
-          : m.analysis_months_title()}
-        data-testid="analysis-bars"
-      >
-        <h2 class="text-sm font-medium text-slate-300">
-          {overview.barKind === "day" ? m.analysis_days_title() : m.analysis_months_title()}
-        </h2>
-        <div class="mt-3 flex gap-3 overflow-x-auto pb-1">
-          {#each overview.bars as bar (bar.key)}
-            <div class="w-14 shrink-0">
-              <div class="flex h-24 items-end justify-center gap-1">
-                <div
-                  class="bg-positive w-2 rounded-sm"
-                  style="height: {(bar.income / maxBar) * 100}%"
-                ></div>
-                <div
-                  class="w-2 rounded-sm"
-                  style="height: {(bar.expense / maxBar) *
-                    100}%; background: var(--color-chart-primary)"
-                ></div>
-              </div>
-              <p class="mt-1 truncate text-center text-[11px] text-slate-400">
-                {barLabel(bar.key)}
-              </p>
-            </div>
-          {/each}
+      {#if overview.previousAvailable}
+        <div class="mt-3 border-t border-white/5 pt-3 text-xs text-slate-400">
+          <p>{m.analysis_previous_period()}</p>
+          <div class="mt-1 grid grid-cols-2 gap-3">
+            <p>{m.analysis_income()}: {formatCurrency(overview.previousIncome)}</p>
+            <p>{m.analysis_expense()}: {formatCurrency(overview.previousExpense)}</p>
+          </div>
         </div>
-      </section>
-    {/if}
+      {:else}<p class="mt-3 text-xs text-slate-500">{m.analysis_no_previous_data()}</p>{/if}
+      {#if overview.bars.some((bar) => bar.income > 0 || bar.expense > 0)}
+        <div
+          class="mt-4 border-t border-white/5 pt-3"
+          aria-label={overview.barKind === "day"
+            ? m.analysis_days_title()
+            : overview.barKind === "week"
+              ? m.analysis_weeks_title()
+              : m.analysis_months_title()}
+          data-testid="analysis-bars"
+        >
+          <h3 class="text-sm font-medium text-slate-300">
+            {overview.barKind === "day"
+              ? m.analysis_days_title()
+              : overview.barKind === "week"
+                ? m.analysis_weeks_title()
+                : m.analysis_months_title()}
+          </h3>
+          <div class="mt-2 flex gap-3 text-xs text-slate-400">
+            <span class="flex items-center gap-1"
+              ><span class="bg-positive h-2 w-2 rounded-sm" aria-hidden="true"
+              ></span>{m.analysis_income()}</span
+            ><span class="flex items-center gap-1"
+              ><span class="bg-negative h-2 w-2 rounded-sm" aria-hidden="true"
+              ></span>{m.analysis_expense()}</span
+            >
+          </div>
+          <div class="mt-3 flex gap-1 overflow-x-auto pb-1">
+            {#each overview.bars as bar (bar.key)}
+              <a
+                class="group focus-visible:ring-accent block min-w-2 flex-1 rounded focus-visible:ring-2 focus-visible:outline-none"
+                data-testid="analysis-bar-link"
+                href={analysisTransactionsUrl(bar, groupFilter, selectedCategoryIds)}
+                aria-label={m.analysis_bar_details({
+                  period: `${formatDate(bar.start)} – ${formatDate(bar.end)}`,
+                  income: formatCurrency(bar.income),
+                  expense: formatCurrency(bar.expense),
+                })}
+                title={m.analysis_bar_details({
+                  period: `${formatDate(bar.start)} – ${formatDate(bar.end)}`,
+                  income: formatCurrency(bar.income),
+                  expense: formatCurrency(bar.expense),
+                })}
+              >
+                <div class="flex h-24 items-end justify-center gap-0.5 group-hover:bg-white/5">
+                  <div
+                    class="bg-positive w-1/3 rounded-sm"
+                    style="height: {(bar.income / maxBar) * 100}%"
+                  ></div>
+                  <div
+                    class="bg-negative w-1/3 rounded-sm"
+                    style="height: {(bar.expense / maxBar) * 100}%"
+                  ></div>
+                </div>
+              </a>
+            {/each}
+          </div>
+          <div class="mt-1 flex justify-between text-[11px] text-slate-400">
+            <span>{barLabel(overview.bars[0].key)}</span>{#if overview.bars.length > 2}<span
+                >{barLabel(overview.bars[Math.floor(overview.bars.length / 2)].key)}</span
+              >{/if}<span>{barLabel(overview.bars.at(-1)!.key)}</span>
+          </div>
+          <p class="mt-2 text-xs text-slate-500">{m.analysis_bar_hint()}</p>
+        </div>
+      {/if}
+    </section>
 
     <BudgetCategoryHistory
       {groupFilter}
+      {selectedCategoryIds}
       period="custom"
       historyKind={overview.barKind === "day" ? "week" : "month"}
       historyOnly

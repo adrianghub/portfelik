@@ -67,7 +67,8 @@ describe("analysis overview", () => {
     expect(overview.chart?.domainStart).toBe("2026-08-09");
     expect(overview.chart?.coverage).toBe("full");
     expect(overview.reconstructed).toBe(true);
-    expect(overview.shifts.some((shift) => shift.id === "rent")).toBe(true);
+    expect(overview.previousAvailable).toBe(false);
+    expect(overview.shifts).toEqual([]);
   });
 
   it("withholds the balance line without an anchor and before the anchor date", () => {
@@ -309,6 +310,7 @@ describe("historical date exploration", () => {
     });
     expect(overview.chart?.domainStart).toBe("2026-07-31");
     expect(overview.chart?.domainEnd).toBe("2026-09-30");
+    expect(overview.balanceChange).toBeNull();
     expect(overview.chart?.points?.find((point) => point.date === "2026-09-15")?.balance).toBe(
       -98.99
     );
