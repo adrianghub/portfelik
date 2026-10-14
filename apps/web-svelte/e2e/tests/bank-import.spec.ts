@@ -1096,7 +1096,11 @@ test.describe("import review on a phone", () => {
     await expect(page.getByRole("table")).toHaveCount(0);
     await expect(page.locator("ul").getByText("BIEDRONKA", { exact: true })).toHaveCount(0);
 
-    await page.getByRole("button", { name: /Pokaż wszystkie/ }).click();
+    const showAll = page.getByRole("button", { name: /Pokaż wszystkie/ });
+    await showAll.evaluate((button) =>
+      button.scrollIntoView({ block: "center", behavior: "instant" })
+    );
+    await showAll.click();
     await expect(page.locator("ul").getByText("BIEDRONKA", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Pokaż tylko wyjątki" })).toBeVisible();
   });
@@ -1203,7 +1207,11 @@ test.describe("import review on a phone", () => {
     // for the hit-testing layer to leave before clicking the underlying list.
     await expect(page.locator(".sheet-backdrop")).toHaveCount(0);
     await expect(page.getByText("Brak pozycji pasujących do filtru")).toBeVisible();
-    await page.getByRole("button", { name: "Wyczyść filtr", exact: true }).click();
+    const clear = page.getByRole("button", { name: "Wyczyść filtr", exact: true });
+    await clear.evaluate((button) =>
+      button.scrollIntoView({ block: "center", behavior: "instant" })
+    );
+    await clear.click();
     await expect(page.locator("ul").getByText("BIEDRONKA", { exact: true })).toBeVisible();
   });
 });
