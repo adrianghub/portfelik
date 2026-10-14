@@ -148,8 +148,11 @@ export function buildAnalysisForecast(input: {
   >;
   const movementRows = forecastFlowRows(ledgerForFlows, end, anchor);
   const flowTotals = forecastMovementTotals(anchor, ledgerForFlows, { today, horizonEnd: end });
-  // Include today so start_of_day same-day upcoming matches headline income/expense.
-  const barsStart = today;
+  // Start at the earliest counted flow so pre-today overdue rows stay in bars.
+  const barsStart = movementRows.reduce(
+    (earliest, row) => (row.date < earliest ? row.date : earliest),
+    today
+  );
   const barKind = analysisBarKind(barsStart <= end ? barsStart : end, end);
   const bars = barsStart <= end ? buildAnalysisFlowBars(movementRows, barsStart, end, barKind) : [];
   return {
