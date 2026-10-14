@@ -154,6 +154,7 @@ describe("analysis forecast using Kokpit rules", () => {
     });
     expect(result.income).toBe(26153.14);
     expect(result.expense).toBe(25.55);
+    expect(result.bars.reduce((sum, bar) => sum + bar.expense, 0)).toBeCloseTo(result.expense, 2);
     expect(result.finalBalance).toBe(26027.59);
     expect(result.points[0].balance).toBe(-100);
   });

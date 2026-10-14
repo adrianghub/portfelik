@@ -212,7 +212,7 @@
         type: row.type,
         amount: row.amount,
         status: row.status,
-        date: row.date,
+        date: row.date.slice(0, 10),
         currency: row.currency,
         categoryId: row.category_id,
         categoryName: row.category_name,
@@ -244,7 +244,8 @@
     const choices = new Map<string, string>();
     for (const row of scopedFlows) {
       if (row.status !== "paid") continue;
-      if (row.date < overview.start || row.date > overview.end) continue;
+      const date = row.date.slice(0, 10);
+      if (date < overview.start || date > overview.end) continue;
       choices.set(row.categoryId || "none", row.categoryName?.trim() || m.analysis_uncategorized());
     }
     return [...choices]
