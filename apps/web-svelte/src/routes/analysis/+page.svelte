@@ -4,10 +4,12 @@
   import { analysisBalanceHelp } from "$lib/analysis/balance-help";
   import BudgetCategoryHistory from "$lib/components/analysis/BudgetCategoryHistory.svelte";
   import CockpitForecastChart from "$lib/components/dashboard/CockpitForecastChart.svelte";
+  import DayPicker from "$lib/components/ui/DayPicker.svelte";
   import InfoTooltip from "$lib/components/ui/InfoTooltip.svelte";
   import QueryError from "$lib/components/ui/QueryError.svelte";
   import {
     analysisWindow,
+    validAnalysisRange,
     buildAnalysisOverview,
     previousAnalysisWindow,
     type AnalysisFlow,
@@ -26,15 +28,17 @@
   import { createQuery } from "@tanstack/svelte-query";
 
   const spans: { value: AnalysisSpan; label: string }[] = [
+    { value: "30days", label: m.analysis_span_30days() },
+    { value: "90days", label: m.analysis_span_90days() },
     { value: "all", label: m.analysis_span_all() },
     { value: "year", label: m.analysis_span_year() },
     { value: "month", label: m.analysis_span_month() },
-    { value: "week", label: m.analysis_span_week() },
+    { value: "custom", label: m.analysis_span_custom() },
   ];
 
   const span = $derived.by<AnalysisSpan>(() => {
     const raw = $page.url.searchParams.get("span");
-    if (raw === "year" || raw === "month" || raw === "week" || raw === "all") return raw;
+    if (spans.some((item) => item.value === raw) || raw === "week") return raw as AnalysisSpan;
     return "all";
   });
   const groupFilter = $derived(parseScopeFilter($page.url.searchParams));
@@ -61,7 +65,18 @@
         }
       : null
   );
-  const needsEarliest = $derived(span === "all" && anchorReady);
+  const customRange = $derived({
+    start: $page.url.searchParams.get("from") ?? addLocalDays(today, -29),
+    end: $page.url.searchParams.get("to") ?? today,
+  });
+  let customFrom = $state("");
+  let customTo = $state("");
+  let selectedHistoryDate = $state("");
+  $effect(() => {
+    customFrom = customRange.start;
+    customTo = customRange.end;
+  });
+  const needsEarliest = $derived(anchorReady);
   const earliestQuery = createQuery(() => ({
     queryKey: qk.transactions.list(session.userId!, "analysis-earliest"),
     queryFn: fetchEarliestTransactionDate,
@@ -74,7 +89,8 @@
       span,
       today,
       anchor?.as_of_date ?? null,
-      needsEarliest ? (earliestQuery.data ?? null) : null
+      needsEarliest ? (earliestQuery.data ?? null) : null,
+      customRange
     );
     const previous = previousAnalysisWindow(window.start, window.end);
     const dates = [
@@ -83,7 +99,13 @@
       previous.start,
       needsEarliest ? earliestQuery.data : null,
     ].filter((value): value is string => typeof value === "string" && value.length > 0);
-    return { start: dates.sort()[0] ?? window.start, endExclusive: addLocalDays(window.end, 1) };
+    return {
+      start: dates.sort()[0] ?? window.start,
+      endExclusive: addLocalDays(
+        [window.end, anchor?.as_of_date ?? today, today].sort().at(-1)!,
+        1
+      ),
+    };
   });
 
   const ledgerQuery = createQuery(() => ({
@@ -129,7 +151,14 @@
       anchor,
       balanceScope: groupFilter === "own",
       rows,
+      customRange,
     });
+  });
+
+  $effect(() => {
+    void overview.start;
+    void overview.end;
+    selectedHistoryDate = "";
   });
 
   const balanceSemantics = $derived(
@@ -137,7 +166,7 @@
   );
   const balanceChartReady = $derived(
     !!overview.chart?.points &&
-      overview.chart.points.length > 1 &&
+      overview.chart.points.length > 0 &&
       !!overview.chart.domainStart &&
       !!overview.chart.domainEnd
   );
@@ -163,7 +192,9 @@
       (needsEarliest && earliestQuery.isPending) ||
       ledgerQuery.isLoading
   );
-  const failed = $derived(ledgerQuery.isError || (needsEarliest && earliestQuery.isError));
+  const failed = $derived(
+    cashAnchorQuery.isError || ledgerQuery.isError || (needsEarliest && earliestQuery.isError)
+  );
 
   function setSpan(next: AnalysisSpan) {
     const params = new URLSearchParams($page.url.searchParams);
@@ -172,6 +203,24 @@
     const query = params.toString();
     void goto(query ? `/analysis?${query}` : "/analysis", { keepFocus: true, noScroll: true });
   }
+
+  function applyCustomRange() {
+    if (!validAnalysisRange({ start: customFrom, end: customTo }, today)) return;
+    const params = new URLSearchParams($page.url.searchParams);
+    params.set("span", "custom");
+    params.set("from", customFrom);
+    params.set("to", customTo);
+    void goto(`/analysis?${params}`, { keepFocus: true, noScroll: true });
+  }
+
+  const selectedPoint = $derived(
+    overview.chart?.points?.find((point) => point.date === (selectedHistoryDate || overview.end))
+  );
+  const balanceChange = $derived(
+    overview.chart?.points?.length
+      ? overview.chart.points.at(-1)!.balance - overview.chart.points[0].balance
+      : null
+  );
 
   function barLabel(key: string): string {
     if (key.length === 10) return axisDayLabel(key);
@@ -213,12 +262,33 @@
     {/each}
   </div>
 
+  {#if span === "custom"}
+    <div class="rounded-2xl border border-white/5 bg-slate-900/60 p-3">
+      <div class="grid gap-3 sm:grid-cols-3 sm:items-end">
+        <DayPicker label={m.analysis_range_from()} bind:value={customFrom} max={today} />
+        <DayPicker label={m.analysis_range_to()} bind:value={customTo} max={today} />
+        <button
+          type="button"
+          class="bg-accent-gradient min-h-11 rounded-xl px-4 text-sm font-medium text-slate-900 disabled:opacity-40"
+          disabled={!validAnalysisRange({ start: customFrom, end: customTo }, today)}
+          onclick={applyCustomRange}>{m.analysis_apply_range()}</button
+        >
+      </div>
+      {#if !validAnalysisRange({ start: customFrom, end: customTo }, today)}<p
+          class="text-negative mt-2 text-sm"
+        >
+          {m.analysis_invalid_range()}
+        </p>{/if}
+    </div>
+  {/if}
+
   {#if loading}
     <div class="h-48 animate-pulse rounded-2xl border border-white/5 bg-slate-900/60"></div>
   {:else if failed}
     <QueryError
-      error={ledgerQuery.error ?? earliestQuery.error}
+      error={cashAnchorQuery.error ?? ledgerQuery.error ?? earliestQuery.error}
       onRetry={() => {
+        if (cashAnchorQuery.isError) void cashAnchorQuery.refetch();
         if (needsEarliest && earliestQuery.isError) void earliestQuery.refetch();
         if (ledgerQuery.isError) void ledgerQuery.refetch();
       }}
@@ -236,17 +306,42 @@
         {/if}
       </div>
       {#if balanceChartReady && overview.chart?.domainStart && overview.chart.domainEnd && overview.chart.points}
-        <div class="mt-2">
-          <CockpitForecastChart
-            points={overview.chart.points}
-            todayRatio={overview.chart.todayRatio}
-            rangeStart={overview.chart.domainStart}
-            rangeEnd={overview.chart.domainEnd}
-            historyLabel={m.analysis_chart_history()}
-            confirmOnScrub={balanceSemantics === "end_of_day"}
-            legend="forecast-only"
-          />
+        <div class="mt-3 grid gap-3 sm:grid-cols-2">
+          <div>
+            <DayPicker
+              label={m.analysis_balance_on_day()}
+              value={selectedHistoryDate || overview.end}
+              max={overview.end}
+              onchange={(date) => (selectedHistoryDate = date)}
+            />
+            <p class="mt-2 text-xl font-semibold tabular-nums" data-testid="analysis-day-balance">
+              {selectedPoint ? formatCurrency(selectedPoint.balance) : m.analysis_no_day_balance()}
+            </p>
+          </div>
+          <div>
+            <p class="text-sm text-slate-400">{m.analysis_balance_change()}</p>
+            <p
+              class="mt-2 text-xl font-semibold tabular-nums"
+              data-testid="analysis-balance-change"
+            >
+              {balanceChange == null ? "—" : formatCurrency(balanceChange)}
+            </p>
+          </div>
         </div>
+        {#if overview.chart.points.length > 1}
+          <div class="mt-2">
+            <CockpitForecastChart
+              points={overview.chart.points}
+              todayRatio={overview.chart.todayRatio}
+              rangeStart={overview.chart.domainStart}
+              rangeEnd={overview.chart.domainEnd}
+              historyLabel={m.analysis_chart_history()}
+              confirmOnScrub={balanceSemantics === "end_of_day"}
+              legend="forecast-only"
+            />
+          </div>
+        {/if}
+        <p class="mt-2 text-xs text-slate-400">{m.analysis_history_limit()}</p>
         <div class="mt-2 flex items-start justify-between gap-3 text-xs text-slate-400">
           <p data-testid="analysis-balance-source">{m.analysis_balance_source()}</p>
           {#if balanceSemantics === "end_of_day"}
@@ -332,9 +427,10 @@
 
     <BudgetCategoryHistory
       {groupFilter}
-      period={span === "all" ? "custom" : span}
-      historyKind={span === "week" ? "week" : span === "year" ? "year" : "month"}
-      customRange={span === "all" ? { start: overview.start, end: overview.end } : null}
+      period="custom"
+      historyKind={overview.barKind === "day" ? "week" : "month"}
+      historyOnly
+      customRange={{ start: overview.start, end: overview.end }}
     />
 
     {#if overview.shifts.length > 0}
