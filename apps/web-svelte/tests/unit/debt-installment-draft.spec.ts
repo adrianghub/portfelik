@@ -4,6 +4,7 @@ import {
   debtSettleMaxDate,
   installmentDayOfMonth,
   nextInstallmentDate,
+  scheduleInstallmentStart,
 } from "$lib/services/debt-installment-draft";
 
 describe("debt installment draft helpers", () => {
@@ -17,6 +18,17 @@ describe("debt installment draft helpers", () => {
   it("reads installment day from first payment date", () => {
     expect(installmentDayOfMonth("2026-07-10", "2026-10-14")).toBe(10);
     expect(installmentDayOfMonth(null, "2026-10-14")).toBe(14);
+  });
+
+  it("keeps a future first-payment date instead of inventing earlier months", () => {
+    expect(scheduleInstallmentStart("2026-10-14", "2027-01-10")).toEqual({
+      date: "2027-01-10",
+      dayOfMonth: 10,
+    });
+    expect(scheduleInstallmentStart("2026-10-14", "2026-07-10")).toEqual({
+      date: "2026-11-10",
+      dayOfMonth: 10,
+    });
   });
 
   it("caps debt settle dates at today", () => {

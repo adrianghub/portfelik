@@ -17,7 +17,7 @@
     type TransactionCreateDraft,
   } from "$lib/components/transactions/TransactionDialog.svelte";
   import { fetchPlanDebtTerms } from "$lib/services/plan-debt";
-  import { installmentDayOfMonth, nextInstallmentDate } from "$lib/services/debt-installment-draft";
+  import { scheduleInstallmentStart } from "$lib/services/debt-installment-draft";
   import { fetchPlanById } from "$lib/services/plans";
   import type { TransactionType } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
@@ -44,7 +44,8 @@
   const debtTermsQuery = createQuery(() => ({
     queryKey: qk.planDebtTerms(session.userId!, id),
     queryFn: () => fetchPlanDebtTerms(id),
-    enabled: () => !!session.userId && !!id && planQuery.data?.kind === "debt",
+    // Boolean (not a lazy fn) so planQuery.data is a reactive dependency.
+    enabled: !!session.userId && !!id && planQuery.data?.kind === "debt",
   }));
   const activeType = $derived<TransactionType>("expense");
 
@@ -66,18 +67,17 @@
     const plan = planQuery.data;
     const terms = debtTermsQuery.data;
     if (!plan || plan.kind !== "debt" || txDialogMode !== "schedule" || !terms) return null;
-    const today = localDateIso();
-    const day = installmentDayOfMonth(terms.first_payment_date, today);
+    const { date, dayOfMonth } = scheduleInstallmentStart(localDateIso(), terms.first_payment_date);
     return {
       type: "expense",
       amount: Number(terms.monthly_payment),
       description: m.plan_debt_installment_description({ name: plan.name }),
-      date: nextInstallmentDate(today, day),
+      date,
       categoryId: plan.category_id,
       groupId: plan.group_id,
       status: "upcoming",
       isRecurring: true,
-      recurringDay: day,
+      recurringDay: dayOfMonth,
       recurrenceFrequency: "monthly",
       recurrenceInterval: 1,
     };

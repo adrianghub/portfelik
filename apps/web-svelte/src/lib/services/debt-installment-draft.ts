@@ -41,6 +41,24 @@ export function installmentDayOfMonth(
   return Number(from.slice(8, 10)) || 1;
 }
 
+/**
+ * First draft installment date for „Zaplanuj raty”.
+ * Future `first_payment_date` is kept as-is; historical ones advance from today.
+ */
+export function scheduleInstallmentStart(
+  today: string,
+  firstPaymentDate: string | null | undefined
+): { date: string; dayOfMonth: number } {
+  const from = today.slice(0, 10);
+  const first =
+    firstPaymentDate && /^\d{4}-\d{2}-\d{2}/.test(firstPaymentDate)
+      ? firstPaymentDate.slice(0, 10)
+      : null;
+  const dayOfMonth = installmentDayOfMonth(first, from);
+  if (first && first > from) return { date: first, dayOfMonth };
+  return { date: nextInstallmentDate(from, dayOfMonth), dayOfMonth };
+}
+
 /** Latest date allowed when booking a paid debt installment (today, local). */
 export function debtSettleMaxDate(today: string = localDateIso()): string {
   return today.slice(0, 10);

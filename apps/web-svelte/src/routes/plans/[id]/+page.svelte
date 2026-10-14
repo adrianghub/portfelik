@@ -30,7 +30,7 @@
     type PlanTransactionContext,
     type TransactionCreateDraft,
   } from "$lib/components/transactions/TransactionDialog.svelte";
-  import { installmentDayOfMonth, nextInstallmentDate } from "$lib/services/debt-installment-draft";
+  import { scheduleInstallmentStart } from "$lib/services/debt-installment-draft";
   import { detectRecurringDebtPayments } from "$lib/services/debt-payment-detect";
   import {
     deriveDebtDisplayBalance,
@@ -313,18 +313,17 @@
     const plan = planQuery.data;
     const terms = debtTermsQuery.data;
     if (!plan || plan.kind !== "debt" || txDialogMode !== "schedule" || !terms) return null;
-    const today = localDateIso();
-    const day = installmentDayOfMonth(terms.first_payment_date, today);
+    const { date, dayOfMonth } = scheduleInstallmentStart(localDateIso(), terms.first_payment_date);
     return {
       type: "expense",
       amount: Number(terms.monthly_payment),
       description: m.plan_debt_installment_description({ name: plan.name }),
-      date: nextInstallmentDate(today, day),
+      date,
       categoryId: plan.category_id,
       groupId: plan.group_id,
       status: "upcoming",
       isRecurring: true,
-      recurringDay: day,
+      recurringDay: dayOfMonth,
       recurrenceFrequency: "monthly",
       recurrenceInterval: 1,
     };
