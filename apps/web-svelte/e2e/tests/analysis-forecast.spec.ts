@@ -85,6 +85,7 @@ for (const viewport of [
       await picker.getByRole("combobox").selectOption("10");
       await picker.locator('[data-date="2026-10-26"]').click();
       await expect(forecast.getByTestId("analysis-forecast-day")).toContainText(/21\D?038,91/);
+      await page.evaluate(() => window.scrollTo(0, 0));
       await page.screenshot({ path: testInfo.outputPath("analysis-forecast.png"), fullPage: true });
       await page.getByRole("tab", { name: "Historia", exact: true }).click();
       await expect(page.getByTestId("analysis-forecast")).toHaveCount(0);

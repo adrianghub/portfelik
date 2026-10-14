@@ -219,10 +219,12 @@
     });
   });
 
+  const historyWindowKey = $derived(`${overview.start}:${overview.end}`);
   $effect(() => {
-    void overview.start;
-    void overview.end;
-    selectedHistoryDate = "";
+    if (mode === "history") {
+      void historyWindowKey;
+      selectedHistoryDate = "";
+    }
   });
 
   const balanceSemantics = $derived(
@@ -464,6 +466,7 @@
           <div class="mt-4">
             <CockpitForecastChart
               points={forecast.points}
+              historyLabel={m.analysis_forecast_today()}
               todayRatio={0}
               rangeStart={forecast.start}
               rangeEnd={forecast.end}
