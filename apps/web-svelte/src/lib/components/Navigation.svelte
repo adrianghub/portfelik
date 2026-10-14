@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from "$app/stores";
+  import { mobileNavHiddenAfterScroll } from "$lib/navigation-scroll";
   import { goto } from "$app/navigation";
   import { supabase } from "$lib/supabase";
   import { cn } from "$lib/utils";
@@ -48,6 +49,7 @@
   let menuButtonMobileRef = $state<HTMLButtonElement | null>(null);
   let mobileNavHidden = $state(false);
   let lastScrollY = 0;
+  let lastScrollExtent = 0;
 
   const avatarUrl = $derived<string | null>(
     (user?.user_metadata?.avatar_url as string | undefined) ?? null
@@ -71,14 +73,13 @@
 
   function onWindowScroll() {
     const y = window.scrollY;
-    const delta = y - lastScrollY;
-    if (y < 24) {
-      mobileNavHidden = false;
-    } else if (delta > 8 && y > 80) {
-      mobileNavHidden = true;
-    } else if (delta < -8) {
-      mobileNavHidden = false;
-    }
+    const extent = document.documentElement.scrollHeight;
+    mobileNavHidden = mobileNavHiddenAfterScroll(
+      mobileNavHidden,
+      { y: lastScrollY, extent: lastScrollExtent },
+      { y, extent }
+    );
+    lastScrollExtent = extent;
     lastScrollY = y;
   }
 
