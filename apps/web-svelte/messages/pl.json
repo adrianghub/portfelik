@@ -1173,7 +1173,6 @@
   "cockpit_payments_label": "Wydatki",
   "cockpit_payments_window": "30 dni",
   "cockpit_forecast_label": "Prognoza",
-  "cockpit_forecast_help_label": "Objaśnienie prognozy",
   "cockpit_month_nav": "Miesiąc",
   "cockpit_month_previous": "Poprzedni miesiąc",
   "cockpit_month_next": "Następny miesiąc",
@@ -1371,5 +1370,16 @@
   "import_statement_decision": "Decyzja importu",
   "import_statement_skip": "Pomiń",
   "import_statement_import": "Importuj",
-  "import_statement_detected_duplicate": "Wykryty duplikat"
+  "import_statement_detected_duplicate": "Wykryty duplikat",
+  "analysis_span_30days": "30 dni",
+  "analysis_span_90days": "90 dni",
+  "analysis_span_custom": "Własny zakres",
+  "analysis_range_from": "Od dnia",
+  "analysis_range_to": "Do dnia",
+  "analysis_apply_range": "Pokaż zakres",
+  "analysis_invalid_range": "Wybierz poprawny zakres kończący się najpóźniej dziś.",
+  "analysis_balance_on_day": "Saldo na dzień",
+  "analysis_balance_change": "Zmiana salda w okresie",
+  "analysis_no_day_balance": "Brak danych dla tego dnia",
+  "analysis_history_limit": "Saldo wynika z dostępnych transakcji. Brakujące operacje mogą zmienić wynik."
 }

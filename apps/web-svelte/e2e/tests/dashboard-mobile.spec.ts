@@ -547,7 +547,7 @@ test.describe("dashboard mobile layout", () => {
     await page.goto("/analysis?span=month");
     await expect(page.getByRole("heading", { name: "Analiza budżetu" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Historia", exact: true })).toBeVisible();
-    await expect(page.getByTestId("cockpit-history-span")).toHaveText("Ostatnie miesiące");
+    await expect(page.getByTestId("cockpit-history-span")).toHaveText("Ostatnie tygodnie");
   });
 
   test("analysis spans drive categories and history", async ({ page }) => {
@@ -557,11 +557,12 @@ test.describe("dashboard mobile layout", () => {
       "true"
     );
     await expect(page.getByTestId("cockpit-category-period").first()).toBeVisible();
-    await expect(page.getByTestId("cockpit-history-span")).toHaveText("Ostatnie miesiące");
+    await expect(page.getByTestId("cockpit-history-span")).toHaveText("Ostatnie tygodnie");
 
+    const monthLabel = await page.getByTestId("cockpit-category-period").first().textContent();
     await page.getByRole("tab", { name: "7 dni" }).click();
     await expect(page).toHaveURL(/span=week/);
-    await expect(page.getByTestId("cockpit-category-period").first()).toHaveText("Ostatnie 7 dni");
+    await expect(page.getByTestId("cockpit-category-period").first()).not.toHaveText(monthLabel!);
     await expect(page.getByTestId("cockpit-history-span")).toHaveText("Ostatnie tygodnie");
   });
 

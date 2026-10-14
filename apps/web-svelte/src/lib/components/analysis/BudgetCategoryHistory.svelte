@@ -45,12 +45,14 @@
     period,
     historyKind,
     customRange = null,
+    historyOnly = false,
   }: {
     groupFilter: ScopeFilter;
     period: DashboardPeriod;
     /** Grain of the spend-history bars. Independent of a long category window. */
     historyKind: "week" | "month" | "year";
     customRange?: DashboardRange | null;
+    historyOnly?: boolean;
   } = $props();
 
   let spendingExpanded = $state(false);
@@ -178,11 +180,13 @@
       : buildPeriodWindows(historyKind, HISTORY_PERIODS)
   );
   const forwardWindows = $derived(
-    historyKind === "year"
-      ? buildForwardPeriodWindows("year", 1)
-      : historyKind === "month"
-        ? buildForwardPeriodWindows("month", 3)
-        : buildForwardDayWindows(7, 3, bounds.end)
+    historyOnly
+      ? []
+      : historyKind === "year"
+        ? buildForwardPeriodWindows("year", 1)
+        : historyKind === "month"
+          ? buildForwardPeriodWindows("month", 3)
+          : buildForwardDayWindows(7, 3, bounds.end)
   );
   const forwardBounds = $derived(
     forwardWindows.length > 0
