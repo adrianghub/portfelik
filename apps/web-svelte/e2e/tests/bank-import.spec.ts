@@ -1199,6 +1199,9 @@ test.describe("import review on a phone", () => {
     await sheet.getByRole("searchbox").fill("nieistniejąca-transakcja");
     await sheet.getByRole("button", { name: "Zamknij", exact: true }).last().click();
     await expect(sheet).not.toBeVisible();
+    // Svelte marks outgoing dialogs inert before removing their portal. Wait
+    // for the hit-testing layer to leave before clicking the underlying list.
+    await expect(page.locator(".sheet-backdrop")).toHaveCount(0);
     await expect(page.getByText("Brak pozycji pasujących do filtru")).toBeVisible();
     await page.getByRole("button", { name: "Wyczyść filtr", exact: true }).click();
     await expect(page.locator("ul").getByText("BIEDRONKA", { exact: true })).toBeVisible();
