@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { analysisTransactionsUrl } from "$lib/analysis/overview";
   import { goto } from "$app/navigation";
   import DashboardSpendingInsight from "$lib/components/dashboard/DashboardSpendingInsight.svelte";
   import SpendHistoryChart from "$lib/components/dashboard/charts/LazySpendHistoryChart.svelte";
@@ -11,6 +12,7 @@
     inclusiveDayRangeLabel,
   } from "$lib/cockpit/month-window";
   import * as m from "$lib/paraglide/messages";
+  import { isSupportedLedgerCurrency } from "$lib/ledger-currency";
   import { qk } from "$lib/query-keys";
   import { fetchCategories } from "$lib/services/categories";
   import {
@@ -46,6 +48,7 @@
     historyKind,
     customRange = null,
     historyOnly = false,
+    selectedCategoryIds = new Set<string>(),
   }: {
     groupFilter: ScopeFilter;
     period: DashboardPeriod;
@@ -53,6 +56,7 @@
     historyKind: "week" | "month" | "year";
     customRange?: DashboardRange | null;
     historyOnly?: boolean;
+    selectedCategoryIds?: ReadonlySet<string>;
   } = $props();
 
   let spendingExpanded = $state(false);
@@ -231,7 +235,7 @@
   const recurringTemplatesQuery = createQuery(() => ({
     queryKey: qk.transactions.list(session.userId!, "recurring-templates"),
     queryFn: fetchRecurringTemplates,
-    enabled: !!session.userId,
+    enabled: !!session.userId && !historyOnly,
     staleTime: 60_000,
   }));
   const recurringSkipsQuery = createQuery(() => ({
@@ -242,7 +246,7 @@
       forwardBounds.end
     ),
     queryFn: () => fetchRecurringOccurrenceSkips(bounds.start, forwardBounds.end),
-    enabled: !!session.userId,
+    enabled: !!session.userId && !historyOnly,
     staleTime: 60_000,
   }));
 
@@ -263,7 +267,13 @@
     });
   }
 
-  const allScopedTxs = $derived(scopeFilter(txQuery.data ?? []));
+  const allScopedTxs = $derived(
+    scopeFilter(txQuery.data ?? []).filter(
+      (row) =>
+        isSupportedLedgerCurrency(row.currency) &&
+        (!selectedCategoryIds.size || selectedCategoryIds.has(row.category_id || "none"))
+    )
+  );
   const scopedTxs = $derived(inWindow(allScopedTxs, bounds.start, bounds.end));
   const saveLinkedIds = $derived(saveLinkedQuery.data ?? new Set<string>());
   const celeCategoryId = $derived(resolveCeleCategoryId(categoriesQuery.data ?? []));
@@ -390,12 +400,11 @@
   }
 
   function categoryHref(categoryId: string | null): string {
-    const params = new URLSearchParams();
-    params.set("startDate", bounds.start.slice(0, 10));
-    params.set("endDate", previousDateOnly(bounds.end));
-    params.set("group", groupFilter);
-    if (categoryId) params.set("categoryId", categoryId);
-    return `/transactions?${params.toString()}`;
+    return analysisTransactionsUrl(
+      { start: bounds.start.slice(0, 10), end: previousDateOnly(bounds.end) },
+      groupFilter,
+      [categoryId || "none"]
+    );
   }
 </script>
 
@@ -407,7 +416,7 @@
 {:else if txQuery.isError}
   <QueryError error={txQuery.error} onRetry={() => txQuery.refetch()} />
 {:else}
-  <div class="grid min-w-0 grid-cols-1 items-stretch gap-3 lg:grid-cols-2">
+  <div class="grid min-w-0 grid-cols-1 items-stretch gap-3 {historyOnly ? '' : 'lg:grid-cols-2'}">
     <DashboardSpendingInsight
       insight={spendingInsight}
       {period}
@@ -416,18 +425,20 @@
       bind:expanded={spendingExpanded}
       {categoryHref}
     />
-    <SpendHistoryChart
-      buckets={combinedHistoryBuckets}
-      {allocationByLabel}
-      {categoryIdsByName}
-      {categoryColors}
-      onselectperiod={selectHistoryPeriod}
-      onOpenGlossary={(entryId) => {
-        glossaryFocusId = entryId;
-        glossaryOpen = true;
-      }}
-      periodLabel={historySpanLabel}
-    />
+    {#if !historyOnly}
+      <SpendHistoryChart
+        buckets={combinedHistoryBuckets}
+        {allocationByLabel}
+        {categoryIdsByName}
+        {categoryColors}
+        onselectperiod={selectHistoryPeriod}
+        onOpenGlossary={(entryId) => {
+          glossaryFocusId = entryId;
+          glossaryOpen = true;
+        }}
+        periodLabel={historySpanLabel}
+      />
+    {/if}
   </div>
 {/if}
 

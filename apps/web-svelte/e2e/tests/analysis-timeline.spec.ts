@@ -46,6 +46,7 @@ for (const viewport of [
       await expect(balance.getByTestId("cockpit-chart")).toBeVisible();
       await expect(balance.getByText("30 lip", { exact: true })).toBeVisible();
       await expect(balance.getByText("Prognoza", { exact: true })).toHaveCount(0);
+      await expect(balance.getByTestId("analysis-confirmed-caption")).toHaveCount(0);
       await expect(page.getByTestId("analysis-day-balance")).toContainText(/9\D?000,00/);
       await balance.getByRole("button", { name: "Saldo na dzień", exact: true }).click();
       const picker = page.getByRole("dialog", { name: "Saldo na dzień", exact: true });

@@ -64,6 +64,11 @@
   const historySeries = $derived(points.filter((point) => point.kind !== "forecast"));
   const forecastPoints = $derived(points.filter((point) => point.kind === "forecast"));
 
+  function axisDateLabel(date: string): string {
+    const label = axisDayLabel(date);
+    return rangeStart.slice(0, 4) !== rangeEnd.slice(0, 4) ? `${label} ${date.slice(0, 4)}` : label;
+  }
+
   function xOf(date: string): number {
     return dateRatio(date, rangeStart, rangeEnd) * width;
   }
@@ -178,9 +183,9 @@
   function scrubLabel(point: CockpitChartPoint): string {
     if (point.kind === "forecast") return m.cockpit_scrub_forecast();
     if (confirmOnScrub && point.kind === "confirmed") {
-      return m.analysis_scrub_confirmed({ date: axisDayLabel(point.date) });
+      return m.analysis_scrub_confirmed({ date: axisDateLabel(point.date) });
     }
-    return axisDayLabel(point.date);
+    return axisDateLabel(point.date);
   }
 
   const showLegend = $derived(
@@ -308,7 +313,7 @@
   </div>
   <div class="relative mt-1 ml-14 h-5 text-sm text-slate-400">
     {#if !todayAtStart}
-      <span class="absolute left-0">{axisDayLabel(rangeStart)}</span>
+      <span class="absolute left-0">{axisDateLabel(rangeStart)}</span>
     {/if}
     {#if todayRatio != null}
       <span
@@ -318,7 +323,7 @@
       >
     {/if}
     {#if !todayAtEnd}
-      <span class="absolute right-0">{axisDayLabel(rangeEnd)}</span>
+      <span class="absolute right-0">{axisDateLabel(rangeEnd)}</span>
     {/if}
   </div>
   {#if showLegend}

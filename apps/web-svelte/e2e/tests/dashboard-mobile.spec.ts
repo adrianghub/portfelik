@@ -532,7 +532,7 @@ test.describe("dashboard mobile layout", () => {
 
   test("spending accordion expands on mobile", async ({ page }) => {
     await page.goto("/analysis?span=month");
-    const toggle = page.getByRole("button", { name: /kategorie/i });
+    const toggle = page.locator("#dashboard-spending").getByRole("button", { name: /kategorie/i });
     await expect(toggle).toBeVisible({ timeout: 10000 });
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
     const panel = page.locator("#dashboard-spending .expand-grid");
@@ -543,11 +543,12 @@ test.describe("dashboard mobile layout", () => {
     await expect(page.getByText(/największe wydatki/i)).toBeVisible();
   });
 
-  test("spend history is visible in budget analysis", async ({ page }) => {
+  test("budget analysis shows categories with one flow history", async ({ page }) => {
     await page.goto("/analysis?span=month");
     await expect(page.getByRole("heading", { name: "Analiza budżetu" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Historia", exact: true })).toBeVisible();
-    await expect(page.getByTestId("cockpit-history-span")).toHaveText("Ostatnie tygodnie");
+    await expect(page.getByTestId("analysis-flows")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Historia", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("combobox", { name: "Grupuj przepływy" })).toBeVisible();
   });
 
   test("analysis spans drive categories and history", async ({ page }) => {
@@ -557,13 +558,13 @@ test.describe("dashboard mobile layout", () => {
       "true"
     );
     await expect(page.getByTestId("cockpit-category-period").first()).toBeVisible();
-    await expect(page.getByTestId("cockpit-history-span")).toHaveText("Ostatnie tygodnie");
+    await expect(page.getByRole("combobox", { name: "Grupuj przepływy" })).toBeVisible();
 
     const monthLabel = await page.getByTestId("cockpit-category-period").first().textContent();
     await page.getByRole("tab", { name: "7 dni" }).click();
     await expect(page).toHaveURL(/span=week/);
     await expect(page.getByTestId("cockpit-category-period").first()).not.toHaveText(monthLabel!);
-    await expect(page.getByTestId("cockpit-history-span")).toHaveText("Ostatnie tygodnie");
+    await expect(page.getByRole("combobox", { name: "Grupuj przepływy" })).toBeVisible();
   });
 
   test("transaction links carry the exact inclusive month and group scope", async ({ page }) => {
