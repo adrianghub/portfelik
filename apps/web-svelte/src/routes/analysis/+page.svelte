@@ -575,15 +575,24 @@
               {/each}
             </div>
             <div class="mt-1 flex justify-between text-[11px] text-slate-400">
-              <span>{barLabel(forecast.bars[0].key, forecast.start, forecast.end)}</span
+              <span
+                >{barLabel(
+                  forecast.bars[0].key,
+                  forecast.bars[0].start,
+                  forecast.bars.at(-1)!.end
+                )}</span
               >{#if forecast.bars.length > 2}<span
                   >{barLabel(
                     forecast.bars[Math.floor(forecast.bars.length / 2)].key,
-                    forecast.start,
-                    forecast.end
+                    forecast.bars[0].start,
+                    forecast.bars.at(-1)!.end
                   )}</span
                 >{/if}<span
-                >{barLabel(forecast.bars.at(-1)!.key, forecast.start, forecast.end)}</span
+                >{barLabel(
+                  forecast.bars.at(-1)!.key,
+                  forecast.bars[0].start,
+                  forecast.bars.at(-1)!.end
+                )}</span
               >
             </div>
             <p class="mt-2 text-xs text-slate-500">{m.analysis_forecast_bar_hint()}</p>
