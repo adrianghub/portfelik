@@ -532,7 +532,7 @@ test.describe("dashboard mobile layout", () => {
 
   test("spending accordion expands on mobile", async ({ page }) => {
     await page.goto("/analysis?span=month");
-    const toggle = page.getByRole("button", { name: /kategorie/i });
+    const toggle = page.locator("#dashboard-spending").getByRole("button", { name: /kategorie/i });
     await expect(toggle).toBeVisible({ timeout: 10000 });
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
     const panel = page.locator("#dashboard-spending .expand-grid");

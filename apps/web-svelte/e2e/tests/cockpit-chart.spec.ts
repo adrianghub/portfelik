@@ -198,11 +198,11 @@ test.describe("cockpit forecast chart", () => {
     await expect(page.getByRole("heading", { name: "Analiza budżetu" })).toBeVisible();
     await expect(page.getByTestId("analysis-balance")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Kategorie", exact: true })).toBeVisible();
-    await expect(page.getByTestId("cockpit-history")).toBeVisible();
+    await expect(page.getByTestId("analysis-flows")).toBeVisible();
     await expect(page.getByText("1 sty", { exact: true })).toHaveCount(0);
     if (existsSync(ARTIFACTS)) {
       await page.screenshot({ path: `${ARTIFACTS}/analysis-overview.png` });
-      const history = page.getByTestId("cockpit-history");
+      const history = page.getByTestId("analysis-flows");
       await history.scrollIntoViewIfNeeded();
       await history.screenshot({ path: `${ARTIFACTS}/analysis-history.png` });
       await page.screenshot({ path: `${ARTIFACTS}/analysis-history-viewport.png` });
