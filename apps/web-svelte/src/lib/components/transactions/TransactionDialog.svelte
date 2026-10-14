@@ -166,7 +166,10 @@
       status =
         initial?.status ??
         (planContext?.planKind === "debt" ? "paid" : suggestStatusForDate(initialDate));
-      is_recurring = initial?.recurring_template_id ? false : (initial?.is_recurring ?? false);
+      is_recurring =
+        debtCreateLockedPaid || initial?.recurring_template_id
+          ? false
+          : (initial?.is_recurring ?? false);
       recurring_day = initial?.recurring_day ?? new Date().getDate();
       recurrence_frequency = initial?.recurrence_frequency ?? "monthly";
       recurrence_interval = initial?.recurrence_interval ?? 1;
@@ -227,7 +230,13 @@
 
   const isEdit = $derived(!!initial);
   const isRecurringOccurrenceEdit = $derived(!!initial?.recurring_template_id);
-  const title = $derived(isEdit ? m.transaction_form_title_edit() : m.transaction_form_title_add());
+  const title = $derived(
+    isEdit
+      ? m.transaction_form_title_edit()
+      : debtCreateLockedPaid
+        ? m.transaction_form_title_debt_settle()
+        : m.transaction_form_title_add()
+  );
 
   const mutation = createMutation(() => ({
     mutationFn: async (input: Parameters<typeof createTransaction>[0]) => {
@@ -359,7 +368,7 @@
         return;
       }
     }
-    const saveAsRecurring = is_recurring && !isRecurringOccurrenceEdit;
+    const saveAsRecurring = is_recurring && !isRecurringOccurrenceEdit && !debtCreateLockedPaid;
     const usesDay =
       saveAsRecurring && (recurrence_frequency === "monthly" || recurrence_frequency === "yearly");
     void mutation
@@ -481,7 +490,14 @@
       </div>
     {/if}
 
-    {#if !debtCreateLockedPaid}
+    {#if debtCreateLockedPaid}
+      <p class="rounded-xl border border-white/5 bg-slate-900/40 px-3 py-2 text-xs text-slate-300">
+        {m.transaction_form_debt_settle_note()}
+      </p>
+      <p class="text-xs text-slate-400" data-testid="debt-settle-status-locked">
+        {m.transaction_form_debt_settle_status()}
+      </p>
+    {:else}
       <div class="space-y-1">
         <label class={labelClass} for="tx-status">{m.transaction_form_status()}</label>
         <select
@@ -511,7 +527,7 @@
       </div>
     {/if}
 
-    {#if !isRecurringOccurrenceEdit}
+    {#if !isRecurringOccurrenceEdit && !debtCreateLockedPaid}
       <label class="flex cursor-pointer items-center gap-3 select-none">
         <input type="checkbox" bind:checked={is_recurring} class="sr-only" />
         <div

@@ -218,7 +218,11 @@
     {:else if suggestions.length === 0}
       <div class="space-y-1 py-4 text-center text-sm text-slate-400">
         <p>{m.plan_settle_no_eligible()}</p>
-        <p class="text-xs text-slate-400">{m.plan_settle_no_eligible_hint()}</p>
+        <p class="text-xs text-slate-400">
+          {planQuery.data?.kind === "debt"
+            ? m.plan_settle_no_eligible_hint_debt()
+            : m.plan_settle_no_eligible_hint()}
+        </p>
       </div>
     {:else}
       {#each suggestions as ranked (ranked.tx.id)}
@@ -298,7 +302,7 @@
     onclick={() => (showManualTxDialog = true)}
     class="focus-visible:ring-accent mx-auto block text-sm text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:outline-none"
   >
-    {m.plan_settle_manual_add()}
+    {planQuery.data?.kind === "debt" ? m.plan_settle_manual_add_debt() : m.plan_settle_manual_add()}
   </button>
 </div>
 

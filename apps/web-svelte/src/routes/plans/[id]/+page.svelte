@@ -696,12 +696,15 @@
     {/if}
 
     {#if plan.kind === "debt"}
+      <p class="text-xs leading-relaxed text-slate-400" data-testid="plan-debt-installments-hint">
+        {m.plan_debt_plan_installments_hint()}
+      </p>
       <button
         type="button"
         onclick={() => openManualTx(defaultManualTxType(plan.kind ?? "save"))}
         class="focus-visible:ring-accent w-full rounded-xl border border-dashed border-white/10 px-4 py-2.5 text-sm text-slate-300 transition-colors hover:border-white/20 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
       >
-        {m.plan_detail_manual_add()}
+        {m.plan_detail_manual_add_debt()}
       </button>
     {/if}
 
@@ -736,6 +739,8 @@
             setpending: (txId) => (unlinkPendingId = txId),
             loading: unlinkMutation.isPending,
             onmanualadd: plan.kind === "save" ? undefined : () => openManualTx("expense"),
+            manualAddLabel:
+              plan.kind === "debt" ? m.plan_detail_manual_add_debt() : m.plan_detail_manual_add(),
           })}
         {/if}
         {#if incomes.length > 0}
@@ -749,6 +754,7 @@
             setpending: (txId) => (unlinkPendingId = txId),
             loading: unlinkMutation.isPending,
             onmanualadd: () => openManualTx("expense"),
+            manualAddLabel: m.plan_detail_manual_add(),
           })}
         {/if}
       </div>
@@ -951,6 +957,7 @@
   setpending,
   loading,
   onmanualadd,
+  manualAddLabel,
 }: {
   title: string | null;
   transactions: import("$lib/types").TransactionWithCategory[];
@@ -961,6 +968,7 @@
   setpending: (txId: string) => void;
   loading: boolean;
   onmanualadd?: () => void;
+  manualAddLabel?: string;
 })}
   <section class="min-w-0 space-y-2">
     {#if title}
@@ -977,7 +985,7 @@
             onclick={onmanualadd}
             class="focus-visible:ring-accent text-xs font-medium text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:outline-none"
           >
-            {m.plan_detail_manual_add()}
+            {manualAddLabel ?? m.plan_detail_manual_add()}
           </button>
         {/if}
       </div>
