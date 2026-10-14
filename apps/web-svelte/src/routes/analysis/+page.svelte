@@ -326,7 +326,7 @@
   </div>
 
   <div role="tablist" aria-label={m.analysis_mode_label()} class="flex gap-2">
-    {#each [{ value: "history" as const, label: m.analysis_mode_history() }, { value: "forecast" as const, label: m.analysis_mode_forecast() }] as item}
+    {#each [{ value: "history" as const, label: m.analysis_mode_history() }, { value: "forecast" as const, label: m.analysis_mode_forecast() }] as item (item.value)}
       <button
         type="button"
         role="tab"
