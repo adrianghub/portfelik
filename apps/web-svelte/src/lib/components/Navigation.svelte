@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from "$app/stores";
-  import { mobileNavHiddenAfterScroll } from "$lib/navigation-scroll";
+  import { mobileNavHiddenAfterScroll, shouldSyncScrollExtent } from "$lib/navigation-scroll";
   import { goto } from "$app/navigation";
   import { supabase } from "$lib/supabase";
   import { cn } from "$lib/utils";
@@ -83,6 +83,14 @@
     lastScrollY = y;
   }
 
+  function syncScrollExtentFromLayout() {
+    const y = window.scrollY;
+    const extent = document.documentElement.scrollHeight;
+    if (shouldSyncScrollExtent({ y: lastScrollY, extent: lastScrollExtent }, { y, extent })) {
+      lastScrollExtent = extent;
+    }
+  }
+
   function onDocClick(e: MouseEvent) {
     if (!menuOpen) return;
     const target = e.target as Node | null;
@@ -97,6 +105,15 @@
     if (typeof document === "undefined") return;
     document.addEventListener("click", onDocClick);
     return () => document.removeEventListener("click", onDocClick);
+  });
+
+  $effect(() => {
+    if (typeof document === "undefined" || typeof ResizeObserver === "undefined") return;
+    const root = document.documentElement;
+    const observer = new ResizeObserver(() => syncScrollExtentFromLayout());
+    observer.observe(root);
+    syncScrollExtentFromLayout();
+    return () => observer.disconnect();
   });
 
   $effect(() => {
