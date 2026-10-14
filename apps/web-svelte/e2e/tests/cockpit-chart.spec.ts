@@ -3,7 +3,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
 import { TEST_USER_ID } from "../helpers/fixtures";
 
-const ARTIFACTS = "/opt/cursor/artifacts";
+const ARTIFACTS = join(tmpdir(), "jakstoimy-e2e");
 
 function tx(
   id: string,
