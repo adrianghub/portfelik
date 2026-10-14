@@ -122,7 +122,9 @@ describe("analysis forecast using Kokpit rules", () => {
     const result = forecast(end, { rows, spend });
     expect(result.balance).toBe(cockpit.balance);
     expect(result.finalBalance).toBe(cockpit.forecast);
-    expect(result.expense).toBe(1900);
+    // Flow cards/bars exclude confirmed spend remainders (not on /transactions).
+    expect(result.expense).toBe(1700);
+    expect(result.bars.reduce((sum, bar) => sum + bar.expense, 0)).toBeCloseTo(result.expense, 2);
   });
   it("does not project a paid materialized period twice", () => {
     const result = forecast("2026-12-31", {

@@ -585,6 +585,7 @@
                 >{barLabel(forecast.bars.at(-1)!.key, forecast.start, forecast.end)}</span
               >
             </div>
+            <p class="mt-2 text-xs text-slate-500">{m.analysis_forecast_bar_hint()}</p>
           </div>
         {/if}
         {#if forecast.categories.length > 0}

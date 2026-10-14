@@ -14,11 +14,14 @@
   } from "$lib/services/plan-settlement";
   import TransactionDialog, {
     type PlanTransactionContext,
+    type TransactionCreateDraft,
   } from "$lib/components/transactions/TransactionDialog.svelte";
   import { fetchPlanDebtTerms } from "$lib/services/plan-debt";
+  import { scheduleInstallmentStart } from "$lib/services/debt-installment-draft";
   import { fetchPlanById } from "$lib/services/plans";
   import type { TransactionType } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
+  import { localDateIso } from "$lib/date-local";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { requireSessionUserId, session } from "$lib/auth/session.svelte";
   import { qk } from "$lib/query-keys";
@@ -29,7 +32,7 @@
   const queryClient = useQueryClient();
   const id = $derived($page.params.id ?? "");
 
-  let showManualTxDialog = $state(false);
+  let txDialogMode = $state<"settle" | "schedule" | null>(null);
   /** Optimistic local copy; the durable source is plan_settlement_dismissals. */
   const dismissed = new SvelteSet<string>();
 
@@ -38,11 +41,17 @@
     queryFn: () => fetchPlanById(id),
     enabled: () => !!session.userId && !!id,
   }));
+  const debtTermsQuery = createQuery(() => ({
+    queryKey: qk.planDebtTerms(session.userId!, id),
+    queryFn: () => fetchPlanDebtTerms(id),
+    // Boolean (not a lazy fn) so planQuery.data is a reactive dependency.
+    enabled: !!session.userId && !!id && planQuery.data?.kind === "debt",
+  }));
   const activeType = $derived<TransactionType>("expense");
 
   const manualPlanContext = $derived.by((): PlanTransactionContext | null => {
     const plan = planQuery.data;
-    if (!plan) return null;
+    if (!plan || txDialogMode !== "settle") return null;
     return {
       planId: id,
       type: activeType,
@@ -51,6 +60,26 @@
       categoryId: plan.category_id,
       startDate: plan.start_date,
       endDate: plan.end_date,
+    };
+  });
+
+  const scheduleDraft = $derived.by((): TransactionCreateDraft | null => {
+    const plan = planQuery.data;
+    const terms = debtTermsQuery.data;
+    if (!plan || plan.kind !== "debt" || txDialogMode !== "schedule" || !terms) return null;
+    const { date, dayOfMonth } = scheduleInstallmentStart(localDateIso(), terms.first_payment_date);
+    return {
+      type: "expense",
+      amount: Number(terms.monthly_payment),
+      description: m.plan_debt_installment_description({ name: plan.name }),
+      date,
+      categoryId: plan.category_id,
+      groupId: plan.group_id,
+      status: "upcoming",
+      isRecurring: true,
+      recurringDay: dayOfMonth,
+      recurrenceFrequency: "monthly",
+      recurrenceInterval: 1,
     };
   });
 
@@ -218,7 +247,11 @@
     {:else if suggestions.length === 0}
       <div class="space-y-1 py-4 text-center text-sm text-slate-400">
         <p>{m.plan_settle_no_eligible()}</p>
-        <p class="text-xs text-slate-400">{m.plan_settle_no_eligible_hint()}</p>
+        <p class="text-xs text-slate-400">
+          {planQuery.data?.kind === "debt"
+            ? m.plan_settle_no_eligible_hint_debt()
+            : m.plan_settle_no_eligible_hint()}
+        </p>
       </div>
     {:else}
       {#each suggestions as ranked (ranked.tx.id)}
@@ -293,17 +326,40 @@
     </section>
   {/if}
 
-  <button
-    type="button"
-    onclick={() => (showManualTxDialog = true)}
-    class="focus-visible:ring-accent mx-auto block text-sm text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:outline-none"
-  >
-    {m.plan_settle_manual_add()}
-  </button>
+  {#if planQuery.data?.kind === "debt"}
+    <div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+      <button
+        type="button"
+        onclick={() => (txDialogMode = "schedule")}
+        disabled={!debtTermsQuery.data}
+        data-testid="settle-debt-schedule-cta"
+        class="focus-visible:ring-accent text-sm font-medium text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+      >
+        {m.plan_settle_schedule_debt()}
+      </button>
+      <button
+        type="button"
+        onclick={() => (txDialogMode = "settle")}
+        data-testid="settle-debt-manual-cta"
+        class="focus-visible:ring-accent text-sm text-slate-400 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+      >
+        {m.plan_settle_manual_add_debt()}
+      </button>
+    </div>
+  {:else}
+    <button
+      type="button"
+      onclick={() => (txDialogMode = "settle")}
+      class="focus-visible:ring-accent mx-auto block text-sm text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+    >
+      {m.plan_settle_manual_add()}
+    </button>
+  {/if}
 </div>
 
 <TransactionDialog
-  open={showManualTxDialog}
-  onclose={() => (showManualTxDialog = false)}
+  open={txDialogMode !== null}
+  onclose={() => (txDialogMode = null)}
   planContext={manualPlanContext}
+  draft={scheduleDraft}
 />
