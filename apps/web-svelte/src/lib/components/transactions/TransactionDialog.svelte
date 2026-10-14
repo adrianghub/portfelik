@@ -98,10 +98,16 @@
   // Soft prefill: while false, status tracks the date; a manual pick locks it.
   let statusTouched = $state(false);
 
+  const debtCreateLockedPaid = $derived(
+    !!planContext && planContext.planKind === "debt" && !initial
+  );
+
   // Re-suggest status as the date changes, until the user picks one manually.
+  // Debt create-and-link requires paid installments (RPC debt_link_requires_paid).
   $effect(() => {
     const d = date;
-    if (!statusTouched) status = suggestStatusForDate(d);
+    if (statusTouched) return;
+    status = debtCreateLockedPaid ? "paid" : suggestStatusForDate(d);
   });
   let is_recurring = $state(untrack(() => initial?.is_recurring ?? false));
   let recurring_day = $state(untrack(() => initial?.recurring_day ?? new Date().getDate()));
@@ -148,11 +154,18 @@
       amount = initial ? String(Math.abs(initial.amount)) : "";
       counterparty = initial?.counterparty ?? "";
       description = initial?.description ?? "";
-      const initialDate = initial?.date ? initial.date.slice(0, 10) : localDateIso();
+      // Linked creates must fall in the plan window; prefer today when it fits.
+      let initialDate = initial?.date ? initial.date.slice(0, 10) : localDateIso();
+      if (!initial && planContext?.startDate && planContext?.endDate) {
+        if (initialDate < planContext.startDate) initialDate = planContext.startDate;
+        else if (initialDate > planContext.endDate) initialDate = planContext.endDate;
+      }
       date = initialDate;
       category_id = initial?.category_id ?? planContext?.categoryId ?? "";
       statusTouched = initial?.status != null;
-      status = initial?.status ?? suggestStatusForDate(initialDate);
+      status =
+        initial?.status ??
+        (planContext?.planKind === "debt" ? "paid" : suggestStatusForDate(initialDate));
       is_recurring = initial?.recurring_template_id ? false : (initial?.is_recurring ?? false);
       recurring_day = initial?.recurring_day ?? new Date().getDate();
       recurrence_frequency = initial?.recurrence_frequency ?? "monthly";
@@ -357,7 +370,7 @@
         description,
         date,
         category_id,
-        status,
+        status: debtCreateLockedPaid ? "paid" : status,
         is_recurring: saveAsRecurring,
         recurrence_frequency: saveAsRecurring ? recurrence_frequency : null,
         recurrence_interval: saveAsRecurring ? Math.max(recurrence_interval, 1) : 1,
@@ -468,20 +481,22 @@
       </div>
     {/if}
 
-    <div class="space-y-1">
-      <label class={labelClass} for="tx-status">{m.transaction_form_status()}</label>
-      <select
-        id="tx-status"
-        bind:value={status}
-        onchange={() => (statusTouched = true)}
-        class={inputClass}
-      >
-        <option value="paid">{m.transactions_status_paid()}</option>
-        <option value="upcoming">{m.transactions_status_upcoming()}</option>
-        <option value="draft">{m.transactions_status_draft()}</option>
-        <option value="overdue">{m.transactions_status_overdue()}</option>
-      </select>
-    </div>
+    {#if !debtCreateLockedPaid}
+      <div class="space-y-1">
+        <label class={labelClass} for="tx-status">{m.transaction_form_status()}</label>
+        <select
+          id="tx-status"
+          bind:value={status}
+          onchange={() => (statusTouched = true)}
+          class={inputClass}
+        >
+          <option value="paid">{m.transactions_status_paid()}</option>
+          <option value="upcoming">{m.transactions_status_upcoming()}</option>
+          <option value="draft">{m.transactions_status_draft()}</option>
+          <option value="overdue">{m.transactions_status_overdue()}</option>
+        </select>
+      </div>
+    {/if}
 
     {#if groupsQuery.data && groupsQuery.data.length > 0}
       <div class="space-y-1">

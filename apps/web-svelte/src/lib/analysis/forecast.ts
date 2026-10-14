@@ -5,8 +5,18 @@ import {
   shiftCalendarMonth,
 } from "$lib/cockpit/month-window";
 import type { CockpitChartPoint } from "$lib/cockpit/forecast-chart";
+import { isSupportedLedgerCurrency } from "$lib/ledger-currency";
 import { appendConfirmedSpendForecast } from "$lib/plans/spend-forecast";
 import {
+  analysisBarKind,
+  buildAnalysisCategories,
+  buildAnalysisFlowBars,
+  type AnalysisBar,
+  type AnalysisCategory,
+  type AnalysisFlow,
+} from "$lib/analysis/overview";
+import {
+  countsAfterAnchor,
   forecastMovementTotals,
   forecastPosition,
   livePosition,
@@ -37,6 +47,42 @@ export interface AnalysisForecast {
   income: number;
   expense: number;
   points: CockpitChartPoint[];
+  bars: AnalysisBar[];
+  barKind: "month" | "week" | "day";
+  categories: AnalysisCategory[];
+}
+
+/** Same upcoming/overdue window as `forecastMovementTotals` (countsAfterAnchor + horizon). */
+function forecastFlowRows(
+  txs: Array<
+    Pick<
+      TransactionWithCategory,
+      "id" | "type" | "amount" | "status" | "date" | "currency" | "category_id" | "category_name"
+    > & { id?: string }
+  >,
+  end: string,
+  anchor: CashAnchor
+): AnalysisFlow[] {
+  const flows: AnalysisFlow[] = [];
+  let synthetic = 0;
+  for (const row of txs) {
+    if (row.type !== "income" && row.type !== "expense") continue;
+    if (!isSupportedLedgerCurrency(row.currency)) continue;
+    if (row.status !== "upcoming" && row.status !== "overdue") continue;
+    const date = row.date.slice(0, 10);
+    if (!countsAfterAnchor(date, anchor) || date > end) continue;
+    flows.push({
+      id: row.id ?? `forecast-flow-${synthetic++}`,
+      type: row.type,
+      amount: row.amount,
+      status: row.status,
+      date,
+      currency: row.currency,
+      categoryId: "category_id" in row ? (row.category_id ?? null) : null,
+      categoryName: "category_name" in row ? (row.category_name ?? null) : null,
+    });
+  }
+  return flows;
 }
 
 /** Compose Kokpit's recurrence, plan remainder and cash rules for a longer horizon. */
@@ -92,6 +138,20 @@ export function buildAnalysisForecast(input: {
   }
   if (end === today && finalBalance !== balance)
     points[0] = { date: today, balance: finalBalance, kind: "forecast" };
+  const movementRows = forecastFlowRows(
+    at(end) as Array<
+      Pick<
+        TransactionWithCategory,
+        "id" | "type" | "amount" | "status" | "date" | "currency" | "category_id" | "category_name"
+      > & { id?: string }
+    >,
+    end,
+    anchor
+  );
+  // Include today so start_of_day same-day upcoming matches headline income/expense.
+  const barsStart = today;
+  const barKind = analysisBarKind(barsStart <= end ? barsStart : end, end);
+  const bars = barsStart <= end ? buildAnalysisFlowBars(movementRows, barsStart, end, barKind) : [];
   return {
     start: today,
     end,
@@ -100,5 +160,8 @@ export function buildAnalysisForecast(input: {
     income: totals.upcomingIncome,
     expense: totals.upcomingExpenses,
     points,
+    bars,
+    barKind,
+    categories: buildAnalysisCategories(movementRows),
   };
 }

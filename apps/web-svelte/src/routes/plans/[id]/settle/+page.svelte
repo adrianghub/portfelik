@@ -49,6 +49,8 @@
       planKind: plan.kind ?? "save",
       groupId: plan.group_id,
       categoryId: plan.category_id,
+      startDate: plan.start_date,
+      endDate: plan.end_date,
     };
   });
 

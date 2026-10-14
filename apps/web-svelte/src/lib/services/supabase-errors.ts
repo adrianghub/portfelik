@@ -96,6 +96,7 @@ const P0001_MESSAGES: Record<string, () => string> = {
   transaction_outside_plan_period: m.error_plan_link_outside_period,
   transaction_already_linked: m.error_plan_link_already_linked,
   spend_link_requires_paid: m.error_spend_link_requires_paid,
+  debt_link_requires_paid: m.error_debt_link_requires_paid,
   plan_item_cancelled: m.error_plan_item_cancelled,
   transaction_type_not_supported: m.error_plan_link_type,
   transaction_must_be_expense: m.error_plan_link_type,

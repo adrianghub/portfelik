@@ -58,6 +58,10 @@ describe("analysis forecast using Kokpit rules", () => {
     expect(result.expense).toBe(18000);
     expect(result.finalBalance).toBe(148381.18);
     expect(result.points.at(-1)?.balance).toBe(result.finalBalance);
+    expect(result.bars.some((bar) => bar.income > 0)).toBe(true);
+    expect(result.bars.some((bar) => bar.expense > 0)).toBe(true);
+    expect(result.bars.reduce((sum, bar) => sum + bar.income, 0)).toBeCloseTo(result.income, 2);
+    expect(result.bars.reduce((sum, bar) => sum + bar.expense, 0)).toBeCloseTo(result.expense, 2);
   });
   it("deduplicates materialized occurrences, respects skips and ignores draft, foreign and household rows", () => {
     const november = row("salary-nov", "2026-11-26", 13076.57, {
@@ -202,4 +206,22 @@ it("projects the October salary from an old paid template when no future real ro
   expect(result.balance).toBe(9462.34);
   expect(result.points.find((point) => point.date === "2026-10-26")?.balance).toBe(21038.91);
   expect(result.finalBalance).toBe(44192.05);
+});
+
+it("keeps start_of_day same-day upcoming in bars and categories with headline totals", () => {
+  const sameDay = row("today-bill", today, 250, {
+    category_id: "cat-bills",
+    category_name: "Rachunki",
+  });
+  const result = buildAnalysisForecast({
+    today,
+    end: "2026-10-31",
+    anchor: { ...anchor, balance_semantics: "start_of_day" },
+    rows: [sameDay, ...templates],
+    templates,
+  })!;
+  expect(result.expense).toBe(1750);
+  expect(result.bars.reduce((sum, bar) => sum + bar.expense, 0)).toBeCloseTo(result.expense, 2);
+  expect(result.categories.some((category) => category.id === "cat-bills")).toBe(true);
+  expect(result.categories.find((category) => category.id === "cat-bills")?.amount).toBe(250);
 });

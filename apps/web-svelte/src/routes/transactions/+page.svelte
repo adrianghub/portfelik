@@ -283,6 +283,11 @@
   }));
 
   const statusSet = $derived(statusFilter ? new Set(statusFilter.split(",")) : null);
+  const upcomingFocused = $derived(
+    !!statusSet &&
+      statusSet.size > 0 &&
+      [...statusSet].every((status) => status === "upcoming" || status === "overdue")
+  );
 
   const groupFilter = $derived(parseScopeFilter($page.url.searchParams));
 
@@ -1320,6 +1325,7 @@
         emptyDemoDisabled={guidedTourUi.demoBusy}
         bind:selectedIds
         stickyHeaderTop={`calc(var(--app-content-offset) + ${stickyFiltersHeight}px)`}
+        initialSortDirection={upcomingFocused ? "asc" : "desc"}
         onrowclick={(tx) => (sheetTx = tx)}
         onsettle={quickSettle}
         ondelete={(id: string) => (deleteTargetId = id)}
