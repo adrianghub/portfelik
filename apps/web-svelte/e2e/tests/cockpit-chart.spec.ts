@@ -2,6 +2,8 @@ import { expect, test } from "@playwright/test";
 import { existsSync, mkdirSync } from "node:fs";
 import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
 import { TEST_USER_ID } from "../helpers/fixtures";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const ARTIFACTS = join(tmpdir(), "jakstoimy-e2e");
 
