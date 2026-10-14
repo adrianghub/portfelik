@@ -1,9 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { mkdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
 import { TEST_USER_ID } from "../helpers/fixtures";
 
-const ARTIFACTS = "/opt/cursor/artifacts";
+const ARTIFACTS = join(tmpdir(), "jakstoimy-e2e");
 
 function row(id: string, date: string, amount: number, type: "income" | "expense") {
   return {

@@ -148,10 +148,11 @@
       amount = initial ? String(Math.abs(initial.amount)) : "";
       counterparty = initial?.counterparty ?? "";
       description = initial?.description ?? "";
-      date = initial?.date ? initial.date.slice(0, 10) : localDateIso();
+      const initialDate = initial?.date ? initial.date.slice(0, 10) : localDateIso();
+      date = initialDate;
       category_id = initial?.category_id ?? planContext?.categoryId ?? "";
       statusTouched = initial?.status != null;
-      status = initial?.status ?? suggestStatusForDate(date);
+      status = initial?.status ?? suggestStatusForDate(initialDate);
       is_recurring = initial?.recurring_template_id ? false : (initial?.is_recurring ?? false);
       recurring_day = initial?.recurring_day ?? new Date().getDate();
       recurrence_frequency = initial?.recurrence_frequency ?? "monthly";
