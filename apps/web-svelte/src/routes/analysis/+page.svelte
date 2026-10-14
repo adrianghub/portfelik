@@ -33,6 +33,7 @@
     { value: "all", label: m.analysis_span_all() },
     { value: "year", label: m.analysis_span_year() },
     { value: "month", label: m.analysis_span_month() },
+    { value: "week", label: m.analysis_span_week() },
     { value: "custom", label: m.analysis_span_custom() },
   ];
 
