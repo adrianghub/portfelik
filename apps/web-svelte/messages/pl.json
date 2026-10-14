@@ -1032,6 +1032,7 @@
   "plan_item_unlinked": "Odpięto transakcję.",
   "plan_item_unlink": "Odepnij",
   "error_spend_link_requires_paid": "Powiąż opłaconą transakcję.",
+  "error_debt_link_requires_paid": "Do kredytu powiąż opłaconą ratę.",
   "error_plan_item_cancelled": "Anulowanej pozycji nie da się rozliczyć.",
   "plan_item_empty": "Dodaj pierwszą pozycję, na przykład apartament albo lot.",
   "plan_item_label_required": "Podaj nazwę pozycji.",

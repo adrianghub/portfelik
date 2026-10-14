@@ -186,7 +186,8 @@
       return;
     }
     sortKey = nextKey;
-    sortDirection = nextKey === "date" ? "desc" : "asc";
+    // Upcoming-focused pages pass initialSortDirection="asc"; keep that default for Date.
+    sortDirection = nextKey === "date" ? initialSortDirection : "asc";
   }
 
   function ariaSort(key: SortKey): "ascending" | "descending" | "none" {

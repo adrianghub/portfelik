@@ -15,6 +15,7 @@
     suggestPlanContribution,
     setSavePlanProgress,
   } from "$lib/services/plan-settlement";
+  import { isSettlementStatus } from "$lib/services/plan-settlement-policy";
   import DebtPlanDetail from "$lib/components/plans/DebtPlanDetail.svelte";
   import PlanForwardNav from "$lib/components/plans/PlanForwardNav.svelte";
   import PlanAppearance from "$lib/components/plans/PlanAppearance.svelte";
@@ -172,15 +173,16 @@
 
   const expenses = $derived((linkedQuery.data ?? []).filter((tx) => tx.type === "expense"));
   const incomes = $derived((linkedQuery.data ?? []).filter((tx) => tx.type === "income"));
+  const paidExpenses = $derived(expenses.filter((tx) => isSettlementStatus(tx.status)));
 
-  const linkedExpenseTotal = $derived(expenses.reduce((sum, tx) => sum + tx.amount, 0));
+  const linkedExpenseTotal = $derived(paidExpenses.reduce((sum, tx) => sum + tx.amount, 0));
 
   const derivedDebtBalance = $derived(
     planQuery.data?.kind === "debt" && debtTermsQuery.data
       ? deriveDebtDisplayBalance(
           debtTermsQuery.data,
           planQuery.data.start_date,
-          expenses.map((tx) => ({ amount: tx.amount, date: tx.date })),
+          paidExpenses.map((tx) => ({ amount: tx.amount, date: tx.date })),
           todayIso()
         )
       : null
@@ -628,6 +630,9 @@
         adjusting={saveAdjustMutation.isPending}
         onContribute={canRecordProgress ? openContribution : undefined}
         onCorrect={canManage && canRecordProgress ? openCorrection : undefined}
+        showLinkExisting={canManage &&
+          plan.status === "active" &&
+          (planBucket === "active" || planBucket === "upcoming")}
       />
     {:else if plan.kind === "debt" && debtTermsQuery.data}
       {#if plan.group_id && !canManage}
@@ -664,7 +669,7 @@
         planEndDate={plan.end_date}
         derivedBalance={derivedDebtBalance}
         {linkedExpenseTotal}
-        linkedExpenses={expenses.map((tx) => ({ amount: tx.amount, date: tx.date }))}
+        linkedExpenses={paidExpenses.map((tx) => ({ amount: tx.amount, date: tx.date }))}
         onSyncBalance={canManage ? () => syncBalanceMutation.mutateAsync() : undefined}
         onDebtPlanSave={canManage
           ? async (patch) => {

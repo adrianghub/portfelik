@@ -371,7 +371,7 @@
     </p>
   {/if}
 
-  {#if onTermsSave}
+  {#if onDebtPlanSave || onTermsSave}
     <div class="rounded-2xl border border-white/5 bg-slate-900/40">
       <button
         type="button"
