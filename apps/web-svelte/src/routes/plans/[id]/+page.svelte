@@ -15,6 +15,7 @@
     suggestPlanContribution,
     setSavePlanProgress,
   } from "$lib/services/plan-settlement";
+  import { isSettlementStatus } from "$lib/services/plan-settlement-policy";
   import DebtPlanDetail from "$lib/components/plans/DebtPlanDetail.svelte";
   import PlanForwardNav from "$lib/components/plans/PlanForwardNav.svelte";
   import PlanAppearance from "$lib/components/plans/PlanAppearance.svelte";
@@ -27,7 +28,9 @@
   import DayPicker from "$lib/components/ui/DayPicker.svelte";
   import TransactionDialog, {
     type PlanTransactionContext,
+    type TransactionCreateDraft,
   } from "$lib/components/transactions/TransactionDialog.svelte";
+  import { scheduleInstallmentStart } from "$lib/services/debt-installment-draft";
   import { detectRecurringDebtPayments } from "$lib/services/debt-payment-detect";
   import {
     deriveDebtDisplayBalance,
@@ -172,15 +175,16 @@
 
   const expenses = $derived((linkedQuery.data ?? []).filter((tx) => tx.type === "expense"));
   const incomes = $derived((linkedQuery.data ?? []).filter((tx) => tx.type === "income"));
+  const paidExpenses = $derived(expenses.filter((tx) => isSettlementStatus(tx.status)));
 
-  const linkedExpenseTotal = $derived(expenses.reduce((sum, tx) => sum + tx.amount, 0));
+  const linkedExpenseTotal = $derived(paidExpenses.reduce((sum, tx) => sum + tx.amount, 0));
 
   const derivedDebtBalance = $derived(
     planQuery.data?.kind === "debt" && debtTermsQuery.data
       ? deriveDebtDisplayBalance(
           debtTermsQuery.data,
           planQuery.data.start_date,
-          expenses.map((tx) => ({ amount: tx.amount, date: tx.date })),
+          paidExpenses.map((tx) => ({ amount: tx.amount, date: tx.date })),
           todayIso()
         )
       : null
@@ -288,12 +292,12 @@
     return groupRolesQuery.data?.get(plan.group_id);
   });
 
-  let showManualTxDialog = $state(false);
+  let txDialogMode = $state<"settle" | "schedule" | null>(null);
   let manualTxType = $state<TransactionType>("expense");
 
   const manualPlanContext = $derived.by((): PlanTransactionContext | null => {
     const plan = planQuery.data;
-    if (!plan) return null;
+    if (!plan || txDialogMode !== "settle") return null;
     return {
       planId: id,
       type: manualTxType,
@@ -305,9 +309,34 @@
     };
   });
 
+  const scheduleDraft = $derived.by((): TransactionCreateDraft | null => {
+    const plan = planQuery.data;
+    const terms = debtTermsQuery.data;
+    if (!plan || plan.kind !== "debt" || txDialogMode !== "schedule" || !terms) return null;
+    const { date, dayOfMonth } = scheduleInstallmentStart(localDateIso(), terms.first_payment_date);
+    return {
+      type: "expense",
+      amount: Number(terms.monthly_payment),
+      description: m.plan_debt_installment_description({ name: plan.name }),
+      date,
+      categoryId: plan.category_id,
+      groupId: plan.group_id,
+      status: "upcoming",
+      isRecurring: true,
+      recurringDay: dayOfMonth,
+      recurrenceFrequency: "monthly",
+      recurrenceInterval: 1,
+    };
+  });
+
   function openManualTx(type: TransactionType) {
     manualTxType = type;
-    showManualTxDialog = true;
+    txDialogMode = "settle";
+  }
+
+  function openScheduleInstallments() {
+    manualTxType = "expense";
+    txDialogMode = "schedule";
   }
 
   function defaultManualTxType(kind: PlanKind): TransactionType {
@@ -628,6 +657,9 @@
         adjusting={saveAdjustMutation.isPending}
         onContribute={canRecordProgress ? openContribution : undefined}
         onCorrect={canManage && canRecordProgress ? openCorrection : undefined}
+        showLinkExisting={canManage &&
+          plan.status === "active" &&
+          (planBucket === "active" || planBucket === "upcoming")}
       />
     {:else if plan.kind === "debt" && debtTermsQuery.data}
       {#if plan.group_id && !canManage}
@@ -664,7 +696,7 @@
         planEndDate={plan.end_date}
         derivedBalance={derivedDebtBalance}
         {linkedExpenseTotal}
-        linkedExpenses={expenses.map((tx) => ({ amount: tx.amount, date: tx.date }))}
+        linkedExpenses={paidExpenses.map((tx) => ({ amount: tx.amount, date: tx.date }))}
         onSyncBalance={canManage ? () => syncBalanceMutation.mutateAsync() : undefined}
         onDebtPlanSave={canManage
           ? async (patch) => {
@@ -691,13 +723,28 @@
     {/if}
 
     {#if plan.kind === "debt"}
-      <button
-        type="button"
-        onclick={() => openManualTx(defaultManualTxType(plan.kind ?? "save"))}
-        class="focus-visible:ring-accent w-full rounded-xl border border-dashed border-white/10 px-4 py-2.5 text-sm text-slate-300 transition-colors hover:border-white/20 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
-      >
-        {m.plan_detail_manual_add()}
-      </button>
+      <p class="text-xs leading-relaxed text-slate-400" data-testid="plan-debt-installments-hint">
+        {m.plan_debt_plan_installments_hint()}
+      </p>
+      <div class="grid gap-2 sm:grid-cols-2">
+        <button
+          type="button"
+          onclick={openScheduleInstallments}
+          disabled={!debtTermsQuery.data}
+          data-testid="plan-debt-schedule-cta"
+          class="focus-visible:ring-accent w-full rounded-xl border border-dashed border-emerald-500/30 bg-emerald-500/5 px-4 py-2.5 text-sm font-medium text-emerald-300 transition-colors hover:border-emerald-500/45 hover:bg-emerald-500/10 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+        >
+          {m.plan_detail_schedule_debt()}
+        </button>
+        <button
+          type="button"
+          onclick={() => openManualTx(defaultManualTxType(plan.kind ?? "save"))}
+          data-testid="plan-debt-settle-cta"
+          class="focus-visible:ring-accent w-full rounded-xl border border-dashed border-white/10 px-4 py-2.5 text-sm text-slate-300 transition-colors hover:border-white/20 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+        >
+          {m.plan_detail_manual_add_debt()}
+        </button>
+      </div>
     {/if}
 
     {#if plan.kind !== "spend" && (plan.kind !== "debt" || linkedQuery.data?.length)}
@@ -731,6 +778,8 @@
             setpending: (txId) => (unlinkPendingId = txId),
             loading: unlinkMutation.isPending,
             onmanualadd: plan.kind === "save" ? undefined : () => openManualTx("expense"),
+            manualAddLabel:
+              plan.kind === "debt" ? m.plan_detail_manual_add_debt() : m.plan_detail_manual_add(),
           })}
         {/if}
         {#if incomes.length > 0}
@@ -744,6 +793,7 @@
             setpending: (txId) => (unlinkPendingId = txId),
             loading: unlinkMutation.isPending,
             onmanualadd: () => openManualTx("expense"),
+            manualAddLabel: m.plan_detail_manual_add(),
           })}
         {/if}
       </div>
@@ -805,9 +855,10 @@
     <PlanAppearance plan={planQuery.data} />
   </Dialog>
   <TransactionDialog
-    open={showManualTxDialog}
-    onclose={() => (showManualTxDialog = false)}
+    open={txDialogMode !== null}
+    onclose={() => (txDialogMode = null)}
     planContext={manualPlanContext}
+    draft={scheduleDraft}
   />
 {/if}
 
@@ -946,6 +997,7 @@
   setpending,
   loading,
   onmanualadd,
+  manualAddLabel,
 }: {
   title: string | null;
   transactions: import("$lib/types").TransactionWithCategory[];
@@ -956,6 +1008,7 @@
   setpending: (txId: string) => void;
   loading: boolean;
   onmanualadd?: () => void;
+  manualAddLabel?: string;
 })}
   <section class="min-w-0 space-y-2">
     {#if title}
@@ -972,7 +1025,7 @@
             onclick={onmanualadd}
             class="focus-visible:ring-accent text-xs font-medium text-emerald-400 hover:underline focus-visible:ring-2 focus-visible:outline-none"
           >
-            {m.plan_detail_manual_add()}
+            {manualAddLabel ?? m.plan_detail_manual_add()}
           </button>
         {/if}
       </div>

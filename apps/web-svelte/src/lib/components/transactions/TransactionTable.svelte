@@ -70,6 +70,12 @@
   let sortKey = $state<SortKey>("date");
   let sortDirection = $state<SortDirection>(untrack(() => initialSortDirection));
 
+  // Filter flips (history ↔ upcoming) change the prop without remounting; resync date sort.
+  $effect(() => {
+    const next = initialSortDirection;
+    if (untrack(() => sortKey) === "date") sortDirection = next;
+  });
+
   const isShared = (tx: TransactionWithCategory) => tx.group_id !== null;
   const isProjected = (tx: TransactionWithCategory) => tx.projected === true;
   const isRecurringOccurrence = (tx: TransactionWithCategory) =>
@@ -186,7 +192,8 @@
       return;
     }
     sortKey = nextKey;
-    sortDirection = nextKey === "date" ? "desc" : "asc";
+    // Upcoming-focused pages pass initialSortDirection="asc"; keep that default for Date.
+    sortDirection = nextKey === "date" ? initialSortDirection : "asc";
   }
 
   function ariaSort(key: SortKey): "ascending" | "descending" | "none" {

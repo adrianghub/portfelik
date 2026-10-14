@@ -18,9 +18,19 @@
     adjusting?: boolean;
     onContribute?: () => void;
     onCorrect?: () => void;
+    /** Show settle/link CTA even when contribution is gated (e.g. upcoming saves). */
+    showLinkExisting?: boolean;
   }
 
-  let { plan, progress, onAdjust, adjusting = false, onContribute, onCorrect }: Props = $props();
+  let {
+    plan,
+    progress,
+    onAdjust,
+    adjusting = false,
+    onContribute,
+    onCorrect,
+    showLinkExisting = false,
+  }: Props = $props();
 
   const target = $derived(plan.target_amount ?? 0);
   const saved = $derived(progress.savedAmount);
@@ -169,6 +179,8 @@
       >
         {m.plan_contribution_create()}
       </button>
+    {/if}
+    {#if onContribute || showLinkExisting}
       <PlanForwardNav href={settleHref} title={m.plan_save_link_existing_cta()} variant="action" />
     {/if}
     {#if onCorrect}

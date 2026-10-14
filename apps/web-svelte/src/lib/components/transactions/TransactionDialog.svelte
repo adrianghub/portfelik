@@ -37,6 +37,7 @@
   import { localDateIso } from "$lib/date-local";
   import { session, requireSessionUserId } from "$lib/auth/session.svelte";
   import { qk } from "$lib/query-keys";
+  import { clampIsoDate, debtSettleMaxDate } from "$lib/services/debt-installment-draft";
 
   export interface PlanTransactionContext {
     planId: string;
@@ -49,13 +50,29 @@
     endDate?: string;
   }
 
+  /** Prefill for a new create (e.g. „Zaplanuj raty” from a debt plan). Ignored when editing. */
+  export interface TransactionCreateDraft {
+    type?: TransactionType;
+    amount?: number | string;
+    description?: string;
+    date?: string;
+    categoryId?: string | null;
+    groupId?: string | null;
+    status?: TransactionStatus;
+    isRecurring?: boolean;
+    recurringDay?: number;
+    recurrenceFrequency?: RecurrenceFrequency;
+    recurrenceInterval?: number;
+  }
+
   interface Props {
     open: boolean;
     onclose: () => void;
     initial?: Transaction | null;
     planContext?: PlanTransactionContext | null;
+    draft?: TransactionCreateDraft | null;
   }
-  let { open, onclose, initial = null, planContext = null }: Props = $props();
+  let { open, onclose, initial = null, planContext = null, draft = null }: Props = $props();
 
   const queryClient = useQueryClient();
   let ruleCapture = $state<(MatchableRow & { categoryId: string }) | null>(null);
@@ -98,10 +115,18 @@
   // Soft prefill: while false, status tracks the date; a manual pick locks it.
   let statusTouched = $state(false);
 
+  const debtCreateLockedPaid = $derived(
+    !!planContext && planContext.planKind === "debt" && !initial
+  );
+  const debtSettleDateMax = $derived(debtCreateLockedPaid ? debtSettleMaxDate() : undefined);
+  const scheduleInstallments = $derived(!!draft?.isRecurring && !planContext && !initial);
+
   // Re-suggest status as the date changes, until the user picks one manually.
+  // Debt create-and-link requires paid installments (RPC debt_link_requires_paid).
   $effect(() => {
     const d = date;
-    if (!statusTouched) status = suggestStatusForDate(d);
+    if (statusTouched) return;
+    status = debtCreateLockedPaid ? "paid" : suggestStatusForDate(d);
   });
   let is_recurring = $state(untrack(() => initial?.is_recurring ?? false));
   let recurring_day = $state(untrack(() => initial?.recurring_day ?? new Date().getDate()));
@@ -144,23 +169,42 @@
   $effect(() => {
     if (open) {
       formError = null;
-      type = initial?.type ?? planContext?.type ?? "expense";
-      amount = initial ? String(Math.abs(initial.amount)) : "";
+      type = initial?.type ?? draft?.type ?? planContext?.type ?? "expense";
+      amount = initial
+        ? String(Math.abs(initial.amount))
+        : draft?.amount != null
+          ? String(draft.amount)
+          : "";
       counterparty = initial?.counterparty ?? "";
-      description = initial?.description ?? "";
-      const initialDate = initial?.date ? initial.date.slice(0, 10) : localDateIso();
+      description = initial?.description ?? draft?.description ?? "";
+      // Linked creates must fall in the plan window; prefer today when it fits.
+      // Debt settle cannot book a future paid rata — cap at today.
+      let initialDate = initial?.date?.slice(0, 10) ?? draft?.date?.slice(0, 10) ?? localDateIso();
+      if (!initial && planContext?.startDate && planContext?.endDate) {
+        initialDate = clampIsoDate(initialDate, planContext.startDate, planContext.endDate);
+      }
+      if (!initial && debtCreateLockedPaid) {
+        initialDate = clampIsoDate(initialDate, planContext?.startDate, debtSettleMaxDate());
+      }
       date = initialDate;
-      category_id = initial?.category_id ?? planContext?.categoryId ?? "";
-      statusTouched = initial?.status != null;
-      status = initial?.status ?? suggestStatusForDate(initialDate);
-      is_recurring = initial?.recurring_template_id ? false : (initial?.is_recurring ?? false);
-      recurring_day = initial?.recurring_day ?? new Date().getDate();
-      recurrence_frequency = initial?.recurrence_frequency ?? "monthly";
-      recurrence_interval = initial?.recurrence_interval ?? 1;
+      category_id = initial?.category_id ?? draft?.categoryId ?? planContext?.categoryId ?? "";
+      statusTouched = initial?.status != null || draft?.status != null;
+      status =
+        initial?.status ??
+        draft?.status ??
+        (planContext?.planKind === "debt" ? "paid" : suggestStatusForDate(initialDate));
+      is_recurring =
+        debtCreateLockedPaid || initial?.recurring_template_id
+          ? false
+          : (draft?.isRecurring ?? initial?.is_recurring ?? false);
+      recurring_day = draft?.recurringDay ?? initial?.recurring_day ?? new Date().getDate();
+      recurrence_frequency =
+        draft?.recurrenceFrequency ?? initial?.recurrence_frequency ?? "monthly";
+      recurrence_interval = draft?.recurrenceInterval ?? initial?.recurrence_interval ?? 1;
       recurrence_weekday = initial?.recurrence_weekday ?? (new Date().getDay() || 7);
       recurrence_month = initial?.recurrence_month ?? new Date().getMonth() + 1;
       recurrenceEndDate = initial?.recurrence_end_date ?? "";
-      group_id = initial?.group_id ?? planContext?.groupId ?? "";
+      group_id = initial?.group_id ?? draft?.groupId ?? planContext?.groupId ?? "";
       initialSnapshot = untrack(() =>
         JSON.stringify([
           type,
@@ -214,7 +258,15 @@
 
   const isEdit = $derived(!!initial);
   const isRecurringOccurrenceEdit = $derived(!!initial?.recurring_template_id);
-  const title = $derived(isEdit ? m.transaction_form_title_edit() : m.transaction_form_title_add());
+  const title = $derived(
+    isEdit
+      ? m.transaction_form_title_edit()
+      : debtCreateLockedPaid
+        ? m.transaction_form_title_debt_settle()
+        : scheduleInstallments
+          ? m.transaction_form_title_debt_schedule()
+          : m.transaction_form_title_add()
+  );
 
   const mutation = createMutation(() => ({
     mutationFn: async (input: Parameters<typeof createTransaction>[0]) => {
@@ -346,7 +398,14 @@
         return;
       }
     }
-    const saveAsRecurring = is_recurring && !isRecurringOccurrenceEdit;
+    if (debtCreateLockedPaid) {
+      const maxPaid = debtSettleMaxDate();
+      if (date > maxPaid) {
+        formError = m.transaction_form_debt_settle_future_date();
+        return;
+      }
+    }
+    const saveAsRecurring = is_recurring && !isRecurringOccurrenceEdit && !debtCreateLockedPaid;
     const usesDay =
       saveAsRecurring && (recurrence_frequency === "monthly" || recurrence_frequency === "yearly");
     void mutation
@@ -357,7 +416,7 @@
         description,
         date,
         category_id,
-        status,
+        status: debtCreateLockedPaid ? "paid" : status,
         is_recurring: saveAsRecurring,
         recurrence_frequency: saveAsRecurring ? recurrence_frequency : null,
         recurrence_interval: saveAsRecurring ? Math.max(recurrence_interval, 1) : 1,
@@ -450,7 +509,12 @@
         label={m.transaction_form_date()}
         showLabel={false}
         required
+        min={debtCreateLockedPaid ? planContext?.startDate : undefined}
+        max={debtSettleDateMax}
       />
+      {#if debtCreateLockedPaid}
+        <p class="text-xs text-slate-400">{m.transaction_form_debt_settle_date_hint()}</p>
+      {/if}
     </div>
 
     {#if !planContext || planContext.planKind !== "save"}
@@ -468,20 +532,35 @@
       </div>
     {/if}
 
-    <div class="space-y-1">
-      <label class={labelClass} for="tx-status">{m.transaction_form_status()}</label>
-      <select
-        id="tx-status"
-        bind:value={status}
-        onchange={() => (statusTouched = true)}
-        class={inputClass}
-      >
-        <option value="paid">{m.transactions_status_paid()}</option>
-        <option value="upcoming">{m.transactions_status_upcoming()}</option>
-        <option value="draft">{m.transactions_status_draft()}</option>
-        <option value="overdue">{m.transactions_status_overdue()}</option>
-      </select>
-    </div>
+    {#if scheduleInstallments}
+      <p class="rounded-xl border border-white/5 bg-slate-900/40 px-3 py-2 text-xs text-slate-300">
+        {m.transaction_form_debt_schedule_note()}
+      </p>
+    {/if}
+
+    {#if debtCreateLockedPaid}
+      <p class="rounded-xl border border-white/5 bg-slate-900/40 px-3 py-2 text-xs text-slate-300">
+        {m.transaction_form_debt_settle_note()}
+      </p>
+      <p class="text-xs text-slate-400" data-testid="debt-settle-status-locked">
+        {m.transaction_form_debt_settle_status()}
+      </p>
+    {:else}
+      <div class="space-y-1">
+        <label class={labelClass} for="tx-status">{m.transaction_form_status()}</label>
+        <select
+          id="tx-status"
+          bind:value={status}
+          onchange={() => (statusTouched = true)}
+          class={inputClass}
+        >
+          <option value="paid">{m.transactions_status_paid()}</option>
+          <option value="upcoming">{m.transactions_status_upcoming()}</option>
+          <option value="draft">{m.transactions_status_draft()}</option>
+          <option value="overdue">{m.transactions_status_overdue()}</option>
+        </select>
+      </div>
+    {/if}
 
     {#if groupsQuery.data && groupsQuery.data.length > 0}
       <div class="space-y-1">
@@ -496,7 +575,7 @@
       </div>
     {/if}
 
-    {#if !isRecurringOccurrenceEdit}
+    {#if !isRecurringOccurrenceEdit && !debtCreateLockedPaid}
       <label class="flex cursor-pointer items-center gap-3 select-none">
         <input type="checkbox" bind:checked={is_recurring} class="sr-only" />
         <div

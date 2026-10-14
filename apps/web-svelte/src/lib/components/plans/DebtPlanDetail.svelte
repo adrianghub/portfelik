@@ -309,6 +309,10 @@
     </div>
   {/if}
 
+  <p class="text-xs leading-relaxed text-slate-400" data-testid="debt-plan-installments-hint">
+    {m.plan_debt_plan_installments_hint()}
+  </p>
+
   <div
     class="rounded-2xl border border-white/5 bg-slate-900/60 bg-[radial-gradient(circle_at_90%_10%,rgba(45,212,191,0.12),transparent_45%)] p-5"
   >
@@ -371,7 +375,7 @@
     </p>
   {/if}
 
-  {#if onTermsSave}
+  {#if onDebtPlanSave || onTermsSave}
     <div class="rounded-2xl border border-white/5 bg-slate-900/40">
       <button
         type="button"

@@ -72,6 +72,12 @@ describe("errorMessage — P0001 mapping", () => {
     );
   });
 
+  it("maps debt_link_requires_paid to Polish copy", () => {
+    expect(errorMessage({ code: "P0001", message: "debt_link_requires_paid" })).toBe(
+      m.error_debt_link_requires_paid()
+    );
+  });
+
   it("maps the not_authorized family to the permission message", () => {
     expect(errorMessage({ code: "P0001", message: "not_authorized_plan" })).toBe(
       m.error_permission()
