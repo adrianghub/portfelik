@@ -115,7 +115,6 @@ export function buildAnalysisForecast(input: {
     );
   const balance = livePosition(anchor, real);
   const finalBalance = forecastPosition(anchor, at(end), { today, horizonEnd: end });
-  const totals = forecastMovementTotals(anchor, at(end), { today, horizonEnd: end });
   // Only recalculate on movement days; carry the resulting balance over quiet days.
   // Plan links are resolved for each date, exactly as in Kokpit's forecastThrough.
   const events = new Set<string>([addLocalDays(today, 1), end]);
@@ -138,16 +137,17 @@ export function buildAnalysisForecast(input: {
   }
   if (end === today && finalBalance !== balance)
     points[0] = { date: today, balance: finalBalance, kind: "forecast" };
-  const movementRows = forecastFlowRows(
-    at(end) as Array<
-      Pick<
-        TransactionWithCategory,
-        "id" | "type" | "amount" | "status" | "date" | "currency" | "category_id" | "category_name"
-      > & { id?: string }
-    >,
-    end,
-    anchor
-  );
+  // Bars/categories use ledger + projected recurring only so drill-down to
+  // /transactions?status=upcoming,overdue matches the stacked amounts.
+  // Confirmed spend remainders still move the balance line via `at(end)`.
+  const ledgerForFlows = [...real, ...projected] as Array<
+    Pick<
+      TransactionWithCategory,
+      "id" | "type" | "amount" | "status" | "date" | "currency" | "category_id" | "category_name"
+    > & { id?: string }
+  >;
+  const movementRows = forecastFlowRows(ledgerForFlows, end, anchor);
+  const flowTotals = forecastMovementTotals(anchor, ledgerForFlows, { today, horizonEnd: end });
   // Include today so start_of_day same-day upcoming matches headline income/expense.
   const barsStart = today;
   const barKind = analysisBarKind(barsStart <= end ? barsStart : end, end);
@@ -157,8 +157,8 @@ export function buildAnalysisForecast(input: {
     end,
     balance,
     finalBalance,
-    income: totals.upcomingIncome,
-    expense: totals.upcomingExpenses,
+    income: flowTotals.upcomingIncome,
+    expense: flowTotals.upcomingExpenses,
     points,
     bars,
     barKind,

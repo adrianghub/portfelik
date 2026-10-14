@@ -370,11 +370,12 @@ test.describe("plan settle page", () => {
     await page.goto(`/plans/${PLAN_ID}/settle`);
     await expect(page.getByText("Wakacje")).toBeVisible();
 
-    await page.getByRole("button", { name: /Dodaj opłaconą ratę/ }).click();
+    await page.getByTestId("settle-debt-manual-cta").click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Opłacona rata kredytu" })).toBeVisible();
     await expect(page.getByTestId("debt-settle-status-locked")).toContainText(/zapłacona/i);
     await expect(page.getByLabel("Status")).toHaveCount(0);
+    await expect(page.getByText(/nie może być późniejsza niż dziś/i)).toBeVisible();
     await page.getByLabel("Kwota").fill("150");
     await page.getByLabel("Opis").fill("Ręczny wydatek");
     // Category combobox clears a prefilled id until categories load; pick explicitly.
