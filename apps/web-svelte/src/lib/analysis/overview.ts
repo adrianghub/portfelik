@@ -1,14 +1,12 @@
 import {
-  buildCockpitForecastChart,
   dateRatio,
   type CockpitChartCoverage,
   type CockpitChartPoint,
   type CockpitForecastChart,
 } from "$lib/cockpit/forecast-chart";
-import type { CockpitLedgerTx } from "$lib/cockpit/indicators";
 import { calendarMonthBounds, calendarMonthFromIso } from "$lib/cockpit/month-window";
 import { addLocalDays } from "$lib/date-local";
-import { isSupportedLedgerCurrency } from "$lib/ledger-currency";
+import { isSupportedLedgerCurrency, SUPPORTED_LEDGER_CURRENCY } from "$lib/ledger-currency";
 import { sumMoneyAmounts } from "$lib/money";
 import type { CashAnchor } from "$lib/services/cash-position";
 import {
@@ -16,7 +14,7 @@ import {
   type HistoricalBalancePoint,
 } from "$lib/services/reconstruct-balances";
 
-export type AnalysisSpan = "all" | "year" | "month" | "week";
+export type AnalysisSpan = "all" | "year" | "month" | "week" | "30days" | "90days" | "custom";
 
 export interface AnalysisFlow {
   id: string;
@@ -31,6 +29,8 @@ export interface AnalysisFlow {
 
 export interface AnalysisBar {
   key: string;
+  start: string;
+  end: string;
   income: number;
   expense: number;
 }
@@ -59,10 +59,15 @@ export interface AnalysisOverview {
   /** True when the balance line uses history calculated backward from the anchor. */
   reconstructed: boolean;
   chart: CockpitForecastChart | null;
+  /** Opening of the first day to closing of the last, never a category-filtered delta. */
+  balanceChange: number | null;
   income: number;
   expense: number;
   bars: AnalysisBar[];
-  barKind: "month" | "day";
+  barKind: "month" | "week" | "day";
+  previousIncome: number;
+  previousExpense: number;
+  previousAvailable: boolean;
   categories: AnalysisCategory[];
   shifts: AnalysisShift[];
 }
@@ -82,24 +87,41 @@ function monthKey(iso: string): string {
   return day(iso).slice(0, 7);
 }
 
-/** Inclusive window for one analysis span. `all` starts at the anchor, or the first paid day. */
+export function validAnalysisRange(range: { start: string; end: string }, today: string): boolean {
+  const valid = (date: string) =>
+    /^\d{4}-\d{2}-\d{2}$/.test(date) &&
+    !Number.isNaN(Date.parse(date)) &&
+    new Date(date).toISOString().slice(0, 10) === date;
+  return valid(range.start) && valid(range.end) && range.start <= range.end && range.end <= today;
+}
+
+/** Historical windows are inclusive and never extend beyond today. */
 export function analysisWindow(
   span: AnalysisSpan,
   today: string,
   anchorDate: string | null,
-  earliest: string | null
+  earliest: string | null,
+  custom?: { start: string; end: string } | null
 ): { start: string; end: string } {
   const now = day(today);
+  if (span === "custom" && custom && validAnalysisRange(custom, now)) return custom;
+  if (span === "30days" || span === "custom") return { start: addLocalDays(now, -29), end: now };
+  if (span === "90days") return { start: addLocalDays(now, -89), end: now };
   if (span === "week") return { start: addLocalDays(now, -6), end: now };
   if (span === "month") {
     const bounds = calendarMonthBounds(calendarMonthFromIso(now));
-    return { start: bounds.monthStart, end: bounds.monthEnd };
+    return { start: bounds.monthStart, end: now };
   }
   if (span === "year") {
     const year = now.slice(0, 4);
-    return { start: `${year}-01-01`, end: `${year}-12-31` };
+    return { start: `${year}-01-01`, end: now };
   }
-  return { start: day(anchorDate ?? earliest ?? now), end: now };
+  return {
+    start: [anchorDate, earliest ? addLocalDays(earliest, -1) : null, now]
+      .filter((date): date is string => !!date)
+      .sort()[0],
+    end: now,
+  };
 }
 
 /** Same length, ending the day before `start`. Used for category shifts. */
@@ -134,26 +156,57 @@ function totals(rows: readonly AnalysisFlow[]): { income: number; expense: numbe
   };
 }
 
-function dayBars(rows: readonly AnalysisFlow[], start: string, end: string): AnalysisBar[] {
-  const bars: AnalysisBar[] = [];
-  for (let date = start; date <= end; date = addLocalDays(date, 1)) {
-    bars.push({ key: date, ...totals(paid(rows, date, date)) });
+function flowBars(
+  rows: readonly AnalysisFlow[],
+  start: string,
+  end: string,
+  kind: AnalysisOverview["barKind"]
+): AnalysisBar[] {
+  const bars = new Map<string, AnalysisBar>();
+  let cursor = start;
+  while (cursor <= end) {
+    const last =
+      kind === "month"
+        ? calendarMonthBounds(calendarMonthFromIso(cursor)).monthEnd
+        : kind === "week"
+          ? addLocalDays(cursor, 6)
+          : cursor;
+    const to = last > end ? end : last;
+    const key = kind === "month" ? monthKey(cursor) : cursor;
+    bars.set(key, { key, start: cursor, end: to, income: 0, expense: 0 });
+    cursor = addLocalDays(to, 1);
   }
-  return bars;
+  for (const row of rows) {
+    const key =
+      kind === "month"
+        ? monthKey(row.date)
+        : kind === "week"
+          ? addLocalDays(start, Math.floor((utcDay(row.date) - utcDay(start)) / 7) * 7)
+          : day(row.date);
+    const bar = bars.get(key);
+    if (!bar) continue;
+    bar[row.type] = sumMoneyAmounts([row], bar[row.type]);
+  }
+  return [...bars.values()];
 }
 
-function monthBars(rows: readonly AnalysisFlow[], start: string, end: string): AnalysisBar[] {
-  const bars: AnalysisBar[] = [];
-  let cursor = `${monthKey(start)}-01`;
-  const last = monthKey(end);
-  while (monthKey(cursor) <= last) {
-    const bounds = calendarMonthBounds(calendarMonthFromIso(cursor));
-    const from = bounds.monthStart < start ? start : bounds.monthStart;
-    const to = bounds.monthEnd > end ? end : bounds.monthEnd;
-    bars.push({ key: monthKey(cursor), ...totals(paid(rows, from, to)) });
-    cursor = addLocalDays(bounds.monthEnd, 1);
-  }
-  return bars;
+/** Drill-down preserves the inclusive range, scope, booked status and category selection. */
+export function analysisTransactionsUrl(
+  range: { start: string; end: string },
+  scope: string,
+  categoryIds: Iterable<string> = []
+): string {
+  const params = new URLSearchParams({
+    startDate: range.start,
+    endDate: range.end,
+    group: scope,
+    status: "paid",
+    currency: SUPPORTED_LEDGER_CURRENCY,
+  });
+  const ids = [...categoryIds].sort();
+  if (ids.length === 1 && ids[0] !== "none") params.set("categoryId", ids[0]);
+  else if (ids.length > 0) params.set("categoryIds", ids.join(","));
+  return `/transactions?${params}`;
 }
 
 function categoryTotals(
@@ -202,105 +255,11 @@ function shiftsOf(
   return shifts.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, 3);
 }
 
-function asLedger(rows: readonly AnalysisFlow[]): CockpitLedgerTx[] {
-  return rows.map((row) => ({
-    id: row.id,
-    type: row.type,
-    amount: row.amount,
-    status: row.status,
-    date: row.date,
-    currency: row.currency,
-  }));
-}
-
 function chartPoint(point: HistoricalBalancePoint): CockpitChartPoint {
   return {
     date: point.date,
     balance: point.amount,
     kind: point.quality === "booked" ? "history" : point.quality,
-  };
-}
-
-function withTodayRatio(chart: CockpitForecastChart, today: string): CockpitForecastChart {
-  const start = chart.domainStart;
-  const end = chart.domainEnd;
-  return {
-    ...chart,
-    todayRatio:
-      start != null && end != null && today >= start && today <= end
-        ? dateRatio(today, start, end)
-        : null,
-  };
-}
-
-/**
- * Prepend balances calculated before the anchor. The cockpit chart still owns
- * the booked and forecast path, so Kokpit's month line stays where it was.
- */
-function mergeReconstruction(input: {
-  forward: CockpitForecastChart;
-  anchor: CashAnchor;
-  rows: readonly AnalysisFlow[];
-  from: string;
-  to: string;
-  today: string;
-  windowStart: string;
-}): { chart: CockpitForecastChart | null; coverage: AnalysisCoverage; reconstructed: boolean } {
-  const series = reconstructHistoricalBalances({
-    anchor: input.anchor,
-    transactions: input.rows,
-    from: input.from,
-    to: input.to,
-  });
-  const leadCutoff = input.forward.domainStart ?? "9999-12-31";
-  const lead = series.points
-    .filter((point) => point.date < leadCutoff && point.date <= input.to)
-    .map(chartPoint);
-  const reconstructed = lead.some((point) => point.kind === "reconstructed");
-
-  if (input.forward.points && input.forward.domainStart) {
-    const rest = input.forward.points.map((point) =>
-      point.date === series.confirmedDate && point.kind === "history"
-        ? { ...point, kind: "confirmed" as const }
-        : point
-    );
-    const points = [...lead, ...rest];
-    const domainStart = points[0]?.date ?? null;
-    const domainEnd = points.at(-1)?.date ?? null;
-    const coverage: AnalysisCoverage =
-      domainStart != null && domainStart > input.windowStart ? "clipped" : "full";
-    return {
-      chart: withTodayRatio(
-        { ...input.forward, points, domainStart, domainEnd, coverage },
-        input.today
-      ),
-      coverage,
-      reconstructed,
-    };
-  }
-
-  if (lead.length < 2) {
-    return { chart: null, coverage: input.forward.coverage, reconstructed: false };
-  }
-  const domainStart = lead[0]?.date ?? null;
-  const domainEnd = lead.at(-1)?.date ?? null;
-  const coverage: AnalysisCoverage =
-    domainStart != null && domainStart > input.windowStart ? "clipped" : "full";
-  return {
-    chart: withTodayRatio(
-      {
-        ...input.forward,
-        points: lead,
-        domainStart,
-        domainEnd,
-        coverage,
-        balance: lead.at(-1)?.balance ?? input.forward.balance,
-        forecast: null,
-      },
-      input.today
-    ),
-    coverage,
-    reconstructed,
   };
 }
 
@@ -311,6 +270,9 @@ export function buildAnalysisOverview(input: {
   /** False for a household or Wszystkie. Flows still count. */
   balanceScope: boolean;
   rows: readonly AnalysisFlow[];
+  customRange?: { start: string; end: string } | null;
+  categoryIds?: ReadonlySet<string>;
+  grouping?: "auto" | "day" | "week" | "month";
 }): AnalysisOverview {
   const today = day(input.today);
   const anchorDate = input.anchor ? day(input.anchor.as_of_date) : null;
@@ -319,47 +281,66 @@ export function buildAnalysisOverview(input: {
       .filter((row) => row.status === "paid" && isSupportedLedgerCurrency(row.currency))
       .map((row) => day(row.date))
       .sort()[0] ?? null;
-  const window = analysisWindow(input.span, today, anchorDate, earliest);
-  const current = paid(input.rows, window.start, window.end);
+  const window = analysisWindow(input.span, today, anchorDate, earliest, input.customRange);
+  const matchesCategory = (row: AnalysisFlow) =>
+    !input.categoryIds?.size || input.categoryIds.has(row.categoryId || UNCATEGORIZED);
+  const current = paid(input.rows, window.start, window.end).filter(matchesCategory);
   const previous = previousAnalysisWindow(window.start, window.end);
-  const prior = paid(input.rows, previous.start, previous.end);
+  const previousRows = paid(input.rows, previous.start, previous.end);
+  const prior = previousRows.filter(matchesCategory);
+  const priorMoney = totals(prior);
   const money = totals(current);
-  const barKind = input.span === "week" ? "day" : "month";
+  const length = utcDay(window.end) - utcDay(window.start) + 1;
+  const barKind =
+    input.grouping && input.grouping !== "auto"
+      ? input.grouping
+      : length <= 31
+        ? "day"
+        : length <= 92
+          ? "week"
+          : "month";
 
   let coverage: AnalysisCoverage;
   let chart: CockpitForecastChart | null = null;
   let reconstructed = false;
+  let balanceChange: number | null = null;
   if (!input.balanceScope) {
     coverage = "private-only";
   } else if (!input.anchor || !anchorDate) {
     coverage = "missing";
   } else {
-    const balanceFrom =
-      input.span === "all" && earliest != null && earliest < window.start
-        ? addLocalDays(earliest, -1)
-        : window.start;
-    const forward = buildCockpitForecastChart({
-      scope: { kind: "private" },
+    const series = reconstructHistoricalBalances({
       anchor: input.anchor,
-      transactions: asLedger(input.rows),
-      items: [],
-      links: [],
-      today,
-      monthStart: window.start,
-      monthEnd: window.end,
+      transactions: input.rows.filter((row) => day(row.date) <= today),
+      from: addLocalDays(window.start, -1),
+      to: window.end,
+      daily: true,
     });
-    const merged = mergeReconstruction({
-      forward,
-      anchor: input.anchor,
-      rows: input.rows,
-      from: balanceFrom,
-      to: today < window.end ? today : window.end,
-      today,
-      windowStart: window.start,
-    });
-    chart = merged.chart;
-    coverage = merged.coverage;
-    reconstructed = merged.reconstructed;
+    const points = series.points.filter((point) => point.date >= window.start).map(chartPoint);
+    const opening =
+      series.points.find((point) => point.date === addLocalDays(window.start, -1))?.amount ??
+      (input.span === "all" && points[0]?.date === window.start ? points[0].balance : null);
+    const closing = points.find((point) => point.date === window.end)?.balance ?? null;
+    if (opening != null && closing != null) balanceChange = sumMoneyAmounts([], closing - opening);
+    const domainStart = points[0]?.date ?? null;
+    const domainEnd = points.at(-1)?.date ?? null;
+    reconstructed = series.reconstructed;
+    coverage = domainStart == null ? "before" : domainStart > window.start ? "clipped" : "full";
+    if (points.length > 0)
+      chart = {
+        points,
+        domainStart,
+        domainEnd,
+        coverage,
+        todayRatio:
+          domainStart && domainEnd && today >= domainStart && today <= domainEnd
+            ? dateRatio(today, domainStart, domainEnd)
+            : null,
+        balance: points.at(-1)?.balance ?? null,
+        forecast: null,
+        spent: null,
+        comparison: null,
+      };
   }
 
   return {
@@ -369,14 +350,15 @@ export function buildAnalysisOverview(input: {
     anchorDate,
     reconstructed,
     chart,
+    balanceChange,
     income: money.income,
     expense: money.expense,
-    bars:
-      barKind === "day"
-        ? dayBars(input.rows, window.start, window.end)
-        : monthBars(input.rows, window.start, window.end),
+    bars: flowBars(current, window.start, window.end, barKind),
+    previousIncome: priorMoney.income,
+    previousExpense: priorMoney.expense,
+    previousAvailable: previousRows.length > 0,
     barKind,
     categories: categoriesOf(current),
-    shifts: shiftsOf(current, prior),
+    shifts: previousRows.length > 0 ? shiftsOf(current, prior) : [],
   };
 }

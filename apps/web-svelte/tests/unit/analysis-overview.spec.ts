@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAnalysisOverview } from "$lib/analysis/overview";
+import { buildAnalysisOverview, validAnalysisRange } from "$lib/analysis/overview";
 import type { AnalysisFlow } from "$lib/analysis/overview";
 import { cockpitMonthIndicators } from "$lib/cockpit/month";
 import { livePosition, type PositionTx } from "$lib/services/cash-position";
@@ -43,7 +43,7 @@ describe("analysis overview", () => {
       rows,
     });
     expect(overview.start).toBe("2026-01-01");
-    expect(overview.end).toBe("2026-12-31");
+    expect(overview.end).toBe("2026-10-13");
     expect(overview.coverage).toBe("clipped");
     expect(overview.chart?.domainStart).toBe("2026-08-09");
     expect(overview.chart?.points?.[0]?.kind).toBe("reconstructed");
@@ -62,12 +62,13 @@ describe("analysis overview", () => {
       balanceScope: true,
       rows,
     });
-    expect(overview.start).toBe("2026-09-01");
-    expect(overview.expense).toBe(500);
+    expect(overview.start).toBe("2026-08-09");
+    expect(overview.expense).toBe(900);
     expect(overview.chart?.domainStart).toBe("2026-08-09");
     expect(overview.chart?.coverage).toBe("full");
     expect(overview.reconstructed).toBe(true);
-    expect(overview.shifts.some((shift) => shift.id === "rent")).toBe(true);
+    expect(overview.previousAvailable).toBe(false);
+    expect(overview.shifts).toEqual([]);
   });
 
   it("withholds the balance line without an anchor and before the anchor date", () => {
@@ -196,13 +197,13 @@ describe("confirmed balance across analysis spans", () => {
     });
     expect(month.chart?.points?.find((point) => point.date === today)?.kind).toBe("confirmed");
     expect(month.chart?.points?.at(-1)).toMatchObject({
-      date: "2026-10-31",
-      balance: 11_500,
-      kind: "forecast",
+      date: today,
+      balance: 12_000,
+      kind: "confirmed",
     });
   });
 
-  it("starts the year at the first known day and keeps December as a forecast", () => {
+  it("starts the year at the first known day and stops at today", () => {
     const year = buildAnalysisOverview({
       span: "year",
       today,
@@ -213,9 +214,9 @@ describe("confirmed balance across analysis spans", () => {
     expect(year.chart?.domainStart).toBe("2026-07-30");
     expect(year.chart?.points?.some((point) => point.date === "2026-01-01")).toBe(false);
     expect(year.chart?.points?.at(-1)).toMatchObject({
-      date: "2026-12-31",
-      balance: 11_500,
-      kind: "forecast",
+      date: today,
+      balance: 12_000,
+      kind: "confirmed",
     });
     const history = year.chart?.points?.filter((point) => point.kind !== "forecast") ?? [];
     expect(history.every((point) => point.date <= today)).toBe(true);
@@ -277,12 +278,65 @@ describe("legacy opening balance stays on the pre-change formula", () => {
     expect(cockpit.balance).toBe(9_500);
     expect(cockpit.forecast).toBe(9_250);
     expect(analysis.chart?.points?.at(-1)).toMatchObject({
-      date: "2026-10-31",
-      balance: 9_250,
-      kind: "forecast",
+      date: "2026-10-13",
+      balance: 9_500,
+      kind: "history",
     });
     expect(analysis.chart?.points?.find((point) => point.date === "2026-10-13")?.kind).not.toBe(
       "forecast"
     );
   });
+});
+
+describe("historical date exploration", () => {
+  const anchor = {
+    opening_amount: -100,
+    as_of_date: "2026-10-13",
+    balance_semantics: "end_of_day" as const,
+  };
+  const rows = [
+    row({ id: "first", date: "2026-08-01", amount: 1000, type: "income" }),
+    row({ id: "later", date: "2026-09-10", amount: 25.55 }),
+    row({ id: "today", date: "2026-10-13", amount: 1.01 }),
+  ];
+  it("samples quiet days, keeps negative balances and does not invent January history", () => {
+    const overview = buildAnalysisOverview({
+      span: "custom",
+      customRange: { start: "2026-01-01", end: "2026-09-30" },
+      today: "2026-10-13",
+      anchor,
+      balanceScope: true,
+      rows,
+    });
+    expect(overview.chart?.domainStart).toBe("2026-07-31");
+    expect(overview.chart?.domainEnd).toBe("2026-09-30");
+    expect(overview.balanceChange).toBeNull();
+    expect(overview.chart?.points?.find((point) => point.date === "2026-09-15")?.balance).toBe(
+      -98.99
+    );
+    expect(overview.chart?.points?.every((point) => point.date <= "2026-09-30")).toBe(true);
+  });
+  it("uses daily bars for a month and isolates booked history from scheduled rows", () => {
+    const overview = buildAnalysisOverview({
+      span: "30days",
+      today: "2026-10-13",
+      anchor,
+      balanceScope: true,
+      rows: [
+        ...rows,
+        row({ id: "scheduled", date: "2026-10-12", amount: 10000, status: "upcoming" }),
+      ],
+    });
+    expect(overview.barKind).toBe("day");
+    expect(overview.bars).toHaveLength(30);
+    expect(overview.chart?.points?.at(-1)?.balance).toBe(-100);
+    expect(overview.chart?.forecast).toBeNull();
+  });
+});
+
+it("rejects reversed, future and invalid calendar ranges", () => {
+  expect(validAnalysisRange({ start: "2026-10-12", end: "2026-10-01" }, "2026-10-14")).toBe(false);
+  expect(validAnalysisRange({ start: "2026-10-12", end: "2026-10-15" }, "2026-10-14")).toBe(false);
+  expect(validAnalysisRange({ start: "2026-02-30", end: "2026-10-14" }, "2026-10-14")).toBe(false);
+  expect(validAnalysisRange({ start: "2026-10-14", end: "2026-10-14" }, "2026-10-14")).toBe(true);
 });

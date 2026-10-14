@@ -1,9 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { mkdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
 import { TEST_USER_ID } from "../helpers/fixtures";
 
-const ARTIFACTS = "/opt/cursor/artifacts";
+const ARTIFACTS = join(tmpdir(), "jakstoimy-e2e");
 
 function row(id: string, date: string, amount: number, type: "income" | "expense") {
   return {
@@ -129,15 +131,16 @@ test.describe("confirmed balance", () => {
     expect(box).toBeTruthy();
     await page.mouse.move(box!.x + box!.width * 0.7, box!.y + 70);
     await page.mouse.down();
-    await page.mouse.move(box!.x + box!.width * 0.92, box!.y + 70, { steps: 8 });
+    await page.mouse.move(box!.x + box!.width, box!.y + 70, { steps: 8 });
     await expect(balance.getByTestId("cockpit-scrub")).toContainText("Saldo potwierdzone");
     await page.mouse.up();
   });
 
-  test("keeps history, a legacy balance, and the month-end forecast distinct", async ({ page }) => {
-    const at = new Date(Date.now() - 5 * 60 * 1000);
-    const today = at.toISOString().slice(0, 10);
-    test.skip(today !== "2026-10-13", "the checked amounts use 13 October 2026");
+  test("keeps every history range historical while Kokpit forecasts the current month", async ({
+    page,
+  }) => {
+    const at = new Date("2026-10-13T12:00:00Z");
+    const today = "2026-10-13";
     await page.clock.setFixedTime(at);
     await injectFakeSession(page);
     await mockSupabaseAPI(page);
@@ -191,7 +194,7 @@ test.describe("confirmed balance", () => {
     await expect(wholeLeft).toContainText(/9\D?000,00/);
     await expect(wholeLeft).not.toContainText("Prognoza");
     await page.mouse.up();
-    const wholeRight = await scrub(0.98);
+    const wholeRight = await scrub(1);
     await expect(wholeRight).toContainText("Saldo potwierdzone");
     await expect(wholeRight).toContainText(/12\D?000,00/);
     await page.mouse.up();
@@ -199,34 +202,34 @@ test.describe("confirmed balance", () => {
     await balance.screenshot({ path: `${ARTIFACTS}/analysis-span-all.png` });
 
     await page.getByRole("tab", { name: "Ten rok" }).click();
-    await expect(balance.getByText("Prognoza", { exact: true })).toBeVisible();
-    await expect(balance.getByText("Historia salda", { exact: true })).toBeVisible();
+    await expect(balance.getByText("Prognoza", { exact: true })).toHaveCount(0);
+
     await expect(balance.getByText("30 lip")).toBeVisible();
     const yearLeft = await scrub(0);
     await expect(yearLeft).toContainText(/9\D?000,00/);
     await page.mouse.up();
-    const yearRight = await scrub(0.98);
-    await expect(yearRight).toContainText("Prognoza");
-    await expect(yearRight).toContainText(/11\D?500,00/);
+    const yearRight = await scrub(1);
+    await expect(yearRight).toContainText("Saldo potwierdzone");
+    await expect(yearRight).toContainText(/12\D?000,00/);
     await page.mouse.up();
     await balance.screenshot({ path: `${ARTIFACTS}/analysis-span-year.png` });
 
     await page.getByRole("tab", { name: "Ten miesiąc" }).click();
-    await expect(balance.getByText("Prognoza", { exact: true })).toBeVisible();
+    await expect(balance.getByText("Prognoza", { exact: true })).toHaveCount(0);
     const monthLeft = await scrub(0.02);
     await expect(monthLeft).toContainText(/11\D?000,00/);
     await expect(monthLeft).not.toContainText("Prognoza");
     await page.mouse.up();
-    const monthRight = await scrub(0.98);
-    await expect(monthRight).toContainText("Prognoza");
-    await expect(monthRight).toContainText(/11\D?500,00/);
+    const monthRight = await scrub(1);
+    await expect(monthRight).toContainText("Saldo potwierdzone");
+    await expect(monthRight).toContainText(/12\D?000,00/);
     await page.mouse.up();
     const dashes = await chart
       .locator("path")
       .evaluateAll((nodes) =>
         nodes.map((node) => node.getAttribute("stroke-dasharray")).filter((value) => value != null)
       );
-    expect(dashes).toContain("6 5");
+    expect(dashes).not.toContain("6 5");
     expect(dashes).not.toContain("1.5 4");
     await balance.screenshot({ path: `${ARTIFACTS}/analysis-span-month.png` });
 
@@ -236,7 +239,7 @@ test.describe("confirmed balance", () => {
     const weekLeft = await scrub(0.02);
     await expect(weekLeft).toContainText(/11\D?000,00/);
     await page.mouse.up();
-    const weekRight = await scrub(0.98);
+    const weekRight = await scrub(1);
     await expect(weekRight).toContainText("Saldo potwierdzone");
     await expect(weekRight).toContainText(/12\D?000,00/);
     await page.mouse.up();
@@ -252,9 +255,8 @@ test.describe("confirmed balance", () => {
   test("leaves an unedited start-of-day balance unchanged on Kokpit and Transakcje", async ({
     page,
   }) => {
-    const at = new Date(Date.now() - 5 * 60 * 1000);
-    const today = at.toISOString().slice(0, 10);
-    test.skip(today !== "2026-10-13", "the checked amounts use 13 October 2026");
+    const at = new Date("2026-10-13T12:00:00Z");
+    const today = "2026-10-13";
     await page.clock.setFixedTime(at);
     await injectFakeSession(page);
     await mockSupabaseAPI(page);
@@ -318,8 +320,8 @@ test.describe("confirmed balance", () => {
     await page.mouse.down();
     await page.mouse.move(box!.x + box!.width * 0.96, box!.y + 70, { steps: 8 });
     const forecast = balance.getByTestId("cockpit-scrub");
-    await expect(forecast).toContainText("Prognoza");
-    await expect(forecast).toContainText(/9\D?250,00/);
+    await expect(forecast).not.toContainText("Prognoza");
+    await expect(forecast).toContainText(/9\D?500,00/);
     await page.mouse.up();
   });
 });

@@ -60,15 +60,6 @@ function fromCents(cents: number): number {
   return cents / 100;
 }
 
-function sumBetween(nets: ReadonlyMap<string, number>, start: string, end: string): number {
-  if (start > end) return 0;
-  let total = 0;
-  for (const [date, cents] of nets) {
-    if (date >= start && date <= end) total += cents;
-  }
-  return total;
-}
-
 /**
  * Reconstruct end-of-day balances from one anchor and the supplied rows.
  * Points start at the first available movement, not before it, plus the
@@ -79,6 +70,8 @@ export function reconstructHistoricalBalances(input: {
   transactions: readonly HistoricalBalanceTx[];
   /** Inclusive. Defaults to the day before the first movement, or the confirmed day. */
   from?: string;
+  /** Include carried end-of-day values for interactive historical analysis. */
+  daily?: boolean;
   /** Inclusive. Defaults to the confirmed day. */
   to?: string;
 }): HistoricalBalanceSeries {
@@ -103,16 +96,32 @@ export function reconstructHistoricalBalances(input: {
     if (historyStart == null || date < historyStart) historyStart = date;
   }
 
+  const netDates = [...nets.keys()].sort();
+  const prefixes = [0];
+  for (const date of netDates) prefixes.push(prefixes.at(-1)! + nets.get(date)!);
+  const through = (date: string): number => {
+    let left = 0,
+      right = netDates.length;
+    while (left < right) {
+      const middle = (left + right) >>> 1;
+      if (netDates[middle] <= date) left = middle + 1;
+      else right = middle;
+    }
+    return prefixes[left];
+  };
+  const sumBetween = (start: string, end: string) =>
+    start > end ? 0 : through(end) - through(addLocalDays(start, -1));
+
   const endOf = (date: string): number => {
     if (date <= confirmedDate) {
-      return confirmedCents - sumBetween(nets, addLocalDays(date, 1), confirmedDate);
+      return confirmedCents - sumBetween(addLocalDays(date, 1), confirmedDate);
     }
-    return confirmedCents + sumBetween(nets, openFrom, date);
+    return confirmedCents + sumBetween(openFrom, date);
   };
 
   const startOf = (date: string): number => {
-    if (date <= confirmedDate) return confirmedCents - sumBetween(nets, date, confirmedDate);
-    return confirmedCents + sumBetween(nets, openFrom, addLocalDays(date, -1));
+    if (date <= confirmedDate) return confirmedCents - sumBetween(date, confirmedDate);
+    return confirmedCents + sumBetween(openFrom, addLocalDays(date, -1));
   };
 
   const afterTransaction = new Map<string, number>();
@@ -162,10 +171,24 @@ export function reconstructHistoricalBalances(input: {
     }
   }
 
+  if (input.daily && from <= to) {
+    const reliableFrom =
+      historyStart == null
+        ? confirmedDate
+        : [confirmedDate, addLocalDays(historyStart, -1)].sort()[0];
+    for (
+      let date = from > reliableFrom ? from : reliableFrom;
+      date <= to;
+      date = addLocalDays(date, 1)
+    ) {
+      dates.add(date);
+    }
+  }
+
   const points = [...dates]
     .sort()
     .filter((date) => {
-      if (date === confirmedDate || historyStart == null) return true;
+      if (date >= confirmedDate || historyStart == null) return true;
       return date >= addLocalDays(historyStart, -1);
     })
     .map((date) => ({

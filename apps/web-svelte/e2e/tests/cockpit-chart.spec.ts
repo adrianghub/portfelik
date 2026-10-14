@@ -2,8 +2,10 @@ import { expect, test } from "@playwright/test";
 import { existsSync, mkdirSync } from "node:fs";
 import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
 import { TEST_USER_ID } from "../helpers/fixtures";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
-const ARTIFACTS = "/opt/cursor/artifacts";
+const ARTIFACTS = join(tmpdir(), "jakstoimy-e2e");
 
 function tx(
   id: string,
@@ -196,11 +198,11 @@ test.describe("cockpit forecast chart", () => {
     await expect(page.getByRole("heading", { name: "Analiza budżetu" })).toBeVisible();
     await expect(page.getByTestId("analysis-balance")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Kategorie", exact: true })).toBeVisible();
-    await expect(page.getByTestId("cockpit-history")).toBeVisible();
+    await expect(page.getByTestId("analysis-flows")).toBeVisible();
     await expect(page.getByText("1 sty", { exact: true })).toHaveCount(0);
     if (existsSync(ARTIFACTS)) {
       await page.screenshot({ path: `${ARTIFACTS}/analysis-overview.png` });
-      const history = page.getByTestId("cockpit-history");
+      const history = page.getByTestId("analysis-flows");
       await history.scrollIntoViewIfNeeded();
       await history.screenshot({ path: `${ARTIFACTS}/analysis-history.png` });
       await page.screenshot({ path: `${ARTIFACTS}/analysis-history-viewport.png` });

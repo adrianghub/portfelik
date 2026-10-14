@@ -14,6 +14,8 @@
     placeholder?: string;
     required?: boolean;
     disabled?: boolean;
+    /** Earliest selectable ISO calendar date. */
+    min?: string;
     /** Latest selectable ISO calendar date. */
     max?: string;
     /** Render the built-in label. Set false when an external label already
@@ -35,6 +37,7 @@
     placeholder = m.day_picker_placeholder(),
     required = false,
     disabled = false,
+    min,
     max,
     showLabel = true,
     yearsPast = 100,
@@ -63,8 +66,13 @@
 
   const yearOptions = $derived.by(() => {
     const currentYear = today(tz).year;
-    const from = currentYear - yearsPast;
-    const to = currentYear + yearsAhead;
+    const minYear = toValue(min)?.year;
+    const maxYear = toValue(max)?.year;
+    const from = Math.max(currentYear - yearsPast, minYear ?? Number.NEGATIVE_INFINITY);
+    const to = Math.min(currentYear + yearsAhead, maxYear ?? Number.POSITIVE_INFINITY);
+    if (!Number.isFinite(from) || !Number.isFinite(to) || from > to) {
+      return [currentYear];
+    }
     return Array.from({ length: to - from + 1 }, (_, i) => from + i);
   });
 
@@ -193,6 +201,7 @@
     class="rounded-xl border border-white/5 bg-slate-900/60 p-3"
     type="single"
     value={selected}
+    minValue={toValue(min)}
     maxValue={toValue(max)}
     preventDeselect
     onValueChange={handleValueChange}
