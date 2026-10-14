@@ -478,6 +478,7 @@
           <DayPicker
             label={m.analysis_forecast_on_day()}
             value={selectedForecastDate || forecastEnd}
+            min={forecast.start}
             max={forecastEnd}
             onchange={(date) => (selectedForecastDate = date)}
           />

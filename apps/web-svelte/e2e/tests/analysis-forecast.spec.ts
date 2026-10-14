@@ -84,6 +84,10 @@ for (const viewport of [
       const picker = page.getByRole("dialog", { name: "Prognoza na dzień", exact: true });
       await picker.getByRole("spinbutton").fill("2026");
       await picker.getByRole("combobox").selectOption("10");
+      await expect(picker.locator('[data-date="2026-10-01"]')).toHaveAttribute(
+        "data-disabled",
+        ""
+      );
       await picker.locator('[data-date="2026-10-26"]').click();
       await expect(forecast.getByTestId("analysis-forecast-day")).toContainText(/21\D?038,91/);
       await page.evaluate(() => window.scrollTo(0, 0));
