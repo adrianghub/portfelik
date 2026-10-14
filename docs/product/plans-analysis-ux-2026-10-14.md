@@ -1,7 +1,7 @@
 # Plans + Analysis UX — design
 
-**Status:** approved in conversation 2026-10-14; awaiting sign-off on this written spec  
-**Branch:** `cursor/plans-analysis-ux-e8ce`  
+**Status:** approved 2026-10-14
+**Branch:** `cursor/plans-analysis-ux-e8ce`
 **Approach:** Surgical (A) — fix broken plans/debt/upcoming paths; extend Analysis forecast with history-style flow bars + clearer category filters
 
 ## Problem
