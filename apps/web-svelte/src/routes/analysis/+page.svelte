@@ -344,12 +344,10 @@
     void goto(`/analysis?${params}`, { keepFocus: true, noScroll: true });
   }
 
-  function barLabel(key: string): string {
+  function barLabel(key: string, rangeStart: string, rangeEnd: string): string {
     const label =
       key.length === 10 ? axisDayLabel(key) : axisDayLabel(`${key}-01`).replace(/^1 /, "");
-    return overview.start.slice(0, 4) !== overview.end.slice(0, 4)
-      ? `${label} ${key.slice(0, 4)}`
-      : label;
+    return rangeStart.slice(0, 4) !== rangeEnd.slice(0, 4) ? `${label} ${key.slice(0, 4)}` : label;
   }
 
   function categoryName(name: string): string {
@@ -576,9 +574,16 @@
               {/each}
             </div>
             <div class="mt-1 flex justify-between text-[11px] text-slate-400">
-              <span>{barLabel(forecast.bars[0].key)}</span>{#if forecast.bars.length > 2}<span
-                  >{barLabel(forecast.bars[Math.floor(forecast.bars.length / 2)].key)}</span
-                >{/if}<span>{barLabel(forecast.bars.at(-1)!.key)}</span>
+              <span>{barLabel(forecast.bars[0].key, forecast.start, forecast.end)}</span
+              >{#if forecast.bars.length > 2}<span
+                  >{barLabel(
+                    forecast.bars[Math.floor(forecast.bars.length / 2)].key,
+                    forecast.start,
+                    forecast.end
+                  )}</span
+                >{/if}<span
+                >{barLabel(forecast.bars.at(-1)!.key, forecast.start, forecast.end)}</span
+              >
             </div>
           </div>
         {/if}
@@ -851,9 +856,14 @@
             {/each}
           </div>
           <div class="mt-1 flex justify-between text-[11px] text-slate-400">
-            <span>{barLabel(overview.bars[0].key)}</span>{#if overview.bars.length > 2}<span
-                >{barLabel(overview.bars[Math.floor(overview.bars.length / 2)].key)}</span
-              >{/if}<span>{barLabel(overview.bars.at(-1)!.key)}</span>
+            <span>{barLabel(overview.bars[0].key, overview.start, overview.end)}</span
+            >{#if overview.bars.length > 2}<span
+                >{barLabel(
+                  overview.bars[Math.floor(overview.bars.length / 2)].key,
+                  overview.start,
+                  overview.end
+                )}</span
+              >{/if}<span>{barLabel(overview.bars.at(-1)!.key, overview.start, overview.end)}</span>
           </div>
           <p class="mt-2 text-xs text-slate-500">{m.analysis_bar_hint()}</p>
         </div>

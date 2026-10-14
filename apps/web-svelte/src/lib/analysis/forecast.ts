@@ -16,6 +16,7 @@ import {
   type AnalysisFlow,
 } from "$lib/analysis/overview";
 import {
+  countsAfterAnchor,
   forecastMovementTotals,
   forecastPosition,
   livePosition,
@@ -51,6 +52,7 @@ export interface AnalysisForecast {
   categories: AnalysisCategory[];
 }
 
+/** Same upcoming/overdue window as `forecastMovementTotals` (countsAfterAnchor + horizon). */
 function forecastFlowRows(
   txs: Array<
     Pick<
@@ -58,9 +60,8 @@ function forecastFlowRows(
       "id" | "type" | "amount" | "status" | "date" | "currency" | "category_id" | "category_name"
     > & { id?: string }
   >,
-  today: string,
   end: string,
-  anchorDate: string
+  anchor: CashAnchor
 ): AnalysisFlow[] {
   const flows: AnalysisFlow[] = [];
   let synthetic = 0;
@@ -69,8 +70,7 @@ function forecastFlowRows(
     if (!isSupportedLedgerCurrency(row.currency)) continue;
     if (row.status !== "upcoming" && row.status !== "overdue") continue;
     const date = row.date.slice(0, 10);
-    if (date <= anchorDate || date > end) continue;
-    if (date < today && row.status !== "overdue") continue;
+    if (!countsAfterAnchor(date, anchor) || date > end) continue;
     flows.push({
       id: row.id ?? `forecast-flow-${synthetic++}`,
       type: row.type,
@@ -145,12 +145,11 @@ export function buildAnalysisForecast(input: {
         "id" | "type" | "amount" | "status" | "date" | "currency" | "category_id" | "category_name"
       > & { id?: string }
     >,
-    today,
     end,
-    anchor.as_of_date.slice(0, 10)
+    anchor
   );
-  // Bars start the day after today so today's live cash stays on the balance line.
-  const barsStart = addLocalDays(today, 1);
+  // Include today so start_of_day same-day upcoming matches headline income/expense.
+  const barsStart = today;
   const barKind = analysisBarKind(barsStart <= end ? barsStart : end, end);
   const bars = barsStart <= end ? buildAnalysisFlowBars(movementRows, barsStart, end, barKind) : [];
   return {
