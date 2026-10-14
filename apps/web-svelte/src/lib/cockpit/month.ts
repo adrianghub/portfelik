@@ -113,7 +113,10 @@ function forecastThrough(
   if (inclusiveEnd < anchor.as_of_date) return null;
   const horizonEnd = addLocalDays(today, CASH_FORECAST_HORIZON_DAYS);
   if (inclusiveEnd > horizonEnd) return null;
-  const ledger = transactions.filter((tx) => day(tx.date) <= inclusiveEnd);
+  // Paid rows already belong to the live cash position, even when a user
+  // manually marks a future-dated operation received. Do not remove them at
+  // month end while keeping them in today's balance.
+  const ledger = transactions.filter((tx) => tx.status === "paid" || day(tx.date) <= inclusiveEnd);
   return forecastPosition(
     anchor,
     [
