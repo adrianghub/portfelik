@@ -55,7 +55,10 @@
     cashForecastProjectionEnd,
     fetchPrivateCashPosition,
   } from "$lib/services/cash-position";
-  import { composeForecastExplanation } from "$lib/services/forecast-composition";
+  import {
+    composeForecastExplanation,
+    forecastCompositionHref,
+  } from "$lib/services/forecast-composition";
   import { appendConfirmedSpendForecast } from "$lib/plans/spend-forecast";
   import { fetchPrivateSpendForecastSource } from "$lib/services/spend-forecast";
   import {
@@ -641,6 +644,38 @@
   });
   const cockpitUpcomingIncome = $derived(forecastComposition?.upcomingIncome ?? 0);
   const cockpitUpcomingExpenses = $derived(forecastComposition?.upcomingExpenses ?? 0);
+  const compositionIncomeHref = $derived(
+    forecastComposition
+      ? forecastCompositionHref({
+          openFrom: forecastComposition.openFrom,
+          end: forecastComposition.horizonEnd,
+          status: "upcoming,overdue",
+          type: "income",
+        })
+      : null
+  );
+  const compositionExpenseHref = $derived(
+    forecastComposition
+      ? forecastCompositionHref({
+          openFrom: forecastComposition.openFrom,
+          end: forecastComposition.horizonEnd,
+          status: "upcoming,overdue",
+          type: "expense",
+        })
+      : null
+  );
+  const compositionBalanceHref = $derived(
+    forecastComposition
+      ? forecastCompositionHref({
+          openFrom: forecastComposition.openFrom,
+          end: forecastComposition.today,
+          status: "paid",
+        })
+      : null
+  );
+  const compositionPlanHref = $derived(
+    forecastComposition && forecastComposition.planRemainders > 0 ? "/plans?group=own" : null
+  );
 
   const overdueSummary = $derived.by(() => {
     const overdue = scopeFilter(overdueQuery.data ?? []).filter((tx) => tx.currency === "PLN");
@@ -694,10 +729,6 @@
     p.set("status", "upcoming,overdue");
     return `/transactions?${p.toString()}`;
   });
-  const upcomingIncomeHref = $derived(`${upcomingHref}&type=income`);
-  const upcomingExpenseHref = $derived(`${upcomingHref}&type=expense`);
-  const balanceSourceHref = $derived("/transactions?group=own");
-
   function openTransaction(tx: TransactionWithCategory) {
     try {
       const startMs = new Date(bounds.start).getTime();
@@ -791,14 +822,20 @@
       monthForecast={cockpitMonth.forecast}
       upcomingIncome={cockpitUpcomingIncome}
       upcomingExpenses={cockpitUpcomingExpenses}
+      ledgerUpcomingExpenses={forecastComposition?.ledgerUpcomingExpenses ?? null}
+      planRemainders={forecastComposition?.planRemainders ?? 0}
+      openingAmount={forecastComposition?.openingAmount ?? null}
+      paidIncome={forecastComposition?.paidIncome ?? 0}
+      paidExpenses={forecastComposition?.paidExpenses ?? 0}
       orientational={cockpitMonth.orientational}
       chart={cockpitChart}
       horizonLabel={calendarMonthLabel(forecastMonth)}
       anchorDate={cashAnchorQuery.data?.as_of_date ?? null}
       analysisHref={analysisHref()}
-      incomeSourceHref={upcomingIncomeHref}
-      expenseSourceHref={upcomingExpenseHref}
-      {balanceSourceHref}
+      incomeSourceHref={compositionIncomeHref}
+      expenseSourceHref={compositionExpenseHref}
+      balanceSourceHref={compositionBalanceHref}
+      planRemaindersHref={compositionPlanHref}
       projected={cashForecastToday <= forecastRange.monthEnd}
       demo={demoActive}
       revealCount={importRevealCount}

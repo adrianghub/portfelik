@@ -8,6 +8,7 @@
     settleSpendItem,
     spendItemFacingStatus,
     spendItemNeedsLink,
+    spendItemShowsDue,
     summarizeSpendBudget,
   } from "$lib/plans/spend";
   import * as m from "$lib/paraglide/messages";
@@ -529,7 +530,7 @@
                 </p>
                 {#if spendItemNeedsLink(item.status, settlement) || settlement.settled > 0 || settlement.overpaid > 0}
                   <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-                    {#if spendItemNeedsLink(item.status, settlement)}
+                    {#if spendItemShowsDue(item.status, settlement)}
                       <p class="text-sm text-amber-300">
                         {m.plan_spend_to_pay()}
                         {formatCurrency(settlement.remaining)}

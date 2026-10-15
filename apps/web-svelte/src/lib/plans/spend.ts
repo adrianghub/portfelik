@@ -35,8 +35,20 @@ export function spendItemFacingStatus(
   return "estimated";
 }
 
-/** Another payment can be linked while a confirmed obligation still has a remainder. */
+/**
+ * A real paid transaction can attach to any active line that is not fully settled,
+ * including estimates and dated plans — confirmation is not a prerequisite for linking.
+ */
 export function spendItemNeedsLink(
+  status: SpendItemStatus,
+  settlement?: Pick<SpendItemSettlement, "settled" | "remaining"> | null
+): boolean {
+  const facing = spendItemFacingStatus(status, settlement);
+  return facing !== "cancelled" && facing !== "paid";
+}
+
+/** Amber "do zapłaty" only for confirmed obligations (and partial payments on them). */
+export function spendItemShowsDue(
   status: SpendItemStatus,
   settlement?: Pick<SpendItemSettlement, "settled" | "remaining"> | null
 ): boolean {

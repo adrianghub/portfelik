@@ -5,6 +5,7 @@ import {
   settleSpendItem,
   spendItemFacingStatus,
   spendItemNeedsLink,
+  spendItemShowsDue,
   summarizeSpendBudget,
 } from "$lib/plans/spend";
 
@@ -153,12 +154,21 @@ describe("spend plan budget", () => {
     expect(spendItemFacingStatus("cancelled", { settled: 200, remaining: 0 })).toBe("cancelled");
   });
 
-  it("offers another link only while a confirmed remainder is open", () => {
-    expect(spendItemNeedsLink("planned", { settled: 0, remaining: 500 })).toBe(false);
+  it("allows linking a paid transaction to estimates without confirming first", () => {
+    expect(spendItemNeedsLink("estimated", { settled: 0, remaining: 500 })).toBe(true);
+    expect(spendItemNeedsLink("planned", { settled: 0, remaining: 500 })).toBe(true);
     expect(spendItemNeedsLink("confirmed", { settled: 0, remaining: 500 })).toBe(true);
     expect(spendItemNeedsLink("confirmed", { settled: 200, remaining: 300 })).toBe(true);
     expect(spendItemNeedsLink("confirmed", { settled: 500, remaining: 0 })).toBe(false);
     expect(spendItemNeedsLink("cancelled", { settled: 200, remaining: 300 })).toBe(false);
+  });
+
+  it("shows due copy only for confirmed obligations", () => {
+    expect(spendItemShowsDue("estimated", { settled: 0, remaining: 500 })).toBe(false);
+    expect(spendItemShowsDue("planned", { settled: 0, remaining: 500 })).toBe(false);
+    expect(spendItemShowsDue("confirmed", { settled: 0, remaining: 500 })).toBe(true);
+    expect(spendItemShowsDue("confirmed", { settled: 200, remaining: 300 })).toBe(true);
+    expect(spendItemShowsDue("confirmed", { settled: 500, remaining: 0 })).toBe(false);
   });
 
   it("keeps a cancelled line from becoming a due payment", () => {

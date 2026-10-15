@@ -21,6 +21,11 @@
     monthForecast,
     upcomingIncome = 0,
     upcomingExpenses = 0,
+    ledgerUpcomingExpenses = null,
+    planRemainders = 0,
+    openingAmount = null,
+    paidIncome = 0,
+    paidExpenses = 0,
     chart,
     horizonLabel,
     anchorDate = null,
@@ -28,6 +33,7 @@
     incomeSourceHref = null,
     expenseSourceHref = null,
     balanceSourceHref = null,
+    planRemaindersHref = null,
     projected = true,
     demo = false,
     revealCount = null,
@@ -46,6 +52,12 @@
     monthForecast: number | null;
     upcomingIncome?: number;
     upcomingExpenses?: number;
+    /** Ledger-only upcoming expenses; defaults to upcomingExpenses when omitted. */
+    ledgerUpcomingExpenses?: number | null;
+    planRemainders?: number;
+    openingAmount?: number | null;
+    paidIncome?: number;
+    paidExpenses?: number;
     chart: ChartModel;
     horizonLabel: string;
     anchorDate?: string | null;
@@ -54,6 +66,7 @@
     incomeSourceHref?: string | null;
     expenseSourceHref?: string | null;
     balanceSourceHref?: string | null;
+    planRemaindersHref?: string | null;
     projected?: boolean;
     demo?: boolean;
     revealCount?: number | null;
@@ -62,6 +75,8 @@
     onRetry?: () => void;
     onOpenGlossary?: (entryId: string) => void;
   } = $props();
+
+  const expenseLedgerAmount = $derived(ledgerUpcomingExpenses ?? upcomingExpenses);
 
   let progress = $state(1);
   let sourceOpen = $state(false);
@@ -214,19 +229,34 @@
               class="mt-2 space-y-1.5 rounded-xl border border-white/5 bg-slate-950/40 px-3 py-2.5 text-sm"
               data-testid="cockpit-amount-source-panel"
             >
+              {#if openingAmount != null}
+                <div class="flex justify-between gap-3">
+                  <dt class="text-slate-400">{m.cockpit_amount_source_opening()}</dt>
+                  <dd class="text-slate-100 tabular-nums">{formatCurrency(openingAmount)}</dd>
+                </div>
+                <div class="flex justify-between gap-3">
+                  <dt class="text-slate-400">{m.cockpit_amount_source_paid_ops()}</dt>
+                  <dd class="text-slate-100 tabular-nums">
+                    {#if balanceSourceHref}
+                      <a
+                        href={balanceSourceHref}
+                        class="hover:text-accent underline-offset-2 hover:underline"
+                      >
+                        {paidIncome - paidExpenses >= 0 ? "+" : "−"}{formatCurrency(
+                          Math.abs(paidIncome - paidExpenses)
+                        )}
+                      </a>
+                    {:else}
+                      {paidIncome - paidExpenses >= 0 ? "+" : "−"}{formatCurrency(
+                        Math.abs(paidIncome - paidExpenses)
+                      )}
+                    {/if}
+                  </dd>
+                </div>
+              {/if}
               <div class="flex justify-between gap-3">
                 <dt class="text-slate-400">{m.cockpit_amount_source_balance()}</dt>
-                <dd class="text-slate-100 tabular-nums">
-                  {#if balanceSourceHref}
-                    <a
-                      href={balanceSourceHref}
-                      class="hover:text-accent underline-offset-2 hover:underline"
-                      >{formatCurrency(balance ?? 0)}</a
-                    >
-                  {:else}
-                    {formatCurrency(balance ?? 0)}
-                  {/if}
-                </dd>
+                <dd class="text-slate-100 tabular-nums">{formatCurrency(balance ?? 0)}</dd>
               </div>
               <div class="flex justify-between gap-3">
                 <dt class="text-slate-400">{m.cockpit_amount_source_income()}</dt>
@@ -249,13 +279,29 @@
                     <a
                       href={expenseSourceHref}
                       class="underline-offset-2 hover:text-rose-200 hover:underline"
-                      >−{formatCurrency(upcomingExpenses)}</a
+                      >−{formatCurrency(expenseLedgerAmount)}</a
                     >
                   {:else}
-                    −{formatCurrency(upcomingExpenses)}
+                    −{formatCurrency(expenseLedgerAmount)}
                   {/if}
                 </dd>
               </div>
+              {#if planRemainders > 0}
+                <div class="flex justify-between gap-3">
+                  <dt class="text-slate-400">{m.cockpit_amount_source_plan_remainders()}</dt>
+                  <dd class="text-amber-300 tabular-nums">
+                    {#if planRemaindersHref}
+                      <a
+                        href={planRemaindersHref}
+                        class="underline-offset-2 hover:text-amber-200 hover:underline"
+                        >−{formatCurrency(planRemainders)}</a
+                      >
+                    {:else}
+                      −{formatCurrency(planRemainders)}
+                    {/if}
+                  </dd>
+                </div>
+              {/if}
               <div class="flex justify-between gap-3 border-t border-white/5 pt-1.5 font-medium">
                 <dt class="text-slate-300">{m.cockpit_amount_source_result()}</dt>
                 <dd class="text-slate-50 tabular-nums">{formatCurrency(monthForecast)}</dd>
