@@ -55,6 +55,8 @@
     cashForecastProjectionEnd,
     fetchPrivateCashPosition,
   } from "$lib/services/cash-position";
+  import { isSupportedLedgerCurrency } from "$lib/ledger-currency";
+  import { moneyDifference, sumMoneyAmounts } from "$lib/money";
   import { fetchPrivateSpendForecastSource } from "$lib/services/spend-forecast";
   import {
     forwardForecastTransactions,
@@ -78,8 +80,6 @@
   onMount(() => {
     importRevealCount = takeCockpitImportReveal();
   });
-
-  let detailsOpen = $state(false);
 
   const greetingName = $derived.by(() => {
     const raw =
@@ -616,6 +616,33 @@
     return [...real, ...projected].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 5);
   });
 
+  /** Open income through month end. Expense side is reconciling so "Skąd ta kwota?" matches Prognoza. */
+  const cockpitUpcomingIncome = $derived.by(() => {
+    const monthEnd = forecastRange.monthEnd;
+    const rows = [
+      ...allScopedTxs,
+      ...currentProjectedTxs,
+      ...forwardForecastTxs.filter((tx) => tx.projected),
+    ];
+    return sumMoneyAmounts(
+      rows.filter(
+        (tx) =>
+          (tx.status === "upcoming" || tx.status === "overdue") &&
+          tx.type === "income" &&
+          isSupportedLedgerCurrency(tx.currency) &&
+          tx.date.slice(0, 10) <= monthEnd
+      )
+    );
+  });
+  const cockpitUpcomingExpenses = $derived.by(() => {
+    if (cockpitMonth.balance == null || cockpitMonth.forecast == null) return 0;
+    const implied = moneyDifference(
+      sumMoneyAmounts([{ amount: cockpitMonth.balance }, { amount: cockpitUpcomingIncome }]),
+      cockpitMonth.forecast
+    );
+    return implied > 0 ? implied : 0;
+  });
+
   const overdueSummary = $derived.by(() => {
     const overdue = scopeFilter(overdueQuery.data ?? []).filter((tx) => tx.currency === "PLN");
     if (overdue.length === 0) return null;
@@ -756,11 +783,12 @@
       hasAnchor={!!cashAnchorQuery.data}
       showPrivateDetails={groupFilter === "own"}
       scopeLabel={cashScopeLabel}
-      transactionsHref={`/transactions?startDate=${forecastRange.monthStart}&endDate=${forecastRange.monthEnd}&group=${groupFilter}`}
       balance={cockpitMonth.balance}
       expensesFrom={cockpitMonth.expensesFrom}
       expensesIncomplete={cockpitMonth.expensesIncomplete}
       monthForecast={cockpitMonth.forecast}
+      upcomingIncome={cockpitUpcomingIncome}
+      upcomingExpenses={cockpitUpcomingExpenses}
       orientational={cockpitMonth.orientational}
       chart={cockpitChart}
       horizonLabel={calendarMonthLabel(forecastMonth)}
@@ -791,77 +819,59 @@
 
     {#if txQuery.isError}
       <QueryError error={txQuery.error} onRetry={() => txQuery.refetch()} />
-    {:else if !txQuery.isLoading}
-      <a
-        href={transactionsHref()}
-        class="text-accent focus-visible:ring-accent flex min-h-11 w-fit items-center text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"
-      >
-        {m.dashboard_balance_all_link()}
-      </a>
     {/if}
 
-    <button
-      type="button"
-      class="focus-visible:ring-accent text-sm font-medium text-slate-300 focus-visible:ring-2 focus-visible:outline-none"
-      aria-expanded={detailsOpen}
-      onclick={() => (detailsOpen = !detailsOpen)}
-    >
-      {m.dashboard_see_more()}
-    </button>
+    <DashboardPlanProgress {groupFilter} />
 
-    {#if detailsOpen}
-      <DashboardPlanProgress {groupFilter} />
-
-      <!-- Upcoming / overdue -->
-      {#if !txQuery.isError}
-        <div>
-          <div class="mb-2 flex items-center justify-between gap-2">
-            <p class="text-eyebrow text-slate-400">{m.dashboard_upcoming_title()}</p>
-            <div class="flex items-center gap-3">
-              {#if activeRecurringCount > 0}
-                <span class="text-xs text-slate-400">
-                  {m.recurring_entry()} ({activeRecurringCount})
-                </span>
-              {/if}
-              {#if upcomingTxs.length > 0 || activeRecurringCount > 0}
-                <a href={upcomingHref} class="text-accent hover:text-accent text-xs font-medium">
-                  {m.dashboard_upcoming_see_all()}
-                </a>
-              {/if}
-            </div>
-          </div>
-
-          {#if txQuery.isPending}
-            <div class="space-y-2">
-              {#each Array(3) as _, i (i)}
-                <div
-                  class="h-14 animate-pulse rounded-xl border border-white/5 bg-slate-900/60"
-                ></div>
-              {/each}
-            </div>
-          {:else if upcomingTxs.length === 0}
-            <div class="py-6 text-center">
-              <p class="text-sm text-slate-400">{m.dashboard_empty_upcoming()}</p>
-              <a
-                href={upcomingHref}
-                class="text-accent mt-2 inline-block text-sm font-medium hover:underline"
-              >
-                {m.dashboard_empty_upcoming_cta()}
+    <!-- Upcoming / overdue -->
+    {#if !txQuery.isError}
+      <div>
+        <div class="mb-2 flex items-center justify-between gap-2">
+          <p class="text-eyebrow text-slate-400">{m.cockpit_upcoming_title()}</p>
+          <div class="flex items-center gap-3">
+            {#if activeRecurringCount > 0}
+              <span class="text-xs text-slate-400">
+                {m.recurring_entry()} ({activeRecurringCount})
+              </span>
+            {/if}
+            {#if upcomingTxs.length > 0 || activeRecurringCount > 0}
+              <a href={upcomingHref} class="text-accent hover:text-accent text-xs font-medium">
+                {m.dashboard_upcoming_see_all()}
               </a>
-            </div>
-          {:else}
-            <TransactionTable
-              transactions={upcomingTxs}
-              selectedIds={new Set()}
-              currentUserId={session.userId}
-              canManage={dashCanManage}
-              onrowclick={openTransaction}
-              onsettle={quickSettle}
-              initialSortDirection="asc"
-            />
-          {/if}
+            {/if}
+          </div>
         </div>
-      {/if}
+
+        {#if txQuery.isPending}
+          <div class="space-y-2">
+            {#each Array(3) as _, i (i)}
+              <div
+                class="h-14 animate-pulse rounded-xl border border-white/5 bg-slate-900/60"
+              ></div>
+            {/each}
+          </div>
+        {:else if upcomingTxs.length === 0}
+          <div class="py-6 text-center">
+            <p class="text-sm text-slate-400">{m.dashboard_empty_upcoming()}</p>
+            <a
+              href={upcomingHref}
+              class="text-accent mt-2 inline-block text-sm font-medium hover:underline"
+            >
+              {m.dashboard_empty_upcoming_cta()}
+            </a>
+          </div>
+        {:else}
+          <TransactionTable
+            transactions={upcomingTxs}
+            selectedIds={new Set()}
+            currentUserId={session.userId}
+            canManage={dashCanManage}
+            onrowclick={openTransaction}
+            onsettle={quickSettle}
+            initialSortDirection="asc"
+          />
+        {/if}
+      </div>
     {/if}
 
     <DashboardImportHealth />

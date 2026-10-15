@@ -48,6 +48,8 @@
   let saving = $state(false);
   let cancellingId = $state<string | null>(null);
   let linkingItemId = $state<string | null>(null);
+  /** Plan-level link panel (no item required). */
+  let linkingPlan = $state(false);
   let paymentQuery = $state("");
   let linking = $state(false);
   let unlinkingId = $state<string | null>(null);
@@ -71,7 +73,7 @@
   const candidatesQuery = createQuery(() => ({
     queryKey: [...qk.planLinks(session.userId ?? "", plan.id), "candidates", paymentQuery],
     queryFn: () => searchSpendPaymentCandidates(paymentQuery),
-    enabled: !!session.userId && linkingItemId !== null,
+    enabled: !!session.userId && (linkingItemId !== null || linkingPlan),
   }));
 
   const settlements = $derived(settlementQuery.data ?? []);
@@ -80,6 +82,9 @@
   );
   const paymentCandidates = $derived(
     (candidatesQuery.data ?? []).filter((candidate) => !linkedTransactionIds.has(candidate.id))
+  );
+  const unallocatedSettlements = $derived(
+    settlements.filter((settlement) => settlement.planItemId == null)
   );
 
   function paymentsFor(itemId: string) {
@@ -100,7 +105,8 @@
         amount: item.amount,
         status: item.status,
         settled: settleSpendItem(item.amount, paymentsFor(item.id)).settled,
-      }))
+      })),
+      { spent: paidTotal }
     )
   );
   const activeItems = $derived(
@@ -191,7 +197,7 @@
     await queryClient.invalidateQueries({ queryKey: qk.spendForecast(userId) });
   }
 
-  async function linkPayment(itemId: string, transactionId: string) {
+  async function linkPayment(itemId: string | null, transactionId: string) {
     if (!canManage || linking) return;
     linking = true;
     try {
@@ -201,12 +207,21 @@
       });
       paymentQuery = "";
       linkingItemId = null;
+      linkingPlan = false;
       toast.success(m.plan_item_linked());
       await refreshItems();
     } catch (err) {
       toast.error(errorMessage(err));
     } finally {
       linking = false;
+    }
+  }
+
+  function togglePlanLink() {
+    linkingPlan = !linkingPlan;
+    if (linkingPlan) {
+      linkingItemId = null;
+      paymentQuery = "";
     }
   }
 
@@ -319,36 +334,128 @@
         style="width: {usedPct}%"
       ></div>
     </div>
-    <p class="mt-2 text-sm text-slate-400">
-      {m.plan_spend_paid()}
-      {formatCurrency(paidTotal)}
-      <span> · </span>
-      <span class={summary.toPay > 0 ? "text-amber-300" : ""}>
-        {m.plan_spend_to_pay()}
-        {formatCurrency(summary.toPay)}
-      </span>
-    </p>
-    {#if summary.orientational > 0}
-      <p class="mt-1 text-xs text-slate-400">
-        {m.plan_spend_orientational({ amount: formatCurrency(summary.orientational) })}
-      </p>
-    {/if}
+    <dl class="mt-2 space-y-1 text-sm text-slate-400">
+      <div class="flex justify-between gap-2">
+        <dt>{m.plan_spend_paid()}</dt>
+        <dd class="text-slate-200 tabular-nums">{formatCurrency(summary.spent)}</dd>
+      </div>
+      <div class="flex justify-between gap-2">
+        <dt class={summary.toPay > 0 ? "text-amber-300" : ""}>{m.plan_spend_to_pay()}</dt>
+        <dd class="tabular-nums {summary.toPay > 0 ? 'text-amber-300' : 'text-slate-200'}">
+          {formatCurrency(summary.toPay)}
+        </dd>
+      </div>
+      {#if summary.estimates > 0}
+        <div class="flex justify-between gap-2">
+          <dt>{m.plan_spend_estimates()}</dt>
+          <dd class="text-slate-200 tabular-nums">{formatCurrency(summary.estimates)}</dd>
+        </div>
+      {/if}
+      {#if summary.orientational > 0}
+        <div class="flex justify-between gap-2">
+          <dt>{m.plan_spend_orientational_label()}</dt>
+          <dd class="text-slate-200 tabular-nums">{formatCurrency(summary.orientational)}</dd>
+        </div>
+      {/if}
+      <div class="flex justify-between gap-2 border-t border-white/5 pt-1.5">
+        <dt>{m.plan_spend_projected_cost()}</dt>
+        <dd class="font-medium text-slate-100 tabular-nums">
+          {formatCurrency(summary.projectedCost)}
+        </dd>
+      </div>
+      <div class="flex justify-between gap-2">
+        <dt>{summary.cushion < 0 ? m.plan_spend_cushion_over() : m.plan_spend_cushion()}</dt>
+        <dd class="tabular-nums {summary.cushion < 0 ? 'text-rose-300' : 'text-emerald-300'}">
+          {formatCurrency(Math.abs(summary.cushion))}
+        </dd>
+      </div>
+    </dl>
   </div>
 
   <div class="space-y-2">
-    <div class="flex items-center justify-between gap-3">
+    <div class="flex flex-wrap items-center justify-between gap-3">
       <h3 class="text-sm font-semibold text-slate-100">{m.plan_spend_items()}</h3>
       {#if canManage}
-        <button
-          type="button"
-          class="bg-accent-gradient focus-visible:ring-accent grid size-8 place-items-center rounded-full text-slate-900 focus-visible:ring-2 focus-visible:outline-none"
-          aria-label={m.plan_item_add_open()}
-          onclick={openAdd}
-        >
-          <Plus size={16} aria-hidden="true" />
-        </button>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="focus-visible:ring-accent inline-flex min-h-9 items-center rounded-full border border-white/10 px-3 text-xs font-medium text-slate-200 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+            aria-expanded={linkingPlan}
+            onclick={togglePlanLink}
+          >
+            {linkingPlan ? m.plan_spend_link_close() : m.plan_spend_link_existing()}
+          </button>
+          <button
+            type="button"
+            class="bg-accent-gradient focus-visible:ring-accent grid size-8 place-items-center rounded-full text-slate-900 focus-visible:ring-2 focus-visible:outline-none"
+            aria-label={m.plan_item_add_open()}
+            onclick={openAdd}
+          >
+            <Plus size={16} aria-hidden="true" />
+          </button>
+        </div>
       {/if}
     </div>
+    {#if linkingPlan}
+      <div class="border-accent/30 space-y-2 rounded-xl border bg-slate-900/60 px-3 py-2.5">
+        <label class="block text-xs text-slate-400">
+          {m.plan_item_link_search()}
+          <input
+            class="mt-1 w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-slate-100"
+            bind:value={paymentQuery}
+          />
+        </label>
+        {#if paymentCandidates.length === 0}
+          <p class="text-xs text-slate-500">{m.plan_item_link_empty()}</p>
+        {:else}
+          <ul class="space-y-1">
+            {#each paymentCandidates as candidate (candidate.id)}
+              <li>
+                <button
+                  type="button"
+                  class="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-2 text-left text-sm text-slate-200 hover:bg-white/5 disabled:opacity-50"
+                  disabled={linking}
+                  onclick={() => linkPayment(null, candidate.id)}
+                >
+                  <span class="min-w-0 truncate"
+                    >{candidate.description || m.plan_item_private_payment()}</span
+                  >
+                  <span class="shrink-0 tabular-nums">{formatCurrency(candidate.amount)}</span>
+                </button>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
+    {/if}
+    {#if unallocatedSettlements.length > 0}
+      <div class="space-y-1.5 rounded-xl border border-white/5 bg-slate-900/60 px-3 py-2.5">
+        <p class="text-xs font-medium text-slate-400">{m.plan_spend_unallocated()}</p>
+        <ul class="space-y-1">
+          {#each unallocatedSettlements as payment (payment.transactionId)}
+            <li class="flex items-center justify-between gap-2 text-sm">
+              <span class="min-w-0 truncate text-slate-200">
+                {payment.description ?? m.plan_item_private_payment()}
+                <span class="text-slate-500"> · {formatDate(payment.paidOn)}</span>
+              </span>
+              <span class="flex shrink-0 items-center gap-2">
+                <span class="text-slate-100 tabular-nums">{formatCurrency(payment.amount)}</span>
+                {#if canManage}
+                  <button
+                    type="button"
+                    class="text-xs text-slate-400 hover:text-rose-300"
+                    disabled={unlinkingId === payment.transactionId}
+                    onclick={() => unlinkPayment(payment.transactionId)}
+                  >
+                    {m.plan_item_unlink()}
+                  </button>
+                {/if}
+              </span>
+            </li>
+          {/each}
+        </ul>
+      </div>
+    {/if}
     {#if itemsQuery.isError}
       <p class="text-sm text-rose-300">{m.error_generic()}</p>
     {:else if activeItems.length === 0 && cancelledItems.length === 0}
@@ -408,6 +515,7 @@
                         class="focus-visible:ring-accent rounded-full border border-emerald-400/40 px-3 py-1 text-sm font-semibold text-emerald-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
                         onclick={() => {
                           actionMenuId = null;
+                          linkingPlan = false;
                           linkingItemId = linkingItemId === item.id ? null : item.id;
                           paymentQuery = "";
                         }}
