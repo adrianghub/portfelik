@@ -55,8 +55,8 @@
     cashForecastProjectionEnd,
     fetchPrivateCashPosition,
   } from "$lib/services/cash-position";
-  import { isSupportedLedgerCurrency } from "$lib/ledger-currency";
-  import { moneyDifference, sumMoneyAmounts } from "$lib/money";
+  import { composeForecastExplanation } from "$lib/services/forecast-composition";
+  import { appendConfirmedSpendForecast } from "$lib/plans/spend-forecast";
   import { fetchPrivateSpendForecastSource } from "$lib/services/spend-forecast";
   import {
     forwardForecastTransactions,
@@ -616,32 +616,31 @@
     return [...real, ...projected].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 5);
   });
 
-  /** Open income through month end. Expense side is reconciling so "Skąd ta kwota?" matches Prognoza. */
-  const cockpitUpcomingIncome = $derived.by(() => {
-    const monthEnd = forecastRange.monthEnd;
-    const rows = [
-      ...allScopedTxs,
-      ...currentProjectedTxs,
-      ...forwardForecastTxs.filter((tx) => tx.projected),
-    ];
-    return sumMoneyAmounts(
-      rows.filter(
-        (tx) =>
-          (tx.status === "upcoming" || tx.status === "overdue") &&
-          tx.type === "income" &&
-          isSupportedLedgerCurrency(tx.currency) &&
-          tx.date.slice(0, 10) <= monthEnd
-      )
+  /**
+   * "Skąd ta kwota?" uses the same anchor boundary and spend remainders as Prognoza.
+   * Do not invent an expense to reconcile a pre-anchor overdue income.
+   */
+  const forecastComposition = $derived.by(() => {
+    if (groupFilter !== "own" || !cashAnchorQuery.data) return null;
+    const privateRows = cockpitMonthRows.filter((row) => row.groupId === null);
+    const rows = appendConfirmedSpendForecast(
+      privateRows,
+      spendForecastQuery.data ?? null,
+      cashForecastToday
     );
+    return composeForecastExplanation({
+      anchor: {
+        opening_amount: cashAnchorQuery.data.opening_amount,
+        as_of_date: cashAnchorQuery.data.as_of_date,
+        balance_semantics: cashAnchorQuery.data.balance_semantics,
+      },
+      forecastRows: rows,
+      today: cashForecastToday,
+      horizonEnd: forecastRange.monthEnd,
+    });
   });
-  const cockpitUpcomingExpenses = $derived.by(() => {
-    if (cockpitMonth.balance == null || cockpitMonth.forecast == null) return 0;
-    const implied = moneyDifference(
-      sumMoneyAmounts([{ amount: cockpitMonth.balance }, { amount: cockpitUpcomingIncome }]),
-      cockpitMonth.forecast
-    );
-    return implied > 0 ? implied : 0;
-  });
+  const cockpitUpcomingIncome = $derived(forecastComposition?.upcomingIncome ?? 0);
+  const cockpitUpcomingExpenses = $derived(forecastComposition?.upcomingExpenses ?? 0);
 
   const overdueSummary = $derived.by(() => {
     const overdue = scopeFilter(overdueQuery.data ?? []).filter((tx) => tx.currency === "PLN");

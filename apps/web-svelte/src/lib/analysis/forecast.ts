@@ -47,6 +47,8 @@ export interface AnalysisForecast {
   income: number;
   expense: number;
   points: CockpitChartPoint[];
+  /** Dated upcoming/overdue flows for month detail (not spend remainders). */
+  flows: AnalysisFlow[];
   bars: AnalysisBar[];
   barKind: "month" | "week" | "day";
   categories: AnalysisCategory[];
@@ -163,6 +165,7 @@ export function buildAnalysisForecast(input: {
     income: flowTotals.upcomingIncome,
     expense: flowTotals.upcomingExpenses,
     points,
+    flows: movementRows,
     bars,
     barKind,
     categories: buildAnalysisCategories(movementRows),

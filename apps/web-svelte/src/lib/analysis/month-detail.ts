@@ -1,4 +1,5 @@
 import { calendarMonthBounds, calendarMonthFromIso } from "$lib/cockpit/month-window";
+import { addLocalDays } from "$lib/date-local";
 import { forecastTrough } from "$lib/services/forecast-trough";
 import { moneyDifference, sumMoneyAmounts } from "$lib/money";
 
@@ -14,34 +15,46 @@ export interface AnalysisMonthDetail {
   lowest: { date: string; balance: number } | null;
 }
 
+export interface AnalysisMonthFlow {
+  date: string;
+  type: "income" | "expense";
+  amount: number;
+}
+
 /**
- * Month-level readout from a balance series and flow bars.
- * Opening is the last point on/before month start; closing is the last in-month point.
+ * Month-level readout from a balance series and dated flows.
+ * Opening is only the balance on the calendar day before the month — never an
+ * in-month point. Income/expense sum transaction-level flows inside the month,
+ * so weekly bars that cross month boundaries cannot leak totals.
  */
 export function buildAnalysisMonthDetail(input: {
   monthKey: string;
   points: readonly { date: string; balance: number }[];
-  bars: readonly { start: string; end: string; income: number; expense: number }[];
+  flows: readonly AnalysisMonthFlow[];
 }): AnalysisMonthDetail | null {
   if (!/^\d{4}-\d{2}$/.test(input.monthKey)) return null;
   const bounds = calendarMonthBounds(calendarMonthFromIso(`${input.monthKey}-01`));
+  const dayBefore = addLocalDays(bounds.monthStart, -1);
   const inMonth = input.points.filter(
     (point) => point.date >= bounds.monthStart && point.date <= bounds.monthEnd
   );
-  const before = input.points.filter((point) => point.date < bounds.monthStart);
-  const opening =
-    before.length > 0 ? before[before.length - 1]!.balance : (inMonth[0]?.balance ?? null);
+  const openingPoint = input.points.find((point) => point.date.slice(0, 10) === dayBefore);
   const closing = inMonth.length > 0 ? inMonth[inMonth.length - 1]!.balance : null;
-  const monthBars = input.bars.filter(
-    (bar) => bar.start <= bounds.monthEnd && bar.end > bounds.monthStart
+  const monthFlows = input.flows.filter((flow) => {
+    const date = flow.date.slice(0, 10);
+    return date >= bounds.monthStart && date <= bounds.monthEnd;
+  });
+  const income = sumMoneyAmounts(
+    monthFlows.filter((flow) => flow.type === "income").map((flow) => ({ amount: flow.amount }))
   );
-  const income = sumMoneyAmounts(monthBars.map((bar) => ({ amount: bar.income })));
-  const expense = sumMoneyAmounts(monthBars.map((bar) => ({ amount: bar.expense })));
+  const expense = sumMoneyAmounts(
+    monthFlows.filter((flow) => flow.type === "expense").map((flow) => ({ amount: flow.amount }))
+  );
   return {
     monthKey: input.monthKey,
     start: bounds.monthStart,
     end: bounds.monthEnd,
-    opening,
+    opening: openingPoint?.balance ?? null,
     closing,
     income,
     expense,

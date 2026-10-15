@@ -63,6 +63,8 @@ export interface AnalysisOverview {
   balanceChange: number | null;
   income: number;
   expense: number;
+  /** Dated paid flows used for bars and month detail (category-filtered). */
+  flows: AnalysisFlow[];
   bars: AnalysisBar[];
   barKind: "month" | "week" | "day";
   previousIncome: number;
@@ -358,6 +360,7 @@ export function buildAnalysisOverview(input: {
     balanceChange,
     income: money.income,
     expense: money.expense,
+    flows: current,
     bars: buildAnalysisFlowBars(current, window.start, window.end, barKind),
     previousIncome: priorMoney.income,
     previousExpense: priorMoney.expense,

@@ -64,11 +64,20 @@
   );
 
   function onIncomeActivate() {
+    // Second click on the active card clears the type filter (hint copy).
+    if (activeType === "income" && ontypeclick) {
+      ontypeclick("income");
+      return;
+    }
     if (ondrill) ondrill("income-total");
     else ontypeclick?.("income");
   }
 
   function onExpenseActivate() {
+    if (activeType === "expense" && ontypeclick) {
+      ontypeclick("expense");
+      return;
+    }
     if (ondrill) ondrill("expense-total");
     else ontypeclick?.("expense");
   }

@@ -325,7 +325,7 @@
     return buildAnalysisMonthDetail({
       monthKey: selectedMonthKey,
       points: overview.chart.points,
-      bars: overview.bars,
+      flows: overview.flows,
     });
   });
   const forecastMonthDetail = $derived.by(() => {
@@ -333,7 +333,7 @@
     return buildAnalysisMonthDetail({
       monthKey: selectedMonthKey,
       points: forecast.points,
-      bars: forecast.bars,
+      flows: forecast.flows,
     });
   });
   const forecastLowest = $derived(forecast?.points ? forecastTrough(forecast.points) : null);
