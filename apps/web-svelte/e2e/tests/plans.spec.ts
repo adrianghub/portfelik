@@ -410,7 +410,9 @@ test("a spend item stays unpaid until a transaction is linked", async ({ page })
   await expect(page.getByText(formatCurrency(0)).first()).toBeVisible();
   await expect(page.getByText("Płatności orientacyjne")).toBeVisible();
   await expect(page.getByRole("button", { name: "Powiąż transakcje" })).toBeVisible();
-  await expect(apartment.getByRole("button", { name: "Powiąż transakcję" })).toHaveCount(0);
+  // Planned/estimate lines can take a real payment without confirming first.
+  await expect(apartment.getByRole("button", { name: "Powiąż transakcję" })).toBeVisible();
+  await expect(apartment.getByText("Do zapłaty")).toHaveCount(0);
 
   await apartment.getByRole("button", { name: "Akcje pozycji" }).click();
   await page.getByRole("menuitem", { name: "Popraw" }).click();
@@ -630,7 +632,8 @@ test("a partially paid item still offers another link when the plan opens", asyn
   await expect(lot).toContainText("Wpłacono");
   await expect(lot.getByRole("button", { name: "Powiąż transakcję" })).toBeVisible();
   await expect(hotel).toContainText("Szacunkowy");
-  await expect(hotel.getByRole("button", { name: "Powiąż transakcję" })).toHaveCount(0);
+  await expect(hotel.getByRole("button", { name: "Powiąż transakcję" })).toBeVisible();
+  await expect(hotel.getByText("Do zapłaty")).toHaveCount(0);
   await expect(page.locator("dt", { hasText: "Zapłacono" }).locator("..")).toContainText(
     formatCurrency(400)
   );
