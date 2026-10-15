@@ -23,6 +23,7 @@ describe("buildAnalysisMonthDetail", () => {
       closing: 700,
       income: 150,
       expense: 450,
+      planRemainders: 0,
       net: -300,
       lowest: { date: "2026-10-10", balance: 400 },
     });
@@ -60,7 +61,30 @@ describe("buildAnalysisMonthDetail", () => {
       opening: 500,
       income: 90,
       expense: 40,
+      planRemainders: 0,
       net: 50,
+    });
+  });
+
+  it("folds plan remainders into expense so the month explains the balance drop", () => {
+    const detail = buildAnalysisMonthDetail({
+      monthKey: "2026-10",
+      points: [
+        { date: "2026-09-30", balance: 1000 },
+        { date: "2026-10-01", balance: 1000 },
+        { date: "2026-10-21", balance: 700 },
+        { date: "2026-10-31", balance: 700 },
+      ],
+      flows: [{ date: "2026-10-10", type: "income", amount: 100 }],
+      obligationFlows: [{ date: "2026-10-21", type: "expense", amount: 400 }],
+    });
+    expect(detail).toMatchObject({
+      opening: 1000,
+      income: 100,
+      expense: 400,
+      planRemainders: 400,
+      net: -300,
+      closing: 700,
     });
   });
 });

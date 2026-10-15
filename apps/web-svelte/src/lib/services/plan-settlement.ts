@@ -139,15 +139,22 @@ export async function searchSpendPaymentCandidates(
   const trimmed = query.trim().replace(/[%_\\]/g, "\\$&");
   let request = supabase
     .from("transactions")
-    .select("id, description, amount, date")
+    .select("id, description, amount, date, counterparty")
     .eq("type", "expense")
     .eq("status", "paid")
     .order("date", { ascending: false })
-    .limit(20);
-  if (trimmed) request = request.ilike("description", `%${trimmed}%`);
+    .limit(50);
+  if (trimmed) {
+    request = request.or(`description.ilike.%${trimmed}%,counterparty.ilike.%${trimmed}%`);
+  }
   const { data, error } = await request;
   if (error) throw error;
-  return (data ?? []) as SpendPaymentCandidate[];
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    description: row.description || row.counterparty || "",
+    amount: row.amount,
+    date: row.date,
+  })) as SpendPaymentCandidate[];
 }
 
 export async function createAndLinkPlanTransaction(input: {

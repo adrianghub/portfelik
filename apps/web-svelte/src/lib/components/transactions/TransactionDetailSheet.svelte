@@ -104,11 +104,15 @@
       if (!transaction) return null;
       const { data, error } = await supabase
         .from("plan_transaction_links")
-        .select("plan_id, plans(name)")
+        .select("plan_id, plan_item_id, plans(name)")
         .eq("transaction_id", transaction.id)
         .maybeSingle();
       if (error) throw error;
-      return data as { plan_id: string; plans: { name: string; kind?: string } | null } | null;
+      return data as {
+        plan_id: string;
+        plan_item_id: string | null;
+        plans: { name: string; kind?: string } | null;
+      } | null;
     },
     enabled: !!transaction && !transaction.projected && !!uid,
   }));
@@ -403,7 +407,9 @@
             {m.nav_plans()}
           </p>
           <a
-            href="/plans/{planLinkQuery.data.plan_id}"
+            href={planLinkQuery.data.plan_item_id
+              ? `/plans/${planLinkQuery.data.plan_id}?item=${planLinkQuery.data.plan_item_id}`
+              : `/plans/${planLinkQuery.data.plan_id}`}
             class="hover:text-accent inline-flex items-center gap-1.5 text-sm text-slate-200 transition-colors"
           >
             <ClipboardList size={14} />

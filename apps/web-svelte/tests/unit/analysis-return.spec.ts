@@ -29,4 +29,14 @@ describe("analysis return navigation", () => {
     params.set("returnTo", "/analysis?span=month");
     expect(analysisReturnFromSearchParams(params)).toBe("/analysis?span=month");
   });
+
+  it("preserves forecast day in the return path", () => {
+    const href = withAnalysisReturn(
+      "/transactions?status=upcoming,overdue",
+      "/analysis?mode=forecast&horizon=3months&day=2026-11-15&month=2026-11"
+    );
+    expect(decodeURIComponent(new URL(href, "https://x").searchParams.get("returnTo")!)).toBe(
+      "/analysis?mode=forecast&horizon=3months&day=2026-11-15&month=2026-11"
+    );
+  });
 });

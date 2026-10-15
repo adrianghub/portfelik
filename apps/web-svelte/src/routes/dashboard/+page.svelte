@@ -694,6 +694,9 @@
     p.set("status", "upcoming,overdue");
     return `/transactions?${p.toString()}`;
   });
+  const upcomingIncomeHref = $derived(`${upcomingHref}&type=income`);
+  const upcomingExpenseHref = $derived(`${upcomingHref}&type=expense`);
+  const balanceSourceHref = $derived("/transactions?group=own");
 
   function openTransaction(tx: TransactionWithCategory) {
     try {
@@ -793,6 +796,9 @@
       horizonLabel={calendarMonthLabel(forecastMonth)}
       anchorDate={cashAnchorQuery.data?.as_of_date ?? null}
       analysisHref={analysisHref()}
+      incomeSourceHref={upcomingIncomeHref}
+      expenseSourceHref={upcomingExpenseHref}
+      {balanceSourceHref}
       projected={cashForecastToday <= forecastRange.monthEnd}
       demo={demoActive}
       revealCount={importRevealCount}

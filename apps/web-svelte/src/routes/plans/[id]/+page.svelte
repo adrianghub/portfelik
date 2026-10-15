@@ -710,7 +710,7 @@
       />
       <PlanForwardNav href={settleHref} title={m.plan_debt_link_payments()} variant="action" />
     {:else if plan.kind === "spend"}
-      <SpendPlanDetail {plan} {canManage} />
+      <SpendPlanDetail {plan} {canManage} focusItemId={$page.url.searchParams.get("item")} />
     {/if}
 
     {#if previewMatches.length > 0}

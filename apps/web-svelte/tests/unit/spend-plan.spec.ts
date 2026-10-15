@@ -50,6 +50,14 @@ describe("spend plan budget", () => {
     expect(summary.cushion).toBe(7_500);
   });
 
+  it("counts plan-level linked payments in cushion even when no items exist", () => {
+    const summary = summarizeSpendBudget(20_000, [], { spent: 3_000 });
+    expect(summary.planned).toBe(0);
+    expect(summary.budgetLeft).toBe(20_000);
+    expect(summary.projectedCost).toBe(3_000);
+    expect(summary.cushion).toBe(17_000);
+  });
+
   it("drops cancelled lines and reports a cap overrun", () => {
     const summary = summarizeSpendBudget(1_000, [
       { amount: 800, status: "confirmed" },

@@ -25,6 +25,9 @@
     horizonLabel,
     anchorDate = null,
     analysisHref,
+    incomeSourceHref = null,
+    expenseSourceHref = null,
+    balanceSourceHref = null,
     projected = true,
     demo = false,
     revealCount = null,
@@ -47,6 +50,10 @@
     horizonLabel: string;
     anchorDate?: string | null;
     analysisHref: string;
+    /** Drill from „Skąd ta kwota?” income leg into Transakcje. */
+    incomeSourceHref?: string | null;
+    expenseSourceHref?: string | null;
+    balanceSourceHref?: string | null;
     projected?: boolean;
     demo?: boolean;
     revealCount?: number | null;
@@ -209,15 +216,45 @@
             >
               <div class="flex justify-between gap-3">
                 <dt class="text-slate-400">{m.cockpit_amount_source_balance()}</dt>
-                <dd class="text-slate-100 tabular-nums">{formatCurrency(balance ?? 0)}</dd>
+                <dd class="text-slate-100 tabular-nums">
+                  {#if balanceSourceHref}
+                    <a
+                      href={balanceSourceHref}
+                      class="hover:text-accent underline-offset-2 hover:underline"
+                      >{formatCurrency(balance ?? 0)}</a
+                    >
+                  {:else}
+                    {formatCurrency(balance ?? 0)}
+                  {/if}
+                </dd>
               </div>
               <div class="flex justify-between gap-3">
                 <dt class="text-slate-400">{m.cockpit_amount_source_income()}</dt>
-                <dd class="text-emerald-300 tabular-nums">+{formatCurrency(upcomingIncome)}</dd>
+                <dd class="text-emerald-300 tabular-nums">
+                  {#if incomeSourceHref}
+                    <a
+                      href={incomeSourceHref}
+                      class="underline-offset-2 hover:text-emerald-200 hover:underline"
+                      >+{formatCurrency(upcomingIncome)}</a
+                    >
+                  {:else}
+                    +{formatCurrency(upcomingIncome)}
+                  {/if}
+                </dd>
               </div>
               <div class="flex justify-between gap-3">
                 <dt class="text-slate-400">{m.cockpit_amount_source_expense()}</dt>
-                <dd class="text-rose-300 tabular-nums">−{formatCurrency(upcomingExpenses)}</dd>
+                <dd class="text-rose-300 tabular-nums">
+                  {#if expenseSourceHref}
+                    <a
+                      href={expenseSourceHref}
+                      class="underline-offset-2 hover:text-rose-200 hover:underline"
+                      >−{formatCurrency(upcomingExpenses)}</a
+                    >
+                  {:else}
+                    −{formatCurrency(upcomingExpenses)}
+                  {/if}
+                </dd>
               </div>
               <div class="flex justify-between gap-3 border-t border-white/5 pt-1.5 font-medium">
                 <dt class="text-slate-300">{m.cockpit_amount_source_result()}</dt>

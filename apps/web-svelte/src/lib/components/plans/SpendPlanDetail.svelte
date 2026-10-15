@@ -33,7 +33,11 @@
   import { MoreHorizontal, Plus } from "lucide-svelte";
   import { toast } from "svelte-sonner";
 
-  let { plan, canManage }: { plan: Plan; canManage: boolean } = $props();
+  let {
+    plan,
+    canManage,
+    focusItemId = null,
+  }: { plan: Plan; canManage: boolean; focusItemId?: string | null } = $props();
 
   const queryClient = useQueryClient();
   let label = $state("");
@@ -115,9 +119,24 @@
   const cancelledItems = $derived(
     (itemsQuery.data ?? []).filter((item) => item.status === "cancelled")
   );
+  /** Progress uses projected cost (includes linked payments), same basis as remaining. */
   const usedPct = $derived(
-    summary.budget > 0 ? Math.min(100, Math.round((summary.planned / summary.budget) * 100)) : 0
+    summary.budget > 0
+      ? Math.min(100, Math.round((summary.projectedCost / summary.budget) * 100))
+      : 0
   );
+  const assignableItems = $derived(
+    activeItems.filter((item) =>
+      spendItemNeedsLink(item.status, settleSpendItem(item.amount, paymentsFor(item.id)))
+    )
+  );
+
+  $effect(() => {
+    if (!focusItemId || typeof document === "undefined") return;
+    const el = document.getElementById(`spend-item-${focusItemId}`);
+    if (!el) return;
+    el.scrollIntoView({ block: "center", behavior: "smooth" });
+  });
 
   function facingLabel(item: PlanItem): string {
     const facing = spendItemFacingStatus(
@@ -309,10 +328,10 @@
       <InfoTooltip label={m.plan_spend_rules_label()} text={m.plan_spend_rules()} />
     </div>
     <p class="mt-1 text-3xl font-semibold text-slate-100 tabular-nums">
-      {#if summary.budgetLeft < 0}
-        {m.plan_spend_over_budget({ amount: formatCurrency(Math.abs(summary.budgetLeft)) })}
+      {#if summary.cushion < 0}
+        {m.plan_spend_over_budget({ amount: formatCurrency(Math.abs(summary.cushion)) })}
       {:else}
-        {formatCurrency(summary.budgetLeft)}
+        {formatCurrency(summary.cushion)}
       {/if}
     </p>
     <p class="mt-1 text-sm text-slate-400">
@@ -330,7 +349,7 @@
       aria-valuemax={100}
     >
       <div
-        class="h-full rounded-full {summary.budgetLeft < 0 ? 'bg-rose-400' : 'bg-accent'}"
+        class="h-full rounded-full {summary.cushion < 0 ? 'bg-rose-400' : 'bg-accent'}"
         style="width: {usedPct}%"
       ></div>
     </div>
@@ -361,12 +380,6 @@
         <dt>{m.plan_spend_projected_cost()}</dt>
         <dd class="font-medium text-slate-100 tabular-nums">
           {formatCurrency(summary.projectedCost)}
-        </dd>
-      </div>
-      <div class="flex justify-between gap-2">
-        <dt>{summary.cushion < 0 ? m.plan_spend_cushion_over() : m.plan_spend_cushion()}</dt>
-        <dd class="tabular-nums {summary.cushion < 0 ? 'text-rose-300' : 'text-emerald-300'}">
-          {formatCurrency(Math.abs(summary.cushion))}
         </dd>
       </div>
     </dl>
@@ -433,13 +446,34 @@
         <p class="text-xs font-medium text-slate-400">{m.plan_spend_unallocated()}</p>
         <ul class="space-y-1">
           {#each unallocatedSettlements as payment (payment.transactionId)}
-            <li class="flex items-center justify-between gap-2 text-sm">
+            <li class="flex flex-wrap items-center justify-between gap-2 text-sm">
               <span class="min-w-0 truncate text-slate-200">
                 {payment.description ?? m.plan_item_private_payment()}
                 <span class="text-slate-500"> · {formatDate(payment.paidOn)}</span>
               </span>
-              <span class="flex shrink-0 items-center gap-2">
+              <span class="flex shrink-0 flex-wrap items-center gap-2">
                 <span class="text-slate-100 tabular-nums">{formatCurrency(payment.amount)}</span>
+                {#if canManage && assignableItems.length > 0}
+                  <label class="sr-only" for="assign-{payment.transactionId}"
+                    >{m.plan_spend_assign_to_item()}</label
+                  >
+                  <select
+                    id="assign-{payment.transactionId}"
+                    class="max-w-[10rem] rounded-md border border-white/10 bg-slate-950/60 px-2 py-1 text-xs text-slate-200"
+                    disabled={linking}
+                    onchange={(event) => {
+                      const itemId = (event.currentTarget as HTMLSelectElement).value;
+                      if (!itemId) return;
+                      void linkPayment(itemId, payment.transactionId);
+                      (event.currentTarget as HTMLSelectElement).value = "";
+                    }}
+                  >
+                    <option value="">{m.plan_spend_assign_placeholder()}</option>
+                    {#each assignableItems as item (item.id)}
+                      <option value={item.id}>{item.label}</option>
+                    {/each}
+                  </select>
+                {/if}
                 {#if canManage}
                   <button
                     type="button"
@@ -470,7 +504,9 @@
           )}
           {@const settlement = settleSpendItem(item.amount, paymentsFor(item.id))}
           <li
-            class="space-y-1.5 rounded-xl border bg-slate-900/60 px-3 py-2.5 {editingId === item.id
+            id="spend-item-{item.id}"
+            class="space-y-1.5 rounded-xl border bg-slate-900/60 px-3 py-2.5 {editingId ===
+              item.id || focusItemId === item.id
               ? 'border-accent/40'
               : 'border-white/5'}"
           >

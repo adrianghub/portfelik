@@ -80,16 +80,19 @@
   const forecastActive = $derived(mode === "forecast" && groupFilter === "own");
   const selectedMonthKey = $derived($page.url.searchParams.get("month"));
   const analysisReturnPath = $derived($page.url.pathname + $page.url.search);
-  let selectedForecastDate = $state("");
-  $effect(() => {
-    void forecastEnd;
-    selectedForecastDate = "";
-  });
+  const selectedForecastDateParam = $derived($page.url.searchParams.get("day") ?? "");
 
   function setSelectedMonth(monthKey: string | null) {
     const params = new URLSearchParams($page.url.searchParams);
     if (monthKey) params.set("month", monthKey);
     else params.delete("month");
+    void goto(`/analysis?${params}`, { keepFocus: true, noScroll: true });
+  }
+
+  function setSelectedForecastDay(date: string | null) {
+    const params = new URLSearchParams($page.url.searchParams);
+    if (date && date !== forecastEnd) params.set("day", date);
+    else params.delete("day");
     void goto(`/analysis?${params}`, { keepFocus: true, noScroll: true });
   }
 
@@ -208,9 +211,6 @@
   );
   const forecastError = $derived(
     forecastActive ? (templatesQuery.error ?? skipsQuery.error ?? spendQuery.error) : null
-  );
-  const forecastPoint = $derived(
-    forecast?.points.find((point) => point.date === (selectedForecastDate || forecastEnd))
   );
 
   const scopeLabel = $derived.by(() => {
@@ -334,8 +334,18 @@
       monthKey: selectedMonthKey,
       points: forecast.points,
       flows: forecast.flows,
+      obligationFlows: forecast.obligationFlows,
     });
   });
+  const selectedForecastDate = $derived.by(() => {
+    const day = selectedForecastDateParam;
+    if (!forecast || !day) return "";
+    if (day >= forecast.start && day <= forecast.end) return day;
+    return "";
+  });
+  const forecastPoint = $derived(
+    forecast?.points.find((point) => point.date === (selectedForecastDate || forecastEnd))
+  );
   const forecastLowest = $derived(forecast?.points ? forecastTrough(forecast.points) : null);
   const loading = $derived(
     !session.userId ||
@@ -562,7 +572,7 @@
             value={selectedForecastDate || forecastEnd}
             min={forecast.start}
             max={forecastEnd}
-            onchange={(date) => (selectedForecastDate = date)}
+            onchange={(date) => setSelectedForecastDay(date)}
           />
           <p class="text-xl font-semibold tabular-nums" data-testid="analysis-forecast-day">
             {forecastPoint ? formatCurrency(forecastPoint.balance) : m.analysis_no_day_balance()}
@@ -717,6 +727,14 @@
                   {formatCurrency(forecastMonthDetail.expense)}
                 </dd>
               </div>
+              {#if forecastMonthDetail.planRemainders > 0}
+                <div>
+                  <dt class="text-xs text-slate-400">{m.analysis_month_plan_remainders()}</dt>
+                  <dd class="text-amber-300 tabular-nums">
+                    {formatCurrency(forecastMonthDetail.planRemainders)}
+                  </dd>
+                </div>
+              {/if}
               <div>
                 <dt class="text-xs text-slate-400">{m.analysis_month_net()}</dt>
                 <dd class="text-slate-100 tabular-nums">

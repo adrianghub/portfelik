@@ -31,7 +31,7 @@ export function confirmedSpendForecastFlows(input: {
   links: readonly SpendForecastLink[];
   forecastTransactionIds: ReadonlySet<string>;
   today: string;
-}): PositionTx[] {
+}): Array<PositionTx & { id: string }> {
   const linksByItem = new Map<string, SpendForecastLink[]>();
   for (const link of input.links) {
     const list = linksByItem.get(link.planItemId) ?? [];
@@ -40,7 +40,7 @@ export function confirmedSpendForecastFlows(input: {
   }
 
   const today = input.today.slice(0, 10);
-  const flows: PositionTx[] = [];
+  const flows: Array<PositionTx & { id: string }> = [];
   for (const item of input.items) {
     if (item.groupId !== null || item.status !== "confirmed") continue;
     const due = item.dueDate?.slice(0, 10);
@@ -54,6 +54,7 @@ export function confirmedSpendForecastFlows(input: {
     const outflow = moneyDifference(item.amount, covered);
     if (outflow <= 0) continue;
     flows.push({
+      id: `spend-remainder:${item.id}`,
       type: "expense",
       amount: outflow,
       status: due < today ? "overdue" : "upcoming",

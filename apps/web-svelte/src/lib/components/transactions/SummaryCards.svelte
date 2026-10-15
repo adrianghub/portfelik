@@ -46,25 +46,28 @@
 
   const showFullRow = $derived(!activeType);
   const showSplit = $derived(breakdown != null && !activeType);
+  const canDrill = $derived(!!ondrill);
 
   const incomeCardClass = $derived(
     cn(
-      "focus-visible:ring-accent relative overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur text-left transition-colors focus-visible:ring-2 focus-visible:outline-none",
-      (ontypeclick || ondrill) && "cursor-pointer hover:bg-white/5",
+      "relative overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur",
       activeType === "income" && "ring-1 ring-emerald-500/40"
     )
   );
 
   const expenseCardClass = $derived(
     cn(
-      "focus-visible:ring-accent relative overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur text-left transition-colors focus-visible:ring-2 focus-visible:outline-none",
-      (ontypeclick || ondrill) && "cursor-pointer hover:bg-white/5",
+      "relative overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur",
       activeType === "expense" && "ring-1 ring-rose-500/40"
     )
   );
 
+  const totalBtnClass =
+    "focus-visible:ring-accent w-full rounded-lg text-left transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none";
+  const splitBtnClass =
+    "focus-visible:ring-accent flex w-full justify-between gap-2 rounded-md px-0.5 py-0.5 text-left transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none";
+
   function onIncomeActivate() {
-    // Second click on the active card clears the type filter (hint copy).
     if (activeType === "income" && ontypeclick) {
       ontypeclick("income");
       return;
@@ -89,103 +92,109 @@
     class={cn("grid gap-3", showFullRow ? "grid-cols-2 sm:grid-cols-3" : "max-w-xs grid-cols-1")}
   >
     {#if showFullRow || activeType === "income"}
-      {#if ontypeclick || ondrill}
-        <button type="button" class={incomeCardClass} onclick={onIncomeActivate}>
+      <article class={incomeCardClass}>
+        {#if ontypeclick || ondrill}
+          <button type="button" class={totalBtnClass} onclick={onIncomeActivate}>
+            <p class="text-eyebrow text-slate-400">{m.summary_income()}</p>
+            <p class="mt-1.5 text-lg font-semibold text-emerald-300 tabular-nums">
+              {formatCurrency(breakdown?.income.total ?? summary.total_income)}
+            </p>
+          </button>
+        {:else}
           <p class="text-eyebrow text-slate-400">{m.summary_income()}</p>
           <p class="mt-1.5 text-lg font-semibold text-emerald-300 tabular-nums">
             {formatCurrency(breakdown?.income.total ?? summary.total_income)}
           </p>
-          {#if showSplit && breakdown}
-            <dl class="mt-2 space-y-1 text-xs text-slate-400">
+        {/if}
+        {#if showSplit && breakdown}
+          <div class="mt-2 space-y-1 text-xs text-slate-400">
+            {#if canDrill}
+              <button
+                type="button"
+                class={splitBtnClass}
+                onclick={() => ondrill?.("income-realized")}
+              >
+                <span>{m.summary_income_received()}</span>
+                <span class="text-slate-300 tabular-nums"
+                  >{formatCurrency(breakdown.income.realized)}</span
+                >
+              </button>
+              <button type="button" class={splitBtnClass} onclick={() => ondrill?.("income-open")}>
+                <span>{m.summary_income_expected()}</span>
+                <span class="text-slate-300 tabular-nums"
+                  >{formatCurrency(breakdown.income.open)}</span
+                >
+              </button>
+            {:else}
               <div class="flex justify-between gap-2">
-                <dt>{m.summary_income_received()}</dt>
-                <dd class="text-slate-300 tabular-nums">
-                  {formatCurrency(breakdown.income.realized)}
-                </dd>
+                <span>{m.summary_income_received()}</span>
+                <span class="text-slate-300 tabular-nums"
+                  >{formatCurrency(breakdown.income.realized)}</span
+                >
               </div>
               <div class="flex justify-between gap-2">
-                <dt>{m.summary_income_expected()}</dt>
-                <dd class="text-slate-300 tabular-nums">{formatCurrency(breakdown.income.open)}</dd>
+                <span>{m.summary_income_expected()}</span>
+                <span class="text-slate-300 tabular-nums"
+                  >{formatCurrency(breakdown.income.open)}</span
+                >
               </div>
-            </dl>
-          {/if}
-        </button>
-      {:else}
-        <article
-          class="relative overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur"
-        >
-          <p class="text-eyebrow text-slate-400">{m.summary_income()}</p>
-          <p class="mt-1.5 text-lg font-semibold text-emerald-300 tabular-nums">
-            {formatCurrency(breakdown?.income.total ?? summary.total_income)}
-          </p>
-          {#if showSplit && breakdown}
-            <dl class="mt-2 space-y-1 text-xs text-slate-400">
-              <div class="flex justify-between gap-2">
-                <dt>{m.summary_income_received()}</dt>
-                <dd class="text-slate-300 tabular-nums">
-                  {formatCurrency(breakdown.income.realized)}
-                </dd>
-              </div>
-              <div class="flex justify-between gap-2">
-                <dt>{m.summary_income_expected()}</dt>
-                <dd class="text-slate-300 tabular-nums">{formatCurrency(breakdown.income.open)}</dd>
-              </div>
-            </dl>
-          {/if}
-        </article>
-      {/if}
+            {/if}
+          </div>
+        {/if}
+      </article>
     {/if}
 
     {#if showFullRow || activeType === "expense"}
-      {#if ontypeclick || ondrill}
-        <button type="button" class={expenseCardClass} onclick={onExpenseActivate}>
+      <article class={expenseCardClass}>
+        {#if ontypeclick || ondrill}
+          <button type="button" class={totalBtnClass} onclick={onExpenseActivate}>
+            <p class="text-eyebrow text-slate-400">{m.summary_expenses()}</p>
+            <p class="mt-1.5 text-lg font-semibold text-rose-300 tabular-nums">
+              {formatCurrency(breakdown?.expense.total ?? summary.total_expenses)}
+            </p>
+          </button>
+        {:else}
           <p class="text-eyebrow text-slate-400">{m.summary_expenses()}</p>
           <p class="mt-1.5 text-lg font-semibold text-rose-300 tabular-nums">
             {formatCurrency(breakdown?.expense.total ?? summary.total_expenses)}
           </p>
-          {#if showSplit && breakdown}
-            <dl class="mt-2 space-y-1 text-xs text-slate-400">
+        {/if}
+        {#if showSplit && breakdown}
+          <div class="mt-2 space-y-1 text-xs text-slate-400">
+            {#if canDrill}
+              <button
+                type="button"
+                class={splitBtnClass}
+                onclick={() => ondrill?.("expense-realized")}
+              >
+                <span>{m.summary_expense_spent()}</span>
+                <span class="text-slate-300 tabular-nums"
+                  >{formatCurrency(breakdown.expense.realized)}</span
+                >
+              </button>
+              <button type="button" class={splitBtnClass} onclick={() => ondrill?.("expense-open")}>
+                <span>{m.summary_expense_due()}</span>
+                <span class="text-slate-300 tabular-nums"
+                  >{formatCurrency(breakdown.expense.open)}</span
+                >
+              </button>
+            {:else}
               <div class="flex justify-between gap-2">
-                <dt>{m.summary_expense_spent()}</dt>
-                <dd class="text-slate-300 tabular-nums">
-                  {formatCurrency(breakdown.expense.realized)}
-                </dd>
+                <span>{m.summary_expense_spent()}</span>
+                <span class="text-slate-300 tabular-nums"
+                  >{formatCurrency(breakdown.expense.realized)}</span
+                >
               </div>
               <div class="flex justify-between gap-2">
-                <dt>{m.summary_expense_due()}</dt>
-                <dd class="text-slate-300 tabular-nums">
-                  {formatCurrency(breakdown.expense.open)}
-                </dd>
+                <span>{m.summary_expense_due()}</span>
+                <span class="text-slate-300 tabular-nums"
+                  >{formatCurrency(breakdown.expense.open)}</span
+                >
               </div>
-            </dl>
-          {/if}
-        </button>
-      {:else}
-        <article
-          class="relative overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 p-4 backdrop-blur"
-        >
-          <p class="text-eyebrow text-slate-400">{m.summary_expenses()}</p>
-          <p class="mt-1.5 text-lg font-semibold text-rose-300 tabular-nums">
-            {formatCurrency(breakdown?.expense.total ?? summary.total_expenses)}
-          </p>
-          {#if showSplit && breakdown}
-            <dl class="mt-2 space-y-1 text-xs text-slate-400">
-              <div class="flex justify-between gap-2">
-                <dt>{m.summary_expense_spent()}</dt>
-                <dd class="text-slate-300 tabular-nums">
-                  {formatCurrency(breakdown.expense.realized)}
-                </dd>
-              </div>
-              <div class="flex justify-between gap-2">
-                <dt>{m.summary_expense_due()}</dt>
-                <dd class="text-slate-300 tabular-nums">
-                  {formatCurrency(breakdown.expense.open)}
-                </dd>
-              </div>
-            </dl>
-          {/if}
-        </article>
-      {/if}
+            {/if}
+          </div>
+        {/if}
+      </article>
     {/if}
 
     {#if showFullRow}
@@ -203,30 +212,59 @@
           {formatCurrency(breakdown?.projectedNet ?? summary.net)}
         </p>
         {#if showSplit && breakdown}
-          <dl class="mt-2 space-y-1 text-xs text-slate-400">
-            <div class="flex justify-between gap-2">
-              <dt>{m.summary_net_realized()}</dt>
-              <dd
-                class={cn(
-                  "tabular-nums",
-                  breakdown.realizedNet >= 0 ? "text-emerald-300/90" : "text-rose-300/90"
-                )}
+          <div class="mt-2 space-y-1 text-xs text-slate-400">
+            {#if canDrill}
+              <button type="button" class={splitBtnClass} onclick={() => ondrill?.("net-realized")}>
+                <span>{m.summary_net_realized()}</span>
+                <span
+                  class={cn(
+                    "tabular-nums",
+                    breakdown.realizedNet >= 0 ? "text-emerald-300/90" : "text-rose-300/90"
+                  )}
+                >
+                  {formatCurrency(breakdown.realizedNet)}
+                </span>
+              </button>
+              <button
+                type="button"
+                class={splitBtnClass}
+                onclick={() => ondrill?.("net-projected")}
               >
-                {formatCurrency(breakdown.realizedNet)}
-              </dd>
-            </div>
-            <div class="flex justify-between gap-2">
-              <dt>{m.summary_net_projected()}</dt>
-              <dd
-                class={cn(
-                  "tabular-nums",
-                  breakdown.projectedNet >= 0 ? "text-emerald-300/90" : "text-rose-300/90"
-                )}
-              >
-                {formatCurrency(breakdown.projectedNet)}
-              </dd>
-            </div>
-          </dl>
+                <span>{m.summary_net_projected()}</span>
+                <span
+                  class={cn(
+                    "tabular-nums",
+                    breakdown.projectedNet >= 0 ? "text-emerald-300/90" : "text-rose-300/90"
+                  )}
+                >
+                  {formatCurrency(breakdown.projectedNet)}
+                </span>
+              </button>
+            {:else}
+              <div class="flex justify-between gap-2">
+                <span>{m.summary_net_realized()}</span>
+                <span
+                  class={cn(
+                    "tabular-nums",
+                    breakdown.realizedNet >= 0 ? "text-emerald-300/90" : "text-rose-300/90"
+                  )}
+                >
+                  {formatCurrency(breakdown.realizedNet)}
+                </span>
+              </div>
+              <div class="flex justify-between gap-2">
+                <span>{m.summary_net_projected()}</span>
+                <span
+                  class={cn(
+                    "tabular-nums",
+                    breakdown.projectedNet >= 0 ? "text-emerald-300/90" : "text-rose-300/90"
+                  )}
+                >
+                  {formatCurrency(breakdown.projectedNet)}
+                </span>
+              </div>
+            {/if}
+          </div>
         {/if}
       </article>
     {/if}
