@@ -377,9 +377,12 @@ test("a spend item stays unpaid until a transaction is linked", async ({ page })
   const { endDate } = datesInCurrentMonth();
   await page.goto("/plans/plan-malta");
   await expect(page.getByRole("heading", { name: "Malta i Gozo" })).toBeVisible();
-  await expect(page.getByText("To nie zmienia salda konta.")).toHaveCount(0);
+  await expect(page.getByText("To nie zmienia salda konta", { exact: false })).toHaveCount(0);
   await page.getByRole("button", { name: "Co znaczą kwoty budżetu" }).hover();
-  await expect(page.getByRole("tooltip")).toContainText("To nie zmienia salda konta.");
+  await expect(page.getByRole("tooltip")).toContainText(
+    "Pozostało w budżecie to budżet minus przewidywany koszt"
+  );
+  await expect(page.getByRole("tooltip")).toContainText("To nie zmienia salda konta");
   await expect(page.getByRole("button", { name: "Dodaj ręcznie" })).toHaveCount(0);
   await page.getByRole("button", { name: "Dodaj", exact: true }).click();
   await page.getByLabel("Nazwa pozycji").fill("Apartament");
