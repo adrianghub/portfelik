@@ -35,10 +35,14 @@ export function trapOverlayTab(event: KeyboardEvent, container: HTMLElement): vo
   const first = focusable[0];
   const last = focusable.at(-1)!;
   const active = document.activeElement;
-  if (event.shiftKey && (active === first || !container.contains(active))) {
+  // Dialog shells often use tabindex="-1". If focus lands on the shell (common on
+  // WebKit) or escapes, wrap to the first/last real control instead of the page.
+  const activeOutsideOrShell = active === container || !active || !container.contains(active);
+
+  if (event.shiftKey && (active === first || activeOutsideOrShell)) {
     event.preventDefault();
     last.focus({ preventScroll: true });
-  } else if (!event.shiftKey && active === last) {
+  } else if (!event.shiftKey && (active === last || activeOutsideOrShell)) {
     event.preventDefault();
     first.focus({ preventScroll: true });
   }

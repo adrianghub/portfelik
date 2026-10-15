@@ -44,4 +44,25 @@ describe("focus-trap", () => {
     first.remove();
     last.remove();
   });
+
+  it("returns to the first control when Tab fires while the shell holds focus", () => {
+    const container = document.createElement("div");
+    container.tabIndex = -1;
+    document.body.appendChild(container);
+    const first = button("first");
+    const last = button("last");
+    container.append(first, last);
+    container.focus();
+
+    const event = new KeyboardEvent("keydown", { key: "Tab", bubbles: true });
+    const preventDefault = vi.spyOn(event, "preventDefault");
+    trapOverlayTab(event, container);
+
+    expect(preventDefault).toHaveBeenCalled();
+    expect(document.activeElement).toBe(first);
+
+    container.remove();
+    first.remove();
+    last.remove();
+  });
 });
