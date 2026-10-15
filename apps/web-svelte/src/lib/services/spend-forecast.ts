@@ -42,12 +42,15 @@ export async function fetchPrivateSpendForecastSource(): Promise<PrivateSpendFor
       status: item.status as SpendItemStatus,
       groupId: null,
     })),
-    links: settlements.flat().map((row) => ({
-      planItemId: row.planItemId,
-      transactionId: row.transactionId,
-      amount: row.amount,
-      countsAsPaid: row.countsAsPaid,
-    })),
+    links: settlements
+      .flat()
+      .filter((row): row is typeof row & { planItemId: string } => row.planItemId != null)
+      .map((row) => ({
+        planItemId: row.planItemId,
+        transactionId: row.transactionId,
+        amount: row.amount,
+        countsAsPaid: row.countsAsPaid,
+      })),
   };
 }
 

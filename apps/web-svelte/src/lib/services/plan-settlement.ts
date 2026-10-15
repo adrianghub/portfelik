@@ -33,7 +33,8 @@ export interface PlanTransactionLink {
 
 export interface SpendSettlementRow {
   linkId: string;
-  planItemId: string;
+  /** Null when the payment is linked at plan level without a line. */
+  planItemId: string | null;
   transactionId: string;
   amount: number;
   paidOn: string;

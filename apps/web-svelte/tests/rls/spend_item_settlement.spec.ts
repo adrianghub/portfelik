@@ -424,4 +424,62 @@ describe("RPC: spend item settlement", () => {
     });
     expect(rejected.error?.message ?? "").toMatch(/plan_item_cancelled/);
   });
+
+  it("links a paid expense at plan level without creating an item first", async () => {
+    const plan = await ctx.admin
+      .from("plans")
+      .insert({
+        name: `${SENTINEL} Malta no items`,
+        user_id: ctx.userA.userId,
+        kind: "spend",
+        budget_amount: 12000,
+        start_date: "2026-10-25",
+        end_date: "2026-11-07",
+        status: "active",
+      })
+      .select("id")
+      .single();
+    if (plan.error) throw plan.error;
+    const planId = plan.data.id as string;
+
+    const deposit = await expense({
+      userId: ctx.userA.userId,
+      categoryId: categoryA,
+      description: "Zaliczka bez pozycji",
+      amount: 800,
+      date: "2026-02-15",
+    });
+
+    const linked = await ctx.userA.client.rpc("link_plan_transaction", {
+      p_plan_id: planId,
+      p_transaction_id: deposit,
+      p_plan_item_id: null,
+    });
+    expect(linked.error).toBeNull();
+
+    const listed = await ctx.userA.client.rpc("list_spend_item_settlements", {
+      p_plan_id: planId,
+    });
+    expect(listed.error).toBeNull();
+    expect(listed.data).toEqual([
+      expect.objectContaining({
+        plan_item_id: null,
+        transaction_id: deposit,
+        amount: 800,
+        counts_as_paid: true,
+      }),
+    ]);
+
+    const unlinked = await ctx.userA.client.rpc("unlink_plan_transaction", {
+      p_plan_id: planId,
+      p_transaction_id: deposit,
+    });
+    expect(unlinked.error).toBeNull();
+    const surviving = await ctx.userA.client
+      .from("transactions")
+      .select("id")
+      .eq("id", deposit)
+      .single();
+    expect(surviving.data?.id).toBe(deposit);
+  });
 });

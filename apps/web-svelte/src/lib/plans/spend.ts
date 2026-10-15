@@ -48,12 +48,20 @@ export interface SpendBudgetSummary {
   budget: number;
   /** Estimated, scheduled, and confirmed lines. Cancelled lines stay stored and drop out. */
   planned: number;
+  /** Linked paid amount (item and plan-level). */
+  spent: number;
   /** Confirmed payments only. A date without confirmation is not yet an obligation. */
   toPay: number;
   /** Dated lines the user has not confirmed. They stay visible beside a zero due amount. */
   orientational: number;
+  /** Undated estimates still in the plan. */
+  estimates: number;
+  /** spent + toPay + orientational + estimates. */
+  projectedCost: number;
   /** Budget minus planned lines. Negative means the plan exceeds its cap. */
   budgetLeft: number;
+  /** Budget minus projectedCost. Negative means overrun against expected cost. */
+  cushion: number;
 }
 
 export function normalizeSpendBudget(amount: number | null | undefined): number {
@@ -125,19 +133,35 @@ function unsettledAmount(item: SpendItemAmounts): number {
 /** Budget math in grosze. Estimates count against the cap and are not due payments. */
 export function summarizeSpendBudget(
   budget: number,
-  items: readonly SpendItemAmounts[]
+  items: readonly SpendItemAmounts[],
+  opts?: { spent?: number }
 ): SpendBudgetSummary {
   const active = items.filter((item) => item.status !== "cancelled");
   const confirmed = active.filter((item) => item.status === "confirmed");
   const orientational = active.filter((item) => item.status === "planned");
+  const estimated = active.filter((item) => item.status === "estimated");
   const planned = sumMoneyAmounts(active);
+  const toPay = sumMoneyAmounts(confirmed.map((item) => ({ amount: unsettledAmount(item) })));
+  const orientationalAmount = sumMoneyAmounts(
+    orientational.map((item) => ({ amount: unsettledAmount(item) }))
+  );
+  const estimates = sumMoneyAmounts(estimated.map((item) => ({ amount: unsettledAmount(item) })));
+  const spent = Math.round(Math.abs(opts?.spent ?? 0) * 100) / 100;
+  const projectedCost = sumMoneyAmounts([
+    { amount: spent },
+    { amount: toPay },
+    { amount: orientationalAmount },
+    { amount: estimates },
+  ]);
   return {
     budget,
     planned,
-    toPay: sumMoneyAmounts(confirmed.map((item) => ({ amount: unsettledAmount(item) }))),
-    orientational: sumMoneyAmounts(
-      orientational.map((item) => ({ amount: unsettledAmount(item) }))
-    ),
+    spent,
+    toPay,
+    orientational: orientationalAmount,
+    estimates,
+    projectedCost,
     budgetLeft: moneyDifference(budget, planned),
+    cushion: moneyDifference(budget, projectedCost),
   };
 }

@@ -17,7 +17,10 @@ describe("spend plan budget", () => {
     expect(summary.planned).toBe(4_600);
     expect(summary.toPay).toBe(0);
     expect(summary.orientational).toBe(3_600);
+    expect(summary.estimates).toBe(1_000);
+    expect(summary.projectedCost).toBe(4_600);
     expect(summary.budgetLeft).toBe(7_400);
+    expect(summary.cushion).toBe(7_400);
   });
 
   it("counts only a confirmed payment as due", () => {
@@ -31,6 +34,22 @@ describe("spend plan budget", () => {
     expect(summary.budgetLeft).toBe(7_400);
   });
 
+  it("folds linked spend into projected cost and cushion", () => {
+    const summary = summarizeSpendBudget(
+      12_000,
+      [
+        { amount: 4_000, status: "confirmed", settled: 1_000 },
+        { amount: 500, status: "estimated" },
+      ],
+      { spent: 1_000 }
+    );
+    expect(summary.spent).toBe(1_000);
+    expect(summary.toPay).toBe(3_000);
+    expect(summary.estimates).toBe(500);
+    expect(summary.projectedCost).toBe(4_500);
+    expect(summary.cushion).toBe(7_500);
+  });
+
   it("drops cancelled lines and reports a cap overrun", () => {
     const summary = summarizeSpendBudget(1_000, [
       { amount: 800, status: "confirmed" },
@@ -40,6 +59,7 @@ describe("spend plan budget", () => {
     expect(summary.planned).toBe(1_300);
     expect(summary.toPay).toBe(800);
     expect(summary.orientational).toBe(0);
+    expect(summary.estimates).toBe(500);
     expect(summary.budgetLeft).toBe(-300);
   });
 
