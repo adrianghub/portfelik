@@ -405,7 +405,8 @@ test("a spend item stays unpaid until a transaction is linked", async ({ page })
   await expect(page.getByText(formatCurrency(3600)).first()).toBeVisible();
   await expect(page.getByText(formatCurrency(8400)).first()).toBeVisible();
   await expect(page.getByText(formatCurrency(0)).first()).toBeVisible();
-  await expect(page.getByText("w płatnościach orientacyjnych")).toBeVisible();
+  await expect(page.getByText("Płatności orientacyjne")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Powiąż transakcje" })).toBeVisible();
   await expect(apartment.getByRole("button", { name: "Powiąż transakcję" })).toHaveCount(0);
 
   await apartment.getByRole("button", { name: "Akcje pozycji" }).click();
@@ -627,7 +628,9 @@ test("a partially paid item still offers another link when the plan opens", asyn
   await expect(lot.getByRole("button", { name: "Powiąż transakcję" })).toBeVisible();
   await expect(hotel).toContainText("Szacunkowy");
   await expect(hotel.getByRole("button", { name: "Powiąż transakcję" })).toHaveCount(0);
-  await expect(page.getByText(/Zapłacono/)).toContainText(formatCurrency(400));
+  await expect(page.locator("dt", { hasText: "Zapłacono" }).locator("..")).toContainText(
+    formatCurrency(400)
+  );
 });
 
 test("debt scenarios route redirects to plan detail", async ({ page }) => {
