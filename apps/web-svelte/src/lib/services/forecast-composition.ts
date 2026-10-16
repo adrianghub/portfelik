@@ -1,5 +1,10 @@
 import { moneyDifference, sumMoneyAmounts } from "$lib/money";
 import {
+  confirmedSpendForecastFlows,
+  type SpendForecastItem,
+  type SpendForecastLink,
+} from "$lib/plans/spend-forecast";
+import {
   anchorOpenFrom,
   forecastMovementTotals,
   liveMovementTotals,
@@ -104,4 +109,40 @@ export function forecastCompositionHref(input: {
   p.set("status", input.status);
   if (input.type) p.set("type", input.type);
   return `/transactions?${p.toString()}`;
+}
+
+/**
+ * Plan ids that contribute confirmed remainders inside the same openFrom→horizon
+ * window as `composeForecastExplanation` / forecastMovementTotals.
+ */
+export function compositionRemainderPlanIds(input: {
+  openFrom: string;
+  horizonEnd: string;
+  today: string;
+  items: readonly SpendForecastItem[];
+  links: readonly SpendForecastLink[];
+  forecastTransactionIds: ReadonlySet<string>;
+}): string[] {
+  const openFrom = input.openFrom.slice(0, 10);
+  const horizonEnd = input.horizonEnd.slice(0, 10);
+  const remainderItemIds = new Set(
+    confirmedSpendForecastFlows({
+      items: input.items,
+      links: input.links,
+      forecastTransactionIds: input.forecastTransactionIds,
+      today: input.today,
+    })
+      .filter((row) => {
+        const date = row.date.slice(0, 10);
+        return date >= openFrom && date <= horizonEnd;
+      })
+      .map((row) => row.id.replace(/^spend-remainder:/, ""))
+  );
+  return [
+    ...new Set(
+      input.items
+        .filter((item) => remainderItemIds.has(item.id) && item.planId)
+        .map((item) => item.planId!)
+    ),
+  ];
 }

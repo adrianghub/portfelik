@@ -57,12 +57,10 @@
   } from "$lib/services/cash-position";
   import {
     composeForecastExplanation,
+    compositionRemainderPlanIds,
     forecastCompositionHref,
   } from "$lib/services/forecast-composition";
-  import {
-    appendConfirmedSpendForecast,
-    confirmedSpendForecastFlows,
-  } from "$lib/plans/spend-forecast";
+  import { appendConfirmedSpendForecast } from "$lib/plans/spend-forecast";
   import { fetchPrivateSpendForecastSource } from "$lib/services/spend-forecast";
   import {
     forwardForecastTransactions,
@@ -680,24 +678,16 @@
     if (!forecastComposition || forecastComposition.planRemainders <= 0) return null;
     const source = spendForecastQuery.data;
     if (!source) return "/plans?group=own";
-    const forecastTransactionIds = new Set(
-      cockpitMonthRows.filter((row) => row.groupId === null).map((row) => row.id)
-    );
-    const remainderItemIds = new Set(
-      confirmedSpendForecastFlows({
-        items: source.items,
-        links: source.links,
-        forecastTransactionIds,
-        today: cashForecastToday,
-      }).map((row) => row.id.replace(/^spend-remainder:/, ""))
-    );
-    const planIds = [
-      ...new Set(
-        source.items
-          .filter((item) => remainderItemIds.has(item.id) && item.planId)
-          .map((item) => item.planId!)
+    const planIds = compositionRemainderPlanIds({
+      openFrom: forecastComposition.openFrom,
+      horizonEnd: forecastComposition.horizonEnd,
+      today: cashForecastToday,
+      items: source.items,
+      links: source.links,
+      forecastTransactionIds: new Set(
+        cockpitMonthRows.filter((row) => row.groupId === null).map((row) => row.id)
       ),
-    ];
+    });
     if (planIds.length === 1) return `/plans/${planIds[0]}`;
     return "/plans?group=own";
   });

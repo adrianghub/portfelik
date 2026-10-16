@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   composeForecastExplanation,
+  compositionRemainderPlanIds,
   forecastCompositionHref,
 } from "$lib/services/forecast-composition";
 
@@ -96,5 +97,36 @@ describe("forecastCompositionHref", () => {
     ).toBe(
       "/transactions?startDate=2026-10-02&endDate=2026-10-31&group=own&status=upcoming%2Coverdue&type=expense"
     );
+  });
+});
+
+describe("compositionRemainderPlanIds", () => {
+  it("keeps only plans whose remainders fall inside the composition window", () => {
+    const planIds = compositionRemainderPlanIds({
+      openFrom: "2026-10-02",
+      horizonEnd: "2026-10-31",
+      today: "2026-10-15",
+      forecastTransactionIds: new Set(),
+      items: [
+        {
+          id: "oct",
+          planId: "plan-oct",
+          amount: 500,
+          dueDate: "2026-10-20",
+          status: "confirmed",
+          groupId: null,
+        },
+        {
+          id: "dec",
+          planId: "plan-dec",
+          amount: 800,
+          dueDate: "2026-12-05",
+          status: "confirmed",
+          groupId: null,
+        },
+      ],
+      links: [],
+    });
+    expect(planIds).toEqual(["plan-oct"]);
   });
 });
