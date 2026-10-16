@@ -4,19 +4,18 @@
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import InfoTooltip from "$lib/components/ui/InfoTooltip.svelte";
   import { session, requireSessionUserId } from "$lib/auth/session.svelte";
-  import { sumMoneyAmounts } from "$lib/money";
+  import TransactionDialog from "$lib/components/transactions/TransactionDialog.svelte";
   import {
     settleSpendItem,
     spendItemFacingStatus,
     spendItemNeedsLink,
     spendItemShowsDue,
-    summarizeSpendBudget,
+    summarizeSpendPlan,
   } from "$lib/plans/spend";
   import * as m from "$lib/paraglide/messages";
   import { qk } from "$lib/query-keys";
   import {
     cancelPlanItem,
-    createPlanItem,
     fetchPlanItems,
     restorePlanItem,
     updatePlanItem,
@@ -78,7 +77,7 @@
 
   const candidatesQuery = createQuery(() => ({
     queryKey: [...qk.planLinks(session.userId ?? "", plan.id), "candidates", paymentQuery],
-    queryFn: () => searchSpendPaymentCandidates(paymentQuery),
+    queryFn: () => searchSpendPaymentCandidates(paymentQuery, plan, session.userId ?? undefined),
     enabled: !!session.userId && (linkingItemId !== null || linkingPlan),
   }));
 
@@ -99,22 +98,20 @@
       .map((settlement) => ({ amount: settlement.amount, counts: settlement.countsAsPaid }));
   }
 
-  const paidTotal = $derived(
-    sumMoneyAmounts(
-      settlements.filter((row) => row.countsAsPaid).map((row) => ({ amount: row.amount }))
-    )
-  );
   const summary = $derived(
-    summarizeSpendBudget(
-      plan.budget_amount ?? 0,
-      (itemsQuery.data ?? []).map((item) => ({
-        amount: item.amount,
-        status: item.status,
-        settled: settleSpendItem(item.amount, paymentsFor(item.id)).settled,
-      })),
-      { spent: paidTotal }
-    )
+    summarizeSpendPlan(plan.budget_amount ?? 0, itemsQuery.data ?? [], settlements)
   );
+  let transactionOpen = $state(false);
+  const candidateGroups = $derived([
+    {
+      label: m.transactions_status_upcoming(),
+      rows: paymentCandidates.filter((tx) => tx.status !== "paid"),
+    },
+    {
+      label: m.transactions_status_paid(),
+      rows: paymentCandidates.filter((tx) => tx.status === "paid"),
+    },
+  ]);
   const activeItems = $derived(
     (itemsQuery.data ?? []).filter((item) => item.status !== "cancelled")
   );
@@ -182,12 +179,6 @@
     confirmed = false;
     formOpen = false;
     formSnapshot = currentSnapshot();
-  }
-
-  function openAdd() {
-    resetForm();
-    formSnapshot = currentSnapshot();
-    formOpen = true;
   }
 
   function requestCloseForm() {
@@ -276,9 +267,6 @@
       if (editedId) {
         await updatePlanItem(editedId, input);
         toast.success(m.plan_item_updated());
-      } else {
-        await createPlanItem(plan.id, input);
-        toast.success(m.plan_item_added());
       }
       resetForm();
       await refreshItems();
@@ -335,7 +323,7 @@
     </p>
     <p class="mt-1 text-sm text-slate-400">
       {m.plan_spend_in_plan({
-        planned: formatCurrency(summary.planned),
+        planned: formatCurrency(summary.projectedCost),
         budget: formatCurrency(summary.budget),
       })}
     </p>
@@ -403,17 +391,21 @@
           <button
             type="button"
             class="focus-visible:ring-accent inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 px-4 text-sm text-slate-200 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
-            aria-label={m.plan_item_add_open()}
-            onclick={openAdd}
+            onclick={() => (transactionOpen = true)}
           >
             <Plus size={16} aria-hidden="true" />
-            {m.plan_spend_add_cost()}
+            {m.plan_add_transaction()}
           </button>
         </div>
       {/if}
     </div>
     {#if linkingPlan}
       <div class="border-accent/30 space-y-2 rounded-xl border bg-slate-900/60 px-3 py-2.5">
+        <button
+          type="button"
+          class="min-h-11 text-sm font-medium text-emerald-300 hover:underline"
+          onclick={() => (transactionOpen = true)}>{m.plan_add_transaction()}</button
+        >
         <label class="block text-xs text-slate-400">
           {m.plan_item_link_search()}
           <input
@@ -425,20 +417,33 @@
           <p class="text-xs text-slate-500">{m.plan_item_link_empty()}</p>
         {:else}
           <ul class="space-y-1">
-            {#each paymentCandidates as candidate (candidate.id)}
-              <li>
-                <button
-                  type="button"
-                  class="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-2 text-left text-sm text-slate-200 hover:bg-white/5 disabled:opacity-50"
-                  disabled={linking}
-                  onclick={() => linkPayment(null, candidate.id)}
-                >
-                  <span class="min-w-0 truncate"
-                    >{candidate.description || m.plan_item_private_payment()}</span
+            {#each candidateGroups as group (group.label)}
+              {#if group.rows.length > 0}<li class="pt-2 text-xs font-semibold text-slate-400">
+                  {group.label}
+                </li>{/if}
+              {#each group.rows as candidate (candidate.id)}
+                <li>
+                  <button
+                    type="button"
+                    class="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-2 text-left text-sm text-slate-200 hover:bg-white/5 disabled:opacity-50"
+                    disabled={linking}
+                    onclick={() => linkPayment(null, candidate.id)}
                   >
-                  <span class="shrink-0 tabular-nums">{formatCurrency(candidate.amount)}</span>
-                </button>
-              </li>
+                    <span class="min-w-0"
+                      ><span class="block truncate"
+                        >{candidate.description || m.plan_item_private_payment()}</span
+                      ><span class="text-xs text-slate-400"
+                        >{formatDate(candidate.date)} · {candidate.status === "paid"
+                          ? m.transactions_status_paid()
+                          : candidate.status === "overdue"
+                            ? m.transactions_status_overdue()
+                            : m.transactions_status_upcoming()}</span
+                      ></span
+                    >
+                    <span class="shrink-0 tabular-nums">{formatCurrency(candidate.amount)}</span>
+                  </button>
+                </li>
+              {/each}
             {/each}
           </ul>
         {/if}
@@ -446,13 +451,17 @@
     {/if}
     {#if unallocatedSettlements.length > 0}
       <div class="space-y-1.5 rounded-xl border border-white/5 bg-slate-900/60 px-3 py-2.5">
-        <p class="text-xs font-medium text-slate-400">{m.plan_spend_unallocated()}</p>
+        <p class="text-xs font-medium text-slate-400">{m.plan_settle_linked_heading()}</p>
         <ul class="space-y-1">
           {#each unallocatedSettlements as payment (payment.transactionId)}
             <li class="flex flex-wrap items-center justify-between gap-2 text-sm">
               <span class="min-w-0 truncate text-slate-200">
                 {payment.description ?? m.plan_item_private_payment()}
-                <span class="text-slate-500"> · {formatDate(payment.paidOn)}</span>
+                <span class="text-slate-500">
+                  · {formatDate(payment.paidOn)} · {payment.countsAsPaid
+                    ? m.transactions_status_paid()
+                    : m.transactions_status_upcoming()}</span
+                >
               </span>
               <span class="flex shrink-0 flex-wrap items-center gap-2">
                 <span class="text-slate-100 tabular-nums">{formatCurrency(payment.amount)}</span>
@@ -495,9 +504,9 @@
     {/if}
     {#if itemsQuery.isError}
       <p class="text-sm text-rose-300">{m.error_generic()}</p>
-    {:else if activeItems.length === 0 && cancelledItems.length === 0}
+    {:else if activeItems.length === 0 && cancelledItems.length === 0 && settlements.length === 0}
       <p class="rounded-xl border border-white/5 bg-slate-900/35 px-3 py-3 text-sm text-slate-400">
-        {m.plan_item_empty()}
+        {m.plan_spend_transactions_empty()}
       </p>
     {:else}
       <ul class="space-y-2">
@@ -659,7 +668,12 @@
                           onclick={() => linkPayment(item.id, candidate.id)}
                         >
                           <span class="min-w-0 truncate">
-                            {candidate.description} · {formatDate(candidate.date)}
+                            {candidate.description} · {formatDate(candidate.date)} · {candidate.status ===
+                            "paid"
+                              ? m.transactions_status_paid()
+                              : candidate.status === "overdue"
+                                ? m.transactions_status_overdue()
+                                : m.transactions_status_upcoming()}
                           </span>
                           <span class="shrink-0">{formatCurrency(candidate.amount)}</span>
                         </button>
@@ -833,3 +847,15 @@
     </div>
   </form>
 </Dialog>
+
+<TransactionDialog
+  open={transactionOpen}
+  onclose={() => (transactionOpen = false)}
+  planContext={{
+    planId: plan.id,
+    planKind: "spend",
+    type: "expense",
+    groupId: plan.group_id,
+    categoryId: plan.category_id,
+  }}
+/>

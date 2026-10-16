@@ -151,14 +151,17 @@ function unsettledAmount(item: SpendItemAmounts): number {
 export function summarizeSpendBudget(
   budget: number,
   items: readonly SpendItemAmounts[],
-  opts?: { spent?: number }
+  opts?: { spent?: number; upcoming?: number }
 ): SpendBudgetSummary {
   const active = items.filter((item) => item.status !== "cancelled");
   const confirmed = active.filter((item) => item.status === "confirmed");
   const orientational = active.filter((item) => item.status === "planned");
   const estimated = active.filter((item) => item.status === "estimated");
   const planned = sumMoneyAmounts(active);
-  const toPay = sumMoneyAmounts(confirmed.map((item) => ({ amount: unsettledAmount(item) })));
+  const toPay = sumMoneyAmounts([
+    ...confirmed.map((item) => ({ amount: unsettledAmount(item) })),
+    { amount: opts?.upcoming ?? 0 },
+  ]);
   const orientationalAmount = sumMoneyAmounts(
     orientational.map((item) => ({ amount: unsettledAmount(item) }))
   );
@@ -181,4 +184,25 @@ export function summarizeSpendBudget(
     budgetLeft: moneyDifference(budget, planned),
     cushion: moneyDifference(budget, projectedCost),
   };
+}
+
+/** Shared facts for list and detail. Open linked transactions reserve budget,
+ * but only paid transactions count as money already spent. Legacy item amounts
+ * contribute only their remainder after all linked paid/open transactions. */
+export function summarizeSpendPlan(
+  budget: number,
+  items: readonly (SpendItemAmounts & { id: string })[],
+  payments: readonly { planItemId: string | null; amount: number; countsAsPaid: boolean }[]
+): SpendBudgetSummary {
+  return summarizeSpendBudget(
+    budget,
+    items.map((item) => ({
+      ...item,
+      settled: sumMoneyAmounts(payments.filter((payment) => payment.planItemId === item.id)),
+    })),
+    {
+      spent: sumMoneyAmounts(payments.filter((payment) => payment.countsAsPaid)),
+      upcoming: sumMoneyAmounts(payments.filter((payment) => !payment.countsAsPaid)),
+    }
+  );
 }

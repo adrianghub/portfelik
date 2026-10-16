@@ -190,7 +190,7 @@
             </span>
           {:else}
             {m.plan_spend_in_plan({
-              planned: formatCurrency(spendSummary.planned),
+              planned: formatCurrency(spendSummary.projectedCost),
               budget: formatCurrency(spendSummary.budget),
             })}
           {/if}

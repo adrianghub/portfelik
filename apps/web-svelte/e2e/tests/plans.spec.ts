@@ -325,7 +325,7 @@ test("creates a spend plan with a budget cap", async ({ page }) => {
     });
 });
 
-test("a spend item stays unpaid until a transaction is linked", async ({ page }) => {
+test("existing cost estimates stay editable while new costs use transactions", async ({ page }) => {
   const plan = {
     id: "plan-malta",
     name: "Malta i Gozo",
@@ -345,7 +345,18 @@ test("a spend item stays unpaid until a transaction is linked", async ({ page })
     created_at: "2026-10-08T10:00:00Z",
     updated_at: "2026-10-08T10:00:00Z",
   };
-  const items: Record<string, unknown>[] = [];
+  const { endDate } = datesInCurrentMonth();
+  const items: Record<string, unknown>[] = [
+    {
+      id: "item-apartment",
+      plan_id: "plan-malta",
+      label: "Apartament",
+      amount: 3600,
+      due_date: endDate,
+      status: "planned",
+      payee: null,
+    },
+  ];
   let patched: Record<string, unknown> | undefined;
   await page.route(/.*\/rest\/v1\/plans.*id=eq\.plan-malta.*/, (route) =>
     route.fulfill({ status: 200, json: plan })
@@ -376,7 +387,6 @@ test("a spend item stays unpaid until a transaction is linked", async ({ page })
     return route.fulfill({ status: 200, json: items });
   });
 
-  const { endDate } = datesInCurrentMonth();
   await page.goto("/plans/plan-malta");
   await expect(page.getByRole("heading", { name: "Malta i Gozo" })).toBeVisible();
   await expect(page.getByText("To nie zmienia salda konta", { exact: false })).toHaveCount(0);
@@ -386,23 +396,8 @@ test("a spend item stays unpaid until a transaction is linked", async ({ page })
   );
   await expect(page.getByRole("tooltip")).toContainText("To nie zmienia salda konta");
   await expect(page.getByRole("button", { name: "Dodaj ręcznie" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Dodaj", exact: true }).click();
-  await page.getByLabel("Nazwa pozycji").fill("Apartament");
-  await page.getByLabel("Kwota", { exact: true }).fill("3600");
-  await page.getByRole("button", { name: "Termin płatności" }).click();
-  await page.locator(`[data-date="${endDate}"]`).click();
-  await page.getByRole("button", { name: "Dodaj pozycję" }).click();
-
-  await expect
-    .poll(() => items[0])
-    .toMatchObject({
-      plan_id: "plan-malta",
-      label: "Apartament",
-      amount: 3600,
-      due_date: endDate,
-      status: "planned",
-      payee: null,
-    });
+  await expect(page.getByRole("button", { name: "Dodaj transakcję", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Dodaj", exact: true })).toHaveCount(0);
   const apartment = page.getByRole("listitem").filter({ hasText: "Apartament" });
   await expect(apartment).toContainText("Szacunkowy");
   await expect(apartment).not.toContainText("Do zapłaty");
@@ -410,7 +405,7 @@ test("a spend item stays unpaid until a transaction is linked", async ({ page })
   await expect(page.getByText(formatCurrency(3600)).first()).toBeVisible();
   await expect(page.getByText(formatCurrency(8400)).first()).toBeVisible();
   await expect(page.getByText(formatCurrency(0)).first()).toBeVisible();
-  await expect(page.getByText("Płatności orientacyjne")).toBeVisible();
+  await expect(page.getByText("Płatności orientacyjne", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Powiąż transakcje" })).toBeVisible();
   // Planned/estimate lines can take a real payment without confirming first.
   await expect(apartment.getByRole("button", { name: "Powiąż transakcję" })).toBeVisible();
@@ -554,7 +549,7 @@ test("a linked deposit reduces what the apartment still has to pay", async ({ pa
   await expect(apartment).toContainText("Częściowo opłacony");
   await expect(apartment).toContainText("Do zapłaty");
   await expect(apartment.getByRole("button", { name: "Powiąż transakcję" })).toBeVisible();
-  await expect(page.getByText(/W planie/)).toBeVisible();
+  await expect(page.getByText(/Przewidywany koszt/)).toBeVisible();
   await expect(page.getByText(formatCurrency(3000)).first()).toBeVisible();
   await expect(page.getByText(formatCurrency(1000)).first()).toBeVisible();
 
@@ -708,7 +703,9 @@ test("list uses a different main figure for a goal, a budget and a loan", async 
   const budget = page.getByRole("link", { name: /Malta 2026/ });
   await expect(budget).toContainText("Pozostało w budżecie");
   await expect(budget).toContainText(formatCurrency(4500));
-  await expect(budget).toContainText(`W planie ${formatCurrency(500)} z ${formatCurrency(5000)}`);
+  await expect(budget).toContainText(
+    `Koszty ${formatCurrency(500)} z budżetu ${formatCurrency(5000)}`
+  );
   await expect(budget).not.toContainText("Do zapłaty");
   await expect(budget.getByRole("progressbar", { name: "Wykorzystanie budżetu" })).toHaveAttribute(
     "aria-valuenow",
@@ -764,7 +761,7 @@ test("a home member can read a shared spend plan but cannot edit it", async ({ p
   await expect(page.getByRole("button", { name: "Edytuj", exact: true })).toHaveCount(0);
 });
 
-test("adding a spend item returns focus to the button that opened the form", async ({ page }) => {
+test("creating a spend transaction uses the standard form and restores focus", async ({ page }) => {
   await page.route(/.*\/rest\/v1\/plans.*id=eq\.plan-malta.*/, (route) =>
     route.fulfill({ status: 200, json: MALTA_LIST_PLAN })
   );
@@ -773,12 +770,12 @@ test("adding a spend item returns focus to the button that opened the form", asy
   );
 
   await page.goto("/plans/plan-malta");
-  const add = page.getByRole("button", { name: "Dodaj", exact: true });
+  const add = page.getByRole("button", { name: "Dodaj transakcję", exact: true });
   await add.focus();
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("heading", { name: "Dodaj pozycję" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Nowa transakcja" })).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("heading", { name: "Dodaj pozycję" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Nowa transakcja" })).toHaveCount(0);
   await expect(add).toBeFocused();
 });
 
@@ -803,3 +800,111 @@ test("demo plans keep a compact label and the same plan figures", async ({ page 
     `Zgromadzono ${formatCurrency(0)} z ${formatCurrency(60_000)}`
   );
 });
+
+for (const width of [390, 1280]) {
+  test(`spend plan shares paid and upcoming facts and creates transactions at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 800 });
+    const plan = { ...MALTA_LIST_PLAN, budget_amount: 20000 };
+    const settlements = [
+      {
+        link_id: "deposit-link",
+        plan_item_id: null as string | null,
+        transaction_id: "deposit",
+        amount: 1740,
+        paid_on: "2026-10-10",
+        counts_as_paid: true,
+        description: "Airbnb",
+      },
+    ];
+    let created: Record<string, unknown> | undefined;
+    await page.route(/.*\/rest\/v1\/plans.*/, (route) =>
+      route.fulfill({
+        json: route.request().url().includes("id=eq.") ? plan : [plan],
+      })
+    );
+    await page.route(/.*\/rest\/v1\/plan_items.*/, (route) => route.fulfill({ json: [] }));
+    await page.route(/.*\/rest\/v1\/rpc\/list_spend_item_settlements.*/, (route) =>
+      route.fulfill({ json: settlements })
+    );
+    await page.route(/.*\/rest\/v1\/transactions\?.*/, (route) =>
+      route.fulfill({
+        json: [
+          {
+            id: "hotel",
+            description: "Hotel do zapłaty",
+            amount: 5000,
+            date: "2026-11-01",
+            status: "upcoming",
+          },
+          {
+            id: "flight",
+            description: "Opłacony lot",
+            amount: 1000,
+            date: "2026-10-01",
+            status: "paid",
+          },
+        ],
+      })
+    );
+    await page.route(/.*\/rest\/v1\/rpc\/link_plan_transaction.*/, (route) => {
+      expect(route.request().postDataJSON()).toMatchObject({
+        p_plan_id: plan.id,
+        p_transaction_id: "hotel",
+      });
+      settlements.push({
+        link_id: "hotel-link",
+        plan_item_id: null,
+        transaction_id: "hotel",
+        amount: 5000,
+        paid_on: "2026-11-01",
+        counts_as_paid: false,
+        description: "Hotel do zapłaty",
+      });
+      return route.fulfill({ json: { id: "hotel-link" } });
+    });
+    await page.route(/.*\/rest\/v1\/rpc\/create_and_link_plan_transaction.*/, (route) => {
+      created = route.request().postDataJSON();
+      settlements.push({
+        link_id: "new-link",
+        plan_item_id: null,
+        transaction_id: "new",
+        amount: 1000,
+        paid_on: String(created!.p_date),
+        counts_as_paid: false,
+        description: "Wycieczka",
+      });
+      return route.fulfill({ json: "new" });
+    });
+    await page.goto("/plans");
+    const card = page.getByRole("link", { name: /Malta 2026/ });
+    await expect(card).toContainText(formatCurrency(18260));
+    await card.click();
+    const summary = page.getByTestId("plan-summary");
+    await expect(summary).toContainText(formatCurrency(18260));
+    await expect(summary).toContainText(`Koszty ${formatCurrency(1740)}`);
+    await page.getByRole("button", { name: "Powiąż transakcje", exact: true }).click();
+    await expect(page.getByRole("button", { name: /Hotel do zapłaty/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Opłacony lot/ })).toBeVisible();
+    await page.getByRole("button", { name: /Hotel do zapłaty/ }).click();
+    await expect(summary).toContainText(formatCurrency(13260));
+    await expect(summary).toContainText(formatCurrency(6740));
+    await page.getByRole("button", { name: "Dodaj transakcję", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Nowa transakcja" })).toBeVisible();
+    await page.locator("#tx-amount").fill("1000");
+    await page.locator("#tx-desc").fill("Wycieczka");
+    await page.locator("#tx-cat").fill("Jedzenie");
+    await page.getByRole("option", { name: "Jedzenie", exact: true }).click();
+    await page.locator("#tx-status").selectOption("upcoming");
+    await page.getByRole("button", { name: "Zapisz", exact: true }).click();
+    await expect
+      .poll(() => created)
+      .toMatchObject({ p_plan_id: plan.id, p_amount: 1000, p_status: "upcoming" });
+    await expect(summary).toContainText(formatCurrency(12260));
+    await page.goto("/plans");
+    await expect(page.getByRole("link", { name: /Malta 2026/ })).toContainText(
+      formatCurrency(12260)
+    );
+  });
+}
