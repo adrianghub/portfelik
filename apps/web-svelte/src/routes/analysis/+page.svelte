@@ -563,7 +563,7 @@
     >
       <h2 class="text-sm font-medium text-slate-300">{m.analysis_forecast_title()}</h2>
       {#if forecast}
-        <div class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <p class="text-xs text-slate-400">{m.analysis_forecast_final()}</p>
             <p

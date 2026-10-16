@@ -7,6 +7,7 @@ import {
   spendItemNeedsLink,
   spendItemShowsDue,
   summarizeSpendBudget,
+  summarizeSpendPlan,
 } from "$lib/plans/spend";
 
 describe("spend plan budget", () => {
@@ -183,5 +184,54 @@ describe("spend plan budget", () => {
         cancelled: true,
       }).status
     ).toBe("cancelled");
+  });
+});
+
+describe("shared spend plan facts", () => {
+  it("includes the Malta payment even without cost items", () => {
+    expect(
+      summarizeSpendPlan(20000, [], [{ planItemId: null, amount: 1740, countsAsPaid: true }])
+    ).toMatchObject({ spent: 1740, toPay: 0, projectedCost: 1740, cushion: 18260 });
+  });
+  it("reserves upcoming expenses without treating them as paid", () => {
+    expect(
+      summarizeSpendPlan(
+        20000,
+        [],
+        [
+          { planItemId: null, amount: 1740, countsAsPaid: true },
+          { planItemId: null, amount: 5000, countsAsPaid: false },
+        ]
+      )
+    ).toMatchObject({ spent: 1740, toPay: 5000, projectedCost: 6740, cushion: 13260 });
+  });
+  it("does not double count a linked upcoming payment against a legacy item", () => {
+    const items = [{ id: "hotel", amount: 5000, status: "confirmed" as const }];
+    const open = [{ planItemId: "hotel", amount: 5000, countsAsPaid: false }];
+    const paid = [{ ...open[0], countsAsPaid: true }];
+    expect(summarizeSpendPlan(20000, items, open)).toMatchObject({
+      spent: 0,
+      toPay: 5000,
+      projectedCost: 5000,
+      cushion: 15000,
+    });
+    expect(summarizeSpendPlan(20000, items, paid)).toMatchObject({
+      spent: 5000,
+      toPay: 0,
+      projectedCost: 5000,
+      cushion: 15000,
+    });
+  });
+  it("keeps only the uncovered remainder of an estimate", () => {
+    expect(
+      summarizeSpendPlan(
+        20000,
+        [{ id: "hotel", amount: 5000, status: "estimated" }],
+        [
+          { planItemId: "hotel", amount: 1000, countsAsPaid: true },
+          { planItemId: "hotel", amount: 2000, countsAsPaid: false },
+        ]
+      )
+    ).toMatchObject({ spent: 1000, toPay: 2000, estimates: 2000, projectedCost: 5000 });
   });
 });

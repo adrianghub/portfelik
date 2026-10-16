@@ -31,15 +31,14 @@ import type { TransactionWithCategory } from "$lib/types";
 
 export type ForecastHorizon = "month" | "year" | "3months" | "6months" | "12months";
 
-/** Same calendar day in the target month; short months clamp to their last day. */
+/** Monthly bars always include the entire terminal calendar month. */
 export function analysisForecastEnd(today: string, horizon: ForecastHorizon): string {
   const current = calendarMonthFromIso(today);
   if (horizon === "year") return `${current.year}-12-31`;
   if (horizon === "month") return calendarMonthBounds(current).monthEnd;
   const months = horizon === "3months" ? 3 : horizon === "6months" ? 6 : 12;
   const bounds = calendarMonthBounds(shiftCalendarMonth(current, months));
-  const date = Math.min(Number(today.slice(8, 10)), Number(bounds.monthEnd.slice(8, 10)));
-  return `${bounds.monthStart.slice(0, 8)}${String(date).padStart(2, "0")}`;
+  return bounds.monthEnd;
 }
 
 export interface AnalysisForecast {

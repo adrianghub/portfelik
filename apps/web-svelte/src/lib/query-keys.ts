@@ -24,8 +24,9 @@ export const qk = {
   planProgressList: (u: Id, ...p: unknown[]) => [...userNs(u), "plan-progress-list", ...p] as const,
   planItems: (u: Id, id: string) => [...userNs(u), "plan-items", id] as const,
   planSpendSettlements: (u: Id, id: string) =>
-    [...userNs(u), "plan-spend-settlements", id] as const,
-  planSpendCards: (u: Id, ...ids: string[]) => [...userNs(u), "plan-spend-cards", ...ids] as const,
+    [...userNs(u), "transactions", "plan-spend-settlements", id] as const,
+  planSpendCards: (u: Id, ...ids: string[]) =>
+    [...userNs(u), "transactions", "plan-spend-cards", ...ids] as const,
   planDebtTerms: (u: Id, id?: string) =>
     [...userNs(u), "plan-debt-terms", ...(id ? [id] : [])] as const,
   planDebtTermsList: (u: Id, ...p: unknown[]) =>

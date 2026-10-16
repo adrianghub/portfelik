@@ -79,7 +79,7 @@ for (const viewport of [
       await page.goto("/dashboard");
       await expect(page.getByTestId("cockpit-forecast")).toContainText(/21\D?038,91/);
       await page.goto("/analysis?mode=forecast&horizon=12months");
-      await expect(forecast.getByTestId("analysis-forecast-final")).toContainText(/135\D?304,61/);
+      await expect(forecast.getByTestId("analysis-forecast-final")).toContainText(/146\D?881,18/);
       await forecast.getByRole("button", { name: "Prognoza na dzień", exact: true }).click();
       const picker = page.getByRole("dialog", { name: "Prognoza na dzień", exact: true });
       await picker.getByRole("spinbutton").fill("2026");

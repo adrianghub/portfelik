@@ -44,6 +44,7 @@ export interface SpendSettlementRow {
 
 export interface SpendPaymentCandidate {
   id: string;
+  status: "paid" | "upcoming" | "overdue";
   description: string;
   amount: number;
   date: string;
@@ -134,27 +135,38 @@ export async function fetchSpendSettlements(planId: string): Promise<SpendSettle
 }
 
 export async function searchSpendPaymentCandidates(
-  query: string
+  query: string,
+  plan?: Pick<Plan, "user_id" | "group_id">,
+  actorId?: string
 ): Promise<SpendPaymentCandidate[]> {
   const trimmed = query.trim().replace(/[%_\\]/g, "\\$&");
   let request = supabase
     .from("transactions")
-    .select("id, description, amount, date, counterparty")
+    .select("id, description, amount, date, counterparty, status")
     .eq("type", "expense")
-    .eq("status", "paid")
+    .in("status", ["paid", "upcoming", "overdue"])
     .order("date", { ascending: false })
     .limit(50);
+  if (plan && !plan.group_id) request = request.eq("user_id", plan.user_id).is("group_id", null);
+  if (plan?.group_id && actorId)
+    request = request.or(
+      `group_id.eq.${plan.group_id},and(group_id.is.null,user_id.eq.${actorId})`
+    );
   if (trimmed) {
     request = request.or(`description.ilike.%${trimmed}%,counterparty.ilike.%${trimmed}%`);
   }
   const { data, error } = await request;
   if (error) throw error;
-  return (data ?? []).map((row) => ({
-    id: row.id,
-    description: row.description || row.counterparty || "",
-    amount: row.amount,
-    date: row.date,
-  })) as SpendPaymentCandidate[];
+  const blocked = await fetchLinkedTransactionIds();
+  return (data ?? [])
+    .filter((row) => !blocked.has(row.id))
+    .map((row) => ({
+      id: row.id,
+      status: row.status,
+      description: row.description || row.counterparty || "",
+      amount: row.amount,
+      date: row.date,
+    })) as SpendPaymentCandidate[];
 }
 
 export async function createAndLinkPlanTransaction(input: {

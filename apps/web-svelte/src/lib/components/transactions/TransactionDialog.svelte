@@ -180,7 +180,12 @@
       // Linked creates must fall in the plan window; prefer today when it fits.
       // Debt settle cannot book a future paid rata — cap at today.
       let initialDate = initial?.date?.slice(0, 10) ?? draft?.date?.slice(0, 10) ?? localDateIso();
-      if (!initial && planContext?.startDate && planContext?.endDate) {
+      if (
+        !initial &&
+        planContext?.planKind !== "spend" &&
+        planContext?.startDate &&
+        planContext?.endDate
+      ) {
         initialDate = clampIsoDate(initialDate, planContext.startDate, planContext.endDate);
       }
       if (!initial && debtCreateLockedPaid) {
@@ -298,6 +303,7 @@
       }
       const u = requireSessionUserId();
       await queryClient.invalidateQueries({ queryKey: qk.transactions.all(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.spendForecast(u) });
       await queryClient.invalidateQueries({ queryKey: qk.planMatches(u) });
       if (planContext) {
         await queryClient.invalidateQueries({ queryKey: qk.planLinks(u, planContext.planId) });
@@ -387,9 +393,8 @@
   function handleSubmit(e: Event) {
     e.preventDefault();
     formError = null;
-    // A plan-linked transaction must fall within the plan period, or the link RPC rejects it
-    // and leaves an orphan transaction. Validate up front and tell the user the allowed range.
-    if (planContext?.startDate && planContext?.endDate) {
+    // Spend payments may precede the trip/event. Other plans keep their date bounds.
+    if (planContext?.planKind !== "spend" && planContext?.startDate && planContext?.endDate) {
       if (date < planContext.startDate || date > planContext.endDate) {
         formError = m.transaction_plan_period_error({
           from: formatDate(planContext.startDate),
@@ -556,7 +561,9 @@
         >
           <option value="paid">{m.transactions_status_paid()}</option>
           <option value="upcoming">{m.transactions_status_upcoming()}</option>
-          <option value="draft">{m.transactions_status_draft()}</option>
+          {#if planContext?.planKind !== "spend"}<option value="draft"
+              >{m.transactions_status_draft()}</option
+            >{/if}
           <option value="overdue">{m.transactions_status_overdue()}</option>
         </select>
       </div>

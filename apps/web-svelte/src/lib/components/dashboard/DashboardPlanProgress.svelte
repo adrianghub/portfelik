@@ -101,7 +101,7 @@
   <li>
     <a
       href={planHref(plan)}
-      class="block rounded-xl border border-white/5 px-3 py-1.5 transition-colors hover:bg-white/5"
+      class="block rounded-xl border border-white/5 py-1.5 pr-3 pl-0 transition-colors hover:bg-white/5"
     >
       <div class="flex min-w-0 items-center gap-2">
         <PlanMark kind={plan.kind ?? "save"} name={plan.icon} size="sm" />
