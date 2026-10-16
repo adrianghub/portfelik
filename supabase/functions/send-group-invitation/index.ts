@@ -9,13 +9,23 @@ type InvitationRequest = {
   token?: string;
 };
 
-const allowedOrigins = new Set(
-  (Deno.env.get("APP_ORIGINS") ??
-    "http://localhost:5173,http://127.0.0.1:5173,https://app.jakstoimy.pl,https://dev.portfelik.pages.dev")
+// Capacitor Android (androidScheme: https) sends Origin: https://localhost.
+// Always allow those hosts even when APP_ORIGINS is overridden in secrets.
+const alwaysAllowedOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "https://app.jakstoimy.pl",
+  "https://dev.portfelik.pages.dev",
+  "https://localhost",
+  "capacitor://localhost",
+];
+const allowedOrigins = new Set([
+  ...alwaysAllowedOrigins,
+  ...(Deno.env.get("APP_ORIGINS") ?? "")
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean),
-);
+]);
 
 function headersFor(req: Request): HeadersInit {
   const origin = req.headers.get("origin") ?? "";
@@ -181,7 +191,13 @@ Deno.serve(async (req: Request) => {
       p_actor_id: authData.user.id,
     },
   );
-  if (error) return json(req, { error: "invitation_create_failed" }, 400);
+  if (error) {
+    return json(
+      req,
+      { error: error.message?.trim() || "invitation_create_failed" },
+      400,
+    );
+  }
 
   const result = data as {
     invitation: { id: string; group_name: string };
@@ -201,10 +217,9 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  let sent = false;
   const inviteUrl = `${appOrigin}/invite/${result.token}`;
   const groupName = result.invitation.group_name;
-  sent = await sendEmail({
+  const sent = await sendEmail({
     to: email,
     subject: `Zaproszenie do grupy ${groupName} w JakStoimy`,
     text:
@@ -225,5 +240,6 @@ Deno.serve(async (req: Request) => {
       ...result.invitation,
       delivery_status: sent ? "sent" : "failed",
     },
+    ...(sent ? {} : { deliveryError: "email_send_failed" }),
   });
 });

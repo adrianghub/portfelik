@@ -1,4 +1,10 @@
 import { supabase } from "$lib/supabase";
+import {
+  invitationDeliveryFailureCode,
+  invitationErrorFromFunctionsFailure,
+  resolveInvitationFunctionResult,
+  type InvitationFunctionBody,
+} from "$lib/services/group-invitation-delivery";
 import type {
   GroupInvitation,
   GroupMember,
@@ -92,24 +98,28 @@ export async function leaveGroup(groupId: string): Promise<void> {
   if (error) throw error;
 }
 
+async function invokeGroupInvitation(body: Record<string, unknown>): Promise<GroupInvitation> {
+  const { data, error } = await supabase.functions.invoke("send-group-invitation", { body });
+  const payload = data as InvitationFunctionBody | null;
+  if (error) throw await invitationErrorFromFunctionsFailure(error);
+  const invitation = resolveInvitationFunctionResult(payload, null);
+  const deliveryFail = invitationDeliveryFailureCode(payload);
+  if (deliveryFail === "recipient_not_allowed") {
+    throw new Error("recipient_not_allowed");
+  }
+  return invitation;
+}
+
 export async function inviteUser(groupId: string, email: string): Promise<GroupInvitation> {
-  const { data, error } = await supabase.functions.invoke("send-group-invitation", {
-    body: { groupId, email: email.trim().toLowerCase() },
-  });
-  if (error) throw error;
-  return data.invitation as GroupInvitation;
+  return invokeGroupInvitation({ groupId, email: email.trim().toLowerCase() });
 }
 
 export async function resendInvitation(invitation: GroupInvitation): Promise<GroupInvitation> {
-  const { data, error } = await supabase.functions.invoke("send-group-invitation", {
-    body: {
-      groupId: invitation.group_id,
-      email: invitation.invited_user_email,
-      invitationId: invitation.id,
-    },
+  return invokeGroupInvitation({
+    groupId: invitation.group_id,
+    email: invitation.invited_user_email,
+    invitationId: invitation.id,
   });
-  if (error) throw error;
-  return data.invitation as GroupInvitation;
 }
 
 export async function fetchInvitationPreview(token: string) {
