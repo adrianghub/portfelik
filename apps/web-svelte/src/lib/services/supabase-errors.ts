@@ -48,9 +48,26 @@ function isNetworkError(err: unknown): boolean {
   return !!msg && /failed to fetch|networkerror|load failed/i.test(msg);
 }
 
+const INVITATION_ERROR_CODES = new Set([
+  "cannot_invite_self",
+  "not_group_owner",
+  "invitation_already_pending",
+  "invitation_rate_limited",
+  "invitation_retry_too_soon",
+  "invitation_delivery_limit_reached",
+  "already_a_member",
+  "invalid_email",
+  "recipient_not_allowed",
+  "invitation_create_failed",
+  "email_send_failed",
+]);
+
 /** Pure classification — no i18n, fully unit-testable. */
 export function classifyError(err: unknown): { kind: ErrorKind; detail?: string } {
   if (isNetworkError(err)) return { kind: "network" };
+  if (err instanceof Error && INVITATION_ERROR_CODES.has(err.message)) {
+    return { kind: "custom", detail: err.message };
+  }
   const e = extractPostgrestError(err);
   switch (e?.code) {
     case "42501":
@@ -133,6 +150,17 @@ const P0001_MESSAGES: Record<string, () => string> = {
   item_not_owned: m.error_item_not_owned,
   duplicate_item_id: m.error_duplicate_item_id,
   invalid_items_payload: m.error_invalid_items_payload,
+  cannot_invite_self: m.group_invitation_error_self,
+  not_group_owner: m.group_invitation_error_not_owner,
+  invitation_already_pending: m.group_invitation_error_already_pending,
+  invitation_rate_limited: m.group_invitation_error_rate_limited,
+  invitation_retry_too_soon: m.group_invitation_error_retry_soon,
+  invitation_delivery_limit_reached: m.group_invitation_error_delivery_limit,
+  already_a_member: m.group_invitation_error_already_member,
+  invalid_email: m.group_invitation_error_invalid_email,
+  recipient_not_allowed: m.group_invitation_error_recipient_not_allowed,
+  invitation_create_failed: m.group_invitation_error_create,
+  email_send_failed: m.group_invitation_delivery_failed,
 };
 
 /** Resolve a user-facing Polish message for any thrown error. */
