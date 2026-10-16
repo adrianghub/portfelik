@@ -23,18 +23,20 @@ Nowe `plan_items` należą do planu wydatkowego: etykieta, planowana kwota PLN,
 opcjonalny termin DATE i odbiorca. Stan opisuje pewność płatności, nie rezerwację
 i nie dowód, że pieniądze wyszły z konta. Szacowane nie ma terminu. Zaplanowana
 płatność ma termin orientacyjny i zostaje w limicie budżetu, ale nie w kwocie
-do zapłaty. Potwierdzona płatność jest zobowiązaniem, dopóki nie powiążemy
-transakcji. Anulowane zostaje w historii i wypada z sum. Anulowanie po
-częściowej wpłacie zdejmuje całą pozycję z limitu. Transakcja zostaje w księdze,
-wpłatę widać przy anulowanej pozycji i można ją odpiąć. Anulowanej pozycji nie
-da się rozliczyć ponownie. Rezerwacja jest osobnym
-stanem na później. DB używa numeric; obliczenia sumują grosze. Pozycja bez
-terminu jest budżetem, nie przepływem przypisanym po cichu do konkretnego miesiąca.
-Prognoza salda prywatnego korzysta z istniejącego silnika kasowego. Odejmuje
-pozostałą kwotę potwierdzonych pozycji prywatnego planu, których nie ma już
-w nadchodzących transakcjach. Wpłacona zaliczka zostaje w saldzie i nie jest
-odejmowana drugi raz. Pozycja zaplanowana, szacunek i anulowana nie wchodzą
-do prognozy. Pozostałość wspólnego planu nie wchodzi do salda prywatnego.
+do zapłaty. Potwierdzona płatność jest zobowiązaniem w prognozie, dopóki nie powiążemy
+transakcji. Szacunek i płatność zaplanowana (orientacyjna) też mogą przyjąć
+powiązaną opłaconą transakcję — bez wymuszania potwierdzenia z góry. Anulowane
+zostaje w historii i wypada z sum. Anulowanie po częściowej wpłacie zdejmuje
+całą pozycję z limitu. Transakcja zostaje w księdze, wpłatę widać przy anulowanej
+pozycji i można ją odpiąć. Anulowanej pozycji nie da się rozliczyć ponownie.
+Rezerwacja jest osobnym stanem na później. DB używa numeric; obliczenia sumują
+grosze. Pozycja bez terminu jest budżetem, nie przepływem przypisanym po cichu
+do konkretnego miesiąca. Prognoza salda prywatnego korzysta z istniejącego
+silnika kasowego. Odejmuje pozostałą kwotę potwierdzonych pozycji prywatnego
+planu, których nie ma już w nadchodzących transakcjach. Wpłacona zaliczka
+zostaje w saldzie i nie jest odejmowana drugi raz. Pozycja zaplanowana, szacunek
+i anulowana nie wchodzą do prognozy jako zobowiązania. Pozostałość wspólnego
+planu nie wchodzi do salda prywatnego.
 
 Budżet planu nie jest saldem konta. 12 000 zł na wakacjach oznacza planowany
 limit wydatków, nie odłożone środki. Zapłacone liczą się tylko z powiązanych
@@ -180,9 +182,12 @@ i pasek odkładania. Kredyt pokazuje pozostałe zadłużenie, bez paska spłaty.
 Plan wydatków pokazuje pozostało w budżecie i pasek wykorzystania limitu.
 Na wierszu pozycji szacunkowy obejmuje koszt bez potwierdzenia, także z terminem.
 Potwierdzony, częściowo opłacony, opłacony i anulowany opisują te same stany
-i powiązane wpłaty. Obliczenia pozycji się nie zmieniają. Regularne zakupy nie są celem oszczędnościowym. W danych przykładowych
-„Tygodniowe zakupy” trzeba będzie zastąpić limitem albo wydatkiem cyklicznym,
-razem z nowym demo, nie wcześniej.
+i powiązane wpłaty. **Rzeczywistą opłaconą transakcję można powiązać z pozycją
+szacunkową lub zaplanowaną bez wcześniejszego potwierdzania kosztu** — potwierdzenie
+oznacza zobowiązanie w prognozie salda, nie wymóg przed rozliczeniem. Obliczenia
+pozycji się nie zmieniają. Regularne zakupy nie są celem oszczędnościowym. W danych
+przykładowych „Tygodniowe zakupy” trzeba będzie zastąpić limitem albo wydatkiem
+cyklicznym, razem z nowym demo, nie wcześniej.
 
 ## Import, prywatność i UI
 

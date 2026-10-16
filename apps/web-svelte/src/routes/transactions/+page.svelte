@@ -25,7 +25,9 @@
   import { createCategory, fetchCategories } from "$lib/services/categories";
   import { makeCreateCategoryInline } from "$lib/category-create";
   import { fetchMyGroupRoles, fetchUserGroups } from "$lib/services/groups";
+  import { analysisReturnFromSearchParams } from "$lib/navigation/analysis-return";
   import { fetchLinkedTransactionIds } from "$lib/services/plan-settlement";
+  import { computePeriodCashflow } from "$lib/services/period-cashflow";
   import { computeLedgerSummary } from "$lib/services/transaction-cashflow";
   import {
     canManageTransaction,
@@ -570,7 +572,7 @@
     return types.size === 1 ? [...types][0] : null;
   });
 
-  const summaryMode = $derived(statusSet ? ("filtered" as const) : ("ledger" as const));
+  const summaryMode = $derived(statusSet ? ("filtered" as const) : ("forecast" as const));
   const summary = $derived(
     accountedTxs
       ? statusSet
@@ -578,6 +580,32 @@
         : computeLedgerSummary(filteredTxs ?? [])
       : null
   );
+  const periodBreakdown = $derived(accountedTxs ? computePeriodCashflow(accountedTxs) : null);
+  const analysisReturnHref = $derived(analysisReturnFromSearchParams($page.url.searchParams));
+
+  function onSummaryDrill(
+    key:
+      | "income-realized"
+      | "income-open"
+      | "income-total"
+      | "expense-realized"
+      | "expense-open"
+      | "expense-total"
+      | "net-realized"
+      | "net-projected"
+  ) {
+    const p = new URLSearchParams($page.url.searchParams);
+    if (key.startsWith("income")) p.set("type", "income");
+    else if (key.startsWith("expense")) p.set("type", "expense");
+    else p.delete("type");
+
+    if (key.endsWith("realized") || key === "net-realized") p.set("status", "paid");
+    else if (key.endsWith("open")) p.set("status", "upcoming,overdue");
+    else if (key === "net-projected" || key.endsWith("total")) {
+      p.set("status", "paid,upcoming,overdue");
+    }
+    goto(`/transactions?${p.toString()}`, { replaceState: false });
+  }
 
   const tableEmptyLabel = $derived.by(() => {
     const base = txQuery.data ?? [];
@@ -1222,6 +1250,16 @@
     </div>
   </div>
 
+  {#if analysisReturnHref}
+    <a
+      href={analysisReturnHref}
+      class="text-accent focus-visible:ring-accent inline-flex min-h-11 items-center text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"
+      data-testid="back-to-analysis"
+    >
+      {m.back_to_analysis()}
+    </a>
+  {/if}
+
   {#if demoActive}
     <DemoShowcaseBanner
       onclear={async () => {
@@ -1281,16 +1319,18 @@
     </div>
   {/if}
 
-  {#if (activeFilters.length > 0 || !isDefaultDateFilter) && summary}
+  {#if summary}
     <SummaryCards
       {summary}
+      breakdown={periodBreakdown}
       mode={summaryMode}
       activeType={typeFilter}
       ontypeclick={(type) => onTypeChange(typeFilter === type ? undefined : type)}
+      ondrill={onSummaryDrill}
     />
   {/if}
 
-  {#if (activeFilters.length > 0 || !isDefaultDateFilter) && summary && summary.total_expenses > 0}
+  {#if summary && summary.total_expenses > 0}
     <CategoryBreakdown categories={summary.categories} oncategoryclick={onCategoryChange} />
   {/if}
 

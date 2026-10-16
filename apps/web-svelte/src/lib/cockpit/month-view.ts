@@ -65,7 +65,8 @@ function scopeOf(scopeFilter: ScopeFilter): CockpitMonthScope {
   return { kind: "group", groupId: scopeFilter };
 }
 
-function uniqueRows(rows: readonly CockpitMonthRow[]): CockpitMonthRow[] {
+/** First-wins by transaction id — cash-history and month ledger often overlap. */
+export function uniqueCockpitMonthRows(rows: readonly CockpitMonthRow[]): CockpitMonthRow[] {
   const seen = new Set<string>();
   const unique: CockpitMonthRow[] = [];
   for (const row of rows) {
@@ -83,7 +84,7 @@ function uniqueRows(rows: readonly CockpitMonthRow[]): CockpitMonthRow[] {
  */
 function monthInput(input: CockpitMonthViewInput): CockpitMonthInput {
   const scope = scopeOf(input.scopeFilter);
-  const rows = uniqueRows(input.rows).filter((row) => {
+  const rows = uniqueCockpitMonthRows(input.rows).filter((row) => {
     if (scope.kind === "all") return true;
     if (scope.kind === "private") return row.groupId === null;
     return row.groupId === scope.groupId;

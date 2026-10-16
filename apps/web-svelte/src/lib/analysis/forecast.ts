@@ -6,7 +6,10 @@ import {
 } from "$lib/cockpit/month-window";
 import type { CockpitChartPoint } from "$lib/cockpit/forecast-chart";
 import { isSupportedLedgerCurrency } from "$lib/ledger-currency";
-import { appendConfirmedSpendForecast } from "$lib/plans/spend-forecast";
+import {
+  appendConfirmedSpendForecast,
+  confirmedSpendForecastFlows,
+} from "$lib/plans/spend-forecast";
 import {
   analysisBarKind,
   buildAnalysisCategories,
@@ -47,6 +50,13 @@ export interface AnalysisForecast {
   income: number;
   expense: number;
   points: CockpitChartPoint[];
+  /** Dated upcoming/overdue ledger flows for bars and transaction drill-down. */
+  flows: AnalysisFlow[];
+  /**
+   * Confirmed plan remainders that move the balance line but are not ledger rows.
+   * Month detail folds these into expense so opening + income − expense ≈ closing.
+   */
+  obligationFlows: AnalysisFlow[];
   bars: AnalysisBar[];
   barKind: "month" | "week" | "day";
   categories: AnalysisCategory[];
@@ -148,6 +158,25 @@ export function buildAnalysisForecast(input: {
   >;
   const movementRows = forecastFlowRows(ledgerForFlows, end, anchor);
   const flowTotals = forecastMovementTotals(anchor, ledgerForFlows, { today, horizonEnd: end });
+  const obligationFlows: AnalysisFlow[] = confirmedSpendForecastFlows({
+    items: input.spend?.items ?? [],
+    links: input.spend?.links ?? [],
+    forecastTransactionIds: new Set(
+      ledgerForFlows.map((row) => row.id).filter(Boolean) as string[]
+    ),
+    today,
+  })
+    .filter((row) => countsAfterAnchor(row.date, anchor) && row.date <= end)
+    .map((row) => ({
+      id: row.id,
+      type: "expense" as const,
+      amount: row.amount,
+      status: row.status,
+      date: row.date,
+      currency: row.currency,
+      categoryId: null,
+      categoryName: null,
+    }));
   // Start at the earliest counted flow so pre-today overdue rows stay in bars.
   const barsStart = movementRows.reduce(
     (earliest, row) => (row.date < earliest ? row.date : earliest),
@@ -163,6 +192,8 @@ export function buildAnalysisForecast(input: {
     income: flowTotals.upcomingIncome,
     expense: flowTotals.upcomingExpenses,
     points,
+    flows: movementRows,
+    obligationFlows,
     bars,
     barKind,
     categories: buildAnalysisCategories(movementRows),

@@ -6,24 +6,34 @@
   import type { CockpitForecastChart as ChartModel } from "$lib/cockpit/forecast-chart";
   import { shortDayMonth } from "$lib/cockpit/month-window";
   import { motionDuration } from "$lib/motion";
-  import { ChevronRight, Wallet } from "lucide-svelte";
+  import { forecastTrough } from "$lib/services/forecast-trough";
   import * as m from "$lib/paraglide/messages";
-  import { formatCurrency, monthNameLocative } from "$lib/utils";
+  import { formatCurrency, formatDate, monthNameLocative } from "$lib/utils";
 
   let {
     hasAnchor,
     showPrivateDetails,
     scopeLabel,
-    transactionsHref,
     balance,
     expensesFrom = null,
     expensesIncomplete = false,
     orientational = 0,
     monthForecast,
+    upcomingIncome = 0,
+    upcomingExpenses = 0,
+    ledgerUpcomingExpenses = null,
+    planRemainders = 0,
+    openingAmount = null,
+    paidIncome = 0,
+    paidExpenses = 0,
     chart,
     horizonLabel,
     anchorDate = null,
     analysisHref,
+    incomeSourceHref = null,
+    expenseSourceHref = null,
+    balanceSourceHref = null,
+    planRemaindersHref = null,
     projected = true,
     demo = false,
     revealCount = null,
@@ -35,16 +45,28 @@
     hasAnchor: boolean;
     showPrivateDetails: boolean;
     scopeLabel: string;
-    transactionsHref: string;
     balance: number | null;
     expensesFrom?: string | null;
     expensesIncomplete?: boolean;
     orientational?: number;
     monthForecast: number | null;
+    upcomingIncome?: number;
+    upcomingExpenses?: number;
+    /** Ledger-only upcoming expenses; defaults to upcomingExpenses when omitted. */
+    ledgerUpcomingExpenses?: number | null;
+    planRemainders?: number;
+    openingAmount?: number | null;
+    paidIncome?: number;
+    paidExpenses?: number;
     chart: ChartModel;
     horizonLabel: string;
     anchorDate?: string | null;
     analysisHref: string;
+    /** Drill from „Skąd ta kwota?” income leg into Transakcje. */
+    incomeSourceHref?: string | null;
+    expenseSourceHref?: string | null;
+    balanceSourceHref?: string | null;
+    planRemaindersHref?: string | null;
     projected?: boolean;
     demo?: boolean;
     revealCount?: number | null;
@@ -54,9 +76,15 @@
     onOpenGlossary?: (entryId: string) => void;
   } = $props();
 
+  const expenseLedgerAmount = $derived(ledgerUpcomingExpenses ?? upcomingExpenses);
+
   let progress = $state(1);
+  let sourceOpen = $state(false);
 
   const spent = $derived(chart.spent);
+  const trough = $derived(
+    chart.points && chart.points.length > 0 ? forecastTrough(chart.points) : null
+  );
   const expensesFromLabel = $derived(expensesFrom ? shortDayMonth(expensesFrom) : null);
   const heroLabel = $derived(projected ? m.cockpit_forecast_hero() : m.cockpit_closing_hero());
   const spentHelp = $derived.by(() => {
@@ -186,6 +214,113 @@
         >
           {shown(monthForecast)}
         </p>
+        {#if showPrivateDetails && hasAnchor && monthForecast != null && projected}
+          <button
+            type="button"
+            class="text-accent focus-visible:ring-accent mt-1 inline-flex min-h-11 items-center text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"
+            aria-expanded={sourceOpen}
+            data-testid="cockpit-amount-source"
+            onclick={() => (sourceOpen = !sourceOpen)}
+          >
+            {sourceOpen ? m.cockpit_amount_source_close() : m.cockpit_amount_source()}
+          </button>
+          {#if sourceOpen}
+            <dl
+              class="mt-2 space-y-1.5 rounded-xl border border-white/5 bg-slate-950/40 px-3 py-2.5 text-sm"
+              data-testid="cockpit-amount-source-panel"
+            >
+              {#if openingAmount != null}
+                <div class="flex justify-between gap-3">
+                  <dt class="text-slate-400">{m.cockpit_amount_source_opening()}</dt>
+                  <dd class="text-slate-100 tabular-nums">{formatCurrency(openingAmount)}</dd>
+                </div>
+                <div class="flex justify-between gap-3">
+                  <dt class="text-slate-400">
+                    {m.cockpit_amount_source_paid_ops({
+                      date: anchorDate ? shortDayMonth(anchorDate) : "—",
+                    })}
+                  </dt>
+                  <dd class="text-slate-100 tabular-nums">
+                    {#if balanceSourceHref}
+                      <a
+                        href={balanceSourceHref}
+                        class="hover:text-accent underline-offset-2 hover:underline"
+                      >
+                        {paidIncome - paidExpenses >= 0 ? "+" : "−"}{formatCurrency(
+                          Math.abs(paidIncome - paidExpenses)
+                        )}
+                      </a>
+                    {:else}
+                      {paidIncome - paidExpenses >= 0 ? "+" : "−"}{formatCurrency(
+                        Math.abs(paidIncome - paidExpenses)
+                      )}
+                    {/if}
+                  </dd>
+                </div>
+              {/if}
+              <div class="flex justify-between gap-3">
+                <dt class="text-slate-400">{m.cockpit_amount_source_balance()}</dt>
+                <dd class="text-slate-100 tabular-nums">{formatCurrency(balance ?? 0)}</dd>
+              </div>
+              <div class="flex justify-between gap-3">
+                <dt class="text-slate-400">{m.cockpit_amount_source_income()}</dt>
+                <dd class="text-emerald-300 tabular-nums">
+                  {#if incomeSourceHref}
+                    <a
+                      href={incomeSourceHref}
+                      class="underline-offset-2 hover:text-emerald-200 hover:underline"
+                      >+{formatCurrency(upcomingIncome)}</a
+                    >
+                  {:else}
+                    +{formatCurrency(upcomingIncome)}
+                  {/if}
+                </dd>
+              </div>
+              <div class="flex justify-between gap-3">
+                <dt class="text-slate-400">{m.cockpit_amount_source_expense()}</dt>
+                <dd class="text-rose-300 tabular-nums">
+                  {#if expenseSourceHref}
+                    <a
+                      href={expenseSourceHref}
+                      class="underline-offset-2 hover:text-rose-200 hover:underline"
+                      >−{formatCurrency(expenseLedgerAmount)}</a
+                    >
+                  {:else}
+                    −{formatCurrency(expenseLedgerAmount)}
+                  {/if}
+                </dd>
+              </div>
+              {#if planRemainders > 0}
+                <div class="flex justify-between gap-3">
+                  <dt class="text-slate-400">{m.cockpit_amount_source_plan_remainders()}</dt>
+                  <dd class="text-amber-300 tabular-nums">
+                    {#if planRemaindersHref}
+                      <a
+                        href={planRemaindersHref}
+                        class="underline-offset-2 hover:text-amber-200 hover:underline"
+                        >−{formatCurrency(planRemainders)}</a
+                      >
+                    {:else}
+                      −{formatCurrency(planRemainders)}
+                    {/if}
+                  </dd>
+                </div>
+              {/if}
+              <div class="flex justify-between gap-3 border-t border-white/5 pt-1.5 font-medium">
+                <dt class="text-slate-300">{m.cockpit_amount_source_result()}</dt>
+                <dd class="text-slate-50 tabular-nums">{formatCurrency(monthForecast)}</dd>
+              </div>
+            </dl>
+          {/if}
+        {/if}
+        {#if trough && trough.date && showPrivateDetails && hasAnchor}
+          <p class="mt-2 text-sm text-slate-400" data-testid="cockpit-lowest-balance">
+            {m.cockpit_lowest_balance_on({
+              amount: formatCurrency(trough.balance),
+              date: formatDate(trough.date),
+            })}
+          </p>
+        {/if}
         {#if chart.points && chart.points.length > 1 && chart.domainStart && chart.domainEnd}
           <div class="mt-1">
             <CockpitForecastChart
@@ -270,16 +405,7 @@
       </div>
     </div>
 
-    {#if showPrivateDetails && hasAnchor}
-      <a
-        href={transactionsHref}
-        class="focus-visible:ring-accent mt-4 flex min-h-11 w-full items-center gap-2.5 border-t border-white/10 pt-3 text-sm text-slate-200 hover:text-slate-50 focus-visible:ring-2 focus-visible:outline-none"
-      >
-        <Wallet size={16} class="shrink-0 text-slate-400" aria-hidden="true" />
-        <span class="min-w-0 flex-1">{m.cash_position_transactions_link()}</span>
-        <ChevronRight size={16} class="shrink-0 text-slate-500" aria-hidden="true" />
-      </a>
-    {:else if showPrivateDetails}
+    {#if showPrivateDetails && !hasAnchor}
       <div class="mt-2 flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1">
         <a
           href="/transactions?group=own"

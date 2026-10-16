@@ -7,6 +7,8 @@
     type ForecastHorizon,
   } from "$lib/analysis/forecast";
   import { analysisBalanceHelp } from "$lib/analysis/balance-help";
+  import { buildAnalysisMonthDetail, monthKeyFromIso } from "$lib/analysis/month-detail";
+  import { forecastTrough } from "$lib/services/forecast-trough";
   import BudgetCategoryHistory from "$lib/components/analysis/BudgetCategoryHistory.svelte";
   import CockpitForecastChart from "$lib/components/dashboard/CockpitForecastChart.svelte";
   import DayPicker from "$lib/components/ui/DayPicker.svelte";
@@ -76,11 +78,35 @@
   const today = $derived(localDateIso());
   const forecastEnd = $derived(analysisForecastEnd(today, horizon));
   const forecastActive = $derived(mode === "forecast" && groupFilter === "own");
-  let selectedForecastDate = $state("");
-  $effect(() => {
-    void forecastEnd;
-    selectedForecastDate = "";
-  });
+  const selectedMonthKey = $derived($page.url.searchParams.get("month"));
+  const analysisReturnPath = $derived($page.url.pathname + $page.url.search);
+  const selectedForecastDateParam = $derived($page.url.searchParams.get("day") ?? "");
+
+  function setSelectedMonth(monthKey: string | null) {
+    const params = new URLSearchParams($page.url.searchParams);
+    if (monthKey) params.set("month", monthKey);
+    else params.delete("month");
+    void goto(`/analysis?${params}`, { keepFocus: true, noScroll: true });
+  }
+
+  function setSelectedForecastDay(date: string | null) {
+    const params = new URLSearchParams($page.url.searchParams);
+    if (date && date !== forecastEnd) params.set("day", date);
+    else params.delete("day");
+    void goto(`/analysis?${params}`, { keepFocus: true, noScroll: true });
+  }
+
+  function txUrl(
+    range: { start: string; end: string },
+    status = "paid",
+    categories: Iterable<string> = selectedCategoryIds
+  ) {
+    return analysisTransactionsUrl(range, groupFilter, categories, status, analysisReturnPath);
+  }
+
+  function forecastTxUrl(range: { start: string; end: string }) {
+    return analysisTransactionsUrl(range, "own", [], "upcoming,overdue", analysisReturnPath);
+  }
 
   const cashAnchorQuery = createQuery(() => ({
     queryKey: qk.cashPosition(session.userId!),
@@ -185,9 +211,6 @@
   );
   const forecastError = $derived(
     forecastActive ? (templatesQuery.error ?? skipsQuery.error ?? spendQuery.error) : null
-  );
-  const forecastPoint = $derived(
-    forecast?.points.find((point) => point.date === (selectedForecastDate || forecastEnd))
   );
 
   const scopeLabel = $derived.by(() => {
@@ -297,6 +320,33 @@
   const forecastMaxBar = $derived(
     Math.max(1, ...(forecast?.bars ?? []).flatMap((bar) => [bar.income, bar.expense]))
   );
+  const historyMonthDetail = $derived.by(() => {
+    if (!selectedMonthKey || !overview.chart?.points) return null;
+    return buildAnalysisMonthDetail({
+      monthKey: selectedMonthKey,
+      points: overview.chart.points,
+      flows: overview.flows,
+    });
+  });
+  const forecastMonthDetail = $derived.by(() => {
+    if (!selectedMonthKey || !forecast) return null;
+    return buildAnalysisMonthDetail({
+      monthKey: selectedMonthKey,
+      points: forecast.points,
+      flows: forecast.flows,
+      obligationFlows: forecast.obligationFlows,
+    });
+  });
+  const selectedForecastDate = $derived.by(() => {
+    const day = selectedForecastDateParam;
+    if (!forecast || !day) return "";
+    if (day >= forecast.start && day <= forecast.end) return day;
+    return "";
+  });
+  const forecastPoint = $derived(
+    forecast?.points.find((point) => point.date === (selectedForecastDate || forecastEnd))
+  );
+  const forecastLowest = $derived(forecast?.points ? forecastTrough(forecast.points) : null);
   const loading = $derived(
     !session.userId ||
       cashAnchorQuery.isPending ||
@@ -522,7 +572,7 @@
             value={selectedForecastDate || forecastEnd}
             min={forecast.start}
             max={forecastEnd}
-            onchange={(date) => (selectedForecastDate = date)}
+            onchange={(date) => setSelectedForecastDay(date)}
           />
           <p class="text-xl font-semibold tabular-nums" data-testid="analysis-forecast-day">
             {forecastPoint ? formatCurrency(forecastPoint.balance) : m.analysis_no_day_balance()}
@@ -549,7 +599,7 @@
                 <a
                   class="group focus-visible:ring-accent block min-w-2 flex-1 rounded focus-visible:ring-2 focus-visible:outline-none"
                   data-testid="analysis-forecast-bar-link"
-                  href={analysisTransactionsUrl(bar, "own", [], "upcoming,overdue")}
+                  href={forecastTxUrl(bar)}
                   aria-label={m.analysis_bar_details({
                     period: `${formatDate(bar.start)} – ${formatDate(bar.end)}`,
                     income: formatCurrency(bar.income),
@@ -560,6 +610,10 @@
                     income: formatCurrency(bar.income),
                     expense: formatCurrency(bar.expense),
                   })}
+                  onclick={(event) => {
+                    event.preventDefault();
+                    setSelectedMonth(monthKeyFromIso(bar.start));
+                  }}
                 >
                   <div class="flex h-24 items-end justify-center gap-0.5 group-hover:bg-white/5">
                     <div
@@ -618,6 +672,96 @@
                 </li>
               {/each}
             </ul>
+          </section>
+        {/if}
+        {#if forecastLowest}
+          <p class="mt-3 text-sm text-slate-400" data-testid="analysis-forecast-lowest">
+            {m.cockpit_lowest_balance_on({
+              amount: formatCurrency(forecastLowest.balance),
+              date: formatDate(forecastLowest.date),
+            })}
+          </p>
+        {/if}
+        {#if forecastMonthDetail}
+          <section
+            class="mt-4 rounded-xl border border-white/5 bg-slate-950/40 p-3"
+            data-testid="analysis-forecast-month-detail"
+            aria-label={m.analysis_month_detail_title()}
+          >
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="text-sm font-medium text-slate-200">
+                {m.analysis_month_detail_title()} · {forecastMonthDetail.monthKey}
+              </h3>
+              <button
+                type="button"
+                class="text-xs text-slate-400 hover:text-slate-200"
+                onclick={() => setSelectedMonth(null)}>{m.common_close()}</button
+              >
+            </div>
+            <dl class="mt-2 grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
+              <div>
+                <dt class="text-xs text-slate-400">{m.analysis_month_opening()}</dt>
+                <dd class="text-slate-100 tabular-nums">
+                  {forecastMonthDetail.opening == null
+                    ? "—"
+                    : formatCurrency(forecastMonthDetail.opening)}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-xs text-slate-400">{m.analysis_month_closing()}</dt>
+                <dd class="text-slate-100 tabular-nums">
+                  {forecastMonthDetail.closing == null
+                    ? "—"
+                    : formatCurrency(forecastMonthDetail.closing)}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-xs text-slate-400">{m.analysis_income()}</dt>
+                <dd class="text-positive tabular-nums">
+                  {formatCurrency(forecastMonthDetail.income)}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-xs text-slate-400">{m.analysis_expense()}</dt>
+                <dd class="text-rose-300 tabular-nums">
+                  {formatCurrency(forecastMonthDetail.expense)}
+                </dd>
+              </div>
+              {#if forecastMonthDetail.planRemainders > 0}
+                <div>
+                  <dt class="text-xs text-slate-400">{m.analysis_month_plan_remainders()}</dt>
+                  <dd class="text-amber-300 tabular-nums">
+                    {formatCurrency(forecastMonthDetail.planRemainders)}
+                  </dd>
+                </div>
+              {/if}
+              <div>
+                <dt class="text-xs text-slate-400">{m.analysis_month_net()}</dt>
+                <dd class="text-slate-100 tabular-nums">
+                  {formatCurrency(forecastMonthDetail.net)}
+                </dd>
+              </div>
+              {#if forecastMonthDetail.lowest}
+                <div>
+                  <dt class="text-xs text-slate-400">{m.analysis_month_lowest()}</dt>
+                  <dd class="text-slate-100 tabular-nums">
+                    {formatCurrency(forecastMonthDetail.lowest.balance)}
+                    <span class="text-xs text-slate-500"
+                      >· {formatDate(forecastMonthDetail.lowest.date)}</span
+                    >
+                  </dd>
+                </div>
+              {/if}
+            </dl>
+            <a
+              href={forecastTxUrl({
+                start: forecastMonthDetail.start,
+                end: forecastMonthDetail.end,
+              })}
+              class="text-accent mt-3 inline-flex min-h-11 items-center text-sm font-medium"
+            >
+              {m.dashboard_upcoming_see_all()}
+            </a>
           </section>
         {/if}
         <p class="mt-4 text-xs leading-relaxed text-slate-400">
@@ -841,7 +985,7 @@
               <a
                 class="group focus-visible:ring-accent block min-w-2 flex-1 rounded focus-visible:ring-2 focus-visible:outline-none"
                 data-testid="analysis-bar-link"
-                href={analysisTransactionsUrl(bar, groupFilter, selectedCategoryIds)}
+                href={txUrl(bar)}
                 aria-label={m.analysis_bar_details({
                   period: `${formatDate(bar.start)} – ${formatDate(bar.end)}`,
                   income: formatCurrency(bar.income),
@@ -852,6 +996,11 @@
                   income: formatCurrency(bar.income),
                   expense: formatCurrency(bar.expense),
                 })}
+                onclick={(event) => {
+                  if (overview.barKind !== "month") return;
+                  event.preventDefault();
+                  setSelectedMonth(monthKeyFromIso(bar.start));
+                }}
               >
                 <div class="flex h-24 items-end justify-center gap-0.5 group-hover:bg-white/5">
                   <div
@@ -878,6 +1027,75 @@
           </div>
           <p class="mt-2 text-xs text-slate-500">{m.analysis_bar_hint()}</p>
         </div>
+      {/if}
+      {#if historyMonthDetail}
+        <section
+          class="mt-4 rounded-xl border border-white/5 bg-slate-950/40 p-3"
+          data-testid="analysis-history-month-detail"
+          aria-label={m.analysis_month_detail_title()}
+        >
+          <div class="flex items-center justify-between gap-2">
+            <h3 class="text-sm font-medium text-slate-200">
+              {m.analysis_month_detail_title()} · {historyMonthDetail.monthKey}
+            </h3>
+            <button
+              type="button"
+              class="text-xs text-slate-400 hover:text-slate-200"
+              onclick={() => setSelectedMonth(null)}>{m.common_close()}</button
+            >
+          </div>
+          <dl class="mt-2 grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
+            <div>
+              <dt class="text-xs text-slate-400">{m.analysis_month_opening()}</dt>
+              <dd class="text-slate-100 tabular-nums">
+                {historyMonthDetail.opening == null
+                  ? "—"
+                  : formatCurrency(historyMonthDetail.opening)}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-xs text-slate-400">{m.analysis_month_closing()}</dt>
+              <dd class="text-slate-100 tabular-nums">
+                {historyMonthDetail.closing == null
+                  ? "—"
+                  : formatCurrency(historyMonthDetail.closing)}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-xs text-slate-400">{m.analysis_income()}</dt>
+              <dd class="text-positive tabular-nums">
+                {formatCurrency(historyMonthDetail.income)}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-xs text-slate-400">{m.analysis_expense()}</dt>
+              <dd class="text-rose-300 tabular-nums">
+                {formatCurrency(historyMonthDetail.expense)}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-xs text-slate-400">{m.analysis_month_net()}</dt>
+              <dd class="text-slate-100 tabular-nums">{formatCurrency(historyMonthDetail.net)}</dd>
+            </div>
+            {#if historyMonthDetail.lowest}
+              <div>
+                <dt class="text-xs text-slate-400">{m.analysis_month_lowest()}</dt>
+                <dd class="text-slate-100 tabular-nums">
+                  {formatCurrency(historyMonthDetail.lowest.balance)}
+                  <span class="text-xs text-slate-500"
+                    >· {formatDate(historyMonthDetail.lowest.date)}</span
+                  >
+                </dd>
+              </div>
+            {/if}
+          </dl>
+          <a
+            href={txUrl({ start: historyMonthDetail.start, end: historyMonthDetail.end })}
+            class="text-accent mt-3 inline-flex min-h-11 items-center text-sm font-medium"
+          >
+            {m.dashboard_upcoming_see_all()}
+          </a>
+        </section>
       {/if}
     </section>
 

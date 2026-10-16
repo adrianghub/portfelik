@@ -377,9 +377,12 @@ test("a spend item stays unpaid until a transaction is linked", async ({ page })
   const { endDate } = datesInCurrentMonth();
   await page.goto("/plans/plan-malta");
   await expect(page.getByRole("heading", { name: "Malta i Gozo" })).toBeVisible();
-  await expect(page.getByText("To nie zmienia salda konta.")).toHaveCount(0);
+  await expect(page.getByText("To nie zmienia salda konta", { exact: false })).toHaveCount(0);
   await page.getByRole("button", { name: "Co znaczą kwoty budżetu" }).hover();
-  await expect(page.getByRole("tooltip")).toContainText("To nie zmienia salda konta.");
+  await expect(page.getByRole("tooltip")).toContainText(
+    "Pozostało w budżecie to budżet minus przewidywany koszt"
+  );
+  await expect(page.getByRole("tooltip")).toContainText("To nie zmienia salda konta");
   await expect(page.getByRole("button", { name: "Dodaj ręcznie" })).toHaveCount(0);
   await page.getByRole("button", { name: "Dodaj", exact: true }).click();
   await page.getByLabel("Nazwa pozycji").fill("Apartament");
@@ -405,8 +408,11 @@ test("a spend item stays unpaid until a transaction is linked", async ({ page })
   await expect(page.getByText(formatCurrency(3600)).first()).toBeVisible();
   await expect(page.getByText(formatCurrency(8400)).first()).toBeVisible();
   await expect(page.getByText(formatCurrency(0)).first()).toBeVisible();
-  await expect(page.getByText("w płatnościach orientacyjnych")).toBeVisible();
-  await expect(apartment.getByRole("button", { name: "Powiąż transakcję" })).toHaveCount(0);
+  await expect(page.getByText("Płatności orientacyjne")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Powiąż transakcje" })).toBeVisible();
+  // Planned/estimate lines can take a real payment without confirming first.
+  await expect(apartment.getByRole("button", { name: "Powiąż transakcję" })).toBeVisible();
+  await expect(apartment.getByText("Do zapłaty")).toHaveCount(0);
 
   await apartment.getByRole("button", { name: "Akcje pozycji" }).click();
   await page.getByRole("menuitem", { name: "Popraw" }).click();
@@ -626,8 +632,11 @@ test("a partially paid item still offers another link when the plan opens", asyn
   await expect(lot).toContainText("Wpłacono");
   await expect(lot.getByRole("button", { name: "Powiąż transakcję" })).toBeVisible();
   await expect(hotel).toContainText("Szacunkowy");
-  await expect(hotel.getByRole("button", { name: "Powiąż transakcję" })).toHaveCount(0);
-  await expect(page.getByText(/Zapłacono/)).toContainText(formatCurrency(400));
+  await expect(hotel.getByRole("button", { name: "Powiąż transakcję" })).toBeVisible();
+  await expect(hotel.getByText("Do zapłaty")).toHaveCount(0);
+  await expect(page.locator("dt", { hasText: "Zapłacono" }).locator("..")).toContainText(
+    formatCurrency(400)
+  );
 });
 
 test("debt scenarios route redirects to plan detail", async ({ page }) => {
