@@ -100,6 +100,81 @@ $$;
 comment on function public.link_plan_transaction(uuid, uuid, uuid) is
   'Links one expense to one plan. Spend may link at plan or item level. Shared spend may use the caller''s private payment.';
 
+-- Cast text status into the enum so upcoming/overdue create-and-link works.
+create or replace function public.create_and_link_plan_transaction(
+  p_plan_id uuid,
+  p_amount numeric,
+  p_description text,
+  p_date date,
+  p_category_id uuid,
+  p_currency text default 'PLN',
+  p_counterparty text default null,
+  p_status text default 'paid',
+  p_group_id uuid default null
+)
+returns uuid
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_actor uuid := auth.uid();
+  v_tx_id uuid;
+  v_status public.transaction_status;
+begin
+  if v_actor is null then
+    raise exception 'not_authenticated' using errcode = 'P0001';
+  end if;
+  if p_amount is null or p_amount <= 0 then
+    raise exception 'invalid_amount' using errcode = 'P0001';
+  end if;
+  if p_date is null then
+    raise exception 'invalid_date' using errcode = 'P0001';
+  end if;
+  if p_category_id is null then
+    raise exception 'category_required' using errcode = 'P0001';
+  end if;
+
+  begin
+    v_status := coalesce(nullif(btrim(p_status), ''), 'paid')::public.transaction_status;
+  exception
+    when invalid_text_representation then
+      raise exception 'spend_link_requires_known_status' using errcode = 'P0001';
+  end;
+
+  insert into public.transactions (
+    amount, currency, counterparty, description, date, type, status,
+    category_id, user_id, group_id
+  ) values (
+    abs(p_amount),
+    coalesce(nullif(btrim(p_currency), ''), 'PLN'),
+    nullif(btrim(p_counterparty), ''),
+    coalesce(nullif(btrim(p_description), ''), 'Transakcja'),
+    p_date::timestamptz,
+    'expense',
+    v_status,
+    p_category_id,
+    v_actor,
+    p_group_id
+  )
+  returning id into v_tx_id;
+
+  perform public.link_plan_transaction(p_plan_id, v_tx_id);
+  return v_tx_id;
+end;
+$$;
+
+comment on function public.create_and_link_plan_transaction(
+  uuid, numeric, text, date, uuid, text, text, text, uuid
+) is
+  'Creates an expense and links it to a plan in one transaction (rolls back on link failure).';
+
+revoke all on function public.create_and_link_plan_transaction(
+  uuid, numeric, text, date, uuid, text, text, text, uuid
+) from public, anon;
+grant execute on function public.create_and_link_plan_transaction(
+  uuid, numeric, text, date, uuid, text, text, text, uuid
+) to authenticated, service_role;
+
 create or replace function public.list_spend_item_settlements(p_plan_id uuid)
 returns table (
   link_id uuid,
