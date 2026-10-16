@@ -888,11 +888,6 @@
         <div class="mb-2 flex items-center justify-between gap-2">
           <p class="text-eyebrow text-slate-400">{m.cockpit_upcoming_title()}</p>
           <div class="flex items-center gap-3">
-            {#if activeRecurringCount > 0}
-              <span class="text-xs text-slate-400">
-                {m.recurring_entry()} ({activeRecurringCount})
-              </span>
-            {/if}
             {#if upcomingTxs.length > 0 || activeRecurringCount > 0}
               <a href={upcomingHref} class="text-accent hover:text-accent text-xs font-medium">
                 {m.dashboard_upcoming_see_all()}

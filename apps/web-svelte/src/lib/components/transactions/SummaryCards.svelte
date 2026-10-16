@@ -45,7 +45,11 @@
   );
 
   const showFullRow = $derived(!activeType);
-  const showSplit = $derived(breakdown != null && !activeType);
+  const showSplit = $derived(
+    breakdown != null &&
+      !activeType &&
+      (breakdown.income.open !== 0 || breakdown.expense.open !== 0)
+  );
   const canDrill = $derived(!!ondrill);
 
   const incomeCardClass = $derived(

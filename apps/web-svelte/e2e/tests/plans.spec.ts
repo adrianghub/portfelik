@@ -33,12 +33,14 @@ test("changes a plan icon while preserving its financial fields", async ({ page 
   });
   await page.goto(`/plans/${plan.id}`);
   await expect(page.getByRole("button", { name: "Wróć" })).toBeVisible();
+  await page.getByRole("button", { name: "Edytuj", exact: true }).click();
   await page.getByText("Ikona planu", { exact: true }).click();
   await page.getByLabel("Ikona", { exact: true }).selectOption("plane");
   await page.getByRole("button", { name: "Zapisz", exact: true }).click();
   await expect(page.getByRole("button", { name: "Zapisz", exact: true })).toBeDisabled();
   expect(saved).toEqual({ icon: "plane" });
   await page.reload();
+  await page.getByRole("button", { name: "Edytuj", exact: true }).click();
   await page.getByText("Ikona planu", { exact: true }).click();
   await expect(page.getByLabel("Ikona", { exact: true })).toHaveValue("plane");
 });
@@ -67,7 +69,7 @@ test.describe("plans mobile period visibility", () => {
   test("shows the complete plan deadline without horizontal overflow", async ({ page }) => {
     await page.goto("/plans");
     await page.getByRole("link", { name: /Nowy samochód/ }).click();
-    await expect(page.getByRole("button", { name: "Termin celu" })).toContainText("30.06.2027");
+    await expect(page.getByTestId("plan-summary")).toContainText("30.06.2027");
     await expect(
       page
         .getByRole("navigation", { name: "Ścieżka nawigacji" })

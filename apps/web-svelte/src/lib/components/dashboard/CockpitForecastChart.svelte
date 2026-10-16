@@ -11,7 +11,7 @@
   } from "$lib/cockpit/forecast-chart";
   import { motionDuration } from "$lib/motion";
   import * as m from "$lib/paraglide/messages";
-  import { formatCurrency } from "$lib/utils";
+  import { formatCurrency, formatDate } from "$lib/utils";
 
   let {
     points,
@@ -166,6 +166,10 @@
   }
 
   function onPointerMove(event: PointerEvent) {
+    if (event.pointerType === "mouse" && !pointerOrigin.active) {
+      scrub = scrubAtRatio(points, ratioFromEvent(event), rangeStart, rangeEnd);
+      return;
+    }
     if (!pointerOrigin.active) return;
     const dx = event.clientX - pointerOrigin.x;
     const dy = event.clientY - pointerOrigin.y;
@@ -183,9 +187,9 @@
   function scrubLabel(point: CockpitChartPoint): string {
     if (point.kind === "forecast") return m.cockpit_scrub_forecast();
     if (confirmOnScrub && point.kind === "confirmed") {
-      return m.analysis_scrub_confirmed({ date: axisDateLabel(point.date) });
+      return m.analysis_confirmed_caption();
     }
-    return axisDateLabel(point.date);
+    return historyLabel;
   }
 
   const showLegend = $derived(
@@ -221,6 +225,9 @@
         onpointermove={onPointerMove}
         onpointerup={onPointerUp}
         onpointercancel={onPointerUp}
+        onpointerleave={() => {
+          if (!pointerOrigin.active) scrub = null;
+        }}
       >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -228,6 +235,7 @@
             <stop offset="100%" stop-color="var(--color-chart-fill)" stop-opacity="0" />
           </linearGradient>
         </defs>
+        <rect {width} {height} fill="transparent" />
         {#each ticks as tick (tick)}
           <line
             x1="0"
@@ -302,9 +310,11 @@
       {#if scrub}
         <div
           class="pointer-events-none absolute z-10 w-max max-w-40 -translate-x-1/2 rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-200 shadow-xl"
-          style="left: {dateRatio(scrub.point.date, rangeStart, rangeEnd) * 100}%; top: 8px"
+          style="left: clamp(80px, {dateRatio(scrub.point.date, rangeStart, rangeEnd) *
+            100}%, calc(100% - 80px)); top: 8px"
           data-testid="cockpit-scrub"
         >
+          <p class="font-medium">{formatDate(scrub.point.date)}</p>
           <p>{scrubLabel(scrub.point)}</p>
           <p class="font-medium tabular-nums">{formatCurrency(scrub.point.balance)}</p>
         </div>

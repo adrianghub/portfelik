@@ -1,6 +1,18 @@
 {
   "versions": [
     {
+      "version": "1.3.18",
+      "versionCode": 26,
+      "date": "2026-10-16",
+      "items": [
+        "Prognoza na start Analiz.",
+        "Daty na wykresach i płynniejsza nawigacja.",
+        "Czytelne filtry i podsumowania.",
+        "Spójne szczegóły planów.",
+        "Prostszy Kokpit."
+      ]
+    },
+    {
       "version": "1.3.17",
       "versionCode": 25,
       "date": "2026-10-16",

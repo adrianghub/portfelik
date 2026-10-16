@@ -17,7 +17,6 @@
   } from "$lib/services/plan-settlement";
   import { isSettlementStatus } from "$lib/services/plan-settlement-policy";
   import DebtPlanDetail from "$lib/components/plans/DebtPlanDetail.svelte";
-  import PlanForwardNav from "$lib/components/plans/PlanForwardNav.svelte";
   import PlanAppearance from "$lib/components/plans/PlanAppearance.svelte";
   import PlanMark from "$lib/components/plans/PlanMark.svelte";
   import PlanMatchList from "$lib/components/plans/PlanMatchList.svelte";
@@ -52,7 +51,6 @@
   import type { GroupMemberRole, PlanKind, TransactionType } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
   import { navigateBack } from "$lib/utils/navigation";
-  import { planSettleHref } from "$lib/utils/plan-routes";
   import {
     PLAN_DETAIL_MATCH_LIMIT,
     pickTopPlanMatches,
@@ -69,10 +67,10 @@
   import { toast } from "svelte-sonner";
   import { localDateIso } from "$lib/date-local";
 
+  let settingsOpen = $state(false);
   const queryClient = useQueryClient();
   const id = $derived($page.params.id ?? "");
   const planDetailPath = $derived(`/plans/${id}`);
-  const settleHref = $derived(planSettleHref(id, $page.url.searchParams));
 
   beforeNavigate(({ from, to }) => {
     if (from?.url.pathname === planDetailPath && to && to.url.pathname !== planDetailPath) {
@@ -615,28 +613,38 @@
           </a>
         {/if}
       </div>
-      {#if canManage && plan.kind === "spend"}
+      {#if canManage}
         <div class="flex shrink-0 items-center gap-2">
           <button
             type="button"
             class="focus-visible:ring-accent min-h-11 rounded-full border border-white/10 px-3 text-sm text-slate-200 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
-            onclick={openSpendEdit}
+            onclick={() => {
+              if (plan.kind === "spend") openSpendEdit();
+              else settingsOpen = !settingsOpen;
+            }}
           >
             {m.common_edit()}
           </button>
-          <button
-            type="button"
-            class="focus-visible:ring-accent flex size-11 items-center justify-center rounded-full border border-white/10 text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
-            aria-label={m.plan_more_actions()}
-            onclick={() => (spendMoreOpen = true)}
-          >
-            <MoreHorizontal size={16} strokeWidth={1.8} aria-hidden="true" />
-          </button>
+          {#if plan.kind === "spend"}
+            <button
+              type="button"
+              class="focus-visible:ring-accent flex size-11 items-center justify-center rounded-full border border-white/10 text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+              aria-label={m.plan_more_actions()}
+              onclick={() => (spendMoreOpen = true)}
+            >
+              <MoreHorizontal size={16} strokeWidth={1.8} aria-hidden="true" />
+            </button>
+          {/if}
         </div>
       {/if}
     </div>
 
-    {#if canManage && plan.kind !== "spend"}<PlanAppearance {plan} />{/if}
+    {#if canManage && plan.kind !== "spend" && settingsOpen}
+      <section aria-label={m.plan_details_settings()} class="space-y-3">
+        <h2 class="text-sm font-medium text-slate-300">{m.plan_details_settings()}</h2>
+        <PlanAppearance {plan} />
+      </section>
+    {/if}
 
     {#if plan.kind === "save" && progress}
       {#if plan.group_id && !canManage}
@@ -647,6 +655,7 @@
         </p>
       {/if}
       <SavePlanDetail
+        editing={settingsOpen}
         {plan}
         {progress}
         onAdjust={canManage
@@ -690,6 +699,7 @@
         </div>
       {/if}
       <DebtPlanDetail
+        bind:editing={settingsOpen}
         planId={id}
         terms={debtTermsQuery.data}
         planStartDate={plan.start_date}
@@ -708,7 +718,6 @@
         syncing={syncBalanceMutation.isPending}
         termsSaving={debtTermsMutation.isPending}
       />
-      <PlanForwardNav href={settleHref} title={m.plan_debt_link_payments()} variant="action" />
     {:else if plan.kind === "spend"}
       <SpendPlanDetail {plan} {canManage} focusItemId={$page.url.searchParams.get("item")} />
     {/if}

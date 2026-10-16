@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PlanSummary from "$lib/components/plans/PlanSummary.svelte";
   import DayPicker from "$lib/components/ui/DayPicker.svelte";
   import Dialog from "$lib/components/ui/Dialog.svelte";
   import InfoTooltip from "$lib/components/ui/InfoTooltip.svelte";
@@ -31,7 +32,7 @@
   import type { Plan } from "$lib/types";
   import { formatCurrency, formatDate } from "$lib/utils";
   import { createQuery, useQueryClient } from "@tanstack/svelte-query";
-  import { MoreHorizontal, Plus } from "lucide-svelte";
+  import { ChevronRight, MoreHorizontal, Plus } from "lucide-svelte";
   import { toast } from "svelte-sonner";
 
   let {
@@ -317,18 +318,15 @@
   }
 </script>
 
-<section
-  class="space-y-6 md:grid md:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)] md:items-start md:space-y-0 md:gap-x-10"
-  aria-labelledby="spend-summary-heading"
->
-  <div class="rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3">
+<section class="space-y-6" aria-labelledby="spend-summary-heading">
+  <PlanSummary label={m.plan_spend_budget_left_label()}>
     <div class="flex items-start justify-between gap-3">
       <h2 id="spend-summary-heading" class="text-sm text-slate-400">
         {m.plan_spend_budget_left_label()}
       </h2>
       <InfoTooltip label={m.plan_spend_rules_label()} text={m.plan_spend_rules()} />
     </div>
-    <p class="mt-1 text-3xl font-semibold text-slate-100 tabular-nums">
+    <p class="mt-2 text-3xl font-semibold text-slate-100 tabular-nums sm:text-4xl">
       {#if summary.cushion < 0}
         {m.plan_spend_over_budget({ amount: formatCurrency(Math.abs(summary.cushion)) })}
       {:else}
@@ -354,7 +352,7 @@
         style="width: {usedPct}%"
       ></div>
     </div>
-    <dl class="mt-2 space-y-1 text-sm text-slate-400">
+    <dl class="mt-5 grid gap-x-8 gap-y-3 text-sm text-slate-400 sm:grid-cols-2 lg:grid-cols-3">
       <div class="flex justify-between gap-2">
         <dt>{m.plan_spend_paid()}</dt>
         <dd class="text-slate-200 tabular-nums">{formatCurrency(summary.spent)}</dd>
@@ -384,28 +382,32 @@
         </dd>
       </div>
     </dl>
-  </div>
+  </PlanSummary>
 
-  <div class="space-y-2">
+  <div class="space-y-3">
+    {#if canManage}
+      <button
+        type="button"
+        class="focus-visible:ring-accent flex min-h-11 w-full items-center justify-between rounded-xl border border-white/10 bg-slate-900/50 px-4 py-3 text-left text-sm font-medium text-slate-100 hover:bg-slate-900/70 focus-visible:ring-2 focus-visible:outline-none"
+        aria-expanded={linkingPlan}
+        onclick={togglePlanLink}
+      >
+        {linkingPlan ? m.plan_spend_link_close() : m.plan_spend_link_existing()}
+        <ChevronRight size={18} class={linkingPlan ? "rotate-90" : ""} aria-hidden="true" />
+      </button>
+    {/if}
     <div class="flex flex-wrap items-center justify-between gap-3">
       <h3 class="text-sm font-semibold text-slate-100">{m.plan_spend_items()}</h3>
       {#if canManage}
         <div class="flex items-center gap-2">
           <button
             type="button"
-            class="focus-visible:ring-accent inline-flex min-h-9 items-center rounded-full border border-white/10 px-3 text-xs font-medium text-slate-200 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
-            aria-expanded={linkingPlan}
-            onclick={togglePlanLink}
-          >
-            {linkingPlan ? m.plan_spend_link_close() : m.plan_spend_link_existing()}
-          </button>
-          <button
-            type="button"
-            class="bg-accent-gradient focus-visible:ring-accent grid size-8 place-items-center rounded-full text-slate-900 focus-visible:ring-2 focus-visible:outline-none"
+            class="focus-visible:ring-accent inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 px-4 text-sm text-slate-200 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
             aria-label={m.plan_item_add_open()}
             onclick={openAdd}
           >
             <Plus size={16} aria-hidden="true" />
+            {m.plan_spend_add_cost()}
           </button>
         </div>
       {/if}

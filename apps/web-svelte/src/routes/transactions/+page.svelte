@@ -151,7 +151,13 @@
     new Set(($page.url.searchParams.get("categoryIds") ?? "").split(",").filter(Boolean))
   );
   const categoryId = $derived($page.url.searchParams.get("categoryId") ?? undefined);
-  const statusFilter = $derived($page.url.searchParams.get("status") ?? undefined);
+  const statusFilter = $derived.by(() => {
+    const order = ["paid", "upcoming", "overdue", "draft"];
+    const raw = $page.url.searchParams.get("status");
+    if (!raw) return undefined;
+    const selected = new Set(raw.split(","));
+    return order.filter((status) => selected.has(status)).join(",") || undefined;
+  });
   const typeFilter = $derived(
     ($page.url.searchParams.get("type") as "income" | "expense" | null) ?? undefined
   );
@@ -604,7 +610,7 @@
     else if (key === "net-projected" || key.endsWith("total")) {
       p.set("status", "paid,upcoming,overdue");
     }
-    goto(`/transactions?${p.toString()}`, { replaceState: false });
+    goto(`/transactions?${p.toString()}`, { replaceState: false, noScroll: true, keepFocus: true });
   }
 
   const tableEmptyLabel = $derived.by(() => {
@@ -969,7 +975,7 @@
     p.delete("startMonth");
     p.delete("endYear");
     p.delete("endMonth");
-    goto(`/transactions?${p.toString()}`, { replaceState: false });
+    goto(`/transactions?${p.toString()}`, { replaceState: false, noScroll: true, keepFocus: true });
   }
 
   function onClearDateFilter() {
@@ -980,28 +986,28 @@
     p.delete("startMonth");
     p.delete("endYear");
     p.delete("endMonth");
-    goto(`/transactions?${p.toString()}`, { replaceState: false });
+    goto(`/transactions?${p.toString()}`, { replaceState: false, noScroll: true, keepFocus: true });
   }
 
   function onTypeChange(type: "income" | "expense" | undefined) {
     const p = new URLSearchParams($page.url.searchParams);
     if (type) p.set("type", type);
     else p.delete("type");
-    goto(`/transactions?${p.toString()}`, { replaceState: false });
+    goto(`/transactions?${p.toString()}`, { replaceState: false, noScroll: true, keepFocus: true });
   }
 
   function onStatusChange(status: string | undefined) {
     const p = new URLSearchParams($page.url.searchParams);
     if (status) p.set("status", status);
     else p.delete("status");
-    goto(`/transactions?${p.toString()}`, { replaceState: false });
+    goto(`/transactions?${p.toString()}`, { replaceState: false, noScroll: true, keepFocus: true });
   }
 
   function onClearFilters() {
     const p = new URLSearchParams($page.url.searchParams);
     p.delete("type");
     p.delete("status");
-    goto(`/transactions?${p.toString()}`, { replaceState: false });
+    goto(`/transactions?${p.toString()}`, { replaceState: false, noScroll: true, keepFocus: true });
   }
 
   // Quick-view preset actions. Each mutates the shared URL filter state; no
@@ -1010,16 +1016,28 @@
     const p = new URLSearchParams($page.url.searchParams);
     if (view && viewFilter !== view) p.set("view", view);
     else p.delete("view"); // toggle off when re-tapping the active preset
-    goto(`/transactions?${p.toString()}`, { replaceState: false });
+    goto(`/transactions?${p.toString()}`, { replaceState: false, noScroll: true, keepFocus: true });
   }
 
-  const statusLabels: Record<string, string> = {
-    paid: m.transactions_status_paid(),
-    upcoming: m.transactions_status_upcoming(),
-    draft: m.transactions_status_draft(),
-    overdue: m.transactions_status_overdue(),
-    "upcoming,overdue": m.dashboard_upcoming_title(),
-  };
+  function statusFilterLabel(value: string): string {
+    const labels: Record<string, string> = {
+      paid: m.transactions_status_paid(),
+      upcoming: m.transactions_status_upcoming(),
+      draft: m.transactions_status_draft(),
+      overdue: m.transactions_status_overdue(),
+    };
+    const statuses = [...new Set(value.split(",").filter((status) => status in labels))];
+    if (
+      statuses.length === 3 &&
+      ["paid", "upcoming", "overdue"].every((status) => statuses.includes(status))
+    )
+      return m.transactions_status_combined();
+    if (statuses.length === 2 && statuses.includes("upcoming") && statuses.includes("overdue"))
+      return m.dashboard_upcoming_title();
+    return (
+      statuses.map((status) => labels[status]).join(", ") || m.transactions_filter_all_statuses()
+    );
+  }
 
   // Applied filters shown as removable chips below the toolbar (only when set).
   const activeFilters = $derived.by(() => {
@@ -1032,14 +1050,14 @@
         clear: () => onCategoryChange(undefined),
       });
     }
-    if (currencyFilter) {
+    if (currencyFilter && txQuery.data?.some((tx) => !isSupportedLedgerCurrency(tx.currency))) {
       chips.push({
         key: "currency",
-        label: currencyFilter,
+        label: m.transactions_currency_filter({ currency: currencyFilter }),
         clear: () => {
           const params = new URLSearchParams($page.url.searchParams);
           params.delete("currency");
-          void goto(`/transactions?${params}`);
+          void goto(`/transactions?${params}`, { noScroll: true, keepFocus: true });
         },
       });
     }
@@ -1056,7 +1074,7 @@
           const remaining = [...multipleCategoryIds].filter((value) => value !== id);
           if (remaining.length) params.set("categoryIds", remaining.join(","));
           else params.delete("categoryIds");
-          void goto(`/transactions?${params}`);
+          void goto(`/transactions?${params}`, { noScroll: true, keepFocus: true });
         },
       });
     }
@@ -1070,7 +1088,7 @@
     if (statusFilter) {
       chips.push({
         key: "status",
-        label: statusLabels[statusFilter] ?? statusFilter,
+        label: statusFilterLabel(statusFilter),
         clear: () => onStatusChange(undefined),
       });
     }
@@ -1124,7 +1142,7 @@
     else p.set("group", filters.group);
     if (filters.view) p.set("view", filters.view);
     else p.delete("view");
-    goto(`/transactions?${p.toString()}`, { replaceState: false });
+    goto(`/transactions?${p.toString()}`, { replaceState: false, noScroll: true, keepFocus: true });
   }
 
   function onCategoryChange(id: string | undefined) {
@@ -1132,7 +1150,11 @@
     params.delete("categoryIds");
     if (id) params.set("categoryId", id);
     else params.delete("categoryId");
-    goto(`/transactions?${params.toString()}`, { replaceState: false });
+    goto(`/transactions?${params.toString()}`, {
+      replaceState: false,
+      noScroll: true,
+      keepFocus: true,
+    });
   }
 
   function closeTransactionSheet() {
