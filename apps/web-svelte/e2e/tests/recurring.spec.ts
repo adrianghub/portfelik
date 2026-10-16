@@ -66,12 +66,14 @@ test.describe("recurring entry links", () => {
     await expect(page.getByRole("heading", { name: "Transakcje" })).toBeVisible();
   });
 
-  test("dashboard keeps recurring count and one link to upcoming transactions", async ({
+  test("dashboard shows one upcoming section and one link to its transactions", async ({
     page,
   }) => {
     await page.goto("/dashboard");
 
-    await expect(page.getByText(/Nadchodzące \(\d+\)/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Najbliższe operacje", { exact: true })).toBeVisible({
+      timeout: 10000,
+    });
     await expect(page.getByRole("link", { name: /Nadchodzące \(\d+\)/ })).toHaveCount(0);
     await page.getByRole("link", { name: "Zobacz wszystkie", exact: true }).click();
 

@@ -1,5 +1,11 @@
 <script lang="ts">
-  import { goto } from "$app/navigation";
+  import { beforeNavigate, goto } from "$app/navigation";
+  import { tick } from "svelte";
+  import {
+    saveScrollPosition,
+    restoreScrollPosition,
+    scrollRestoreKey,
+  } from "$lib/utils/scroll-restore";
   import { page } from "$app/stores";
   import {
     analysisForecastEnd,
@@ -57,7 +63,11 @@
     if (spans.some((item) => item.value === raw) || raw === "week") return raw as AnalysisSpan;
     return "all";
   });
-  const mode = $derived($page.url.searchParams.get("mode") === "forecast" ? "forecast" : "history");
+  const mode = $derived.by(() => {
+    const explicit = $page.url.searchParams.get("mode");
+    if (explicit === "history" || explicit === "forecast") return explicit;
+    return $page.url.searchParams.has("span") || groupFilter !== "own" ? "history" : "forecast";
+  });
   const horizons: { value: ForecastHorizon; label: string }[] = [
     { value: "month", label: m.analysis_horizon_month() },
     { value: "year", label: m.analysis_horizon_year() },
@@ -135,7 +145,39 @@
   });
   let customFrom = $state("");
   let customTo = $state("");
-  let selectedHistoryDate = $state("");
+  const selectedHistoryDate = $derived($page.url.searchParams.get("historyDay") ?? "");
+  function setHistoryDay(date: string) {
+    const params = new URLSearchParams($page.url.searchParams);
+    params.set("historyDay", date);
+    void goto(`/analysis?${params}`, { noScroll: true, keepFocus: true });
+  }
+  let analysisElement = $state<HTMLDivElement | null>(null);
+  let pendingHeight = $state(0);
+  let pendingScroll = $state<number | null>(null);
+  let categoryControlsOpen = $state(false);
+  $effect(() => {
+    if (selectedCategoryIds.size > 0) categoryControlsOpen = true;
+  });
+  beforeNavigate(({ from, to }) => {
+    if (from?.url?.pathname === "/analysis" && to?.url?.pathname === "/analysis") {
+      pendingHeight = analysisElement?.offsetHeight ?? 0;
+      pendingScroll = window.scrollY;
+    }
+    if (from?.url?.pathname === "/analysis" && to?.url?.pathname !== "/analysis")
+      saveScrollPosition(scrollRestoreKey(from.url.pathname + from.url.search));
+  });
+  $effect(() => {
+    if (loading || failed) return;
+    const key = scrollRestoreKey($page.url.pathname + $page.url.search);
+    const scroll = pendingScroll;
+    void tick().then(() => {
+      if (scroll !== null) {
+        pendingHeight = 0;
+        pendingScroll = null;
+        window.scrollTo({ top: scroll, left: 0, behavior: "instant" });
+      } else restoreScrollPosition(key);
+    });
+  });
   $effect(() => {
     customFrom = customRange.start;
     customTo = customRange.end;
@@ -255,34 +297,29 @@
     })
   );
 
-  const historyWindowKey = $derived(`${overview.start}:${overview.end}`);
-  $effect(() => {
-    if (mode === "history") {
-      void historyWindowKey;
-      selectedHistoryDate = "";
-    }
-  });
-
   const categoryChoices = $derived.by(() => {
-    const choices = new Map<string, string>();
+    const choices = new Map<string, Set<string>>();
     for (const row of scopedFlows) {
       if (row.status !== "paid") continue;
       const date = row.date.slice(0, 10);
       if (date < overview.start || date > overview.end) continue;
-      choices.set(row.categoryId || "none", row.categoryName?.trim() || m.analysis_uncategorized());
+      const name = row.categoryName?.trim() || m.analysis_uncategorized();
+      const ids = choices.get(name) ?? new Set<string>();
+      ids.add(row.categoryId || "none");
+      choices.set(name, ids);
     }
     return [...choices]
-      .map(([id, name]) => ({ id, name }))
+      .map(([name, ids]) => ({ name, ids: [...ids] }))
       .sort((a, b) => a.name.localeCompare(b.name, "pl"));
   });
-  function setCategory(id: string | null) {
-    const ids = new Set(selectedCategoryIds);
-    if (id == null) ids.clear();
-    else if (ids.has(id)) ids.delete(id);
-    else ids.add(id);
+  function setCategory(ids: string[] | null) {
+    const selected = new Set(selectedCategoryIds);
+    if (ids == null) selected.clear();
+    else if (ids.every((id) => selected.has(id))) ids.forEach((id) => selected.delete(id));
+    else ids.forEach((id) => selected.add(id));
     const params = new URLSearchParams($page.url.searchParams);
     params.delete("category");
-    for (const value of ids) params.append("category", value);
+    for (const value of selected) params.append("category", value);
     void goto(`/analysis?${params}`, { keepFocus: true, noScroll: true });
   }
   function setGrouping(next: string) {
@@ -363,6 +400,9 @@
 
   function setSpan(next: AnalysisSpan) {
     const params = new URLSearchParams($page.url.searchParams);
+    params.set("mode", "history");
+    params.delete("historyDay");
+    params.delete("month");
     if (next === "all") params.delete("span");
     else params.set("span", next);
     const query = params.toString();
@@ -373,6 +413,8 @@
     if (!validAnalysisRange({ start: customFrom, end: customTo }, today)) return;
     const params = new URLSearchParams($page.url.searchParams);
     params.set("span", "custom");
+    params.delete("historyDay");
+    params.delete("month");
     params.set("from", customFrom);
     params.set("to", customTo);
     void goto(`/analysis?${params}`, { keepFocus: true, noScroll: true });
@@ -385,13 +427,18 @@
 
   function setMode(next: "history" | "forecast") {
     const params = new URLSearchParams($page.url.searchParams);
-    if (next === "history") params.delete("mode");
-    else params.set("mode", next);
+    params.set("mode", next);
+    params.delete("month");
     void goto(`/analysis?${params}`, { keepFocus: true, noScroll: true });
   }
   function setHorizon(next: ForecastHorizon) {
     const params = new URLSearchParams($page.url.searchParams);
     params.set("horizon", next);
+    const end = analysisForecastEnd(today, next);
+    const month = params.get("month");
+    if (month && (month < today.slice(0, 7) || month > end.slice(0, 7))) params.delete("month");
+    const day = params.get("day");
+    if (day && (day < today || day > end)) params.delete("day");
     void goto(`/analysis?${params}`, { keepFocus: true, noScroll: true });
   }
 
@@ -410,7 +457,11 @@
   <title>{m.analysis_title()} · JakStoimy</title>
 </svelte:head>
 
-<div class="container mx-auto max-w-4xl min-w-0 space-y-4 px-4 py-6">
+<div
+  bind:this={analysisElement}
+  style:min-height={pendingHeight ? `${pendingHeight}px` : undefined}
+  class="container mx-auto max-w-4xl min-w-0 space-y-4 px-4 py-6"
+>
   <div>
     <h1 class="text-2xl font-semibold tracking-tight text-slate-100">{m.analysis_title()}</h1>
     <p class="mt-1 text-sm text-slate-400">{m.analysis_intro()}</p>
@@ -514,18 +565,9 @@
       {#if forecast}
         <div class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
           <div>
-            <p class="text-xs text-slate-400">{m.analysis_forecast_today()}</p>
-            <p
-              class="mt-1 text-lg font-semibold tabular-nums"
-              data-testid="analysis-forecast-today"
-            >
-              {formatCurrency(forecast.balance)}
-            </p>
-          </div>
-          <div>
             <p class="text-xs text-slate-400">{m.analysis_forecast_final()}</p>
             <p
-              class="mt-1 text-lg font-semibold tabular-nums"
+              class="mt-1 text-2xl font-semibold text-slate-100 tabular-nums"
               data-testid="analysis-forecast-final"
             >
               {formatCurrency(forecast.finalBalance)}
@@ -533,6 +575,15 @@
             <p class="text-xs text-slate-500">
               {axisDayLabel(forecast.end)}
               {forecast.end.slice(0, 4)}
+            </p>
+          </div>
+          <div>
+            <p class="text-xs text-slate-400">{m.analysis_forecast_today()}</p>
+            <p
+              class="mt-1 text-lg font-semibold tabular-nums"
+              data-testid="analysis-forecast-today"
+            >
+              {formatCurrency(forecast.balance)}
             </p>
           </div>
           <div>
@@ -566,6 +617,14 @@
             />
           </div>
         {/if}
+        {#if forecastLowest}
+          <p class="mt-3 text-sm text-slate-400" data-testid="analysis-forecast-lowest">
+            {m.cockpit_lowest_balance_on({
+              amount: formatCurrency(forecastLowest.balance),
+              date: formatDate(forecastLowest.date),
+            })}
+          </p>
+        {/if}
         <div class="mt-3 grid items-end gap-3 sm:grid-cols-2">
           <DayPicker
             label={m.analysis_forecast_on_day()}
@@ -578,110 +637,6 @@
             {forecastPoint ? formatCurrency(forecastPoint.balance) : m.analysis_no_day_balance()}
           </p>
         </div>
-        {#if forecast.bars.some((bar) => bar.income > 0 || bar.expense > 0)}
-          <div
-            class="mt-4 border-t border-white/5 pt-3"
-            data-testid="analysis-forecast-bars"
-            aria-label={m.analysis_forecast_flows_title()}
-          >
-            <h3 class="text-sm font-medium text-slate-300">{m.analysis_forecast_flows_title()}</h3>
-            <div class="mt-2 flex gap-3 text-xs text-slate-400">
-              <span class="flex items-center gap-1"
-                ><span class="bg-positive h-2 w-2 rounded-sm" aria-hidden="true"
-                ></span>{m.analysis_forecast_income()}</span
-              ><span class="flex items-center gap-1"
-                ><span class="bg-negative h-2 w-2 rounded-sm" aria-hidden="true"
-                ></span>{m.analysis_forecast_expense()}</span
-              >
-            </div>
-            <div class="mt-3 flex gap-1 overflow-x-auto pb-1">
-              {#each forecast.bars as bar (bar.key)}
-                <a
-                  class="group focus-visible:ring-accent block min-w-2 flex-1 rounded focus-visible:ring-2 focus-visible:outline-none"
-                  data-testid="analysis-forecast-bar-link"
-                  href={forecastTxUrl(bar)}
-                  aria-label={m.analysis_bar_details({
-                    period: `${formatDate(bar.start)} – ${formatDate(bar.end)}`,
-                    income: formatCurrency(bar.income),
-                    expense: formatCurrency(bar.expense),
-                  })}
-                  title={m.analysis_bar_details({
-                    period: `${formatDate(bar.start)} – ${formatDate(bar.end)}`,
-                    income: formatCurrency(bar.income),
-                    expense: formatCurrency(bar.expense),
-                  })}
-                  onclick={(event) => {
-                    event.preventDefault();
-                    setSelectedMonth(monthKeyFromIso(bar.start));
-                  }}
-                >
-                  <div class="flex h-24 items-end justify-center gap-0.5 group-hover:bg-white/5">
-                    <div
-                      class="bg-positive w-1/3 rounded-sm"
-                      style="height: {(bar.income / forecastMaxBar) * 100}%"
-                    ></div>
-                    <div
-                      class="bg-negative w-1/3 rounded-sm"
-                      style="height: {(bar.expense / forecastMaxBar) * 100}%"
-                    ></div>
-                  </div>
-                </a>
-              {/each}
-            </div>
-            <div class="mt-1 flex justify-between text-[11px] text-slate-400">
-              <span
-                >{barLabel(
-                  forecast.bars[0].key,
-                  forecast.bars[0].start,
-                  forecast.bars.at(-1)!.end
-                )}</span
-              >{#if forecast.bars.length > 2}<span
-                  >{barLabel(
-                    forecast.bars[Math.floor(forecast.bars.length / 2)].key,
-                    forecast.bars[0].start,
-                    forecast.bars.at(-1)!.end
-                  )}</span
-                >{/if}<span
-                >{barLabel(
-                  forecast.bars.at(-1)!.key,
-                  forecast.bars[0].start,
-                  forecast.bars.at(-1)!.end
-                )}</span
-              >
-            </div>
-            <p class="mt-2 text-xs text-slate-500">{m.analysis_forecast_bar_hint()}</p>
-          </div>
-        {/if}
-        {#if forecast.categories.length > 0}
-          <section
-            class="mt-4 border-t border-white/5 pt-3"
-            aria-label={m.analysis_forecast_categories_title()}
-            data-testid="analysis-forecast-categories"
-          >
-            <h3 class="text-sm font-medium text-slate-300">
-              {m.analysis_forecast_categories_title()}
-            </h3>
-            <ul class="mt-3 space-y-2">
-              {#each forecast.categories as category (category.id)}
-                <li class="flex items-baseline justify-between gap-3 text-sm">
-                  <span class="min-w-0 truncate text-slate-200">{categoryName(category.name)}</span>
-                  <span class="shrink-0 text-slate-100 tabular-nums">
-                    {formatCurrency(category.amount)}
-                    <span class="text-xs text-slate-500">({category.share}%)</span>
-                  </span>
-                </li>
-              {/each}
-            </ul>
-          </section>
-        {/if}
-        {#if forecastLowest}
-          <p class="mt-3 text-sm text-slate-400" data-testid="analysis-forecast-lowest">
-            {m.cockpit_lowest_balance_on({
-              amount: formatCurrency(forecastLowest.balance),
-              date: formatDate(forecastLowest.date),
-            })}
-          </p>
-        {/if}
         {#if forecastMonthDetail}
           <section
             class="mt-4 rounded-xl border border-white/5 bg-slate-950/40 p-3"
@@ -764,6 +719,102 @@
             </a>
           </section>
         {/if}
+        {#if forecast.bars.some((bar) => bar.income > 0 || bar.expense > 0)}
+          <div
+            class="mt-4 border-t border-white/5 pt-3"
+            data-testid="analysis-forecast-bars"
+            aria-label={m.analysis_forecast_flows_title()}
+          >
+            <h3 class="text-sm font-medium text-slate-300">{m.analysis_forecast_flows_title()}</h3>
+            <div class="mt-2 flex gap-3 text-xs text-slate-400">
+              <span class="flex items-center gap-1"
+                ><span class="bg-positive h-2 w-2 rounded-sm" aria-hidden="true"
+                ></span>{m.analysis_forecast_income()}</span
+              ><span class="flex items-center gap-1"
+                ><span class="bg-negative h-2 w-2 rounded-sm" aria-hidden="true"
+                ></span>{m.analysis_forecast_expense()}</span
+              >
+            </div>
+            <div class="mt-3 flex gap-1 overflow-x-auto pb-1">
+              {#each forecast.bars as bar (bar.key)}
+                <a
+                  class="group focus-visible:ring-accent block min-w-2 flex-1 rounded focus-visible:ring-2 focus-visible:outline-none"
+                  data-testid="analysis-forecast-bar-link"
+                  href={forecastTxUrl(bar)}
+                  aria-label={m.analysis_bar_details({
+                    period: `${formatDate(bar.start)} – ${formatDate(bar.end)}`,
+                    income: formatCurrency(bar.income),
+                    expense: formatCurrency(bar.expense),
+                  })}
+                  title={m.analysis_bar_details({
+                    period: `${formatDate(bar.start)} – ${formatDate(bar.end)}`,
+                    income: formatCurrency(bar.income),
+                    expense: formatCurrency(bar.expense),
+                  })}
+                  onclick={(event) => {
+                    event.preventDefault();
+                    setSelectedMonth(monthKeyFromIso(bar.start));
+                  }}
+                >
+                  <div class="flex h-24 items-end justify-center gap-0.5 group-hover:bg-white/5">
+                    <div
+                      class="bg-positive w-1/3 rounded-sm"
+                      style="height: {(bar.income / forecastMaxBar) * 100}%"
+                    ></div>
+                    <div
+                      class="bg-negative w-1/3 rounded-sm"
+                      style="height: {(bar.expense / forecastMaxBar) * 100}%"
+                    ></div>
+                  </div>
+                </a>
+              {/each}
+            </div>
+            <div class="mt-1 flex justify-between text-[11px] text-slate-400">
+              <span
+                >{barLabel(
+                  forecast.bars[0].key,
+                  forecast.bars[0].start,
+                  forecast.bars.at(-1)!.end
+                )}</span
+              >{#if forecast.bars.length > 2}<span
+                  >{barLabel(
+                    forecast.bars[Math.floor(forecast.bars.length / 2)].key,
+                    forecast.bars[0].start,
+                    forecast.bars.at(-1)!.end
+                  )}</span
+                >{/if}<span
+                >{barLabel(
+                  forecast.bars.at(-1)!.key,
+                  forecast.bars[0].start,
+                  forecast.bars.at(-1)!.end
+                )}</span
+              >
+            </div>
+            <p class="mt-2 text-xs text-slate-500">{m.analysis_forecast_bar_hint()}</p>
+          </div>
+        {/if}
+        {#if forecast.categories.length > 0}
+          <details
+            class="mt-4 border-t border-white/5 pt-3"
+            aria-label={m.analysis_forecast_categories_title()}
+            data-testid="analysis-forecast-categories"
+          >
+            <summary class="cursor-pointer text-sm font-medium text-slate-300">
+              {m.analysis_forecast_categories_title()}
+            </summary>
+            <ul class="mt-3 space-y-2">
+              {#each forecast.categories as category (category.id)}
+                <li class="flex items-baseline justify-between gap-3 text-sm">
+                  <span class="min-w-0 truncate text-slate-200">{categoryName(category.name)}</span>
+                  <span class="shrink-0 text-slate-100 tabular-nums">
+                    {formatCurrency(category.amount)}
+                    <span class="text-xs text-slate-500">({category.share}%)</span>
+                  </span>
+                </li>
+              {/each}
+            </ul>
+          </details>
+        {/if}
         <p class="mt-4 text-xs leading-relaxed text-slate-400">
           {m.analysis_forecast_disclaimer()}
         </p>
@@ -797,7 +848,7 @@
               label={m.analysis_balance_on_day()}
               value={selectedHistoryDate || overview.end}
               max={overview.end}
-              onchange={(date) => (selectedHistoryDate = date)}
+              onchange={setHistoryDay}
             />
             <p class="mt-2 text-xl font-semibold tabular-nums" data-testid="analysis-day-balance">
               {selectedPoint ? formatCurrency(selectedPoint.balance) : m.analysis_no_day_balance()}
@@ -850,7 +901,13 @@
       {/if}
     </section>
 
-    <div class="rounded-2xl border border-white/5 bg-slate-900/60 p-3 sm:p-5">
+    <details
+      class="rounded-2xl border border-white/5 bg-slate-900/60 p-3 sm:p-5"
+      bind:open={categoryControlsOpen}
+    >
+      <summary class="cursor-pointer text-sm font-medium text-slate-300"
+        >{m.analysis_categories_toggle()}</summary
+      >
       <fieldset aria-label={m.analysis_category_filters()} data-testid="analysis-category-filters">
         <legend class="text-sm font-medium text-slate-300">{m.analysis_category_filters()}</legend>
         <div class="mt-3 flex max-h-40 flex-wrap gap-2 overflow-y-auto">
@@ -865,17 +922,17 @@
             )}
             onclick={() => setCategory(null)}>{m.analysis_all_categories()}</button
           >
-          {#each categoryChoices as category (category.id)}
+          {#each categoryChoices as category (category.name)}
             <button
               type="button"
-              aria-pressed={selectedCategoryIds.has(category.id)}
+              aria-pressed={category.ids.every((id) => selectedCategoryIds.has(id))}
               class={cn(
                 "focus-visible:ring-accent min-h-11 rounded-full px-3 text-sm focus-visible:ring-2 focus-visible:outline-none",
-                selectedCategoryIds.has(category.id)
+                category.ids.every((id) => selectedCategoryIds.has(id))
                   ? "bg-accent-gradient text-slate-900"
                   : "bg-white/5 text-slate-300"
               )}
-              onclick={() => setCategory(category.id)}>{category.name}</button
+              onclick={() => setCategory(category.ids)}>{category.name}</button
             >
           {/each}
         </div>
@@ -897,7 +954,7 @@
         </select>
       </div>
       <p class="mt-2 text-xs text-slate-400">{m.analysis_category_balance_note()}</p>
-    </div>
+    </details>
     {#if overview.categories.length > 0}
       <section
         class="rounded-2xl border border-white/5 bg-slate-900/60 p-3 sm:p-5"
@@ -986,6 +1043,7 @@
                 class="group focus-visible:ring-accent block min-w-2 flex-1 rounded focus-visible:ring-2 focus-visible:outline-none"
                 data-testid="analysis-bar-link"
                 href={txUrl(bar)}
+                data-sveltekit-noscroll
                 aria-label={m.analysis_bar_details({
                   period: `${formatDate(bar.start)} – ${formatDate(bar.end)}`,
                   income: formatCurrency(bar.income),

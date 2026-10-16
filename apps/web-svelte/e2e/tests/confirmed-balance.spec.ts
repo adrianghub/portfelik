@@ -102,7 +102,7 @@ test.describe("confirmed balance", () => {
       })
     );
 
-    await page.goto("/analysis");
+    await page.goto("/analysis?mode=history");
     const balance = page.getByTestId("analysis-balance");
     await expect(balance.getByTestId("cockpit-chart")).toBeVisible();
     await expect(balance.getByText("Odtworzone")).toHaveCount(0);
@@ -175,7 +175,7 @@ test.describe("confirmed balance", () => {
       })
     );
 
-    await page.goto("/analysis");
+    await page.goto("/analysis?mode=history");
     const balance = page.getByTestId("analysis-balance");
     const chart = balance.getByTestId("cockpit-chart");
     await expect(chart).toBeVisible();

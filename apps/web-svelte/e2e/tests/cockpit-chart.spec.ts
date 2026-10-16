@@ -195,7 +195,8 @@ test.describe("cockpit forecast chart", () => {
     await expect(page.getByTestId("cockpit-history")).toHaveCount(0);
     await card.getByTestId("cockpit-see-analysis").click();
     await expect(page).toHaveURL(/\/analysis/);
-    await expect(page.getByRole("heading", { name: "Analiza budżetu" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Analizy" })).toBeVisible();
+    await page.getByRole("tab", { name: "Historia", exact: true }).click();
     await expect(page.getByTestId("analysis-balance")).toBeVisible();
     // Top-categories summary (chips) — BudgetCategoryHistory also titles "Kategorie".
     await expect(page.getByTestId("analysis-categories")).toBeVisible();

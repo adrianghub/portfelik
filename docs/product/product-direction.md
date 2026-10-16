@@ -82,8 +82,7 @@ This is the product contract:
 > intent. Settlement connects reality to intent. Kokpit shows financial
 > condition.
 
-Analiza budżetu answers what changed. It is a screen opened from Kokpit, not a bottom-nav
-item. Balance history starts on the opening-balance date and does not invent a
+Analizy opens the private forecast by default; explicit historical links keep their period and mode. Shared scopes open history until shared cash semantics are defined. It is a screen opened from Kokpit, not a bottom-nav item. Query-only exploration keeps scroll, and returning from transactions restores the selected period and position. Plan details share a full-width summary and a primary transaction-link action; editing is entered from the header. Balance history starts on the opening-balance date and does not invent a
 line before it. Income, expenses, and categories can still use earlier
 transactions. A household scope does not draw a private balance.
 
