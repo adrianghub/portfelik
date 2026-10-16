@@ -163,9 +163,11 @@ describe("spend plan budget", () => {
     expect(spendItemNeedsLink("cancelled", { settled: 200, remaining: 300 })).toBe(false);
   });
 
-  it("shows due copy only for confirmed obligations", () => {
+  it("shows due copy only for confirmed obligations, not deposits on estimates", () => {
     expect(spendItemShowsDue("estimated", { settled: 0, remaining: 500 })).toBe(false);
+    expect(spendItemShowsDue("estimated", { settled: 200, remaining: 300 })).toBe(false);
     expect(spendItemShowsDue("planned", { settled: 0, remaining: 500 })).toBe(false);
+    expect(spendItemShowsDue("planned", { settled: 200, remaining: 300 })).toBe(false);
     expect(spendItemShowsDue("confirmed", { settled: 0, remaining: 500 })).toBe(true);
     expect(spendItemShowsDue("confirmed", { settled: 200, remaining: 300 })).toBe(true);
     expect(spendItemShowsDue("confirmed", { settled: 500, remaining: 0 })).toBe(false);

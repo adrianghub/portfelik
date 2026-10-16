@@ -235,7 +235,11 @@
                   <dd class="text-slate-100 tabular-nums">{formatCurrency(openingAmount)}</dd>
                 </div>
                 <div class="flex justify-between gap-3">
-                  <dt class="text-slate-400">{m.cockpit_amount_source_paid_ops()}</dt>
+                  <dt class="text-slate-400">
+                    {m.cockpit_amount_source_paid_ops({
+                      date: anchorDate ? shortDayMonth(anchorDate) : "—",
+                    })}
+                  </dt>
                   <dd class="text-slate-100 tabular-nums">
                     {#if balanceSourceHref}
                       <a

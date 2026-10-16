@@ -59,7 +59,10 @@
     composeForecastExplanation,
     forecastCompositionHref,
   } from "$lib/services/forecast-composition";
-  import { appendConfirmedSpendForecast } from "$lib/plans/spend-forecast";
+  import {
+    appendConfirmedSpendForecast,
+    confirmedSpendForecastFlows,
+  } from "$lib/plans/spend-forecast";
   import { fetchPrivateSpendForecastSource } from "$lib/services/spend-forecast";
   import {
     forwardForecastTransactions,
@@ -673,9 +676,31 @@
         })
       : null
   );
-  const compositionPlanHref = $derived(
-    forecastComposition && forecastComposition.planRemainders > 0 ? "/plans?group=own" : null
-  );
+  const compositionPlanHref = $derived.by(() => {
+    if (!forecastComposition || forecastComposition.planRemainders <= 0) return null;
+    const source = spendForecastQuery.data;
+    if (!source) return "/plans?group=own";
+    const forecastTransactionIds = new Set(
+      cockpitMonthRows.filter((row) => row.groupId === null).map((row) => row.id)
+    );
+    const remainderItemIds = new Set(
+      confirmedSpendForecastFlows({
+        items: source.items,
+        links: source.links,
+        forecastTransactionIds,
+        today: cashForecastToday,
+      }).map((row) => row.id.replace(/^spend-remainder:/, ""))
+    );
+    const planIds = [
+      ...new Set(
+        source.items
+          .filter((item) => remainderItemIds.has(item.id) && item.planId)
+          .map((item) => item.planId!)
+      ),
+    ];
+    if (planIds.length === 1) return `/plans/${planIds[0]}`;
+    return "/plans?group=own";
+  });
 
   const overdueSummary = $derived.by(() => {
     const overdue = scopeFilter(overdueQuery.data ?? []).filter((tx) => tx.currency === "PLN");

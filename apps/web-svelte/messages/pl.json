@@ -197,7 +197,7 @@
   "cockpit_amount_source_close": "Zamknij rozbicie",
   "cockpit_amount_source_balance": "Saldo na dziś",
   "cockpit_amount_source_opening": "Saldo początkowe",
-  "cockpit_amount_source_paid_ops": "Operacje od kotwicy",
+  "cockpit_amount_source_paid_ops": "Zmiana salda od {date}",
   "cockpit_amount_source_income": "Nadchodzące wpływy",
   "cockpit_amount_source_expense": "Nadchodzące wydatki",
   "cockpit_amount_source_plan_remainders": "Zobowiązania z planów",

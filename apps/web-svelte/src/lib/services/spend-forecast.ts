@@ -29,7 +29,7 @@ export async function fetchPrivateSpendForecastSource(): Promise<PrivateSpendFor
 
   const { data: items, error: itemsError } = await supabase
     .from("plan_items")
-    .select("id, amount, due_date, status")
+    .select("id, plan_id, amount, due_date, status")
     .in("plan_id", planIds);
   if (itemsError) throw itemsError;
 
@@ -37,6 +37,7 @@ export async function fetchPrivateSpendForecastSource(): Promise<PrivateSpendFor
   return {
     items: (items ?? []).map((item) => ({
       id: item.id,
+      planId: item.plan_id,
       amount: Number(item.amount),
       dueDate: item.due_date,
       status: item.status as SpendItemStatus,

@@ -47,11 +47,16 @@ export function spendItemNeedsLink(
   return facing !== "cancelled" && facing !== "paid";
 }
 
-/** Amber "do zapłaty" only for confirmed obligations (and partial payments on them). */
+/**
+ * Amber "do zapłaty" only for confirmed obligations.
+ * A deposit on an estimate/planned line does not by itself make the remainder due —
+ * confirmation is what marks the rest as an obligation.
+ */
 export function spendItemShowsDue(
   status: SpendItemStatus,
   settlement?: Pick<SpendItemSettlement, "settled" | "remaining"> | null
 ): boolean {
+  if (status !== "confirmed") return false;
   const facing = spendItemFacingStatus(status, settlement);
   return facing === "confirmed" || facing === "partial";
 }

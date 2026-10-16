@@ -6,6 +6,8 @@ import type { SpendItemStatus } from "$lib/plans/spend";
 /** Confirmed line on a spend plan. Group plans stay out of the private cash forecast. */
 export interface SpendForecastItem {
   id: string;
+  /** Owning spend plan — used for navigation from composition drills. */
+  planId?: string;
   amount: number;
   dueDate: string | null;
   status: SpendItemStatus;
