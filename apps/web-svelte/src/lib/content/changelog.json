@@ -14,11 +14,7 @@
       "version": "1.3.16",
       "versionCode": 24,
       "date": "2026-10-15",
-      "items": [
-        "Podsumowania i prognozy.",
-        "Szczegóły miesięcy.",
-        "Wygodniejsza nawigacja."
-      ]
+      "items": ["Podsumowania i prognozy.", "Szczegóły miesięcy.", "Wygodniejsza nawigacja."]
     },
     {
       "version": "1.3.15",
@@ -74,11 +70,7 @@
       "version": "1.3.10",
       "versionCode": 18,
       "date": "2026-10-12",
-      "items": [
-        "Zwarta lista planów.",
-        "Budżet i wiązanie płatności.",
-        "Prostszy nowy plan."
-      ]
+      "items": ["Zwarta lista planów.", "Budżet i wiązanie płatności.", "Prostszy nowy plan."]
     },
     {
       "version": "1.3.9",
@@ -94,29 +86,19 @@
       "version": "1.3.8",
       "versionCode": 16,
       "date": "2026-10-07",
-      "items": [
-        "Podgląd wyciągu bankowego.",
-        "Historia importów.",
-        "Do sprawdzenia po imporcie."
-      ]
+      "items": ["Podgląd wyciągu bankowego.", "Historia importów.", "Do sprawdzenia po imporcie."]
     },
     {
       "version": "1.3.7",
       "versionCode": 15,
       "date": "2026-10-05",
-      "items": [
-        "Czytelniejsze błędy importu.",
-        "Bezpieczny ponowny import."
-      ]
+      "items": ["Czytelniejsze błędy importu.", "Bezpieczny ponowny import."]
     },
     {
       "version": "1.3.6",
       "versionCode": 14,
       "date": "2026-10-05",
-      "items": [
-        "Limity tylko w PLN.",
-        "Zgłaszanie błędów w Pomocy."
-      ]
+      "items": ["Limity tylko w PLN.", "Zgłaszanie błędów w Pomocy."]
     },
     {
       "version": "1.3.5",
@@ -132,11 +114,7 @@
       "version": "1.3.4",
       "versionCode": 12,
       "date": "2026-10-02",
-      "items": [
-        "Stabilniejszy Kokpit i saldo.",
-        "Bezpieczniejszy import.",
-        "Publiczna beta."
-      ]
+      "items": ["Stabilniejszy Kokpit i saldo.", "Bezpieczniejszy import.", "Publiczna beta."]
     },
     {
       "version": "1.3.3",
@@ -148,11 +126,7 @@
       "version": "1.3.2",
       "versionCode": 10,
       "date": "2026-10-01",
-      "items": [
-        "Jaśniejsze saldo i prognoza.",
-        "Szybszy Kokpit.",
-        "Poprawki importu i płatności."
-      ]
+      "items": ["Jaśniejsze saldo i prognoza.", "Szybszy Kokpit.", "Poprawki importu i płatności."]
     },
     {
       "version": "1.3.1",
