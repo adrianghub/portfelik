@@ -22,7 +22,7 @@ test.describe("dashboard mobile layout", () => {
     });
     expect(overflowAtTop).toBe(false);
 
-    await page.getByText("Co jeszcze nadchodzi").scrollIntoViewIfNeeded();
+    await page.getByText("Najbliższe operacje").scrollIntoViewIfNeeded();
     const overflowAtStatus = await page.evaluate(() => {
       const doc = document.documentElement;
       return doc.scrollWidth > doc.clientWidth + 1;
@@ -527,9 +527,10 @@ test.describe("dashboard mobile layout", () => {
 
   test("budget analysis shows categories with one flow history", async ({ page }) => {
     await page.goto("/analysis?span=month");
-    await expect(page.getByRole("heading", { name: "Analiza budżetu" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Analizy" })).toBeVisible();
     await expect(page.getByTestId("analysis-flows")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Historia", exact: true })).toHaveCount(0);
+    await page.getByText("Kategorie i grupowanie", { exact: true }).click();
     await expect(page.getByRole("combobox", { name: "Grupuj przepływy" })).toBeVisible();
   });
 
@@ -540,6 +541,7 @@ test.describe("dashboard mobile layout", () => {
       "true"
     );
     await expect(page.getByTestId("cockpit-category-period").first()).toBeVisible();
+    await page.getByText("Kategorie i grupowanie", { exact: true }).click();
     await expect(page.getByRole("combobox", { name: "Grupuj przepływy" })).toBeVisible();
 
     const monthLabel = await page.getByTestId("cockpit-category-period").first().textContent();

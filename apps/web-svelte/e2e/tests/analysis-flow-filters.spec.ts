@@ -100,6 +100,7 @@ for (const viewport of [
         .getByRole("dialog", { name: "Saldo na dzień", exact: true })
         .locator('[data-date="2026-10-04"]')
         .click();
+      await page.getByText("Kategorie i grupowanie", { exact: true }).click();
       const filters = page.getByTestId("analysis-category-filters");
       await filters.getByRole("button", { name: "Jedzenie", exact: true }).click();
       await expect(page.getByTestId("analysis-expense")).toContainText("100,00");

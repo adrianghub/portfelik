@@ -29,6 +29,8 @@
 
   const statusOptions = [
     { value: "", label: m.transactions_filter_all_statuses() },
+    { value: "paid,upcoming,overdue", label: m.transactions_status_combined() },
+    { value: "upcoming,overdue", label: m.dashboard_upcoming_title() },
     { value: "paid", label: m.transactions_status_paid() },
     { value: "upcoming", label: m.transactions_status_upcoming() },
     { value: "draft", label: m.transactions_status_draft() },

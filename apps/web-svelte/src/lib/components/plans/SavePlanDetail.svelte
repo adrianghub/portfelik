@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PlanSummary from "$lib/components/plans/PlanSummary.svelte";
   import { moneyDifference } from "$lib/money";
   import * as m from "$lib/paraglide/messages";
   import type { PlanSettlementProgress } from "$lib/services/plan-settlement";
@@ -20,6 +21,7 @@
     onCorrect?: () => void;
     /** Show settle/link CTA even when contribution is gated (e.g. upcoming saves). */
     showLinkExisting?: boolean;
+    editing?: boolean;
   }
 
   let {
@@ -30,6 +32,7 @@
     onContribute,
     onCorrect,
     showLinkExisting = false,
+    editing = false,
   }: Props = $props();
 
   const target = $derived(plan.target_amount ?? 0);
@@ -68,11 +71,46 @@
   }
 </script>
 
-<section
-  class="rounded-2xl border border-white/5 bg-slate-900/60 bg-[radial-gradient(circle_at_10%_20%,rgba(45,212,191,0.15),transparent_40%)] p-5"
-  aria-label={plan.name}
->
-  <p class="text-lg font-semibold text-slate-100 tabular-nums">
+{#if onAdjust && editing}
+  <div class="mt-5 grid gap-3 rounded-xl border border-white/5 bg-slate-900/40 p-3 sm:grid-cols-2">
+    <div class="space-y-1">
+      <label class="text-xs font-medium text-slate-300" for="save-target-{plan.id}">
+        {m.plan_save_slider_target()}
+      </label>
+      <div class="relative">
+        <input
+          id="save-target-{plan.id}"
+          type="number"
+          min="100"
+          max="1000000"
+          step="500"
+          value={editTarget}
+          onchange={onTargetInput}
+          disabled={adjusting}
+          aria-label={m.plan_save_slider_target()}
+          class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 py-2 pr-9 pl-3.5 text-sm text-slate-100 tabular-nums backdrop-blur focus:ring-2 focus:outline-none disabled:opacity-50"
+        />
+        <span
+          class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-slate-400"
+        >
+          zł
+        </span>
+      </div>
+    </div>
+    <DayPicker
+      id="save-deadline-{plan.id}"
+      value={editEndDate}
+      onchange={onDeadlineChange}
+      disabled={adjusting}
+      label={m.plan_save_slider_deadline()}
+      yearsPast={100}
+      yearsAhead={15}
+    />
+  </div>
+{/if}
+
+<PlanSummary label={plan.name}>
+  <p class="text-2xl font-semibold text-slate-100 tabular-nums sm:text-3xl">
     {m.plan_save_gathered({ saved: formatCurrency(saved), target: formatCurrency(target) })}
   </p>
   <div
@@ -95,46 +133,6 @@
   {/if}
   {#if saved <= 0}
     <p class="mt-1 text-xs text-slate-400">{m.plan_save_empty_hint()}</p>
-  {/if}
-
-  {#if onAdjust}
-    <div
-      class="mt-5 grid gap-3 rounded-xl border border-white/5 bg-slate-900/40 p-3 sm:grid-cols-2"
-    >
-      <div class="space-y-1">
-        <label class="text-xs font-medium text-slate-300" for="save-target-{plan.id}">
-          {m.plan_save_slider_target()}
-        </label>
-        <div class="relative">
-          <input
-            id="save-target-{plan.id}"
-            type="number"
-            min="100"
-            max="1000000"
-            step="500"
-            value={editTarget}
-            onchange={onTargetInput}
-            disabled={adjusting}
-            aria-label={m.plan_save_slider_target()}
-            class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 py-2 pr-9 pl-3.5 text-sm text-slate-100 tabular-nums backdrop-blur focus:ring-2 focus:outline-none disabled:opacity-50"
-          />
-          <span
-            class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-slate-400"
-          >
-            zł
-          </span>
-        </div>
-      </div>
-      <DayPicker
-        id="save-deadline-{plan.id}"
-        value={editEndDate}
-        onchange={onDeadlineChange}
-        disabled={adjusting}
-        label={m.plan_save_slider_deadline()}
-        yearsPast={100}
-        yearsAhead={15}
-      />
-    </div>
   {/if}
 
   <div class="mt-5 grid gap-2 sm:grid-cols-2">
@@ -169,28 +167,29 @@
       {m.plan_save_gap_warning({ amount: formatCurrency(gap) })}
     </p>
   {/if}
+</PlanSummary>
 
-  <div class="mt-5">
-    {#if onContribute}
-      <button
-        type="button"
-        onclick={onContribute}
-        class="bg-accent-gradient focus-visible:ring-accent mb-2 w-full rounded-full px-4 py-2.5 text-sm font-semibold text-slate-950 focus-visible:ring-2 focus-visible:outline-none"
-      >
-        {m.plan_contribution_create()}
-      </button>
-    {/if}
-    {#if onContribute || showLinkExisting}
-      <PlanForwardNav href={settleHref} title={m.plan_save_link_existing_cta()} variant="action" />
-    {/if}
-    {#if onCorrect}
-      <button
-        type="button"
-        onclick={onCorrect}
-        class="focus-visible:ring-accent mt-2 w-full rounded-full px-4 py-2 text-xs font-medium text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
-      >
-        {m.plan_progress_correction_title()}
-      </button>
-    {/if}
-  </div>
-</section>
+<div class="space-y-3">
+  {#if onContribute || showLinkExisting}
+    <PlanForwardNav href={settleHref} title={m.plan_save_link_existing_cta()} variant="action" />
+  {/if}
+
+  {#if onContribute}
+    <button
+      type="button"
+      onclick={onContribute}
+      class="focus-visible:ring-accent w-full rounded-xl border border-dashed border-white/10 px-4 py-3 text-sm font-medium text-slate-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:outline-none"
+    >
+      {m.plan_contribution_create()}
+    </button>
+  {/if}
+  {#if onCorrect}
+    <button
+      type="button"
+      onclick={onCorrect}
+      class="focus-visible:ring-accent mt-2 w-full rounded-full px-4 py-2 text-xs font-medium text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-200 focus-visible:ring-2 focus-visible:outline-none"
+    >
+      {m.plan_progress_correction_title()}
+    </button>
+  {/if}
+</div>

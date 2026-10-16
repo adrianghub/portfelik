@@ -64,9 +64,9 @@
   // handles the window scroll, but be explicit so the page-transition keyed block
   // never retains the previous offset. Browser back/forward (popstate) keeps the
   // restored position (e.g. the Plany hub's saved scroll).
-  afterNavigate(({ type }) => {
+  afterNavigate(({ type, from, to }) => {
     track("pageview");
-    if (type !== "popstate") {
+    if (type !== "popstate" && from?.url?.pathname !== to?.url?.pathname) {
       window.scrollTo(0, 0);
     }
   });

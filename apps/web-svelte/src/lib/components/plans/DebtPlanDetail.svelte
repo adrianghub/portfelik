@@ -1,4 +1,6 @@
 <script lang="ts">
+  import PlanSummary from "$lib/components/plans/PlanSummary.svelte";
+  import PlanForwardNav from "$lib/components/plans/PlanForwardNav.svelte";
   import { page } from "$app/stores";
   import { parseMoneyInput } from "$lib/money-input";
   import {
@@ -18,7 +20,6 @@
   import type { PlanDebtTerms } from "$lib/types";
   import { cn, formatCurrency, formatDate } from "$lib/utils";
   import { planSettleHref } from "$lib/utils/plan-routes";
-  import PlanForwardNav from "$lib/components/plans/PlanForwardNav.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import DayPicker from "$lib/components/ui/DayPicker.svelte";
   import { ChevronRight } from "lucide-svelte";
@@ -47,6 +48,7 @@
     replacedByPlanId?: string | null;
     syncing?: boolean;
     termsSaving?: boolean;
+    editing?: boolean;
   }
 
   let {
@@ -65,9 +67,9 @@
     replacedByPlanId = null,
     syncing = false,
     termsSaving = false,
+    editing = $bindable(false),
   }: Props = $props();
 
-  let showTermsEdit = $state(false);
   let showSyncConfirm = $state(false);
   let showFullReplayConfirm = $state(false);
   let editOriginal = $state("");
@@ -184,7 +186,7 @@
     editPayment = String(terms.monthly_payment);
     editStartDate = planStartDate;
     editEndDate = planEndDate;
-    showTermsEdit = false;
+    editing = false;
   }
 
   async function saveTermsEdit() {
@@ -228,7 +230,7 @@
           await onPlanDatesSave({ start_date: editStartDate, end_date: editEndDate });
         }
       }
-      showTermsEdit = false;
+      editing = false;
     } catch (err) {
       const code = err instanceof Error ? err.message : "";
       switch (code) {
@@ -252,145 +254,9 @@
 </script>
 
 <section class="space-y-5">
-  {#if refinancedFromPlanId}
-    <a
-      href="/plans/{refinancedFromPlanId}"
-      class="focus-visible:ring-accent flex items-center justify-between rounded-xl border border-sky-500/25 bg-sky-500/10 px-4 py-2.5 text-xs font-medium text-sky-300 hover:bg-sky-500/15 focus-visible:ring-2 focus-visible:outline-none"
-    >
-      {m.plan_debt_refinance_from()}
-      <span class="inline-flex items-center gap-1 font-semibold">
-        {m.plan_debt_refinance_view_old()}
-        <ChevronRight size={14} aria-hidden="true" />
-      </span>
-    </a>
-  {/if}
-  {#if replacedByPlanId}
-    <a
-      href="/plans/{replacedByPlanId}"
-      class="focus-visible:ring-accent flex items-center justify-between rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-2.5 text-xs font-medium text-amber-300 hover:bg-amber-500/15 focus-visible:ring-2 focus-visible:outline-none"
-    >
-      {m.plan_debt_refinanced_badge()}
-      <span class="inline-flex items-center gap-1 font-semibold">
-        {m.plan_debt_refinance_view_new()}
-        <ChevronRight size={14} aria-hidden="true" />
-      </span>
-    </a>
-  {/if}
-  {#if showLinkPaymentsInfo}
-    <PlanForwardNav
-      href={settleHref}
-      title={linkPaymentsInfoTitle}
-      ariaLabel={m.plan_debt_sync_link_payments()}
-      variant="info"
-    />
-  {:else if balanceDrift && derivedBalance != null && onSyncBalance}
-    <div class="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <p class="text-sm text-amber-100">
-          {m.plan_debt_sync_from_links({
-            derived: formatCurrency(displayBalance),
-            stored: formatCurrency(storedLiveBalance),
-          })}
-        </p>
-        <button
-          type="button"
-          disabled={syncing}
-          onclick={requestSyncBalance}
-          class={cn(
-            "rounded-full px-3 py-1 text-xs font-semibold disabled:opacity-50",
-            syncIncreasesBalance
-              ? "border border-amber-400/40 bg-transparent text-amber-200"
-              : "bg-amber-500/20 text-amber-200"
-          )}
-        >
-          {m.plan_debt_sync_apply()}
-        </button>
-      </div>
-    </div>
-  {/if}
-
-  <p class="text-xs leading-relaxed text-slate-400" data-testid="debt-plan-installments-hint">
-    {m.plan_debt_plan_installments_hint()}
-  </p>
-
-  <div
-    class="rounded-2xl border border-white/5 bg-slate-900/60 bg-[radial-gradient(circle_at_90%_10%,rgba(45,212,191,0.12),transparent_45%)] p-5"
-  >
-    <p class="text-eyebrow text-slate-400">{m.plan_debt_remaining_hero()}</p>
-    <p class="text-accent mt-2 text-4xl font-semibold tabular-nums">
-      ~{formatCurrency(displayBalance)}
-    </p>
-    <p class="mt-1 text-sm text-slate-400">
-      z {formatCurrency(Number(terms.original_amount))}
-    </p>
-    {#if snapshotMode && terms.balance_anchor_date != null && terms.anchor_balance != null}
-      <p class="mt-1 text-xs text-slate-400">
-        {m.plan_debt_snapshot_note({
-          amount: formatCurrency(Number(terms.anchor_balance)),
-          date: formatDate(terms.balance_anchor_date),
-        })}
-      </p>
-    {/if}
-    {#if interestPaidSinceStart > 0.01}
-      <p class="mt-1 text-xs text-slate-400">
-        {m.plan_debt_interest_paid_since({
-          date: formatDate(planStartDate),
-          amount: formatCurrency(interestPaidSinceStart),
-        })}
-      </p>
-      {#if !hasLinkedPayments}
-        <p class="mt-0.5 text-xs text-slate-400">{m.plan_debt_interest_estimate_note()}</p>
-      {/if}
-    {/if}
-  </div>
-
-  <div class="grid grid-cols-3 gap-2">
-    <div class="rounded-xl border border-white/5 bg-slate-900/50 px-2 py-3 text-center">
-      <p class="text-[10px] text-slate-400 uppercase">{m.plan_debt_stats_rate()}</p>
-      <p class="mt-1 text-sm font-semibold text-slate-100">{Number(terms.annual_rate)}%</p>
-    </div>
-    <div class="rounded-xl border border-white/5 bg-slate-900/50 px-2 py-3 text-center">
-      <p class="text-[10px] text-slate-400 uppercase">{m.plan_debt_stats_payment()}</p>
-      <p class="mt-1 text-sm font-semibold text-slate-100 tabular-nums">
-        {formatCurrency(Number(terms.monthly_payment))}
-      </p>
-    </div>
-    <div class="rounded-xl border border-white/5 bg-slate-900/50 px-2 py-3 text-center">
-      <p class="text-[10px] text-slate-400 uppercase">{m.plan_debt_stats_daily_interest()}</p>
-      <p class="mt-1 text-sm font-semibold text-amber-300 tabular-nums">
-        {m.plan_debt_daily_interest_value({ amount: formatCurrency(dailyInterest) })}
-      </p>
-    </div>
-  </div>
-
-  {#if paymentBelowInterest}
-    <p
-      class="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2.5 text-sm text-rose-200"
-      role="status"
-    >
-      {m.plan_debt_payment_below_interest({
-        payment: formatCurrency(Number(terms.monthly_payment)),
-        interest: formatCurrency(monthlyInterest),
-      })}
-    </p>
-  {/if}
-
-  {#if onDebtPlanSave || onTermsSave}
+  {#if (onDebtPlanSave || onTermsSave) && editing}
     <div class="rounded-2xl border border-white/5 bg-slate-900/40">
-      <button
-        type="button"
-        disabled={termsSaving}
-        onclick={() => (showTermsEdit = !showTermsEdit)}
-        class="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-slate-300 hover:text-slate-100 disabled:opacity-50"
-      >
-        {m.plan_debt_edit_terms()}
-        <ChevronRight
-          size={16}
-          class={cn("transition-transform", showTermsEdit && "rotate-90")}
-          aria-hidden="true"
-        />
-      </button>
-      {#if showTermsEdit}
+      {#if editing}
         <div class="space-y-3 border-t border-white/5 px-4 py-4">
           <label class="block text-xs text-slate-400">
             {m.plan_debt_original()}
@@ -492,6 +358,119 @@
         </div>
       {/if}
     </div>
+  {/if}
+  {#if refinancedFromPlanId}
+    <a
+      href="/plans/{refinancedFromPlanId}"
+      class="focus-visible:ring-accent flex items-center justify-between rounded-xl border border-sky-500/25 bg-sky-500/10 px-4 py-2.5 text-xs font-medium text-sky-300 hover:bg-sky-500/15 focus-visible:ring-2 focus-visible:outline-none"
+    >
+      {m.plan_debt_refinance_from()}
+      <span class="inline-flex items-center gap-1 font-semibold">
+        {m.plan_debt_refinance_view_old()}
+        <ChevronRight size={14} aria-hidden="true" />
+      </span>
+    </a>
+  {/if}
+  {#if replacedByPlanId}
+    <a
+      href="/plans/{replacedByPlanId}"
+      class="focus-visible:ring-accent flex items-center justify-between rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-2.5 text-xs font-medium text-amber-300 hover:bg-amber-500/15 focus-visible:ring-2 focus-visible:outline-none"
+    >
+      {m.plan_debt_refinanced_badge()}
+      <span class="inline-flex items-center gap-1 font-semibold">
+        {m.plan_debt_refinance_view_new()}
+        <ChevronRight size={14} aria-hidden="true" />
+      </span>
+    </a>
+  {/if}
+  {#if !showLinkPaymentsInfo && balanceDrift && derivedBalance != null && onSyncBalance}
+    <div class="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <p class="text-sm text-amber-100">
+          {m.plan_debt_sync_from_links({
+            derived: formatCurrency(displayBalance),
+            stored: formatCurrency(storedLiveBalance),
+          })}
+        </p>
+        <button
+          type="button"
+          disabled={syncing}
+          onclick={requestSyncBalance}
+          class={cn(
+            "rounded-full px-3 py-1 text-xs font-semibold disabled:opacity-50",
+            syncIncreasesBalance
+              ? "border border-amber-400/40 bg-transparent text-amber-200"
+              : "bg-amber-500/20 text-amber-200"
+          )}
+        >
+          {m.plan_debt_sync_apply()}
+        </button>
+      </div>
+    </div>
+  {/if}
+
+  <PlanSummary label={m.plan_debt_remaining_hero()}>
+    <p class="text-eyebrow text-slate-400">{m.plan_debt_remaining_hero()}</p>
+    <p class="text-accent mt-2 text-4xl font-semibold tabular-nums">
+      ~{formatCurrency(displayBalance)}
+    </p>
+    <p class="mt-1 text-sm text-slate-400">
+      z {formatCurrency(Number(terms.original_amount))}
+    </p>
+    {#if snapshotMode && terms.balance_anchor_date != null && terms.anchor_balance != null}
+      <p class="mt-1 text-xs text-slate-400">
+        {m.plan_debt_snapshot_note({
+          amount: formatCurrency(Number(terms.anchor_balance)),
+          date: formatDate(terms.balance_anchor_date),
+        })}
+      </p>
+    {/if}
+    {#if interestPaidSinceStart > 0.01}
+      <p class="mt-1 text-xs text-slate-400">
+        {m.plan_debt_interest_paid_since({
+          date: formatDate(planStartDate),
+          amount: formatCurrency(interestPaidSinceStart),
+        })}
+      </p>
+      {#if !hasLinkedPayments}
+        <p class="mt-0.5 text-xs text-slate-400">{m.plan_debt_interest_estimate_note()}</p>
+      {/if}
+    {/if}
+    {#if showLinkPaymentsInfo}<p class="mt-3 text-xs text-slate-400">
+        {linkPaymentsInfoTitle}
+      </p>{/if}
+  </PlanSummary>
+  {#if settleHref}<PlanForwardNav href={settleHref} title={m.plan_debt_link_payments()} />{/if}
+
+  <div class="grid grid-cols-3 gap-2">
+    <div class="rounded-xl border border-white/5 bg-slate-900/50 px-2 py-3 text-center">
+      <p class="text-[10px] text-slate-400 uppercase">{m.plan_debt_stats_rate()}</p>
+      <p class="mt-1 text-sm font-semibold text-slate-100">{Number(terms.annual_rate)}%</p>
+    </div>
+    <div class="rounded-xl border border-white/5 bg-slate-900/50 px-2 py-3 text-center">
+      <p class="text-[10px] text-slate-400 uppercase">{m.plan_debt_stats_payment()}</p>
+      <p class="mt-1 text-sm font-semibold text-slate-100 tabular-nums">
+        {formatCurrency(Number(terms.monthly_payment))}
+      </p>
+    </div>
+    <div class="rounded-xl border border-white/5 bg-slate-900/50 px-2 py-3 text-center">
+      <p class="text-[10px] text-slate-400 uppercase">{m.plan_debt_stats_daily_interest()}</p>
+      <p class="mt-1 text-sm font-semibold text-amber-300 tabular-nums">
+        {m.plan_debt_daily_interest_value({ amount: formatCurrency(dailyInterest) })}
+      </p>
+    </div>
+  </div>
+
+  {#if paymentBelowInterest}
+    <p
+      class="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2.5 text-sm text-rose-200"
+      role="status"
+    >
+      {m.plan_debt_payment_below_interest({
+        payment: formatCurrency(Number(terms.monthly_payment)),
+        interest: formatCurrency(monthlyInterest),
+      })}
+    </p>
   {/if}
 </section>
 
