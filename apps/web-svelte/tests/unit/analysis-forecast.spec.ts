@@ -174,10 +174,10 @@ describe("analysis forecast using Kokpit rules", () => {
   });
 });
 
-it("uses calendar horizons and clamps leap-day anniversaries", () => {
+it("includes the entire last calendar month in each horizon", () => {
   expect(analysisForecastEnd(today, "year")).toBe("2026-12-31");
-  expect(analysisForecastEnd(today, "3months")).toBe("2027-01-13");
-  expect(analysisForecastEnd(today, "6months")).toBe("2027-04-13");
+  expect(analysisForecastEnd(today, "3months")).toBe("2027-01-31");
+  expect(analysisForecastEnd(today, "6months")).toBe("2027-04-30");
   expect(analysisForecastEnd("2028-02-29", "12months")).toBe("2029-02-28");
 });
 
@@ -237,3 +237,18 @@ it("keeps start_of_day same-day upcoming in bars and categories with headline to
   expect(result.categories.some((category) => category.id === "cat-bills")).toBe(true);
   expect(result.categories.find((category) => category.id === "cat-bills")?.amount).toBe(250);
 });
+
+it.each(["3months", "6months", "12months"] as const)(
+  "includes the final month's late salary for %s",
+  (horizon) => {
+    const end = analysisForecastEnd(today, horizon);
+    const result = forecast(end);
+    const last = result.bars.at(-1)!;
+    expect(last.income).toBe(13076.57);
+    expect(
+      result.flows.some((flow) => flow.type === "income" && flow.date === end.slice(0, 8) + "26")
+    ).toBe(true);
+    expect(result.bars.reduce((sum, bar) => sum + bar.income, 0)).toBeCloseTo(result.income, 2);
+    expect(result.finalBalance).toBeCloseTo(result.balance + result.income - result.expense, 2);
+  }
+);

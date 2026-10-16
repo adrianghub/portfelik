@@ -250,7 +250,7 @@ describe("RPC: spend item settlement", () => {
         p_transaction_id: unpaid,
         p_plan_item_id: itemId,
       });
-      expect(unpaidLink.error?.message ?? "").toMatch(/spend_link_requires_paid/);
+      expect(unpaidLink.error).toBeNull();
 
       const unlinked = await ctx.userA.client.rpc("unlink_plan_transaction", {
         p_plan_id: planId,
@@ -481,5 +481,149 @@ describe("RPC: spend item settlement", () => {
       .eq("id", deposit)
       .single();
     expect(surviving.data?.id).toBe(deposit);
+  });
+  it.each(["upcoming", "overdue"])(
+    "links %s at plan and item level without counting it as paid",
+    async (status) => {
+      const { planId, itemId } = await privateLine(`Planned ${status}`);
+      for (const planItemId of [null, itemId]) {
+        const txId = await expense({
+          userId: ctx.userA.userId,
+          categoryId: categoryA,
+          description: status,
+          amount: 600,
+          status,
+        });
+        const linked = await ctx.userA.client.rpc("link_plan_transaction", {
+          p_plan_id: planId,
+          p_transaction_id: txId,
+          p_plan_item_id: planItemId,
+        });
+        expect(linked.error).toBeNull();
+      }
+      const listed = await ctx.userA.client.rpc("list_spend_item_settlements", {
+        p_plan_id: planId,
+      });
+      expect(listed.error).toBeNull();
+      expect(listed.data).toHaveLength(2);
+      expect(listed.data).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ plan_item_id: null, counts_as_paid: false, amount: 600 }),
+          expect.objectContaining({ plan_item_id: itemId, counts_as_paid: false, amount: 600 }),
+        ])
+      );
+    }
+  );
+
+  it("creates upcoming expenses atomically and rolls back a rejected draft", async () => {
+    const { planId } = await privateLine("Atomic upcoming");
+    const params = {
+      p_plan_id: planId,
+      p_amount: 725,
+      p_description: `${SENTINEL} Atomic upcoming`,
+      p_date: "2026-02-15",
+      p_category_id: categoryA,
+      p_status: "upcoming",
+    };
+    const created = await ctx.userA.client.rpc("create_and_link_plan_transaction", params);
+    expect(created.error).toBeNull();
+    const txId = created.data as string;
+    const tx = await ctx.userA.client
+      .from("transactions")
+      .select("status, amount")
+      .eq("id", txId)
+      .single();
+    expect(tx.data).toMatchObject({ status: "upcoming", amount: 725 });
+    const listed = await ctx.userA.client.rpc("list_spend_item_settlements", { p_plan_id: planId });
+    expect(listed.data).toEqual([
+      expect.objectContaining({ transaction_id: txId, counts_as_paid: false, plan_item_id: null }),
+    ]);
+    const failedDescription = `${SENTINEL} Atomic draft rolled back`;
+    const failed = await ctx.userA.client.rpc("create_and_link_plan_transaction", {
+      ...params,
+      p_description: failedDescription,
+      p_status: "draft",
+    });
+    expect(failed.error?.message ?? "").toMatch(/spend_link_requires_known_status/);
+    const rolledBack = await ctx.admin
+      .from("transactions")
+      .select("id")
+      .eq("description", failedDescription);
+    expect(rolledBack.error).toBeNull();
+    expect(rolledBack.data).toEqual([]);
+  });
+
+  it("rejects drafts and updates paid/open facts on subsequent status changes", async () => {
+    const { planId } = await privateLine("Draft exclusion");
+    const txId = await expense({
+      userId: ctx.userA.userId,
+      categoryId: categoryA,
+      description: "Status transitions",
+      amount: 400,
+      status: "draft",
+    });
+    const params = { p_plan_id: planId, p_transaction_id: txId };
+    const denied = await ctx.userA.client.rpc("link_plan_transaction", params);
+    expect(denied.error?.message ?? "").toMatch(/spend_link_requires_known_status/);
+    const ready = await ctx.userA.client
+      .from("transactions")
+      .update({ status: "upcoming" })
+      .eq("id", txId);
+    expect(ready.error).toBeNull();
+    const linked = await ctx.userA.client.rpc("link_plan_transaction", params);
+    expect(linked.error).toBeNull();
+    for (const status of ["paid", "overdue", "draft", "upcoming"]) {
+      const changed = await ctx.userA.client.from("transactions").update({ status }).eq("id", txId);
+      expect(changed.error).toBeNull();
+      const listed = await ctx.userA.client.rpc("list_spend_item_settlements", {
+        p_plan_id: planId,
+      });
+      expect(listed.error).toBeNull();
+      expect(listed.data).toEqual(
+        status === "draft"
+          ? []
+          : [expect.objectContaining({ transaction_id: txId, counts_as_paid: status === "paid" })]
+      );
+    }
+  });
+
+  it("allows changing a linked private upcoming date outside a shared spend period without exposing it", async () => {
+    const { groupId, planId } = await sharedPlan();
+    try {
+      const txId = await expense({
+        userId: ctx.userA.userId,
+        categoryId: categoryA,
+        description: "Private trip payment",
+        amount: 350,
+        status: "upcoming",
+      });
+      const linked = await ctx.userA.client.rpc("link_plan_transaction", {
+        p_plan_id: planId,
+        p_transaction_id: txId,
+      });
+      expect(linked.error).toBeNull();
+      const moved = await ctx.userA.client
+        .from("transactions")
+        .update({ date: "2026-03-01" })
+        .eq("id", txId)
+        .select("id")
+        .single();
+      expect(moved.error).toBeNull();
+      expect(moved.data?.id).toBe(txId);
+      const stranger = await ctx.userB.client
+        .from("transactions")
+        .update({ date: "2026-03-02" })
+        .eq("id", txId)
+        .select("id");
+      expect(stranger.data ?? []).toEqual([]);
+      const listed = await ctx.userB.client.rpc("list_spend_item_settlements", {
+        p_plan_id: planId,
+      });
+      expect(listed.data).toEqual([
+        expect.objectContaining({ transaction_id: txId, description: null, counts_as_paid: false }),
+      ]);
+    } finally {
+      await ctx.admin.from("user_groups").delete().eq("id", groupId);
+    }
   });
 });

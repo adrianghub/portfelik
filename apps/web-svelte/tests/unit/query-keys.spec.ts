@@ -16,6 +16,8 @@ describe("qk factory", () => {
     const user = qk.user(U);
     for (const key of [
       qk.transactions.all(U),
+      qk.planSpendSettlements(U, "malta"),
+      qk.planSpendCards(U, "malta"),
       qk.plans(U),
       qk.planProgress(U),
       qk.cashPosition(U),
@@ -35,4 +37,10 @@ describe("qk factory", () => {
     expect(qk.categories(U)[1]).toBe(U);
     expect(qk.categories(U2)[1]).toBe(U2);
   });
+});
+
+it("invalidates spend facts with transaction edits and status changes", () => {
+  const prefix = qk.transactions.all(U);
+  expect(qk.planSpendSettlements(U, "malta").slice(0, prefix.length)).toEqual(prefix);
+  expect(qk.planSpendCards(U, "malta").slice(0, prefix.length)).toEqual(prefix);
 });

@@ -10,7 +10,7 @@
   import InfoTooltip from "$lib/components/ui/InfoTooltip.svelte";
   import { fetchUserGroups, fetchMyGroupRoles } from "$lib/services/groups";
   import { fetchPlanItemsForPlans } from "$lib/services/plan-items";
-  import { settleSpendItem, summarizeSpendBudget, type SpendItemAmounts } from "$lib/plans/spend";
+  import { summarizeSpendPlan, type SpendBudgetSummary } from "$lib/plans/spend";
   import { fetchPlanProgressForPlans, fetchSpendSettlements } from "$lib/services/plan-settlement";
   import {
     fetchPlanDebtTermsByPlanIds,
@@ -155,7 +155,13 @@
   );
 
   const spendFactsQuery = createQuery(() => ({
-    queryKey: qk.planSpendCards(session.userId ?? "", ...spendPlanIds),
+    queryKey: qk.planSpendCards(
+      session.userId ?? "",
+      ...spendPlanIds,
+      ...(plansQuery.data ?? [])
+        .filter((p) => p.kind === "spend")
+        .map((p) => String(p.budget_amount))
+    ),
     queryFn: () => fetchSpendCardItems(spendPlanIds),
     enabled: !!session.userId && spendPlanIds.length > 0,
   }));
@@ -207,21 +213,12 @@
   const savePlans = $derived(filteredPlans.filter((p) => p.kind === "save"));
   const debtPlans = $derived(filteredPlans.filter((p) => p.kind === "debt" && isLivePlan(p)));
   const spendPlans = $derived(filteredPlans.filter((p) => p.kind === "spend" && isLivePlan(p)));
-  const spendSummaries = $derived.by(() => {
-    const facts = spendFactsQuery.data;
-    if (!facts) return {};
-    const summaries: Record<string, ReturnType<typeof summarizeSpendBudget>> = {};
-    for (const plan of spendPlans) {
-      if (plan.budget_amount == null) continue;
-      summaries[plan.id] = summarizeSpendBudget(plan.budget_amount, facts[plan.id] ?? []);
-    }
-    return summaries;
-  });
+  const spendSummaries = $derived(spendFactsQuery.data ?? {});
 
   async function fetchSpendCardItems(
     planIds: string[]
-  ): Promise<Record<string, SpendItemAmounts[]>> {
-    const [items, settlementGroups] = await Promise.all([
+  ): Promise<Record<string, SpendBudgetSummary>> {
+    const [items, groups] = await Promise.all([
       fetchPlanItemsForPlans(planIds),
       Promise.all(
         planIds.map(async (planId) => ({
@@ -230,27 +227,17 @@
         }))
       ),
     ]);
-    const payments = new Map<string, { amount: number; counts: boolean }[]>();
-    for (const group of settlementGroups) {
-      for (const row of group.rows) {
-        if (!row.planItemId) continue;
-        const list = payments.get(row.planItemId) ?? [];
-        list.push({ amount: row.amount, counts: row.countsAsPaid });
-        payments.set(row.planItemId, list);
-      }
-    }
-    const byPlan: Record<string, SpendItemAmounts[]> = Object.fromEntries(
-      planIds.map((id) => [id, []])
+    const plans = plansQuery.data ?? [];
+    return Object.fromEntries(
+      groups.map(({ planId, rows }) => [
+        planId,
+        summarizeSpendPlan(
+          plans.find((plan) => plan.id === planId)?.budget_amount ?? 0,
+          items.filter((item) => item.plan_id === planId),
+          rows
+        ),
+      ])
     );
-    for (const item of items) {
-      const settled = settleSpendItem(item.amount, payments.get(item.id) ?? []).settled;
-      (byPlan[item.plan_id] ??= []).push({
-        amount: item.amount,
-        status: item.status,
-        settled,
-      });
-    }
-    return byPlan;
   }
 
   function todayIsoLocal(): string {

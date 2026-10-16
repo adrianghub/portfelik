@@ -166,9 +166,14 @@ end-to-end.
 
 User-facing list workflows have been replaced by first-class **Plans**. A plan
 describes future intent with a required period (`start_date` / `end_date`).
-Current user-facing kinds are saving goals (`save`) and loans (`debt`); old
-budget/outflow `spend` plans are retired. Plans should not create financial
-truth by default. The primary settlement flow is:
+Current user-facing kinds are saving goals (`save`), loans (`debt`), and
+budgeted expenses (`spend`). Plans should not create financial truth by default.
+Spend plans link existing paid, upcoming, or overdue expense transactions. New
+expenses use the standard transaction form and are created and linked atomically.
+Only paid transactions count as spent; open payments reserve budget without
+changing paid balances. List and detail use the same summary of linked payments
+and uncovered legacy cost items. Existing items remain editable; adding a new
+cost starts with a transaction. The primary settlement flow is:
 
 ```mermaid
 flowchart LR
