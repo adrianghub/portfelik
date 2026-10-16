@@ -122,7 +122,6 @@ test("plan progress respects the dashboard group scope", async ({ page }) => {
 
   await page.goto("/dashboard?group=group-1");
 
-  await page.getByRole("button", { name: "Zobacz więcej" }).click();
   const panel = page.getByRole("region", { name: "Postęp planów" });
   await expect(panel.getByText("Cel grupowy")).toBeVisible();
   await expect(panel.getByText("Prywatny cel")).toHaveCount(0);

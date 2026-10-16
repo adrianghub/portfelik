@@ -162,7 +162,7 @@
       aria-label={m.transactions_more_actions()}
       onkeydown={onMenuKeydown}
       style={menuStyle}
-      class="fixed z-50 overflow-hidden rounded-xl border border-white/10 bg-slate-900/95 py-1 shadow-[0_0_30px_rgba(0,0,0,0.5)] backdrop-blur"
+      class="fixed z-[100] overflow-hidden rounded-xl border border-white/10 bg-slate-900/95 py-1 shadow-[0_0_30px_rgba(0,0,0,0.5)] backdrop-blur"
     >
       <button
         type="button"

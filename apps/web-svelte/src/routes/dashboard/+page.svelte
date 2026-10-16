@@ -55,6 +55,12 @@
     cashForecastProjectionEnd,
     fetchPrivateCashPosition,
   } from "$lib/services/cash-position";
+  import {
+    composeForecastExplanation,
+    compositionRemainderPlanIds,
+    forecastCompositionHref,
+  } from "$lib/services/forecast-composition";
+  import { appendConfirmedSpendForecast } from "$lib/plans/spend-forecast";
   import { fetchPrivateSpendForecastSource } from "$lib/services/spend-forecast";
   import {
     forwardForecastTransactions,
@@ -78,8 +84,6 @@
   onMount(() => {
     importRevealCount = takeCockpitImportReveal();
   });
-
-  let detailsOpen = $state(false);
 
   const greetingName = $derived.by(() => {
     const raw =
@@ -616,6 +620,78 @@
     return [...real, ...projected].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 5);
   });
 
+  /**
+   * "Skąd ta kwota?" uses the same anchor boundary and spend remainders as Prognoza.
+   * Do not invent an expense to reconcile a pre-anchor overdue income.
+   */
+  const forecastComposition = $derived.by(() => {
+    if (groupFilter !== "own" || !cashAnchorQuery.data) return null;
+    const privateRows = cockpitMonthRows.filter((row) => row.groupId === null);
+    const rows = appendConfirmedSpendForecast(
+      privateRows,
+      spendForecastQuery.data ?? null,
+      cashForecastToday
+    );
+    return composeForecastExplanation({
+      anchor: {
+        opening_amount: cashAnchorQuery.data.opening_amount,
+        as_of_date: cashAnchorQuery.data.as_of_date,
+        balance_semantics: cashAnchorQuery.data.balance_semantics,
+      },
+      forecastRows: rows,
+      today: cashForecastToday,
+      horizonEnd: forecastRange.monthEnd,
+    });
+  });
+  const cockpitUpcomingIncome = $derived(forecastComposition?.upcomingIncome ?? 0);
+  const cockpitUpcomingExpenses = $derived(forecastComposition?.upcomingExpenses ?? 0);
+  const compositionIncomeHref = $derived(
+    forecastComposition
+      ? forecastCompositionHref({
+          openFrom: forecastComposition.openFrom,
+          end: forecastComposition.horizonEnd,
+          status: "upcoming,overdue",
+          type: "income",
+        })
+      : null
+  );
+  const compositionExpenseHref = $derived(
+    forecastComposition
+      ? forecastCompositionHref({
+          openFrom: forecastComposition.openFrom,
+          end: forecastComposition.horizonEnd,
+          status: "upcoming,overdue",
+          type: "expense",
+        })
+      : null
+  );
+  const compositionBalanceHref = $derived(
+    forecastComposition
+      ? forecastCompositionHref({
+          openFrom: forecastComposition.openFrom,
+          end: forecastComposition.today,
+          status: "paid",
+        })
+      : null
+  );
+  const compositionPlanHref = $derived.by(() => {
+    if (!forecastComposition || forecastComposition.planRemainders <= 0) return null;
+    const source = spendForecastQuery.data;
+    if (!source) return "/plans?group=own";
+    const planIds = compositionRemainderPlanIds({
+      openFrom: forecastComposition.openFrom,
+      horizonEnd: forecastComposition.horizonEnd,
+      today: cashForecastToday,
+      items: source.items,
+      links: source.links,
+      forecastTransactionIds: new Set(
+        cockpitMonthRows.filter((row) => row.groupId === null).map((row) => row.id)
+      ),
+    });
+    if (planIds.length === 1) return `/plans/${planIds[0]}`;
+    return "/plans?group=own";
+  });
+
   const overdueSummary = $derived.by(() => {
     const overdue = scopeFilter(overdueQuery.data ?? []).filter((tx) => tx.currency === "PLN");
     if (overdue.length === 0) return null;
@@ -668,7 +744,6 @@
     p.set("status", "upcoming,overdue");
     return `/transactions?${p.toString()}`;
   });
-
   function openTransaction(tx: TransactionWithCategory) {
     try {
       const startMs = new Date(bounds.start).getTime();
@@ -756,16 +831,26 @@
       hasAnchor={!!cashAnchorQuery.data}
       showPrivateDetails={groupFilter === "own"}
       scopeLabel={cashScopeLabel}
-      transactionsHref={`/transactions?startDate=${forecastRange.monthStart}&endDate=${forecastRange.monthEnd}&group=${groupFilter}`}
       balance={cockpitMonth.balance}
       expensesFrom={cockpitMonth.expensesFrom}
       expensesIncomplete={cockpitMonth.expensesIncomplete}
       monthForecast={cockpitMonth.forecast}
+      upcomingIncome={cockpitUpcomingIncome}
+      upcomingExpenses={cockpitUpcomingExpenses}
+      ledgerUpcomingExpenses={forecastComposition?.ledgerUpcomingExpenses ?? null}
+      planRemainders={forecastComposition?.planRemainders ?? 0}
+      openingAmount={forecastComposition?.openingAmount ?? null}
+      paidIncome={forecastComposition?.paidIncome ?? 0}
+      paidExpenses={forecastComposition?.paidExpenses ?? 0}
       orientational={cockpitMonth.orientational}
       chart={cockpitChart}
       horizonLabel={calendarMonthLabel(forecastMonth)}
       anchorDate={cashAnchorQuery.data?.as_of_date ?? null}
       analysisHref={analysisHref()}
+      incomeSourceHref={compositionIncomeHref}
+      expenseSourceHref={compositionExpenseHref}
+      balanceSourceHref={compositionBalanceHref}
+      planRemaindersHref={compositionPlanHref}
       projected={cashForecastToday <= forecastRange.monthEnd}
       demo={demoActive}
       revealCount={importRevealCount}
@@ -791,77 +876,59 @@
 
     {#if txQuery.isError}
       <QueryError error={txQuery.error} onRetry={() => txQuery.refetch()} />
-    {:else if !txQuery.isLoading}
-      <a
-        href={transactionsHref()}
-        class="text-accent focus-visible:ring-accent flex min-h-11 w-fit items-center text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"
-      >
-        {m.dashboard_balance_all_link()}
-      </a>
     {/if}
 
-    <button
-      type="button"
-      class="focus-visible:ring-accent text-sm font-medium text-slate-300 focus-visible:ring-2 focus-visible:outline-none"
-      aria-expanded={detailsOpen}
-      onclick={() => (detailsOpen = !detailsOpen)}
-    >
-      {m.dashboard_see_more()}
-    </button>
+    <DashboardPlanProgress {groupFilter} />
 
-    {#if detailsOpen}
-      <DashboardPlanProgress {groupFilter} />
-
-      <!-- Upcoming / overdue -->
-      {#if !txQuery.isError}
-        <div>
-          <div class="mb-2 flex items-center justify-between gap-2">
-            <p class="text-eyebrow text-slate-400">{m.dashboard_upcoming_title()}</p>
-            <div class="flex items-center gap-3">
-              {#if activeRecurringCount > 0}
-                <span class="text-xs text-slate-400">
-                  {m.recurring_entry()} ({activeRecurringCount})
-                </span>
-              {/if}
-              {#if upcomingTxs.length > 0 || activeRecurringCount > 0}
-                <a href={upcomingHref} class="text-accent hover:text-accent text-xs font-medium">
-                  {m.dashboard_upcoming_see_all()}
-                </a>
-              {/if}
-            </div>
-          </div>
-
-          {#if txQuery.isPending}
-            <div class="space-y-2">
-              {#each Array(3) as _, i (i)}
-                <div
-                  class="h-14 animate-pulse rounded-xl border border-white/5 bg-slate-900/60"
-                ></div>
-              {/each}
-            </div>
-          {:else if upcomingTxs.length === 0}
-            <div class="py-6 text-center">
-              <p class="text-sm text-slate-400">{m.dashboard_empty_upcoming()}</p>
-              <a
-                href={upcomingHref}
-                class="text-accent mt-2 inline-block text-sm font-medium hover:underline"
-              >
-                {m.dashboard_empty_upcoming_cta()}
+    <!-- Upcoming / overdue -->
+    {#if !txQuery.isError}
+      <div>
+        <div class="mb-2 flex items-center justify-between gap-2">
+          <p class="text-eyebrow text-slate-400">{m.cockpit_upcoming_title()}</p>
+          <div class="flex items-center gap-3">
+            {#if activeRecurringCount > 0}
+              <span class="text-xs text-slate-400">
+                {m.recurring_entry()} ({activeRecurringCount})
+              </span>
+            {/if}
+            {#if upcomingTxs.length > 0 || activeRecurringCount > 0}
+              <a href={upcomingHref} class="text-accent hover:text-accent text-xs font-medium">
+                {m.dashboard_upcoming_see_all()}
               </a>
-            </div>
-          {:else}
-            <TransactionTable
-              transactions={upcomingTxs}
-              selectedIds={new Set()}
-              currentUserId={session.userId}
-              canManage={dashCanManage}
-              onrowclick={openTransaction}
-              onsettle={quickSettle}
-              initialSortDirection="asc"
-            />
-          {/if}
+            {/if}
+          </div>
         </div>
-      {/if}
+
+        {#if txQuery.isPending}
+          <div class="space-y-2">
+            {#each Array(3) as _, i (i)}
+              <div
+                class="h-14 animate-pulse rounded-xl border border-white/5 bg-slate-900/60"
+              ></div>
+            {/each}
+          </div>
+        {:else if upcomingTxs.length === 0}
+          <div class="py-6 text-center">
+            <p class="text-sm text-slate-400">{m.dashboard_empty_upcoming()}</p>
+            <a
+              href={upcomingHref}
+              class="text-accent mt-2 inline-block text-sm font-medium hover:underline"
+            >
+              {m.dashboard_empty_upcoming_cta()}
+            </a>
+          </div>
+        {:else}
+          <TransactionTable
+            transactions={upcomingTxs}
+            selectedIds={new Set()}
+            currentUserId={session.userId}
+            canManage={dashCanManage}
+            onrowclick={openTransaction}
+            onsettle={quickSettle}
+            initialSortDirection="asc"
+          />
+        {/if}
+      </div>
     {/if}
 
     <DashboardImportHealth />

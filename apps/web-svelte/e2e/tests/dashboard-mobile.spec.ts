@@ -2,15 +2,6 @@ import { test, expect } from "@playwright/test";
 import { injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
 import { isoDaysFromToday, TEST_USER_ID } from "../helpers/fixtures";
 
-function currentCalendarMonthRange(): { start: string; end: string } {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
-  const lastDay = new Date(year, month, 0).getDate();
-  const prefix = `${year}-${String(month).padStart(2, "0")}`;
-  return { start: `${prefix}-01`, end: `${prefix}-${String(lastDay).padStart(2, "0")}` };
-}
-
 test.describe("dashboard mobile layout", () => {
   test.use({ viewport: { width: 375, height: 812 } });
 
@@ -21,7 +12,7 @@ test.describe("dashboard mobile layout", () => {
 
   test("no horizontal overflow at 375px", async ({ page }) => {
     await page.goto("/dashboard");
-    await expect(page.getByRole("button", { name: "Zobacz więcej" })).toBeVisible({
+    await expect(page.getByTestId("dashboard-cash-position")).toBeVisible({
       timeout: 10000,
     });
 
@@ -31,8 +22,7 @@ test.describe("dashboard mobile layout", () => {
     });
     expect(overflowAtTop).toBe(false);
 
-    await page.getByRole("button", { name: "Zobacz więcej" }).click();
-    await page.getByText("Nadchodzące i zaległe").scrollIntoViewIfNeeded();
+    await page.getByText("Co jeszcze nadchodzi").scrollIntoViewIfNeeded();
     const overflowAtStatus = await page.evaluate(() => {
       const doc = document.documentElement;
       return doc.scrollWidth > doc.clientWidth + 1;
@@ -136,12 +126,9 @@ test.describe("dashboard mobile layout", () => {
     await expect(cash.getByText("Saldo na dziś", { exact: true })).toBeVisible();
     await expect(cash.getByText("Wydano w tym miesiącu", { exact: true })).toBeVisible();
     await expect(cash.getByText("Przewidywane saldo na koniec miesiąca")).toBeVisible();
-    const transactionsLink = cash.getByRole("link", { name: "Zobacz transakcje →" });
-    await expect(transactionsLink).toBeVisible();
-    await expect(transactionsLink).toHaveAttribute(
-      "href",
-      /\/transactions\?startDate=\d{4}-\d{2}-\d{2}&endDate=\d{4}-\d{2}-\d{2}&group=own/
-    );
+    await expect(cash.getByRole("link", { name: /Zobacz analizę/i })).toBeVisible();
+    await expect(cash.getByRole("button", { name: "Skąd ta kwota?" })).toBeVisible();
+    await expect(cash.getByRole("link", { name: /Zobacz transakcje/ })).toHaveCount(0);
     await expect(cash.getByTestId("cockpit-balance")).toContainText(/1\D?300,00/);
     await expect(cash.getByTestId("cockpit-payments")).toContainText(/200,00/);
     await expect(cash.getByTestId("cockpit-forecast")).toContainText(/1\D?000,00/);
@@ -152,11 +139,6 @@ test.describe("dashboard mobile layout", () => {
     expect(forecastBox!.y).toBeLessThan(balanceBox!.y);
     expect(Math.abs(balanceBox!.y - paymentsBox!.y)).toBeLessThan(8);
     expect(balanceBox!.x).toBeLessThan(paymentsBox!.x);
-    const linkBox = await transactionsLink.boundingBox();
-    const cardBox = await cash.boundingBox();
-    expect(linkBox && cardBox).toBeTruthy();
-    expect(linkBox!.y).toBeGreaterThan(paymentsBox!.y);
-    expect(linkBox!.width).toBeGreaterThan(cardBox!.width * 0.75);
     const todayLine = await cash.getByTestId("cockpit-today").boundingBox();
     const todayLabel = await cash.getByTestId("cockpit-today-label").boundingBox();
     expect(todayLine && todayLabel).toBeTruthy();
@@ -567,14 +549,15 @@ test.describe("dashboard mobile layout", () => {
     await expect(page.getByRole("combobox", { name: "Grupuj przepływy" })).toBeVisible();
   });
 
-  test("transaction links carry the exact inclusive month and group scope", async ({ page }) => {
+  test("analysis and upcoming links keep the active group scope", async ({ page }) => {
     await page.goto("/dashboard?group=all");
-    const range = currentCalendarMonthRange();
-    const link = page.getByRole("link", { name: /wszystkie transakcje/i });
-
-    await expect(link).toHaveAttribute(
+    await expect(page.getByTestId("cockpit-see-analysis")).toHaveAttribute(
       "href",
-      `/transactions?startDate=${range.start}&endDate=${range.end}&group=all`
+      /\/analysis\?.*group=all/
+    );
+    await expect(page.getByRole("link", { name: "Zobacz wszystkie", exact: true })).toHaveAttribute(
+      "href",
+      /\/transactions\?.*group=all/
     );
   });
 });

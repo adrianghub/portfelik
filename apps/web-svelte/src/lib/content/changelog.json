@@ -1,13 +1,29 @@
 {
   "versions": [
     {
+      "version": "1.3.17",
+      "versionCode": 25,
+      "date": "2026-10-16",
+      "items": [
+        "Kwoty prowadzą do źródeł.",
+        "Łatwiejsze wiązanie płatności z planami.",
+        "Czytelniejszy Kokpit i Analizy."
+      ]
+    },
+    {
+      "version": "1.3.16",
+      "versionCode": 24,
+      "date": "2026-10-15",
+      "items": ["Podsumowania i prognozy.", "Szczegóły miesięcy.", "Wygodniejsza nawigacja."]
+    },
+    {
       "version": "1.3.15",
       "versionCode": 23,
       "date": "2026-10-14",
       "items": [
-        "W planie kredytu zaplanujesz raty cykliczne i osobno dodasz już opłaconą.",
-        "Prognoza w Analizach ma słupki wpływów i wydatków oraz czytelniejsze filtry kategorii.",
-        "Nadchodzące płatności w Transakcjach sortują się od najbliższych."
+        "Raty kredytu: plan i opłacone.",
+        "Słupki w prognozie Analiz.",
+        "Nadchodzące od najbliższych."
       ]
     },
     {
@@ -15,9 +31,9 @@
       "versionCode": 22,
       "date": "2026-10-14",
       "items": [
-        "Analiza ma osobną prognozę salda z horyzontem do 12 miesięcy.",
-        "W historii filtrujesz kategorie i grupujesz wpływy oraz wydatki.",
-        "Na telefonie dolna nawigacja nie gubi się przy zmianie wysokości strony."
+        "Osobna prognoza salda.",
+        "Filtry kategorii w historii.",
+        "Stabilniejsza nawigacja na telefonie."
       ]
     },
     {
@@ -25,9 +41,9 @@
       "versionCode": 21,
       "date": "2026-10-13",
       "items": [
-        "Potwierdź saldo zapisuje kwotę z banku na koniec wybranego dnia.",
-        "Wcześniejsze saldo w Analizach jest na jednej linii, policzone z transakcji.",
-        "Zapisane wcześniej saldo początkowe liczy się tak samo, dopóki go nie zmienisz."
+        "Potwierdź saldo z banku.",
+        "Jedna linia salda w Analizach.",
+        "Spójne saldo początkowe."
       ]
     },
     {
@@ -35,10 +51,9 @@
       "versionCode": 20,
       "date": "2026-10-13",
       "items": [
-        "Prognoza na Kokpicie zostaje przy bieżącym miesiącu. Filtr okresu jej nie zmienia.",
-        "Wykres ma skalę kwot, kolor motywu oraz osobno historię i prognozę.",
-        "Analizy pokazują saldo w czasie, wpływy, wydatki i kategorie.",
-        "Objaśnienia mieszczą się na ekranie."
+        "Prognoza przy bieżącym miesiącu.",
+        "Wykres z historią i prognozą.",
+        "Analizy: saldo, wpływy, wydatki."
       ]
     },
     {
@@ -46,78 +61,60 @@
       "versionCode": 19,
       "date": "2026-10-12",
       "items": [
-        "Wykres na Kokpicie pokazuje saldo i prognozę wybranego okresu.",
-        "Na telefonie saldo i wydatki stoją obok siebie.",
-        "Na wykresie widać dzień dzisiejszy."
+        "Wykres salda i prognozy.",
+        "Saldo i wydatki obok siebie.",
+        "Marker dnia dzisiejszego."
       ]
     },
     {
       "version": "1.3.10",
       "versionCode": 18,
       "date": "2026-10-12",
-      "items": [
-        "Lista planów jest zwarta. Na szerokim ekranie główna kwota stoi po prawej.",
-        "W planie wydatków widać, ile zostało w budżecie. Transakcję można powiązać, dopóki pozycja ma resztę do zapłaty.",
-        "Nowy plan nie pyta o kategorię."
-      ]
+      "items": ["Zwarta lista planów.", "Budżet i wiązanie płatności.", "Prostszy nowy plan."]
     },
     {
       "version": "1.3.9",
       "versionCode": 17,
       "date": "2026-10-10",
       "items": [
-        "Kokpit pokazuje saldo kont, płatności na 30 dni i prognozę.",
-        "Plan wydatków zbiera koszty, wpłaty i kwotę pozostałą do zapłaty.",
-        "Prognoza odejmuje tylko nieopłaconą część potwierdzonej płatności."
+        "Kokpit: saldo i prognoza.",
+        "Plan wydatków z wpłatami.",
+        "Prognoza tylko na resztę płatności."
       ]
     },
     {
       "version": "1.3.8",
       "versionCode": 16,
       "date": "2026-10-07",
-      "items": [
-        "Podgląd wyciągu pokazuje oryginalne dane bankowe obok danych rozpoznanych przez JakStoimy.",
-        "Historia importów w Ustawieniach zachowuje wyniki zatwierdzonych wyciągów.",
-        "Podsumowanie importu i widok Do sprawdzenia ułatwiają znalezienie operacji wymagających decyzji."
-      ]
+      "items": ["Podgląd wyciągu bankowego.", "Historia importów.", "Do sprawdzenia po imporcie."]
     },
     {
       "version": "1.3.7",
       "versionCode": 15,
       "date": "2026-10-05",
-      "items": [
-        "Poprawiona obsługa błędów importu: czytelne komunikaty bez technicznych szczegółów.",
-        "Ponowny import tego samego wyciągu zachowuje historię i zabezpieczenia przed duplikatami."
-      ]
+      "items": ["Czytelniejsze błędy importu.", "Bezpieczny ponowny import."]
     },
     {
       "version": "1.3.6",
       "versionCode": 14,
       "date": "2026-10-05",
-      "items": [
-        "Naprawione limity wydatków w PLN: transakcje w innych walutach nie zmieniają wykorzystania limitu.",
-        "Nowe zgłaszanie błędów w Pomocy z informacją o prywatności zgłoszenia."
-      ]
+      "items": ["Limity tylko w PLN.", "Zgłaszanie błędów w Pomocy."]
     },
     {
       "version": "1.3.5",
       "versionCode": 13,
       "date": "2026-10-05",
       "items": [
-        "Łatwiejszy import na telefonie: wybór kategorii, grupowanie podobnych transakcji i podsumowanie przed zapisem.",
-        "Dokładniejsze reguły kategorii z osobnym opisem i kontrahentem oraz podglądem pasujących transakcji.",
-        "Poprawione odczytywanie opisów i kontrahentów z plików bankowych."
+        "Łatwiejszy import na telefonie.",
+        "Dokładniejsze reguły kategorii.",
+        "Lepsze opisy z banku."
       ]
     },
     {
       "version": "1.3.4",
       "versionCode": 12,
       "date": "2026-10-02",
-      "items": [
-        "Stabilniejszy Kokpit i saldo.",
-        "Bezpieczniejszy import i archiwum kategorii.",
-        "Publiczna beta w wdrożeniach."
-      ]
+      "items": ["Stabilniejszy Kokpit i saldo.", "Bezpieczniejszy import.", "Publiczna beta."]
     },
     {
       "version": "1.3.3",
@@ -129,11 +126,7 @@
       "version": "1.3.2",
       "versionCode": 10,
       "date": "2026-10-01",
-      "items": [
-        "Jaśniejsze saldo i prognoza.",
-        "Szybszy Kokpit i wyszukiwanie.",
-        "Poprawki importu, eksportu i płatności."
-      ]
+      "items": ["Jaśniejsze saldo i prognoza.", "Szybszy Kokpit.", "Poprawki importu i płatności."]
     },
     {
       "version": "1.3.1",

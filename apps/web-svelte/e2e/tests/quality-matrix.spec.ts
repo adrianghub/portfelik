@@ -69,11 +69,17 @@ test("search dialog traps focus and restores it", async ({ page }) => {
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Szukaj transakcji" });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole("textbox")).toBeFocused();
+  const textbox = dialog.getByRole("textbox");
+  await expect(textbox).toBeFocused();
   await page.keyboard.press("Shift+Tab");
   expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
-  await page.keyboard.press("Tab");
-  await expect(dialog.getByRole("textbox")).toBeFocused();
+  // Cycle forward until the field is focused again (close control sits after it).
+  for (let step = 0; step < 4; step += 1) {
+    if (await textbox.evaluate((el) => el === document.activeElement)) break;
+    expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+    await page.keyboard.press("Tab");
+  }
+  await expect(textbox).toBeFocused();
   await accessibilityCheck(page, '[role="dialog"]');
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);

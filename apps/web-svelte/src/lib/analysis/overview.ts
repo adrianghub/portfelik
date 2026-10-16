@@ -63,6 +63,8 @@ export interface AnalysisOverview {
   balanceChange: number | null;
   income: number;
   expense: number;
+  /** Dated paid flows used for bars and month detail (category-filtered). */
+  flows: AnalysisFlow[];
   bars: AnalysisBar[];
   barKind: "month" | "week" | "day";
   previousIncome: number;
@@ -205,7 +207,8 @@ export function analysisTransactionsUrl(
   range: { start: string; end: string },
   scope: string,
   categoryIds: Iterable<string> = [],
-  status = "paid"
+  status = "paid",
+  returnTo?: string | null
 ): string {
   const params = new URLSearchParams({
     startDate: range.start,
@@ -217,6 +220,7 @@ export function analysisTransactionsUrl(
   const ids = [...categoryIds].sort();
   if (ids.length === 1 && ids[0] !== "none") params.set("categoryId", ids[0]);
   else if (ids.length > 0) params.set("categoryIds", ids.join(","));
+  if (returnTo && returnTo.startsWith("/analysis")) params.set("returnTo", returnTo);
   return `/transactions?${params}`;
 }
 
@@ -356,6 +360,7 @@ export function buildAnalysisOverview(input: {
     balanceChange,
     income: money.income,
     expense: money.expense,
+    flows: current,
     bars: buildAnalysisFlowBars(current, window.start, window.end, barKind),
     previousIncome: priorMoney.income,
     previousExpense: priorMoney.expense,

@@ -125,6 +125,15 @@ describe("analysis forecast using Kokpit rules", () => {
     // Flow cards/bars exclude confirmed spend remainders (not on /transactions).
     expect(result.expense).toBe(1700);
     expect(result.bars.reduce((sum, bar) => sum + bar.expense, 0)).toBeCloseTo(result.expense, 2);
+    // Month composition still receives the uncovered remainder (500 − 100 − 200).
+    expect(result.obligationFlows).toEqual([
+      expect.objectContaining({
+        id: "spend-remainder:item",
+        type: "expense",
+        amount: 200,
+        date: "2026-10-21",
+      }),
+    ]);
   });
   it("does not project a paid materialized period twice", () => {
     const result = forecast("2026-12-31", {

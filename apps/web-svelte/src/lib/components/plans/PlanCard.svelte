@@ -42,7 +42,7 @@
   );
   const spendUsedPct = $derived(
     spendSummary != null && spendSummary.budget > 0
-      ? Math.min(100, Math.round((spendSummary.planned / spendSummary.budget) * 100))
+      ? Math.min(100, Math.round((spendSummary.projectedCost / spendSummary.budget) * 100))
       : 0
   );
 
@@ -174,12 +174,12 @@
         <p
           class="text-lg leading-tight font-semibold whitespace-nowrap text-slate-100 tabular-nums md:col-start-2 md:row-span-3 md:row-start-1 md:self-center md:text-right md:text-2xl md:leading-normal"
         >
-          {#if spendSummary.budgetLeft < 0}
+          {#if spendSummary.cushion < 0}
             {m.plan_spend_over_budget({
-              amount: formatCurrency(Math.abs(spendSummary.budgetLeft)),
+              amount: formatCurrency(Math.abs(spendSummary.cushion)),
             })}
           {:else}
-            {formatCurrency(spendSummary.budgetLeft)}
+            {formatCurrency(spendSummary.cushion)}
           {/if}
         </p>
         <p class="flex items-center gap-2 text-sm text-slate-300 md:col-start-1">
@@ -205,7 +205,7 @@
             <span
               class={cn(
                 "block h-full rounded-full",
-                spendSummary.budgetLeft < 0 ? "bg-rose-400" : "bg-accent"
+                spendSummary.cushion < 0 ? "bg-rose-400" : "bg-accent"
               )}
               style="width: {spendUsedPct}%"
             ></span>
