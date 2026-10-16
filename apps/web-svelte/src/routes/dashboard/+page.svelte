@@ -41,6 +41,7 @@
   import {
     buildCockpitMonthView,
     cockpitForecastChart,
+    uniqueCockpitMonthRows,
     type CockpitMonthRow,
   } from "$lib/cockpit/month-view";
   import { takeCockpitImportReveal } from "$lib/cockpit/import-reveal";
@@ -509,7 +510,8 @@
     const listed = cockpitMonthLedgerQuery.isSuccess
       ? (cockpitMonthLedgerQuery.data ?? []).map(monthRow)
       : [];
-    return [...history, ...projected, ...listed];
+    // History and month ledger overlap; Skąd ta kwota must not double-count.
+    return uniqueCockpitMonthRows([...history, ...projected, ...listed]);
   });
   const cockpitMonth = $derived(
     buildCockpitMonthView({
