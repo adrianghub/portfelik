@@ -1,6 +1,5 @@
 import { supabase } from "$lib/supabase";
 import {
-  invitationDeliveryFailureCode,
   invitationErrorFromFunctionsFailure,
   resolveInvitationFunctionResult,
   type InvitationFunctionBody,
@@ -103,10 +102,6 @@ async function invokeGroupInvitation(body: Record<string, unknown>): Promise<Gro
   const payload = data as InvitationFunctionBody | null;
   if (error) throw await invitationErrorFromFunctionsFailure(error);
   const invitation = resolveInvitationFunctionResult(payload, null);
-  const deliveryFail = invitationDeliveryFailureCode(payload);
-  if (deliveryFail === "recipient_not_allowed") {
-    throw new Error("recipient_not_allowed");
-  }
   return invitation;
 }
 
@@ -152,6 +147,13 @@ export async function rejectInvitation(invitationId: string): Promise<void> {
 
 export async function cancelInvitation(invitationId: string): Promise<void> {
   const { error } = await supabase.rpc("cancel_invitation", { p_invitation_id: invitationId });
+  if (error) throw error;
+}
+
+export async function deleteInvitation(invitationId: string): Promise<void> {
+  const { error } = await supabase.rpc("delete_group_invitation", {
+    p_invitation_id: invitationId,
+  });
   if (error) throw error;
 }
 

@@ -53,6 +53,10 @@ export const ACCOUNT_EXPORT_TABLE_INVENTORY = {
   action_dismissals: { disposition: "ephemeral", reason: "Attention preference" },
   recurring_occurrence_skips: { disposition: "exported", field: "recurring_occurrence_skips" },
   group_invitation_tokens: { disposition: "omitted", reason: "Hashed access token workflow" },
+  group_invitation_send_attempts: {
+    disposition: "ephemeral",
+    reason: "Security rate-limit telemetry",
+  },
   group_invitation_access_attempts: {
     disposition: "ephemeral",
     reason: "Security rate-limit telemetry",
