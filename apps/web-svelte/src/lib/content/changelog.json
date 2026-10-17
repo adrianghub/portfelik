@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "1.3.21",
+      "versionCode": 29,
+      "date": "2026-10-17",
+      "items": [
+        "Ponawianie nieudanej wysyłki zaproszeń.",
+        "Usuwanie wygasłych i zakończonych zaproszeń.",
+        "Wygasłe zaproszenia nie blokują nowych."
+      ]
+    },
+    {
       "version": "1.3.20",
       "versionCode": 28,
       "date": "2026-10-16",
