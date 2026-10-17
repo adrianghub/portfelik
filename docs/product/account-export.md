@@ -38,6 +38,7 @@ fails whenever a table is created without an export classification.
 | `notifications`                    | Ephemeral      | Delivery inbox, not financial truth.                                        |
 | `plan_settlement_dismissals`       | Ephemeral      | Suggestion preference, not plan progress.                                   |
 | `action_dismissals`                | Ephemeral      | Attention preference.                                                       |
+| `group_invitation_send_attempts`   | Ephemeral      | Security rate-limit telemetry.                                              |
 | `group_invitation_access_attempts` | Ephemeral      | Security rate-limit telemetry.                                              |
 
 Group-scoped financial rows are household history and may be visible in the

@@ -18,6 +18,7 @@
     acceptInvitation,
     rejectInvitation,
     cancelInvitation,
+    deleteInvitation,
     removeGroupMember,
     nominateGroupCoOwner,
     revokeGroupCoOwner,
@@ -33,26 +34,26 @@
   import * as m from "$lib/paraglide/messages";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import { Users } from "lucide-svelte";
-  import type { GroupMemberRole } from "$lib/types";
+  import type { GroupInvitation, GroupMemberRole } from "$lib/types";
 
   const queryClient = useQueryClient();
 
   const groupsQuery = createQuery(() => ({
     queryKey: qk.userGroups(session.userId!),
     queryFn: fetchUserGroups,
-    enabled: () => !!session.userId,
+    enabled: !!session.userId,
   }));
 
   const groupRolesQuery = createQuery(() => ({
     queryKey: qk.myGroupRoles(session.userId!),
     queryFn: fetchMyGroupRoles,
-    enabled: () => !!session.userId,
+    enabled: !!session.userId,
   }));
 
   const invitationsQuery = createQuery(() => ({
     queryKey: qk.groupInvitationsReceived(session.userId!),
     queryFn: fetchReceivedInvitations,
-    enabled: () => !!session.userId,
+    enabled: !!session.userId,
   }));
 
   let currentUserId = $state<string | undefined>(undefined);
@@ -174,6 +175,7 @@
       await queryClient.invalidateQueries({ queryKey: qk.userGroups(u) });
       await queryClient.invalidateQueries({ queryKey: qk.myGroupRoles(u) });
       await queryClient.invalidateQueries({ queryKey: qk.groupInvitationsReceived(u) });
+      await queryClient.invalidateQueries({ queryKey: qk.notifications(u) });
       toast.success(m.toast_invitation_accepted());
     },
     onError: (err) => toastError(err),
@@ -185,6 +187,7 @@
       await queryClient.invalidateQueries({
         queryKey: qk.groupInvitationsReceived(requireSessionUserId()),
       });
+      await queryClient.invalidateQueries({ queryKey: qk.notifications(requireSessionUserId()) });
       toast.success(m.toast_invitation_rejected());
     },
     onError: (err) => toastError(err),
@@ -196,7 +199,7 @@
   const sentInvQuery = createQuery(() => ({
     queryKey: qk.groupInvitationsSent(session.userId!, sentInvGroupId!),
     queryFn: () => fetchSentInvitations(sentInvGroupId!),
-    enabled: () => !!session.userId && !!sentInvGroupId,
+    enabled: !!session.userId && !!sentInvGroupId,
   }));
 
   const cancelMutation = createMutation(() => ({
@@ -205,7 +208,26 @@
       await queryClient.invalidateQueries({
         queryKey: qk.groupInvitationsSent(requireSessionUserId(), sentInvGroupId!),
       });
+      await queryClient.invalidateQueries({ queryKey: qk.notifications(requireSessionUserId()) });
       toast.success(m.toast_invitation_cancelled());
+    },
+    onError: (err) => toastError(err),
+  }));
+
+  let deleteTarget = $state<GroupInvitation | null>(null);
+  const deleteMutation = createMutation(() => ({
+    mutationFn: (invitation: GroupInvitation) => deleteInvitation(invitation.id),
+    onSuccess: async (_data, invitation) => {
+      const u = requireSessionUserId();
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: qk.groupInvitationsSent(u, invitation.group_id),
+        }),
+        queryClient.invalidateQueries({ queryKey: qk.groupInvitationsReceived(u) }),
+        queryClient.invalidateQueries({ queryKey: qk.notifications(u) }),
+      ]);
+      deleteTarget = null;
+      toast.success(m.toast_invitation_deleted());
     },
     onError: (err) => toastError(err),
   }));
@@ -230,7 +252,7 @@
   const membersQuery = createQuery(() => ({
     queryKey: qk.groupMembersProfiles(session.userId!, membersGroupId!),
     queryFn: () => fetchGroupMembersWithProfiles(membersGroupId!),
-    enabled: () => !!session.userId && !!membersGroupId,
+    enabled: !!session.userId && !!membersGroupId,
   }));
 
   let removeTargetUserId = $state<string | null>(null);
@@ -289,7 +311,15 @@
   }));
 
   // ── Status label helper ───────────────────────────────────────────────────
+  function invitationStatus(invitation: GroupInvitation): string {
+    return invitation.status === "pending" &&
+      new Date(invitation.expires_at).getTime() <= Date.now()
+      ? "expired"
+      : invitation.status;
+  }
+
   function statusLabel(status: string) {
+    if (status === "expired") return m.group_invitation_status_expired();
     if (status === "pending") return m.group_invitation_status_pending();
     if (status === "accepted") return m.group_invitation_status_accepted();
     if (status === "rejected") return m.group_invitation_status_rejected();
@@ -415,29 +445,36 @@
               >
                 {#if sentInvQuery.isLoading}
                   <div class="h-8 animate-pulse rounded bg-slate-200"></div>
+                {:else if sentInvQuery.isError}
+                  <QueryError error={sentInvQuery.error} onRetry={() => sentInvQuery.refetch()} />
                 {:else if sentInvQuery.data?.length === 0}
                   <p class="text-xs text-slate-400">{m.group_sent_invitations_empty()}</p>
                 {:else if sentInvQuery.data}
                   <ul class="space-y-2">
                     {#each sentInvQuery.data as inv (inv.id)}
-                      <li class="flex items-center justify-between gap-2">
+                      <li class="flex flex-wrap items-center justify-between gap-2">
                         <div class="min-w-0">
                           <p
                             class="truncate text-xs font-medium text-slate-800 dark:text-slate-200"
                           >
                             {inv.invited_user_email}
                           </p>
+                          {#if invitationStatus(inv) === "pending" && inv.delivery_status === "failed"}
+                            <p class="text-xs text-amber-600 dark:text-amber-300">
+                              {m.group_invitation_delivery_failed()}
+                            </p>
+                          {/if}
                         </div>
                         <div class="flex shrink-0 items-center gap-2">
                           <span
                             class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium {statusClass(
-                              inv.status
+                              invitationStatus(inv)
                             )}"
                           >
-                            {statusLabel(inv.status)}
+                            {statusLabel(invitationStatus(inv))}
                           </span>
-                          {#if inv.status === "pending"}
-                            {#if inv.delivery_status === "failed"}
+                          {#if invitationStatus(inv) === "pending"}
+                            {#if inv.delivery_attempts < 5}
                               <button
                                 onclick={() => resendMutation.mutate(inv)}
                                 disabled={resendMutation.isPending}
@@ -452,6 +489,17 @@
                               class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-400 transition-colors hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
                             >
                               {m.group_invitation_cancel()}
+                            </button>
+                          {:else}
+                            <button
+                              onclick={() => (deleteTarget = inv)}
+                              disabled={deleteMutation.isPending}
+                              aria-label={m.group_invitation_delete_label({
+                                email: inv.invited_user_email,
+                              })}
+                              class="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-400 transition-colors hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700"
+                            >
+                              {m.common_delete()}
                             </button>
                           {/if}
                         </div>
@@ -705,4 +753,14 @@
   onconfirm={() => transferOwnershipMutation.mutate()}
   onclose={() => (transferTargetUserId = null)}
   pending={transferOwnershipMutation.isPending}
+/>
+
+<ConfirmDialog
+  open={!!deleteTarget}
+  message={m.group_invitation_delete_confirm()}
+  pending={deleteMutation.isPending}
+  onconfirm={() => {
+    if (deleteTarget) deleteMutation.mutate(deleteTarget);
+  }}
+  onclose={() => (deleteTarget = null)}
 />
