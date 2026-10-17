@@ -269,6 +269,12 @@ export type Database = {
         };
         Relationships: [];
       };
+      group_invitation_send_attempts: {
+        Row: { id: number; actor_id: string; created_at: string };
+        Insert: { id?: never; actor_id: string; created_at?: string };
+        Update: { id?: never; actor_id?: string; created_at?: string };
+        Relationships: [];
+      };
       group_invitation_tokens: {
         Row: {
           created_at: string;
@@ -1422,6 +1428,10 @@ export type Database = {
         Returns: boolean;
       };
       cancel_import_session: { Args: { p_session_id: string }; Returns: Json };
+      delete_group_invitation: {
+        Args: { p_invitation_id: string };
+        Returns: undefined;
+      };
       cancel_invitation: {
         Args: { p_invitation_id: string };
         Returns: undefined;

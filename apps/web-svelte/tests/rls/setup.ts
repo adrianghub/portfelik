@@ -157,6 +157,23 @@ export async function provisionTwoUsers(): Promise<TestContext> {
  */
 export async function cleanupSentinels(admin: SupabaseClient): Promise<void> {
   const pattern = `${SENTINEL}%`;
+  // Only local test users: invitation history deletion intentionally preserves quotas.
+  const fixtureActors = await admin
+    .from("profiles")
+    .select("id")
+    .in("email", ["rls-a@local.test", "rls-b@local.test"]);
+  if (fixtureActors.error) throw fixtureActors.error;
+  if (fixtureActors.data?.length) {
+    const result = await admin
+      .from("group_invitation_send_attempts")
+      .delete()
+      .in(
+        "actor_id",
+        fixtureActors.data.map((p) => p.id)
+      );
+    if (result.error) throw result.error;
+  }
+
   const [plansResult, transactionsResult] = await Promise.all([
     admin.from("plans").select("id").like("name", pattern),
     admin.from("transactions").select("id").like("description", pattern),
