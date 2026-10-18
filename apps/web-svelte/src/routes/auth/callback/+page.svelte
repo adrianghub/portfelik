@@ -1,49 +1,26 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { goto } from "$app/navigation";
-  import { consumeLoginRedirect } from "$lib/auth-redirect";
-  import { supabase } from "$lib/supabase";
+  import { afterNavigate, goto, replaceState } from "$app/navigation";
+  import { page } from "$app/state";
+  import { completeAuthCallback } from "$lib/auth/callback";
   import * as m from "$lib/paraglide/messages";
 
   let error = $state<string | null>(null);
 
-  onMount(async () => {
+  let consumed = false;
+  afterNavigate(() => {
+    if (consumed) return;
+    consumed = true;
     const currentUrl = new URL(window.location.href);
-    // PKCE flow: Supabase redirects with ?code=
-    const code = currentUrl.searchParams.get("code");
-    if (code) {
-      const { error: authError } = await supabase.auth.exchangeCodeForSession(code);
-      if (authError) {
-        error = m.login_error_generic();
-        return;
-      }
-      goto(consumeLoginRedirect(currentUrl), { replaceState: true });
-      return;
-    }
-
-    // Implicit flow: Supabase client auto-exchanges tokens from URL hash.
-    // Session may already be set in localStorage by the time we get here.
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (session) {
-      goto(consumeLoginRedirect(currentUrl), { replaceState: true });
-      return;
-    }
-
-    // Wait up to 3s for auth state change in case client is still processing hash
-    const timer = setTimeout(() => {
-      error = m.login_error_generic();
-    }, 3000);
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" && session) {
-        clearTimeout(timer);
-        subscription.unsubscribe();
-        goto(consumeLoginRedirect(currentUrl), { replaceState: true });
-      }
-    });
+    // Keep credentials out of browser history even when verification fails.
+    const cleanUrl = new URL(currentUrl);
+    cleanUrl.hash = "";
+    cleanUrl.searchParams.delete("code");
+    replaceState(cleanUrl.pathname + cleanUrl.search, page.state);
+    void completeAuthCallback(currentUrl)
+      .then((target) => goto(target, { replaceState: true }))
+      .catch(() => {
+        error = m.auth_callback_error();
+      });
   });
 </script>
 
@@ -52,6 +29,7 @@
 >
   {#if error}
     <div
+      role="alert"
       class="rounded-xl border border-rose-500/20 bg-rose-500/10 px-6 py-4 text-sm text-rose-300"
     >
       {error}

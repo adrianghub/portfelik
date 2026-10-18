@@ -48,7 +48,7 @@ test("login page renders Google sign-in button", async ({ page }) => {
     page.getByRole("heading", { name: "Zobacz, na co idą Twoje pieniądze." })
   ).toBeVisible();
   await expect(
-    page.getByText("Importujesz wyciąg. Kokpit pokazuje miesiąc. Plany na cele i kredyty.")
+    page.getByText("Importuj transakcje, analizuj wpływy i wydatki oraz planuj przyszłe operacje.")
   ).toBeVisible();
   await expect(page.getByText("🏠 Czynsz")).toHaveCount(0);
   await expect(page.getByText("Twoje konto")).toHaveCount(0);

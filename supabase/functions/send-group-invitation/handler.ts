@@ -4,6 +4,7 @@ type InvitationRequest = {
   email?: string;
   invitationId?: string;
   token?: string;
+  setupPassword?: boolean;
 };
 
 type InvocationResult<T> = { data: T; error: { message?: string } | null };
@@ -146,7 +147,8 @@ export function createInvitationHandler(
       (body.groupId !== undefined && typeof body.groupId !== "string") ||
       (body.invitationId !== undefined &&
         typeof body.invitationId !== "string") ||
-      (body.token !== undefined && typeof body.token !== "string")
+      (body.token !== undefined && typeof body.token !== "string") ||
+      (body.setupPassword !== undefined && typeof body.setupPassword !== "boolean")
     ) {
       return json(req, { error: "invalid_request" }, 400);
     }
@@ -177,12 +179,16 @@ export function createInvitationHandler(
         p_email: email,
       });
       if (verified.error || verified.data !== true) return denied;
+      const invitationTarget = `/invite/${encodeURIComponent(body.token)}`;
+      const redirectTarget = body.setupPassword
+        ? `/auth/setup?redirectTo=${encodeURIComponent(invitationTarget)}`
+        : invitationTarget;
       let link = await admin.auth.admin.generateLink({
         type: "invite",
         email,
         options: {
           redirectTo: `${appOrigin}/auth/callback?redirectTo=${encodeURIComponent(
-            `/invite/${body.token}`,
+            redirectTarget,
           )}`,
         },
       });
@@ -192,7 +198,7 @@ export function createInvitationHandler(
           email,
           options: {
             redirectTo: `${appOrigin}/auth/callback?redirectTo=${encodeURIComponent(
-              `/invite/${body.token}`,
+              redirectTarget,
             )}`,
           },
         });

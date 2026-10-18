@@ -96,16 +96,15 @@ additional_redirect_urls = [
 jwt_expiry                   = 3600   # 1 hour
 enable_refresh_token_rotation = true
 refresh_token_reuse_interval  = 10
-enable_signup                 = true
+enable_signup                 = false
 enable_anonymous_sign_ins     = false
 enable_manual_linking         = false
 
-# Email auth - disabled in prod (Google OAuth only). Enabled locally so
-# the RLS regression suite (tests/rls/) can password-grant two test users.
-# Prod auth config lives in the Supabase Dashboard; this toml only governs
-# the local `supabase start` stack.
+# Invite-only email auth. Admin invitation links provision users; public
+# signup stays disabled. Existing users can still use password grants.
+# Remote project settings are managed separately in the Supabase Dashboard.
 [auth.email]
-enable_signup         = true
+enable_signup         = false
 enable_confirmations  = false
 double_confirm_changes = true
 max_frequency         = "1s"

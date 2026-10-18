@@ -9,7 +9,6 @@
   } from "$lib/auth-redirect";
   import BrandMark from "$lib/components/BrandMark.svelte";
   import { oauthCallbackUrl, signInWithGoogleOAuth } from "$lib/services/oauth";
-  import { isNativeCapacitor } from "$lib/services/pwa";
   import { appVersion } from "$lib/content/changelog";
   import * as m from "$lib/paraglide/messages";
 
@@ -17,7 +16,7 @@
   let password = $state("");
   let loading = $state(false);
   let error = $state<string | null>(null);
-  const nativeLogin = $derived(isNativeCapacitor());
+  let resetSent = $state(false);
 
   async function signInWithEmail(e: SubmitEvent) {
     e.preventDefault();
@@ -55,6 +54,29 @@
     clearLoginRedirect();
     await goto(redirectTarget, { replaceState: true });
     loading = false;
+  }
+
+  async function resetPassword() {
+    if (loading) return;
+    if (!email.trim()) {
+      error = m.login_error_email_required();
+      return;
+    }
+    loading = true;
+    error = null;
+    resetSent = false;
+    try {
+      const target = `/auth/setup?mode=recovery&redirectTo=${encodeURIComponent(redirectTargetFromUrl(page.url))}`;
+      const { error: authError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: oauthCallbackUrl(target),
+      });
+      if (authError) throw authError;
+      resetSent = true;
+    } catch {
+      error = m.auth_reset_error();
+    } finally {
+      loading = false;
+    }
   }
 
   async function signInWithGoogle() {
@@ -114,52 +136,61 @@
         </div>
       {/if}
 
-      {#if !nativeLogin}
-        <form onsubmit={signInWithEmail} class="space-y-4">
-          <div>
-            <label for="email" class="mb-1.5 block text-sm font-medium text-slate-200">
-              {m.login_email()}
-            </label>
-            <input
-              id="email"
-              type="email"
-              bind:value={email}
-              placeholder={m.login_email_placeholder()}
-              autocomplete="email"
-              disabled={loading}
-              class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2.5 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:ring-2 focus:outline-none disabled:opacity-50"
-            />
-          </div>
-
-          <div>
-            <label for="password" class="mb-1.5 block text-sm font-medium text-slate-200">
-              {m.login_password()}
-            </label>
-            <input
-              id="password"
-              type="password"
-              bind:value={password}
-              autocomplete="current-password"
-              disabled={loading}
-              class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2.5 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:ring-2 focus:outline-none disabled:opacity-50"
-            />
-          </div>
-
-          <button
-            type="submit"
+      <form onsubmit={signInWithEmail} class="space-y-4">
+        <div>
+          <label for="email" class="mb-1.5 block text-sm font-medium text-slate-200">
+            {m.login_email()}
+          </label>
+          <input
+            id="email"
+            type="email"
+            bind:value={email}
+            placeholder={m.login_email_placeholder()}
+            autocomplete="email"
             disabled={loading}
-            class="bg-accent-gradient focus-visible:ring-accent w-full rounded-full px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 focus-visible:outline-none disabled:opacity-50"
-          >
-            {loading ? m.login_signing_in() : m.login_sign_in()}
-          </button>
-        </form>
-
-        <div class="my-5 flex items-center gap-3">
-          <div class="h-px flex-1 bg-white/10"></div>
-          <span class="text-xs text-slate-400">{m.common_or()}</span>
-          <div class="h-px flex-1 bg-white/10"></div>
+            class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2.5 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:ring-2 focus:outline-none disabled:opacity-50"
+          />
         </div>
+
+        <div>
+          <label for="password" class="mb-1.5 block text-sm font-medium text-slate-200">
+            {m.login_password()}
+          </label>
+          <input
+            id="password"
+            type="password"
+            bind:value={password}
+            autocomplete="current-password"
+            disabled={loading}
+            class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2.5 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:ring-2 focus:outline-none disabled:opacity-50"
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading}
+          class="bg-accent-gradient focus-visible:ring-accent w-full rounded-full px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 focus-visible:outline-none disabled:opacity-50"
+        >
+          {loading ? m.login_signing_in() : m.login_sign_in()}
+        </button>
+      </form>
+
+      <button
+        type="button"
+        onclick={resetPassword}
+        disabled={loading}
+        class="mt-3 text-sm text-slate-300 underline disabled:opacity-50"
+        >{m.auth_forgot_password()}</button
+      >
+      {#if resetSent}
+        <p role="status" class="mt-3 text-sm text-emerald-300">{m.auth_reset_sent()}</p>
       {/if}
+
+      <div class="my-5 flex items-center gap-3">
+        <div class="h-px flex-1 bg-white/10"></div>
+        <span class="text-xs text-slate-400">{m.common_or()}</span>
+        <div class="h-px flex-1 bg-white/10"></div>
+      </div>
 
       <button
         type="button"

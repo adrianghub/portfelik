@@ -124,3 +124,67 @@ describe("group invitation Edge handler", () => {
     expect(generateLink).not.toHaveBeenCalled();
   });
 });
+
+describe("invited password setup", () => {
+  it("only generates a setup link after rate and recipient validation", async () => {
+    generateLink.mockResolvedValue({
+      data: { properties: { action_link: "https://auth.test/verified-link" } },
+      error: null,
+    });
+    const response = await handler()(
+      request({
+        action: "access",
+        email: " NEW@example.com ",
+        token: "a".repeat(64),
+        setupPassword: true,
+      })
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ sent: true });
+    expect(rpc.mock.calls.map(([name]) => name)).toEqual([
+      "record_group_invitation_access_attempt",
+      "verify_group_invitation_recipient",
+    ]);
+    const options = generateLink.mock.calls[0][0];
+    const callback = new URL(options.options.redirectTo);
+    const setup = new URL(callback.searchParams.get("redirectTo")!, "https://app.jakstoimy.pl");
+    expect(setup.pathname).toBe("/auth/setup");
+    expect(setup.searchParams.get("redirectTo")).toBe(`/invite/${"a".repeat(64)}`);
+    expect(options).not.toHaveProperty("password");
+    expect(rpc).not.toHaveBeenCalledWith("claim_group_invitation", expect.anything());
+  });
+
+  it("uses a magic link for an existing account without changing its credentials", async () => {
+    generateLink
+      .mockResolvedValueOnce({ data: null, error: { message: "already registered" } })
+      .mockResolvedValueOnce({
+        data: { properties: { action_link: "https://auth.test/existing" } },
+        error: null,
+      });
+    const response = await handler()(
+      request({
+        action: "access",
+        email: "a@example.com",
+        token: "a".repeat(64),
+        setupPassword: true,
+      })
+    );
+    expect(await response.json()).toEqual({ sent: true });
+    expect(generateLink.mock.calls.map(([input]) => input.type)).toEqual(["invite", "magiclink"]);
+  });
+
+  it("does not generate or send a link after rate denial", async () => {
+    rpc.mockResolvedValueOnce({ data: false, error: null });
+    const response = await handler()(
+      request({
+        action: "access",
+        email: "a@example.com",
+        token: "a".repeat(64),
+        setupPassword: true,
+      })
+    );
+    expect(response.status).toBe(403);
+    expect(generateLink).not.toHaveBeenCalled();
+    expect(fetchEmail).not.toHaveBeenCalled();
+  });
+});

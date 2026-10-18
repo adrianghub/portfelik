@@ -5,4 +5,6 @@ import type { Database } from "./supabase.types";
 
 export const supabase = createClient<Database>(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, {
   global: { fetch: measuredFetch },
+  // Web and Capacitor callbacks share one explicit credential consumer.
+  auth: { detectSessionInUrl: false },
 });
