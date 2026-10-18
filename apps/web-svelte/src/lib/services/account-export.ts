@@ -66,6 +66,14 @@ export const ACCOUNT_EXPORT_TABLE_INVENTORY = {
     disposition: "omitted",
     reason: "Server-owned demo capability registry, not financial truth",
   },
+  demo_provision_attempts: {
+    disposition: "ephemeral",
+    reason: "Demo provision rate-limit telemetry",
+  },
+  demo_provision_orphans: {
+    disposition: "omitted",
+    reason: "Server-owned demo cleanup ledger, not financial truth",
+  },
 } as const satisfies Record<string, ExportInventoryEntry>;
 
 export interface AccountExportBundle {
