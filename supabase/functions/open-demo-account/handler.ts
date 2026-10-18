@@ -1,12 +1,15 @@
 /**
  * B2 open-demo-account Edge handler (prep only — do not deploy publicly yet).
  *
- * Session contract: claim slot → createUser (nonce) → confirm ownership →
- * register_demo_identity → verify → generateLink(same email) → tokenHash.
+ * Session contract: claim reservation → createUser (nonce) → getUserById
+ * ownership → register → commit reservation → generateLink → tokenHash.
  *
- * deleteUser runs only after this request confirmed ownership of a newly
- * created demo identity (email + provision nonce). Unexpected Auth responses
- * refuse the token and never delete.
+ * Capacity: held reservations count toward the global cap until commit/release/expiry.
+ *
+ * Client keys: by default IP headers are NOT trusted (spoofable on Edge).
+ * Rate limit uses a shared bucket; optional trusted header only when explicitly
+ * configured after infrastructure verification. Turnstile is required when
+ * DEMO_TURNSTILE_SECRET or DEMO_PROVISION_REQUIRE_TURNSTILE is set.
  *
  * hashed_token / tokenHash is a full credential: never log it.
  */
@@ -59,12 +62,25 @@ export type DemoProvisionClientFactory = (
 
 export type DemoProvisionDeps = {
   randomUUID: () => string;
-  /** Optional SHA-256 hex for client keys / turnstile helpers. */
   sha256Hex?: (value: string) => Promise<string>;
   fetchFn?: typeof fetch;
 };
 
 const DEMO_EMAIL_DOMAIN = "demo.jakstoimy.local";
+
+/** Shared rate-limit bucket when no verified ingress IP header is configured. */
+export const SHARED_CLIENT_KEY_MATERIAL = "shared";
+
+/**
+ * Spoofable headers must never drive rate limits unless ops explicitly opts in
+ * after verifying Supabase/CDN overwrites them. Default: ignore all IP headers.
+ */
+const SPOOFABLE_IP_HEADERS = [
+  "x-forwarded-for",
+  "x-real-ip",
+  "true-client-ip",
+  "forwarded",
+] as const;
 
 export type OwnedDemoIdentity = {
   userId: string;
@@ -72,7 +88,6 @@ export type OwnedDemoIdentity = {
   provisionNonce: string;
 };
 
-/** Pure ownership gate used before any deleteUser. */
 export function confirmOwnedDemoIdentity(
   inventedEmail: string,
   provisionNonce: string,
@@ -90,6 +105,33 @@ export function confirmOwnedDemoIdentity(
     email: inventedEmail.toLowerCase(),
     provisionNonce,
   };
+}
+
+/**
+ * Resolve rate-limit key material. Without an allowlisted trusted header name
+ * in env, always returns the shared bucket (IP-independent).
+ */
+export function resolveClientKeyMaterial(
+  req: Request,
+  trustedHeaderName: string | undefined
+): { material: string; trusted: boolean } {
+  const configured = (trustedHeaderName ?? "").trim().toLowerCase();
+  if (!configured) {
+    return { material: SHARED_CLIENT_KEY_MATERIAL, trusted: false };
+  }
+  if ((SPOOFABLE_IP_HEADERS as readonly string[]).includes(configured)) {
+    // Refuse known-spoofable headers even if misconfigured.
+    return { material: SHARED_CLIENT_KEY_MATERIAL, trusted: false };
+  }
+  const raw = req.headers.get(configured)?.trim();
+  if (!raw) {
+    return { material: SHARED_CLIENT_KEY_MATERIAL, trusted: false };
+  }
+  // Single value only — reject comma lists (classic XFF smuggling shape).
+  if (raw.includes(",")) {
+    return { material: SHARED_CLIENT_KEY_MATERIAL, trusted: false };
+  }
+  return { material: raw, trusted: true };
 }
 
 export function createOpenDemoAccountHandler(
@@ -147,37 +189,23 @@ export function createOpenDemoAccountHandler(
       .join("");
   }
 
-  function clientKeyMaterial(req: Request): string {
-    return (
-      req.headers.get("cf-connecting-ip") ??
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-      req.headers.get("x-real-ip") ??
-      "unknown"
-    );
-  }
-
   async function verifyTurnstile(token: string | undefined): Promise<boolean> {
     const secret = env("DEMO_TURNSTILE_SECRET");
-    if (!secret) return true; // optional until ship; local/tests skip
-    if (!token) return false;
+    const requireFlag =
+      (env("DEMO_PROVISION_REQUIRE_TURNSTILE") ?? "").toLowerCase() === "true";
+    if (!secret && !requireFlag) return true;
+    if (!secret || !token) return false;
     const fetchFn = deps.fetchFn ?? fetch;
-    const body = new URLSearchParams({
-      secret,
-      response: token,
-    });
-    const res = await fetchFn("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-      method: "POST",
-      body,
-    });
+    const body = new URLSearchParams({ secret, response: token });
+    const res = await fetchFn(
+      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+      { method: "POST", body }
+    );
     if (!res.ok) return false;
     const payload = (await res.json()) as { success?: boolean };
     return payload.success === true;
   }
 
-  /**
-   * Delete only after re-confirming ownership against Auth. On delete failure,
-   * ledger the orphan for a later sweeper — never broaden delete criteria.
-   */
   async function safeCleanupOwned(
     admin: DemoProvisionClient,
     owned: OwnedDemoIdentity | null
@@ -185,15 +213,16 @@ export function createOpenDemoAccountHandler(
     if (!owned) return;
 
     const fetched = await admin.auth.admin.getUserById(owned.userId);
+    if (fetched.error || !fetched.data?.user) {
+      // Cannot re-confirm — refuse delete.
+      return;
+    }
     const reconfirmed = confirmOwnedDemoIdentity(
       owned.email,
       owned.provisionNonce,
-      fetched.data?.user
+      fetched.data.user
     );
-    if (!reconfirmed) {
-      // Unexpected identity at cleanup time — refuse to delete.
-      return;
-    }
+    if (!reconfirmed) return;
 
     const deleted = await admin.auth.admin.deleteUser(reconfirmed.userId);
     if (deleted.error) {
@@ -204,6 +233,16 @@ export function createOpenDemoAccountHandler(
         p_error: deleted.error.message ?? "delete_failed",
       });
     }
+  }
+
+  async function releaseReservation(
+    admin: DemoProvisionClient,
+    reservationId: string | null
+  ): Promise<void> {
+    if (!reservationId) return;
+    await admin.rpc("release_demo_provision_reservation", {
+      p_reservation_id: reservationId,
+    });
   }
 
   return async function handle(req: Request): Promise<Response> {
@@ -253,19 +292,25 @@ export function createOpenDemoAccountHandler(
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    const clientKey = await hashClientKey(clientKeyMaterial(req));
+    const { material } = resolveClientKeyMaterial(
+      req,
+      env("DEMO_PROVISION_TRUSTED_IP_HEADER")
+    );
+    const clientKey = await hashClientKey(material);
     const windowSeconds = Number(env("DEMO_PROVISION_RATE_WINDOW_SECONDS") ?? 60);
     const maxPerWindow = Number(env("DEMO_PROVISION_RATE_MAX") ?? 5);
     const globalMax = Number(env("DEMO_PROVISION_GLOBAL_MAX_ACTIVE") ?? 500);
+    const holdSeconds = Number(env("DEMO_PROVISION_HOLD_SECONDS") ?? 120);
 
     const slot = await admin.rpc("claim_demo_provision_slot", {
       p_client_key: clientKey,
       p_window_seconds: windowSeconds,
       p_max_per_window: maxPerWindow,
       p_global_max_active: globalMax,
+      p_hold_seconds: holdSeconds,
     });
-    if (slot.error) {
-      const message = slot.error.message ?? "";
+    if (slot.error || typeof slot.data !== "string") {
+      const message = slot.error?.message ?? "";
       if (message.includes("demo_rate_limited")) {
         return json(req, { error: "rate_limited" }, 429);
       }
@@ -274,6 +319,7 @@ export function createOpenDemoAccountHandler(
       }
       return json(req, { error: "provision_failed" }, 500);
     }
+    const reservationId = slot.data;
 
     const email = syntheticDemoEmail();
     const provisionNonce = deps.randomUUID();
@@ -290,20 +336,20 @@ export function createOpenDemoAccountHandler(
         user_metadata: { display_name: "Konto demo" },
       });
       if (created.error || !created.data.user?.id) {
+        await releaseReservation(admin, reservationId);
         return json(req, { error: "provision_failed" }, 500);
       }
 
-      // Authoritative ownership check via getUserById — never trust a bare UID
-      // from createUser alone before deciding whether delete is safe later.
       const fetched = await admin.auth.admin.getUserById(created.data.user.id);
-      owned = confirmOwnedDemoIdentity(
-        email,
-        provisionNonce,
-        fetched.data?.user ?? created.data.user
-      );
+      // No fallback to createUser payload — a read error means ownership unproven.
+      if (fetched.error || !fetched.data?.user) {
+        await releaseReservation(admin, reservationId);
+        return json(req, { error: "provision_failed" }, 500);
+      }
+
+      owned = confirmOwnedDemoIdentity(email, provisionNonce, fetched.data.user);
       if (!owned) {
-        // Unexpected Auth response (e.g. foreign email/UID). Refuse token;
-        // do NOT delete — ownership of that UID was never proven for this op.
+        await releaseReservation(admin, reservationId);
         return json(req, { error: "provision_failed" }, 500);
       }
 
@@ -312,6 +358,7 @@ export function createOpenDemoAccountHandler(
       });
       if (registered.error) {
         await safeCleanupOwned(admin, owned);
+        await releaseReservation(admin, reservationId);
         return json(req, { error: "provision_failed" }, 500);
       }
 
@@ -320,6 +367,7 @@ export function createOpenDemoAccountHandler(
       });
       if (verified.error || verified.data !== true) {
         await safeCleanupOwned(admin, owned);
+        await releaseReservation(admin, reservationId);
         return json(req, { error: "provision_failed" }, 500);
       }
 
@@ -330,7 +378,18 @@ export function createOpenDemoAccountHandler(
       const hashedToken = link.data?.properties?.hashed_token;
       if (link.error || !hashedToken || typeof hashedToken !== "string") {
         await safeCleanupOwned(admin, owned);
+        await releaseReservation(admin, reservationId);
         return json(req, { error: "provision_failed" }, 500);
+      }
+
+      const committed = await admin.rpc("commit_demo_provision_reservation", {
+        p_reservation_id: reservationId,
+        p_user_id: owned.userId,
+      });
+      if (committed.error) {
+        // Identity already registered (counts via demo_identities). Release the
+        // hold so capacity is not double-counted as held+active.
+        await releaseReservation(admin, reservationId);
       }
 
       return json(req, {
@@ -343,7 +402,12 @@ export function createOpenDemoAccountHandler(
       try {
         await safeCleanupOwned(admin, owned);
       } catch {
-        // Ownership-gated cleanup already ledgers delete failures.
+        // Ownership-gated cleanup ledgers delete failures.
+      }
+      try {
+        await releaseReservation(admin, reservationId);
+      } catch {
+        // Expiry sweeper recovers abandoned holds.
       }
       return json(req, { error: "provision_failed" }, 500);
     }

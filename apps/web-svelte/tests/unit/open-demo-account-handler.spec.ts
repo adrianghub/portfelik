@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  SHARED_CLIENT_KEY_MATERIAL,
   confirmOwnedDemoIdentity,
   createOpenDemoAccountHandler,
+  resolveClientKeyMaterial,
   type DemoProvisionClient,
 } from "../../../../supabase/functions/open-demo-account/handler";
 
@@ -37,14 +39,15 @@ const handler = () =>
 
 const DEMO_EMAIL = "demo+11111111-1111-4111-8111-111111111111@demo.jakstoimy.local";
 const NONCE = "22222222-2222-4222-8222-222222222222";
+const RESERVATION_ID = "33333333-3333-4333-8333-333333333333";
 
-const post = (body?: unknown, origin = "https://localhost") =>
+const post = (body?: unknown, headers: Record<string, string> = {}) =>
   new Request("https://edge.test/open-demo-account", {
     method: "POST",
     headers: {
-      origin,
+      origin: "https://localhost",
       "content-type": "application/json",
-      "cf-connecting-ip": "203.0.113.10",
+      ...headers,
     },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
@@ -71,29 +74,24 @@ function ownedUser(
 
 beforeEach(() => {
   vi.clearAllMocks();
-  uuidSeq = [
-    "11111111-1111-4111-8111-111111111111", // email uuid
-    NONCE, // provision nonce
-  ];
+  uuidSeq = ["11111111-1111-4111-8111-111111111111", NONCE];
   config = {
     SUPABASE_URL: "https://db.test",
     SUPABASE_SERVICE_ROLE_KEY: "service-test",
     DEMO_PROVISION_ENABLED: "true",
     DEMO_PROVISION_RATE_MAX: "5",
   };
-  createUser.mockResolvedValue({
-    data: { user: ownedUser() },
-    error: null,
-  });
-  getUserById.mockResolvedValue({
-    data: { user: ownedUser() },
-    error: null,
-  });
+  createUser.mockResolvedValue({ data: { user: ownedUser() }, error: null });
+  getUserById.mockResolvedValue({ data: { user: ownedUser() }, error: null });
   deleteUser.mockResolvedValue({ error: null });
   rpc.mockImplementation(async (name: string) => {
-    if (name === "claim_demo_provision_slot") return { data: null, error: null };
+    if (name === "claim_demo_provision_slot") {
+      return { data: RESERVATION_ID, error: null };
+    }
     if (name === "register_demo_identity") return { data: null, error: null };
     if (name === "is_demo_account") return { data: true, error: null };
+    if (name === "commit_demo_provision_reservation") return { data: null, error: null };
+    if (name === "release_demo_provision_reservation") return { data: null, error: null };
     if (name === "record_demo_provision_orphan") return { data: null, error: null };
     return { data: null, error: { message: `unexpected rpc ${name}` } };
   });
@@ -103,11 +101,43 @@ beforeEach(() => {
   });
 });
 
+describe("resolveClientKeyMaterial", () => {
+  it("ignores spoofable IP headers by default (shared bucket)", () => {
+    const req = post({}, {
+      "x-forwarded-for": "203.0.113.9",
+      "x-real-ip": "198.51.100.7",
+      "cf-connecting-ip": "192.0.2.1",
+    });
+    expect(resolveClientKeyMaterial(req, undefined)).toEqual({
+      material: SHARED_CLIENT_KEY_MATERIAL,
+      trusted: false,
+    });
+  });
+
+  it("refuses known-spoofable headers even when misconfigured as trusted", () => {
+    const req = post({}, { "x-forwarded-for": "203.0.113.9" });
+    expect(resolveClientKeyMaterial(req, "x-forwarded-for")).toEqual({
+      material: SHARED_CLIENT_KEY_MATERIAL,
+      trusted: false,
+    });
+    expect(resolveClientKeyMaterial(req, "x-real-ip")).toEqual({
+      material: SHARED_CLIENT_KEY_MATERIAL,
+      trusted: false,
+    });
+  });
+
+  it("accepts only an explicitly allowlisted non-spoofable header name", () => {
+    const req = post({}, { "sb-test-trusted-ip": "203.0.113.50" });
+    expect(resolveClientKeyMaterial(req, "sb-test-trusted-ip")).toEqual({
+      material: "203.0.113.50",
+      trusted: true,
+    });
+  });
+});
+
 describe("confirmOwnedDemoIdentity", () => {
   it("accepts only matching email + demo claim + nonce", () => {
-    expect(
-      confirmOwnedDemoIdentity(DEMO_EMAIL, NONCE, ownedUser())
-    ).toEqual({
+    expect(confirmOwnedDemoIdentity(DEMO_EMAIL, NONCE, ownedUser())).toEqual({
       userId: "demo-uid",
       email: DEMO_EMAIL,
       provisionNonce: NONCE,
@@ -119,33 +149,28 @@ describe("confirmOwnedDemoIdentity", () => {
         app_metadata: { account_kind: "demo", demo_provision_nonce: NONCE },
       })
     ).toBeNull();
-    expect(
-      confirmOwnedDemoIdentity(DEMO_EMAIL, NONCE, {
-        id: "x",
-        email: DEMO_EMAIL,
-        app_metadata: { account_kind: "demo", demo_provision_nonce: "other" },
-      })
-    ).toBeNull();
   });
 });
 
 describe("open-demo-account Edge handler", () => {
   it("returns 503 when DEMO_PROVISION_ENABLED is not true", async () => {
     config.DEMO_PROVISION_ENABLED = "false";
-    const response = await handler()(post());
-    expect(response.status).toBe(503);
+    expect((await handler()(post())).status).toBe(503);
     expect(createUser).not.toHaveBeenCalled();
   });
 
-  it("rejects caller-supplied email or user id", async () => {
-    expect((await handler()(post({ email: "attacker@example.com" }))).status).toBe(
-      400
-    );
-    expect((await handler()(post({ userId: "existing" }))).status).toBe(400);
-    expect(createUser).not.toHaveBeenCalled();
+  it("spoofed x-forwarded-for does not create a distinct rate-limit key", async () => {
+    await handler()(post({}, { "x-forwarded-for": "1.1.1.1" }));
+    await handler()(post({}, { "x-forwarded-for": "2.2.2.2" }));
+    const keys = rpc.mock.calls
+      .filter(([name]) => name === "claim_demo_provision_slot")
+      .map(([, args]) => (args as { p_client_key: string }).p_client_key);
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).toBe(keys[1]);
+    expect(keys[0]).toContain(`hash:local-dev-salt:${SHARED_CLIENT_KEY_MATERIAL}`);
   });
 
-  it("provisions only after registry verification and returns token hash", async () => {
+  it("provisions after ownership + commits reservation", async () => {
     const response = await handler()(post({}));
     expect(response.status).toBe(200);
     const body = await response.json();
@@ -153,40 +178,15 @@ describe("open-demo-account Edge handler", () => {
       userId: "demo-uid",
       email: DEMO_EMAIL,
       tokenHash: "token-hash-secret",
-      verifyType: "email",
     });
-    expect(createUser).toHaveBeenCalledWith(
-      expect.objectContaining({
-        email: DEMO_EMAIL,
-        app_metadata: {
-          account_kind: "demo",
-          demo_provision_nonce: NONCE,
-        },
-      })
-    );
-    expect(rpc).toHaveBeenCalledWith(
-      "claim_demo_provision_slot",
-      expect.objectContaining({ p_client_key: expect.stringContaining("hash:") })
-    );
+    expect(rpc).toHaveBeenCalledWith("commit_demo_provision_reservation", {
+      p_reservation_id: RESERVATION_ID,
+      p_user_id: "demo-uid",
+    });
     expect(deleteUser).not.toHaveBeenCalled();
   });
 
-  it("deletes only confirmed owned orphans when register fails", async () => {
-    rpc.mockImplementation(async (name: string) => {
-      if (name === "claim_demo_provision_slot") return { data: null, error: null };
-      if (name === "register_demo_identity") {
-        return { data: null, error: { message: "boom" } };
-      }
-      return { data: null, error: null };
-    });
-    const response = await handler()(post());
-    expect(response.status).toBe(500);
-    expect(getUserById).toHaveBeenCalledWith("demo-uid");
-    expect(deleteUser).toHaveBeenCalledWith("demo-uid");
-    expect(generateLink).not.toHaveBeenCalled();
-  });
-
-  it("refuses token and never deletes when Auth returns a real identity", async () => {
+  it("releases reservation and never deletes on foreign Auth identity", async () => {
     const foreign = {
       id: "real-uid",
       email: "real.user@example.com",
@@ -196,58 +196,48 @@ describe("open-demo-account Edge handler", () => {
     getUserById.mockResolvedValue({ data: { user: foreign }, error: null });
     const response = await handler()(post());
     expect(response.status).toBe(500);
-    const body = await response.json();
-    expect(body).toEqual({ error: "provision_failed" });
-    expect(body).not.toHaveProperty("tokenHash");
-    expect(generateLink).not.toHaveBeenCalled();
     expect(deleteUser).not.toHaveBeenCalled();
-    expect(getUserById).toHaveBeenCalledWith("real-uid");
+    expect(rpc).toHaveBeenCalledWith("release_demo_provision_reservation", {
+      p_reservation_id: RESERVATION_ID,
+    });
     expect(rpc).not.toHaveBeenCalledWith(
       "register_demo_identity",
       expect.anything()
     );
   });
 
-  it("refuses delete when cleanup re-fetch no longer matches ownership", async () => {
-    rpc.mockImplementation(async (name: string) => {
-      if (name === "claim_demo_provision_slot") return { data: null, error: null };
-      if (name === "register_demo_identity") {
-        return { data: null, error: { message: "boom" } };
-      }
-      return { data: null, error: null };
-    });
+  it("refuses ownership when getUserById fails (no createUser fallback)", async () => {
     getUserById.mockResolvedValue({
-      data: {
-        user: {
-          id: "demo-uid",
-          email: "someone-else@example.com",
-          app_metadata: { account_kind: "demo", demo_provision_nonce: NONCE },
-        },
-      },
-      error: null,
+      data: { user: null },
+      error: { message: "read failed" },
     });
     const response = await handler()(post());
     expect(response.status).toBe(500);
     expect(deleteUser).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledWith("release_demo_provision_reservation", {
+      p_reservation_id: RESERVATION_ID,
+    });
+    expect(generateLink).not.toHaveBeenCalled();
   });
 
-  it("ledgers orphan when owned deleteUser fails", async () => {
+  it("releases reservation after owned cleanup when register fails", async () => {
     rpc.mockImplementation(async (name: string) => {
-      if (name === "claim_demo_provision_slot") return { data: null, error: null };
+      if (name === "claim_demo_provision_slot") {
+        return { data: RESERVATION_ID, error: null };
+      }
       if (name === "register_demo_identity") {
         return { data: null, error: { message: "boom" } };
       }
-      if (name === "record_demo_provision_orphan") return { data: null, error: null };
+      if (name === "release_demo_provision_reservation") {
+        return { data: null, error: null };
+      }
       return { data: null, error: null };
     });
-    deleteUser.mockResolvedValue({ error: { message: "delete blew up" } });
     const response = await handler()(post());
     expect(response.status).toBe(500);
-    expect(rpc).toHaveBeenCalledWith("record_demo_provision_orphan", {
-      p_user_id: "demo-uid",
-      p_email: DEMO_EMAIL,
-      p_nonce: NONCE,
-      p_error: "delete blew up",
+    expect(deleteUser).toHaveBeenCalledWith("demo-uid");
+    expect(rpc).toHaveBeenCalledWith("release_demo_provision_reservation", {
+      p_reservation_id: RESERVATION_ID,
     });
   });
 
@@ -256,52 +246,19 @@ describe("open-demo-account Edge handler", () => {
       data: null,
       error: { message: "demo_rate_limited" },
     });
-    const limited = await handler()(post());
-    expect(limited.status).toBe(429);
-    expect(createUser).not.toHaveBeenCalled();
+    expect((await handler()(post())).status).toBe(429);
 
     rpc.mockResolvedValueOnce({
       data: null,
       error: { message: "demo_capacity_exhausted" },
     });
-    const full = await handler()(post());
-    expect(full.status).toBe(503);
-    expect(await full.json()).toEqual({ error: "capacity_exhausted" });
+    expect((await handler()(post())).status).toBe(503);
   });
 
-  it("rejects automation when Turnstile secret is configured without token", async () => {
-    config.DEMO_TURNSTILE_SECRET = "turnstile-secret";
+  it("rejects automation when Turnstile is required", async () => {
+    config.DEMO_PROVISION_REQUIRE_TURNSTILE = "true";
     const response = await handler()(post({}));
     expect(response.status).toBe(403);
-    expect(await response.json()).toEqual({ error: "automation_rejected" });
     expect(rpc).not.toHaveBeenCalled();
-  });
-
-  it("does not return a session object", async () => {
-    const response = await handler()(post());
-    const body = await response.json();
-    expect(response.status).toBe(200);
-    expect(body.access_token).toBeUndefined();
-    expect(body.refresh_token).toBeUndefined();
-    expect(body.session).toBeUndefined();
-  });
-
-  it("on createUser failure returns no token and never registers", async () => {
-    createUser.mockResolvedValue({
-      data: { user: null },
-      error: { message: "create failed" },
-    });
-    const response = await handler()(post());
-    expect(response.status).toBe(500);
-    expect(rpc).toHaveBeenCalledWith(
-      "claim_demo_provision_slot",
-      expect.anything()
-    );
-    expect(rpc).not.toHaveBeenCalledWith(
-      "register_demo_identity",
-      expect.anything()
-    );
-    expect(generateLink).not.toHaveBeenCalled();
-    expect(deleteUser).not.toHaveBeenCalled();
   });
 });

@@ -1,57 +1,66 @@
 # B2 — Demo account provisioner (prep)
 
-**Status:** Edge handler + durable limits on `codex/jakstoimy-1-4-demo-b2` (PR #401).  
-**Ship gate:** do **not** deploy Edge to staging/production, do **not** set
-`DEMO_PROVISION_ENABLED=true` on public hosts, do **not** merge to `main`
-without a separate approval after B1 acceptance and B2 review.
+**Status:** Edge handler + durable limits/reservations on `codex/jakstoimy-1-4-demo-b2` (PR #401).  
+**Ship gate:** do **not** deploy Edge publicly; keep `DEMO_PROVISION_ENABLED` unset/false
+until a separate approval after review.
 
 Depends on B1 (`demo_identities`, `register_demo_identity`, `assert_real_capable`).
 
 ## Contract
 
-1. Optional Turnstile when `DEMO_TURNSTILE_SECRET` is set (`automation_rejected` otherwise).
-2. Atomic `claim_demo_provision_slot(client_key)` — per-client window rate + global
-   active-demo capacity (Postgres advisory locks; works across Edge isolates).
-3. Invent synthetic email `demo+<uuid>@demo.jakstoimy.local` and a
-   `demo_provision_nonce` (never accept caller email/user id).
-4. Admin `createUser` with `app_metadata.account_kind=demo` + nonce.
-5. **Ownership gate:** confirm echoed email + `account_kind=demo` + nonce match.
-   On mismatch → refuse token, **do not** `deleteUser`.
-6. `register_demo_identity(uid)` then verify `is_demo_account`.
-7. `generateLink({ type: "magiclink", email })` only for the owned email.
-8. Return `{ userId, email, tokenHash, verifyType: "email" }` (never a session).
+1. Turnstile when `DEMO_TURNSTILE_SECRET` is set **or**
+   `DEMO_PROVISION_REQUIRE_TURNSTILE=true`.
+2. `claim_demo_provision_slot` returns a **reservation id**. Capacity =
+   `active demo_identities + held unexpired reservations` under one advisory lock.
+3. Invent synthetic email + `demo_provision_nonce` (never accept caller identity).
+4. `createUser` → **required** `getUserById` ownership check (no fallback to the
+   createUser payload on read failure).
+5. `register_demo_identity` → verify → `generateLink` →
+   `commit_demo_provision_reservation`. Failures `release` the hold and, when
+   ownership was proven, may ownership-gated `deleteUser`.
+6. Return `{ userId, email, tokenHash, verifyType: "email" }` only (never a session).
+
+## Client identity / rate keys
+
+Supabase Edge does **not** document a trusted, provider-controlled client IP
+header visible to functions. Callers can supply `x-forwarded-for`, `x-real-ip`,
+and often influence other forwarding headers.
+
+Default behaviour:
+
+- Rate-limit client key = shared bucket (`shared`), **IP-independent**.
+- Spoofing `x-forwarded-for` / `x-real-ip` / `cf-connecting-ip` does not create
+  a new bucket.
+- Known-spoofable header names are refused even if mistakenly listed in
+  `DEMO_PROVISION_TRUSTED_IP_HEADER`.
+- Optional allowlist: only a non-spoofable header name may be configured after
+  explicit infrastructure verification.
+- Global capacity reservations do not depend on IP at all.
+- Public ship should enable Turnstile (`DEMO_PROVISION_REQUIRE_TURNSTILE` + secret).
 
 ## Safe cleanup / orphans
 
-`deleteUser` is allowed only for an `OwnedDemoIdentity` confirmed in this request,
-and only after `getUserById` re-confirms the same email + nonce.
+`deleteUser` only after `getUserById` re-confirms email + nonce + `account_kind=demo`.
+Delete failures → `record_demo_provision_orphan` (ledger only).
 
-If delete fails after confirmed ownership, call `record_demo_provision_orphan`
-(ledger only). A future sweeper may delete **only** rows that still match
-`@demo.jakstoimy.local` + nonce + demo claim — never arbitrary UIDs from Auth errors.
+## Env
 
-## Local enablement
-
-- Function: `supabase/functions/open-demo-account`
-- Migration: `20261018200000_demo_provision_limits.sql`
-- Kill switch: `DEMO_PROVISION_ENABLED=true` (default disabled → HTTP 503)
-- Rate/capacity: `DEMO_PROVISION_RATE_WINDOW_SECONDS`, `DEMO_PROVISION_RATE_MAX`,
-  `DEMO_PROVISION_GLOBAL_MAX_ACTIVE`, `DEMO_PROVISION_CLIENT_SALT`
-- Automation: `DEMO_TURNSTILE_SECRET` (optional until ship)
-
-## Logging
-
-Never log `tokenHash`, `hashed_token`, access/refresh tokens, or magic-link URLs.
-Error responses use opaque codes only (`provision_failed`, `rate_limited`, …).
+| Variable | Role |
+| --- | --- |
+| `DEMO_PROVISION_ENABLED` | Kill switch (default off) |
+| `DEMO_PROVISION_RATE_*` | Per client-key window (default key = shared) |
+| `DEMO_PROVISION_GLOBAL_MAX_ACTIVE` | Active demos + held reservations |
+| `DEMO_PROVISION_HOLD_SECONDS` | Reservation TTL |
+| `DEMO_PROVISION_TRUSTED_IP_HEADER` | Optional; empty = shared bucket |
+| `DEMO_PROVISION_REQUIRE_TURNSTILE` / `DEMO_TURNSTILE_SECRET` | Automation gate |
 
 ## Tests
 
-- Unit: `tests/unit/open-demo-account-handler.spec.ts` (ownership / no-delete-on-mismatch)
-- Integration (local): `tests/rls/open-demo-account-provision.spec.ts`
-  (slot RPC races, handler → verifyOtp, RLS on provision tables)
+- Unit: ownership, no createUser fallback, header spoof → shared key, reservation release
+- Integration: parallel claims at global cap 1, parallel handlers post-provision count,
+  `handler → verifyOtp`, RLS on provision tables
 
-## Still before public ship
+## Migrations
 
-- Staging soak with kill switch + Turnstile
-- Durable orphan sweeper job (ownership re-check only)
-- UI “Otwórz konto demo” + Demo/Real session isolation
+- `20261018200000_demo_provision_limits.sql` — attempts + orphans
+- `20261018210000_demo_provision_reservations.sql` — holds + claim/commit/release
