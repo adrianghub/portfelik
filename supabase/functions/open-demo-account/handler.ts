@@ -189,7 +189,16 @@ export function createOpenDemoAccountHandler(
         return json(req, { error: "provision_failed" }, 500);
       }
 
-      // generateLink only for the email created in this request.
+      // Never mint a link outside the synthetic demo domain or for a mismatched echo.
+      const echoedEmail = created.data.user.email ?? null;
+      if (
+        !email.endsWith(`@${DEMO_EMAIL_DOMAIN}`) ||
+        (echoedEmail != null && echoedEmail !== email)
+      ) {
+        await cleanupOrphan(admin, userId);
+        return json(req, { error: "provision_failed" }, 500);
+      }
+
       const link = await admin.auth.admin.generateLink({
         type: "magiclink",
         email,
@@ -200,6 +209,7 @@ export function createOpenDemoAccountHandler(
         return json(req, { error: "provision_failed" }, 500);
       }
 
+      // tokenHash only — never return a GoTrue session for an existing identity.
       return json(req, {
         userId,
         email,

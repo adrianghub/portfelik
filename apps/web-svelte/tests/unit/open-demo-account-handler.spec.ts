@@ -143,4 +143,55 @@ describe("open-demo-account Edge handler", () => {
     expect(response.status).toBe(500);
     expect(deleteUser).toHaveBeenCalledWith("demo-uid");
   });
+
+  it("never calls generateLink for a non-demo or mismatched createUser email", async () => {
+    createUser.mockResolvedValue({
+      data: { user: { id: "real-uid", email: "real.user@example.com" } },
+      error: null,
+    });
+    const response = await handler()(post());
+    expect(response.status).toBe(500);
+    expect(generateLink).not.toHaveBeenCalled();
+    expect(deleteUser).toHaveBeenCalledWith("real-uid");
+    const body = await response.json();
+    expect(body).toEqual({ error: "provision_failed" });
+    expect(body).not.toHaveProperty("tokenHash");
+    expect(body).not.toHaveProperty("access_token");
+  });
+
+  it("does not return a session object — only a one-time token hash for the new demo email", async () => {
+    const response = await handler()(post());
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    expect(body.access_token).toBeUndefined();
+    expect(body.refresh_token).toBeUndefined();
+    expect(body.session).toBeUndefined();
+    expect(generateLink.mock.calls).toHaveLength(1);
+    expect(generateLink.mock.calls[0]![0]).toEqual({
+      type: "magiclink",
+      email: "demo+11111111-1111-4111-8111-111111111111@demo.jakstoimy.local",
+    });
+  });
+
+  it("enforces in-process rate limit before createUser", async () => {
+    config.DEMO_PROVISION_RATE_MAX = "2";
+    expect((await handler()(post())).status).toBe(200);
+    expect((await handler()(post())).status).toBe(200);
+    const limited = await handler()(post());
+    expect(limited.status).toBe(429);
+    expect(await limited.json()).toEqual({ error: "rate_limited" });
+    expect(createUser).toHaveBeenCalledTimes(2);
+  });
+
+  it("on createUser failure returns no token and never registers", async () => {
+    createUser.mockResolvedValue({
+      data: { user: null },
+      error: { message: "create failed" },
+    });
+    const response = await handler()(post());
+    expect(response.status).toBe(500);
+    expect(rpc).not.toHaveBeenCalled();
+    expect(generateLink).not.toHaveBeenCalled();
+    expect(await response.json()).toEqual({ error: "provision_failed" });
+  });
 });
