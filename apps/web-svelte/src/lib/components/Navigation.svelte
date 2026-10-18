@@ -8,6 +8,8 @@
   import type { User } from "@supabase/supabase-js";
   import * as m from "$lib/paraglide/messages";
   import BrandMark from "$lib/components/BrandMark.svelte";
+  import DemoBadge from "$lib/components/demo/DemoBadge.svelte";
+  import { isDemoAccountUser } from "$lib/demo/identity-session";
   import { isChangelogUnseen } from "$lib/content/changelog";
   import {
     LayoutDashboard,
@@ -64,6 +66,7 @@
   });
   const email = $derived(profile?.email ?? user?.email ?? "");
   const changelogUnseen = $derived(isChangelogUnseen(profile?.settings?.changelogSeenVersion));
+  const isDemoAccount = $derived(isDemoAccountUser(user));
 
   async function signOut() {
     menuOpen = false;
@@ -132,6 +135,9 @@
   <a href="/" class="mr-2 shrink-0 transition-opacity hover:opacity-90" aria-label={m.app_name()}>
     <BrandMark size="sm" />
   </a>
+  {#if isDemoAccount}
+    <DemoBadge />
+  {/if}
 
   <nav aria-label={m.nav_main()} class="flex items-center gap-1">
     {#each desktopNavItems as item (item.href)}
@@ -204,6 +210,9 @@
   <a href="/" class="shrink-0 transition-opacity hover:opacity-90" aria-label={m.app_name()}>
     <BrandMark size="sm" />
   </a>
+  {#if isDemoAccount}
+    <DemoBadge compact />
+  {/if}
   <div class="ml-auto">
     {#if !isDesktopNav.current}
       <NotificationsPopover placement="bottom" />

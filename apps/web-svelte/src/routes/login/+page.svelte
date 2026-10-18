@@ -9,6 +9,7 @@
   } from "$lib/auth-redirect";
   import BrandMark from "$lib/components/BrandMark.svelte";
   import { oauthCallbackUrl, signInWithGoogleOAuth } from "$lib/services/oauth";
+  import { openDemoAccount } from "$lib/services/open-demo-account";
   import { isNativeCapacitor } from "$lib/services/pwa";
   import { appVersion } from "$lib/content/changelog";
   import * as m from "$lib/paraglide/messages";
@@ -16,6 +17,7 @@
   let email = $state("");
   let password = $state("");
   let loading = $state(false);
+  let demoLoading = $state(false);
   let error = $state<string | null>(null);
   const nativeLogin = $derived(isNativeCapacitor());
 
@@ -67,6 +69,23 @@
       error = m.login_error_generic();
       loading = false;
     }
+  }
+
+  async function openDemo() {
+    demoLoading = true;
+    error = null;
+    const result = await openDemoAccount();
+    if (!result.ok) {
+      error =
+        result.error === "demo_provision_disabled" || result.error === "demo_provision_unavailable"
+          ? m.demo_open_error_disabled()
+          : m.demo_open_error_generic();
+      demoLoading = false;
+      return;
+    }
+    clearLoginRedirect();
+    await goto("/dashboard", { replaceState: true });
+    demoLoading = false;
   }
 </script>
 
@@ -163,8 +182,18 @@
 
       <button
         type="button"
+        onclick={openDemo}
+        disabled={loading || demoLoading}
+        data-testid="open-demo-account"
+        class="mb-3 flex w-full items-center justify-center rounded-full border border-amber-400/30 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-100 transition-colors hover:bg-amber-500/20 focus-visible:ring-2 focus-visible:ring-amber-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 focus-visible:outline-none disabled:opacity-50"
+      >
+        {demoLoading ? m.demo_open_busy() : m.demo_open_cta()}
+      </button>
+
+      <button
+        type="button"
         onclick={signInWithGoogle}
-        disabled={loading}
+        disabled={loading || demoLoading}
         class="focus-visible:ring-accent flex w-full items-center justify-center gap-2.5 rounded-full border border-white/10 bg-slate-900/60 px-4 py-2.5 text-sm font-medium text-slate-200 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 focus-visible:outline-none disabled:opacity-50"
       >
         <svg
