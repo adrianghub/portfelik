@@ -223,6 +223,17 @@ export function createInvitationHandler(
     if (authError || !authData.user) {
       return json(req, { error: "not_authenticated" }, 401);
     }
+    // Defense in depth: SQL create_group_invitation_for_delivery also denies demo
+    // actors/invitees. Refuse early so no invitation email is attempted.
+    const demoCheck = await admin.rpc("is_demo_account", {
+      p_user_id: authData.user.id,
+    });
+    if (demoCheck.error) {
+      return json(req, { error: "demo_not_allowed" }, 403);
+    }
+    if (demoCheck.data === true) {
+      return json(req, { error: "demo_not_allowed" }, 403);
+    }
     const { data, error } = await admin.rpc(
       "create_group_invitation_for_delivery",
       {
