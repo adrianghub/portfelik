@@ -125,19 +125,21 @@ Rozmiary są oceną prac i ryzyka, nie kalendarzem ani wyceną abonamentu.
 | Wariant | Dodatkowa praca | Koszt i decyzja |
 | --- | --- | --- |
 | Jeden projekt, tylko Before User Created | Hook i konfiguracja | Mało kodu, ale potwierdzona konwersja bez zaproszenia i otwarte grupy. **Odrzucony do wdrożenia** |
-| Jeden projekt, hook + upoważnienia + trwałe ograniczenie demo | Produkcyjna tabela upoważnień, zaufany wydawca, nonce/expiry/retry/reconciliation; trwały znacznik demo niezależny od zmiennego `is_anonymous`; serwerowe zabezpieczenie zmian Auth/tożsamości i członkostwa; audyt RPC/Edge i dostosowanie profilu | L, istotna ingerencja w prawdziwe Auth. Możliwe dalsze badanie tylko po osobnej decyzji; ten PoC nie udowodnił pełnego bezpieczeństwa tego wariantu |
-| Osobny projekt Supabase demo | Ten sam schemat i silnik finansowy, osobna konfiguracja Auth i klucze, routing klienta i rozdzielone sesje, pipeline migracji, limity i retencja; zablokowanie zewnętrznych działań w demo | M/L operacyjnie, dodatkowy koszt projektu/compute do osobnej wyceny. Produkcyjne Auth zachowuje `disable_signup`; konwersja w demo nie daje tożsamości ani grup w projekcie rzeczywistym. **Preferowany następny wariant do projektu**, nie gotowa implementacja |
+| Jeden projekt, trwałe uprawnienie `demo`/`real` (nie tylko `is_anonymous`) | Trusted registry po stronie serwera; blokady konwersji Auth; audyt RLS/RPC/SECURITY DEFINER/Edge (grupy, zaproszenia); dostosowanie profilu i limitów | L, istotna ingerencja w Auth. **Docelowy wariant bez trzeciego projektu** — tylko po przejściu negatywnych testów bezpieczeństwa. Ten PoC go nie udowodnił. |
+| Osobny trzeci projekt Supabase demo | Osobna Auth, klucze, sesje, pipeline migracji, limity | Dodatkowa opłata (Free limituje 2 aktywne projekty). **Odrzucony kosztowo** przy obecnej skali; zachowujemy tylko `portfelik-prod` i `portfelik-staging`. |
+| Staging jako stałe publiczne demo | Minimalny kod | **Odrzucony jako usługa publiczna** (migracje/reset/testy niszczą postęp). Staging może służyć wyłącznie do budowy i kontrolowanych kont testowych. |
 
-Wspólna praca w obu dopuszczalnych architekturach: sesje/cache na web i Androidzie,
-trwałość indywidualnego demo, CSV przez jeden importer, limity/retencja oraz
-maksymalnie trzy wskazówki. Osobny projekt nie rozwiązuje automatycznie odzyskania
-anonimowego demo po utracie refresh tokenu; to nadal jawna decyzja produktowa.
+**Decyzja B0 (aktualizacja właściciela, 2026-10-18):** zero dodatkowego kosztu
+infrastruktury. Publiczne Anonymous Auth w 1.4.0 jest **NO-GO**, dopóki wspólny
+projekt z trwałym claimem `demo`/`real` nie przejdzie audytu. Awaryjnie 1.4.0 może
+wydawać kontrolowane konta testowe na stagingu, bez otwierania publicznego signup
+ani Anonymous Auth na produkcji.
 
 Nie dokładamy teraz kolejnych wyjątków w Auth ani prowizorycznego brokera sesji.
-Nie tworzymy drugiego projektu, nie włączamy Anonymous Auth na stagingu i nie
-uruchamiamy resetu. Kierunek uproszczenia starego demo pozostaje; obecna redukcja
-starego subsystemu wynosi 0%, ponieważ jego zamiennik nie został zatwierdzony.
-Kod eksperymentu jest narzędziem dowodowym i nie wchodzi do aplikacji.
+Nie tworzymy trzeciego projektu, nie włączamy Anonymous Auth na stagingu/produkcji
+i nie uruchamiamy resetu. Kierunek uproszczenia starego demo pozostaje; obecna
+redukcja starego subsystemu wynosi 0%, ponieważ jego zamiennik nie został
+zatwierdzony. Kod eksperymentu jest narzędziem dowodowym i nie wchodzi do aplikacji.
 
 ## Źródła
 

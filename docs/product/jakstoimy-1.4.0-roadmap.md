@@ -11,8 +11,9 @@ Audyt tekstów i porównanie komunikatów: [Język 1.4.0](jakstoimy-1.4.0-copy-a
 
 Lokalny eksperyment hooka: [macierz wyników i rekomendacja](../architecture/flows/anonymous-auth-poc.md).
 Wariant z samym Before User Created jest zablokowany przez konwersję anonimowego
-konta bez zaproszenia. B0 pozostaje otwarte; preferowany kolejny projekt dotyczy
-osobnego Supabase dla demo, bez uruchamiania go przed akceptacją.
+konta bez zaproszenia. Trzeci płatny projekt Supabase jest odrzucony kosztowo.
+B0: publiczne Anonymous Auth = NO-GO w 1.4.0; docelowo wspólny projekt z trwałym
+claimem `demo`/`real` po audycie; awaryjnie kontrolowane konta testowe na stagingu.
 
 ## Zamrożony zakres
 

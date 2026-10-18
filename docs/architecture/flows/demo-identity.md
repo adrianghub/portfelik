@@ -7,8 +7,12 @@ columns are proposed in the financial model.
 
 The subsequent [local hook experiment](anonymous-auth-poc.md) blocks rollout of
 the hook-only same-project variant: email/password conversion of an existing
-anonymous UID bypasses Before User Created. A dedicated demo project is now the
-preferred next architecture study. No staging or production change is approved.
+anonymous UID bypasses Before User Created. A third paid Supabase project is
+rejected on cost (Free plan already uses prod + staging). Preferred study: same
+project with a durable server-owned `demo`/`real` claim; public Anonymous Auth
+stays NO-GO until that passes negative security tests. Staging may host
+controlled test accounts only — not a permanent public demo. No staging or
+production Auth enablement is approved by this document.
 
 ## Product contract
 
@@ -150,17 +154,18 @@ Existing admin role checks remain; demo cannot be a role-assignment target.
 | --- | --- | --- |
 | Anonymous Auth in the current project | Conflicts with global `disable_signup=true` in the inspected Auth version. Resume works while its refresh token survives; there is no normal login by anonymous UID on another device | L: Auth gate redesign, profile compatibility, quotas, permissions and recovery decision. Not a drop-in switch |
 | Backend-provisioned identity/session broker | Previously considered for durable recovery | Excluded from implementation by the user; no provisional service-role session issuer |
-| Dedicated demo Supabase project | Strong environment isolation; can use independent signup policy and the same schema/app | L/XL operational cost: deployment, secrets, capacity, project lifecycle and drift; no implicit infrastructure authorization |
+| Dedicated demo Supabase project | Strong environment isolation; independent signup policy | **Rejected on cost** at current scale (Free allows 2 active projects; we keep prod + staging only) |
 | Workspace dimension on real identity | Seamless identity, but changes finance scoping itself | XL: review 19 tables, one view, 44 financial functions, 18 services/102 query sites, balance uniqueness and dedup |
 | Existing groups | Cannot isolate private imports, categories, assets and dismissals by itself | Does not meet the contract without extending the financial model |
 
 **Current recommendation:** retain separate identities and the shared financial
-engine, but do not deploy the tested hook-only variant. The local PoC proves that
-creation gating does not prevent anonymous-to-permanent conversion or social
-capabilities. Evaluate a dedicated demo project before expanding production Auth
-with grant issuance, conversion guards and recovery machinery. The dedicated
-project requires explicit approval and must still solve session recovery,
-capabilities, quotas and retention. See the result/cost matrix in the PoC report.
+engine inside the existing two projects (`portfelik-prod`, `portfelik-staging`).
+Do not deploy the tested hook-only variant. Do not create a third paid Supabase
+project. The local PoC proves that creation gating does not prevent
+anonymous-to-permanent conversion or open group creation. Treat public Anonymous
+Auth as NO-GO for 1.4.0 unless a durable server-owned `demo`/`real` claim plus
+full RLS/RPC/Edge negative tests pass. Until then, prefer controlled staging
+test accounts (not a permanent public demo). See the PoC cost matrix.
 
 A session broker based on Auth Admin link generation was an earlier proposal.
 The user explicitly rejected a provisional service-role session issuer; it is
