@@ -102,21 +102,30 @@ describe("B1 demo identity guards", () => {
     });
     expectDemoDenied(invited.error);
 
-    const pending = await ctx.admin.from("group_invitations").insert({
-      group_id: groupId,
-      group_name: `${SENTINEL} pending`,
-      invited_user_email: demoA.email,
-      created_by: ctx.userA.userId,
-      status: "pending",
-      expires_at: new Date(Date.now() + 86_400_000).toISOString(),
-    }).select("id").single();
-    // Direct insert may be blocked for service role depending on grants; use admin bypass.
-    if (!pending.error && pending.data?.id) {
-      const accept = await demoA.client.rpc("accept_invitation", {
-        p_invitation_id: pending.data.id,
-      });
-      expectDemoDenied(accept.error);
+    // Delivery RPC refuses demo emails; force a pending row via service_role
+    // (bypasses RLS) so accept_invitation is always exercised.
+    const pending = await ctx.admin
+      .from("group_invitations")
+      .insert({
+        group_id: groupId,
+        group_name: `${SENTINEL} pending`,
+        invited_user_email: demoA.email,
+        created_by: ctx.userA.userId,
+        status: "pending",
+        expires_at: new Date(Date.now() + 86_400_000).toISOString(),
+      })
+      .select("id")
+      .single();
+    if (pending.error || !pending.data?.id) {
+      throw new Error(
+        `accept_invitation fixture failed: ${JSON.stringify(pending.error ?? pending.data)}`
+      );
     }
+
+    const accept = await demoA.client.rpc("accept_invitation", {
+      p_invitation_id: pending.data.id,
+    });
+    expectDemoDenied(accept.error);
 
     const claim = await demoA.client.rpc("claim_group_invitation", {
       p_token: "0000000000000000000000000000000000000000000000000000000000000000",
@@ -323,10 +332,93 @@ describe("B1 demo identity guards", () => {
     expect(missing.error?.message ?? "").toMatch(/demo_not_allowed/);
   });
 
-  it("authenticated cannot insert into demo_identities", async () => {
+  it("registry vs app_metadata mismatch never grants real capability", async () => {
+    const password = process.env.RLS_TEST_PASSWORD!;
+    const url = process.env.SUPABASE_URL ?? process.env.PUBLIC_SUPABASE_URL!;
+    const anonKey = process.env.SUPABASE_ANON_KEY ?? process.env.PUBLIC_SUPABASE_ANON_KEY!;
+
+    // Registry only (no account_kind=demo in app_metadata).
+    const registryOnlyEmail = `demo-reg-only-${randomUUID()}@demo.jakstoimy.local`;
+    const registryOnly = await ctx.admin.auth.admin.createUser({
+      email: registryOnlyEmail,
+      password,
+      email_confirm: true,
+      app_metadata: {},
+    });
+    expect(registryOnly.error).toBeNull();
+    const registryOnlyId = registryOnly.data.user!.id;
+    createdDemoIds.push(registryOnlyId);
+    const reg = await ctx.admin.rpc("register_demo_identity", {
+      p_user_id: registryOnlyId,
+    });
+    expect(reg.error).toBeNull();
+    // Strip metadata after register to force registry-only claim.
+    await ctx.admin.auth.admin.updateUserById(registryOnlyId, {
+      app_metadata: {},
+    });
+    const registryOnlyLogin = await createClient(url, anonKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    }).auth.signInWithPassword({ email: registryOnlyEmail, password });
+    expect(registryOnlyLogin.error).toBeNull();
+    const registryOnlyClient = createUserClient(
+      registryOnlyLogin.data.session!.access_token
+    );
+    expectDemoDenied(
+      (
+        await registryOnlyClient.rpc("create_group", {
+          p_name: `${SENTINEL} registry-only`,
+        })
+      ).error
+    );
+
+    // Metadata only (no registry row).
+    const metaOnlyEmail = `demo-meta-only-${randomUUID()}@demo.jakstoimy.local`;
+    const metaOnly = await ctx.admin.auth.admin.createUser({
+      email: metaOnlyEmail,
+      password,
+      email_confirm: true,
+      app_metadata: { account_kind: "demo" },
+    });
+    expect(metaOnly.error).toBeNull();
+    const metaOnlyId = metaOnly.data.user!.id;
+    createdDemoIds.push(metaOnlyId);
+    const metaOnlyLogin = await createClient(url, anonKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    }).auth.signInWithPassword({ email: metaOnlyEmail, password });
+    expect(metaOnlyLogin.error).toBeNull();
+    const metaOnlyClient = createUserClient(metaOnlyLogin.data.session!.access_token);
+    expectDemoDenied(
+      (
+        await metaOnlyClient.rpc("create_group", {
+          p_name: `${SENTINEL} meta-only`,
+        })
+      ).error
+    );
+  });
+
+  it("authenticated cannot insert into demo_identities or group membership tables", async () => {
     const forged = await demoA.client.from("demo_identities").insert({
       user_id: ctx.userA.userId,
     });
     expect(forged.error).not.toBeNull();
+
+    const group = await ctx.userA.client.rpc("create_group", {
+      p_name: `${SENTINEL} direct-write-block`,
+    });
+    expect(group.error).toBeNull();
+    const groupId = (group.data as { id: string }).id;
+
+    const memberWrite = await demoA.client.from("group_members").insert({
+      group_id: groupId,
+      user_id: demoA.userId,
+      role: "member",
+    });
+    expect(memberWrite.error).not.toBeNull();
+
+    const groupWrite = await demoA.client.from("user_groups").insert({
+      name: `${SENTINEL} forged-group`,
+      owner_id: demoA.userId,
+    });
+    expect(groupWrite.error).not.toBeNull();
   });
 });
