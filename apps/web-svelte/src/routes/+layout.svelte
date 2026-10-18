@@ -36,6 +36,8 @@
   import { registerNativeBackButtonHandler } from "$lib/services/native-back";
   import { requireAuthUser } from "$lib/auth/require-user";
   import { setSessionUser } from "$lib/auth/session.svelte";
+  import { clearAllIdentitySessionState, isAccountSwitchReinit } from "$lib/demo/identity-session";
+  import { bootstrapPendingAccountSwitch } from "$lib/services/open-demo-account";
   import { supabase } from "$lib/supabase";
   import type { Profile } from "$lib/types";
   import type { User } from "@supabase/supabase-js";
@@ -170,7 +172,7 @@
       });
   });
 
-  function clearAuthenticatedUser() {
+  function clearAuthenticatedUser(options?: { clearIdentitySessions?: boolean }) {
     if (loadedUserId !== null) {
       queryClient.clear();
       void import("$lib/services/save-text-file").then((mod) => mod.clearNativeExportCache());
@@ -182,6 +184,9 @@
     user = null;
     userId = null;
     authStatus = "anonymous";
+    if (options?.clearIdentitySessions) {
+      clearAllIdentitySessionState();
+    }
   }
 
   function loadAuthenticatedUser(authUser: User) {
@@ -263,16 +268,22 @@
 
     supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
+        // Hard Demo↔Real reinit clears GoTrue storage before reload — ignore.
+        if (isAccountSwitchReinit()) {
+          clearAuthenticatedUser();
+          return;
+        }
         // Detach browser push only — do not persist opt-out (explicit disable does).
         detachLocalPushSubscription().catch(() => {});
         const onInvite = page.url.pathname.startsWith("/invite/");
         if (!onInvite) {
           clearLoginRedirect();
-          clearAuthenticatedUser();
+          // Intentional logout: drop parked Demo/Real so a later visit cannot revive them.
+          clearAuthenticatedUser({ clearIdentitySessions: true });
           void goto("/login", { replaceState: true });
         } else {
           // Invite switch-account: keep remembered redirect; stay on /invite/*.
-          clearAuthenticatedUser();
+          clearAuthenticatedUser({ clearIdentitySessions: true });
         }
       }
       if (event === "SIGNED_IN" && session?.user) {
@@ -285,6 +296,13 @@
 
     void (async () => {
       const bootstrapRevision = authRevision;
+      // Apply Demo↔Real switch before any financial getSession/query work so the
+      // new identity owns the fresh QueryClient created for this page load.
+      await bootstrapPendingAccountSwitch();
+      if (bootstrapRevision !== authRevision) return;
+      // Failed switch drops the pending target only; fall through to getSession
+      // so a still-valid prior identity can continue without mixed caches.
+
       // Fast local session for splash, then verify with Auth server so a stale
       // localStorage token cannot keep privileged UI alive.
       const {

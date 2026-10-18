@@ -84,8 +84,7 @@
       return;
     }
     clearLoginRedirect();
-    await goto("/dashboard", { replaceState: true });
-    demoLoading = false;
+    // Hard reinit is already in flight from openDemoAccount — do not soft-goto.
   }
 </script>
 

@@ -1,18 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  ACTIVE_ACCOUNT_KIND_KEY,
   DEMO_SESSION_STORAGE_KEY,
+  PENDING_ACCOUNT_SWITCH_KEY,
   REAL_SESSION_STORAGE_KEY,
   accountKindForUser,
-  clearPartitionedSession,
+  clearAllIdentitySessionState,
+  clearPendingAccountSwitch,
+  consumePendingAccountSwitch,
+  hasParkedSession,
   isDemoAccountUser,
-  persistPartitionedSession,
-  readPartitionedSession,
+  parkInactiveSession,
+  peekPendingAccountSwitch,
+  readParkedSession,
+  writePendingAccountSwitch,
 } from "../../src/lib/demo/identity-session";
-import {
-  dismissHint,
-  emptyHintState,
-  pickActiveHint,
-} from "../../src/lib/demo/hints";
+import { dismissHint, emptyHintState, pickActiveHint } from "../../src/lib/demo/hints";
 import type { Session, User } from "@supabase/supabase-js";
 
 function installMemoryLocalStorage() {
@@ -38,7 +41,7 @@ function installMemoryLocalStorage() {
 function user(kind: "demo" | "real", id = "u1"): User {
   return {
     id,
-    app_metadata: { account_kind: kind },
+    app_metadata: kind === "demo" ? { account_kind: "demo" } : { provider: "email" },
     user_metadata: {},
     aud: "authenticated",
     created_at: "",
@@ -66,16 +69,52 @@ describe("demo identity session partition", () => {
     expect(accountKindForUser(user("demo"))).toBe("demo");
   });
 
-  it("stores demo and real sessions separately", () => {
-    persistPartitionedSession(sessionFor("real"));
-    persistPartitionedSession(sessionFor("demo"));
-    expect(readPartitionedSession("real")?.access_token).toBe("real-access");
-    expect(readPartitionedSession("demo")?.access_token).toBe("demo-access");
+  it("parks only inactive identities in separate keys", () => {
+    parkInactiveSession(sessionFor("real"));
+    parkInactiveSession(sessionFor("demo"));
+    expect(readParkedSession("real")?.access_token).toBe("real-access");
+    expect(readParkedSession("demo")?.access_token).toBe("demo-access");
     expect(localStorage.getItem(REAL_SESSION_STORAGE_KEY)).toBeTruthy();
     expect(localStorage.getItem(DEMO_SESSION_STORAGE_KEY)).toBeTruthy();
-    clearPartitionedSession("demo");
-    expect(readPartitionedSession("demo")).toBeNull();
-    expect(readPartitionedSession("real")?.access_token).toBe("real-access");
+  });
+
+  it("pending switch is one-shot and cleared on consume", () => {
+    writePendingAccountSwitch({
+      kind: "real",
+      access_token: "a",
+      refresh_token: "r",
+    });
+    expect(peekPendingAccountSwitch()?.kind).toBe("real");
+    expect(consumePendingAccountSwitch()?.refresh_token).toBe("r");
+    expect(peekPendingAccountSwitch()).toBeNull();
+    expect(localStorage.getItem(PENDING_ACCOUNT_SWITCH_KEY)).toBeNull();
+  });
+
+  it("clearAllIdentitySessionState drops parked sessions and pending switch", () => {
+    parkInactiveSession(sessionFor("demo"));
+    parkInactiveSession(sessionFor("real"));
+    writePendingAccountSwitch({
+      kind: "demo",
+      access_token: "a",
+      refresh_token: "r",
+    });
+    localStorage.setItem(ACTIVE_ACCOUNT_KIND_KEY, "demo");
+    clearAllIdentitySessionState();
+    expect(hasParkedSession("demo")).toBe(false);
+    expect(hasParkedSession("real")).toBe(false);
+    expect(peekPendingAccountSwitch()).toBeNull();
+    expect(localStorage.getItem(ACTIVE_ACCOUNT_KIND_KEY)).toBeNull();
+  });
+
+  it("clearPending alone does not wipe parked identities", () => {
+    parkInactiveSession(sessionFor("real"));
+    writePendingAccountSwitch({
+      kind: "real",
+      access_token: "a",
+      refresh_token: "r",
+    });
+    clearPendingAccountSwitch();
+    expect(hasParkedSession("real")).toBe(true);
   });
 });
 
