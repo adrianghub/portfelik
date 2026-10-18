@@ -353,16 +353,35 @@ export function createOpenDemoAccountHandler(
       if (created.error || !created.data.user?.id) {
         return await failProvision();
       }
+      const createdUserId = created.data.user.id;
 
-      const fetched = await admin.auth.admin.getUserById(created.data.user.id);
+      const fetched = await admin.auth.admin.getUserById(createdUserId);
       // No fallback to createUser payload — a read error means ownership unproven.
+      // Ledger the invented email+nonce+UID for later reconciliation (never delete here).
       if (fetched.error || !fetched.data?.user) {
-        return await failProvision();
+        await admin.rpc("record_demo_provision_orphan", {
+          p_user_id: createdUserId,
+          p_email: email,
+          p_nonce: provisionNonce,
+          p_error: fetched.error?.message ?? "get_user_unconfirmed",
+          p_kind: "unconfirmed_auth_read",
+        });
+        await releaseReservation(admin, reservationId);
+        return json(req, { error: "provision_failed" }, 500);
       }
 
       owned = confirmOwnedDemoIdentity(email, provisionNonce, fetched.data.user);
       if (!owned) {
-        return await failProvision();
+        // UID echoed but claims do not match — ledger as unconfirmed, do not delete.
+        await admin.rpc("record_demo_provision_orphan", {
+          p_user_id: createdUserId,
+          p_email: email,
+          p_nonce: provisionNonce,
+          p_error: "ownership_mismatch",
+          p_kind: "unconfirmed_auth_read",
+        });
+        await releaseReservation(admin, reservationId);
+        return json(req, { error: "provision_failed" }, 500);
       }
 
       // If the hold expired during Auth latency, refuse before registry write so

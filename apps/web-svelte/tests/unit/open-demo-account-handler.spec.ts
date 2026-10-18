@@ -198,6 +198,14 @@ describe("open-demo-account Edge handler", () => {
     const response = await handler()(post());
     expect(response.status).toBe(500);
     expect(deleteUser).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledWith(
+      "record_demo_provision_orphan",
+      expect.objectContaining({
+        p_user_id: "real-uid",
+        p_kind: "unconfirmed_auth_read",
+        p_error: "ownership_mismatch",
+      })
+    );
     expect(rpc).toHaveBeenCalledWith("release_demo_provision_reservation", {
       p_reservation_id: RESERVATION_ID,
     });
@@ -207,7 +215,7 @@ describe("open-demo-account Edge handler", () => {
     );
   });
 
-  it("refuses ownership when getUserById fails (no createUser fallback)", async () => {
+  it("refuses ownership when getUserById fails and ledgers unconfirmed UID", async () => {
     getUserById.mockResolvedValue({
       data: { user: null },
       error: { message: "read failed" },
@@ -215,6 +223,13 @@ describe("open-demo-account Edge handler", () => {
     const response = await handler()(post());
     expect(response.status).toBe(500);
     expect(deleteUser).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledWith("record_demo_provision_orphan", {
+      p_user_id: "demo-uid",
+      p_email: DEMO_EMAIL,
+      p_nonce: NONCE,
+      p_error: "read failed",
+      p_kind: "unconfirmed_auth_read",
+    });
     expect(rpc).toHaveBeenCalledWith("release_demo_provision_reservation", {
       p_reservation_id: RESERVATION_ID,
     });
