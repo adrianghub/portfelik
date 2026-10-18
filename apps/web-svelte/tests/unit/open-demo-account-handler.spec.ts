@@ -88,6 +88,7 @@ beforeEach(() => {
     if (name === "claim_demo_provision_slot") {
       return { data: RESERVATION_ID, error: null };
     }
+    if (name === "renew_demo_provision_reservation") return { data: null, error: null };
     if (name === "register_demo_identity") return { data: null, error: null };
     if (name === "is_demo_account") return { data: true, error: null };
     if (name === "commit_demo_provision_reservation") return { data: null, error: null };
@@ -225,6 +226,7 @@ describe("open-demo-account Edge handler", () => {
       if (name === "claim_demo_provision_slot") {
         return { data: RESERVATION_ID, error: null };
       }
+      if (name === "renew_demo_provision_reservation") return { data: null, error: null };
       if (name === "register_demo_identity") {
         return { data: null, error: { message: "boom" } };
       }
@@ -260,5 +262,52 @@ describe("open-demo-account Edge handler", () => {
     const response = await handler()(post({}));
     expect(response.status).toBe(403);
     expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when reservation expires before registry write", async () => {
+    rpc.mockImplementation(async (name: string) => {
+      if (name === "claim_demo_provision_slot") {
+        return { data: RESERVATION_ID, error: null };
+      }
+      if (name === "renew_demo_provision_reservation") {
+        return { data: null, error: { message: "reservation_not_held" } };
+      }
+      if (name === "release_demo_provision_reservation") {
+        return { data: null, error: null };
+      }
+      return { data: null, error: null };
+    });
+    const response = await handler()(post());
+    expect(response.status).toBe(500);
+    expect(rpc).not.toHaveBeenCalledWith(
+      "register_demo_identity",
+      expect.anything()
+    );
+    expect(deleteUser).toHaveBeenCalledWith("demo-uid");
+    expect(generateLink).not.toHaveBeenCalled();
+  });
+
+  it("does not return a token when commit_demo_provision_reservation fails", async () => {
+    rpc.mockImplementation(async (name: string) => {
+      if (name === "claim_demo_provision_slot") {
+        return { data: RESERVATION_ID, error: null };
+      }
+      if (name === "renew_demo_provision_reservation") return { data: null, error: null };
+      if (name === "register_demo_identity") return { data: null, error: null };
+      if (name === "is_demo_account") return { data: true, error: null };
+      if (name === "commit_demo_provision_reservation") {
+        return { data: null, error: { message: "reservation_not_held" } };
+      }
+      if (name === "release_demo_provision_reservation") {
+        return { data: null, error: null };
+      }
+      return { data: null, error: null };
+    });
+    const response = await handler()(post());
+    expect(response.status).toBe(500);
+    const body = await response.json();
+    expect(body).toEqual({ error: "provision_failed" });
+    expect(body).not.toHaveProperty("tokenHash");
+    expect(deleteUser).toHaveBeenCalledWith("demo-uid");
   });
 });

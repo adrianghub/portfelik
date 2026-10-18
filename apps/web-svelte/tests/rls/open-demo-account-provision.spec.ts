@@ -255,6 +255,95 @@ describe("B2 open-demo-account provision integration", () => {
     expect(await activeDemoCount(admin)).toBe(baseline + 1);
   });
 
+  it("expired hold cannot oversubscribe global cap=1 during slow Auth", async () => {
+    const admin = createAdminClient();
+    await admin.rpc("expire_demo_provision_reservations");
+    for (const id of [...reservationIds]) {
+      await admin.rpc("release_demo_provision_reservation", {
+        p_reservation_id: id,
+      });
+    }
+    reservationIds.length = 0;
+
+    const baseline = await activeDemoCount(admin);
+    const cap = baseline + 1;
+
+    const first = await admin.rpc("claim_demo_provision_slot", {
+      p_client_key: `expire-a-${randomUUID()}`,
+      p_window_seconds: 3600,
+      p_max_per_window: 50,
+      p_global_max_active: cap,
+      p_hold_seconds: 30,
+    });
+    expect(first.error).toBeNull();
+    const firstId = first.data as string;
+    reservationIds.push(firstId);
+
+    // Simulate Auth latency longer than the hold: force the lease into the past
+    // (same outcome as wall-clock expiry during a slow createUser).
+    const forced = await admin
+      .from("demo_provision_reservations")
+      .update({ expires_at: new Date(Date.now() - 5_000).toISOString() })
+      .eq("id", firstId)
+      .eq("status", "held");
+    expect(forced.error).toBeNull();
+    await admin.rpc("expire_demo_provision_reservations");
+
+    const second = await admin.rpc("claim_demo_provision_slot", {
+      p_client_key: `expire-b-${randomUUID()}`,
+      p_window_seconds: 3600,
+      p_max_per_window: 50,
+      p_global_max_active: cap,
+      p_hold_seconds: 120,
+    });
+    expect(second.error).toBeNull();
+    reservationIds.push(second.data as string);
+
+    // First path must not be able to renew after expiry (blocks registry write).
+    const renew = await admin.rpc("renew_demo_provision_reservation", {
+      p_reservation_id: firstId,
+      p_hold_seconds: 120,
+    });
+    expect(renew.error?.message ?? "").toMatch(/reservation_not_held/);
+
+    // Complete only the second reservation into a real demo identity.
+    const email = `demo+expire-${randomUUID()}@demo.jakstoimy.local`;
+    const created = await admin.auth.admin.createUser({
+      email,
+      email_confirm: true,
+      app_metadata: {
+        account_kind: "demo",
+        demo_provision_nonce: randomUUID(),
+      },
+    });
+    expect(created.error).toBeNull();
+    const userId = created.data.user!.id;
+    createdUserIds.push(userId);
+    expect(
+      (await admin.rpc("register_demo_identity", { p_user_id: userId })).error
+    ).toBeNull();
+    expect(
+      (
+        await admin.rpc("commit_demo_provision_reservation", {
+          p_reservation_id: second.data,
+          p_user_id: userId,
+        })
+      ).error
+    ).toBeNull();
+
+    expect(await activeDemoCount(admin)).toBe(baseline + 1);
+
+    // No further claim while the single capacity unit is occupied.
+    const third = await admin.rpc("claim_demo_provision_slot", {
+      p_client_key: `expire-c-${randomUUID()}`,
+      p_window_seconds: 3600,
+      p_max_per_window: 50,
+      p_global_max_active: cap,
+      p_hold_seconds: 120,
+    });
+    expect(third.error?.message ?? "").toMatch(/demo_capacity_exhausted/);
+  });
+
   it("header spoofing cannot escape the shared client bucket", () => {
     const a = new Request("http://x", {
       headers: { "x-forwarded-for": "1.1.1.1", "x-real-ip": "2.2.2.2" },

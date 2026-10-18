@@ -300,7 +300,8 @@ export function createOpenDemoAccountHandler(
     const windowSeconds = Number(env("DEMO_PROVISION_RATE_WINDOW_SECONDS") ?? 60);
     const maxPerWindow = Number(env("DEMO_PROVISION_RATE_MAX") ?? 5);
     const globalMax = Number(env("DEMO_PROVISION_GLOBAL_MAX_ACTIVE") ?? 500);
-    const holdSeconds = Number(env("DEMO_PROVISION_HOLD_SECONDS") ?? 120);
+    // Default hold covers slow Auth; renew before registry/link keeps the lease live.
+    const holdSeconds = Number(env("DEMO_PROVISION_HOLD_SECONDS") ?? 180);
 
     const slot = await admin.rpc("claim_demo_provision_slot", {
       p_client_key: clientKey,
@@ -325,6 +326,20 @@ export function createOpenDemoAccountHandler(
     const provisionNonce = deps.randomUUID();
     let owned: OwnedDemoIdentity | null = null;
 
+    async function failProvision(): Promise<Response> {
+      await safeCleanupOwned(admin, owned);
+      await releaseReservation(admin, reservationId);
+      return json(req, { error: "provision_failed" }, 500);
+    }
+
+    async function assertReservationHeld(): Promise<boolean> {
+      const renewed = await admin.rpc("renew_demo_provision_reservation", {
+        p_reservation_id: reservationId,
+        p_hold_seconds: holdSeconds,
+      });
+      return !renewed.error;
+    }
+
     try {
       const created = await admin.auth.admin.createUser({
         email,
@@ -336,39 +351,42 @@ export function createOpenDemoAccountHandler(
         user_metadata: { display_name: "Konto demo" },
       });
       if (created.error || !created.data.user?.id) {
-        await releaseReservation(admin, reservationId);
-        return json(req, { error: "provision_failed" }, 500);
+        return await failProvision();
       }
 
       const fetched = await admin.auth.admin.getUserById(created.data.user.id);
       // No fallback to createUser payload — a read error means ownership unproven.
       if (fetched.error || !fetched.data?.user) {
-        await releaseReservation(admin, reservationId);
-        return json(req, { error: "provision_failed" }, 500);
+        return await failProvision();
       }
 
       owned = confirmOwnedDemoIdentity(email, provisionNonce, fetched.data.user);
       if (!owned) {
-        await releaseReservation(admin, reservationId);
-        return json(req, { error: "provision_failed" }, 500);
+        return await failProvision();
+      }
+
+      // If the hold expired during Auth latency, refuse before registry write so
+      // a concurrent provisioner that took the free slot cannot be oversubscribed.
+      if (!(await assertReservationHeld())) {
+        return await failProvision();
       }
 
       const registered = await admin.rpc("register_demo_identity", {
         p_user_id: owned.userId,
       });
       if (registered.error) {
-        await safeCleanupOwned(admin, owned);
-        await releaseReservation(admin, reservationId);
-        return json(req, { error: "provision_failed" }, 500);
+        return await failProvision();
       }
 
       const verified = await admin.rpc("is_demo_account", {
         p_user_id: owned.userId,
       });
       if (verified.error || verified.data !== true) {
-        await safeCleanupOwned(admin, owned);
-        await releaseReservation(admin, reservationId);
-        return json(req, { error: "provision_failed" }, 500);
+        return await failProvision();
+      }
+
+      if (!(await assertReservationHeld())) {
+        return await failProvision();
       }
 
       const link = await admin.auth.admin.generateLink({
@@ -377,9 +395,7 @@ export function createOpenDemoAccountHandler(
       });
       const hashedToken = link.data?.properties?.hashed_token;
       if (link.error || !hashedToken || typeof hashedToken !== "string") {
-        await safeCleanupOwned(admin, owned);
-        await releaseReservation(admin, reservationId);
-        return json(req, { error: "provision_failed" }, 500);
+        return await failProvision();
       }
 
       const committed = await admin.rpc("commit_demo_provision_reservation", {
@@ -387,9 +403,8 @@ export function createOpenDemoAccountHandler(
         p_user_id: owned.userId,
       });
       if (committed.error) {
-        // Identity already registered (counts via demo_identities). Release the
-        // hold so capacity is not double-counted as held+active.
-        await releaseReservation(admin, reservationId);
+        // Unknown commit state — never hand out a token without a confirmed hold→commit.
+        return await failProvision();
       }
 
       return json(req, {
@@ -400,14 +415,9 @@ export function createOpenDemoAccountHandler(
       });
     } catch {
       try {
-        await safeCleanupOwned(admin, owned);
+        await failProvision();
       } catch {
-        // Ownership-gated cleanup ledgers delete failures.
-      }
-      try {
-        await releaseReservation(admin, reservationId);
-      } catch {
-        // Expiry sweeper recovers abandoned holds.
+        // Best-effort cleanup / release.
       }
       return json(req, { error: "provision_failed" }, 500);
     }
