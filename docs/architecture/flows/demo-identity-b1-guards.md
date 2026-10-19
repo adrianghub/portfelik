@@ -1,7 +1,8 @@
 # B1 — Trusted demo identity & server guards
 
-**Status:** implemented in migrations `20261018180000_demo_identity_guards.sql` and
-`20261018184500_demo_identity_invitation_cleanup_guards.sql`.  
+**Status:** implemented in migrations `20261018180000_demo_identity_guards.sql`,
+`20261018184500_demo_identity_invitation_cleanup_guards.sql`, and
+`20261019120000_demo_identity_allow_revoke_targets.sql`.  
 **Not included:** public Edge `open-demo-account` (B2), session switch, reset, Anonymous Auth.
 
 ## Authority model
@@ -20,11 +21,25 @@ Either claim alone is enough to deny privileged actions. Registry ↔ `app_metad
 
 - `create_group`
 - `claim_group_invitation`, `accept_invitation`
-- `leave_group`, `disband_group`, `remove_group_member`
-- `nominate_group_co_owner`, `revoke_group_co_owner`, `transfer_group_ownership`
-- `assign_admin_role`, `revoke_admin_role` (+ `is_admin()` never true for demo)
+- `leave_group`, `disband_group`
+- `nominate_group_co_owner`, `transfer_group_ownership` (actor **and** target)
+- `assign_admin_role` (actor **and** target)
 - `invite_user`, `create_group_invitation_for_delivery` (actor + invitee email)
 - `cancel_invitation`, `reject_invitation`, `delete_group_invitation` (cleanup; no membership elevation)
+
+### Revoke / remove (actor only)
+
+These assert `assert_real_capable` on the **caller** only, so a real owner/admin
+can clean up a UID that was incorrectly marked demo while still holding a
+membership or stale admin flag. Grant/elevation paths above stay fail-closed on
+the target.
+
+- `remove_group_member`
+- `revoke_group_co_owner`
+- `revoke_admin_role` (+ `is_admin()` never true for demo callers)
+
+`register_demo_identity` refuses UIDs that already own a group, hold
+`group_members`, or have `profiles.role = 'admin'` (`demo_has_real_entitlements`).
 
 ## Write-path audit (bypass check)
 
@@ -97,4 +112,6 @@ out a usable session until registration is complete and verified.
 `apps/web-svelte/tests/rls/demo-identity-guards.spec.ts` — negative social/admin
 paths (including hard `accept_invitation` fixture), registry ↔ metadata mismatch,
 conversion without elevation, cross-UID isolation, real regression, fail-closed
-missing UID, client cannot forge registry or group membership rows.
+missing UID, client cannot forge registry or group membership rows, owner/admin
+revoke of demo targets, shared-ledger loss after removal, and
+`register_demo_identity` entitlement prechecks.

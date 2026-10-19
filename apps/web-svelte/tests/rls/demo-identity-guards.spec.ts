@@ -169,6 +169,222 @@ describe("B1 demo identity guards", () => {
       p_user_id: demoA.userId,
     });
     expectDemoDenied(nominate.error);
+
+    // Owner can still remove a demo-marked member (revoke path, not grant).
+    const removed = await ctx.userA.client.rpc("remove_group_member", {
+      p_group_id: groupId,
+      p_user_id: demoA.userId,
+    });
+    expect(removed.error).toBeNull();
+    const stillMember = await ctx.admin
+      .from("group_members")
+      .select("user_id")
+      .eq("group_id", groupId)
+      .eq("user_id", demoA.userId);
+    expect(stillMember.data ?? []).toEqual([]);
+  });
+
+  it("register_demo_identity refuses UIDs with group membership, ownership, or admin", async () => {
+    const password = process.env.RLS_TEST_PASSWORD!;
+    const email = `real-then-demo-${randomUUID()}@portfelik.test`;
+    const created = await ctx.admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      app_metadata: {},
+    });
+    expect(created.error).toBeNull();
+    const userId = created.data.user!.id;
+    createdDemoIds.push(userId);
+
+    const group = await ctx.userA.client.rpc("create_group", {
+      p_name: `${SENTINEL} block-register`,
+    });
+    expect(group.error).toBeNull();
+    const groupId = (group.data as { id: string }).id;
+    await ctx.admin.from("group_members").upsert({
+      group_id: groupId,
+      user_id: userId,
+      role: "member",
+    });
+
+    const asMember = await ctx.admin.rpc("register_demo_identity", { p_user_id: userId });
+    expect(asMember.error).not.toBeNull();
+    expect(asMember.error?.message ?? "").toMatch(/demo_has_real_entitlements/);
+
+    await ctx.admin.from("group_members").delete().eq("group_id", groupId).eq("user_id", userId);
+
+    // Ownership also blocks registration.
+    const owned = await ctx.admin
+      .from("user_groups")
+      .insert({ name: `${SENTINEL} owned-block`, owner_id: userId })
+      .select("id")
+      .single();
+    expect(owned.error).toBeNull();
+    await ctx.admin.from("group_members").upsert({
+      group_id: owned.data!.id,
+      user_id: userId,
+      role: "owner",
+    });
+    const asOwner = await ctx.admin.rpc("register_demo_identity", { p_user_id: userId });
+    expect(asOwner.error?.message ?? "").toMatch(/demo_has_real_entitlements/);
+    await ctx.admin.from("group_members").delete().eq("group_id", owned.data!.id);
+    await ctx.admin.from("user_groups").delete().eq("id", owned.data!.id);
+
+    await ctx.admin.from("profiles").update({ role: "admin" }).eq("id", userId);
+    const asAdmin = await ctx.admin.rpc("register_demo_identity", { p_user_id: userId });
+    expect(asAdmin.error?.message ?? "").toMatch(/demo_has_real_entitlements/);
+    await ctx.admin.from("profiles").update({ role: "user" }).eq("id", userId);
+
+    const ok = await ctx.admin.rpc("register_demo_identity", { p_user_id: userId });
+    expect(ok.error).toBeNull();
+  });
+
+  it("owner can revoke co-owner and remove demo member; shared ledger access ends", async () => {
+    const group = await ctx.userA.client.rpc("create_group", {
+      p_name: `${SENTINEL} revoke-demo-member`,
+    });
+    expect(group.error).toBeNull();
+    const groupId = (group.data as { id: string }).id;
+
+    await ctx.admin.from("group_members").upsert({
+      group_id: groupId,
+      user_id: demoB.userId,
+      role: "co_owner",
+    });
+
+    // Demo actor cannot remove anyone.
+    const demoRemove = await demoA.client.rpc("remove_group_member", {
+      p_group_id: groupId,
+      p_user_id: demoB.userId,
+    });
+    expectDemoDenied(demoRemove.error);
+
+    const revoked = await ctx.userA.client.rpc("revoke_group_co_owner", {
+      p_group_id: groupId,
+      p_user_id: demoB.userId,
+    });
+    expect(revoked.error).toBeNull();
+    const roleAfter = await ctx.admin
+      .from("group_members")
+      .select("role")
+      .eq("group_id", groupId)
+      .eq("user_id", demoB.userId)
+      .single();
+    expect(roleAfter.data?.role).toBe("member");
+
+    // Shared visibility while membership exists: owner sees demoB group-scoped tx.
+    const demoCat = await ctx.admin
+      .from("categories")
+      .select("id")
+      .eq("user_id", demoB.userId)
+      .eq("type", "expense")
+      .limit(1)
+      .single();
+    expect(demoCat.data?.id).toBeTruthy();
+    const sharedTx = await demoB.client
+      .from("transactions")
+      .insert({
+        user_id: demoB.userId,
+        group_id: groupId,
+        amount: 17.5,
+        type: "expense",
+        description: `${SENTINEL} demo-shared`,
+        date: "2026-10-03",
+        category_id: demoCat.data!.id,
+        currency: "PLN",
+        status: "paid",
+      })
+      .select("id")
+      .single();
+    expect(sharedTx.error).toBeNull();
+
+    const visibleWhileMember = await ctx.userA.client
+      .from("transactions")
+      .select("id")
+      .eq("id", sharedTx.data!.id);
+    expect((visibleWhileMember.data ?? []).map((r) => r.id)).toContain(sharedTx.data!.id);
+
+    const removed = await ctx.userA.client.rpc("remove_group_member", {
+      p_group_id: groupId,
+      p_user_id: demoB.userId,
+    });
+    expect(removed.error).toBeNull();
+
+    // Remaining members keep group history (group_id SELECT policy). The
+    // removed UID must lose shared access and cannot write into the group.
+    const historyKept = await ctx.userA.client
+      .from("transactions")
+      .select("id")
+      .eq("id", sharedTx.data!.id);
+    expect((historyKept.data ?? []).map((r) => r.id)).toContain(sharedTx.data!.id);
+
+    const ownerCat = await ctx.admin
+      .from("categories")
+      .select("id")
+      .eq("user_id", ctx.userA.userId)
+      .limit(1)
+      .single();
+    const ownerTx = await ctx.userA.client
+      .from("transactions")
+      .insert({
+        user_id: ctx.userA.userId,
+        group_id: groupId,
+        amount: 9,
+        type: "expense",
+        description: `${SENTINEL} owner-after-remove`,
+        date: "2026-10-03",
+        category_id: ownerCat.data!.id,
+        currency: "PLN",
+        status: "paid",
+      })
+      .select("id")
+      .single();
+    expect(ownerTx.error).toBeNull();
+    const demoSeesOwner = await demoB.client
+      .from("transactions")
+      .select("id")
+      .eq("id", ownerTx.data!.id);
+    expect(demoSeesOwner.data ?? []).toEqual([]);
+
+    const demoRewrite = await demoB.client.from("transactions").insert({
+      user_id: demoB.userId,
+      group_id: groupId,
+      amount: 3,
+      type: "expense",
+      description: `${SENTINEL} demo-rewrite`,
+      date: "2026-10-04",
+      category_id: demoCat.data!.id,
+      currency: "PLN",
+      status: "paid",
+    });
+    expect(demoRewrite.error).not.toBeNull();
+  });
+
+  it("real admin can revoke_admin_role on a demo-marked profile", async () => {
+    await ctx.admin.from("profiles").update({ role: "admin" }).eq("id", ctx.userA.userId);
+    // Force an inconsistent admin flag on an existing demo UID (product path
+    // cannot assign admin to demo; service_role can still set the column).
+    await ctx.admin.from("profiles").update({ role: "admin" }).eq("id", demoA.userId);
+
+    const revoked = await ctx.userA.client.rpc("revoke_admin_role", {
+      p_user_id: demoA.userId,
+    });
+    expect(revoked.error).toBeNull();
+    const role = await ctx.admin
+      .from("profiles")
+      .select("role")
+      .eq("id", demoA.userId)
+      .single();
+    expect(role.data?.role).toBe("user");
+
+    // Demo still cannot administer others.
+    const asDemo = await demoA.client.rpc("revoke_admin_role", {
+      p_user_id: ctx.userB.userId,
+    });
+    expect(asDemo.error).not.toBeNull();
+
+    await ctx.admin.from("profiles").update({ role: "user" }).eq("id", ctx.userA.userId);
   });
 
   it("demo cannot assign or receive admin role", async () => {
