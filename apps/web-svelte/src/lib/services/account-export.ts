@@ -62,6 +62,10 @@ export const ACCOUNT_EXPORT_TABLE_INVENTORY = {
     reason: "Security rate-limit telemetry",
   },
   plan_progress_snapshots: { disposition: "exported", field: "plan_progress_snapshots" },
+  demo_identities: {
+    disposition: "omitted",
+    reason: "Server-owned demo capability registry, not financial truth",
+  },
 } as const satisfies Record<string, ExportInventoryEntry>;
 
 export interface AccountExportBundle {

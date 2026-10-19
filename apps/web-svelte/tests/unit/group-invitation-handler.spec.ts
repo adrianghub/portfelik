@@ -33,11 +33,13 @@ beforeEach(() => {
     APP_ORIGINS: "https://other.test",
   };
   getUser.mockResolvedValue({ data: { user: { id: "owner" } }, error: null });
-  rpc.mockImplementation(async (name) =>
-    name === "create_group_invitation_for_delivery"
-      ? { data: { invitation, token: "new-token" }, error: null }
-      : { data: true, error: null }
-  );
+  rpc.mockImplementation(async (name) => {
+    if (name === "is_demo_account") return { data: false, error: null };
+    if (name === "create_group_invitation_for_delivery") {
+      return { data: { invitation, token: "new-token" }, error: null };
+    }
+    return { data: true, error: null };
+  });
   fetchEmail = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
   vi.stubGlobal("fetch", fetchEmail);
 });
@@ -70,10 +72,32 @@ describe("group invitation Edge handler", () => {
   });
 
   it("does not send when the owner RPC denies the request", async () => {
-    rpc.mockResolvedValueOnce({ data: null, error: { message: "not_group_owner" } });
+    rpc.mockImplementation(async (name) => {
+      if (name === "is_demo_account") return { data: false, error: null };
+      if (name === "create_group_invitation_for_delivery") {
+        return { data: null, error: { message: "not_group_owner" } };
+      }
+      return { data: true, error: null };
+    });
     const response = await handler()(request({ groupId: "g1", email: "a@example.com" }));
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: "not_group_owner" });
+    expect(fetchEmail).not.toHaveBeenCalled();
+  });
+
+  it("refuses demo actors before creating an invitation", async () => {
+    rpc.mockImplementation(async (name) =>
+      name === "is_demo_account"
+        ? { data: true, error: null }
+        : { data: null, error: null }
+    );
+    const response = await handler()(request({ groupId: "g1", email: "a@example.com" }));
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: "demo_not_allowed" });
+    expect(rpc).not.toHaveBeenCalledWith(
+      "create_group_invitation_for_delivery",
+      expect.anything()
+    );
     expect(fetchEmail).not.toHaveBeenCalled();
   });
 

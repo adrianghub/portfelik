@@ -65,6 +65,18 @@ Deno.serve(async (req: Request) => {
     return new Response(`Notification not found: ${nErr?.message ?? "unknown"}`, { status: 404 });
   }
 
+  const { data: isDemo, error: demoErr } = await supabase.rpc("is_demo_account", {
+    p_user_id: notif.user_id,
+  });
+  if (demoErr) {
+    return new Response(`Demo check failed: ${demoErr.message}`, { status: 500 });
+  }
+  if (isDemo === true) {
+    return new Response(JSON.stringify({ ok: true, skipped: "demo_account" }), {
+      headers: { "content-type": "application/json" },
+    });
+  }
+
   const { data: subs, error: sErr } = await supabase
     .from("push_subscriptions")
     .select("endpoint, p256dh, auth")
