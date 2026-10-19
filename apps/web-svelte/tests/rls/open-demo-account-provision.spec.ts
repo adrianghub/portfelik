@@ -11,24 +11,16 @@ import {
   resolveClientKeyMaterial,
   type DemoProvisionClient,
 } from "../../../../supabase/functions/open-demo-account/handler";
-import {
-  assertLocalSupabaseUrl,
-  createAdminClient,
-  createAnonClient,
-} from "./setup";
+import { assertLocalSupabaseUrl, createAdminClient, createAnonClient } from "./setup";
 
 const createdUserIds: string[] = [];
 const reservationIds: string[] = [];
 
-function asProvisionClient(
-  client: ReturnType<typeof createAdminClient>
-): DemoProvisionClient {
+function asProvisionClient(client: ReturnType<typeof createAdminClient>): DemoProvisionClient {
   return client as unknown as DemoProvisionClient;
 }
 
-async function activeDemoCount(
-  admin: ReturnType<typeof createAdminClient>
-): Promise<number> {
+async function activeDemoCount(admin: ReturnType<typeof createAdminClient>): Promise<number> {
   const { count, error } = await admin
     .from("demo_identities")
     .select("user_id", { count: "exact", head: true })
@@ -137,9 +129,7 @@ describe("B2 open-demo-account provision integration", () => {
       )
     );
     const ok = results.filter((r) => !r.error);
-    const limited = results.filter((r) =>
-      (r.error?.message ?? "").includes("demo_rate_limited")
-    );
+    const limited = results.filter((r) => (r.error?.message ?? "").includes("demo_rate_limited"));
     expect(ok).toHaveLength(3);
     expect(limited).toHaveLength(5);
     for (const row of ok) reservationIds.push(row.data as string);
@@ -255,93 +245,334 @@ describe("B2 open-demo-account provision integration", () => {
     expect(await activeDemoCount(admin)).toBe(baseline + 1);
   });
 
-  it("expired hold cannot oversubscribe global cap=1 during slow Auth", async () => {
-    const admin = createAdminClient();
-    await admin.rpc("expire_demo_provision_reservations");
-    for (const id of [...reservationIds]) {
-      await admin.rpc("release_demo_provision_reservation", {
-        p_reservation_id: id,
-      });
-    }
-    reservationIds.length = 0;
-
-    const baseline = await activeDemoCount(admin);
-    const cap = baseline + 1;
-
-    const first = await admin.rpc("claim_demo_provision_slot", {
-      p_client_key: `expire-a-${randomUUID()}`,
-      p_window_seconds: 3600,
-      p_max_per_window: 50,
-      p_global_max_active: cap,
-      p_hold_seconds: 30,
-    });
-    expect(first.error).toBeNull();
-    const firstId = first.data as string;
-    reservationIds.push(firstId);
-
-    // Simulate Auth latency longer than the hold: force the lease into the past
-    // (same outcome as wall-clock expiry during a slow createUser).
-    const forced = await admin
-      .from("demo_provision_reservations")
-      .update({ expires_at: new Date(Date.now() - 5_000).toISOString() })
-      .eq("id", firstId)
-      .eq("status", "held");
-    expect(forced.error).toBeNull();
-    await admin.rpc("expire_demo_provision_reservations");
-
-    const second = await admin.rpc("claim_demo_provision_slot", {
-      p_client_key: `expire-b-${randomUUID()}`,
-      p_window_seconds: 3600,
-      p_max_per_window: 50,
-      p_global_max_active: cap,
-      p_hold_seconds: 120,
-    });
-    expect(second.error).toBeNull();
-    reservationIds.push(second.data as string);
-
-    // First path must not be able to renew after expiry (blocks registry write).
-    const renew = await admin.rpc("renew_demo_provision_reservation", {
-      p_reservation_id: firstId,
-      p_hold_seconds: 120,
-    });
-    expect(renew.error?.message ?? "").toMatch(/reservation_not_held/);
-
-    // Complete only the second reservation into a real demo identity.
-    const email = `demo+expire-${randomUUID()}@demo.jakstoimy.local`;
-    const created = await admin.auth.admin.createUser({
-      email,
-      email_confirm: true,
-      app_metadata: {
-        account_kind: "demo",
-        demo_provision_nonce: randomUUID(),
+  function trackedClient(admin: ReturnType<typeof createAdminClient>) {
+    const base = asProvisionClient(admin);
+    const users: { id: string; email: string }[] = [];
+    const client: DemoProvisionClient = {
+      rpc: (name, args) => base.rpc(name, args),
+      auth: {
+        admin: {
+          createUser: async (input) => {
+            const result = await base.auth.admin.createUser(input);
+            if (result.data.user) {
+              users.push({ id: result.data.user.id, email: input.email });
+              createdUserIds.push(result.data.user.id);
+            }
+            return result;
+          },
+          getUserById: (id) => base.auth.admin.getUserById(id),
+          deleteUser: (id) => base.auth.admin.deleteUser(id),
+          generateLink: (input) => base.auth.admin.generateLink(input),
+        },
       },
+    };
+    return { client, users };
+  }
+
+  function injectedHandler(client: DemoProvisionClient, cap: number) {
+    const env: Record<string, string> = {
+      SUPABASE_URL: url,
+      SUPABASE_SERVICE_ROLE_KEY: serviceKey,
+      DEMO_PROVISION_ENABLED: "true",
+      DEMO_PROVISION_RATE_MAX: "10000",
+      DEMO_PROVISION_GLOBAL_MAX_ACTIVE: String(cap),
+      DEMO_PROVISION_CLIENT_SALT: randomUUID(),
+    };
+    return createOpenDemoAccountHandler(
+      (name) => env[name],
+      () => client,
+      { randomUUID }
+    );
+  }
+
+  const openRequest = () =>
+    new Request("http://127.0.0.1/open-demo-account", {
+      method: "POST",
+      body: "{}",
     });
-    expect(created.error).toBeNull();
-    const userId = created.data.user!.id;
-    createdUserIds.push(userId);
-    expect(
-      (await admin.rpc("register_demo_identity", { p_user_id: userId })).error
-    ).toBeNull();
+
+  async function operationFor(admin: ReturnType<typeof createAdminClient>, email: string) {
+    const result = await admin
+      .from("demo_provision_reservations")
+      .select("*")
+      .eq("email", email)
+      .single();
+    expect(result.error).toBeNull();
+    reservationIds.push(result.data!.id);
+    return result.data!;
+  }
+
+  it.each([false, true])(
+    "Auth read + ledger failure retains durable operation (throw=%s)",
+    async (throws) => {
+      const admin = createAdminClient();
+      const { client, users } = trackedClient(admin);
+      const baseRpc = client.rpc;
+      client.auth.admin.getUserById = async () => {
+        if (throws) throw new Error("injected transport failure");
+        return { data: { user: null }, error: { message: "injected read failure" } };
+      };
+      client.rpc = async (name, args) => {
+        if (name === "record_demo_provision_orphan") {
+          if (throws) throw new Error("injected ledger transport failure");
+          return { data: null, error: { message: "injected ledger failure" } };
+        }
+        return baseRpc(name, args);
+      };
+      const baseline = await activeDemoCount(admin);
+      const response = await injectedHandler(client, baseline + 1)(openRequest());
+      expect(response.status).toBe(500);
+      expect(await response.json()).not.toHaveProperty("tokenHash");
+      expect(users).toHaveLength(1);
+      const op = await operationFor(admin, users[0].email);
+      expect(op.status).toBe("creating");
+      expect(op.provision_nonce).toBeTruthy();
+      expect((await admin.auth.admin.getUserById(users[0].id)).data.user?.id).toBe(users[0].id);
+      expect(
+        (
+          await admin.rpc("claim_demo_provision_slot", {
+            p_client_key: randomUUID(),
+            p_global_max_active: baseline + 1,
+          })
+        ).error?.message
+      ).toContain("demo_capacity_exhausted");
+      expect((await admin.auth.admin.deleteUser(users[0].id)).error).toBeNull();
+      expect(
+        (
+          await admin.rpc("complete_demo_provision_cleanup", {
+            p_reservation_id: op.id,
+            p_user_id: users[0].id,
+          })
+        ).error
+      ).toBeNull();
+    }
+  );
+
+  it("deleteUser failure writes real ledger and both RPC arities resolve", async () => {
+    const admin = createAdminClient();
+    const { client, users } = trackedClient(admin);
+    client.auth.admin.generateLink = async () => ({
+      data: null,
+      error: { message: "injected link failure" },
+    });
+    client.auth.admin.deleteUser = async () => ({ error: { message: "injected delete failure" } });
+    expect((await injectedHandler(client, 10000)(openRequest())).status).toBe(500);
+    const op = await operationFor(admin, users[0].email);
+    const ledger = await admin
+      .from("demo_provision_orphans")
+      .select("kind")
+      .eq("user_id", users[0].id)
+      .single();
+    expect(ledger.error).toBeNull();
+    expect(ledger.data?.kind).toBe("owned_delete_failed");
+    const args = {
+      p_user_id: users[0].id,
+      p_email: users[0].email,
+      p_nonce: op.provision_nonce,
+      p_error: "probe",
+    };
+    expect((await admin.rpc("record_demo_provision_orphan", args)).error).toBeNull();
     expect(
       (
-        await admin.rpc("commit_demo_provision_reservation", {
-          p_reservation_id: second.data,
-          p_user_id: userId,
+        await admin.rpc("record_demo_provision_orphan", {
+          ...args,
+          p_kind: "unconfirmed_auth_read",
         })
       ).error
     ).toBeNull();
+    expect((await admin.auth.admin.deleteUser(users[0].id)).error).toBeNull();
+    expect(
+      (
+        await admin.rpc("complete_demo_provision_cleanup", {
+          p_reservation_id: op.id,
+          p_user_id: users[0].id,
+        })
+      ).error
+    ).toBeNull();
+  });
 
-    expect(await activeDemoCount(admin)).toBe(baseline + 1);
-
-    // No further claim while the single capacity unit is occupied.
-    const third = await admin.rpc("claim_demo_provision_slot", {
-      p_client_key: `expire-c-${randomUUID()}`,
-      p_window_seconds: 3600,
-      p_max_per_window: 50,
-      p_global_max_active: cap,
-      p_hold_seconds: 120,
+  it("expired operation plus failed cleanup blocks concurrent Auth creation at cap=1", async () => {
+    const admin = createAdminClient();
+    const { client, users } = trackedClient(admin);
+    const baseline = await activeDemoCount(admin);
+    let signalReady!: () => void;
+    let finishFirst!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      signalReady = resolve;
     });
-    expect(third.error?.message ?? "").toMatch(/demo_capacity_exhausted/);
+    const finish = new Promise<void>((resolve) => {
+      finishFirst = resolve;
+    });
+    const baseRpc = client.rpc;
+    client.rpc = async (name, args) => {
+      if (name === "commit_demo_provision_reservation") {
+        const forced = await admin
+          .from("demo_provision_reservations")
+          .update({ expires_at: new Date(Date.now() - 5000).toISOString() })
+          .eq("id", args!.p_reservation_id);
+        expect(forced.error).toBeNull();
+        signalReady();
+        await finish;
+        return { data: null, error: { message: "injected finalization failure" } };
+      }
+      return baseRpc(name, args);
+    };
+    client.auth.admin.deleteUser = async () => ({ error: { message: "injected delete failure" } });
+    const handle = injectedHandler(client, baseline + 1);
+    const first = handle(openRequest());
+    await ready;
+    try {
+      expect((await admin.rpc("expire_demo_provision_reservations")).error).toBeNull();
+      const concurrent = await Promise.all(Array.from({ length: 5 }, () => handle(openRequest())));
+      for (const response of concurrent) {
+        expect(response.status).toBe(503);
+        expect(await response.json()).toEqual({ error: "capacity_exhausted" });
+      }
+    } finally {
+      finishFirst();
+    }
+    expect((await first).status).toBe(500);
+    expect(users).toHaveLength(1);
+    const op = await operationFor(admin, users[0].email);
+    expect(op.status).toBe("creating");
+    expect(
+      (await admin.rpc("release_demo_provision_reservation", { p_reservation_id: op.id })).error
+    ).toBeNull();
+    expect(
+      (
+        await admin.rpc("complete_demo_provision_cleanup", {
+          p_reservation_id: op.id,
+          p_user_id: users[0].id,
+        })
+      ).error?.message
+    ).toContain("cleanup_auth_still_exists");
+    expect((await handle(openRequest())).status).toBe(503);
+    expect((await admin.auth.admin.deleteUser(users[0].id)).error).toBeNull();
+    expect(
+      (
+        await admin.rpc("complete_demo_provision_cleanup", {
+          p_reservation_id: op.id,
+          p_user_id: users[0].id,
+        })
+      ).error
+    ).toBeNull();
+  });
+
+  it("atomic commit validates operation ownership and keeps expired creating capacity", async () => {
+    const admin = createAdminClient();
+    const email = `demo+atomic-${randomUUID()}@demo.jakstoimy.local`;
+    const nonce = randomUUID();
+    const slot = await admin.rpc("claim_demo_provision_slot", {
+      p_client_key: randomUUID(),
+      p_global_max_active: 10000,
+    });
+    expect(slot.error).toBeNull();
+    reservationIds.push(slot.data as string);
+    expect(
+      (
+        await admin.rpc("begin_demo_provision_operation", {
+          p_reservation_id: slot.data,
+          p_email: email,
+          p_nonce: nonce,
+        })
+      ).error
+    ).toBeNull();
+    const created = await admin.auth.admin.createUser({
+      email,
+      email_confirm: true,
+      app_metadata: { account_kind: "demo", demo_provision_nonce: nonce },
+    });
+    expect(created.error).toBeNull();
+    const uid = created.data.user!.id;
+    createdUserIds.push(uid);
+    expect(
+      (
+        await admin.rpc("commit_demo_provision_reservation", {
+          p_reservation_id: slot.data,
+          p_user_id: randomUUID(),
+        })
+      ).error?.message
+    ).toContain("operation_identity_mismatch");
+    expect((await admin.rpc("is_demo_account", { p_user_id: uid })).data).toBe(true); // app_metadata also denies privileges
+    expect((await admin.from("demo_identities").select("user_id").eq("user_id", uid)).data).toEqual(
+      []
+    );
+    await admin
+      .from("demo_provision_reservations")
+      .update({ expires_at: new Date(Date.now() - 5000).toISOString() })
+      .eq("id", slot.data);
+    expect(
+      (
+        await admin.rpc("commit_demo_provision_reservation", {
+          p_reservation_id: slot.data,
+          p_user_id: uid,
+        })
+      ).error
+    ).toBeNull();
+    expect(
+      (await admin.from("demo_identities").select("user_id").eq("user_id", uid).single()).data
+        ?.user_id
+    ).toBe(uid);
+    expect(
+      (
+        await admin
+          .from("demo_provision_reservations")
+          .select("status")
+          .eq("id", slot.data)
+          .single()
+      ).data?.status
+    ).toBe("committed");
+  });
+
+  it("orphan without an operation still consumes capacity", async () => {
+    const admin = createAdminClient();
+    const uid = randomUUID();
+    const baseline = await activeDemoCount(admin);
+    try {
+      expect(
+        (
+          await admin.rpc("record_demo_provision_orphan", {
+            p_user_id: uid,
+            p_email: `demo+${randomUUID()}@demo.jakstoimy.local`,
+            p_nonce: randomUUID(),
+            p_error: "legacy unresolved operation",
+          })
+        ).error
+      ).toBeNull();
+      expect(
+        (
+          await admin.rpc("claim_demo_provision_slot", {
+            p_client_key: randomUUID(),
+            p_global_max_active: baseline + 1,
+          })
+        ).error?.message
+      ).toContain("demo_capacity_exhausted");
+    } finally {
+      await admin.from("demo_provision_orphans").delete().eq("user_id", uid);
+    }
+  });
+
+  it("expired pre-Auth hold cannot become an operation", async () => {
+    const admin = createAdminClient();
+    const slot = await admin.rpc("claim_demo_provision_slot", {
+      p_client_key: randomUUID(),
+      p_global_max_active: 10000,
+    });
+    expect(slot.error).toBeNull();
+    reservationIds.push(slot.data as string);
+    await admin
+      .from("demo_provision_reservations")
+      .update({ expires_at: new Date(Date.now() - 5000).toISOString() })
+      .eq("id", slot.data);
+    expect(
+      (
+        await admin.rpc("begin_demo_provision_operation", {
+          p_reservation_id: slot.data,
+          p_email: `demo+${randomUUID()}@demo.jakstoimy.local`,
+          p_nonce: randomUUID(),
+        })
+      ).error?.message
+    ).toContain("reservation_not_held");
   });
 
   it("header spoofing cannot escape the shared client bucket", () => {
@@ -351,12 +582,8 @@ describe("B2 open-demo-account provision integration", () => {
     const b = new Request("http://x", {
       headers: { "x-forwarded-for": "9.9.9.9", "cf-connecting-ip": "8.8.8.8" },
     });
-    expect(resolveClientKeyMaterial(a, undefined).material).toBe(
-      SHARED_CLIENT_KEY_MATERIAL
-    );
-    expect(resolveClientKeyMaterial(b, undefined).material).toBe(
-      SHARED_CLIENT_KEY_MATERIAL
-    );
+    expect(resolveClientKeyMaterial(a, undefined).material).toBe(SHARED_CLIENT_KEY_MATERIAL);
+    expect(resolveClientKeyMaterial(b, undefined).material).toBe(SHARED_CLIENT_KEY_MATERIAL);
     expect(resolveClientKeyMaterial(a, "x-forwarded-for").material).toBe(
       SHARED_CLIENT_KEY_MATERIAL
     );
@@ -464,5 +691,47 @@ describe("B2 open-demo-account provision integration", () => {
       expires_at: new Date(Date.now() + 60_000).toISOString(),
     });
     expect(reservation.error).not.toBeNull();
+    for (const caller of [userClient, createAnonClient()]) {
+      for (const [name, args] of [
+        [
+          "begin_demo_provision_operation",
+          {
+            p_reservation_id: randomUUID(),
+            p_email: "demo+denied@demo.jakstoimy.local",
+            p_nonce: randomUUID(),
+          },
+        ],
+        [
+          "commit_demo_provision_reservation",
+          { p_reservation_id: randomUUID(), p_user_id: userId },
+        ],
+        ["complete_demo_provision_cleanup", { p_reservation_id: randomUUID(), p_user_id: userId }],
+        [
+          "record_demo_provision_orphan",
+          {
+            p_user_id: userId,
+            p_email: "demo+denied@demo.jakstoimy.local",
+            p_nonce: randomUUID(),
+            p_error: "denied",
+          },
+        ],
+        [
+          "record_demo_provision_orphan",
+          {
+            p_user_id: userId,
+            p_email: "demo+denied@demo.jakstoimy.local",
+            p_nonce: randomUUID(),
+            p_error: "denied",
+            p_kind: "unconfirmed_auth_read",
+          },
+        ],
+      ] as const) {
+        expect((await caller.rpc(name, args)).error).not.toBeNull();
+      }
+      for (const table of ["demo_provision_reservations", "demo_provision_orphans"]) {
+        const read = await caller.from(table).select("*");
+        expect(read.error !== null || read.data?.length === 0).toBe(true);
+      }
+    }
   });
 });

@@ -10,16 +10,22 @@ Depends on B1 (`demo_identities`, `register_demo_identity`, `assert_real_capable
 
 1. Turnstile when `DEMO_TURNSTILE_SECRET` is set **or**
    `DEMO_PROVISION_REQUIRE_TURNSTILE=true`.
-2. `claim_demo_provision_slot` → reservation id. Capacity =
-   `active demo_identities + held unexpired reservations`.
-3. Invent synthetic email + `demo_provision_nonce` (never accept caller identity).
-4. `createUser` → required `getUserById` ownership (no createUser fallback).
-5. `renew_demo_provision_reservation` before registry/link — if the hold expired
-   during Auth latency, fail closed (cleanup + release) so a concurrent claim
-   cannot be oversubscribed.
-6. `register` → verify → `generateLink` → `commit`. **Any commit failure refuses
-   the token** and cleans up the owned identity.
-7. Response: `{ userId, email, tokenHash, verifyType: "email" }` only.
+2. `claim_demo_provision_slot` → pre-Auth hold. Only this state may expire.
+3. Invent synthetic email + nonce. `begin_demo_provision_operation` durably stores
+   both and changes held → creating **before** calling Auth. An expired hold
+   cannot start Auth. A creating operation never expires automatically.
+4. `createUser` → required `getUserById` ownership (UID + email + account_kind +
+   nonce; no createUser fallback). Unknown create/read outcomes retain capacity.
+5. `commit_demo_provision_reservation` validates Auth ownership, calls
+   `register_demo_identity`, and changes creating → committed atomically under
+   the same global advisory lock as claims. Auth latency no longer frees a slot.
+6. Verify `is_demo_account` → `generateLink`. Any error refuses the credential.
+7. Response: `{ userId, email, tokenHash, verifyType: "email" }`, with no-store.
+
+Capacity = active registry + pre-Auth holds + unresolved creating/committed
+operations not represented by active registry + orphan ledger entries not
+represented by either. A retired/missing registry row does not free a committed
+operation while Auth may still exist. All unknown outcomes fail closed.
 
 ## Client identity / rate keys
 
@@ -47,8 +53,24 @@ abuse/availability metrics — never by trusting client IP headers.
 
 ## Safe cleanup / orphans
 
-`deleteUser` only after `getUserById` re-confirms email + nonce + `account_kind=demo`.
-Delete failures → `record_demo_provision_orphan`.
+`deleteUser` only after `getUserById` re-confirms the exact UID, invented email,
+nonce and `account_kind=demo`. Delete/read failures attempt the single
+`record_demo_provision_orphan` API with explicit kind. Its optional fifth argument
+also accepts legacy four-argument calls without an overload.
+
+If even ledger writing fails, the operation journal still stores email/nonce and
+holds capacity. A sanitized `demo_provision_reconciliation_required` event carries
+only the reservation ID. It never carries Auth errors or credential material.
+
+Only confirmed successful owned-user deletion may call
+`complete_demo_provision_cleanup`; the DB checks both UID and email absence
+before releasing capacity. Generic release/expiry cannot change creating or
+committed operations. A read failure, timeout, or a single missing-user lookup
+while createUser may still be in flight is not proof of cleanup.
+
+Legacy held rows are conservatively migrated to creating, including expired
+rows. Missing email/nonce must be reconciled manually before any capacity is
+released. This may reduce availability; never reset the journal to bypass cap.
 
 ## Env
 
@@ -56,18 +78,26 @@ Delete failures → `record_demo_provision_orphan`.
 | --- | --- |
 | `DEMO_PROVISION_ENABLED` | Kill switch (default off) |
 | `DEMO_PROVISION_RATE_*` | Shared-bucket window (default key = shared) |
-| `DEMO_PROVISION_GLOBAL_MAX_ACTIVE` | Active demos + held reservations |
-| `DEMO_PROVISION_HOLD_SECONDS` | Reservation TTL (default 180) |
+| `DEMO_PROVISION_GLOBAL_MAX_ACTIVE` | Registry + holds + unresolved operations/orphans |
+| `DEMO_PROVISION_HOLD_SECONDS` | Pre-Auth hold TTL only (default 180) |
 | `DEMO_PROVISION_TRUSTED_IP_HEADER` | Leave empty unless ingress verified |
 | `DEMO_PROVISION_REQUIRE_TURNSTILE` / `DEMO_TURNSTILE_SECRET` | Automation gate |
 
 ## Tests
 
-- Unit: expiry renew failure, commit failure → no token, header spoof → shared key
-- Integration: parallel cap, **expired hold + second claim under cap=1**, verifyOtp
+- Unit: pre-Auth journal ordering, expired hold refusal, Auth read + ledger double
+  failure, unknown create outcome, ownership mismatch, atomic commit refusal.
+- Integration: real four/five-argument ledger calls after deleteUser failure;
+  concurrent cap=1 with expired creating operation and failed cleanup; durable
+  journal despite read+ledger failures; atomic commit ownership; RLS negatives;
+  generateLink → verifyOtp and replay rejection.
 
 ## Migrations
 
 - `20261018200000_demo_provision_limits.sql` — attempts + orphans
 - `20261018210000_demo_provision_reservations.sql` — holds + claim/commit/release
 - `20261018213000_demo_provision_reservation_renew.sql` — renew/assert hold
+
+- `20261018220000_demo_provision_unconfirmed_orphans.sql` — unconfirmed orphan kind
+- `20261019190143_demo_provision_durable_operations.sql` — single ledger API, durable
+  pre-Auth journal, conservative legacy quarantine and atomic register/commit
