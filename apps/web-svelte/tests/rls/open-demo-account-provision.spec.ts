@@ -336,6 +336,14 @@ describe("B2 open-demo-account provision integration", () => {
           })
         ).error?.message
       ).toContain("demo_capacity_exhausted");
+      expect(
+        (
+          await admin.rpc("confirm_demo_provision_identity", {
+            p_reservation_id: op.id,
+            p_user_id: users[0].id,
+          })
+        ).error
+      ).toBeNull();
       expect((await admin.auth.admin.deleteUser(users[0].id)).error).toBeNull();
       expect(
         (
@@ -705,6 +713,7 @@ describe("B2 open-demo-account provision integration", () => {
           "commit_demo_provision_reservation",
           { p_reservation_id: randomUUID(), p_user_id: userId },
         ],
+        ["confirm_demo_provision_identity", { p_reservation_id: randomUUID(), p_user_id: userId }],
         ["complete_demo_provision_cleanup", { p_reservation_id: randomUUID(), p_user_id: userId }],
         [
           "record_demo_provision_orphan",

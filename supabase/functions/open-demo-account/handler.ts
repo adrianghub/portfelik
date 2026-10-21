@@ -227,6 +227,14 @@ export function createOpenDemoAccountHandler(
       throw new Error("cleanup_ownership_mismatch");
     }
 
+    // Persist DB-verified ownership before deletion. A missing Auth row alone
+    // must never let reconciliation free an unbound/in-flight operation.
+    const confirmed = await admin.rpc("confirm_demo_provision_identity", {
+      p_reservation_id: reservationId,
+      p_user_id: reconfirmed.userId,
+    });
+    if (confirmed.error) throw new Error("cleanup_identity_unconfirmed");
+
     const deleted = await admin.auth.admin.deleteUser(reconfirmed.userId);
     if (deleted.error) throw new Error("cleanup_delete_failed");
     const completed = await admin.rpc("complete_demo_provision_cleanup", {

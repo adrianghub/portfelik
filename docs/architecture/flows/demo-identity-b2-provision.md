@@ -62,8 +62,14 @@ If even ledger writing fails, the operation journal still stores email/nonce and
 holds capacity. A sanitized `demo_provision_reconciliation_required` event carries
 only the reservation ID. It never carries Auth errors or credential material.
 
-Only confirmed successful owned-user deletion may call
-`complete_demo_provision_cleanup`; the DB checks both UID and email absence
+Before deletion, `confirm_demo_provision_identity` verifies an existing Auth row
+against the operation's exact email, account_kind and nonce, and durably binds
+its UID. The binding is immutable. Cleanup refuses to delete if this write fails.
+Commit uses the same verifier, so it cannot replace a previously confirmed UID.
+
+Only a previously bound, exact UID may reach `complete_demo_provision_cleanup`.
+A NULL UID or any different caller UID is rejected, even if Auth returns 404.
+After owned-user deletion, the DB checks both that UID and email are absent
 before releasing capacity. Generic release/expiry cannot change creating or
 committed operations. A read failure, timeout, or a single missing-user lookup
 while createUser may still be in flight is not proof of cleanup.
@@ -101,3 +107,25 @@ released. This may reduce availability; never reset the journal to bypass cap.
 - `20261018220000_demo_provision_unconfirmed_orphans.sql` — unconfirmed orphan kind
 - `20261019190143_demo_provision_durable_operations.sql` — single ledger API, durable
   pre-Auth journal, conservative legacy quarantine and atomic register/commit
+
+- `20261021111924_demo_cleanup_confirmed_identity.sql` — persist DB-verified UID
+  before deletion; reject NULL/mismatched cleanup UID
+- `20261021112347_demo_commit_identity_immutable.sql` — share immutable ownership
+  validation across confirmation and atomic commit
+
+## State transitions and failure boundaries
+
+| From | Operation | Success | Failure |
+| --- | --- | --- | --- |
+| held | begin, before Auth | creating with invented email/nonce | No Auth call; expired hold cannot start |
+| held | expiry/release | released | No Auth operation has started |
+| creating, NULL UID | confirm existing Auth identity | creating with immutable UID | No delete/release; unknown operation still counts |
+| creating | atomic confirm/register/commit | committed with the same UID | Transaction rolls back; no credential; capacity retained |
+| creating/committed, bound UID | re-confirm → Auth delete → complete | released after exact UID/email absence check | Any Auth/journal failure keeps capacity; never guess UID |
+| released | begin/confirm/commit/complete | Rejected; terminal state | No second Auth create on this operation |
+
+The state-machine integration suite pauses createUser before its DB effect,
+expires the operation's TTL and races reconciliation plus parallel claims. It
+also tests mismatched identity fields, attempted UID rebinding, registration
+rollback and journal faults before/after deletion. No missing-user lookup can
+substitute for persisted ownership proof.

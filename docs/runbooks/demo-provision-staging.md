@@ -31,6 +31,8 @@ Confirm these timestamps are present:
 - `20261018220000_demo_provision_unconfirmed_orphans`
 - `20261019120000_demo_identity_allow_revoke_targets`
 - `20261019190143_demo_provision_durable_operations`
+- `20261021111924_demo_cleanup_confirmed_identity`
+- `20261021112347_demo_commit_identity_immutable`
 
 ## 2. Edge deploy (staging only)
 
@@ -122,10 +124,17 @@ Example operator flow (service role, staging):
 
 1. `select * from demo_provision_orphans where kind = 'unconfirmed_auth_read' order by created_at;`
 2. For each `user_id`, Admin API `getUserById`.
-3. Apply the table above; record outcome in the ops log.
+3. Apply the table above; record outcome in the ops log. Before deleting a
+   matching owned Auth user, call `confirm_demo_provision_identity` with the
+   reservation ID and exact UID. It verifies the existing Auth row against
+   journal email + account_kind + nonce and persists the UID. If that call fails,
+   **do not delete or free the slot**. A subsequent different UID is rejected.
 4. After **confirmed successful deletion of the owned UID**, call
-   `complete_demo_provision_cleanup` with reservation ID and UID. It verifies
-   Auth absence and releases the operation plus its matching ledger entry.
+   `complete_demo_provision_cleanup` with reservation ID and UID. It first requires a non-NULL persisted UID exactly matching the supplied UID,
+   then verifies Auth absence and releases the operation plus its matching ledger
+   entry. An operation with NULL UID cannot be completed, even after a 404 or TTL
+   expiry. If the delete response was lost, only an already-bound identity whose
+   absence is verified can be reconciled; never manufacture a binding after 404.
 5. If createUser had an unknown outcome, keep the operation charged. Inspect
    journal email/nonce, find the candidate Auth UID using trusted admin access,
    re-confirm ownership, then perform cleanup. Never free it because TTL elapsed,

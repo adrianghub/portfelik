@@ -89,6 +89,7 @@ beforeEach(() => {
       return { data: RESERVATION_ID, error: null };
     }
     if (name === "begin_demo_provision_operation") return { data: null, error: null };
+    if (name === "confirm_demo_provision_identity") return { data: null, error: null };
     if (name === "complete_demo_provision_cleanup") return { data: null, error: null };
     if (name === "renew_demo_provision_reservation") return { data: null, error: null };
     if (name === "register_demo_identity") return { data: null, error: null };
@@ -159,6 +160,51 @@ describe("confirmOwnedDemoIdentity", () => {
 });
 
 describe("open-demo-account Edge handler", () => {
+  it.each(["read", "confirm", "delete", "complete"])(
+    "cleanup fails closed on %s failure",
+    async (stage) => {
+      generateLink.mockResolvedValue({ data: null, error: { message: "link unavailable" } });
+      if (stage === "read") {
+        getUserById.mockResolvedValueOnce({ data: { user: ownedUser() }, error: null });
+        getUserById.mockRejectedValueOnce(new Error("Auth read unavailable"));
+      }
+      if (stage === "delete") deleteUser.mockRejectedValue(new Error("Auth delete unavailable"));
+      const normalRpc = rpc.getMockImplementation()!;
+      rpc.mockImplementation(async (name: string, args?: Record<string, unknown>) => {
+        if (
+          (stage === "confirm" && name === "confirm_demo_provision_identity") ||
+          (stage === "complete" && name === "complete_demo_provision_cleanup")
+        ) {
+          throw new Error("journal unavailable");
+        }
+        return normalRpc(name, args);
+      });
+      const response = await handler()(post({}));
+      expect(response.status).toBe(500);
+      expect(await response.json()).not.toHaveProperty("tokenHash");
+      expect(rpc).not.toHaveBeenCalledWith("release_demo_provision_reservation", expect.anything());
+      if (stage === "read" || stage === "confirm") expect(deleteUser).not.toHaveBeenCalled();
+      if (stage !== "complete")
+        expect(rpc).not.toHaveBeenCalledWith("complete_demo_provision_cleanup", expect.anything());
+    }
+  );
+
+  it("persists ownership before deleting and releases only after successful delete", async () => {
+    generateLink.mockResolvedValue({ data: null, error: { message: "link unavailable" } });
+    expect((await handler()(post({}))).status).toBe(500);
+    const callOrder = (name: string) =>
+      rpc.mock.invocationCallOrder[rpc.mock.calls.findIndex(([n]) => n === name)];
+    expect(callOrder("confirm_demo_provision_identity")).toBeLessThan(
+      deleteUser.mock.invocationCallOrder[0]
+    );
+    expect(callOrder("complete_demo_provision_cleanup")).toBeGreaterThan(
+      deleteUser.mock.invocationCallOrder[0]
+    );
+    expect(rpc).toHaveBeenCalledWith("confirm_demo_provision_identity", {
+      p_reservation_id: RESERVATION_ID,
+      p_user_id: "demo-uid",
+    });
+  });
   it("journals invented identity before Auth and never directly registers", async () => {
     const response = await handler()(post({}));
     expect(response.status).toBe(200);
