@@ -8,6 +8,7 @@
     rememberLoginRedirect,
   } from "$lib/auth-redirect";
   import BrandMark from "$lib/components/BrandMark.svelte";
+  import DemoTurnstile from "$lib/components/demo/DemoTurnstile.svelte";
   import { oauthCallbackUrl, signInWithGoogleOAuth } from "$lib/services/oauth";
   import { openDemoAccount } from "$lib/services/open-demo-account";
   import { isNativeCapacitor } from "$lib/services/pwa";
@@ -18,6 +19,9 @@
   let password = $state("");
   let loading = $state(false);
   let demoLoading = $state(false);
+  const demoSiteKey = __DEMO_TURNSTILE_SITE_KEY__;
+  let demoToken = $state("");
+  let demoChallengeAttempt = $state(0);
   let error = $state<string | null>(null);
   const nativeLogin = $derived(isNativeCapacitor());
 
@@ -72,10 +76,19 @@
   }
 
   async function openDemo() {
+    if (demoLoading || (demoSiteKey && !demoToken)) return;
     demoLoading = true;
     error = null;
-    const result = await openDemoAccount();
+    const token = demoToken;
+    demoToken = "";
+    const result = await openDemoAccount({ turnstileToken: token || undefined }).catch(() => ({
+      ok: false as const,
+      error: "demo_session_failed",
+    }));
     if (!result.ok) {
+      // Siteverify consumes tokens even when a later provision step fails.
+      demoToken = "";
+      demoChallengeAttempt += 1;
       error =
         result.error === "demo_provision_disabled" || result.error === "demo_provision_unavailable"
           ? m.demo_open_error_disabled()
@@ -179,10 +192,25 @@
         </div>
       {/if}
 
+      {#if demoSiteKey}
+        {#key demoChallengeAttempt}
+          <DemoTurnstile
+            siteKey={demoSiteKey}
+            onToken={(token) => {
+              demoToken = token;
+              if (token) error = null;
+            }}
+            onError={() => {
+              error = m.demo_open_error_generic();
+            }}
+          />
+        {/key}
+      {/if}
+
       <button
         type="button"
         onclick={openDemo}
-        disabled={loading || demoLoading}
+        disabled={loading || demoLoading || (!!demoSiteKey && !demoToken)}
         data-testid="open-demo-account"
         class="mb-3 flex w-full items-center justify-center rounded-full border border-amber-400/30 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-100 transition-colors hover:bg-amber-500/20 focus-visible:ring-2 focus-visible:ring-amber-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 focus-visible:outline-none disabled:opacity-50"
       >

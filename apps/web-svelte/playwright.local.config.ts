@@ -24,6 +24,7 @@ export default defineConfig({
       PUBLIC_SUPABASE_ANON_KEY: process.env.QUALITY_SUPABASE_ANON_KEY!,
       PUBLIC_VAPID_KEY: "",
       PUBLIC_PLAUSIBLE_DOMAIN: "",
+      PUBLIC_TURNSTILE_SITE_KEY: process.env.QUALITY_TURNSTILE_SITE_KEY ?? "",
     },
   },
 });
