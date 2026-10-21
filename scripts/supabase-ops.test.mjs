@@ -63,3 +63,22 @@ test("remote writes still require explicit target confirmation", () => {
     assert.equal(result.stdout, "");
   });
 });
+
+test("staging previews include earlier feature migrations without broadening production", () => {
+  withoutRemoteCredentials((execute, fixture) => {
+    mkdirSync(`${fixture}/supabase`);
+    writeFileSync(`${fixture}/supabase/.env`, [
+      "STAGING_SUPABASE_PROJECT_REF=staging-fixture",
+      "STAGING_SUPABASE_DB_PASSWORD=fixture-not-a-secret",
+      "PROD_SUPABASE_PROJECT_REF=prod-fixture",
+      "PROD_SUPABASE_DB_PASSWORD=fixture-not-a-secret",
+    ].join("\n"));
+    for (const target of ["staging", "prod"]) {
+      const preview = execute(target, "push-preview");
+      assert.equal(preview.status, 0, preview.stderr);
+      assert.match(preview.stdout, /--dry-run/);
+      assert.equal(preview.stdout.includes("--include-all"), target === "staging");
+      assert.doesNotMatch(preview.stdout, /--yes/);
+    }
+  });
+});

@@ -223,7 +223,7 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.STAGING_SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.STAGING_SUPABASE_DB_PASSWORD }}
-        run: supabase db push --linked --include-seed --yes
+        run: supabase db push --linked --include-all --include-seed --yes
 
       - name: Deploy staging Edge Functions
         env:
