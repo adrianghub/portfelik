@@ -13,6 +13,27 @@
 
 ## 1. Migrations
 
+When local ops credentials are unavailable, the existing **Deploy staging**
+workflow also accepts a manual candidate run using the GitHub `Staging`
+environment's secrets. It accepts only `dev` or `codex/jakstoimy-1-4-demo-ui`,
+requires the exact expected SHA and current `dev` ancestry, and runs the normal
+quality/RLS/E2E gates before accessing staging. The project ref must equal
+`nveyzxxnyccpnesebvuw`; the Pages build and smoke URL must use that same project.
+
+```bash
+gh workflow run deploy-staging.yml --ref codex/jakstoimy-1-4-demo-ui \
+  -f expected_sha=<FULL_REVIEWED_SHA> -f operation=preview
+```
+
+`preview` links staging and prints the migration dry run; it does not apply SQL,
+deploy functions, seed personas, or publish Pages. Review that run before using
+the same command with `operation=prepare`. Preparation applies the reviewed
+migrations/system seed, deploys the demo Edge function with its kill switch
+forced **false** and Turnstile required, and publishes the candidate UI to the
+existing staging hostname. Manual preparation does not reseed user personas,
+deploy unrelated Edge functions, merge the PR or enable demo provisioning.
+Real Siteverify and the controlled soak still require a separate test window.
+
 From a clean ops checkout linked to **staging** (never production):
 
 ```bash

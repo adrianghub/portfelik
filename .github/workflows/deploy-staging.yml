@@ -3,6 +3,18 @@ name: Deploy staging
 on:
   push:
     branches: [dev]
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact reviewed source SHA (40 characters)
+        required: true
+        type: string
+      operation:
+        description: Preview only, or prepare candidate with provisioner disabled
+        required: true
+        default: preview
+        type: choice
+        options: [preview, prepare]
 
 permissions:
   contents: read
@@ -22,6 +34,18 @@ jobs:
 
       - name: Check release version
         run: node scripts/check-release-version.mjs
+
+      - name: Validate staging source
+        env:
+          EVENT: ${{ github.event_name }}
+          BRANCH: ${{ github.ref_name }}
+          SOURCE_SHA: ${{ github.sha }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: |
+          bash scripts/check-staging-source.sh "$EVENT" "$BRANCH" "$SOURCE_SHA" "$EXPECTED_SHA"
+          if [ "$EVENT" = workflow_dispatch ]; then
+            git merge-base --is-ancestor origin/dev HEAD
+          fi
 
       - uses: ./.github/actions/setup-web
 
@@ -216,16 +240,31 @@ jobs:
           SUPABASE_DB_PASSWORD: ${{ secrets.STAGING_SUPABASE_DB_PASSWORD }}
           STAGING_SUPABASE_PROJECT_REF: ${{ secrets.STAGING_SUPABASE_PROJECT_REF }}
         run: |
-          test "$STAGING_SUPABASE_PROJECT_REF" != "emqzcygfwcvbmhxhfkcc"
+          test "$STAGING_SUPABASE_PROJECT_REF" = "nveyzxxnyccpnesebvuw"
+          test -n "$SUPABASE_DB_PASSWORD"
           supabase link --project-ref "$STAGING_SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
 
+      - name: Preview staging migrations
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.STAGING_SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.STAGING_SUPABASE_DB_PASSWORD }}
+        run: supabase db push --linked --include-all --include-seed --dry-run
+
+      - name: Keep demo provisioner disabled for candidate preparation
+        if: github.event_name == 'workflow_dispatch' && inputs.operation == 'prepare'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.STAGING_SUPABASE_ACCESS_TOKEN }}
+        run: supabase secrets set DEMO_PROVISION_ENABLED=false DEMO_PROVISION_REQUIRE_TURNSTILE=true --project-ref nveyzxxnyccpnesebvuw
+
       - name: Push migrations and system seed to staging
+        if: github.event_name == 'push' || inputs.operation == 'prepare'
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.STAGING_SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.STAGING_SUPABASE_DB_PASSWORD }}
         run: supabase db push --linked --include-all --include-seed --yes
 
       - name: Deploy staging Edge Functions
+        if: github.event_name == 'push'
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.STAGING_SUPABASE_ACCESS_TOKEN }}
           STAGING_SUPABASE_PROJECT_REF: ${{ secrets.STAGING_SUPABASE_PROJECT_REF }}
@@ -235,7 +274,14 @@ jobs:
           supabase functions deploy send-group-invitation --project-ref "$STAGING_SUPABASE_PROJECT_REF"
           supabase functions deploy sync-user-role --project-ref "$STAGING_SUPABASE_PROJECT_REF"
 
+      - name: Deploy disabled demo provisioner to staging
+        if: github.event_name == 'workflow_dispatch' && inputs.operation == 'prepare'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.STAGING_SUPABASE_ACCESS_TOKEN }}
+        run: supabase functions deploy open-demo-account --project-ref nveyzxxnyccpnesebvuw
+
       - name: Seed staging personas and synthetic fixtures
+        if: github.event_name == 'push'
         working-directory: apps/web-svelte
         env:
           STAGING_SUPABASE_URL: ${{ secrets.STAGING_PUBLIC_SUPABASE_URL }}
@@ -249,6 +295,7 @@ jobs:
   deploy:
     name: Cloudflare Pages
     needs: migrate
+    if: github.event_name == 'push' || inputs.operation == 'prepare'
     runs-on: ubuntu-latest
     environment:
       name: Staging
@@ -271,7 +318,7 @@ jobs:
           PUBLIC_RELEASE_CHANNEL: public-beta
           PUBLIC_TURNSTILE_SITE_KEY: 0x4AAAAAAFfEhif-L8M5jTeE
         run: |
-          test "$PUBLIC_SUPABASE_URL" != "https://emqzcygfwcvbmhxhfkcc.supabase.co"
+          test "$PUBLIC_SUPABASE_URL" = "https://nveyzxxnyccpnesebvuw.supabase.co"
           pnpm build
 
       - name: Deploy to Cloudflare Pages
@@ -309,7 +356,7 @@ jobs:
           E2E_SMOKE_EMAIL: ${{ secrets.STAGING_E2E_SMOKE_EMAIL }}
           E2E_SMOKE_PASSWORD: ${{ secrets.STAGING_E2E_SMOKE_PASSWORD }}
         run: |
-          test "$PUBLIC_SUPABASE_URL" != "https://emqzcygfwcvbmhxhfkcc.supabase.co"
+          test "$PUBLIC_SUPABASE_URL" = "https://nveyzxxnyccpnesebvuw.supabase.co"
           pnpm exec playwright test --config=playwright.smoke.config.ts
 
       - uses: actions/upload-artifact@v4
@@ -322,6 +369,7 @@ jobs:
   soak-nudge:
     name: Staging soak nudge
     needs: smoke
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: read
