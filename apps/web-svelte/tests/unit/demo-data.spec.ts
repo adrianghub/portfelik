@@ -22,7 +22,7 @@ describe("demo-data guards", () => {
   it("detects active demo data", () => {
     expect(
       hasDemoData({
-        transactions: [{ description: "Demo: Pensja" }],
+        transactions: [{ description: "Demo: Pensja", is_demo: true }],
         plans: [],
       })
     ).toBe(true);
@@ -35,7 +35,7 @@ describe("demo-data guards", () => {
     expect(
       hasDemoData({
         transactions: [],
-        plans: [{ name: "Demo: Cel" }],
+        plans: [{ name: "Demo: Cel", is_demo: true }],
       })
     ).toBe(true);
   });
@@ -45,7 +45,7 @@ describe("demo-data guards", () => {
       hasDemoData({
         transactions: [],
         plans: [],
-        netWorthItems: [{ label: "Demo: Mieszkanie (nieruchomość)" }],
+        netWorthItems: [{ label: "Demo: Mieszkanie (nieruchomość)", is_demo: true }],
       })
     ).toBe(true);
     expect(
@@ -55,6 +55,22 @@ describe("demo-data guards", () => {
         netWorthItems: [{ label: "Mieszkanie" }],
       })
     ).toBe(false);
+  });
+
+  it("does not treat a user's arbitrary Demo: label as sample provenance", () => {
+    expect(
+      hasDemoData({
+        transactions: [{ description: "Demo: My transaction" }],
+        plans: [{ name: "Demo: My plan" }],
+        netWorthItems: [{ label: "Demo: My item" }],
+      })
+    ).toBe(false);
+    expect(
+      hasDemoData({
+        transactions: [],
+        plans: [{ name: "Demo: Kredyt samochodowy", is_demo: false }],
+      })
+    ).toBe(true);
   });
 
   it("treats an empty non-demo ledger as discovery", () => {

@@ -348,13 +348,37 @@ export async function insertPreviewRows(
     .select("*");
   if (error) throw error;
 
+  await updatePreviewRowCount(sessionId, payload.length);
+  return (data ?? []) as ImportRow[];
+}
+
+/** Repair preview metadata after a lost response; does not rewrite source rows. */
+export async function updatePreviewRowCount(sessionId: string, count: number): Promise<void> {
   const { error: countErr } = await supabase
     .from("transaction_import_sessions")
-    .update({ rows_total: payload.length })
+    .update({ rows_total: count })
     .eq("id", sessionId);
   if (countErr) throw countErr;
+}
 
-  return (data ?? []) as ImportRow[];
+/** Apply reviewed category choices in batches; transaction writes still require commit RPC. */
+export async function updatePreviewCategories(
+  sessionId: string,
+  choices: { rowId: string; categoryId: string }[]
+): Promise<void> {
+  const groups = new Map<string, string[]>();
+  for (const choice of choices)
+    groups.set(choice.categoryId, [...(groups.get(choice.categoryId) ?? []), choice.rowId]);
+  await Promise.all(
+    [...groups].map(async ([categoryId, ids]) => {
+      const { error } = await supabase
+        .from("transaction_import_rows")
+        .update({ selected_category_id: categoryId, suggested_category_id: categoryId })
+        .eq("session_id", sessionId)
+        .in("id", ids);
+      if (error) throw error;
+    })
+  );
 }
 
 export async function fetchSessionRows(sessionId: string): Promise<ImportRow[]> {

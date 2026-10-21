@@ -1,8 +1,6 @@
 import { createExclusiveQueue } from "$lib/concurrency";
 import { fetchCategories } from "$lib/services/categories";
-import { DEMO_PREFIX } from "$lib/services/demo-data-guards";
 import { buildDemoTransactionSeeds } from "$lib/services/demo-scenario";
-import { saveDebtPlan } from "$lib/services/plan-debt";
 import { linkPlanTransaction } from "$lib/services/plan-settlement";
 import { addCalendarMonths, createPlan, todayIso } from "$lib/services/plans";
 import { createTransaction } from "$lib/services/transactions";
@@ -17,10 +15,6 @@ export {
   isDemoPlanName,
   isDiscoveryLedger,
 } from "$lib/services/demo-data-guards";
-
-function demoLabel(label: string): string {
-  return `${DEMO_PREFIX} ${label}`;
-}
 
 export interface DemoProbe {
   transactions: { description: string; is_demo: boolean }[];
@@ -70,9 +64,24 @@ function pickCategory(
 }
 
 export async function clearDemoData(): Promise<{ deleted: number }> {
-  const { data, error } = await supabase.rpc("clear_demo_data");
+  const identity = await supabase.auth.getUser();
+  if (identity.error) throw identity.error;
+  if (!identity.data.user) throw new Error("not_authenticated");
+  const demo = identity.data.user.app_metadata?.account_kind === "demo";
+  const { data, error } = await supabase.rpc(demo ? "clear_demo_sample" : "clear_demo_data");
   if (error) throw error;
   const deleted = Number((data as { deleted?: number } | null)?.deleted ?? 0);
+  // A successful RPC response alone must not hide stale or partially cleared rows.
+  const probe = await fetchDemoProbe();
+  const plans = await supabase
+    .from("plans")
+    .select("id")
+    .eq("user_id", identity.data.user.id)
+    .eq("is_demo", true)
+    .limit(1);
+  if (plans.error) throw plans.error;
+  if (probe.transactions.length || probe.netWorthItems.length || plans.data?.length)
+    throw new Error("demo_clear_incomplete");
   return { deleted };
 }
 
@@ -86,120 +95,119 @@ async function seedDemoDataUnlocked(): Promise<{ inserted: number }> {
   // Idempotent reseed: clear any partial or previous showcase rows first.
   await clearDemoData();
 
-  const categories = await fetchCategories();
-  const income = {
-    salary: pickCategory(categories, "income", ["Wynagrodzenie"]),
-    freelance: pickCategory(categories, "income", ["Freelance", "Inne przychody"]),
-  };
-  const expense = {
-    groceries: pickCategory(categories, "expense", ["Jedzenie i zakupy", "Inne wydatki"]),
-    transport: pickCategory(categories, "expense", ["Transport", "Inne wydatki"]),
-    dining: pickCategory(categories, "expense", ["Restauracje", "Jedzenie i zakupy"]),
-    housing: pickCategory(categories, "expense", ["Mieszkanie", "Inne wydatki"]),
-    health: pickCategory(categories, "expense", ["Zdrowie", "Inne wydatki"]),
-    sport: pickCategory(categories, "expense", ["Sport i rekreacja", "Inne wydatki"]),
-    subs: pickCategory(categories, "expense", ["Subskrypcje", "Inne wydatki"]),
-    fun: pickCategory(categories, "expense", ["Rozrywka", "Inne wydatki"]),
-    travel: pickCategory(categories, "expense", ["Podróże", "Inne wydatki"]),
-    insurance: pickCategory(categories, "expense", ["Ubezpieczenia", "Inne wydatki"]),
-    electronics: pickCategory(categories, "expense", ["Elektronica", "Inne wydatki"]),
-    goals: pickCategory(categories, "expense", ["Cele", "Inne wydatki"]),
-  };
+  try {
+    const categories = await fetchCategories();
+    const income = {
+      salary: pickCategory(categories, "income", ["Wynagrodzenie"]),
+      freelance: pickCategory(categories, "income", ["Freelance", "Inne przychody"]),
+    };
+    const expense = {
+      groceries: pickCategory(categories, "expense", ["Jedzenie i zakupy", "Inne wydatki"]),
+      transport: pickCategory(categories, "expense", ["Transport", "Inne wydatki"]),
+      dining: pickCategory(categories, "expense", ["Restauracje", "Jedzenie i zakupy"]),
+      housing: pickCategory(categories, "expense", ["Mieszkanie", "Inne wydatki"]),
+      health: pickCategory(categories, "expense", ["Zdrowie", "Inne wydatki"]),
+      sport: pickCategory(categories, "expense", ["Sport i rekreacja", "Inne wydatki"]),
+      subs: pickCategory(categories, "expense", ["Subskrypcje", "Inne wydatki"]),
+      fun: pickCategory(categories, "expense", ["Rozrywka", "Inne wydatki"]),
+      travel: pickCategory(categories, "expense", ["Podróże", "Inne wydatki"]),
+      insurance: pickCategory(categories, "expense", ["Ubezpieczenia", "Inne wydatki"]),
+      electronics: pickCategory(categories, "expense", ["Elektronica", "Inne wydatki"]),
+      goals: pickCategory(categories, "expense", ["Cele", "Inne wydatki"]),
+    };
 
-  const today = todayIso();
-  let inserted = 0;
+    const today = todayIso();
+    let inserted = 0;
 
-  const categoryIds = { ...income, ...expense };
-  const goalContributionIds = new Map<string, string>();
-  for (const seed of buildDemoTransactionSeeds()) {
-    const transaction = await createTransaction({
-      amount: seed.amount,
-      type: seed.type,
-      description: seed.label,
-      date: seed.date,
-      category_id: categoryIds[seed.category],
-      status: seed.status ?? "paid",
+    const categoryIds = { ...income, ...expense };
+    const goalContributionIds = new Map<string, string>();
+    for (const seed of buildDemoTransactionSeeds()) {
+      const transaction = await createTransaction({
+        amount: seed.amount,
+        type: seed.type,
+        description: seed.label,
+        date: seed.date,
+        category_id: categoryIds[seed.category],
+        status: seed.status ?? "paid",
+        is_demo: true,
+        is_recurring: seed.recurring ?? false,
+        recurrence_frequency: seed.recurring ? "monthly" : undefined,
+        recurrence_interval: seed.recurring ? 1 : undefined,
+        recurring_day: seed.recurring ? Number(seed.date.slice(-2)) : undefined,
+      });
+      if (seed.category === "goals") goalContributionIds.set(seed.label, transaction.id);
+      inserted += 1;
+    }
+
+    const savePlan = await createPlan({
+      name: "Portugalia bez kredytu",
+      kind: "save",
+      target_amount: 9000,
+      start_date: isoDaysAgo(60),
+      end_date: addCalendarMonths(today, 9),
+      category_id: expense.goals,
       is_demo: true,
-      is_recurring: seed.recurring ?? false,
-      recurrence_frequency: seed.recurring ? "monthly" : undefined,
-      recurrence_interval: seed.recurring ? 1 : undefined,
-      recurring_day: seed.recurring ? Number(seed.date.slice(-2)) : undefined,
     });
-    if (seed.category === "goals") goalContributionIds.set(seed.label, transaction.id);
+    const holidayContributionId = goalContributionIds.get("Odkładam na Portugalię");
+    if (holidayContributionId) {
+      await linkPlanTransaction(savePlan.id, holidayContributionId, { planKind: "save" });
+    }
     inserted += 1;
-  }
 
-  const savePlan = await createPlan({
-    name: "Portugalia bez kredytu",
-    kind: "save",
-    target_amount: 9000,
-    start_date: isoDaysAgo(60),
-    end_date: addCalendarMonths(today, 9),
-    category_id: expense.goals,
-    is_demo: true,
-  });
-  const holidayContributionId = goalContributionIds.get("Odkładam na Portugalię");
-  if (holidayContributionId) {
-    await linkPlanTransaction(savePlan.id, holidayContributionId, { planKind: "save" });
-  }
-  inserted += 1;
-
-  const sofaPlan = await createPlan({
-    name: "Kanapa do salonu",
-    kind: "save",
-    target_amount: 6000,
-    start_date: isoDaysAgo(30),
-    end_date: addCalendarMonths(today, 5),
-    category_id: expense.goals,
-    is_demo: true,
-  });
-  const sofaContributionId = goalContributionIds.get("Odkładam na kanapę");
-  if (sofaContributionId) {
-    await linkPlanTransaction(sofaPlan.id, sofaContributionId, { planKind: "save" });
-  }
-  inserted += 1;
-
-  const debtPlan = await saveDebtPlan({
-    name: demoLabel("Kredyt samochodowy"),
-    start_date: isoDaysAgo(180),
-    end_date: addCalendarMonths(today, 24),
-    original_amount: 42000,
-    current_balance: 38500,
-    annual_rate: 7.5,
-    monthly_payment: 980,
-    first_payment_date: isoDaysAgo(180),
-  });
-  const { error: debtTagError } = await supabase
-    .from("plans")
-    .update({ name: "Kredyt samochodowy", is_demo: true })
-    .eq("id", debtPlan.plan.id);
-  if (debtTagError) throw debtTagError;
-  inserted += 1;
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("not_authenticated");
-  const { error: netWorthError } = await supabase.from("net_worth_items").insert([
-    {
-      user_id: user.id,
-      label: "Samochód (wartość rynkowa)",
-      amount: 61000,
-      currency: "PLN",
-      position: 90,
+    const sofaPlan = await createPlan({
+      name: "Kanapa do salonu",
+      kind: "save",
+      target_amount: 6000,
+      start_date: isoDaysAgo(30),
+      end_date: addCalendarMonths(today, 5),
+      category_id: expense.goals,
       is_demo: true,
-    },
-    {
-      user_id: user.id,
-      label: "Poduszka finansowa",
-      amount: 24500,
-      currency: "PLN",
-      position: 91,
-      is_demo: true,
-    },
-  ]);
-  if (netWorthError) throw netWorthError;
-  inserted += 2;
+    });
+    const sofaContributionId = goalContributionIds.get("Odkładam na kanapę");
+    if (sofaContributionId) {
+      await linkPlanTransaction(sofaPlan.id, sofaContributionId, { planKind: "save" });
+    }
+    inserted += 1;
 
-  return { inserted };
+    const { error: debtError } = await supabase.rpc("create_demo_car_loan", {
+      p_start_date: isoDaysAgo(180),
+      p_end_date: addCalendarMonths(today, 24),
+    });
+    if (debtError) throw debtError;
+    inserted += 1;
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error("not_authenticated");
+    const { error: netWorthError } = await supabase.from("net_worth_items").insert([
+      {
+        user_id: user.id,
+        label: "Samochód (wartość rynkowa)",
+        amount: 61000,
+        currency: "PLN",
+        position: 90,
+        is_demo: true,
+      },
+      {
+        user_id: user.id,
+        label: "Poduszka finansowa",
+        amount: 24500,
+        currency: "PLN",
+        position: 91,
+        is_demo: true,
+      },
+    ]);
+    if (netWorthError) throw netWorthError;
+    inserted += 2;
+
+    return { inserted };
+  } catch (error) {
+    try {
+      await clearDemoData();
+    } catch {
+      throw new Error("demo_seed_cleanup_failed", { cause: error });
+    }
+    throw error;
+  }
 }

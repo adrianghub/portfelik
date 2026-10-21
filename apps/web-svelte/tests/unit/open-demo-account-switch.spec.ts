@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Session, User } from "@supabase/supabase-js";
 
 const setSession = vi.fn();
@@ -34,6 +34,7 @@ import {
 import {
   bootstrapPendingAccountSwitch,
   requestAccountSwitch,
+  requestAccountEntry,
 } from "../../src/lib/services/open-demo-account";
 
 function installMemoryLocalStorage() {
@@ -77,6 +78,7 @@ function sessionFor(kind: "demo" | "real", id: string): Session {
 }
 
 describe("account switch hard reinit", () => {
+  afterEach(() => vi.unstubAllGlobals());
   beforeEach(() => {
     installMemoryLocalStorage();
     setSession.mockReset();
@@ -109,6 +111,26 @@ describe("account switch hard reinit", () => {
     expect(localStorage.getItem("sb-emqzcygfwcvbmhxhfkcc-auth-token")).toBeNull();
     expect(localStorage.getItem("jakstoimy.auth.reinit.v1")).toBe("1");
     expect(assign).toHaveBeenCalledWith("/dashboard");
+  });
+
+  it("reuses a parked demo instead of entering new provisioning", async () => {
+    parkInactiveSession(sessionFor("demo", "demo-1"));
+    getSession.mockResolvedValue({ data: { session: sessionFor("real", "real-1") } });
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    expect((await requestAccountEntry("demo")).ok).toBe(true);
+    expect(assign).toHaveBeenCalledWith("/dashboard");
+    expect(peekPendingAccountSwitch()?.kind).toBe("demo");
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("parks the real session and enters Turnstile when no demo session exists", async () => {
+    getSession.mockResolvedValue({ data: { session: sessionFor("real", "real-1") } });
+    expect((await requestAccountEntry("demo")).ok).toBe(true);
+    expect(assign).toHaveBeenCalledWith("/login?account=demo");
+    expect(readParkedSession("real")?.user.id).toBe("real-1");
+    expect(peekPendingAccountSwitch()).toBeNull();
+    expect(setSession).not.toHaveBeenCalled();
   });
 
   it("bootstrap applies pending session then drops active credential copies", async () => {

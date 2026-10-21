@@ -91,7 +91,7 @@ export async function openDemoAccount(input?: {
   setStoredActiveKind("demo");
 
   if (input?.reinit !== false) {
-    hardReinit("/dashboard");
+    hardReinit("/demo/welcome");
   }
   return { ok: true, session: verified.data.session, kind: "demo" };
 }
@@ -130,6 +130,33 @@ export async function requestAccountSwitch(
 
   hardReinit("/dashboard");
   return { ok: true, switching: true, kind };
+}
+
+/** Start the missing identity through normal login/Turnstile, preserving the current one. */
+export async function requestAccountEntry(
+  kind: AccountKind
+): Promise<{ ok: boolean; error?: string }> {
+  if (hasParkedSession(kind)) return requestAccountSwitch(kind);
+  const current = await supabase.auth.getSession();
+  if (current.error || !current.data.session) return { ok: false, error: "session_missing" };
+  if (accountKindForUser(current.data.session.user) === kind)
+    return { ok: false, error: "already_active" };
+  parkInactiveSession(current.data.session);
+  beginAccountSwitchReinit();
+  clearGoTrueClientStorage();
+  hardReinit(`/login?account=${kind}`);
+  return { ok: true };
+}
+
+/** Every sample-data entry point leads to the same dedicated demo cockpit. */
+export async function enterDemo(): Promise<{ ok: boolean; error?: string }> {
+  const { data, error } = await supabase.auth.getSession();
+  if (error || !data.session) return { ok: false, error: "session_missing" };
+  if (accountKindForUser(data.session.user) === "demo") {
+    hardReinit("/dashboard?showDemoSample=1");
+    return { ok: true };
+  }
+  return requestAccountEntry("demo");
 }
 
 /**
