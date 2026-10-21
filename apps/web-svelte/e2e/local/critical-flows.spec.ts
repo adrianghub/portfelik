@@ -85,6 +85,116 @@ async function category(user: User) {
   if (result.error) throw result.error;
   return result.data.id as string;
 }
+
+test("Demo → Real → Demo survives reload without mixing rows and logout clears sessions", async ({
+  page,
+  fixtures,
+}) => {
+  const real = fixtures.owner;
+  const demo = fixtures.peer;
+  const registered = await fixtures.admin.rpc("register_demo_identity", { p_user_id: demo.id });
+  expect(registered.error).toBeNull();
+  const refreshed = await demo.client.auth.refreshSession();
+  if (refreshed.error || !refreshed.data.session) throw new Error("Demo fixture refresh failed");
+  demo.session = refreshed.data.session;
+  expect(demo.session.user.app_metadata.account_kind).toBe("demo");
+
+  const date = new Date().toISOString().slice(0, 10);
+  for (const [user, description] of [
+    [demo, "DEMO isolated row"],
+    [real, "REAL isolated row"],
+  ] as const) {
+    const saved = await user.client.from("transactions").insert({
+      user_id: user.id,
+      category_id: await category(user),
+      description,
+      amount: 42,
+      type: "expense",
+      status: "paid",
+      currency: "PLN",
+      date,
+    });
+    expect(saved.error).toBeNull();
+  }
+
+  // Seed once, not with addInitScript: every later navigation must restore the
+  // identity selected by the app, rather than silently resetting our fixture.
+  await page.goto("/login");
+  await page.evaluate(
+    ({ active, parked, gotrue }) => {
+      localStorage.setItem(gotrue, JSON.stringify(active));
+      localStorage.setItem("jakstoimy.auth.real.session.v1", JSON.stringify(parked));
+      localStorage.setItem("jakstoimy.auth.active_kind.v1", "demo");
+      localStorage.setItem("push_prompted_at", String(Date.now()));
+    },
+    {
+      active: demo.session,
+      parked: real.session,
+      gotrue: `sb-${parsed.hostname.split(".")[0]}-auth-token`,
+    }
+  );
+
+  const assertIdentity = async (kind: "demo" | "real") => {
+    await page.goto("/transactions?group=own");
+    const own = kind === "demo" ? "DEMO isolated row" : "REAL isolated row";
+    const other = kind === "demo" ? "REAL isolated row" : "DEMO isolated row";
+    await expect(page.locator("table").getByText(own, { exact: true })).toBeVisible();
+    await expect(page.getByText(other, { exact: true })).toHaveCount(0);
+    if (kind === "demo") await expect(page.getByTestId("demo-account-badge").first()).toBeVisible();
+    else await expect(page.getByTestId("demo-account-badge")).toHaveCount(0);
+    const storage = await page.evaluate(
+      (key) => ({
+        activeId: JSON.parse(localStorage.getItem(key) ?? "null")?.user?.id,
+        pending: localStorage.getItem("jakstoimy.auth.pending_switch.v1"),
+        reinit: localStorage.getItem("jakstoimy.auth.reinit.v1"),
+      }),
+      `sb-${parsed.hostname.split(".")[0]}-auth-token`
+    );
+    expect(storage).toEqual({
+      activeId: kind === "demo" ? demo.id : real.id,
+      pending: null,
+      reinit: null,
+    });
+  };
+
+  await assertIdentity("demo");
+  for (const kind of ["real", "demo"] as const) {
+    await page.evaluate(() => {
+      (window as unknown as Record<string, unknown>).__beforeSwitch = true;
+    });
+    await page.locator('header button[aria-haspopup="menu"]').first().click();
+    await Promise.all([
+      page.waitForEvent("load"),
+      page
+        .getByRole("menuitem", {
+          name: kind === "real" ? "Przejdź do konta rzeczywistego" : "Otwórz konto demo",
+        })
+        .click(),
+    ]);
+    expect(
+      await page.evaluate(() => (window as unknown as Record<string, unknown>).__beforeSwitch)
+    ).toBeUndefined();
+    await assertIdentity(kind);
+    await page.reload();
+    await assertIdentity(kind);
+  }
+
+  await page.locator('header button[aria-haspopup="menu"]').first().click();
+  await page.getByRole("menuitem", { name: "Wyloguj się" }).click();
+  await expect(page).toHaveURL(/\/login/);
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        Object.keys(localStorage).filter(
+          (key) => key.startsWith("jakstoimy.auth.") || /^sb-.*-auth-token$/.test(key)
+        )
+      )
+    )
+    .toEqual([]);
+  await page.reload();
+  await page.goto("/transactions");
+  await expect(page).toHaveURL(/\/login/);
+});
 async function exportBundle(page: Page) {
   await page.goto("/settings?tab=privacy");
   const download = page.waitForEvent("download");
