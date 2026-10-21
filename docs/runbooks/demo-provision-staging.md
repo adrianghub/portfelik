@@ -73,17 +73,46 @@ Deploy it only after separate staging approval and review of the current SHA.
 | `DEMO_PROVISION_ENABLED` | `false` until soak start, then `true` only for the soak window |
 | `DEMO_PROVISION_REQUIRE_TURNSTILE` | `true` |
 | `DEMO_TURNSTILE_SECRET` | staging Turnstile secret |
-| `DEMO_PROVISION_RATE_WINDOW_SECONDS` | `60` |
-| `DEMO_PROVISION_RATE_MAX` | `30`–`60` (shared bucket) |
-| `DEMO_PROVISION_GLOBAL_MAX_ACTIVE` | low soak cap (e.g. `50`) |
+| `DEMO_PROVISION_RATE_WINDOW_SECONDS` | `7200` |
+| `DEMO_PROVISION_RATE_MAX` | `3` (one shared bucket for the entire test) |
+| `DEMO_PROVISION_GLOBAL_MAX_ACTIVE` | `3`; require a zero baseline before this test |
 | `DEMO_PROVISION_HOLD_SECONDS` | `180` |
 | `DEMO_PROVISION_CLIENT_SALT` | unique staging salt |
 | `DEMO_PROVISION_TRUSTED_IP_HEADER` | **leave unset** |
+| `DEMO_SOAK_STARTED_AT` | agreed start, UTC ISO timestamp |
+| `DEMO_SOAK_EXPIRES_AT` | UTC ISO timestamp, at most 60 minutes after start |
 | `APP_ORIGINS` | staging app origin(s) |
 
 ## 4. Soak test — open demo account
 
-1. Set `DEMO_PROVISION_ENABLED=true` on staging Edge.
+The staging handler requires a valid server lease and the exact bounded settings
+above, even when `DEMO_PROVISION_ENABLED=true`. Missing, future, expired or
+overlong leases fail closed. It rechecks expiry after Siteverify, before Auth
+creation and before returning credentials. This deadline is enforced per request
+by Edge; it needs no live workflow, timer or operator callback. In-flight Auth
+requests may still finish after the deadline; retain their journal and drain them.
+
+The existing SQL advisory lock serializes shared-bucket claims. A two-hour rate
+window with maximum three claims limits this one-hour soak to **three attempts
+that can start Auth**, across all clients. Cleanup/release does not erase attempt
+history, so it cannot replenish this budget. Do not change the salt, clear
+attempts, set a trusted IP header or extend/restart the lease during the test.
+The active-account cap is an additional bound, not the cumulative budget.
+
+Before enabling, deploy the reviewed handler with the switch **false**, verify
+the baseline and current SHA, and obtain the human operator's readiness if they
+will complete the real challenge. Do not use Cloudflare test keys or automate
+challenge bypass. If a browser cannot complete a real challenge, leave the
+window unopened and report that part as blocked.
+
+The lease automatically disables provisioning, but does **not** rewrite the
+Management API secret to `false`. The operator/test runner must still restore
+that secret in its final cleanup, including after a cancelled run; confirm both
+the secret update and an actual `503 demo_provision_disabled` response. A
+workflow `always()` cleanup alone is not the independent cutoff.
+
+1. Set the agreed timestamps and bounded settings while disabled; verify them,
+   then set `DEMO_PROVISION_ENABLED=true` on staging Edge only.
 2. From the staging app (or a local client pointed at staging Edge):
    - Complete Turnstile
    - `POST /functions/v1/open-demo-account` with `{}` and a fresh
@@ -93,9 +122,12 @@ Deploy it only after separate staging approval and review of the current SHA.
 5. Confirm `is_demo_account(uid)` and registry row; confirm `create_group` → `demo_not_allowed`.
 6. Confirm logs contain **no** `tokenHash` / magic-link URLs.
 
-Parallel smoke: 5 concurrent opens, each with a fresh valid Turnstile token,
-with global cap `baseline+1` → only one success. Baseline must include unresolved
-operations/orphans as well as registry; do not infer it from registry alone.
+Do not run the old five-account parallel smoke during the three-attempt window.
+Verify concurrency/failure injection on the isolated local stack first. For the
+real staging budget check, after three admitted claims, a fresh valid challenge
+must produce cap/rate rejection without another Auth account. Negative challenge
+tests must not consume a claim. Baseline must include unresolved operations and
+orphans as well as registry; do not infer it from registry alone.
 
 Before the 60-minute controlled soak, record SHA, staging project/hostname,
 operator, time window in Europe/Warsaw, baseline and maximum new-account budget.
