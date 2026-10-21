@@ -2,6 +2,8 @@
   import { supabase } from "$lib/supabase";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
+  import { onMount } from "svelte";
+  import { hasParkedSession } from "$lib/demo/identity-session";
   import {
     clearLoginRedirect,
     redirectTargetFromUrl,
@@ -10,7 +12,7 @@
   import BrandMark from "$lib/components/BrandMark.svelte";
   import DemoTurnstile from "$lib/components/demo/DemoTurnstile.svelte";
   import { oauthCallbackUrl, signInWithGoogleOAuth } from "$lib/services/oauth";
-  import { openDemoAccount } from "$lib/services/open-demo-account";
+  import { openDemoAccount, requestAccountSwitch } from "$lib/services/open-demo-account";
   import { isNativeCapacitor } from "$lib/services/pwa";
   import { appVersion } from "$lib/content/changelog";
   import * as m from "$lib/paraglide/messages";
@@ -24,6 +26,27 @@
   let demoChallengeAttempt = $state(0);
   let error = $state<string | null>(null);
   const nativeLogin = $derived(isNativeCapacitor());
+  const accountTarget = $derived(page.url.searchParams.get("account"));
+  const switchFailed = $derived(page.url.searchParams.has("switchFailed"));
+  let allowNewDemo = $state(false);
+  const showReal = $derived(accountTarget !== "demo" || switchFailed);
+  const showDemo = $derived(accountTarget !== "real" && (!switchFailed || allowNewDemo));
+  let returnAvailable = $state(false);
+  onMount(() => {
+    if (switchFailed) error = m.demo_switch_expired();
+    returnAvailable = hasParkedSession(accountTarget === "real" ? "demo" : "real");
+  });
+  async function returnToAccount() {
+    if (loading || demoLoading) return;
+    loading = true;
+    try {
+      const result = await requestAccountSwitch(accountTarget === "real" ? "demo" : "real");
+      if (!result.ok) throw new Error("account_switch_failed");
+    } catch {
+      error = m.demo_open_error_generic();
+      loading = false;
+    }
+  }
 
   async function signInWithEmail(e: SubmitEvent) {
     e.preventDefault();
@@ -136,6 +159,13 @@
       class="relative mx-auto w-full max-w-md overflow-hidden rounded-3xl border border-white/8 bg-slate-900/65 p-6 shadow-[0_0_70px_rgba(16,185,129,0.1)] backdrop-blur sm:p-8"
       aria-label={m.login_sign_in()}
     >
+      {#if switchFailed && accountTarget === "demo" && !allowNewDemo}
+        <button
+          type="button"
+          class="mb-4 min-h-11 text-sm text-emerald-300 underline"
+          onclick={() => (allowNewDemo = true)}>{m.demo_create_replacement()}</button
+        >
+      {/if}
       {#if error}
         <div
           class="mb-4 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-300"
@@ -145,7 +175,7 @@
         </div>
       {/if}
 
-      {#if !nativeLogin}
+      {#if !nativeLogin && showReal}
         <form onsubmit={signInWithEmail} class="space-y-4">
           <div>
             <label for="email" class="mb-1.5 block text-sm font-medium text-slate-200">
@@ -185,71 +215,85 @@
           </button>
         </form>
 
-        <div class="my-5 flex items-center gap-3">
-          <div class="h-px flex-1 bg-white/10"></div>
-          <span class="text-xs text-slate-400">{m.common_or()}</span>
-          <div class="h-px flex-1 bg-white/10"></div>
-        </div>
+        {#if showDemo}<div class="my-5 flex items-center gap-3">
+            <div class="h-px flex-1 bg-white/10"></div>
+            <span class="text-xs text-slate-400">{m.common_or()}</span>
+            <div class="h-px flex-1 bg-white/10"></div>
+          </div>{/if}
       {/if}
 
-      {#if demoSiteKey}
-        {#key demoChallengeAttempt}
-          <DemoTurnstile
-            siteKey={demoSiteKey}
-            onToken={(token) => {
-              demoToken = token;
-              if (token) error = null;
-            }}
-            onError={() => {
-              error = m.demo_open_error_generic();
-            }}
-          />
-        {/key}
-      {/if}
+      {#if showDemo}
+        {#if demoSiteKey}
+          {#key demoChallengeAttempt}
+            <DemoTurnstile
+              siteKey={demoSiteKey}
+              onToken={(token) => {
+                demoToken = token;
+                if (token) error = null;
+              }}
+              onError={() => {
+                error = m.demo_challenge_error();
+              }}
+            />
+          {/key}
+        {/if}
 
-      <button
-        type="button"
-        onclick={openDemo}
-        disabled={loading || demoLoading || (!!demoSiteKey && !demoToken)}
-        data-testid="open-demo-account"
-        class="mb-3 flex w-full items-center justify-center rounded-full border border-amber-400/30 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-100 transition-colors hover:bg-amber-500/20 focus-visible:ring-2 focus-visible:ring-amber-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 focus-visible:outline-none disabled:opacity-50"
-      >
-        {demoLoading ? m.demo_open_busy() : m.demo_open_cta()}
-      </button>
-
-      <button
-        type="button"
-        onclick={signInWithGoogle}
-        disabled={loading || demoLoading}
-        class="focus-visible:ring-accent flex w-full items-center justify-center gap-2.5 rounded-full border border-white/10 bg-slate-900/60 px-4 py-2.5 text-sm font-medium text-slate-200 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 focus-visible:outline-none disabled:opacity-50"
-      >
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 18 18"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          aria-hidden="true"
+        <button
+          type="button"
+          onclick={openDemo}
+          disabled={loading || demoLoading || (!!demoSiteKey && !demoToken)}
+          data-testid="open-demo-account"
+          class="mb-3 flex w-full items-center justify-center rounded-full border border-amber-400/30 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-100 transition-colors hover:bg-amber-500/20 focus-visible:ring-2 focus-visible:ring-amber-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 focus-visible:outline-none disabled:opacity-50"
         >
-          <path
-            d="M17.64 9.2045C17.64 8.5663 17.5827 7.9527 17.4764 7.3636H9V10.845H13.8436C13.635 11.97 13.0009 12.9231 12.0477 13.5613V15.8195H14.9564C16.6582 14.2527 17.64 11.9454 17.64 9.2045Z"
-            fill="#4285F4"
-          />
-          <path
-            d="M9 18C11.43 18 13.4673 17.1941 14.9564 15.8195L12.0477 13.5613C11.2418 14.1013 10.2109 14.4204 9 14.4204C6.65591 14.4204 4.67182 12.8372 3.96409 10.71H0.957275V13.0418C2.43818 15.9831 5.48182 18 9 18Z"
-            fill="#34A853"
-          />
-          <path
-            d="M3.96409 10.71C3.78409 10.17 3.68182 9.5931 3.68182 9C3.68182 8.4069 3.78409 7.83 3.96409 7.29V4.9582H0.957275C0.347727 6.1731 0 7.5477 0 9C0 10.4523 0.347727 11.8269 0.957275 13.0418L3.96409 10.71Z"
-            fill="#FBBC05"
-          />
-          <path
-            d="M9 3.57955C10.3214 3.57955 11.5077 4.03364 12.4405 4.92545L15.0218 2.34409C13.4632 0.891818 11.4259 0 9 0C5.48182 0 2.43818 2.01682 0.957275 4.95818L3.96409 7.29C4.67182 5.16273 6.65591 3.57955 9 3.57955Z"
-            fill="#EA4335"
-          />
-        </svg>
-        {m.login_sign_in_google()}
-      </button>
+          {demoLoading ? m.demo_open_busy() : m.demo_open_cta()}
+        </button>
+      {/if}
+
+      {#if showReal}
+        <button
+          type="button"
+          onclick={signInWithGoogle}
+          disabled={loading || demoLoading}
+          class="focus-visible:ring-accent flex w-full items-center justify-center gap-2.5 rounded-full border border-white/10 bg-slate-900/60 px-4 py-2.5 text-sm font-medium text-slate-200 backdrop-blur transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 focus-visible:outline-none disabled:opacity-50"
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 18 18"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              d="M17.64 9.2045C17.64 8.5663 17.5827 7.9527 17.4764 7.3636H9V10.845H13.8436C13.635 11.97 13.0009 12.9231 12.0477 13.5613V15.8195H14.9564C16.6582 14.2527 17.64 11.9454 17.64 9.2045Z"
+              fill="#4285F4"
+            />
+            <path
+              d="M9 18C11.43 18 13.4673 17.1941 14.9564 15.8195L12.0477 13.5613C11.2418 14.1013 10.2109 14.4204 9 14.4204C6.65591 14.4204 4.67182 12.8372 3.96409 10.71H0.957275V13.0418C2.43818 15.9831 5.48182 18 9 18Z"
+              fill="#34A853"
+            />
+            <path
+              d="M3.96409 10.71C3.78409 10.17 3.68182 9.5931 3.68182 9C3.68182 8.4069 3.78409 7.83 3.96409 7.29V4.9582H0.957275C0.347727 6.1731 0 7.5477 0 9C0 10.4523 0.347727 11.8269 0.957275 13.0418L3.96409 10.71Z"
+              fill="#FBBC05"
+            />
+            <path
+              d="M9 3.57955C10.3214 3.57955 11.5077 4.03364 12.4405 4.92545L15.0218 2.34409C13.4632 0.891818 11.4259 0 9 0C5.48182 0 2.43818 2.01682 0.957275 4.95818L3.96409 7.29C4.67182 5.16273 6.65591 3.57955 9 3.57955Z"
+              fill="#EA4335"
+            />
+          </svg>
+          {m.login_sign_in_google()}
+        </button>
+      {/if}
+      {#if (accountTarget === "real" || accountTarget === "demo") && returnAvailable}
+        <button
+          type="button"
+          onclick={returnToAccount}
+          disabled={loading || demoLoading}
+          class="mt-3 min-h-11 w-full rounded-full border border-white/10 px-4 text-sm text-slate-300 disabled:opacity-50"
+        >
+          {accountTarget === "real" ? m.demo_return_to_demo() : m.demo_return_to_real()}
+        </button>
+      {/if}
 
       <p class="mt-6 text-center text-xs leading-relaxed text-slate-400">
         {m.privacy_login_notice()}

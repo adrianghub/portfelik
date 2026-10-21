@@ -36,7 +36,11 @@
   import { registerNativeBackButtonHandler } from "$lib/services/native-back";
   import { requireAuthUser } from "$lib/auth/require-user";
   import { setSessionUser } from "$lib/auth/session.svelte";
-  import { clearAllIdentitySessionState, isAccountSwitchReinit } from "$lib/demo/identity-session";
+  import {
+    clearAllIdentitySessionState,
+    isAccountSwitchReinit,
+    isDemoAccountUser,
+  } from "$lib/demo/identity-session";
   import { bootstrapPendingAccountSwitch } from "$lib/services/open-demo-account";
   import { supabase } from "$lib/supabase";
   import type { Profile } from "$lib/types";
@@ -82,6 +86,7 @@
   let userId = $state<string | null>(null);
   let authStatus = $state<"checking" | "authenticated" | "anonymous">("checking");
   let authRevision = 0;
+  let authBootstrapPending = $state(true);
   /** Identity the current query cache belongs to; cleared only at auth boundary. */
   let loadedUserId: string | null = null;
   let notifPermission = $state<NotificationPermission>("default");
@@ -138,7 +143,7 @@
   }
 
   $effect(() => {
-    if (typeof window === "undefined" || authStatus === "checking") return;
+    if (typeof window === "undefined" || authStatus === "checking" || authBootstrapPending) return;
     if (!isPublicRoute && authStatus === "anonymous") {
       redirectToLogin();
     } else if (page.url.pathname === "/login" && authStatus === "authenticated") {
@@ -295,43 +300,52 @@
     });
 
     void (async () => {
-      const bootstrapRevision = authRevision;
-      // Apply Demo↔Real switch before any financial getSession/query work so the
-      // new identity owns the fresh QueryClient created for this page load.
-      await bootstrapPendingAccountSwitch();
-      if (bootstrapRevision !== authRevision) return;
-      // Failed switch drops the pending target only; fall through to getSession
-      // so a still-valid prior identity can continue without mixed caches.
+      try {
+        const bootstrapRevision = authRevision;
+        // Apply Demo↔Real switch before any financial getSession/query work so the
+        // new identity owns the fresh QueryClient created for this page load.
+        const switched = await bootstrapPendingAccountSwitch();
+        if (!switched.applied && "error" in switched) {
+          clearAuthenticatedUser();
+          await goto(`/login?account=${switched.kind}&switchFailed=${switched.kind}`, {
+            replaceState: true,
+          });
+          return;
+        }
+        if (bootstrapRevision !== authRevision) return;
 
-      // Fast local session for splash, then verify with Auth server so a stale
-      // localStorage token cannot keep privileged UI alive.
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
-      const authUser = session?.user ?? null;
+        // Fast local session for splash, then verify with Auth server so a stale
+        // localStorage token cannot keep privileged UI alive.
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession();
+        const authUser = session?.user ?? null;
 
-      if (bootstrapRevision !== authRevision) return;
+        if (bootstrapRevision !== authRevision) return;
 
-      if (sessionError || !authUser) {
-        clearAuthenticatedUser();
-      } else {
-        loadAuthenticatedUser(authUser);
-        void requireAuthUser().then((verified) => {
-          if (bootstrapRevision !== authRevision) return;
-          if (!verified) {
-            clearAuthenticatedUser();
-            if (!isPublicRoute) redirectToLogin();
-            return;
-          }
-          if (verified.id !== authUser.id) {
-            loadAuthenticatedUser(verified);
-          }
-        });
-      }
+        if (sessionError || !authUser) {
+          clearAuthenticatedUser();
+        } else {
+          loadAuthenticatedUser(authUser);
+          void requireAuthUser().then((verified) => {
+            if (bootstrapRevision !== authRevision) return;
+            if (!verified) {
+              clearAuthenticatedUser();
+              if (!isPublicRoute) redirectToLogin();
+              return;
+            }
+            if (verified.id !== authUser.id) {
+              loadAuthenticatedUser(verified);
+            }
+          });
+        }
 
-      if (!authUser && !isPublicRoute) {
-        redirectToLogin();
+        if (!authUser && !isPublicRoute) {
+          redirectToLogin();
+        }
+      } finally {
+        authBootstrapPending = false;
       }
     })();
 
@@ -364,6 +378,10 @@
           <div class="bg-accent-gradient h-full w-1/2 animate-pulse rounded-full"></div>
         </div>
       </div>
+    </main>
+  {:else if page.url.pathname === "/demo/welcome"}
+    <main class="grid min-h-screen place-items-center bg-slate-950 px-4 py-12">
+      {@render children()}
     </main>
   {:else if !isPublicRoute}
     <div
@@ -406,7 +424,7 @@
           </div>
         {/key}
       </main>
-      <GuidedTourHost {profile} {userId} />
+      {#if !isDemoAccountUser(user)}<GuidedTourHost {profile} {userId} />{/if}
       <InstallPrompt />
     </div>
   {:else}

@@ -290,12 +290,16 @@ test.describe("Demo 2.0 identity flow", () => {
   test.use({ viewport: { width: 1280, height: 900 } });
 
   test("open demo → CSV → Historia/Analizy → switch real → back to demo", async ({ page }) => {
+    // This complete journey now includes the optional welcome and two hard reinits.
+    test.setTimeout(60_000);
     await mockIdentityBackend(page);
 
     // 1) Open demo from login
     await page.goto("/login");
     await expect(page.getByRole("button", { name: "Otwórz konto demo" })).toBeVisible();
     await page.getByRole("button", { name: "Otwórz konto demo" }).click();
+    await expect(page).toHaveURL(/\/demo\/welcome/, { timeout: 15_000 });
+    await page.getByRole("button", { name: "Pomiń na razie" }).click();
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
     await expect(page.getByTestId("demo-account-badge").first()).toBeVisible();
 
@@ -337,9 +341,9 @@ test.describe("Demo 2.0 identity flow", () => {
 
     await page.locator('header button[aria-haspopup="menu"]').first().click();
     await expect(
-      page.getByRole("menuitem", { name: "Przejdź do konta rzeczywistego" })
+      page.getByRole("menuitem", { name: "Przełącz na konto rzeczywiste" })
     ).toBeVisible();
-    await page.getByRole("menuitem", { name: "Przejdź do konta rzeczywistego" }).click();
+    await page.getByRole("menuitem", { name: "Przełącz na konto rzeczywiste" }).click();
 
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
     // Wait until pending switch is consumed and the real identity is loaded.
@@ -359,8 +363,8 @@ test.describe("Demo 2.0 identity flow", () => {
 
     // 6) Switch back to demo — progress (parked demo + import history) remains
     await page.locator('header button[aria-haspopup="menu"]').first().click();
-    await expect(page.getByRole("menuitem", { name: "Otwórz konto demo" })).toBeVisible();
-    await page.getByRole("menuitem", { name: "Otwórz konto demo" }).click();
+    await expect(page.getByRole("menuitem", { name: "Przełącz na konto demo" })).toBeVisible();
+    await page.getByRole("menuitem", { name: "Przełącz na konto demo" }).click();
 
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
     await expect

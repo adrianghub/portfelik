@@ -9,6 +9,13 @@
   import DashboardCashPosition from "$lib/components/dashboard/DashboardCashPosition.svelte";
   import DashboardViewToolbar from "$lib/components/dashboard/DashboardViewToolbar.svelte";
   import DashboardDiscovery from "$lib/components/dashboard/DashboardDiscovery.svelte";
+  import { fetchDemoSampleReceipt } from "$lib/services/demo-sample";
+  import DemoSampleCard from "$lib/components/demo/DemoSampleCard.svelte";
+  import { supabase } from "$lib/supabase";
+  import { isDemoAccountUser } from "$lib/demo/identity-session";
+  import { dismissHint, loadHintState } from "$lib/demo/hints";
+  import { DEMO_SAMPLE_SHA256 } from "$lib/demo/sample";
+  import { fetchLastCommittedImportSession } from "$lib/services/bank-import";
   import * as m from "$lib/paraglide/messages";
   import DemoShowcaseBanner from "$lib/components/onboarding/DemoShowcaseBanner.svelte";
   import GlossarySheet from "$lib/components/ui/GlossarySheet.svelte";
@@ -82,13 +89,38 @@
   import { onMount } from "svelte";
 
   let importRevealCount = $state<number | null>(null);
+  let demoIdentity = $state(false);
+  let sampleDismissed = $state(true);
+  let sampleAdded = $state(false);
+  let sampleStarted = $state(false);
   onMount(() => {
     importRevealCount = takeCockpitImportReveal();
+    void supabase.auth.getSession().then(({ data }) => {
+      demoIdentity = isDemoAccountUser(data.session?.user);
+      if (data.session?.user)
+        sampleDismissed =
+          $page.url.searchParams.get("showDemoSample") === "1"
+            ? false
+            : loadHintState(data.session.user.id).import_csv.dismissed;
+    });
   });
+
+  async function sampleComplete() {
+    sampleAdded = true;
+    await refreshDemoState(queryClient, requireSessionUserId());
+  }
+
+  function dismissSample() {
+    dismissHint(requireSessionUserId(), "import_csv");
+    sampleDismissed = true;
+    sampleStarted = false;
+  }
 
   const greetingName = $derived.by(() => {
     const raw =
-      profileQuery.data?.settings.preferredName?.trim() || profileQuery.data?.name?.trim();
+      profileQuery.data?.settings.preferredName?.trim() ||
+      profileQuery.data?.name?.trim() ||
+      (demoIdentity ? "Konto demo" : "");
     return raw ?? "";
   });
 
@@ -190,6 +222,20 @@
     enabled: !!session.userId,
   }));
 
+  const sampleImportQuery = createQuery(() => ({
+    queryKey: qk.importHealth(session.userId!),
+    queryFn: fetchLastCommittedImportSession,
+    enabled: !!session.userId && demoIdentity,
+  }));
+  const sampleReceiptQuery = createQuery(() => ({
+    queryKey: ["user", session.userId, "demo-sample-receipt", sampleImportQuery.data?.id],
+    queryFn: () => fetchDemoSampleReceipt(sampleImportQuery.data!.id),
+    enabled:
+      !!session.userId &&
+      demoIdentity &&
+      sampleImportQuery.data?.source_file_hash === DEMO_SAMPLE_SHA256,
+  }));
+
   const cashAnchorStart = $derived(cashAnchorQuery.data?.as_of_date ?? "2000-01-01");
   const cashHistoryQuery = createQuery(() => ({
     queryKey: qk.transactions.list(session.userId!, "cash-history", cashAnchorStart),
@@ -218,6 +264,13 @@
     enabled: !!session.userId,
     staleTime: 60_000,
   }));
+
+  const sampleNeedsCash = $derived(
+    txCountQuery.data === 96 &&
+      sampleImportQuery.data?.source_file_hash === DEMO_SAMPLE_SHA256 &&
+      ((cashAnchorQuery.isSuccess && !cashAnchorQuery.data) ||
+        (sampleReceiptQuery.isSuccess && !sampleReceiptQuery.data))
+  );
 
   const demoActive = $derived(
     hasDemoData({
@@ -259,6 +312,9 @@
       const u = requireSessionUserId();
       track("demo_cleared", { row_count: result.deleted });
       await refreshDemoState(queryClient, u);
+      sampleAdded = false;
+      sampleStarted = false;
+      sampleDismissed = false;
       toast.success(m.demo_cleared_toast());
     },
     onError: (err) => toastError(err),
@@ -813,7 +869,18 @@
     </div>
   </div>
 
-  {#if discovery}
+  {#if demoIdentity && ((!sampleDismissed && (txCountQuery.data === 0 || sampleNeedsCash || sampleStarted)) || sampleAdded)}
+    <DemoSampleCard
+      onComplete={sampleComplete}
+      onDismiss={dismissSample}
+      onStart={() => {
+        sampleStarted = true;
+      }}
+      recovering={sampleNeedsCash}
+    />
+  {/if}
+
+  {#if discovery && !demoIdentity}
     <DashboardDiscovery />
   {:else}
     {#if (groupsQuery.data ?? []).length > 0}
@@ -867,7 +934,7 @@
         onclear={async () => {
           await clearDemoMutation.mutateAsync();
         }}
-        onrestart={() => restartTourMutation.mutate()}
+        onrestart={demoIdentity ? undefined : () => restartTourMutation.mutate()}
         clearing={clearDemoMutation.isPending}
         restarting={restartTourMutation.isPending}
       />

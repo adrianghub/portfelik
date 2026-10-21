@@ -9,6 +9,9 @@ type FixtureWindow = Window & {
   removedCount?: number;
   challenge: {
     sitekey: string;
+    size: string;
+    retry: string;
+    "refresh-expired": string;
     callback: (token: string) => void;
     "expired-callback": () => void;
     "error-callback": () => void;
@@ -38,6 +41,7 @@ test.beforeEach(async ({ page }) => {
 test("demo requires a fresh challenge after expiry and after a failed request", async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 320, height: 720 });
   const requests: { token: string; header: string | undefined }[] = [];
   await page.route("https://challenges.cloudflare.com/turnstile/v0/api.js?*", (route) =>
     route.fulfill({
@@ -68,12 +72,23 @@ test("demo requires a fresh challenge after expiry and after a failed request", 
   expect(await page.evaluate(() => (window as FixtureWindow).challenge.sitekey)).toBe(
     process.env.QUALITY_TURNSTILE_SITE_KEY
   );
+  expect(
+    await page.evaluate(() => ({
+      size: (window as FixtureWindow).challenge.size,
+      retry: (window as FixtureWindow).challenge.retry,
+      expiry: (window as FixtureWindow).challenge["refresh-expired"],
+    }))
+  ).toEqual({ size: "compact", retry: "never", expiry: "manual" });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.evaluate(() => (window as FixtureWindow).challenge.callback("expired-fixture"));
   await expect(open).toBeEnabled();
   await page.evaluate(() => (window as FixtureWindow).challenge["expired-callback"]());
   await expect(open).toBeDisabled();
   expect(requests).toHaveLength(0);
 
+  expect(await page.evaluate(() => (window as FixtureWindow).renderCount)).toBe(1);
+  await page.getByRole("button", { name: "Sprawdź ponownie" }).click();
+  await expect.poll(() => page.evaluate(() => (window as FixtureWindow).renderCount)).toBe(2);
   await page.evaluate(() => (window as FixtureWindow).challenge.callback("error-fixture"));
   await expect(open).toBeEnabled();
   await page.evaluate(() => (window as FixtureWindow).challenge["error-callback"]());
@@ -83,10 +98,10 @@ test("demo requires a fresh challenge after expiry and after a failed request", 
   await page.evaluate(() => (window as FixtureWindow).challenge.callback("first-fixture"));
   await open.click();
   await expect(page.getByRole("alert")).toContainText("chwilowo niedostępne");
-  await expect.poll(() => page.evaluate(() => (window as FixtureWindow).renderCount)).toBe(2);
+  await expect.poll(() => page.evaluate(() => (window as FixtureWindow).renderCount)).toBe(3);
   await expect(open).toBeDisabled();
   expect(requests).toEqual([{ token: "first-fixture", header: "first-fixture" }]);
-  expect(await page.evaluate(() => (window as FixtureWindow).removedCount)).toBe(1);
+  expect(await page.evaluate(() => (window as FixtureWindow).removedCount)).toBe(2);
 
   await page.evaluate(() => (window as FixtureWindow).challenge.callback("second-fixture"));
   await open.click();

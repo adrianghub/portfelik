@@ -9,12 +9,8 @@
   import * as m from "$lib/paraglide/messages";
   import BrandMark from "$lib/components/BrandMark.svelte";
   import DemoBadge from "$lib/components/demo/DemoBadge.svelte";
-  import {
-    hasParkedSession,
-    isDemoAccountUser,
-    type AccountKind,
-  } from "$lib/demo/identity-session";
-  import { requestAccountSwitch } from "$lib/services/open-demo-account";
+  import { isDemoAccountUser, type AccountKind } from "$lib/demo/identity-session";
+  import { requestAccountEntry } from "$lib/services/open-demo-account";
   import { isChangelogUnseen } from "$lib/content/changelog";
   import {
     LayoutDashboard,
@@ -65,7 +61,12 @@
   );
   const avatarImg = $derived<string | null>(avatarUrl);
   const initials = $derived.by(() => {
-    const source = profile?.name?.trim() || profile?.email || user?.email || "";
+    const source =
+      profile?.name?.trim() ||
+      (isDemoAccountUser(user) ? "Konto demo" : "") ||
+      profile?.email ||
+      user?.email ||
+      "";
     if (!source) return "?";
     const parts = source.split(/[\s@.]+/).filter(Boolean);
     if (parts.length === 0) return source[0]?.toUpperCase() ?? "?";
@@ -74,24 +75,16 @@
   const email = $derived(profile?.email ?? user?.email ?? "");
   const changelogUnseen = $derived(isChangelogUnseen(profile?.settings?.changelogSeenVersion));
   const isDemoAccount = $derived(isDemoAccountUser(user));
-  let canOpenParkedDemo = $state(false);
-  let canSwitchToReal = $state(false);
   let switchingAccount = $state(false);
-
-  $effect(() => {
-    // Re-read parked sessions when the active user changes (menu open is enough refresh).
-    void user;
-    void menuOpen;
-    canOpenParkedDemo = hasParkedSession("demo");
-    canSwitchToReal = hasParkedSession("real");
-  });
 
   async function switchAccount(kind: AccountKind) {
     if (switchingAccount) return;
     switchingAccount = true;
     menuOpen = false;
-    const result = await requestAccountSwitch(kind);
-    if (!result.ok) {
+    try {
+      const result = await requestAccountEntry(kind);
+      if (!result.ok) throw new Error("account_entry_failed");
+    } catch {
       switchingAccount = false;
       toast.error(m.demo_open_error_generic());
     }
@@ -273,7 +266,12 @@
     class="fixed top-(--app-header-offset) right-4 z-50 mt-1 w-56 overflow-hidden rounded-xl border border-white/10 bg-slate-900/95 shadow-lg backdrop-blur md:right-6"
   >
     <div class="border-b border-white/5 px-3 py-2.5">
-      <p class="truncate text-xs text-slate-400">{email}</p>
+      <p class="truncate text-sm text-slate-100">
+        {profile?.name?.trim() || (isDemoAccount ? "Konto demo" : email)}
+      </p>
+      <p class="mt-0.5 text-xs text-slate-400">
+        {isDemoAccount ? m.demo_identity_badge() : m.demo_real_account_label()}
+      </p>
     </div>
     <a
       href="/settings"
@@ -287,6 +285,30 @@
       <Settings size={15} aria-hidden="true" />
       {m.nav_settings()}
     </a>
+    {#if isDemoAccount}
+      <button
+        type="button"
+        role="menuitem"
+        disabled={switchingAccount}
+        onclick={() => void switchAccount("real")}
+        class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 transition-colors hover:bg-white/5 disabled:opacity-60"
+      >
+        <ArrowLeftRight size={15} aria-hidden="true" />
+        {m.demo_switch_to_real()}
+      </button>
+    {/if}
+    {#if !isDemoAccount}
+      <button
+        type="button"
+        role="menuitem"
+        disabled={switchingAccount}
+        onclick={() => void switchAccount("demo")}
+        class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 transition-colors hover:bg-white/5 disabled:opacity-60"
+      >
+        <ArrowLeftRight size={15} aria-hidden="true" />
+        {m.demo_switch_to_demo()}
+      </button>
+    {/if}
     <a
       href="/changelog?from=/dashboard"
       role="menuitem"
@@ -302,30 +324,6 @@
         {/if}
       </span>
     </a>
-    {#if isDemoAccount && canSwitchToReal}
-      <button
-        type="button"
-        role="menuitem"
-        disabled={switchingAccount}
-        onclick={() => void switchAccount("real")}
-        class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 transition-colors hover:bg-white/5 disabled:opacity-60"
-      >
-        <ArrowLeftRight size={15} aria-hidden="true" />
-        {m.demo_switch_to_real()}
-      </button>
-    {/if}
-    {#if !isDemoAccount && canOpenParkedDemo}
-      <button
-        type="button"
-        role="menuitem"
-        disabled={switchingAccount}
-        onclick={() => void switchAccount("demo")}
-        class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 transition-colors hover:bg-white/5 disabled:opacity-60"
-      >
-        <ArrowLeftRight size={15} aria-hidden="true" />
-        {m.demo_switch_to_demo()}
-      </button>
-    {/if}
     <button
       type="button"
       role="menuitem"

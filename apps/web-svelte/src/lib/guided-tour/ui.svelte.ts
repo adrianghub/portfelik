@@ -1,8 +1,9 @@
-import { session } from "$lib/auth/session.svelte";
+import { enterDemo } from "$lib/services/open-demo-account";
+import { toast } from "svelte-sonner";
+import * as m from "$lib/paraglide/messages";
 import {
   consumeDemoRequest,
   finishDemoRequest,
-  requestDemo,
   type DemoRequestState,
 } from "$lib/guided-tour/demo-request";
 
@@ -44,7 +45,16 @@ export function takeGuidedTourRestart(): boolean {
 }
 
 export function requestDemoSeedAndTour(): void {
-  applyDemoState(requestDemo(demoState(), session.userId));
+  if (guidedTourUi.demoBusy) return;
+  guidedTourUi.demoBusy = true;
+  void enterDemo()
+    .then((result) => {
+      if (!result.ok) toast.error(m.demo_open_error_generic());
+    })
+    .catch(() => toast.error(m.demo_open_error_generic()))
+    .finally(() => {
+      guidedTourUi.demoBusy = false;
+    });
 }
 
 export function takeDemoSeedRequest(currentUserId: string | null): boolean {
