@@ -49,7 +49,7 @@ function installMemoryLocalStorage() {
     clear: () => {
       store.clear();
     },
-    key: () => null,
+    key: (index: number) => Array.from(store.keys())[index] ?? null,
     get length() {
       return store.size;
     },
