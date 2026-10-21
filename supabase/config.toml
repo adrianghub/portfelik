@@ -136,7 +136,9 @@ enabled = false
 
 # =============================================================================
 # EDGE FUNCTIONS
-# All three functions use verify_jwt = false and check INTERNAL_TRIGGER_SECRET.
+# Internal trigger functions use verify_jwt = false and check INTERNAL_TRIGGER_SECRET.
+# open-demo-account is public-entry but kill-switched via DEMO_PROVISION_ENABLED
+# (do not enable on public hosts without ship approval).
 # =============================================================================
 [functions.send-push]
 verify_jwt = false
@@ -148,4 +150,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.sync-user-role]
+verify_jwt = false
+
+[functions.open-demo-account]
 verify_jwt = false
