@@ -555,6 +555,8 @@ test("Demo → Real → Demo survives reload and explicit close/resume without m
   await page.goto("/transactions");
   await expect(page).toHaveURL(/\/login/);
   await page.getByRole("button", { name: "Wróć do mojego demo" }).click();
+  await expect(page).toHaveURL(/\/dashboard/);
+  await expect(page.getByTestId("demo-account-badge").first()).toBeVisible();
   await assertIdentity("demo");
 });
 async function exportBundle(page: Page) {
