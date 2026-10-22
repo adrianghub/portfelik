@@ -487,7 +487,7 @@ test("successful self-deletion removes demo binding before returning to login", 
   );
   await page.goto("/settings?tab=privacy");
   await page.getByRole("button", { name: "Usuń konto", exact: true }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Usuń", exact: true }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Usuń", exact: true }).click();
   await expect(page).toHaveURL(/\/login/);
   await expect(page.getByRole("button", { name: "Otwórz konto demo" })).toBeVisible();
   await page.reload();
