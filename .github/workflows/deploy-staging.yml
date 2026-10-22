@@ -10,11 +10,11 @@ on:
         required: true
         type: string
       operation:
-        description: Preview only, or prepare candidate with provisioner disabled
+        description: Preview, prepare with provisioner disabled, or frontend only
         required: true
         default: preview
         type: choice
-        options: [preview, prepare]
+        options: [preview, prepare, frontend]
 
 permissions:
   contents: read
@@ -41,8 +41,9 @@ jobs:
           BRANCH: ${{ github.ref_name }}
           SOURCE_SHA: ${{ github.sha }}
           EXPECTED_SHA: ${{ inputs.expected_sha }}
+          OPERATION: ${{ inputs.operation }}
         run: |
-          bash scripts/check-staging-source.sh "$EVENT" "$BRANCH" "$SOURCE_SHA" "$EXPECTED_SHA"
+          bash scripts/check-staging-source.sh "$EVENT" "$BRANCH" "$SOURCE_SHA" "$EXPECTED_SHA" "$OPERATION"
           if [ "$EVENT" = workflow_dispatch ]; then
             git merge-base --is-ancestor origin/dev HEAD
           fi
@@ -221,6 +222,7 @@ jobs:
   migrate:
     name: Migrate and seed Supabase
     needs: [quality, rls, e2e]
+    if: github.event_name != 'workflow_dispatch' || inputs.operation != 'frontend'
     runs-on: ubuntu-latest
     environment:
       name: Staging
@@ -294,8 +296,15 @@ jobs:
 
   deploy:
     name: Cloudflare Pages
-    needs: migrate
-    if: github.event_name == 'push' || inputs.operation == 'prepare'
+    needs: [quality, rls, e2e, migrate]
+    if: >-
+      always() &&
+      needs.quality.result == 'success' &&
+      needs.rls.result == 'success' &&
+      needs.e2e.result == 'success' &&
+      (needs.migrate.result == 'success' ||
+        (inputs.operation == 'frontend' && needs.migrate.result == 'skipped')) &&
+      (github.event_name == 'push' || inputs.operation == 'prepare' || inputs.operation == 'frontend')
     runs-on: ubuntu-latest
     environment:
       name: Staging

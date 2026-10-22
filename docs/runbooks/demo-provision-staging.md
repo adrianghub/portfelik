@@ -15,7 +15,7 @@
 
 When local ops credentials are unavailable, the existing **Deploy staging**
 workflow also accepts a manual candidate run using the GitHub `Staging`
-environment's secrets. It accepts only `dev` or `codex/jakstoimy-1-4-demo-ui`,
+environment's secrets. It accepts `dev` or `codex/jakstoimy-1-4-demo-ui`,
 requires the exact expected SHA and current `dev` ancestry, and runs the normal
 quality/RLS/E2E gates before accessing staging. The project ref must equal
 `nveyzxxnyccpnesebvuw`; the Pages build and smoke URL must use that same project.
@@ -33,6 +33,13 @@ forced **false** and Turnstile required, and publishes the candidate UI to the
 existing staging hostname. Manual preparation does not reseed user personas,
 deploy unrelated Edge functions, merge the PR or enable demo provisioning.
 Real Siteverify and the controlled soak still require a separate test window.
+
+For an already prepared backend, `operation=frontend` publishes only Pages and
+runs the real-database smoke after the normal quality/RLS/E2E gates. It skips
+the migration/seed/Edge job entirely and does not change provisioner settings.
+This mode also accepts `codex/jakstoimy-1-4-auth-demo`; that branch is rejected
+for `preview` and `prepare`. The same exact SHA and current `dev` ancestry checks
+apply. Verify backend migration and Edge parity before using this mode.
 
 From a clean ops checkout linked to **staging** (never production):
 

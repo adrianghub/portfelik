@@ -85,18 +85,23 @@ test("staging previews include earlier feature migrations without broadening pro
 
 test("manual staging refuses production, unexpected branches and changed source commits", () => {
   const sha = "a".repeat(40);
-  for (const [event, branch, actual, expected, accepted] of [
+  for (const [event, branch, actual, expected, accepted, operation = ""] of [
     ["push", "dev", sha, "", true],
     ["push", "main", sha, "", false],
     ["workflow_dispatch", "dev", sha, sha, true],
     ["workflow_dispatch", "codex/jakstoimy-1-4-demo-ui", sha, sha, true],
+    ["workflow_dispatch", "codex/jakstoimy-1-4-auth-demo", sha, sha, true, "frontend"],
+    ["workflow_dispatch", "codex/jakstoimy-1-4-auth-demo", sha, sha, false, "prepare"],
+    ["workflow_dispatch", "codex/jakstoimy-1-4-auth-demo", sha, sha, false, "preview"],
+    ["workflow_dispatch", "codex/jakstoimy-1-4-auth-demo", sha, "b".repeat(40), false, "frontend"],
+    ["workflow_dispatch", "main", sha, sha, false, "frontend"],
     ["workflow_dispatch", "main", sha, sha, false],
     ["workflow_dispatch", "other-feature", sha, sha, false],
     ["workflow_dispatch", "dev", sha, "b".repeat(40), false],
     ["workflow_dispatch", "dev", "", "", false],
     ["pull_request", "dev", sha, sha, false],
   ]) {
-    const result = spawnSync("bash", [resolve(root, "scripts/check-staging-source.sh"), event, branch, actual, expected], { encoding: "utf8" });
+    const result = spawnSync("bash", [resolve(root, "scripts/check-staging-source.sh"), event, branch, actual, expected, operation], { encoding: "utf8" });
     assert.equal(result.status === 0, accepted, `${event}/${branch}: ${result.stderr}`);
   }
 });
