@@ -54,3 +54,14 @@ the dedicated demo and the CSV flow.
 Use a fresh controlled staging account after local checks. Do not retry the
 known broken staging fixture before its historical records have been reviewed.
 This procedure does not authorize production mutations, deployment or account deletion.
+
+The fill also creates three unpaid, explicitly labelled example operations in
+that same finalization transaction: an overdue internet bill (120 PLN, yesterday),
+car insurance (450 PLN, in three days), and a trip refund (2,500 PLN, in five days).
+Dates use the application's Warsaw business date. These are additional to the
+96 historical CSV rows and do not change the paid balance. The forecast uses
+the ordinary transaction model. The receipt stores their exact IDs and one-time
+initialization timestamp; retries do not move dates or duplicate/recreate rows.
+Cleanup refuses a shared example or an example linked to a user-created plan,
+then removes the known operations together with the history. Removing the
+example restores the empty-demo onboarding without an empty forecast panel.

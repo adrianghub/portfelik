@@ -29,8 +29,8 @@
         }),
       ]);
       if (result.total !== 96) throw new Error("demo_sample_incomplete");
-      complete = true;
       await onComplete();
+      complete = true;
     } catch {
       failed = true;
     } finally {

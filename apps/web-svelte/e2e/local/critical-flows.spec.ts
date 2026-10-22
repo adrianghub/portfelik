@@ -123,6 +123,12 @@ test("optional demo name then one-click fixture uses real import, categories and
   await page.getByRole("button", { name: "Pokaż moje demo" }).click();
   await expect(page).toHaveURL(/\/dashboard/);
   await expect(page.getByRole("heading", { name: /Adrian/ })).toBeVisible();
+  await expect(
+    page.getByText("Przewidywane saldo na koniec miesiąca", { exact: true })
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("Brak nadchodzących i zaległych transakcji", { exact: true })
+  ).toHaveCount(0);
   await page.getByRole("button", { name: "Wypełnij przykładowymi danymi" }).click();
   await expect(
     page.getByRole("status").filter({ hasText: "Gotowe! Dodano 96 transakcji." })
@@ -130,17 +136,20 @@ test("optional demo name then one-click fixture uses real import, categories and
   await expect(page.getByText(/29\s*734,16/).first()).toBeVisible();
   const rows = await demo.client
     .from("transactions")
-    .select("amount,type,category_id,categories(name)");
+    .select("amount,type,status,category_id,categories(name)");
   expect(rows.error).toBeNull();
-  expect(rows.data).toHaveLength(96);
+  expect(rows.data).toHaveLength(99);
+  expect(rows.data!.filter((r) => r.status === "paid")).toHaveLength(96);
+  expect(rows.data!.filter((r) => r.status === "overdue")).toHaveLength(1);
+  expect(rows.data!.filter((r) => r.status === "upcoming")).toHaveLength(2);
   expect(
     rows
-      .data!.filter((r) => r.type === "income")
+      .data!.filter((r) => r.type === "income" && r.status === "paid")
       .reduce((n, r) => n + Math.round(r.amount * 100), 0)
   ).toBe(6150000);
   expect(
     rows
-      .data!.filter((r) => r.type === "expense")
+      .data!.filter((r) => r.type === "expense" && r.status === "paid")
       .reduce((n, r) => n + Math.round(r.amount * 100), 0)
   ).toBe(3676584);
   for (const row of rows.data!)
@@ -157,6 +166,9 @@ test("optional demo name then one-click fixture uses real import, categories and
     as_of_date: "2026-05-01",
     balance_semantics: "start_of_day",
   });
+  await expect(page.getByRole("cell", { name: /Przykład: Zaległy rachunek/ })).toBeVisible();
+  await expect(page.getByRole("cell", { name: /Przykład: Ubezpieczenie/ })).toBeVisible();
+  await expect(page.getByRole("cell", { name: /Przykład: Zwrot/ })).toBeVisible();
   await page.reload();
   await expect(page.getByRole("button", { name: "Wypełnij przykładowymi danymi" })).toHaveCount(0);
   await page.getByRole("button", { name: "Usuń przykład", exact: true }).click();
@@ -165,11 +177,17 @@ test("optional demo name then one-click fixture uses real import, categories and
   await expect(page.getByText("To przykładowe dane", { exact: true })).toHaveCount(0);
   expect((await demo.client.from("transactions").select("id")).data).toHaveLength(0);
   expect((await demo.client.from("cash_positions").select("id")).data).toHaveLength(0);
+  await expect(
+    page.getByText("Przewidywane saldo na koniec miesiąca", { exact: true })
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("Brak nadchodzących i zaległych transakcji", { exact: true })
+  ).toHaveCount(0);
   await page.getByRole("button", { name: "Wypełnij przykładowymi danymi" }).click();
   await expect(
     page.getByRole("status").filter({ hasText: "Gotowe! Dodano 96 transakcji." })
   ).toBeVisible({ timeout: 60000 });
-  expect((await demo.client.from("transactions").select("id")).data).toHaveLength(96);
+  expect((await demo.client.from("transactions").select("id")).data).toHaveLength(99);
   expect(
     (await demo.client.from("transaction_import_sessions").select("id").eq("status", "committed"))
       .data
@@ -183,6 +201,8 @@ test("optional demo name then one-click fixture uses real import, categories and
   ).toBeVisible();
   await page.goto("/analysis?mode=forecast");
   await expect(page.getByTestId("analysis-forecast-today")).toContainText(/29\D?734,16/);
+  await expect(page.getByTestId("analysis-forecast-income")).toContainText(/2\D?500,00/);
+  await expect(page.getByTestId("analysis-forecast-expense")).not.toContainText(/^0,00/);
   await page.goto("/plans");
   await expect(page.getByRole("heading", { name: "Brak planów", exact: true })).toBeVisible();
   await page.goto("/settings?tab=profile");
@@ -217,6 +237,12 @@ test("demo skips name and retries cash failure after reload without duplicating 
       await route.fulfill({ status: 503, json: { message: "Injected local anchor failure" } });
     } else await route.continue();
   });
+  await expect(
+    page.getByText("Przewidywane saldo na koniec miesiąca", { exact: true })
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("Brak nadchodzących i zaległych transakcji", { exact: true })
+  ).toHaveCount(0);
   await page.getByRole("button", { name: "Wypełnij przykładowymi danymi" }).click();
   await expect(
     page.getByRole("alert").filter({ hasText: "Nie udało się dodać danych" })
@@ -230,7 +256,7 @@ test("demo skips name and retries cash failure after reload without duplicating 
   await expect(
     page.getByRole("status").filter({ hasText: "Gotowe! Dodano 96 transakcji." })
   ).toBeVisible({ timeout: 60000 });
-  expect((await demo.client.from("transactions").select("id")).data).toHaveLength(96);
+  expect((await demo.client.from("transactions").select("id")).data).toHaveLength(99);
   expect(
     (await demo.client.from("transaction_import_sessions").select("status,rows_committed")).data
   ).toEqual([{ status: "committed", rows_committed: 96 }]);

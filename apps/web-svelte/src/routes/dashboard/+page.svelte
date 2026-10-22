@@ -93,6 +93,7 @@
   let sampleDismissed = $state(true);
   let sampleAdded = $state(false);
   let sampleStarted = $state(false);
+  let sampleEpoch = $state(0);
   onMount(() => {
     importRevealCount = takeCockpitImportReveal();
     void supabase.auth.getSession().then(({ data }) => {
@@ -266,7 +267,7 @@
   }));
 
   const sampleNeedsCash = $derived(
-    txCountQuery.data === 96 &&
+    (txCountQuery.data ?? 0) >= 96 &&
       sampleImportQuery.data?.source_file_hash === DEMO_SAMPLE_SHA256 &&
       ((cashAnchorQuery.isSuccess && !cashAnchorQuery.data) ||
         (sampleReceiptQuery.isSuccess && !sampleReceiptQuery.data))
@@ -312,6 +313,7 @@
       const u = requireSessionUserId();
       track("demo_cleared", { row_count: result.deleted });
       await refreshDemoState(queryClient, u);
+      sampleEpoch += 1;
       sampleAdded = false;
       sampleStarted = false;
       sampleDismissed = false;
@@ -870,18 +872,38 @@
   </div>
 
   {#if demoIdentity && ((!sampleDismissed && (txCountQuery.data === 0 || sampleNeedsCash || sampleStarted)) || sampleAdded)}
-    <DemoSampleCard
-      onComplete={sampleComplete}
-      onDismiss={dismissSample}
-      onStart={() => {
-        sampleStarted = true;
-      }}
-      recovering={sampleNeedsCash}
-    />
+    {#key sampleEpoch}
+      <DemoSampleCard
+        onComplete={sampleComplete}
+        onDismiss={dismissSample}
+        onStart={() => {
+          sampleStarted = true;
+        }}
+        recovering={sampleNeedsCash}
+      />
+    {/key}
   {/if}
 
   {#if discovery && !demoIdentity}
     <DashboardDiscovery />
+  {:else if discovery && demoIdentity}
+    {#if sampleDismissed}
+      <div class="flex flex-wrap gap-3" data-testid="demo-empty-actions">
+        <button
+          type="button"
+          onclick={() => {
+            sampleDismissed = false;
+          }}
+          class="bg-accent-gradient min-h-11 rounded-full px-4 text-sm font-semibold text-slate-950"
+          >{m.demo_sample_fill()}</button
+        >
+        <a
+          href="/import"
+          class="min-h-11 rounded-full border border-white/10 px-4 py-3 text-sm text-slate-200"
+          >{m.tour_welcome_import()}</a
+        >
+      </div>
+    {/if}
   {:else}
     {#if (groupsQuery.data ?? []).length > 0}
       <DashboardViewToolbar
