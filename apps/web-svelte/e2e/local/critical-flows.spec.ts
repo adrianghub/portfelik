@@ -171,8 +171,38 @@ test("optional demo name then one-click fixture uses real import, categories and
   await expect(page.getByRole("cell", { name: /Przykład: Zwrot/ })).toBeVisible();
   await page.reload();
   await expect(page.getByRole("button", { name: "Wypełnij przykładowymi danymi" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Usuń przykład", exact: true }).click();
-  await page.getByRole("alertdialog").getByRole("button", { name: "Usuń", exact: true }).click();
+  let releaseRefresh!: () => void;
+  const refreshGate = new Promise<void>((resolve) => {
+    releaseRefresh = resolve;
+  });
+  let holdCleanupRefresh = true;
+  let refreshHeld = false;
+  await page.route("**/rest/v1/profiles?*", async (route) => {
+    if (holdCleanupRefresh && route.request().method() === "GET") {
+      refreshHeld = true;
+      await refreshGate;
+    }
+    await route.continue();
+  });
+  try {
+    await page.getByRole("button", { name: "Usuń przykład", exact: true }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Usuń", exact: true }).click();
+    await expect
+      .poll(async () => (await demo.client.from("transactions").select("id")).data?.length)
+      .toBe(0);
+    await expect.poll(() => refreshHeld).toBe(true);
+    await expect(page.getByRole("region", { name: "Saldo z transakcji", exact: true })).toHaveCount(
+      0
+    );
+    // The ledger may already be empty while other refreshes still run. Do not
+    // offer a new fill until cleanup's state transition has fully settled.
+    await expect(page.getByRole("button", { name: "Wypełnij przykładowymi danymi" })).toHaveCount(
+      0
+    );
+  } finally {
+    holdCleanupRefresh = false;
+    releaseRefresh();
+  }
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
   await expect(page.getByText("To przykładowe dane", { exact: true })).toHaveCount(0);
   expect((await demo.client.from("transactions").select("id")).data).toHaveLength(0);
@@ -264,6 +294,24 @@ test("demo skips name and retries cash failure after reload without duplicating 
     (await demo.client.from("cash_positions").select("opening_amount").single()).data
       ?.opening_amount
   ).toBe(5000);
+  let rejectCleanup = true;
+  await page.route("**/rest/v1/rpc/clear_demo_sample", async (route) => {
+    if (route.request().method() === "POST" && rejectCleanup) {
+      rejectCleanup = false;
+      await route.fulfill({ status: 503, json: { message: "Injected local cleanup failure" } });
+    } else await route.continue();
+  });
+  await page.getByRole("button", { name: "Usuń przykład", exact: true }).click();
+  const confirmation = page.getByRole("alertdialog");
+  await confirmation.getByRole("button", { name: "Usuń", exact: true }).click();
+  await expect.poll(() => rejectCleanup).toBe(false);
+  await expect(confirmation).toBeVisible();
+  await expect(confirmation.getByRole("button", { name: "Usuń", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Wypełnij przykładowymi danymi" })).toHaveCount(0);
+  expect((await demo.client.from("transactions").select("id")).data).toHaveLength(99);
+  await confirmation.getByRole("button", { name: "Usuń", exact: true }).click();
+  await expect(confirmation).toHaveCount(0);
+  expect((await demo.client.from("transactions").select("id")).data).toHaveLength(0);
 });
 
 test("first Demo to Real login preserves demo, then switches back and logout clears both", async ({

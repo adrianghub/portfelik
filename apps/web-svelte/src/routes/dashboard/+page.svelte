@@ -93,7 +93,6 @@
   let sampleDismissed = $state(true);
   let sampleAdded = $state(false);
   let sampleStarted = $state(false);
-  let sampleEpoch = $state(0);
   onMount(() => {
     importRevealCount = takeCockpitImportReveal();
     void supabase.auth.getSession().then(({ data }) => {
@@ -313,13 +312,17 @@
       const u = requireSessionUserId();
       track("demo_cleared", { row_count: result.deleted });
       await refreshDemoState(queryClient, u);
-      sampleEpoch += 1;
       sampleAdded = false;
       sampleStarted = false;
       sampleDismissed = false;
       toast.success(m.demo_cleared_toast());
     },
-    onError: (err) => toastError(err),
+    onError: (err) => {
+      sampleAdded = false;
+      sampleStarted = false;
+      sampleDismissed = true;
+      toastError(err);
+    },
   }));
 
   const restartTourMutation = createMutation(() => ({
@@ -871,23 +874,21 @@
     </div>
   </div>
 
-  {#if demoIdentity && ((!sampleDismissed && (txCountQuery.data === 0 || sampleNeedsCash || sampleStarted)) || sampleAdded)}
-    {#key sampleEpoch}
-      <DemoSampleCard
-        onComplete={sampleComplete}
-        onDismiss={dismissSample}
-        onStart={() => {
-          sampleStarted = true;
-        }}
-        recovering={sampleNeedsCash}
-      />
-    {/key}
+  {#if !clearDemoMutation.isPending && demoIdentity && ((!sampleDismissed && (txCountQuery.data === 0 || sampleNeedsCash || sampleStarted)) || sampleAdded)}
+    <DemoSampleCard
+      onComplete={sampleComplete}
+      onDismiss={dismissSample}
+      onStart={() => {
+        sampleStarted = true;
+      }}
+      recovering={sampleNeedsCash}
+    />
   {/if}
 
   {#if discovery && !demoIdentity}
     <DashboardDiscovery />
   {:else if discovery && demoIdentity}
-    {#if sampleDismissed}
+    {#if sampleDismissed && !clearDemoMutation.isPending}
       <div class="flex flex-wrap gap-3" data-testid="demo-empty-actions">
         <button
           type="button"
