@@ -143,7 +143,7 @@
     {:else if !error}
       <p role="status" class="mt-4 text-sm text-slate-400">{m.common_loading()}</p>
     {/if}
-    <a href="/login" class="mt-5 block text-sm text-slate-400 underline"
+    <a href="/login" class="mt-4 block py-2 text-sm text-slate-400 underline"
       >{m.auth_callback_back_to_login()}</a
     >
   </section>

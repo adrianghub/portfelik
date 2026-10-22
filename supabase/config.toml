@@ -112,6 +112,14 @@ enable_confirmations  = false
 double_confirm_changes = true
 max_frequency         = "1s"
 
+[auth.email.template.invite]
+subject = "Zaproszenie do JakStoimy"
+content_path = "./supabase/templates/invite.html"
+
+[auth.email.template.recovery]
+subject = "Ustaw nowe hasło w JakStoimy"
+content_path = "./supabase/templates/recovery.html"
+
 # SMS - not used.
 [auth.sms]
 enable_signup         = false
