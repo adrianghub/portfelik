@@ -17,6 +17,17 @@ beforeEach(() => {
 });
 
 describe("explicit web and native auth callback", () => {
+  it.each([
+    "?error=access_denied&error_code=signup_disabled",
+    "#error=access_denied&error_description=Signups+not+allowed+for+this+instance",
+  ])("identifies invitation-only denial without using cached credentials: %s", async (suffix) => {
+    await expect(
+      completeAuthCallback(new URL(`https://app.test/auth/callback${suffix}`))
+    ).rejects.toThrow("auth_signup_disabled");
+    expect(auth.getUser).not.toHaveBeenCalled();
+    expect(auth.setSession).not.toHaveBeenCalled();
+    expect(auth.exchangeCodeForSession).not.toHaveBeenCalled();
+  });
   it("exchanges PKCE once and returns to the invitation", async () => {
     expect(
       await completeAuthCallback(

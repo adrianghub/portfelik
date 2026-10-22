@@ -86,6 +86,20 @@ test("an expired explicit callback cannot fall back to an already signed-in acco
   await expect(page).toHaveURL("/auth/callback");
 });
 
+test("Google signup denial explains invitation-only access without implying an email failure", async ({
+  page,
+}) => {
+  await page.goto(
+    "/auth/callback#error=access_denied&error_description=Signups+not+allowed+for+this+instance"
+  );
+  await expect(page.getByRole("alert")).toContainText(
+    "Rejestracja jest dostępna tylko przez zaproszenie"
+  );
+  await expect(page.getByRole("alert")).toContainText("tym samym adresem e-mail");
+  await expect(page.getByRole("link", { name: "Wróć do logowania" })).toBeVisible();
+  await expect(page).toHaveURL("/auth/callback");
+});
+
 test("failed recovery request never displays a delivery confirmation", async ({ page }) => {
   await page.route("**/auth/v1/recover**", (route) =>
     route.fulfill({ status: 429, json: { message: "Too many requests" } })

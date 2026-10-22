@@ -18,8 +18,11 @@
     replaceState(cleanUrl.pathname + cleanUrl.search, page.state);
     void completeAuthCallback(currentUrl)
       .then((target) => goto(target, { replaceState: true }))
-      .catch(() => {
-        error = m.auth_callback_error();
+      .catch((cause: unknown) => {
+        error =
+          cause instanceof Error && cause.message === "auth_signup_disabled"
+            ? m.auth_callback_signup_disabled()
+            : m.auth_callback_error();
       });
   });
 </script>

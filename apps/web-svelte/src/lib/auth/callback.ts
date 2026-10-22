@@ -4,7 +4,16 @@ import { supabase } from "$lib/supabase";
 /** Consume explicit credentials before considering an existing browser session. */
 export async function completeAuthCallback(url: URL): Promise<string> {
   const hash = new URLSearchParams(url.hash.slice(1));
-  if (url.searchParams.has("error") || hash.has("error")) throw new Error("auth_callback_failed");
+  if (url.searchParams.has("error") || hash.has("error")) {
+    const signupDenied = [url.searchParams, hash].some(
+      (params) =>
+        params.get("error_code") === "signup_disabled" ||
+        /^signups not allowed(?: for this instance)?\.?$/i.test(
+          params.get("error_description") ?? ""
+        )
+    );
+    throw new Error(signupDenied ? "auth_signup_disabled" : "auth_callback_failed");
+  }
   const code = url.searchParams.get("code");
   const accessToken = hash.get("access_token");
   const refreshToken = hash.get("refresh_token");
