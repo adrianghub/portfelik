@@ -51,6 +51,25 @@ local stack after changing Auth configuration; a running GoTrue container keeps
 its old settings. Tests use Admin provisioning and do not require public signup.
 Never apply local configuration to a remote project implicitly.
 
+## Demo and real-account boundary
+
+An invitation opened while demo is active first offers switching to the real
+account context. Park the demo and flush its credential storage before the hard
+reload; never revoke demo Auth as a side effect of accepting a real invitation.
+Demo cannot claim membership or use real profile/password setup. Setup rechecks
+the exact Auth UID at submission, not only its email. Email/password entry and
+recovery remain available on both web and native Android.
+
+## Email delivery
+
+Group invitations and their verification links use the configured Resend sender.
+Password recovery uses Supabase Auth email delivery, a separate configuration.
+Configure Custom SMTP in the intended project before accepting external-recipient
+recovery as a release gate. Supabase's default mail service is restricted and
+must not be treated as general production email delivery. A success response from
+the client is not proof of delivery: record receipt, callback, password change
+and subsequent sign-in. Never include action links, passwords or tokens in reports.
+
 From `apps/web-svelte`:
 
 ```sh

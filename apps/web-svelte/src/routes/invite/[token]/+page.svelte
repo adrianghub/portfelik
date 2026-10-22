@@ -7,11 +7,19 @@
   import { claimInvitation, fetchInvitationPreview } from "$lib/services/groups";
   import { oauthCallbackUrl, signInWithGoogleOAuth } from "$lib/services/oauth";
   import { supabase } from "$lib/supabase";
+  import {
+    beginAccountSwitchReinit,
+    clearGoTrueClientStorage,
+    isDemoAccountUser,
+    parkInactiveSession,
+  } from "$lib/demo/identity-session";
+  import { flushDeviceAuthStorage } from "$lib/auth/device-storage";
   import type { GroupInvitationPreview } from "$lib/types";
   import * as m from "$lib/paraglide/messages";
 
   let preview = $state<GroupInvitationPreview | null>(null);
   let authenticated = $state(false);
+  let demoActive = $state(false);
   let loading = $state(true);
   let submitting = $state(false);
   let email = $state("");
@@ -28,6 +36,7 @@
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       authenticated = !!session;
+      demoActive = isDemoAccountUser(session?.user);
     });
     void loadInvitation();
     return () => subscription.unsubscribe();
@@ -38,6 +47,7 @@
       preview = (await fetchInvitationPreview(token)) as GroupInvitationPreview | null;
       const { data } = await supabase.auth.getSession();
       authenticated = !!data.session;
+      demoActive = isDemoAccountUser(data.session?.user);
     } catch {
       error = m.invite_preview_error();
     } finally {
@@ -76,6 +86,26 @@
     error = null;
     emailMismatch = false;
     rememberLoginRedirect(target);
+    const { data, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) {
+      error = m.invite_claim_error();
+      submitting = false;
+      return;
+    }
+    if (data.session && isDemoAccountUser(data.session.user)) {
+      // Leave demo recoverable while the invitation authenticates a real account.
+      try {
+        parkInactiveSession(data.session);
+        beginAccountSwitchReinit();
+        clearGoTrueClientStorage();
+        await flushDeviceAuthStorage();
+        window.location.replace(target);
+      } catch {
+        error = m.demo_switch_expired();
+        submitting = false;
+      }
+      return;
+    }
     await supabase.auth.signOut();
     authenticated = false;
     submitting = false;
@@ -143,7 +173,16 @@
           </p>
         {/if}
 
-        {#if authenticated}
+        {#if demoActive}
+          <button
+            type="button"
+            onclick={switchAccount}
+            disabled={submitting}
+            class="bg-accent-gradient mt-6 w-full rounded-full px-4 py-2.5 text-sm font-semibold text-slate-950 disabled:opacity-50"
+          >
+            {m.demo_switch_to_real()}
+          </button>
+        {:else if authenticated}
           <button
             type="button"
             onclick={claim}

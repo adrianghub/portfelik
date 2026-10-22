@@ -62,6 +62,10 @@ export const ACCOUNT_EXPORT_TABLE_INVENTORY = {
     reason: "Security rate-limit telemetry",
   },
   plan_progress_snapshots: { disposition: "exported", field: "plan_progress_snapshots" },
+  demo_sample_receipts: {
+    disposition: "omitted",
+    reason: "Internal sample cleanup provenance, not financial truth",
+  },
   demo_identities: {
     disposition: "omitted",
     reason: "Server-owned demo capability registry, not financial truth",

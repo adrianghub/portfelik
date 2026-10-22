@@ -4,6 +4,7 @@
   import { page } from "$app/state";
   import { redirectTargetFromUrl } from "$lib/auth-redirect";
   import { supabase } from "$lib/supabase";
+  import { isDemoAccountUser } from "$lib/demo/identity-session";
   import { fetchProfile, updateProfile } from "$lib/services/profiles";
   import BrandMark from "$lib/components/BrandMark.svelte";
   import * as m from "$lib/paraglide/messages";
@@ -13,6 +14,7 @@
   let password = $state("");
   let confirmation = $state("");
   let email = $state("");
+  let userId = $state("");
   let ready = $state(false);
   let saving = $state(false);
   let error = $state<string | null>(null);
@@ -20,8 +22,10 @@
   onMount(async () => {
     try {
       const { data, error: authError } = await supabase.auth.getUser();
-      if (authError || !data.user?.email_confirmed_at) throw new Error("unverified");
+      if (authError || !data.user?.email_confirmed_at || isDemoAccountUser(data.user))
+        throw new Error("unverified");
       email = data.user.email ?? "";
+      userId = data.user.id;
       if (!recovery) name = (await fetchProfile(data.user.id)).name ?? "";
       ready = true;
     } catch {
@@ -45,7 +49,13 @@
     try {
       // Revalidate the identity at submission; never trust an identity from a URL.
       const { data, error: authError } = await supabase.auth.getUser();
-      if (authError || !data.user?.email_confirmed_at || data.user.email !== email) {
+      if (
+        authError ||
+        !data.user?.email_confirmed_at ||
+        isDemoAccountUser(data.user) ||
+        data.user.id !== userId ||
+        data.user.email !== email
+      ) {
         throw new Error("unverified");
       }
       if (!recovery) await updateProfile(data.user.id, { name: name.trim() });

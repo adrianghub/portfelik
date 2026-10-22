@@ -105,6 +105,10 @@ export interface ErrorMessageOpts {
  * bespoke copy for a specific RPC still pass `overrides: { P0001: "..." }`.
  */
 const P0001_MESSAGES: Record<string, () => string> = {
+  demo_legacy_origin_unconfirmed: m.demo_legacy_origin_error,
+  demo_sample_has_user_links: m.demo_legacy_origin_error,
+  demo_sample_import_in_progress: m.demo_sample_import_busy,
+  demo_clear_incomplete: m.demo_clear_incomplete,
   account_invalid: m.bank_commit_error_account_invalid,
   account_kind_mismatch: m.bank_commit_error_kind_mismatch,
   rows_pending: m.bank_commit_error_rows_pending,

@@ -128,7 +128,7 @@ push_remote() {
   shift
 
   if [[ "$target" == "staging" ]]; then
-    supabase db push --linked --include-seed "$@" --workdir "$ROOT_DIR"
+    supabase db push --linked --include-all --include-seed "$@" --workdir "$ROOT_DIR"
   else
     supabase db push --linked "$@" --workdir "$ROOT_DIR"
   fi

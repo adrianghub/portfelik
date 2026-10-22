@@ -3,6 +3,7 @@
 declare global {
   const __RELEASE_CHANNEL__: "internal-beta" | "public-beta" | "stable";
   const __APP_VERSION__: string;
+  const __DEMO_TURNSTILE_SITE_KEY__: string;
   namespace App {
     // interface Error {}
     // interface Locals {}

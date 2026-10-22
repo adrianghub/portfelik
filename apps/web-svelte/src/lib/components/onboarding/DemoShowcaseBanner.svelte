@@ -120,9 +120,13 @@
   message={m.demo_clear_confirm_message()}
   pending={clearing}
   onconfirm={() => {
-    void Promise.resolve(onclear()).then(() => {
-      confirmClearOpen = false;
-    });
+    void Promise.resolve(onclear())
+      .then(() => {
+        confirmClearOpen = false;
+      })
+      .catch(() => {
+        // Mutation onError already shows the failure. Keep confirmation visible.
+      });
   }}
   onclose={() => (confirmClearOpen = false)}
 />

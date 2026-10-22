@@ -160,6 +160,72 @@ describe("confirmOwnedDemoIdentity", () => {
 });
 
 describe("open-demo-account Edge handler", () => {
+  it("keeps the master kill switch in explicitly persistent staging", async () => {
+    Object.assign(config, {
+      SUPABASE_URL: "https://nveyzxxnyccpnesebvuw.supabase.co",
+      DEMO_STAGING_ALWAYS_ENABLED: "true",
+      DEMO_PROVISION_ENABLED: "false",
+      DEMO_PROVISION_REQUIRE_TURNSTILE: "true",
+      DEMO_TURNSTILE_SECRET: "test-secret",
+      DEMO_PROVISION_CLIENT_SALT: "test-salt",
+      DEMO_PROVISION_RATE_WINDOW_SECONDS: "7200",
+      DEMO_PROVISION_RATE_MAX: "3",
+      DEMO_PROVISION_GLOBAL_MAX_ACTIVE: "3",
+    });
+    const response = await handler()(post());
+    expect(response.status).toBe(503);
+    expect(rpc).not.toHaveBeenCalled();
+    expect(createUser).not.toHaveBeenCalled();
+  });
+  it("refuses staging with enabled=true but no server lease", async () => {
+    config.SUPABASE_URL = "https://nveyzxxnyccpnesebvuw.supabase.co";
+    const response = await handler()(post());
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "demo_provision_disabled" });
+    expect(rpc).not.toHaveBeenCalled();
+    expect(createUser).not.toHaveBeenCalled();
+  });
+
+  it("does not start Auth when an in-flight begin RPC crosses staging expiry", async () => {
+    const started = Date.now();
+    Object.assign(config, {
+      SUPABASE_URL: "https://nveyzxxnyccpnesebvuw.supabase.co",
+      DEMO_SOAK_STARTED_AT: new Date(started).toISOString(),
+      DEMO_SOAK_EXPIRES_AT: new Date(started + 3_600_000).toISOString(),
+      DEMO_PROVISION_REQUIRE_TURNSTILE: "true",
+      DEMO_TURNSTILE_SECRET: "test-secret",
+      DEMO_PROVISION_CLIENT_SALT: "test-salt",
+      DEMO_PROVISION_RATE_WINDOW_SECONDS: "7200",
+      DEMO_PROVISION_RATE_MAX: "3",
+      DEMO_PROVISION_GLOBAL_MAX_ACTIVE: "3",
+    });
+    const clock = vi.spyOn(Date, "now").mockReturnValue(started);
+    const normalRpc = rpc.getMockImplementation()!;
+    rpc.mockImplementation(async (name: string, args?: Record<string, unknown>) => {
+      if (name === "begin_demo_provision_operation") clock.mockReturnValue(started + 3_600_000);
+      return normalRpc(name, args);
+    });
+    const handle = createOpenDemoAccountHandler(
+      (name) => config[name],
+      () => client,
+      {
+        randomUUID: () => uuidSeq.shift()!,
+        sha256Hex: async () => "shared-test-key",
+        fetchFn: async () => new Response(JSON.stringify({ success: true })),
+      }
+    );
+    try {
+      const response = await handle(post({ turnstileToken: "test-token" }));
+      expect(response.status).toBe(500);
+      expect(await response.json()).not.toHaveProperty("tokenHash");
+      expect(createUser).not.toHaveBeenCalled();
+      expect(generateLink).not.toHaveBeenCalled();
+      expect(rpc).not.toHaveBeenCalledWith("release_demo_provision_reservation", expect.anything());
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
   it.each(["read", "confirm", "delete", "complete"])(
     "cleanup fails closed on %s failure",
     async (stage) => {

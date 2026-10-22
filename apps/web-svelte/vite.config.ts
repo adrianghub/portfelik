@@ -13,6 +13,9 @@ export default defineConfig(({ mode }) => {
     define: {
       __RELEASE_CHANNEL__: JSON.stringify(releaseChannel),
       __APP_VERSION__: JSON.stringify(packageJson.version),
+      __DEMO_TURNSTILE_SITE_KEY__: JSON.stringify(
+        loadEnv(mode, process.cwd(), "PUBLIC_").PUBLIC_TURNSTILE_SITE_KEY ?? ""
+      ),
     },
     server: { watch: { ignored: ["**/test-results*/**", "**/playwright-report/**"] } },
     plugins: [

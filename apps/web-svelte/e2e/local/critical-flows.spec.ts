@@ -76,6 +76,366 @@ async function login(page: Page, user: User) {
     { key: `sb-${parsed.hostname.split(".")[0]}-auth-token`, session: user.session }
   );
 }
+
+async function demoFixture(fixtures: Fixtures): Promise<User> {
+  const user = fixtures.owner;
+  expect(
+    (await fixtures.admin.rpc("register_demo_identity", { p_user_id: user.id })).error
+  ).toBeNull();
+  const refreshed = await user.client.auth.refreshSession();
+  if (refreshed.error || !refreshed.data.session) throw new Error("Demo refresh failed");
+  user.session = refreshed.data.session;
+  expect(
+    (await user.client.from("profiles").update({ name: "Konto demo" }).eq("id", user.id)).error
+  ).toBeNull();
+  return user;
+}
+
+async function loginOnce(page: Page, user: User) {
+  await page.addInitScript(
+    ({ key, value }) => {
+      if (sessionStorage.getItem("quality-login-once")) return;
+      localStorage.setItem(key, JSON.stringify(value));
+      sessionStorage.setItem("quality-login-once", "1");
+      localStorage.setItem("push_prompted_at", String(Date.now()));
+    },
+    { key: `sb-${parsed.hostname.split(".")[0]}-auth-token`, value: user.session }
+  );
+}
+
+test("optional demo name then one-click fixture uses real import, categories and cash model", async ({
+  page,
+  fixtures,
+}) => {
+  const unexpectedRequests: { status: number; path: string }[] = [];
+  page.on("response", (response) => {
+    if (response.status() >= 400 && response.url().startsWith(url + "/rest/v1/"))
+      unexpectedRequests.push({
+        status: response.status(),
+        path: new URL(response.url()).pathname,
+      });
+  });
+  const demo = await demoFixture(fixtures);
+  await loginOnce(page, demo);
+  await page.goto("/demo/welcome");
+  await expect(page.getByRole("heading", { name: "Witaj w JakStoimy" })).toBeVisible();
+  await page.getByLabel("Twoja nazwa").fill("Adrian");
+  await page.getByRole("button", { name: "Pokaż moje demo" }).click();
+  await expect(page).toHaveURL(/\/dashboard/);
+  await expect(page.getByRole("heading", { name: /Adrian/ })).toBeVisible();
+  await expect(
+    page.getByText("Przewidywane saldo na koniec miesiąca", { exact: true })
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("Brak nadchodzących i zaległych transakcji", { exact: true })
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Wypełnij przykładowymi danymi" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Gotowe! Dodano 96 transakcji." })
+  ).toBeVisible({ timeout: 60000 });
+  await expect(page.getByText(/29\s*734,16/).first()).toBeVisible();
+  const rows = await demo.client
+    .from("transactions")
+    .select("amount,type,status,category_id,categories(name)");
+  expect(rows.error).toBeNull();
+  expect(rows.data).toHaveLength(99);
+  expect(rows.data!.filter((r) => r.status === "paid")).toHaveLength(96);
+  expect(rows.data!.filter((r) => r.status === "overdue")).toHaveLength(1);
+  expect(rows.data!.filter((r) => r.status === "upcoming")).toHaveLength(2);
+  expect(
+    rows
+      .data!.filter((r) => r.type === "income" && r.status === "paid")
+      .reduce((n, r) => n + Math.round(r.amount * 100), 0)
+  ).toBe(6150000);
+  expect(
+    rows
+      .data!.filter((r) => r.type === "expense" && r.status === "paid")
+      .reduce((n, r) => n + Math.round(r.amount * 100), 0)
+  ).toBe(3676584);
+  for (const row of rows.data!)
+    expect((row.categories as unknown as { name: string }).name).not.toMatch(/Inne/);
+  expect(
+    (
+      await demo.client
+        .from("cash_positions")
+        .select("opening_amount,as_of_date,balance_semantics")
+        .single()
+    ).data
+  ).toMatchObject({
+    opening_amount: 5000,
+    as_of_date: "2026-05-01",
+    balance_semantics: "start_of_day",
+  });
+  await expect(page.getByRole("cell", { name: /Przykład: Zaległy rachunek/ })).toBeVisible();
+  await expect(page.getByRole("cell", { name: /Przykład: Ubezpieczenie/ })).toBeVisible();
+  await expect(page.getByRole("cell", { name: /Przykład: Zwrot/ })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Wypełnij przykładowymi danymi" })).toHaveCount(0);
+  let releaseRefresh!: () => void;
+  const refreshGate = new Promise<void>((resolve) => {
+    releaseRefresh = resolve;
+  });
+  let holdCleanupRefresh = true;
+  let refreshHeld = false;
+  await page.route("**/rest/v1/profiles?*", async (route) => {
+    if (holdCleanupRefresh && route.request().method() === "GET") {
+      refreshHeld = true;
+      await refreshGate;
+    }
+    await route.continue();
+  });
+  try {
+    await page.getByRole("button", { name: "Usuń przykład", exact: true }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Usuń", exact: true }).click();
+    await expect
+      .poll(async () => (await demo.client.from("transactions").select("id")).data?.length)
+      .toBe(0);
+    await expect.poll(() => refreshHeld).toBe(true);
+    await expect(page.getByRole("region", { name: "Saldo z transakcji", exact: true })).toHaveCount(
+      0
+    );
+    // The ledger may already be empty while other refreshes still run. Do not
+    // offer a new fill until cleanup's state transition has fully settled.
+    await expect(page.getByRole("button", { name: "Wypełnij przykładowymi danymi" })).toHaveCount(
+      0
+    );
+  } finally {
+    holdCleanupRefresh = false;
+    releaseRefresh();
+  }
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+  await expect(page.getByText("To przykładowe dane", { exact: true })).toHaveCount(0);
+  expect((await demo.client.from("transactions").select("id")).data).toHaveLength(0);
+  expect((await demo.client.from("cash_positions").select("id")).data).toHaveLength(0);
+  await expect(
+    page.getByText("Przewidywane saldo na koniec miesiąca", { exact: true })
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("Brak nadchodzących i zaległych transakcji", { exact: true })
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Wypełnij przykładowymi danymi" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Gotowe! Dodano 96 transakcji." })
+  ).toBeVisible({ timeout: 60000 });
+  expect((await demo.client.from("transactions").select("id")).data).toHaveLength(99);
+  expect(
+    (await demo.client.from("transaction_import_sessions").select("id").eq("status", "committed"))
+      .data
+  ).toHaveLength(2);
+  await page.goto("/transactions?startDate=2026-05-01&endDate=2026-10-31&group=own");
+  await expect(
+    page
+      .locator("table")
+      .getByText(/BIEDRONKA/i)
+      .first()
+  ).toBeVisible();
+  await page.goto("/analysis?mode=forecast&horizon=3months");
+  await expect(page.getByTestId("analysis-forecast-today")).toContainText(/29\D?734,16/);
+  await expect(page.getByTestId("analysis-forecast-income")).toContainText(/2\D?500,00/);
+  await expect(page.getByTestId("analysis-forecast-expense")).not.toContainText(/^0,00/);
+  await page.goto("/plans");
+  await expect(page.getByRole("heading", { name: "Brak planów", exact: true })).toBeVisible();
+  await page.goto("/settings?tab=profile");
+  await page.getByRole("button", { name: "Edytuj", exact: true }).first().click();
+  await expect(page.getByLabel("Twoja nazwa")).toHaveAttribute("maxlength", "30");
+  await page.getByLabel("Twoja nazwa").fill("Lena");
+  await page.getByRole("button", { name: "Zapisz", exact: true }).click();
+  await expect(page.getByText("Lena", { exact: true })).toBeVisible();
+  await page.goto("/dashboard");
+  await expect(page.getByRole("heading", { name: /Lena/ })).toBeVisible();
+  expect(
+    (await fixtures.peer.client.from("profiles").select("name").eq("id", fixtures.peer.id).single())
+      .data?.name
+  ).toBe("Quality fixture");
+  expect((await fixtures.peer.client.from("transactions").select("id")).data).toHaveLength(0);
+  expect(unexpectedRequests).toEqual([]);
+});
+
+test("demo skips name and retries cash failure after reload without duplicating its committed import", async ({
+  page,
+  fixtures,
+}) => {
+  const demo = await demoFixture(fixtures);
+  await loginOnce(page, demo);
+  await page.goto("/demo/welcome");
+  await page.getByRole("button", { name: "Pomiń na razie" }).click();
+  await expect(page.getByRole("heading", { name: /Konto demo/ })).toBeVisible();
+  let rejectAnchor = true;
+  await page.route("**/rest/v1/rpc/finish_demo_sample", async (route) => {
+    if (route.request().method() === "POST" && rejectAnchor) {
+      rejectAnchor = false;
+      await route.fulfill({ status: 503, json: { message: "Injected local anchor failure" } });
+    } else await route.continue();
+  });
+  await expect(
+    page.getByText("Przewidywane saldo na koniec miesiąca", { exact: true })
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("Brak nadchodzących i zaległych transakcji", { exact: true })
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Wypełnij przykładowymi danymi" }).click();
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Nie udało się dodać danych" })
+  ).toBeVisible({ timeout: 60000 });
+  await expect(
+    page.getByRole("button", { name: /Wypełnij przykładowymi danymi|Dokończ przygotowanie demo/ })
+  ).toBeEnabled();
+  expect((await demo.client.from("transactions").select("id")).data).toHaveLength(96);
+  await page.reload();
+  await page.getByRole("button", { name: "Dokończ przygotowanie demo" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Gotowe! Dodano 96 transakcji." })
+  ).toBeVisible({ timeout: 60000 });
+  expect((await demo.client.from("transactions").select("id")).data).toHaveLength(99);
+  expect(
+    (await demo.client.from("transaction_import_sessions").select("status,rows_committed")).data
+  ).toEqual([{ status: "committed", rows_committed: 96 }]);
+  expect(
+    (await demo.client.from("cash_positions").select("opening_amount").single()).data
+      ?.opening_amount
+  ).toBe(5000);
+  let rejectCleanup = true;
+  await page.route("**/rest/v1/rpc/clear_demo_sample", async (route) => {
+    if (route.request().method() === "POST" && rejectCleanup) {
+      rejectCleanup = false;
+      await route.fulfill({ status: 503, json: { message: "Injected local cleanup failure" } });
+    } else await route.continue();
+  });
+  await page.getByRole("button", { name: "Usuń przykład", exact: true }).click();
+  const confirmation = page.getByRole("alertdialog");
+  await confirmation.getByRole("button", { name: "Usuń", exact: true }).click();
+  await expect.poll(() => rejectCleanup).toBe(false);
+  await expect(confirmation).toBeVisible();
+  await expect(confirmation.getByRole("button", { name: "Usuń", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Wypełnij przykładowymi danymi" })).toHaveCount(0);
+  expect((await demo.client.from("transactions").select("id")).data).toHaveLength(99);
+  await confirmation.getByRole("button", { name: "Usuń", exact: true }).click();
+  await expect(confirmation).toHaveCount(0);
+  expect((await demo.client.from("transactions").select("id")).data).toHaveLength(0);
+});
+
+test("first Demo to Real login preserves demo, then closing and resuming keeps its identity", async ({
+  page,
+  fixtures,
+}) => {
+  let provisions = 0;
+  await page.route("**/functions/v1/open-demo-account", (route) => {
+    provisions += 1;
+    return route.abort();
+  });
+  const demo = await demoFixture(fixtures);
+  await loginOnce(page, demo);
+  await page.goto("/dashboard");
+  await page.locator('header button[aria-haspopup="menu"]').first().click();
+  await page.getByRole("menuitem", { name: "Przełącz na konto rzeczywiste" }).click();
+  await expect(page).toHaveURL(/\/login\?account=real/);
+  await expect(page.getByTestId("open-demo-account")).toHaveCount(0);
+  await page.getByLabel("Adres e-mail").fill(fixtures.peer.email);
+  await page.getByLabel("Hasło", { exact: true }).fill(fixtures.peer.password);
+  await page.getByRole("button", { name: "Zaloguj się", exact: true }).click();
+  await expect(page).toHaveURL(/\/dashboard/);
+  await expect(page.getByTestId("demo-account-badge")).toHaveCount(0);
+  await page.locator('header button[aria-haspopup="menu"]').first().click();
+  await page.getByRole("menuitem", { name: "Przełącz na konto demo" }).click();
+  await expect(page).toHaveURL(/\/dashboard/);
+  await expect(page.getByTestId("demo-account-badge").first()).toBeVisible();
+  await page.reload();
+  await expect(page.getByTestId("demo-account-badge").first()).toBeVisible();
+  await page.locator('header button[aria-haspopup="menu"]').first().click();
+  await page.getByRole("menuitem", { name: "Zamknij demo" }).click();
+  await expect(page).toHaveURL(/\/login/);
+  const parked = await page.evaluate(
+    (key) => ({
+      demoId: JSON.parse(localStorage.getItem("jakstoimy.auth.demo.session.v1") ?? "null")?.user
+        ?.id,
+      real: localStorage.getItem("jakstoimy.auth.real.session.v1"),
+      active: localStorage.getItem(key),
+    }),
+    `sb-${parsed.hostname.split(".")[0]}-auth-token`
+  );
+  expect(parked).toEqual({ demoId: demo.id, real: null, active: null });
+  await page.reload();
+  await page.getByRole("button", { name: "Wróć do mojego demo" }).click();
+  await expect(page).toHaveURL(/\/dashboard/);
+  await expect(page.getByTestId("demo-account-badge").first()).toBeVisible();
+  expect(
+    await page.evaluate(
+      (key) => JSON.parse(localStorage.getItem(key) ?? "null")?.user?.id,
+      `sb-${parsed.hostname.split(".")[0]}-auth-token`
+    )
+  ).toBe(demo.id);
+  expect(provisions).toBe(0);
+});
+test("legacy seed failure rolls back tagged rows and a successful retry clears without remnants", async ({
+  page,
+  fixtures,
+}) => {
+  const demo = await demoFixture(fixtures);
+  await loginOnce(page, demo);
+  await page.goto("/dashboard");
+  await expect(page.getByTestId("demo-account-badge").first()).toBeVisible();
+  const endpoint = "**/rest/v1/rpc/create_demo_car_loan";
+  await page.route(endpoint, (route) =>
+    route.fulfill({ status: 503, json: { message: "Injected local debt failure" } })
+  );
+  const failed = await page.evaluate(async () => {
+    const path = "/src/lib/services/demo-data.ts";
+    const api = await import(path);
+    try {
+      await api.seedDemoData();
+      return false;
+    } catch {
+      return true;
+    }
+  });
+  expect(failed).toBe(true);
+  expect((await demo.client.from("transactions").select("id")).data).toHaveLength(0);
+  expect((await demo.client.from("plans").select("id")).data).toHaveLength(0);
+  await page.unroute(endpoint);
+  const result = await page.evaluate(async () => {
+    const path = "/src/lib/services/demo-data.ts";
+    const api = await import(path);
+    await api.seedDemoData();
+    return api.clearDemoData();
+  });
+  expect(result.deleted).toBeGreaterThan(0);
+  expect((await demo.client.from("plans").select("id")).data).toHaveLength(0);
+  expect((await demo.client.from("transactions").select("id")).data).toHaveLength(0);
+  expect((await demo.client.from("net_worth_items").select("id")).data).toHaveLength(0);
+});
+
+test("invalid target session shows recovery and never silently provisions a replacement", async ({
+  page,
+  fixtures,
+}) => {
+  let provisions = 0;
+  await page.route("**/functions/v1/open-demo-account", (route) => {
+    provisions += 1;
+    return route.abort();
+  });
+  const demo = await demoFixture(fixtures);
+  await loginOnce(page, fixtures.peer);
+  await page.addInitScript(
+    (value) => {
+      localStorage.setItem("jakstoimy.auth.demo.session.v1", JSON.stringify(value));
+    },
+    { ...demo.session, access_token: "invalid", refresh_token: "expired" }
+  );
+  await page.goto("/dashboard");
+  await page.locator('header button[aria-haspopup="menu"]').first().click();
+  await page.getByRole("menuitem", { name: "Przełącz na konto demo" }).click();
+  await expect(page).toHaveURL(/switchFailed=demo/);
+  await expect(page.getByRole("alert")).toContainText("Sesja docelowego konta wygasła");
+  await expect(page.getByTestId("open-demo-account")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Utwórz nowe konto demo", exact: true })
+  ).toHaveCount(0);
+  expect(provisions).toBe(0);
+  expect(
+    await page.evaluate(() => localStorage.getItem("jakstoimy.auth.real.session.v1") !== null)
+  ).toBe(true);
+});
+
 async function category(user: User) {
   const result = await user.client
     .from("categories")
@@ -85,6 +445,120 @@ async function category(user: User) {
   if (result.error) throw result.error;
   return result.data.id as string;
 }
+
+test("Demo → Real → Demo survives reload and explicit close/resume without mixing rows", async ({
+  page,
+  fixtures,
+}) => {
+  const real = fixtures.owner;
+  const demo = fixtures.peer;
+  const registered = await fixtures.admin.rpc("register_demo_identity", { p_user_id: demo.id });
+  expect(registered.error).toBeNull();
+  const refreshed = await demo.client.auth.refreshSession();
+  if (refreshed.error || !refreshed.data.session) throw new Error("Demo fixture refresh failed");
+  demo.session = refreshed.data.session;
+  expect(demo.session.user.app_metadata.account_kind).toBe("demo");
+
+  const date = new Date().toISOString().slice(0, 10);
+  for (const [user, description] of [
+    [demo, "DEMO isolated row"],
+    [real, "REAL isolated row"],
+  ] as const) {
+    const saved = await user.client.from("transactions").insert({
+      user_id: user.id,
+      category_id: await category(user),
+      description,
+      amount: 42,
+      type: "expense",
+      status: "paid",
+      currency: "PLN",
+      date,
+    });
+    expect(saved.error).toBeNull();
+  }
+
+  // Seed once, not with addInitScript: every later navigation must restore the
+  // identity selected by the app, rather than silently resetting our fixture.
+  await page.goto("/login");
+  await page.evaluate(
+    ({ active, parked, gotrue }) => {
+      localStorage.setItem(gotrue, JSON.stringify(active));
+      localStorage.setItem("jakstoimy.auth.real.session.v1", JSON.stringify(parked));
+      localStorage.setItem("jakstoimy.auth.active_kind.v1", "demo");
+      localStorage.setItem("push_prompted_at", String(Date.now()));
+    },
+    {
+      active: demo.session,
+      parked: real.session,
+      gotrue: `sb-${parsed.hostname.split(".")[0]}-auth-token`,
+    }
+  );
+
+  const assertIdentity = async (kind: "demo" | "real") => {
+    await page.goto("/transactions?group=own");
+    const own = kind === "demo" ? "DEMO isolated row" : "REAL isolated row";
+    const other = kind === "demo" ? "REAL isolated row" : "DEMO isolated row";
+    await expect(page.locator("table").getByText(own, { exact: true })).toBeVisible();
+    await expect(page.getByText(other, { exact: true })).toHaveCount(0);
+    if (kind === "demo") await expect(page.getByTestId("demo-account-badge").first()).toBeVisible();
+    else await expect(page.getByTestId("demo-account-badge")).toHaveCount(0);
+    const storage = await page.evaluate(
+      (key) => ({
+        activeId: JSON.parse(localStorage.getItem(key) ?? "null")?.user?.id,
+        pending: localStorage.getItem("jakstoimy.auth.pending_switch.v1"),
+        reinit: localStorage.getItem("jakstoimy.auth.reinit.v1"),
+      }),
+      `sb-${parsed.hostname.split(".")[0]}-auth-token`
+    );
+    expect(storage).toEqual({
+      activeId: kind === "demo" ? demo.id : real.id,
+      pending: null,
+      reinit: null,
+    });
+  };
+
+  await assertIdentity("demo");
+  for (const kind of ["real", "demo"] as const) {
+    await page.evaluate(() => {
+      (window as unknown as Record<string, unknown>).__beforeSwitch = true;
+    });
+    await page.locator('header button[aria-haspopup="menu"]').first().click();
+    await Promise.all([
+      page.waitForEvent("load"),
+      page
+        .getByRole("menuitem", {
+          name: kind === "real" ? "Przełącz na konto rzeczywiste" : "Przełącz na konto demo",
+        })
+        .click(),
+    ]);
+    expect(
+      await page.evaluate(() => (window as unknown as Record<string, unknown>).__beforeSwitch)
+    ).toBeUndefined();
+    await assertIdentity(kind);
+    await page.reload();
+    await assertIdentity(kind);
+  }
+
+  await page.locator('header button[aria-haspopup="menu"]').first().click();
+  await page.getByRole("menuitem", { name: "Zamknij demo" }).click();
+  await expect(page).toHaveURL(/\/login/);
+  expect(
+    await page.evaluate(
+      (key) => localStorage.getItem(key),
+      `sb-${parsed.hostname.split(".")[0]}-auth-token`
+    )
+  ).toBeNull();
+  expect(
+    await page.evaluate(() => localStorage.getItem("jakstoimy.auth.real.session.v1"))
+  ).toBeNull();
+  await page.reload();
+  await page.goto("/transactions");
+  await expect(page).toHaveURL(/\/login/);
+  await page.getByRole("button", { name: "Wróć do mojego demo" }).click();
+  await expect(page).toHaveURL(/\/dashboard/);
+  await expect(page.getByTestId("demo-account-badge").first()).toBeVisible();
+  await assertIdentity("demo");
+});
 async function exportBundle(page: Page) {
   await page.goto("/settings?tab=privacy");
   const download = page.waitForEvent("download");

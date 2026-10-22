@@ -42,12 +42,17 @@ describe("jakstoimy-demo.csv fixture", () => {
     expect(income - expense).toBe(manifest.net_grosze);
   });
 
-  it("spans six months with stable date bounds", () => {
+  it("spans six months with past-only date bounds", () => {
     const parsed = ersteAdapter.parse(text);
     const dates = parsed.rows.map((r) => r.posted_at).sort();
     expect(dates[0]).toBe(manifest.date_start);
     expect(dates[dates.length - 1]).toBe(manifest.date_end);
     const months = new Set(dates.map((d) => d.slice(0, 7)));
     expect(months.size).toBe(6);
+
+    const today = new Date();
+    const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    expect(manifest.date_end < todayIso).toBe(true);
+    expect(dates.every((d) => d < todayIso)).toBe(true);
   });
 });

@@ -151,3 +151,53 @@ test("invitation email confirms only a successful request and allows retry after
   await expect(page.getByRole("status")).toContainText("Dołączenie do grupy potwierdzisz osobno");
   await expect(page.getByRole("alert")).toHaveCount(0);
 });
+
+test("password setup refuses a demo identity even with verified synthetic email", async ({
+  page,
+}) => {
+  await injectFakeSession(page);
+  await mockSupabaseAPI(page);
+  let writes = 0;
+  await page.route("**/auth/v1/user**", (route) => {
+    if (route.request().method() === "PUT") writes++;
+    return route.fulfill({
+      status: 200,
+      json: {
+        ...MOCK_USER,
+        email_confirmed_at: "2026-01-01T00:00:00Z",
+        app_metadata: { ...MOCK_USER.app_metadata, account_kind: "demo" },
+      },
+    });
+  });
+  await page.goto("/auth/setup");
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.getByLabel("Hasło", { exact: true })).toHaveCount(0);
+  expect(writes).toBe(0);
+});
+
+test("password setup refuses an identity changed after the form was opened", async ({ page }) => {
+  await injectFakeSession(page);
+  await mockSupabaseAPI(page);
+  let switched = false;
+  let writes = 0;
+  const verified = { ...MOCK_USER, email_confirmed_at: "2026-01-01T00:00:00Z" };
+  await page.route("**/auth/v1/user**", (route) => {
+    if (route.request().method() === "PUT") writes++;
+    return route.fulfill({
+      status: 200,
+      json: { ...verified, id: switched ? "00000000-0000-0000-0000-000000000099" : verified.id },
+    });
+  });
+  await page.route("**/rest/v1/profiles**", (route) => {
+    if (route.request().method() === "PATCH") writes++;
+    return fulfillSupabaseJson(route, MOCK_PROFILE);
+  });
+  await page.goto("/auth/setup");
+  await page.getByLabel("Nazwa wyświetlana").fill("Ada Testowa");
+  await page.getByLabel("Hasło", { exact: true }).fill("example-password-1");
+  await page.getByLabel("Powtórz hasło").fill("example-password-1");
+  switched = true;
+  await page.getByRole("button", { name: "Ustaw hasło" }).click();
+  await expect(page.getByRole("alert")).toBeVisible();
+  expect(writes).toBe(0);
+});

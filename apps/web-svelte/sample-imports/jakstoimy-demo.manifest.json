@@ -4,7 +4,7 @@
   "format_note": "Fictional demo ledger using Erste headerless 9-col layout supported by the production adapter. Not a real bank export.",
   "row_count_transactions": 96,
   "date_start": "2026-05-01",
-  "date_end": "2026-10-20",
+  "date_end": "2026-10-17",
   "income_grosze": 6150000,
   "expense_grosze": 3676584,
   "net_grosze": 2473416,
