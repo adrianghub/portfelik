@@ -42,7 +42,9 @@
     try {
       forgetDemoAccess();
       await flushDeviceAuthStorage();
-      window.location.reload();
+      const target = new URL(window.location.href);
+      target.searchParams.delete("switchFailed");
+      window.location.replace(`${target.pathname}${target.search}${target.hash}`);
     } catch {
       error = m.demo_resume_failed();
       demoLoading = false;

@@ -496,3 +496,23 @@ test("successful self-deletion removes demo binding before returning to login", 
     await page.evaluate(() => localStorage.getItem("jakstoimy.auth.demo.binding.v1"))
   ).toBeNull();
 });
+
+test("forgetting failed demo restore removes the failure route without starting provisioning", async ({
+  page,
+}) => {
+  await mockIdentityBackend(page);
+  let provisions = 0;
+  page.on("request", (request) => {
+    if (request.url().includes("/functions/v1/open-demo-account")) provisions++;
+  });
+  await page.goto("/login");
+  await page.evaluate(() => localStorage.setItem("jakstoimy.auth.demo.binding.v1", "deleted-demo"));
+  await page.goto("/login?account=demo&switchFailed=demo&redirectTo=%2Fanalysis");
+  await expect(page.getByRole("alert")).toBeVisible();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Zapomnij zapisane demo" }).click();
+  await expect(page).toHaveURL(/\/login\?account=demo&redirectTo=%2Fanalysis$/);
+  await expect(page.getByRole("button", { name: "Otwórz konto demo" })).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  expect(provisions).toBe(0);
+});
