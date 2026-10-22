@@ -57,9 +57,9 @@ async function fill(userId: string): Promise<{ inserted: number; total: number }
     sourceFileHash: file.sourceFileHash,
   });
   const count = await fetchTransactionCount();
-  if (session?.status === "committed" && count === 96) {
+  if (session?.status === "committed" && count >= 96) {
     await finish(session.id, userId);
-    return { inserted: 0, total: count };
+    return { inserted: 0, total: 96 };
   }
   // Deletion preserves committed audit history. A deliberate fill on an empty
   // ledger creates a new preview instead of rewriting/cancelling that history.
@@ -119,7 +119,7 @@ async function fill(userId: string): Promise<{ inserted: number; total: number }
   if (session.status === "committed") {
     await requireDemo(userId);
     await finish(session.id, userId);
-    return { inserted: 0, total: await fetchTransactionCount() };
+    return { inserted: 0, total: 96 };
   }
   let rows = await fetchSessionRows(session.id);
   if (!rows.length) {
@@ -168,11 +168,11 @@ async function fill(userId: string): Promise<{ inserted: number; total: number }
     });
     if (completed?.status !== "committed") throw error;
   }
-  const total = await fetchTransactionCount();
-  if (total !== 96) throw new Error("demo_sample_incomplete");
+  // Finalization validates the 96 provenance-linked bank rows, not the whole
+  // ledger (another tab may already have added the three unpaid operations).
   await requireDemo(userId);
   await finish(session.id, userId);
-  return { inserted, total };
+  return { inserted, total: 96 };
 }
 
 /** Same-tab coalescing + cross-tab Web Lock; SQL uniqueness/RPC protects every client. */

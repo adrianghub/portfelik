@@ -199,3 +199,23 @@ it("refills a deliberately cleared ledger without rewriting committed history", 
   expect(mocks.open).toHaveBeenCalledTimes(2);
   expect(mocks.commit).toHaveBeenCalledTimes(2);
 });
+
+it("retries the same imported history with three scheduled operations without importing again", async () => {
+  await fillDemoSample();
+  state.count = 99;
+  expect(await fillDemoSample()).toEqual({ inserted: 0, total: 96 });
+  expect(mocks.commit).toHaveBeenCalledTimes(1);
+  expect(mocks.cash).toHaveBeenCalledTimes(2);
+});
+
+it("validates imported provenance when another client has already finalized the operations", async () => {
+  const commit = mocks.commit.getMockImplementation()!;
+  mocks.commit.mockImplementationOnce(async (...args) => {
+    const result = await commit(...args);
+    state.count = 99;
+    return result;
+  });
+  expect(await fillDemoSample()).toEqual({ inserted: 96, total: 96 });
+  expect(mocks.cash).toHaveBeenCalledWith("finish_demo_sample", { p_session_id: "preview" });
+  expect(mocks.commit).toHaveBeenCalledTimes(1);
+});
