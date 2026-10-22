@@ -160,6 +160,23 @@ describe("confirmOwnedDemoIdentity", () => {
 });
 
 describe("open-demo-account Edge handler", () => {
+  it("keeps the master kill switch in explicitly persistent staging", async () => {
+    Object.assign(config, {
+      SUPABASE_URL: "https://nveyzxxnyccpnesebvuw.supabase.co",
+      DEMO_STAGING_ALWAYS_ENABLED: "true",
+      DEMO_PROVISION_ENABLED: "false",
+      DEMO_PROVISION_REQUIRE_TURNSTILE: "true",
+      DEMO_TURNSTILE_SECRET: "test-secret",
+      DEMO_PROVISION_CLIENT_SALT: "test-salt",
+      DEMO_PROVISION_RATE_WINDOW_SECONDS: "7200",
+      DEMO_PROVISION_RATE_MAX: "3",
+      DEMO_PROVISION_GLOBAL_MAX_ACTIVE: "3",
+    });
+    const response = await handler()(post());
+    expect(response.status).toBe(503);
+    expect(rpc).not.toHaveBeenCalled();
+    expect(createUser).not.toHaveBeenCalled();
+  });
   it("refuses staging with enabled=true but no server lease", async () => {
     config.SUPABASE_URL = "https://nveyzxxnyccpnesebvuw.supabase.co";
     const response = await handler()(post());

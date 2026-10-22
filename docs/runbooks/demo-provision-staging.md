@@ -164,6 +164,26 @@ that event as actionable even if the orphan table is empty.
 
 ## 7. Orphan reconciliation (safe)
 
+### Persistent staging availability
+
+An explicitly approved persistent staging environment can set
+`DEMO_STAGING_ALWAYS_ENABLED=true` on **portfelik-staging only**. This replaces
+the lease requirement, not the master kill switch or safeguards. Turnstile,
+shared 3-attempt/7200-second rate limit and global capacity 3 remain required.
+Never set this flag on production. Disable the previous window's monitor and
+scheduled cutoff before switching modes. A persistent environment is not a
+completed 60-minute controlled soak. `DEMO_PROVISION_ENABLED=false` still stops
+provisioning immediately. Record effective occupied capacity, including
+unrepresented creating/committed operations and orphans, rather than Auth count
+alone. Reconcile only already-bound absent identities using the guarded RPC.
+
+Direct Auth Dashboard deletion bypasses `delete_account()` and can fail on
+the import aggregate's intentional RESTRICT foreign keys. Use the existing
+account-deletion procedure, which deletes private import leaves before parents
+and preserves shared custody. Do not weaken these foreign keys or delete import
+history piecemeal to make Dashboard deletion pass. Operator deletion of specific
+test accounts needs an explicit reviewed scope and authorization.
+
 Rows in `demo_provision_orphans`:
 
 | `kind` | Meaning | Allowed action |
