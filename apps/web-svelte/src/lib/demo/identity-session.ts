@@ -100,6 +100,13 @@ export function hasDemoBinding(): boolean {
   );
 }
 
+/** Only after confirmed deletion or an explicit decision to forget local demo access. */
+export function forgetDemoAccess(): void {
+  clearParkedSession("demo");
+  if (peekPendingAccountSwitch()?.kind === "demo") clearPendingAccountSwitch();
+  if (typeof localStorage !== "undefined") deviceAuthStorage.removeItem(DEMO_BINDING_KEY);
+}
+
 export function readParkedSession(kind: AccountKind): Session | null {
   return readJsonSession(storageKeyForKind(kind));
 }

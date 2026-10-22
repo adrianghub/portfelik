@@ -445,3 +445,54 @@ test.describe("Demo 2.0 identity flow", () => {
     expect(provisions).toBe(0);
   });
 });
+
+test("stale deleted demo can be forgotten explicitly without provisioning or losing parked real", async ({
+  page,
+}) => {
+  await mockIdentityBackend(page);
+  let provisions = 0;
+  page.on("request", (request) => {
+    if (request.url().includes("/functions/v1/open-demo-account")) provisions++;
+  });
+  await page.goto("/login");
+  await page.evaluate(
+    ({ realKey, real }) => {
+      localStorage.setItem("jakstoimy.auth.demo.binding.v1", "deleted-demo");
+      localStorage.setItem(realKey, JSON.stringify(real));
+    },
+    { realKey: REAL_SESSION_KEY, real: sessionFor("real", REAL_USER) }
+  );
+  await page.reload();
+  await page.getByRole("button", { name: "Wróć do mojego demo" }).click();
+  await expect(page.getByRole("alert")).toContainText("Nie udało się wznowić");
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await page.getByRole("button", { name: "Zapomnij zapisane demo" }).click();
+  await expect(page.getByRole("button", { name: "Wróć do mojego demo" })).toBeVisible();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Zapomnij zapisane demo" }).click();
+  await expect(page.getByRole("button", { name: "Otwórz konto demo" })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Otwórz konto demo" })).toBeVisible();
+  expect(await page.evaluate((key) => !!localStorage.getItem(key), REAL_SESSION_KEY)).toBe(true);
+  expect(provisions).toBe(0);
+});
+
+test("successful self-deletion removes demo binding before returning to login", async ({
+  page,
+}) => {
+  await mockIdentityBackend(page);
+  await seedDualIdentity(page, "demo");
+  await page.route("**/rest/v1/rpc/delete_account", (route) =>
+    route.fulfill({ status: 204, body: "" })
+  );
+  await page.goto("/settings?tab=privacy");
+  await page.getByRole("button", { name: "Usuń konto", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Usuń", exact: true }).click();
+  await expect(page).toHaveURL(/\/login/);
+  await expect(page.getByRole("button", { name: "Otwórz konto demo" })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Otwórz konto demo" })).toBeVisible();
+  expect(
+    await page.evaluate(() => localStorage.getItem("jakstoimy.auth.demo.binding.v1"))
+  ).toBeNull();
+});

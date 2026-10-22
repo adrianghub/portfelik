@@ -19,6 +19,19 @@ Locks serialize demo entry across tabs where supported. Successful provisioning
 binds its returned UID before OTP verification, so an OTP failure cannot silently
 create another identity on retry.
 
+Successful account deletion is a terminal action: after `delete_account()`
+confirms removal of the authenticated demo, remove its parked credentials,
+pending demo restore and local binding, and flush native storage before leaving.
+An RPC or Auth failure keeps the binding. Deleting a real account does not forget
+the independent demo.
+
+When old demo access cannot be resumed (for example after operator deletion),
+login offers an explicit **Zapomnij zapisane demo** action with confirmation.
+This removes only local demo access, leaves parked real credentials intact and
+never deletes server data or provisions a replacement. A later new-demo action
+still requires Turnstile and the normal server limits. Cancelling confirmation
+keeps the binding.
+
 ## Credential storage
 
 Browser profiles use existing local storage, subject to the application's

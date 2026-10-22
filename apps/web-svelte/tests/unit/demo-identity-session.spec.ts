@@ -10,6 +10,8 @@ import {
   clearPendingAccountSwitch,
   consumePendingAccountSwitch,
   hasParkedSession,
+  forgetDemoAccess,
+  hasDemoBinding,
   isDemoAccountUser,
   parkInactiveSession,
   peekPendingAccountSwitch,
@@ -127,6 +129,25 @@ describe("demo identity session partition", () => {
     clearAllIdentitySessionState();
     expect(hasParkedSession("demo")).toBe(false);
     expect(localStorage.getItem(DEMO_BINDING_KEY)).toBe("u1");
+  });
+
+  it("explicitly forgetting demo removes its binding and pending restore, preserving real credentials", () => {
+    parkInactiveSession(sessionFor("demo"));
+    parkInactiveSession(sessionFor("real"));
+    writePendingAccountSwitch({ kind: "demo", access_token: "d", refresh_token: "r" });
+    forgetDemoAccess();
+    expect(hasDemoBinding()).toBe(false);
+    expect(readParkedSession("demo")).toBeNull();
+    expect(peekPendingAccountSwitch()).toBeNull();
+    expect(readParkedSession("real")?.refresh_token).toBe("real-refresh");
+  });
+
+  it("forgetting demo does not cancel a pending real-account switch", () => {
+    parkInactiveSession(sessionFor("demo"));
+    writePendingAccountSwitch({ kind: "real", access_token: "a", refresh_token: "r" });
+    forgetDemoAccess();
+    expect(hasDemoBinding()).toBe(false);
+    expect(peekPendingAccountSwitch()?.kind).toBe("real");
   });
 });
 

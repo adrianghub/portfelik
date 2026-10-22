@@ -1496,6 +1496,8 @@
   "demo_close": "Zamknij demo",
   "demo_resume": "Wróć do mojego demo",
   "demo_resume_failed": "Nie udało się wznowić zapisanego demo. Dostęp mógł wygasnąć. Nie utworzyliśmy nowego konta.",
+  "demo_forget_access": "Zapomnij zapisane demo",
+  "demo_forget_confirm": "Usunąć zapis dostępu do demo z tego urządzenia? To nie usuwa konta ani danych z serwera. Jeśli konto nadal istnieje, możesz utracić do niego dostęp. Nowe demo utworzysz osobno po weryfikacji.",
   "demo_browser_binding_note": "Demo jest zapamiętane w tym profilu przeglądarki. Możesz je zamknąć i wrócić do tych samych danych. Wyczyszczenie danych przeglądarki usuwa zapisany dostęp.",
   "demo_open_busy": "Otwieranie konta demo…",
   "demo_open_error_disabled": "Konto demo jest chwilowo niedostępne. Spróbuj ponownie później.",

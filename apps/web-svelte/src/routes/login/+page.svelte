@@ -3,8 +3,8 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import { onMount } from "svelte";
-  import { hasDemoBinding, hasParkedSession } from "$lib/demo/identity-session";
-  import { initializeDeviceAuthStorage } from "$lib/auth/device-storage";
+  import { forgetDemoAccess, hasDemoBinding, hasParkedSession } from "$lib/demo/identity-session";
+  import { flushDeviceAuthStorage, initializeDeviceAuthStorage } from "$lib/auth/device-storage";
   import {
     clearLoginRedirect,
     redirectTargetFromUrl,
@@ -34,8 +34,23 @@
   let returnAvailable = $state(false);
   let existingDemo = $state(false);
   let demoStorageReady = $state(false);
+  let resumeFailed = $state(false);
+
+  async function forgetUnavailableDemo() {
+    if (loading || demoLoading || !window.confirm(m.demo_forget_confirm())) return;
+    demoLoading = true;
+    try {
+      forgetDemoAccess();
+      await flushDeviceAuthStorage();
+      window.location.reload();
+    } catch {
+      error = m.demo_resume_failed();
+      demoLoading = false;
+    }
+  }
   onMount(() => {
     if (switchFailed) error = m.demo_switch_expired();
+    resumeFailed = page.url.searchParams.get("switchFailed") === "demo";
     void initializeDeviceAuthStorage()
       .then(() => {
         existingDemo = hasDemoBinding();
@@ -111,6 +126,7 @@
   async function openDemo() {
     if (!demoStorageReady || demoLoading || (!existingDemo && demoSiteKey && !demoToken)) return;
     demoLoading = true;
+    resumeFailed = false;
     error = null;
     const token = demoToken;
     demoToken = "";
@@ -123,6 +139,7 @@
       demoToken = "";
       demoChallengeAttempt += 1;
       existingDemo = hasDemoBinding();
+      resumeFailed = existingDemo && result.error === "demo_session_failed";
       error =
         result.error === "demo_session_failed"
           ? m.demo_resume_failed()
@@ -262,6 +279,16 @@
           {demoLoading ? m.demo_open_busy() : existingDemo ? m.demo_resume() : m.demo_open_cta()}
         </button>
         <p class="mb-3 text-xs text-slate-400">{m.demo_browser_binding_note()}</p>
+      {/if}
+      {#if demoStorageReady && existingDemo && resumeFailed}
+        <button
+          type="button"
+          onclick={forgetUnavailableDemo}
+          disabled={loading || demoLoading}
+          class="mb-3 text-sm text-slate-400 underline hover:text-slate-200 disabled:opacity-50"
+        >
+          {m.demo_forget_access()}
+        </button>
       {/if}
 
       {#if showReal}
