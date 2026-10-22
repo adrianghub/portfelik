@@ -68,11 +68,38 @@ test("password reset keeps the invitation return path and uses an email link", a
   await page.goto("/login?redirectTo=%2Finvite%2Ftoken");
   await page.getByLabel("Adres e-mail").fill("existing@example.test");
   await page.getByRole("button", { name: "Nie pamiętasz hasła?" }).click();
-  await expect(page.getByRole("status")).toContainText("Jeśli konto istnieje");
+  const panel = page.getByRole("dialog", { name: "Odzyskaj dostęp do konta" });
+  await expect(panel).toBeVisible();
+  await expect(panel.getByLabel("Adres e-mail")).toHaveValue("existing@example.test");
+  expect(redirect).toBe("");
+  await panel.getByRole("button", { name: "Wyślij prośbę o zmianę hasła" }).click();
+  await expect(panel.getByRole("status")).toContainText("Jeśli konto istnieje");
   const setup = new URL(new URL(redirect).searchParams.get("redirectTo")!, "https://app.test");
   expect(setup.pathname).toBe("/auth/setup");
   expect(setup.searchParams.get("mode")).toBe("recovery");
   expect(setup.searchParams.get("redirectTo")).toBe("/invite/token");
+});
+
+test("recovery panel accepts its own email and returns to login", async ({ page }) => {
+  let requests = 0;
+  await page.route("**/auth/v1/recover**", (route) => {
+    expect(route.request().postDataJSON()).toMatchObject({ email: "recovery@example.test" });
+    requests++;
+    return route.fulfill({ json: {} });
+  });
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Nie pamiętasz hasła?" }).click();
+  const panel = page.getByRole("dialog", { name: "Odzyskaj dostęp do konta" });
+  await expect(panel.getByLabel("Adres e-mail")).toHaveValue("");
+  expect(requests).toBe(0);
+  await panel.getByLabel("Adres e-mail").fill("recovery@example.test");
+  await panel.getByRole("button", { name: "Wyślij prośbę o zmianę hasła" }).click();
+  await expect(panel.getByRole("status")).toContainText("Jeśli konto istnieje");
+  expect(requests).toBe(1);
+  await panel.getByRole("button", { name: "Wróć do logowania" }).click();
+  await expect(panel).toBeHidden();
+  await expect(page.getByLabel("Adres e-mail")).toHaveValue("");
+  await expect(page.getByLabel("Hasło", { exact: true })).toBeVisible();
 });
 
 test("an expired explicit callback cannot fall back to an already signed-in account", async ({
@@ -107,9 +134,13 @@ test("failed recovery request never displays a delivery confirmation", async ({ 
   await page.goto("/login");
   await page.getByLabel("Adres e-mail").fill("existing@example.test");
   await page.getByRole("button", { name: "Nie pamiętasz hasła?" }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Wyślij prośbę o zmianę hasła" })
+    .click();
   await expect(page.getByRole("alert")).toContainText("Nie udało się wysłać linku do zmiany hasła");
   await expect(page.getByRole("status")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Nie pamiętasz hasła?" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Wyślij prośbę o zmianę hasła" })).toBeEnabled();
 });
 
 test("unverified setup session explains how to recover access without showing password fields", async ({
