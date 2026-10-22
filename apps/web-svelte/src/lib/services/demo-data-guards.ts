@@ -27,8 +27,10 @@ export function hasDemoData(input: {
   netWorthItems?: { label: string; is_demo?: boolean }[];
 }): boolean {
   return (
-    input.transactions.some((tx) => tx.is_demo || isDemoDescription(tx.description)) ||
-    input.plans.some((plan) => plan.is_demo || isDemoPlanName(plan.name)) ||
-    (input.netWorthItems ?? []).some((item) => item.is_demo || isDemoDescription(item.label))
+    input.transactions.some((tx) => tx.is_demo) ||
+    // The exact historical bug stays visible for review, but SQL refuses to
+    // delete it until its origin is confirmed. Arbitrary prefixes prove nothing.
+    input.plans.some((plan) => plan.is_demo || plan.name === "Demo: Kredyt samochodowy") ||
+    (input.netWorthItems ?? []).some((item) => item.is_demo)
   );
 }

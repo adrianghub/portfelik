@@ -71,6 +71,36 @@ async function fixture() {
 }
 
 describe("demo provision state machine", () => {
+  it("shared soak budget stays at three despite concurrent claims and released holds", async () => {
+    const admin = createAdminClient();
+    const key = `soak-${randomUUID()}`;
+    const args = {
+      p_client_key: key,
+      p_window_seconds: 7200,
+      p_max_per_window: 3,
+      p_global_max_active: 10000,
+    };
+    const results = await Promise.all(
+      Array.from({ length: 8 }, () => admin.rpc("claim_demo_provision_slot", args))
+    );
+    const accepted = results.filter((result) => !result.error);
+    for (const result of accepted) operations.push(result.data as string);
+    expect(accepted).toHaveLength(3);
+    for (const result of results.filter((result) => result.error)) {
+      expect(result.error?.message).toContain("demo_rate_limited");
+    }
+    for (const result of accepted) {
+      expect(
+        (await admin.rpc("release_demo_provision_reservation", { p_reservation_id: result.data }))
+          .error
+      ).toBeNull();
+    }
+    expect((await admin.rpc("claim_demo_provision_slot", args)).error?.message).toContain(
+      "demo_rate_limited"
+    );
+    await admin.from("demo_provision_attempts").delete().eq("client_key", key);
+  });
+
   it.each(["held", "released"])("rejects cleanup/confirmation/commit from %s", async (status) => {
     const f = await fixture();
     if (status === "released") {

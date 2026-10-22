@@ -14,6 +14,8 @@
  * hashed_token / tokenHash is a full credential: never log it.
  */
 
+import { stagingSoakAllowed } from "./staging-soak.ts";
+
 export type AuthUserShape = {
   id: string;
   email?: string | null;
@@ -264,7 +266,10 @@ export function createOpenDemoAccountHandler(
       return json(req, { error: "method_not_allowed" }, 405);
     }
 
-    if ((env("DEMO_PROVISION_ENABLED") ?? "").toLowerCase() !== "true") {
+    if (
+      (env("DEMO_PROVISION_ENABLED") ?? "").toLowerCase() !== "true" ||
+      !stagingSoakAllowed(env)
+    ) {
       return json(req, { error: "demo_provision_disabled" }, 503);
     }
 
@@ -307,6 +312,9 @@ export function createOpenDemoAccountHandler(
     }
     if (!automationAccepted) {
       return json(req, { error: "automation_rejected" }, 403);
+    }
+    if (!stagingSoakAllowed(env)) {
+      return json(req, { error: "demo_provision_disabled" }, 503);
     }
 
     const admin = createClient(url, serviceKey, {
@@ -403,6 +411,9 @@ export function createOpenDemoAccountHandler(
       });
       if (begun.error) return await failProvision();
       operationStarted = true;
+      // A slow Siteverify/RPC must not start Auth after the lease expires.
+      // Keep the durable journal fail-closed if expiry races with begin.
+      if (!stagingSoakAllowed(env)) return await failProvision();
       const created = await admin.auth.admin.createUser({
         email,
         email_confirm: true,
@@ -446,6 +457,7 @@ export function createOpenDemoAccountHandler(
         return await failProvision();
       }
 
+      if (!stagingSoakAllowed(env)) return await failProvision();
       const link = await admin.auth.admin.generateLink({
         type: "magiclink",
         email: owned.email,
@@ -454,6 +466,7 @@ export function createOpenDemoAccountHandler(
       if (link.error || !hashedToken || typeof hashedToken !== "string") {
         return await failProvision();
       }
+      if (!stagingSoakAllowed(env)) return await failProvision();
 
       return json(req, {
         userId: owned.userId,

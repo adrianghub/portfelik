@@ -89,6 +89,60 @@ describe("RPC: clear_demo_data", () => {
     await cleanupSentinels(ctx.admin);
   });
 
+  it("creates a tagged car loan atomically and rolls back invalid terms", async () => {
+    const before = await ctx.userA.client.from("plans").select("id");
+    const invalid = await ctx.userA.client.rpc("create_demo_car_loan", {
+      p_start_date: "2026-07-01",
+      p_end_date: "2026-06-01",
+    });
+    expect(invalid.error).not.toBeNull();
+    expect((await ctx.userA.client.from("plans").select("id")).data).toEqual(before.data);
+    const saved = await ctx.userA.client.rpc("create_demo_car_loan", {
+      p_start_date: "2026-01-01",
+      p_end_date: "2028-01-01",
+    });
+    expect(saved.error).toBeNull();
+    expect(saved.data.plan).toMatchObject({
+      name: "Kredyt samochodowy",
+      is_demo: true,
+      user_id: ctx.userA.userId,
+    });
+    const planId = saved.data.plan.id;
+    expect((await ctx.userA.client.rpc("clear_demo_data")).error).toBeNull();
+    expect((await ctx.admin.from("plans").select("id").eq("id", planId)).data).toEqual([]);
+    expect(
+      (await ctx.admin.from("plan_debt_terms").select("plan_id").eq("plan_id", planId)).data
+    ).toEqual([]);
+  });
+
+  it("refuses success and rolls back cleanup for a historical car loan with unconfirmed origin", async () => {
+    const orphan = await ctx.userA.client
+      .from("plans")
+      .insert({
+        user_id: ctx.userA.userId,
+        name: "Demo: Kredyt samochodowy",
+        kind: "debt",
+        start_date: "2026-01-01",
+        end_date: "2028-01-01",
+        is_demo: false,
+      })
+      .select("id")
+      .single();
+    expect(orphan.error).toBeNull();
+    try {
+      const result = await ctx.userA.client.rpc("clear_demo_data");
+      expect(result.error?.message).toBe("demo_legacy_origin_unconfirmed");
+      expect(
+        (await ctx.userA.client.from("plans").select("id").eq("id", orphan.data!.id)).data
+      ).toHaveLength(1);
+      expect(
+        (await ctx.userA.client.from("transactions").select("id").eq("is_demo", true)).data!.length
+      ).toBeGreaterThan(0);
+    } finally {
+      await ctx.userA.client.from("plans").delete().eq("id", orphan.data!.id);
+    }
+  });
+
   it("clears all tagged showcase rows for the caller in one call", async () => {
     const { data, error } = await ctx.userA.client.rpc("clear_demo_data");
     expect(error).toBeNull();

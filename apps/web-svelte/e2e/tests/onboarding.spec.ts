@@ -3,9 +3,28 @@ import {
   MOCK_CATEGORIES,
   MOCK_PROFILE,
   MOCK_PROFILE_FRESH_TOUR,
+  MOCK_USER,
   WELCOME_TOUR_SKIP_BUTTON,
 } from "../helpers/fixtures";
-import { fulfillSupabaseJson, injectFakeSession, mockSupabaseAPI } from "../helpers/mock-auth";
+import {
+  fulfillSupabaseJson,
+  mockSupabaseAPI,
+  stubServiceWorkerForTests,
+} from "../helpers/mock-auth";
+
+async function mockLegacyExample(page: import("@playwright/test").Page) {
+  let present = true;
+  await page.route("**/rest/v1/transactions**", (route) =>
+    route.fulfill({
+      headers: { "content-range": present ? "*/1" : "*/0" },
+      json: present ? [{ id: "legacy-demo-tx", description: "Pensja", is_demo: true }] : [],
+    })
+  );
+  await page.route("**/rest/v1/rpc/clear_demo_data**", (route) => {
+    present = false;
+    return route.fulfill({ json: { deleted: 1 } });
+  });
+}
 
 test.describe("onboarding hardening", () => {
   test.beforeEach(async ({ page }) => {
@@ -13,7 +32,23 @@ test.describe("onboarding hardening", () => {
       localStorage.removeItem("onboarding-dismissed");
       localStorage.removeItem("guided-tour-progress");
     });
-    await injectFakeSession(page);
+    await page.addInitScript((user) => {
+      if (sessionStorage.getItem("onboarding-session-injected")) return;
+      sessionStorage.setItem("onboarding-session-injected", "1");
+      localStorage.setItem(
+        "sb-emqzcygfwcvbmhxhfkcc-auth-token",
+        JSON.stringify({
+          access_token: "fake-access-token",
+          refresh_token: "fake-refresh-token",
+          token_type: "bearer",
+          expires_in: 3600,
+          expires_at: Math.floor(Date.now() / 1000) + 3600,
+          user,
+        })
+      );
+      localStorage.setItem("guided-tour-progress", JSON.stringify({ dismissed: true }));
+    }, MOCK_USER);
+    await stubServiceWorkerForTests(page);
     await mockSupabaseAPI(page);
 
     let demoSeeded = false;
@@ -111,7 +146,7 @@ test.describe("onboarding hardening", () => {
     });
     await page.goto("/dashboard");
     const welcome = page.getByRole("dialog", {
-      name: "Zacznij od przykładowego miesiąca",
+      name: "Poznaj JakStoimy",
     });
     await expect(welcome).toBeVisible({ timeout: 10000 });
     await page.getByRole("button", { name: WELCOME_TOUR_SKIP_BUTTON }).click();
@@ -141,7 +176,7 @@ test.describe("onboarding hardening", () => {
     });
     await page.goto("/dashboard");
     const welcome = page.getByRole("dialog", {
-      name: "Zacznij od przykładowego miesiąca",
+      name: "Poznaj JakStoimy",
     });
     await expect(welcome).toBeVisible({ timeout: 10_000 });
     await welcome.getByRole("button", { name: "Zamknij" }).click();
@@ -157,7 +192,7 @@ test.describe("onboarding hardening", () => {
       timeout: 10_000,
     });
     await expect(page.getByRole("link", { name: "Importuj wyciąg" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Wczytaj przykładowy miesiąc" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Otwórz konto demo" })).toBeVisible();
 
     await page.goto("/plans");
     await expect(page.getByRole("heading", { name: "Brak planów" })).toBeVisible({
@@ -165,7 +200,7 @@ test.describe("onboarding hardening", () => {
     });
     await expect(page.getByText("Najpierw importuj wyciąg albo wczytaj przykład.")).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Importuj wyciąg" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Wczytaj przykładowy miesiąc" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Otwórz konto demo" })).toBeVisible();
   });
 
   test("mobile tour keeps manual scroll and advances across routes", async ({ page }) => {
@@ -177,11 +212,17 @@ test.describe("onboarding hardening", () => {
       return fulfillSupabaseJson(route, MOCK_PROFILE_FRESH_TOUR);
     });
 
+    await mockLegacyExample(page);
+    let replayProfile = {
+      ...MOCK_PROFILE_FRESH_TOUR,
+      settings: { guidedTour: { path: "demo", dismissed: false, completedSceneIds: ["4.3"] } },
+    };
+    await page.route("**/rest/v1/profiles**", (route) => {
+      if (route.request().method() === "PATCH")
+        replayProfile = { ...replayProfile, ...route.request().postDataJSON() };
+      return fulfillSupabaseJson(route, replayProfile);
+    });
     await page.goto("/dashboard");
-    await page
-      .getByRole("dialog", { name: "Zacznij od przykładowego miesiąca" })
-      .getByRole("button", { name: "Wczytaj przykładowy miesiąc" })
-      .click();
 
     const tour = page.locator("[data-guided-tour-chrome]");
     await expect(tour).toContainText("1 z 8", { timeout: 15_000 });
@@ -219,26 +260,38 @@ test.describe("onboarding hardening", () => {
     await expect(page.getByRole("heading", { name: "Import bankowy" })).toBeVisible();
   });
 
-  test("loads demo from settings on empty ledger", async ({ page }) => {
+  test("settings opens the gated dedicated demo entry without writing real-account sample rows", async ({
+    page,
+  }) => {
+    let writes = 0;
+    page.on("request", (request) => {
+      if (
+        request.method() === "POST" &&
+        /rest\/v1\/(transactions|plans|rpc\/create_demo_car_loan)/.test(request.url())
+      )
+        writes += 1;
+    });
     await page.goto("/settings?tab=help");
-    await page.getByRole("button", { name: "Wczytaj przykładowy miesiąc" }).click();
-    await expect(page.getByText("Przykładowy miesiąc jest gotowy.")).toBeVisible();
+    await page.getByRole("button", { name: "Wypełnij przykładowymi danymi" }).click();
+    await expect(page).toHaveURL(/\/login\?account=demo/);
+    await expect(page.getByTestId("open-demo-account")).toBeVisible();
+    expect(writes).toBe(0);
+    expect(
+      await page.evaluate(() => localStorage.getItem("jakstoimy.auth.real.session.v1") !== null)
+    ).toBe(true);
   });
 
   test("demo banner is on kokpit, transactions, and plans, and clearing it works", async ({
     page,
   }) => {
-    await page.goto("/settings?tab=help");
-    await page.getByRole("button", { name: "Wczytaj przykładowy miesiąc" }).click();
-    await expect(page.getByText("Przykładowy miesiąc jest gotowy.")).toBeVisible();
-
+    await mockLegacyExample(page);
     await page.goto("/dashboard");
-    await expect(page.getByText("To przykładowy miesiąc.")).toBeVisible({
+    await expect(page.getByText("To przykładowe dane.", { exact: true })).toBeVisible({
       timeout: 10_000,
     });
 
     await page.goto("/transactions");
-    await expect(page.getByText("To przykładowy miesiąc.")).toBeVisible({
+    await expect(page.getByText("To przykładowe dane.", { exact: true })).toBeVisible({
       timeout: 10_000,
     });
     await expect(page.getByRole("button", { name: "Usuń przykład" })).toBeVisible();
@@ -247,10 +300,32 @@ test.describe("onboarding hardening", () => {
     await expect(page.getByText("Tryb demonstracyjny")).toBeVisible({
       timeout: 10_000,
     });
-    await expect(page.getByText("To przykładowy miesiąc.")).toHaveCount(0);
+    await expect(page.getByText("To przykładowe dane.", { exact: true })).toHaveCount(0);
 
     await page.getByRole("button", { name: "Usuń przykład" }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Usuń", exact: true }).click();
     await expect(page.getByText("Tryb demonstracyjny")).toHaveCount(0);
+  });
+  test("failed cleanup retains the banner and confirmation and never claims success", async ({
+    page,
+  }) => {
+    await mockLegacyExample(page);
+    await page.route("**/rest/v1/rpc/clear_demo_data**", (route) =>
+      route.fulfill({
+        status: 400,
+        json: { code: "P0001", message: "demo_legacy_origin_unconfirmed" },
+      })
+    );
+    await page.goto("/dashboard");
+    await page.getByRole("button", { name: "Usuń przykład", exact: true }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Usuń", exact: true }).click();
+    await expect(page.getByText("To przykładowe dane.", { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("alertdialog").getByRole("button", { name: "Usuń", exact: true })
+    ).toBeEnabled();
+    await expect(
+      page.getByText("Przykładowe dane usunięte. Twoje dane bez zmian.", { exact: true })
+    ).toHaveCount(0);
+    await expect(page.getByText(/Nie usunięto danych:/)).toBeVisible();
   });
 });

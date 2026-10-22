@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { goto } from "$app/navigation";
   import { createMutation, createQuery, useQueryClient } from "@tanstack/svelte-query";
   import { track } from "$lib/analytics";
   import {
@@ -12,13 +11,7 @@
   import { guidedTourStatus } from "$lib/services/guided-tour";
   import { resetGuidedTourForReplay } from "$lib/services/guided-tour-actions";
   import { guidedTourUi } from "$lib/guided-tour/ui.svelte";
-  import {
-    canSeedDemo,
-    clearDemoData,
-    fetchDemoProbe,
-    hasDemoData,
-    seedDemoData,
-  } from "$lib/services/demo-data";
+  import { canSeedDemo, clearDemoData, fetchDemoProbe, hasDemoData } from "$lib/services/demo-data";
   import { refreshDemoState } from "$lib/services/demo-query-state";
   import { fetchPlans } from "$lib/services/plans";
   import { toastError } from "$lib/toast-error";
@@ -27,6 +20,7 @@
   import * as m from "$lib/paraglide/messages";
   import { session, requireSessionUserId } from "$lib/auth/session.svelte";
   import { qk } from "$lib/query-keys";
+  import { enterDemo } from "$lib/services/open-demo-account";
 
   interface Props {
     profile: Profile | null;
@@ -62,7 +56,9 @@
 
   const canLoadDemo = $derived(canSeedDemo({ demoActive }));
   const tourStatus = $derived(guidedTourStatus(profile?.settings));
-  const visibleActions = $derived(demoWalkthroughActionsVisible({ demoActive }));
+  const visibleActions = $derived(
+    demoWalkthroughActionsVisible({ demoActive }).filter((action) => action.id !== "load_and_tour")
+  );
 
   function tourStatusLabel(): string {
     switch (tourStatus) {
@@ -82,11 +78,9 @@
   }
 
   const seedDemoMutation = createMutation(() => ({
-    mutationFn: seedDemoData,
-    onSuccess: async (result) => {
-      track("demo_loaded", { row_count: result.inserted });
-      await invalidateDemoQueries();
-      toast.success(m.demo_loaded_toast());
+    mutationFn: async () => {
+      const result = await enterDemo();
+      if (!result.ok) throw new Error("demo_entry_failed");
     },
     onError: (err) => toastError(err),
   }));
@@ -116,14 +110,8 @@
     mutationFn: async () => {
       if (!profile) throw new Error("no_profile");
       if (!canLoadDemo) throw new Error("demo_active");
-      await seedDemoData();
-      await invalidateDemoQueries();
-      track("demo_loaded", { row_count: 1 });
-      await resetGuidedTourForReplay(queryClient, profile.id, profile);
-      await goto("/dashboard");
-    },
-    onSuccess: () => {
-      toast.success(m.demo_loaded_toast());
+      const result = await enterDemo();
+      if (!result.ok) throw new Error("demo_entry_failed");
     },
     onError: (err) => toastError(err),
   }));
@@ -212,9 +200,14 @@
   message={m.demo_clear_confirm_message()}
   pending={clearDemoMutation.isPending}
   onconfirm={() => {
-    void clearDemoMutation.mutateAsync().then(() => {
-      confirmClearOpen = false;
-    });
+    void clearDemoMutation
+      .mutateAsync()
+      .then(() => {
+        confirmClearOpen = false;
+      })
+      .catch(() => {
+        // Mutation onError already shows the failure. Keep confirmation visible.
+      });
   }}
   onclose={() => (confirmClearOpen = false)}
 />

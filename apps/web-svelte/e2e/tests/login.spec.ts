@@ -44,11 +44,9 @@ test("unauthenticated: /transactions redirects to /login with return path", asyn
 
 test("login page renders Google sign-in button", async ({ page }) => {
   await page.goto("/login");
+  await expect(page.getByRole("heading", { name: "Twoje pieniądze. Pełen obraz." })).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Zobacz, na co idą Twoje pieniądze." })
-  ).toBeVisible();
-  await expect(
-    page.getByText("Importujesz wyciąg. Kokpit pokazuje miesiąc. Plany na cele i kredyty.")
+    page.getByText("Zobacz, ile masz, na co wydajesz i ile zostanie Ci po kolejnych płatnościach.")
   ).toBeVisible();
   await expect(page.getByText("🏠 Czynsz")).toHaveCount(0);
   await expect(page.getByText("Twoje konto")).toHaveCount(0);

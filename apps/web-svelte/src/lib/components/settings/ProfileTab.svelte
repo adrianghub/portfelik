@@ -2,7 +2,8 @@
   import { createMutation, useQueryClient } from "@tanstack/svelte-query";
   import { requireSessionUserId } from "$lib/auth/session.svelte";
   import { qk } from "$lib/query-keys";
-  import { updateProfile } from "$lib/services/profiles";
+  import { updateDemoName, updateProfile } from "$lib/services/profiles";
+  import { isDemoAccountUser } from "$lib/demo/identity-session";
   import { deleteAccount } from "$lib/services/groups";
   import { buildAccountExport, downloadAccountExport } from "$lib/services/account-export";
   import {
@@ -44,6 +45,7 @@
   let editing = $state(false);
   let nameInput = $state("");
   let preferredNameInput = $state("");
+  let demoAccount = $state(false);
   const reminderCadenceOptions = [7, 14, 30] as const;
 
   const bankImportReminder = $derived(getBankImportReminder(profile?.settings));
@@ -56,10 +58,12 @@
 
   const mutation = createMutation(() => ({
     mutationFn: () =>
-      updateProfile(profile!.id, {
-        name: nameInput.trim(),
-        settings: { ...profile!.settings, preferredName: preferredNameInput.trim() },
-      }),
+      demoAccount
+        ? updateDemoName(nameInput)
+        : updateProfile(profile!.id, {
+            name: nameInput.trim(),
+            settings: { ...profile!.settings, preferredName: preferredNameInput.trim() },
+          }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: qk.profile(requireSessionUserId()) });
       toast.success(m.toast_profile_updated());
@@ -124,6 +128,9 @@
 
   onMount(() => {
     void refreshPushState();
+    void supabase.auth.getSession().then(({ data }) => {
+      demoAccount = isDemoAccountUser(data.session?.user);
+    });
   });
 
   const subMutation = createMutation(() => ({
@@ -237,7 +244,9 @@
       class="divide-y divide-white/5 overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60 backdrop-blur"
     >
       <div class="flex items-center justify-between gap-3 px-4 py-3">
-        <span class="shrink-0 text-sm text-slate-400">{m.profile_name()}</span>
+        <span class="shrink-0 text-sm text-slate-400"
+          >{demoAccount ? m.demo_name_label() : m.profile_name()}</span
+        >
         {#if editing}
           <form
             onsubmit={handleSubmit}
@@ -247,19 +256,20 @@
             <input
               type="text"
               bind:value={nameInput}
-              aria-label={m.profile_name()}
+              aria-label={demoAccount ? m.demo_name_label() : m.profile_name()}
+              maxlength={demoAccount ? 30 : undefined}
               autofocus
               class="focus:border-accent/40 focus:ring-accent/30 min-w-0 flex-1 basis-full rounded-lg border border-white/10 bg-slate-950/60 px-2 py-1 text-sm text-slate-100 focus:ring-2 focus:outline-none sm:basis-0"
             />
-            <label class="basis-full text-xs text-slate-400">
-              {m.profile_preferred_name()}
-              <input
-                type="text"
-                bind:value={preferredNameInput}
-                placeholder={m.profile_preferred_name_hint()}
-                class="focus:border-accent/40 mt-1 min-h-11 w-full rounded-lg border border-white/10 bg-slate-950/60 px-2 py-1 text-sm text-slate-100"
-              />
-            </label>
+            {#if !demoAccount}<label class="basis-full text-xs text-slate-400">
+                {m.profile_preferred_name()}
+                <input
+                  type="text"
+                  bind:value={preferredNameInput}
+                  placeholder={m.profile_preferred_name_hint()}
+                  class="focus:border-accent/40 mt-1 min-h-11 w-full rounded-lg border border-white/10 bg-slate-950/60 px-2 py-1 text-sm text-slate-100"
+                />
+              </label>{/if}
             <button
               type="submit"
               disabled={mutation.isPending}
@@ -277,7 +287,9 @@
           </form>
         {:else}
           <div class="flex items-center gap-2">
-            <span class="text-sm text-slate-100">{profile.name ?? "-"}</span>
+            <span class="text-sm text-slate-100"
+              >{profile.name?.trim() || (demoAccount ? "Konto demo" : "-")}</span
+            >
             <button
               onclick={startEdit}
               class="rounded-lg p-2 text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-200"

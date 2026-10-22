@@ -8,6 +8,9 @@
   import type { User } from "@supabase/supabase-js";
   import * as m from "$lib/paraglide/messages";
   import BrandMark from "$lib/components/BrandMark.svelte";
+  import DemoBadge from "$lib/components/demo/DemoBadge.svelte";
+  import { isDemoAccountUser, type AccountKind } from "$lib/demo/identity-session";
+  import { closeDemo, requestAccountEntry } from "$lib/services/open-demo-account";
   import { isChangelogUnseen } from "$lib/content/changelog";
   import {
     LayoutDashboard,
@@ -17,9 +20,11 @@
     ShieldCheck,
     LogOut,
     ScrollText,
+    ArrowLeftRight,
   } from "lucide-svelte";
   import NotificationsPopover from "$lib/components/ui/NotificationsPopover.svelte";
   import { MediaQuery } from "svelte/reactivity";
+  import { toast } from "svelte-sonner";
 
   interface Props {
     profile: Profile | null;
@@ -56,7 +61,12 @@
   );
   const avatarImg = $derived<string | null>(avatarUrl);
   const initials = $derived.by(() => {
-    const source = profile?.name?.trim() || profile?.email || user?.email || "";
+    const source =
+      profile?.name?.trim() ||
+      (isDemoAccountUser(user) ? "Konto demo" : "") ||
+      profile?.email ||
+      user?.email ||
+      "";
     if (!source) return "?";
     const parts = source.split(/[\s@.]+/).filter(Boolean);
     if (parts.length === 0) return source[0]?.toUpperCase() ?? "?";
@@ -64,9 +74,33 @@
   });
   const email = $derived(profile?.email ?? user?.email ?? "");
   const changelogUnseen = $derived(isChangelogUnseen(profile?.settings?.changelogSeenVersion));
+  const isDemoAccount = $derived(isDemoAccountUser(user));
+  let switchingAccount = $state(false);
+
+  async function switchAccount(kind: AccountKind) {
+    if (switchingAccount) return;
+    switchingAccount = true;
+    menuOpen = false;
+    try {
+      const result = await requestAccountEntry(kind);
+      if (!result.ok) throw new Error("account_entry_failed");
+    } catch {
+      switchingAccount = false;
+      toast.error(m.demo_open_error_generic());
+    }
+    // Hard navigation is in progress on success — leave switchingAccount latched.
+  }
 
   async function signOut() {
     menuOpen = false;
+    if (isDemoAccount) {
+      try {
+        await closeDemo();
+      } catch {
+        toast.error(m.demo_open_error_generic());
+      }
+      return;
+    }
     await supabase.auth.signOut();
     goto("/login");
   }
@@ -132,6 +166,9 @@
   <a href="/" class="mr-2 shrink-0 transition-opacity hover:opacity-90" aria-label={m.app_name()}>
     <BrandMark size="sm" />
   </a>
+  {#if isDemoAccount}
+    <DemoBadge />
+  {/if}
 
   <nav aria-label={m.nav_main()} class="flex items-center gap-1">
     {#each desktopNavItems as item (item.href)}
@@ -204,6 +241,9 @@
   <a href="/" class="shrink-0 transition-opacity hover:opacity-90" aria-label={m.app_name()}>
     <BrandMark size="sm" />
   </a>
+  {#if isDemoAccount}
+    <DemoBadge compact />
+  {/if}
   <div class="ml-auto">
     {#if !isDesktopNav.current}
       <NotificationsPopover placement="bottom" />
@@ -234,7 +274,12 @@
     class="fixed top-(--app-header-offset) right-4 z-50 mt-1 w-56 overflow-hidden rounded-xl border border-white/10 bg-slate-900/95 shadow-lg backdrop-blur md:right-6"
   >
     <div class="border-b border-white/5 px-3 py-2.5">
-      <p class="truncate text-xs text-slate-400">{email}</p>
+      <p class="truncate text-sm text-slate-100">
+        {profile?.name?.trim() || (isDemoAccount ? "Konto demo" : email)}
+      </p>
+      <p class="mt-0.5 text-xs text-slate-400">
+        {isDemoAccount ? m.demo_identity_badge() : m.demo_real_account_label()}
+      </p>
     </div>
     <a
       href="/settings"
@@ -248,6 +293,30 @@
       <Settings size={15} aria-hidden="true" />
       {m.nav_settings()}
     </a>
+    {#if isDemoAccount}
+      <button
+        type="button"
+        role="menuitem"
+        disabled={switchingAccount}
+        onclick={() => void switchAccount("real")}
+        class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 transition-colors hover:bg-white/5 disabled:opacity-60"
+      >
+        <ArrowLeftRight size={15} aria-hidden="true" />
+        {m.demo_switch_to_real()}
+      </button>
+    {/if}
+    {#if !isDemoAccount}
+      <button
+        type="button"
+        role="menuitem"
+        disabled={switchingAccount}
+        onclick={() => void switchAccount("demo")}
+        class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 transition-colors hover:bg-white/5 disabled:opacity-60"
+      >
+        <ArrowLeftRight size={15} aria-hidden="true" />
+        {m.demo_switch_to_demo()}
+      </button>
+    {/if}
     <a
       href="/changelog?from=/dashboard"
       role="menuitem"
@@ -270,7 +339,7 @@
       class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 transition-colors hover:bg-white/5"
     >
       <LogOut size={15} aria-hidden="true" />
-      {m.nav_sign_out()}
+      {isDemoAccount ? m.demo_close() : m.nav_sign_out()}
     </button>
   </div>
 {/if}

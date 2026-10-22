@@ -1,4 +1,6 @@
 import { supabase } from "$lib/supabase";
+import { forgetDemoAccess, isDemoAccountUser } from "$lib/demo/identity-session";
+import { flushDeviceAuthStorage } from "$lib/auth/device-storage";
 import {
   invitationErrorFromFunctionsFailure,
   resolveInvitationFunctionResult,
@@ -217,6 +219,14 @@ export async function transferGroupOwnership(groupId: string, newOwnerId: string
 }
 
 export async function deleteAccount(): Promise<void> {
+  const { data, error: authError } = await supabase.auth.getUser();
+  if (authError || !data.user) throw authError ?? new Error("not_authenticated");
   const { error } = await supabase.rpc("delete_account");
   if (error) throw error;
+  // Failed or uncertain deletion must keep the binding. A successful self-delete
+  // is different from logout: the old demo can no longer be resumed.
+  if (isDemoAccountUser(data.user)) {
+    forgetDemoAccess();
+    await flushDeviceAuthStorage();
+  }
 }
