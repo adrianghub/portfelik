@@ -90,7 +90,6 @@ test("manual staging refuses production, unexpected branches and changed source 
     ["push", "main", sha, "", false],
     ["workflow_dispatch", "dev", sha, sha, true],
     ["workflow_dispatch", "codex/jakstoimy-1-4-demo-ui", sha, sha, true],
-    ["workflow_dispatch", "codex/jakstoimy-1-4-auth-demo", sha, sha, true],
     ["workflow_dispatch", "main", sha, sha, false],
     ["workflow_dispatch", "other-feature", sha, sha, false],
     ["workflow_dispatch", "dev", sha, "b".repeat(40), false],

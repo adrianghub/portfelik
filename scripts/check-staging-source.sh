@@ -12,8 +12,8 @@ case "$event" in
     [[ "$branch" == dev ]] || { echo 'Staging push must target dev' >&2; exit 1; }
     ;;
   workflow_dispatch)
-    [[ "$branch" == dev || "$branch" == codex/jakstoimy-1-4-demo-ui || "$branch" == codex/jakstoimy-1-4-auth-demo ]] || {
-      echo 'Manual staging is limited to dev or the reviewed Demo UI/Auth candidates' >&2; exit 1;
+    [[ "$branch" == dev || "$branch" == codex/jakstoimy-1-4-demo-ui ]] || {
+      echo 'Manual staging is limited to dev or the Demo UI candidate' >&2; exit 1;
     }
     [[ "$expected" == "$sha" ]] || { echo 'Staging source differs from expected SHA' >&2; exit 1; }
     ;;
