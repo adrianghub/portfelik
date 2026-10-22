@@ -112,6 +112,7 @@
 
   function dismissSample() {
     dismissHint(requireSessionUserId(), "import_csv");
+    sampleAdded = false;
     sampleDismissed = true;
     sampleStarted = false;
   }

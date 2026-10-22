@@ -44,11 +44,18 @@
   {#if complete}
     <h2 class="text-lg font-semibold text-slate-100" role="status">{m.demo_sample_success()}</h2>
     <p class="mt-2 text-sm text-slate-300">{m.demo_sample_success_body()}</p>
-    <a
-      href="/analysis"
-      class="bg-accent-gradient mt-4 inline-flex min-h-11 items-center rounded-full px-4 text-sm font-semibold text-slate-950"
-      >{m.demo_sample_analysis()}</a
-    >
+    <div class="mt-4 flex flex-wrap gap-2">
+      <a
+        href="/analysis"
+        class="bg-accent-gradient inline-flex min-h-11 items-center rounded-full px-4 text-sm font-semibold text-slate-950"
+        >{m.demo_sample_analysis()}</a
+      >
+      <button
+        type="button"
+        onclick={onDismiss}
+        class="min-h-11 rounded-full px-4 text-sm text-slate-300">{m.common_close()}</button
+      >
+    </div>
   {:else}
     <h2 class="text-lg font-semibold text-slate-100">{m.demo_sample_title()}</h2>
     <p class="mt-2 text-sm text-slate-300">{m.demo_sample_body()}</p>
