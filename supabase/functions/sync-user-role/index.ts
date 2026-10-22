@@ -53,9 +53,22 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  const { data: isDemo, error: demoErr } = await supabase.rpc("is_demo_account", {
+    p_user_id: body.userId,
+  });
+  if (demoErr) {
+    return new Response(`Demo check failed: ${demoErr.message}`, { status: 500 });
+  }
+  if (isDemo === true && body.role === "admin") {
+    return new Response("demo_not_allowed", { status: 403 });
+  }
+
+  const priorKind = existing.user.app_metadata?.account_kind;
   const nextMeta = {
     ...(existing.user.app_metadata ?? {}),
     role: body.role,
+    // Never drop a durable demo claim when mirroring profiles.role.
+    ...(priorKind === "demo" || isDemo === true ? { account_kind: "demo" } : {}),
   };
 
   const { error } = await supabase.auth.admin.updateUserById(body.userId, {
