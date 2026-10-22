@@ -300,6 +300,7 @@ test.describe("Demo 2.0 identity flow", () => {
     // 1) Open demo from login
     await page.goto("/login");
     await expect(page.getByRole("button", { name: "Otwórz konto demo" })).toBeVisible();
+    await expect(page.getByText("Wypróbuj JakStoimy na przykładowych danych.")).toBeVisible();
     await page.getByRole("button", { name: "Otwórz konto demo" }).click();
     await expect(page).toHaveURL(/\/demo\/welcome/, { timeout: 15_000 });
     await page.getByRole("button", { name: "Pomiń na razie" }).click();
@@ -434,6 +435,7 @@ test.describe("Demo 2.0 identity flow", () => {
     expect(parked.real).toBeNull();
     expect(parked.pending).toBeNull();
     await page.reload();
+    await expect(page.getByText("Wróć do swojego demo i kontynuuj.")).toBeVisible();
     await page.getByRole("button", { name: "Wróć do mojego demo" }).click();
     await expect(page).toHaveURL(/\/dashboard/);
     await expect(page.getByTestId("demo-account-badge").first()).toBeVisible();

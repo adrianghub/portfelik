@@ -314,7 +314,7 @@ test("demo skips name and retries cash failure after reload without duplicating 
   expect((await demo.client.from("transactions").select("id")).data).toHaveLength(0);
 });
 
-test("first Demo to Real login preserves demo, then switches back and logout clears both", async ({
+test("first Demo to Real login preserves demo, then closing and resuming keeps its identity", async ({
   page,
   fixtures,
 }) => {
@@ -342,14 +342,28 @@ test("first Demo to Real login preserves demo, then switches back and logout cle
   await page.reload();
   await expect(page.getByTestId("demo-account-badge").first()).toBeVisible();
   await page.locator('header button[aria-haspopup="menu"]').first().click();
-  await page.getByRole("menuitem", { name: "Wyloguj się" }).click();
+  await page.getByRole("menuitem", { name: "Zamknij demo" }).click();
   await expect(page).toHaveURL(/\/login/);
-  const parked = await page.evaluate(() =>
-    Object.keys(localStorage).filter(
-      (k) => k.startsWith("jakstoimy.auth.") || /^sb-.*-auth-token$/.test(k)
-    )
+  const parked = await page.evaluate(
+    (key) => ({
+      demoId: JSON.parse(localStorage.getItem("jakstoimy.auth.demo.session.v1") ?? "null")?.user
+        ?.id,
+      real: localStorage.getItem("jakstoimy.auth.real.session.v1"),
+      active: localStorage.getItem(key),
+    }),
+    `sb-${parsed.hostname.split(".")[0]}-auth-token`
   );
-  expect(parked).toEqual([]);
+  expect(parked).toEqual({ demoId: demo.id, real: null, active: null });
+  await page.reload();
+  await page.getByRole("button", { name: "Wróć do mojego demo" }).click();
+  await expect(page).toHaveURL(/\/dashboard/);
+  await expect(page.getByTestId("demo-account-badge").first()).toBeVisible();
+  expect(
+    await page.evaluate(
+      (key) => JSON.parse(localStorage.getItem(key) ?? "null")?.user?.id,
+      `sb-${parsed.hostname.split(".")[0]}-auth-token`
+    )
+  ).toBe(demo.id);
   expect(provisions).toBe(0);
 });
 test("legacy seed failure rolls back tagged rows and a successful retry clears without remnants", async ({
@@ -415,7 +429,7 @@ test("invalid target session shows recovery and never silently provisions a repl
   await expect(page.getByTestId("open-demo-account")).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Utwórz nowe konto demo", exact: true })
-  ).toBeVisible();
+  ).toHaveCount(0);
   expect(provisions).toBe(0);
   expect(
     await page.evaluate(() => localStorage.getItem("jakstoimy.auth.real.session.v1") !== null)
@@ -432,7 +446,7 @@ async function category(user: User) {
   return result.data.id as string;
 }
 
-test("Demo → Real → Demo survives reload without mixing rows and logout clears sessions", async ({
+test("Demo → Real → Demo survives reload and explicit close/resume without mixing rows", async ({
   page,
   fixtures,
 }) => {
@@ -526,20 +540,22 @@ test("Demo → Real → Demo survives reload without mixing rows and logout clea
   }
 
   await page.locator('header button[aria-haspopup="menu"]').first().click();
-  await page.getByRole("menuitem", { name: "Wyloguj się" }).click();
+  await page.getByRole("menuitem", { name: "Zamknij demo" }).click();
   await expect(page).toHaveURL(/\/login/);
-  await expect
-    .poll(() =>
-      page.evaluate(() =>
-        Object.keys(localStorage).filter(
-          (key) => key.startsWith("jakstoimy.auth.") || /^sb-.*-auth-token$/.test(key)
-        )
-      )
+  expect(
+    await page.evaluate(
+      (key) => localStorage.getItem(key),
+      `sb-${parsed.hostname.split(".")[0]}-auth-token`
     )
-    .toEqual([]);
+  ).toBeNull();
+  expect(
+    await page.evaluate(() => localStorage.getItem("jakstoimy.auth.real.session.v1"))
+  ).toBeNull();
   await page.reload();
   await page.goto("/transactions");
   await expect(page).toHaveURL(/\/login/);
+  await page.getByRole("button", { name: "Wróć do mojego demo" }).click();
+  await assertIdentity("demo");
 });
 async function exportBundle(page: Page) {
   await page.goto("/settings?tab=privacy");

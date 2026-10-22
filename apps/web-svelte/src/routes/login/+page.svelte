@@ -29,9 +29,8 @@
   const nativeLogin = $derived(isNativeCapacitor());
   const accountTarget = $derived(page.url.searchParams.get("account"));
   const switchFailed = $derived(page.url.searchParams.has("switchFailed"));
-  let allowNewDemo = $state(false);
   const showReal = $derived(accountTarget !== "demo" || switchFailed);
-  const showDemo = $derived(accountTarget !== "real" && (!switchFailed || allowNewDemo));
+  const showDemo = $derived(accountTarget !== "real" && !switchFailed);
   let returnAvailable = $state(false);
   let existingDemo = $state(false);
   let demoStorageReady = $state(false);
@@ -167,20 +166,17 @@
       <p class="mt-5 max-w-lg text-base leading-relaxed text-slate-300 sm:text-lg">
         {m.login_intro_body()}
       </p>
-      <p class="mt-6 text-xs leading-relaxed text-slate-500">{m.login_demo_note()}</p>
+      {#if demoStorageReady}
+        <p class="mt-6 text-xs leading-relaxed text-slate-500">
+          {existingDemo ? m.login_demo_return_note() : m.login_demo_note()}
+        </p>
+      {/if}
     </section>
 
     <section
       class="relative mx-auto w-full max-w-md overflow-hidden rounded-3xl border border-white/8 bg-slate-900/65 p-6 shadow-[0_0_70px_rgba(16,185,129,0.1)] backdrop-blur sm:p-8"
       aria-label={m.login_sign_in()}
     >
-      {#if switchFailed && accountTarget === "demo" && !allowNewDemo}
-        <button
-          type="button"
-          class="mb-4 min-h-11 text-sm text-emerald-300 underline"
-          onclick={() => (allowNewDemo = true)}>{m.demo_create_replacement()}</button
-        >
-      {/if}
       {#if error}
         <div
           class="mb-4 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-300"
@@ -238,7 +234,7 @@
       {/if}
 
       {#if showDemo}
-        {#if demoSiteKey && !existingDemo}
+        {#if demoStorageReady && demoSiteKey && !existingDemo}
           {#key demoChallengeAttempt}
             <DemoTurnstile
               siteKey={demoSiteKey}
