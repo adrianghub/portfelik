@@ -100,14 +100,78 @@ it("denies real accounts access to sample finalization and sample cleanup", asyn
 });
 it("finishes a real import once, records private provenance, and prevents receipt forgery", async () => {
   await committedSample();
-  expect((await client.rpc("finish_demo_sample", { p_session_id: sessionId })).error).toBeNull();
-  expect((await client.rpc("finish_demo_sample", { p_session_id: sessionId })).error).toBeNull();
+  // Fail after two scheduled inserts: the receipt, anchor and all three
+  // operations must roll back together, leaving the committed history retryable.
+  expect(
+    (
+      await ctx.admin
+        .from("categories")
+        .update({ archived_at: new Date().toISOString() })
+        .eq("id", categoryIncomeId)
+    ).error
+  ).toBeNull();
+  try {
+    expect(
+      (await client.rpc("finish_demo_sample", { p_session_id: sessionId })).error?.message
+    ).toBe("demo_sample_category_missing");
+    expect((await client.from("transactions").select("id")).data).toHaveLength(96);
+    expect((await client.from("cash_positions").select("id")).data).toHaveLength(0);
+    expect((await client.from("demo_sample_receipts").select("session_id")).data).toHaveLength(0);
+  } finally {
+    expect(
+      (await ctx.admin.from("categories").update({ archived_at: null }).eq("id", categoryIncomeId))
+        .error
+    ).toBeNull();
+  }
+  const concurrent = await Promise.all([
+    client.rpc("finish_demo_sample", { p_session_id: sessionId }),
+    client.rpc("finish_demo_sample", { p_session_id: sessionId }),
+  ]);
+  for (const result of concurrent) expect(result.error).toBeNull();
   expect((await client.from("cash_positions").select("opening_amount")).data).toEqual([
     { opening_amount: 5000 },
   ]);
   expect((await client.from("transactions").select("id").eq("is_demo", true)).data).toHaveLength(
-    96
+    99
   );
+  const unpaid = await client
+    .from("transactions")
+    .select("id,status,date,description")
+    .neq("status", "paid");
+  expect(unpaid.error).toBeNull();
+  expect(unpaid.data).toHaveLength(3);
+  expect(unpaid.data!.filter((t) => t.status === "overdue")).toHaveLength(1);
+  expect(unpaid.data!.filter((t) => t.status === "upcoming")).toHaveLength(2);
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Warsaw" }).format(new Date());
+  expect(unpaid.data!.find((t) => t.status === "overdue")!.date.slice(0, 10) < today).toBe(true);
+  expect(
+    unpaid.data!.filter((t) => t.status === "upcoming").every((t) => t.date.slice(0, 10) > today)
+  ).toBe(true);
+  const receipt = await client
+    .from("demo_sample_receipts")
+    .select("scheduled_transaction_ids,scenario_initialized_at")
+    .single();
+  expect(receipt.error).toBeNull();
+  expect(receipt.data!.scheduled_transaction_ids.sort()).toEqual(
+    unpaid.data!.map((t) => t.id).sort()
+  );
+  expect(receipt.data!.scenario_initialized_at).toBeTruthy();
+  expect(
+    (
+      await client
+        .from("demo_sample_receipts")
+        .update({ scheduled_transaction_ids: [randomUUID()] })
+        .eq("session_id", sessionId)
+    ).error?.code
+  ).toBe("42501");
+  // The repeated finalization above must retain these exact IDs and dates.
+  expect((await client.rpc("finish_demo_sample", { p_session_id: sessionId })).error).toBeNull();
+  expect(
+    (await client.from("transactions").select("id").neq("status", "paid"))
+      .data!.map((t) => t.id)
+      .sort()
+  ).toEqual(receipt.data!.scheduled_transaction_ids.sort());
+
   expect((await ctx.userB.client.from("demo_sample_receipts").select("session_id")).data).toEqual(
     []
   );
@@ -119,7 +183,55 @@ it("finishes a real import once, records private provenance, and prevents receip
     ).error?.code
   ).toBe("42501");
 });
+it("refuses cleanup atomically when a scheduled example is linked to a user plan", async () => {
+  const pending = await client
+    .from("transactions")
+    .select("id")
+    .eq("status", "upcoming")
+    .eq("type", "expense")
+    .single();
+  const plan = await client
+    .from("plans")
+    .insert({
+      user_id: uid,
+      name: "My own plan",
+      kind: "spend",
+      budget_amount: 1000,
+      start_date: "2026-01-01",
+      end_date: "2027-12-31",
+    })
+    .select("id")
+    .single();
+  expect(plan.error).toBeNull();
+  try {
+    expect(
+      (
+        await client.rpc("link_plan_transaction", {
+          p_plan_id: plan.data!.id,
+          p_transaction_id: pending.data!.id,
+        })
+      ).error
+    ).toBeNull();
+    expect((await client.rpc("clear_demo_sample")).error?.message).toBe(
+      "demo_sample_has_user_links"
+    );
+    expect((await client.from("transactions").select("id")).data).toHaveLength(99);
+    expect((await client.from("cash_positions").select("id")).data).toHaveLength(1);
+  } finally {
+    await client.from("plans").delete().eq("id", plan.data!.id);
+  }
+});
 it("removes only the sample, restores the absent anchor, and permits refill with retained history", async () => {
+  const pending = await client
+    .from("transactions")
+    .select("id")
+    .eq("status", "upcoming")
+    .limit(1)
+    .single();
+  expect(
+    (await ctx.admin.from("transactions").update({ is_demo: false }).eq("id", pending.data!.id))
+      .error
+  ).toBeNull();
   expect((await client.rpc("clear_demo_sample")).error).toBeNull();
   expect((await client.from("transactions").select("id")).data).toHaveLength(0);
   expect((await client.from("cash_positions").select("id")).data).toHaveLength(0);
@@ -131,7 +243,7 @@ it("removes only the sample, restores the absent anchor, and permits refill with
   ).not.toBeNull();
   await committedSample();
   expect((await client.rpc("finish_demo_sample", { p_session_id: sessionId })).error).toBeNull();
-  expect((await client.from("transactions").select("id")).data).toHaveLength(96);
+  expect((await client.from("transactions").select("id")).data).toHaveLength(99);
 });
 it("preserves a manually edited anchor and unrelated user transaction during cleanup", async () => {
   expect(
