@@ -1,5 +1,6 @@
 import { PUBLIC_SUPABASE_ANON_KEY, PUBLIC_SUPABASE_URL } from "$env/static/public";
 import { supabase } from "$lib/supabase";
+import { flushDeviceAuthStorage } from "$lib/auth/device-storage";
 import {
   accountKindForUser,
   beginAccountSwitchReinit,
@@ -8,6 +9,8 @@ import {
   clearPendingAccountSwitch,
   endAccountSwitchReinit,
   hasParkedSession,
+  hasDemoBinding,
+  rememberDemoIdentity,
   parkInactiveSession,
   peekPendingAccountSwitch,
   readParkedSession,
@@ -18,14 +21,17 @@ import {
 import type { Session } from "@supabase/supabase-js";
 
 export type OpenDemoAccountResult =
-  { ok: true; session: Session; kind: AccountKind } | { ok: false; error: string };
+  | { ok: true; session: Session; kind: AccountKind }
+  | { ok: true; switching: true; kind: AccountKind }
+  | { ok: false; error: string };
 
 function provisionUrl(): string {
   const base = PUBLIC_SUPABASE_URL.replace(/\/$/, "");
   return `${base}/functions/v1/open-demo-account`;
 }
 
-function hardReinit(path = "/dashboard"): void {
+async function hardReinit(path = "/dashboard"): Promise<void> {
+  await flushDeviceAuthStorage();
   if (typeof window === "undefined") return;
   window.location.assign(path);
 }
@@ -40,7 +46,26 @@ export async function openDemoAccount(input?: {
   /** When false, caller navigates (tests). Default: hard reinit. */
   reinit?: boolean;
 }): Promise<OpenDemoAccountResult> {
+  // Serialize clicks/tabs so a second caller observes the first identity binding.
+  if (typeof navigator !== "undefined" && navigator.locks) {
+    return navigator.locks.request("jakstoimy.demo.entry", () => openOrResumeDemo(input));
+  }
+  return openOrResumeDemo(input);
+}
+
+async function openOrResumeDemo(input?: {
+  turnstileToken?: string;
+  reinit?: boolean;
+}): Promise<OpenDemoAccountResult> {
   const current = await supabase.auth.getSession();
+  if (current.error) return { ok: false, error: "demo_session_failed" };
+  if (current.data.session && accountKindForUser(current.data.session.user) === "demo") {
+    rememberDemoIdentity(current.data.session.user.id);
+    if (input?.reinit !== false) await hardReinit();
+    return { ok: true, session: current.data.session, kind: "demo" };
+  }
+  if (hasParkedSession("demo")) return requestAccountSwitch("demo");
+  if (hasDemoBinding()) return { ok: false, error: "demo_session_failed" };
   if (current.data.session) {
     const currentKind = accountKindForUser(current.data.session.user);
     if (currentKind === "real") {
@@ -78,11 +103,20 @@ export async function openDemoAccount(input?: {
     };
   }
 
+  // Even a failed OTP verification must not silently create another identity.
+  if (!payload.userId) return { ok: false, error: "demo_session_failed" };
+  rememberDemoIdentity(payload.userId);
+
   const verified = await supabase.auth.verifyOtp({
     token_hash: payload.tokenHash,
     type: "email",
   });
-  if (verified.error || !verified.data.session) {
+  if (
+    verified.error ||
+    !verified.data.session ||
+    accountKindForUser(verified.data.session.user) !== "demo" ||
+    verified.data.session.user.id !== payload.userId
+  ) {
     return { ok: false, error: "demo_session_failed" };
   }
 
@@ -91,9 +125,24 @@ export async function openDemoAccount(input?: {
   setStoredActiveKind("demo");
 
   if (input?.reinit !== false) {
-    hardReinit("/demo/welcome");
+    await hardReinit("/demo/welcome");
   }
   return { ok: true, session: verified.data.session, kind: "demo" };
+}
+
+/** Leave demo locally, keeping its credential for an explicit later resume. */
+export async function closeDemo(): Promise<void> {
+  const { data, error } = await supabase.auth.getSession();
+  if (error || !data.session || accountKindForUser(data.session.user) !== "demo") {
+    throw new Error("demo_session_failed");
+  }
+  parkInactiveSession(data.session);
+  // A real identity must not survive an explicit exit to the login screen.
+  clearParkedSession("real");
+  clearPendingAccountSwitch();
+  beginAccountSwitchReinit();
+  clearGoTrueClientStorage();
+  await hardReinit("/login");
 }
 
 /**
@@ -111,6 +160,7 @@ export async function requestAccountSwitch(
       error: kind === "demo" ? "demo_session_missing" : "real_session_missing",
     };
   }
+  if (kind === "demo") rememberDemoIdentity(parked.user.id);
 
   const current = await supabase.auth.getSession();
   if (current.data.session) {
@@ -128,7 +178,7 @@ export async function requestAccountSwitch(
   beginAccountSwitchReinit();
   clearGoTrueClientStorage();
 
-  hardReinit("/dashboard");
+  await hardReinit("/dashboard");
   return { ok: true, switching: true, kind };
 }
 
@@ -144,7 +194,7 @@ export async function requestAccountEntry(
   parkInactiveSession(current.data.session);
   beginAccountSwitchReinit();
   clearGoTrueClientStorage();
-  hardReinit(`/login?account=${kind}`);
+  await hardReinit(`/login?account=${kind}`);
   return { ok: true };
 }
 
@@ -153,7 +203,7 @@ export async function enterDemo(): Promise<{ ok: boolean; error?: string }> {
   const { data, error } = await supabase.auth.getSession();
   if (error || !data.session) return { ok: false, error: "session_missing" };
   if (accountKindForUser(data.session.user) === "demo") {
-    hardReinit("/dashboard?showDemoSample=1");
+    await hardReinit("/dashboard?showDemoSample=1");
     return { ok: true };
   }
   return requestAccountEntry("demo");
@@ -190,10 +240,21 @@ export async function bootstrapPendingAccountSwitch(): Promise<
   clearPendingAccountSwitch();
   endAccountSwitchReinit();
 
-  if (applied.error || !applied.data.session) {
+  const target = applied.data.session;
+  let identityMatches =
+    !applied.error && !!target && accountKindForUser(target.user) === pending.kind;
+  if (identityMatches && pending.kind === "demo") {
+    try {
+      rememberDemoIdentity(target!.user.id);
+    } catch {
+      identityMatches = false;
+    }
+  }
+  if (!identityMatches || !target) {
     // Invalidate only the failed target. Caller falls through to getSession —
     // after a reinit wipe there may be no prior session left.
     clearParkedSession(pending.kind);
+    clearGoTrueClientStorage();
     return { applied: false, error: "demo_session_failed", kind: pending.kind };
   }
 
@@ -203,7 +264,7 @@ export async function bootstrapPendingAccountSwitch(): Promise<
 
   return {
     applied: true,
-    session: applied.data.session,
+    session: target,
     kind: pending.kind,
   };
 }

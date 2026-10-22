@@ -10,7 +10,7 @@
   import BrandMark from "$lib/components/BrandMark.svelte";
   import DemoBadge from "$lib/components/demo/DemoBadge.svelte";
   import { isDemoAccountUser, type AccountKind } from "$lib/demo/identity-session";
-  import { requestAccountEntry } from "$lib/services/open-demo-account";
+  import { closeDemo, requestAccountEntry } from "$lib/services/open-demo-account";
   import { isChangelogUnseen } from "$lib/content/changelog";
   import {
     LayoutDashboard,
@@ -93,6 +93,14 @@
 
   async function signOut() {
     menuOpen = false;
+    if (isDemoAccount) {
+      try {
+        await closeDemo();
+      } catch {
+        toast.error(m.demo_open_error_generic());
+      }
+      return;
+    }
     await supabase.auth.signOut();
     goto("/login");
   }
@@ -331,7 +339,7 @@
       class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 transition-colors hover:bg-white/5"
     >
       <LogOut size={15} aria-hidden="true" />
-      {m.nav_sign_out()}
+      {isDemoAccount ? m.demo_close() : m.nav_sign_out()}
     </button>
   </div>
 {/if}

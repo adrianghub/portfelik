@@ -10,6 +10,7 @@ const DEMO_USER_ID = "00000000-0000-0000-0000-0000000000d1";
 const REAL_USER_ID = TEST_USER_ID;
 
 const STORAGE_KEYS = [
+  "sb-nveyzxxnyccpnesebvuw-auth-token",
   "sb-emqzcygfwcvbmhxhfkcc-auth-token",
   "sb-127-auth-token",
   "sb-localhost-auth-token",
@@ -252,6 +253,8 @@ async function seedDualIdentity(page: Page, active: "demo" | "real") {
   const real = sessionFor("real", REAL_USER);
   await page.addInitScript(
     ({ keys, demoSession, realSession, activeKind, demoKey, realKey, pendingKey, activeKey }) => {
+      if (localStorage.getItem("test-dual-identity-seeded")) return;
+      localStorage.setItem("test-dual-identity-seeded", "1");
       localStorage.setItem("guided-tour-progress", JSON.stringify({ dismissed: true }));
       const pending = localStorage.getItem(pendingKey);
       if (pending) {
@@ -382,14 +385,41 @@ test.describe("Demo 2.0 identity flow", () => {
     await expect(page.getByRole("button", { name: /jakstoimy-demo\.csv/ })).toBeVisible();
   });
 
-  test("logout clears parked identities so they cannot revive", async ({ page }) => {
+  test("real logout preserves demo without restoring the real session", async ({ page }) => {
+    let provisions = 0;
+    page.on("request", (request) => {
+      if (request.url().includes("/functions/v1/open-demo-account")) provisions += 1;
+    });
+    await mockIdentityBackend(page);
+    await seedDualIdentity(page, "real");
+    await page.goto("/dashboard");
+    await expect(page.getByRole("button", { name: REAL_USER.email })).toBeVisible();
+    await page.locator('header button[aria-haspopup="menu"]').first().click();
+    await page.getByRole("menuitem", { name: "Wyloguj się" }).click();
+    await expect(page).toHaveURL(/\/login/);
+    await page.reload();
+    await expect(page.getByTestId("demo-account-badge")).toHaveCount(0);
+    await page.getByRole("button", { name: "Wróć do mojego demo" }).click();
+    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page.getByTestId("demo-account-badge").first()).toBeVisible();
+    expect(await page.evaluate((key) => localStorage.getItem(key), REAL_SESSION_KEY)).toBeNull();
+    expect(provisions).toBe(0);
+  });
+
+  test("closing demo preserves its identity and resumes without new provisioning", async ({
+    page,
+  }) => {
+    let provisions = 0;
+    page.on("request", (request) => {
+      if (request.url().includes("/functions/v1/open-demo-account")) provisions += 1;
+    });
     await mockIdentityBackend(page);
     await seedDualIdentity(page, "demo");
     await page.goto("/dashboard");
     await expect(page.getByTestId("demo-account-badge").first()).toBeVisible();
 
     await page.locator('header button[aria-haspopup="menu"]').first().click();
-    await page.getByRole("menuitem", { name: "Wyloguj się" }).click();
+    await page.getByRole("menuitem", { name: "Zamknij demo" }).click();
     await expect(page).toHaveURL(/\/login/);
 
     const parked = await page.evaluate(
@@ -400,8 +430,16 @@ test.describe("Demo 2.0 identity flow", () => {
       }),
       { demoKey: DEMO_SESSION_KEY, realKey: REAL_SESSION_KEY, pendingKey: PENDING_KEY }
     );
-    expect(parked.demo).toBeNull();
+    expect(JSON.parse(parked.demo!).user.id).toBe(DEMO_USER_ID);
     expect(parked.real).toBeNull();
     expect(parked.pending).toBeNull();
+    await page.reload();
+    await page.getByRole("button", { name: "Wróć do mojego demo" }).click();
+    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page.getByTestId("demo-account-badge").first()).toBeVisible();
+    await page.goto("/transactions");
+    await expect(page.getByRole("table").getByText("DEMO BIEDRONKA")).toBeVisible();
+    await expect(page.getByText("REAL WYNAGRODZENIE")).toHaveCount(0);
+    expect(provisions).toBe(0);
   });
 });

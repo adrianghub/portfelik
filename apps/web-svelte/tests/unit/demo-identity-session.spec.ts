@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ACTIVE_ACCOUNT_KIND_KEY,
+  DEMO_BINDING_KEY,
   DEMO_SESSION_STORAGE_KEY,
   PENDING_ACCOUNT_SWITCH_KEY,
   REAL_SESSION_STORAGE_KEY,
@@ -115,6 +116,17 @@ describe("demo identity session partition", () => {
     });
     clearPendingAccountSwitch();
     expect(hasParkedSession("real")).toBe(true);
+  });
+
+  it("real logout preserves only the separate demo, while revocation retains its identity marker", () => {
+    parkInactiveSession(sessionFor("demo"));
+    parkInactiveSession(sessionFor("real"));
+    clearAllIdentitySessionState({ preserveDemo: true });
+    expect(hasParkedSession("demo")).toBe(true);
+    expect(hasParkedSession("real")).toBe(false);
+    clearAllIdentitySessionState();
+    expect(hasParkedSession("demo")).toBe(false);
+    expect(localStorage.getItem(DEMO_BINDING_KEY)).toBe("u1");
   });
 });
 

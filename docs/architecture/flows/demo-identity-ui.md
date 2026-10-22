@@ -6,7 +6,7 @@
 
 ## Product slice
 
-1. Login CTA **Otwórz konto demo** → `open-demo-account` → `verifyOtp` → hard reinit → `/dashboard`.
+1. First login CTA **Otwórz konto demo** → `open-demo-account` → `verifyOtp` → hard reinit → optional welcome → `/dashboard`. Subsequent entry resumes the same bound identity.
 2. At most one **parked** inactive session (Demo or Real) so switching can restore the other identity.
 3. Persistent DEMO badge in navigation when `app_metadata.account_kind === "demo"`.
 4. Sample CSV at `/sample-imports/jakstoimy-demo.csv` (past-only history) for the first optional hint; import uses the production importer only.
@@ -22,10 +22,12 @@ Switching must never show another identity’s financial rows, even briefly.
 | Parked credentials | At most the inactive kind under `jakstoimy.auth.{demo\|real}.session.v1` |
 | Switch path | Park inactive → write `pending_switch` → clear GoTrue keys → `location.assign` → `bootstrapPendingAccountSwitch` before queries |
 | Cache | New JS heap + new `QueryClient` on hard reinit; `loadAuthenticatedUser` also `queryClient.clear()` on user id change |
-| Logout | `clearAllIdentitySessionState()` so intentional sign-out cannot revive a parked session |
+| Exit | **Zamknij demo** parks demo and clears active/real credentials; real logout revokes real Auth but preserves the separate demo |
 | Failed `setSession` | Clears parked target + pending; after GoTrue wipe there is no prior session to fall back to |
 
 We intentionally **do not** keep two live Supabase clients in 1.4.0.
+The [device identity contract](../demo-device-identity.md) defines persistent
+binding, Android Keystore storage, backup exclusions and failure behavior.
 
 ## Local enablement
 
@@ -43,7 +45,8 @@ screens remain implementable against a controlled local stack.
 `PUBLIC_TURNSTILE_SITE_KEY` is a public build-time setting. The staging build
 sets the staging site's key; other environments do not inherit it. When set,
 the login page renders an explicit Cloudflare challenge and keeps the demo CTA
-disabled until it receives a token. Expiry/error invalidates the token. Each
+disabled until it receives a token for first creation. Existing demo resumes
+without Turnstile or provisioning. Expiry/error invalidates the token. Each
 request consumes the token; failed provisioning remounts the challenge for a
 fresh attempt. Password/Google login does not depend on the challenge.
 
@@ -58,7 +61,8 @@ that deployed policy, with only the loopback Supabase origin added for fixtures.
 
 ## Tests
 
-- Unit: parked sessions, pending one-shot switch, logout wipe, failed bootstrap
+- Unit: parked sessions, pending one-shot switch, real logout, closed-demo resume,
+  failed bootstrap without replacement identity, and native vault failures
 - Unit: CSV past-only bounds + grosze totals
 - E2E mocked: open demo → CSV → Historia/Analizy/prognoza → switch real → back to demo
 - Chromium with a configured public test key: token expiry, fresh-token retry,

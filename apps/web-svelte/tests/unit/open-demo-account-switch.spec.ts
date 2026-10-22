@@ -25,6 +25,7 @@ vi.mock("$env/static/public", () => ({
 
 import {
   DEMO_SESSION_STORAGE_KEY,
+  DEMO_BINDING_KEY,
   PENDING_ACCOUNT_SWITCH_KEY,
   REAL_SESSION_STORAGE_KEY,
   parkInactiveSession,
@@ -35,6 +36,8 @@ import {
   bootstrapPendingAccountSwitch,
   requestAccountSwitch,
   requestAccountEntry,
+  closeDemo,
+  openDemoAccount,
 } from "../../src/lib/services/open-demo-account";
 
 function installMemoryLocalStorage() {
@@ -122,6 +125,78 @@ describe("account switch hard reinit", () => {
     expect(assign).toHaveBeenCalledWith("/dashboard");
     expect(peekPendingAccountSwitch()?.kind).toBe("demo");
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("closes and resumes the same demo without revoking it or provisioning another", async () => {
+    const demo = sessionFor("demo", "demo-1");
+    getSession.mockResolvedValue({ data: { session: demo } });
+    parkInactiveSession(sessionFor("real", "real-1"));
+    localStorage.setItem("sb-staging-auth-token", JSON.stringify(demo));
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    await closeDemo();
+    expect(assign).toHaveBeenLastCalledWith("/login");
+    expect(localStorage.getItem("sb-staging-auth-token")).toBeNull();
+    expect(readParkedSession("demo")?.user.id).toBe("demo-1");
+    expect(readParkedSession("real")).toBeNull();
+    expect(signOut).not.toHaveBeenCalled();
+    getSession.mockResolvedValue({ data: { session: null } });
+    expect((await openDemoAccount()).ok).toBe(true);
+    expect(peekPendingAccountSwitch()?.refresh_token).toBe("demo-refresh");
+    expect(assign).toHaveBeenLastCalledWith("/dashboard");
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("does not provision when an existing binding lost its credential", async () => {
+    localStorage.setItem(DEMO_BINDING_KEY, "demo-1");
+    getSession.mockResolvedValue({ data: { session: null } });
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    expect(await openDemoAccount()).toEqual({ ok: false, error: "demo_session_failed" });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("does not provision after a bound demo refresh is rejected", async () => {
+    parkInactiveSession(sessionFor("demo", "demo-1"));
+    getSession.mockResolvedValue({ data: { session: null } });
+    setSession.mockResolvedValue({ data: { session: null }, error: { message: "revoked" } });
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    await openDemoAccount();
+    expect(await bootstrapPendingAccountSwitch()).toMatchObject({ applied: false });
+    expect(await openDemoAccount()).toEqual({ ok: false, error: "demo_session_failed" });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("rejects a refreshed identity that differs from the bound demo", async () => {
+    parkInactiveSession(sessionFor("demo", "demo-1"));
+    getSession.mockResolvedValue({ data: { session: null } });
+    await requestAccountSwitch("demo");
+    setSession.mockResolvedValue({
+      data: { session: sessionFor("demo", "other-demo") },
+      error: null,
+    });
+    expect(await bootstrapPendingAccountSwitch()).toMatchObject({ applied: false });
+    expect(localStorage.getItem(DEMO_BINDING_KEY)).toBe("demo-1");
+    expect(readParkedSession("demo")).toBeNull();
+  });
+
+  it("binds a newly provisioned identity even when OTP verification fails", async () => {
+    getSession.mockResolvedValue({ data: { session: null } });
+    const fetchSpy = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          tokenHash: "one-time-test-token",
+          userId: "demo-1",
+        }),
+        { status: 200 }
+      )
+    );
+    vi.stubGlobal("fetch", fetchSpy);
+    verifyOtp.mockResolvedValue({ data: { session: null }, error: { message: "expired" } });
+    expect(await openDemoAccount()).toEqual({ ok: false, error: "demo_session_failed" });
+    expect(await openDemoAccount()).toEqual({ ok: false, error: "demo_session_failed" });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
   it("parks the real session and enters Turnstile when no demo session exists", async () => {

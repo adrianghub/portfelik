@@ -8,10 +8,13 @@
  * previous JS heap (see `requestAccountSwitch` / `bootstrapPendingAccountSwitch`).
  */
 import type { Session, User } from "@supabase/supabase-js";
+import { deviceAuthStorage } from "$lib/auth/device-storage";
 
 export type AccountKind = "demo" | "real";
 
 export const DEMO_SESSION_STORAGE_KEY = "jakstoimy.auth.demo.session.v1";
+/** Identity marker survives expired/revoked credentials; never grants access. */
+export const DEMO_BINDING_KEY = "jakstoimy.auth.demo.binding.v1";
 export const REAL_SESSION_STORAGE_KEY = "jakstoimy.auth.real.session.v1";
 export const ACTIVE_ACCOUNT_KIND_KEY = "jakstoimy.auth.active_kind.v1";
 /** One-shot bootstrap after hard navigation. Cleared on consume or failure. */
@@ -43,7 +46,7 @@ function storageKeyForKind(kind: AccountKind): string {
 function readJsonSession(key: string): Session | null {
   if (typeof localStorage === "undefined") return null;
   try {
-    const raw = localStorage.getItem(key);
+    const raw = deviceAuthStorage.getItem(key);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Session;
     if (!parsed?.access_token || !parsed?.refresh_token) return null;
@@ -56,28 +59,45 @@ function readJsonSession(key: string): Session | null {
 function writeJsonSession(key: string, session: Session | null): void {
   if (typeof localStorage === "undefined") return;
   if (!session) {
-    localStorage.removeItem(key);
+    deviceAuthStorage.removeItem(key);
     return;
   }
-  localStorage.setItem(key, JSON.stringify(session));
+  deviceAuthStorage.setItem(key, JSON.stringify(session));
 }
 
 export function getStoredActiveKind(): AccountKind | null {
   if (typeof localStorage === "undefined") return null;
-  const value = localStorage.getItem(ACTIVE_ACCOUNT_KIND_KEY);
+  const value = deviceAuthStorage.getItem(ACTIVE_ACCOUNT_KIND_KEY);
   return value === "demo" || value === "real" ? value : null;
 }
 
 export function setStoredActiveKind(kind: AccountKind): void {
   if (typeof localStorage === "undefined") return;
-  localStorage.setItem(ACTIVE_ACCOUNT_KIND_KEY, kind);
+  deviceAuthStorage.setItem(ACTIVE_ACCOUNT_KIND_KEY, kind);
 }
 
 /** Park the identity the user is leaving. Never store a copy of the active session. */
 export function parkInactiveSession(session: Session): void {
   if (!session.user) return;
   const kind = accountKindForUser(session.user);
+  if (kind === "demo") rememberDemoIdentity(session.user.id);
   writeJsonSession(storageKeyForKind(kind), session);
+}
+
+export function rememberDemoIdentity(userId: string): void {
+  if (typeof localStorage === "undefined") return;
+  const bound = deviceAuthStorage.getItem(DEMO_BINDING_KEY);
+  if (bound !== null && bound !== userId) throw new Error("demo_identity_mismatch");
+  deviceAuthStorage.setItem(DEMO_BINDING_KEY, userId);
+}
+
+export function hasDemoBinding(): boolean {
+  return (
+    (typeof localStorage !== "undefined" &&
+      (deviceAuthStorage.getItem(DEMO_BINDING_KEY) !== null ||
+        deviceAuthStorage.getItem(DEMO_SESSION_STORAGE_KEY) !== null)) ||
+    hasParkedSession("demo")
+  );
 }
 
 export function readParkedSession(kind: AccountKind): Session | null {
@@ -108,13 +128,13 @@ export function clearPartitionedSession(kind: AccountKind): void {
 
 export function writePendingAccountSwitch(pending: PendingAccountSwitch): void {
   if (typeof localStorage === "undefined") return;
-  localStorage.setItem(PENDING_ACCOUNT_SWITCH_KEY, JSON.stringify(pending));
+  deviceAuthStorage.setItem(PENDING_ACCOUNT_SWITCH_KEY, JSON.stringify(pending));
 }
 
 export function peekPendingAccountSwitch(): PendingAccountSwitch | null {
   if (typeof localStorage === "undefined") return null;
   try {
-    const raw = localStorage.getItem(PENDING_ACCOUNT_SWITCH_KEY);
+    const raw = deviceAuthStorage.getItem(PENDING_ACCOUNT_SWITCH_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as PendingAccountSwitch;
     if (
@@ -132,7 +152,7 @@ export function peekPendingAccountSwitch(): PendingAccountSwitch | null {
 
 export function clearPendingAccountSwitch(): void {
   if (typeof localStorage === "undefined") return;
-  localStorage.removeItem(PENDING_ACCOUNT_SWITCH_KEY);
+  deviceAuthStorage.removeItem(PENDING_ACCOUNT_SWITCH_KEY);
 }
 
 /** Consume pending switch once. Returns null if absent or malformed. */
@@ -144,39 +164,36 @@ export function consumePendingAccountSwitch(): PendingAccountSwitch | null {
 
 export function beginAccountSwitchReinit(): void {
   if (typeof localStorage === "undefined") return;
-  localStorage.setItem(ACCOUNT_SWITCH_REINIT_KEY, "1");
+  deviceAuthStorage.setItem(ACCOUNT_SWITCH_REINIT_KEY, "1");
 }
 
 export function isAccountSwitchReinit(): boolean {
   if (typeof localStorage === "undefined") return false;
-  return localStorage.getItem(ACCOUNT_SWITCH_REINIT_KEY) === "1";
+  return deviceAuthStorage.getItem(ACCOUNT_SWITCH_REINIT_KEY) === "1";
 }
 
 export function endAccountSwitchReinit(): void {
   if (typeof localStorage === "undefined") return;
-  localStorage.removeItem(ACCOUNT_SWITCH_REINIT_KEY);
+  deviceAuthStorage.removeItem(ACCOUNT_SWITCH_REINIT_KEY);
 }
 
-/** Intentional logout / revoke: drop parked identities and any pending switch. */
-export function clearAllIdentitySessionState(): void {
-  clearParkedSession("demo");
+/** Clear revoked credentials; real logout may keep its separate demo. The binding remains. */
+export function clearAllIdentitySessionState(options?: { preserveDemo?: boolean }): void {
+  if (!options?.preserveDemo) clearParkedSession("demo");
   clearParkedSession("real");
   clearPendingAccountSwitch();
   endAccountSwitchReinit();
   if (typeof localStorage !== "undefined") {
-    localStorage.removeItem(ACTIVE_ACCOUNT_KIND_KEY);
+    deviceAuthStorage.removeItem(ACTIVE_ACCOUNT_KIND_KEY);
   }
 }
 
 /** Drop GoTrue client keys without going through signOut (avoids login bounce). */
 export function clearGoTrueClientStorage(): void {
   if (typeof localStorage === "undefined") return;
-  const keys: string[] = [];
-  for (let i = 0; i < localStorage.length; i += 1) {
-    const key = localStorage.key(i);
-    if (key && /^sb-.*-auth-token$/.test(key)) keys.push(key);
+  for (const key of deviceAuthStorage.keys()) {
+    if (/^sb-.*-auth-token$/.test(key)) deviceAuthStorage.removeItem(key);
   }
-  for (const key of keys) localStorage.removeItem(key);
 }
 
 /** Sample CSV served from static/ for the optional empty-demo hint. */

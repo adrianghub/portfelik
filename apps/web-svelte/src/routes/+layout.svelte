@@ -40,8 +40,10 @@
     clearAllIdentitySessionState,
     isAccountSwitchReinit,
     isDemoAccountUser,
+    rememberDemoIdentity,
   } from "$lib/demo/identity-session";
   import { bootstrapPendingAccountSwitch } from "$lib/services/open-demo-account";
+  import { initializeDeviceAuthStorage } from "$lib/auth/device-storage";
   import { supabase } from "$lib/supabase";
   import type { Profile } from "$lib/types";
   import type { User } from "@supabase/supabase-js";
@@ -178,6 +180,7 @@
   });
 
   function clearAuthenticatedUser(options?: { clearIdentitySessions?: boolean }) {
+    const preserveDemo = !isDemoAccountUser(user);
     if (loadedUserId !== null) {
       queryClient.clear();
       void import("$lib/services/save-text-file").then((mod) => mod.clearNativeExportCache());
@@ -190,11 +193,12 @@
     userId = null;
     authStatus = "anonymous";
     if (options?.clearIdentitySessions) {
-      clearAllIdentitySessionState();
+      clearAllIdentitySessionState({ preserveDemo });
     }
   }
 
   function loadAuthenticatedUser(authUser: User) {
+    if (isDemoAccountUser(authUser)) rememberDemoIdentity(authUser.id);
     if (loadedUserId !== authUser.id) {
       queryClient.clear();
       loadedUserId = authUser.id;
@@ -283,7 +287,7 @@
         const onInvite = page.url.pathname.startsWith("/invite/");
         if (!onInvite) {
           clearLoginRedirect();
-          // Intentional logout: drop parked Demo/Real so a later visit cannot revive them.
+          // Revoke the signed-out identity; a separate inactive demo remains resumable.
           clearAuthenticatedUser({ clearIdentitySessions: true });
           void goto("/login", { replaceState: true });
         } else {
@@ -302,6 +306,7 @@
     void (async () => {
       try {
         const bootstrapRevision = authRevision;
+        await initializeDeviceAuthStorage();
         // Apply Demo↔Real switch before any financial getSession/query work so the
         // new identity owns the fresh QueryClient created for this page load.
         const switched = await bootstrapPendingAccountSwitch();

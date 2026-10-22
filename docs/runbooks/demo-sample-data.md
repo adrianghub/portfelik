@@ -49,7 +49,9 @@ the dedicated demo and the CSV flow.
 3. Refill, confirm exactly 96 rows and a second retained committed import attempt.
 4. Inject failure after commit but before finalization; reload and retry, without duplicates.
 5. Repeat cleanup after editing the anchor or adding unrelated data; preserve those records.
-6. Test Demo → Real → Demo and logout, with zero provisioning calls on a saved-session return.
+6. Test Demo → Real → Demo, closing/reopening demo and real-account logout, with
+   zero provisioning calls on a saved-identity return. See
+   [device identity](../architecture/demo-device-identity.md).
 
 Use a fresh controlled staging account after local checks. Do not retry the
 known broken staging fixture before its historical records have been reviewed.

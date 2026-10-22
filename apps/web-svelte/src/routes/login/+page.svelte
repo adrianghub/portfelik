@@ -3,7 +3,8 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import { onMount } from "svelte";
-  import { hasParkedSession } from "$lib/demo/identity-session";
+  import { hasDemoBinding, hasParkedSession } from "$lib/demo/identity-session";
+  import { initializeDeviceAuthStorage } from "$lib/auth/device-storage";
   import {
     clearLoginRedirect,
     redirectTargetFromUrl,
@@ -32,9 +33,19 @@
   const showReal = $derived(accountTarget !== "demo" || switchFailed);
   const showDemo = $derived(accountTarget !== "real" && (!switchFailed || allowNewDemo));
   let returnAvailable = $state(false);
+  let existingDemo = $state(false);
+  let demoStorageReady = $state(false);
   onMount(() => {
     if (switchFailed) error = m.demo_switch_expired();
-    returnAvailable = hasParkedSession(accountTarget === "real" ? "demo" : "real");
+    void initializeDeviceAuthStorage()
+      .then(() => {
+        existingDemo = hasDemoBinding();
+        returnAvailable = hasParkedSession(accountTarget === "real" ? "demo" : "real");
+        demoStorageReady = true;
+      })
+      .catch(() => {
+        error = m.demo_resume_failed();
+      });
   });
   async function returnToAccount() {
     if (loading || demoLoading) return;
@@ -99,7 +110,7 @@
   }
 
   async function openDemo() {
-    if (demoLoading || (demoSiteKey && !demoToken)) return;
+    if (!demoStorageReady || demoLoading || (!existingDemo && demoSiteKey && !demoToken)) return;
     demoLoading = true;
     error = null;
     const token = demoToken;
@@ -112,10 +123,14 @@
       // Siteverify consumes tokens even when a later provision step fails.
       demoToken = "";
       demoChallengeAttempt += 1;
+      existingDemo = hasDemoBinding();
       error =
-        result.error === "demo_provision_disabled" || result.error === "demo_provision_unavailable"
-          ? m.demo_open_error_disabled()
-          : m.demo_open_error_generic();
+        result.error === "demo_session_failed"
+          ? m.demo_resume_failed()
+          : result.error === "demo_provision_disabled" ||
+              result.error === "demo_provision_unavailable"
+            ? m.demo_open_error_disabled()
+            : m.demo_open_error_generic();
       demoLoading = false;
       return;
     }
@@ -223,7 +238,7 @@
       {/if}
 
       {#if showDemo}
-        {#if demoSiteKey}
+        {#if demoSiteKey && !existingDemo}
           {#key demoChallengeAttempt}
             <DemoTurnstile
               siteKey={demoSiteKey}
@@ -241,12 +256,16 @@
         <button
           type="button"
           onclick={openDemo}
-          disabled={loading || demoLoading || (!!demoSiteKey && !demoToken)}
+          disabled={!demoStorageReady ||
+            loading ||
+            demoLoading ||
+            (!existingDemo && !!demoSiteKey && !demoToken)}
           data-testid="open-demo-account"
           class="mb-3 flex w-full items-center justify-center rounded-full border border-amber-400/30 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-100 transition-colors hover:bg-amber-500/20 focus-visible:ring-2 focus-visible:ring-amber-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 focus-visible:outline-none disabled:opacity-50"
         >
-          {demoLoading ? m.demo_open_busy() : m.demo_open_cta()}
+          {demoLoading ? m.demo_open_busy() : existingDemo ? m.demo_resume() : m.demo_open_cta()}
         </button>
+        <p class="mb-3 text-xs text-slate-400">{m.demo_browser_binding_note()}</p>
       {/if}
 
       {#if showReal}
