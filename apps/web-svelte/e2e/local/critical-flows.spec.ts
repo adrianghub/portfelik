@@ -229,7 +229,7 @@ test("optional demo name then one-click fixture uses real import, categories and
       .getByText(/BIEDRONKA/i)
       .first()
   ).toBeVisible();
-  await page.goto("/analysis?mode=forecast");
+  await page.goto("/analysis?mode=forecast&horizon=3months");
   await expect(page.getByTestId("analysis-forecast-today")).toContainText(/29\D?734,16/);
   await expect(page.getByTestId("analysis-forecast-income")).toContainText(/2\D?500,00/);
   await expect(page.getByTestId("analysis-forecast-expense")).not.toContainText(/^0,00/);
