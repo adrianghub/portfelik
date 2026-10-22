@@ -288,13 +288,13 @@
   const ledgerReady = $derived(
     !!session.userId && scopeCountQuery.isSuccess && cashAnchorQuery.isSuccess
   );
-  const discovery = $derived(
-    ledgerReady &&
-      !cashAnchorQuery.isError &&
-      !cashAnchorQuery.data &&
-      scopeCountQuery.data === 0 &&
-      !guidedTourUi.running
-  );
+  const discovery = $derived.by(() => {
+    // Read both query payloads on every evaluation. A short-circuited data read
+    // is invisible to TanStack's tracked-property notification until too late.
+    const count = scopeCountQuery.data;
+    const anchor = cashAnchorQuery.data;
+    return ledgerReady && !anchor && count === 0 && !guidedTourUi.running;
+  });
 
   let glossaryOpen = $state(false);
   let glossaryFocusId = $state<string | undefined>(undefined);
@@ -617,15 +617,20 @@
 
   // Prefer isLoading (pending + fetching) over isPending. Disabled dependents
   // stay isPending=true and would otherwise freeze the cash skeleton forever.
-  const cashPositionLoading = $derived(
-    !session.userId ||
-      cashAnchorQuery.isPending ||
-      cockpitMonthLedgerQuery.isLoading ||
-      (!!cashAnchorQuery.data &&
-        (cashHistoryQuery.isLoading ||
-          recurringTemplatesQuery.isLoading ||
-          cashRecurringSkipsQuery.isLoading))
-  );
+  const cashPositionLoading = $derived.by(() => {
+    // Subscribe to each loading flag even when an earlier request is pending.
+    const anchorPending = cashAnchorQuery.isPending;
+    const monthLoading = cockpitMonthLedgerQuery.isLoading;
+    const historyLoading = cashHistoryQuery.isLoading;
+    const recurringLoading = recurringTemplatesQuery.isLoading;
+    const skipsLoading = cashRecurringSkipsQuery.isLoading;
+    return (
+      !session.userId ||
+      anchorPending ||
+      monthLoading ||
+      (!!cashAnchorQuery.data && (historyLoading || recurringLoading || skipsLoading))
+    );
+  });
   const cashPositionError = $derived(
     cashAnchorQuery.isError ||
       cockpitMonthLedgerQuery.isError ||
