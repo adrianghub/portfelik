@@ -239,19 +239,21 @@ jobs:
             BEFORE_SHA="$(git rev-parse "$GITHUB_SHA^")"
           fi
 
-          if git diff --quiet "$BEFORE_SHA" "$GITHUB_SHA" -- supabase/config.toml; then
+          # Reconcile every managed function when deployment policy changes too.
+          # This also rolls out functions newly added to the allowlist.
+          if git diff --quiet "$BEFORE_SHA" "$GITHUB_SHA" -- supabase/config.toml .github/workflows/deploy-production.yml; then
             mapfile -t changed_functions < <(
               git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- 'supabase/functions/*' \
                 | awk -F/ 'NF >= 3 { print $3 }' \
                 | sort -u
             )
           else
-            changed_functions=(send-push send-admin-summary send-group-invitation sync-user-role)
+            changed_functions=(send-push send-admin-summary send-group-invitation sync-user-role open-demo-account)
           fi
 
           for function_name in "${changed_functions[@]}"; do
             case "$function_name" in
-              send-push|send-admin-summary|send-group-invitation|sync-user-role) ;;
+              send-push|send-admin-summary|send-group-invitation|sync-user-role|open-demo-account) ;;
               *)
                 echo "::error::Changed Edge Function is not managed by production deploy: $function_name"
                 exit 1
