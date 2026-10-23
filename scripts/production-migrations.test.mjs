@@ -31,7 +31,13 @@ const files = [applied, pending].map((version) => ({
 }));
 const history = `${applied} | ${applied} | date\n${pending} | | date\n`;
 const manifest = () =>
-  makeManifest("b".repeat(40), files, parseHistory(history), "c".repeat(64));
+  makeManifest(
+    "b".repeat(40),
+    files,
+    parseHistory(history),
+    "c".repeat(64),
+    "d".repeat(40),
+  );
 
 test("history accepts CLI backticks and fails closed on empty, drifted or incomplete history", () => {
   assert.equal(
@@ -53,6 +59,7 @@ test("history accepts CLI backticks and fails closed on empty, drifted or incomp
       files,
       parseHistory(`${applied} | ${applied} | date`),
       "hash",
+      "d".repeat(40),
     ),
   );
   assert.throws(() =>
@@ -64,16 +71,18 @@ test("history accepts CLI backticks and fails closed on empty, drifted or incomp
         { version: pending, applied: true },
       ],
       "hash",
+      "d".repeat(40),
     ),
   );
 });
 
-test("approval binds commit, all SQL contents, configuration and exact pending set", () => {
+test("approval binds candidate, trusted runner, SQL, configuration and exact pending set", () => {
   const plan = manifest();
   const digest = approvalDigest(plan);
   verifyApproval(plan, digest, "backup 2026-10-23 10:00 UTC");
   for (const changed of [
     { ...plan, candidate: "d".repeat(40) },
+    { ...plan, trusted_runner_sha: "e".repeat(40) },
     { ...plan, config_sha256: "e".repeat(64) },
     { ...plan, pending: [] },
     {
@@ -199,7 +208,7 @@ esac
           ...extra,
         },
       });
-    run({ dir, execute });
+    run({ dir, execute, git });
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -255,5 +264,42 @@ test("wrong project fails before any CLI call; failed parity is reported as fail
         .status,
       "failed",
     );
+  });
+});
+
+test("advancing the trusted checkout invalidates approval for unchanged candidate SQL", () => {
+  fixture(({ dir, execute, git }) => {
+    assert.equal(execute().status, 0);
+    const report = JSON.parse(
+      readFileSync(join(dir, "migration-report/result.json")),
+    );
+    writeFileSync(
+      join(dir, "scripts/load-local-env.sh"),
+      readFileSync(join(dir, "scripts/load-local-env.sh"), "utf8") +
+        "\n# Runner updated\n",
+    );
+    git("add", "scripts/load-local-env.sh");
+    git(
+      "-c",
+      "user.name=Test",
+      "-c",
+      "user.email=test@example.invalid",
+      "commit",
+      "-qm",
+      "update trusted runner",
+    );
+    const result = execute({
+      MIGRATION_OPERATION: "apply",
+      APPROVED_MANIFEST_SHA256: report.approval_sha256,
+      BACKUP_REFERENCE: "backup confirmed",
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Approval is stale: trusted runner/);
+    assert.equal(existsSync(join(dir, "pushed")), false);
+    const updated = JSON.parse(
+      readFileSync(join(dir, "migration-report/result.json")),
+    );
+    assert.equal(updated.candidate, report.candidate);
+    assert.notEqual(updated.trusted_runner_sha, report.trusted_runner_sha);
   });
 });
