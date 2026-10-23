@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Session, User } from "@supabase/supabase-js";
 
+const storage = vi.hoisted(() => ({ flush: vi.fn() }));
+vi.mock("$lib/auth/device-storage", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("$lib/auth/device-storage")>()),
+  flushDeviceAuthStorage: storage.flush,
+}));
+
 const setSession = vi.fn();
 const getSession = vi.fn();
 const verifyOtp = vi.fn();
@@ -90,6 +96,7 @@ describe("account switch hard reinit", () => {
     signOut.mockReset();
     signOut.mockResolvedValue({ error: null });
     assign.mockReset();
+    storage.flush.mockReset().mockResolvedValue(undefined);
     vi.stubGlobal("window", { location: { assign } });
   });
 
@@ -197,6 +204,64 @@ describe("account switch hard reinit", () => {
     expect(await openDemoAccount()).toEqual({ ok: false, error: "demo_session_failed" });
     expect(await openDemoAccount()).toEqual({ ok: false, error: "demo_session_failed" });
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("waits for durable native binding storage before redeeming the OTP", async () => {
+    getSession.mockResolvedValue({ data: { session: null } });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            tokenHash: "one-time-test-token",
+            userId: "demo-1",
+          }),
+          { status: 200 }
+        )
+      )
+    );
+    verifyOtp.mockResolvedValue({ data: { session: sessionFor("demo", "demo-1") }, error: null });
+    let completeWrite!: () => void;
+    storage.flush.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        completeWrite = resolve;
+      })
+    );
+
+    const opening = openDemoAccount({ reinit: false });
+    await vi.waitFor(() => expect(storage.flush).toHaveBeenCalledOnce());
+    expect(localStorage.getItem(DEMO_BINDING_KEY)).toBe("demo-1");
+    expect(verifyOtp).not.toHaveBeenCalled();
+    completeWrite();
+    await expect(opening).resolves.toMatchObject({ ok: true, kind: "demo" });
+    expect(verifyOtp).toHaveBeenCalledOnce();
+  });
+
+  it("does not confirm or provision another identity when the native binding write fails", async () => {
+    getSession.mockResolvedValue({ data: { session: null } });
+    const fetchSpy = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          tokenHash: "one-time-test-token",
+          userId: "demo-1",
+        }),
+        { status: 200 }
+      )
+    );
+    vi.stubGlobal("fetch", fetchSpy);
+    storage.flush.mockRejectedValueOnce(new Error("auth_vault_write_failed"));
+
+    await expect(openDemoAccount({ reinit: false })).resolves.toEqual({
+      ok: false,
+      error: "demo_session_failed",
+    });
+    await expect(openDemoAccount({ reinit: false })).resolves.toEqual({
+      ok: false,
+      error: "demo_session_failed",
+    });
+    expect(verifyOtp).not.toHaveBeenCalled();
+    expect(assign).not.toHaveBeenCalled();
+    expect(fetchSpy).toHaveBeenCalledOnce();
   });
 
   it("parks the real session and enters Turnstile when no demo session exists", async () => {
