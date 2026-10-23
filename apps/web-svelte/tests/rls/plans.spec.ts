@@ -47,6 +47,28 @@ describe("RLS: plans", () => {
     expect(data?.length).toBe(1);
   });
 
+  it("allows demo tagging only through existing plan ownership RLS", async () => {
+    const own = await ctx.userA.client
+      .from("plans")
+      .update({ is_demo: true })
+      .eq("id", planAId)
+      .select("is_demo")
+      .single();
+    expect(own.error).toBeNull();
+    expect(own.data?.is_demo).toBe(true);
+    expectBlockedWrite(
+      await ctx.userB.client.from("plans").update({ is_demo: false }).eq("id", planAId).select()
+    );
+    const reassigned = await ctx.userA.client
+      .from("plans")
+      .update({ user_id: ctx.userB.userId })
+      .eq("id", planAId);
+    expect(reassigned.error?.code).toBe("42501");
+    expect(
+      (await ctx.admin.from("plans").select("user_id,is_demo").eq("id", planAId).single()).data
+    ).toMatchObject({ user_id: ctx.userA.userId, is_demo: true });
+  });
+
   it("allows a plan icon preference only for an authorized owner", async () => {
     const saved = await ctx.userA.client
       .from("plans")

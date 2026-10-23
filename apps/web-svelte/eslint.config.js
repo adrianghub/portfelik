@@ -13,6 +13,7 @@ export default tseslint.config(
         ...globals.browser,
         ...globals.node,
         NotificationPermission: "readonly",
+        __DEMO_TURNSTILE_SITE_KEY__: "readonly",
       },
     },
   },

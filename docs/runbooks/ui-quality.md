@@ -2,6 +2,31 @@
 
 Run from `apps/web-svelte` using the repository's pinned pnpm version.
 
+## Reproducible Linux fonts
+
+The `test:e2e`, `test:e2e:matrix` and `test:e2e:local` commands automatically use
+`scripts/with-ci-fonts.sh`. On Linux it isolates Fontconfig to the DejaVu fonts
+used by the approved screenshots. Host fonts and user font substitutions are
+excluded, including fonts installed by a managed agent environment. Regular,
+bold and monospace faces remain available. Application font CSS stays unchanged.
+
+Install `fontconfig` and `fonts-dejavu-core` on Debian/Ubuntu before running the
+tests. Missing fonts fail with an installation hint. macOS and Windows retain
+their native fonts and platform-specific screenshots; use Linux to compare with
+the Linux CI baselines. Do not update reference images to accommodate host fonts.
+
+The shared GitHub Actions setup exports the same `FONTCONFIG_FILE`, so direct
+`pnpm exec playwright test` calls in workflows also use this configuration. For
+a direct local Playwright invocation, configure it explicitly from the repo root:
+
+```bash
+export FONTCONFIG_FILE="$(bash scripts/configure-ci-fonts.sh)"
+```
+
+The generated configuration and writable cache live in a unique temporary
+directory and remain available across CI steps. No system font files, global
+Fontconfig settings or browser-cache locations are changed.
+
 ## Browser matrix
 
 `pnpm test:e2e:matrix` checks the product screens, keyboard focus, horizontal

@@ -9,16 +9,18 @@
   import DashboardCashPosition from "$lib/components/dashboard/DashboardCashPosition.svelte";
   import DashboardViewToolbar from "$lib/components/dashboard/DashboardViewToolbar.svelte";
   import DashboardDiscovery from "$lib/components/dashboard/DashboardDiscovery.svelte";
+  import { fetchDemoSampleReceipt } from "$lib/services/demo-sample";
+  import DemoSampleCard from "$lib/components/demo/DemoSampleCard.svelte";
+  import { supabase } from "$lib/supabase";
+  import { isDemoAccountUser } from "$lib/demo/identity-session";
+  import { dismissHint, loadHintState } from "$lib/demo/hints";
+  import { DEMO_SAMPLE_SHA256 } from "$lib/demo/sample";
+  import { fetchLastCommittedImportSession } from "$lib/services/bank-import";
   import * as m from "$lib/paraglide/messages";
   import DemoShowcaseBanner from "$lib/components/onboarding/DemoShowcaseBanner.svelte";
   import GlossarySheet from "$lib/components/ui/GlossarySheet.svelte";
   import { track } from "$lib/analytics";
-  import {
-    clearDemoData,
-    fetchDemoProbe,
-    hasDemoData,
-    isDiscoveryLedger,
-  } from "$lib/services/demo-data";
+  import { clearDemoData, fetchDemoProbe, hasDemoData } from "$lib/services/demo-data";
   import { refreshDemoState } from "$lib/services/demo-query-state";
   import { resetGuidedTourForReplay } from "$lib/services/guided-tour-actions";
   import { guidedTourUi } from "$lib/guided-tour/ui.svelte";
@@ -28,6 +30,7 @@
   import {
     fetchRecurringTemplates,
     fetchTransactionCount,
+    fetchScopedTransactionCount,
     fetchTransactions,
     fetchTransactionsByStatus,
     updateTransactionStatus,
@@ -82,13 +85,39 @@
   import { onMount } from "svelte";
 
   let importRevealCount = $state<number | null>(null);
+  let demoIdentity = $state(false);
+  let sampleDismissed = $state(true);
+  let sampleAdded = $state(false);
+  let sampleStarted = $state(false);
   onMount(() => {
     importRevealCount = takeCockpitImportReveal();
+    void supabase.auth.getSession().then(({ data }) => {
+      demoIdentity = isDemoAccountUser(data.session?.user);
+      if (data.session?.user)
+        sampleDismissed =
+          $page.url.searchParams.get("showDemoSample") === "1"
+            ? false
+            : loadHintState(data.session.user.id).import_csv.dismissed;
+    });
   });
+
+  async function sampleComplete() {
+    sampleAdded = true;
+    await refreshDemoState(queryClient, requireSessionUserId());
+  }
+
+  function dismissSample() {
+    dismissHint(requireSessionUserId(), "import_csv");
+    sampleAdded = false;
+    sampleDismissed = true;
+    sampleStarted = false;
+  }
 
   const greetingName = $derived.by(() => {
     const raw =
-      profileQuery.data?.settings.preferredName?.trim() || profileQuery.data?.name?.trim();
+      profileQuery.data?.settings.preferredName?.trim() ||
+      profileQuery.data?.name?.trim() ||
+      (demoIdentity ? "Konto demo" : "");
     return raw ?? "";
   });
 
@@ -190,6 +219,20 @@
     enabled: !!session.userId,
   }));
 
+  const sampleImportQuery = createQuery(() => ({
+    queryKey: qk.importHealth(session.userId!),
+    queryFn: fetchLastCommittedImportSession,
+    enabled: !!session.userId && demoIdentity,
+  }));
+  const sampleReceiptQuery = createQuery(() => ({
+    queryKey: ["user", session.userId, "demo-sample-receipt", sampleImportQuery.data?.id],
+    queryFn: () => fetchDemoSampleReceipt(sampleImportQuery.data!.id),
+    enabled:
+      !!session.userId &&
+      demoIdentity &&
+      sampleImportQuery.data?.source_file_hash === DEMO_SAMPLE_SHA256,
+  }));
+
   const cashAnchorStart = $derived(cashAnchorQuery.data?.as_of_date ?? "2000-01-01");
   const cashHistoryQuery = createQuery(() => ({
     queryKey: qk.transactions.list(session.userId!, "cash-history", cashAnchorStart),
@@ -219,6 +262,19 @@
     staleTime: 60_000,
   }));
 
+  const scopeCountQuery = createQuery(() => ({
+    queryKey: qk.transactions.list(session.userId!, "scope-count", groupFilter),
+    queryFn: () => fetchScopedTransactionCount(groupFilter),
+    enabled: !!session.userId,
+  }));
+
+  const sampleNeedsCash = $derived(
+    (txCountQuery.data ?? 0) >= 96 &&
+      sampleImportQuery.data?.source_file_hash === DEMO_SAMPLE_SHA256 &&
+      ((cashAnchorQuery.isSuccess && !cashAnchorQuery.data) ||
+        (sampleReceiptQuery.isSuccess && !sampleReceiptQuery.data))
+  );
+
   const demoActive = $derived(
     hasDemoData({
       transactions: demoProbeQuery.data?.transactions ?? [],
@@ -227,23 +283,18 @@
     })
   );
 
-  // Only the discovery decision depends on these auxiliary queries. Cash and
-  // period totals must render independently when plans/demo checks are slow.
+  // Shared group rows must not make an empty private ledger look populated.
+  // Wait for the current scope and cash anchor before choosing the empty state.
   const ledgerReady = $derived(
-    !!session.userId &&
-      txCountQuery.isSuccess &&
-      demoProbeQuery.isSuccess &&
-      plansQuery.isSuccess &&
-      cashAnchorQuery.isSuccess
+    !!session.userId && scopeCountQuery.isSuccess && cashAnchorQuery.isSuccess
   );
-  const discovery = $derived(
-    ledgerReady &&
-      !cashAnchorQuery.isError &&
-      !cashAnchorQuery.data &&
-      typeof txCountQuery.data === "number" &&
-      isDiscoveryLedger({ demoActive, transactionCount: txCountQuery.data }) &&
-      !guidedTourUi.running
-  );
+  const discovery = $derived.by(() => {
+    // Read both query payloads on every evaluation. A short-circuited data read
+    // is invisible to TanStack's tracked-property notification until too late.
+    const count = scopeCountQuery.data;
+    const anchor = cashAnchorQuery.data;
+    return ledgerReady && !anchor && count === 0 && !guidedTourUi.running;
+  });
 
   let glossaryOpen = $state(false);
   let glossaryFocusId = $state<string | undefined>(undefined);
@@ -259,9 +310,17 @@
       const u = requireSessionUserId();
       track("demo_cleared", { row_count: result.deleted });
       await refreshDemoState(queryClient, u);
+      sampleAdded = false;
+      sampleStarted = false;
+      sampleDismissed = false;
       toast.success(m.demo_cleared_toast());
     },
-    onError: (err) => toastError(err),
+    onError: (err) => {
+      sampleAdded = false;
+      sampleStarted = false;
+      sampleDismissed = true;
+      toastError(err);
+    },
   }));
 
   const restartTourMutation = createMutation(() => ({
@@ -558,15 +617,20 @@
 
   // Prefer isLoading (pending + fetching) over isPending. Disabled dependents
   // stay isPending=true and would otherwise freeze the cash skeleton forever.
-  const cashPositionLoading = $derived(
-    !session.userId ||
-      cashAnchorQuery.isPending ||
-      cockpitMonthLedgerQuery.isLoading ||
-      (!!cashAnchorQuery.data &&
-        (cashHistoryQuery.isLoading ||
-          recurringTemplatesQuery.isLoading ||
-          cashRecurringSkipsQuery.isLoading))
-  );
+  const cashPositionLoading = $derived.by(() => {
+    // Subscribe to each loading flag even when an earlier request is pending.
+    const anchorPending = cashAnchorQuery.isPending;
+    const monthLoading = cockpitMonthLedgerQuery.isLoading;
+    const historyLoading = cashHistoryQuery.isLoading;
+    const recurringLoading = recurringTemplatesQuery.isLoading;
+    const skipsLoading = cashRecurringSkipsQuery.isLoading;
+    return (
+      !session.userId ||
+      anchorPending ||
+      monthLoading ||
+      (!!cashAnchorQuery.data && (historyLoading || recurringLoading || skipsLoading))
+    );
+  });
   const cashPositionError = $derived(
     cashAnchorQuery.isError ||
       cockpitMonthLedgerQuery.isError ||
@@ -813,22 +877,66 @@
     </div>
   </div>
 
-  {#if discovery}
+  {#if !clearDemoMutation.isPending && demoIdentity && ((!sampleDismissed && (txCountQuery.data === 0 || sampleNeedsCash || sampleStarted)) || sampleAdded)}
+    <DemoSampleCard
+      onComplete={sampleComplete}
+      onDismiss={dismissSample}
+      onStart={() => {
+        sampleStarted = true;
+      }}
+      recovering={sampleNeedsCash}
+    />
+  {/if}
+
+  {#if (groupsQuery.data ?? []).length > 0}
+    <DashboardViewToolbar
+      period="month"
+      {groupFilter}
+      groups={groupsQuery.data ?? []}
+      periodChips={[]}
+      showPeriod={false}
+      onPeriodChange={() => {}}
+      onScopeChange={setGroupFilter}
+      onRangeChange={() => {}}
+      onRangeClear={() => {}}
+    />
+  {/if}
+
+  {#if scopeCountQuery.isError || cashAnchorQuery.isError}
+    <div role="alert" class="rounded-2xl border border-white/10 bg-slate-900 p-6">
+      <p>{m.dashboard_empty_load_error()}</p>
+      <button
+        type="button"
+        class="mt-3 underline"
+        onclick={() => {
+          void scopeCountQuery.refetch();
+          void cashAnchorQuery.refetch();
+        }}>{m.common_retry()}</button
+      >
+    </div>
+  {:else if !ledgerReady}
+    <p role="status" class="py-8 text-center text-slate-400">{m.common_loading()}</p>
+  {:else if discovery && !demoIdentity}
     <DashboardDiscovery />
-  {:else}
-    {#if (groupsQuery.data ?? []).length > 0}
-      <DashboardViewToolbar
-        period="month"
-        {groupFilter}
-        groups={groupsQuery.data ?? []}
-        periodChips={[]}
-        showPeriod={false}
-        onPeriodChange={() => {}}
-        onScopeChange={setGroupFilter}
-        onRangeChange={() => {}}
-        onRangeClear={() => {}}
-      />
+  {:else if discovery && demoIdentity}
+    {#if sampleDismissed && !clearDemoMutation.isPending}
+      <div class="flex flex-wrap gap-3" data-testid="demo-empty-actions">
+        <button
+          type="button"
+          onclick={() => {
+            sampleDismissed = false;
+          }}
+          class="bg-accent-gradient min-h-11 rounded-full px-4 text-sm font-semibold text-slate-950"
+          >{m.demo_sample_fill()}</button
+        >
+        <a
+          href="/import"
+          class="min-h-11 rounded-full border border-white/10 px-4 py-3 text-sm text-slate-200"
+          >{m.tour_welcome_import()}</a
+        >
+      </div>
     {/if}
+  {:else}
     <DashboardCashPosition
       hasAnchor={!!cashAnchorQuery.data}
       showPrivateDetails={groupFilter === "own"}
@@ -867,7 +975,7 @@
         onclear={async () => {
           await clearDemoMutation.mutateAsync();
         }}
-        onrestart={() => restartTourMutation.mutate()}
+        onrestart={demoIdentity ? undefined : () => restartTourMutation.mutate()}
         clearing={clearDemoMutation.isPending}
         restarting={restartTourMutation.isPending}
       />

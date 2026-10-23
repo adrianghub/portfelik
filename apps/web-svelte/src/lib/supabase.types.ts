@@ -28,6 +28,38 @@ export type Database = {
   };
   public: {
     Tables: {
+      demo_sample_receipts: {
+        Row: {
+          session_id: string;
+          user_id: string;
+          cash_position_id: string | null;
+          cash_updated_at: string | null;
+          cleared_at: string | null;
+        };
+        Insert: {
+          session_id: string;
+          user_id: string;
+          cash_position_id?: string | null;
+          cash_updated_at?: string | null;
+          cleared_at?: string | null;
+        };
+        Update: {
+          session_id?: string;
+          user_id?: string;
+          cash_position_id?: string | null;
+          cash_updated_at?: string | null;
+          cleared_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "demo_sample_receipts_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: true;
+            referencedRelation: "transaction_import_sessions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       action_dismissals: {
         Row: {
           action_key: string;
@@ -1437,6 +1469,9 @@ export type Database = {
         Returns: undefined;
       };
       claim_group_invitation: { Args: { p_token: string }; Returns: Json };
+      finish_demo_sample: { Args: { p_session_id: string }; Returns: Json };
+      clear_demo_sample: { Args: never; Returns: Json };
+      create_demo_car_loan: { Args: { p_start_date: string; p_end_date: string }; Returns: Json };
       clear_demo_data: { Args: never; Returns: Json };
       commit_import_session: { Args: { p_session_id: string }; Returns: Json };
       create_and_link_plan_transaction: {

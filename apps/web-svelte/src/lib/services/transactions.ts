@@ -72,10 +72,14 @@ export async function fetchTransactionsByStatus(
 
 /** All-time presence used as 0 vs >0. Period-empty Kokpit views must not use this. */
 export async function fetchTransactionCount(): Promise<number> {
-  const { count, data, error } = await supabase
-    .from("transactions")
-    .select("id", { count: "exact" })
-    .limit(1);
+  return fetchScopedTransactionCount("all");
+}
+
+export async function fetchScopedTransactionCount(scope: string): Promise<number> {
+  let query = supabase.from("transactions").select("id", { count: "exact" });
+  if (scope === "own") query = query.is("group_id", null);
+  else if (scope !== "all") query = query.eq("group_id", scope);
+  const { count, data, error } = await query.limit(1);
   if (error) throw error;
   if (typeof count === "number") return count;
   return data?.length ?? 0;

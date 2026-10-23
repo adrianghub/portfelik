@@ -20,7 +20,7 @@
 <Dialog {open} {onclose} title={copy.title}>
   <div class="space-y-5">
     <p class="text-sm leading-relaxed text-slate-300">{copy.body}</p>
-    <div class="flex flex-col gap-2 pt-1">
+    <div class="flex flex-col gap-3 pt-1">
       <button
         type="button"
         class="bg-accent-gradient focus-visible:ring-accent flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-slate-900 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"

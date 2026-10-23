@@ -12,14 +12,11 @@
     takeDemoSeedRequest,
     takeGuidedTourRestart,
   } from "$lib/guided-tour/ui.svelte";
-  import {
-    fetchDemoProbe,
-    hasDemoData,
-    isDiscoveryLedger,
-    seedDemoData,
-  } from "$lib/services/demo-data";
+  import { fetchDemoProbe, hasDemoData, isDiscoveryLedger } from "$lib/services/demo-data";
   import { fetchTransactionCount } from "$lib/services/transactions";
-  import { refreshDemoState } from "$lib/services/demo-query-state";
+  import { enterDemo } from "$lib/services/open-demo-account";
+  import { toast } from "svelte-sonner";
+  import * as m from "$lib/paraglide/messages";
   import {
     TOUR_SCENES,
     advanceGuidedTour,
@@ -227,13 +224,12 @@
     demoLoading = true;
     guidedTourUi.demoBusy = true;
     try {
-      if (!demoActive) {
-        await seedDemoData();
-        const u = requireSessionUserId();
-        await refreshDemoState(queryClient, u);
-      }
-      await startTour("demo", 0);
+      const result = await enterDemo();
+      if (!result.ok) throw new Error("demo_entry_failed");
+    } catch {
+      toast.error(m.demo_open_error_generic());
     } finally {
+      welcomeOpen = false;
       demoLoading = false;
       finishDemoSeedRequest();
     }

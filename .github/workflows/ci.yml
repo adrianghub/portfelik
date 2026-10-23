@@ -72,7 +72,7 @@ jobs:
       - uses: ./.github/actions/setup-web
 
       - name: Repository automation tests
-        run: node --test scripts/android-release.test.mjs scripts/supabase-ops.test.mjs apps/web-svelte/scripts/seed-personas.test.mjs
+        run: node --test scripts/android-release.test.mjs scripts/supabase-ops.test.mjs scripts/production-migrations.test.mjs apps/web-svelte/scripts/seed-personas.test.mjs
 
       - name: Typecheck
         working-directory: apps/web-svelte
@@ -248,7 +248,7 @@ jobs:
       - uses: ./.github/actions/setup-web
       - name: Install browser matrix
         working-directory: apps/web-svelte
-        timeout-minutes: 5
+        timeout-minutes: 10
         run: pnpm exec playwright install --with-deps chromium firefox webkit
       - name: Build mocked app
         working-directory: apps/web-svelte
@@ -288,6 +288,12 @@ jobs:
       - name: Test real UI and database mutations
         working-directory: apps/web-svelte
         run: pnpm test:e2e:local
+      - name: Test configured demo challenge in Chromium
+        working-directory: apps/web-svelte
+        env:
+          # Public Cloudflare test key; API script and Edge replies are fixtures.
+          QUALITY_TURNSTILE_SITE_KEY: 1x00000000000000000000AA
+        run: pnpm test:e2e:local demo-turnstile.spec.ts
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

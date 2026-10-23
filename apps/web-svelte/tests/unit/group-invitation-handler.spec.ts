@@ -33,11 +33,13 @@ beforeEach(() => {
     APP_ORIGINS: "https://other.test",
   };
   getUser.mockResolvedValue({ data: { user: { id: "owner" } }, error: null });
-  rpc.mockImplementation(async (name) =>
-    name === "create_group_invitation_for_delivery"
-      ? { data: { invitation, token: "new-token" }, error: null }
-      : { data: true, error: null }
-  );
+  rpc.mockImplementation(async (name) => {
+    if (name === "is_demo_account") return { data: false, error: null };
+    if (name === "create_group_invitation_for_delivery") {
+      return { data: { invitation, token: "new-token" }, error: null };
+    }
+    return { data: true, error: null };
+  });
   fetchEmail = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
   vi.stubGlobal("fetch", fetchEmail);
 });
@@ -70,10 +72,32 @@ describe("group invitation Edge handler", () => {
   });
 
   it("does not send when the owner RPC denies the request", async () => {
-    rpc.mockResolvedValueOnce({ data: null, error: { message: "not_group_owner" } });
+    rpc.mockImplementation(async (name) => {
+      if (name === "is_demo_account") return { data: false, error: null };
+      if (name === "create_group_invitation_for_delivery") {
+        return { data: null, error: { message: "not_group_owner" } };
+      }
+      return { data: true, error: null };
+    });
     const response = await handler()(request({ groupId: "g1", email: "a@example.com" }));
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: "not_group_owner" });
+    expect(fetchEmail).not.toHaveBeenCalled();
+  });
+
+  it("refuses demo actors before creating an invitation", async () => {
+    rpc.mockImplementation(async (name) =>
+      name === "is_demo_account"
+        ? { data: true, error: null }
+        : { data: null, error: null }
+    );
+    const response = await handler()(request({ groupId: "g1", email: "a@example.com" }));
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: "demo_not_allowed" });
+    expect(rpc).not.toHaveBeenCalledWith(
+      "create_group_invitation_for_delivery",
+      expect.anything()
+    );
     expect(fetchEmail).not.toHaveBeenCalled();
   });
 
@@ -122,5 +146,69 @@ describe("group invitation Edge handler", () => {
     expect(response.status).toBe(403);
     expect(await response.json()).toEqual({ error: "invitation_access_denied" });
     expect(generateLink).not.toHaveBeenCalled();
+  });
+});
+
+describe("invited password setup", () => {
+  it("only generates a setup link after rate and recipient validation", async () => {
+    generateLink.mockResolvedValue({
+      data: { properties: { action_link: "https://auth.test/verified-link" } },
+      error: null,
+    });
+    const response = await handler()(
+      request({
+        action: "access",
+        email: " NEW@example.com ",
+        token: "a".repeat(64),
+        setupPassword: true,
+      })
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ sent: true });
+    expect(rpc.mock.calls.map(([name]) => name)).toEqual([
+      "record_group_invitation_access_attempt",
+      "verify_group_invitation_recipient",
+    ]);
+    const options = generateLink.mock.calls[0][0];
+    const callback = new URL(options.options.redirectTo);
+    const setup = new URL(callback.searchParams.get("redirectTo")!, "https://app.jakstoimy.pl");
+    expect(setup.pathname).toBe("/auth/setup");
+    expect(setup.searchParams.get("redirectTo")).toBe(`/invite/${"a".repeat(64)}`);
+    expect(options).not.toHaveProperty("password");
+    expect(rpc).not.toHaveBeenCalledWith("claim_group_invitation", expect.anything());
+  });
+
+  it("uses a magic link for an existing account without changing its credentials", async () => {
+    generateLink
+      .mockResolvedValueOnce({ data: null, error: { message: "already registered" } })
+      .mockResolvedValueOnce({
+        data: { properties: { action_link: "https://auth.test/existing" } },
+        error: null,
+      });
+    const response = await handler()(
+      request({
+        action: "access",
+        email: "a@example.com",
+        token: "a".repeat(64),
+        setupPassword: true,
+      })
+    );
+    expect(await response.json()).toEqual({ sent: true });
+    expect(generateLink.mock.calls.map(([input]) => input.type)).toEqual(["invite", "magiclink"]);
+  });
+
+  it("does not generate or send a link after rate denial", async () => {
+    rpc.mockResolvedValueOnce({ data: false, error: null });
+    const response = await handler()(
+      request({
+        action: "access",
+        email: "a@example.com",
+        token: "a".repeat(64),
+        setupPassword: true,
+      })
+    );
+    expect(response.status).toBe(403);
+    expect(generateLink).not.toHaveBeenCalled();
+    expect(fetchEmail).not.toHaveBeenCalled();
   });
 });

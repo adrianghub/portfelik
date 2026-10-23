@@ -36,6 +36,14 @@
   import { registerNativeBackButtonHandler } from "$lib/services/native-back";
   import { requireAuthUser } from "$lib/auth/require-user";
   import { setSessionUser } from "$lib/auth/session.svelte";
+  import {
+    clearAllIdentitySessionState,
+    isAccountSwitchReinit,
+    isDemoAccountUser,
+    rememberDemoIdentity,
+  } from "$lib/demo/identity-session";
+  import { bootstrapPendingAccountSwitch } from "$lib/services/open-demo-account";
+  import { initializeDeviceAuthStorage } from "$lib/auth/device-storage";
   import { supabase } from "$lib/supabase";
   import type { Profile } from "$lib/types";
   import type { User } from "@supabase/supabase-js";
@@ -71,7 +79,14 @@
     }
   });
 
-  const PUBLIC_PATHS = ["/login", "/auth/callback", "/privacy", "/invite", "/changelog"];
+  const PUBLIC_PATHS = [
+    "/login",
+    "/auth/callback",
+    "/auth/setup",
+    "/privacy",
+    "/invite",
+    "/changelog",
+  ];
   const PUSH_PROMPT_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
   const PUSH_PROMPT_STORAGE_KEY = "push_prompted_at";
 
@@ -80,6 +95,7 @@
   let userId = $state<string | null>(null);
   let authStatus = $state<"checking" | "authenticated" | "anonymous">("checking");
   let authRevision = 0;
+  let authBootstrapPending = $state(true);
   /** Identity the current query cache belongs to; cleared only at auth boundary. */
   let loadedUserId: string | null = null;
   let notifPermission = $state<NotificationPermission>("default");
@@ -136,7 +152,7 @@
   }
 
   $effect(() => {
-    if (typeof window === "undefined" || authStatus === "checking") return;
+    if (typeof window === "undefined" || authStatus === "checking" || authBootstrapPending) return;
     if (!isPublicRoute && authStatus === "anonymous") {
       redirectToLogin();
     } else if (page.url.pathname === "/login" && authStatus === "authenticated") {
@@ -170,7 +186,8 @@
       });
   });
 
-  function clearAuthenticatedUser() {
+  function clearAuthenticatedUser(options?: { clearIdentitySessions?: boolean }) {
+    const preserveDemo = !isDemoAccountUser(user);
     if (loadedUserId !== null) {
       queryClient.clear();
       void import("$lib/services/save-text-file").then((mod) => mod.clearNativeExportCache());
@@ -182,9 +199,13 @@
     user = null;
     userId = null;
     authStatus = "anonymous";
+    if (options?.clearIdentitySessions) {
+      clearAllIdentitySessionState({ preserveDemo });
+    }
   }
 
   function loadAuthenticatedUser(authUser: User) {
+    if (isDemoAccountUser(authUser)) rememberDemoIdentity(authUser.id);
     if (loadedUserId !== authUser.id) {
       queryClient.clear();
       loadedUserId = authUser.id;
@@ -263,16 +284,22 @@
 
     supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
+        // Hard Demo↔Real reinit clears GoTrue storage before reload — ignore.
+        if (isAccountSwitchReinit()) {
+          clearAuthenticatedUser();
+          return;
+        }
         // Detach browser push only — do not persist opt-out (explicit disable does).
         detachLocalPushSubscription().catch(() => {});
         const onInvite = page.url.pathname.startsWith("/invite/");
         if (!onInvite) {
           clearLoginRedirect();
-          clearAuthenticatedUser();
+          // Revoke the signed-out identity; a separate inactive demo remains resumable.
+          clearAuthenticatedUser({ clearIdentitySessions: true });
           void goto("/login", { replaceState: true });
         } else {
           // Invite switch-account: keep remembered redirect; stay on /invite/*.
-          clearAuthenticatedUser();
+          clearAuthenticatedUser({ clearIdentitySessions: true });
         }
       }
       if (event === "SIGNED_IN" && session?.user) {
@@ -284,36 +311,53 @@
     });
 
     void (async () => {
-      const bootstrapRevision = authRevision;
-      // Fast local session for splash, then verify with Auth server so a stale
-      // localStorage token cannot keep privileged UI alive.
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
-      const authUser = session?.user ?? null;
+      try {
+        const bootstrapRevision = authRevision;
+        await initializeDeviceAuthStorage();
+        // Apply Demo↔Real switch before any financial getSession/query work so the
+        // new identity owns the fresh QueryClient created for this page load.
+        const switched = await bootstrapPendingAccountSwitch();
+        if (!switched.applied && "error" in switched) {
+          clearAuthenticatedUser();
+          await goto(`/login?account=${switched.kind}&switchFailed=${switched.kind}`, {
+            replaceState: true,
+          });
+          return;
+        }
+        if (bootstrapRevision !== authRevision) return;
 
-      if (bootstrapRevision !== authRevision) return;
+        // Fast local session for splash, then verify with Auth server so a stale
+        // localStorage token cannot keep privileged UI alive.
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession();
+        const authUser = session?.user ?? null;
 
-      if (sessionError || !authUser) {
-        clearAuthenticatedUser();
-      } else {
-        loadAuthenticatedUser(authUser);
-        void requireAuthUser().then((verified) => {
-          if (bootstrapRevision !== authRevision) return;
-          if (!verified) {
-            clearAuthenticatedUser();
-            if (!isPublicRoute) redirectToLogin();
-            return;
-          }
-          if (verified.id !== authUser.id) {
-            loadAuthenticatedUser(verified);
-          }
-        });
-      }
+        if (bootstrapRevision !== authRevision) return;
 
-      if (!authUser && !isPublicRoute) {
-        redirectToLogin();
+        if (sessionError || !authUser) {
+          clearAuthenticatedUser();
+        } else {
+          loadAuthenticatedUser(authUser);
+          void requireAuthUser().then((verified) => {
+            if (bootstrapRevision !== authRevision) return;
+            if (!verified) {
+              clearAuthenticatedUser();
+              if (!isPublicRoute) redirectToLogin();
+              return;
+            }
+            if (verified.id !== authUser.id) {
+              loadAuthenticatedUser(verified);
+            }
+          });
+        }
+
+        if (!authUser && !isPublicRoute) {
+          redirectToLogin();
+        }
+      } finally {
+        authBootstrapPending = false;
       }
     })();
 
@@ -334,6 +378,7 @@
 <Toaster
   richColors
   position="bottom-right"
+  style="z-index: 105;"
   mobileOffset={{ bottom: "var(--mobile-action-bottom)" }}
 />
 <OfflineIndicator />
@@ -346,6 +391,10 @@
           <div class="bg-accent-gradient h-full w-1/2 animate-pulse rounded-full"></div>
         </div>
       </div>
+    </main>
+  {:else if page.url.pathname === "/demo/welcome"}
+    <main class="grid min-h-screen place-items-center bg-slate-950 px-4 py-12">
+      {@render children()}
     </main>
   {:else if !isPublicRoute}
     <div
@@ -388,7 +437,7 @@
           </div>
         {/key}
       </main>
-      <GuidedTourHost {profile} {userId} />
+      {#if !isDemoAccountUser(user)}<GuidedTourHost {profile} {userId} />{/if}
       <InstallPrompt />
     </div>
   {:else}

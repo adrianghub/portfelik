@@ -17,7 +17,7 @@ Not a coach. Not ChatGPT marketing. Not slangy chat.
 
 | Register | Where | Tone |
 |---|---|---|
-| Warm and clear | Login, tour, empty states, demos | *ty*, short, lightly human |
+| Warm and clear | Login, optional hints, empty states, demos | *ty*, short, lightly human |
 | Calm and precise | Money context, errors, security, permissions | *ty*, no jokes, no pep-talk |
 
 Both registers stay professional. Warm does not mean chatty.
@@ -59,6 +59,24 @@ Keep the private scope and PLN basis visible near the balance. Display the
 forecast date next to its number. Put the full calculation behind
 “Jak obliczamy saldo i prognozę?”. Date filters for period reports do not change
 the private balance or its forecast horizon.
+
+## Auth and demo terminology
+
+Use **Konto demo** / **Konto rzeczywiste** for the two application environments,
+not payment accounts. **Otwórz konto demo** is the entry action once implemented.
+Use **Historia transakcji**, **Importuj transakcje**, **Analiza wpływów i wydatków**,
+**Prognoza salda**, **Planowane wpływy** and **Planowane wydatki** for content and
+actions; preserve the existing short navigation labels unless that surface is rebuilt.
+
+A verified email is not an accepted group invitation. A successful request to send
+a link is not confirmed delivery. Do not reveal whether an account exists during
+password recovery. **Ustaw hasło** changes credentials; **Dołącz do grupy** needs
+its own confirmation and server authorization.
+
+Only promise demo isolation, session durability or reset when the implemented and
+tested behavior supports it. Historical imports explain the past; forecasts also
+need a confirmed balance and future operations. Finishing or dismissing optional
+hints must never imply data deletion.
 
 ## Do / don’t
 

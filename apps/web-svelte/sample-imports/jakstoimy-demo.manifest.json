@@ -1,0 +1,43 @@
+{
+  "file": "sample-imports/jakstoimy-demo.csv",
+  "adapter": "erste",
+  "format_note": "Fictional demo ledger using Erste headerless 9-col layout supported by the production adapter. Not a real bank export.",
+  "row_count_transactions": 96,
+  "date_start": "2026-05-01",
+  "date_end": "2026-10-17",
+  "income_grosze": 6150000,
+  "expense_grosze": 3676584,
+  "net_grosze": 2473416,
+  "per_month": {
+    "2026-05": {
+      "income_grosze": 1025000,
+      "expense_grosze": 612764,
+      "count": 16
+    },
+    "2026-06": {
+      "income_grosze": 1025000,
+      "expense_grosze": 612764,
+      "count": 16
+    },
+    "2026-07": {
+      "income_grosze": 1025000,
+      "expense_grosze": 612764,
+      "count": 16
+    },
+    "2026-08": {
+      "income_grosze": 1025000,
+      "expense_grosze": 612764,
+      "count": 16
+    },
+    "2026-09": {
+      "income_grosze": 1025000,
+      "expense_grosze": 612764,
+      "count": 16
+    },
+    "2026-10": {
+      "income_grosze": 1025000,
+      "expense_grosze": 612764,
+      "count": 16
+    }
+  }
+}

@@ -88,6 +88,17 @@ Inspect and promote production only after staging verification:
 
 ## Migration history repair
 
+For agent-assisted production runs with an immutable approval manifest, see
+[Production migration workflow](production-migrations.md). It uses the same
+dispatcher and runs independently of merge, Pages deployment, Edge Function
+deployment, and promotion to `main`.
+
+Staging previews and pushes include `--include-all`: independently developed
+feature migrations can have timestamps before the latest migration already
+applied to staging. Review the complete preview list before a manual push.
+Production does not inherit this flag. Applying a missing migration is different
+from repairing history; never mark an unapplied migration as already applied.
+
 Use `repair-applied` only when a migration file in `supabase/migrations/` was
 already applied to the target database but is missing from its migration-history
 table. Inspect first:
