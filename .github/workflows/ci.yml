@@ -72,7 +72,7 @@ jobs:
       - uses: ./.github/actions/setup-web
 
       - name: Repository automation tests
-        run: node --test scripts/android-release.test.mjs scripts/supabase-ops.test.mjs scripts/production-migrations.test.mjs apps/web-svelte/scripts/seed-personas.test.mjs
+        run: node --test scripts/android-release.test.mjs scripts/supabase-ops.test.mjs scripts/production-migrations.test.mjs scripts/production-functions.test.mjs apps/web-svelte/scripts/seed-personas.test.mjs
 
       - name: Typecheck
         working-directory: apps/web-svelte
