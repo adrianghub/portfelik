@@ -38,7 +38,11 @@ export function parseHistory(output) {
   return rows;
 }
 
-export function makeManifest(sha, files, rows, configHash) {
+export function makeManifest(sha, files, rows, configHash, trustedRunnerSha) {
+  requireCondition(
+    /^[a-f0-9]{40}$/.test(trustedRunnerSha ?? ""),
+    "Manifest requires the trusted runner checkout SHA",
+  );
   requireCondition(
     files.length === rows.length &&
       files.every((file, index) => file.version === rows[index].version),
@@ -53,9 +57,10 @@ export function makeManifest(sha, files, rows, configHash) {
     );
   }
   return {
-    schema: 1,
+    schema: 2,
     project,
     candidate: sha,
+    trusted_runner_sha: trustedRunnerSha,
     config_sha256: configHash,
     migrations: files,
     pending: rows.filter((row) => !row.applied).map((row) => row.version),
@@ -86,7 +91,7 @@ export function verifyApproval(manifest, digest, backup) {
   );
   requireCondition(
     digest === approvalDigest(manifest),
-    "Approval is stale: candidate, SQL, config or pending set changed",
+    "Approval is stale: trusted runner, candidate, SQL, config or pending set changed",
   );
   requireCondition(
     typeof backup === "string" &&
@@ -139,6 +144,7 @@ export function run(env = process.env) {
     execute("git", ["rev-parse", `${sha}^{commit}`]).trim() === sha,
     "Candidate commit unavailable",
   );
+  const trustedRunnerSha = execute("git", ["rev-parse", "HEAD"]).trim();
 
   // Never check out or execute candidate scripts, hooks, config, or env files.
   const workspace = mkdtempSync(
@@ -214,6 +220,7 @@ export function run(env = process.env) {
     operation: mode,
     status: "started",
     candidate: sha,
+    trusted_runner_sha: trustedRunnerSha,
     project,
   };
   const save = () =>
@@ -225,7 +232,13 @@ export function run(env = process.env) {
   try {
     ops("link");
     const rows = parseHistory(ops("migrations"));
-    const manifest = makeManifest(sha, files, rows, hash(config));
+    const manifest = makeManifest(
+      sha,
+      files,
+      rows,
+      hash(config),
+      trustedRunnerSha,
+    );
     verifyPreview(ops("push-preview"), manifest);
     const digest = approvalDigest(manifest);
     writeFileSync(
@@ -246,7 +259,7 @@ export function run(env = process.env) {
       save();
       ops("push", "--confirm", "prod");
       const after = parseHistory(ops("migrations"));
-      makeManifest(sha, files, after, hash(config));
+      makeManifest(sha, files, after, hash(config), trustedRunnerSha);
       requireCondition(
         after.every((row) => row.applied),
         "Migration history is not in parity after push",
@@ -259,6 +272,7 @@ export function run(env = process.env) {
       [
         `Production migrations: **${report.status}**`,
         `Candidate: \`${sha}\``,
+        `Trusted runner: \`${trustedRunnerSha}\``,
         `Project: \`${project}\``,
         `Pending in approved plan: ${manifest.pending.length}`,
         `Approval SHA-256: \`${digest}\``,

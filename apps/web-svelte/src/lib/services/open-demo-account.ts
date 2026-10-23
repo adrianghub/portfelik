@@ -103,9 +103,15 @@ async function openOrResumeDemo(input?: {
     };
   }
 
-  // Even a failed OTP verification must not silently create another identity.
+  // Persist the binding before confirming Auth; a native vault failure must
+  // leave this identity unconfirmed so orphan cleanup can still reclaim it.
   if (!payload.userId) return { ok: false, error: "demo_session_failed" };
-  rememberDemoIdentity(payload.userId);
+  try {
+    rememberDemoIdentity(payload.userId);
+    await flushDeviceAuthStorage();
+  } catch {
+    return { ok: false, error: "demo_session_failed" };
+  }
 
   const verified = await supabase.auth.verifyOtp({
     token_hash: payload.tokenHash,

@@ -22,6 +22,7 @@
     let disposed = false;
     let widgetId: string | undefined;
     let widgetSize: string | undefined;
+    let script: HTMLScriptElement | null = null;
     const fail = () => {
       if (disposed) return;
       onToken("");
@@ -59,21 +60,49 @@
         fail();
       }
     };
+    const scriptFailed = () => {
+      if (disposed) return;
+      if (script) script.dataset.demoTurnstileState = "failed";
+      script?.remove();
+      fail();
+    };
+    const scriptLoaded = () => {
+      if (disposed) return;
+      if (!browser.turnstile) return scriptFailed();
+      if (script) script.dataset.demoTurnstileState = "loaded";
+      render();
+    };
+    const detachScript = () => {
+      script?.removeEventListener("load", scriptLoaded);
+      script?.removeEventListener("error", scriptFailed);
+    };
+    const loadScript = () => {
+      script = document.querySelector<HTMLScriptElement>("script[data-demo-turnstile]");
+      // A completed/failed tag cannot emit a second load event on SPA re-entry.
+      if (script && script.dataset.demoTurnstileState !== "loading") {
+        script.remove();
+        script = null;
+      }
+      const append = !script;
+      if (!script) {
+        script = document.createElement("script");
+        script.dataset.demoTurnstile = "true";
+        script.dataset.demoTurnstileState = "loading";
+        script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+        script.async = true;
+      }
+      script.addEventListener("load", scriptLoaded);
+      script.addEventListener("error", scriptFailed);
+      if (append) document.head.appendChild(script);
+    };
     const rerender = () => {
       if (disposed) return;
       if (!browser.turnstile) {
         needsRetry = false;
         onToken("");
-        script?.removeEventListener("load", render);
-        script?.removeEventListener("error", fail);
+        detachScript();
         script?.remove();
-        script = document.createElement("script");
-        script.dataset.demoTurnstile = "true";
-        script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-        script.async = true;
-        script.addEventListener("load", render);
-        script.addEventListener("error", fail);
-        document.head.appendChild(script);
+        loadScript();
         return;
       }
       if (widgetId !== undefined) browser.turnstile.remove(widgetId);
@@ -88,24 +117,16 @@
     });
     observer.observe(container);
 
-    let script = document.querySelector<HTMLScriptElement>("script[data-demo-turnstile]");
-    if (!script) {
-      script = document.createElement("script");
-      script.dataset.demoTurnstile = "true";
-      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-      script.async = true;
-      document.head.appendChild(script);
-    }
-    script.addEventListener("load", render);
-    script.addEventListener("error", fail);
     if (browser.turnstile) render();
+    else loadScript();
 
     return () => {
       disposed = true;
       observer.disconnect();
       retryChallenge = undefined;
-      script?.removeEventListener("load", render);
-      script?.removeEventListener("error", fail);
+      detachScript();
+      // Navigation before load/error must not leave an abandoned pending tag.
+      if (!browser.turnstile) script?.remove();
       if (widgetId !== undefined) browser.turnstile?.remove(widgetId);
     };
   });
