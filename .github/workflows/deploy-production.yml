@@ -291,11 +291,16 @@ jobs:
           PUBLIC_VAPID_KEY: BHKoiccZwq3Y5Qw5dmFxVLJIA7w9zcSZkchPKWk-vxBeR421yieZW7gGxuluBBa6sRmpIsFXRSuFyRarLcdvqT4
           PUBLIC_PLAUSIBLE_DOMAIN: ${{ secrets.PUBLIC_PLAUSIBLE_DOMAIN }}
           PUBLIC_RELEASE_CHANNEL: public-beta
+          PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.PUBLIC_TURNSTILE_SITE_KEY }}
         run: |
           # Misconfigured environment guard: production must build against the
           # production Supabase project, never a staging/mock value.
           test "$PUBLIC_SUPABASE_URL" = "https://emqzcygfwcvbmhxhfkcc.supabase.co"
           test -n "$PUBLIC_SUPABASE_ANON_KEY"
+          if [[ ! "$PUBLIC_TURNSTILE_SITE_KEY" =~ ^0x[[:alnum:]_-]+$ ]]; then
+            echo "::error::Set the production Turnstile site key in Production variable PUBLIC_TURNSTILE_SITE_KEY (test keys are not allowed)."
+            exit 1
+          fi
           test -n "$PUBLIC_VAPID_KEY"
           case "$PUBLIC_SUPABASE_ANON_KEY" in
             sb_secret_*)
