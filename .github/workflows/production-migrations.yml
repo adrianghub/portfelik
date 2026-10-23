@@ -1,0 +1,82 @@
+name: Production migrations
+run-name: Production migrations ${{ inputs.operation }} · ${{ inputs.candidate_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Preview first; apply requires its approved manifest digest
+        type: choice
+        options: [preview, apply]
+        default: preview
+        required: true
+      candidate_sha:
+        description: Full 40-character commit SHA containing the reviewed migrations
+        type: string
+        required: true
+      approved_manifest_sha256:
+        description: Apply only — approved SHA-256 printed by the preview run
+        type: string
+        required: false
+      backup_reference:
+        description: Apply only — reference and time of the confirmed production backup
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+# Also excludes the production deployment workflow, which checks migration parity.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: Production
+    steps:
+      # Trusted workflow ref, never the candidate's scripts or local actions.
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.105.0
+
+      - name: Preview or apply the exact approved migration set
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          MIGRATION_OPERATION: ${{ inputs.operation }}
+          APPROVED_MANIFEST_SHA256: ${{ inputs.approved_manifest_sha256 }}
+          BACKUP_REFERENCE: ${{ inputs.backup_reference }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.PROD_SUPABASE_ACCESS_TOKEN }}
+          PROD_SUPABASE_PROJECT_REF: ${{ secrets.PROD_SUPABASE_PROJECT_REF }}
+          PROD_SUPABASE_DB_PASSWORD: ${{ secrets.PROD_SUPABASE_DB_PASSWORD }}
+          MIGRATION_REPORT_DIR: ${{ runner.temp }}/migration-report
+        run: node scripts/production-migrations.mjs
+
+      - name: Publish summary
+        if: always()
+        run: |
+          if [[ -f "$RUNNER_TEMP/migration-report/summary.md" ]]; then
+            cat "$RUNNER_TEMP/migration-report/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'Migration run failed. Inspect logs and result.json; do not retry apply blindly.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: production-migrations-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/migration-report/
+          if-no-files-found: warn
+          retention-days: 30

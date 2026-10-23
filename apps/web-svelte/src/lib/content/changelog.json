@@ -1,6 +1,15 @@
 {
   "versions": [
     {
+      "version": "1.4.0",
+      "versionCode": 30,
+      "date": "2026-10-23",
+      "items": [
+        "Usprawnienia logowania i obsługi zaproszeń.",
+        "Lepsza obsługa danych demonstracyjnych i ich usuwania."
+      ]
+    },
+    {
       "version": "1.3.21",
       "versionCode": 29,
       "date": "2026-10-17",

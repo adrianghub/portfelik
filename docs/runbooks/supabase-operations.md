@@ -88,6 +88,11 @@ Inspect and promote production only after staging verification:
 
 ## Migration history repair
 
+For agent-assisted production runs with an immutable approval manifest, see
+[Production migration workflow](production-migrations.md). It uses the same
+dispatcher and runs independently of merge, Pages deployment, Edge Function
+deployment, and promotion to `main`.
+
 Staging previews and pushes include `--include-all`: independently developed
 feature migrations can have timestamps before the latest migration already
 applied to staging. Review the complete preview list before a manual push.

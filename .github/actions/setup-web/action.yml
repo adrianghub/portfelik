@@ -31,3 +31,10 @@ runs:
         # E2E job installs Chromium explicitly with --with-deps; skip postinstall download.
         PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
       run: pnpm install --frozen-lockfile
+
+    - name: Configure deterministic Linux browser fonts
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        fontconfig="$(bash scripts/configure-ci-fonts.sh)"
+        printf 'FONTCONFIG_FILE=%s\n' "$fontconfig" >> "$GITHUB_ENV"
