@@ -1,10 +1,20 @@
 {
   "versions": [
     {
+      "version": "1.4.1",
+      "versionCode": 31,
+      "date": "2026-10-23",
+      "items": [
+        "Pewniejsze uruchamianie konta demo w aplikacji na telefonie.",
+        "Ponawianie weryfikacji konta demo po błędzie połączenia."
+      ]
+    },
+    {
       "version": "1.4.0",
       "versionCode": 30,
       "date": "2026-10-23",
       "items": [
+        "Konta demo — poznaj aplikację na przykładowych danych.",
         "Usprawnienia logowania i obsługi zaproszeń.",
         "Lepsza obsługa danych demonstracyjnych i ich usuwania."
       ]
