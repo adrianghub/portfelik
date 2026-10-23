@@ -96,7 +96,12 @@ test("approval binds commit, all SQL contents, configuration and exact pending s
 function fixture(run) {
   const dir = mkdtempSync(join(tmpdir(), "production-migrations-test-"));
   try {
-    for (const path of ["scripts", "supabase/migrations", "bin"])
+    for (const path of [
+      "scripts",
+      "supabase/migrations",
+      "supabase/templates",
+      "bin",
+    ])
       mkdirSync(join(dir, path), { recursive: true });
     for (const file of [
       "production-migrations.mjs",
@@ -105,6 +110,10 @@ function fixture(run) {
     ])
       cpSync(join(root, "scripts", file), join(dir, "scripts", file));
     writeFileSync(join(dir, "supabase/config.toml"), 'project_id = "test"\n');
+    writeFileSync(
+      join(dir, "supabase/templates/invite.html"),
+      "<p>Trusted invite</p>\n",
+    );
     for (const file of files)
       writeFileSync(join(dir, "supabase/migrations", file.file), "select 1;\n");
     const git = (...args) => {
@@ -152,6 +161,7 @@ function fixture(run) {
       join(dir, "bin/supabase"),
       `#!/bin/bash
 set -eu
+test -f "\${!#}/supabase/templates/invite.html"
 printf '%s\\n' "$1 \${2:-}" >> "$CALL_LOG"
 case "$1 \${2:-}" in
   'link '*) echo 'Finished supabase link.' ;;

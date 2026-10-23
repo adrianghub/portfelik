@@ -151,6 +151,12 @@ export function run(env = process.env) {
   }
   const config = execute("git", ["show", "HEAD:supabase/config.toml"]);
   writeFileSync(join(workspace, "supabase", "config.toml"), config);
+  // The CLI validates template paths even for migration-only commands.
+  cpSync(
+    join(root, "supabase", "templates"),
+    join(workspace, "supabase", "templates"),
+    { recursive: true },
+  );
   const tree = execute("git", [
     "ls-tree",
     "-r",
