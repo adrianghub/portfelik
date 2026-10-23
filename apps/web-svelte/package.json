@@ -16,7 +16,7 @@
     "import:inspect": "node scripts/inspect-bank-import.mjs",
     "seed:local": "SEED_TARGET=local node ./scripts/seed-personas.mjs",
     "seed:staging": "node ./scripts/seed-staging.mjs",
-    "test:e2e": "playwright test",
+    "test:e2e": "bash ../../scripts/with-ci-fonts.sh playwright test",
     "test:e2e:install": "playwright install chromium",
     "test:e2e:install:deps": "playwright install --with-deps chromium",
     "postinstall": "playwright install chromium",
@@ -30,8 +30,8 @@
     "android:open": "cap open android",
     "android:bundle": "cd android && ./gradlew bundleRelease",
     "android:release": "bash ./scripts/android-release.sh",
-    "test:e2e:matrix": "playwright test --config playwright.matrix.config.ts",
-    "test:e2e:local": "node scripts/test-local-flows.mjs"
+    "test:e2e:matrix": "bash ../../scripts/with-ci-fonts.sh playwright test --config playwright.matrix.config.ts",
+    "test:e2e:local": "bash ../../scripts/with-ci-fonts.sh node scripts/test-local-flows.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
