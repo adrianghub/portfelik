@@ -6,5 +6,5 @@ import { supabaseAuthStorage } from "$lib/auth/device-storage";
 
 export const supabase = createClient<Database>(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, {
   global: { fetch: measuredFetch },
-  auth: { storage: supabaseAuthStorage },
+  auth: { storage: supabaseAuthStorage, detectSessionInUrl: false },
 });

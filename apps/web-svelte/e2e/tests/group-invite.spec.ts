@@ -185,7 +185,10 @@ test.describe("group invite", () => {
       await page.goto("/settings?tab=groups");
       await page.getByRole("button", { name: "Wysłane zaproszenia" }).click();
       await expect(page.getByText("Wygasłe", { exact: true })).toBeVisible();
-      await page.screenshot({ path: test.info().outputPath("invitation-history.png"), fullPage: true });
+      await page.screenshot({
+        path: test.info().outputPath("invitation-history.png"),
+        fullPage: true,
+      });
       for (const email of [PEER_EMAIL, "accepted@example.com"]) {
         await page.getByRole("button", { name: `Usuń zaproszenie dla ${email}` }).click();
         const confirmation = page.getByRole("alertdialog");
@@ -311,7 +314,7 @@ test.describe("group invite", () => {
     await expect(page.getByRole("heading", { name: "Rodzina" })).toBeVisible();
     await page.getByRole("button", { name: "Dołącz do grupy" }).click();
     await expect(page.getByRole("alert")).toContainText(
-      "Zaloguj się na e-mail, na który poszło zaproszenie."
+      "Zaloguj się na konto z adresem e-mail, na który wysłano zaproszenie."
     );
     await page.getByRole("button", { name: "Wyloguj i użyj właściwego konta" }).click();
     await expect(page.getByRole("button", { name: "Dołącz do grupy" })).toHaveCount(0);

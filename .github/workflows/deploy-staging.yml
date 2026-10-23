@@ -10,11 +10,11 @@ on:
         required: true
         type: string
       operation:
-        description: Preview only, or prepare candidate with provisioner disabled
+        description: Preview, prepare with provisioner disabled, or frontend only
         required: true
         default: preview
         type: choice
-        options: [preview, prepare]
+        options: [preview, prepare, frontend]
 
 permissions:
   contents: read
@@ -41,8 +41,9 @@ jobs:
           BRANCH: ${{ github.ref_name }}
           SOURCE_SHA: ${{ github.sha }}
           EXPECTED_SHA: ${{ inputs.expected_sha }}
+          OPERATION: ${{ inputs.operation }}
         run: |
-          bash scripts/check-staging-source.sh "$EVENT" "$BRANCH" "$SOURCE_SHA" "$EXPECTED_SHA"
+          bash scripts/check-staging-source.sh "$EVENT" "$BRANCH" "$SOURCE_SHA" "$EXPECTED_SHA" "$OPERATION"
           if [ "$EVENT" = workflow_dispatch ]; then
             git merge-base --is-ancestor origin/dev HEAD
           fi
@@ -221,6 +222,7 @@ jobs:
   migrate:
     name: Migrate and seed Supabase
     needs: [quality, rls, e2e]
+    if: github.event_name != 'workflow_dispatch' || inputs.operation != 'frontend'
     runs-on: ubuntu-latest
     environment:
       name: Staging
@@ -294,8 +296,15 @@ jobs:
 
   deploy:
     name: Cloudflare Pages
-    needs: migrate
-    if: github.event_name == 'push' || inputs.operation == 'prepare'
+    needs: [quality, rls, e2e, migrate]
+    if: >-
+      always() &&
+      needs.quality.result == 'success' &&
+      needs.rls.result == 'success' &&
+      needs.e2e.result == 'success' &&
+      (needs.migrate.result == 'success' ||
+        (inputs.operation == 'frontend' && needs.migrate.result == 'skipped')) &&
+      (github.event_name == 'push' || inputs.operation == 'prepare' || inputs.operation == 'frontend')
     runs-on: ubuntu-latest
     environment:
       name: Staging
@@ -332,21 +341,44 @@ jobs:
   smoke:
     name: Real-DB smoke
     needs: deploy
+    if: always() && needs.deploy.result == 'success'
     runs-on: ubuntu-latest
     environment:
       name: Staging
       url: https://dev.portfelik.pages.dev
     steps:
+      # Frontend-only deploy must not write staging data or require smoke personas.
+      # This probe verifies the published shell and the configured staging Auth API.
+      - name: Frontend-only smoke (read-only)
+        if: github.event_name == 'workflow_dispatch' && inputs.operation == 'frontend'
+        env:
+          STAGING_SUPABASE_URL: ${{ secrets.STAGING_PUBLIC_SUPABASE_URL }}
+          STAGING_SUPABASE_ANON_KEY: ${{ secrets.STAGING_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          test "$STAGING_SUPABASE_URL" = "https://nveyzxxnyccpnesebvuw.supabase.co"
+          test -n "$STAGING_SUPABASE_ANON_KEY"
+          status=$(curl --retry 3 --retry-delay 3 -sSL -o /tmp/staging-login.html -w "%{http_code}" https://dev.portfelik.pages.dev/login)
+          test "$status" = "200"
+          grep -qi "JakStoimy" /tmp/staging-login.html
+          status=$(curl --retry 3 --retry-delay 3 -sS -o /dev/null -w "%{http_code}" -H "apikey: $STAGING_SUPABASE_ANON_KEY" "$STAGING_SUPABASE_URL/auth/v1/health")
+          test "$status" = "200"
+          echo "Frontend-only staging smoke passed (read-only)."
+
       - uses: actions/checkout@v6
+        if: github.event_name != 'workflow_dispatch' || inputs.operation != 'frontend'
 
       - uses: ./.github/actions/setup-web
+        if: github.event_name != 'workflow_dispatch' || inputs.operation != 'frontend'
 
       - name: Install Playwright browsers
+        if: github.event_name != 'workflow_dispatch' || inputs.operation != 'frontend'
         working-directory: apps/web-svelte
         timeout-minutes: 5
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Run smoke suite
+        if: github.event_name != 'workflow_dispatch' || inputs.operation != 'frontend'
         working-directory: apps/web-svelte
         env:
           CI: true
@@ -360,7 +392,7 @@ jobs:
           pnpm exec playwright test --config=playwright.smoke.config.ts
 
       - uses: actions/upload-artifact@v4
-        if: failure()
+        if: failure() && (github.event_name != 'workflow_dispatch' || inputs.operation != 'frontend')
         with:
           name: playwright-smoke-report
           path: apps/web-svelte/playwright-report/

@@ -47,6 +47,9 @@ test.describe("onboarding hardening", () => {
         })
       );
       localStorage.setItem("guided-tour-progress", JSON.stringify({ dismissed: true }));
+      const fakeSession = localStorage.getItem("sb-emqzcygfwcvbmhxhfkcc-auth-token")!;
+      localStorage.setItem("sb-127-auth-token", fakeSession);
+      localStorage.setItem("sb-localhost-auth-token", fakeSession);
     }, MOCK_USER);
     await stubServiceWorkerForTests(page);
     await mockSupabaseAPI(page);
@@ -165,6 +168,36 @@ test.describe("onboarding hardening", () => {
     await expect(page.locator("[data-tour-id=tour-balance-ring]")).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Ten miesiąc" })).toHaveCount(0);
     await expect(page.getByText("Historia wydatków")).toHaveCount(0);
+  });
+
+  test("shared group history does not reveal an empty private forecast", async ({ page }) => {
+    const group = {
+      id: "11111111-1111-4111-8111-111111111111",
+      name: "Rodzina",
+      owner_id: MOCK_USER.id,
+    };
+    await page.route("**/rest/v1/user_groups**", (route) => route.fulfill({ json: [group] }));
+    let privateCountRead = false;
+    await page.route("**/rest/v1/transactions**", async (route) => {
+      const url = new URL(route.request().url());
+      const privateScope = url.searchParams.get("group_id") === "is.null";
+      if (privateScope) privateCountRead = true;
+      const empty = privateScope || url.searchParams.has("is_demo");
+      return route.fulfill({
+        headers: { "content-range": empty ? "*/0" : "*/12" },
+        json: empty ? [] : [{ id: "shared-history", group_id: group.id }],
+      });
+    });
+    await page.goto("/dashboard");
+    await expect(page.getByRole("heading", { name: "Brak transakcji" })).toBeVisible();
+    expect(privateCountRead).toBe(true);
+    await expect(page.getByText("Rodzina", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("Przewidywane saldo na koniec miesiąca", { exact: true })
+    ).toHaveCount(0);
+    await expect(
+      page.getByText("Dodaj saldo, aby zobaczyć prognozę.", { exact: true })
+    ).toHaveCount(0);
   });
 
   test("closing welcome leaves the empty kokpit discovery", async ({ page }) => {

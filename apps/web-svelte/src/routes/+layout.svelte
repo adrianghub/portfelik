@@ -79,7 +79,14 @@
     }
   });
 
-  const PUBLIC_PATHS = ["/login", "/auth/callback", "/privacy", "/invite", "/changelog"];
+  const PUBLIC_PATHS = [
+    "/login",
+    "/auth/callback",
+    "/auth/setup",
+    "/privacy",
+    "/invite",
+    "/changelog",
+  ];
   const PUSH_PROMPT_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
   const PUSH_PROMPT_STORAGE_KEY = "push_prompted_at";
 

@@ -11,22 +11,26 @@
     rememberLoginRedirect,
   } from "$lib/auth-redirect";
   import BrandMark from "$lib/components/BrandMark.svelte";
+  import Dialog from "$lib/components/ui/Dialog.svelte";
   import DemoTurnstile from "$lib/components/demo/DemoTurnstile.svelte";
   import { oauthCallbackUrl, signInWithGoogleOAuth } from "$lib/services/oauth";
   import { openDemoAccount, requestAccountSwitch } from "$lib/services/open-demo-account";
-  import { isNativeCapacitor } from "$lib/services/pwa";
   import { appVersion } from "$lib/content/changelog";
   import * as m from "$lib/paraglide/messages";
 
   let email = $state("");
   let password = $state("");
+  let resetSent = $state(false);
+  let resetOpen = $state(false);
+  let resetEmail = $state("");
+  let resetLoading = $state(false);
+  let resetError = $state<string | null>(null);
   let loading = $state(false);
   let demoLoading = $state(false);
   const demoSiteKey = __DEMO_TURNSTILE_SITE_KEY__;
   let demoToken = $state("");
   let demoChallengeAttempt = $state(0);
   let error = $state<string | null>(null);
-  const nativeLogin = $derived(isNativeCapacitor());
   const accountTarget = $derived(page.url.searchParams.get("account"));
   const switchFailed = $derived(page.url.searchParams.has("switchFailed"));
   const showReal = $derived(accountTarget !== "demo" || switchFailed);
@@ -111,6 +115,37 @@
     clearLoginRedirect();
     await goto(redirectTarget, { replaceState: true });
     loading = false;
+  }
+
+  function openPasswordReset() {
+    resetEmail = email.trim();
+    resetSent = false;
+    resetError = null;
+    resetOpen = true;
+  }
+
+  async function resetPassword(event: SubmitEvent) {
+    event.preventDefault();
+    if (resetLoading) return;
+    if (!resetEmail.trim()) {
+      resetError = m.login_error_email_required();
+      return;
+    }
+    resetLoading = true;
+    resetError = null;
+    resetSent = false;
+    try {
+      const target = `/auth/setup?mode=recovery&redirectTo=${encodeURIComponent(redirectTargetFromUrl(page.url))}`;
+      const { error: authError } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
+        redirectTo: oauthCallbackUrl(target),
+      });
+      if (authError) throw authError;
+      resetSent = true;
+    } catch {
+      resetError = m.auth_reset_error();
+    } finally {
+      resetLoading = false;
+    }
   }
 
   async function signInWithGoogle() {
@@ -205,7 +240,7 @@
         </div>
       {/if}
 
-      {#if !nativeLogin && showReal}
+      {#if showReal}
         <form onsubmit={signInWithEmail} class="space-y-4">
           <div>
             <label for="email" class="mb-1.5 block text-sm font-medium text-slate-200">
@@ -217,7 +252,7 @@
               bind:value={email}
               placeholder={m.login_email_placeholder()}
               autocomplete="email"
-              disabled={loading}
+              disabled={loading || demoLoading}
               class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2.5 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:ring-2 focus:outline-none disabled:opacity-50"
             />
           </div>
@@ -231,19 +266,26 @@
               type="password"
               bind:value={password}
               autocomplete="current-password"
-              disabled={loading}
+              disabled={loading || demoLoading}
               class="focus:border-accent/40 focus:ring-accent/30 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3.5 py-2.5 text-sm text-slate-100 backdrop-blur placeholder:text-slate-500 focus:ring-2 focus:outline-none disabled:opacity-50"
             />
           </div>
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || demoLoading}
             class="bg-accent-gradient focus-visible:ring-accent w-full rounded-full px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-[0_0_18px_var(--color-accent-glow)] transition-transform hover:brightness-110 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 focus-visible:outline-none disabled:opacity-50"
           >
             {loading ? m.login_signing_in() : m.login_sign_in()}
           </button>
         </form>
+        <button
+          type="button"
+          onclick={openPasswordReset}
+          disabled={loading || demoLoading}
+          class="mt-3 text-sm text-slate-300 underline disabled:opacity-50"
+          >{m.auth_forgot_password()}</button
+        >
 
         {#if showDemo}<div class="my-5 flex items-center gap-3">
             <div class="h-px flex-1 bg-white/10"></div>
@@ -355,3 +397,50 @@
     </section>
   </main>
 </div>
+
+<Dialog
+  open={resetOpen}
+  title={m.auth_reset_panel_title()}
+  onclose={() => {
+    if (!resetLoading) resetOpen = false;
+  }}
+>
+  {#if resetSent}
+    <p role="status" class="text-sm text-emerald-300">{m.auth_reset_sent()}</p>
+  {:else}
+    <p class="mb-5 text-sm leading-relaxed text-slate-300">{m.auth_reset_panel_body()}</p>
+    <form onsubmit={resetPassword} class="space-y-4">
+      <div>
+        <label for="reset-email" class="mb-2 block text-sm font-medium text-slate-200"
+          >{m.login_email()}</label
+        >
+        <input
+          id="reset-email"
+          type="email"
+          required
+          autocomplete="email"
+          bind:value={resetEmail}
+          disabled={resetLoading}
+          class="focus:border-accent/40 w-full rounded-xl border border-white/10 bg-slate-950 px-3.5 py-2.5 text-slate-100"
+        />
+      </div>
+      {#if resetError}<p role="alert" class="text-sm text-rose-300">{resetError}</p>{/if}
+      <button
+        type="submit"
+        disabled={resetLoading}
+        class="bg-accent-gradient w-full rounded-full px-4 py-3 text-sm font-semibold text-slate-950 disabled:opacity-50"
+      >
+        {resetLoading ? m.auth_reset_sending() : m.auth_reset_send()}
+      </button>
+    </form>
+  {/if}
+  <button
+    type="button"
+    disabled={resetLoading}
+    onclick={() => {
+      resetOpen = false;
+    }}
+    class="mt-4 min-h-11 w-full rounded-full border border-white/10 px-4 py-2.5 text-sm text-slate-300 disabled:opacity-50"
+    >{m.auth_callback_back_to_login()}</button
+  >
+</Dialog>

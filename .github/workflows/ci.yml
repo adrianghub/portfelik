@@ -248,7 +248,7 @@ jobs:
       - uses: ./.github/actions/setup-web
       - name: Install browser matrix
         working-directory: apps/web-svelte
-        timeout-minutes: 5
+        timeout-minutes: 10
         run: pnpm exec playwright install --with-deps chromium firefox webkit
       - name: Build mocked app
         working-directory: apps/web-svelte

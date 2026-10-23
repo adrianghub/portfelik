@@ -516,3 +516,38 @@ test("forgetting failed demo restore removes the failure route without starting 
   await expect(page.getByRole("alert")).toHaveCount(0);
   expect(provisions).toBe(0);
 });
+
+test("an invitation parks demo before real-account entry without revocation or membership", async ({
+  page,
+}) => {
+  await mockIdentityBackend(page);
+  await seedDualIdentity(page, "demo");
+  let claims = 0;
+  let logouts = 0;
+  page.on("request", (request) => {
+    if (request.url().includes("/auth/v1/logout")) logouts++;
+    if (request.url().includes("/rpc/claim_group_invitation")) claims++;
+  });
+  await page.route("**/rest/v1/rpc/get_group_invitation_preview", (route) =>
+    route.fulfill({
+      status: 200,
+      json: {
+        groupName: "Rodzina",
+        inviterName: "Ada",
+        recipientMasked: "a***@example.test",
+        expiresAt: "2099-01-01T00:00:00Z",
+      },
+    })
+  );
+  await page.goto("/invite/verified-token");
+  await expect(page.getByRole("button", { name: "Dołącz do grupy" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Przełącz na konto rzeczywiste" }).click();
+  await expect(page.getByLabel("Adres e-mail")).toBeVisible();
+  const saved = await page.evaluate(
+    (key) => JSON.parse(localStorage.getItem(key) || "null"),
+    DEMO_SESSION_KEY
+  );
+  expect(saved?.user.id).toBe(DEMO_USER_ID);
+  expect(logouts).toBe(0);
+  expect(claims).toBe(0);
+});

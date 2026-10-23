@@ -20,12 +20,7 @@
   import DemoShowcaseBanner from "$lib/components/onboarding/DemoShowcaseBanner.svelte";
   import GlossarySheet from "$lib/components/ui/GlossarySheet.svelte";
   import { track } from "$lib/analytics";
-  import {
-    clearDemoData,
-    fetchDemoProbe,
-    hasDemoData,
-    isDiscoveryLedger,
-  } from "$lib/services/demo-data";
+  import { clearDemoData, fetchDemoProbe, hasDemoData } from "$lib/services/demo-data";
   import { refreshDemoState } from "$lib/services/demo-query-state";
   import { resetGuidedTourForReplay } from "$lib/services/guided-tour-actions";
   import { guidedTourUi } from "$lib/guided-tour/ui.svelte";
@@ -35,6 +30,7 @@
   import {
     fetchRecurringTemplates,
     fetchTransactionCount,
+    fetchScopedTransactionCount,
     fetchTransactions,
     fetchTransactionsByStatus,
     updateTransactionStatus,
@@ -266,6 +262,12 @@
     staleTime: 60_000,
   }));
 
+  const scopeCountQuery = createQuery(() => ({
+    queryKey: qk.transactions.list(session.userId!, "scope-count", groupFilter),
+    queryFn: () => fetchScopedTransactionCount(groupFilter),
+    enabled: !!session.userId,
+  }));
+
   const sampleNeedsCash = $derived(
     (txCountQuery.data ?? 0) >= 96 &&
       sampleImportQuery.data?.source_file_hash === DEMO_SAMPLE_SHA256 &&
@@ -281,23 +283,18 @@
     })
   );
 
-  // Only the discovery decision depends on these auxiliary queries. Cash and
-  // period totals must render independently when plans/demo checks are slow.
+  // Shared group rows must not make an empty private ledger look populated.
+  // Wait for the current scope and cash anchor before choosing the empty state.
   const ledgerReady = $derived(
-    !!session.userId &&
-      txCountQuery.isSuccess &&
-      demoProbeQuery.isSuccess &&
-      plansQuery.isSuccess &&
-      cashAnchorQuery.isSuccess
+    !!session.userId && scopeCountQuery.isSuccess && cashAnchorQuery.isSuccess
   );
-  const discovery = $derived(
-    ledgerReady &&
-      !cashAnchorQuery.isError &&
-      !cashAnchorQuery.data &&
-      typeof txCountQuery.data === "number" &&
-      isDiscoveryLedger({ demoActive, transactionCount: txCountQuery.data }) &&
-      !guidedTourUi.running
-  );
+  const discovery = $derived.by(() => {
+    // Read both query payloads on every evaluation. A short-circuited data read
+    // is invisible to TanStack's tracked-property notification until too late.
+    const count = scopeCountQuery.data;
+    const anchor = cashAnchorQuery.data;
+    return ledgerReady && !anchor && count === 0 && !guidedTourUi.running;
+  });
 
   let glossaryOpen = $state(false);
   let glossaryFocusId = $state<string | undefined>(undefined);
@@ -620,15 +617,20 @@
 
   // Prefer isLoading (pending + fetching) over isPending. Disabled dependents
   // stay isPending=true and would otherwise freeze the cash skeleton forever.
-  const cashPositionLoading = $derived(
-    !session.userId ||
-      cashAnchorQuery.isPending ||
-      cockpitMonthLedgerQuery.isLoading ||
-      (!!cashAnchorQuery.data &&
-        (cashHistoryQuery.isLoading ||
-          recurringTemplatesQuery.isLoading ||
-          cashRecurringSkipsQuery.isLoading))
-  );
+  const cashPositionLoading = $derived.by(() => {
+    // Subscribe to each loading flag even when an earlier request is pending.
+    const anchorPending = cashAnchorQuery.isPending;
+    const monthLoading = cockpitMonthLedgerQuery.isLoading;
+    const historyLoading = cashHistoryQuery.isLoading;
+    const recurringLoading = recurringTemplatesQuery.isLoading;
+    const skipsLoading = cashRecurringSkipsQuery.isLoading;
+    return (
+      !session.userId ||
+      anchorPending ||
+      monthLoading ||
+      (!!cashAnchorQuery.data && (historyLoading || recurringLoading || skipsLoading))
+    );
+  });
   const cashPositionError = $derived(
     cashAnchorQuery.isError ||
       cockpitMonthLedgerQuery.isError ||
@@ -886,7 +888,35 @@
     />
   {/if}
 
-  {#if discovery && !demoIdentity}
+  {#if (groupsQuery.data ?? []).length > 0}
+    <DashboardViewToolbar
+      period="month"
+      {groupFilter}
+      groups={groupsQuery.data ?? []}
+      periodChips={[]}
+      showPeriod={false}
+      onPeriodChange={() => {}}
+      onScopeChange={setGroupFilter}
+      onRangeChange={() => {}}
+      onRangeClear={() => {}}
+    />
+  {/if}
+
+  {#if scopeCountQuery.isError || cashAnchorQuery.isError}
+    <div role="alert" class="rounded-2xl border border-white/10 bg-slate-900 p-6">
+      <p>{m.dashboard_empty_load_error()}</p>
+      <button
+        type="button"
+        class="mt-3 underline"
+        onclick={() => {
+          void scopeCountQuery.refetch();
+          void cashAnchorQuery.refetch();
+        }}>{m.common_retry()}</button
+      >
+    </div>
+  {:else if !ledgerReady}
+    <p role="status" class="py-8 text-center text-slate-400">{m.common_loading()}</p>
+  {:else if discovery && !demoIdentity}
     <DashboardDiscovery />
   {:else if discovery && demoIdentity}
     {#if sampleDismissed && !clearDemoMutation.isPending}
@@ -907,19 +937,6 @@
       </div>
     {/if}
   {:else}
-    {#if (groupsQuery.data ?? []).length > 0}
-      <DashboardViewToolbar
-        period="month"
-        {groupFilter}
-        groups={groupsQuery.data ?? []}
-        periodChips={[]}
-        showPeriod={false}
-        onPeriodChange={() => {}}
-        onScopeChange={setGroupFilter}
-        onRangeChange={() => {}}
-        onRangeClear={() => {}}
-      />
-    {/if}
     <DashboardCashPosition
       hasAnchor={!!cashAnchorQuery.data}
       showPrivateDetails={groupFilter === "own"}
