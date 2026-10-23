@@ -48,11 +48,12 @@ gh run download RUN_ID --dir /tmp/jakstoimy-migration-preview
 ```
 
 Inspect the run summary and `manifest.json` artifact. It contains the project,
-candidate SHA, trusted config hash, every migration filename and SQL content hash,
-and the exact pending versions. `result.json` and the summary contain the
+candidate SHA, trusted runner checkout SHA, trusted config hash, every migration
+filename and SQL content hash, and the exact pending versions. `result.json` and the summary contain the
 `approval_sha256` digest. Compare the pending set with the reviewed migrations
 and verify staging validation before approving it. Approval covers the exact
-candidate, SQL contents, configuration, and pending set, not only a migration count.
+candidate, trusted runner revision (including the workflow and executed scripts),
+SQL contents, configuration, and pending set, not only a migration count.
 
 ## Apply
 
@@ -71,9 +72,13 @@ gh workflow run production-migrations.yml --ref main \
   -f backup_reference='Backup identifier and confirmation time'
 ```
 
-Use the same trusted workflow ref/version as preview. Apply repeats link, history,
-and dry run, then recomputes the manifest before any push. A changed SQL file,
-candidate, trusted config, or pending set invalidates approval. Drift, remote-only
+Use the same trusted workflow checkout SHA as preview. If `main` or `dev` advances,
+even for an unrelated change, rerun preview and approve its new digest. Switching
+between allowed refs with different checkout SHAs also invalidates the approval.
+Manifest schema 2 binds this revision; digests from older manifests cannot be reused.
+Apply repeats link, history, and dry run, then recomputes the manifest before any
+push. A changed SQL file, candidate, trusted runner revision, trusted config, or
+pending set invalidates approval. Drift, remote-only
 versions, duplicate timestamps, historical gaps, an unrecognized history table,
 or a preview that differs from history stop the operation. No timestamps are
 renamed and no automatic history repair is attempted.
