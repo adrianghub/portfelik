@@ -378,6 +378,7 @@
 <Toaster
   richColors
   position="bottom-right"
+  style="z-index: 105;"
   mobileOffset={{ bottom: "var(--mobile-action-bottom)" }}
 />
 <OfflineIndicator />
