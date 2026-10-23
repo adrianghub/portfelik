@@ -8,9 +8,11 @@ Staging keys and its opt-in flags must stay on staging.
 1. Create a production Cloudflare Turnstile widget. Allow `app.jakstoimy.pl`
    and the native app's `localhost` hostname, then verify the widget on both
    targets. Do not use Cloudflare test keys for a public release.
-2. Set GitHub environment **Production** variable `PUBLIC_TURNSTILE_SITE_KEY`
-   to that widget's public site key. Both Pages and Play Internal builds use it;
-   both fail when it is missing or a standard test key.
+2. Pages and Play Internal build with the reviewed public production widget key
+   pinned in both workflows. For key rotation, set the GitHub environment
+   **Production** variable `PUBLIC_TURNSTILE_SITE_KEY` to the replacement widget's
+   public site key (and rotate the matching Supabase secret), or update both
+   workflows together. Builds reject empty or standard test keys.
 3. In production Supabase Edge Function secrets, set the matching
    `DEMO_TURNSTILE_SECRET` and a unique, randomly generated
    `DEMO_PROVISION_CLIENT_SALT`. Never put these values in a PR, log, or chat.
